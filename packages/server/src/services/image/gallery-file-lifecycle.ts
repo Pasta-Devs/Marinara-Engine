@@ -5,6 +5,7 @@ import { and, eq } from "../../db/file-query.js";
 import { decodeShardKey, encodeShardKey, isLazyUnitTable, isShardDataFileName } from "../../db/file-backed-store.js";
 import { characterImages, chatImages, chats, globalImages, personaImages } from "../../db/schema/index.js";
 import { logger } from "../../lib/logger.js";
+import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { assertInsideDir } from "../../utils/security.js";
 
@@ -438,8 +439,24 @@ export async function unlinkGalleryFileIfUnreferenced(input: {
         return false;
       }
 
+      // The name is removed in its folder's real path, held to the real gallery folder: a link at the name is removed,
+      // never followed, and a folder that is a link (or sits behind one) keeps its file, an orphan at worst.
+      let target: string;
       try {
-        unlinkSync(storedFile.absolutePath);
+        target = join(
+          realPathInAppFolder(input.galleryRoot ?? join(DATA_DIR, "gallery"), storedFile.directory),
+          storedFile.filename,
+        );
+      } catch {
+        logger.warn(
+          "[image-gallery] Skipped cleanup for gallery path %s outside the real gallery folder",
+          input.filePath,
+        );
+        return false;
+      }
+
+      try {
+        unlinkSync(target);
         return true;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;

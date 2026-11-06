@@ -1,0 +1,115 @@
+:root[data-seasonal-theme="newyearsday"] {
+  --nyd-bg: #202b35;
+  --nyd-surface: #303c46;
+  --nyd-sidebar: #293640;
+  --nyd-text: #e5edf0;
+  /* Chrome buttons draw this at 64%, so it needs more contrast than body text. */
+  --nyd-button-text: #e5edf0;
+  --nyd-muted: #c3d0d6;
+  --nyd-rose: #b47788;
+  --nyd-on-rose: #171014;
+  --nyd-secondary: #3a424d;
+  --nyd-secondary-text: #e0e5e9;
+  --nyd-hover: #414b54;
+  --background: var(--nyd-bg) !important;
+  --marinara-app-background-paint: var(--nyd-bg) !important;
+  --foreground: var(--nyd-text) !important;
+  --card: var(--nyd-surface) !important;
+  --card-foreground: var(--nyd-text) !important;
+  --popover: var(--nyd-surface) !important;
+  --popover-foreground: var(--nyd-text) !important;
+  --primary: var(--nyd-rose) !important;
+  --primary-foreground: var(--nyd-on-rose) !important;
+  --secondary: var(--nyd-secondary) !important;
+  --secondary-foreground: var(--nyd-secondary-text) !important;
+  --muted: var(--nyd-secondary) !important;
+  --muted-foreground: var(--nyd-muted) !important;
+  --accent: var(--nyd-hover) !important;
+  --accent-foreground: var(--nyd-text) !important;
+  --ring: var(--nyd-rose) !important;
+  --sidebar: var(--nyd-sidebar) !important;
+  --sidebar-foreground: var(--nyd-text) !important;
+  --sidebar-accent: color-mix(in srgb, var(--nyd-rose) 12%, transparent) !important;
+  --sidebar-accent-foreground: var(--nyd-rose) !important;
+  --glow-primary: color-mix(in srgb, var(--nyd-rose) 10%, transparent) !important;
+  --glow-accent: color-mix(in srgb, var(--nyd-text) 8%, transparent) !important;
+  --marinara-app-accent-solid: var(--nyd-rose) !important;
+  --marinara-app-accent-static: var(--nyd-rose) !important;
+  --marinara-app-accent-gradient: linear-gradient(90deg, var(--nyd-rose), #aebbc2, #82949d) !important;
+  --marinara-app-accent-static-gradient: var(--marinara-app-accent-gradient) !important;
+  --marinara-chat-chrome-accent: var(--nyd-rose) !important;
+  --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient) !important;
+  --marinara-chat-chrome-text: var(--nyd-text) !important;
+  --marinara-chat-chrome-button-text-base: var(--nyd-button-text) !important;
+}
+:root[data-seasonal-theme="newyearsday"][data-theme="light"] {
+  --nyd-bg: #edf1f2;
+  --nyd-surface: #f8f9f8;
+  --nyd-sidebar: #e4eaec;
+  --nyd-text: #28343b;
+  --nyd-muted: #4e5b62;
+  --nyd-rose: #895564;
+  --nyd-on-rose: #ffffff;
+  --nyd-secondary: #e1e6e7;
+  --nyd-secondary-text: #354147;
+  --nyd-hover: #d9e0e2;
+  --nyd-button-text: #1b2329;
+}
+:root[data-seasonal-theme="newyearsday"] .mari-seasonal-home {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+  container-type: size;
+}
+:root[data-seasonal-theme="newyearsday"] .mari-seasonal-home__sky {
+  position: absolute;
+  top: 0.8rem;
+  left: 10%;
+  width: 2.5rem;
+  aspect-ratio: 8/5;
+  background: url("/seasonal/newyearsday/sky.webp") center/contain no-repeat;
+  animation: mari-seasonal-drift 48s ease-in-out infinite alternate;
+}
+:root[data-seasonal-theme="newyearsday"] .mari-seasonal-home__sky:nth-child(2),
+:root[data-seasonal-theme="newyearsday"] .mari-seasonal-home__sky:nth-child(3) {
+  display: none;
+}
+:root[data-seasonal-theme="newyearsday"] .mari-seasonal-home__ground {
+  position: absolute;
+  top: 2.75rem;
+  right: 2%;
+  width: 4rem;
+  aspect-ratio: 480/276;
+  background: url("/seasonal/newyearsday/ground.webp") center bottom/contain no-repeat;
+}
+@container (min-width:34rem) {
+  :root[data-seasonal-theme="newyearsday"] .mari-seasonal-home__ground {
+    right: 3%;
+    width: 5.5rem;
+  }
+}
+@container (min-width:72rem) {
+  :root[data-seasonal-theme="newyearsday"] .mari-seasonal-home__ground {
+    top: auto;
+    right: 1rem;
+    bottom: 0.25rem;
+    width: 9.5rem;
+  }
+}
+@container (max-width:34rem) {
+  :root[data-seasonal-theme="newyearsday"] .mari-seasonal-home__sky {
+    width: 1.6rem;
+  }
+}
+html[data-marinara-reduced-effects="true"] .mari-seasonal-home__sky,
+html[data-marinara-effects-paused="true"] .mari-seasonal-home__sky {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mari-seasonal-home__sky {
+    animation: none !important;
+  }
+}

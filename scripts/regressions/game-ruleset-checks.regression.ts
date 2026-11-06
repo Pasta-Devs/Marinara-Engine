@@ -253,7 +253,8 @@ try {
     assert.match(stranger.content, /modifier="0" total="10"/);
 
     // Defaults are not neutral in every system. A party member without a sheet gets the ruleset's
-    // blank build; a stranger, or a name two cards share, gets no modifier at all.
+    // blank build; a stranger gets no modifier at all; a name two cards share is not rolled (cheap-GM
+    // playtest 2026-10-26: a flat die stood in for a hero's check).
     const gritty: RulesetDefinition = {
       ...fiveE,
       resolution: {
@@ -282,7 +283,7 @@ try {
     );
     assert.match(
       (await grittyResolve(`[skill_check: skill="Arcana" dc="10" who="Twin"]`)).content,
-      /modifier="0" total="10"/,
+      /reason="unknown-roller"/,
     );
     // The player keeps a name they share with a party member.
     const sharedName = buildSkillCheckRulesetContext(fiveE, [{ name: "mira" }, ...cards], cards[0]);
@@ -561,7 +562,9 @@ try {
             !line.startsWith("- [skill_check:") &&
             !line.startsWith("- For other checks") &&
             !line.startsWith("- If roll_dice has already returned") &&
-            !line.startsWith("- Do not use roll_dice for"),
+            !line.startsWith("- Do not use roll_dice for") &&
+            // What a ruleset makes that lasts a while (1.760) is said only where one is pinned.
+            !line.startsWith("  Something made to last only so long"),
         )
         .join("\n");
     assert.equal(strip(reminder), strip(legacyReminder));

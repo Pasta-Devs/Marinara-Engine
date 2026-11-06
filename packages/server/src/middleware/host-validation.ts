@@ -8,7 +8,7 @@ const announcedRejectedHosts = new Set<string>();
 const DNS_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
 const UNSPECIFIED_BIND_HOSTS = new Set(["0.0.0.0", "::"]);
 
-function firstHeader(value: string | string[] | undefined): string | null {
+export function firstHeader(value: string | string[] | undefined): string | null {
   if (!value) return null;
   const raw = Array.isArray(value) ? value[0] : value;
   return raw?.trim() || null;

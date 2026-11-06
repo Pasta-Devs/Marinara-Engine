@@ -38,6 +38,34 @@ export function rulesetStandingZones(
   );
 }
 
+/** The light a zone sheds now (1.297): what it `becomes` sheds once it has gone off (1.453). */
+export function rulesetZoneLights(
+  zone: RulesetCombatZone,
+  action: RulesetCombatAction,
+): NonNullable<RulesetCombatAction["zone"]>["lights"] {
+  return zone.became ? action.zone?.detonates?.becomes?.lights : action.zone?.lights;
+}
+
+/** A zone's cells, and for a wall laid as a ring (1.603) every cell it rings: Forcecage's cage. */
+export function rulesetZoneHold(
+  state: RulesetEncounterState,
+  caster: RulesetCombatant,
+  zone: RulesetCombatZone,
+  action: RulesetCombatAction,
+): Set<string> {
+  const hold = new Set(rulesetZoneCells(state, caster, zone).map((cell) => `${cell.x},${cell.y}`));
+  const ring = action.area?.ring;
+  const grid = state.board?.grid;
+  if (!zone.ringed || !zone.at || !ring || !grid) return hold;
+  const radius = Math.max(1, Math.round(ring / 2));
+  for (let y = Math.max(0, zone.at.y - radius); y <= Math.min(grid.height - 1, zone.at.y + radius); y++) {
+    for (let x = Math.max(0, zone.at.x - radius); x <= Math.min(grid.width - 1, zone.at.x + radius); x++) {
+      if (rulesetCellDistance(zone.at, { x, y }) < radius) hold.add(`${x},${y}`);
+    }
+  }
+  return hold;
+}
+
 /** Whether a cell is one of a zone's. */
 export function rulesetZoneHolds(cells: readonly RulesetCombatCell[], cell: RulesetCombatCell | null): boolean {
   return !!cell && cells.some((one) => one.x === cell.x && one.y === cell.y);
@@ -88,6 +116,8 @@ export function rulesetSyncZoneWalls(state: RulesetEncounterState): void {
     const blocks = action.zone?.blocks;
     if (!blocks || zone.anchor !== "point") continue;
     const bits = (blocks.move ? 1 : 0) | (blocks.sight ? 2 : 0);
+    // One that blocks only spells (1.602) closes no cell.
+    if (bits === 0) continue;
     // A broken section closes nothing (1.200).
     const broken = new Set(
       (zone.sections ?? [])
@@ -114,7 +144,21 @@ export function rulesetSyncZoneWalls(state: RulesetEncounterState): void {
 }
 
 /** The zones a fight shows: each one's caster, label, rounds left and cells, and a wall's side. */
-export function rulesetZonesShown(state: RulesetEncounterState): Array<{
+/** Whether a side sees a zone (1.455): its caster's own always, others once one of them found it. */
+export function rulesetZoneSeenBy(
+  caster: RulesetCombatant,
+  zone: RulesetCombatZone,
+  action: RulesetCombatAction,
+  side: string,
+): boolean {
+  return !action.zone?.hidden || caster.side === side || !!zone.foundBy?.includes(side);
+}
+
+/** The zones a side sees (the party's by default): a hidden one of its foes' only once found (1.455). */
+export function rulesetZonesShown(
+  state: RulesetEncounterState,
+  side = "party",
+): Array<{
   casterId: string;
   label: string;
   rounds: number;
@@ -124,24 +168,32 @@ export function rulesetZonesShown(state: RulesetEncounterState): Array<{
   /** How it looks (1.333): a `bz_` tile of the board's pack. */
   art?: string;
 }> {
-  return rulesetStandingZones(state).map(({ caster, zone, action }) => ({
-    casterId: caster.id,
-    label: zone.label,
-    rounds: zone.rounds,
-    ...(action.zone?.art ? { art: action.zone.art } : {}),
-    cells: rulesetZoneCells(state, rulesetCombatant(state, caster.id) ?? caster, zone).map((cell) => ({ ...cell })),
-    ...(zone.sideCells?.length ? { side: zone.sideCells.map((cell) => ({ ...cell })) } : {}),
-    // Each section and what it has left (1.200).
-    ...(zone.sections?.length && action.zone?.sections
-      ? {
-          sections: zone.sections.map((section) => ({
-            cells: section.cells.map((cell) => ({ ...cell })),
-            health: Math.max(0, section.health),
-            max: action.zone!.sections!.health,
-          })),
-        }
-      : {}),
-  }));
+  return rulesetStandingZones(state).flatMap(({ caster, zone, action }) =>
+    !rulesetZoneSeenBy(caster, zone, action, side)
+      ? []
+      : [
+          {
+            casterId: caster.id,
+            label: zone.label,
+            rounds: zone.rounds,
+            ...(action.zone?.art ? { art: action.zone.art } : {}),
+            cells: rulesetZoneCells(state, rulesetCombatant(state, caster.id) ?? caster, zone).map((cell) => ({
+              ...cell,
+            })),
+            ...(zone.sideCells?.length ? { side: zone.sideCells.map((cell) => ({ ...cell })) } : {}),
+            // Each section and what it has left (1.200).
+            ...(zone.sections?.length && action.zone?.sections
+              ? {
+                  sections: zone.sections.map((section) => ({
+                    cells: section.cells.map((cell) => ({ ...cell })),
+                    health: Math.max(0, section.health),
+                    max: action.zone!.sections!.health,
+                  })),
+                }
+              : {}),
+          },
+        ],
+  );
 }
 
 /** What still stands on the board that may be broken (1.316). */
@@ -162,6 +214,19 @@ export function rulesetStandingSections(state: RulesetEncounterState): Array<{
           .filter((section) => section.health > 0)
           .map((section) => ({ caster, zone, action, section }))
       : [],
+  );
+}
+
+/** Every layered wall standing (1.490), with its cells: struck at, it stands in for one blow. */
+export function rulesetStandingLayers(state: RulesetEncounterState): Array<{
+  caster: RulesetCombatant;
+  zone: RulesetCombatZone;
+  action: RulesetCombatAction;
+  cells: RulesetCombatCell[];
+}> {
+  if (!state.board?.grid) return [];
+  return rulesetStandingZones(state).flatMap(({ caster, zone, action }) =>
+    action.zone?.layers ? [{ caster, zone, action, cells: rulesetZoneCells(state, caster, zone) }] : [],
   );
 }
 

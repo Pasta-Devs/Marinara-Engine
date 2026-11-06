@@ -36,13 +36,15 @@ export interface MultiplayerPreview {
 }
 
 export type MultiplayerHostAction =
-  | { type: "invite" | "revoke-invite" | "pause" | "resume" | "stop" }
+  | { type: "invite" | "revoke-invite" | "pause" | "resume" | "retry" | "stop" }
   | { type: "configure"; automaticReplies: boolean; maxGenerations: number }
   | { type: "approve" | "decline"; requestId: string }
   | { type: "kick" | "pass"; participantId: string }
   | { type: "proposal-approve" | "proposal-decline"; proposalId: string }
   | { type: "add-character"; characterId: string; role: "character" | "gm" }
   | { type: "remove-character"; characterId: string }
+  /** How the room's fight ended, told to the Game Master now: the round closes on it. */
+  | { type: "fight-result"; text: string }
   | {
       type: "startGame";
       config: GameSetupConfig;

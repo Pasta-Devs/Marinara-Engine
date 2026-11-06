@@ -139,6 +139,37 @@ function linkReplyNodes(
   });
 }
 
+/** Your `@` links in a sent message, painted with the composer's reference mark. */
+function markReferenceNodes(nodes: ReactNode[], tokens: readonly string[], keyPrefix: string): ReactNode[] {
+  // Longest first, so "@Jessica Rabbit" is not cut to "@Jessica".
+  const pattern = new RegExp(
+    `(?<![\\p{L}\\p{N}])(?:${[...tokens]
+      .sort((a, b) => b.length - a.length)
+      .map(escapeRegExp)
+      .join("|")})(?![\\p{L}\\p{N}])`,
+    "gu",
+  );
+  return nodes.flatMap((node, index): ReactNode[] => {
+    if (typeof node !== "string") return [node];
+    const out: ReactNode[] = [];
+    let last = 0;
+    for (const match of node.matchAll(pattern)) {
+      out.push(
+        node.slice(last, match.index),
+        <span
+          key={`${keyPrefix}-mark-${index}-${match.index}`}
+          className="mari-composer-mark mari-composer-mark--reference"
+        >
+          {match[0]}
+        </span>,
+      );
+      last = match.index + match[0].length;
+    }
+    out.push(node.slice(last));
+    return out;
+  });
+}
+
 function MariReplyLinkButton({
   link,
   onOpen,
@@ -168,18 +199,28 @@ export const CompactMarkdown = memo(function CompactMarkdown({
   streaming,
   links,
   onOpenLink,
+  referenceTokens,
 }: {
   content: string;
   streaming?: boolean;
   /** Slice 72: names to turn into links (a finished answer only). */
   links?: readonly MariReplyLink[];
   onOpenLink?: (resource: MariReferencedResource) => void;
+  /** Your `@` tokens in a sent message, marked as they were in the composer. */
+  referenceTokens?: readonly string[];
 }) {
   const trimmed = content.trim();
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const rendered = useMemo(() => {
     if (!trimmed) return null;
     if (streaming) return renderMarkdownBlocks(trimmed, renderStreamingInline, "home-mari");
+    if (referenceTokens?.length) {
+      return renderMarkdownBlocks(
+        trimmed,
+        (text, keyPrefix) => markReferenceNodes(renderCompactInline(text, keyPrefix), referenceTokens, keyPrefix),
+        "home-mari",
+      );
+    }
     if (!links?.length || !onOpenLink) return renderMarkdownBlocks(trimmed, renderCompactInline, "home-mari");
     const used = new Set<MariReplyLink>();
     return renderMarkdownBlocks(
@@ -198,7 +239,7 @@ export const CompactMarkdown = memo(function CompactMarkdown({
         ),
       "home-mari",
     );
-  }, [trimmed, streaming, links, onOpenLink]);
+  }, [trimmed, streaming, links, onOpenLink, referenceTokens]);
   useCodeBlockCopy(container, rendered);
   if (!trimmed) return null;
   return (

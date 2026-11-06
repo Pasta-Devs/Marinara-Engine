@@ -384,12 +384,14 @@ try {
       document((doc) => (gear(doc, 1).attack.spends[0].chargeStep.amount = {})),
       /A charge more adds dice, a flat amount, or both/,
     );
+    // Rounds beside a save that ends it are the most it lasts since 1.534; counted on the wielder's
+    // turns, it lasts some.
     refused(
-      document(
-        (doc) =>
-          (gear(doc, 2).attack.spends[0].onHit[0].saveEnds = { save: "con_save", difficulty: 10, at: "turn-end" }),
-      ),
-      /lasts until it is made, not some rounds/,
+      document((doc) => {
+        delete gear(doc, 2).attack.spends[0].onHit[0].rounds;
+        gear(doc, 2).attack.spends[0].onHit[0].of = "source";
+      }),
+      /Counted on its wielder's turns, it lasts some "rounds"/,
     );
     refused(
       document((doc) => (gear(doc, 0).attack.spends[0].type = "sonic boom")),

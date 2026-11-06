@@ -171,7 +171,14 @@ export async function registerCapabilityPrivilegedRoutes(
         if (!slot.active) return reply.status(404).send({ error: "Capability routes are not active" });
         if (slot.internalRouteState.active && request.headers[INTERNAL_ROUTE_HEADER] === slot.internalRouteState.token)
           return;
-        if (!requirePrivilegedAccess(request, reply, { feature: `${installed.manifest.name} package routes` }))
+        // Installing a package needs admin rights, so its routes are trusted code:
+        // a browser signed in with the login may use them without the admin secret.
+        if (
+          !requirePrivilegedAccess(request, reply, {
+            feature: `${installed.manifest.name} package routes`,
+            signedIn: true,
+          })
+        )
           return reply;
       };
       app.route({

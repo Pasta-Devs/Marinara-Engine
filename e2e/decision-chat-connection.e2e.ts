@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import { openConnectionsPanel } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -52,8 +53,12 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
   });
   expect(created.ok()).toBeTruthy();
   const { id } = await created.json();
+  const rows = async () => (await (await request.get("/api/connections")).json()) as Array<Record<string, unknown>>;
+  // #8456: the Model was saved under an account of its own.
+  const accountId = (await rows()).find((entry) => entry.id === id)?.accountId;
   let decisionId: string | undefined;
   try {
+    expect(accountId).toBeTruthy();
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false, theme: "dark" });
     await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
@@ -62,44 +67,49 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openConnectionDetail(id);
     }, id);
-    const editor = page.locator(".mari-editor-shell");
     const capture = async (label: string) => {
       const path = testInfo.outputPath(`${label}.png`);
       await page.screenshot({ path, animations: "disabled" });
       await testInfo.attach(label, { path, contentType: "image/png" });
     };
 
-    const shortcut = editor.getByRole("button", { name: "Use this model for decisions", exact: true });
-    await shortcut.scrollIntoViewIfNeeded();
+    // The shortcut lives in the Model's row menu; variant D lists the Model in the panel search.
+    await openConnectionsPanel(page);
+    await page
+      .locator("[data-connections-panel]")
+      .filter({ visible: true })
+      .getByRole("searchbox", { name: "Search models and accounts" })
+      .fill(name);
+    const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
+    await actions.scrollIntoViewIfNeeded();
+    await actions.click();
+    const shortcut = page.getByRole("menuitem", { name: "Use this model for decisions", exact: true });
     await capture("decision-chat-shortcut");
     await shortcut.click();
 
-    // The new Decision connection opens with the chat connection's server and model.
-    const source = editor.locator("#decision-source");
-    await expect(source).toHaveValue("openai_compatible");
-    await expect(editor.getByText(/Use a chat model on a server you already run\./u)).toBeVisible();
-    const time = editor.getByLabel("Time limit (seconds)", { exact: true });
-    await expect(time).toHaveValue("4");
-    await source.scrollIntoViewIfNeeded();
+    // #8456: the shortcut opens the account's Add models window on its decision models, with the chat model listed.
+    // Testing the model there is what saves it as a Decision model, under the same account.
+    const dialog = page.getByRole("dialog", { name: /^Add models to / });
+    await expect(dialog.getByRole("button", { name: /^gemma4:e2b/ })).toBeVisible();
     await capture("decision-chat-source");
+    await dialog.getByRole("button", { name: "Test decision", exact: true }).click();
+    const result = dialog.getByText(/Probability of yes: 0\.800 · answered in .* \(time limit 4 s\)/u);
+    await expect(result).toBeVisible();
+    await result.scrollIntoViewIfNeeded();
+    await capture("decision-chat-test");
     await expect
       .poll(async () => {
-        const rows = (await (await request.get("/api/connections")).json()) as Array<Record<string, unknown>>;
-        const row = rows.find((entry) => entry.provider === "decision" && entry.credentialsFromConnectionId === id);
+        const row = (await rows()).find((entry) => entry.provider === "decision" && entry.accountId === accountId);
         decisionId = row?.id as string | undefined;
         return row && { source: row.decisionSource, baseUrl: row.baseUrl, model: row.model };
       })
       .toEqual({ source: "openai_compatible", baseUrl, model: "gemma4:e2b" });
-
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
-    const result = editor.getByText(/Probability of yes: 0\.800 · answered in .* \(time limit 4 s\)/u);
-    await expect(result).toBeVisible();
-    await result.scrollIntoViewIfNeeded();
-    await capture("decision-chat-test");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   } finally {
     if (decisionId) await request.delete(`/api/connections/${decisionId}`);
     await request.delete(`/api/connections/${id}`);
+    // The Model's account outlives its last Model (#8456); later specs expect only their own accounts.
+    if (accountId) await request.delete(`/api/connection-accounts/${accountId}`);
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }

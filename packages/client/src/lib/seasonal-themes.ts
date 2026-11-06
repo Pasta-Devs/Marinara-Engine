@@ -24,11 +24,25 @@ export function isInMariSeason(season: MariSeason, now: Date = new Date()): bool
 
 /** Halloween: October 30 00:00 until November 1 12:00, for the theme and Professor Mari's dated pack alike. */
 export const HALLOWEEN_SEASON: MariSeason = { from: "10-30 00:00", to: "11-01 12:00" };
+/** New Year's Eve: the party runs from December 31 00:00 until 04:00 on January 1, split in two at New Year. */
+export const NEW_YEARS_EVE_SEASONS: readonly MariSeason[] = [
+  { from: "12-31 00:00", to: "12-31 24:00" },
+  { from: "01-01 00:00", to: "01-01 04:00" },
+];
+/** New Year's Day: the hangover starts when the party ends and lasts until January 2 at noon. */
+export const NEW_YEARS_DAY_SEASON: MariSeason = { from: "01-01 04:00", to: "01-02 12:00" };
 
-export type SeasonalThemeId = "halloween";
+export type SeasonalThemeId = "halloween" | "newyearseve" | "newyearsday";
+
+/** The year a season started, so the party's hours after midnight keep December's greeting and "Turn it off". */
+export function seasonYear(themeId: SeasonalThemeId, date: Date): number {
+  return themeId === "newyearseve" && date.getMonth() === 0 ? date.getFullYear() - 1 : date.getFullYear();
+}
 
 export const SEASONAL_THEMES: ReadonlyArray<{ id: SeasonalThemeId; isActive: (date: Date) => boolean }> = [
   { id: "halloween", isActive: (date) => isInMariSeason(HALLOWEEN_SEASON, date) },
+  { id: "newyearseve", isActive: (date) => NEW_YEARS_EVE_SEASONS.some((season) => isInMariSeason(season, date)) },
+  { id: "newyearsday", isActive: (date) => isInMariSeason(NEW_YEARS_DAY_SEASON, date) },
 ];
 
 /** `?seasonalPreview=halloween` wears that theme and shows its greeting on any date, saving nothing. */
@@ -64,8 +78,9 @@ export function resolveSeasonalTheme({
   preview?: SeasonalThemeId | null;
 }): SeasonalThemeState {
   const themeId = preview ?? (disabled ? null : (SEASONAL_THEMES.find((theme) => theme.isActive(date))?.id ?? null));
-  const year = date.getFullYear();
-  if (!themeId || turnedOff?.[themeId] === year) return { themeId: null, showGreeting: false };
+  if (!themeId) return { themeId: null, showGreeting: false };
+  const year = seasonYear(themeId, date);
+  if (turnedOff?.[themeId] === year) return { themeId: null, showGreeting: false };
   return { themeId, showGreeting: greeted?.[themeId] !== year };
 }
 

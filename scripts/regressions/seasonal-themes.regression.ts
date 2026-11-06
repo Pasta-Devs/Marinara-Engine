@@ -14,7 +14,12 @@ import { UI_PERSISTENCE } from "../../packages/client/src/lib/ui-persistence.ts"
 
 const decide = (
   date: Date,
-  options: { disabled?: boolean; turnedOff?: SeasonalYears; greeted?: SeasonalYears; preview?: "halloween" } = {},
+  options: {
+    disabled?: boolean;
+    turnedOff?: SeasonalYears;
+    greeted?: SeasonalYears;
+    preview?: "halloween" | "newyearseve" | "newyearsday";
+  } = {},
 ) =>
   resolveSeasonalTheme({
     date,
@@ -35,6 +40,29 @@ assert.deepEqual(decide(local(10, 31, 23, 59)), ON, "Oct 31 23:59 local is still
 assert.deepEqual(decide(local(11, 1, 11, 59)), ON, "Nov 1 11:59 local is still Halloween");
 assert.deepEqual(decide(local(11, 1, 12, 0)), OFF, "Nov 1 12:00 the costume has come off");
 assert.deepEqual(decide(local(10, 31, 12, 0, 2031)), ON, "it comes back every year");
+
+const eve = { themeId: "newyearseve", showGreeting: true };
+const newYear = { themeId: "newyearsday", showGreeting: true };
+assert.deepEqual(decide(local(12, 30, 23, 59)), OFF, "Dec 30 is outside the New Year's Eve window");
+assert.deepEqual(decide(local(12, 31, 0, 0)), eve, "Dec 31 00:00 starts New Year's Eve");
+assert.deepEqual(decide(local(12, 31, 23, 59)), eve, "Dec 31 23:59 is inside New Year's Eve");
+assert.deepEqual(decide(local(1, 1, 0, 0, 2027)), eve, "the party goes on past midnight");
+assert.deepEqual(decide(local(1, 1, 3, 59, 2027)), eve, "Jan 1 03:59 is still the party");
+assert.deepEqual(decide(local(1, 1, 4, 0)), newYear, "Jan 1 04:00 switches directly to New Year's Day");
+// The party's hours after midnight belong to the December it started in: no second greeting, and "Turn it off" holds.
+assert.deepEqual(
+  decide(local(1, 1, 1, 0, 2027), { greeted: { newyearseve: 2026 } }),
+  { themeId: "newyearseve", showGreeting: false },
+  "greeted on Dec 31, not again after midnight",
+);
+assert.deepEqual(
+  decide(local(1, 1, 1, 0, 2027), { turnedOff: { newyearseve: 2026 } }),
+  OFF,
+  "turned off on Dec 31 stays off after midnight",
+);
+assert.deepEqual(decide(local(1, 1, 5, 0, 2027), { turnedOff: { newyearseve: 2026 } }), newYear, "the hangover is its own season");
+assert.deepEqual(decide(local(1, 2, 11, 59)), newYear, "Jan 2 11:59 is still New Year's Day");
+assert.deepEqual(decide(local(1, 2, 12, 0)), OFF, "Jan 2 at noon ends New Year's Day");
 
 // "Local" means the device's time zone: one instant is before noon in Honolulu and already past it in UTC.
 const originalTimeZone = process.env.TZ;
@@ -73,6 +101,8 @@ assert.deepEqual(decide(local(3, 5, 10, 0), { preview: "halloween", disabled: tr
 assert.deepEqual(decide(local(3, 5, 10, 0), { preview: "halloween", turnedOff: { halloween: 2026 } }), OFF);
 assert.equal(readSeasonalPreview("?seasonalPreview=halloween"), "halloween");
 assert.equal(readSeasonalPreview("?v=2.5.0&seasonalPreview=halloween"), "halloween");
+assert.equal(readSeasonalPreview("?seasonalPreview=newyearseve"), "newyearseve");
+assert.equal(readSeasonalPreview("?seasonalPreview=newyearsday"), "newyearsday");
 assert.equal(readSeasonalPreview("?seasonalPreview=christmas"), null, "only registered themes can be previewed");
 assert.equal(readSeasonalPreview(""), null);
 
@@ -209,5 +239,75 @@ for (const [mode, block] of [
     assert.ok(ratio >= 4.5, `${mode}: ${text} on ${background} is ${ratio.toFixed(2)}:1, below WCAG AA`);
   }
 }
+
+for (const [id, prefix, textPairs] of [
+  [
+    "newyearseve",
+    "nye",
+    [
+      ["text", "bg"],
+      ["text", "surface"],
+      ["muted", "bg"],
+      ["muted", "surface"],
+      ["on-gold", "gold"],
+      ["magenta-text", "magenta-surface"],
+    ],
+  ],
+  [
+    "newyearsday",
+    "nyd",
+    [
+      ["text", "bg"],
+      ["text", "surface"],
+      ["muted", "bg"],
+      ["muted", "surface"],
+      ["on-rose", "rose"],
+      ["secondary-text", "secondary"],
+    ],
+  ],
+] as const) {
+  const themeCss = readFileSync(
+    new URL(`../../packages/client/src/styles/themes/seasonal-${id}.css`, import.meta.url),
+    "utf8",
+  );
+  const blockFor = (selector: string) => {
+    const start = themeCss.indexOf(`${selector} {`);
+    assert.ok(start >= 0, `${id}: ${selector} block exists`);
+    return themeCss.slice(start, themeCss.indexOf("}", start));
+  };
+  const colorFor = (block: string, name: string) => {
+    const match = block.match(new RegExp(`--${prefix}-${name}:\\s*(#[0-9a-f]{6});`, "i"));
+    assert.ok(match, `${id}: ${name} is a hex color`);
+    return match[1];
+  };
+  for (const [mode, block] of [
+    ["dark", blockFor(`:root[data-seasonal-theme="${id}"]`)],
+    ["light", blockFor(`:root[data-seasonal-theme="${id}"][data-theme="light"]`)],
+  ] as const) {
+    for (const [foreground, background] of textPairs) {
+      const ratio = contrast(colorFor(block, foreground), colorFor(block, background));
+      assert.ok(ratio >= 4.5, `${id} ${mode}: ${foreground} on ${background} is ${ratio.toFixed(2)}:1, below WCAG AA`);
+    }
+    // Chrome buttons (the greeting's "Turn it off") draw their text at 64% over the panel (globals.css).
+    for (const background of ["bg", "surface"]) {
+      const under = colorFor(block, background);
+      const over = colorFor(block, "button-text");
+      const mixed = [1, 3, 5]
+        .map((index) => {
+          const channel = (hex: string) => Number.parseInt(hex.slice(index, index + 2), 16);
+          return Math.round(channel(over) * 0.64 + channel(under) * 0.36)
+            .toString(16)
+            .padStart(2, "0");
+        })
+        .join("");
+      const ratio = contrast(`#${mixed}`, under);
+      assert.ok(ratio >= 4.5, `${id} ${mode}: button text at 64% on ${background} is ${ratio.toFixed(2)}:1, below WCAG AA`);
+    }
+  }
+}
+
+const datedPacks = (await import("../../packages/client/src/lib/mari-work-animations.ts")).MARI_APPEARANCE_PACKS;
+assert.equal(datedPacks.find(({ id }) => id === "party")?.season, "newyearseve");
+assert.equal(datedPacks.find(({ id }) => id === "hungover")?.season, "newyearsday");
 
 console.info("Seasonal themes regression passed.");

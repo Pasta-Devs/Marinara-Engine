@@ -103,6 +103,9 @@ export interface MemoryRecallEmbeddingSource {
   /** Opaque request identity for process-local caches; may vary with credentials or routing headers. */
   cacheIdentity?: string;
   label: string;
+  /** The model and base URL it embeds with, when known; Connections > Test embedding reports them. */
+  model?: string;
+  endpoint?: string;
   embed(texts: string[], signal?: AbortSignal, inputType?: MemoryRecallEmbeddingInputType): Promise<number[][] | null>;
 }
 

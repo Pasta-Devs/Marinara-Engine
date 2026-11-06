@@ -107,7 +107,7 @@ const provider = createServer(async (req, res) => {
   if (body.stream) {
     res.end(
       `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content }, finish_reason: null }] })}\n\n` +
-        `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+        `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: failVisibility && kind === "visibility" ? "length" : "stop" }] })}\n\ndata: [DONE]\n\n`,
     );
     return;
   }

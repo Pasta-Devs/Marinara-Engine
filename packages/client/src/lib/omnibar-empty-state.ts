@@ -88,12 +88,9 @@ export function countOmnibarTryOpen(storage: TryStorage | null = browserStorage(
 }
 
 /** The Try kinds still to show, in their fixed order: search, command, Mari. */
-export function visibleOmnibarTryKinds(
-  state: OmnibarTryState,
-  { enabled, mariEnabled }: { enabled: boolean; mariEnabled: boolean },
-): OmnibarTryKind[] {
+export function visibleOmnibarTryKinds(state: OmnibarTryState, { enabled }: { enabled: boolean }): OmnibarTryKind[] {
   if (!enabled || state.opens >= OMNIBAR_TRY_MAX_OPENS) return [];
-  return TRY_KINDS.filter((kind) => state.used[kind] === undefined && (kind !== "mari" || mariEnabled));
+  return TRY_KINDS.filter((kind) => state.used[kind] === undefined);
 }
 
 export interface OmnibarTryExamples {

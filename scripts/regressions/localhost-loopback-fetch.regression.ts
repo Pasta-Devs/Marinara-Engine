@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import dnsModule, { promises as dns } from "node:dns";
 import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
+import type { AddressInfo, Socket } from "node:net";
+import { setTimeout as delay } from "node:timers/promises";
 import { safeFetch } from "../../packages/server/src/utils/security.js";
 
 // #7513: a host whose resolver maps `localhost` to `::1` only, with llama.cpp on 127.0.0.1.
@@ -49,10 +50,17 @@ try {
       continue;
     }
     try {
+      const connections = new Set<Socket>();
+      server.on("connection", (socket) => {
+        connections.add(socket);
+        socket.once("close", () => connections.delete(socket));
+      });
       const { port } = server.address() as AddressInfo;
       for (const [name, policy] of Object.entries(policies)) {
         const response = await safeFetch(`http://localhost:${port}/`, { policy });
         assert.equal(await response.text(), `hello from ${host}`, `${name}: localhost reaches ${host}`);
+        for (let attempt = 0; connections.size > 0 && attempt < 100; attempt += 1) await delay(10);
+        assert.equal(connections.size, 0, `${name}: buffered fetch closes its internal dispatcher connection`);
       }
     } finally {
       await new Promise((resolve) => server.close(resolve));

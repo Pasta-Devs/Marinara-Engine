@@ -26,6 +26,7 @@ const U32_MAX = 0xffffffff;
 // Bit 0 (encrypted), bit 6 (strong encryption) and bit 13 (masked local headers).
 const ENCRYPTED_FLAGS = 0x0001 | 0x0040 | 0x2000;
 const DESCRIPTOR_FLAG = 0x0008;
+const UTF8_NAMES_FLAG = 0x0800;
 const STORED = 0;
 const DEFLATED = 8;
 
@@ -44,7 +45,7 @@ export class ZipArchiveError extends Error {
 }
 
 export interface ZipEntry {
-  /** The entry's path inside the archive, decoded as UTF-8. */
+  /** The entry's path inside the archive, decoded as UTF-8 (see `decodeName` for unflagged legacy names). */
   readonly entryName: string;
   readonly isDirectory: boolean;
   /** Uncompressed size from the central directory; `read` returns exactly this many bytes. */
@@ -142,6 +143,32 @@ function readDirectoryLayout(buffer: Buffer, end: number) {
   return { entryCount, directoryOffset, directorySize };
 }
 
+const utf8Names = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+// Japanese Windows tools (Explorer, 7-Zip) write CP932 names without the UTF-8 flag. Builds without full ICU
+// lack the decoder and keep the lenient UTF-8 reading.
+const shiftJisNames = (() => {
+  try {
+    return new TextDecoder("shift_jis", { fatal: true });
+  } catch {
+    return null;
+  }
+})();
+
+/** A name without the UTF-8 flag is read as UTF-8 when it is valid UTF-8, otherwise as Shift_JIS when it is
+ *  valid Shift_JIS. Path checks run on the decoded name, and Shift_JIS never absorbs a "/", "." or NUL. */
+function decodeName(bytes: Buffer, flags: number): string {
+  if (!(flags & UTF8_NAMES_FLAG)) {
+    for (const decoder of [utf8Names, shiftJisNames]) {
+      try {
+        if (decoder) return decoder.decode(bytes);
+      } catch {
+        // Not this encoding.
+      }
+    }
+  }
+  return bytes.toString("utf8");
+}
+
 function findExtraField(extra: Buffer, id: number): Buffer | null {
   for (let offset = 0; offset + 4 <= extra.length;) {
     const length = extra.readUInt16LE(offset + 2);
@@ -205,7 +232,7 @@ function readCentralRecord(buffer: Buffer, cursor: number, directoryOffset: numb
   const attr = buffer.readUInt32LE(cursor + 38);
   let localOffset = buffer.readUInt32LE(cursor + 42);
   const nameBytes = buffer.subarray(cursor + CENTRAL_SIZE, cursor + CENTRAL_SIZE + nameLength);
-  const name = nameBytes.toString("utf8");
+  const name = decodeName(nameBytes, flags);
 
   // ZIP64 values appear only for the fields whose classic value is all ones, in this order.
   const zip64 = findExtraField(

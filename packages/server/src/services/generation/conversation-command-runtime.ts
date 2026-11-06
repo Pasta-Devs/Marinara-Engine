@@ -60,6 +60,8 @@ function getConversationCommandKey(command: CharacterCommand): ConversationComma
       return "cross_post";
     case "selfie":
       return "selfie";
+    case "video":
+      return "video";
     case "memory":
       return "memory";
     case "scene":
@@ -106,6 +108,8 @@ export function filterEnabledConversationCommands(
   return commands.filter((command) => {
     if (!roomConversationCommandAllowed(command.type)) return false;
     const key = getConversationCommandKey(command);
+    // Unlike the other commands, video messages are opt-in (see Generated Videos).
+    if (key === "video" && readConversationCommandToggles(metadata).video !== true) return false;
     return key === null || (isConversationCommandAvailable(key) && isConversationCommandEnabled(metadata, key));
   });
 }
@@ -146,6 +150,8 @@ export async function buildConversationCommandsReminder(args: {
   db: Parameters<typeof getActiveTurnGame>[0];
   wrapFormat: WrapFormat;
   resolvePromptMacros: (value: string) => string;
+  /** False while the Video Run Interval holds back automatic videos. */
+  videoCommandAllowed?: boolean;
 }): Promise<string | null> {
   if (!args.enabled) return null;
   const { chatMeta, chatMode, characterIds, personaName } = args;
@@ -153,6 +159,12 @@ export async function buildConversationCommandsReminder(args: {
   const crossPostCommandEnabled = isConversationCommandEnabled(chatMeta, "cross_post");
   const selfieCommandEnabled =
     isConversationCommandAvailable("selfie") && isConversationCommandEnabled(chatMeta, "selfie");
+  // Video messages cost a video request each, so they stay off until Generated Videos is turned on.
+  const videoCommandEnabled =
+    isConversationCommandAvailable("video") &&
+    roomConversationCommandAllowed("video") &&
+    readConversationCommandToggles(chatMeta).video === true &&
+    args.videoCommandAllowed !== false;
   const memoryCommandEnabled = isConversationCommandEnabled(chatMeta, "memory");
   const sceneCommandEnabled = isConversationCommandEnabled(chatMeta, "scene");
   const reactCommandEnabled = isConversationCommandEnabled(chatMeta, "react");
@@ -258,6 +270,13 @@ export async function buildConversationCommandsReminder(args: {
     addCommandLines(
       `- [selfie] or [selfie: context="description of what the selfie shows"] - you send a photo of yourself. Use this when the user asks for a selfie, photo, or pic, or when you want to share what you look like right now.`,
       `   If you say you are sending, sharing, taking, or attaching a selfie/photo/pic, include [selfie] in that same response. Do not only narrate the action.`,
+    );
+  }
+
+  if (videoCommandEnabled && chatMode === "conversation") {
+    addCommandLines(
+      `- [video] or [video: context="what the clip shows"] - you send a short video message of yourself. Use this when the user asks for a video or clip, or when showing something in motion fits better than a photo. Don't send one with every message.`,
+      `   If you say you are sending or recording a video, include [video] in that same response. Do not only narrate the action.`,
     );
   }
 

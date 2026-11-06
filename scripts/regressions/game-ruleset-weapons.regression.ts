@@ -194,7 +194,7 @@ try {
         "no dice in a summed fight",
         emberText,
         attack("hand-axe", (a) => delete a.damage.dice),
-        /attack\.damage\.dice: A weapon deals dice/,
+        /attack\.damage\.dice: A weapon deals dice, a bonus, or what its hit puts on/,
       ],
       [
         "a target in a summed fight",
@@ -484,6 +484,7 @@ try {
         ability: "brawn",
         toHit: 2,
         damage: { count: 1, sides: 6, flat: 2, type: "cut", qualities: ["thrown"] },
+        damageAddsAbility: true,
       },
       {
         id: "item:1",
@@ -497,6 +498,7 @@ try {
         toHit: 2,
         // Both hands are full, so the spear deals its own die rather than its versatile one.
         damage: { count: 1, sides: 6, flat: 2, type: "cut", qualities: ["thrown"] },
+        damageAddsAbility: true,
       },
     ]);
     assert.ok(
@@ -592,6 +594,95 @@ try {
       { type: "damage" }
     >;
     assert.deepEqual([harm.damageType, harm.amount], ["cut", 6]);
+  }
+
+  // ── No damage dice (1.511): a bonus alone, or nothing but what the hit puts on ──
+  {
+    const blowgun = { ...axe, attack: { ...axe.attack!, damage: { bonus: 1, type: "pierce" } } };
+    const net = {
+      ...axe,
+      attack: {
+        ...axe.attack!,
+        damage: {},
+        onHit: [{ condition: "pinned", atLeast: 0, checkEnds: { check: "brawn", difficulty: 10 } }],
+      },
+    };
+    const shot = emberFight([held(blowgun, "Blowgun")]);
+    assert.deepEqual(weaponsOf(shot)[0]?.damage, {
+      count: 0,
+      sides: 0,
+      flat: 1,
+      type: "pierce",
+      qualities: ["thrown"],
+    });
+    const puff = applyRulesetCombatChoice(
+      ember,
+      shot,
+      { actorId: "juno", optionId: "item:0", targetIds: ["hound"] },
+      () => 4,
+    );
+    const pricked = puff.events.find((event) => event.type === "damage") as Extract<
+      RulesetCombatEvent,
+      { type: "damage" }
+    >;
+    assert.equal(pricked?.amount, 1, JSON.stringify(puff.events));
+    const netted = emberFight([held(net, "Net")]);
+    assert.ok(weaponsOf(netted)[0], "a net is a weapon with nothing to deal");
+    const thrown = applyRulesetCombatChoice(
+      ember,
+      netted,
+      { actorId: "juno", optionId: "item:0", targetIds: ["hound"] },
+      () => 4,
+    );
+    const pin = rulesetCombatant(thrown.state, "hound")!.tracked.find((one) => one.condition === "pinned");
+    assert.deepEqual(pin?.checkEnds, { check: "brawn", difficulty: 10 }, JSON.stringify(thrown.events));
+    // Gated at 1.511; the example's own weapons, with their dice, are not.
+    const gate1458 =
+      "A ruleset whose items attack with no damage dice, or whose weapons put a condition on with any hit or one a check ends (an attack without damage dice, onHit atLeast 0 or checkEnds) requires schemaVersion 2 and capabilityApi 1.511 or newer";
+    const at = (minor: number) => ({
+      schemaVersion: 2,
+      capabilityApi: { major: 1, minor },
+      id: "ember",
+      name: "Ember",
+      version: "0.1.0",
+      kind: ["ruleset"],
+      entrypoints: {},
+      contributions: { assets: { paths: ["ruleset.json"] } },
+      files: [{ path: "ruleset.json", sha256: "0".repeat(64), bytes: 10 }],
+      permissions: [],
+      restartRequired: false,
+    });
+    const diceless = variant(emberText, (doc) => (itemEntry(doc, "hand-axe").item.attack.damage = { bonus: 1 }));
+    assert.equal(getCapabilityPackageInstallIssue(at(510) as never, diceless), gate1458);
+    // And a ruleset file holding them is read (a bonus alone, or only an onHit), not refused.
+    const readOk = (doc: unknown) => {
+      const result = parseRulesetDefinition(doc);
+      assert.ok(result.ok, result.ok ? "" : result.issues.join("; "));
+    };
+    readOk(diceless);
+    readOk(
+      variant(emberText, (doc) => {
+        const attack = itemEntry(doc, "hand-axe").item.attack;
+        attack.damage = {};
+        attack.onHit = [{ condition: "pinned", atLeast: 0, checkEnds: { check: "brawn", difficulty: 10 } }];
+      }),
+    );
+    assert.notEqual(getCapabilityPackageInstallIssue(at(511) as never, diceless), gate1458);
+    const anyHit = variant(
+      emberText,
+      (doc) => (itemEntry(doc, "hand-axe").item.attack.onHit = [{ condition: "pinned", atLeast: 0 }]),
+    );
+    assert.equal(getCapabilityPackageInstallIssue(at(510) as never, anyHit), gate1458);
+    assert.notEqual(getCapabilityPackageInstallIssue(at(510) as never, variant(emberText)), gate1458);
+    refused(
+      emberText,
+      (doc) =>
+        (itemEntry(doc, "hand-axe").item.attack.onHit = [
+          { condition: "pinned", atLeast: 0, checkEnds: { check: "luck", difficulty: 10 } },
+        ]),
+      /Unknown check "luck"/,
+      "a net's check the ruleset lacks",
+    );
   }
 
   // ── A pool fight: a weapon's own target, and what gets through a resistance (Gravewatch) ──

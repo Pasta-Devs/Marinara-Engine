@@ -12,6 +12,7 @@ import {
   mergePhoneMenuOrder,
   parseWindowLayoutSnapshot,
   toWindowLayoutSnapshot,
+  type ButtonLayout,
   type FloatingWindowId,
   type WindowLayout,
   type WindowLayoutSnapshot,
@@ -40,6 +41,8 @@ interface FloatingWindowState {
   /** Where buttons with no window layout of their own (the Chat Settings button) sit on a computer. */
   bubbles: Record<FloatingWindowId, WindowPoint>;
   phoneMenu: PhoneMenuLayout | undefined;
+  buttonLayout: ButtonLayout | undefined;
+  setButtonLayout: (layout: ButtonLayout | undefined) => void;
   open: Record<FloatingWindowId, true>;
   /** How many mounted surfaces can show each window (the topbar button needs one). */
   hosts: Record<FloatingWindowId, number>;
@@ -90,6 +93,8 @@ export const useFloatingWindowStore = create<FloatingWindowState>()((set, get) =
   phoneBubbles: {},
   bubbles: {},
   phoneMenu: undefined,
+  buttonLayout: undefined,
+  setButtonLayout: (buttonLayout) => set({ buttonLayout }),
   open: {},
   hosts: {},
   stack: [],
@@ -192,6 +197,7 @@ export const useFloatingWindowStore = create<FloatingWindowState>()((set, get) =
       phoneBubbles: {},
       bubbles: {},
       phoneMenu: undefined,
+      buttonLayout: undefined,
       resetRevision: state.resetRevision + 1,
     })),
   hydrate: (snapshot) => {
@@ -215,6 +221,7 @@ export const useFloatingWindowStore = create<FloatingWindowState>()((set, get) =
         phoneBubbles: parsed.phoneBubbles ?? {},
         bubbles: parsed.bubbles ?? {},
         phoneMenu: parsed.phoneMenu,
+        buttonLayout: parsed.buttonLayout,
         open,
         stack: [
           ...state.stack.filter((id) => open[id]),
@@ -227,7 +234,7 @@ export const useFloatingWindowStore = create<FloatingWindowState>()((set, get) =
 
 /** The layout to save with the chat: what `hydrate` loads back. */
 export function selectWindowLayoutSnapshot(
-  state: Pick<FloatingWindowState, "layouts" | "detached" | "phoneBubbles" | "bubbles" | "phoneMenu">,
+  state: Pick<FloatingWindowState, "layouts" | "detached" | "phoneBubbles" | "bubbles" | "phoneMenu" | "buttonLayout">,
 ): WindowLayoutSnapshot {
   return toWindowLayoutSnapshot(
     state.layouts,
@@ -235,6 +242,7 @@ export function selectWindowLayoutSnapshot(
     state.phoneBubbles,
     state.bubbles,
     state.phoneMenu,
+    state.buttonLayout,
   );
 }
 

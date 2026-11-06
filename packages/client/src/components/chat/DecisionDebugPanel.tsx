@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, FlaskConical, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { DecisionDebugPreview } from "@marinara-engine/shared";
+import { readableJson, type DecisionDebugPreview } from "@marinara-engine/shared";
 import { useDecisionDebug } from "../../hooks/use-decision-debug";
 import { reasonKeys } from "./AdvancedMemoryInspector";
 
@@ -236,7 +236,7 @@ export function DecisionDebugPanel({
                     })}
                   </summary>
                   <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded-md bg-[var(--background)] p-3 text-xs">
-                    {JSON.stringify(report.requests, null, 2)}
+                    {readableJson(report.requests)}
                   </pre>
                 </details>
               )}

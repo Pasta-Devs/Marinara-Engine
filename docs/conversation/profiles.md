@@ -1,100 +1,84 @@
 # Conversation Mode Profiles (Display Name, About Me, Behavior)
 
-This guide covers the small profile that every character and persona gets in Conversation Mode. The profile has three parts: a display name, an "about me" bio, and a behavior directive. These fields work like a chat-app profile (think Discord). They only apply in Conversation Mode and are never used in Roleplay or Game Mode.
+Every character and persona has a small chat-app profile for Conversation Mode: a display name, an "about me" bio and a behavior instruction. These fields are never used in Roleplay or Game Mode.
 
-Conversation Mode is the DM or messenger style chat. If you are new to it, read [Conversation Mode: Getting Started](getting-started.md) first. A persona is the profile that stands in for you (the `{{user}}`) in a chat.
+This is not a settings profile (a saved set of chat options, see [Settings Profiles](../chats/settings-profiles.md)). New to the mode? Read [Conversation Mode: Getting Started](getting-started.md) first. A persona is the character card that stands for you.
 
 ## Where these fields live
 
-Every profile field appears on a tab named **Convo**. Both characters and personas have it.
+The fields are on a tab named **Convo**.
 
-1. To edit a character's profile, open the character in the **Character Editor** and click the **Convo** tab.
-2. To edit your persona's profile, open the persona in the **Persona Editor** and click the **Convo** tab.
+1. Open the character in the **Character Editor**, or the persona in the **Persona Editor**. To get there, open the **Characters** panel from the sidebar, or the **Personas** panel from the person icon in the right sidebar top bar, then click the card (see [Creating and Editing Characters](../characters/creating-and-editing-characters.md) and [User Personas](../characters/personas.md)).
+2. Click the **Convo** tab.
 
-The **Convo** tab holds three fields: **Convo Display Name**, **About Me**, and **Convo Behavior**. They are the same for characters and personas, with one small difference noted below.
+The tab holds **Convo Display Name**, **About Me** and **Convo Behavior**. On a character it also has **Weekly schedule** (with **Edit schedule** or **Create schedule**, see [schedules](schedules.md)) and **Image generation instructions**, optional directions for that character's selfies (see [Selfies](selfies.md)).
 
-## Convo Display Name
+## Set a display name
 
-**Convo Display Name** is the name shown for this character or persona in Conversation Mode chats. Leave it blank to use the card name instead. Changing it updates the name on existing messages right away. It only affects Conversation Mode.
+**Convo Display Name** is the name shown in Conversation chats. Leave it blank to use the card name. Existing messages update right away.
 
-Characters (not personas) also have a checkbox: **Declare this name on the card in the prompt**. When you turn it on, Marinara adds a short line to the character's card text. That line tells the model which card is shown under which display name. This checkbox needs a display name to be set first.
+Characters also have **Declare this name on the card in the prompt**. When on, Marinara adds a line like "Conversation display name: X" to the card text in the prompt (the text Marinara sends to the model), so the model knows which card uses which name. It needs a display name first.
 
-The `{{convo_display}}` macro puts the responding character's display name into a custom prompt. A macro is a placeholder like `{{convo_display}}` that gets replaced with real text. It resolves to nothing outside Conversation Mode. See [Macros](../prompts/macros.md).
+## Write an About Me
 
-## About Me
+**About Me** is a short bio: a line or two, an emoji, a joke, or nothing. Marinara adds the **About Me** of every present character and persona to the prompt on each turn, so the model knows how each one presents itself. You do nothing for this.
 
-**About Me** is a short self-written bio for the character or persona, shown in Conversation Mode. It can be a line or two, a single emoji, a joke, or nothing at all. An emoji button sits in the text box toolbar so you can drop an emoji into the bio.
+To fill it in:
 
-The bio is not just decoration. By default, Marinara adds the **About Me** of every present character and persona to the prompt on each turn. The bios go in as a short list of participant profiles. This way, the model always knows how each person presents themselves. You do not need to do anything for this to work.
+- Type it yourself. The emoji button in the toolbar inserts an emoji. **Revert** restores the text from before your current edit.
+- On a saved character, click the wand button (**Generate About Me from this card**).
+- Ask **Professor Mari** on the Home screen, for example `Write Luna's About Me as a cryptic one-line bio.` She reads the saved profile, writes the bio in that person's voice and saves it. You can keep or restore her change in the usual review flow.
 
-### Writing an About Me with Professor Mari
+If it did not work: the wand button is missing on a card that is not saved yet. Save the card first.
 
-You do not have to write the bio yourself. Open Professor Mari from the Home screen and ask her to write or revise the **About Me** for a named character or persona. She reads the saved profile first, writes a short self-authored bio in that person's voice, and saves it directly to the real **About Me** field.
+## Set Convo Behavior
 
-For example, ask: `Write Luna's About Me as a cryptic one-line bio.` You can also ask for a revision, such as making an existing bio funnier, shorter, warmer, or more faithful to the card.
+**Convo Behavior** is an instruction for how the character or persona acts in Conversation Mode, for example: keep replies short and lowercase, and text like a real person. Post-history instructions are prompt text placed after the recent chat history. Keep the default if you are not writing custom prompts. Use **Insertion** to choose where the instruction goes in the prompt:
 
-Professor Mari uses her normal configured model. There is no separate About Me connection, source picker, or generation button in the character and persona editors. Her saved change appears in the usual review flow, where you can keep or restore it. Manual edits in the editor still show **Revert**, which restores the text from before your current edit.
-
-## Convo Behavior
-
-**Convo Behavior** is a free-text instruction for how the character or persona should act in Conversation Mode. For example: keep replies short and lowercase, and text like a real person rather than a narrator. It is never sent in Roleplay or Game Mode.
-
-### Insertion (where the directive goes)
-
-Below the **Convo Behavior** box is an **Insertion** dropdown. It controls where your directive is placed in the prompt. The choices are:
-
-- The **Constant** option marked "after the card" (the default): always added, right after the card text.
-- The **Constant** option marked "before the card": always added, right before the card text.
-- **Append to post-history**: added at the end of the post-history instructions.
-- **Prepend to post-history**: added at the start of the post-history instructions.
-- **Replace post-history**: used in place of the post-history instructions.
-- **Only where `{{convo_behavior}}` is placed**: inserted only where you put the `{{convo_behavior}}` macro in a custom prompt.
-
-Post-history instructions are prompt text that the app places after the recent chat history. If you are not writing custom prompts, keep the default.
+| Option | Where the instruction goes |
+| --- | --- |
+| **Constant — after the card** (default) | Always, right after the card text. |
+| **Constant — before the card** | Always, right before the card text. |
+| **Append to post-history** | At the end of the post-history instructions. |
+| **Prepend to post-history** | At the start of the post-history instructions. |
+| **Replace post-history** | In place of the post-history instructions. |
+| **Only where {{convo_behavior}} is placed** | Only where you put the macro in a custom prompt. |
 
 ## Chat-specific About Me overrides
 
-The **About Me** on the card is the default bio used everywhere. You can also set a different bio for one single chat. This is the chat-specific override, and it opens through a profile popout.
+The card **About Me** is the default everywhere. You can set a different bio for one chat only.
 
-1. In a Conversation Mode chat, click a character's or persona's avatar or name.
-2. A small profile card opens next to the avatar. On mobile it slides up from the bottom.
-3. The card shows the enlarged avatar, the name, and the current **About Me**.
-4. A badge reads **Default** when the card bio is shown, or **Chat-specific** when a per-chat override is in use. Characters also show a status here: **Online**, **Away**, **Busy**, or **Offline**.
+1. In a Conversation chat, click a character's or persona's avatar or name. A profile card opens beside it (from the bottom on a phone).
+2. Read the card. It shows the avatar, the name and the current **About Me**. A badge reads **Default** or **Chat-specific**. Characters also show **Online**, **Away**, **Busy** or **Offline**.
+3. Click **Edit**.
+4. Type the bio for this chat. An emoji picker with a **Custom emojis** tab is available.
+5. Click **Save**. You see "Chat-specific about me saved".
 
-To set an override:
+**Cancel** closes edit mode without saving. **Revert** undoes unsaved changes. **Clear** removes an existing override and returns to the card default. Saving an empty bio also clears it.
 
-1. Click **Edit** in the popout.
-2. Type the bio for this chat. You get an emoji picker, including a **Custom emojis** tab.
-3. Click **Save**. You should see a note that a chat-specific about me was saved.
+## Let a character change its own About Me
 
-While editing, a **Revert** button undoes unsaved changes, and **Cancel** closes edit mode without saving. When an override exists, a **Clear** button removes it and returns to the card default. Saving an empty bio also clears the override. Remember: the default **About Me** is edited on the card, and an override only applies in that one chat.
+This is an advanced option. A tool called `update_about_me` lets a character edit its own bio during a chat. It is off by default. To use it, open **Chat Settings → Function Calling**, turn on **Enable Tool Use**, then add the `update_about_me` tool.
 
-## Letting a character update its own About Me on demand
+The character picks one of two choices:
 
-There is also a tool a character can call in the moment to change its own bio. It is named **update_about_me**. It is off by default. Turn it on in **Chat Settings** under the **Function Calling** section: turn on **Enable Tool Use** and add the **update_about_me** tool.
+- Public changes the real bio seen in every chat. You approve it first.
+- Chat changes a bio private to the current chat.
 
-When enabled, a character can update its own bio in one of two ways:
+## Macros for custom prompts
 
-- Public scope changes the real bio seen in every chat. This is shown to you for approval first.
-- Chat scope changes a bio that is private to the current conversation.
+You do not need macros for profiles to reach the model. Use them only to place a value in an exact spot in a custom prompt. Each is empty outside Conversation Mode. See [Macros](../prompts/macros.md).
 
-## Using the profiles in custom prompts
-
-You do not need macros for the profiles to reach the model. The **About Me** bios are added to the prompt automatically, and **Convo Behavior** follows its **Insertion** setting. Macros are for custom prompts, when you want to place a value in an exact spot yourself.
-
-Four macros drop these profile values inline. Each resolves to nothing outside Conversation Mode:
-
-- `{{convo_display}}`: the responding character's display name.
-- `{{char_about}}`: the character's effective **About Me**.
-- `{{persona_about}}`: the persona's effective **About Me**.
-- `{{convo_behavior}}`: the character's **Convo Behavior** directive.
-
-See [Macros](../prompts/macros.md) for the full macro list.
+| Macro | Value |
+| --- | --- |
+| `{{convo_display}}` | The responding character's display name. |
+| `{{char_about}}` | The character's effective **About Me**. |
+| `{{persona_about}}` | The persona's effective **About Me**. |
+| `{{convo_behavior}}` | The character's **Convo Behavior**. |
 
 ## Related guides
 
 - [Conversation Mode: Getting Started](getting-started.md)
 - [Creating and Editing Characters](../characters/creating-and-editing-characters.md)
 - [User Personas: Creating and Editing](../characters/personas.md)
-- [Downloadable Agents Reference](../agents/built-in-agents.md)
 - [Macros](../prompts/macros.md)

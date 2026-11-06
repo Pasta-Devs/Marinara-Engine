@@ -41,6 +41,8 @@ import {
   normalizeConversationBackgroundImageOpacity,
   normalizeMariWindowHeightRem,
   normalizeMariWindowWidthRem,
+  normalizeMariCompanionWidthRem,
+  normalizeRoleplayChatWidthPercent,
   normalizeOmnibarWindowWidthRem,
   normalizeOmnibarWindowHeightRem,
   pickSyncedSettings,
@@ -59,12 +61,15 @@ type ServerSettingsPayload = SyncedSettingsObject & { __updatedAt?: number };
 type ParsedSettings = Partial<SyncedSettingsObject> & Record<string, unknown>;
 
 const LOCAL_ONLY_SETTING_KEYS = [
+  "connectionTestFailures",
   "appAccentPulseMode",
   "fontSize",
   "chatFontSize",
   "trackerPanelOpen",
   "impersonatePromptTemplate",
   "activeImpersonatePromptTemplateId",
+  // The New Game wizard's goals and preferences belong to the browser they were typed in.
+  "rememberedGameSetupText",
 ] as const;
 
 export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings {
@@ -77,11 +82,17 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
       sanitized.conversationBackgroundImageOpacity,
     );
   }
+  if ("roleplayChatWidthPercent" in sanitized) {
+    sanitized.roleplayChatWidthPercent = normalizeRoleplayChatWidthPercent(sanitized.roleplayChatWidthPercent);
+  }
   if ("mariWindowHeightRem" in sanitized) {
     sanitized.mariWindowHeightRem = normalizeMariWindowHeightRem(sanitized.mariWindowHeightRem);
   }
   if ("mariWindowWidthRem" in sanitized) {
     sanitized.mariWindowWidthRem = normalizeMariWindowWidthRem(sanitized.mariWindowWidthRem);
+  }
+  if ("mariCompanionWidthRem" in sanitized) {
+    sanitized.mariCompanionWidthRem = normalizeMariCompanionWidthRem(sanitized.mariCompanionWidthRem);
   }
   if ("omnibarWindowWidthRem" in sanitized) {
     sanitized.omnibarWindowWidthRem = normalizeOmnibarWindowWidthRem(sanitized.omnibarWindowWidthRem);
@@ -402,7 +413,12 @@ export function useSettingsSync() {
                 lastPushed = "";
                 pushNow();
               } else {
-                useUIStore.setState(parsed.settings);
+                // Test failures belong to this browser. Never let the shared
+                // settings blob replace them during cross-device hydration.
+                useUIStore.setState({
+                  ...parsed.settings,
+                  connectionTestFailures: useUIStore.getState().connectionTestFailures,
+                });
                 lastPushed = serialize();
                 if (serverUpdatedAt !== null) writeLocalUpdatedAt(serverUpdatedAt);
                 if (hadLocalOnlySettings || hadMissingSyncedSettings || staleSyncedShape) {

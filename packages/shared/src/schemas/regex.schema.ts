@@ -2,6 +2,7 @@
 // Regex Script Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
 import { isPatternSafe } from "../utils/regex-safety.js";
 
 export const regexPlacementSchema = z.enum(["ai_output", "user_input"]);
@@ -92,7 +93,7 @@ function validateEditableRegexScript(
 
 export const createRegexScriptSchema = regexScriptShape.superRefine(validateEditableRegexScript);
 export const importRegexScriptSchema = regexScriptShape.superRefine(validateImportedRegexScript);
-export const updateRegexScriptSchema = regexScriptShape.partial().superRefine(validateEditableRegexScript);
+export const updateRegexScriptSchema = partialInput(regexScriptShape).superRefine(validateEditableRegexScript);
 export const reorderRegexScriptsSchema = z.object({
   scriptIds: z.array(z.string().min(1)),
 });

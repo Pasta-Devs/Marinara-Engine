@@ -29,7 +29,11 @@ import { createConnection, createServer, type Server, type Socket } from "node:n
 import { dirname, join, resolve, sep } from "node:path";
 import { hostname, networkInterfaces, uptime } from "node:os";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { STORAGE_MIGRATION_NOTICE_SETTINGS_KEY, type StorageMigrationNotice } from "@marinara-engine/shared";
+import {
+  matchesAllCardSearchTags,
+  STORAGE_MIGRATION_NOTICE_SETTINGS_KEY,
+  type StorageMigrationNotice,
+} from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import {
   getFileStorageDir,
@@ -227,10 +231,10 @@ export type FileNativeStoreController = {
    */
   markShardDirty?: (table: string, shardKeys: Iterable<string>) => void;
   /**
-   * Monotonic per-table write counter (#4705): bumped on every markDirty, so
-   * pollers can skip work when a table hasn't changed since their last look.
+   * Monotonic per-table change counter (#4705): bumped on writes, load-created
+   * repairs and rollback, so pollers can skip work when a table hasn't changed.
    * Deliberately NOT rolled back on transaction rollback — a spurious wake is
-   * safe, a missed one is not. 0 = never written in this process.
+   * safe, a missed one is not. 0 = never changed in this process.
    */
   getTableWriteGeneration: (table: string) => number;
   /**
@@ -361,7 +365,13 @@ type InsertValuesBuilder = Executable<void> & {
 // Exported so regressions can pin behavior against the CURRENT version
 // without chasing literals on every bump. Must equal root storage-format.json
 // (the launcher-format-guard regression pins the pairing).
-export const STORAGE_VERSION = 7;
+// Format 8 protects MMD avatar configurations: released format-7 builds reject the new kind and
+// could overwrite that owner's avatar.json. Existing rows and avatar files need no conversion.
+// Format 9 protects connection account links and their credentials. Older builds discard
+// accountId, icon and imageInput when rewriting model rows; no row conversion is needed.
+// Format 10 protects GLB and FBX avatar configurations: format-9 builds reject the new kind and could
+// overwrite that owner's avatar.json. Existing rows and avatar files need no conversion.
+export const STORAGE_VERSION = 10;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
 export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";
@@ -416,6 +426,7 @@ const BUILT_IN_FILE_BACKED_TABLES = [
   "prompt_sections",
   "choice_blocks",
   "api_connections",
+  "connection_accounts",
   "assets",
   "agent_configs",
   "agent_runs",
@@ -2460,6 +2471,23 @@ function evaluateCondition(condition: Condition, ctx: RowContext): boolean {
     const record = parseJsonRecord(resolveValue(condition.value, ctx));
     return condition.flags.every((flag) => record[flag] !== true);
   }
+  if (condition.kind === "file-json-string-array-contains-all") {
+    let value = resolveValue(condition.value, ctx);
+    if (typeof value === "string") {
+      try {
+        value = JSON.parse(value);
+      } catch {
+        return false;
+      }
+    }
+    if (condition.property !== undefined) {
+      value =
+        value && typeof value === "object" && !Array.isArray(value)
+          ? (value as Record<string, unknown>)[condition.property]
+          : undefined;
+    }
+    return matchesAllCardSearchTags(value, condition.terms);
+  }
 
   const left = resolveValue(condition.left, ctx);
   const right = resolveValue(condition.right, ctx);
@@ -3469,6 +3497,7 @@ class FileTableStore {
   }
 
   private recordLoadHealMarks(table: string, keys?: Iterable<string>) {
+    this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
     const ctx = this.loadEffectTransactionContext();
     if (!ctx) return;
     ctx.loadHealDirtyTables.add(table);
@@ -4507,7 +4536,10 @@ class FileTableStore {
     const malformedRowCount = parsedRows.length - source.length;
     if (malformedRowCount > 0 && source.length === 0) {
       const files = quarantineUnrecoverableFilesSync([path, `${path}.bak`], `table ${table} shard ${encoded}`);
-      if (files.length > 0) this.quarantinedTables.push({ table, files });
+      if (files.length > 0) {
+        this.quarantinedTables.push({ table, files });
+        this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
+      }
       logger.error(
         { table, shard: encoded, malformedRowCount, preservedFiles: files.map((file) => file.to) },
         "[file-storage] Shard contained only malformed rows; quarantined its files for manual recovery.",
@@ -4533,6 +4565,7 @@ class FileTableStore {
       const files = quarantineUnrecoverableFilesSync(unreadablePaths, `table ${table} shard ${encoded}`);
       if (files.length > 0) {
         this.quarantinedTables.push({ table, files });
+        this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
         if (files.some((file) => file.from === path)) known.delete(encoded);
         logger.error(
           { table, shard: encoded, files },
@@ -4643,6 +4676,9 @@ class FileTableStore {
       const stale = this.staleShardFiles.get(table) ?? new Set<string>();
       stale.add(sourceEncoded);
       this.staleShardFiles.set(table, stale);
+    }
+    if (replacements.size > 0 && duplicateCount === 0) {
+      this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
     }
     const keys = this.shardKeysForRows(table, incoming);
     // A merge that saw any corruption-healing event (dropped duplicates,

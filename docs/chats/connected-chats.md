@@ -1,93 +1,61 @@
 # Connecting a Conversation to a Roleplay or Game
 
-This guide explains how to link a Conversation chat to a Roleplay or Game chat so the two share context. It also covers **Cross-Chat Awareness**, the special tags that pass information across a link, and how to jump between linked chats.
+Link a Conversation chat to a Roleplay or Game chat so the two share context. A common use: you run a story in one chat and talk about it out of character (OOC) in a Conversation that stays aware of the story.
 
-Marinara Engine (called Marinara after this) has two separate features that let chats know about each other. One is automatic. The other is an explicit one-to-one link you set up yourself. This guide keeps them apart, because they work in different ways.
+The **Connected Chats** section of **Chat Settings** holds two different features. A **Connected Chats** link is one-to-one and you set it up by hand. **Cross-Chat Awareness** is a toggle that works on its own and lets a character remember its other Conversation chats.
 
-## What Connected Chats do
+## How a link works
 
-**Connected Chats** join one Conversation chat to one Roleplay or Game chat. The link is one-to-one. Each chat can be connected to only one other chat at a time.
+A link joins one Conversation to one Roleplay or Game chat. Each chat can have only one link at a time.
 
-Once linked, the Conversation side automatically reads the linked story chat's recent messages. It pulls them into its own context every turn. This is the automatic direction of the link.
-
-The story chat (the Roleplay or Game) does not automatically read the Conversation's messages back. To send information the other way, a character uses special tags. Those tags are described further down.
-
-A common use: you run an immersive Roleplay or Game in one chat, and a casual out-of-character (OOC) direct-message chat in a Conversation. The OOC chat stays aware of the story, so you can talk about it as it happens.
-
-## Cross-Chat Awareness is not the same as a link
-
-Two features are easy to confuse. Read this section before you set anything up.
-
-**Cross-Chat Awareness** is automatic. It is a Conversation-mode setting. When a character is present in more than one Conversation chat, it can remember and reference what happened in those other chats. You do not link anything by hand. The setting is on by default.
-
-You find it in the **Cross-Chat Awareness** section of **Chat Settings**. Its help text reads: "Characters remember and reference conversations from other chats they're in. Pulls recent messages from sibling chats and injects them as context." Marinara matches these sibling chats by shared character, not by shared user.
-
-A **Connected Chats** link is different. It is something you create on purpose. It joins exactly one Conversation to one Roleplay or Game chat. It carries story context and the special tags described below.
-
-In short: **Cross-Chat Awareness** links a character across its own Conversation chats automatically. A **Connected Chats** link joins one Conversation to one story chat by hand.
+- The Conversation reads the linked story chat's recent messages automatically, on every turn.
+- The story chat does not read the Conversation back. Characters pass information the other way with tags, described below.
 
 ## Linking a Conversation to a Roleplay or Game chat
 
-You start the link from the Conversation chat, or from a Game chat. Follow these steps to start from the Conversation side.
+Before you start: have both chats ready. See [Managing Your Chat List](managing-chats.md).
 
-1. Open the Conversation chat you want to link.
-2. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
-3. Find the **Connected Chats** section.
-4. Click **Link to Roleplay or Game**.
-5. Search for the Roleplay or Game chat in the picker, then click it.
+1. Open the Conversation chat and open **Chat Settings**. See [Chat Settings](chat-settings.md).
+2. Open the **Connected Chats** section.
+3. Click **Link to Roleplay or Game**.
+4. Search for the chat in the picker, then click it.
 
-You should now see the linked chat's name and its mode inside the **Connected Chats** section. A small unlink button sits next to it.
+The section now shows the linked chat's name and mode, with a small unlink button.
 
-To start the link from a Game chat instead, open that chat's **Chat Settings**, find **Connected Chats**, and click **Link to Conversation**. Then pick the Conversation.
+If it did not work: only chats that are not already linked appear in the picker. Unlink the other chat first.
 
-A Roleplay chat does not have its own link button. It shows the link once one exists, but you must create the link from the Conversation side.
+To start from a Game chat, open its **Chat Settings → Connected Chats**, click **Link to Conversation**, and pick the Conversation. A Roleplay chat has no link button. It shows the link once one exists, so create it from the Conversation side.
 
-Only chats that are not already linked appear in the picker. A chat can hold one link at a time.
+### Remove a link
 
-### Removing a link
+Open **Chat Settings → Connected Chats** and click the unlink button (labeled **Disconnect**). This also clears pending influences and saved notes tied to the link. Deleting a chat disconnects it too.
 
-To remove a link, open **Chat Settings**, find **Connected Chats**, and click the unlink button (its tooltip reads **Disconnect**). Disconnecting also clears any pending influences and saved notes tied to that link.
+## Cross-Chat Awareness
 
-Deleting a chat also disconnects it from its linked chat.
+**Cross-Chat Awareness** is a toggle in the **Connected Chats** section of a Conversation. Its description reads "Characters know what happens in their other chats". When a character is in more than one Conversation chat, it can remember and mention what happened in the others. Marinara matches those chats by shared character, not by shared user. It is on by default and needs no link.
 
 ## Passing information across the link
 
-The Conversation reads the story chat automatically. The other directions use tags. These tags appear inside a character's messages. The AI writes them. You do not normally type them yourself, but knowing what they do helps you understand the bridge.
+Characters write these tags inside their messages. You do not need to do anything. This is how the two chats talk to each other.
 
-Write these tags as literal text if you ever need to reference them. Each is shown here in code so it displays exactly.
+| Tag | What it does |
+| --- | --- |
+| `<influence>` | A one-time steer from the Conversation into the linked story chat. It affects the next linked turn, then it is used up. |
+| `<note>` | Saves a lasting fact from the Conversation into the story chat. It stays in the story chat's prompt on every turn until you clear it. |
+| `<ooc>` | Lets a Roleplay character step out of the story and reply to the linked Conversation. Marinara posts the text there. |
 
-- `<influence>` sends a one-time steer from the Conversation into the linked story chat. It affects the very next linked turn, then it is used up.
-- `<note>` saves a durable fact from the Conversation into the linked story chat. It stays in the story chat's prompt on every turn until you clear it.
-- `<ooc>` lets a Roleplay character step out of the story and reply directly to the linked Conversation. Marinara posts that text to the linked direct-message chat.
+### Conversation Notes
 
-So a Conversation character can quietly shape or inform the story with `<influence>` and `<note>`. A Roleplay character can talk back to the Conversation with `<ooc>`.
-
-## Conversation Notes
-
-When a Conversation character saves a durable `<note>`, it shows up on the story side. The Roleplay or Game chat gets a **Conversation Notes** section in its **Chat Settings**.
-
-This section lists every saved note. Each note has a delete button. To remove all of them at once, use the **Clear all notes** button. Marinara asks you to confirm before it clears them, and this cannot be undone.
-
-If no character has saved a note yet, the section explains that notes wrapped in a `<note>` tag will appear here once saved.
+Saved `<note>` facts appear in a **Conversation Notes** section in the story chat's **Chat Settings**. Each note has a delete button. **Clear all notes** removes all of them after you confirm, and this cannot be undone. With no notes, the section says notes wrapped in a `<note>` tag will appear there.
 
 ## Switching between connected chats
 
-When a chat has a linked chat, a small **Connected chat** button with a double-arrow icon starts at the top right on a computer. You can drag it to another spot. On a phone, find **Connected chat** in the **Chat tools** three-dot menu. Open the control, then choose **Switch to** followed by the other chat's name.
+With a link in place, a **Connected chat** button (a double-arrow icon) appears on both chats. On a computer it starts at the top right, and you can drag it. On a phone, open the **Chat tools** three-dot menu, open **Connected chat**, and choose **Switch to** and the other chat's name.
 
-This takes you straight to the connected chat. The button appears on both sides of the link.
-
-You can move this control into Chat Settings with **Put back in Chat Settings**. It then appears in its own **Connected chat** section; use that section's pop-out button to return it to a separate window.
+To keep the control inside Chat Settings, choose **Put back in Chat Settings**. It then appears as its own **Connected chat** section. Use that section's pop-out button to make it a separate window again.
 
 ## Other controls in this section
 
-The **Connected Chats** section also holds two extra controls that belong to other features. They render here for convenience.
-
-- A **Discord webhook URL** box. It has no visible label, only a placeholder that starts with `https://discord.com/api/webhooks/`. Pasting a Discord webhook URL here mirrors the chat's messages to a Discord channel. This is part of the Discord message mirror feature, which has its own guide.
-- An **Allow Noodle references** toggle (off by default). It lets the in-app Noodle timeline pull recent messages from this chat. Noodle has its own guide.
-
-On the Roleplay side, you will also see an **Allow character DMs** toggle (off by default). When on, it lets a Roleplay character open a new Conversation direct message with you from inside the story. This works even when no Conversation is linked yet.
-
-## Related guides
-
-- [Conversation Mode: Getting Started](../conversation/getting-started.md)
-- [Roleplay Mode: Getting Started](../roleplay/getting-started.md)
+- **Discord webhook URL**: a box with no label, only a placeholder that starts with `https://discord.com/api/webhooks/`. Paste a webhook URL to mirror the chat's messages to a Discord channel. It has its own guide.
+- **Allow Noodle references**: lets the Noodle timeline pull recent messages from this chat. It is off by default and appears only when Noodle is installed.
+- **Allow character DMs** (Roleplay): lets a Roleplay character open a new Conversation direct message with you from inside the story. It is off by default and works even with no link.

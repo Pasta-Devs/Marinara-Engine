@@ -2,6 +2,7 @@
 // Personal Extension Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
 import { PERSONAL_EXTENSION_CAPABILITIES, PERSONAL_EXTENSION_UI_LIMITS } from "../types/personal-extension.js";
 import { cssByteLimit, cssByteMessage } from "./css-size.js";
 
@@ -106,8 +107,7 @@ function validateRuntimePayload(
 
 export const createPersonalExtensionSchema = personalExtensionPayloadSchema.superRefine(validateRuntimePayload);
 
-export const updatePersonalExtensionSchema = personalExtensionPayloadSchema
-  .partial()
+export const updatePersonalExtensionSchema = partialInput(personalExtensionPayloadSchema)
   .extend({
     enabled: z.literal(false).optional(),
   })
@@ -126,6 +126,14 @@ export const approvePersonalExtensionSchema = z.object({
 
 export const externalExtensionsPolicyUpdateSchema = z.object({
   enabled: z.boolean(),
+});
+
+export const PERSONAL_EXTENSION_MAX_REVISIONS = 10;
+export const PERSONAL_EXTENSION_DEFAULT_REVISIONS = 10;
+
+export const personalExtensionRevisionRetentionSchema = z.object({
+  limit: z.number().int().min(0).max(PERSONAL_EXTENSION_MAX_REVISIONS),
+  confirmPrune: z.literal(true).optional(),
 });
 
 export const rollbackPersonalExtensionSchema = z.object({
@@ -147,3 +155,4 @@ export const personalExtensionStoragePatchSchema = z.record(z.string(), z.unknow
 export type CreatePersonalExtensionInput = z.input<typeof createPersonalExtensionSchema>;
 export type UpdatePersonalExtensionInput = z.infer<typeof updatePersonalExtensionSchema>;
 export type PersonalExtensionStoragePatchInput = z.infer<typeof personalExtensionStoragePatchSchema>;
+export type PersonalExtensionRevisionRetentionInput = z.infer<typeof personalExtensionRevisionRetentionSchema>;

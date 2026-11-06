@@ -90,8 +90,13 @@ for (const theme of ["light", "dark"] as const) {
       await expect.poll(storedOptions).toEqual({ "vendor/first": { prototype: "cinematic", shot_type: "1" } });
       await editor.getByRole("combobox", { name: "shot_type", exact: true }).scrollIntoViewIfNeeded();
       await page.screenshot({ path: testInfo.outputPath(`atlas-options-${theme}.png`) });
-      const modelInput = editor.getByPlaceholder("Or type model ID directly…");
-      await modelInput.fill("vendor/second");
+      // #8456 replaced the free-text model field with the picker's search, where Enter uses a typed ID.
+      const modelSearch = editor.getByRole("searchbox", { name: "Search models or type a model ID", exact: true });
+      const useModel = async (id: string) => {
+        await modelSearch.fill(id);
+        await modelSearch.press("Enter");
+      };
+      await useModel("vendor/second");
       await expect(editor.getByRole("textbox", { name: /prototype/ })).not.toBeVisible();
       await editor.getByRole("textbox", { name: /negative_prompt/ }).fill("blurry");
       await editor.getByRole("combobox", { name: "shot_type", exact: true }).selectOption({ value: "2" });
@@ -101,7 +106,7 @@ for (const theme of ["light", "dark"] as const) {
         "vendor/first": { prototype: "cinematic", shot_type: "1" },
         "vendor/second": secondOptions,
       });
-      await modelInput.fill("vendor/first");
+      await useModel("vendor/first");
       await expect(editor.getByRole("textbox", { name: /prototype/ })).toHaveValue("cinematic");
       await editor.getByRole("button", { name: "Reset model options", exact: true }).click();
       await expect(editor.getByRole("textbox", { name: /prototype/ })).toHaveValue("");

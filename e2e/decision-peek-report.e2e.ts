@@ -179,7 +179,7 @@ for (const theme of ["dark", "light"] as const)
                           protocol: "system_one",
                           body: {
                             model: "Decision fixture",
-                            state: { recent_messages: [{ role: "user", content: "I open the door." }] },
+                            state: { recent_messages: [{ role: "user", content: "I open the door.\nMira looks up." }] },
                             questions: { d0: { type: "noul", instructions: "The door is open." } },
                           },
                           ...(run ? { results: [{ id: "d0", probability: 0.82 }] } : {}),
@@ -198,6 +198,8 @@ for (const theme of ["dark", "light"] as const)
       expect(modes).toEqual(["inspect"]);
       await diagnostics.getByText("Prepared request bodies (1)").click();
       await expect(diagnostics.locator("pre")).toContainText("I open the door.");
+      // A multi-line message in a request body reads with its line break, not as "\n".
+      expect(await diagnostics.locator("pre").innerText()).toContain("I open the door.\nMira looks up.");
       await diagnostics.getByRole("button", { name: "Test decisions", exact: true }).click();
       await expect(diagnostics.getByText("Evaluated in this test")).toBeVisible();
       await expect(diagnostics).toContainText("0.82");

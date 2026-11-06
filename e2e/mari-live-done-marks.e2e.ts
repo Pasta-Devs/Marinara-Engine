@@ -20,6 +20,10 @@ const APP_VERSION = (
 // the same time as any other locked Mari-thread spec; the cleanup then starts from a clean slate.
 test.beforeEach(async ({ request }) => {
   await acquireMariThreadLock();
+  // #7882 made Pi the default runtime; the fixture provider answers in the Classic JSON-frame protocol.
+  expect((await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "classic" } })).ok()).toBe(
+    true,
+  );
   const existing = (await (await request.get("/api/chats/internal/professor-mari/chats")).json()) as Array<{
     id: string;
   }>;
@@ -30,7 +34,9 @@ test.beforeEach(async ({ request }) => {
   );
 });
 
-test.afterEach(() => {
+test.afterEach(async ({ request }) => {
+  // Put back the default runtime, as mari-reply-clear-sprite does, so later specs on this server get Pi.
+  await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "pi" } }).catch(() => undefined);
   releaseMariThreadLock();
 });
 
@@ -151,7 +157,8 @@ test("done marks show on each step while Mari is still working", async ({ page, 
     expect(systemPrompt).toContain("only for its contents or an unknown id");
     expect(systemPrompt).toContain("a short paragraph or steps if needed");
     expect(systemPrompt).toContain("never read just to fill `detail` or `action`");
-    expect(systemPrompt).toContain("not for questions about you or how-tos");
+    // #7908 moved the diagnose rule into the built-in repair skill; the prompt points bad-reply complaints there.
+    expect(systemPrompt).toContain("read skill `builtin-repair` with `skill.get` before you diagnose a bad reply");
     expect(systemPrompt).not.toContain("so its card can show");
     expect(systemPrompt).not.toContain("she forgets things");
 

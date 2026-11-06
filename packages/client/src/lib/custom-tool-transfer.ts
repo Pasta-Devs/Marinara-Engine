@@ -91,6 +91,33 @@ export function serializeCustomToolForTransfer(tool: CustomToolRow): CustomToolT
   };
 }
 
+/** A value compared as data: object keys sorted, so a reopened schema with the same content is not a change. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as JsonRecord).sort(([a], [b]) => a.localeCompare(b));
+    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+/**
+ * The PATCH for saving an existing tool: only the fields the editor changed. A tool stored with a value the editor
+ * would reject (from a profile import or Professor Mari) stays editable, since an untouched field is never re-sent and
+ * re-validated.
+ */
+export function buildCustomToolPatch(
+  stored: CustomToolRow,
+  next: CustomToolTransferConfig,
+): Partial<CustomToolTransferConfig> {
+  const before = serializeCustomToolForTransfer(stored);
+  const patch: Partial<CustomToolTransferConfig> = {};
+  for (const key of Object.keys(next) as Array<keyof CustomToolTransferConfig>) {
+    if (stableJson(next[key]) !== stableJson(before[key])) (patch as JsonRecord)[key] = next[key];
+  }
+  return patch;
+}
+
 function normalizeCustomToolImportCandidate(
   entry: unknown,
   resolveTextFile?: (path: unknown) => string | null,

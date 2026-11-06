@@ -23,7 +23,7 @@ jobs:
     # whose review the step below lets through: whoever asked for the repair gets the review that checks it.
     if: >
       (vars.DOTTORE_AUTO_REVIEW == 'true' || (github.event.action == 'synchronize' && github.event.sender.type == 'Bot')) &&
-      (!github.event.pull_request.draft || github.event.action == 'ready_for_review') &&
+      !github.event.pull_request.draft &&
       contains(format(',{0},', vars.DOTTORE_BASE_REFS || 'refactor,main,staging'), format(',{0},', github.event.pull_request.base.ref))
     runs-on: ubuntu-latest
     steps:
@@ -48,7 +48,7 @@ jobs:
             echo "Dottore examines on request: comment /dottore. This push is not a Dottore repair (DOTTORE_AUTO_REVIEW is off)."
             exit 0
           fi
-          if [ "$PR_IS_DRAFT" = "true" ] && [ "$EVENT_ACTION" != "ready_for_review" ]; then
+          if [ "$PR_IS_DRAFT" != "false" ]; then
             echo "Draft specimen withheld from automatic examination."
             exit 0
           fi

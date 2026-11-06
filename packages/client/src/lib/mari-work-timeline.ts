@@ -105,6 +105,11 @@ export interface RunPhase<Tool> {
   live: boolean;
 }
 
+function addCaption(phase: { caption?: string }, words: string) {
+  const text = stripProfessorMariSpeakerPrefix(words).trim();
+  if (text) phase.caption = phase.caption ? `${phase.caption}\n\n${text}` : text;
+}
+
 /**
  * M5a: a run as phases. Back-to-back steps of one kind (looking, changing, anything else) share a phase,
  * together with the thoughts and words that led up to them. What came before her first step stays as it
@@ -123,9 +128,7 @@ export function groupRunPhases<Tool>(
     if (item.type === "status") continue;
     const current = phases.at(-1);
     if (item.type === "text" && item.narration && current) {
-      // ponytail: one caption per phase (the round that opened it); later rounds' words stay unshown. Join
-      // them if a phase ever needs every round's words.
-      if (item.content.trim()) current.caption ??= item.content.trim();
+      addCaption(current, item.content);
       continue;
     }
     if (item.type !== "tool") {
@@ -151,16 +154,16 @@ export function groupRunPhases<Tool>(
   const last = phases.at(-1);
   const answering = pending.some((item) => item.type === "text" && item.content.trim());
   if (last && active && !answering) last.live = true;
-  // Slice 70: once she has answered, her narration between steps ("Let me pull up his card…") was live status
-  // only; the finished turn shows the steps and her last round's words (each round is its own text item).
-  if (!active && answering) {
-    const notText = (item: WorkTimelineItem<Tool>) => item.type !== "text";
+  // Her words between steps can be real content, even a question, so a finished turn keeps them, folded with
+  // their phases. Only her last round stands as the answer; words before it join the last phase.
+  if (!active && answering && last) {
     const answer = pending.findLastIndex((item) => item.type === "text" && item.content.trim());
-    for (const phase of phases) {
-      phase.items = phase.items.filter(notText);
-      delete phase.caption;
-    }
-    return { intro: intro.filter(notText), phases, tail: pending.filter((item, i) => notText(item) || i === answer) };
+    const tail = pending.filter((item, index) => {
+      if (item.type !== "text" || index >= answer) return true;
+      addCaption(last, item.content);
+      return false;
+    });
+    return { intro, phases, tail };
   }
   return { intro, phases, tail: pending };
 }

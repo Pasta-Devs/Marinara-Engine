@@ -103,7 +103,9 @@ export function useMariSkillMemoryActions({
   );
 
   const handleSaveSkill = useCallback(async () => {
-    if (!selectedSkill) return;
+    // A built-in skill ships with the app; its panel hides the save control and the server refuses
+    // the write, so this guard only keeps a stray call from surfacing as a failed toast.
+    if (!selectedSkill || selectedSkill.origin === "builtin") return;
     setSkillsSaving(true);
     try {
       const result = await api.put<WorkspaceSkillMutationResponse>(
@@ -138,6 +140,7 @@ export function useMariSkillMemoryActions({
 
   const handleToggleSkill = useCallback(
     async (skill: MariWorkspaceSkillDetail) => {
+      if (skill.origin === "builtin") return;
       setSkillsSaving(true);
       try {
         await api.put<WorkspaceSkillMutationResponse>(`/professor-mari/workspace/skills/${skill.id}`, {
@@ -158,7 +161,7 @@ export function useMariSkillMemoryActions({
   const handleDeleteSkill = useCallback(
     async (id: string) => {
       const skill = skills.find((entry) => entry.id === id);
-      if (!skill) return;
+      if (!skill || skill.origin === "builtin") return;
       if (!window.confirm(localizeUi("ui.chat.homeprofessormarichat.deleteValue1", { value1: skill.name }))) return;
       setSkillsSaving(true);
       try {

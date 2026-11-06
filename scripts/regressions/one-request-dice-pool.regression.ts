@@ -357,6 +357,14 @@ for (const unreadable of ['pool="d20:7"', 'pool="d7:1"', 'pool="nonsense"', 'poo
     "the invented per-die numbers are recorded",
   );
 }
+{
+  // A pool spend keeps the roller the request named, on the record and on the card.
+  const session = createGameDicePoolSession({ chatId: "chat-pool", pool: poolOf({ d6: [6, 1, 4] }), settings });
+  const named = resolveGameDiceRequests('[dice: 2d6 = 7 (6 + 1) pool="d6:1|2" who="Hessa"]', [], undefined, session);
+  assert.equal(named.content, '[dice: 2d6 = 7 (6 + 1) pool="d6:1|2" who="Hessa"]');
+  assert.equal(named.diceRolls[0]!.label, "Hessa");
+  assert.equal(resolveGameDiceRequests(named.content).rolled, 0, "the named pool record reads back as a record");
+}
 
 // ── 5. The DC is bounded ────────────────────────────────────────────────────
 {

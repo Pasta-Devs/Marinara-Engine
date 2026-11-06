@@ -7,7 +7,13 @@ import {
   type CombatWeather,
   type WorldElementSet,
 } from "@marinara-engine/shared";
-import { chooseCombatCandidate, combatAiHash, type CombatAiCandidate } from "@marinara-engine/shared";
+import {
+  chooseCombatCandidate,
+  combatAiHash,
+  rankCombatCandidates,
+  type CombatAiCandidate,
+  type RankedCombatCandidate,
+} from "@marinara-engine/shared";
 import type { CombatantStats, PlayerAction } from "./combat.service.js";
 
 export function chooseClassicAction(
@@ -18,6 +24,9 @@ export function chooseClassicAction(
   difficulty: string = "normal",
   weather?: CombatWeather,
   elements?: WorldElementSet,
+  /** Handed every candidate scored, best first, instead of the unit taking the pick: what a Game
+   *  Master deciding for it is shown. Nothing on the unit changes then. */
+  ranked?: (ranking: Array<RankedCombatCandidate<PlayerAction>>) => void,
 ): PlayerAction {
   if (!enemies.length) return { type: "defend" };
   if (!unit.tactics) return { type: "attack", targetId: enemies[0]!.id };
@@ -102,6 +111,16 @@ export function chooseClassicAction(
     (unit.tactics!.adjective !== "patient" || Object.values(unit.skillCooldowns ?? {}).some((cd) => cd === 1))
   )
     candidates.push({ action: { type: "defend" }, hold: true });
+  if (ranked) {
+    const ranking = rankCombatCandidates(
+      unit,
+      candidates,
+      round,
+      unit.side === "enemy" ? normalizeGameDifficulty(difficulty) : "normal",
+    );
+    ranked(ranking);
+    return ranking[0]!.candidate.action;
+  }
   return chooseCombatCandidate(
     unit,
     candidates,

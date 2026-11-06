@@ -254,6 +254,8 @@ export interface ScenePlanRequest {
   connectionId?: string | null;
   /** Optional user preferences for the generated scene prompt and opening message. */
   promptPreferences?: ScenePromptPreferences | null;
+  /** The character who starts the scene and posts its opening message, as /scene/create credits it. */
+  initiatorCharId?: string | null;
 }
 
 /** Response from POST /scene/plan — the LLM plans everything. */

@@ -767,6 +767,25 @@ export function ChatHelpOverlay({
         closeChatHelp(mode);
         return;
       }
+      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const target = event.target;
+        if (
+          target instanceof Element &&
+          target.closest("button, [href], input, select, textarea, [role='button'], [contenteditable='true']") &&
+          overlayRef.current?.contains(target)
+        ) {
+          return;
+        }
+        // Typing is the user's answer to "what now": close the help and let the keystroke land in the composer.
+        const composer = document.querySelector<HTMLElement>(`[data-chat-mode="${mode}"] [data-chat-composer]`);
+        if (composer) {
+          previousFocusRef.current = composer;
+          markChatHelpSeen(mode);
+          closeChatHelp(mode);
+          composer.focus({ preventScroll: true });
+        }
+        return;
+      }
       if (event.key !== "Tab" || !overlayRef.current) return;
 
       const focusable = Array.from(

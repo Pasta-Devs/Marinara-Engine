@@ -57,6 +57,21 @@ for (const key of referenced) {
   assert.ok(present, `en.json is missing ${key}`);
 }
 
+// ── A layer's name and summary are the ruleset's own words, read through its translation ──
+// The setup wizard used to draw them as written, so a player in another language saw the toggle in
+// English even with the ruleset's language pack installed, while the game's sheet translated it.
+
+const chooser = sources[0]!;
+assert.match(
+  chooser,
+  /useRulesetDefinitionText\(ruleset\.definition\)/u,
+  "the layer toggles no longer read the ruleset's translation",
+);
+for (const shown of ["text(choice.layer.label)", "text(choice.layer.summary)", "text(choice.blockedBy.label)"]) {
+  assert.ok(chooser.includes(shown), `the layer toggles draw ${shown.slice(5, -1)} untranslated`);
+}
+assert.ok(!/>\{choice\.layer\.(?:label|summary)\}</u.test(chooser), "a layer's name or summary is drawn as written");
+
 // ── The example rulesets, parsed exactly as the Engine parses them ──
 
 function parseExample(path: string): RulesetDefinition {

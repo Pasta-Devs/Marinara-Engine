@@ -600,7 +600,7 @@ assert.equal(
 );
 assert.match(
   characterRoutesSource,
-  /const sprites = await readSpritesForId\(char\.id, true\);[\s\S]*if \(!sprites\)[\s\S]*status\(413\)[\s\S]*buildCompatibleCharacterExport\(charData, sprites, \{ keepOnboarding: true \}\)/u,
+  /const sprites = await readSpritesForId\(char\.id, true\);[\s\S]*if \(!sprites\)[\s\S]*status\(413\)[\s\S]*buildCompatibleCharacterExport\(charData, sprites, \{\s*keepOnboarding: true,/u,
   "PNG export must reject sprite collections that cannot round-trip before building the card envelope",
 );
 assert.match(
@@ -610,7 +610,7 @@ assert.match(
 );
 assert.match(
   stCharacterImporterSource,
-  /await restoreSprites\(embeddedMarinaraSprites, charId\)/u,
+  /await restoreSprites\(embeddedMarinaraSprites, charId, embeddedSpriteCatalog\)/u,
   "PNG import must restore embedded sprites under the newly imported character ID",
 );
 const nativeGalleryRestoreMatch = marinaraImporterSource.match(
@@ -757,7 +757,7 @@ assert.match(
 );
 assert.match(
   professorMariWorkspaceSource,
-  /updates are patches[\s\S]{0,400}read the entity back[\s\S]{0,300}Claim completion only when every requested value matches/u,
+  /Updates are patches[\s\S]{0,400}Read the entity back[\s\S]{0,300}Claim completion only when every requested value matches/u,
   "Professor Mari must preserve unrelated fields and verify requested character edits before claiming completion",
 );
 const professorMariSeedSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/db/seed-mari.ts"), "utf8");
@@ -1671,6 +1671,7 @@ try {
       description: "A trusted friend from the western district.",
       first_mes: "REFERENCED_GREETING_MUST_STAY_OUT",
       mes_example: "REFERENCED_EXAMPLE_SHOULD_APPEAR",
+      creator_notes: "REFERENCED_CREATOR_NOTES_MUST_STAY_OUT",
       extensions: {
         appearance: "Blonde hair and a blue summer dress.",
       },
@@ -1702,6 +1703,7 @@ try {
       backstory: "She designed the laboratory's most reliable systems.",
       appearance: "Pink hair, a lab coat, and a knowing smile.",
       scenario: `She is visiting the cafe after a long experiment with {{persona-${knownPersonaReferenceId}}}.`,
+      creatorNotes: "PERSONA_CREATOR_NOTES_MUST_STAY_OUT",
     },
   );
   assert.ok(referencedPersona);
@@ -1864,6 +1866,8 @@ try {
   assert.match(referencedContext.content, /Blonde hair and a blue summer dress\./u);
   assert.match(referencedContext.content, /REFERENCED_LOREBOOK_MEMORY/u);
   assert.doesNotMatch(referencedContext.content, /REFERENCED_GREETING_MUST_STAY_OUT/u);
+  // #8582: a referenced card's creator notes are never sent.
+  assert.doesNotMatch(referencedContext.content, /REFERENCED_CREATOR_NOTES_MUST_STAY_OUT|creator_notes/u);
   assert.match(referencedContext.content, /REFERENCED_EXAMPLE_SHOULD_APPEAR/u);
 
   const referencedPersonaContext = await buildReferencedPersonaContext({
@@ -1891,6 +1895,7 @@ try {
   assert.match(referencedPersonaContext.content, /Warm, incisive, and knowingly amused\./u);
   assert.match(referencedPersonaContext.content, /with Ada\./u);
   assert.match(referencedPersonaContext.content, /REFERENCED_PERSONA_LOREBOOK_MEMORY/u);
+  assert.doesNotMatch(referencedPersonaContext.content, /PERSONA_CREATOR_NOTES_MUST_STAY_OUT|creator_notes/u);
 
   const activePersonaReferenceContext = await buildReferencedPersonaContext({
     db,
@@ -3880,6 +3885,29 @@ try {
     apply: true,
   });
   assert.equal(ambiguousFolderMoveResult.ok, false, "Duplicate folder names must require an explicit folder ID");
+  assert.match(String(ambiguousFolderMoveResult.error), /send the folderId from character.folder.list/);
+
+  // #7949: a folder miss points to the list and never to a create action, which does not exist.
+  const unknownFolderNameResult = await mariDb.executeAction({
+    action: "character.moveToFolder",
+    characterId,
+    folderName: "Nowhere Folder",
+    apply: true,
+  });
+  assert.equal(unknownFolderNameResult.ok, false);
+  assert.match(
+    String(unknownFolderNameResult.error),
+    /No character folder is named "Nowhere Folder". List folders with character.folder.list; folders are created in the UI only/,
+  );
+  assert.doesNotMatch(String(unknownFolderNameResult.error), /folder.create/);
+  const unknownFolderIdResult = await mariDb.executeAction({
+    action: "character.moveToFolder",
+    characterId,
+    folderId: "character-folder-missing",
+    apply: true,
+  });
+  assert.equal(unknownFolderIdResult.ok, false);
+  assert.match(String(unknownFolderIdResult.error), /No character folder has the id "character-folder-missing"./);
   const duplicateFoldersAfterAmbiguousMove = (await db.select().from(characterGroups)).filter((folder) =>
     folder.id.startsWith("character-folder-duplicate-"),
   );
@@ -5304,7 +5332,7 @@ const rootPackageJson = JSON.parse(readFileSync(new URL("../../package.json", im
 assert.match(serverPackageJson.scripts?.dev ?? "", /--ignore \.\.\/shared\/dist/u);
 assert.match(
   rootPackageJson.scripts?.["dev:server"] ?? "",
-  /^pnpm build:shared && pnpm --filter @marinara-engine\/server dev$/u,
+  /^node \.\/scripts\/pnpm-runner\.mjs build:shared && node \.\/scripts\/pnpm-runner\.mjs --filter @marinara-engine\/server dev$/u,
   "The server-only development command must establish shared build output first",
 );
 assert.equal(resolveDevSharedBuildScript({ DEV_PRESERVE_SHARED_DIST: "true" }), "build:preserve");
@@ -5624,12 +5652,16 @@ assert.match(
   /enterToSendProfessorMari/u,
   "Professor Mari must read her persisted Send on Enter preference",
 );
-// One composer since the floating-mode branch was removed (f27ce165b).
+// One composer since the floating-mode branch was removed (f27ce165b). Its keys route through
+// composerKeyAction (#7913), which composer-triggers.regression.ts checks case by case.
 assert.equal(
-  mariChatAllSource.match(
-    /event\.key === "Enter" &&\s*!event\.shiftKey &&\s*\(enterToSend \|\| event\.metaKey \|\| event\.ctrlKey\)/gu,
-  )?.length,
+  mariChatAllSource.match(/composerKeyAction\(\{/gu)?.length,
   1,
+  "Professor Mari's composer must route its keys through composerKeyAction",
+);
+assert.match(
+  readFileSync(new URL("../../packages/client/src/lib/composer-triggers.ts", import.meta.url), "utf8"),
+  /if \(input\.enterToSend\) \{\s*if \(!input\.shiftKey\) return modifier \? "queue" : "send";\s*\} else if \(modifier\) \{\s*return input\.shiftKey \? "queue" : "send";/u,
   "Professor Mari's composer must preserve Shift+Enter and require the configured send shortcut",
 );
 assert.match(professorMariHomeSource, /toggleProfessorChatSelection/u);
@@ -5706,7 +5738,7 @@ assert.match(
   professorMariHomeSource,
   // #5725 strengthened this guard: it also rejects responses requested for a
   // previous chat and holds mode fields across pending mode writes.
-  /const refreshWorkspaceStatus = useCallback\(\s*async \(shouldApply\?: \(\) => boolean\)[\s\S]{0,700}if \(shouldApply\?\.\(\) === false \|\| activeChatIdRef\.current !== chatIdAtStart\) return status;[\s\S]{0,900}setWorkspaceStatus\(/u,
+  /const refreshWorkspaceStatus = useCallback\(\s*async \(shouldApply\?: \(\) => boolean\)[\s\S]{0,800}if \(shouldApply\?\.\(\) === false \|\| activeChatIdRef\.current !== chatIdAtStart\) return status;[\s\S]{0,900}setWorkspaceStatus\(/u,
   "Professor Mari workspace status loads must recheck an operation guard before applying a response",
 );
 assert.match(
@@ -5849,8 +5881,7 @@ assert.match(
   /resolveFeatureAgentPackage\(selectedFeatureAgent, installedCapabilities\.data \?\? \[\]\)/u,
 );
 assert.match(featureAgentDetailHostSource, /mari-editor-shell mari-editor-legacy-bridge/u);
-assert.match(featureAgentDetailHostSource, /<header className="mari-editor-header">/u);
-assert.match(featureAgentDetailHostSource, /<Sparkles size="1\.125rem"/u);
+assert.match(featureAgentDetailHostSource, /<AgentDetailHeader\b/u);
 assert.doesNotMatch(featureAgentDetailHostSource, /\bPuzzle\b/u);
 assert.doesNotMatch(featureAgentDetailHostSource, /featureagentdetailhost\.feature"/u);
 assert.match(
@@ -5888,7 +5919,7 @@ assert.match(
 assert.equal(
   roleplaySurfaceSource.match(/mergedGroupCharacterIds=\{activeChatCharacterIds\}/gu)?.length,
   6,
-  "Classic and VN historical, regenerating, and streaming Narrator messages must share the active avatar list",
+  "Classic and VN historical, regenerating, and streaming Narrator messages must all receive the live active roster; saved replies keep their own (#8762)",
 );
 assert.match(
   chatMessageSource,
@@ -6248,6 +6279,14 @@ const characterEditorSource = readFileSync(
   new URL("../../packages/client/src/components/characters/CharacterEditor.tsx", import.meta.url),
   "utf8",
 );
+const cardEditorSource = readFileSync(
+  new URL("../../packages/client/src/components/cards/CardEditor.tsx", import.meta.url),
+  "utf8",
+);
+const cardColorsSource = readFileSync(
+  new URL("../../packages/client/src/components/cards/CardColors.tsx", import.meta.url),
+  "utf8",
+);
 const personaEditorSource = readFileSync(
   new URL("../../packages/client/src/components/personas/PersonaEditor.tsx", import.meta.url),
   "utf8",
@@ -6439,6 +6478,10 @@ const connectionsPanelSource = readFileSync(
   new URL("../../packages/client/src/components/panels/ConnectionsPanel.tsx", import.meta.url),
   "utf8",
 );
+const deviceDetailSource = readFileSync(
+  new URL("../../packages/client/src/components/connections/DeviceDetail.tsx", import.meta.url),
+  "utf8",
+);
 const presetsPanelSource = readFileSync(
   new URL("../../packages/client/src/components/panels/PresetsPanel.tsx", import.meta.url),
   "utf8",
@@ -6537,6 +6580,8 @@ assert.match(recentChatsSource, /index === 3 && "hidden md:block"/u);
 assert.match(recentChatsSource, /index >= 4 && "hidden"/u);
 assert.match(globalStyles, /@container \(min-width: 36rem\)[\s\S]*data-component="RecentChats"/u);
 for (const editorSource of [characterEditorSource, personaEditorSource]) {
+  assert.match(editorSource, /<CardEditor\b/u);
+  assert.match(editorSource, /<CardColors\b/u);
   assert.match(editorSource, /grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4/u);
   assert.match(editorSource, /onClick=\{\(\) => void handleDelete\(lightbox\)\}/u);
   assert.match(editorSource, /loading="lazy"\s+decoding="async"/u);
@@ -6558,7 +6603,7 @@ assert.match(
   globalStyles,
   /\.mari-gallery-card \{\s*content-visibility: auto;\s*contain-intrinsic-size: auto 12rem;\s*\}/u,
 );
-assert.match(characterEditorSource, /ui\.characters\.colorstab\.value1AvatarPreview/u);
+assert.match(cardColorsSource, /ui\.characters\.colorstab\.value1AvatarPreview/u);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
 assert.match(characterEditorSource, /downloadSpriteFile/u);
 assert.match(personaEditorSource, /downloadSpriteFile/u);
@@ -6611,7 +6656,10 @@ assert.match(
 );
 assert.match(characterEditorSource, /if \(uploading \|\| !expression\) return;/u);
 assert.match(personaEditorSource, /if \(uploading \|\| !expression\) return;/u);
-assert.match(characterEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
+assert.match(
+  characterEditorSource,
+  /className="grid grid-cols-2 items-stretch gap-2 md:flex md:flex-wrap md:items-center"/u,
+);
 assert.match(personaEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
 assert.match(fileDownloadSource, /MarinaraAndroid/u);
 assert.match(spriteDownloadSource, /saveBlobToDevice/u);
@@ -6642,7 +6690,7 @@ assert.match(
   "The New Chat parameter toggle must stay within its card when Android enlarges text",
 );
 assert.match(
-  characterEditorSource,
+  cardEditorSource,
   /"mari-editor-avatar-tile group relative"/u,
   "The Metadata avatar preview must contain absolutely positioned saved crops",
 );
@@ -6652,14 +6700,9 @@ assert.match(
   "The shared editor avatar upload target must contain absolutely positioned crops",
 );
 assert.equal(
-  characterEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
+  cardEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
   1,
-  "The Character header avatar inside its upload target must not intercept page clicks",
-);
-assert.equal(
-  personaEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
-  1,
-  "The Persona header avatar inside its upload target must not intercept page clicks",
+  "The shared header avatar inside its upload target must not intercept page clicks",
 );
 assert.match(gameJournalSource, /data-game-journal-scroll/u);
 assert.match(gameJournalSource, /\/game\/\$\{chatId\}\/journal\/entries\/\$\{editingEntry\.index\}/u);
@@ -6890,13 +6933,18 @@ assert.match(sidecarStoreSource, /loadModel: async \(\) =>/u);
 assert.match(sidecarProcessSource, /private manuallyUnloaded = false/u);
 assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
 assert.match(sidecarProcessSource, /this\.manuallyUnloaded = false;\s*this\.clearStartupFailure\(\)/u);
-assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.failedToDeleteTheLocalWhisperModel/u);
-assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.unloadLocalModel/u);
-assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.loadLocalModel/u);
+assert.match(deviceDetailSource, /connections\.device\.whisper\.deleteFailed/u);
+assert.match(deviceDetailSource, /connections\.device\.unloadModel/u);
+assert.match(deviceDetailSource, /connections\.device\.loadModel/u);
 assert.match(
   connectionsPanelSource,
-  /className="grid min-w-0 grid-cols-2 gap-2"/u,
-  "LinkAPI actions must share the available banner width instead of overflowing it",
+  /className="grid grid-cols-\[repeat\(auto-fill,minmax\(8\.5rem,1fr\)\)\] gap-2"/u,
+  "First-run provider actions must share the panel width in an adaptive grid",
+);
+assert.match(
+  connectionsPanelSource,
+  /FIRST_RUN_SERVICES\.map\([\s\S]*?data-add-connection-service=\{service\}[\s\S]*?className="[^"]*min-w-0[^"]*"/u,
+  "First-run provider buttons must shrink within their grid cells",
 );
 assert.equal(
   resolvePresetArtwork({ name: "Marinara's Universal Preset", author: "Marinara" }),
@@ -6970,7 +7018,9 @@ const markdownMessageStyles = [...globalStyles.matchAll(/^\.mari-message-content
 const markdownMessageContainerStyles =
   globalStyles.match(/\.mari-message-body,\s*\.mari-message-bubble \{[\s\S]*?\}/u)?.[0] ?? "";
 const markdownCodeBlockStyles =
-  globalStyles.match(/\.mari-message-content \.mari-md-codeblock \{[\s\S]*?\}/u)?.[0] ?? "";
+  globalStyles.match(/^\.mari-message-content \.mari-md-codeblock \{[^{}]*\}/mu)?.[0] ?? "";
+const markdownCodeChildStyles =
+  globalStyles.match(/^\.mari-message-content \.mari-md-codeblock code \{[^{}]*\}/mu)?.[0] ?? "";
 assert.match(markdownMessageStyles, /min-width:\s*0;/u);
 assert.match(markdownMessageStyles, /max-width:\s*100%;/u);
 assert.match(markdownMessageStyles, /overflow-wrap:\s*anywhere;/u);
@@ -6979,11 +7029,13 @@ assert.match(markdownMessageContainerStyles, /max-width:\s*100%;/u);
 assert.match(markdownCodeBlockStyles, /box-sizing:\s*border-box;/u);
 assert.match(markdownCodeBlockStyles, /width:\s*100%;/u);
 assert.match(markdownCodeBlockStyles, /max-width:\s*100%;/u);
-assert.match(markdownCodeBlockStyles, /overflow-x:\s*auto;/u);
-assert.match(
-  globalStyles,
-  /@media \(max-width: 767px\) \{[\s\S]*?\.mari-message-content \.mari-md-codeblock \{[\s\S]*?overflow-x:\s*hidden;[\s\S]*?white-space:\s*pre-wrap;/u,
-);
+assert.match(markdownCodeBlockStyles, /overflow-x:\s*hidden;/u);
+assert.match(markdownCodeBlockStyles, /overflow-wrap:\s*anywhere;/u);
+assert.match(markdownCodeBlockStyles, /white-space:\s*pre-wrap;/u);
+assert.match(markdownCodeChildStyles, /white-space:\s*inherit;/u);
+for (const media of globalStyles.matchAll(/^@media \(max-width: 767px\) \{[\s\S]*?^\}/gmu)) {
+  assert.doesNotMatch(media[0], /\.mari-message-content \.mari-md-codeblock\b/u);
+}
 assert.match(localNotificationsSource, /window\.isSecureContext === false/u);
 assert.match(localNotificationsSource, /NotificationPermission \| "insecure" \| "unsupported"/u);
 const browserNotificationHelpSource =
@@ -7646,8 +7698,6 @@ assert.match(
 const projectionState = {
   ...useUIStore.getState(),
   showHomeBrowserAddressBar: false,
-  showHomeBrowserDesktopBookmarksOnOtherTabs: false,
-  showHomeBrowserMobileBookmarksOnOtherTabs: false,
   enterToSendGame: false,
   enterToSendProfessorMari: false,
   chatHelpSeenModes: ["game"] as ChatMode[],
@@ -7656,16 +7706,6 @@ assert.equal(
   pickSyncedSettings(projectionState).showHomeBrowserAddressBar,
   false,
   "Home URL bar visibility must be saved per installation",
-);
-assert.equal(
-  pickSyncedSettings(projectionState).showHomeBrowserDesktopBookmarksOnOtherTabs,
-  false,
-  "Home desktop bookmark visibility must be saved per installation",
-);
-assert.equal(
-  pickSyncedSettings(projectionState).showHomeBrowserMobileBookmarksOnOtherTabs,
-  false,
-  "Home mobile bookmark visibility must be saved per installation",
 );
 assert.equal(
   pickSyncedSettings(projectionState).enterToSendGame,
@@ -9525,8 +9565,8 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(
     connectionEditorSource,
-    /setRemoteModels\(\[\]\);[\s\S]{0,120}setRemoteLoras\(\[\]\);[\s\S]{0,120}setFetchError\(null\);/u,
-    "Changing media providers must clear stale remote LoRA choices",
+    /remoteLoras = useMemo\(\(\) => modelList\.data\?\.loras \?\? \[\], \[modelList\.data\]\)/u,
+    "Remote LoRA choices must come from the current model list, so a provider change cannot leave stale ones",
   );
   assert.match(
     connectionEditorSource,
@@ -9850,7 +9890,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
 // actions and Conversation Call duration rows size from their panel width.
 {
   const sidebarPanelSources = new Map(
-    ["Characters", "Personas", "Lorebooks", "Agents", "Presets", "Connections"].map((panelName) => [
+    ["Characters", "Personas", "Lorebooks", "Agents", "Presets"].map((panelName) => [
       panelName,
       readFileSync(join(REPOSITORY_ROOT, `packages/client/src/components/panels/${panelName}Panel.tsx`), "utf8"),
     ]),
@@ -9859,7 +9899,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   for (const [panelName, source] of sidebarPanelSources) {
     assert.match(
       source,
-      /max-md:pr-(?:14|16|20|24|32|36) \[@media\(pointer:coarse\)\]:pr-(?:14|16|20|24|32|36)/u,
+      /max-md:pr-(?:10|14|16|20|24|32|36|\[4\.5rem\]) \[@media\(pointer:coarse\)\]:pr-(?:10|14|16|20|24|32|36|\[4\.5rem\])/u,
       `${panelName} rows must reserve action space only for touch layouts`,
     );
     assert.doesNotMatch(
@@ -9891,6 +9931,32 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
       `${panelName} must keep every focused fine-pointer action overlay interactive`,
     );
   }
+
+  // Connection Model rows (variant D): the star and "…" stay visible, so nothing overlays the row, and touch
+  // layouts get 44 px targets.
+  const connectionRowSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/connections/ConnectionRow.tsx"),
+    "utf8",
+  );
+  const modelRowSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/connections/ModelRow.tsx"),
+    "utf8",
+  );
+  for (const source of [connectionRowSource, modelRowSource]) {
+    assert.doesNotMatch(source, /opacity-0|group-hover:/u, "Connection rows must not hide actions behind hover");
+  }
+  // Row buttons use the shared chrome icon class, which grows to 44 px on phones and touch screens.
+  assert.match(connectionRowSource, /ROW_BUTTON = "mari-chrome-control[^"]*mari-chrome-control--icon[^"]*"/u);
+  const connectionStyles = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/styles/globals.css"), "utf8");
+  assert.match(
+    connectionStyles,
+    /@media \(max-width: 47\.9375rem\), \(pointer: coarse\) \{[^}]*\.mari-connection-scope \.mari-chrome-control[^}]*min-height: 2\.75rem/u,
+  );
+  assert.match(
+    connectionStyles,
+    /@media \(max-width: 47\.9375rem\), \(pointer: coarse\) \{[\s\S]*?\.mari-connection-scope \.mari-chrome-control--icon \{[^}]*width: 2\.75rem/u,
+    "Connection icon buttons must retain a 44 px touch width",
+  );
 
   const personasPanelSource = sidebarPanelSources.get("Personas")!;
   const charactersPanelSource = sidebarPanelSources.get("Characters")!;
@@ -10583,7 +10649,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.match(turnGameCommandRuntimeSource, /debugLog: args\.debugLog/u);
   assert.match(
     turnGameBotRunnerSource,
-    /args\.debugLog\?\.\([\s\S]*?JSON\.stringify\(moveMessages, null, 2\)[\s\S]*?provider\.chatComplete\(moveMessages/u,
+    /args\.debugLog\?\.\([\s\S]*?debugJson\(moveMessages\)[\s\S]*?provider\.chatComplete\(moveMessages/u,
     "Turn-game bot moves must log the final provider prompt immediately before submission",
   );
 }
@@ -10821,5 +10887,11 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     "Lorebook Keeper backfill results retain each target message and swipe anchor",
   );
 }
+
+// A closed story ending (Capability API 1.343) stays closed when the game surface mounts again: the close
+// is kept in this browser by game and ending, and read back before the ending is shown.
+assert.match(gameSurfaceSource, /localStorage\.setItem\(`story-ending-closed:\$\{storyEndingKey\}`, "1"\)/u);
+assert.match(gameSurfaceSource, /readIntroPresentedFlag\(`story-ending-closed:\$\{storyEndingKey\}`\)/u);
+assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!storyEndingClosedBefore &&/u);
 
 console.info("Open-issue regressions passed.");

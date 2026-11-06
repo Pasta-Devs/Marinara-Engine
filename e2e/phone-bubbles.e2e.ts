@@ -158,10 +158,11 @@ async function expectComposerClearAndNoSideScroll(page: Page) {
       };
     };
     // A message box that mounts late, or a screen change, moves the open Chat tools menu, and Framer glides its
-    // rows there with inline transforms (no Web Animation to await). Measure after a few still frames.
+    // rows there with inline transforms (no Web Animation to await). Measure after a few still frames. The cap only
+    // ends a menu that never settles: slow CI WebKit draws few frames a second, so its glide outlasted 3 s.
     let latest = measure();
     let still = 0;
-    for (const start = performance.now(); still < 3 && performance.now() - start < 3_000;) {
+    for (const start = performance.now(); still < 3 && performance.now() - start < 10_000;) {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const next = measure();
       still = JSON.stringify(next) === JSON.stringify(latest) ? still + 1 : 0;
@@ -506,19 +507,31 @@ test.describe("phone bubbles", () => {
           await page.mouse.move(start.x, start.y);
           await page.mouse.down();
         }
+        const moveTo = async (point: { x: number; y: number }) => {
+          if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
+          else await page.mouse.move(point.x, point.y);
+        };
         try {
           // Keep the pointer down before moving to exercise the reported held-drag path.
           await page.waitForTimeout(600);
           for (let step = 1; step <= 16; step++) {
-            const point = {
+            await moveTo({
               x: start.x + ((end.x - start.x) * step) / 16,
               y: start.y + ((end.y - start.y) * step) / 16,
-            };
-            if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
-            else await page.mouse.move(point.x, point.y);
+            });
             await page.waitForTimeout(16);
           }
-          await expect.poll(order).toEqual(expected);
+          // Framer's Reorder moves a tool one place per pointer move and ignores moves that arrive before its last
+          // move has rendered, so a slow page (CI run 42029653525 painted no frame for 2.5s mid-drag) is left short
+          // once the sweep stops. Keep the finger sliding a pixel at a time, as a real one does, until it catches up.
+          let y = end.y;
+          await expect
+            .poll(async () => {
+              const current = await order();
+              if (current.join() !== expected.join()) await moveTo({ x: end.x, y: (y += Math.sign(end.y - start.y)) });
+              return current;
+            })
+            .toEqual(expected);
         } finally {
           if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
           else await page.mouse.up();

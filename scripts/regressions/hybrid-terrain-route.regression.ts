@@ -183,8 +183,10 @@ try {
   assert.equal(state.units[0].movementMode, "fly");
   assert.deepEqual(state.battlefield, {
     kind: "generated",
-    generatorVersion: 2,
+    generatorVersion: 3,
     size: "large",
+    // Shaped boards (generator 3): this seed draws a broken outline.
+    outline: "broken",
     brief: {
       size: "large",
       features: [{ terrain: "forest", placement: "center", shape: "patch" }],
@@ -267,7 +269,11 @@ try {
   assert.deepEqual(invalidTerrainInput, invalidTerrainSnapshot);
   assert.equal(recoverableTerrain.ok, true);
   if (recoverableTerrain.ok) {
-    assert.equal(recoverableTerrain.blueprint.battlefield?.terrainBrief, undefined);
+    // A barrier of terrain that does not block is made a wall, not the whole brief thrown away (laptop
+    // interim 2026-10-26), and the error still says what was wrong.
+    assert.deepEqual(recoverableTerrain.blueprint.battlefield?.terrainBrief, {
+      features: [{ terrain: "wall", placement: "center", shape: "barrier" }],
+    });
     assert.match(recoverableTerrain.blueprint.battlefield?.terrainBriefError ?? "", /barrier features/i);
     assert.notEqual(recoverableTerrain.blueprint.battlefield, invalidTerrainInput.battlefield);
   }
@@ -296,7 +302,7 @@ try {
   assert.equal(validTerrainInput.battlefield.terrainBriefError, "model-authored spoof");
 
   const invalidProfile = structuredClone(state);
-  invalidProfile.units[0].tactics.category = "beast";
+  invalidProfile.units[0].tactics.mind = "mindless";
   invalidProfile.units[0].tactics.adjective = "cautious";
   const rejectedProfile = await app.inject({
     method: "POST",

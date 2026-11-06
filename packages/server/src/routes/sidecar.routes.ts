@@ -4,7 +4,7 @@
 // ──────────────────────────────────────────────
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
-import { logger, logDebugOverride } from "../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import { z } from "zod";
 import { sidecarModelService } from "../services/sidecar/sidecar-model.service.js";
 import { validateLocalGgufPath } from "../services/sidecar/sidecar-model-files.js";
@@ -118,6 +118,7 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
   const configSchema = z.object({
     useForTrackers: z.boolean().optional(),
     useAsAgentsDefault: z.boolean().optional(),
+    useAsMainDefault: z.boolean().optional(),
     useForGameScene: z.boolean().optional(),
     contextSize: z.number().int().min(512).optional(),
     maxTokens: z.number().int().min(64).optional(),
@@ -543,7 +544,7 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
         createResponseAbortSignal(reply, "Sidecar scene analysis"),
       );
       if (debugLogsEnabled) {
-        debugLog("[debug/game/scene-analysis:sidecar] parsed model response:\n%s", JSON.stringify(raw, null, 2));
+        debugLog("[debug/game/scene-analysis:sidecar] parsed model response:\n%s", debugJson(raw));
       }
 
       const ppCtx: PostProcessContext = {
@@ -608,7 +609,7 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
       result.ambient = scoredAmbient ?? null;
 
       if (debugLogsEnabled) {
-        debugLog("[debug/game/scene-analysis:sidecar] final result:\n%s", JSON.stringify(result, null, 2));
+        debugLog("[debug/game/scene-analysis:sidecar] final result:\n%s", debugJson(result));
       }
 
       return { result };

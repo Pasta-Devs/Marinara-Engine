@@ -103,6 +103,8 @@ test("Game finishes a rolled turn in one request, and leaves the shipped two-req
             gameSessionStatus: "active",
             gameIntroPresented: true,
             gameImageAutoGenerationEnabled: false,
+            // On by default; this test starts from the switch turned off.
+            gameOneRequestDice: false,
             enableAgents: false,
             enableTools: false,
           },
@@ -179,7 +181,7 @@ test("Game finishes a rolled turn in one request, and leaves the shipped two-req
     const narration = page.locator('[data-component="GameNarration.ActivePanel"]');
     await expect(narration).toContainText("A guard paces the warehouse floor.");
 
-    // ── The switch renders, defaults off, and the narration toggle is live beside it ──
+    // ── The switch renders off, and the narration toggle is live beside it ──
     let section = await openTools();
     const oneRequest = () => section.getByLabel("Finish rolled turns in one request", { exact: true });
     const narrateOutcomes = () => section.getByLabel("Narrate dice outcomes immediately", { exact: true });
@@ -264,8 +266,10 @@ test("Game finishes a rolled turn in one request, and leaves the shipped two-req
     expect(notice).not.toHaveProperty("passFailed");
 
     // A placeholder roll deliberately pops no full-screen dice card: a damage number
-    // burying the narration it belongs to would be worse than no card at all.
-    await expect(page.locator(".dice-roll-card--game")).toHaveCount(0);
+    // burying the narration it belongs to would be worse than no card at all. The check's
+    // own banner comes up once the turn is read, and its dice tray has the same class, so
+    // the banner's tray is not counted.
+    await expect(page.locator(".dice-roll-card--game:not(.skill-check-roll--game *)")).toHaveCount(0);
     await dismissCards();
 
     // ── The inline markers, and the dice history ──

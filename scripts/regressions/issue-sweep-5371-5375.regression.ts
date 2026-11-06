@@ -60,12 +60,19 @@ assert.equal(
 );
 assert.doesNotMatch(mariChatAll, /mari-workspace-focusbar/u, "The omnibar must not mount a second Mari header");
 assert.doesNotMatch(mariChatAll, /OmnibarIntro/u, "The empty omnibar must not mount the long first-open intro");
-// Like other agents, the composer's Send button turns into Stop while Mari works, and it is the one Stop
-// control: the header and the live work line no longer carry their own.
+// While Mari works the composer shows one button: a labelled Stop on an empty field, Send once there is a message,
+// and that Send opens the now / after-her-answer choice. Stop is the one Stop control: the header and the live work
+// line no longer carry their own.
 assert.match(
   mariComposerSource,
-  /data-mode=\{workspaceTimelineActive \? "stop" : "send"\}[\s\S]{0,900}stopProfessorMariWorkspaceAgent/u,
-  "The composer's Send button must turn into a labelled Stop while Mari works",
+  /\{workspaceTimelineActive && !canSubmitMessage \? \([\s\S]{0,300}stopProfessorMariWorkspaceAgent[\s\S]{0,300}\) : workspaceTimelineActive \? \([\s\S]{0,400}setSendMenuOpen[\s\S]{0,1600}\) : \([\s\S]{0,100}type="submit"/u,
+  "While Mari works the composer must show Stop on an empty field and a Send that opens the choice otherwise",
+);
+assert.doesNotMatch(mariComposerSource, /send-more/u, "The send chevron is gone; Send itself opens the choice");
+assert.match(
+  mariComposerSource,
+  /title=\{t\("mari\.queue\.later"\)\}[\s\S]{0,200}handleSubmit\(undefined, undefined, undefined, true\)/u,
+  "Send after her answer must queue the message instead of steering",
 );
 assert.doesNotMatch(mariChatAll, /mari-omnibar-header-stop|mari-live-work__stop/u, "Stop lives only in the composer");
 assert.match(

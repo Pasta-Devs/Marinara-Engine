@@ -21,6 +21,8 @@ export async function forwardPromptPreview(
   delete headers["transfer-encoding"];
   // The internal hop is a local call, not a proxied visitor, and the outer route already passed CSRF.
   for (const header of PROXY_FORWARDING_HEADERS) delete headers[header];
+  delete headers.host;
+  delete headers[":authority"];
   delete headers.origin;
   delete headers.referer;
   delete headers["sec-fetch-site"];

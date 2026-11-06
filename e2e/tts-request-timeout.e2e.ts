@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { openDefaultsTile, ttsConfigCard } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -38,18 +39,11 @@ test("Request timeout saves on the Text to Speech card and on an audio connectio
       await testInfo.attach(name, { path, contentType: "image/png" });
     };
 
+    // #8456 took the Text to Speech card out of the Connections panel; its settings open in the Add window.
     const openCard = async () => {
       await page.goto("/");
-      await page.evaluate(async () => {
-        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-        useUIStore.getState().openRightPanel("connections");
-      });
-      const card = page
-        .locator('[data-component="RightPanel"]')
-        .getByText("Text to Speech", { exact: true })
-        .locator("xpath=../../..");
-      await card.getByTitle("Expand").click();
-      return card.getByLabel("Request timeout (seconds)", { exact: true });
+      await openDefaultsTile(page, "voice");
+      return ttsConfigCard(page).getByLabel("Request timeout (seconds)", { exact: true });
     };
     const cardTimeout = await openCard();
     await expect(cardTimeout).toHaveValue("60");

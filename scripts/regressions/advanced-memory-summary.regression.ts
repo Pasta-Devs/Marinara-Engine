@@ -27,6 +27,10 @@ let partial = false;
 let sceneNeedsReasoningBudget = true;
 const summary = "Maukie promised to return the compass before dawn.";
 let summaryResponse = summary;
+// Long-Term Memory's block (#8589): the mock answers the package's instruction with a numbered block.
+const LTM_INSTRUCTION = "LTM_BLOCK_INSTRUCTION: list the scene's facts.";
+let ltmReplyBlock = true;
+const ltmBlocks: string[] = [];
 const server = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -64,7 +68,13 @@ const server = createServer(async (request, response) => {
       ? partial
         ? '{"summary":"Maukie promised to return'
         : ""
-      : JSON.stringify({ summary: summaryResponse, audience: "all" });
+      : JSON.stringify({
+          summary: summaryResponse,
+          audience: "all",
+          ...(ltmReplyBlock && body.instructions?.includes(LTM_INSTRUCTION)
+            ? { memory: ltmBlocks[ltmBlocks.push(`LTM_BLOCK_${ltmBlocks.length + 1}`) - 1] }
+            : {}),
+        });
   }
   response.end(
     JSON.stringify({
@@ -99,6 +109,10 @@ const { createAdvancedMemoryService } = await import("../../packages/server/src/
 const { createConnectionSchema } = await import("../../packages/shared/src/schemas/connection.schema.ts");
 const { DEFAULT_ADVANCED_MEMORY_SETTINGS } = await import("../../packages/shared/src/types/advanced-memory.ts");
 const { measureContextBudget } = await import("../../packages/server/src/services/llm/base-provider.js");
+const { registerCapabilityService } =
+  await import("../../packages/server/src/services/capability-packages/capability-service-registry.service.js");
+const { createCapabilityPersistenceHost } =
+  await import("../../packages/server/src/services/capability-packages/capability-persistence.service.js");
 const require = createRequire(new URL("../../packages/server/package.json", import.meta.url));
 const app = require("fastify")();
 const db = await createFileNativeDB();
@@ -1481,6 +1495,136 @@ try {
     "canceling one joined caller does not abort shared preparation",
   );
   await connections.update(sceneOnly.connectionId!, { maxContext: 131_072 });
+  // Long-Term Memory's block rides on the scene summary only when the chat lists the package (#8589).
+  const ltmListed = { enableAgents: true, activeAgentIds: ["long-term-memory"] };
+  const sceneRow = async (chatId: string) => {
+    const scene = (await memory.status(chatId)).records.find(
+      (record) => record.kind === "scene" && record.status === "closed",
+    )!;
+    return (await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, scene.id)))[0]!;
+  };
+  const summaryRequests = (start: number) =>
+    requests.slice(start).filter((item) => !item.instructions?.startsWith("Identify scene transitions"));
+  const unlistedBefore = await createChat("LTM without its runtime");
+  await chats.patchMetadata(unlistedBefore.id, ltmListed);
+  let ltmStart = requests.length;
+  await memory.initialize(unlistedBefore.id);
+  assert(
+    summaryRequests(ltmStart).every((item) => !item.instructions?.includes('"memory"')),
+    "no runtime: the request is unchanged",
+  );
+  assert.equal((await sceneRow(unlistedBefore.id)).structuredMemory ?? null, null);
+  const releaseRuntime = registerCapabilityService(
+    "long-term-memory:runtime",
+    {
+      recall: async () => null,
+      recordPromptAccepted: async () => {},
+      summaryMemoryInstruction: () => LTM_INSTRUCTION,
+    },
+    { hostOnly: true },
+  );
+  try {
+    const unlisted = await createChat("LTM registered, chat without it");
+    ltmStart = requests.length;
+    await memory.initialize(unlisted.id);
+    assert(
+      summaryRequests(ltmStart).every((item) => !item.instructions?.includes(LTM_INSTRUCTION)),
+      "a chat that does not list Long-Term Memory sends the unchanged request",
+    );
+    assert.equal((await sceneRow(unlisted.id)).structuredMemory ?? null, null);
+
+    const listed = await createChat("LTM block with the scene summary");
+    await chats.patchMetadata(listed.id, ltmListed);
+    ltmStart = requests.length;
+    const blocksBefore = ltmBlocks.length;
+    await memory.initialize(listed.id);
+    const [ask] = summaryRequests(ltmStart);
+    assert(ask?.instructions?.includes(`Also return "memory" as a single string: ${LTM_INSTRUCTION}`));
+    assert(ask.instructions.includes(',"memory":"..."}'));
+    const listedRow = await sceneRow(listed.id);
+    assert.equal(ltmBlocks.length, blocksBefore + 1);
+    assert.equal(listedRow.structuredMemory, ltmBlocks.at(-1), "the block is stored untouched");
+    assert.equal(listedRow.content, summary, "the recap is unchanged by the block");
+    const [packageView] = (await createCapabilityPersistenceHost(db).listChatSummaries!(listed.id)).advancedMemory;
+    assert.equal(packageView?.memory, ltmBlocks.at(-1), "packages read the block through listChatSummaries");
+    const transferred = JSON.stringify(await memory.exportTransferRecords(listed.id));
+    assert(!transferred.includes("LTM_BLOCK_") && !transferred.includes("structuredMemory"), "transfers omit it");
+    await memory.updateRecord(listed.id, listedRow.id, { content: "A hand-written recap." });
+    assert.equal((await sceneRow(listed.id)).structuredMemory, null, "a hand edit clears the old block");
+
+    ltmReplyBlock = false;
+    const noBlock = await createChat("LTM reply without a block");
+    await chats.patchMetadata(noBlock.id, ltmListed);
+    await memory.initialize(noBlock.id);
+    assert.equal((await sceneRow(noBlock.id)).structuredMemory, null, "a reply without the block stores null");
+    ltmReplyBlock = true;
+
+    // A scene summarized again writes its block with the recap: a reply without one clears the old block,
+    // and the preparation record saved between the parts leaves a stored block alone.
+    const again = await createChat("LTM block replaced when the scene is summarized again");
+    await chats.patchMetadata(again.id, ltmListed);
+    await chats.updateMessageContent((await chats.listMessages(again.id))[0]!.id, "漢あ한𠀀😀".repeat(4000));
+    await memory.initialize(again.id);
+    const firstRow = await sceneRow(again.id);
+    assert(firstRow.structuredMemory?.startsWith("LTM_BLOCK_"));
+    // A changed chat variable outdates the recap, so Fix summarizes the scene again on the same row.
+    await db
+      .update(advancedMemoryRecords)
+      .set({ dependencies: JSON.stringify([{ id: "macro-variables", revision: "outdated" }]) })
+      .where(eq(advancedMemoryRecords.id, firstRow.id));
+    const firstRowDependencies = JSON.stringify([{ id: "macro-variables", revision: "outdated" }]);
+    let secondRequests = 0;
+    let blockDuringWork: string | null | undefined;
+    beforeSummary = async function readBetweenParts() {
+      // The second request follows the first part's saved preparation record, which sits on its own row.
+      if (++secondRequests === 2) {
+        const rows = await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.chatId, again.id));
+        assert(
+          rows.some((row) => row.id === `${firstRow.id}-preparation` && row.summaryWork),
+          "the preparation record is saved on its own row",
+        );
+        const old = rows.find((row) => row.id === firstRow.id)!;
+        blockDuringWork = old.structuredMemory;
+        assert.equal(old.content, firstRow.content, "the old recap stays until the new one is written");
+      } else beforeSummary = readBetweenParts;
+    };
+    ltmReplyBlock = false;
+    await memory.initialize(again.id, { fixAll: true });
+    ltmReplyBlock = true;
+    beforeSummary = undefined;
+    assert.equal(blockDuringWork, firstRow.structuredMemory, "the preparation record leaves the stored block");
+    const secondRow = await sceneRow(again.id);
+    assert.equal(secondRow.id, firstRow.id, "the scene is summarized again on the same row");
+    assert.notEqual(secondRow.dependencies, firstRowDependencies, "the recap was rewritten");
+    assert.equal(secondRow.structuredMemory, null, "a reply without the block clears the old one with the recap");
+    const [clearedView] = (await createCapabilityPersistenceHost(db).listChatSummaries!(again.id)).advancedMemory;
+    assert.equal(clearedView?.memory, null, "packages read memory: null");
+
+    const split = await createChat("LTM block from a scene summarized in parts");
+    await chats.patchMetadata(split.id, ltmListed);
+    const splitSource = await chats.listMessages(split.id);
+    await chats.updateMessageContent(splitSource[0]!.id, "漢あ한𠀀😀".repeat(4000));
+    ltmStart = requests.length;
+    const splitBlocks = ltmBlocks.length;
+    await memory.initialize(split.id);
+    const parts = summaryRequests(ltmStart);
+    const asked = parts.filter((item) => item.instructions?.includes(LTM_INSTRUCTION));
+    const combined = parts.filter((item) => !item.instructions?.includes(LTM_INSTRUCTION));
+    assert(asked.length > 1 && combined.length > 0, "the scene splits into parts and a combine request");
+    for (const item of combined) {
+      assert(!item.instructions?.includes('"memory"'), "the combine request does not ask for the block");
+      assert(!JSON.stringify(item.input).includes("LTM_BLOCK_"), "the combine request never sees the blocks");
+    }
+    assert.equal(
+      (await sceneRow(split.id)).structuredMemory,
+      ltmBlocks.slice(splitBlocks).join("\n\n"),
+      "each part's block is stored, joined by a blank line",
+    );
+  } finally {
+    releaseRuntime();
+    ltmReplyBlock = true;
+  }
+
   const restartChat = await chats.create({
     name: "Resume 19 saved summaries after a server restart",
     mode: "roleplay",

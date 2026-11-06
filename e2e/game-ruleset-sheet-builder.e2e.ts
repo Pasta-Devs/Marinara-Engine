@@ -213,7 +213,7 @@ async function openSheetEditor(page: Page, chatId: string) {
   await expect(portrait.or(members).first()).toBeVisible({ timeout: 30000 });
   if (await members.isVisible()) await members.click();
   await portrait.first().click();
-  await page.getByRole("button", { name: "Edit sheet", exact: true }).last().click();
+  await page.getByRole("button", { name: "Edit ruleset sheet", exact: true }).last().click();
 }
 
 test("the guided builder applies picks, rolls and buys scores, and saves the sheet", async ({ page, request }) => {
@@ -245,7 +245,8 @@ test("the guided builder applies picks, rolls and buys scores, and saves the she
       "aria-current",
       "step",
     );
-    await expect(steps.getByRole("button", { name: "Subrace Nothing left to choose", exact: true })).toBeVisible();
+    // A step that offers nothing yet is not walked through: no subrace before a race.
+    await expect(steps.getByRole("button", { name: /^Subrace/ })).toHaveCount(0);
     const summary = page.getByRole("complementary", { name: "Character" });
 
     // A new character opens on point buy, and features up to its level.
@@ -292,7 +293,8 @@ test("the guided builder applies picks, rolls and buys scores, and saves the she
     await expect(tongues.getByRole("button", { name: "Abyssal", exact: true })).toHaveCount(0);
     await tongues.getByRole("button", { name: "Elvish", exact: true }).click();
     await expect(tongues.getByRole("button", { name: "Giant", exact: true })).toBeDisabled();
-    await expect(steps.getByRole("button", { name: "Languages Nothing left to choose", exact: true })).toBeVisible();
+    // Done here, though it says the earlier steps still open come first.
+    await expect(steps.getByRole("button", { name: /^Languages Nothing left/ })).toBeVisible();
     await steps.getByRole("button", { name: /^Race/ }).click();
     await page.getByRole("button", { name: "Next", exact: true }).click();
     await page.getByRole("button", { name: "Select Hill Dwarf" }).click();
@@ -345,9 +347,7 @@ test("the guided builder applies picks, rolls and buys scores, and saves the she
     const skills = page.getByRole("group", { name: /Fighter: choose 2 skills/ });
     await skills.getByRole("button", { name: "Athletics", exact: true }).click();
     await skills.getByRole("button", { name: "Perception", exact: true }).click();
-    await expect(
-      steps.getByRole("button", { name: "Proficiencies Nothing left to choose", exact: true }),
-    ).toBeVisible();
+    await expect(steps.getByRole("button", { name: /^Proficiencies Nothing left/ })).toBeVisible();
 
     // All fields shows the same sheet.
     await page.getByRole("tab", { name: "All fields", exact: true }).click();
@@ -531,7 +531,10 @@ test("counted builder choices explain exclusions, replacements and conditional b
     await page.getByRole("button", { name: "Remove Talent 0", exact: true }).click();
     await expect(page.getByText(/Some saved answers no longer apply/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Remove Talent 2", exact: true })).toBeEnabled();
-    await expect(page.getByRole("button", { name: "Next", exact: true })).toBeEnabled();
+    // Nothing here blocks moving on. Talents is the last step asked (Languages offers nothing, and the
+    // Subrace waits on experience), so the way on is Back or a step above.
+    await expect(page.getByRole("button", { name: "Back", exact: true })).toBeEnabled();
+    await expect(steps.getByRole("button", { name: /^Details/ })).toBeEnabled();
     await steps.getByRole("button", { name: /^Details/ }).click();
     await page.getByRole("textbox", { name: "Experience points", exact: true }).fill("1");
     await page.getByRole("textbox", { name: "Experience points", exact: true }).press("Tab");
@@ -639,6 +642,8 @@ test("rating stages retain priority purchases, free ranks and manual overrides",
     chatId = await seedGame(request, rulesetId!, characterId!);
     await openSheetEditor(page, chatId);
     await page.getByRole("button", { name: "Select First heritage", exact: true }).click();
+    // A step that takes none or more asks for one first; a second is asked for.
+    await page.getByRole("button", { name: "Add another (Heritage)", exact: true }).click();
     await page.getByRole("button", { name: "Select Second heritage", exact: true }).click();
     const steps = page.getByRole("navigation", { name: "Character builder steps" });
     await steps.getByRole("button", { name: /^Ranks/ }).click();
@@ -677,7 +682,7 @@ test("rating stages retain priority purchases, free ranks and manual overrides",
     await page.getByRole("button", { name: "Save sheet", exact: true }).click();
     // Wait for the builder to close, or .last() can land on the character card's Edit sheet button.
     await expect(steps).toBeHidden();
-    await page.getByRole("button", { name: "Edit sheet", exact: true }).last().click();
+    await page.getByRole("button", { name: "Edit ruleset sheet", exact: true }).last().click();
     await steps.getByRole("button", { name: /^Dots/ }).click();
     await expect(page.getByLabel("Notes for Strength (optional)", { exact: true })).toHaveValue("Heritage specialty");
     await expect(page.getByText("Base/prior 1 · Free 0 · Bought 4 · Total 5", { exact: true })).toBeVisible();
@@ -824,7 +829,7 @@ test("priced builder purchases preserve free dots and preview career repricing",
     await page.getByRole("button", { name: "Save sheet", exact: true }).click();
     // Wait for the builder to close, or .last() can land on the character card's Edit sheet button.
     await expect(steps).toBeHidden();
-    await page.getByRole("button", { name: "Edit sheet", exact: true }).last().click();
+    await page.getByRole("button", { name: "Edit ruleset sheet", exact: true }).last().click();
     await steps.getByRole("button", { name: /^Purchases/ }).click();
     await expect(
       page.getByText("Starting/free 2 · Bought 4 · Requested total 6 · Paid 8", { exact: true }),

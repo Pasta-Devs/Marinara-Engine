@@ -1,3 +1,4 @@
+import type { AddJob } from "./add-connection";
 import {
   normalizeProfessorMariNavigationQuery,
   type ProfessorMariBrowserTab,
@@ -33,6 +34,8 @@ export type OmnibarCategory =
  */
 export type OmnibarAction =
   | { kind: "open-mari-chat"; chatId: string }
+  /** The Add window, filtered to a job; Done sets the new Model for it. */
+  | { kind: "add-connection"; job: AddJob }
   | { kind: "slash"; command: string }
   | { kind: "goto-message"; chatId: string; messageNumber: number }
   | { kind: "detach-from-chat"; resource: ChatResourceDragKind; resourceId: string; label: string }
@@ -471,6 +474,15 @@ function scoreText(query: string, values: readonly string[]) {
     }
     return Math.max(best, scoreSubsequence(query, normalized));
   }, -1);
+}
+
+/**
+ * The omnibar's match score for a raw query against a title and its aliases: 100 and up is a literal
+ * match, below 100 a typo or initials, -1 none. Professor Mari's `@` and `/` pickers rank with it too.
+ */
+export function scoreOmnibarText(query: string, values: readonly string[]) {
+  const normalized = normalizeProfessorMariNavigationQuery(query);
+  return normalized ? scoreText(normalized, values) : -1;
 }
 
 export type OmnibarAddTarget = {

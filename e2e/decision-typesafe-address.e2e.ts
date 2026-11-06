@@ -50,7 +50,7 @@ test("a TypeSafe Decision connection can be given another address, and Test uses
       useUIStore.getState().openConnectionDetail(id);
     }, id);
     const editor = page.locator(".mari-editor-shell");
-    await expect(editor.getByText(/To use another server that runs TypeSafe's API/u)).toBeVisible();
+    // #8456 dropped the "another server that runs TypeSafe's API" hint; the Base URL stays editable.
     const baseUrl = editor.getByPlaceholder("https://api.typesafe.ai", { exact: true });
     await baseUrl.scrollIntoViewIfNeeded();
     await expect(baseUrl).toBeEnabled();
@@ -60,14 +60,12 @@ test("a TypeSafe Decision connection can be given another address, and Test uses
     const path = testInfo.outputPath("decision-typesafe-address.png");
     await page.screenshot({ path, animations: "disabled" });
     await testInfo.attach("decision-typesafe-address", { path, contentType: "image/png" });
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await editor.getByRole("button", { name: "Test provider", exact: true }).click();
     await expect(editor.getByText(/Probability of yes: 0\.800/u)).toBeVisible();
     expect(received).toEqual([{ path: "/v1/systemone", authorization: "Bearer ts-e2e" }]);
     await expect.poll(async () => (await (await request.get(`/api/connections/${id}`)).json()).baseUrl).toBe(origin);
 
-    // OpenRouter stays on its own address.
-    await editor.locator("#decision-source").selectOption("openrouter");
-    await expect(baseUrl).toBeDisabled();
+    // #8456 shows the saved Decision source as fixed, so the editor no longer switches it to OpenRouter.
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   } finally {
     try {

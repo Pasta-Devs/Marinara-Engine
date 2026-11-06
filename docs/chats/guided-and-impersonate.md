@@ -1,140 +1,99 @@
 # Guided Generation and Impersonate
 
-This guide covers two ways to steer a chat in Marinara Engine. Guided generation points the AI in a direction without posting a visible message. Impersonate has the AI write your own reply for you. It also covers the Quick replies menu that puts both actions next to the Send button.
+Two ways to steer a chat. Guided generation points the next reply in a direction without posting a visible message. Impersonate has the model write your own reply. The Quick replies menu puts both next to **Send**.
 
-## Guided generation
+## Steer a reply with /guided
 
-Guided generation lets you tell the AI where to take the next reply. Your instruction is out of character. It steers the reply but does not appear as a normal chat message.
+Your direction is out of character. It shapes the reply but does not appear as a chat message.
 
-### Steering a reply with /guided
+1. Type `/guided` and your direction in the message box.
+2. Press <kbd>Enter</kbd> or click **Send**.
 
-The main way to guide a reply is the `/guided` slash command.
+The model writes its next reply aimed at your direction. For example:
 
-1. Type `/guided` followed by your direction in the message box.
-2. Press Enter or click Send.
-3. The AI generates its next reply, aimed in the direction you gave.
-
-For example, this direction pushes the next reply toward a confession:
-
-```
+```text
 /guided make him admit he is lying
 ```
 
-The command has short aliases. You can type `/narrator`, `/narrate`, or `/nar` instead of `/guided`.
+You can type `/narrator`, `/narrate` or `/nar` instead of `/guided`. In a group chat, aim the direction at one character with `respond as`, `reply as` or `respond for`:
 
-In a group chat you can aim the direction at one character. Type `/guided respond for <character> <direction>`. Replace `<character>` with the character name and `<direction>` with your instruction. For example:
-
-```
-/guided respond for Alice make her admit she is lying
+```text
+/guided respond as Alice make her admit she is lying
 ```
 
-### Guided regenerate
+## Guide a regenerate
 
-You can also guide a reply while you regenerate it. This reuses whatever text you have typed in the message box as a one-time direction.
+This reuses the text in your message box as a one-time direction for a regenerate.
 
-1. Open **Settings**, then **Advanced**, then **Message Tools**.
-2. Turn on **Guide swipes/regens with chat input**. This setting is off by default.
-3. Go back to a chat and type a direction in the message box, but do not send it.
-4. Click **Regenerate** on the AI message.
+1. Open **Settings → Advanced → Message Tools** and turn on **Guide swipes/regens with chat input**. It is off by default.
+2. In a chat, type a direction in the message box but do not send it.
+3. Click **Regenerate** on the AI message. With text in the box, the button is labeled **Regenerate (guided)**.
 
-When the setting is on and you have text in the box, the **Regenerate** button changes its tooltip to **Regenerate (guided)**. The AI makes a new version of the reply using your typed text as the direction.
+Your direction stays in the box afterward, so you can adjust it and regenerate again. To clear it instead, turn off **Keep guidance after regenerating** in **Settings → General → Input & Editing**.
 
-Your direction stays in the message box afterwards, so you can adjust it and regenerate again; to clear it instead, turn off **Keep guidance after regenerating** in **Settings** > **General** > **Input & Editing**.
+If it did not work: the button must be labeled **Regenerate (guided)**. If it says only **Regenerate**, the setting is off or the box is empty.
 
-### Reading Stored guidance
+## Read Stored guidance
 
-When a reply was made with a direction, Marinara saves that direction so you can see it later. A **Stored guidance** action (a scroll icon) appears on the message.
+Marinara saves the direction that shaped a reply.
 
-1. Click the **Stored guidance** icon on the AI message.
-2. A window titled **Stored guidance** opens and shows the direction that produced the reply.
+1. Click the **Stored guidance** icon (a scroll) on the AI message.
+2. A window titled **Stored guidance** shows the direction.
 
-The window labels the direction by where it came from:
+The window labels where the direction came from: **/guided**, **Guided regenerate**, or **Game start** (Game Mode setup). For `/guided` and guided-regenerate directions, **Copy /guided** copies a ready-to-use `/guided` command you can paste into another chat.
 
-- **/guided**: the direction came from the `/guided` command.
-- **Guided regenerate**: the direction came from a guided **Regenerate** click.
-- **Game start**: the direction came from Game Mode setup.
+## Write your reply with Impersonate
 
-For `/guided` and guided-regenerate directions, a **Copy /guided** button copies the direction back out as a ready-to-use `/guided` command. You can paste it into another chat to reuse the same steer.
+Impersonate has the model write your next message in your persona's voice. A persona is the character you play, written as `{{user}}`. See [User Personas](../characters/personas.md).
 
-## Impersonate
+Before you start: Impersonate works only in Roleplay chats. In Conversation you see "Impersonate is not available in Conversation mode." It is not available in Game either.
 
-Impersonate has the AI write your next message for you, in the voice of your persona. Your persona is the character you play, written into the chat as `{{user}}`. See [User Personas](../characters/personas.md) for how to set one up.
+1. Type `/impersonate` in the message box. Add a direction after it if you want one.
+2. Press <kbd>Enter</kbd> or click **Send**.
 
-Impersonate works only in Roleplay chats. It is not available in Conversation or Game chats. If you try it in a Conversation chat, you see the message "Impersonate is not available in Conversation mode."
+The model posts a user message as your persona. For example, this writes a message that asks about the weather:
 
-### Using /impersonate
-
-1. Type `/impersonate` in the message box. You can add an optional direction after it.
-2. Press Enter or click Send.
-3. The AI writes a user message as your persona and posts it in the chat.
-
-For example, this makes the AI write a message in your voice that asks about the weather:
-
-```
+```text
 /impersonate ask about the weather
 ```
 
-The command has a short alias. You can type `/imp` instead of `/impersonate`.
-
-You can redo a message that Impersonate wrote. The **Regenerate** action works on user messages that were created by Impersonate, so you can get a different version.
+The short alias is `/imp`. **Regenerate** works on a message that Impersonate wrote, so you can get another version.
 
 ### The Impersonate settings
 
-Impersonate has a settings section that applies to every `/impersonate` you run, across all your chats. You open it from the per-chat settings.
+These settings apply to every `/impersonate` in all your chats. Open **Chat Settings** in a Roleplay chat and find the **Impersonate** section. See [Chat Settings](chat-settings.md) for how to open the panel.
 
-1. Open the **Chat Settings** panel for a Roleplay chat.
-2. Find the **Impersonate** section.
+| Control | What it does |
+| --- | --- |
+| **Prompt Template** | An optional instruction sent every time you impersonate. Empty uses the chat's own prompt, or the built-in default. It supports `{{user}}`, `{{persona_description}}` and `{{impersonate_direction}}`, placeholders Marinara replaces with real text. Pick **Built-in default** to read the default, **Copy built-in default to edit** to start a copy, **Save as** to keep a named template, and **Delete template** to remove one. |
+| **Preset** | A prompt preset for impersonate replies only. Default: **Use chat default**. See [Presets](../prompts/presets.md). |
+| **Connection** | The model for impersonate replies, such as a cheaper or faster one. Default: **Use chat default**. You can also pick **Random**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md). |
+| **Skip agents** | Skips agents (trackers, lorebook routers and similar helpers) during impersonate. This keeps it fast and stops it from changing world state. Off by default. See [Agents](../agents/agents-overview.md). |
+| **Use CYOA as direction** | Clicking a CYOA (choose your own adventure) option uses it as the impersonate direction instead of posting it. Off by default. If **Add CYOA choices to the message box instead of sending them** is on in **Settings → General → Input & Editing**, a click only adds the text to your message box and this setting has no effect. |
 
-The section has these controls:
+### Set a prompt for one chat
 
-- **Prompt Template**: an optional instruction sent to the model every time you impersonate. Leave it empty to use the chat's own prompt, or the built-in default when the chat has none. It supports the macros `{{user}}`, `{{persona_description}}`, and `{{impersonate_direction}}`. A macro is a placeholder that Marinara replaces with real text before sending. Click **Built-in default** to read the default text. A **Reset** button clears a custom template back to empty.
-- **Preset**: use a specific prompt preset for impersonate replies only. A preset is a saved bundle of prompt settings. See [Presets](../prompts/presets.md). The default is **Use chat default**. Presets apply in Roleplay only.
-- **Connection**: route impersonate replies to a specific connection, such as a cheaper or faster model. A connection is a saved link to an AI provider. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md). The default is **Use chat default**. You can also choose **Random**.
-- **Skip agents**: when on, Marinara skips the agent pipeline (trackers, lorebook routers, and similar helpers) during impersonate. This keeps impersonate fast and stops it from changing world state. It is off by default. See [Agents](../agents/agents-overview.md).
-- **Use CYOA as direction**: when on, clicking a CYOA option uses it as the impersonate direction instead of posting it as a normal message. CYOA means choose your own adventure, a set of clickable choices some chats show after a reply. This setting is off by default. If **Add CYOA choices to the message box instead of sending them** is on in **Settings** > **General** > **Input & Editing**, clicking a choice only adds its text to your message box, and this setting has no effect.
+1. Type `/impersonate_prompt` and your prompt in quotes.
+2. Press <kbd>Enter</kbd>.
 
-### Setting a custom impersonate prompt
-
-You can also set an impersonate prompt for one chat only, using a slash command.
-
-1. Type `/impersonate_prompt` followed by your prompt in quotes.
-2. Press Enter.
-
-For example:
-
-```
+```text
 /impersonate_prompt "You will now play as my OC:"
 ```
 
-To clear the per-chat prompt and go back to the default, type:
+To go back to the default, type `/impersonate_prompt reset`. The alias is `/imp_prompt`.
 
-```
-/impersonate_prompt reset
-```
+## Add Quick replies next to Send
 
-The command has a short alias, `/imp_prompt`.
+Quick replies add one-click **Send** alternatives, so you do not need to type a slash command.
 
-## The Quick replies menu
-
-The Quick replies menu adds extra send actions next to the normal Send button. It gives you one-click access to guided generation and Impersonate without typing a slash command.
-
-You choose which actions show from settings.
-
-1. Open **Settings**, then **Advanced**, then **Message Tools**.
+1. Open **Settings → General → Input & Editing**.
 2. Turn on **Quick replies**. It is off by default.
-3. Expand it to pick which actions appear. Once the menu is enabled, the three actions are on by default.
+3. Expand it to pick which actions appear. Once it is on, all three actions are on by default.
 
-The three actions are:
+| Action | What it does |
+| --- | --- |
+| **Post only** | Adds your typed message to the chat without a reply. The command `/send <message>` does the same. |
+| **Guide reply** | Sends your typed text as a `/guided` direction. |
+| **Impersonate** | Generates a persona-side reply, using your typed text as the direction. It is hidden in Conversation chats. |
 
-- **Post only**: add your typed message to the chat without triggering an AI reply. You can also run this with the `/send <message>` slash command.
-- **Guide reply**: send your typed text as a `/guided` direction instead of a normal message.
-- **Impersonate**: generate a reply as your persona, using your typed text as the direction. This action is hidden in Conversation chats, because Impersonate does not work there.
-
-When only one action is on, its button shows directly next to Send. When more than one is on, they collapse into a small menu. Click the three-dots button (labeled **Quick replies**) to open it.
-
-## Related guides
-
-- [Message Actions: Edit, Delete, Swipe, Regenerate](messages.md)
-- [Peek Prompt: See What the AI Received](peek-prompt.md)
-- [User Personas: Creating and Editing](../characters/personas.md)
-- [Presets](../prompts/presets.md)
+With one action on, its button sits next to **Send**. With more than one, they collapse into a three-dots button (**Quick replies**) that opens a menu.

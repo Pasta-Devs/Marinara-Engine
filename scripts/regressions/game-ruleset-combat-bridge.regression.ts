@@ -186,7 +186,7 @@ const ENGINE_MAX_HP = 60;
   refuses(
     emberText,
     (doc) => (doc.battle.spells = { pool: "luck" }),
-    /battle: Unrecognized key\(s\) in object: 'spells'/,
+    /battle: Unrecognized key: "spells"/,
     "the block is strict, like the rest of the file",
   );
 }
@@ -359,7 +359,10 @@ const ENGINE_MAX_HP = 60;
   });
   const entries = gated.catalogs![0]!.entries!;
   const row = (id: string, cells: Record<string, unknown>) => ({
-    ...rowsFromCatalogEntry("knacks", entries.find((entry) => entry.id === id)!)[0]!.row,
+    ...rowsFromCatalogEntry(
+      "knacks",
+      entries.find((entry) => entry.id === id)!,
+    )[0]!.row,
     ...cells,
   });
   const ids = (rows: Record<string, unknown>[]) =>

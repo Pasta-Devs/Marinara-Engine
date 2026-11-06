@@ -96,5 +96,14 @@ if (rootElement && window.parent !== window && !("MarinaraAndroidNative" in wind
   }
 
   window.addEventListener("message", bootstrap);
-  window.addEventListener("pagehide", stop, { once: true });
+  // A closing tab takes this view with it. That is no fault: the port just closes, and the player keeps
+  // their seat (room playtest 2026-10-27: the fault it sent read as a broken view, which leaves the room).
+  window.addEventListener(
+    "pagehide",
+    () => {
+      closed = true;
+      port?.close();
+    },
+    { once: true },
+  );
 }

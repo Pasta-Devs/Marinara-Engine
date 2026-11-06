@@ -1,57 +1,53 @@
 # Roleplay Backgrounds
 
-This guide covers the scene backdrop in Roleplay Mode: the **Background** agent that picks a backdrop for you after each reply, making a backdrop by hand, and pinning one to a single chat. Your uploaded background library and its controls are covered in [Chat Backgrounds](../appearance/chat-backgrounds.md), and AI scene art made from the Gallery is covered in [Scene Backgrounds](../media/scene-backgrounds.md).
+A Roleplay chat shows a full-scene image behind your messages. You can let the **Background** agent pick it after each reply, make a new one by hand, or pin one image to a single chat. When the image changes, Marinara fades from the old one to the new one.
 
-## The scene background
-
-Roleplay Mode shows a full scene backdrop behind your messages. When the backdrop changes, Marinara cross-fades smoothly from the old image to the new one, so scene changes feel gentle instead of jumpy.
-
-You do not need image generation for this to work. If you have not set up an image generation connection, the backdrop shows as a solid color. Your chat still works as normal text chat.
-
-## The Background agent
-
-The **Background** agent is an optional helper that chooses a scene backdrop for you. It runs after each reply. It reads the current scene, then picks the most fitting image from every available background. Library folders are only an organization aid in Settings and never hide choices from the agent. It selects existing images only; automatic background generation belongs to the **Illustrator** agent.
-
-The **Background** agent is off by default. To turn it on:
-
-1. Open your Roleplay chat.
-2. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
-3. Open the **Agents** section.
-4. Enable the **Background** agent.
-
-After that, the scene backdrop updates on its own as your story moves between places.
-
-## Generate a background by hand
-
-You can also make a new backdrop yourself, without the agent. Marinara builds an image prompt from the scene (its genre, setting, current location, weather, and time) and creates a fresh backdrop. The **Background** button needs the **Illustrator** agent installed, but you do not need to add it to the chat.
-
-1. Open **Chat Settings** and expand the **Gallery** section.
-2. Click the **Background** button.
-3. Wait for the button to finish. It shows **Generating...** while it works.
-
-While it runs, you see this note: "AI background generation is running. The new background will be applied when it finishes." The new image is added to your background library and applied to the scene.
-
-Manual generation uses the **Illustrator** agent's image connection, then falls back to your default image generation connection. The **Background** agent does not need an image connection because it only selects images already in your library. If Marinara cannot find a connection, generation fails with this message: "Choose an image generation connection for the Illustrator agent, or mark one as the default image connection."
-
-Scene background generation works only in Roleplay and Game modes. It is not available in Conversation mode.
+Image generation is not required. Without an image generation account, the backdrop is a solid color and the chat works as text.
 
 ## Set a background for one chat
 
-You can pin a specific backdrop to the chat you are viewing, instead of letting the agent choose.
+Use this to keep one image behind the chat you have open, instead of letting the agent choose. It changes only that chat.
 
-1. Open **Settings**.
-2. Open the **Appearance** tab.
-3. Find the **Backgrounds** section.
-4. Under **Chat Background**, pick an uploaded image or one of your game asset backgrounds.
+1. Open the chat. Then open **Settings → Appearance** and find **Backgrounds**.
+2. Under **Chat Background**, pick an uploaded image or one of your game asset backgrounds.
 
-To go back to the default backdrop, click **Remove** next to **Chat Background**.
+You see the image behind your messages. To go back to the default, click **Remove** next to **Chat Background**.
 
-## Your background library and blur
+No images yet? Upload one first. See [Chat Backgrounds](../appearance/chat-backgrounds.md).
 
-The images you can pick from live in the same **Backgrounds** section under **Settings** and then **Appearance**. The [Chat Backgrounds](../appearance/chat-backgrounds.md) guide covers that library in full: importing images, tags, renaming, deleting, the **Background Blur** slider, and setting a default backdrop for new Roleplay chats.
+## Let the Background agent pick the backdrop
+
+The **Background** agent is a helper that runs alongside replies. After each reply, it reads the current scene and picks the image that fits best from all your backgrounds. It picks existing images only. The **Illustrator** agent makes new ones automatically.
+
+1. Open your Roleplay chat.
+2. Open **Chat Settings** with the sliders button in the chat.
+3. Open **Agents** and turn on **Enable Agents**.
+4. Add the **Background** agent.
+
+The backdrop now changes on its own as the story moves between places.
+
+If it did not work: with only one or two backgrounds, the agent keeps picking those. Add more to your library. See [Chat Backgrounds](../appearance/chat-backgrounds.md).
+
+## Generate a background by hand
+
+Marinara builds an image prompt from the scene (genre, setting, location, weather and time) and makes a new backdrop.
+
+Before you start: install the **Illustrator** agent and set an image generation account for it, or mark one image generation account as the default. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md). You do not need to add Illustrator to the chat.
+
+1. Open **Chat Settings** with the sliders button in the chat, and expand **Gallery**.
+2. Click **Background**. It shows **Generating...** while it works, and the Gallery says "Illustrator is generating a background image for this scene."
+3. Wait for it to finish. The new image is added to your background library and applied to the scene.
+
+Manual generation uses the Illustrator agent's image account, then your default image generation account. It works in Roleplay and Game modes, not Conversation.
+
+If it did not work: the message "Choose an image generation connection for the Illustrator agent, or mark one as the default image connection." means Marinara found no image account. Set one, then try again. If the **Background** button is missing, Illustrator is not installed.
+
+## Your library and blur
+
+The images you pick from live in the same **Backgrounds** section. Importing, tags, renaming, deleting, the **Background Blur** slider and the default backdrop for new Roleplay chats are in [Chat Backgrounds](../appearance/chat-backgrounds.md).
 
 ## Related guides
 
-- [Chat Backgrounds](../appearance/chat-backgrounds.md): the upload library and appearance controls for backgrounds.
-- [Scene Backgrounds](../media/scene-backgrounds.md): AI-generated scene art made from your Gallery.
-- [Roleplay Mode: Getting Started](getting-started.md): the full Roleplay scene, sprites, and HUD.
+- [Chat Backgrounds](../appearance/chat-backgrounds.md): the upload library and appearance controls.
+- [Scene Backgrounds](../media/scene-backgrounds.md): AI scene art made from your Gallery.
+- [Roleplay Mode: Getting Started](getting-started.md): the Roleplay stage, sprites and HUD.

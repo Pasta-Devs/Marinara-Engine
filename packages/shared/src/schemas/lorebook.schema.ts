@@ -2,6 +2,7 @@
 // Lorebook Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
 import { LIMITS } from "../constants/defaults.js";
 
 export const LOREBOOK_CATEGORY_VALUES = ["world", "character", "npc", "spellbook", "uncategorized"] as const;
@@ -132,7 +133,7 @@ export const createLorebookFolderSchema = z.object({
   order: z.number().int().default(0),
 });
 
-export const updateLorebookFolderSchema = createLorebookFolderSchema.partial();
+export const updateLorebookFolderSchema = partialInput(createLorebookFolderSchema);
 
 const lorebookBaseSchema = z.object({
   name: z.string().min(1).max(200),
@@ -172,7 +173,7 @@ const lorebookBaseSchema = z.object({
   isGlobal: z.boolean().default(false),
   enabled: z.boolean().default(true),
   hiddenFromLibrary: z.boolean().default(false),
-  scope: lorebookScopeSchema.default({ mode: "all", chatIds: [] }),
+  scope: lorebookScopeSchema.prefault({ mode: "all", chatIds: [] }),
   tags: z.array(z.string()).default([]),
   generatedBy: lorebookGeneratedBySchema.default(null),
   sourceAgentId: z.string().nullable().default(null),
@@ -180,7 +181,7 @@ const lorebookBaseSchema = z.object({
 
 export const createLorebookSchema = lorebookBaseSchema.superRefine(addLorebookScopeConflictIssues);
 
-export const updateLorebookSchema = lorebookBaseSchema.partial().superRefine(addLorebookScopeConflictIssues);
+export const updateLorebookSchema = partialInput(lorebookBaseSchema).superRefine(addLorebookScopeConflictIssues);
 
 export const createLorebookEntrySchema = z.object({
   lorebookId: z.string(),
@@ -229,8 +230,8 @@ export const createLorebookEntrySchema = z.object({
   delayUntilRecursion: z.boolean().default(false),
   locked: z.boolean().default(false),
   tag: z.string().default(""),
-  relationships: z.record(z.string()).default({}),
-  dynamicState: z.record(z.unknown()).default({}),
+  relationships: z.record(z.string(), z.string()).prefault({}),
+  dynamicState: z.record(z.string(), z.unknown()).prefault({}),
   activationConditions: z.array(activationConditionSchema).default([]),
   schedule: lorebookScheduleSchema.nullable().default(null),
   excludeFromVectorization: z.boolean().default(false),
@@ -241,7 +242,7 @@ export const createLorebookEntrySchema = z.object({
   decisionMode: lorebookDecisionModeSchema.default("off"),
 });
 
-export const updateLorebookEntrySchema = createLorebookEntrySchema.omit({ lorebookId: true }).partial();
+export const updateLorebookEntrySchema = partialInput(createLorebookEntrySchema.omit({ lorebookId: true }));
 
 const bulkUpdateLorebookEntryChangesSchema = updateLorebookEntrySchema
   .pick({

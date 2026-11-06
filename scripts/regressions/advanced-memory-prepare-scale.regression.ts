@@ -135,6 +135,70 @@ try {
     large < small * 1.2,
     `four times the scenes must not mean more reads per message: ${small.toFixed(1)} at 20 scenes, ${large.toFixed(1)} at 80`,
   );
+  const cachedExtrasChat = await chats.create({ name: "Cached extras", mode: "roleplay", characterIds: [] });
+  assert(cachedExtrasChat);
+  await chats.createMessagesBatch(cachedExtrasChat.id, [
+    { role: "user", content: "Cache this parsed message extra.", extra: { cacheProbe: "initial" } },
+  ]);
+  const [cachedExtraMessage] = await chats.listMessages(cachedExtrasChat.id);
+  assert(cachedExtraMessage);
+  const cachedExtrasMemory = createAdvancedMemoryService(db);
+  const rawInitialExtra = (await chats.getMessage(cachedExtraMessage.id))?.extra;
+  assert.equal(typeof rawInitialExtra, "string", "file-backed messages keep extras as JSON strings");
+  const originalParse = JSON.parse;
+  /** How often each of `texts` is JSON-parsed while `read` runs. */
+  const countParses = async (texts: unknown[], read: () => Promise<unknown>) => {
+    const counts = texts.map(() => 0);
+    JSON.parse = ((
+      text: string,
+      ...args: Parameters<typeof JSON.parse> extends [unknown, ...infer Rest] ? Rest : never
+    ) => {
+      const index = texts.indexOf(text);
+      if (index >= 0) counts[index]!++;
+      return originalParse(text, ...args);
+    }) as typeof JSON.parse;
+    try {
+      await read();
+    } finally {
+      JSON.parse = originalParse;
+    }
+    return counts;
+  };
+  const [initialParses] = await countParses([rawInitialExtra], async () => {
+    await cachedExtrasMemory.status(cachedExtrasChat.id);
+    await cachedExtrasMemory.status(cachedExtrasChat.id);
+  });
+  assert.equal(initialParses, 1, "unchanged message extras are parsed once across Advanced Memory contexts");
+  await chats.updateMessageExtra(cachedExtraMessage.id, { cacheProbe: "updated" });
+  const rawUpdatedExtra = (await chats.getMessage(cachedExtraMessage.id))?.extra;
+  assert.equal(typeof rawUpdatedExtra, "string", "updating the extra preserves its serialized storage shape");
+  const [updatedParses] = await countParses([rawUpdatedExtra], () => cachedExtrasMemory.status(cachedExtrasChat.id));
+  assert.equal(updatedParses, 1, "editing an extra invalidates only that message's parsed cache entry");
+  await chats.remove(cachedExtrasChat.id);
+  await assert.rejects(
+    cachedExtrasMemory.status(cachedExtrasChat.id),
+    /Advanced Memory is available only for Roleplay and Game chats/,
+    "a deleted chat clears its parsed-extra cache before context rejects it",
+  );
+  // The route services live for the whole process, so only the four chats read most recently keep parsed extras;
+  // every other visited (or deleted) chat's extras are let go instead of pinned until restart.
+  const visitedChats: string[] = [];
+  const visitedExtras: unknown[] = [];
+  for (let index = 0; index < 5; index++) {
+    const visited = await chats.create({ name: `Visited ${index}`, mode: "roleplay", characterIds: [] });
+    assert(visited);
+    await chats.createMessagesBatch(visited.id, [
+      { role: "user", content: `Visit ${index}.`, extra: { visitProbe: index } },
+    ]);
+    const [visitedMessage] = await chats.listMessages(visited.id);
+    visitedChats.push(visited.id);
+    visitedExtras.push((await chats.getMessage(visitedMessage!.id))?.extra);
+  }
+  const visitParses = await countParses(visitedExtras, async () => {
+    for (const index of [0, 1, 2, 3, 0, 4, 0, 1]) await cachedExtrasMemory.status(visitedChats[index]!);
+  });
+  assert.equal(visitParses[0], 1, "a chat read again stays cached while other chats are opened");
+  assert.equal(visitParses[1], 2, "the least recently read chat's extras are evicted once a fifth chat is read");
   console.log("advanced memory prepare scale regression passed");
 } finally {
   provider.close();

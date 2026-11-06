@@ -1,183 +1,120 @@
 # Conversation Table Games
 
-This guide covers the six optional table-game packages you can play against a chat's characters in Conversation Mode: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe**, and **Rock-Paper-Scissors**. It explains how to start a game and what each setup option means. It also shows how to play each board and how to let characters start games on their own.
+Play UNO, Chess, Poker, 8-Ball Pool, Tic-Tac-Toe and Rock-Paper-Scissors against the characters of a Conversation chat. Marinara deals the cards or sets up the board, enforces every rule and has each seated character narrate its moves in character. A live board appears above the message box while you play.
 
-## What table games are
+Each game is an optional package. Install the ones you want from **Agents → Agent Organizer**, and restart Marinara if the catalog asks. A game you have not installed has no slash command, does not appear in the games picker, and its **Commands** switch stays hidden.
 
-Table games are small tabletop games that run right inside a Conversation Mode chat. Marinara Engine deals the cards or sets up the board, and it enforces every rule for you. Each seated character narrates its own moves in character. A live board appears above the message box while you play.
+Rules that apply to every game:
 
-Install each game you want from **Agents → Download Agents**. It becomes available immediately without restarting Marinara. An uninstalled game does not appear in the games picker, its slash command is unavailable, and its character command setting stays hidden.
+- Table games work in Conversation Mode only. In a Roleplay chat you see a message that games can only be played in Conversation chats.
+- One game can be active per chat. Starting a new game replaces the current one, even a finished game still showing its end banner.
+- The chat needs at least one character, and you must seat at least one as a bot. Bot moves use the same model as your normal chat replies. No extra account or API key is needed.
 
-Two facts to keep in mind:
+## Start a game
 
-- Table games work in Conversation Mode only. You cannot start one in a Roleplay or Game Mode chat. If you type a game command in a Roleplay chat, you see a message such as "UNO can only be played in conversation chats."
-- Only one game can be active per chat at a time. Starting a new game replaces any game already running in that chat, even a finished one still showing its end banner.
+Before you start: install the game and open a Conversation chat with at least one character.
 
-You also need at least one character in the chat. You must seat at least one of them as a bot before you can deal or start. Bot moves and in-character lines use the same connection as your normal chat replies. No extra account or API key is needed. An **API key** is the secret code that lets Marinara talk to an AI provider.
+1. Type the game's slash command (a short instruction that starts with `/`) in the message box and press <kbd>Enter</kbd>. The game's setup window opens.
+2. Choose the options (see each game below).
+3. Click **Deal** or **Start game**.
 
-## Starting a game
+If it did not work: the command is missing or does nothing when the game is not installed or you are not in a Conversation chat.
 
-There are three ways to start a game. All three work only in a Conversation Mode chat with at least one character.
+| Game | Command | Players |
+| --- | --- | --- |
+| UNO | `/uno` | You plus 1 to 9 characters |
+| Chess | `/chess` | You and one character |
+| Poker | `/poker` | You plus 1 to 7 characters |
+| 8-Ball Pool | `/8ball` or `/pool` | You and one character |
+| Tic-Tac-Toe | `/tictactoe` or `/ttt` | You and one character |
+| Rock-Paper-Scissors | `/rps` | You and one character |
 
-### Type a slash command
+Other ways to start a game:
 
-A **slash command** is a short instruction you type in the message box that starts with a forward slash. Type one of these and press Enter to open that game's setup window:
-
-- **/uno** starts a game of UNO with the characters in this chat.
-- **/chess** starts a one-on-one chess game with a character in this chat.
-- **/poker** starts a game of Texas Hold'em poker with the characters in this chat.
-- **/8ball** (or **/pool**) starts a one-on-one game of 8-ball pool with a character in this chat.
-- **/tictactoe** (or **/ttt**) starts a one-on-one game of tic-tac-toe with a character in this chat.
-- **/rps** starts a one-on-one Rock-Paper-Scissors match with a character in this chat.
-
-### Say it in chat
-
-You can also just ask in a normal message. A message like "let's play uno", "start a game of chess", or "deal me into poker" opens that game's setup window automatically. Your message still sends as normal, so a character can react to your invite in the same reply. This only happens when that game is not already running in the chat.
-
-### Let a character invite you
-
-A character can offer a game (or accept your offer) on its own. When a character is willing to play right now, its reply starts the game immediately with the chat's default rules. No setup window appears. If the character is busy or does not want to play, it just says so in character.
-
-For this path to work, the chat's **Commands** setting must be on, and that game's own toggle must be on too. See "Let characters start games on their own" below.
+- Type `/games` to pick from the installed games.
+- Say it in a normal message, such as "let's play uno", "start a game of chess" or "deal me into poker". The setup window opens and your message still sends, so a character can react to your invite. This happens only when that game is not already running.
+- A character can offer or accept a game on its own. Its reply then starts the game at once with the default rules and no setup window. If it is busy or declines, it says so in character.
+- A character can only do this when the game's **Commands** switch is on (see [Let characters start games](#let-characters-start-games-on-their-own)).
 
 ## UNO
 
-### Set up UNO
-
 The setup window is titled **Start UNO**.
 
-In the **Players** section, tick each character you want to play as a bot. Every character in the chat is ticked by default. The **You go first** checkbox is ticked by default and gives you the opening turn. If the chat has no characters, the section reads "Add at least one character to this chat to play."
+- **Players**: tick each character who plays as a bot. All are ticked by default. **You go first** is ticked by default.
+- **Starting hand**: cards per player, 1 to 10. The default is **7**.
+- **Penalize missed UNO**: ticked by default. A player caught without declaring UNO draws 2 cards, and **Catch!** is active.
+- **House rules**, all off by default:
+  - **Stacking**: stack +2/+4 onto the next player instead of drawing.
+  - **Draw to match**: keep drawing until you draw a playable card.
+  - **7-0 rule**: a 7 swaps hands with a chosen player; a 0 rotates all hands.
+  - **Jump-in**: play an identical card out of turn.
+  - **Force play**: if a drawn card is playable, you must play it.
 
-The **House rules** section holds optional rules. All of them are off by default. Turn on any you like:
+**Deal** stays disabled until you pick at least one character. It shows the number of players, for example **Deal (3p)** for you and two characters.
 
-| Rule | What it does |
-|---|---|
-| **Stacking** | Stack +2/+4 onto the next player instead of drawing. |
-| **Draw to match** | Keep drawing until you draw a playable card. |
-| **7-0 rule** | 7 swaps hands with a chosen player; 0 rotates all hands. |
-| **Jump-in** | Play an identical card out of turn. |
-| **Force play** | If a drawn card is playable, you must play it. |
+On the board:
 
-Below the rules, **Starting hand** sets how many cards each player starts with. The default is **7**, and you can pick any value from 1 to 10. The **Penalize missed UNO** checkbox is ticked by default. When it is on, a player caught not declaring UNO draws 2 cards, and the "Catch!" mechanic is active. When it is off, there is no penalty.
-
-Click **Cancel** to close the window, or click **Deal** to start. The Deal button shows the total number of seats, for example **Deal (3p)** for you plus two bots. It stays disabled until at least one character is selected. UNO seats 2 to 10 players in total.
-
-### Play the UNO board
-
-The board appears above the message box, titled **UNO**. It shows the active color and a direction arrow that flips on a Reverse. It also shows the draw pile count as "Draw pile: N", plus a "+N" badge when a draw penalty is stacked. The turn line reads "Your turn" on your turn or the character's name otherwise.
-
-Seats are listed in play order. Your seat is marked "(you)", the seat about to go is marked "next", and any seat down to one card shows "UNO?". If an opponent reaches one card without declaring UNO, a **Catch!** button lets you call them out. This only appears when the **Penalize missed UNO** rule is on.
-
-Your hand shows as clickable cards. Playable cards lift and highlight; the rest dim. Clicking a wild card opens a "Pick a color:" chooser. With the **7-0 rule** on, clicking a 7 opens a "Swap hands with:" chooser. Extra buttons appear as needed, such as **Draw**, **Pass**, and a highlighted **Call UNO!** when you must declare. Playing your second-to-last card declares UNO for you at the same time, so a bot cannot catch you in that instant.
-
-When the game ends, a banner reads "{winner} wins!" or "Game over" if there is no clear winner.
+- Playable cards lift and the rest dim. Click a card to play it.
+- A wild card opens "Pick a color:". With **7-0 rule** on, a 7 opens "Swap hands with:".
+- Buttons appear as needed: **Draw**, **Pass**, **Call UNO!** and **Catch!**.
+- Playing your second-to-last card declares UNO for you.
+- A banner reads "{winner} wins!" or "Game over".
 
 ## Chess
 
-### Set up Chess
+The setup window is titled **Start Chess**. Pick one **Opponent** (the first character by default). In a group chat the others keep chatting. **Your color** is **White**, **Random** (default) or **Black**. Click **Start game**.
 
-The setup window is titled **Start Chess**. Chess is always one-on-one, so exactly two seats play.
-
-In the **Opponent** section, pick a single character with the radio buttons. The first character is selected by default. Even in a group chat, only one character is seated as your opponent. The others keep chatting normally.
-
-In the **Your color** section, choose **White**, **Random**, or **Black**. **Random** is the default. A note reads "White moves first."
-
-Click **Cancel** to close the window, or click **Start game** to begin.
-
-### Play the Chess board
-
-The board appears titled **Chess**, with an 8x8 grid and hand-drawn pieces. Each side's chip shows the enemy pieces it has captured and a "+N" material lead. The turn line reads "Your turn" on your turn, or shows the character's name on theirs. It adds a check warning when you are in check.
-
-Click one of your own pieces to select it. Legal moves show as a dot on empty squares and a ring on captures. The last move and any check are highlighted, and the edges are labeled with ranks and files. When you play Black, the board flips so your side sits at the bottom. A pawn that reaches the last rank opens a "Promote to:" picker with Queen, Rook, Bishop, and Knight.
-
-When the game ends, a banner announces the winner by checkmate, a draw with its reason (such as stalemate or the fifty-move rule), or "Game over". A short move-history strip below the board lists recent moves in standard notation.
+Click one of your pieces to select it. Legal moves show as a dot, and captures as a ring. Playing Black flips the board. A pawn on the last rank opens "Promote to:" (Queen, Rook, Bishop, Knight). A banner announces checkmate, a draw with its reason, or "Game over", and a strip below the board lists recent moves.
 
 ## Poker
 
-### Set up Poker
+The setup window is titled **Start Poker**. The table seats 2 to 8 players.
 
-The setup window is titled **Start Poker**. The table seats 2 to 8 players, meaning you plus up to seven characters.
+- **Players**: tick the characters to seat. At seven, the rest gray out.
+- **Dealer**: **House dealer (silent)** (default) deals without commentary. Or pick a character to announce hands and showdowns.
+- **Starting stack**: chips per player, 100 to 1,000,000. The default is **1000**.
+- **Small blind**: the big blind is double. The default is **10**.
+- **Blinds double every**: hands between blind increases. The default is **0**, which means never.
+- **Hand limit**: the session ends after this many hands, and the most chips wins. The default is **0**, which plays until one player has chips.
 
-In the **Players** section, tick the characters you want seated. Once seven are ticked, the rest gray out. A note reads "8 seats max (you + up to 7 characters)."
-
-The **Dealer** section is a dropdown. The default is **House dealer (silent)**, which deals without commentary. You can instead pick any character to announce the hands, flops, and showdowns in their own voice. The cards are dealt fairly either way, and a dealer does not have to be a seated player.
-
-The **Stakes** section has four number boxes:
-
-| Setting | Default | Notes |
-|---|---|---|
-| **Starting stack** | **1000** | Chips each player starts with (100 to 1,000,000). |
-| **Small blind** | **10** | The big blind is always double this. |
-| **Blinds double every** | **0** | Number of hands between blind increases. 0 means never. |
-| **Hand limit** | **0** | 0 means play until only one player has chips. |
-
-When you set a **Hand limit**, the session ends after that many hands and the player with the most chips wins.
-
-Click **Cancel** to close the window, or click **Deal** to start. The Deal button shows the seat count, for example **Deal (4p)**.
-
-### Play the Poker board
-
-The board header shows the current hand, street, and blinds, along with the total pot. The turn line reads "Your turn" or the current character's name. Five community-card slots sit above the seats.
-
-Each seat shows the player's name, "(you)" on yours, a "D" badge for the dealer button, and "SB" or "BB" for the blinds. It also shows chip count and status, such as a current bet, "folded", "all in", or "busted". Your own two hole cards appear larger under "Your hand". A plain-English label shows once you have a hand, for example "Full house, kings over nines".
-
-On your turn, an action bar gives you **Fold**, **Check**, **Call**, and a highlighted **All in**. When you can bet or raise, a bet box appears with **Min**, **½ pot**, **Pot**, and **All-in** quick buttons plus a submit button.
-
-At the end of each hand, a **Showdown** panel reveals the hands and awards the pot. A **Next hand** button deals the next round. When the whole session ends, a banner names the session winner and lists every seat's final chip count.
+On your turn the bar shows **Fold**, **Check**, **Call** and **All in**. When you can bet or raise, a bet box adds **Min**, **½ pot**, **Pot** and **All-in** buttons. After each hand a **Showdown** panel awards the pot, and **Next hand** deals again. At the end a banner names the winner and lists every final stack.
 
 ## 8-Ball Pool
 
-### Set up 8-Ball Pool
+The setup window is titled **Start 8-Ball Pool**.
 
-The setup window is titled **Start 8-Ball Pool**. Pool is one-on-one, so you play against a single character.
+- **Opponent**: the character you play against.
+- **Announcer**: **Silent (no announcer)** by default, or a character who calls the shots.
+- **Match length**: **Race to 1**, **Race to 3** or **Race to 5** racks (a rack is one full game).
+- **Who breaks first**: **You**, **Random** or **Them**. Later racks alternate the break.
 
-- **Opponent**: pick the character you play against.
-- **Announcer**: optional. The default is **Silent (no announcer)**. Pick a character to call the shots in their own voice.
-- **Match length**: **Race to 1**, **Race to 3**, or **Race to 5**. This is how many racks you need to win the match. A rack is one full game of pool.
-- **Who breaks first**: **You**, **Random**, or **Them**. A note reads "Later racks alternate the break."
+Click **Start game**. On your turn, pick one of the suggested shots and the balls roll with a physics simulation. A line under the table describes the last shot.
 
-Click **Start game** to begin. The button reads "Racking up..." while the table is set.
+## Tic-Tac-Toe and Rock-Paper-Scissors
 
-### Play the 8-Ball Pool board
+In **Tic-Tac-Toe**, choose the opponent and whether you play **X**, **O** or a random mark. X moves first. Click an empty square on your turn. Illegal moves are blocked, and wins and draws are detected for you.
 
-The board shows a top-down pool table with the real position of every ball. On your turn, the turn line reads "Your turn". On the character's turn it shows their name with "is thinking...". You shoot by picking one of the suggested shots, and the balls then roll on the table using a physics simulation. A line under the table describes the last shot, or reads "Rack over." between racks.
+In **Rock-Paper-Scissors**, choose the opponent and a best-of-three, five or seven match. Pick **Rock**, **Paper** or **Scissors** each round. Choices stay hidden until both are in, then the result and score update.
 
-## Tic-Tac-Toe
+## End a game early
 
-Tic-Tac-Toe is one-on-one. The setup chooses the opponent and whether you play **X**, **O**, or a random mark. X moves first. During your turn, click an empty square. Marinara blocks illegal moves, asks the character for its move in character, and detects wins and draws automatically.
+Every board has an X button.
 
-## Rock-Paper-Scissors
+- **UNO**: **End game**. It asks "End this game?" first.
+- **Chess**: **Resign**. It asks "Resign and end this game?" first.
+- **Poker**: **End game**. It asks "End this poker game?" first. After the session ends it reads **Close**.
+- **8-Ball Pool**: **End game**. It asks "End this pool game?" first. After the match ends it reads **Close**.
+- **Tic-Tac-Toe** and **Rock-Paper-Scissors**: use the board's close or end button to clear the match.
 
-Rock-Paper-Scissors is one-on-one. The setup chooses the opponent and a best-of-three, best-of-five, or best-of-seven match. Pick **Rock**, **Paper**, or **Scissors** each round. Your opponent's choice stays hidden until both choices are ready, then Marinara reveals the result and updates the match score.
-
-## Ending a game
-
-Every board has a button to end the game early, marked with an X icon.
-
-- On the UNO board it is labeled **End game** and asks "End this game?" first.
-- On the Chess board it is labeled **Resign** and asks "Resign and end this game?" first.
-- On the Poker board it is labeled **End game** while a hand is in play and asks "End this poker game?" first. Once the whole session has finished, it changes to **Close** and needs no confirmation.
-- On the 8-Ball Pool board it is labeled **End game** and asks "End this pool game?" first. Once the match has finished, it changes to **Close** and needs no confirmation.
-- On Tic-Tac-Toe and Rock-Paper-Scissors, use the board's close or end control to clear the current match.
-
-Ending a game deletes its state. No winner is recorded when you end a game early this way.
+Ending a game early deletes its state and records no winner.
 
 ## Let characters start games on their own
 
-You control whether a character can offer or accept a game in **Chat Settings → Agents**, in the **Commands** controls. You can also set these during the new-chat setup wizard, in its **Automation** step.
+Open **Chat Settings → Agents → Commands**, or use the **Automation** step when you create the chat. The master **Commands** switch gates all character-run actions, including table games, selfies and calls. With it off, characters start nothing on their own.
 
-The master **Commands** toggle is on by default. It controls all character-run commands, including the table games, selfies, memories, and calls. Turning it off stops characters from starting anything on their own.
+Each installed game has its own switch, on unless you turn it off: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** and **Rock-Paper-Scissors**. See [Choose which Commands a character can use](getting-started.md#choose-which-commands-a-character-can-use).
 
-Under Commands, each installed game has its own toggle, and all six are on by default:
-
-- **UNO**: "Let characters start a game of UNO at the table when you agree to play."
-- **Chess**: "Let characters accept a one-on-one chess challenge at the table."
-- **Poker**: "Let characters sit down for a game of Texas Hold'em poker at the table."
-- **8-Ball Pool**: "Let characters rack up a game of 8-ball pool at the table."
-- **Tic-Tac-Toe**: "Let characters accept a one-on-one tic-tac-toe challenge at the table."
-- **Rock-Paper-Scissors**: "Let characters accept a one-on-one rock-paper-scissors match at the table."
-
-These toggles only control the character-run path. An installed game's slash command and "let's play" chat phrase still work when its character toggle is off.
+These switches control only what characters do. A game's slash command and the "let's play" phrase work even when its switch is off.
 
 ## Related guides
 

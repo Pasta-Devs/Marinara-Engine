@@ -9,7 +9,9 @@ import { openGame, savedInventory, withImports } from "./game-ruleset-fight-fixt
  * warming tonic from a fence whose stock is a fake one: the bag, the notification and the narration
  * show a warming tonic and never the bitter tonic it truly is, while the next prompt tells the Game
  * Master the truth. Sold to the honest chandler, it is seen through: the notification says what it
- * really was and what it fetched, and it leaves the bag.
+ * really was and what it fetched, and it leaves the bag. Before it is bought, Juno notices it with no
+ * dice (Capability API 1.802): the first buy is held unpaid for her warning, and the Game Master is told
+ * to have her warn the buyer; asked again, it goes through.
  */
 
 function gravewatch(id: string): string {
@@ -19,8 +21,15 @@ function gravewatch(id: string): string {
   kit.entries.push({
     id: "bitter-tonic",
     label: "Bitter tonic",
-    item: { category: "tonic", passesFor: "kit/warming-tonic", cost: { amount: 1, unit: "penny" } },
+    item: {
+      category: "tonic",
+      passesFor: "kit/warming-tonic",
+      cost: { amount: 1, unit: "penny" },
+      tells: [{ check: { ability: "nerve" }, dc: 2, says: "it smells of nightshade, not ginger" }],
+    },
   });
+  // A pool's number is its size: a passive score starts from nothing, so a Nerve of 2 meets 2.
+  doc.items.passiveBase = 0;
   doc.items.lootTables.push({
     id: "fences_lot",
     label: "A fence's lot",
@@ -83,6 +92,7 @@ test("a fence's fake looks real in the bag until an honest buyer sees through it
       'We reach Barrowmere. [place: name="Barrowmere" size="market town"] ' +
         '[inventory: action="buy" item="Warming tonic" seller="fence"]',
     ],
+    ["I buy it anyway.", 'The fence shrugs. [inventory: action="buy" item="Warming tonic" seller="fence"]'],
     [
       "I sell the tonic to the chandler.",
       'The chandler squints. [inventory: action="sell" item="Warming tonic" seller="chandler"]',
@@ -125,6 +135,8 @@ test("a fence's fake looks real in the bag until an honest buyer sees through it
           enableTools: false,
           gameRuleset: { id: rulesetId, version: 1, packageId: null, options: {} },
           gameInventory: [{ id: "st-crowns", name: "crowns", item: "coin:crown", quantity: 2 }],
+          // Wren buys; Juno, beside her, may notice.
+          gameCharacterCards: [{ name: "Wren" }, { name: "Juno" }],
         },
       });
       expect(meta.ok(), await meta.text()).toBeTruthy();
@@ -163,8 +175,27 @@ test("a fence's fake looks real in the bag until an honest buyer sees through it
         return model.prompts.slice(before).find((body) => body.includes(said));
       };
 
-      // Bought from the fence: a warming tonic, as far as the player can tell.
-      await turn("I buy a tonic from the fence.", "We reach Barrowmere.", [/^You bought Warming tonic/]);
+      // Asked of the fence: Juno noticed, so nothing is paid and the Game Master hears what she saw.
+      await turn("I buy a tonic from the fence.", "We reach Barrowmere.", []);
+      await expect
+        .poll(async () => {
+          const messages = (await (await request.get(`/api/chats/${chatId}/messages`)).json()) as Array<{
+            content: string;
+          }>;
+          return messages.map((message) => message.content).join("\n");
+        })
+        .toMatch(/reason="held"[^\]]*note="Juno noticed: it smells of nightshade, not ginger"/);
+      expect((await savedInventory(request, chatId)).map((stack) => `${stack.item} ${stack.quantity}`)).toEqual([
+        "coin:crown 2",
+      ]);
+      await openGame(page, chatId);
+      await expect(page.locator('[data-component="GameNarration.ActivePanel"]')).toContainText("We reach Barrowmere.", {
+        timeout: 30_000,
+      });
+
+      // Warned, the buyer chooses: a warming tonic, as far as the player can tell.
+      const warned = await turn("I buy it anyway.", "The fence shrugs.", [/^You bought Warming tonic/]);
+      expect(warned).toContain("was not paid: someone else in the party noticed something off");
       await expect
         .poll(async () =>
           (await savedInventory(request, chatId))
@@ -177,9 +208,13 @@ test("a fence's fake looks real in the bag until an honest buyer sees through it
       await expect(page.locator("body")).not.toContainText("Bitter");
       // The inventory panel does not close on Escape; opening the game again leaves it.
       await openGame(page, chatId);
-      await expect(page.locator('[data-component="GameNarration.ActivePanel"]')).toContainText("We reach Barrowmere.", {
-        timeout: 30_000,
-      });
+      // Opened again, the reader may stand on the player's own line of the last turn: the next is the
+      // Game Master's.
+      const panel = page.locator('[data-component="GameNarration.ActivePanel"]');
+      await expect(panel).toContainText(/I buy it anyway\.|The fence shrugs\./, { timeout: 30_000 });
+      if ((await panel.innerText()).includes("I buy it anyway."))
+        await page.getByRole("button", { name: "Next" }).click();
+      await expect(panel).toContainText("The fence shrugs.", { timeout: 30_000 });
 
       // The Game Master is told the truth on the next turn, and sells it to the honest chandler.
       const prompt = await turn("I sell the tonic to the chandler.", "The chandler squints.", [

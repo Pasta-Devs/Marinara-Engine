@@ -1,107 +1,91 @@
 # Lorebooks Overview
 
-This guide explains what a lorebook is in Marinara Engine, how the **Lorebooks** panel works, and how a lorebook becomes active in a chat. It also walks you through creating your first lorebook and its first entry. Deeper topics like keywords, timing, and semantic search live in their own guides, linked at the end.
+A lorebook is a set of world facts the AI reads when their keywords come up in the chat. Use one for places, factions, backstories and rules, so you do not repeat them in every message.
 
-## What a lorebook is
+Each lorebook holds entries. An entry has trigger keywords and a block of text. When a keyword appears in the recent chat, Marinara adds the entry's text to the prompt, the text sent to the model for one reply. Lorebooks are also called World Info in other tools.
 
-A lorebook is a small knowledge base that the AI can pull from during a chat. It is also called **World Info**, and the two names mean the same thing. Each lorebook holds a list of entries. An entry has two parts: some trigger keywords and a block of text.
+For example, an entry with the keyword `Eldoria` and the text below makes the AI know the city whenever someone mentions it.
 
-When a keyword shows up in the recent chat, Marinara Engine adds that entry's text into the prompt. The prompt is the hidden instructions and history sent to the AI for each reply. This lets the AI use facts it was never told directly in the conversation.
-
-Here is a simple example. You write a lorebook entry with the keyword `Eldoria` and this text:
-
-```
+```text
 Eldoria is a rainy port city ruled by a council of nine merchants.
 ```
 
-Now, whenever you or a character mentions Eldoria, the AI receives that fact. It can then answer as if it always knew the city. Without the entry, the AI would have to guess.
+Keyword matching works with any model and needs no setup. To match by meaning instead of exact words, see [Semantic Search for Lorebooks](semantic-search.md).
 
-Lorebooks are useful for world lore, character backstories, place names, factions, rules, and any facts you want the AI to remember. You do not need to repeat these facts in every message. The lorebook supplies them only when they are relevant, which saves space in the prompt.
+## Create a lorebook and add an entry
 
-Keyword matching works with any AI connection and needs no extra setup. Marinara can also match entries by meaning instead of exact words, using optional semantic search. That is a separate, opt-in feature covered in its own guide.
+1. Open the **Lorebooks** panel from the sidebar.
+2. Click **New** (the plus icon). The **Create Lorebook** window opens.
+3. Type a **Name**. This field is required.
+4. Add a **Description** if you want.
+5. Pick a **Category**. The default is **Other**. If you will link this lorebook to a character, pick **Character**, because the character's picker lists only that category.
+6. Click **Create Lorebook**. The new lorebook appears in the list.
+7. Click the lorebook's row. The full-page editor opens.
+8. Click the **Entries** tab.
+9. Click **Add Entry**. A new, empty entry row appears.
+10. Type a name in the row, such as `Eldoria`, then click the row to open it.
+11. In **Primary Keys**, type `Eldoria` and press <kbd>Enter</kbd>.
+12. In **Content**, write the text for the AI.
 
-## The Lorebooks panel
+The entry saves by itself a moment after you stop typing, and you see **Saved automatically**. Now the entry joins the prompt whenever its keyword matches. For keywords, position and timing, see [Lorebook Entries: Keys, Position, and Timing](entries.md).
 
-The **Lorebooks** panel is the library where you browse, search, and manage every lorebook. Open it from the app sidebar. The panel lists each lorebook with its picture, name, and a short description.
+If it did not work: check that the lorebook is active in the chat (see below), that its **Enabled** switch is on, and that the keyword appears in the last few messages. Marinara scans only as many messages as the **Scan Depth** setting says.
 
-Three icon buttons sit at the top of the panel. They show only an icon, with no text label. Hover your mouse over a button to see its name.
+## Make a lorebook active in a chat
 
-- **New** (a plus sign) opens the **Create Lorebook** window so you can make a lorebook.
-- **Import** (a downward arrow) opens the **Import Lorebook** window to load a lorebook file.
-- **Select** (a check mark) turns on multi-select mode so you can export or delete several lorebooks at once.
+A lorebook feeds the AI only when it is active in the open chat. There are three ways.
 
-Below the buttons is a search box with the placeholder text **Search lorebooks**. It filters the list by name, description, linked character or persona names, and tags. Next to it is a **Sort order** dropdown with these choices: **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest**, and **Token Budget**. With **Manual order**, drag lorebooks into the order you want, or move one with Alt+Up and Alt+Down on the keyboard. Your order is kept.
+| Way | Where you set it | Active in |
+| --- | --- | --- |
+| Global | **Global** switch on the lorebook's **Overview** tab | Every chat |
+| Linked | Lorebook's **Overview** tab, or the character or persona editor | Chats with that character or persona |
+| Added to one chat | **Chat Settings → Lorebooks** | That chat only |
 
-Each lorebook row shows a **Copy** button and a **Delete** button. The buttons appear when you hover over the row. On mobile they are always visible. **Copy** duplicates the lorebook. A lorebook that is turned off shows a small **OFF** badge. Click the picture to upload or replace it.
+A lorebook cannot be both global and linked. Turning on **Global** clears its character and persona links when you save.
 
-You can also make library folders with the **New Folder** button. Drag a lorebook onto a folder to file it away. This keeps a large library tidy. On a phone, hold a lorebook for a moment, then drag it. These library folders are separate from the entry folders you can create inside a single lorebook.
-
-## Categories
-
-Every lorebook has one category. The category is only a label to help you organize your library. It does not change how or when the lorebook activates.
-
-The panel has these category tabs:
-
-- **All** shows every lorebook, grouped by category.
-- **Active** shows only the lorebooks that are relevant to the chat you have open right now.
-- **World**, **Character**, **NPC**, **Spellbook**, and **Other** each show lorebooks in that one category.
-
-When you create a lorebook you pick one of five categories: **World**, **Character**, **NPC**, **Spellbook**, or **Other**. The default is **Other**. You can change the category later from the lorebook's **Overview** tab. Note that the **Overview** tab labels this same category **Uncategorized** instead of **Other**. Use whatever labels make sense to you. For example, put place and setting notes in **World** and put a companion's history in **Character**.
-
-## How a lorebook activates
-
-A lorebook only feeds the AI when it is active in the current chat. There are three ways a lorebook becomes active. You choose the one that fits.
-
-1. **Global.** A global lorebook is active in every chat, as long as it is enabled. Turn on the **Global** switch in the lorebook's **Overview** tab. Use this for facts that matter everywhere, such as the rules of your shared world.
-2. **Linked to a character or persona.** A linked lorebook auto-activates in any chat that includes that character or uses that persona. You set links in the **Overview** tab or from the character or persona editor. This is the most common choice for a character's own backstory.
-3. **Pinned to a single chat.** You can add a lorebook to just one chat from that chat's settings. It stays active in that chat only. This is handy for lore that fits one story and not your whole library.
-
-A global lorebook and a linked lorebook cannot be the same lorebook. Turning on **Global** clears any character or persona links when you save. Marinara treats these two options as mutually exclusive.
-
-Every active lorebook still respects its **Enabled** switch. If a lorebook is turned off, none of its entries activate, even when it is global or linked. To see which lorebooks are active in the open chat, open the chat's settings and find its **Lorebooks** section. You can also edit the active list there. A separate guide covers that section.
-
-## Create your first lorebook and entry
-
-Follow these steps to make a lorebook and add one entry.
-
-1. Open the **Lorebooks** panel and click **New**. The **Create Lorebook** window opens.
-2. Type a name in the **Name** field. This field is required. A clear example is `Eldoria World Lore`.
-3. Add a short **Description** if you want. This is optional and only helps you find the lorebook later.
-4. Pick a **Category** from the dropdown, or leave it as **Other**.
-5. Click the **Create Lorebook** button. Your new lorebook appears in the panel list.
-
-Your lorebook has no entries yet. Now add one.
-
-1. Click your lorebook's row in the panel. The full-page editor opens.
-2. Click the **Entries** tab. The badge next to it shows the entry count.
-3. Click **Add Entry**. A new, empty entry appears.
-4. In the entry, add one or more trigger keywords, such as `Eldoria`.
-5. In the entry's **Content** field, write the text you want the AI to receive.
-
-The entry saves on its own a moment after you stop typing. You will see a short **Saved automatically** note. Your lorebook now works: when a keyword matches the recent chat, the entry's content joins the prompt. The [entries guide](entries.md) explains keywords, matching rules, and timing options. Its [Authoring strategy](entries.md#authoring-strategy-choosing-the-right-entry) and [Worked example](entries.md#worked-example-a-small-setting) sections show how to choose the right controls for each entry.
+An active lorebook still needs its **Enabled** switch on. For linking, see [Linking Lorebooks to Characters and Personas](linking-to-characters.md).
 
 ## The Overview tab settings
 
-Open a lorebook and click the **Overview** tab to set how the whole lorebook behaves. The most important fields are the name, category, links, and the switches described above. The tab also has these numeric settings.
+Open a lorebook and click **Overview** to set how the whole lorebook behaves.
 
 | Setting | What it does | Default |
-|---|---|---|
-| **Scan Depth** | How many recent messages Marinara checks for keyword matches. Set 0 to scan the whole chat. | 2 |
-| **Token Budget** | The most tokens this lorebook can add to one prompt. Set 0 for no limit. | 2048 |
-| **Entry Limit** | The most entries this lorebook can add to one prompt. The range is 1 to 1000. | 100 |
-| **Max Depth** | How many extra recursive passes to run. This field appears only when **Recursive** is on. The range is 1 to 10. | 3 |
+| --- | --- | --- |
+| **Scan Depth** | How many recent messages Marinara checks for keywords. 0 scans the whole chat. | 2 |
+| **Token Budget** | The most tokens this lorebook can add to one reply. 0 means no limit. | 2048 |
+| **Entry Limit** | The most entries this lorebook can add to one reply. Range 1 to 1000. | 100 |
+| **Max Depth** | Extra passes for recursion. Shown only when **Recursive** is on. Range 1 to 10. | 3 |
 
-A token is a small chunk of text, roughly a few characters. The AI has a limited space for the prompt, so the **Token Budget** keeps one lorebook from filling that space.
+Tokens are small pieces of text that models count; about three-quarters of a word in English. For what each limit does, and what recursion means, see [Lorebook Token Budgets and Recursion](token-budgets.md).
 
-The tab also has three switches:
+The tab also has these switches.
 
 - **Enabled** turns the whole lorebook on or off. It is on by default.
-- **Recursive** lets an activated entry's text trigger more entries in extra passes. It is off by default. Turn it on when your lore should chain into related lore.
-- **Vectors** lets entries use semantic matching. It is off by default. Keyword matching still works when it is off.
+- **Global** makes the lorebook active in every chat.
+- **Recursive** lets an activated entry's text trigger more entries. It is off by default.
+- **Vectors** lets entries also match by meaning. It is off by default, and keywords still work either way.
 
-Below these settings is a **Semantic Search (Embeddings)** panel. It builds the data that powers meaning-based matching. The semantic search guide covers setup, embedding sources, and the vectorize buttons.
+The **Semantic search (embeddings)** panel below the switches is covered in [Semantic Search for Lorebooks](semantic-search.md).
 
-The finer points of budgets, the **Entry Limit**, and recursion have their own guide too. Start with the defaults above. They work well for most lorebooks, and you can adjust them later.
+## The Lorebooks panel
+
+At the top of the panel, three icon buttons show their names when you hover over them.
+
+- **New** opens the **Create Lorebook** window.
+- **Import** opens the **Import Lorebook** window. See [Importing and Exporting Lorebooks](import-export.md).
+- **Select** turns on multi-select, so you can export or delete several lorebooks at once.
+
+Below the buttons:
+
+- **Search lorebooks** filters by name, description, linked character or persona names, and tags.
+- **Sort order** offers **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest** and **Token Budget**. With **Manual order**, drag lorebooks into place, or use <kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd>.
+- **New Folder** makes a library folder. Drag a lorebook onto it. On a phone, hold the lorebook, then drag. These folders are separate from the entry folders inside a lorebook.
+
+Each row has **Copy** (duplicates the lorebook) and **Delete** buttons. They appear when you hover over the row, and are always visible on mobile. A lorebook that is turned off shows an **OFF** badge. Click the picture to upload or replace it.
+
+### Categories
+
+A category is a label for your library. It does not change when the lorebook activates. The tabs are **All**, **Active** (lorebooks relevant to the open chat), **World**, **Character**, **NPC**, **Spellbook** and **Other**. You can change a lorebook's category on its **Overview** tab, where **Other** is called **Uncategorized**.
 
 ## Related guides
 

@@ -2,6 +2,7 @@
 // Noodle Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
 import { avatarCropSchema } from "./avatar-crop.schema.js";
 
 export const noodleAccountKindSchema = z.enum(["persona", "character", "random_user"]);
@@ -177,7 +178,7 @@ export const noodleSettingsSchema = z.object({
   fanArchetypeWeights: noodlerFanArchetypeWeightsSchema.default(DEFAULT_NOODLE_SETTINGS.fanArchetypeWeights),
 });
 
-export const noodleSettingsUpdateSchema = noodleSettingsSchema.partial();
+export const noodleSettingsUpdateSchema = partialInput(noodleSettingsSchema);
 
 export const noodlerSourceSnapshotSchema = z
   .object({
@@ -224,8 +225,7 @@ export const noodleAutoPostingSettingsSchema = z
 export const noodlerFanActivitySettingsSchema = z
   .object({
     enabled: z.boolean().optional(),
-    archetypeWeights: noodlerFanArchetypeWeightsObjectSchema
-      .partial()
+    archetypeWeights: partialInput(noodlerFanArchetypeWeightsObjectSchema)
       .refine((weights) => Object.values(weights).some((weight) => weight > 0), {
         message: "At least one audience archetype must have a positive weight.",
       })
@@ -243,7 +243,7 @@ export const noodleAccountSchedulerSettingsSchema = z
 
 export const noodleAccountSchedulerPatchSchema = z
   .object({
-    autoPosting: noodleAutoPostingSettingsSchema.pick({ enabled: true, imagesEnabled: true }).partial().optional(),
+    autoPosting: partialInput(noodleAutoPostingSettingsSchema.pick({ enabled: true, imagesEnabled: true })).optional(),
     fanActivity: noodlerFanActivitySettingsSchema.nullable().optional(),
   })
   .strict();
@@ -261,7 +261,7 @@ export const noodleAccountPrivacySettingsSchema = z
   .object({
     identityDisclosure: noodleIdentityDisclosureSchema.optional(),
     stagePersonality: z.string().trim().max(1000).optional(),
-    access: noodleAccountAccessSettingsSchema.default({
+    access: noodleAccountAccessSettingsSchema.prefault({
       hiddenFromAccountIds: [],
     }),
   })
@@ -269,7 +269,7 @@ export const noodleAccountPrivacySettingsSchema = z
 
 export const noodleAccountPrivacyPatchSchema = noodleAccountPrivacySettingsSchema
   .omit({ access: true })
-  .extend({ access: noodleAccountAccessSettingsSchema.partial().optional() })
+  .extend({ access: partialInput(noodleAccountAccessSettingsSchema).optional() })
   .strict();
 
 export const noodleAccountSocialPatchSchema = noodleAccountSocialSettingsSchema.pick({
@@ -337,8 +337,8 @@ export const noodleBulkNoodlerAccountCreateSchema = z
       .max(NOODLER_BULK_ACCOUNT_MAX)
       .refine((ids) => new Set(ids).size === ids.length, { message: "Duplicate account IDs are not allowed." }),
     disclosureMode: noodleIdentityDisclosureSchema,
-    disclosureExceptions: z.record(z.string().min(1).max(64), noodleIdentityDisclosureSchema).default({}),
-    autoPosting: noodleAutoPostingSettingsSchema.default({ enabled: true, imagesEnabled: false }),
+    disclosureExceptions: z.record(z.string().min(1).max(64), noodleIdentityDisclosureSchema).prefault({}),
+    autoPosting: noodleAutoPostingSettingsSchema.prefault({ enabled: true, imagesEnabled: false }),
     executionId: z.string().min(1).max(128).optional(),
   })
   .strict();
@@ -366,7 +366,7 @@ export const noodleStageProfileDraftRequestSchema = z
     noodlerAccountId: z.string().min(1).optional(),
     disclosureMode: noodleIdentityDisclosureSchema,
     guidance: z.string().trim().max(2000).default(""),
-    currentDraft: noodleStageProfileSchema.partial().optional(),
+    currentDraft: partialInput(noodleStageProfileSchema).optional(),
     connectionId: z.string().min(1).optional(),
   })
   .strict()

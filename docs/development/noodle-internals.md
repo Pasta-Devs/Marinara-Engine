@@ -1,6 +1,6 @@
 # Noodle Prompt Internals (Developers)
 
-Developer reference for where Noodle's generation prompts live in the code, how to customize them, and how to debug the final prompts. End users configure Noodle through its Settings panel; see the Noodle guides in `docs/noodle/`.
+Developer reference for where Noodle's generation prompts live in the code, how to customize them, and how to debug the final prompts. End users configure Noodle through its Settings panel; see the Noodle guides `docs/agents/noodle.md` and `docs/agents/noodle-settings.md`.
 
 Noodle is a downloadable package. Its routes (`/api/noodle`, registered when the package activates) and its generation code live in the Noodle package in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents), under `packages/noodle/src/engine/packages/server/src/`. In the table below, a source marked **package** is relative to that folder. The Engine keeps the shared Noodle schema and types, Noodle storage, the registered prompt overrides that Settings lists, and the default timeline prompt text in `packages/server/src/services/noodle/noodle-prompt.ts`. The package keeps its own copies of `services/prompt-overrides/registry/noodle.ts` and `services/noodle/noodle-prompt.ts`.
 
@@ -54,7 +54,7 @@ Changes to package-owned code are made and validated in Marinara-Agents, against
 
 ## Related guides
 
-- [Noodle: The In-App Social Timeline](../noodle/overview.md)
-- [Noodle Settings and Chat Carryover](../noodle/settings.md)
+- [Noodle: The In-App Social Timeline](../agents/noodle.md)
+- [Noodle Settings and Chat Carryover](../agents/noodle-settings.md)
 - [Optional Agent and Capability Packages](optional-agent-packages.md)
 - [Architecture Map (Developers)](architecture-map.md)

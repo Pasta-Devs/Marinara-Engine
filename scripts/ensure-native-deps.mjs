@@ -4,11 +4,19 @@ import { existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { basename, dirname, join } from "node:path";
+import { isNativePnpmExecutable, removeLegacyPnpmStore } from "./pnpm-runner.mjs";
 
 const rootRequire = createRequire(new URL("../package.json", import.meta.url));
 const serverRequire = createRequire(new URL("../packages/server/package.json", import.meta.url));
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
-const supportedOnnxTuples = new Set(["darwin/arm64", "darwin/x64", "linux/arm64", "linux/x64", "win32/arm64", "win32/x64"]);
+const supportedOnnxTuples = new Set([
+  "darwin/arm64",
+  "darwin/x64",
+  "linux/arm64",
+  "linux/x64",
+  "win32/arm64",
+  "win32/x64",
+]);
 const tuple = `${process.platform}/${process.arch}`;
 
 function log(message) {
@@ -50,6 +58,7 @@ function resolvePnpmCommand() {
     Boolean(pnpmCliPath) && (npmUserAgent.startsWith("pnpm/") || basename(pnpmCliPath ?? "").startsWith("pnpm"));
 
   if (useCurrentPnpm && pnpmCliPath) {
+    if (isNativePnpmExecutable(pnpmCliPath)) return { command: pnpmCliPath, args: [] };
     return { command: process.execPath, args: [pnpmCliPath] };
   }
 
@@ -67,7 +76,7 @@ function resolvePnpmCommand() {
 }
 
 function spawnPnpm(runner, args, options) {
-  if (process.platform !== "win32" || runner.command === process.execPath) {
+  if (process.platform !== "win32" || runner.command === process.execPath || /\.exe$/iu.test(runner.command)) {
     return spawnSync(runner.command, args, options);
   }
 
@@ -178,3 +187,9 @@ function ensureOnnxRuntime() {
 }
 
 ensureOnnxRuntime();
+try {
+  if (removeLegacyPnpmStore(repoRoot))
+    log("Removed the pnpm 10 dependency cache (.pnpm-store/v10); pnpm 12 no longer uses it.");
+} catch (error) {
+  warn(`Could not remove the pnpm 10 dependency cache (.pnpm-store/v10): ${error.message}`);
+}

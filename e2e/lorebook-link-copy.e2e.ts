@@ -20,11 +20,15 @@ test("lorebook links copy across editors, merge without duplicates, and save nor
     const existing = await create("characters", { data: { name: "Existing character" } });
     const persona = await create("characters/personas", { name: "Copied persona" });
     const source = await create("lorebooks", {
-      name: "Source links",
+      // The mobile projects share a server, so each run names its own books.
+      name: `Source links ${info.project.name}`,
       characterIds: [character.id, "deleted-character"],
       personaIds: [persona.id],
     });
-    const target = await create("lorebooks", { name: "Target links", characterIds: [existing.id] });
+    const target = await create("lorebooks", {
+      name: `Target links ${info.project.name}`,
+      characterIds: [existing.id],
+    });
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
     await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
@@ -46,7 +50,10 @@ test("lorebook links copy across editors, merge without duplicates, and save nor
     // Repeated pastes must not duplicate the linked resources.
     await page.getByRole("button", { name: "Paste links", exact: true }).click();
     await expect(page.getByRole("main").getByText(persona.name, { exact: true })).toBeVisible();
-    await expect(page.getByRole("main").getByText("Existing character", { exact: true })).toBeVisible();
+    // The linked characters are one CharacterSelect field since #8763; it names every linked character.
+    await expect(
+      page.getByRole("main").getByText("Existing character, Copied character", { exact: true }),
+    ).toBeVisible();
     const beforeSave = await (await request.get(`/api/lorebooks/${target.id}`)).json();
     expect(beforeSave.personaIds).toEqual([]);
     await page.getByRole("button", { name: "Save", exact: true }).click();

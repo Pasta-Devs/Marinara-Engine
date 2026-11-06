@@ -11,6 +11,7 @@
 import type { RulesetCombat, RulesetDefinition } from "../../schemas/ruleset.schema.js";
 import { readRulesetWoundPenalty } from "../rulesets/live-state.js";
 import { rollDicePoolCheck } from "../rulesets/sheet-math.js";
+import { throwRulesetSymbolPool } from "./symbols.js";
 import type { RulesetCombatant, RulesetCombatRoller, RulesetCombatRollMode } from "./types.js";
 
 /** Whether this fight throws pools. */
@@ -53,6 +54,11 @@ export function throwRulesetCombatPool(
   /** A per-die target of this throw's own (a weapon's), held to what the ruleset allows. */
   threshold?: number,
 ): RulesetCombatPoolThrow {
+  // A symbol pool (1.382) throws its own dice, against none, and counts its net successes.
+  if (definition.resolution.kind === "symbol-pool") {
+    const thrown = throwRulesetSymbolPool(definition, roll, { dice, mode });
+    return { rolls: thrown.rolls, successes: thrown.successes, botch: false, target: 0, dice: thrown.dice };
+  }
   const once = () => {
     const result = rollDicePoolCheck(
       definition,

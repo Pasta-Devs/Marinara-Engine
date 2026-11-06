@@ -7,6 +7,7 @@ import {
   type MultiplayerPersona,
   type MultiplayerSnapshot,
 } from "@marinara-engine/shared";
+import { CharacterSelect } from "../../components/characters/CharacterSelect";
 import { useCharacters } from "../../hooks/use-characters";
 import { useMultiplayerMutation } from "../../hooks/use-multiplayer";
 import { parseCharacterDisplayData } from "../../lib/character-display";
@@ -71,13 +72,15 @@ export function MultiplayerParticipantControls({
       <h2 className="border-t border-[var(--border)] pt-4 text-sm font-semibold">
         {t(host ? "multiplayer.character.add" : "multiplayer.character.propose")}
       </h2>
-      <select
-        className={MULTIPLAYER_INPUT_CLASS}
-        defaultValue=""
+      <CharacterSelect
+        kind="character"
+        variant="picker"
         aria-label={t("multiplayer.character.choose")}
-        onChange={(event) => {
-          setCharacterId(event.target.value);
-          const selected = characters.find((item) => item.id === event.target.value);
+        placeholder={t("multiplayer.character.choose")}
+        value={characterId || null}
+        onChange={(id) => {
+          setCharacterId(id ?? "");
+          const selected = characters.find((item) => item.id === id);
           if (!selected) return;
           const data = parseCharacterDisplayData(selected);
           setCharacter({
@@ -86,14 +89,7 @@ export function MultiplayerParticipantControls({
               typeof data.description === "string" ? data.description.slice(0, MULTIPLAYER_LIMITS.description) : "",
           });
         }}
-      >
-        <option value="">{t("multiplayer.character.choose")}</option>
-        {characters.map((item) => (
-          <option key={item.id} value={item.id}>
-            {parseCharacterDisplayData(item).name}
-          </option>
-        ))}
-      </select>
+      />
       <label className="block space-y-1 text-xs">
         <span>{t("multiplayer.persona.name")}</span>
         <input

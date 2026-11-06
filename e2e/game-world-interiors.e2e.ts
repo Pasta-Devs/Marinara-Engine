@@ -127,7 +127,9 @@ test("the party goes inside a building it walked to, and the next turn tells wha
     // The people at work there at ten in the morning, one of them looked at.
     const people = inside.getByRole("button");
     await expect(people.first()).toBeAttached();
-    await people.first().click({ force: true });
+    // Not forced: the people are placed once the rooms are measured, a frame after they mount (later on CI WebKit),
+    // and until then they sit outside the region. The click waits for that.
+    await people.first().click();
     const personCard = page.locator('[data-component="TownInterior.Card"]');
     await expect(personCard).toContainText("Here, awake");
     await page.screenshot({ path: testInfo.outputPath("inside.png") });

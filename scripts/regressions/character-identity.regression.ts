@@ -125,7 +125,8 @@ assert.match(
 );
 assert.match(
   retrySource,
-  /retryCharacterIdentity[\s\S]*?retryIdentitySource === "character"[\s\S]*?chatCharacters/u,
+  // retryIllustratorClipCast builds the cast for a re-run's picture references and its clips alike.
+  /function retryIllustratorClipCast[\s\S]*?identitySource === "character"[\s\S]*?chatCharacters\.push\(/u,
   "Illustrator retries must resolve character-backed identity references through character scope",
 );
 assert.match(

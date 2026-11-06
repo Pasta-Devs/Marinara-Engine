@@ -5,13 +5,16 @@
 // used is not offered, and the model only guesses for the items that are not the ruleset's.
 
 import type { CombatItemEffect } from "../../types/combat-encounter.js";
+import { rulesetChargesStart } from "../ruleset-combat/dice.js";
 import {
+  gameInventoryDrawRefusal,
   gameInventoryFightEffects,
   gameInventoryFightLines,
   gameInventoryNameKey,
   gameInventoryWearMet,
   gameInventoryWearNeeds,
   type GameInventoryFightLine,
+  type GameInventoryItemRules,
   type GameInventoryStack,
 } from "../../utils/game-inventory-stacks.js";
 import { AVERAGE_AMOUNT_PER_POWER, averageAmount } from "./combat-bridge.js";
@@ -40,7 +43,7 @@ const TYPICAL_HIT_SHARE = 0.22;
  */
 export function rulesetItemFightEffect(
   name: string,
-  read: Pick<RulesetItemBookEntry, "entry" | "facts"> | undefined,
+  read: (Pick<RulesetItemBookEntry, "entry" | "facts"> & Partial<Pick<RulesetItemBookEntry, "drawOnUse">>) | undefined,
 ): CombatItemEffect | null {
   const item = read?.entry.item;
   const use = item?.use;
@@ -62,7 +65,9 @@ export function rulesetItemFightEffect(
   const applied = use.applies?.[0];
   const rounds = applied && typeof applied.duration === "object" ? applied.duration.rounds : undefined;
   const helps = use.kind === "heal" || use.kind === "buff";
-  const wear = gameInventoryWearNeeds(item);
+  // Drawn as it is used (1.808): used while only carried, and put on as it is used.
+  const draws = read?.drawOnUse === true;
+  const wear = gameInventoryWearNeeds({ ...item, drawOnUse: draws });
   return {
     name,
     target: use.targets ?? (helps ? "ally" : "enemy"),
@@ -79,8 +84,17 @@ export function rulesetItemFightEffect(
     ...(use.damageType ? { element: use.damageType } : {}),
     ...(condition ? { status: { name: condition, emoji: helps ? "✨" : "💢", duration: rounds ?? 2 } } : {}),
     consumes: use.consumes === true,
-    ...(said.charges ? { charges: { cost: said.charges.cost, max: said.charges.max } } : {}),
+    ...(said.charges
+      ? {
+          charges: {
+            cost: said.charges.cost,
+            max: said.charges.max,
+            ...(said.charges.rolled ? { rolled: said.charges.rolled } : {}),
+          },
+        }
+      : {}),
     ...(wear.equipped || wear.bound ? { wear } : {}),
+    ...(draws ? { draws: true as const } : {}),
     ruleset: true,
   };
 }
@@ -97,6 +111,9 @@ export function gameFightOffers(
   stacks: readonly GameInventoryStack[],
   effects: readonly CombatItemEffect[],
   rulesetItems: { native: boolean } | undefined,
+  /** The ruleset's items with the slots every character has: one drawn as it is used (1.808) is
+   *  offered only from a stack that could be drawn now. Without them, every such stack is. */
+  rules?: GameInventoryItemRules,
 ): GameInventoryFightLine[] {
   const lines = gameInventoryFightLines(stacks);
   if (!rulesetItems) return lines;
@@ -108,12 +125,23 @@ export function gameFightOffers(
     if (!effect) return [];
     // Only the stacks it may be used from: worn and bound where the item asks it. A fake counts as
     // what it passes for (1.79).
-    const usable = stacks.filter((stack) => stack.item === line.item && gameInventoryWearMet(stack, effect.wear));
+    // One drawn as it is used (1.808), only where it could be drawn: not past a shield in the hand it needs.
+    const usable = stacks.filter(
+      (stack) =>
+        stack.item === line.item &&
+        gameInventoryWearMet(stack, effect.wear) &&
+        (!effect.draws || !gameInventoryDrawRefusal(stacks, stack, rules)),
+    );
     // A stack without a count of its own is full, and no stack holds more than its item's most.
     const charges = effect.charges;
     const uses = charges
       ? usable.reduce(
-          (total, stack) => total + Math.floor(Math.min(charges.max, stack.charges ?? charges.max) / charges.cost),
+          (total, stack) =>
+            total +
+            Math.floor(
+              Math.min(charges.max, stack.charges ?? rulesetChargesStart(charges, charges.max, stack.id)) /
+                charges.cost,
+            ),
           0,
         )
       : usable.reduce((total, stack) => total + stack.quantity, 0);
@@ -130,7 +158,7 @@ export function gameFightOffers(
  */
 export function gameFightItems(
   stacks: readonly GameInventoryStack[],
-  book: Pick<RulesetItemBook, "itemOf"> | undefined,
+  book: (Pick<RulesetItemBook, "itemOf"> & Partial<GameInventoryItemRules>) | undefined,
   native: boolean,
   guessed: readonly CombatItemEffect[],
 ): { lines: GameInventoryFightLine[]; effects: CombatItemEffect[] } {
@@ -142,7 +170,12 @@ export function gameFightItems(
         return effect ? [effect] : [];
       })
     : [];
-  const lines = gameFightOffers(stacks, worked, book ? { native } : undefined);
+  const lines = gameFightOffers(
+    stacks,
+    worked,
+    book ? { native } : undefined,
+    book?.slots ? (book as GameInventoryItemRules) : undefined,
+  );
   const guesses = guessed.filter((effect) => !effect.ruleset);
   const plain = lines.filter((line) => !line.item || !book);
   const matched = gameInventoryFightEffects(plain, guesses);
@@ -175,7 +208,7 @@ export function gameFightUseEffect(
   const name = read?.name ?? stack.truly;
   const truly = rulesetItemFightEffect(effect.name, read);
   if (!truly) return { ...effect, failed: `It was really ${name}, and it did nothing.` };
-  const { charges: _charges, wear: _wear, consumes: _consumes, ...does } = truly;
+  const { charges: _charges, wear: _wear, draws: _draws, consumes: _consumes, ...does } = truly;
   return {
     ...does,
     target: effect.target,
@@ -183,5 +216,6 @@ export function gameFightUseEffect(
     ...(effect.consumes !== undefined ? { consumes: effect.consumes } : {}),
     ...(effect.charges ? { charges: effect.charges } : {}),
     ...(effect.wear ? { wear: effect.wear } : {}),
+    ...(effect.draws ? { draws: effect.draws } : {}),
   };
 }

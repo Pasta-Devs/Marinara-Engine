@@ -265,7 +265,41 @@ try {
     { ok: true, bag: { holder: "Sorrel" } },
     "late arrivals receive their own inventory holder",
   );
-  await assert.rejects(validateNewRoomHumanGameName(db, fresh.id, "Sorrel"), RoomPersonaConflictError);
+  await chats.patchMetadata(fresh.id, { multiplayer: lateRoom });
+  await assert.rejects(
+    validateNewRoomHumanGameName(db, fresh.id, "Sorrel"),
+    RoomPersonaConflictError,
+    "a seated player's hero is never handed to someone else",
+  );
+  // Removed by the host, Sorrel may come back as Sorrel: the card is rebound to the new seat.
+  await chats.patchMetadata(fresh.id, { multiplayer: initialRoom });
+  await validateNewRoomHumanGameName(db, fresh.id, "Sorrel");
+  const rejoined = {
+    ...initialRoom,
+    participants: [
+      ...initialRoom.participants,
+      { id: "sorrel_again", persona: { name: "Sorrel", description: "A ranger." }, joinsNextRound: true },
+    ],
+  } as MultiplayerStoredRoom;
+  await withChatMetadataPatchQueue(fresh.id, () =>
+    db.transaction((tx) => ensureRoomHumanGameCards(tx, fresh.id, rejoined, true)),
+  );
+  const rejoinedCards = JSON.parse((await chats.getById(fresh.id))!.metadata).gameCharacterCards;
+  assert.equal(rejoinedCards.length, lateCards.length, "no second Sorrel card");
+  assert.equal(rejoinedCards[2].multiplayerParticipantId, "sorrel_again", "the removed hero's card is rebound");
+  const { gamePartyRoster } = await import("../../packages/server/src/services/game/ruleset-sheet-turn.service.js");
+  const party = await gamePartyRoster(
+    db,
+    fresh.id,
+    { gamePartyCharacterIds: [], gameCharacterCards: [{ name: "Sorrel", multiplayerParticipantId: "gone_seat" }] },
+    "Host",
+  );
+  assert.ok(party?.has("sorrel"), "a room player's hero, seated or removed, stays in the party a long rest reaches");
+  await assert.rejects(
+    validateNewRoomHumanGameName(db, fresh.id, "Rowan"),
+    RoomPersonaConflictError,
+    "a seated guest's name stays theirs",
+  );
   await chats.patchMetadata(fresh.id, {
     gameNpcs: [{ name: "Briar" }],
     gameInventory: [{ id: "left_item", name: "Rope", quantity: 1, holder: "Former" }],
@@ -291,6 +325,38 @@ try {
     );
   assertRoomPersonaName(named, "\u0645\u06CC\u200C\u0634\u0648\u062F", "guest_fixture");
   assertRoomPersonaName(named, "Rowan", "guest_fixture");
+
+  // An Approve refused for a name in use ends the request with that reason, and the host is told,
+  // instead of a silent 400 with the guest waiting forever. A rejoined guest's hero, matched by name
+  // to the host's entry, gets its own fight id, so the fight still opens.
+  const source = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+  const service = source("packages/server/src/services/multiplayer/service.ts");
+  assert.match(service, /session\.status = "declined";\s+session\.declinedFor = "identity-conflict";\s+this\.wake\(host\);/u);
+  assert.match(service, /error: session\.declinedFor \?\? "declined"/u);
+  assert.match(
+    source("packages/client/src/features/multiplayer/MultiplayerHostControls.tsx"),
+    /t\("multiplayer\.host\.approveConflict", \{ name: request\.persona\.name \}\)/u,
+  );
+  const gameSurface = source("packages/client/src/components/game/GameSurface.tsx");
+  assert.match(
+    gameSurface,
+    /if \(takenIds\.has\(combatant\.id\)\) \{\s+(?:\/\/[^\n]*\s+)?combatant\.id = `generated-party-\$\{index\}-\$\{slugifyCombatantId\(member\.name\)\}`;\s+combatant\.sprite = undefined;/u,
+  );
+  // Members named exactly as a unit claim it before name-variant matches, in either party order,
+  // and a later member only sees units nobody holds yet.
+  assert.match(gameSurface, /\.sort\(\(a, b\) => Number\(!isExact\(a\.member\)\) - Number\(!isExact\(b\.member\)\)\)/u);
+  assert.match(gameSurface, /combatAvatarCandidates\.filter\(\(candidate\) => !takenIds\.has\(candidate\.id\)\)/u);
+  assert.match(gameSurface, /partyCombatants\[index\] = combatant;/u);
+  const { findNamedEntry, hasExactNamedEntry } = await import(
+    "../../packages/client/src/lib/game-character-name-match.js"
+  );
+  const units = [{ id: "persona:active", name: "Lyra Dawnblade" }];
+  const byName = (unit: { name: string }) => unit.name;
+  assert.equal(hasExactNamedEntry(units, "Lyra Dawnblade", byName), true);
+  assert.equal(hasExactNamedEntry(units, "lyra  dawnblade", byName), true, "case and spacing still match exactly");
+  assert.equal(hasExactNamedEntry(units, "Lyra", byName), false, "a variant is not an exact match");
+  assert.equal(findNamedEntry(units, "Lyra", byName)?.id, "persona:active", "while a variant still finds the unit");
+  assert.equal(hasExactNamedEntry(units, "", byName), false);
 } finally {
   await closeDB();
   rmSync(dir, { recursive: true, force: true });

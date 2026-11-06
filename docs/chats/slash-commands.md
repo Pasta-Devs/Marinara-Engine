@@ -1,165 +1,144 @@
 # Slash Commands Reference
 
-This guide lists the slash commands you can type in a Marinara Engine chat. A slash command is a shortcut you type in the message box, starting with a forward slash, to do something quickly. Some commands act on your screen right away, and some ask the AI to write something.
+A slash command is a shortcut you type in the message box, starting with `/`, to do something quickly. Some change the screen at once. Others ask the model to write something.
 
 ## How slash commands work
 
-You run a slash command by typing it in the message box at the bottom of a chat, then pressing **Send**. Pressing Enter also sends it if **Send on Enter** is turned on for your chat mode in **Settings**. By default, Enter sends in Conversation chats but starts a new line in Roleplay chats. The message box hints at slash commands. In a Roleplay chat the placeholder reads **Write your response, / for commands**. In a Conversation chat the placeholder shows the character's name, like "Message @Alice, / for commands". A conversation with more than one character shows the chat name instead.
+1. Type the command in the message box at the bottom of a chat.
+2. Click **Send**, or press <kbd>Enter</kbd> if **Send on Enter** is on for your chat mode. See [Sending and Streaming](sending-and-streaming.md#send-on-enter).
 
-As soon as you type a slash, a small menu of matching commands appears above the box. Each row shows the command format, including arguments, and a short description. Click or tap a row to fill that command into the box, then add any extra text and send it.
+As soon as you type `/`, a menu of matching commands appears above the box. Each row shows the command format and a short description. Click a row to fill it into the box, add any extra text, and send. The box hint also mentions commands: **Write your response, / for commands** in Roleplay, and "Message @Alice, / for commands" in Conversation.
 
-Replace bracketed labels such as `[name]` or `[range]` with your own values; do not type the brackets. Inputs marked `(optional)` can be left out. A `|` separates alternatives, either values such as `prompt|reset` or complete command formats.
+In the tables, the format of each command is in its row. Replace bracketed labels such as `[name]` or `[range]` with your own values and do not type the brackets. Inputs marked `(optional)` can be left out. A `|` separates alternatives. Many commands have shorter aliases, such as `/cont` for `/continue`. To see every command in the app, type:
 
-Many commands have shorter aliases. For example, you can type `/continue` or its alias `/cont`, and both do the same thing. To see the full list inside the app at any time, run this command:
-
-```
+```text
 /help
 ```
 
-Some commands run in your browser and change the chat right away, with no cost. Other commands ask the AI to generate text, which uses your connected provider and may use tokens. A token is the unit that most AI providers use to measure and bill text. The tables below note what each command does.
+Some commands run in your browser and cost nothing. Others ask the model to write text, which uses your account and may use tokens (the units that services count and bill).
 
-Slash commands work in the **Conversation** and **Roleplay** message boxes. In **Game** mode, only `/illustrate` works as a slash command. Anything else you type starting with a slash is sent as normal text.
+Slash commands work in the Conversation and Roleplay message boxes. In Game, only a bare `/illustrate` (or `/ill`) with no range or prompt works, and only when Game illustrations are set up with an image account. Anything else that starts with a slash is sent as normal text. In Roleplay and Conversation, the commands `/illustrate`, `/selfie` and `/video` need the Illustrator agent and appear only when it is installed.
 
-Several commands use message numbers. Marinara counts messages from the first message in the chat as number 1, then 2, then 3, and so on. Commands like `/goto`, `/hide`, and `/unhide` use these numbers.
+Several commands use message numbers. Marinara counts from the first message in the chat as number 1. `/goto`, `/hide` and `/unhide` use these numbers. **Show message numbers** displays them. See [Message Actions](messages.md#message-display-toggles).
 
 ## Chat and message commands
 
-These commands help you manage the chat and its messages. They work in **Conversation** and **Roleplay** chats.
+These work in Conversation and Roleplay.
 
-| Command | Also works as | What it does |
-|---|---|---|
-| `/help` | | Lists every slash command. |
-| `/send [message]` | | Posts a message as your persona without triggering generation. It is saved the same way as **Send**, with macros filled in. |
-| `/continue` | `/cont` | Adds more text to the last AI reply, without sending a new message. The **Add a new line before /continue text** option in **Settings → General → Responses** controls whether that text starts after a blank line or directly at the cutoff. |
-| `/goto [number]` | `/jump`, `/scroll` | Scrolls the chat to a message by its number. |
-| `/hide [range] [name (optional)]` | | Hides one or more messages from the AI on future turns. |
-| `/unhide [range]` | | Puts hidden messages back into the AI's view. |
-| `/sys [message]` | `/system` | Adds a system message. This note appears in the chat and steers the AI, but no character speaks it. |
-| `/macros` | `/macro` | Lists supported prompt macros, like `{{user}}` and `{{char}}`. |
-| `/remind [time] [message]` | `/reminder`, `/timer` | Sets a timer, then posts a reminder message in the chat. |
+| Command | What it does |
+| --- | --- |
+| `/help` | Lists every slash command. |
+| `/send` | Posts a message as your persona without asking for a reply. Macros are filled in, as with **Send**. Format: `/send [message]`. |
+| `/continue` | Adds more text to the last AI reply, without a new message. Also `/cont`. **Settings → General → Responses → Add a new line before /continue text** sets whether the text starts after a blank line or at the cutoff. |
+| `/goto` | Scrolls the chat to a message number. Also `/jump`, `/scroll`. Format: `/goto [number]`. |
+| `/hide` | Hides messages from the model on future turns. Format: `/hide [range] [name (optional)]`. |
+| `/unhide` | Puts globally hidden messages back. Format: `/unhide [range]`. |
+| `/sys` | Adds a system message. It shows in the chat and steers the model, but no character speaks it. Also `/system`. Format: `/sys [message]`. |
+| `/macros` | Lists prompt macros such as `{{user}}` and `{{char}}`. Also `/macro`. |
+| `/remind` | Sets a timer, then posts a reminder in the chat. Also `/reminder`, `/timer`. Format: `/remind [time] [message]`. |
 
-To jump to message 27, type this:
+Examples:
 
-```
+```text
 /goto 27
-```
-
-`/hide` and `/unhide` accept a single number, a range, or a mix. For example, this hides messages 3 through 8:
-
-```
 /hide 3-8
+/remind 30m check the oven
 ```
 
-You can also write `/hide 5` for one message, or `/hide 2-5,9,12` for several. Without a character name, the messages are hidden from everyone. Hidden messages stay in your chat, but the AI does not read them on the next turn. Use `/unhide` with the same kind of number list to restore globally hidden messages.
+`/hide` and `/unhide` take one number, a range, or a mix: `/hide 5`, `/hide 3-8`, `/hide 2-5,9,12`. Hidden messages stay in the chat but the model does not read them.
 
-In **Roleplay**, add a character name after the range to hide those messages only from that character:
+In Roleplay, add a character name after the range to hide the messages only from that character. Other characters keep access.
 
-```
+```text
 /hide 3-8 Maukie
 /hide 2-5,9 "Powers That Be"
 ```
 
-Other characters keep their existing access. Quote names with spaces when putting the name first: the older `/hide Maukie 3-8` and `/hide "Powers That Be" 2-5,9` forms still work. If a name matches multiple characters, use the full name. Quote numeric character names to distinguish them from message numbers, for example `/hide 1 "123"`. In a group Roleplay chat, use the message's **Hide from AI** avatar chooser to review or undo character-specific hiding. In a one-character Roleplay chat, use the message's **Unhide from AI** action instead. `/unhide` restores global hiding only.
+Quote names that contain spaces. The older name-first forms such as `/hide Maukie 3-8` still work. If a name matches several characters, use the full name. Quote numeric names to tell them from message numbers, such as `/hide 1 "123"`. To review or undo character-specific hiding, use the message's **Hide from AI** avatar chooser in a group Roleplay chat, or **Unhide from AI** in a one-character chat. `/unhide` restores global hiding only.
 
-The `/remind` command takes a time, then a message. The time uses `h` for hours, `m` for minutes, and `s` for seconds. This example reminds you in 30 minutes:
-
-```
-/remind 30m check the oven
-```
-
-The reminder lives in your browser session, so keep the tab open until it fires.
+`/remind` takes a time with `h` (hours), `m` (minutes) or `s` (seconds), then a message. The reminder lives in your browser session, so keep the tab open until it fires.
 
 ## Story and roleplay commands
 
-These commands help you steer a story, play a character, and add art. Most of them work best in a **Roleplay** chat. The exception is `/scene`, which you run from a **Conversation** chat.
+| Command | What it does |
+| --- | --- |
+| `/guided` | Steers the next reply. Also `/narrator`, `/narrate`, `/nar`. Format: `/guided [direction]`. |
+| `/as` | Posts a message as a character, or asks that character to reply. Also `/respond`. Format: `/as [name] [message (optional)]`. |
+| `/emote` | Lists or switches a sprite expression. Also `/emotion`, `/sprite`. Format: `/emote [expression]`. |
+| `/roll` | Rolls dice and posts the result. Also `/r`, `/dice`. Format: `/roll [dice (optional)]`. |
+| `/random` | Asks the model to add a surprise event. Also `/rand`, `/event`. |
+| `/scene` | Starts a Roleplay scene that branches off the conversation. Also `/rp`. Format: `/scene [description (optional)]`. |
+| `/illustrate` | Roleplay only. Generates a gallery image. Needs the Illustrator agent. Also `/ill`. Format: `/illustrate [range=N-M] [prompt]`. |
+| `/html` | Roleplay only. Makes one in-world artifact, such as `a spellbook page`, at the end of the latest reply. Format: `/html [what you want]`. |
+| `/video` | Roleplay only. Makes a short clip of the latest reply, or of your description, under that reply. Follows Illustrator's **First frame** setting. Needs Illustrator. Format: `/video [description]`. |
+| `/impersonate` | Writes a reply as your persona. Also `/imp`. Format: `/impersonate [direction (optional)]`. |
+| `/impersonate_prompt` | Sets the instruction `/impersonate` uses in this chat. Also `/imp_prompt`. Format: `/impersonate_prompt [prompt or reset]`. |
 
-| Command | Also works as | What it does |
-|---|---|---|
-| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Steers the next AI reply in a direction you describe. |
-| `/as [name] [message (optional)]` | `/respond` | Posts a message as a character, or asks a character to reply. |
-| `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | Lists or switches a character's sprite expression. |
-| `/roll [dice (optional)]` | `/r`, `/dice` | Rolls dice and posts the result. |
-| `/random` | `/rand`, `/event` | Asks the AI to add a surprise event to the story. |
-| `/scene [description (optional)]` | `/rp` | Run from a Conversation chat. Starts a new Roleplay scene that branches off that conversation. |
-| `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Generates a gallery image for the current chat. |
-| `/impersonate [direction (optional)]` | `/imp` | Writes a reply as your persona. |
-| `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Sets the instruction that `/impersonate` uses in this chat. |
+Most of these work best in Roleplay. `/scene` is run from a Conversation. `/impersonate` and `/impersonate_prompt` are not available in Conversation.
 
-In **Roleplay**, `/illustrate range=12` illustrates message 12, and `/illustrate range=12-18` sends messages 12 through 18 to the Illustrator. Use the same message numbers as `/goto`, in ascending order, with at most 200 messages. Hidden messages stay excluded. The image attaches to the last visible message in the selected range; prompt review keeps that selection even if newer messages arrive. Earlier messages remain available with Advanced Memory enabled. Without `range=`, the command keeps its usual current-scene behavior. An optional typed prompt is used directly, as before.
+### Steer a reply
 
-To steer the next reply, add your direction after `/guided`:
-
-```
+```text
 /guided make him confess he is lying
+/guided respond as "Powers That Be" describe the approaching storm
 ```
 
-In a group Roleplay chat, use `/guided respond for [name] [direction (optional)]` to choose the responding character. For example:
+`reply as` and `respond for` also work in place of `respond as`. See [Guided Generation and Impersonate](guided-and-impersonate.md).
 
-```
-/guided respond for "Powers That Be" describe the approaching storm
-```
+### Post as a character
 
-Use `/as [name] [message (optional)]` to post text as a character. Leaving out the message asks the model to generate that character's next response instead:
+Leave out the message to have the model write that character's next response.
 
-```
+```text
 /as Dottore "The experiment begins."
 /as Dottore
 ```
 
-The `/roll` command reads dice notation. This rolls two six-sided dice:
+### Roll dice
 
-```
-/roll 2d6
-```
+`/roll 2d6` rolls two six-sided dice. Add a modifier, as in `/roll 1d20+5`. With nothing after it, `/roll` rolls `1d20`. To keep only some dice, add `kh` (keep highest) or `kl` (keep lowest) and a number: `/roll 4d6kh3` adds the highest three, and `/roll 2d20kl1` keeps the lower of two. `dl` and `dh` drop the lowest or highest instead, as in `/roll 4d6dl1`. The dice that do not count are still shown, dimmed.
 
-You can add a modifier, like `/roll 1d20+5`. If you type `/roll` with nothing after it, Marinara rolls `1d20`.
+### Switch a sprite
 
-A sprite is a piece of character art that shows an expression. The `/emote` command switches which one is shown. Type `/emote` alone to see the available expressions, or name one to switch to it:
+A sprite is a piece of character art that shows an expression. Type `/emote` alone to see the available expressions, or name one:
 
-```
+```text
 /emote joy
+/emote "Powers That Be" joy
 ```
 
-To target one character, use `/emote "[name]" [expression (optional)]`, for example `/emote "Powers That Be" joy`. Leave out the expression to list that character's available expressions.
+With a name and no expression, it lists that character's expressions. It needs a Roleplay chat with sprites uploaded. See [Character Sprites](../characters/sprites.md).
 
-Sprite switching needs a Roleplay chat that has sprites uploaded. See [Character Sprites](../characters/sprites.md) for how to add them.
+### Illustrate and make artifacts
 
-Your persona is the character that represents you in a chat, written as `{{user}}` in prompts. The `/impersonate` command writes a reply in your place. You can add a direction after it:
+`/illustrate range=12` illustrates message 12. `/illustrate range=12-18` sends messages 12 through 18 to the Illustrator. Use the same message numbers as `/goto`, in ascending order, with at most 200 messages. Hidden messages stay out. The image attaches to the last visible message in the range. Earlier messages stay available with Advanced Memory on. Without `range=`, the command works on the current scene. A prompt you type is used as written.
 
-```
-/impersonate ask about the weather
-```
+`/html a terminal readout` needs no agent and works whether or not **HTML Artifacts** is on. The narrator can ask for the same with `[html: prompt="..."]` when **HTML Artifacts** is on under **Roleplay Commands**. See [Artifacts on demand](../roleplay/getting-started.md#artifacts-on-demand).
 
-`/impersonate` and `/impersonate_prompt` are not available in **Conversation** chats. For a full walkthrough of guided generation and impersonation, see [Guided Generation and Impersonate](guided-and-impersonate.md).
+### Write your reply
+
+`/impersonate ask about the weather` writes a reply in your persona's voice. Your persona is the character that stands for you, written `{{user}}` in prompts. These two commands are not available in Conversation.
 
 ## Conversation mode commands
 
-These commands only work in a **Conversation** chat.
+These work only in a Conversation chat.
 
 | Command | What it does |
-|---|---|
-| `/games` | Opens the installed conversation game picker. `/game` and `/play` do the same. |
-| `/selfie [name (optional)]` | Generates a selfie with the installed Illustrator agent. Add a name to choose a character. |
-| `/video [name (optional)]` | Has a character send you a short video message, using the chat's **Video messages** settings. Add a name to choose a character. See [Video messages](../conversation/selfies.md#video-messages). |
-| `/uno` | Starts a game of UNO with the characters in the chat. |
+| --- | --- |
+| `/games` | Opens the installed game picker. `/game` and `/play` do the same. |
+| `/selfie` | Generates a selfie with the Illustrator agent. Add a name to choose a character. Format: `/selfie [name (optional)]`. |
+| `/video` | Has a character send a short video message, using the chat's **Video messages** settings. See [Video messages](../conversation/selfies.md#video-messages). Format: `/video [name (optional)]`. |
+| `/uno` | Starts UNO with the characters in the chat. |
 | `/chess` | Starts a one-on-one chess game with a character. |
-| `/poker` | Starts a game of Texas Hold'em poker with the characters. |
-| `/8ball` | Starts a one-on-one game of 8-ball pool with a character. `/pool` does the same. |
-| `/status [online\|idle\|dnd\|offline\|clear] [name (optional)]` | Sets or clears a character's presence status. |
+| `/poker` | Starts Texas Hold'em with the characters. |
+| `/8ball` | Starts one-on-one 8-ball pool with a character. `/pool` does the same. |
+| `/status` | Sets or clears a character's presence status. Format: `/status [online, idle, dnd, offline or clear] [name]`. |
 
-The `/uno`, `/chess`, `/poker`, and `/8ball` commands open the setup screen for that game. You can play one game at a time in a chat. For the rules and options, see [Table Games](../conversation/table-games.md).
+The game commands open that game's setup screen, and each appears only when its game agent is installed. You can play one game at a time in a chat. See [Table Games](../conversation/table-games.md).
 
-The `/status` command overrides a character's presence. The status can be `online`, `idle`, `dnd` (do not disturb), or `offline`. Use `clear` to remove an override. This sets the character to idle:
+`/status` overrides a character's presence. The status can be `online`, `idle`, `dnd` (do not disturb) or `offline`. `clear` removes the override. In a chat with several characters, add the name at the end.
 
-```
+```text
 /status idle
+/status online Alice
 ```
-
-In a chat with more than one character, add the character's name at the end, like `/status online Alice`.
-
-## Related guides
-
-- [Message Actions](messages.md)
-- [Guided Generation and Impersonate](guided-and-impersonate.md)
-- [Table Games](../conversation/table-games.md)
-- [Macros](../prompts/macros.md)

@@ -1,112 +1,137 @@
 # Illustrator Agent
 
-This guide covers the **Illustrator**, a built-in helper that draws pictures of your scenes while you chat. You will learn what it does, how to turn it on, the art styles it can use, and the two connections it needs.
+The **Illustrator** is a downloadable agent that draws pictures of your scenes while you chat. This guide shows how to turn it on, pick an art style and image model, and make clips. An agent is a small AI helper that runs automatically for one chat.
 
-## What the Illustrator agent does
+## What the Illustrator does
 
-An agent is a small AI helper that runs automatically for one chat. The **Illustrator** is a post-processing agent, which means it runs after the AI finishes each reply. It reads the latest reply and decides if the moment is worth a picture. When it is, the Illustrator writes an image prompt and sends it to your image provider. A prompt is the text description that tells an image model what to draw.
+The Illustrator is a post-processing agent, so it runs after the AI finishes each reply. It reads the latest reply and decides whether the moment is worth a picture. If it is, it writes an image prompt (the text that tells an image model what to draw) and sends it to your image service. Every image it makes is saved to the chat **Gallery**.
 
-The Illustrator does not draw every message. By default, after it makes an image it waits for 5 accepted user and assistant messages before it can make another one. Each Roleplay chat can change that number. Swiping or regenerating the same reply does not advance that interval. If it decides a moment is not worth illustrating, it skips it and makes no image. Every image it creates is saved to the chat **Gallery**.
+It does not draw every message. After it makes an image, it waits for 5 accepted user and assistant messages by default before it can make another. Each Roleplay chat can change that number. Swiping or regenerating a reply does not advance the count. If it decides a moment is not worth a picture, it skips it.
 
-You can use the Illustrator in **Roleplay** and **Game Mode** chats, and installing it also unlocks Conversation selfies and [video messages](../conversation/selfies.md#video-messages). Its short description in the app reads: "Responsible for image and video generations." The setup steps and settings in this guide are for Roleplay chats. Game Mode uses one simple switch instead, covered in the Game Mode section below.
+It works in Roleplay and Game Mode chats. Installing it also adds Conversation selfies and [video messages](../conversation/selfies.md#video-messages). The setup in this guide is for Roleplay. Game Mode uses one switch (see [Game Mode](#game-mode-the-game-illustrator-toggle)).
 
 ## Before you start
 
-The Illustrator writes the image prompt, but it needs a separate image connection to actually draw the picture. An image connection is a saved link to an image provider, such as OpenAI or a local Stable Diffusion server.
+The Illustrator writes the prompt, but a separate image model draws the picture. You need one. See [Image Generation Providers and Setup](image-providers.md).
 
-Set up an image connection first. You have two ways to give the Illustrator one:
+Give it an image model one of two ways.
 
-1. Mark one image connection as the default. Open the **Connections** panel, expand **Defaults**, and choose it under **Images**.
-2. Or give the Illustrator its own image connection from its full setup screen (see **Open Setup** below).
+1. Set the **Images** job under **Defaults** in the **Connections** panel.
+2. Or give the Illustrator its own image model on its **Open Setup** screen.
 
-If no image connection can be found, the picture fails and the app asks you to choose one. See [Image Generation Providers and Setup](image-providers.md) to add a provider.
+If no image model can be found, the picture fails and the app asks you to choose one.
 
-## Turning on the Illustrator
+## Turn on the Illustrator
 
-The Illustrator is off by default. In a **Roleplay** chat, add it like this:
+Before you start: install **Illustrator** from **Agent Organizer**. See [Agents overview](../agents/agents-overview.md).
 
-1. Open the chat you want to illustrate.
-2. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
-3. Find the **Agents** section and turn on **Enable Agents**.
-4. In the **Misc Agents** group, find **Illustrator** and add it with the Plus button.
+1. Open the Roleplay chat you want to illustrate.
+2. Open **Chat Settings** and find **Agents**.
+3. Turn on **Enable Agents**.
+4. In the **Misc Agents** group, find **Illustrator** and add it with the plus button.
 
-You should now see an **Illustrator** settings card with its own options. Adding an agent uses extra tokens and can make extra AI calls per turn. The token estimates cover only agent instructions; they are not a running cost estimate.
+An **Illustrator** card with its own options appears. Agents use extra tokens and can add model calls per turn. The token estimates cover only agent instructions.
 
 ### Game Mode: the Game Illustrator toggle
 
-Game Mode does not use the steps above, and it does not show the **Prompt Mode** or **Prompt Model** options. Instead, open the game's **Chat Settings** and turn on the single **Game Illustrator** toggle. Its description reads: "Auto-generate scene illustrations, NPC portraits, and location backgrounds during gameplay."
+Game Mode has no **Prompt Mode** or **Prompt Model** options. Open the game's **Chat Settings** and turn on **Game Illustrator** ("Auto-generate scene illustrations, NPC portraits, and location backgrounds during gameplay").
 
-## Prompt modes
+## Pick an art style
 
-The **Prompt Mode** picker sets the art style the Illustrator uses for every prompt it writes. In the agent card this picker is labeled **Prompt**. A short line under it reads: "Prompt mode controls how Illustrator writes image prompts for this chat."
+The **Prompt Mode** picker (labeled **Prompt** on the card) sets the art style for every prompt the Illustrator writes. A new Illustrator starts on **Background**.
 
-The picker offers these styles:
+| Style | What it draws |
+| --- | --- |
+| **Illustration** | A single polished scene picture. The general style. |
+| **Comic Page** | A comic page with panels, speech bubbles, captions and sound effects. |
+| **Colored Manga** | A colored manga scene with stylized bubbles and sound effects. |
+| **B&W Manga** | A black and white manga page with inked lines and screentone shading. |
+| **Background** | A location or establishing shot with no characters. |
+| **Selfie** | An in-character selfie or casual portrait. |
 
-- **Illustration**: a single polished scene picture. This is the general style.
-- **Comic Page**: a comic page with panels, speech bubbles, captions, and sound effects.
-- **Colored Manga**: a colored manga scene with stylized bubbles and sound effects.
-- **B&W Manga**: a black and white manga page with inked lines and screentone shading.
-- **Background**: a location or establishing shot with no characters in it.
-- **Selfie**: an in character selfie or a casual portrait.
+The final look also depends on your style profile. See [Image Style Profiles](style-profiles.md).
 
-A new Illustrator agent starts on the **Background** style. Change the style at any time from the picker. The overall look of the final image also depends on your style profile. See [Image Style Profiles](style-profiles.md) to set that.
+## Choose the prompt model
 
-## Prompt Model and the image connection
+The **Prompt Model** is the text model that writes the image prompt. It does not draw. Pick it in the **Prompt Model** list on the card. The default is **Main chat model**, which reuses your chat's model. Choose another text model if you want a different one to write prompts.
 
-The Illustrator uses two different connections, and it helps to keep them straight.
+The image model that draws the picture is the one you set under **Before you start**.
 
-The **Prompt Model** is the text model that writes the image prompt. It is not the model that draws the picture. Pick it from the **Prompt Model** dropdown on the Illustrator card. The default is **Main chat model**, which reuses the same connection your chat already uses. Choose another text connection if you want a different model to write the prompts.
+## Keep characters consistent
 
-The image connection is the image provider that draws the final picture. You set it as described in **Before you start**, either under **Defaults → Images** or from the agent's own setup screen.
+Two settings on the card help characters look the same across pictures. Both start off.
 
-## Attach Card Appearance and Send Avatar References
-
-Two settings on the Illustrator card help characters look consistent. Both are off by default.
-
-For pictures, **Attach Card Appearance** adds each visible character's saved appearance text to the image prompt. Video prompts get it only when you include videos, as described below. Its help text reads: "Append matched character appearance lines to image prompts, using only visible/generated names." Turn it on when you want the picture to match how a character is written.
-
-In a Roleplay chat's **Chat Settings**, **Attach Card Appearance** is a dropdown with four choices:
+**Attach Card Appearance** adds each visible character's saved appearance text to the image prompt. In a Roleplay chat it is a list with four choices.
 
 - **Off**
 - **Images only**, the usual behavior.
-- **Videos only**. A clip made from the Gallery gets the appearance text of the characters its motion direction names.
-- **Images and videos** does both.
+- **Videos only**: a clip gets the appearance text of the characters it shows. This matters most for a **Prompt only** clip, which has no picture.
+- **Images and videos**: both.
 
-When **Attach Card Appearance** is on, any card or persona that also has **Image Appearance Override** turned on sends that override instead of its **Appearance** text. Use it when **Appearance** is written for the narrator but reads badly to an image model: leave the full description in **Appearance** and put a shorter, tag-style version in the override. While the override is off, or its box is empty, image prompts keep using **Appearance**. The narrator always sees the full **Appearance** text either way. The switch sits under **Appearance** in the Character and Persona editors.
+When it is on, a card or persona with **Image Appearance Override** turned on sends that override instead of its **Appearance** text. Use it when **Appearance** is written for the narrator but reads badly to an image model. Keep the full description in **Appearance** and put a shorter, tag-style version in the override. With the override off or empty, image prompts use **Appearance**. The narrator always sees the full **Appearance**. The switch is under **Appearance** in the Character and Persona editors.
 
-**Send Avatar References** sends character and persona avatars, or their sprites, to the image provider as reference images. Its help text reads: "Send matching character and persona avatars or sprites as reference images when the provider supports them." This helps the image model copy a face or outfit. Not every provider accepts reference images, so the effect depends on the provider you chose. It stays a toggle in Roleplay and only affects pictures, because a Roleplay clip already starts from a picture.
+**Send Avatar References** sends character and persona avatars, or their sprites, to the image service as reference images, so the model can copy a face or outfit. Not every service accepts them. In a Roleplay chat it is a list like **Attach Card Appearance**. With videos included, a clip whose **First frame** is **Prompt only** starts from the character's avatar or sprite, and the choice reads **Prompt only (avatar from Send Avatar References)**.
+
+## Control how often it draws
+
+The Illustrator card has an **Open Setup** button for the full setup screen. There you set the default run interval and give it its own image model.
+
+Each Roleplay chat has its own **Image Run Interval** on the card in **Chat Settings** ("Messages between automatic images in this chat. 0 means only when you ask."). A chat with none set uses the value from the setup screen, **5** by default. The card shows **Using agent default** or **Chat override**. Press **Use agent default** to go back. When you add the Illustrator to a chat, the add window shows the same field and saves it to that chat only.
+
+Set **Image Run Interval** to **0** for manual-only mode. It stops automatic runs, including automatic scene backgrounds, but keeps the agent available for Gallery actions. Set a positive number to resume.
+
+To make a picture now, open **Chat Settings**, expand **Gallery** and click **Illustrate**. The Illustrator runs once at once, and the button shows **Generating...**.
+
+## Make clips
+
+In a Roleplay chat, **Chat Settings → Agents → Illustrator** has an **Illustrator makes** setting.
+
+- **Pictures** (default): pictures only.
+- **Pictures and clips**: Illustrator may also turn a new picture into a short clip when motion is the point, such as action, a chase or something breaking. This includes pictures the storyteller asks for with `[illustrate]`. It writes the motion itself, following the video model's **Video prompting instructions**. The picture shows first, and the clip joins the same message when ready.
+- **Clips only**: wherever Illustrator would show a picture, it shows a short clip. The picture it draws becomes the clip's starting frame and goes to the Gallery, not the reply. If the clip fails, the picture is shown.
+
+Clips use the video model under **Scene Videos**, and each clip is a video request. With no working video model, Illustrator makes pictures even with **Clips only**. Custom agents that make images follow the same setting. See [Scene Video Generation](scene-video.md).
+
+**Video Run Interval** appears once Illustrator makes clips. It is how many user and assistant messages must pass after a clip before the next, and it is separate from **Image Run Interval**.
+
+- With **Clips only**, every run is a clip, the **Video Run Interval** sets how often Illustrator runs, and **Image Run Interval** is hidden.
+- A chat with no value uses the **Video Run Interval** on the **Open Setup** screen, or 5.
+- **0**: no clips on its own, including for `[illustrate]` pictures, which get their picture instead.
+- A reply gets at most **Videos per reply** clips (**Settings → Generations → Video Generation**).
+- You can still animate a picture from the Gallery. With **Clips only**, a message's **Illustrate** button makes a clip.
+- A swipe of a reply that got a clip counts as a new reply and can get its own clip. The earlier swipe keeps its clip.
+
+**First frame**, in the same section, sets what every Roleplay clip starts from: Illustrator's clips, `/video` and the Gallery's **Video** button. The choices are a new Illustrator picture, the named character's avatar or sprite, the picture with the avatar as fallback, or no picture. Conversation video messages use the same setting.
+
+- **Clips only** with the avatar or no picture: no picture is drawn. The clip comes from Illustrator's scene and motion.
+- **Pictures and clips**: the picture still shows, and only the clip starts from the avatar or nothing.
+- No first frame chosen: a clip never draws a picture just for itself. **Pictures and clips** animates the picture Illustrator just made. **Clips only**, `/video` and **Video** make the clip from the scene alone.
+
+A clip with no picture of its own describes everyone it names, including your persona. The avatar first frame starts from whoever is named first.
+
+Re-running Illustrator from a message's **Illustrate** button follows **Illustrator makes** and **First frame** too.
 
 ## Multiple characters on NovelAI
 
-When the Illustrator's image connection is NovelAI on a V4, V4.5, or V5 model, the prompt writer is asked for one extra caption per visible character. Each caption carries that character's own appearance, expression, pose, and an approximate position in the frame. Marinara checks the captions against the scene's character list, drops any it cannot match, and sends them to NovelAI as native character prompts alongside the main scene prompt. This keeps hair, clothing, and other traits from leaking between characters in group scenes. Images from the **Illustrate** button and from a character's `[illustrate]` command get the same captions.
+When the Illustrator's image model is NovelAI on a V4, V4.5 or V5 model, the prompt writer adds one caption per visible character. Each caption has that character's appearance, expression, pose and rough position in the frame. Marinara checks the captions against the scene's character list, drops any it cannot match, and sends the rest to NovelAI as native character prompts next to the main prompt. This keeps hair, clothes and other traits from mixing between characters. Images from **Illustrate** and from a character's `[illustrate]` command get the same captions.
 
-The number of captions follows the model. V5 accepts up to 22 characters, and V4 or V4.5 accept up to 6. Scenes with more visible characters keep the most important ones and treat the rest as unnamed background.
+V5 accepts up to 22 characters. V4 and V4.5 accept up to 6. With more visible characters, the most important are kept and the rest become unnamed background.
 
-The prompt writer is told where each caption's details come from. Fixed traits come from the character's or persona's **Appearance** field: when that field is already written as Danbooru tags, the tags are copied as they are, and when it is prose, the writer converts it into tags. Clothing comes from the character tracker's current outfit when the tracker is running, converted into tags as well.
+Fixed traits come from the **Appearance** field. If it is already Danbooru tags, they are copied as they are. If it is prose, the writer turns it into tags. Clothing comes from the character tracker's current outfit when the tracker runs, also turned into tags.
 
-With **Attach Card Appearance** turned on, the writer also receives the full Appearance text of every card and persona in the chat as a reference, so long or ensemble cards are not cut short. Ensemble cards that describe several characters in one Appearance field as `[NAME] tags | [NAME] tags` are listed per character. The writer decides what to use: it copies fixed traits into the matching caption, treats the card's clothing tags as a default that the tracker or the scene overrides, and ignores characters who are not in the scene. When captions come back, Marinara appends nothing further to the prompt. When the writer returns no captions, which is the single-character case, the usual appearance line is appended to the main prompt as before.
+With **Attach Card Appearance** on, the writer also gets the full Appearance text of every card and persona in the chat, so long or ensemble cards are not cut short. Ensemble cards that describe several characters as `[NAME] tags | [NAME] tags` are listed per character. The writer copies fixed traits into the matching caption, treats the card's clothing tags as a default that the tracker or scene overrides, and ignores characters who are not in the scene. When captions come back, Marinara adds nothing more. With no captions, the single-character case, the usual appearance line is added to the main prompt as before.
 
-No setting is needed. The captions appear only for a NovelAI connection on its own host, so a proxy or a different provider is unaffected. When **Expose media prompts before sending** is on, the review dialog lists the captions under the main prompt so you can see what will be sent. The captions are read-only there; edit the main prompt as usual.
-
-## More settings and running it by hand
-
-The Illustrator card has an **Open Setup** button. It opens the agent's full setup screen, where you can set the default for how often the agent runs and give it its own image connection.
-
-Each Roleplay chat has its own **Run Interval** on the Illustrator card in **Chat Settings**. Its help text reads: "Messages between automatic images in this chat. 0 means only when you ask." A chat that hasn't set one uses the **Run Interval** from the setup screen, which is **5** unless you change it. The card shows **Using agent default** or **Chat override**. Press **Use agent default** to go back to the setup screen's value. When you add the Illustrator to a chat, the add window shows the same field and saves your choice to that chat only.
-
-Set **Run Interval** to **0** for manual-only generation. This stops automatic Illustrator runs, including its automatic scene backgrounds, while keeping the agent installed and available for Gallery actions. Set a positive interval to resume automatic runs.
-
-You can also make a picture on demand instead of waiting. Open **Chat Settings**, expand the **Gallery** section, and use the **Illustrate** button. The Illustrator runs once right away and the button shows **Generating...** while it works. This is useful when you want a picture of the current moment and the agent has not drawn one yet.
+No setting is needed. Captions appear only for NovelAI on its own host, so a proxy or another service is unaffected. With **Expose media prompts before sending** on, the review window lists the captions under the main prompt, read-only. Edit the main prompt as usual.
 
 ## Gallery saving and prompt inspection
 
-In **Settings → Generations → Image Generation**, **Automatically save generated images to character galleries** is on by default. Turn it off to stop adding chat illustrations and selfies to the depicted characters' and personas' galleries. Images still appear in the conversation and chat Gallery, and explicit gallery saves still work. Existing gallery entries are unchanged. Galleries share image files, so this controls gallery membership rather than deleting the chat's image file.
+In **Settings → Generations → Image Generation**, **Automatically save generated images to character galleries** is on by default. Turn it off to stop adding chat illustrations and selfies to the depicted characters' and personas' galleries. Images still appear in the conversation and chat Gallery, and explicit gallery saves still work. Existing entries are unchanged. Galleries share image files, so this controls membership, not deletion.
 
-For new NovelAI illustrations generated by Illustrator, the image inspector shows the scene/style prompt followed by the positive character captions, separated by ` | `. This also applies to the saved gallery prompt.
+For new NovelAI illustrations, the image inspector shows the scene and style prompt followed by the positive character captions, separated by ` | `. The saved gallery prompt is the same.
 
 To draw an illustration again with a changed prompt, without regenerating the reply, open it and use **Regenerate image**. See [Regenerating an image](scene-backgrounds.md#regenerating-an-image).
 
-To illustrate an earlier Roleplay message or range, use `/illustrate range=12` or `/illustrate range=12-18`. See [Slash Commands](../chats/slash-commands.md) for numbering and limits.
+To illustrate an earlier Roleplay message or range, use `/illustrate range=12` or `/illustrate range=12-18`. See [Slash Commands](../chats/slash-commands.md).
 
 ## Related guides
 

@@ -10,6 +10,8 @@ import { DRAWER_WINDOW_PREFIX } from "@marinara-engine/shared";
 import { BUBBLE_SNAP_GAP_PX, snapBubble, type BubbleRect, type SnapGuide } from "./window-bubble-snap";
 export { getDrawerWindowId } from "@marinara-engine/shared";
 
+export type ButtonLayout = "horizontal" | "vertical";
+
 export const FLOATING_WINDOW_LAYOUT_VERSION = 1 as const;
 /** Gap kept between a window and the viewport edges. */
 export const WINDOW_MARGIN_PX = 8;
@@ -153,6 +155,7 @@ export function dropWindowBubble(
 /** Temporary visible positions: a closing sidebar restores the saved points, even for locked buttons. */
 export function placeWindowBubbles(
   bubbles: ReadonlyMap<string, { point: WindowPoint; bounds: WindowBounds; size: BubbleSize }>,
+  direction?: ButtonLayout,
 ): Map<string, WindowPoint> {
   const placed = new Map<string, WindowPoint>();
   const occupied: BubbleRect[] = [];
@@ -165,6 +168,37 @@ export function placeWindowBubbles(
       movable: bubble.point.automatic || point.x !== bubble.point.x || point.y !== bubble.point.y,
     };
   });
+  if (direction) {
+    // Stable rows/columns follow the available chat area; free-position layouts remain untouched.
+    entries.sort((a, b) => a.id.localeCompare(b.id));
+    let across = 0;
+    let down = 0;
+    let lineSize = 0;
+    for (const { id, bounds, size } of entries) {
+      const { width, height } = readBubbleSize(size);
+      if (direction === "horizontal" && across > 0 && across + width > bounds.right - bounds.left) {
+        across = 0;
+        down += lineSize + BUBBLE_SNAP_GAP_PX;
+        lineSize = 0;
+      } else if (direction === "vertical" && down > 0 && down + height > bounds.bottom - bounds.top) {
+        down = 0;
+        across += lineSize + BUBBLE_SNAP_GAP_PX;
+        lineSize = 0;
+      }
+      const point = clampWindowBubble({ x: bounds.right - width - across, y: bounds.top + down }, bounds, size);
+      const next = findFreeBubblePoint(point, occupied, bounds, size);
+      placed.set(id, next);
+      occupied.push({ ...next, width, height });
+      if (direction === "horizontal") {
+        across += width + BUBBLE_SNAP_GAP_PX;
+        lineSize = Math.max(lineSize, height);
+      } else {
+        down += height + BUBBLE_SNAP_GAP_PX;
+        lineSize = Math.max(lineSize, width);
+      }
+    }
+    return placed;
+  }
   // Keep buttons that still fit exactly where they were. Squeezed buttons find nearby free space.
   entries.sort((a, b) => Number(a.movable) - Number(b.movable) || a.id.localeCompare(b.id));
   for (const { id, clamped, bounds, size, movable } of entries) {
@@ -219,6 +253,8 @@ export interface WindowLayoutSnapshot {
   bubbles?: Record<FloatingWindowId, WindowPoint>;
   /** Phone tools menu preferences; old individual bubble positions remain available. */
   phoneMenu?: PhoneMenuLayout;
+  /** Desktop button arrangement; absent keeps the user's free positions. */
+  buttonLayout?: ButtonLayout;
 }
 
 export interface PhoneMenuLayout {
@@ -386,6 +422,7 @@ export function parseWindowLayoutSnapshot(raw: unknown): WindowLayoutSnapshot {
     phoneBubbles?: unknown;
     bubbles?: unknown;
     phoneMenu?: unknown;
+    buttonLayout?: unknown;
   };
   if (source.version !== FLOATING_WINDOW_LAYOUT_VERSION) return empty;
   if (!source.windows || typeof source.windows !== "object" || Array.isArray(source.windows)) return empty;
@@ -408,6 +445,7 @@ export function parseWindowLayoutSnapshot(raw: unknown): WindowLayoutSnapshot {
     readStoredPoints(source.phoneBubbles),
     readStoredPoints(source.bubbles),
     readPhoneMenuLayout(source.phoneMenu),
+    source.buttonLayout === "horizontal" || source.buttonLayout === "vertical" ? source.buttonLayout : undefined,
   );
 }
 
@@ -431,6 +469,7 @@ export function toWindowLayoutSnapshot(
   phoneBubbles: Record<FloatingWindowId, WindowPoint> = {},
   bubbles: Record<FloatingWindowId, WindowPoint> = {},
   phoneMenu?: PhoneMenuLayout,
+  buttonLayout?: ButtonLayout,
 ): WindowLayoutSnapshot {
   const snapshot: WindowLayoutSnapshot = { version: FLOATING_WINDOW_LAYOUT_VERSION, windows };
   if (detached.length > 0) snapshot.detached = detached;
@@ -438,6 +477,7 @@ export function toWindowLayoutSnapshot(
   if (Object.keys(bubbles).length > 0) snapshot.bubbles = bubbles;
   const menu = readPhoneMenuLayout(phoneMenu);
   if (menu) snapshot.phoneMenu = menu;
+  if (buttonLayout) snapshot.buttonLayout = buttonLayout;
   return snapshot;
 }
 
@@ -448,7 +488,8 @@ export function isEmptyWindowLayoutSnapshot(snapshot: WindowLayoutSnapshot): boo
     !snapshot.detached?.length &&
     Object.keys(snapshot.phoneBubbles ?? {}).length === 0 &&
     Object.keys(snapshot.bubbles ?? {}).length === 0 &&
-    !snapshot.phoneMenu
+    !snapshot.phoneMenu &&
+    !snapshot.buttonLayout
   );
 }
 

@@ -1,61 +1,56 @@
 # Custom Fonts and Google Fonts
 
-This guide shows how to change the font Marinara Engine uses across the app. You can pick the built-in font, add your own font files, or download a font from Google Fonts by name.
+Change the font Marinara uses across the app. Pick the built-in font, add your own font files, or download a font from Google Fonts by name.
 
 ## Choosing an app font
 
-The font setting lives in **Settings**, under the **Appearance** tab, in the **Text & Scale** section.
-
-1. Open **Settings** and click the **Appearance** tab.
+1. Open **Settings** and click the **Appearance** tab, then the **App** button.
 2. Find the **Text & Scale** section.
-3. Open the **Font** dropdown.
-4. Pick a font from the list.
+3. Open the **Font** dropdown and pick a font.
 
-The default choice is **Default (Inter)**. Inter is a clean font chosen for on-screen reading. Any custom fonts you add appear in the same **Font** dropdown, below the default option.
+The easiest way to get a new font is [Google Fonts](#downloading-from-google-fonts). The default is **Default (Inter)**, a clean font chosen for on-screen reading. Fonts you add appear in the same dropdown below it.
 
-The preset editor's prompt fields and a character's Example Dialogue use a monospace font while the default font is selected. Pick any other font and they use it too. Other prompt fields, such as an agent's prompt template, stay monospace.
+Your font choice syncs across devices. Every browser connected to the same Marinara server switches to it. See [Settings Overview](../settings/settings-overview.md).
 
-Chat widgets have a separate **Font** choice under **Settings > Appearance > App > Chat widget style**. Turn on **Apply preset font** there to use that choice for messages, input boxes and chat controls too. Leave it off to keep their usual font. See [Ready-made chat window styles](custom-css-themes.md#ready-made-chat-window-styles).
-
-Your font choice syncs across devices. When you pick a font, every browser and device connected to the same Marinara server switches to it. To learn how this sync works, see the [Settings Overview](../settings/settings-overview.md) guide.
+Chat widgets have a separate **Font** choice under **Chat widget style**. Turn on **Apply preset font** there to use it for messages, input boxes and chat controls too. See [Ready-made chat window styles](custom-css-themes.md#ready-made-chat-window-styles).
 
 ## Adding your own fonts
 
-You can add a custom font by dropping a font file into a folder on the server. This is the machine that runs Marinara.
+Before you start: fonts go in a folder on the server. The server is the computer that runs Marinara. If you run Marinara on your own computer, that is the server, and the data folder is where Marinara keeps your data.
 
-1. Find the `data/fonts/` folder inside Marinara's data folder on the server machine.
-2. Copy your font file into that folder.
-3. Go back to **Settings**, then **Appearance**, then **Text & Scale**.
-4. Open the **Font** dropdown. Your font now appears in the list.
-5. Select it.
+1. Click **Open Fonts Folder**, next to the **Font** dropdown, to open `data/fonts/` on the server. Or find the `data/fonts/` folder in Marinara's data folder yourself.
+2. Copy your font file into it.
+3. Go to **Settings → Appearance → App → Text & Scale**.
+4. Open the **Font** dropdown. Your font is in the list.
+5. Select it. The app text changes at once.
 
-Marinara reads these font file types: `.ttf`, `.otf`, `.woff`, and `.woff2`. Files with any other suffix are ignored.
+Marinara reads `.ttf`, `.otf`, `.woff` and `.woff2` files and ignores other types. It builds the display name from the file name, so `OpenSans-Bold.ttf` shows as "Open Sans". Name your files clearly for a tidy list.
 
-Marinara builds a display name from the file name. For example, a file named `OpenSans-Bold.ttf` shows up as "Open Sans". So name your files in a clear way if you want a tidy list.
+Every device that connects to the same server can use the fonts in `data/fonts/`.
 
-Font files in the `data/fonts/` folder live on the server. Every device that connects to the same Marinara server can use them. Your font choice syncs across those devices too, so they all show the same font.
+If it did not work: check the file type and that the file is in `data/fonts/` on the server, not on the device you are viewing from.
 
 ## Downloading from Google Fonts
 
-Marinara can fetch a font straight from Google Fonts for you. The server needs internet access for this to work.
+The server needs internet access for this.
 
-1. Open **Settings**, then **Appearance**, then **Text & Scale**.
-2. Find the **Google Fonts** field.
-3. Type the exact font name, for example `Fira Code` or `Lora`.
-4. Click **Add**.
-5. Wait for the download to finish. The new font then appears in the **Font** dropdown.
+1. Go to **Settings → Appearance → App → Text & Scale**.
+2. In the **Google Fonts** field, type the exact font name, for example `Fira Code` or `Lora`.
+3. Click **Add**.
+4. Wait for the download. The font then appears in the **Font** dropdown.
 
-Type the name exactly as Google Fonts spells it. The **Browse fonts at fonts.google.com** link sits next to the field. It opens the Google Fonts site in a new tab so you can look up names.
+The **Browse fonts at fonts.google.com →** link next to the field opens the Google Fonts site so you can look up names. The name can use letters, numbers and spaces only. Downloading the same font again replaces the old copy.
 
-The name may use letters, numbers, and spaces only. If you download the same font again later, Marinara replaces the old copy instead of making a duplicate.
+If it did not work, read the error message.
 
-If the download fails, read the error message. When Marinara cannot reach Google Fonts, it tells you to check your internet connection. When it says the font was not found, there are two possible causes. The name may not match a font on Google Fonts. Or the font may have no regular (400) weight, which is the normal non-bold style. Check the spelling, and check on the Google Fonts site that the font offers a Regular style.
+- If Marinara cannot reach Google Fonts, check your internet connection.
+- If it says the font was not found, check the spelling, and check on the Google Fonts site that the font has a Regular (400) style. Marinara downloads only that weight.
 
-## Open Fonts Folder is local only
+## Open Fonts Folder
 
-Next to the **Font** dropdown there is an **Open Fonts Folder** button. It opens the `data/fonts/` folder in the file explorer on the server machine.
+The **Open Fonts Folder** button next to the **Font** dropdown opens `data/fonts/` in the file explorer on the server computer, not on the device you are using. If you run Marinara on your own computer, it opens the folder for you. From a phone or a second computer, copy your font files into the server's `data/fonts/` folder yourself.
 
-This button acts on the server, not on the device where you are viewing Marinara. If you run Marinara on your own computer, it opens the folder for you. If you connect from a phone or a second computer, the button does nothing useful for you. In that case, copy your font files into the server's `data/fonts/` folder yourself.
+While the default font is selected, the preset editor's prompt fields and a character's Example Dialogue use a monospace font. Any other font applies to them too. Other prompt fields, such as an agent's prompt template, stay monospace.
 
 ## Related guides
 

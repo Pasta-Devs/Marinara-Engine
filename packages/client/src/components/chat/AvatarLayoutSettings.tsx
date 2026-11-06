@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { isAvatar3dKind } from "@marinara-engine/shared";
 import { AVATAR_FRAMINGS, type AvatarFraming } from "../../features/avatars/contract";
 import type { StageAvatarSummary } from "../../features/avatars/stage/avatar-stage-logic";
 import { AgentSettingsActionButton, AgentSettingsSegmentedControl, SpriteRangeSlider } from "./AgentSettingsControls";
@@ -95,7 +96,7 @@ export function AvatarLayoutSettings({ chatId, layout }: { chatId: string; layou
         />
       </div>
 
-      {selected.kind === "vrm" && (
+      {isAvatar3dKind(selected.kind) && (
         <div className="mt-2 flex flex-col gap-2 @lg:flex-row @lg:items-center">
           <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("avatars.layout.framing")}

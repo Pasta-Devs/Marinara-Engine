@@ -166,6 +166,7 @@ export function withoutProfessorMariContextFacet(
   else if (kind === "field") {
     delete next.field;
     delete next.fieldId;
+    delete next.fieldDraft;
   } else if (kind === "settings") delete next.settingsLocation;
   else if (kind === "error") delete next.error;
   else delete next.asideAnswer;

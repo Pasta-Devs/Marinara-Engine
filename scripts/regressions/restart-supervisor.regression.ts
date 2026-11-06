@@ -9,6 +9,7 @@ import { pathToFileURL } from "node:url";
 
 const root = resolve(import.meta.dirname, "../..");
 const serverRequire = createRequire(join(root, "packages/server/package.json"));
+const compiled = process.env.MARINARA_RESTART_COMPILED === "true";
 const dir = mkdtempSync(join(tmpdir(), "marinara-restart-supervisor-"));
 const probe = createServer();
 await new Promise<void>((done) => probe.listen(0, "127.0.0.1", done));
@@ -20,9 +21,10 @@ const child = spawn(
   process.execPath,
   [
     join(root, "scripts/run-server.mjs"),
-    "--import",
-    pathToFileURL(serverRequire.resolve("tsx/esm")).href,
-    join(root, "scripts/regressions/fixtures/restart-server.ts"),
+    "--report-exclude-env",
+    "--report-exclude-network",
+    ...(compiled ? [] : ["--import", pathToFileURL(serverRequire.resolve("tsx/esm")).href]),
+    join(root, "scripts/regressions/fixtures/restart-server.mjs"),
   ],
   {
     env: {
@@ -55,7 +57,8 @@ async function waitForPid(previous?: number): Promise<number> {
   const timeoutMs = previous === undefined ? 60_000 : 20_000;
   let lastError: unknown;
   while (Date.now() - started < timeoutMs) {
-    if (child.exitCode !== null) assert.fail(`Supervisor exited: ${output}`);
+    if (child.exitCode !== null || child.signalCode !== null)
+      assert.fail(`Supervisor exited (code ${child.exitCode}, signal ${child.signalCode}): ${output}`);
     let body: { pid: number; parent: number } | undefined;
     try {
       const response = await fetch(`${base}/__restart-pid`, { signal: AbortSignal.timeout(500) });

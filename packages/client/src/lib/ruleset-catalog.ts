@@ -490,6 +490,8 @@ export type CatalogMechanicsLabels = {
   value?: (ref: RulesetValueRef) => string;
   /** Condition id to the name the sheet shows, for a cure that ends some (1.176). */
   conditions?: Readonly<Record<string, string>>;
+  /** The ruleset's own words (a damage type, a sense) in the player's language (1.806). */
+  text?: (english: string) => string;
 };
 
 /** The ruleset's own names for everything a mechanics block can point at. A pool group has no label
@@ -497,20 +499,26 @@ export type CatalogMechanicsLabels = {
 export function catalogMechanicsLabels(
   definition: RulesetDefinition,
   catalog: Pick<RulesetCatalogHeader, "units">,
+  /** The ruleset's translation of its own words, when the player reads another language. */
+  text: (english: string) => string = (english) => english,
 ): CatalogMechanicsLabels {
   const saves: Record<string, string> = {};
-  for (const save of definition.sheet.saves) saves[save.id] = save.label;
+  for (const save of definition.sheet.saves) saves[save.id] = text(save.label);
   const pools: Record<string, string> = {};
   for (const pool of definition.sheet.live.pools) {
-    pools[pool.id] = pool.label;
-    if (pool.group && !(pool.group in pools)) pools[pool.group] = rulesetPoolGroupLabel(pool.group);
+    pools[pool.id] = text(pool.label);
+    if (pool.group && !(pool.group in pools)) pools[pool.group] = text(rulesetPoolGroupLabel(pool.group));
   }
   const budgets: Record<string, string> = {};
-  for (const budget of definition.combat?.economy.budgets ?? []) budgets[budget.id] = budget.label;
-  const value = (ref: RulesetValueRef) => rulesetValueRefLabel(definition, ref).what;
+  for (const budget of definition.combat?.economy.budgets ?? []) budgets[budget.id] = text(budget.label);
+  const value = (ref: RulesetValueRef) => text(rulesetValueRefLabel(definition, ref).what);
   const conditions: Record<string, string> = {};
-  for (const condition of definition.sheet.live.conditions) conditions[condition.id] = condition.label;
-  return { units: catalog.units, saves, pools, budgets, value, conditions };
+  for (const condition of definition.sheet.live.conditions) conditions[condition.id] = text(condition.label);
+  const distance = catalog.units?.distance;
+  const units = distance?.label
+    ? { ...catalog.units, distance: { ...distance, label: text(distance.label) } }
+    : catalog.units;
+  return { units, saves, pools, budgets, value, conditions, text };
 }
 
 /** Dice and a flat adjustment read as one die expression (`1d8+3`), which every system writes the
@@ -534,6 +542,8 @@ export function formatCatalogMechanics(
     const unit = labels.units?.distance?.label;
     return unit ? t("game.ruleset.catalog.mechanics.distance", { value, unit }) : String(value);
   };
+  const w = labels.text ?? ((english: string) => english);
+  const words = (list: readonly string[]) => list.map(w).join(", ");
   const parts: string[] = [t(KIND_KEYS[mechanics.kind])];
 
   if (mechanics.check?.reroll) {
@@ -558,7 +568,12 @@ export function formatCatalogMechanics(
     parts.push(
       mechanics.range === 0
         ? t("game.ruleset.catalog.mechanics.selfOrTouch")
-        : t("game.ruleset.catalog.mechanics.range", { distance: distance(mechanics.range) }),
+        : mechanics.longRange !== undefined
+          ? t("game.ruleset.catalog.mechanics.rangeLong", {
+              distance: distance(mechanics.range),
+              long: distance(mechanics.longRange),
+            })
+          : t("game.ruleset.catalog.mechanics.range", { distance: distance(mechanics.range) }),
     );
   }
   if (mechanics.area) {
@@ -585,7 +600,7 @@ export function formatCatalogMechanics(
       parts.push(
         t("game.ruleset.catalog.mechanics.riderAmount", {
           amount: added,
-          type: mechanics.rider.type ?? t("game.ruleset.catalog.mechanics.riderSameType"),
+          type: mechanics.rider.type ? w(mechanics.rider.type) : t("game.ruleset.catalog.mechanics.riderSameType"),
         }),
       );
     }
@@ -635,7 +650,7 @@ export function formatCatalogMechanics(
   if (amount) {
     parts.push(
       mechanics.damageType
-        ? t("game.ruleset.catalog.mechanics.amountOfType", { amount, type: mechanics.damageType })
+        ? t("game.ruleset.catalog.mechanics.amountOfType", { amount, type: w(mechanics.damageType) })
         : amount,
     );
   }
@@ -647,7 +662,7 @@ export function formatCatalogMechanics(
     parts.push(
       t("game.ruleset.catalog.mechanics.plus", {
         amount: added,
-        type: clause.type ?? t("game.ruleset.catalog.mechanics.riderSameType"),
+        type: clause.type ? w(clause.type) : t("game.ruleset.catalog.mechanics.riderSameType"),
       }),
     );
     // A clause may ask the target for a saving throw of its OWN, which is a different throw from
@@ -666,6 +681,15 @@ export function formatCatalogMechanics(
   if (mechanics.save) {
     const save = labels.saves[mechanics.save.save] ?? mechanics.save.save;
     parts.push(t(SAVE_KEYS[mechanics.save.onSuccess], { save }));
+  }
+  // A ray rolled for each target (1.468).
+  if (mechanics.rays) {
+    parts.push(
+      t("game.ruleset.catalog.mechanics.rays", {
+        dice: mechanics.rays.dice,
+        rays: words(mechanics.rays.rows.map((row) => row.label)),
+      }),
+    );
   }
   for (const cost of mechanics.cost ?? []) {
     parts.push(
@@ -764,7 +788,7 @@ export function formatCatalogMechanics(
       const pierced = mechanics.zone.obscures.pierced ?? [];
       parts.push(
         pierced.length
-          ? t("game.ruleset.catalog.mechanics.zoneObscuresBut", { senses: pierced.join(", ") })
+          ? t("game.ruleset.catalog.mechanics.zoneObscuresBut", { senses: words(pierced) })
           : t("game.ruleset.catalog.mechanics.zoneObscures"),
       );
     }
@@ -778,13 +802,25 @@ export function formatCatalogMechanics(
       );
     }
     if (inside?.immune?.length) {
-      parts.push(t("game.ruleset.catalog.mechanics.zoneInsideImmune", { types: inside.immune.join(", ") }));
+      parts.push(t("game.ruleset.catalog.mechanics.zoneInsideImmune", { types: words(inside.immune) }));
     }
-    if (mechanics.zone.forbids) {
+    if (mechanics.zone.forbids?.components) {
       parts.push(
-        t("game.ruleset.catalog.mechanics.zoneForbids", { components: mechanics.zone.forbids.components.join(", ") }),
+        t("game.ruleset.catalog.mechanics.zoneForbids", { components: words(mechanics.zone.forbids.components) }),
       );
     }
+    // No teleporting into, out of or within it (1.467).
+    if (mechanics.zone.forbids?.teleport === true) parts.push(t("game.ruleset.catalog.mechanics.zoneForbidsTeleport"));
+    // Nobody into it at all (1.753): Forbiddance.
+    else if (mechanics.zone.forbids?.teleport === "into")
+      parts.push(t("game.ruleset.catalog.mechanics.zoneForbidsTeleportInto"));
+    // Or out of it only past a save (1.603).
+    else if (mechanics.zone.forbids?.teleport)
+      parts.push(
+        t("game.ruleset.catalog.mechanics.zoneForbidsTeleportSave", {
+          save: labels.saves[mechanics.zone.forbids.teleport.save] ?? mechanics.zone.forbids.teleport.save,
+        }),
+      );
     if (mechanics.zone.wards) {
       parts.push(t("game.ruleset.catalog.mechanics.zoneWards", { level: mechanics.zone.wards.maxLevel }));
     }
@@ -800,7 +836,7 @@ export function formatCatalogMechanics(
   }
   if (mechanics.seen) parts.push(t("game.ruleset.catalog.mechanics.seen"));
   if (mechanics.components?.length) {
-    parts.push(t("game.ruleset.catalog.mechanics.components", { components: mechanics.components.join(", ") }));
+    parts.push(t("game.ruleset.catalog.mechanics.components", { components: words(mechanics.components) }));
   }
   if (mechanics.reaction) parts.push(t("game.ruleset.catalog.mechanics.reaction"));
   return parts.join(" · ");

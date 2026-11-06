@@ -13,9 +13,10 @@ import { isDebugAgentsEnabled } from "../config/runtime-config.js";
 import { buildAssetManifest, GAME_ASSETS_DIR, getAssetManifest } from "../services/game/asset-manifest.service.js";
 import {
   moveBackgroundAssignment,
-  normalizeBackgroundLibraryOrganization,
   pruneBackgroundLibraryOrganization,
+  readBackgroundLibraryOrganization,
   removeBackgroundFolder,
+  writeBackgroundLibraryOrganization,
   type BackgroundLibraryOrganization,
 } from "../services/background-library-organization.js";
 import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
@@ -25,7 +26,11 @@ import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createGameStateStorage } from "../services/storage/game-state.storage.js";
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
-import { buildBackgroundProviderPrompt, generateChatBackground } from "../services/game/game-asset-generation.js";
+import {
+  buildBackgroundProviderPrompt,
+  generateChatBackground,
+  replacedGeneratedChatBackgroundPath,
+} from "../services/game/game-asset-generation.js";
 import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
@@ -38,7 +43,6 @@ import { resolveGameSetupArtStylePrompt } from "@marinara-engine/shared";
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
 const META_PATH = join(BG_DIR, "meta.json");
-const ORGANIZATION_PATH = join(BG_DIR, "organization.json");
 
 // Ensure directory exists
 function ensureDir() {
@@ -80,26 +84,9 @@ function writeMeta(meta: MetaMap) {
   writeFileSync(META_PATH, JSON.stringify(meta, null, 2), "utf-8");
 }
 
-function readOrganization(): BackgroundLibraryOrganization {
-  ensureDir();
-  if (!existsSync(ORGANIZATION_PATH)) return { folders: [], assignments: {}, favorites: [] };
-  try {
-    return normalizeBackgroundLibraryOrganization(JSON.parse(readFileSync(ORGANIZATION_PATH, "utf-8")));
-  } catch {
-    return { folders: [], assignments: {}, favorites: [] };
-  }
-}
-
-function writeOrganization(organization: BackgroundLibraryOrganization) {
-  ensureDir();
-  const temporaryPath = `${ORGANIZATION_PATH}.${process.pid}.${randomUUID()}.tmp`;
-  try {
-    writeFileSync(temporaryPath, JSON.stringify(organization, null, 2), "utf-8");
-    renameSync(temporaryPath, ORGANIZATION_PATH);
-  } finally {
-    if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
-  }
-}
+const readOrganization = () => readBackgroundLibraryOrganization(BG_DIR);
+const writeOrganization = (organization: BackgroundLibraryOrganization) =>
+  writeBackgroundLibraryOrganization(BG_DIR, organization);
 
 /** Every background id the library can currently show, so organization writes can't reference ghosts. */
 function knownBackgroundIds(): Set<string> {
@@ -709,9 +696,12 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
+    let filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      // A background regenerated in another format replaced this file, so older references show the new image.
+      const replacement = replacedGeneratedChatBackgroundPath(filename);
+      if (!replacement) return reply.status(404).send({ error: "Not found" });
+      filePath = assertInsideDir(BG_DIR, replacement);
     }
 
     const image = await validateImageAssetFile(filePath, filename);

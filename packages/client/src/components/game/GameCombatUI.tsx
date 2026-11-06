@@ -1,6 +1,7 @@
 import { artPortraitFor } from "@marinara-engine/shared";
 import { ArtIcon } from "./ArtIcon";
 import { CombatAiControls } from "./CombatAiControls";
+import { RulesetSpendToggle } from "./RulesetSpendToggle";
 // ──────────────────────────────────────────────
 // Game: Turn-Based Combat UI
 //
@@ -29,12 +30,18 @@ import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { audioManager } from "../../lib/game-audio";
 import { getOrCreateCachedTTSAudioBlob } from "../../lib/tts-audio-cache";
 import { normalizeTTSCharacterName, resolveTTSVoiceForSpeaker, splitTTSChunks } from "../../lib/tts-dialogue";
+import { normalizeGameTtsEmotion } from "../../lib/game-tts-emotion";
 import { ttsService } from "../../lib/tts-service";
 import { useGameAssetManifest } from "../../hooks/use-game-assets";
 import { useCombatRound } from "../../hooks/use-game";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { AnimatedText } from "./AnimatedText";
-import { combatInterruptFields, worldElementId, type WorldElementSet } from "@marinara-engine/shared";
+import {
+  combatInterruptFields,
+  worldElementId,
+  type CombatOrders,
+  type WorldElementSet,
+} from "@marinara-engine/shared";
 import type {
   Combatant,
   CombatAttackResult,
@@ -51,6 +58,7 @@ import type {
   TTSConfig,
 } from "@marinara-engine/shared";
 import { RulesetCombatMenu } from "./RulesetCombatMenu";
+import { RulesetInHand } from "./RulesetInHand";
 import {
   Heart,
   Droplets,
@@ -72,6 +80,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { TokenPicture } from "./TokenPicture";
 
 // `combatant.sprite` is populated either from a real avatar URL (player party,
 // from the character sheet's `avatarUrl`) or from the encounter LLM, which is
@@ -422,8 +431,18 @@ function CombatantSpriteVisual({
   emojiClassName?: string;
 }) {
   const spriteKind = resolveSpriteKind(combatant.sprite);
+  // No picture of their own: their pixel bust from the portraits pack (1.338), else their initial.
+  const portrait = (
+    <ArtIcon
+      kind="portraits"
+      ids={[artPortraitFor(combatant.name)]}
+      label={combatant.name}
+      className={imageClassName}
+      fallback={<span className={textClassName}>{combatant.name.charAt(0).toUpperCase()}</span>}
+    />
+  );
   if (spriteKind.kind === "url") {
-    return <img src={spriteKind.value} alt={combatant.name} className={imageClassName} />;
+    return <TokenPicture src={spriteKind.value} alt={combatant.name} className={imageClassName} fallback={portrait} />;
   }
 
   if (spriteKind.kind === "emoji") {
@@ -434,16 +453,7 @@ function CombatantSpriteVisual({
     );
   }
 
-  // No picture of their own: their pixel bust from the portraits pack (1.338), else their initial.
-  return (
-    <ArtIcon
-      kind="portraits"
-      ids={[artPortraitFor(combatant.name)]}
-      label={combatant.name}
-      className={imageClassName}
-      fallback={<span className={textClassName}>{combatant.name.charAt(0).toUpperCase()}</span>}
-    />
-  );
+  return portrait;
 }
 
 interface GameCombatUIProps {
@@ -456,6 +466,8 @@ interface GameCombatUIProps {
     outcome?: "victory" | "defeat" | "flee";
     onAction: (action: CombatPlayerAction) => void;
     onControl: (id: string, controller: "manual" | "ai") => void;
+    /** A companion's standing orders, or null to go back to its default. */
+    onOrders?: (id: string, orders: CombatOrders | null) => void;
     /** Present only for a fight the game's own ruleset resolves. The stage above is unchanged (the
      *  server keeps `party` and `enemies` in step with the fight), and this replaces the hardcoded
      *  attack/skill/defend menu with the ruleset's own legal menu. Absent, every path below is the
@@ -469,6 +481,12 @@ interface GameCombatUIProps {
       busy: boolean;
       onChoose: (optionId: string, targetIds: string[], payWith?: string) => void;
       onFlee: () => void;
+      onYield?: () => void;
+      /** Whether the player picks their own symbol spends (1.382). */
+      onSpends?: (choose: boolean) => void;
+      /** A carried item taken in hand, and the stack a weapon shoots first (2026-10-26). */
+      onDraw?: (unitId: string, item: number) => void;
+      onAmmo?: (unitId: string, weapon: number, stack: number) => void;
     };
   };
   chatId: string;
@@ -606,6 +624,7 @@ function hashCombatVoiceKey(value: string): string {
 function buildCombatVoiceConfigSignature(config?: TTSConfig | null): string {
   if (!config) return "combat-tts:none";
   return [
+    config.connectionId,
     config.source,
     config.baseUrl,
     config.model,
@@ -1121,7 +1140,7 @@ export function GameCombatUI({
             const blob = await getOrCreateCachedTTSAudioBlob(chunkKey, () =>
               ttsService.generateAudio(chunk, {
                 speaker: line.character,
-                tone: line.expression,
+                tone: normalizeGameTtsEmotion(line.expression) ?? undefined,
                 voice: line.voice,
                 signal: controller.signal,
               }),
@@ -1687,14 +1706,25 @@ export function GameCombatUI({
   // menu, its sub-phases or its keyboard handling is reachable while this is set.
   const rulesetFight = directed?.ruleset;
   const rulesetMenu = rulesetFight ? (
-    <RulesetCombatMenu
-      view={rulesetFight.view}
-      budgetLabel={rulesetFight.budgetLabel}
-      defenseLabel={rulesetFight.defenseLabel}
-      busy={rulesetFight.busy}
-      onChoose={rulesetFight.onChoose}
-      onFlee={rulesetFight.onFlee}
-    />
+    <>
+      {rulesetFight.onDraw && rulesetFight.onAmmo && (
+        <RulesetInHand
+          view={rulesetFight.view}
+          busy={rulesetFight.busy}
+          onDraw={rulesetFight.onDraw}
+          onAmmo={rulesetFight.onAmmo}
+        />
+      )}
+      <RulesetCombatMenu
+        view={rulesetFight.view}
+        budgetLabel={rulesetFight.budgetLabel}
+        defenseLabel={rulesetFight.defenseLabel}
+        busy={rulesetFight.busy}
+        onChoose={rulesetFight.onChoose}
+        onFlee={rulesetFight.onFlee}
+        onYield={rulesetFight.onYield}
+      />
+    </>
   ) : null;
 
   const actionMenu = (
@@ -1823,24 +1853,38 @@ export function GameCombatUI({
     [selectedAction, selectedItemEffect, selectedItemName, selectedSkillId, playSfx, resolveRound],
   );
 
+  const spendsShown = rulesetFight?.view.spends;
   const aiControls = (
-    <CombatAiControls
-      party={party}
-      enemies={enemies}
-      defaultController="ai"
-      // A ruleset fight has no queued orders and lets anybody be handed over at any point, so the
-      // only thing that locks the toggle is a step already on its way to the server.
-      locked={rulesetFight ? rulesetFight.busy : phase !== "player-turn" || Object.keys(queuedOrders).length > 0}
-      onChange={(id, controller) => {
-        if (directed) {
-          directed.onControl(id, controller);
-          return;
+    <>
+      {spendsShown && rulesetFight?.onSpends && (
+        <RulesetSpendToggle
+          choose={spendsShown.choose}
+          locked={rulesetFight.busy}
+          onChange={rulesetFight.onSpends}
+          className="px-3 py-1"
+        />
+      )}
+      <CombatAiControls
+        // In a shared room's ruleset fight only the viewer's own are offered, as on a board.
+        party={
+          rulesetFight?.view.yours ? party.filter((member) => rulesetFight.view.yours!.includes(member.id)) : party
         }
-        const updated = party.map((c) => (c.id === id ? { ...c, controller } : c));
-        setParty(updated);
-        onCombatantsChange?.(updated, enemies);
-      }}
-    />
+        defaultController="ai"
+        // A ruleset fight has no queued orders and lets anybody be handed over at any point, so the
+        // only thing that locks the toggle is a step already on its way to the server.
+        locked={rulesetFight ? rulesetFight.busy : phase !== "player-turn" || Object.keys(queuedOrders).length > 0}
+        onChange={(id, controller) => {
+          if (directed) {
+            directed.onControl(id, controller);
+            return;
+          }
+          const updated = party.map((c) => (c.id === id ? { ...c, controller } : c));
+          setParty(updated);
+          onCombatantsChange?.(updated, enemies);
+        }}
+        onOrders={directed?.onOrders}
+      />
+    </>
   );
 
   // ── Keyboard navigation for action menu ──
@@ -1905,7 +1949,10 @@ export function GameCombatUI({
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/85 animate-in fade-in duration-300">
             <div className="flex flex-col items-center gap-3 px-6 text-center animate-in zoom-in-50 duration-500">
               <Sword className="h-9 w-9 text-red-400" />
-              <AnimatedText html="BATTLE START" className="text-xl font-bold tracking-wide text-white" />
+              <AnimatedText
+                html={localizeUi("game.combat.banner.battleStart")}
+                className="text-xl font-bold tracking-wide text-white"
+              />
               <span className="text-xs text-white/60">{enemies.map((e) => e.name).join(", ")}</span>
             </div>
           </div>
@@ -1987,7 +2034,10 @@ export function GameCombatUI({
           {phase === "victory" && (
             <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/85 px-6 text-center animate-in fade-in duration-500">
               <Trophy className="h-12 w-12 text-amber-400" />
-              <AnimatedText html="{bounce:Victory!}" className="text-2xl font-bold text-amber-200" />
+              <AnimatedText
+                html={`{bounce:${localizeUi("game.combat.banner.victory")}}`}
+                className="text-2xl font-bold text-amber-200"
+              />
               <button
                 onClick={() => onCombatEnd("victory", buildSummary("victory"))}
                 className="rounded-lg bg-amber-500/20 px-6 py-2.5 text-sm font-semibold text-amber-200 ring-1 ring-amber-400/30 transition-colors hover:bg-amber-500/30"
@@ -1999,8 +2049,14 @@ export function GameCombatUI({
           {phase === "defeat" && (
             <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/85 px-6 text-center animate-in fade-in duration-500">
               <SkullIcon className="h-12 w-12 text-red-400" />
-              <AnimatedText html="{shake:Defeat...}" className="text-2xl font-bold text-red-200" />
-              <AnimatedText html="{pulse:Your party has fallen.}" className="text-xs text-white/55" />
+              <AnimatedText
+                html={`{shake:${localizeUi("game.combat.banner.defeat")}}`}
+                className="text-2xl font-bold text-red-200"
+              />
+              <AnimatedText
+                html={`{pulse:${localizeUi("game.combat.banner.partyFallen")}}`}
+                className="text-xs text-white/55"
+              />
               <button
                 onClick={() => onCombatEnd("defeat", buildSummary("defeat"))}
                 className="rounded-lg bg-red-500/20 px-6 py-2.5 text-sm font-semibold text-red-200 ring-1 ring-red-400/30 transition-colors hover:bg-red-500/30"
@@ -2583,7 +2639,10 @@ export function GameCombatUI({
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 animate-in fade-in duration-300">
             <div className="flex flex-col items-center gap-3 animate-in zoom-in-50 duration-500">
               <Sword className="h-10 w-10 text-red-400" />
-              <AnimatedText html="BATTLE START" className="text-xl font-bold tracking-wide text-white" />
+              <AnimatedText
+                html={localizeUi("game.combat.banner.battleStart")}
+                className="text-xl font-bold tracking-wide text-white"
+              />
               <span className="text-sm text-white/60">{enemies.map((e) => e.name).join(", ")}</span>
             </div>
           </div>
@@ -3085,7 +3144,10 @@ export function GameCombatUI({
         {phase === "victory" && (
           <div className="flex flex-col items-center gap-3 px-3 py-4 animate-in fade-in slide-in-from-bottom-4 duration-500 sm:px-4 sm:py-6">
             <Trophy className="h-8 w-8 text-amber-400" />
-            <AnimatedText html="{bounce:Victory!}" className="text-lg font-bold text-amber-200" />
+            <AnimatedText
+              html={`{bounce:${localizeUi("game.combat.banner.victory")}}`}
+              className="text-lg font-bold text-amber-200"
+            />
             <button
               onClick={() => onCombatEnd("victory", buildSummary("victory"))}
               className="mt-2 rounded-lg bg-amber-500/20 px-6 py-2 text-sm font-semibold text-amber-200 ring-1 ring-amber-400/30 transition-colors hover:bg-amber-500/30"
@@ -3099,8 +3161,14 @@ export function GameCombatUI({
         {phase === "defeat" && (
           <div className="flex flex-col items-center gap-3 px-3 py-4 animate-in fade-in slide-in-from-bottom-4 duration-500 sm:px-4 sm:py-6">
             <SkullIcon className="h-8 w-8 text-red-400" />
-            <AnimatedText html="{shake:Defeat...}" className="text-lg font-bold text-red-200" />
-            <AnimatedText html="{pulse:Your party has fallen.}" className="text-xs text-white/50" />
+            <AnimatedText
+              html={`{shake:${localizeUi("game.combat.banner.defeat")}}`}
+              className="text-lg font-bold text-red-200"
+            />
+            <AnimatedText
+              html={`{pulse:${localizeUi("game.combat.banner.partyFallen")}}`}
+              className="text-xs text-white/50"
+            />
             <button
               onClick={() => onCombatEnd("defeat", buildSummary("defeat"))}
               className="mt-2 rounded-lg bg-red-500/20 px-6 py-2 text-sm font-semibold text-red-200 ring-1 ring-red-400/30 transition-colors hover:bg-red-500/30"

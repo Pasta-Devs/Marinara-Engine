@@ -1,0 +1,441 @@
+diff --git a/src/v3/types.ts b/src/v3/types.ts
+--- a/src/v3/types.ts
++++ b/src/v3/types.ts
+@@ -2250,6 +2250,20 @@
+       return INVALID;
+     }
+ 
++    const exact = def.exactLength !== null && ctx.data.length > def.exactLength.value;
++    const upper = exact ? def.exactLength : def.maxLength;
++    if (upper !== null && ctx.data.length > upper.value) {
++      addIssueToContext(ctx, {
++        code: ZodIssueCode.too_big,
++        ...(exact ? { minimum: undefined } : {}),
++        maximum: upper.value,
++        type: "array",
++        inclusive: true,
++        exact,
++        message: upper.message,
++      });
++      return INVALID;
++    }
+     if (def.exactLength !== null) {
+       const tooBig = ctx.data.length > def.exactLength.value;
+       const tooSmall = ctx.data.length < def.exactLength.value;
+@@ -2276,20 +2290,6 @@
+           inclusive: true,
+           exact: false,
+           message: def.minLength.message,
+-        });
+-        status.dirty();
+-      }
+-    }
+-
+-    if (def.maxLength !== null) {
+-      if (ctx.data.length > def.maxLength.value) {
+-        addIssueToContext(ctx, {
+-          code: ZodIssueCode.too_big,
+-          maximum: def.maxLength.value,
+-          type: "array",
+-          inclusive: true,
+-          exact: false,
+-          message: def.maxLength.message,
+         });
+         status.dirty();
+       }
+@@ -3699,6 +3699,20 @@
+ 
+     const def = this._def;
+ 
++    if (def.maxSize !== null) {
++      if (ctx.data.size > def.maxSize.value) {
++        addIssueToContext(ctx, {
++          code: ZodIssueCode.too_big,
++          maximum: def.maxSize.value,
++          type: "set",
++          inclusive: true,
++          exact: false,
++          message: def.maxSize.message,
++        });
++        return INVALID;
++      }
++    }
++
+     if (def.minSize !== null) {
+       if (ctx.data.size < def.minSize.value) {
+         addIssueToContext(ctx, {
+@@ -3708,20 +3722,6 @@
+           inclusive: true,
+           exact: false,
+           message: def.minSize.message,
+-        });
+-        status.dirty();
+-      }
+-    }
+-
+-    if (def.maxSize !== null) {
+-      if (ctx.data.size > def.maxSize.value) {
+-        addIssueToContext(ctx, {
+-          code: ZodIssueCode.too_big,
+-          maximum: def.maxSize.value,
+-          type: "set",
+-          inclusive: true,
+-          exact: false,
+-          message: def.maxSize.message,
+         });
+         status.dirty();
+       }
+diff --git a/src/v4/core/schemas.ts b/src/v4/core/schemas.ts
+--- a/src/v4/core/schemas.ts
++++ b/src/v4/core/schemas.ts
+@@ -1514,6 +1514,34 @@
+   final.value[index] = result.value;
+ }
+ 
++// Security backport: reject existing leading upper-size checks before parsing collection elements.
++function capSize(inst: $ZodType, size: (input: unknown) => number) {
++  const caps: [number, checks.$ZodCheck<never>][] = [];
++  for (const ch of inst._zod.def.checks ?? []) {
++    const d = ch._zod.def as any;
++    if (!/_(length|size)$|_equals$/.test(d.check)) break;
++    const max = d.maximum ?? d.length ?? d.size;
++    if (max >= 0) caps.push([max, ch]);
++  }
++  if (!caps.length) return;
++  inst._zod.deferred ??= [];
++  inst._zod.deferred.push(() => {
++  const run = inst._zod.run;
++  inst._zod.run = (payload, ctx) => {
++    const n = size(payload.value);
++    for (const [max, ch] of caps) {
++      if (n > max && ch._zod.def.when!(payload)) {
++        const start = payload.issues.length;
++        ch._zod.check(payload as ParsePayload<never>);
++        (payload.issues[start] as { continue?: boolean }).continue = false;
++        return payload;
++      }
++    }
++    return run(payload, ctx);
++  };
++  });
++}
++
+ export const $ZodArray: core.$constructor<$ZodArray> = /*@__PURE__*/ core.$constructor("$ZodArray", (inst, def) => {
+   $ZodType.init(inst, def);
+ 
+@@ -1555,6 +1583,7 @@
+ 
+     return payload; //handleArrayResultsAsync(parseResults, final);
+   };
++  capSize(inst, (input) => Array.isArray(input) ? input.length : -1);
+ });
+ 
+ //////////////////////////////////////////
+@@ -2599,6 +2628,7 @@
+     if (proms.length) return Promise.all(proms).then(() => payload);
+     return payload;
+   };
++  capSize(inst, (input) => input instanceof Map ? input.size : -1);
+ });
+ 
+ function handleMapResult(
+@@ -2691,6 +2721,7 @@
+     if (proms.length) return Promise.all(proms).then(() => payload);
+     return payload;
+   };
++  capSize(inst, (input) => input instanceof Set ? input.size : -1);
+ });
+ 
+ function handleSetResult(result: ParsePayload, final: ParsePayload<Set<any>>) {
+diff --git a/v3/types.cjs b/v3/types.cjs
+--- a/v3/types.cjs
++++ b/v3/types.cjs
+@@ -1777,6 +1777,20 @@
+             });
+             return parseUtil_js_1.INVALID;
+         }
++        const exact = def.exactLength !== null && ctx.data.length > def.exactLength.value;
++        const upper = exact ? def.exactLength : def.maxLength;
++        if (upper !== null && ctx.data.length > upper.value) {
++            (0, parseUtil_js_1.addIssueToContext)(ctx, {
++                code: ZodError_js_1.ZodIssueCode.too_big,
++                ...(exact ? { minimum: undefined } : {}),
++                maximum: upper.value,
++                type: "array",
++                inclusive: true,
++                exact,
++                message: upper.message,
++            });
++            return parseUtil_js_1.INVALID;
++        }
+         if (def.exactLength !== null) {
+             const tooBig = ctx.data.length > def.exactLength.value;
+             const tooSmall = ctx.data.length < def.exactLength.value;
+@@ -1802,19 +1816,6 @@
+                     inclusive: true,
+                     exact: false,
+                     message: def.minLength.message,
+-                });
+-                status.dirty();
+-            }
+-        }
+-        if (def.maxLength !== null) {
+-            if (ctx.data.length > def.maxLength.value) {
+-                (0, parseUtil_js_1.addIssueToContext)(ctx, {
+-                    code: ZodError_js_1.ZodIssueCode.too_big,
+-                    maximum: def.maxLength.value,
+-                    type: "array",
+-                    inclusive: true,
+-                    exact: false,
+-                    message: def.maxLength.message,
+                 });
+                 status.dirty();
+             }
+@@ -2820,6 +2821,19 @@
+             return parseUtil_js_1.INVALID;
+         }
+         const def = this._def;
++        if (def.maxSize !== null) {
++            if (ctx.data.size > def.maxSize.value) {
++                (0, parseUtil_js_1.addIssueToContext)(ctx, {
++                    code: ZodError_js_1.ZodIssueCode.too_big,
++                    maximum: def.maxSize.value,
++                    type: "set",
++                    inclusive: true,
++                    exact: false,
++                    message: def.maxSize.message,
++                });
++                return parseUtil_js_1.INVALID;
++            }
++        }
+         if (def.minSize !== null) {
+             if (ctx.data.size < def.minSize.value) {
+                 (0, parseUtil_js_1.addIssueToContext)(ctx, {
+@@ -2829,19 +2843,6 @@
+                     inclusive: true,
+                     exact: false,
+                     message: def.minSize.message,
+-                });
+-                status.dirty();
+-            }
+-        }
+-        if (def.maxSize !== null) {
+-            if (ctx.data.size > def.maxSize.value) {
+-                (0, parseUtil_js_1.addIssueToContext)(ctx, {
+-                    code: ZodError_js_1.ZodIssueCode.too_big,
+-                    maximum: def.maxSize.value,
+-                    type: "set",
+-                    inclusive: true,
+-                    exact: false,
+-                    message: def.maxSize.message,
+                 });
+                 status.dirty();
+             }
+diff --git a/v3/types.js b/v3/types.js
+--- a/v3/types.js
++++ b/v3/types.js
+@@ -1756,6 +1756,20 @@
+             });
+             return INVALID;
+         }
++        const exact = def.exactLength !== null && ctx.data.length > def.exactLength.value;
++        const upper = exact ? def.exactLength : def.maxLength;
++        if (upper !== null && ctx.data.length > upper.value) {
++            addIssueToContext(ctx, {
++                code: ZodIssueCode.too_big,
++                ...(exact ? { minimum: undefined } : {}),
++                maximum: upper.value,
++                type: "array",
++                inclusive: true,
++                exact,
++                message: upper.message,
++            });
++            return INVALID;
++        }
+         if (def.exactLength !== null) {
+             const tooBig = ctx.data.length > def.exactLength.value;
+             const tooSmall = ctx.data.length < def.exactLength.value;
+@@ -1781,19 +1795,6 @@
+                     inclusive: true,
+                     exact: false,
+                     message: def.minLength.message,
+-                });
+-                status.dirty();
+-            }
+-        }
+-        if (def.maxLength !== null) {
+-            if (ctx.data.length > def.maxLength.value) {
+-                addIssueToContext(ctx, {
+-                    code: ZodIssueCode.too_big,
+-                    maximum: def.maxLength.value,
+-                    type: "array",
+-                    inclusive: true,
+-                    exact: false,
+-                    message: def.maxLength.message,
+                 });
+                 status.dirty();
+             }
+@@ -2791,6 +2792,19 @@
+             return INVALID;
+         }
+         const def = this._def;
++        if (def.maxSize !== null) {
++            if (ctx.data.size > def.maxSize.value) {
++                addIssueToContext(ctx, {
++                    code: ZodIssueCode.too_big,
++                    maximum: def.maxSize.value,
++                    type: "set",
++                    inclusive: true,
++                    exact: false,
++                    message: def.maxSize.message,
++                });
++                return INVALID;
++            }
++        }
+         if (def.minSize !== null) {
+             if (ctx.data.size < def.minSize.value) {
+                 addIssueToContext(ctx, {
+@@ -2800,19 +2814,6 @@
+                     inclusive: true,
+                     exact: false,
+                     message: def.minSize.message,
+-                });
+-                status.dirty();
+-            }
+-        }
+-        if (def.maxSize !== null) {
+-            if (ctx.data.size > def.maxSize.value) {
+-                addIssueToContext(ctx, {
+-                    code: ZodIssueCode.too_big,
+-                    maximum: def.maxSize.value,
+-                    type: "set",
+-                    inclusive: true,
+-                    exact: false,
+-                    message: def.maxSize.message,
+                 });
+                 status.dirty();
+             }
+diff --git a/v4/core/schemas.cjs b/v4/core/schemas.cjs
+--- a/v4/core/schemas.cjs
++++ b/v4/core/schemas.cjs
+@@ -650,6 +650,34 @@
+     }
+     final.value[index] = result.value;
+ }
++// Security backport: reject existing leading upper-size checks before parsing collection elements.
++function capSize(inst, size) {
++  const caps = [];
++  for (const ch of inst._zod.def.checks ?? []) {
++    const d = ch._zod.def;
++    if (!/_(length|size)$|_equals$/.test(d.check)) break;
++    const max = d.maximum ?? d.length ?? d.size;
++    if (max >= 0) caps.push([max, ch]);
++  }
++  if (!caps.length) return;
++  inst._zod.deferred ??= [];
++  inst._zod.deferred.push(() => {
++  const run = inst._zod.run;
++  inst._zod.run = (payload, ctx) => {
++    const n = size(payload.value);
++    for (const [max, ch] of caps) {
++      if (n > max && ch._zod.def.when(payload)) {
++        const start = payload.issues.length;
++        ch._zod.check(payload);
++        payload.issues[start].continue = false;
++        return payload;
++      }
++    }
++    return run(payload, ctx);
++  };
++  });
++}
++
+ exports.$ZodArray = core.$constructor("$ZodArray", (inst, def) => {
+     exports.$ZodType.init(inst, def);
+     inst._zod.parse = (payload, ctx) => {
+@@ -683,6 +711,7 @@
+         }
+         return payload; //handleArrayResultsAsync(parseResults, final);
+     };
++  capSize(inst, (input) => Array.isArray(input) ? input.length : -1);
+ });
+ function handleObjectResult(result, final, key) {
+     // if(isOptional)
+@@ -1304,6 +1333,7 @@
+             return Promise.all(proms).then(() => payload);
+         return payload;
+     };
++  capSize(inst, (input) => input instanceof Map ? input.size : -1);
+ });
+ function handleMapResult(keyResult, valueResult, final, key, input, inst, ctx) {
+     if (keyResult.issues.length) {
+@@ -1364,6 +1394,7 @@
+             return Promise.all(proms).then(() => payload);
+         return payload;
+     };
++  capSize(inst, (input) => input instanceof Set ? input.size : -1);
+ });
+ function handleSetResult(result, final) {
+     if (result.issues.length) {
+diff --git a/v4/core/schemas.js b/v4/core/schemas.js
+--- a/v4/core/schemas.js
++++ b/v4/core/schemas.js
+@@ -619,6 +619,34 @@
+     }
+     final.value[index] = result.value;
+ }
++// Security backport: reject existing leading upper-size checks before parsing collection elements.
++function capSize(inst, size) {
++  const caps = [];
++  for (const ch of inst._zod.def.checks ?? []) {
++    const d = ch._zod.def;
++    if (!/_(length|size)$|_equals$/.test(d.check)) break;
++    const max = d.maximum ?? d.length ?? d.size;
++    if (max >= 0) caps.push([max, ch]);
++  }
++  if (!caps.length) return;
++  inst._zod.deferred ??= [];
++  inst._zod.deferred.push(() => {
++  const run = inst._zod.run;
++  inst._zod.run = (payload, ctx) => {
++    const n = size(payload.value);
++    for (const [max, ch] of caps) {
++      if (n > max && ch._zod.def.when(payload)) {
++        const start = payload.issues.length;
++        ch._zod.check(payload);
++        payload.issues[start].continue = false;
++        return payload;
++      }
++    }
++    return run(payload, ctx);
++  };
++  });
++}
++
+ export const $ZodArray = /*@__PURE__*/ core.$constructor("$ZodArray", (inst, def) => {
+     $ZodType.init(inst, def);
+     inst._zod.parse = (payload, ctx) => {
+@@ -652,6 +680,7 @@
+         }
+         return payload; //handleArrayResultsAsync(parseResults, final);
+     };
++  capSize(inst, (input) => Array.isArray(input) ? input.length : -1);
+ });
+ function handleObjectResult(result, final, key) {
+     // if(isOptional)
+@@ -1273,6 +1302,7 @@
+             return Promise.all(proms).then(() => payload);
+         return payload;
+     };
++  capSize(inst, (input) => input instanceof Map ? input.size : -1);
+ });
+ function handleMapResult(keyResult, valueResult, final, key, input, inst, ctx) {
+     if (keyResult.issues.length) {
+@@ -1333,6 +1363,7 @@
+             return Promise.all(proms).then(() => payload);
+         return payload;
+     };
++  capSize(inst, (input) => input instanceof Set ? input.size : -1);
+ });
+ function handleSetResult(result, final) {
+     if (result.issues.length) {

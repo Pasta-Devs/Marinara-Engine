@@ -147,7 +147,7 @@ try {
       parsedOrThrow(variant(emberText, worn(effect)), JSON.stringify(effect));
     }
     for (const effect of ["half-move-to-stand", "ends-on-damage", "cannot-target-source", "cannot-approach-source"]) {
-      refused(emberText, worn({ effects: [effect] }), /Invalid enum value/, effect);
+      refused(emberText, worn({ effects: [effect] }), /Invalid option: expected one of/, effect);
     }
     refused(
       gravewatchText,

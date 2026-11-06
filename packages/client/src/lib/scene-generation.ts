@@ -106,6 +106,8 @@ export async function startSceneWithPromptPreferences(options: StartSceneOptions
         prompt: planningPrompt,
         connectionId: options.connectionId ?? null,
         promptPreferences: preferences,
+        // The opening message is credited to this character, so the planner writes it in their voice.
+        initiatorCharId: options.initiatorCharId ?? null,
       });
       plan = planRes.plan;
       if (!plan) {

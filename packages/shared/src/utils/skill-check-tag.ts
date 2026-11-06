@@ -15,6 +15,10 @@ import type { GameDicePoolSlotName, SkillCheckResult } from "../types/game.js";
 import { parsePoolSlotName } from "./dice-pool.js";
 import { isWithinDiceLimits, parseDiceNotation } from "./dice-notation.js";
 
+/** Why the Engine did not roll a check it was asked for: the character cannot attempt it untrained,
+ *  or the check picks out no one party member to roll it. */
+export type SkillCheckRefusalReason = "untrained" | "unknown-roller";
+
 export interface SkillCheckTag {
   skill: string;
   /**
@@ -40,8 +44,10 @@ export interface SkillCheckTag {
   /** `reason="untrained"`: the Engine did not roll this check, because the ruleset does not let
    *  the character attempt it untrained. Settled, not owed: the client's fallback and the roll
    *  endpoint's record never roll it later. Only the Engine writes it, but the Game Master could
-   *  copy it, so a turn's own pass ignores it and decides again from the sheet. */
-  reason?: "untrained";
+   *  copy it, so a turn's own pass ignores it and decides again from the sheet. `"unknown-roller"`:
+   *  not rolled because its `who=` named nobody in the party, or several, or it named nobody where a
+   *  party member had to be named; settled on the same terms. */
+  reason?: SkillCheckRefusalReason;
   advantage?: boolean;
   disadvantage?: boolean;
   resolvedResult?: SkillCheckResult;
@@ -94,6 +100,9 @@ export interface SkillCheckTag {
    * no ability answers to is ignored there rather than refused here.
    */
   withAbility?: string;
+  /** `for=` as the GM wrote it (1.752): what the check is made for, "climb" or "swim", for a change
+   *  narrowed to that purpose. Carried, never judged. */
+  purpose?: string;
   /**
    * `bonus=` as a whole number, when the GM wrote a readable one: dice a pool ruleset adds or
    * takes for this one check. Read like `threshold=` and held to the same rule — `Number` rather
@@ -221,6 +230,42 @@ const WORD_CHARACTER = /\w/;
 const SPACE_CHARACTER = /\s/;
 
 /**
+ * The quote that closes a value opened at `at`. A quote inside a word (`'O'Brien'`) is not the close,
+ * and nor is one that stands where an inner quote would open, after a space and right before a word:
+ * it and its partner are skipped, so a value holding a quoted nickname is read whole (cheap-GM
+ * playtest 2026-10-26: `who="Marigold "Mars" Thimblewick"` read as `Marigold `, so her checks rolled
+ * flat and her Hit Dice were refused). Where no candidate closes it, the first quote does, as before.
+ * Only a few quotes are passed over, so a body made of quotes costs no scan to its end per attribute.
+ */
+const MAX_PASSED_QUOTES = 6;
+/** Whether a `key=` starts at `at`. Bounded by the key's own run. */
+function startsKey(body: string, at: number): boolean {
+  let cursor = at;
+  while (cursor < body.length && WORD_CHARACTER.test(body[cursor]!)) cursor += 1;
+  while (cursor < body.length && SPACE_CHARACTER.test(body[cursor]!)) cursor += 1;
+  return cursor > at && body[cursor] === "=";
+}
+function closingQuoteAt(body: string, at: number, quote: string): number {
+  const first = body.indexOf(quote, at + 1);
+  let close = first;
+  for (let passed = 0; close >= 0 && passed < MAX_PASSED_QUOTES; passed += 1) {
+    const before = close - 1 > at ? (body[close - 1] ?? "") : "";
+    const after = body[close + 1] ?? "";
+    if (!WORD_CHARACTER.test(after) || !(SPACE_CHARACTER.test(before) || WORD_CHARACTER.test(before))) return close;
+    // Right against the next attribute (`"Stealth"dc=15`) it is the close all the same.
+    if (startsKey(body, close + 1)) return close;
+    if (WORD_CHARACTER.test(before)) {
+      close = body.indexOf(quote, close + 1);
+      continue;
+    }
+    const partner = body.indexOf(quote, close + 1);
+    if (partner < 0) return first;
+    close = body.indexOf(quote, partner + 1);
+  }
+  return first;
+}
+
+/**
  * Read the value half at `at`: a quoted string, or an unquoted run.
  *
  * An unterminated quote is not a quoted value; it falls through to the unquoted
@@ -235,7 +280,7 @@ const SPACE_CHARACTER = /\s/;
 function readSkillCheckTagValue(body: string, at: number): { rawValue: string; end: number } | null {
   const opener = body[at];
   if (opener === '"' || opener === "'") {
-    const close = body.indexOf(opener, at + 1);
+    const close = closingQuoteAt(body, at, opener);
     if (close >= 0) return { rawValue: body.slice(at, close + 1), end: close + 1 };
   }
 
@@ -465,7 +510,8 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   }
   const rerollName = values.get("reroll")?.trim();
   if (rerollName) tag.reroll = rerollName.slice(0, 40);
-  if (values.get("reason")?.trim().toLowerCase() === "untrained") tag.reason = "untrained";
+  const reason = values.get("reason")?.trim().toLowerCase();
+  if (reason === "untrained" || reason === "unknown-roller") tag.reason = reason;
   // A face, so a whole number or nothing, on the same terms as `bonus=`.
   for (const key of ["explode", "double"] as const) {
     const written = values.get(key)?.trim();
@@ -499,6 +545,8 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   if (who) tag.who = who.slice(0, 100);
   const withAbility = values.get("with")?.trim();
   if (withAbility) tag.withAbility = withAbility.slice(0, 100);
+  const purpose = values.get("for")?.trim();
+  if (purpose) tag.purpose = purpose.slice(0, 40);
   if (values.has("pool")) {
     tag.poolDeclared = true;
     tag.poolRaw = values.get("pool")!;

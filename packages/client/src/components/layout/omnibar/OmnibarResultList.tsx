@@ -38,7 +38,6 @@ type OmnibarResultListProps = {
   activeResultId: string | null;
   expandedPreviewId: string | null;
   asideShown: boolean;
-  mariEnabled: boolean;
   resultVisual: (result: RankedOmnibarResult) => CommandCenterVisual;
   selectResult: (result: RankedOmnibarResult) => void;
   handleResultMouseMove: (result: RankedOmnibarResult, event: MouseEvent<HTMLLIElement>) => void;
@@ -64,7 +63,6 @@ export function OmnibarResultList({
   activeResultId,
   expandedPreviewId,
   asideShown,
-  mariEnabled,
   resultVisual,
   selectResult,
   handleResultMouseMove,
@@ -314,19 +312,15 @@ export function OmnibarResultList({
             <Search size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
             <span>
               {window.matchMedia("(min-width: 640px)").matches
-                ? mariEnabled
-                  ? t(
-                      "commandCenter.empty.hintDesktop",
-                      "Type a name, a setting or a question. Enter opens the top row; {{mod}}+Enter asks Professor Mari.",
-                      { mod: formatShortcutKey("Mod") },
-                    )
-                  : t("commandCenter.empty.hintDesktopNoMari", "Type a name or a setting. Enter opens the top row.")
-                : mariEnabled
-                  ? t(
-                      "commandCenter.empty.hintPhone",
-                      "Type a name, a setting or a question. Tap a row to open it; a question goes to Professor Mari.",
-                    )
-                  : t("commandCenter.empty.hintPhoneNoMari", "Type a name or a setting, then tap a row.")}
+                ? t(
+                    "commandCenter.empty.hintDesktop",
+                    "Type a name, a setting or a question. Enter opens the top row; {{mod}}+Enter asks Professor Mari.",
+                    { mod: formatShortcutKey("Mod") },
+                  )
+                : t(
+                    "commandCenter.empty.hintPhone",
+                    "Type a name, a setting or a question. Tap a row to open it; a question goes to Professor Mari.",
+                  )}
             </span>
           </p>
         ) : null}

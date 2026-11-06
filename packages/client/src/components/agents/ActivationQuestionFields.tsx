@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { openConnectionsPage } from "../overhaul/library-navigation";
 import { MAX_CUSTOM_AGENT_ACTIVATION_QUESTION_LENGTH } from "@marinara-engine/shared";
+import { openAddConnection } from "../../lib/add-connection";
 
 export function ActivationQuestionFields({
   question,
@@ -49,8 +49,12 @@ export function ActivationQuestionFields({
         {!enabled && (
           <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
             {t("agents.activation.chooseDefault")}{" "}
-            <button type="button" className="text-[var(--primary)] underline" onClick={() => openConnectionsPage()}>
-              {t("agents.activation.openConnections")}
+            <button
+              type="button"
+              className="text-[var(--primary)] underline"
+              onClick={() => openAddConnection({ job: "decision" })}
+            >
+              {t("agents.activation.addDecisionModel")}
             </button>
           </p>
         )}

@@ -21,8 +21,8 @@ import { createChatsStorage } from "../services/storage/chats.storage.js";
 
 const trackerPortraitRequestSchema = z.object({
   name: z.string().trim().min(1).max(200),
-  appearance: z.string().max(20000).nullish(),
-  outfit: z.string().max(20000).nullish(),
+  appearance: z.string().nullish(),
+  outfit: z.string().nullish(),
   includeOutfit: z.boolean(),
   debugMode: z.boolean().optional(),
 });

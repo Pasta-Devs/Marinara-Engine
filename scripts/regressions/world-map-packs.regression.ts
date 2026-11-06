@@ -383,7 +383,11 @@ try {
     assert.equal(meta.gameWorldKit.id, "riverlands");
     const kitOnly = await create({ gameExperienceId: "kitonly", worldKit: kit, world: { ...worldOf(12) } });
     assert.equal(kitOnly.statusCode, 200, "a pack without maps leaves the world to the player");
-    assert.equal(JSON.parse(kitOnly.json().sessionChat.metadata).gameMapPack, undefined, "no tiles of its own");
+    assert.deepEqual(
+      JSON.parse(kitOnly.json().sessionChat.metadata).gameMapPack,
+      { packageId: "kitonly" },
+      "kept for what its pack brings (its tiles, creature art, music and people)",
+    );
     const broken = await create({ gameExperienceId: "tampered", worldKit: kit });
     assert.equal(broken.statusCode, 400);
     assert.equal(broken.json().code, "map_pack_invalid");

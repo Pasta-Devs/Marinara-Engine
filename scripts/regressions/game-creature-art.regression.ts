@@ -67,7 +67,7 @@ const pack = creaturePackSchema.parse({
 }) as CreaturePack;
 
 // ── The pack ──
-assert.equal(creaturePackSchema.safeParse({ ...pack, creaturePackVersion: 2 }).success, false, "another version");
+assert.equal(creaturePackSchema.safeParse({ ...pack, creaturePackVersion: 3 }).success, false, "another version");
 assert.equal(
   creaturePackSchema.safeParse({ ...pack, creatures: [{ ...pack.creatures[0], frames: 2 }] }).success,
   false,

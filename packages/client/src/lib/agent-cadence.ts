@@ -13,7 +13,7 @@ export function getAgentRunIntervalMeta(agentType: string, isBuiltIn = true): Ag
   switch (agentType) {
     case "illustrator":
       return {
-        label: "Run Interval",
+        label: "Image Run Interval",
         unit: "messages",
         help: "How many user and assistant messages should pass before the Illustrator is allowed to create another image.",
         defaultValue: 5,

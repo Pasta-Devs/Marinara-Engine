@@ -8,22 +8,35 @@ import {
 import { rejectGenerationOutput, type GenerationOutput } from "./generate/sse.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import {
+  SYMBOL_DICE_NOTATION_MAX_LENGTH,
   TTS_SETTINGS_KEY,
   normalizeGameDifficulty,
+  rollDieSecurely,
+  rollSymbolDiceNotation,
   normalizeWeatherType,
   combatWeatherSchema,
   readImageAppearanceOverride,
+  applyRulesetSheetOp,
+  type RulesetLiveStates,
+  type RulesetSheetEnvelope,
   buildChatImageGenerationRecord,
   type ChatImageGenerationRecord,
+  type MacroContext,
 } from "@marinara-engine/shared";
 import {
+  gameCardTemperament,
   checkStoryScript,
   compileGameWorld,
   gameStoryFromMetadata,
   readStoryLedger,
+  storyClocks,
+  experienceTrackHere,
+  storyEndingOf,
   storyObjectives,
   storyScriptSchema,
   gameIntroChoiceSchema,
+  type GameIntro,
+  storyPlaceSeasons,
   storyState,
   type StoryScript,
   worldEditsEmpty,
@@ -40,24 +53,43 @@ import {
   worldKitArtFamily,
 } from "@marinara-engine/shared";
 import { resolveCombatWeather } from "../services/game/weather.service.js";
-import { resolveGameConnection } from "../services/game/connection.service.js";
+import { resolveGameConnection, type GameChatModel } from "../services/game/connection.service.js";
 import { combatAiHintsSchema, combatTacticsSchema, combatInterruptFields } from "@marinara-engine/shared";
+import { findRulesetCreature, type RulesetCatalogEntriesById } from "@marinara-engine/shared";
+import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.service.js";
 import { gameDataEditRequestSchema, type GameDataEditIssue } from "@marinara-engine/shared";
 import { buildGameDataEditPatch, sameGameDataValue } from "../services/game/game-data-edit.service.js";
 // ──────────────────────────────────────────────
 // Routes: Game Mode
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
+import type { DB } from "../db/connection.js";
+import { validationDetails } from "../middleware/error-handler.js";
 import { createHash, randomInt, randomUUID } from "crypto";
 import { existsSync, readFileSync } from "fs";
 import { basename, extname, join } from "path";
 import { z } from "zod";
+import { partialInput } from "@marinara-engine/shared";
 import { estimateTextTokens, sliceTextToTokenBudget } from "@marinara-engine/shared";
 import { carryGameInventory, rulesetInventedItemRef } from "@marinara-engine/shared";
 import { eq } from "../db/file-query.js";
 import { IMPORTED_GAME_ENGINE_ANCHOR_PREFIX } from "../db/file-backed-store.js";
 import { chats as chatsTable } from "../db/schema/index.js";
-import { mapPackLockIssue, readMapPack, type MapPack } from "../services/game/map-pack.service.js";
+import { capabilityPackageManager } from "../services/capability-packages/package-manager.service.js";
+import {
+  checkMapPack,
+  mapPackLockIssue,
+  readMapPack,
+  type MapPack,
+  type MapPackCheckInput,
+} from "../services/game/map-pack.service.js";
+import {
+  companionNames,
+  companionPartyLevel,
+  companionSheetEnvelope,
+  gameCompanionNamed,
+  gameCompanions,
+} from "../services/game/experience-companions.service.js";
 import {
   editsStoryRefusal,
   storyNamesOf,
@@ -66,7 +98,7 @@ import {
   worldTownForEditor,
   worldInteriorForEditor,
 } from "../services/game/world-editor.service.js";
-import { logger, logDebugOverride } from "../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import {
   buildWorldKitWritingPrompt,
   readWrittenWorldKit,
@@ -91,6 +123,8 @@ import { createGameWorldSnapshotsStorage } from "../services/storage/game-world-
 import { loadGameWorld, saveGameWorldSnapshot } from "../services/game/game-world.service.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { buildFallbackGameCharacterCard } from "../services/game/game-party-cards.js";
+import { withCardTemperament } from "../services/game/party-temperament.service.js";
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
 import { createPersonaGalleryStorage } from "../services/storage/persona-gallery.storage.js";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
@@ -127,7 +161,7 @@ import {
   type ChatMessage,
   type ChatOptions,
 } from "../services/llm/base-provider.js";
-import { isDiceNotation, rollDice } from "../services/game/dice.service.js";
+import { isRollableDiceNotation, rollDice, symbolDiceResolution } from "../services/game/dice.service.js";
 import { jsonishLooksTruncated, parseGameJsonish } from "../services/game/jsonish.js";
 import {
   formatInitialGameGmConnectionError,
@@ -145,6 +179,10 @@ import { normalizeNextSessionCampaignPlan, normalizeNextSessionNpcs } from "../s
 import { normalizeCharacterLookupName } from "../services/game/name-normalization.js";
 import {
   buildPromptMacroContext,
+  normalizeChatMacroVariables,
+  resolveCharacterMacroData,
+  resolveMacrosForPreview,
+  scopePromptMacroContextToCharacter,
   resolveMacrosWithVariableSnapshot,
   setLorebookEntryCounts,
 } from "../services/prompt/index.js";
@@ -177,6 +215,7 @@ import {
   addMinutes,
   advanceTime,
   formatGameTime,
+  gameTimeMinutes,
   createInitialTime,
   setTimeOfDay,
   type GameTime,
@@ -211,9 +250,11 @@ import { getCustomAgentImportPolicy } from "../services/agents/custom-agent-impo
 import {
   resolveChatSkillCheck,
   SkillCheckDifficultyError,
+  SkillCheckRollerError,
   SkillCheckUntrainedError,
 } from "../services/game/skill-check-resolution.service.js";
 import { applyAllSegmentEdits, stripGmCommandTags } from "../services/game/segment-edits.js";
+import { withoutSessionAdvancedMemory } from "../services/advanced-memory.js";
 import { processLorebooks, type LorebookScanResult } from "../services/lorebook/index.js";
 import {
   GAME_LOREBOOK_KEEPER_SOURCE_ID,
@@ -265,7 +306,10 @@ import {
   normalizeRpgStatPools,
   copyRulesetSheetForGame,
   isCommunityRulesetId,
+  GAME_COMBAT_STYLE_ID_PATTERN,
   rulesetLayerSelectionIssues,
+  rulesetAllowsCombatStyle,
+  rulesetCombatStyles,
   rulesetRefSchema,
   worldKitSchema,
   gameWorldKitFromMetadata,
@@ -296,6 +340,7 @@ import {
   worldTrip,
   worldIsSite,
   worldSettlementOf,
+  worldSeason,
   worldSiteLocks,
   worldWalkFromMetadata,
   worldWalkJoined,
@@ -352,6 +397,11 @@ import {
   TERRAIN_DATA,
   extractLeadingThinkingBlocks,
   gameInventoryNameKey,
+  createLorebookEntrySchema,
+  experiencePeopleLore,
+  experienceDressedNpc,
+  storyPerson,
+  worldPersonNpc,
   type RPGStatsConfig,
 } from "@marinara-engine/shared";
 import {
@@ -434,6 +484,7 @@ import {
   type VideoReferenceImage,
 } from "../services/video/video-generation.js";
 import { resolveGameVideoRuntime, type GameVideoRuntime } from "../services/video/game-video-runtime.js";
+import { toVideoReferenceImage } from "../services/video/chat-video-generation.js";
 import {
   buildStoryboardAnimationRefinementMessages,
   compactStoryboardAnimationPrompt,
@@ -517,9 +568,11 @@ import {
   loadGameFightItems,
   loadGameFightUseEffects,
   loadGameInventoryItemBook,
+  passGameInventoryTime,
 } from "../services/game/game-inventory.service.js";
 import { gameRepliesBefore, isGameMasterReply } from "../services/game/game-market.service.js";
 import { rollGameFightItemGate } from "../services/game/game-item-use.service.js";
+import { gameSetupBlueprintSchema } from "../services/game/game-setup-blueprint.js";
 import {
   normalizeIllustratorAppearance,
   readIllustratorAppearance,
@@ -662,10 +715,66 @@ function readStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean) : [];
 }
 
+type IllustrationAppearanceResolver = (appearance: string, characterId?: string) => Promise<string>;
+
+/** Resolve selected image text in its owner's chat scope without persisting macro writes. */
+function createIllustrationAppearanceResolver(args: {
+  db: DB;
+  chat: { id: string; characterIds?: unknown; personaId?: string | null };
+  meta: Record<string, unknown>;
+  setupConfig: Record<string, unknown> | null;
+  worldState?: MacroContext["worldState"];
+}): IllustrationAppearanceResolver {
+  const characters = createCharactersStorage(args.db);
+  const partyIds = getStoryboardLibraryCharacterIds(
+    args.meta,
+    args.setupConfig,
+    parseChatCharacterIds(args.chat.characterIds),
+  );
+  const personaId = args.chat.personaId || readTrimmedString(args.setupConfig?.personaId);
+  let personaPromise: ReturnType<typeof characters.getPersona> | undefined;
+  return async (appearance, characterId) => {
+    if (!appearance.includes("{{")) return appearance;
+    personaPromise ??= personaId ? characters.getPersona(personaId, args.chat.id) : Promise.resolve(null);
+    const persona = await personaPromise;
+    const owner = characterId
+      ? (await resolveCharacterMacroData(args.db, [characterId], args.chat.id)).profilesById.get(characterId)
+      : undefined;
+    // A removed or unreadable card must not borrow the first party member's fields.
+    if (characterId && !owner) return "";
+    // ponytail: macro-heavy libraries rebuild party context per card; cache those reads if profiling requires it.
+    const macroContext = await buildPromptMacroContext({
+      db: args.db,
+      chatId: args.chat.id,
+      worldState: args.worldState,
+      characterIds: partyIds,
+      personaName: persona?.name ?? "User",
+      personaDescription: persona?.description ?? "",
+      personaFields: {
+        example: persona?.mes_example ?? "",
+        personality: persona?.personality ?? "",
+        backstory: persona?.backstory ?? "",
+        appearance: persona?.appearance ?? "",
+        scenario: persona?.scenario ?? "",
+      },
+      localVariables: normalizeChatMacroVariables(args.meta.macroVariables),
+      macroSources: [
+        appearance,
+        ...Object.values(owner ?? {}).filter((value): value is string => typeof value === "string"),
+      ],
+    });
+    return resolveMacrosForPreview(
+      appearance,
+      owner ? { ...scopePromptMacroContextToCharacter(macroContext, owner), characterProfiles: [owner] } : macroContext,
+    );
+  };
+}
+
 async function addCharacterRowIllustrationAssets(
   maps: IllustrationCharacterAssetMaps,
   character: { id: string; data: string; avatarPath?: string | null },
   characterGallery: ReturnType<typeof createCharacterGalleryStorage>,
+  resolveAppearance?: IllustrationAppearanceResolver,
 ): Promise<string | null> {
   try {
     const parsed = JSON.parse(character.data) as Record<string, unknown> & { name?: string };
@@ -698,7 +807,10 @@ async function addCharacterRowIllustrationAssets(
       addReferenceOwner(maps, character.avatarPath, { kind: "character", id: character.id, source: "avatar" });
     }
 
-    const appearanceText = extractCharacterAppearanceText(parsed);
+    const selectedAppearance = extractCharacterAppearanceText(parsed);
+    const appearanceText = resolveAppearance
+      ? await resolveAppearance(selectedAppearance, character.id)
+      : selectedAppearance;
     if (appearanceText) addNameLookupEntry(maps.charDescriptionByName, name, appearanceText);
     return name;
   } catch {
@@ -710,12 +822,13 @@ async function addCharacterRowsIllustrationAssets(
   maps: IllustrationCharacterAssetMaps,
   characters: Array<{ id: string; data: string; avatarPath?: string | null }>,
   characterGallery: ReturnType<typeof createCharacterGalleryStorage>,
+  resolveAppearance?: IllustrationAppearanceResolver,
 ): Promise<void> {
   let nextIndex = 0;
   const runWorker = async () => {
     while (nextIndex < characters.length) {
       const character = characters[nextIndex++];
-      if (character) await addCharacterRowIllustrationAssets(maps, character, characterGallery);
+      if (character) await addCharacterRowIllustrationAssets(maps, character, characterGallery, resolveAppearance);
     }
   };
   const workerCount = Math.min(GAME_ASSET_REFERENCE_LOOKUP_CONCURRENCY, characters.length);
@@ -739,6 +852,7 @@ export async function addPersonaIllustrationAssets(
     | null
     | undefined,
   personaGallery: ReturnType<typeof createPersonaGalleryStorage>,
+  resolveAppearance?: IllustrationAppearanceResolver,
 ): Promise<string | null> {
   const name = typeof persona?.name === "string" && persona.name.trim() ? persona.name.trim() : null;
   if (!persona || !name) return null;
@@ -768,13 +882,14 @@ export async function addPersonaIllustrationAssets(
   // #7053: the persona row carries the image-prompt override as TOP-LEVEL text
   // columns (no extensions bag), so feed them through the shared helper. Without
   // this the override reached conversation image prompts but not Game mode.
-  const appearanceText = readImageAppearanceOverride(
+  const selectedAppearance = readImageAppearanceOverride(
     {
       imageAppearanceEnabled: persona.imageAppearanceEnabled === "true",
       imageAppearance: persona.imageAppearance,
     },
     normalizeIllustratorAppearance(persona.appearance),
   );
+  const appearanceText = resolveAppearance ? await resolveAppearance(selectedAppearance ?? "") : selectedAppearance;
   if (appearanceText) addNameLookupEntry(maps.charDescriptionByName, name, appearanceText);
   return name;
 }
@@ -791,14 +906,15 @@ export async function addChatPersonaIllustrationAssets(args: {
   maps: IllustrationCharacterAssetMaps;
   characters: ReturnType<typeof createCharactersStorage>;
   personaGallery: ReturnType<typeof createPersonaGalleryStorage>;
-  chat: { personaId?: string | null } | null | undefined;
+  chat: { id?: string; personaId?: string | null } | null | undefined;
   setupConfig: Record<string, unknown> | null | undefined;
+  resolveAppearance?: IllustrationAppearanceResolver;
 }): Promise<string | null> {
   const personaId = args.chat?.personaId || readTrimmedString(args.setupConfig?.personaId);
   if (!personaId) return null;
   try {
-    const persona = await args.characters.getPersona(personaId);
-    return await addPersonaIllustrationAssets(args.maps, persona, args.personaGallery);
+    const persona = await args.characters.getPersona(personaId, args.chat?.id);
+    return await addPersonaIllustrationAssets(args.maps, persona, args.personaGallery, args.resolveAppearance);
   } catch {
     // An unresolvable persona must not break illustration generation.
     return null;
@@ -835,8 +951,9 @@ function storyboardTrackedNpcsFromState(latestState: unknown): Array<Record<stri
 }
 
 async function buildStoryboardCharacterContext(args: {
+  db: DB;
   characters: ReturnType<typeof createCharactersStorage>;
-  chat: { characterIds?: unknown; personaId?: string | null };
+  chat: { id: string; characterIds?: unknown; personaId?: string | null };
   meta: Record<string, unknown>;
   setupConfig: Record<string, unknown> | null;
   latestState: unknown;
@@ -844,6 +961,10 @@ async function buildStoryboardCharacterContext(args: {
   personaGallery: ReturnType<typeof createPersonaGalleryStorage>;
 }): Promise<StoryboardCharacterContext> {
   const maps = emptyIllustrationCharacterAssetMaps();
+  const resolveAppearance = createIllustrationAppearanceResolver({
+    ...args,
+    worldState: args.latestState == null ? null : asStoryboardRecord(args.latestState),
+  });
   const allowedCharacterNames: string[] = [];
   const seenAllowedNames = new Set<string>();
   const chatCharacterIds = parseChatCharacterIds(args.chat.characterIds);
@@ -852,9 +973,9 @@ async function buildStoryboardCharacterContext(args: {
 
   for (const id of libraryCharacterIds) {
     try {
-      const character = await args.characters.getById(id);
+      const character = await args.characters.getById(id, args.chat.id);
       if (!character) continue;
-      const name = await addCharacterRowIllustrationAssets(maps, character, args.characterGallery);
+      const name = await addCharacterRowIllustrationAssets(maps, character, args.characterGallery, resolveAppearance);
       addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, name);
     } catch {
       /* skip unresolvable game character */
@@ -864,8 +985,8 @@ async function buildStoryboardCharacterContext(args: {
   const personaId = args.chat.personaId || readTrimmedString(args.setupConfig?.personaId);
   if (personaId) {
     try {
-      const persona = await args.characters.getPersona(personaId);
-      const name = await addPersonaIllustrationAssets(maps, persona, args.personaGallery);
+      const persona = await args.characters.getPersona(personaId, args.chat?.id);
+      const name = await addPersonaIllustrationAssets(maps, persona, args.personaGallery, resolveAppearance);
       personaName = name;
       addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, name);
     } catch {
@@ -1330,7 +1451,7 @@ async function summarizeIllustrationFromNarration(args: {
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       args.connections,
       sceneConnId,
-      args.chat.connectionId,
+      args.chat,
     );
     const parameters = resolveStoredGameGenerationParameters(args.meta, defaultGenerationParameters, {
       includeChatParameters: inheritsChatGenerationParameters({
@@ -1363,7 +1484,7 @@ async function summarizeIllustrationFromNarration(args: {
       narration.length,
       args.illustration.prompt.length,
     );
-    args.debugLog?.("[debug/game/illustration-summarizer] prompt messages:\n%s", JSON.stringify(messages, null, 2));
+    args.debugLog?.("[debug/game/illustration-summarizer] prompt messages:\n%s", debugJson(messages));
 
     const result = await runGameChatComplete(
       provider,
@@ -1411,14 +1532,14 @@ function gameDynamicImagePromptKindLabel(kind: GameDynamicImagePromptKind): stri
   }
 }
 
-function compactDynamicPromptText(value: unknown, maxLength: number): string {
+function compactDynamicPromptText(value: unknown, maxLength?: number): string {
   if (typeof value !== "string") return "";
-  return value
+  const clean = value
     .replace(/\r\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/\s+$/gm, "")
-    .trim()
-    .slice(0, maxLength);
+    .trim();
+  return maxLength === undefined ? clean : clean.slice(0, maxLength);
 }
 
 function compactDynamicPromptLine(value: unknown, maxLength = 500): string {
@@ -1433,7 +1554,7 @@ function dynamicPromptBlock(tag: string, lines: string[]): string {
   return clean.length ? `<${tag}>\n${clean.join("\n")}\n</${tag}>` : "";
 }
 
-function sanitizeDynamicGameImagePromptResponse(raw: string, maxCharacters: number): string | null {
+export function sanitizeDynamicGameImagePromptResponse(raw: string): string | null {
   const stripped = raw
     .trim()
     .replace(/^```(?:json|text)?/i, "")
@@ -1450,9 +1571,9 @@ function sanitizeDynamicGameImagePromptResponse(raw: string, maxCharacters: numb
       parsedObject = true;
       const record = parsed as Record<string, unknown>;
       candidate =
-        compactDynamicPromptText(record.prompt, maxCharacters) ||
-        compactDynamicPromptText(record.positivePrompt, maxCharacters) ||
-        compactDynamicPromptText(record.imagePrompt, maxCharacters);
+        compactDynamicPromptText(record.prompt) ||
+        compactDynamicPromptText(record.positivePrompt) ||
+        compactDynamicPromptText(record.imagePrompt);
     }
   } catch {
     const promptMatch = stripped.match(
@@ -1463,12 +1584,12 @@ function sanitizeDynamicGameImagePromptResponse(raw: string, maxCharacters: numb
 
   if (parsedObject && !candidate) return null;
 
-  candidate = compactDynamicPromptText(candidate || stripped, maxCharacters)
+  candidate = compactDynamicPromptText(candidate || stripped)
     .replace(/^(?:positive\s+prompt|prompt|image\s+prompt)\s*:\s*/i, "")
     .trim();
 
   if (candidate.length < 20) return null;
-  return candidate.slice(0, maxCharacters).trim() || null;
+  return candidate;
 }
 
 export async function buildDynamicGameImagePromptMessages(args: {
@@ -1549,7 +1670,6 @@ export async function buildDynamicGameImagePromptMessages(args: {
           latestTurnBlock
             ? "Treat the latest GM turn as the primary source for the visible environment. Use the draft prompt only as supporting context, and keep the result background-only."
             : "",
-          `Maximum length: ${args.request.maxCharacters} characters.`,
         ]
           .filter(Boolean)
           .join("\n"),
@@ -1694,7 +1814,7 @@ async function createDynamicGameImagePromptGenerator(args: {
         request.sourcePrompt.length,
         request.maxCharacters,
       );
-      args.debugLog?.("[debug/game/dynamic-image-prompt] prompt messages:\n%s", JSON.stringify(messages, null, 2));
+      args.debugLog?.("[debug/game/dynamic-image-prompt] prompt messages:\n%s", debugJson(messages));
 
       const result = await runGameChatComplete(
         provider,
@@ -1711,7 +1831,7 @@ async function createDynamicGameImagePromptGenerator(args: {
       const extraction = extractLeadingThinkingBlocks(result.content || "", parameters?.customThinkingTags);
       const raw = extraction.content.trim();
       args.debugLog?.("[debug/game/dynamic-image-prompt] raw response kind=%s:\n%s", request.kind, raw);
-      const prompt = sanitizeDynamicGameImagePromptResponse(raw, request.maxCharacters);
+      const prompt = sanitizeDynamicGameImagePromptResponse(raw);
       if (prompt) {
         args.debugLog?.(
           "[debug/game/dynamic-image-prompt] selected prompt kind=%s chars=%d:\n%s",
@@ -1834,17 +1954,8 @@ function resolveGeneratedIllustrationAssetPath(tag: unknown): string | null {
   );
 }
 
-function imageMimeTypeForPath(path: string): VideoReferenceImage["mimeType"] | null {
-  const ext = extname(path).toLowerCase();
-  if (ext === ".png") return "image/png";
-  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
-  return null;
-}
-
-function readOmniReferenceImage(path: string, url?: string | null): VideoReferenceImage {
-  const mimeType = imageMimeTypeForPath(path);
-  if (!mimeType) throw new Error("Scene videos require a PNG or JPEG scene illustration");
-  return { base64: readFileSync(path).toString("base64"), mimeType, url };
+async function readOmniReferenceImage(path: string, url?: string | null): Promise<VideoReferenceImage> {
+  return toVideoReferenceImage(readFileSync(path).toString("base64"), url);
 }
 
 function titleCaseSlug(value: string): string {
@@ -2068,8 +2179,15 @@ const hudWidgetSchema = z.object({
   icon: z.string().trim().max(16).optional(),
   position: z.enum(["hud_left", "hud_right"]),
   accent: z.string().trim().max(32).optional(),
-  config: z.record(z.unknown()).default({}),
+  config: z.record(z.string(), z.unknown()).prefault({}),
 });
+
+/**
+ * A combat style: a built-in one or the id of a style a client registered (issue #8109). The server
+ * cannot know a client's registrations, so it checks the shape only; a client plays an id it does not
+ * know as classic, and so does the server's own prompting.
+ */
+const gameCombatStyleIdSchema = z.string().regex(GAME_COMBAT_STYLE_ID_PATTERN);
 
 const gameSetupConfigSchema = z.object({
   genre: z.string().min(1).max(200),
@@ -2079,9 +2197,12 @@ const gameSetupConfigSchema = z.object({
   gameStyle: z.enum(["classic", "overworld"]).optional(),
   /** The Game Master's intro message (1.339). */
   gameIntro: gameIntroChoiceSchema.optional(),
-  combatStyle: z.enum(["classic", "tactical"]).optional(),
+  combatStyle: gameCombatStyleIdSchema.optional(),
   combatDirector: z.boolean().optional(),
   gmBossControl: z.boolean().optional(),
+  gmNamedControl: z.boolean().optional(),
+  cruelOpponents: z.boolean().optional(),
+  playerRunsCompanions: z.boolean().optional(),
   tacticalBattlefield: tacticalBattlefieldSetupSchema.optional(),
   tacticalTurnOrder: z.enum(["side", "initiative"]).optional(),
   spatialMapInstructions: z.string().max(4000).optional(),
@@ -2160,7 +2281,7 @@ const gameSetupConfigSchema = z.object({
   language: z.string().min(1).max(100).optional(),
   autoTranslate: z.boolean().optional(),
   translationOutputTargetLang: z.string().trim().min(1).max(100).optional(),
-  generationParameters: generationParametersSchema.partial().optional(),
+  generationParameters: partialInput(generationParametersSchema).optional(),
   promptPresetId: z.string().nullable().optional(),
   gameSystemPrompt: z.string().max(50_000).nullable().optional(),
   gameSpecialInstructions: z.string().max(2000).nullable().optional(),
@@ -2242,6 +2363,11 @@ const recruitPartyMemberSchema = z.object({
   /** The player's pick when several characters share the name: a library card id, or null for the game's own. */
   characterId: z.string().min(1).max(500).nullable().optional(),
   connectionId: z.string().optional(),
+  /** A copy of this party member joins instead (5e's Simulacrum): their card and sheet, under the new name;
+   *  or, naming none, a copy of a creature of the ruleset's bestiaries, fighting as that creature. */
+  copyOf: z.string().min(1).max(200).optional(),
+  /** A condition of the pinned ruleset the copy holds from the start: Simulacrum's halved health. */
+  condition: z.string().min(1).max(80).optional(),
 });
 
 const regenerateCharacterSheetSchema = z.object({
@@ -2260,7 +2386,8 @@ const removePartyMemberSchema = z.object({
 const diceRollSchema = z.object({
   /** The game it is rolled for; a sheet editor outside any game (a rolled list column) has none. */
   chatId: z.string().min(1).optional(),
-  notation: z.string().min(1).max(50).refine(isDiceNotation, "Invalid dice notation"),
+  /** NdM or a keep/drop pool; in a game whose ruleset throws symbol dice, also those dice by name. */
+  notation: z.string().trim().min(1).max(SYMBOL_DICE_NOTATION_MAX_LENGTH),
   context: z.string().max(500).optional(),
 });
 
@@ -2270,7 +2397,7 @@ const stateTransitionSchema = z.object({
 });
 
 const worldKitWriteSchema = z.object({
-  connectionId: z.string().min(1),
+  connectionId: z.string().min(1).optional(),
   genre: z.string().min(1).max(200),
   // As long as a game's own setting may be (`gameSetupConfigSchema`), so a setting the game accepts
   // is never refused here.
@@ -2279,11 +2406,15 @@ const worldKitWriteSchema = z.object({
   /** The kit the player has chosen so far, written over to fit their setting. */
   start: worldKitSchema.optional(),
   language: z.string().max(100).optional(),
+  /** The generation settings the game's setup chose (its reasoning effort among them), over the connection's
+   *  own (cheap-GM playtest 2026-10-26: a world written at the connection's maximum effort, not the Medium
+   *  the wizard was set to, stalled the game). */
+  generationParameters: z.unknown().optional(),
   debugMode: z.boolean().optional(),
 });
 
 const worldBriefWriteSchema = z.object({
-  connectionId: z.string().min(1),
+  connectionId: z.string().min(1).optional(),
   kit: worldKitSchema,
   genre: z.string().min(1).max(200),
   setting: z.string().min(1),
@@ -2295,6 +2426,7 @@ const worldBriefWriteSchema = z.object({
   /** Dated events read from the player's lore, kept exactly. */
   canonEvents: worldBriefSchema.shape.events.optional(),
   grounding: z.enum(WORLD_GROUNDINGS).default("expand"),
+  generationParameters: z.unknown().optional(),
   debugMode: z.boolean().optional(),
 });
 
@@ -2305,6 +2437,7 @@ const worldCanonReadSchema = z.object({
   kit: worldKitSchema,
   lorebookIds: z.array(z.string().min(1)).min(1).max(20),
   entryIds: z.array(z.string().min(1)).max(1000).optional(),
+  generationParameters: z.unknown().optional(),
   debugMode: z.boolean().optional(),
 });
 
@@ -2716,6 +2849,115 @@ function findGameNpcByName(npcs: GameNpc[], requestedName: string): GameNpc | nu
   return matches.length === 1 ? matches[0]! : null;
 }
 
+/**
+ * A copy of a party member joins the party (5e's Simulacrum): a game character of the new name whose
+ * card is the member's, with the member's sheet in a game on a ruleset, fresh but for `condition`, a
+ * condition of that ruleset it holds from the start. Nothing is generated: the copy is the member.
+ */
+async function recruitPartyCopy(args: {
+  chats: ReturnType<typeof createChatsStorage>;
+  stateStore: ReturnType<typeof createGameStateStorage>;
+  chat: NonNullable<StoredChatRecord>;
+  meta: Record<string, unknown>;
+  setupConfig: GameSetupConfig;
+  chatCharacterIds: string[];
+  currentPartyIds: string[];
+  requestedName: string;
+  trackedNpc: GameNpc | null;
+  copyOf: string;
+  condition: string | undefined;
+}) {
+  const { chats, stateStore, chat, meta, setupConfig, chatCharacterIds, currentPartyIds, requestedName } = args;
+  const currentCards = (meta.gameCharacterCards as Array<Record<string, unknown>>) ?? [];
+  const sourceIndex = findExistingGameCharacterCardIndex(currentCards, args.copyOf);
+  const pinned = meta.gameRuleset != null ? resolveGameRuleset(meta, await loadRulesetRegistry()) : null;
+  const definition = pinned?.status === "ok" ? pinned.definition : null;
+  // Naming no party member, a creature of the ruleset's bestiaries: a beast or a stranger copied, who
+  // fights as that creature.
+  let creature: { catalogId: string; entryId: string; label: string } | null = null;
+  if (sourceIndex < 0 && definition && pinned?.status === "ok") {
+    const bestiary: RulesetCatalogEntriesById = {};
+    for (const catalog of definition.catalogs ?? []) {
+      if (catalog.holds !== "creatures") continue;
+      const read = await loadRulesetCatalogEntries(pinned.packageId, definition, catalog).catch(() => null);
+      if (read?.ok) bestiary[catalog.id] = read.entries;
+    }
+    const found = findRulesetCreature(bestiary, args.copyOf);
+    if (found) creature = { catalogId: found.catalogId, entryId: found.entry.id, label: found.entry.label };
+  }
+  if (sourceIndex < 0 && !creature) throw new Error(`No party member or creature named "${args.copyOf}" to copy.`);
+  const source: Record<string, unknown> = creature
+    ? { name: creature.label, rulesetCreature: { catalogId: creature.catalogId, entryId: creature.entryId } }
+    : currentCards[sourceIndex]!;
+  const condition = args.condition;
+  if (condition && !definition?.sheet.live.conditions.some((one) => one.id === condition)) {
+    throw new Error(`The game's ruleset has no condition "${condition}".`);
+  }
+  const npc = args.trackedNpc ?? buildFallbackTrackedGameNpc(requestedName);
+  const recruitId = buildPartyNpcId(npc.name);
+  // Its own card by its exact name only: "Lia's Simulacrum" is never Lia.
+  const exactCardIndex = (cards: Array<Record<string, unknown>>) =>
+    cards.findIndex(
+      (card) =>
+        typeof card.name === "string" &&
+        normalizeCharacterLookupName(card.name) === normalizeCharacterLookupName(npc.name),
+    );
+  const existingCardIndex = exactCardIndex(currentCards);
+  if (currentPartyIds.includes(recruitId) && existingCardIndex >= 0) {
+    return { sessionChat: chat, added: false, characterName: npc.name, cardCreated: false };
+  }
+  const sourceName = typeof source.name === "string" ? source.name.trim() : args.copyOf;
+  const sheet = source.rulesetSheet as RulesetSheetEnvelope | undefined;
+  const nextCard: Record<string, unknown> = {
+    ...structuredClone(source),
+    name: npc.name,
+    shortDescription: `${npc.name}, a copy of ${sourceName}.`,
+    ...(sheet ? { rulesetSheet: { v: sheet.v, build: structuredClone(sheet.build) } } : {}),
+  };
+  let added = false;
+  const updatedSession = await chats.patchMetadataWithCharacterIds(chat.id, (current) => {
+    const merged = mergeRecruitIntoGameMetadata({
+      current,
+      recruitId,
+      recruitName: npc.name,
+      nextCard,
+      existingCardIndex,
+      fallbackSetupConfig: setupConfig,
+      chatCharacterIds,
+      npcToTrack: args.trackedNpc ? null : npc,
+    });
+    // Written over its own card, if it has one, and never over the member's.
+    const freshCards = (current.gameCharacterCards as Array<Record<string, unknown>>) ?? [];
+    const own = exactCardIndex(freshCards);
+    merged.patch.gameCharacterCards = own >= 0 ? freshCards : [...freshCards, nextCard];
+    added = merged.added;
+    return { metadata: merged.patch, characterIds: merged.mergedChatCharacterIds };
+  });
+  if (!updatedSession) throw new Error("Failed to update game session");
+  // Fresh, but for what it holds from the start.
+  if (definition && (sheet || creature)) {
+    const key = normalizeCharacterLookupName(npc.name);
+    const held = !condition
+      ? null
+      : sheet
+        ? applyRulesetSheetOp(definition, sheet.build, {}, { op: "condition", condition, active: true })
+        : { ok: true as const, live: { conditions: [condition] } };
+    await withChatMetadataPatchQueue(chat.id, async () => {
+      const visibleAnchor = resolveVisibleGameStateAnchor(await chats.listMessages(chat.id));
+      const row = await stateStore.getForGeneration(chat.id, { preferLatestVisible: true, visibleAnchor });
+      if (!row) return;
+      const stored: RulesetLiveStates = parseStoredRulesetLive(row.rulesetLive) ?? {};
+      const next: RulesetLiveStates = { ...stored, [key]: held?.ok ? held.live : {} };
+      (visibleAnchor
+        ? await stateStore.updateByMessage(visibleAnchor.messageId, visibleAnchor.swipeIndex, chat.id, {
+            rulesetLive: next,
+          })
+        : null) ?? (await stateStore.updateLatest(chat.id, { rulesetLive: next }));
+    });
+  }
+  return { sessionChat: updatedSession, added, characterName: npc.name, cardCreated: existingCardIndex < 0 };
+}
+
 function buildFallbackTrackedGameNpc(name: string): GameNpc {
   return {
     id: buildGameNpcId(name),
@@ -2866,11 +3108,17 @@ export function applyGeneratedGameCharacterCards(
     const normalizedCard = normalizeGeneratedGameCharacterCard(generatedCard, existingName);
     // The generated card is rebuilt from an allow-list. What the model never writes and the game
     // owns rides along: the RPG stats and this game's copy of the ruleset sheet.
-    return {
-      ...normalizedCard,
-      ...(existingCard.rpgStats ? { rpgStats: existingCard.rpgStats } : {}),
-      ...(existingCard.rulesetSheet ? { rulesetSheet: existingCard.rulesetSheet } : {}),
-    };
+    // Its temperament changes only where the model says the story changed it, and the one it started
+    // the game with never does.
+    return withCardTemperament(
+      {
+        ...normalizedCard,
+        ...(existingCard.rpgStats ? { rpgStats: existingCard.rpgStats } : {}),
+        ...(existingCard.rulesetSheet ? { rulesetSheet: existingCard.rulesetSheet } : {}),
+      },
+      generatedCard.temperament,
+      existingCard,
+    );
   });
 
   return { cards, updatedCount };
@@ -2884,42 +3132,6 @@ export function applyGeneratedGameCharacterCards(
  */
 function gameCardsForPrompt(cards: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
   return cards.map(({ rulesetSheet: _sheet, ...card }) => card);
-}
-
-function buildFallbackGameCharacterCard(characterData: Record<string, any>, characterName: string) {
-  const description =
-    typeof characterData.description === "string" && characterData.description.trim()
-      ? characterData.description.trim()
-      : typeof characterData.personality === "string" && characterData.personality.trim()
-        ? characterData.personality.trim()
-        : `${characterName} joins the party.`;
-  const appearance =
-    typeof characterData.extensions?.appearance === "string" && characterData.extensions.appearance.trim()
-      ? characterData.extensions.appearance.trim()
-      : typeof characterData.appearance === "string" && characterData.appearance.trim()
-        ? characterData.appearance.trim()
-        : "";
-  const backstory =
-    typeof characterData.extensions?.backstory === "string" && characterData.extensions.backstory.trim()
-      ? characterData.extensions.backstory.trim()
-      : typeof characterData.backstory === "string" && characterData.backstory.trim()
-        ? characterData.backstory.trim()
-        : "";
-
-  return {
-    name: characterName,
-    shortDescription: description,
-    class: "Companion",
-    abilities: [],
-    strengths: [],
-    weaknesses: [],
-    extra: Object.fromEntries(
-      [
-        ["appearance", appearance],
-        ["backstory", backstory],
-      ].filter((entry): entry is [string, string] => Boolean(entry[1])),
-    ),
-  };
 }
 
 function getDiscordWebhookUrl(meta: Record<string, unknown>): string {
@@ -3308,9 +3520,9 @@ async function updateLatestGameStateWithTrackerLocks(
 async function resolveConnection(
   connections: Pick<ReturnType<typeof createConnectionsStorage>, "getWithKey" | "listRandomPool">,
   connId: string | null | undefined,
-  chatConnectionId: string | null,
+  chat: GameChatModel,
 ) {
-  const { conn, baseUrl } = await resolveGameConnection(connections, connId, chatConnectionId);
+  const { conn, baseUrl } = await resolveGameConnection(connections, connId, chat);
   return { conn, baseUrl, defaultGenerationParameters: parseStoredGenerationParameters(conn.defaultParameters) };
 }
 
@@ -3384,7 +3596,7 @@ function parseStoredGenerationParameters(raw: unknown): StoredGenerationParamete
     }
   }
 
-  const result = generationParametersSchema.partial().safeParse(parsed);
+  const result = partialInput(generationParametersSchema).safeParse(parsed);
   return result.success ? result.data : null;
 }
 
@@ -3546,6 +3758,7 @@ export function gameGenOptions(
       maxContext: options.maxContext,
       stream: options.stream,
       onToken: options.onToken,
+      onTokenKeepaliveOnly: options.onTokenKeepaliveOnly,
       onThinking: options.onThinking,
       onResponseParts: options.onResponseParts,
       signal: options.signal,
@@ -3649,7 +3862,12 @@ export async function runGameChatComplete(
   };
 
   try {
-    return await Promise.race([provider.chatComplete(messages, watchedOptions), watchdog.promise]);
+    const result = await Promise.race([provider.chatComplete(messages, watchedOptions), watchdog.promise]);
+    // A provider whose stream was aborted ends it quietly with what it had, often nothing. That is no
+    // reply to parse (cheap-GM playtest 2026-10-26: a world setup whose stream was cut came back as an
+    // empty world): the call fails at once, with why it was stopped.
+    if (controller.signal.aborted) throw abortReasonAsError(controller.signal, `${label} was cancelled`);
+    return result;
   } finally {
     watchdog.clear();
     parentSignal?.removeEventListener("abort", abortFromParent);
@@ -4447,7 +4665,7 @@ async function runGameLorebookKeeperAfterConclusion(args: {
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
       args.connectionId,
-      chat.connectionId,
+      chat,
     );
     const generationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
     const provider = await createGameMainProvider(connections, conn, baseUrl);
@@ -4460,6 +4678,7 @@ async function runGameLorebookKeeperAfterConclusion(args: {
         stream: streaming,
         signal: args.signal,
         ...(streaming ? { onToken: args.onToken ?? (() => {}), onThinking: args.onToken } : {}),
+        onTokenKeepaliveOnly: true,
       },
       generationParameters,
       conn.provider,
@@ -6499,7 +6718,10 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     chatPersonaId: string | null,
     meta: Record<string, unknown>,
     setupConfig: GameSetupConfig | null,
-  ): Promise<{ definition: RulesetDefinition; stored: Map<string, unknown> } | null> => {
+    /** The chat's own members, which may hold some the setup's party never named: one added from
+     *  the Characters panel before the world was created (laptop playtest 2026-10-24). */
+    chatCharacterIds: readonly string[] = [],
+  ): Promise<{ definition: RulesetDefinition; stored: Map<string, unknown>; names: Map<string, string> } | null> => {
     if (meta.gameRuleset == null) return null;
     // loadRulesetRegistry never throws (a failed read is an empty registry) and resolving is pure,
     // so an install that cannot honour the pin arrives here as a status, not as an exception.
@@ -6511,13 +6733,23 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const rulesetId = pinned.definition.id;
     const characters = createCharactersStorage(app.db);
     const stored = new Map<string, unknown>();
-    for (const pcId of setupConfig?.partyCharacterIds ?? []) {
+    // Each sheet's character as named, so one the setup left out can still be given a card.
+    const names = new Map<string, string>();
+    const members = new Set([
+      ...(setupConfig?.partyCharacterIds ?? []),
+      ...chatCharacterIds.filter((id) => !id.startsWith("npc:")),
+    ]);
+    for (const pcId of members) {
       const pc = await characters.getById(pcId);
       if (!pc) continue;
       try {
         const data = typeof pc.data === "string" ? JSON.parse(pc.data) : pc.data;
         const sheet = data?.extensions?.rulesetSheets?.[rulesetId];
-        if (sheet && typeof data.name === "string") stored.set(normalizeCharacterLookupName(data.name), sheet);
+        if (typeof data?.name !== "string" || !data.name.trim()) continue;
+        // Every member is named, so one the setup left out still gets a card, on a blank sheet
+        // where they have none of their own.
+        names.set(normalizeCharacterLookupName(data.name), data.name);
+        if (sheet) stored.set(normalizeCharacterLookupName(data.name), sheet);
       } catch {
         /* an unreadable card simply has no sheet to copy */
       }
@@ -6529,12 +6761,15 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         const stats = persona.personaStats ? JSON.parse(persona.personaStats) : null;
         const sheet = stats?.rulesetSheets?.[rulesetId];
         // The persona is the player, so its sheet wins a name it shares with a party member.
-        if (sheet) stored.set(normalizeCharacterLookupName(persona.name), sheet);
+        if (sheet) {
+          stored.set(normalizeCharacterLookupName(persona.name), sheet);
+          names.set(normalizeCharacterLookupName(persona.name), persona.name);
+        }
       } catch {
         /* skip */
       }
     }
-    return { definition: pinned.definition, stored };
+    return { definition: pinned.definition, stored, names };
   };
 
   const applyGameSetupPayload = async (args: {
@@ -6674,9 +6909,24 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       if (arcs.length > 0) updates.gamePartyArcs = arcs;
     }
 
-    if (setupData.characterCards && Array.isArray(setupData.characterCards)) {
-      const rulesetSheets = await loadSetupRulesetSheets(chatId, args.chatPersonaId, meta, setupConfig);
-      const cards = (setupData.characterCards as Array<Record<string, unknown>>)
+    const setupSheets =
+      meta.gameRuleset != null
+        ? await loadSetupRulesetSheets(chatId, args.chatPersonaId, meta, setupConfig, args.chatCharacterIds)
+        : null;
+    if ((setupData.characterCards && Array.isArray(setupData.characterCards)) || (setupSheets?.names.size ?? 0) > 0) {
+      const rulesetSheets = setupSheets;
+      const generated = Array.isArray(setupData.characterCards)
+        ? (setupData.characterCards as Array<Record<string, unknown>>)
+        : [];
+      // A party member with a sheet the Game Master's setup left out still gets a card, or their
+      // sheet would never reach the game.
+      const carded = new Set(
+        generated.flatMap((card) => (typeof card.name === "string" ? [normalizeCharacterLookupName(card.name)] : [])),
+      );
+      const missing = [...(rulesetSheets?.names ?? new Map<string, string>())]
+        .filter(([key]) => !carded.has(key))
+        .map(([, name]) => ({ name }) as Record<string, unknown>);
+      const cards = [...generated, ...missing]
         .map((c) => {
           const name = (c.name as string) || "";
           const normalizedCard = normalizeGeneratedGameCharacterCard(c, name);
@@ -6690,117 +6940,36 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           const isPersona =
             rpgContext.personaName && normalizedCardName === normalizeCharacterLookupName(rpgContext.personaName);
           const rpg = isPersona ? rpgContext.personaRpgStats : charStats;
-          return {
-            ...normalizedCard,
-            rpgStats: rpg
-              ? {
-                  attributes: rpg.attributes,
-                  hp: { value: rpg.hp.max, max: rpg.hp.max },
-                  pools: normalizeRpgStatPools(rpg),
-                }
-              : undefined,
-            // The game's own copy of the starting build, or a blank one, so every card has a sheet.
-            ...(rulesetSheets
-              ? {
-                  rulesetSheet: copyRulesetSheetForGame(
-                    rulesetSheets.definition,
-                    rulesetSheets.stored.get(normalizedCardName),
-                  ),
-                }
-              : {}),
-          };
+          return withCardTemperament(
+            {
+              ...normalizedCard,
+              rpgStats: rpg
+                ? {
+                    attributes: rpg.attributes,
+                    hp: { value: rpg.hp.max, max: rpg.hp.max },
+                    pools: normalizeRpgStatPools(rpg),
+                  }
+                : undefined,
+              // The game's own copy of the starting build, or a blank one, so every card has a sheet.
+              ...(rulesetSheets
+                ? {
+                    rulesetSheet: copyRulesetSheetForGame(
+                      rulesetSheets.definition,
+                      rulesetSheets.stored.get(normalizedCardName),
+                    ),
+                  }
+                : {}),
+            },
+            c.temperament,
+          );
         })
         .filter((c) => c.name);
       if (cards.length > 0) updates.gameCharacterCards = cards;
     }
 
     if (setupData.blueprint) {
-      // Coerce LLM output into the campaign-plan ranges rather than rejecting it.
-      // The LLM occasionally exceeds the array caps or the pressure-clock step
-      // count; without preprocessing, a single out-of-range value would fail
-      // safeParse and silently drop the entire blueprint — including hudWidgets,
-      // which is what the user actually configured.
-      const sliceArray = (max: number) => (val: unknown) => (Array.isArray(val) ? val.slice(0, max) : val);
-      const clampInt = (min: number, max: number) => (val: unknown) =>
-        typeof val === "number" && Number.isFinite(val) ? Math.max(min, Math.min(max, Math.trunc(val))) : val;
-      const campaignPlanSchema = z
-        .object({
-          openingSituation: z.string().max(240).optional().default(""),
-          pressureClocks: z.preprocess(
-            sliceArray(2),
-            z
-              .array(
-                z.object({
-                  name: z.string().max(80),
-                  steps: z.preprocess(clampInt(1, 12), z.number().int().min(1).max(12).default(4)),
-                  current: z.preprocess(clampInt(0, 12), z.number().int().min(0).max(12).default(0)),
-                  failure: z.string().max(180).default(""),
-                }),
-              )
-              .default([]),
-          ),
-          factions: z.preprocess(
-            sliceArray(2),
-            z
-              .array(
-                z.object({
-                  name: z.string().max(80),
-                  goal: z.string().max(160),
-                  method: z.string().max(160).optional(),
-                  secret: z.string().max(180).optional(),
-                }),
-              )
-              .default([]),
-          ),
-          questSeeds: z.preprocess(sliceArray(3), z.array(z.string().max(180)).default([])),
-          encounterPrinciples: z.preprocess(sliceArray(2), z.array(z.string().max(160)).default([])),
-        })
-        .optional()
-        .nullable()
-        .transform((plan) => plan ?? undefined);
-      const blueprintSchema = z.object({
-        campaignPlan: campaignPlanSchema,
-        hudWidgets: z
-          .array(
-            z.object({
-              id: z.string(),
-              type: z.enum([
-                "progress_bar",
-                "gauge",
-                "relationship_meter",
-                "counter",
-                "stat_block",
-                "list",
-                "inventory_grid",
-                "timer",
-              ]),
-              label: z.string(),
-              icon: z.string().optional(),
-              position: z.enum(["hud_left", "hud_right"]),
-              accent: z.string().optional(),
-              config: z.record(z.unknown()),
-            }),
-          )
-          .default([]),
-        introSequence: z
-          .array(
-            z.object({
-              effect: z.string(),
-              duration: z.number().optional(),
-              intensity: z.number().min(0).max(1).optional(),
-              target: z.enum(["background", "content", "all"]).optional(),
-              params: z.record(z.string()).optional(),
-            }),
-          )
-          .default([]),
-        visualTheme: z
-          .object({
-            palette: z.string(),
-            uiStyle: z.string(),
-            moodDefault: z.string(),
-          })
-          .optional(),
-      });
+      const blueprintSchema = gameSetupBlueprintSchema;
+
       const normalizeStatBlocks = (widgets: Array<{ type: string; config: Record<string, unknown> }>) => {
         for (const w of widgets) {
           if (w.type === "stat_block" && w.config.stats) {
@@ -6879,8 +7048,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     logger.info("[game/create] Received request");
     const parsed = createGameSchema.safeParse(input);
     if (!parsed.success) {
+      const [issue] = validationDetails(parsed.error.issues);
       return rejectGenerationOutput(reply, 400, {
-        error: `Invalid game setup: ${parsed.error.issues[0]?.message ?? "invalid settings"}`,
+        error: `Invalid game setup: ${issue?.message ?? "invalid settings"}`,
       });
     }
     const parsedCreateGameInput = parsed.data;
@@ -6966,6 +7136,14 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       if (layerIssue) {
         return rejectGenerationOutput(reply, 400, { error: layerIssue.message, code: layerIssue.code });
       }
+      // A ruleset may name the combat styles its games play (1.379): one it leaves out is refused, as a
+      // layer it cannot honour is, rather than played on rules the ruleset said it does not fit.
+      if (!rulesetAllowsCombatStyle(registered.definition, parsedCreateGameInput.setupConfig.combatStyle)) {
+        return rejectGenerationOutput(reply, 400, {
+          error: `The ruleset "${registered.definition.name}" plays battles only as ${rulesetCombatStyles(registered.definition)!.join(", ")}.`,
+          code: "combat_style_not_allowed",
+        });
+      }
       gameRuleset = { ...createRulesetRef(registered), options: requestedOptions };
     }
     // A world (worldgen W1) is made in its kit's words, by this Engine's generator, or kept as another
@@ -6979,8 +7157,12 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     // An Experience's map pack (worldgen W9e) locks the game to its kit, and to one of its worlds when
     // it ships any; a pack that does not read keeps the Experience from starting a game, with the reason.
     let mapPack: MapPack | null = null;
+    // The Experience's own intro (1.372), kept with the game as it was when the game began, so its lock
+    // holds whatever the package does later.
+    let experienceIntro: GameIntro | null = null;
     const experienceId = parsedCreateGameInput.setupConfig.gameExperienceId;
     if (experienceId) {
+      experienceIntro = (await capabilityPackageManager.experienceSetupDefaults(experienceId))?.intro ?? null;
       const read = await readMapPack(experienceId);
       if (read && !read.ok) {
         return rejectGenerationOutput(reply, 400, {
@@ -7080,11 +7262,11 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       ...(setupConfig.gameStoryboardsEnabled ? [STORYBOARD_AGENT_ID] : []),
     ];
     const spotifySourceType = setupConfig.spotifySourceType ?? "liked";
-    const gameChatParameters = mergeStoredGenerationParameters(
-      defaultGenerationParameters,
+    const gameChatOverrides = mergeStoredGenerationParameters(
       sessionMeta.chatParameters,
       setupConfig.generationParameters,
     );
+    const gameChatParameters = mergeStoredGenerationParameters(defaultGenerationParameters, gameChatOverrides);
     const snapshotConnection = async (id: string | null | undefined) => {
       if (!id) return null;
       if (id === "random") return { name: "Random connection pool", provider: "random" };
@@ -7102,6 +7284,34 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     if (sentSnapshot) await createGameWorldSnapshotsStorage(app.db).put(sessionChat.id, sentSnapshot);
     else if (gameWorld && setupConfig.worldKit) {
       await saveGameWorldSnapshot(app.db, sessionChat.id, { gameWorld, gameWorldKit: setupConfig.worldKit });
+    }
+    // The Experience's people (1.346): what is known of them, as a lorebook of this game's own that is
+    // active from the first turn. Only the people this world has; their names bring them in.
+    let peopleLorebookId: string | null = null;
+    const peopleWorld =
+      mapPack?.people && gameWorld
+        ? await loadGameWorld(app.db, sessionChat.id, { gameWorld, gameWorldKit: setupConfig.worldKit })
+        : null;
+    if (mapPack?.people && peopleWorld) {
+      const lore = experiencePeopleLore(peopleWorld, mapPack.people);
+      if (lore.length) {
+        const lorebooksStore = createLorebooksStorage(app.db);
+        const book = (await lorebooksStore.create({
+          name: `${mapPack.name}: people`.slice(0, 200),
+          description: "The people and lore of this game's Experience.",
+          category: "world",
+          chatId: sessionChat.id,
+          enabled: true,
+          tags: ["game", "experience"],
+        })) as { id?: string } | null;
+        if (book?.id) {
+          await lorebooksStore.bulkCreateEntries(
+            book.id,
+            lore.map((entry) => createLorebookEntrySchema.omit({ lorebookId: true }).parse(entry)),
+          );
+          peopleLorebookId = book.id;
+        }
+      }
     }
     await chats.updateMetadata(sessionChat.id, {
       ...sessionMeta,
@@ -7155,6 +7365,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       // Classic or Overworld, likewise fixed; a setup made before the choice stores none (see
       // `gameStyleFromMetadata`).
       ...(setupConfig.gameStyle ? { gameStyle: setupConfig.gameStyle } : {}),
+      // The Experience's own intro message (1.372), which a locked one keeps over the setup's.
+      ...(experienceIntro ? { gameExperienceIntro: experienceIntro } : {}),
       // Likewise fixed for the game's lifetime. Written only when a ruleset was chosen, so a game
       // on Marinara's own rules carries exactly the metadata it always has.
       ...(gameRuleset ? { gameRuleset } : {}),
@@ -7163,8 +7375,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       // The setting kit, likewise only when one was chosen, and the world made in its words.
       ...(setupConfig.worldKit ? { gameWorldKit: setupConfig.worldKit } : {}),
       ...(gameWorld ? { gameWorld } : {}),
-      // The game draws with its map pack's tiles while the Experience is installed.
-      ...(mapPack?.tiles ? { gameMapPack: { packageId: mapPack.packageId } } : {}),
+      // Kept for what the game draws and plays with its pack: its tiles, creature art, music and people.
+      ...(mapPack ? { gameMapPack: { packageId: mapPack.packageId } } : {}),
       ...(gameStory ? { gameStory } : {}),
       gameNpcs: [],
       enableAgents: setupConfig.enableAgents === true,
@@ -7186,7 +7398,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       gameStoryboardImagePromptTemplateId: setupConfig.gameStoryboardImagePromptTemplateId || null,
       gameStoryboardVideoPromptTemplateId: setupConfig.gameStoryboardVideoPromptTemplateId || null,
       gameLastSceneVideoId: null,
-      activeLorebookIds: setupConfig.activeLorebookIds || [],
+      activeLorebookIds: [...(setupConfig.activeLorebookIds || []), ...(peopleLorebookId ? [peopleLorebookId] : [])],
       enableCustomWidgets: setupConfig.enableCustomWidgets !== false,
       ...(customHudWidgets.length > 0 ? { gameWidgetState: customHudWidgets } : {}),
       gameUseMusicDj: setupConfig.enableSpotifyDj === true,
@@ -7205,7 +7417,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           ? setupConfig.spotifyArtist || null
           : null,
       gameLorebookKeeperEnabled: setupConfig.enableLorebookKeeper === true,
-      ...(gameChatParameters ? { chatParameters: gameChatParameters } : {}),
+      ...(gameChatOverrides ? { chatParameters: gameChatOverrides } : {}),
     });
 
     const updatedSession = await chats.getById(sessionChat.id);
@@ -7215,7 +7427,25 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   app.post("/create", (req, reply) => executeCreateGame(req.body as CreateGameRequest, reply));
 
   // ── POST /game/setup ──
+  // One world created at a time for a game (laptop playtest 2026-10-24): its setup open in two browser
+  // tabs could press Create world in both, and the second is refused while the first runs.
+  const setupsRunning = new Set<string>();
   const executeSetupGame = async (input: SetupGameRequest, reply: GenerationOutput, signal?: AbortSignal) => {
+    const chatId = (input as { chatId?: unknown } | null)?.chatId;
+    if (typeof chatId !== "string") return runSetupGame(input, reply, signal);
+    if (setupsRunning.has(chatId))
+      return rejectGenerationOutput(reply, 409, {
+        error: "This game's world is already being created, perhaps in another tab. Wait for it to finish.",
+        code: "setup_running",
+      });
+    setupsRunning.add(chatId);
+    try {
+      return await runSetupGame(input, reply, signal);
+    } finally {
+      setupsRunning.delete(chatId);
+    }
+  };
+  const runSetupGame = async (input: SetupGameRequest, reply: GenerationOutput, signal?: AbortSignal) => {
     logger.info("[game/setup] Received request");
     const { chatId, connectionId, preferences, streaming, debugMode, promptPresetId } = setupSchema.parse(input);
     const requestDebug = debugMode === true;
@@ -7249,17 +7479,19 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     }
     const customHudWidgets = sanitizeGameHudWidgets(setupConfig.customHudWidgets);
 
-    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-      connections,
-      connectionId,
-      chat.connectionId,
-    );
+    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(connections, connectionId, chat);
+    // The connection the setup was run on becomes the game's own, so the start screen and every turn
+    // after it use the one the player picked, not one the chat held before (laptop playtest
+    // 2026-10-24: the start screen offered the old connection). "random" stays a per-request pick.
+    if (connectionId && connectionId !== "random" && conn?.id === connectionId && connectionId !== chat.connectionId) {
+      await app.db.update(chatsTable).set({ connectionId, updatedAt: now() }).where(eq(chatsTable.id, chatId));
+    }
     const provider = await createGameMainProvider(connections, conn, baseUrl);
     const setupGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
 
     let gmCharacterCard: string | null = null;
     if (setupConfig.gmMode === "character" && setupConfig.gmCharacterId) {
-      const gmChar = await characters.getById(setupConfig.gmCharacterId);
+      const gmChar = await characters.getById(setupConfig.gmCharacterId, chatId);
       if (gmChar) {
         const data = typeof gmChar.data === "string" ? JSON.parse(gmChar.data) : gmChar.data;
         const parts = [`Name: ${data.name}`];
@@ -7278,24 +7510,52 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const setupPersona = currentRoomGeneration()
       ? roomHostIdentity()
       : setupPersonaId
-        ? await characters.getPersona(setupPersonaId)
+        ? await characters.getPersona(setupPersonaId, chatId)
         : null;
 
     // Load persona info so the GM can tailor the experience
     let personaCard: string | null = null;
     const setupPersonaFields = {
+      example: setupPersona
+        ? "mes_example" in setupPersona
+          ? setupPersona.mes_example
+          : (setupPersona.mesExample ?? "")
+        : "",
       description: setupPersona?.description ?? "",
       personality: setupPersona?.personality ?? "",
       backstory: setupPersona?.backstory ?? "",
       appearance: setupPersona?.appearance ?? "",
       scenario: setupPersona?.scenario ?? "",
     };
+    const setupLorebookRequested =
+      (setupConfig.activeLorebookIds?.length ?? 0) > 0 || (setupConfig.activeLorebookEntryIds?.length ?? 0) > 0;
+    const setupPromptMacroContext =
+      setupPersonaFields.example || setupLorebookRequested
+        ? await buildPromptMacroContext({
+            db: app.db,
+            characterIds: setupConfig.partyCharacterIds,
+            personaName: setupPersona?.name ?? "User",
+            personaDescription: setupPersonaFields.description,
+            personaFields: setupPersonaFields,
+            variables: {},
+            chatId,
+            lastGenerationType: "game_setup",
+            idleDuration: "0 seconds",
+          })
+        : null;
     if (setupPersona) {
       const parts = [`Name: ${setupPersona.name}`];
       if (setupPersona.description) parts.push(`Description: ${setupPersona.description}`);
       if (setupPersona.personality) parts.push(`Personality: ${setupPersona.personality}`);
       if (setupPersona.backstory) parts.push(`Backstory: ${setupPersona.backstory}`);
       if (setupPersona.appearance) parts.push(`Appearance: ${setupPersona.appearance}`);
+      if (setupPersonaFields.example && setupPromptMacroContext) {
+        const example = resolveMacrosWithVariableSnapshot(setupPersonaFields.example, setupPromptMacroContext);
+        if (example.content.trim()) {
+          parts.push(`Example dialogue: ${example.content}`);
+          example.commit();
+        } else example.rollback();
+      }
       personaCard = parts.join("\n");
     }
 
@@ -7304,7 +7564,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const partyNames: string[] = [];
     const partyRpgStats: Record<string, RPGStatsConfig> = {};
     for (const pcId of setupConfig.partyCharacterIds) {
-      const pc = await characters.getById(pcId);
+      const pc = await characters.getById(pcId, chatId);
       if (pc) {
         const data = typeof pc.data === "string" ? JSON.parse(pc.data) : pc.data;
         const parts = [data.name];
@@ -7349,18 +7609,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     }
 
     let setupLorebookContext: string | undefined;
-    if ((setupConfig.activeLorebookIds?.length ?? 0) > 0 || (setupConfig.activeLorebookEntryIds?.length ?? 0) > 0) {
-      const setupPromptMacroContext = await buildPromptMacroContext({
-        db: app.db,
-        characterIds: setupConfig.partyCharacterIds,
-        personaName: personaName ?? "User",
-        personaDescription: setupPersonaFields.description,
-        personaFields: setupPersonaFields,
-        variables: {},
-        chatId,
-        lastGenerationType: "game_setup",
-        idleDuration: "0 seconds",
-      });
+    if (setupLorebookRequested && setupPromptMacroContext) {
       const resolveSetupLorebookMacrosForFinal = (
         value: string,
         lorebookEntryCounts?: Readonly<Record<string, number>>,
@@ -7487,6 +7736,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       stream: streaming,
       signal: signal ? AbortSignal.any([signal, setupAbort.signal]) : setupAbort.signal,
       ...(streaming ? { onToken: () => setupAbort.touch(), onThinking: () => setupAbort.touch() } : {}),
+      onTokenKeepaliveOnly: true,
     };
     if (!setupGenerationParameters?.reasoningEffort) {
       setupOverrides.reasoningEffort = undefined;
@@ -7535,6 +7785,21 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           setupGenerationParameters?.customThinkingTags,
         );
         responseText = setupExtraction.content;
+        // A reply with no text is not JSON to repair: say so, rather than retrying the same wait or opening a repair
+        // dialog over nothing (playtest 2026-10-26: a world setup at maximum reasoning came back empty after 33 min).
+        if (!responseText.trim()) {
+          signal?.throwIfAborted();
+          logger.warn("[game/setup] The model returned no text (finish reason: %s)", setupFinishReason ?? "unknown");
+          rejectGenerationOutput(reply, 502, {
+            error:
+              setupFinishReason === "length" || setupExtraction.thinking.trim()
+                ? "The model returned no world, only its reasoning, before it stopped. Try again with a lower reasoning effort or a higher max output tokens on this connection, or use a different model."
+                : "The model returned an empty reply, so no world was made. Try again, or use a different model.",
+            code: "setup_empty",
+            finishReason: setupFinishReason ?? null,
+          });
+          return;
+        }
 
         if (debugLogsEnabled) {
           debugLog("[game/setup] Response length: %d chars", responseText.length);
@@ -7566,6 +7831,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         }
 
         if (!parseError) break;
+        // A reply cut off before its JSON closed comes back cut off again: the same wait twice for nothing.
+        if (isLikelyTruncatedJsonResponse(responseText, setupFinishReason)) break;
         if (attempt === 1) {
           logger.warn("[game/setup] Setup JSON failed parse/validation; retrying world setup once");
         }
@@ -7579,8 +7846,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       logger.error("[game/setup] Returning 422: %s", parseError);
       if (isLikelyTruncatedJsonResponse(responseText, setupFinishReason)) {
         rejectGenerationOutput(reply, 422, {
-          error:
-            "World generation response was cut off before the setup JSON completed. Increase this connection's max output tokens or use a model with a larger output limit, then try again.",
+          error: isLengthFinishReason(setupFinishReason)
+            ? "World generation response was cut off before the setup JSON completed. Increase this connection's max output tokens or use a model with a larger output limit, then try again."
+            : "World generation stopped before the setup JSON completed: the model's reply ended mid-way, without saying it was finished, as when a provider or proxy cuts a long reply off. Try again, or use a lower reasoning effort or a different model.",
           rawResponse: responseText,
           finishReason: setupFinishReason ?? null,
         });
@@ -7984,8 +8252,11 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         // The tellings of one of the previous session's turns: the stacks carry over, the record
         // of how that turn was told does not.
         gameInventoryTurn: _previousInventoryTurn,
-        ...carryMeta
+        ...previousSessionMeta
       } = prevMeta;
+      // Advanced Memory's settings carry over; its progress and its own recaps of the previous
+      // session's messages do not, so the new session builds its memory from its own story.
+      const carryMeta = withoutSessionAdvancedMemory(previousSessionMeta);
 
       const newMeta = parseMeta(newChat.metadata);
       const updatedNewMeta = {
@@ -8053,7 +8324,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
             connections,
             connectionId,
-            newChat.connectionId,
+            newChat,
           );
           const provider = await createGameMainProvider(connections, conn, baseUrl);
 
@@ -8242,11 +8513,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       const currentCampaignPlan = currentGameCampaignPlan(meta);
       const currentNpcs = Array.isArray(meta.gameNpcs) ? (meta.gameNpcs as GameNpc[]) : [];
 
-      const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-        connections,
-        connectionId,
-        chat.connectionId,
-      );
+      const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(connections, connectionId, chat);
       const conclusionGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
       const modelAccessPolicy = resolveGameModelAccessPolicy({
         provider: conn.provider,
@@ -8266,6 +8533,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           stream: streaming,
           signal: conclusionAbort.signal,
           ...(streaming ? { onToken: () => conclusionAbort.touch(), onThinking: () => conclusionAbort.touch() } : {}),
+          onTokenKeepaliveOnly: true,
         },
         conclusionGenerationParameters,
         conn.provider,
@@ -8803,11 +9071,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const currentCampaignPlan = currentGameCampaignPlan(meta);
     const currentNpcs = Array.isArray(meta.gameNpcs) ? (meta.gameNpcs as GameNpc[]) : [];
 
-    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-      connections,
-      connectionId,
-      chat.connectionId,
-    );
+    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(connections, connectionId, chat);
     const conclusionGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
     const modelAccessPolicy = resolveGameModelAccessPolicy({
       provider: conn.provider,
@@ -8830,6 +9094,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         stream: streaming,
         signal: conclusionAbort.signal,
         ...(streaming ? { onToken: () => conclusionAbort.touch(), onThinking: () => conclusionAbort.touch() } : {}),
+        onTokenKeepaliveOnly: true,
       },
       conclusionGenerationParameters,
       conn.provider,
@@ -9078,7 +9343,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
       connectionId,
-      currentChat.connectionId,
+      currentChat,
     );
     const progressionGenerationParameters = resolveStoredGameGenerationParameters(
       currentMeta,
@@ -9098,6 +9363,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         stream: streaming,
         signal: progressionAbort.signal,
         ...(streaming ? { onToken: () => progressionAbort.touch(), onThinking: () => progressionAbort.touch() } : {}),
+        onTokenKeepaliveOnly: true,
       },
       progressionGenerationParameters,
       conn.provider,
@@ -9337,7 +9603,11 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         chat.personaId ??
         setupConfig.personaId ??
         null;
-      const persona = currentRoomGeneration() ? null : personaId ? await characters.getPersona(personaId) : null;
+      const persona = currentRoomGeneration()
+        ? null
+        : personaId
+          ? await characters.getPersona(personaId, input.chatId)
+          : null;
       if (persona) {
         targetName = persona.name?.trim() || requestedName;
         targetCharacterCard = buildRecruitCharacterSourceCard({
@@ -9375,7 +9645,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         throw new Error("The selected character is not in the active party");
       }
 
-      const character = await characters.getById(input.characterId);
+      const character = await characters.getById(input.characterId, input.chatId);
       if (character) {
         const data = (typeof character.data === "string" ? JSON.parse(character.data) : character.data) as Record<
           string,
@@ -9479,7 +9749,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
       input.connectionId,
-      chat.connectionId,
+      chat,
     );
     const generationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
     const modelAccessPolicy = resolveGameModelAccessPolicy({
@@ -9577,10 +9847,17 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       !Array.isArray(existingTargetCard.rpgStats)
         ? existingTargetCard.rpgStats
         : sourceRpgStats;
-    const gameCard = {
-      ...regeneratedCard,
-      ...(preservedRpgStats ? { rpgStats: preservedRpgStats } : {}),
-    };
+    // A sheet made again for its format keeps the temperament its character already has.
+    const gameCard = withCardTemperament(
+      {
+        ...regeneratedCard,
+        ...(preservedRpgStats ? { rpgStats: preservedRpgStats } : {}),
+      },
+      gameCardTemperament(existingTargetCard as Record<string, unknown> | null | undefined)
+        ? undefined
+        : rawCard.temperament,
+      existingTargetCard as Record<string, unknown> | null | undefined,
+    );
 
     logger.info("[game/character-sheet/regenerate] Generated draft sheet for %s in chat %s", targetName, input.chatId);
     return { characterName: targetName, gameCard };
@@ -9626,9 +9903,31 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     } catch {
       chatCharacterIds = [];
     }
+    // An Experience's companions (1.347): one the party takes in joins with their sheet. While the
+    // Experience has companions, only they (and the player's own library characters) may join.
+    const companions = await gameCompanions(app.db, chat.id, meta);
+    const pinnedRuleset = meta.gameRuleset != null ? resolveGameRuleset(meta, await loadRulesetRegistry()) : null;
+    const companion = companions
+      ? gameCompanionNamed(companions, requestedName, pinnedRuleset?.status === "ok" ? pinnedRuleset.definition : null)
+      : null;
     const currentPartyIds = getStoredPartyCharacterIds(meta, setupConfig, chatCharacterIds);
     const gameNpcs = (meta.gameNpcs as GameNpc[]) ?? [];
     const trackedNpc = findGameNpcByName(gameNpcs, requestedName);
+    if (input.copyOf) {
+      return recruitPartyCopy({
+        chats,
+        stateStore,
+        chat,
+        meta,
+        setupConfig,
+        chatCharacterIds,
+        currentPartyIds,
+        requestedName,
+        trackedNpc,
+        copyOf: input.copyOf.trim(),
+        condition: input.condition?.trim() || undefined,
+      });
+    }
     // An NPC met this session may not be tracked yet, but the journal's NPC log already has them.
     const journalNpcLog = (meta.gameJournal as Journal | null)?.npcLog;
     const gameHasOwnCharacter =
@@ -9646,7 +9945,10 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const cardInParty = partyCards.find((candidate) => candidate.lookup === requestedLookup);
     let matches: typeof sameNameCards;
     // Someone of this name already in the party stays the only one, even when a stale choice is answered.
-    if (cardInParty) {
+    // An Experience's companion (1.347) joins as themselves, never as a library card.
+    if (companion) {
+      matches = [];
+    } else if (cardInParty) {
       matches = [cardInParty];
     } else if (trackedNpc && currentPartyIds.includes(buildPartyNpcId(trackedNpc.name))) {
       matches = [];
@@ -9685,8 +9987,19 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       matches = partyMembers.length === 1 ? partyMembers : [];
     }
 
-    let npcRecruit = matches.length === 0 ? trackedNpc : null;
-    const fallbackTrackedNpc = matches.length === 0 && !npcRecruit ? buildFallbackTrackedGameNpc(requestedName) : null;
+    if (companions && !companion && matches.length === 0) {
+      throw new Error(`${requestedName} is not one of this Experience's companions, so cannot join the party.`);
+    }
+
+    let npcRecruit =
+      matches.length === 0 ? (companion ? findGameNpcByName(gameNpcs, companion.name) : trackedNpc) : null;
+    const companionPerson = companion && !npcRecruit ? storyPerson(companions!.world, companion.person) : undefined;
+    const fallbackTrackedNpc =
+      matches.length === 0 && !npcRecruit
+        ? companionPerson
+          ? experienceDressedNpc(worldPersonNpc(companions!.world, companionPerson), companions!.people)
+          : buildFallbackTrackedGameNpc(requestedName)
+        : null;
     if (fallbackTrackedNpc) {
       npcRecruit = fallbackTrackedNpc;
       logger.info(
@@ -9718,14 +10031,20 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const recruitRpgStats = recruit ? extractRecruitCharacterRpgStats(recruit.data) : undefined;
     // In a game on a ruleset a recruit joins the way the party did at setup: with a copy of the
     // library card's starting build, or a blank sheet (an NPC has no library card to copy from).
-    const pinnedRuleset = meta.gameRuleset != null ? resolveGameRuleset(meta, await loadRulesetRegistry()) : null;
+    // A companion joins with their own build for the party's level (1.347).
     const recruitRulesetSheet =
-      pinnedRuleset?.status === "ok"
-        ? copyRulesetSheetForGame(
+      pinnedRuleset?.status === "ok" && companion?.sheet
+        ? companionSheetEnvelope(
             pinnedRuleset.definition,
-            recruit?.data.extensions?.rulesetSheets?.[pinnedRuleset.definition.id],
+            companion.sheet,
+            companionPartyLevel(pinnedRuleset.definition, currentCards, companion.sheet, companionNames(companions!)),
           )
-        : undefined;
+        : pinnedRuleset?.status === "ok"
+          ? copyRulesetSheetForGame(
+              pinnedRuleset.definition,
+              recruit?.data.extensions?.rulesetSheets?.[pinnedRuleset.definition.id],
+            )
+          : undefined;
     const recruitSourceCard = recruit
       ? buildRecruitCharacterSourceCard(recruit.data)
       : buildNpcRecruitCharacterSourceCard(npcRecruit!);
@@ -9744,7 +10063,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
           connections,
           input.connectionId,
-          chat.connectionId,
+          chat,
         );
         const provider = await createGameMainProvider(connections, conn, baseUrl);
         const generationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
@@ -9842,11 +10161,14 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
               ? (parsed[0] as Record<string, unknown>)
               : null;
         if (rawCard) {
-          nextCard = {
-            ...normalizeGeneratedGameCharacterCard(rawCard, recruitName),
-            ...(recruitRpgStats ? { rpgStats: recruitRpgStats } : {}),
-            ...(recruitRulesetSheet ? { rulesetSheet: recruitRulesetSheet } : {}),
-          };
+          nextCard = withCardTemperament(
+            {
+              ...normalizeGeneratedGameCharacterCard(rawCard, recruitName),
+              ...(recruitRpgStats ? { rpgStats: recruitRpgStats } : {}),
+              ...(recruitRulesetSheet ? { rulesetSheet: recruitRulesetSheet } : {}),
+            },
+            rawCard.temperament,
+          );
         }
       } catch (error) {
         logger.warn(error, "[game/party/recruit] Failed to generate recruit card, using fallback");
@@ -10000,9 +10322,14 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   });
 
   // ── POST /game/dice/roll ──
-  app.post("/dice/roll", async (req) => {
-    const { notation } = diceRollSchema.parse(req.body);
-    const result = rollDice(notation);
+  app.post("/dice/roll", async (req, reply) => {
+    const { chatId, notation } = diceRollSchema.parse(req.body);
+    if (isRollableDiceNotation(notation)) return { result: rollDice(notation) };
+    // Anything else may name a symbol-pool game's own dice: "2 ability 1 proficiency vs 2 difficulty".
+    const chat = chatId ? await createChatsStorage(app.db).getById(chatId) : null;
+    const resolution = chat?.mode === "game" ? await symbolDiceResolution(parseMeta(chat.metadata), app.db) : null;
+    const result = rollSymbolDiceNotation(resolution, notation, rollDieSecurely);
+    if (!result) return reply.status(400).send({ error: "Invalid dice notation" });
     return { result };
   });
 
@@ -10023,6 +10350,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
        *  fallback asks the ruleset the same question generation would have. Each is ignored where the
        *  ruleset does not take it. */
       withAbility: z.string().trim().min(1).max(100).optional(),
+      /** `for=` (1.752): what the check is made for, "climb" or "swim". */
+      purpose: z.string().trim().min(1).max(40).optional(),
       threshold: z.number().int().min(1).max(1000).optional(),
       bonusDice: z.number().int().min(-20).max(20).optional(),
       difficulty: z.string().trim().min(1).max(80).optional(),
@@ -10052,6 +10381,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         preRolledD20: input.preRolledD20,
         who: input.who,
         withAbility: input.withAbility,
+        ...(input.purpose ? { purpose: input.purpose } : {}),
         threshold: input.threshold,
         bonusDice: input.bonusDice,
         difficulty: input.difficulty,
@@ -10067,6 +10397,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       // A check the character cannot attempt untrained is not there to roll.
       if (err instanceof SkillCheckUntrainedError) {
         return reply.status(400).send({ error: err.message, code: "skill_check_untrained" });
+      }
+      if (err instanceof SkillCheckRollerError) {
+        return reply.status(400).send({ error: err.message, code: "skill_check_unknown_roller" });
       }
       throw err;
     }
@@ -10172,7 +10505,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
    */
   const askWorldModel = async <T>(args: {
     reply: FastifyReply;
-    connectionId: string;
+    connectionId?: string;
     debugMode?: boolean;
     /** The route, for the log: "world-kit". */
     route: string;
@@ -10184,13 +10517,20 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     repair: (issues: string[]) => string;
     /** Room for the reply; a brief with its name lists needs more than a kit. */
     maxTokens?: number;
+    /** The game's own generation settings, over the connection's (`worldKitWriteSchema`). */
+    generationParameters?: unknown;
   }): Promise<{ ok: true; value: T } | { ok: false; status: number; error?: string; issues: string[] }> => {
     const debugLog = (message: string, ...rest: any[]) => logDebugOverride(args.debugMode === true, message, ...rest);
     const connections = createConnectionsStorage(app.db);
-    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-      connections,
-      args.connectionId,
-      null,
+    const {
+      conn,
+      baseUrl,
+      defaultGenerationParameters: connectionParameters,
+    } = await resolveConnection(connections, args.connectionId, null);
+    // The setup's reasoning effort, not the connection's, as world setup itself sends it.
+    const defaultGenerationParameters = mergeStoredGenerationParameters(
+      connectionParameters,
+      args.generationParameters,
     );
     const provider = await createGameMainProvider(connections, conn, baseUrl);
     const messages: ChatMessage[] = [
@@ -10260,6 +10600,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       reply,
       connectionId: input.connectionId,
       debugMode: input.debugMode,
+      generationParameters: input.generationParameters,
       route: "world-kit",
       title: "Setting kit",
       prompt: buildWorldKitWritingPrompt(input),
@@ -10289,6 +10630,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       reply,
       connectionId: input.connectionId,
       debugMode: input.debugMode,
+      generationParameters: input.generationParameters,
       route: "world-brief",
       title: "World brief",
       maxTokens: GAME_SETUP_DEFAULT_OUTPUT_TOKENS,
@@ -10341,6 +10683,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         reply,
         connectionId: input.connectionId,
         debugMode: input.debugMode,
+        generationParameters: input.generationParameters,
         route: "world-canon",
         title: `Lore reading ${index + 1}`,
         prompt: buildWorldCanonPrompt(input.kit, batch),
@@ -10377,11 +10720,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
 
-    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-      connections,
-      connectionId,
-      chat.connectionId,
-    );
+    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(connections, connectionId, chat);
     const provider = await createGameMainProvider(connections, conn, baseUrl);
 
     const messages: ChatMessage[] = [
@@ -10592,7 +10931,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           side: z.enum(["player", "enemy"]).optional(),
           tactics: combatTacticsSchema.optional(),
           controller: z.enum(["manual", "ai"]).optional(),
-          skillCooldowns: z.record(z.number().int().min(0).max(10000)).optional(),
+          skillCooldowns: z.record(z.string(), z.number().int().min(0).max(10000)).optional(),
           skills: z
             .array(
               z.object({
@@ -10640,8 +10979,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           itemEffect: z
             .object({
               name: generatedRequiredStringSchema,
-              target: z.enum(["self", "ally", "enemy", "any"]),
-              type: z.enum(["heal", "damage", "buff", "debuff", "status", "utility"]),
+              target: z.enum(["self", "ally", "enemy", "any"]).catch("any"),
+              type: z.enum(["heal", "damage", "buff", "debuff", "status", "utility"]).catch("utility"),
               description: generatedRequiredStringSchema,
               power: z.number().optional(),
               element: generatedOptionalStringSchema,
@@ -10651,7 +10990,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
                   emoji: generatedRequiredStringSchema,
                   duration: z.number(),
                   modifier: z.number().optional(),
-                  stat: z.enum(["attack", "defense", "speed", "hp"]).optional(),
+                  stat: z.enum(["attack", "defense", "speed", "hp"]).optional().catch(undefined),
                 })
                 .optional(),
               consumes: z.boolean().optional(),
@@ -10665,13 +11004,15 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
             name: generatedRequiredStringSchema,
             description: generatedRequiredStringSchema,
             ownerName: generatedOptionalStringSchema,
-            trigger: z.enum(["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"]),
+            // A word the Engine has none of ("charge") goes off as an attack does (laptop playtest 2026-10-25).
+            trigger: z.enum(["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"]).catch("on_attack"),
             interval: z.number().optional(),
             hpThreshold: z.number().optional(),
             counterplay: generatedOptionalStringSchema,
             effectType: z
               .enum(["damage_all", "damage_one", "buff_self", "debuff_party", "status_party", "status_enemy"])
-              .optional(),
+              .optional()
+              .catch(undefined),
             power: z.number().optional(),
             element: generatedOptionalStringSchema,
             status: z
@@ -10680,7 +11021,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
                 emoji: generatedRequiredStringSchema,
                 duration: z.number(),
                 modifier: z.number().optional(),
-                stat: z.enum(["attack", "defense", "speed", "hp"]).optional(),
+                stat: z.enum(["attack", "defense", "speed", "hp"]).optional().catch(undefined),
               })
               .optional(),
           }),
@@ -10896,7 +11237,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       round: z.number().int().min(1).max(10000),
       seed: tacticalBattlefieldSeedSchema,
       actionCounter: z.number().int().min(0).max(1_000_000),
-      log: z.array(z.record(z.unknown())).max(2000),
+      log: z.array(z.record(z.string(), z.unknown())).max(2000),
       difficulty: z.string(),
       outcome: z.enum(["victory", "defeat", "fled"]).optional(),
       // The order a fight by initiative takes turns in (combat C6c): ids, at most one a unit.
@@ -11095,6 +11436,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     // a World Maps definition revision bump, which then permanently fails movement validation as
     // spatial_transition_stale_definition. patchMetadata re-reads and merges under the per-chat queue.
     let newTime: GameTime | undefined;
+    let passed = 0;
     const updated = await chats.patchMetadata(chatId, (freshMeta) => {
       const currentTime = (freshMeta.gameTime as GameTime) ?? createInitialTime();
       newTime =
@@ -11103,9 +11445,12 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           : isTimeOfDayLabel(body.action)
             ? setTimeOfDay(currentTime, body.action)
             : advanceTime(currentTime, body.action);
+      passed = gameTimeMinutes(newTime) - gameTimeMinutes(currentTime);
       return { gameTime: newTime };
     });
     if (!updated || !newTime) throw new Error("Chat not found");
+    // What waits on game time counts it (1.556).
+    await passGameInventoryTime(app.db, chatId, passed);
 
     // Also update the game state snapshot so WeatherEffects picks it up
     const gameStateStore = createGameStateStorage(app.db);
@@ -11116,6 +11461,15 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     return { time: newTime, formatted: formatGameTime(newTime) };
   });
 
+  /** The season where the party is, in a game with a world (1.351): held by its story, else the day's. */
+  const gameSeasonHere = async (chatId: string, mode: string, meta: Record<string, unknown>) => {
+    const world = mode === "game" ? await loadGameWorld(app.db, chatId, meta) : null;
+    if (!world) return null;
+    const day = ((meta.gameTime as GameTime | undefined) ?? createInitialTime()).day;
+    const { here, seasons } = await overworldPlace(chatId, meta, world);
+    return (here ? seasons[here] : undefined) ?? seasons["*"] ?? worldSeason(day);
+  };
+
   // ── POST /game/weather/update ──
   app.post("/weather/update", async (req) => {
     const schema = z.object({
@@ -11125,12 +11479,15 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       season: z.enum(["spring", "summer", "autumn", "winter"]).default("summer"),
       type: z.string().max(100).optional(),
     });
-    const { chatId, action, location, season, type } = schema.parse(req.body);
+    const { chatId, action, location, type } = schema.parse(req.body);
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
 
     const meta = parseMeta(chat.metadata);
+    // A game with a world has its own season where the party is: the one the story holds it at (1.351),
+    // else the day's. Without one, the season sent.
+    const season = (await gameSeasonHere(chat.id, chat.mode, meta)) ?? schema.parse(req.body).season;
 
     // "set" action from scene analyzer — apply the exact weather type
     if (action === "set" && type) {
@@ -11226,7 +11583,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const schema = z.object({
       chatId: z.string().min(1),
       type: z.enum(["location", "npc", "combat", "quest", "item", "event", "note"]),
-      data: z.record(z.unknown()),
+      data: z.record(z.string(), z.unknown()),
     });
     const { chatId, type, data } = schema.parse(req.body);
     const chats = createChatsStorage(app.db);
@@ -11315,10 +11672,29 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     );
     // The story's objectives (worldgen W10), as the replies have left its flags.
     const story = gameStoryFromMetadata(meta, world);
+    const storyNow = story ? storyState(story, readStoryLedger(replies.all)) : null;
+    const clocks = story && storyNow ? storyClocks(story, storyNow) : [];
+    // The Experience's own track for here (1.345): the story's cue, else the place's, else its default.
+    const packId = (meta.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
+    const packMusic = typeof packId === "string" ? await capabilityPackageManager.mapPackMusic(packId) : null;
+    const walking = worldWalkFromMetadata(meta);
+    const music = packMusic
+      ? experienceTrackHere(
+          packMusic,
+          world,
+          walking?.to ??
+            (place?.name ? worldPlaceByName(world.world, place.name)?.id : undefined) ??
+            world.world.startId,
+          storyNow?.music,
+        )
+      : undefined;
     return {
       journal: {
         ...worldJournal(world, worldPresent(world, replies.ledger), { name: place?.name }),
-        ...(story ? { story: storyObjectives(story, storyState(story, readStoryLedger(replies.all))) } : {}),
+        ...(story && storyNow ? { story: storyObjectives(story, storyNow) } : {}),
+        ...(clocks.length ? { clocks } : {}),
+        ...(story && storyNow?.ended ? { ending: storyEndingOf(story, storyNow.ended) } : {}),
+        ...(music !== undefined ? { music } : {}),
       },
     };
   });
@@ -11331,9 +11707,14 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const present = worldPresent(world, replies.ledger);
     // The sites the story keeps closed until the Game Master opens them (design-game-overworld-sites.md).
     // Reveals from every session (carried ones first), not only this one's.
-    const locks = worldSiteLocks(world, gameStoryFromMetadata(meta, world), replies.all);
+    const story = gameStoryFromMetadata(meta, world);
+    const locks = worldSiteLocks(world, story, replies.all);
+    // The places the story holds at a season whatever the day (1.351).
+    const seasons = story
+      ? storyPlaceSeasons(story, storyState(story, readStoryLedger(replies.all)).seasons, world)
+      : {};
     const walk = worldWalkFromMetadata(meta);
-    if (walk) return { here: walk.to, walk, present, placeName: undefined, locks };
+    if (walk) return { here: walk.to, walk, present, placeName: undefined, locks, seasons };
     const place = worldPlaceInForce(
       world,
       lastGamePlace(replies.scoped),
@@ -11344,6 +11725,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       walk: null,
       present,
       locks,
+      seasons,
       placeName: place?.name,
     };
   };
@@ -11439,6 +11821,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     await updateLatestGameStateWithTrackerLocks(createGameStateStorage(app.db), chatId, {
       time: formatGameTime(time),
     });
+    await passGameInventoryTime(app.db, chatId, minutes);
     return { visit, at: to, path, minutes, time, formatted: formatGameTime(time) };
   });
 
@@ -11508,6 +11891,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     await updateLatestGameStateWithTrackerLocks(createGameStateStorage(app.db), chatId, {
       time: formatGameTime(time),
     });
+    await passGameInventoryTime(app.db, chatId, minutes);
     return { map, walk, path, minutes, time, formatted: formatGameTime(time) };
   });
 
@@ -11809,6 +12193,29 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     return { kit: read.kit, notes: read.notes };
   });
 
+  // POST /game/experience/check (Capability API 1.350): a whole map pack an author is about to export,
+  // checked as an installed one is read, without installing it.
+  app.post("/experience/check", { bodyLimit: 128 * 1024 * 1024 }, async (req, reply) => {
+    const body = req.body as Partial<MapPackCheckInput> | null;
+    if (
+      !body ||
+      typeof body !== "object" ||
+      !body.files ||
+      typeof body.files !== "object" ||
+      Array.isArray(body.files)
+    ) {
+      return reply.status(400).send({ error: "Send the map pack block, its files by path and its assets." });
+    }
+    const assets = Array.isArray(body.assets)
+      ? body.assets.flatMap((asset) =>
+          asset && typeof asset.path === "string" && Number.isFinite(asset.bytes)
+            ? [{ path: asset.path, bytes: Number(asset.bytes) }]
+            : [],
+        )
+      : [];
+    return checkMapPack({ mapPack: body.mapPack, files: body.files as Record<string, unknown>, assets });
+  });
+
   // GET /game/experience-map-pack/:packageId: an installed Experience's map pack (worldgen W9e), checked,
   // for the setup wizard to lock to and a game to draw with; null when it ships none.
   app.get<{ Params: { packageId: string } }>("/experience-map-pack/:packageId", async (req, reply) => {
@@ -12070,7 +12477,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const meta = parseMeta(chat.metadata);
     const world = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
     if (!world) return { overworld: null };
-    const { here, walk, present, locks } = await overworldPlace(req.params.chatId, meta, world);
+    const { here, walk, present, locks, seasons } = await overworldPlace(req.params.chatId, meta, world);
     // A hidden site is never sent: the player does not know it is there.
     const locked = Object.fromEntries([...locks].filter(([, lock]) => lock === "sealed"));
     const hidden = new Set([...locks].filter(([, lock]) => lock === "hidden").map(([id]) => id));
@@ -12082,6 +12489,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         // Only when the story keeps a site closed: an overworld without any reads as it always did.
         ...(Object.keys(locked).length ? { locked } : {}),
         ...(hidden.size ? { hidden: [...hidden] } : {}),
+        // Only when the story holds a place at a season (1.351).
+        ...(Object.keys(seasons).length ? { seasons } : {}),
       },
     };
   });
@@ -12117,6 +12526,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     await updateLatestGameStateWithTrackerLocks(createGameStateStorage(app.db), chatId, {
       time: formatGameTime(time),
     });
+    await passGameInventoryTime(app.db, chatId, Math.round(route.days * 24 * 60));
     return { walk: walked, route, time, formatted: formatGameTime(time) };
   });
 
@@ -12361,7 +12771,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     async (req, reply) => {
       const body = z
         .object({
-          state: z.unknown(),
+          state: z.unknown().optional(),
           schemaVersion: z.number().int().min(1).max(1_000_000).default(1),
           // Experience saves are player-confirmed world state, not mid-turn
           // provisional snapshots, so they default to committed (regen fallback
@@ -12569,7 +12979,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         /** "" is the live anchor the PUT uses before the first assistant message exists. */
         messageId: z.string().max(200),
         swipeIndex: z.number().int().min(0).max(1_000_000),
-        state: z.unknown(),
+        state: z.unknown().optional(),
         schemaVersion: z.number().int().min(1).max(1_000_000).default(1),
         committed: z.boolean().default(true),
         /** Accepted so an export round-trips without stripping fields, but never stored —
@@ -12862,7 +13272,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
         connections,
         input.connectionId,
-        chat.connectionId,
+        chat,
       );
       const gameGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
       const modelAccessPolicy = resolveGameModelAccessPolicy({
@@ -12896,8 +13306,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         const characters = createCharactersStorage(app.db);
         const experienceSetupConfig = (meta.gameSetupConfig as GameSetupConfig | null) ?? null;
         const lorePersonaId = chat.personaId || experienceSetupConfig?.personaId || null;
-        const lorePersona = lorePersonaId ? await characters.getPersona(lorePersonaId) : null;
+        const lorePersona = lorePersonaId ? await characters.getPersona(lorePersonaId, req.params.chatId) : null;
         const lorePersonaFields = {
+          example: lorePersona?.mes_example ?? "",
           description: lorePersona?.description ?? "",
           personality: lorePersona?.personality ?? "",
           backstory: lorePersona?.backstory ?? "",
@@ -13407,7 +13818,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
       input.connectionId,
-      chat.connectionId,
+      chat,
     );
     const gameGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
 
@@ -13424,7 +13835,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     }
     for (const charId of partyCharIds) {
       try {
-        const charRow = await chars.getById(charId);
+        const charRow = await chars.getById(charId, input.chatId);
         if (!charRow) continue;
         const charData = typeof charRow.data === "string" ? JSON.parse(charRow.data) : charRow.data;
         const description = typeof charData.description === "string" ? charData.description : "";
@@ -13640,7 +14051,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     chatId: z.string().min(1),
     narration: z.string().max(50000).optional().default(""),
     playerAction: z.string().max(5000).optional(),
-    context: z.record(z.unknown()).optional().default({}),
+    context: z.record(z.string(), z.unknown()).prefault({}),
     limit: z.number().min(1).max(50).optional().default(50),
   });
 
@@ -13756,7 +14167,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
       requestedSceneConnId,
-      chat.connectionId,
+      chat,
     );
     const gameGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters, {
       includeChatParameters: inheritsChatGenerationParameters({
@@ -14082,7 +14493,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
 
       if (debugLogsEnabled) {
-        debugLog("[debug/game/scene-analysis:connection] final result:\n%s", JSON.stringify(parsed, null, 2));
+        debugLog("[debug/game/scene-analysis:connection] final result:\n%s", debugJson(parsed));
       }
 
       return { result: parsed };
@@ -14455,11 +14866,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           ? readTrimmedString(meta.gameSceneConnectionId) ||
             readTrimmedString((meta.gameSetupConfig as Record<string, unknown> | null)?.sceneConnectionId)
           : null);
-      const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-        connections,
-        sceneConnId,
-        chat.connectionId,
-      );
+      const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(connections, sceneConnId, chat);
       const includeChatParameters = inheritsChatGenerationParameters({
         requestedConnectionId: sceneConnId,
         resolvedConnectionId: conn.id,
@@ -14485,6 +14892,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           .catch(() => null));
       const charStore = createCharactersStorage(app.db);
       const storyboardCharacterContext = await buildStoryboardCharacterContext({
+        db: app.db,
         characters: charStore,
         characterGallery,
         personaGallery,
@@ -14561,11 +14969,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           useNovelAiCharacterPrompts,
           providerSupportsStructuredCharacterPrompts,
         );
-        debugLog(
-          "[debug/%s/storyboard-planner] messages:\n%s",
-          ownerMode,
-          JSON.stringify(illustratorMessages.messages, null, 2),
-        );
+        debugLog("[debug/%s/storyboard-planner] messages:\n%s", ownerMode, debugJson(illustratorMessages.messages));
       }
 
       let illustratorErrorMessage: string | null = null;
@@ -14943,7 +15347,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
               "[debug/game/storyboard-image-assets] frame=%d nativeCharacterPrompts=%d prompts:\n%s",
               frame.index + 1,
               characterPrompts.length,
-              JSON.stringify(characterPrompts, null, 2),
+              debugJson(characterPrompts),
             );
           }
         }
@@ -15024,7 +15428,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
             try {
               const galleryImagePath = resolveGalleryImagePath(galleryImage);
               if (!galleryImagePath) throw new Error("Storyboard keyframe image file could not be found.");
-              const referenceImage = readOmniReferenceImage(
+              const referenceImage = await readOmniReferenceImage(
                 galleryImagePath,
                 sourceGalleryImagePathForMetadata(galleryImage),
               );
@@ -15059,7 +15463,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
                       "[debug/%s/storyboard-animation-refinement] frame=%d messages:\n%s",
                       ownerMode,
                       frame.index + 1,
-                      JSON.stringify(redactStoryboardAnimationRefinementMessages(refinementMessages), null, 2),
+                      debugJson(redactStoryboardAnimationRefinementMessages(refinementMessages)),
                     );
                   }
                   const refinementResult = await runGameChatComplete(
@@ -15430,7 +15834,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
       try {
         sourceIllustrationPath = sourceGalleryImagePathForMetadata(galleryImage);
-        referenceImage = readOmniReferenceImage(galleryImagePath, sourceIllustrationPath);
+        referenceImage = await readOmniReferenceImage(galleryImagePath, sourceIllustrationPath);
       } catch (err) {
         const message = err instanceof Error ? err.message : "The selected gallery illustration cannot be used.";
         return reply.status(400).send({ error: message });
@@ -15451,7 +15855,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
       try {
         sourceIllustrationPath = sourceIllustrationPathForMetadata(sourceIllustrationAssetPath);
-        referenceImage = readOmniReferenceImage(sourceIllustrationAssetPath, sourceIllustrationPath);
+        referenceImage = await readOmniReferenceImage(sourceIllustrationAssetPath, sourceIllustrationPath);
       } catch (err) {
         const message = err instanceof Error ? err.message : "The current scene illustration cannot be used.";
         return reply.status(400).send({ error: message });
@@ -15776,7 +16180,19 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         const charStore = createCharactersStorage(app.db);
         const allChars = await charStore.list();
         const illustrationCharacterAssets = emptyIllustrationCharacterAssetMaps();
-        await addCharacterRowsIllustrationAssets(illustrationCharacterAssets, allChars, characterGallery);
+        const resolveAppearance = createIllustrationAppearanceResolver({
+          db: app.db,
+          chat,
+          meta,
+          setupConfig: setupCfg,
+          worldState: latestImageState,
+        });
+        await addCharacterRowsIllustrationAssets(
+          illustrationCharacterAssets,
+          allChars,
+          characterGallery,
+          resolveAppearance,
+        );
         // #7053: the preview route previews the same prompt the real route sends,
         // so it must resolve the persona identically or the preview understates
         // the appearance a frame will actually carry.
@@ -15786,6 +16202,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           personaGallery,
           chat,
           setupConfig: setupCfg,
+          resolveAppearance,
         });
         const { charReferenceByName, charReferenceSourceByName, charAvatarByName, charDescriptionByName } =
           illustrationCharacterAssets;
@@ -16023,22 +16440,18 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       if (debugLogsEnabled) {
         debugLog(
           "[debug/game/generate-assets] request payload:\n%s",
-          JSON.stringify(
-            {
-              chatId: input.chatId,
-              backgroundTag: input.backgroundTag ?? null,
-              backgroundDescriptionChars: input.backgroundDescription?.length ?? 0,
-              forceBackground: input.forceBackground === true,
-              npcsNeedingAvatars: input.npcsNeedingAvatars ?? [],
-              illustration: input.illustration ?? null,
-              illustrationNarrationChars: input.illustrationNarration?.length ?? 0,
-              useAvatarReferences: input.useAvatarReferences ?? null,
-              includeCharacterAppearance: input.includeCharacterAppearance ?? null,
-              queueImageGenerationRequests: input.queueImageGenerationRequests,
-            },
-            null,
-            2,
-          ),
+          debugJson({
+            chatId: input.chatId,
+            backgroundTag: input.backgroundTag ?? null,
+            backgroundDescriptionChars: input.backgroundDescription?.length ?? 0,
+            forceBackground: input.forceBackground === true,
+            npcsNeedingAvatars: input.npcsNeedingAvatars ?? [],
+            illustration: input.illustration ?? null,
+            illustrationNarrationChars: input.illustrationNarration?.length ?? 0,
+            useAvatarReferences: input.useAvatarReferences ?? null,
+            includeCharacterAppearance: input.includeCharacterAppearance ?? null,
+            queueImageGenerationRequests: input.queueImageGenerationRequests,
+          }),
         );
       }
 
@@ -16209,7 +16622,19 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           const charStore = createCharactersStorage(app.db);
           const allChars = await charStore.list();
           const illustrationCharacterAssets = emptyIllustrationCharacterAssetMaps();
-          await addCharacterRowsIllustrationAssets(illustrationCharacterAssets, allChars, characterGallery);
+          const resolveAppearance = createIllustrationAppearanceResolver({
+            db: app.db,
+            chat,
+            meta,
+            setupConfig: setupCfg,
+            worldState: latestImageState,
+          });
+          await addCharacterRowsIllustrationAssets(
+            illustrationCharacterAssets,
+            allChars,
+            characterGallery,
+            resolveAppearance,
+          );
           // #7053: the chat persona is a visible participant like any character,
           // but only character rows were loaded here, so the persona never reached
           // `charDescriptionByName` and produced no appearance line at all.
@@ -16219,6 +16644,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
             personaGallery,
             chat,
             setupConfig: setupCfg,
+            resolveAppearance,
           });
           const { charReferenceByName, charReferenceSourceByName, charAvatarByName, charDescriptionByName } =
             illustrationCharacterAssets;

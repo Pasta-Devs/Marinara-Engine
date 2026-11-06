@@ -1,12 +1,14 @@
 // ──────────────────────────────────────────────
 // Shared on-disk image thumbnailer (backgrounds, gallery + game asset images)
 // ──────────────────────────────────────────────
-import { existsSync, mkdirSync, renameSync, statSync, unlinkSync } from "fs";
+import { existsSync, lstatSync, mkdirSync, renameSync, statSync, unlinkSync } from "fs";
 import { open, writeFile } from "fs/promises";
 import { createHash, randomUUID } from "crypto";
 import { extname, join } from "path";
+import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { logger } from "../../lib/logger.js";
+import { logRateLimited } from "../../lib/log-rate-limit.js";
 import { getSharp } from "./sharp-runtime.js";
 import { BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH } from "@marinara-engine/shared";
 
@@ -45,13 +47,30 @@ export function parseThumbnailWidth(value: unknown): number | null {
 export async function resolveThumbPath(filePath: string, width: number): Promise<string | null> {
   if (!THUMB_WIDTHS.has(width) || !THUMBABLE_EXTS.has(extname(filePath).toLowerCase())) return null;
 
+  // Professor Mari's shell can make links in the data dir when it sits in her workspace, so the cache is held to its
+  // real folder. While that folder is refused, every preview request serves the original, so this logs once a minute.
+  let thumbDir: string;
+  try {
+    thumbDir = realPathInAppFolder(THUMB_DIR, THUMB_DIR);
+  } catch (error) {
+    logRateLimited(
+      "warn",
+      "image-thumbnail:cache-folder",
+      error,
+      "Serving original images: the preview folder %s leads out of its place in the data folder or cannot be resolved",
+      THUMB_DIR,
+    );
+    return null;
+  }
+
   try {
     // Inside the try: the source can vanish between the caller's existsSync and this stat.
     const key = createHash("sha1").update(filePath).digest("hex").slice(0, 16);
     const source = statSync(filePath);
+    // Only a plain file at the name is a cache hit: a link there is replaced by the new preview, never served.
     // v3 also invalidates width-only previews that left portrait/tall images too large.
-    const thumbPath = join(THUMB_DIR, `v3-${width}-${source.mtimeMs}-${key}.webp`);
-    if (existsSync(thumbPath)) return thumbPath;
+    const thumbPath = join(thumbDir, `v3-${width}-${source.mtimeMs}-${key}.webp`);
+    if (lstatSync(thumbPath, { throwIfNoEntry: false })?.isFile()) return thumbPath;
 
     const sharp = await getSharp();
     const image = sharp(filePath);
@@ -90,15 +109,15 @@ export async function resolveThumbPath(filePath: string, width: number): Promise
       .resize({ width, height: width, fit: "inside", withoutEnlargement: true })
       .webp({ quality: 72 })
       .toBuffer();
-    if (!existsSync(THUMB_DIR)) mkdirSync(THUMB_DIR, { recursive: true });
+    mkdirSync(thumbDir, { recursive: true });
     const temporaryPath = `${thumbPath}.${process.pid}.${randomUUID()}.tmp`;
     try {
-      await writeFile(temporaryPath, buffer);
+      await writeFile(temporaryPath, buffer, { flag: "wx" });
       try {
         renameSync(temporaryPath, thumbPath);
       } catch (error) {
         // On Windows, a concurrent winner may make rename fail because the target now exists.
-        if (!existsSync(thumbPath)) throw error;
+        if (!lstatSync(thumbPath, { throwIfNoEntry: false })?.isFile()) throw error;
       }
     } finally {
       if (existsSync(temporaryPath)) unlinkSync(temporaryPath);

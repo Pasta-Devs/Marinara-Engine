@@ -135,7 +135,7 @@ export async function gameWorldsRoutes(app: FastifyInstance) {
     const body = z
       .object({
         name: nameSchema,
-        kit: z.unknown(),
+        kit: z.unknown().optional(),
         seed: z.number().int().min(0).max(0xffffffff).optional(),
         grounding: z.enum(WORLD_GROUNDINGS).optional(),
       })

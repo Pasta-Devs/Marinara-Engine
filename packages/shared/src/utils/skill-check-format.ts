@@ -166,8 +166,8 @@ export interface SkillCheckTagExtras {
   /** `reroll="rote"` — the standing re-throw the check applied, or the ask for one. */
   reroll?: string;
   /** `reason="untrained"` — the Engine did not roll the check, because the character cannot attempt
-   *  it untrained. Only ever on an ask. */
-  reason?: "untrained";
+   *  it untrained; `reason="unknown-roller"`, because it picks out no one party member. Only ever on an ask. */
+  reason?: "untrained" | "unknown-roller";
   /** `effects="-1"` — what the character's conditions and worn or carried items added or took. */
   effects?: number;
   /** `from="Poisoned; Leather coat"` — the conditions and items that changed the check. */
@@ -205,6 +205,8 @@ export interface SkillCheckTagExtras {
   symbolFaces?: string[][];
   criticalSuccess?: boolean;
   criticalFailure?: boolean;
+  /** `for="climb"` (1.752): what the check was made for, which a change narrowed to it read. */
+  for?: string;
 }
 
 /** A name in `from=`: no brackets, which would end the tag, and no semicolons, which part the names. */
@@ -294,6 +296,7 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
     if (extras.darkLabel) parts.push(`darkLabel="${serializeSkillCheckAttribute(extras.darkLabel)}"`);
     if (extras.darkHighest) parts.push(`darkHighest="true"`);
   }
+  if (extras.for) parts.push(`for="${serializeSkillCheckAttribute(extras.for)}"`);
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
@@ -329,6 +332,7 @@ export function serializeResolvedSkillCheckTag(result: SkillCheckResult, extras?
     ...(result.threshold != null ? { threshold: result.threshold } : {}),
     ...(result.who ? { who: result.who } : {}),
     ...(result.withAbility ? { with: result.withAbility } : {}),
+    ...(result.purpose ? { for: result.purpose } : {}),
     ...(result.bonusDice ? { bonus: result.bonusDice } : {}),
     ...(result.spent ? { spend: `${result.spent.pool}:${result.spent.amount}` } : {}),
     ...(result.autoSuccesses ? { auto: result.autoSuccesses } : {}),

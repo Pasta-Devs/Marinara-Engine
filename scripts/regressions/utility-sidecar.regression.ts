@@ -256,6 +256,86 @@ assert.ok(mainSidecarBefore.includes("operators-own-model"), "fixture must finge
   assert.equal(existsSync(UTILITY_DIR), true, "the utility directory itself must still exist");
 }
 
+// ── a short runtime test must answer rather than spend its budget thinking ─────
+{
+  const { sidecarModelService } = await import("../../packages/server/src/services/sidecar/sidecar-model.service.js");
+  const { sidecarProcessService } =
+    await import("../../packages/server/src/services/sidecar/sidecar-process.service.js");
+  const { runTestMessage } = await import("../../packages/server/src/services/sidecar/sidecar-inference.service.js");
+  const originals = {
+    fetch: globalThis.fetch,
+    getConfig: sidecarModelService.getConfig,
+    getConfiguredModelRef: sidecarModelService.getConfiguredModelRef,
+    getResolvedBackend: sidecarModelService.getResolvedBackend,
+    ensureReady: sidecarProcessService.ensureReady,
+    stop: sidecarProcessService.stop,
+  };
+  let backend: "mlx" | "llama_cpp" = "mlx";
+  let stops = 0;
+  try {
+    sidecarModelService.getConfig = () => ({
+      ...originals.getConfig.call(sidecarModelService),
+      useForTrackers: false,
+      useForGameScene: false,
+    });
+    sidecarModelService.getConfiguredModelRef = () => "fixture-model";
+    sidecarModelService.getResolvedBackend = () => backend;
+    sidecarProcessService.ensureReady = async (options) => {
+      assert.deepEqual(options, { forceStart: true });
+      return "http://127.0.0.1:12345";
+    };
+    sidecarProcessService.stop = async () => {
+      stops += 1;
+    };
+    globalThis.fetch = async (url, init) => {
+      assert.equal(url, "http://127.0.0.1:12345/v1/chat/completions");
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      assert.equal(body.max_tokens, 48, "the smoke test must keep its short output budget");
+      if (backend === "mlx") {
+        assert.equal("reasoning_format" in body, false, "MLX does not implement llama.cpp's reasoning format");
+      } else {
+        assert.equal(body.reasoning_format, "none", "the existing llama.cpp request must be preserved");
+      }
+      const user = (body.messages as Array<{ role: string; content: string }>).find(
+        (message) => message.role === "user",
+      );
+      const nonce = user?.content.match(/TOKEN (marinara-[0-9a-f]{8})/u)?.[1];
+      assert.ok(nonce, "the actual runtime test must request its fresh verification token");
+      const noThinking =
+        (body.chat_template_kwargs as { enable_thinking?: unknown } | undefined)?.enable_thinking === false;
+      // Both supported runtimes can spend all 48 tokens thinking unless this template option is sent.
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: noThinking ? `TOKEN ${nonce}\nThe local sidecar test succeeded.` : "",
+                reasoning_content: noThinking ? "" : "I should work out how to answer this request.",
+              },
+            },
+          ],
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    };
+    for (const currentBackend of ["mlx", "llama_cpp"] as const) {
+      backend = currentBackend;
+      const result = await runTestMessage();
+      assert.equal(result.nonceVerified, true, `${backend} must return the visible verification token`);
+      assert.ok(result.content.includes(result.nonce), `${backend} must answer within the existing budget`);
+      assert.equal(result.reasoning, "");
+    }
+    assert.equal(stops, 2, "each test-only runtime must still stop after its request");
+  } finally {
+    globalThis.fetch = originals.fetch;
+    sidecarModelService.getConfig = originals.getConfig;
+    sidecarModelService.getConfiguredModelRef = originals.getConfiguredModelRef;
+    sidecarModelService.getResolvedBackend = originals.getResolvedBackend;
+    sidecarProcessService.ensureReady = originals.ensureReady;
+    sidecarProcessService.stop = originals.stop;
+  }
+}
+
 // ── THE INVARIANT: the main sidecar is byte-for-byte unchanged ──────────────────
 {
   assert.equal(

@@ -138,7 +138,7 @@ export function PersonalExtensionContributionsMenu() {
       ref={menuRef}
       role="menu"
       aria-label={t("extensions.contributions.menuLabel")}
-      className="mari-chrome-token-scope fixed right-2 top-[calc(env(safe-area-inset-top)+3rem)] z-[2147482000] max-h-[70vh] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--popover)] p-2 text-[var(--popover-foreground)] shadow-2xl"
+      className="mari-chrome-token-scope fixed right-[max(0.5rem,var(--mari-safe-area-inset-right))] top-[calc(env(safe-area-inset-top)+var(--mari-topbar-height,3rem))] z-[2147482000] max-h-[70vh] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--popover)] p-2 text-[var(--popover-foreground)] shadow-2xl"
     >
       <div className="flex items-center gap-2 px-2.5 pb-2 pt-1">
         <Puzzle aria-hidden="true" className="text-[var(--primary)]" size={15} />

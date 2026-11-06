@@ -120,12 +120,15 @@ class FakeProvider extends BaseLLMProvider {
   requests: ChatMessage[][] = [];
   error: Error | null = new LLMHttpError("This model does not support image inputs", { status: 400 });
   outputBeforeError = false;
+  beforeError?: () => void;
+  failWithoutImages = false;
   constructor() {
     super("", "");
   }
   async *chat(input: ChatMessage[], _options: ChatOptions) {
     this.requests.push(input);
-    if (input.some((m) => m.images?.some((url) => urls.has(url))) && this.error) {
+    if ((this.failWithoutImages || input.some((m) => m.images?.some((url) => urls.has(url)))) && this.error) {
+      this.beforeError?.();
       if (this.outputBeforeError) yield "partial";
       throw this.error;
     }
@@ -143,6 +146,119 @@ assert.equal(fake.requests.length, 2);
 assert.equal(fake.requests[1]![1]!.images, undefined);
 assert.match(fake.requests[1]![1]!.content, /Blue coat/);
 assert.equal(notices, 1);
+const llama = new FakeProvider();
+llama.error = new LLMHttpError(
+  "Custom OpenAI-compatible endpoint error 500: image input is not supported - hint: if this is unexpected, you may need to provide the mmproj",
+  { status: 500 },
+);
+let llamaNotices = 0;
+const llamaResponse = await withLorebookImageCompatibility(llama, urls, () => llamaNotices++).chatComplete(
+  messages,
+  options,
+);
+assert.equal(llamaResponse.content, "ok", "explicit llama.cpp image-incompatibility500 retries as text");
+assert.equal(llama.requests.length, 2);
+assert.equal(llama.requests[1]![1]!.images, undefined);
+assert.match(llama.requests[1]![1]!.content, /Blue coat/);
+assert.equal(llamaNotices, 1);
+const streamLlama = new FakeProvider();
+streamLlama.error = llama.error;
+let streamLlamaNotices = 0;
+let streamLlamaText = "";
+for await (const token of withLorebookImageCompatibility(streamLlama, urls, () => streamLlamaNotices++).chat(
+  [...messages, { role: "user", content: "attachment", images: ["data:image/png;base64,dXNlcg=="] }],
+  options,
+))
+  streamLlamaText += token;
+assert.equal(streamLlamaText, "ok");
+assert.equal(streamLlama.requests.length, 2);
+assert.equal(streamLlama.requests[1]![1]!.images, undefined);
+assert.deepEqual(streamLlama.requests[1]!.at(-1)!.images, ["data:image/png;base64,dXNlcg=="]);
+assert.equal(streamLlamaNotices, 1);
+
+for (const method of ["stream", "complete"] as const) {
+  const consume = async (provider: BaseLLMProvider, input = messages, opts: ChatOptions = options) => {
+    if (method === "complete") return provider.chatComplete(input, opts);
+    for await (const _ of provider.chat(input, opts)) {
+      /* consume */
+    }
+  };
+  for (const error of [
+    new LLMHttpError("Image server failed unexpectedly", { status: 500 }),
+    new LLMHttpError("You may need to provide the mmproj", { status: 500 }),
+    ...[401, 403, 429, 503].map((status) => new LLMHttpError("image input is not supported", { status })),
+    new Error("image input is not supported"),
+  ]) {
+    const control = new FakeProvider();
+    control.error = error;
+    await assert.rejects(
+      consume(withLorebookImageCompatibility(control, urls, () => assert.fail())),
+      (actual) => actual === error,
+    );
+    assert.equal(control.requests.length, 1, `${method}: unrelated failures do not retry`);
+  }
+  const controller = new AbortController();
+  const cancelled = new FakeProvider();
+  cancelled.error = llama.error;
+  cancelled.beforeError = () => controller.abort();
+  await assert.rejects(
+    consume(
+      withLorebookImageCompatibility(cancelled, urls, () => assert.fail()),
+      messages,
+      { ...options, signal: controller.signal },
+    ),
+    (actual) => actual === llama.error,
+  );
+  assert.equal(cancelled.requests.length, 1, `${method}: cancellation prevents a compatibility retry`);
+  const protectedImage = new FakeProvider();
+  protectedImage.error = llama.error;
+  await assert.rejects(
+    consume(withLorebookImageCompatibility(protectedImage, urls, () => assert.fail(), urls)),
+    (actual) => actual === llama.error,
+  );
+  assert.equal(protectedImage.requests.length, 1, `${method}: no removable lorebook references means no retry`);
+  const twice = new FakeProvider();
+  twice.error = llama.error;
+  twice.failWithoutImages = true;
+  let twiceNotices = 0;
+  await assert.rejects(
+    consume(withLorebookImageCompatibility(twice, urls, () => twiceNotices++)),
+    (actual) => actual === llama.error,
+  );
+  assert.equal(twice.requests.length, 2, `${method}: a failed text retry is not retried again`);
+  assert.equal(twiceNotices, 1);
+}
+const partial500 = new FakeProvider();
+partial500.error = llama.error;
+partial500.outputBeforeError = true;
+await assert.rejects(
+  async () => {
+    for await (const _ of withLorebookImageCompatibility(partial500, urls, () => assert.fail()).chat(
+      messages,
+      options,
+    )) {
+      /* consume */
+    }
+  },
+  (actual) => actual === llama.error,
+);
+assert.equal(partial500.requests.length, 1, "500 after streamed output must never replay the reply");
+const token500 = new FakeProvider();
+token500.error = llama.error;
+token500.outputBeforeError = true;
+const delivered: string[] = [];
+const partialCompletion = await withLorebookImageCompatibility(token500, urls, () => assert.fail()).chatComplete(
+  messages,
+  {
+    ...options,
+    onToken: (token) => {
+      delivered.push(token);
+    },
+  },
+);
+assert.equal(partialCompletion.content, "partial");
+assert.deepEqual(delivered, ["partial"]);
+assert.equal(token500.requests.length, 1, "nonstream completion with delivered tokens never replays the reply");
 await wrapped.chatComplete(
   [...messages, { role: "user", content: "attachment", images: ["data:image/png;base64,dXNlcg=="] }],
   options,

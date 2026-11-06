@@ -57,7 +57,9 @@ const workspaceAgentSource =
   readFileSync(
     new URL("../../packages/server/src/services/professor-mari/workspace-commands.ts", import.meta.url),
     "utf8",
-  );
+  ) +
+  // The sentinel constant lives in shared since the timeline reads it too.
+  readFileSync(new URL("../../packages/shared/src/constants/mari-runtime.ts", import.meta.url), "utf8");
 const flatAgentSource = workspaceAgentSource.replace(/\s+/gu, " ");
 
 // --- #5776: bash mari CLI dry-run sentinel ---------------------------------
@@ -517,8 +519,13 @@ assert.match(
 );
 assert.match(
   flatAgentSource,
-  /catch \(err\) \{[^]{0,400}?await this\.revertAndStageSensitiveAftermath\(sensitiveSnapshot\); throw err; \}/u,
-  "an aborted or failed spawn still reverts and stages the aftermath",
+  /catch \(err\) \{[^]{0,400}?await this\.revertAndStageSensitiveAftermath\(sensitiveSnapshot\);[^]{0,200}?throw err; \}/u,
+  "a failed spawn still reverts and stages the aftermath before it rethrows",
+);
+assert.match(
+  flatAgentSource,
+  /if \(aborted\) \{[^]{0,400}?await this\.revertAndStageSensitiveAftermath\(sensitiveSnapshot\);[^]{0,200}?throw new Error\("aborted"\); \}/u,
+  "an aborted run still reverts and stages the aftermath before it reports the abort",
 );
 assert.match(
   flatAgentSource,

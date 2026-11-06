@@ -32,7 +32,7 @@ test("Claude subscription cache duration saves and restores without enabling API
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openConnectionDetail(id);
     }, id);
-    await expect(page.getByPlaceholder("Connection name")).toHaveValue("Claude cache fixture");
+    await expect(page.getByPlaceholder("Model name", { exact: true })).toHaveValue("Claude cache fixture");
   };
   const toggle = page.getByRole("checkbox", { name: /^Extended token caching \(1 hour\)/u });
   try {
@@ -43,7 +43,7 @@ test("Claude subscription cache duration saves and restores without enabling API
       await toggle.scrollIntoViewIfNeeded();
       await toggle.press("Space");
       await expect(toggle).toBeChecked({ checked: enabled });
-      await page.getByRole("button", { name: "Export connection", exact: true }).click();
+      await page.getByRole("button", { name: "Export model", exact: true }).click();
       const download = await downloadExport(page, () =>
         page.getByRole("dialog").getByRole("button", { name: "Export", exact: true }).click(),
       );

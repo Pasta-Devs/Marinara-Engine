@@ -53,12 +53,13 @@ test("a Decision connection's time limit saves, and Test reports an answer slowe
     await expect(limit).toHaveValue("1.5");
     await expect(editor.getByText(/Answers that come later count as no\./u)).toBeVisible();
 
-    // An answer slower than the limit is reported with its real time, not as a dead endpoint.
+    // An answer slower than the limit is reported with its real time, not as a dead endpoint. #8456 renamed
+    // "Test connection" to "Test provider" and "this connection's" to "this provider's".
     await limit.fill("0.5");
     await limit.blur();
     delayMs = 1000;
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
-    await expect(editor.getByText(/over this connection's 0\.5 s time limit/u)).toBeVisible();
+    await editor.getByRole("button", { name: "Test provider", exact: true }).click();
+    await expect(editor.getByText(/over this provider's 0\.5 s time limit/u)).toBeVisible();
     await expect
       .poll(async () => (await (await request.get(`/api/connections/${id}`)).json()).decisionTimeoutMs)
       .toBe(500);
@@ -67,7 +68,7 @@ test("a Decision connection's time limit saves, and Test reports an answer slowe
       await page.screenshot({ path, animations: "disabled" });
       await testInfo.attach(name, { path, contentType: "image/png" });
     };
-    await editor.getByText(/over this connection's 0\.5 s time limit/u).scrollIntoViewIfNeeded();
+    await editor.getByText(/over this provider's 0\.5 s time limit/u).scrollIntoViewIfNeeded();
     await capture("decision-time-limit-slow");
     await limit.scrollIntoViewIfNeeded();
     await capture("decision-time-limit-field");
@@ -75,7 +76,7 @@ test("a Decision connection's time limit saves, and Test reports an answer slowe
     delayMs = 0;
     await limit.fill("2.5");
     await limit.blur();
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await editor.getByRole("button", { name: "Test provider", exact: true }).click();
     await expect(editor.getByText(/Probability of yes: 0\.800 · answered in .* \(time limit 2\.5 s\)/u)).toBeVisible();
     await page.reload();
     await open();

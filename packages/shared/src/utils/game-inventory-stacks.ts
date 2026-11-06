@@ -50,6 +50,29 @@ export interface GameInventoryStack {
   /** The charges an item holds, as a ruleset fight left them. Kept on a stack of one item only, as a
    *  loaded count is, and an item without one holds all it can. */
   charges?: number;
+  /** What a weapon has taken off its damage rolls for good (Capability API 1.551), corroded by what
+   *  it hit, as a ruleset fight left it. Kept on a stack of one item only, as charges are. */
+  corroded?: number;
+  /** The levels it has ever taken in (Capability API 1.571), a Rod of Absorption's toward its 50, as a
+   *  ruleset fight left them. Kept on a stack of one item only, as charges are. */
+  absorbedEver?: number;
+  /** Its rolled call's lasting state (Capability API 1.591): an Efreeti Bottle's kept roll (from 1),
+   *  its openings, and whether it is spent for good. Kept on a stack of one item only. */
+  callRoll?: GameInventoryCallRoll;
+  /** The form it is in (Capability API 1.575), from 1 in its item's `forms.into`; absent, as it was
+   *  made. Kept on a stack of one item only. */
+  form?: number;
+  /** What is left of each of its further uses that counts its own (Capability API 1.519), by its
+   *  place in `moreUses` from 1. Kept on a stack of one item only, as charges are; one not here is full.
+   *  Under `o` (1.624), the times it was used on with no charges left since they last came back. */
+  usesLeft?: Record<string, number>;
+  /** How long it has waited, in minutes of game time, for its charges (`"charges"`) or a use's own
+   *  uses (its `usesLeft` key) to come back `after` a wait (Capability API 1.556), and how long it
+   *  waits in all. Kept on a stack of one item only, as charges are. */
+  waits?: Record<string, GameInventoryWait>;
+  /** What is stored in it to be cast later (Capability API 1.524): a Ring of Spell Storing's spells.
+   *  Kept on a stack of one item only, as charges are. */
+  storedEntries?: GameInventoryStoredEntry[];
   /** Its switch is on (Capability API 1.170): a flame tongue's flames. Kept on a stack of one item
    *  only, as charges are; off without it. */
   on?: true;
@@ -57,7 +80,20 @@ export interface GameInventoryStack {
    *  passes for. Set only by a dishonest seller's sale, never by an op a client sends. Only the Game
    *  Master's view, curses, use, sale and a reveal read it; everything the player sees reads `item`. */
   truly?: string;
+  /** Who has looked it over (Capability API 1.802), by their names compared without case: one try
+   *  each. */
+  inspected?: string[];
+  /** Who looked it over and thinks it is a fake (Capability API 1.802), by their card's name: shown
+   *  beside it, while it is still called what it passes for. */
+  suspect?: string;
+  /** The minutes of game time left before it vanishes (Capability API 1.760), counted as the clock
+   *  moves: 5e's Creation, a day of vegetable matter. Kept on a stack of any size, all of it made
+   *  together; nothing else is ever added to it, nor it to anything else. */
+  vanishesIn?: number;
 }
+
+/** The longest a thing made to vanish lasts, in minutes of game time (1.760): ten years. */
+export const GAME_INVENTORY_VANISHES_MAX_MINUTES = 5_256_000;
 
 /** Whose bag: `holder` as a stack has it, so `{}` is the player's own. */
 export interface GameInventoryBagRef {
@@ -114,6 +150,9 @@ export interface GameInventoryRulesetItem {
   weight?: number;
   /** The slots it takes while equipped, by slot id. Without any, it cannot be equipped. */
   slots?: Readonly<Record<string, number>>;
+  /** Drawn as it is used (Capability API 1.808): one of the ruleset's `items.drawOnUse` that takes
+   *  slots. It is used while only carried, and a use puts it on (`drawGameInventoryStack`). */
+  drawOnUse?: true;
   /** It has to be bound to work; `cursed` keeps it bound. Without this, it cannot be bound. Its bearer
    *  binds it only with one item of each `needsWorn` group worn, and it comes unbound when one comes
    *  off (1.313). */
@@ -135,7 +174,9 @@ export interface GameInventoryRulesetItem {
     };
   };
   /** It has a switch (Capability API 1.170): what turning it on does, in the ruleset's words. */
-  toggle?: { label: string };
+  toggle?: { label: string; freesSlots?: true };
+  /** The forms it changes into (Capability API 1.575): what it is as made, then each form, by label. */
+  forms?: string[];
 }
 
 /** An item the Game Master proposes, as its inventory tag gives it: every part optional, each in the
@@ -189,9 +230,15 @@ export interface GameInventoryItemRules {
   slots?: ReadonlyArray<{ id: string; label: string; count: number }>;
   /** What one character can carry and bind (`holder` as a stack has it, absent for the player). */
   bearer?(holder: string | undefined): GameInventoryBearer;
+  /** What a weight is counted in ("lb"), said after one wherever it is shown (1.791). */
+  weightUnit?: string;
   /** Whose change this is. The player's own leave a bound cursed item bound and where it is; the
    *  Game Master can end a curse in the story. */
   actor?: "player" | "game-master";
+  /** Whether the Game Master's bare `[inventory: add]` of this item is refused (cheap-GM playtest
+   *  2026-10-26: a potion added from nowhere healed twice): an item a use spends, in a game whose
+   *  ruleset sells or drops its items, so it comes by a buy, a loot roll, a won fight or a give. */
+  sourcedOnly?(item: string): boolean;
   /** The item a Game Master's proposal makes (or the one of that name it made before, while any of it
    *  is held), with what the Engine changed. Absent where the ruleset has no items to invent. */
   invent?(
@@ -200,7 +247,15 @@ export interface GameInventoryItemRules {
   ): { item: string; notes: string[] } | { refused: "no-invention" | "unreadable" | "too-many" };
   /** The coin a name is (its id or label, one or many of it, any case), with every coin of its family,
    *  largest first. Absent where the ruleset has no currencies. */
-  coinNamed?(name: string): { coin: GameInventoryCoin; family: readonly GameInventoryCoin[] } | undefined;
+  coinNamed?(name: string):
+    | {
+        coin: GameInventoryCoin;
+        family: readonly GameInventoryCoin[];
+        /** The coins of the family some price is written in, which change comes back in where they
+         *  make it. Absent when every coin of it is, or none. */
+        usual?: readonly string[];
+      }
+    | undefined;
 }
 
 /** The most new stacks one change may start, so a small stack size can never flood a bag. */
@@ -209,6 +264,40 @@ export const GAME_INVENTORY_MAX_NEW_STACKS = 50;
 /** The one spelling two names are compared by: trimmed, single-spaced, any case. */
 export function gameInventoryNameKey(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/** Words a loose name drops: "Potion of Healing" is a "Healing Potion". */
+const LOOSE_NAME_SKIPPED = new Set(["a", "an", "the", "of"]);
+
+/** One of a word: "crossbows", "torches", "berries" are a crossbow, a torch, a berry. A last "e"
+ *  goes too, so "axes" (an axe or an ax) and "axe" are one word. */
+function oneOf(word: string): string {
+  const one =
+    word.length <= 3
+      ? word
+      : word.endsWith("ies")
+        ? `${word.slice(0, -3)}y`
+        : /(?:ches|shes|xes|sses|zes)$/.test(word)
+          ? word.slice(0, -2)
+          : word.endsWith("s") && !word.endsWith("ss") && !word.endsWith("us")
+            ? word.slice(0, -1)
+            : word;
+  return one.length > 2 && one.endsWith("e") ? one.slice(0, -1) : one;
+}
+
+/** A name's words in any order, each as one of it ("Crossbow, heavy" and "Heavy Crossbows"): what a
+ *  name is matched by when nothing has it as written (laptop playtest 2026-10-25). */
+export function gameInventoryLooseNameKey(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      // A hyphen and an apostrophe keep a word whole: "hand-axe" is an id, not the Hand axe.
+      .split(/[^\p{L}\p{N}'-]+/u)
+      .filter((word) => word.length > 0 && !LOOSE_NAME_SKIPPED.has(word))
+      .map(oneOf)
+      .sort()
+      .join(" ")
+  );
 }
 
 function cleanName(name: string): string {
@@ -357,10 +446,22 @@ function makeStack(stack: {
   bound?: boolean;
   loaded?: number;
   charges?: number;
+  corroded?: number;
+  absorbedEver?: number;
+  callRoll?: GameInventoryCallRoll;
+  form?: number;
+  usesLeft?: Record<string, number>;
+  waits?: Record<string, GameInventoryWait>;
+  storedEntries?: GameInventoryStoredEntry[];
   on?: boolean;
   truly?: string;
+  inspected?: string[];
+  suspect?: string;
+  vanishesIn?: number;
 }): GameInventoryStack {
-  const { id, name, nickname, item, quantity, holder, equipped, bound, loaded, charges, on, truly } = stack;
+  const { id, name, nickname, item, quantity, holder, equipped, bound, loaded, charges, usesLeft, on, truly } = stack;
+  const { corroded, absorbedEver, callRoll, form, waits, vanishesIn, inspected, suspect } = stack;
+  const { storedEntries } = stack;
   const named = nickname && gameInventoryNameKey(nickname) !== gameInventoryNameKey(name) ? { nickname } : {};
   return {
     id,
@@ -373,9 +474,46 @@ function makeStack(stack: {
     ...(bound ? { bound: true as const } : {}),
     ...(loaded !== undefined && quantity === 1 ? { loaded } : {}),
     ...(charges !== undefined && quantity === 1 ? { charges } : {}),
+    ...(corroded && quantity === 1 ? { corroded } : {}),
+    ...(absorbedEver && quantity === 1 ? { absorbedEver } : {}),
+    ...(callRoll && quantity === 1 ? { callRoll } : {}),
+    ...(form && quantity === 1 ? { form } : {}),
+    ...(usesLeft && Object.keys(usesLeft).length > 0 && quantity === 1 ? { usesLeft } : {}),
+    ...(waits && Object.keys(waits).length > 0 && quantity === 1 ? { waits } : {}),
+    ...(storedEntries && quantity === 1 ? { storedEntries } : {}),
     ...(on && quantity === 1 ? { on: true as const } : {}),
     ...(truly && item && truly !== item ? { truly } : {}),
+    ...(inspected?.length ? { inspected: inspected.slice(0, INSPECTED_MAX) } : {}),
+    ...(suspect ? { suspect } : {}),
+    ...(vanishesIn !== undefined && vanishesIn >= 1 ? { vanishesIn } : {}),
   };
+}
+
+/** The most inspectors one stack remembers (1.802): a party's worth. */
+const INSPECTED_MAX = 12;
+
+/**
+ * A stack once somebody has looked it over (Capability API 1.802): `by`, their name, among those who
+ * have tried (`tried`; a spell cast on it is no try), and the one who thinks it a fake when they do
+ * (`suspect`). Unchanged for any other stack.
+ */
+export function markGameInventoryInspected(
+  stacks: GameInventoryStack[],
+  id: string,
+  by: string,
+  found: { tried: boolean; suspect: boolean },
+): GameInventoryStack[] {
+  const key = gameInventoryNameKey(by);
+  return stacks.map((stack) => {
+    if (stack.id !== id) return stack;
+    const inspected =
+      found.tried && !stack.inspected?.includes(key) ? [...(stack.inspected ?? []), key] : stack.inspected;
+    return makeStack({
+      ...stack,
+      ...(inspected ? { inspected } : {}),
+      ...(found.suspect ? { suspect: cleanName(by).slice(0, GAME_INVENTORY_HOLDER_MAX_LENGTH) } : {}),
+    });
+  });
 }
 
 /** Whether a stack is worn or bound: one item, kept apart from the rest of its kind. */
@@ -421,6 +559,106 @@ export function newGameInventoryStackId(stacks: readonly { id?: string }[]): str
   }
 }
 
+/** An entry stored in an item (Capability API 1.524): which (`<catalog>/<entry>`), the level it was
+ *  paid at, and its caster's save difficulty and attack, which whoever casts it from the item uses. */
+export interface GameInventoryStoredEntry {
+  entry: string;
+  /** Its name as it was stored. */
+  label?: string;
+  level: number;
+  saveDifficulty?: number;
+  toHit?: number;
+}
+
+/** What a stack stores (1.524) as stored: up to 20 entries, each naming one and a whole level. */
+function readStoredEntries(raw: unknown): GameInventoryStoredEntry[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const whole = (value: unknown, min: number, max: number) =>
+    typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+  const kept = raw.slice(0, 20).flatMap((one): GameInventoryStoredEntry[] => {
+    if (!one || typeof one !== "object" || Array.isArray(one)) return [];
+    const source = one as Record<string, unknown>;
+    if (typeof source.entry !== "string" || !/^[^/\s]{1,80}\/[^/\s]{1,120}$/.test(source.entry)) return [];
+    if (!whole(source.level, 0, 40)) return [];
+    return [
+      {
+        entry: source.entry,
+        ...(typeof source.label === "string" && source.label.trim() && source.label.length <= 120
+          ? { label: source.label.trim() }
+          : {}),
+        level: source.level as number,
+        ...(whole(source.saveDifficulty, 1, 60) ? { saveDifficulty: source.saveDifficulty as number } : {}),
+        ...(whole(source.toHit, -50, 100) ? { toHit: source.toHit as number } : {}),
+      },
+    ];
+  });
+  // Kept empty too (1.576): an item found holding some that has been emptied stays empty.
+  return kept;
+}
+
+/** A stack's own uses left (1.519) as stored: whole counts by a further use's place, from 1. */
+/** A wait counted in game time (1.556): the minutes waited so far, and the minutes it waits in all. */
+export interface GameInventoryWait {
+  waited: number;
+  for: number;
+}
+
+const WAIT_MINUTES_MAX = 3650 * 24 * 60;
+
+function readWaits(raw: unknown): Record<string, GameInventoryWait> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const minutes = (value: unknown): value is number =>
+    typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= WAIT_MINUTES_MAX;
+  const kept = Object.entries(raw as Record<string, unknown>).flatMap(([key, value]) => {
+    if (!/^(?:charges|[1-9]|1[0-6]|h[1-4])$/.test(key) || !value || typeof value !== "object") return [];
+    const { waited, for: needs } = value as Record<string, unknown>;
+    return minutes(waited) && minutes(needs) && needs > 0 ? [[key, { waited, for: needs }] as const] : [];
+  });
+  return kept.length > 0 ? Object.fromEntries(kept) : undefined;
+}
+
+/** An item's rolled call kept over its existence (Capability API 1.591). */
+export interface GameInventoryCallRoll {
+  kept?: number;
+  ever?: number;
+  spent?: true;
+  /** Rounds the creature it called still stays past the fight (1.612), before a wait from its
+   *  departure starts. */
+  outRounds?: number;
+}
+
+function readCallRoll(raw: unknown): GameInventoryCallRoll | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const source = raw as Record<string, unknown>;
+  const count = (value: unknown, most: number) =>
+    typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= most ? value : undefined;
+  const kept = count(source.kept, 8);
+  const ever = count(source.ever, 1000);
+  const outRounds = count(source.outRounds, 1_000_000);
+  const read: GameInventoryCallRoll = {
+    ...(kept !== undefined ? { kept } : {}),
+    ...(ever !== undefined ? { ever } : {}),
+    ...(outRounds !== undefined ? { outRounds } : {}),
+    ...(source.spent === true ? { spent: true as const } : {}),
+  };
+  return Object.keys(read).length > 0 ? read : undefined;
+}
+
+function readUsesLeft(raw: unknown): Record<string, number> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const kept = Object.entries(raw as Record<string, unknown>).filter(
+    (entry): entry is [string, number] =>
+      // A further use's place from 1, or a hit's spend's after "h" (1.534), or "o" for the times it
+      // was used on with no charges left (1.624).
+      /^(?:[1-9]|1[0-6]|h[1-4]|o)$/.test(entry[0]) &&
+      typeof entry[1] === "number" &&
+      Number.isInteger(entry[1]) &&
+      entry[1] >= 0 &&
+      entry[1] <= 100,
+  );
+  return kept.length > 0 ? Object.fromEntries(kept) : undefined;
+}
+
 /**
  * Stacks as they are stored, read tolerantly. An entry with no name is dropped, and a quantity that
  * is missing, broken or below one reads as one, as it always has. A nickname that is the item's own
@@ -452,6 +690,15 @@ export function normalizeGameInventoryStacks(raw: unknown): GameInventoryStack[]
         nickname,
         item: readItemRef(source.item),
         truly: readItemRef(source.truly),
+        inspected: Array.isArray(source.inspected)
+          ? source.inspected
+              .filter((each): each is string => typeof each === "string" && each.trim().length > 0)
+              .map((each) => gameInventoryNameKey(each).slice(0, GAME_INVENTORY_HOLDER_MAX_LENGTH))
+          : undefined,
+        suspect:
+          typeof source.suspect === "string"
+            ? cleanName(source.suspect).slice(0, GAME_INVENTORY_HOLDER_MAX_LENGTH) || undefined
+            : undefined,
         // Worn and bound are one item each, so a stack saved with more is read as a plain stack.
         equipped: source.equipped === true && quantity === 1,
         bound: source.bound === true && quantity === 1,
@@ -463,7 +710,27 @@ export function normalizeGameInventoryStacks(raw: unknown): GameInventoryStack[]
           typeof source.charges === "number" && Number.isInteger(source.charges) && source.charges >= 0
             ? Math.min(GAME_INVENTORY_MAX_QUANTITY, source.charges)
             : undefined,
+        corroded:
+          typeof source.corroded === "number" && Number.isInteger(source.corroded) && source.corroded > 0
+            ? Math.min(100, source.corroded)
+            : undefined,
+        absorbedEver:
+          typeof source.absorbedEver === "number" && Number.isInteger(source.absorbedEver) && source.absorbedEver > 0
+            ? Math.min(1000, source.absorbedEver)
+            : undefined,
+        callRoll: readCallRoll(source.callRoll),
+        form:
+          typeof source.form === "number" && Number.isInteger(source.form) && source.form > 0 && source.form <= 8
+            ? source.form
+            : undefined,
+        usesLeft: readUsesLeft(source.usesLeft),
+        waits: readWaits(source.waits),
+        storedEntries: readStoredEntries(source.storedEntries),
         on: source.on === true && quantity === 1,
+        vanishesIn:
+          typeof source.vanishesIn === "number" && Number.isInteger(source.vanishesIn) && source.vanishesIn >= 1
+            ? Math.min(GAME_INVENTORY_VANISHES_MAX_MINUTES, source.vanishesIn)
+            : undefined,
         quantity,
         stored,
         holder: cleanGameInventoryHolder(source.holder),
@@ -539,7 +806,21 @@ export function revealGameInventoryFake(
 ): GameInventoryStack[] {
   return stacks.map((stack) => {
     if (stack.id !== id || !stack.truly) return stack;
-    const { truly, loaded: _loaded, charges: _charges, on: _on, ...rest } = stack;
+    const {
+      truly,
+      loaded: _loaded,
+      charges: _charges,
+      corroded: _corroded,
+      absorbedEver: _absorbedEver,
+      callRoll: _callRoll,
+      form: _form,
+      usesLeft: _usesLeft,
+      waits: _waits,
+      storedEntries: _stored,
+      on: _on,
+      suspect: _suspect,
+      ...rest
+    } = stack;
     return makeStack({ ...rest, item: truly, name: rules?.itemOf(truly)?.name ?? rest.name });
   });
 }
@@ -580,6 +861,8 @@ export interface GameInventoryTotal {
   item?: string;
   /** A fake's true item (`GameInventoryStack.truly`): for the Game Master's view only. */
   truly?: string;
+  /** Who thinks it is a fake (1.802). */
+  suspect?: string;
   /** How many of it are worn, and how many bound, when any are. */
   equipped?: number;
   bound?: number;
@@ -612,6 +895,7 @@ export function gameInventoryTotals(
           ...(stack.truly && !asSeen ? { truly: stack.truly } : {}),
         })
         .get(item)!;
+    if (stack.suspect && !line.suspect) line.suspect = stack.suspect;
     line.quantity += stack.quantity;
     if (stack.equipped) line.equipped = (line.equipped ?? 0) + stack.quantity;
     if (stack.bound) line.bound = (line.bound ?? 0) + stack.quantity;
@@ -692,6 +976,22 @@ export function gameInventoryFightEffects<T extends { name: string }>(
   ];
 }
 
+/** The stacks with one party member's own bag folded into the player's (none of theirs keeps a
+ *  holder): the first character card of a game with no persona, which plays as the player, so what
+ *  was put in its own name and what is in the player's bag are one bag. Unchanged without one. */
+export function gameInventoryFoldStandIn(
+  stacks: readonly GameInventoryStack[],
+  standIn: string | undefined,
+): GameInventoryStack[] {
+  const key = standIn ? gameInventoryBagKey(standIn) : "";
+  if (!key || !stacks.some((stack) => stack.holder && gameInventoryBagKey(stack.holder) === key)) return [...stacks];
+  return stacks.map((stack): GameInventoryStack => {
+    if (!stack.holder || gameInventoryBagKey(stack.holder) !== key) return stack;
+    const { holder: _holder, ...rest } = stack;
+    return rest;
+  });
+}
+
 /** Each bag's own totals, the player's first and then in the order a holder first appears. Only bags
  *  that hold something are listed. */
 export function gameInventoryBags(
@@ -733,7 +1033,7 @@ export function gameInventoryCount(
  */
 function addLike(
   stacks: GameInventoryStack[],
-  like: { name: string; nickname?: string; item?: string; truly?: string },
+  like: { name: string; nickname?: string; item?: string; truly?: string; vanishesIn?: number },
   amount: number,
   holder: string | undefined,
   makeId: () => string,
@@ -747,8 +1047,9 @@ function addLike(
   const next = stacks.map((stack) => {
     if (gameInventoryStackKind(stack) !== kind || !inBag(stack, bag)) return stack;
     first ??= stack;
-    // A worn stack, or one switched on (one item only), takes nothing more.
-    if (gameInventoryStackWorn(stack) || stack.on) return stack;
+    // A worn stack, or one switched on (one item only), takes nothing more; nor does what is to vanish,
+    // or anything onto what is not (1.760): each lasts as long as it was made to.
+    if (gameInventoryStackWorn(stack) || stack.on || stack.vanishesIn || like.vanishesIn) return stack;
     const topUp = Math.min(Math.max(0, limit - stack.quantity), left);
     if (topUp < 1) return stack;
     left -= topUp;
@@ -770,6 +1071,7 @@ function addLike(
         truly: like.truly,
         quantity,
         holder,
+        vanishesIn: like.vanishesIn,
       }),
     );
   }
@@ -978,7 +1280,11 @@ export function giveGameInventoryStack(
     amount === source.quantity
       ? stacks.filter((stack) => stack.id !== id)
       : stacks.map((stack) => (stack.id === id ? { ...stack, quantity: stack.quantity - amount } : stack));
-  const existing = rest.find((stack) => gameInventoryStackKind(stack) === kind && inBag(stack, receiver));
+  // What is to vanish (1.760) joins nothing, and nothing joins it.
+  const existing = rest.find(
+    (stack) =>
+      gameInventoryStackKind(stack) === kind && inBag(stack, receiver) && !stack.vanishesIn && !source.vanishesIn,
+  );
   // A whole stack given to somebody with none of it keeps its id, so a selection follows it. Whoever
   // receives it is not wearing it and has not bound it.
   if (!existing && amount === source.quantity) {
@@ -1057,6 +1363,8 @@ export function placeGameInventoryAddition(
   amount: number,
   destination: GameInventoryDestination,
   rules?: GameInventoryItemRules,
+  /** Into one bag, all of it, past its bearer's limit. */
+  options?: { pastLimit?: boolean },
 ): { shares: Array<{ holder?: string; count: number }>; left: number } {
   // Each bag once, however often it is named: a bag asked twice would have its room counted twice.
   const seen = new Set<string>();
@@ -1083,7 +1391,7 @@ export function placeGameInventoryAddition(
     };
   });
   if (!("among" in destination)) {
-    const count = Math.min(amount, bearers[0]!.most);
+    const count = options?.pastLimit ? amount : Math.min(amount, bearers[0]!.most);
     return { shares: count > 0 ? [{ holder: candidates[0], count }] : [], left: amount - count };
   }
   let left = amount;
@@ -1125,13 +1433,14 @@ export function placeGameInventoryAddition(
  */
 export function addGameInventoryPlaced(
   stacks: GameInventoryStack[],
-  like: { name: string; item?: string; truly?: string },
+  like: { name: string; item?: string; truly?: string; vanishesIn?: number },
   amount: number,
   destination: GameInventoryDestination,
   newId?: () => string,
   rules?: GameInventoryItemRules,
+  options?: { pastLimit?: boolean },
 ): { stacks: GameInventoryStack[]; shares: GameInventoryShare[]; left: number } | null {
-  const placed = placeGameInventoryAddition(stacks, like, amount, destination, rules);
+  const placed = placeGameInventoryAddition(stacks, like, amount, destination, rules, options);
   const makeId = newId ?? (() => newGameInventoryStackId(current));
   let current = stacks;
   const shares: GameInventoryShare[] = [];
@@ -1161,7 +1470,10 @@ export function gameInventorySlotsUsed(
   const bag = { holder };
   for (const stack of stacks) {
     if (!stack.equipped || !inBag(stack, bag) || !stack.item) continue;
-    for (const [slot, count] of Object.entries(rules?.itemOf(stack.item)?.slots ?? {})) {
+    const known = rules?.itemOf(stack.item);
+    // Switched on to hover (1.706): an Animated Shield leaves its hand free.
+    if (stack.on && known?.toggle?.freesSlots) continue;
+    for (const [slot, count] of Object.entries(known?.slots ?? {})) {
       used[slot] = (used[slot] ?? 0) + count * stack.quantity;
     }
   }
@@ -1206,6 +1518,18 @@ export function gameInventoryBearerStatus(
     ...(bearer.bindingMax !== undefined ? { bindingMax: bearer.bindingMax } : {}),
     slots: (rules?.slots ?? []).map((slot) => ({ ...slot, used: used[slot.id] ?? 0 })),
   };
+}
+
+/** Whether a bearer carries more than the most they can (only Free edit's starting gear puts them there). */
+export function gameInventoryOverLimit(status: Pick<GameInventoryBearerStatus, "load" | "limit">): boolean {
+  return status.limit !== undefined && status.load > status.limit + LOAD_SLACK;
+}
+
+/** A weight as it is shown: at most two decimals (a quarter of a pound), and what the ruleset counts
+ *  weights in after it where it says (1.791). */
+export function gameInventoryWeightText(value: number, unit?: string): string {
+  const shown = String(Math.round(value * 100) / 100);
+  return unit ? `${shown} ${unit}` : shown;
 }
 
 /** Putting an item on or taking it off, binding or unbinding it. */
@@ -1304,12 +1628,18 @@ export function gameInventoryOverloads(
 }
 
 /** What a ruleset's item asks of a stack before it may be used: worn where it takes slots, bound
- *  where it binds. The one rule the Use button, the fight menu and a fight's spends all read. */
-export function gameInventoryWearNeeds(item: { slots?: Readonly<Record<string, number>>; binds?: unknown }): {
+ *  where it binds. The one rule the Use button, the fight menu and a fight's spends all read. An item
+ *  drawn as it is used (1.808) is used while only carried, and the use puts it on; it is still bound
+ *  where it binds (laptop v3 2026-10-26: a carried Longbow was never offered as an attack). */
+export function gameInventoryWearNeeds(item: {
+  slots?: Readonly<Record<string, number>>;
+  binds?: unknown;
+  drawOnUse?: boolean;
+}): {
   equipped?: true;
   bound?: true;
 } {
-  const takesSlots = Object.values(item.slots ?? {}).some((count) => count > 0);
+  const takesSlots = !item.drawOnUse && Object.values(item.slots ?? {}).some((count) => count > 0);
   return { ...(takesSlots ? { equipped: true as const } : {}), ...(item.binds ? { bound: true as const } : {}) };
 }
 
@@ -1329,7 +1659,8 @@ function bindingNeedsMet(
       if (other === stack || !other.item || !group.anyOf.includes(other.item)) return false;
       if (gameInventoryBagKey(other.holder) !== bag) return false;
       const item = rules?.itemOf(other.item);
-      const wears = item ? gameInventoryWearNeeds(item) : {};
+      // Worn as it is, never as it may be drawn (1.808): a belt is needed on, not carried.
+      const wears = item ? gameInventoryWearNeeds({ slots: item.slots, binds: item.binds }) : {};
       return (wears.equipped || wears.bound) === true && gameInventoryWearMet(other, wears);
     }),
   );
@@ -1369,6 +1700,189 @@ export function gameInventoryUsableStack(
 ): boolean {
   const read = stack.item ? rules?.itemOf(stack.item) : undefined;
   return !read || gameInventoryWearMet(stack, gameInventoryWearNeeds(read));
+}
+
+/** One thing a character holds, as drawing an item weighs it (1.808): the slots it takes while worn
+ *  (none for one that leaves its slots free), how many of it, whether it is worn now, whether it is
+ *  drawn as it is used, and whether it may not come off (a bound cursed item). */
+export interface GameInventoryDrawHeld {
+  slots?: Readonly<Record<string, number>>;
+  quantity: number;
+  worn: boolean;
+  drawOnUse: boolean;
+  kept: boolean;
+}
+
+/** What drawing one item takes (1.808): nothing for one already worn; the fewest other worn items
+ *  drawn as they are used to put away to make room, by place; or, where that cannot make room, the
+ *  places of the worn items that stand in its way and may not be put away for it (empty when the
+ *  character has too few of a slot at all). */
+export type GameInventoryDrawPlan = { stow: number[] } | { blockedBy: number[] };
+
+/**
+ * How one item (at `index` of `held`) is drawn in its holder's hands as it is used (Capability API
+ * 1.808): it takes its slots, and where they are full, the fewest other worn items that are drawn as
+ * they are used and that are not cursed onto their bearer are put away to make room. A shield, armor,
+ * or anything else that is not drawn as it is used is never taken off for it: then the plan names
+ * what stands in the way, and the use is refused. One of a stack is drawn.
+ */
+export function gameInventoryDrawPlan(
+  held: readonly GameInventoryDrawHeld[],
+  index: number,
+  slotCounts: Readonly<Record<string, number>>,
+): GameInventoryDrawPlan {
+  const own = held[index];
+  if (!own || own.worn) return { stow: [] };
+  const needs = Object.entries(own.slots ?? {}).filter(([, count]) => count > 0);
+  const used: Record<string, number> = {};
+  held.forEach((one, at) => {
+    if (!one.worn || at === index) return;
+    for (const [slot, count] of Object.entries(one.slots ?? {})) used[slot] = (used[slot] ?? 0) + count * one.quantity;
+  });
+  const short = (freed: ReadonlySet<number>) =>
+    needs.filter(([slot, count]) => {
+      let taken = used[slot] ?? 0;
+      for (const at of freed) taken -= (held[at]!.slots?.[slot] ?? 0) * held[at]!.quantity;
+      return taken + count > (slotCounts[slot] ?? 0);
+    });
+  if (short(new Set()).length === 0) return { stow: [] };
+  const inTheWay = (at: number) =>
+    at !== index && held[at]!.worn && needs.some(([slot]) => (held[at]!.slots?.[slot] ?? 0) > 0);
+  const may = held.flatMap((one, at) => (inTheWay(at) && one.drawOnUse && !one.kept ? [at] : []));
+  // The fewest put away, the first held first among as few: a handful of weapons at most.
+  const pick = may.slice(0, 12);
+  for (let size = 1; size <= pick.length; size++) {
+    const found = subsetsOf(pick, size).find((subset) => short(new Set(subset)).length === 0);
+    if (found) return { stow: found };
+  }
+  return { blockedBy: held.flatMap((one, at) => (inTheWay(at) && (!one.drawOnUse || one.kept) ? [at] : [])) };
+}
+
+/** Every choice of `size` of `from`, in order. */
+function subsetsOf(from: readonly number[], size: number): number[][] {
+  if (size === 0) return [[]];
+  if (from.length < size) return [];
+  const [first, ...rest] = from;
+  return [...subsetsOf(rest, size - 1).map((tail) => [first!, ...tail]), ...subsetsOf(rest, size)];
+}
+
+/** Why a stack could not be drawn as it is used (1.808): what holds the slots it needs, by name, or
+ *  too few of a slot at all. */
+export type GameInventoryDrawRefusal = { refused: "hands-full"; by: string[] } | { refused: "no-slot" };
+
+/** What one bag's stacks hold, as drawing weighs it (1.808), with the stacks they are. */
+function drawHeld(
+  stacks: readonly GameInventoryStack[],
+  holder: string | undefined,
+  rules: GameInventoryItemRules,
+): { stacks: GameInventoryStack[]; held: GameInventoryDrawHeld[] } {
+  const bag = { holder };
+  const mine = stacks.filter((stack) => inBag(stack, bag) && stack.item);
+  return {
+    stacks: mine,
+    held: mine.map((stack) => {
+      const known = rules.itemOf(stack.item!);
+      return {
+        // Switched on to hover (1.706): its hand is free.
+        slots: stack.on && known?.toggle?.freesSlots ? {} : (known?.slots ?? {}),
+        quantity: stack.quantity,
+        worn: stack.equipped === true,
+        drawOnUse: known?.drawOnUse === true,
+        kept: stack.bound === true && known?.binds?.cursed === true,
+      };
+    }),
+  };
+}
+
+/** Why this stack could not be drawn as it is used now (1.808), or undefined when it can (or need not
+ *  be: it is worn already, or it is not drawn as it is used). */
+export function gameInventoryDrawRefusal(
+  stacks: readonly GameInventoryStack[],
+  stack: GameInventoryStack,
+  rules: GameInventoryItemRules | undefined,
+): GameInventoryDrawRefusal | undefined {
+  const known = stack.item ? rules?.itemOf(stack.item) : undefined;
+  if (!rules || !known?.drawOnUse || stack.equipped) return undefined;
+  const { stacks: mine, held } = drawHeld(stacks, stack.holder, rules);
+  const at = mine.findIndex((each) => each.id === stack.id);
+  if (at < 0) return undefined;
+  const plan = gameInventoryDrawPlan(
+    held.map((one, i) => (i === at ? { ...one, quantity: 1 } : one)),
+    at,
+    Object.fromEntries((rules.slots ?? []).map((slot) => [slot.id, slot.count])),
+  );
+  if ("stow" in plan) return undefined;
+  return plan.blockedBy.length
+    ? { refused: "hands-full", by: plan.blockedBy.map((i) => mine[i]!.nickname || mine[i]!.name) }
+    : { refused: "no-slot" };
+}
+
+/**
+ * One stack drawn as it is used (Capability API 1.808): one of it put on, as a free swap that first
+ * puts away the fewest other worn items drawn as they are used where its slots are full
+ * (`gameInventoryDrawPlan`). Unchanged for a stack already worn, or of an item not drawn as it is used.
+ * `id` is the stack drawn (one of a larger stack is taken into a stack of its own), and `stowed` the
+ * names of what was put away. Refused, nothing is changed. Null when there is no such stack.
+ */
+export function drawGameInventoryStack(
+  stacks: GameInventoryStack[],
+  id: string,
+  rules: GameInventoryItemRules | undefined,
+  newId: () => string = () => newGameInventoryStackId(stacks),
+): { stacks: GameInventoryStack[]; id: string; stowed: string[] } | GameInventoryDrawRefusal | null {
+  const stack = stacks.find((each) => each.id === id);
+  if (!stack) return null;
+  const known = stack.item ? rules?.itemOf(stack.item) : undefined;
+  if (!rules || !known?.drawOnUse || stack.equipped) return { stacks, id, stowed: [] };
+  const refusal = gameInventoryDrawRefusal(stacks, stack, rules);
+  if (refusal) return refusal;
+  const { stacks: mine, held } = drawHeld(stacks, stack.holder, rules);
+  const at = mine.findIndex((each) => each.id === id);
+  const plan = gameInventoryDrawPlan(
+    held.map((one, i) => (i === at ? { ...one, quantity: 1 } : one)),
+    at,
+    Object.fromEntries((rules.slots ?? []).map((slot) => [slot.id, slot.count])),
+  );
+  const stow = new Set("stow" in plan ? plan.stow.map((i) => mine[i]!.id) : []);
+  const stowed = mine.filter((each) => stow.has(each.id)).map((each) => each.nickname || each.name);
+  // Put away first, so the slots it needs are free; a binding that needed one of them on ends (1.313).
+  const away = releaseGameInventoryUnmetBindings(
+    stacks.map((each) => {
+      if (!stow.has(each.id)) return each;
+      const { equipped: _equipped, ...rest } = each;
+      return rest;
+    }),
+    rules,
+  );
+  const worn = wearGameInventoryStack(away, id, "equip", newId, rules);
+  if (!worn || "refused" in worn) return { refused: "no-slot" };
+  return { stacks: worn.stacks, id: worn.id, stowed };
+}
+
+/**
+ * One of the Engine's own fights using an item by its name (1.808): where it is drawn as it is used,
+ * one stack of it is drawn, unless one is already on. The stacks a fight would spend come first (the
+ * player's own, then the rest), and the first that can be drawn is. Unchanged where the item is not
+ * drawn as it is used; refused where no stack of it can be drawn.
+ */
+export function drawGameInventoryFightItem(
+  stacks: GameInventoryStack[],
+  name: string,
+  rules: GameInventoryItemRules | undefined,
+): { stacks: GameInventoryStack[]; stowed: string[] } | GameInventoryDrawRefusal {
+  const found = stacksNamed(stacks, name)
+    .map(({ stack }) => stack)
+    .filter((stack) => !keptByCurse(stack, rules) && gameInventoryUsableStack(stack, rules));
+  const draws = found.filter((stack) => stack.item && rules?.itemOf(stack.item)?.drawOnUse);
+  if (draws.length === 0 || draws.some((stack) => stack.equipped)) return { stacks, stowed: [] };
+  let refusal: GameInventoryDrawRefusal | undefined;
+  for (const stack of draws) {
+    const drawn = drawGameInventoryStack(stacks, stack.id, rules);
+    if (!drawn) continue;
+    if (!("refused" in drawn)) return { stacks: drawn.stacks, stowed: drawn.stowed };
+    refusal ??= drawn;
+  }
+  return refusal ?? { refused: "no-slot" };
 }
 
 /** Whether the player's own change would part them from this stack: a bound cursed item. */
@@ -1420,7 +1934,19 @@ export function setGameInventoryStackQuantity(
   if (next <= limit) return stacks.map((each, i) => (i === index ? { ...each, quantity: next } : each));
   const beside = single ? stackLimit(gameInventoryItemId(stack), rules) : limit;
   if (Math.ceil((next - limit) / beside) > GAME_INVENTORY_MAX_NEW_STACKS) return stacks;
-  const { on: _on, loaded: _loaded, charges: _charges, ...off } = unworn(stack);
+  const {
+    on: _on,
+    loaded: _loaded,
+    charges: _charges,
+    corroded: _corroded,
+    absorbedEver: _absorbedEver,
+    callRoll: _callRoll,
+    form: _form,
+    usesLeft: _usesLeft,
+    waits: _waits,
+    storedEntries: _stored,
+    ...off
+  } = unworn(stack);
   const rest: GameInventoryStack[] = [];
   for (let left = next - limit; left > 0; left -= beside) {
     rest.push({ ...off, id: newId(), quantity: Math.min(left, beside) });
@@ -1459,8 +1985,9 @@ function mergeAmount(
   rules: GameInventoryItemRules | undefined,
 ): number {
   if (from.id === into.id || gameInventoryStackKind(from) !== gameInventoryStackKind(into)) return 0;
-  // A worn or bound item is one item on its own.
+  // A worn or bound item is one item on its own, and what is to vanish lasts on its own (1.760).
   if (gameInventoryStackWorn(from) || gameInventoryStackWorn(into)) return 0;
+  if (from.vanishesIn || into.vanishesIn) return 0;
   return Math.max(0, Math.min(from.quantity, stackLimit(gameInventoryItemId(into), rules) - into.quantity));
 }
 
@@ -1496,7 +2023,19 @@ export function mergeGameInventoryStacks(
   return stacks.flatMap((stack) => {
     if (stack.id === intoId) {
       // Several now, and a loaded count or charges are one item's: each of them reads as full.
-      const { loaded: _loaded, charges: _charges, on: _on, ...rest } = stack;
+      const {
+        loaded: _loaded,
+        charges: _charges,
+        corroded: _corroded,
+        absorbedEver: _absorbedEver,
+        callRoll: _callRoll,
+        form: _form,
+        usesLeft: _usesLeft,
+        waits: _waits,
+        storedEntries: _stored,
+        on: _on,
+        ...rest
+      } = stack;
       return [{ ...rest, quantity: stack.quantity + moved }];
     }
     if (stack.id !== fromId) return [stack];

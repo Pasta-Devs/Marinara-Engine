@@ -2,10 +2,9 @@
 // Avatar stage: avatars in Roleplay and Game chats (lane: base)
 // ──────────────────────────────────────────────
 // Mounted lazily by the chat surfaces. Picks each participant's kind (AvatarConfig.activeKind, falling
-// back by AVATAR_KIND_AGENT to a kind whose agent is on; with 2D Avatars on, expression sprites are a
-// PNGTuber avatar until one is saved), loads renderers with loadAvatarRenderer(), creates one director
-// once an avatar shows, and runs the single frame loop within AVATAR_RENDER_BUDGET (visible count, DPR
-// cap, fps, pause when hidden, offscreen, covered or effects-paused, reduced motion). It never hides the
+// back by AVATAR_KIND_AGENT to a saved kind whose agent is on), loads renderers with loadAvatarRenderer(),
+// creates one director once an avatar shows, and runs the single frame loop within AVATAR_RENDER_BUDGET
+// (DPR cap, fps, pause when hidden, offscreen, covered or effects-paused, reduced motion). It never hides the
 // full-body sprite: the user turns that off by hand. Avatars share the saved sprite layout (placement key
 // `<ownerId>:avatar`); Chat Settings' Avatars drawer turns Arrange on, sizes and frames them, with or without the
 // Expression Engine. The stage itself has no controls.
@@ -14,6 +13,7 @@ import { useQueries, type QueryObserverResult } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   AVATAR_2D_AGENT_ID,
+  isAvatar3dKind,
   type AvatarConfig,
   type AvatarFeatureFlags,
   type AvatarImageRef,
@@ -33,7 +33,6 @@ import { useReducedAmbientEffects } from "../../../hooks/use-reduced-ambient-eff
 import { useTTSConfig } from "../../../hooks/use-tts";
 import { api } from "../../../lib/api-client";
 import {
-  AVATAR_RENDER_BUDGET,
   avatarModelKeys,
   type AvatarDirector,
   type AvatarFraming,
@@ -122,7 +121,7 @@ export function AvatarStage({
   const stageRef = useRef<HTMLDivElement>(null);
 
   const { data: summaries } = useAvatarModelList(participants.length > 0 && enabledAgentIds.length > 0);
-  // With 2D Avatars on, an owner's expression sprites are a PNGTuber avatar until one is saved.
+  // Sprite-backed saved PNGTuber setups resolve pictures from their owner's sprite list.
   const spriteLists = useQueries({
     queries: participants.map(({ owner }) => ({
       queryKey: spriteKeys.list(owner.ownerId),
@@ -136,14 +135,9 @@ export function AvatarStage({
     () => new Map(participants.map((participant, position) => [ownerKey(participant.owner), spriteLists[position]])),
     [participants, spriteLists],
   );
-  const spriteAvatarOwners = useMemo(
-    () => new Set([...spritesByOwner].filter(([, sprites]) => spriteSetupFor(sprites)).map(([key]) => key)),
-    [spritesByOwner],
-  );
-  const maxVisible = phone ? AVATAR_RENDER_BUDGET.maxVisible.phone : AVATAR_RENDER_BUDGET.maxVisible.desktop;
   const shown = useMemo(
-    () => selectStageAvatars(participants, summaries, enabledAgentIds, maxVisible, spriteAvatarOwners),
-    [enabledAgentIds, maxVisible, participants, spriteAvatarOwners, summaries],
+    () => selectStageAvatars(participants, summaries, enabledAgentIds),
+    [enabledAgentIds, participants, summaries],
   );
   useEffect(() => {
     onShownChange?.(
@@ -155,10 +149,9 @@ export function AvatarStage({
     return () => onShownChange([]);
   }, [onShownChange]);
   const configQueries = useQueries({
-    queries: shown.map(({ participant, saved }) => ({
+    queries: shown.map(({ participant }) => ({
       queryKey: avatarModelKeys.detail(participant.owner),
       queryFn: () => fetchAvatarModel(participant.owner),
-      enabled: saved,
       staleTime: 5 * 60_000,
     })),
   });
@@ -256,9 +249,9 @@ export function AvatarStage({
           <AvatarSlot
             key={`${ownerId}:${avatar.kind}`}
             avatar={avatar}
-            savedConfig={avatar.saved ? configQueries[position]?.data : null}
+            savedConfig={configQueries[position]?.data}
             spriteSetup={spriteSetupFor(sprites)}
-            sprites={avatar.kind === "vrm" ? undefined : (sprites ?? null)}
+            sprites={isAvatar3dKind(avatar.kind) ? undefined : (sprites ?? null)}
             placementKey={key}
             placement={placement}
             count={shown.length}

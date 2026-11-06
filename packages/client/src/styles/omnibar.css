@@ -25,6 +25,40 @@
   background-image: linear-gradient(var(--card), var(--card));
 }
 
+/* Match the app's touch mobile shell even when a sideways phone crosses sm.
+   Keep its full available screen, safe areas and keyboard viewport together. */
+@media (max-width: 1440px) and (hover: none) and (any-pointer: coarse) {
+  [data-component="GlobalOmnibar"][data-pane="mari"] {
+    top: var(--mari-visual-viewport-offset-top, 0px);
+    bottom: auto;
+    height: var(--mari-visual-viewport-height, 100dvh);
+    padding: 0 var(--mari-shell-inset-right, 0px) 0 var(--mari-shell-inset-left, 0px);
+    transition: none;
+  }
+
+  [data-component="GlobalOmnibar"][data-pane="mari"] > [data-component="GlobalOmnibar.Panel"] {
+    height: 100%;
+    max-height: none;
+    max-width: none;
+    border-radius: 0;
+    transition: none;
+  }
+
+  html[data-mari-ios-webkit] [data-component="GlobalOmnibar"][data-pane="mari"] {
+    position: absolute;
+  }
+
+  [data-component="GlobalOmnibar"] .omnibar-settings-section:has([data-size-group="mari"]) {
+    display: none;
+  }
+}
+
+@media (max-width: 1440px) and (orientation: landscape) and (hover: none) and (any-pointer: coarse) {
+  [data-component="GlobalOmnibar"][data-pane="mari"] .mari-workspace-composer-dock {
+    padding-bottom: max(0.75rem, var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)));
+  }
+}
+
 .mari-pull-overlay {
   --mari-pull-rim-color: var(--marinara-app-accent-solid);
   --mari-pull-rim-mid: var(--mari-pull-rim-color);

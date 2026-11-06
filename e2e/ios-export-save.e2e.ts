@@ -26,7 +26,9 @@ for (const owner of ["character", "persona"] as const) {
   test(`${owner} Marinara native export reaches the device`, async ({ page, request }, testInfo) => {
     const ios = testInfo.project.name === "mobile-webkit";
     test.skip(testInfo.project.name === "mobile-chromium", "Android browsers use the desktop download path.");
-    const name = `Export ${owner} ${Date.now().toString(36)}`;
+    // No spaces: CI's Linux WebKit turns them into underscores in a download's suggested name, which the app
+    // does not choose (it sets anchor.download to the file name as is).
+    const name = `Export-${owner}-${Date.now().toString(36)}`;
     const base = owner === "character" ? "/api/characters" : "/api/characters/personas";
     const created = await request.post(base, { data: owner === "character" ? { data: { name } } : { name } });
     expect(created.ok()).toBeTruthy();

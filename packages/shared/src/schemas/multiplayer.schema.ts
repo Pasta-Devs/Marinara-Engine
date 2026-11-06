@@ -94,9 +94,140 @@ export const multiplayerGameStateSchema = z
         })
         .strict(),
     ),
+    /** The viewer's own checks in the latest reply (Alyssa 2026-10-30: each player sees their roll). */
+    ownRolls: z
+      .array(
+        z
+          .object({
+            skill: z.string().min(1).max(100),
+            total: z.number().finite().min(-1_000_000).max(1_000_000),
+            dc: z.number().finite().min(-1_000_000).max(1_000_000),
+            success: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(8)
+      .default([]),
+    /** What the viewer's own bag holds (Alyssa 2026-10-30: guests see their bag), by name only. */
+    bag: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1).max(120),
+            quantity: z.number().int().min(1).max(1_000_000),
+            equipped: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(48)
+      .default([]),
   })
   .strict();
 export type MultiplayerGameState = z.infer<typeof multiplayerGameStateSchema>;
+
+/** A name the fight gives one of its own things (a combatant, an option): never an object key. */
+const fightKey = z
+  .string()
+  .min(1)
+  .max(256)
+  .refine((value) => !["__proto__", "constructor", "prototype"].includes(value));
+const fightCell = z.object({ x: z.number().int().min(0).max(255), y: z.number().int().min(0).max(255) }).strict();
+const fightLine = z.string().min(1).max(300);
+
+/**
+ * A shared room's fight as one player sees it (2026-10-27): only what the board shows, copied field by
+ * field from the host's own view of the fight for that player. Their own party members' menu is in it
+ * while one of them is to act; nobody else's is.
+ */
+export const multiplayerFightSchema = z
+  .object({
+    anchor: fightKey,
+    id: fightKey,
+    instanceId: fightKey,
+    revision,
+    round: z.number().int().min(0).max(100_000),
+    over: z.boolean(),
+    actorId: fightKey.nullable(),
+    /** The player the fight waits on, when it is not the one viewing. */
+    waitingOn: name.nullable(),
+    combatants: z
+      .array(
+        z
+          .object({
+            id: fightKey,
+            name,
+            side: z.enum(["party", "enemy"]),
+            health: z
+              .object({
+                value: z.number().finite().min(-1_000_000).max(1_000_000),
+                max: z.number().finite().min(0).max(1_000_000),
+              })
+              .strict(),
+            down: z.boolean(),
+            defeated: z.boolean(),
+            conditions: z.array(z.string().min(1).max(80)).max(8),
+            /** The room player who plays this party member, by display name. */
+            player: name.nullable(),
+            mine: z.boolean(),
+            controller: z.enum(["manual", "ai"]).nullable(),
+            x: z.number().int().min(0).max(255).optional(),
+            y: z.number().int().min(0).max(255).optional(),
+          })
+          .strict(),
+      )
+      .max(60),
+    grid: z
+      .object({
+        width: z.number().int().min(1).max(64),
+        height: z.number().int().min(1).max(64),
+        tiles: z.array(z.array(z.string().max(24)).max(64)).max(64),
+      })
+      .strict()
+      .nullable(),
+    /** What one of the viewer's own party members may do now: their turn, or a moment that asks them. */
+    options: z
+      .array(
+        z
+          .object({
+            id: fightKey,
+            label: z.string().min(1).max(120),
+            /** none: done as chosen; targets: pick up to `count` of `targetIds`; cell: a place from `cells`. */
+            pick: z.enum(["none", "targets", "cell"]),
+            count: z.number().int().min(0).max(20),
+            targetIds: z.array(fightKey).max(60),
+            cells: z.array(fightCell).max(400),
+            /** A cell from `cells` is where it walks to (`to`), else where it is aimed (`at`). */
+            moves: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(60),
+    /** What the moment asks, while one of the viewer's party members is asked to answer it. */
+    prompt: z.string().max(300).nullable(),
+    deploy: z
+      .object({ unitIds: z.array(fightKey).max(20), cells: z.array(fightCell).max(400) })
+      .strict()
+      .nullable(),
+    log: z.array(fightLine).max(16),
+  })
+  .strict();
+export type MultiplayerFight = z.infer<typeof multiplayerFightSchema>;
+
+/** What a guest may ask of their own party members in a fight. The host's fight checks every part of it. */
+export const multiplayerFightCommandSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("ruleset"),
+      optionId: fightKey,
+      targetIds: z.array(fightKey).max(20),
+      to: fightCell.optional(),
+      at: fightCell.optional(),
+    })
+    .strict(),
+  z.object({ type: z.literal("deploy"), unitId: fightKey, to: fightCell }).strict(),
+  z.object({ type: z.literal("control"), unitId: fightKey, controller: z.enum(["manual", "ai"]) }).strict(),
+]);
+export type MultiplayerFightCommand = z.infer<typeof multiplayerFightCommandSchema>;
 
 export const multiplayerSnapshotSchema = z
   .object({
@@ -121,6 +252,7 @@ export const multiplayerSnapshotSchema = z
     messages: z.array(multiplayerMessageSchema).max(MULTIPLAYER_LIMITS.messages),
     round: multiplayerRoundSchema.nullable(),
     game: multiplayerGameStateSchema.nullable().optional(),
+    fight: multiplayerFightSchema.nullable().optional(),
   })
   .strict();
 
@@ -143,6 +275,14 @@ export const multiplayerActionSchema = z.discriminatedUnion("type", [
     .object({ ...operation, type: z.literal("propose-character"), character: multiplayerCharacterProposalSchema })
     .strict(),
   z.object({ ...operation, type: z.literal("leave") }).strict(),
+  z
+    .object({
+      ...operation,
+      type: z.literal("fight-command"),
+      fight: z.object({ anchor: fightKey, id: fightKey, instanceId: fightKey, revision }).strict(),
+      command: multiplayerFightCommandSchema,
+    })
+    .strict(),
 ]);
 
 export const multiplayerErrorCodeSchema = z.enum([

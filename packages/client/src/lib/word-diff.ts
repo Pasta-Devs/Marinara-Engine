@@ -73,6 +73,103 @@ export function diffWords(before: string, after: string): DiffSegment[] {
   return segments;
 }
 
+/**
+ * A kept stretch this short between two edits joins them: one word of any length ("~~a~~ against ~~b~~"),
+ * or a couple of short ones ("~~a~~ of the ~~b~~"), reads as part of one edit rather than its own island.
+ */
+const BRIDGE_MAX_WORDS = 2;
+const BRIDGE_MAX_WORD_LENGTH = 4;
+
+function isBridge(value: string): boolean {
+  // A line break is a paragraph boundary; edits on either side stay separate.
+  if (value.includes("\n")) return false;
+  const words = value.split(/\s+/u).filter(Boolean);
+  if (words.length <= 1) return true;
+  return words.length <= BRIDGE_MAX_WORDS && words.every((word) => word.length <= BRIDGE_MAX_WORD_LENGTH);
+}
+
+/**
+ * Regroup a word diff into whole edited runs for reading: each run of changes shows all of its old
+ * text struck, then all of its new text, instead of alternating word by word. Short kept stretches
+ * between two changes (spaces, one word, "of the") join the run on both sides, so `equal`+`removed`
+ * still spells `before` and `equal`+`added` still spells `after`.
+ */
+export function groupChangeRuns(segments: readonly DiffSegment[]): DiffSegment[] {
+  const out: DiffSegment[] = [];
+  const keep = (value: string) => {
+    if (!value) return;
+    const last = out[out.length - 1];
+    if (last && last.type === "equal") last.value += value;
+    else out.push({ type: "equal", value });
+  };
+  let removed = "";
+  let added = "";
+  // The run's own segments, to tell a real replacement from a pure insertion or deletion.
+  let raw: DiffSegment[] = [];
+  const flush = () => {
+    const removes = raw.some((segment) => segment.type === "removed");
+    const adds = raw.some((segment) => segment.type === "added");
+    if (!(removes && adds)) {
+      // Pure insertions or deletions around a kept word: striking that word would say it was cut.
+      for (const segment of raw) {
+        if (segment.type === "equal") keep(segment.value);
+        else out.push({ ...segment });
+      }
+      raw = [];
+      removed = "";
+      added = "";
+      return;
+    }
+    // Space both sides share at the run's edges is kept text, not part of the edit.
+    let head = "";
+    let tail = "";
+    if (removed && added) {
+      while (removed.length > 1 && added.length > 1 && /\s/u.test(removed[0]) && removed[0] === added[0]) {
+        head += removed[0];
+        removed = removed.slice(1);
+        added = added.slice(1);
+      }
+      while (removed.length > 1 && added.length > 1 && /\s$/u.test(removed) && removed.at(-1) === added.at(-1)) {
+        tail = removed.at(-1) + tail;
+        removed = removed.slice(0, -1);
+        added = added.slice(0, -1);
+      }
+    }
+    keep(head);
+    if (removed) out.push({ type: "removed", value: removed });
+    if (added) out.push({ type: "added", value: added });
+    keep(tail);
+    raw = [];
+    removed = "";
+    added = "";
+  };
+  for (let k = 0; k < segments.length; k++) {
+    const segment = segments[k];
+    const inRun = removed !== "" || added !== "";
+    if (segment.type === "removed") {
+      removed += segment.value;
+      raw.push(segment);
+    } else if (segment.type === "added") {
+      added += segment.value;
+      raw.push(segment);
+    } else if (inRun && k + 1 < segments.length && segments[k + 1].type !== "equal" && isBridge(segment.value)) {
+      removed += segment.value;
+      added += segment.value;
+      raw.push(segment);
+    } else {
+      flush();
+      keep(segment.value);
+    }
+  }
+  flush();
+  return out;
+}
+
+/** {@link diffWords} grouped into whole edited runs; see {@link groupChangeRuns}. */
+export function diffWordRuns(before: string, after: string): DiffSegment[] {
+  return groupChangeRuns(diffWords(before, after));
+}
+
 // ── Line-level unified diff (GitHub-style) ──────────────────────────────────
 
 export interface DiffLine {
@@ -159,8 +256,9 @@ function refineBlock(lines: DiffLine[], start: number, end: number): void {
     // Two unrelated lines that happen to sit next to each other are not an edit
     // of one another; highlighting scattered shared words would invent a link.
     if (equalShare(segments) < MIN_PAIRED_LINE_SIMILARITY) continue;
-    removed[k].segments = segments.filter((segment) => segment.type !== "added");
-    added[k].segments = segments.filter((segment) => segment.type !== "removed");
+    const runs = groupChangeRuns(segments);
+    removed[k].segments = runs.filter((segment) => segment.type !== "added");
+    added[k].segments = runs.filter((segment) => segment.type !== "removed");
   }
 }
 

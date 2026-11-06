@@ -25,6 +25,7 @@ const hostAction = z.discriminatedUnion("type", [
   z.object({ type: z.literal("revoke-invite") }).strict(),
   z.object({ type: z.literal("pause") }).strict(),
   z.object({ type: z.literal("resume") }).strict(),
+  z.object({ type: z.literal("retry") }).strict(),
   z.object({ type: z.literal("stop") }).strict(),
   z
     .object({
@@ -41,6 +42,7 @@ const hostAction = z.discriminatedUnion("type", [
   z.object({ type: z.literal("proposal-decline"), proposalId: id }).strict(),
   z.object({ type: z.literal("add-character"), characterId: id, role: z.enum(["character", "gm"]) }).strict(),
   z.object({ type: z.literal("remove-character"), characterId: id }).strict(),
+  z.object({ type: z.literal("fight-result"), text: z.string().min(1).max(8000) }).strict(),
   z
     .object({
       type: z.literal("startGame"),

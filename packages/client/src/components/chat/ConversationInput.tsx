@@ -813,6 +813,16 @@ export function ConversationInput({
       } else {
         replaceAttachments([]);
       }
+      if (activeChatId && window.matchMedia?.("(pointer: fine)").matches) {
+        requestAnimationFrame(() => {
+          const active = document.activeElement;
+          // Focusing the composer would collapse a text selection the user is holding (and with it
+          // the selection pause on the chat's first scroll), so leave a selection alone.
+          if ((active === document.body || active === document.documentElement) && !hasActiveTextSelection()) {
+            textareaRef.current?.focus({ preventScroll: true });
+          }
+        });
+      }
     }
   }, [activeChatId, setInputDraft, clearInputDraft, syncInputState, replaceAttachments]);
 

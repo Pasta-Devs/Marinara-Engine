@@ -14,14 +14,21 @@ import {
   clampParsedDiceToLimits,
   formatPoolSlotName,
   isEngineRollableSkillCheckTag,
+  isKeptDice,
+  isWithinDiceLimits,
+  MAX_DICE_COUNT,
+  MAX_DICE_SIDES,
   parseDiceNotation,
+  parseDicePool,
   parsePoolSlotName,
   parseSkillCheckTagBody,
   readGmTagAttributes,
+  isDiceRollSymbols,
   rollParsedDice,
   serializeResolvedSkillCheckTag,
   serializeSparseSkillCheckTag,
   type DiceRollResult,
+  type RulesetResolutionDeclaration,
   type GameDicePoolConsumption,
   type GameDicePoolSlotName,
   type ParsedDiceNotation,
@@ -31,20 +38,53 @@ import {
 import { logger } from "../../lib/logger.js";
 import { logPoolDcFit, pooledSizeForNotation, type GameDicePoolSession } from "./dice-pool.service.js";
 import { SKILL_CHECK_MAX_DC, SKILL_CHECK_MIN_DC } from "./skill-check-resolution.service.js";
+import { loadRulesetRegistry, resolveGameRuleset } from "./ruleset-registry.service.js";
+import type { DB } from "../../db/connection.js";
 
-export { isDiceNotation } from "@marinara-engine/shared";
+export { isDiceNotation, isDicePoolNotation } from "@marinara-engine/shared";
+
+/**
+ * Whether `rollDice` takes this notation: any NdM or pool, except a pool past the dice ceilings.
+ * A pool is refused there rather than trimmed, since trimming the dice would change which of them
+ * a keep or drop leaves counting. Plain NdM is still clamped.
+ */
+export function isRollableDiceNotation(notation: string): boolean {
+  const parsed = parseDicePool(notation);
+  return !!parsed && (!parsed.keep || isWithinDiceLimits(parsed));
+}
 
 /**
  * Parse and roll dice using NdM notation (e.g. "2d6+3", "d20", "4d8-1").
  * Returns individual rolls, modifier, and total.
  */
 export function rollDice(notation: string): DiceRollResult {
-  const parsed = parseDiceNotation(notation);
+  const parsed = parseDicePool(notation);
   if (!parsed) {
-    throw new Error(`Invalid dice notation: "${notation}". Use NdM format (e.g. 2d6, d20+3, 4d8-1).`);
+    throw new Error(`Invalid dice notation: "${notation}". Use NdM format (e.g. 2d6, d20+3, 4d8-1, 4d6kh3).`);
+  }
+  if (!isRollableDiceNotation(notation)) {
+    throw new Error(
+      `Dice values out of range for "${notation}" (1-${MAX_DICE_COUNT} dice, 1-${MAX_DICE_SIDES} sides).`,
+    );
   }
 
   return rollParsedDice(clampParsedDiceToLimits(parsed));
+}
+
+/**
+ * The resolution of a game's pinned ruleset when it throws symbol dice, so a roll that names those
+ * dice (`2 ability 1 difficulty`) can be read. Null for a game without one, or whose ruleset is
+ * missing or of another kind.
+ */
+export async function symbolDiceResolution(
+  metadata: Record<string, unknown> | null | undefined,
+  db?: DB,
+): Promise<RulesetResolutionDeclaration | null> {
+  if (!metadata || metadata.gameRuleset == null) return null;
+  const pinned = resolveGameRuleset(metadata, await loadRulesetRegistry(db));
+  return pinned.status === "ok" && pinned.definition.resolution.kind === "symbol-pool"
+    ? pinned.definition.resolution
+    : null;
 }
 
 /**
@@ -73,8 +113,51 @@ export function parseRollDiceToolResult(raw: string): DiceRollResult | null {
   if (!Number.isFinite(modifier)) return null;
   const dc = payload.dc;
   if (dc !== undefined && (typeof dc !== "number" || !Number.isSafeInteger(dc))) return null;
+  const kept = payload.kept;
+  if (kept !== undefined && !isKeptDice(kept, rolls.length)) return null;
+  // A fresh tool result names its roller in `reason`; a saved roll read back (a continued turn) in `label`.
+  const named = typeof payload.label === "string" ? payload.label : payload.reason;
+  const label = typeof named === "string" ? cleanRollLabel(named) : "";
+  // A roll of a ruleset's named symbol dice carries its symbols, all four fields or none.
+  const symbolFields = {
+    thrown: payload.thrown,
+    symbolFaces: payload.symbolFaces,
+    symbols: payload.symbols,
+    symbolLabels: payload.symbolLabels,
+  } as Pick<DiceRollResult, "thrown" | "symbolFaces" | "symbols" | "symbolLabels">;
+  if (!isDiceRollSymbols(symbolFields, rolls.length)) return null;
+  const success = payload.success;
 
-  return { notation, rolls, modifier, total, ...(dc !== undefined ? { dc } : {}) };
+  return {
+    notation,
+    rolls,
+    modifier,
+    total,
+    ...(kept !== undefined ? { kept } : {}),
+    ...(dc !== undefined ? { dc } : {}),
+    ...(label ? { label } : {}),
+    ...(symbolFields.thrown ? symbolFields : {}),
+    ...(symbolFields.thrown && typeof success === "boolean" ? { success } : {}),
+  };
+}
+
+/** A roller's name or a roll's reason as the card shows it: one line, nothing that could close a tag. */
+function cleanRollLabel(value: string): string {
+  return value
+    .replace(/["\[\]\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100);
+}
+
+/** A `[dice:]` request's `who="Name"`, taken off so the rest reads as the notation it always was. */
+function splitDiceRoller(body: string): { body: string; who: string } {
+  const match = /\s+who\s*=\s*"([^"]*)"/i.exec(body);
+  if (!match) return { body, who: "" };
+  return {
+    body: body.slice(0, match.index) + body.slice(match.index + match[0].length),
+    who: cleanRollLabel(match[1]!),
+  };
 }
 
 /** Fresh regex so callers can collect or remove the same narration roll records. */
@@ -111,7 +194,9 @@ export function hasPoolClaim(body: string): boolean {
 /** The engine's own `[dice:]` record, with the slot it spent named on the end. */
 function serializeDiceRecord(result: DiceRollResult, pool?: string): string {
   const modifier = result.modifier ? ` ${result.modifier > 0 ? "+" : "-"} ${Math.abs(result.modifier)}` : "";
-  return `[dice: ${result.notation} = ${result.total} (${result.rolls.join(" + ")}${modifier})${pool ? ` pool="${pool}"` : ""}]`;
+  return `[dice: ${result.notation} = ${result.total} (${result.rolls.join(" + ")}${modifier})${pool ? ` pool="${pool}"` : ""}${
+    result.label ? ` who="${result.label}"` : ""
+  }]`;
 }
 
 /**
@@ -152,15 +237,16 @@ export function resolveGameDiceRequests(
   let poolTagIndex = 0;
   const resolved = content.replace(createGameRollTagRegex(), (original, kind: string, body: string) => {
     if (kind.toLowerCase() === "dice") {
-      const notation = parseDiceNotation(body);
+      const roller = splitDiceRoller(body);
+      const notation = parseDiceNotation(roller.body);
       // A resolved [dice: NdM = total (...)] record is not a new request.
       if (!notation) {
         // The pool's own attachment point, BEFORE the return below: the complete record the
         // pool prompt asks for parses as a record here, so the roller further down is never
         // reached for it and a branch placed after this return would never run.
-        const poolBody = pool ? readPoolDiceBody(body) : null;
+        const poolBody = pool ? readPoolDiceBody(roller.body) : null;
         if (pool && poolBody)
-          return resolvePoolDiceTag(pool, poolBody, body, diceRolls, () => rolled++, poolTagIndex++);
+          return resolvePoolDiceTag(pool, poolBody, roller.body, diceRolls, () => rolled++, poolTagIndex++, roller.who);
         if (pool && hasPoolClaim(body)) {
           // `pool=` written in front of nothing the grammar can read. The numbers on such
           // a record are a claim the pool never validated, so they are dropped with the
@@ -174,12 +260,14 @@ export function resolveGameDiceRequests(
         // sufficient: it makes a pool-bearing record PASS the historical test, which is
         // right for a re-read and fatal for a fresh turn without the out-of-band session
         // above — which is exactly why the pool branch sits in front of it.
-        const recorded = /^([^\s=]+)\s*=\s*-?\d+\s*\([^)]*\)(?:\s+pool="[^"]*")?\s*$/u.exec(body.trim());
+        const recorded = /^([^\s=]+)\s*=\s*-?\d+\s*\([^)]*\)(?:\s+pool="[^"]*")?(?:\s+who="[^"]*")?\s*$/u.exec(
+          body.trim(),
+        );
         if (!recorded || !parseDiceNotation(recorded[1]!))
           reportUnresolved(body, "Unsupported dice notation. Use NdM with an optional +K or -K modifier.");
         return original;
       }
-      const result = roll(notation.notation);
+      const result = { ...roll(notation.notation), ...(roller.who ? { label: roller.who } : {}) };
       diceRolls.push(result);
       rolled++;
       return serializeDiceRecord(result);
@@ -360,6 +448,7 @@ function resolvePoolDiceTag(
   diceRolls: DiceRollResult[],
   countRoll: () => void,
   tagIndex: number,
+  who = "",
 ): string {
   const notation = clampParsedDiceToLimits(poolBody.notation);
   const spent = spendPoolForNotation(pool, notation, body, tagIndex);
@@ -369,9 +458,10 @@ function resolvePoolDiceTag(
     ...(poolBody.slots ? { slots: poolBody.slots.slots } : {}),
     values: readRecordedDiceValues(body),
   });
-  diceRolls.push(spent.result);
+  const result = who ? { ...spent.result, label: who } : spent.result;
+  diceRolls.push(result);
   countRoll();
-  return serializeDiceRecord(spent.result, spent.name);
+  return serializeDiceRecord(result, spent.name);
 }
 
 /** The per-die numbers the model wrote inside a `[dice: NdM = T (a + b)]` record. */

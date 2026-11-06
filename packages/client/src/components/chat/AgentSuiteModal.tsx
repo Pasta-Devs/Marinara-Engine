@@ -3,6 +3,7 @@
 // active chat have stored (memory, tracker state, custom
 // outputs), manually or via AI-assisted selection rewrites.
 // ──────────────────────────────────────────────
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -57,6 +58,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { Modal } from "../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 
 export interface AgentSuiteAgent {
   id: string;
@@ -414,21 +416,16 @@ function DataBlock({
           </button>
           {contextOpen && contextPicker}
           <div className="flex flex-wrap items-center gap-1.5">
-            <select
-              value={rewriteConnectionId}
-              onChange={(event) => onRewriteConnectionChange(event.target.value)}
-              className="min-w-0 flex-1 rounded-md bg-[var(--secondary)] px-2 py-1.5 text-[0.625rem] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
-            >
-              {connectionOptions.length === 0 && (
-                <option value="">{localizeUi("ui.chat.datablock.noConnectionsAvailable")}</option>
-              )}
-              {connectionOptions.map((conn) => (
-                <option key={conn.id} value={conn.id}>
-                  {conn.name}
-                  {conn.model ? localizeUi("ui.chat.datablock.value1", { value1: conn.model }) : ""}
-                </option>
-              ))}
-            </select>
+            <ConnectionSelect
+              job={localizeUi("connections.picker.job.agents")}
+              required
+              value={rewriteConnectionId || null}
+              onChange={(id) => onRewriteConnectionChange(id ?? "")}
+              defaultLabel={
+                connectionOptions.length === 0 ? localizeUi("ui.chat.datablock.noConnectionsAvailable") : undefined
+              }
+              rowFilter={(row) => connectionOptions.some((conn) => conn.id === row.id)}
+            />
             <button
               type="button"
               onClick={handleRewrite}
@@ -565,7 +562,8 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
     }
     const agentDefault = connectionOptions.find((c) => c.defaultForAgents === true || c.defaultForAgents === "true");
     const chatConnection = connectionOptions.find((c) => c.id === chat.connectionId);
-    return (agentDefault ?? chatConnection ?? connectionOptions[0])?.id ?? "";
+    const main = connectionOptions.find((c) => isConnectionFlagTrue((c as { isDefault?: unknown }).isDefault));
+    return (agentDefault ?? chatConnection ?? main ?? connectionOptions[0])?.id ?? "";
   }, [chat.connectionId, connectionOptions, rewriteConnectionId]);
 
   const handleBlockDirtyChange = useCallback((blockId: string, dirty: boolean) => {

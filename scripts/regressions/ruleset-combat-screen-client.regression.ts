@@ -54,9 +54,12 @@ import {
   rulesetRefusalKey,
   rulesetRefusalText,
   rulesetValueLabel,
+  rulesetFoeFates,
 } from "../../packages/client/src/lib/ruleset-combat-log.js";
+import { rulesetRichLogLines } from "../../packages/client/src/lib/ruleset-combat-log-rich.js";
 import {
   rulesetAimSoFar,
+  rulesetAimLaidOverPicks,
   rulesetAimTake,
   rulesetAimTurning,
   rulesetBoardCells,
@@ -69,6 +72,8 @@ import {
   rulesetOptionNeedsAim,
   rulesetOptionNeedsCell,
   rulesetPathTo,
+  rulesetZoneTint,
+  RULESET_ZONE_TINTS,
 } from "../../packages/client/src/lib/ruleset-combat-board.js";
 import {
   RULESET_MENU_KINDS,
@@ -83,7 +88,11 @@ import {
   rulesetHeightenPick,
   rulesetPicksStep,
   rulesetSparePick,
+  rulesetSpendCarry,
+  RULESET_SPEND_CARRY_TRIES,
+  runRulesetSpendCarry,
   type RulesetMenuStep,
+  type RulesetSpendCarried,
 } from "../../packages/client/src/lib/ruleset-combat-menu.js";
 import {
   isRulesetCombatFight,
@@ -397,6 +406,71 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   );
   assert.equal(line(fiveE, state, { type: "round", round: 1 }), "Round 1.");
   assert.equal(line(fiveE, state, { type: "turn", actorId: "brenna", round: 1 }), "Brenna takes their turn.");
+  {
+    // A new round's line belongs to nobody's turn: the turn before it ended with the round.
+    const [first, second] = state.order;
+    const rich = rulesetRichLogLines(
+      fiveE,
+      viewOf(state, [
+        { type: "turn", actorId: first!, round: 1 },
+        { type: "round", round: 2 },
+        { type: "turn", actorId: second!, round: 2 },
+      ] as DirectedRulesetEvent[]),
+      t as never,
+    );
+    assert.deepEqual(
+      rich.map((one) => [one.round, one.turnOf]),
+      [
+        [1, first],
+        [2, undefined],
+        [2, second],
+      ],
+    );
+  }
+
+  {
+    // The end card's count and its lines read one fate per foe: a fled foe, one sent away and one
+    // down are each named once, and only the felled are counted beaten.
+    const base = viewOf(state);
+    const foe = base.combatants.find((one) => one.side !== "party")!;
+    const foes = (["down", "left", "away"] as const).map((flag, index) => ({
+      ...foe,
+      id: `foe-${flag}`,
+      name: `Foe ${index}`,
+      [flag]: true,
+    }));
+    const ended = rulesetFoeFates({
+      ...base,
+      combatants: [...base.combatants.filter((one) => one.side === "party"), ...foes],
+    });
+    assert.deepEqual(
+      ended.fates.map(([key, list]) => [key, list.map((one) => one.id)]),
+      [
+        ["endDefeated", ["foe-down"]],
+        ["endGone", ["foe-left", "foe-away"]],
+      ],
+    );
+    assert.equal(ended.beaten, 1, "the tally is the felled line's length");
+    assert.equal(ended.total, 3);
+    const fled = rulesetFoeFates({ ...base, combatants: [{ ...foe, left: true }] });
+    assert.equal(fled.beaten, 0, "a fight every foe left alive beats none of them");
+    // One that gave itself up is beaten, and listed as such, not as gone (laptop level-4 pass 2026-10-26).
+    const yielded = rulesetFoeFates({
+      ...base,
+      combatants: [
+        { ...foe, id: "grakka", away: true, surrendered: true, defeated: true },
+        { ...foe, id: "scavenger", left: true, away: true, defeated: true },
+      ],
+    });
+    assert.deepEqual(
+      yielded.fates.map(([key, list]) => [key, list.map((one) => one.id)]),
+      [
+        ["endSurrendered", ["grakka"]],
+        ["endGone", ["scavenger"]],
+      ],
+    );
+    assert.equal(yielded.beaten, 1);
+  }
 
   const menu = menuOf(fiveE, state, "brenna");
   const sword = menu.find((option) => option.label === "Longsword")!;
@@ -429,6 +503,45 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     `what is left of a budget belongs to the status panel, not the log: ${JSON.stringify(printed)}`,
   );
 
+  // The Engine's reasons for its picks are printed only with Debug on, after the step they explain.
+  {
+    const reasoned = [
+      ...swing.events.map((event, index) => ({ seq: index + 1, event: event as DirectedRulesetEvent })),
+      {
+        seq: swing.events.length + 1,
+        event: {
+          type: "reasoning",
+          actorId: "brenna",
+          reasons: [{ why: "approach", targetId: "lurker", sprinted: true }],
+        } as DirectedRulesetEvent,
+      },
+    ];
+    const hidden = rulesetCombatLogLines(reasoned, names, t).map((entry) => entry.text);
+    assert.ok(!hidden.some((text) => text.startsWith("Why ")), "no reasons without Debug");
+    const shown = rulesetCombatLogLines(reasoned, names, t, -1, true).map((entry) => entry.text);
+    assert.equal(shown.at(-1), "Why Brenna did that: nothing in reach, so it sprinted toward Thorn Lurker.");
+    // Its own strengthening is said as its own, never as helping itself by name; and why it let a
+    // moment go, the reason for a line the log never prints, is not said either.
+    const more = [
+      ...reasoned,
+      {
+        seq: reasoned.length + 1,
+        event: { type: "reasoning", actorId: "brenna", reasons: [{ why: "support", targetId: "brenna" }] },
+      },
+      { seq: reasoned.length + 2, event: { type: "reasoning", actorId: "brenna", reasons: [{ why: "letGo" }] } },
+    ] as typeof reasoned;
+    const told = rulesetCombatLogLines(more, names, t, -1, true).map((entry) => entry.text);
+    assert.equal(told.at(-1), "Why Brenna did that: makes itself stronger.");
+    const richView = viewOf(
+      swing.state,
+      reasoned.map((entry) => entry.event),
+    );
+    assert.ok(!rulesetRichLogLines(fiveE, richView, t as never).some((one) => one.reason), "nor on the board's log");
+    const richLast = rulesetRichLogLines(fiveE, richView, t as never, true).at(-1)!;
+    assert.equal(richLast.reason, true, "drawn as an aside");
+    assert.equal(richLast.text, "Why Brenna did that: nothing in reach, so it sprinted toward Thorn Lurker.");
+  }
+
   // Only the lines that are new are handed back, so a screen prints a fight once.
   const all = swing.events.map((event, index) => ({ seq: index + 1, event: event as DirectedRulesetEvent }));
   assert.deepEqual(rulesetCombatLogLines(all, names, t, all.length), []);
@@ -438,6 +551,31 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     everyLine.length - 1,
     "asking for what came after the first printed line leaves exactly that one out",
   );
+
+  // A moment nobody answered is left out of the log, offer and passing alike; one somebody is still
+  // weighing is said.
+  const offer = {
+    type: "window",
+    window: "w9",
+    kind: "reaction",
+    waiting: ["lurker"],
+    sourceId: "brenna",
+    moment: "used",
+    label: "Longsword",
+  } as unknown as DirectedRulesetEvent;
+  const pass = { type: "pass", actorId: "lurker", window: "w9" } as unknown as DirectedRulesetEvent;
+  assert.deepEqual(
+    rulesetCombatLogLines(
+      [
+        { seq: 1, event: offer },
+        { seq: 2, event: pass },
+      ],
+      names,
+      t,
+    ),
+    [],
+  );
+  assert.equal(rulesetCombatLogLines([{ seq: 1, event: offer }], names, t).length, 1);
 }
 
 // ── The same code on Ember Roads: 2d6 against a Guard, and Grit for health ──
@@ -525,7 +663,7 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   });
   const say = (event: DirectedRulesetEvent) => line(fiveE, state, event);
 
-  const table: Array<[RulesetCombatEvent["type"] | "director", string | null]> = [
+  const table: Array<[RulesetCombatEvent["type"] | "director" | "reasoning" | "callout", string | null]> = [
     ["initiative", say({ type: "initiative", entries: [{ actorId: "brenna", roll: [12], modifier: 2, total: 14 }] })],
     ["round", say({ type: "round", round: 3 })],
     ["turn", say({ type: "turn", actorId: "brenna", round: 3 })],
@@ -588,6 +726,7 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ["condition", say({ type: "condition", targetId: "brenna", condition: "prone", active: true, reason: "applied" })],
     ["spend", say({ type: "spend", actorId: "corwin", pool: "slots_1", label: "1st-level slots", amount: 1 })],
     ["budget", say({ type: "budget", actorId: "brenna", budget: "bonus", left: 0 })],
+    ["prayed", say({ type: "prayed", actorId: "corwin", optionId: "bless", label: "Bless" })],
     ["uses", say({ type: "uses", actorId: "lurker", optionId: "thorns", label: "Thorns", left: 1, of: 3 })],
     ["broke", say({ type: "broke", actorId: "corwin", optionId: "use:0", label: "Wand of sparks", roll: 1 })],
     [
@@ -660,6 +799,34 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
       say({ type: "gives", actorId: "brenna", optionId: "surge", label: "Second Wind", budget: "action", left: 1 }),
     ],
     ["rider", say({ type: "rider", actorId: "brenna", targetId: "lurker", riderId: "sly", label: "Sly Strike" })],
+    ["ashore", say({ type: "ashore", actorId: "brenna", to: { x: 4, y: 2 } })],
+    [
+      "presence",
+      say({ type: "presence", actorId: "brenna", condition: "aware", within: 5280, kinds: ["Fiend", "Undead"] }),
+    ],
+    [
+      "chance",
+      say({
+        type: "chance",
+        actorId: "brenna",
+        optionId: "x",
+        label: "Divine Intervention",
+        sides: 100,
+        needed: 12,
+        roll: 40,
+        outcome: "failed",
+      }),
+    ],
+    [
+      "sustained",
+      say({
+        type: "sustained",
+        actorId: "brenna",
+        targetId: "lurker",
+        condition: "poisoned",
+        label: "Intimidating Presence",
+      }),
+    ],
     [
       "concentration",
       say({ type: "concentration", actorId: "corwin", label: "Bless", state: "ended", reason: "damage" }),
@@ -685,6 +852,19 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ["outcome", say({ type: "outcome", outcome: "victory" })],
     ["refused", say({ type: "refused", actorId: "brenna", optionId: "sword", reason: "no-budget" })],
     ["director", say({ type: "director", reason: "ruleset-unavailable", text: "The rules are gone." })],
+    ["callout", say({ type: "callout", actorId: "corwin", targetId: "lurker", way: "critical" })],
+    [
+      "reasoning",
+      say({
+        type: "reasoning",
+        actorId: "lurker",
+        reasons: [
+          { why: "finish", targetId: "brenna" },
+          { why: "damage", targetId: "brenna", strength: "heavy" },
+          { why: "walked", cells: 2 },
+        ],
+      }),
+    ],
     // The four a fight on a board adds. The board itself is a later slice; the lines are here so a
     // positioned fight reads as a fight rather than as a gap in the log.
     [
@@ -717,6 +897,22 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     [
       "hardness",
       say({ type: "hardness", targetId: "lurker", sourceId: "brenna", label: "Longsword", hardness: 6, dice: 4 }),
+    ],
+    [
+      "symbol-spend",
+      say({
+        type: "symbol-spend",
+        actorId: "brenna",
+        rollerId: "brenna",
+        targetId: "lurker",
+        spendId: "rally",
+        label: "Rally",
+        symbol: "a",
+        cost: 1,
+        times: 2,
+        onId: "lurker",
+        setback: 2,
+      }),
     ],
     [
       "recheck",
@@ -801,6 +997,17 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
       }),
     ],
     [
+      "refilled",
+      say({
+        type: "refilled",
+        actorId: "brenna",
+        label: "Superior Inspiration",
+        pool: "Bardic Inspiration",
+        now: "1/5",
+      }),
+    ],
+    ["rerolled", say({ type: "rerolled", actorId: "brenna", label: "Lucky", face: 1, to: 14 })],
+    [
       "rescued",
       say({ type: "rescued", actorId: "brenna", optionId: "ability:0:1", label: "Indomitable", by: "reroll" }),
     ],
@@ -810,9 +1017,55 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ["skip", say({ type: "skip", actorId: "lurker", reason: "daze" })],
     ["resized", say({ type: "resized", targetId: "lurker", size: "large", label: "Large" })],
     ["compelled", say({ type: "compelled", actorId: "lurker", condition: "incapacitated", roll: 2, does: "nothing" })],
+    ["split", say({ type: "split", actorId: "lurker", ids: ["brenna"], health: 20 })],
+    ["lent", say({ type: "lent", actorId: "brenna", calledId: "lurker", label: "Bite" })],
+    ["raisedMax", say({ type: "raisedMax", targetId: "lurker", condition: "incapacitated", amount: 5 })],
+    ["ray", say({ type: "ray", actorId: "brenna", targetId: "lurker", label: "Prismatic Spray", ray: "Red", roll: 1 })],
+    [
+      "steered",
+      say({
+        type: "steered",
+        actorId: "brenna",
+        label: "Compulsion",
+        condition: "incapacitated",
+        targetIds: ["lurker"],
+      }),
+    ],
+    [
+      "wasted",
+      say({ type: "wasted", actorId: "lurker", condition: "incapacitated", budget: "action", label: "Action" }),
+    ],
+    ["massiveDeath", say({ type: "massiveDeath", actorId: "brenna" })],
+    ["pushBraced", say({ type: "pushBraced", actorId: "brenna", label: "Dwarven Plate", cells: 2 })],
+    ["knockedOut", say({ type: "knockedOut", actorId: "lurker", sourceId: "brenna" })],
+    ["itemsMade", say({ type: "itemsMade", actorId: "brenna", label: "Goodberry", count: 10 })],
+    ["itemsVanished", say({ type: "itemsVanished", actorId: "brenna", label: "Iron Bar", count: 1 })],
+    ["morale", say({ type: "morale", actorId: "lurker", trigger: "hurt", outcome: "flee", roll: 9, score: 7 })],
+    ["fled", say({ type: "fled", actorId: "lurker" })],
+    ["moraleCheck", say({ type: "moraleCheck", actorId: "lurker", trigger: "leader-down" })],
+    ["temperamentShift", say({ type: "temperamentShift", actorId: "lurker", to: "methodical", on: "bloodied" })],
+    ["holdsGround", say({ type: "holdsGround", actorId: "lurker" })],
+    [
+      "reflected",
+      say({
+        type: "reflected",
+        targetId: "lurker",
+        sourceId: "brenna",
+        label: "Ray",
+        by: "Carapace",
+        roll: 3,
+        back: false,
+      }),
+    ],
     ["letFall", say({ type: "letFall", actorId: "brenna", condition: "incapacitated", labels: ["Mace", "Shield"] })],
     ["pickedUp", say({ type: "pickedUp", actorId: "brenna", label: "Mace" })],
+    ["drew", say({ type: "drew", actorId: "brenna", label: "Mace", stowed: ["Spear"] })],
+    [
+      "takenAway",
+      say({ type: "takenAway", actorId: "brenna", targetId: "lurker", label: "Telekinesis", labels: ["Mace"] }),
+    ],
     ["averted", say({ type: "averted", actorId: "brenna", holderId: "lurker" })],
+    ["sanctuary", say({ type: "sanctuary", actorId: "lurker", holderId: "brenna", label: "Gore" })],
     [
       "section",
       say({
@@ -858,6 +1111,37 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ["hangsOn", say({ type: "hangsOn", actorId: "lurker", label: "Hourglass", left: 0 })],
     ["auraGrows", say({ type: "auraGrows", actorId: "lurker", condition: "poisoned", distance: 30 })],
     ["felled", say({ type: "felled", actorId: "lurker", label: "Held Ground" })],
+    ["shaped", say({ type: "shaped", targetId: "brenna", condition: "wild_shape", form: "Brown Bear" })],
+    ["shaped", say({ type: "shaped", targetId: "brenna", condition: "wild_shape", form: "Brown Bear", gone: true })],
+    ["shaped", say({ type: "shaped", targetId: "lurker", condition: "polymorph", form: "Toad", refused: true })],
+    ["sentAway", say({ type: "sentAway", actorId: "brenna", ids: ["lurker"], reason: "rounds" })],
+    ["turnedOn", say({ type: "turnedOn", actorId: "brenna", ids: ["lurker"] })],
+    ["deathBurst", say({ type: "deathBurst", actorId: "lurker", label: "Death Burst" })],
+    ["turnRoll", say({ type: "turnRoll", actorId: "lurker", roll: 6, atLeast: 6, conditions: ["berserk"] })],
+    ["rampage", say({ type: "rampage", actorId: "lurker", label: "Bite", cells: 3 })],
+    ["headLost", say({ type: "headLost", actorId: "lurker", left: 4 })],
+    ["corroded", say({ type: "corroded", actorId: "brenna", targetId: "lurker", label: "Longsword", penalty: 2 })],
+    [
+      "corroded",
+      say({ type: "corroded", actorId: "brenna", targetId: "lurker", label: "Longsword", penalty: 5, destroyed: true }),
+    ],
+    [
+      "corroded",
+      say({ type: "corroded", actorId: "brenna", targetId: "lurker", label: "Arrow", penalty: 0, ammunition: true }),
+    ],
+    ["headsGrow", say({ type: "headsGrow", actorId: "lurker", grown: 2, heads: 6 })],
+    ["headsGrow", say({ type: "headsGrow", actorId: "lurker", grown: 0, heads: 4, burned: true })],
+    ["goesAt", say({ type: "goesAt", actorId: "lurker", condition: "berserk", targetId: "lurker" })],
+    ["inside", say({ type: "inside", targetId: "brenna", holderId: "lurker" })],
+    ["inside", say({ type: "inside", targetId: "brenna", holderId: "lurker", out: true })],
+    ["mount", say({ type: "mount", riderId: "brenna", mountId: "lurker" })],
+    ["breath", say({ type: "breath", actorId: "brenna", held: 3, lasts: 0 })],
+    ["breath", say({ type: "breath", actorId: "brenna", held: 0, lasts: 2 })],
+    ["breath", say({ type: "breath", actorId: "brenna", held: 0, lasts: 0 })],
+    ["mount", say({ type: "mount", riderId: "brenna", mountId: "lurker", off: true })],
+    ["mount", say({ type: "mount", riderId: "brenna", mountId: "lurker", off: true, fell: true })],
+    ["regenerates", say({ type: "regenerates", actorId: "lurker", amount: 10 })],
+    ["regenerates", say({ type: "regenerates", actorId: "lurker", amount: 0, stopped: true })],
     ["reaped", say({ type: "reaped", actorId: "lurker", sourceId: "brenna" })],
     ["called", say({ type: "called", actorId: "lurker", label: "Jars Burst", ids: ["brenna"] })],
     [
@@ -876,6 +1160,17 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ],
     ["growth", say({ type: "growth", actorId: "brenna", label: "Shears", cells: 1, by: "cut" })],
     ["left", say({ type: "left", actorId: "lurker", label: "Teleport" })],
+    [
+      "teleportRoll",
+      say({
+        type: "teleportRoll",
+        actorId: "lurker",
+        label: "Teleport",
+        row: "Seen casually",
+        roll: 12,
+        outcome: "mishap",
+      }),
+    ],
     ["surprised", say({ type: "surprised", actorIds: ["brenna", "lurker"] })],
     ["surpriseOver", say({ type: "surpriseOver", actorId: "lurker" })],
     ["extraTurn", say({ type: "extraTurn", actorId: "brenna", initiative: 7, label: "Thief's Reflexes" })],
@@ -887,7 +1182,31 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
 
     ["summon", say({ type: "summon", actorId: "corwin", label: "Spiritual Weapon", outcome: "appeared" })],
     ["flew", say({ type: "flew", actorId: "lurker", from: 0, to: 1, cost: 1, left: 5 })],
+    [
+      "rolledTable",
+      say({ type: "rolledTable", actorId: "corwin", label: "Confusion", roll: 7, of: 10, result: "Wanders" }),
+    ],
+    ["strikesRolled", say({ type: "strikesRolled", actorId: "lurker", label: "Rotting Touch", dice: "1d4", count: 3 })],
+    [
+      "carried",
+      say({
+        type: "carried",
+        actorId: "corwin",
+        targetId: "lurker",
+        label: "Telekinesis",
+        from: { x: 3, y: 1 },
+        to: { x: 5, y: 1 },
+        rises: 1,
+      }),
+    ],
+    ["lifted", say({ type: "lifted", targetId: "lurker", from: 0, to: 20 })],
+    ["controlled", say({ type: "controlled", targetId: "lurker", sourceId: "brenna", active: true })],
+    ["reformed", say({ type: "reformed", actorId: "brenna", label: "Rod of Lordly Might", form: "Flame tongue" })],
+    ["seenThrough", say({ type: "seenThrough", actorId: "brenna", targetId: "lurker", label: "Fire Bolt" })],
+    ["storedCast", say({ type: "storedCast", actorId: "brenna", label: "Cure Wounds", targetId: "brenna" })],
+    ["lift", say({ type: "lift", actorId: "lurker", up: true })],
     ["delay", say({ type: "delay", actorId: "corwin", label: "Fireball", outcome: "held", roll: 14, needed: 11 })],
+    ["casting", say({ type: "casting", actorId: "corwin", label: "Symbol", outcome: "continued", left: 3 })],
     [
       "counter",
       say({
@@ -957,9 +1276,106 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ],
     // A prop lit again (1.332).
     ["relit", say({ type: "relit", actorId: "brenna", propId: "p1", label: "Bonfire", cells: 9 })],
+    // Illusory duplicates (1.505), a blink (1.506), stopped time (1.507), stepping in (1.509).
+    [
+      "duplicate",
+      say({ type: "duplicate", actorId: "lurker", targetId: "brenna", roll: 6, needed: 6, diverted: true }),
+    ],
+    ["blink", say({ type: "blink", actorId: "brenna", label: "Blink", roll: 14, needed: 11, vanished: true })],
+    ["timeStop", say({ type: "timeStop", actorId: "brenna", label: "Time Stop", turns: 3 })],
+    [
+      "tookAim",
+      say({
+        type: "tookAim",
+        actorId: "brenna",
+        targetId: "corwin",
+        sourceId: "lurker",
+        label: "Arrow-Catching Shield",
+      }),
+    ],
+    [
+      "absorbed",
+      say({ type: "absorbed", targetId: "brenna", sourceId: "lurker", label: "Fire Bolt", level: 1, by: "Rod" }),
+    ],
+    ["stored", say({ type: "stored", actorId: "brenna", holderId: "brenna", label: "Shield", by: "Ring", level: 1 })],
+    ["turnedBack", say({ type: "turnedBack", targetId: "brenna", sourceId: "lurker", label: "Hold", by: "Ring" })],
+    [
+      "cut",
+      say({
+        type: "cut",
+        actorId: "brenna",
+        holderId: "corwin",
+        label: "Dagger",
+        condition: "netted",
+        outcome: "hit",
+        dealt: 5,
+        left: 0,
+        freed: true,
+      }),
+    ],
+    ["setAside", say({ type: "setAside", targetId: "lurker", label: "Antimagic Field" })],
+    ["itemSpent", say({ type: "itemSpent", actorId: "brenna", label: "Figurine of Wondrous Power" })],
+    ["missileKept", say({ type: "missileKept", actorId: "brenna", label: "Arrow" })],
+    ["backfired", say({ type: "backfired", actorId: "brenna", label: "Horn of Blasting", roll: 7, destroyed: true })],
+    ["arrived", say({ type: "arrived", actorId: "brenna", ids: ["lurker"] })],
+    ["alongside", say({ type: "alongside", actorId: "brenna", label: "Staff: Thunderclap", to: "Staff: Both" })],
   ];
   const printed = new Map(table);
   assert.equal(printed.get("relit"), "Brenna lights Bonfire again.");
+  assert.equal(printed.get("itemSpent"), "Brenna's Figurine of Wondrous Power is spent for good.");
+  assert.equal(printed.get("missileKept"), "Brenna catches the Arrow and keeps it.");
+  // A trap disarmed, or not (1.669).
+  const tried = { check: "thieves", rolls: [12], modifier: 3, total: 15 };
+  assert.equal(
+    say({ type: "zone", actorId: "lurker", label: "Glyph", outcome: "disarmed", targetId: "brenna", check: tried }),
+    "Brenna disarms Thorn Lurker’s Glyph (12 + 3 = 15).",
+  );
+  assert.equal(
+    say({
+      type: "zone",
+      actorId: "lurker",
+      label: "Glyph",
+      outcome: "disarm-failed",
+      targetId: "brenna",
+      check: tried,
+    }),
+    "Brenna fails to disarm Thorn Lurker’s Glyph (12 + 3 = 15).",
+  );
+  // A zone closed by its caster, and spreading (1.637).
+  assert.equal(
+    say({ type: "zone", actorId: "brenna", label: "Eversmoking Bottle", outcome: "closed" }),
+    "Brenna closes Eversmoking Bottle.",
+  );
+  assert.equal(
+    say({ type: "zone", actorId: "brenna", label: "Eversmoking Bottle", outcome: "spread" }),
+    "Brenna’s Eversmoking Bottle spreads wider.",
+  );
+  assert.equal(printed.get("backfired"), "Horn of Blasting backfires on Brenna and is destroyed (a 7 on the d100).");
+  assert.equal(printed.get("arrived"), "Brenna's call brings Thorn Lurker.");
+  assert.equal(printed.get("duplicate"), "Thorn Lurker's attack turns onto one of Brenna's duplicates (6, needing 6).");
+  assert.equal(
+    say({
+      type: "duplicate",
+      actorId: "lurker",
+      targetId: "brenna",
+      roll: 6,
+      needed: 6,
+      diverted: true,
+      lost: true,
+      left: 2,
+    }),
+    "Thorn Lurker destroys one of Brenna's duplicates; 2 left.",
+  );
+  assert.equal(printed.get("blink"), "Brenna rolls 14 for Blink (needing 11) and vanishes until their next turn.");
+  assert.equal(printed.get("timeStop"), "Brenna's Time Stop stops time: 3 turns in a row.");
+  assert.equal(
+    say({ type: "timeStop", actorId: "brenna", label: "Time Stop", ended: "affected" }),
+    "Brenna's Time Stop ends: what they did reached somebody else.",
+  );
+  assert.equal(
+    printed.get("tookAim"),
+    "Brenna steps in with Arrow-Catching Shield: Thorn Lurker's attack at Corwin is aimed at them instead.",
+  );
   assert.equal(
     printed.get("heldGroundReleased"),
     "The Wheel lets go: death is held here no longer. Thorn Lurker died. Down and dying now: Brenna.",
@@ -1058,6 +1474,11 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     printed.get("hardness"),
     "Brenna's Longsword lands on Thorn Lurker with 4 dice, below a hardness of 6, and does nothing.",
   );
+  // A ruleset with no symbols names one by its id.
+  assert.equal(
+    printed.get("symbol-spend"),
+    "Brenna spends 2 a: Rally ×2. Thorn Lurker throws 2 dice more as setback on their next roll.",
+  );
   assert.equal(printed.get("shot"), "Longbow: 11 left to shoot.");
   assert.equal(
     line(fiveE, state, { type: "shot", actorId: "brenna", optionId: "item:1", label: "Pistol", left: 5, of: 6 }),
@@ -1108,7 +1529,7 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   assert.equal(printed.get("pass"), "Thorn Lurker lets the moment go by.");
   assert.equal(
     line(fiveE, state, { type: "window", window: "w2", kind: "signature", waiting: ["lurker"] }),
-    "The fight pauses between turns, and Thorn Lurker may act.",
+    "The fight pauses between turns, and Thorn Lurker may take a legendary action.",
   );
   assert.equal(printed.get("initiative"), "Initiative: Brenna 14.");
   assert.equal(printed.get("round"), "Round 3.");
@@ -1129,15 +1550,20 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     say({ type: "temporary", targetId: "brenna", rolls: [], flat: 0, amount: 4, lost: true }),
     "Brenna loses the last 4 temporary points.",
   );
-  assert.equal(printed.get("condition"), "Brenna is now Prone.");
+  assert.equal(printed.get("condition"), "Brenna gains Prone.");
   assert.equal(printed.get("spend"), "Corwin spends 1 1st-level slots.");
   assert.equal(printed.get("budget"), "Brenna has 0 Bonus action left.");
   assert.equal(printed.get("uses"), "Thorns: 1 of 3 left.");
+  assert.equal(printed.get("prayed"), "Corwin prays: Bless.");
   assert.equal(printed.get("recharge"), "Thorns is ready again: 5, needing 5.");
-  assert.equal(printed.get("signature"), "Thorn Lurker spends 2 on Wail, with 1 left.");
+  assert.equal(printed.get("signature"), "Thorn Lurker takes a legendary action: Wail, for 2 points, with 1 left.");
   assert.equal(printed.get("strikes"), "Brenna swings with Longsword, with 1 strike left.");
   assert.equal(printed.get("gives"), "Brenna uses Second Wind and has 1 Action.");
-  assert.equal(printed.get("rider"), "Sly Strike catches Thorn Lurker as well.");
+  assert.equal(printed.get("rider"), "Thorn Lurker also takes Sly Strike.");
+  assert.equal(printed.get("ashore"), "Brenna cannot stop on the water and comes out at 4, 2.");
+  assert.equal(printed.get("presence"), "Brenna senses Fiend, Undead within 5280.");
+  assert.equal(printed.get("chance"), "Brenna's Divine Intervention fails: 40 on a d100, needing 12 or less.");
+  assert.equal(printed.get("sustained"), "Brenna keeps Thorn Lurker Poisoned with Intimidating Presence.");
   // The last strike of a spend says so rather than promising none left.
   assert.equal(
     line(fiveE, state, { type: "strikes", actorId: "brenna", optionId: "sword", label: "Longsword", left: 0 }),
@@ -1145,7 +1571,7 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   );
   assert.equal(printed.get("concentration"), "Corwin loses hold of Bless.");
   assert.equal(printed.get("standard"), "Brenna helps Corwin.");
-  assert.equal(printed.get("dying"), "Brenna holds on: 12 against 10. Held 2, slipped 1.");
+  assert.equal(printed.get("dying"), "Brenna passes a roll against death: 12 against 10. 2 passed, 1 failed.");
   assert.equal(printed.get("down"), "Brenna goes down and is fighting to hold on.");
   assert.equal(printed.get("defeated"), "Thorn Lurker is out of the fight.");
   assert.equal(printed.get("revived"), "Brenna is back up on 1.");
@@ -1153,16 +1579,51 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   assert.equal(printed.get("outcome"), "The fight is won.");
   assert.equal(printed.get("refused"), "Brenna could not do that: They have nothing left to spend on it this turn.");
   assert.equal(printed.get("director"), "The fight stopped here: The rules are gone.");
+  assert.equal(
+    printed.get("callout"),
+    "Corwin calls out: Thorn Lurker can't defend itself, so every blow from beside it is a critical hit!",
+  );
+  assert.equal(
+    say({ type: "callout", actorId: "corwin", targetId: "lurker", way: "advantage" }),
+    "Corwin calls out: Thorn Lurker is wide open, so attack it now!",
+  );
+  assert.equal(
+    printed.get("reasoning"),
+    "Why Thorn Lurker did that: likely takes Brenna out of the fight; heavy damage to Brenna; walked 2 first to act from there.",
+  );
   assert.equal(printed.get("move"), "Brenna moves to 4, 2 for 3 and has 3 left.");
+  // A jump is a move that says so (1.499).
+  assert.equal(
+    say({
+      type: "move",
+      actorId: "brenna",
+      from: { x: 1, y: 2 },
+      to: { x: 3, y: 2 },
+      path: [
+        { x: 2, y: 2 },
+        { x: 3, y: 2 },
+      ],
+      cost: 2,
+      left: 4,
+      jumped: true,
+    }),
+    "Brenna jumps to 3, 2 for 2 and has 4 left.",
+  );
   assert.equal(printed.get("opportunity"), "Thorn Lurker strikes at Brenna with Barbed claw as they move away.");
   assert.equal(printed.get("cover"), "Thorn Lurker is under cover, which adds 2 for a defense of 15.");
-  assert.equal(printed.get("area"), "Corwin aims Fireball at 5, 3, covering 3 cells.");
+  // Who it catches is said by the lines that follow; squares and cell counts read like the Engine's own notes.
+  assert.equal(printed.get("area"), "Corwin aims Fireball.");
   assert.equal(
     printed.get("contest"),
     "Brenna tries Grapple on Thorn Lurker: 14 + 7 = 21 with Athletics against 9 + 2 = 11 with Acrobatics, and wins.",
   );
   assert.equal(printed.get("slain"), "Brenna's Mace of Disruption destroys Thorn Lurker outright.");
   assert.equal(printed.get("dropped"), "Brenna's Quivering Palm drops Thorn Lurker to 0.");
+  assert.equal(
+    printed.get("refilled"),
+    "Brenna's Superior Inspiration gives back Bardic Inspiration as initiative is rolled: 1/5.",
+  );
+  assert.equal(printed.get("rerolled"), "Brenna rolls a 1, and Lucky rolls it again: 14.");
   assert.equal(printed.get("rescued"), "Brenna uses Indomitable and rolls again.");
   assert.equal(printed.get("lowered"), "Brenna's Cutting Words takes 4 off Thorn Lurker's Bite, to 12.");
   const lowered = {
@@ -1237,14 +1698,89 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     "Thorn Lurker rolls 9 for Incapacitated and acts normally.",
   );
   assert.equal(printed.get("letFall"), "Brenna drops Mace, Shield (Incapacitated).");
+  assert.equal(printed.get("massiveDeath"), "Brenna is killed outright by massive damage.");
+  assert.equal(printed.get("pushBraced"), "Brenna braces (Dwarven Plate) and is moved 2 less.");
+  assert.equal(printed.get("knockedOut"), "Brenna knocks Thorn Lurker out: unconscious and stable.");
+  assert.equal(printed.get("itemsMade"), "Brenna makes 10 Goodberry.");
+  assert.equal(printed.get("itemsVanished"), "1 Iron Bar made by Brenna vanishes.");
+  assert.equal(printed.get("morale"), "Thorn Lurker loses heart and tries to flee!");
+  assert.equal(
+    say({ type: "morale", actorId: "lurker", trigger: "first-fall", outcome: "surrender" }),
+    "Thorn Lurker loses heart and surrenders.",
+  );
+  assert.equal(
+    say({ type: "morale", actorId: "lurker", trigger: "half-down", outcome: "held" }),
+    "Thorn Lurker stands firm.",
+  );
+  assert.equal(printed.get("fled"), "Thorn Lurker escapes off the edge of the fight.");
+  assert.equal(printed.get("moraleCheck"), "Thorn Lurker sees its leader fall and must hold its nerve.");
+  assert.equal(printed.get("temperamentShift"), "Thorn Lurker is bloodied and turns methodical.");
+  assert.equal(printed.get("holdsGround"), "Thorn Lurker keeps to its ground.");
+  assert.equal(
+    say({ type: "outcome", outcome: "defeat", yielded: true }),
+    "The party lays down its arms and is taken alive.",
+  );
+  assert.equal(
+    say({
+      type: "move",
+      actorId: "lurker",
+      from: { x: 0, y: 0 },
+      to: { x: 0, y: 3 },
+      path: [
+        { x: 0, y: 1 },
+        { x: 0, y: 2 },
+        { x: 0, y: 3 },
+      ],
+      cost: 3,
+      left: 1,
+      dragged: ["brenna"],
+    }),
+    "Thorn Lurker moves to 0, 3 for 3 and has 1 left. Dragged along: Brenna.",
+  );
+  assert.equal(printed.get("reflected"), "Thorn Lurker's Carapace (3): Ray has no effect on it.");
+  assert.equal(
+    say({
+      type: "reflected",
+      targetId: "lurker",
+      sourceId: "brenna",
+      label: "Ray",
+      by: "Carapace",
+      roll: 6,
+      back: true,
+    }),
+    "Thorn Lurker's Carapace (6) turns Ray back at Brenna.",
+  );
   assert.equal(printed.get("pickedUp"), "Brenna picks up Mace.");
+  assert.equal(printed.get("drew"), "Brenna takes Mace in hand, putting away Spear.");
+  assert.equal(printed.get("takenAway"), "Brenna takes Mace from Thorn Lurker with Telekinesis.");
   assert.equal(printed.get("averted"), "Brenna averts their eyes from Thorn Lurker.");
+  assert.equal(printed.get("sanctuary"), "Thorn Lurker is turned from Brenna by a sanctuary, and Gore is lost.");
+  assert.equal(
+    say({ type: "sanctuary", actorId: "lurker", holderId: "brenna", label: "Gore", to: "corwin" }),
+    "Thorn Lurker is turned from Brenna by a sanctuary and makes Gore at Corwin.",
+  );
   assert.equal(
     say({ type: "averted", actorId: "brenna", holderId: "lurker", back: true }),
     "Brenna looks at Thorn Lurker again.",
   );
   assert.equal(printed.get("charged"), "Thorn Lurker charges Brenna with Gore.");
   assert.equal(printed.get("pushed"), "Brenna pushes Thorn Lurker back 1, to 4, 2.");
+  // Pulled in rather than pushed (1.675): a balor's whip.
+  assert.equal(
+    say({
+      type: "pushed",
+      actorId: "brenna",
+      targetId: "lurker",
+      from: { x: 6, y: 2 },
+      to: { x: 4, y: 2 },
+      path: [
+        { x: 5, y: 2 },
+        { x: 4, y: 2 },
+      ],
+      pulled: true,
+    }),
+    "Brenna pulls Thorn Lurker in 2, to 4, 2.",
+  );
   assert.equal(printed.get("teleported"), "Brenna teleports with Misty Step, to 6, 1.");
   // Carried along (1.276).
   assert.equal(
@@ -1292,6 +1828,12 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     say({ type: "hangsOn", actorId: "lurker", left: 1 }),
     "Thorn Lurker hangs on at 1 instead of falling (1 left).",
   );
+  // With no count of uses (1.400): Undead Fortitude, as often as its save holds.
+  assert.equal(
+    say({ type: "hangsOn", actorId: "lurker", label: "Undead Fortitude" }),
+    "Undead Fortitude: Thorn Lurker hangs on at 1 instead of falling.",
+  );
+  assert.equal(say({ type: "hangsOn", actorId: "lurker" }), "Thorn Lurker hangs on at 1 instead of falling.");
   assert.equal(printed.get("auraGrows"), "Thorn Lurker's Poisoned spreads further, reaching 30 now.");
   assert.equal(printed.get("felled"), "Held Ground: Thorn Lurker is felled, down but held back from dying.");
   assert.equal(say({ type: "felled", actorId: "lurker" }), "Thorn Lurker is felled: down, but held back from dying.");
@@ -1376,6 +1918,21 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   assert.equal(printed.get("returned"), "Thorn Lurker comes back into the fight.");
   // Out of the fight by a teleport (1.279), and along with whoever went.
   assert.equal(printed.get("left"), "Thorn Lurker leaves the fight with Teleport.");
+  assert.equal(
+    printed.get("teleportRoll"),
+    "Thorn Lurker’s Teleport (Seen casually) rolls 12 and goes wrong: a mishap.",
+  );
+  assert.equal(
+    say({
+      type: "teleportRoll",
+      actorId: "lurker",
+      label: "Teleport",
+      row: "Very familiar",
+      roll: 80,
+      outcome: "on-target",
+    }),
+    "Thorn Lurker’s Teleport (Very familiar) rolls 80 and lands on target.",
+  );
   assert.equal(
     say({ type: "left", actorId: "brenna", label: "Teleport", by: "lurker" }),
     "Brenna leaves the fight along with Thorn Lurker's Teleport.",
@@ -1575,6 +2132,20 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     "a heal is worded as healing, because both are an amount",
   );
   assert.equal(rulesetOptionForecastText({ ...sword, forecast: undefined }, t), "");
+  // A save is said before the damage, and what a made one leaves after it.
+  const blast = { ...sword, forecast: { averageDamage: 28 } };
+  assert.equal(
+    rulesetOptionForecastText({ ...blast, saveAgainst: { label: "DEX save", dc: 15, onSuccess: "half" } }, t),
+    "DEX save DC 15, about 28 damage (14 on a save)",
+  );
+  assert.equal(
+    rulesetOptionForecastText({ ...blast, saveAgainst: { label: "WIS save", dc: 13, onSuccess: "negates" } }, t),
+    "WIS save DC 13, about 28 damage (none on a save)",
+  );
+  assert.equal(
+    rulesetOptionForecastText({ ...blast, saveAgainst: { label: "CON save", dc: 12, onSuccess: "none" } }, t),
+    "CON save DC 12, about 28 damage",
+  );
 
   // What a spell costs is the sheet's own pool name, and how many are left is the server's count.
   // The menu only ever holds the actor on turn's own options, so the wizard is given the initiative
@@ -2098,6 +2669,53 @@ function drawn(...rows: string[]): TacticalGrid {
   const onTurn = rulesetBoardCells(near, null).find((cell) => cell.occupant?.id === "brenna")!;
   assert.ok(rulesetCellSentences(onTurn, near, t).includes("On turn."));
 
+  // A downed one lies here, and "Down." is a sentence of its own.
+  const downed: DirectedRulesetView = {
+    ...view,
+    combatants: view.combatants.map((one) => (one.id === "lurker" ? { ...one, down: true } : one)),
+  };
+  assert.equal(
+    rulesetCellSentences(at(rulesetBoardCells(downed, null), 6, 1), downed, t).join(" "),
+    "Plains. Thorn Lurker lies here, health 30 of 30. Down.",
+  );
+  // What a spell called up is drawn where it strikes from, and striking with it is told apart from
+  // casting it again; each kind of lasting area takes its own tint, the same one every time.
+  const called: DirectedRulesetView = {
+    ...view,
+    summons: [{ casterId: "brenna", label: "Spiritual Weapon", x: 3, y: 0 }],
+    zones: [{ casterId: "brenna", label: "Spirit Guardians", rounds: 10, cells: [{ x: 4, y: 0 }] }],
+  };
+  const calledCells = rulesetBoardCells(called, null);
+  assert.deepEqual(at(calledCells, 3, 0).summons, ["Spiritual Weapon"]);
+  assert.equal(messages["game.combat.ruleset.board.summons"], "{{names}} strikes from here.");
+  assert.deepEqual(at(calledCells, 4, 0).zoneTints, [rulesetZoneTint("Spirit Guardians")]);
+  assert.ok(rulesetZoneTint("Web") >= 0 && rulesetZoneTint("Web") < RULESET_ZONE_TINTS);
+  // Two areas over one square both show, each in its own tint.
+  const other = ["Burning oil", "Web", "Grease", "Moonbeam"].find(
+    (label) => rulesetZoneTint(label) !== rulesetZoneTint("Spirit Guardians"),
+  )!;
+  const overlapping = rulesetBoardCells(
+    {
+      ...called,
+      zones: [...called.zones!, { casterId: "lurker", label: other, rounds: 10, cells: [{ x: 4, y: 0 }] }],
+    },
+    null,
+  );
+  assert.deepEqual(at(overlapping, 4, 0).zoneTints, [rulesetZoneTint("Spirit Guardians"), rulesetZoneTint(other)]);
+  assert.equal(
+    rulesetOptionLabel(
+      {
+        id: "summon:spiritual-weapon",
+        kind: "attack",
+        label: "Spiritual Weapon",
+        budget: "bonus",
+        targets: { side: "enemy", count: 1 },
+      } as never,
+      t,
+    ),
+    "Spiritual Weapon: strike",
+  );
+
   // A wall's sections (1.200): what each has left, and the ones an attack may strike instead.
   const iced: DirectedRulesetView = {
     ...near,
@@ -2264,6 +2882,12 @@ function drawn(...rows: string[]): TacticalGrid {
   // A ring goes at once, and is never turning.
   assert.deepEqual(rulesetAimTake(wall, { ring: true }, { x: 6, y: 6 }), { send: { at: { x: 6, y: 6 }, ring: true } });
   assert.ok(!rulesetAimTurning(wall, { ring: true, at: { x: 6, y: 6 } }));
+  // Only a pick that finishes a shape laid over several confirms it: a ring chosen in the menu, or a
+  // shape with nothing set down yet, waits for a second tap on the same square.
+  assert.ok(!rulesetAimLaidOverPicks({ ring: true }));
+  assert.ok(!rulesetAimLaidOverPicks(undefined));
+  assert.ok(rulesetAimLaidOverPicks({ at: { x: 5, y: 5 } }));
+  assert.ok(rulesetAimLaidOverPicks({ at: { x: 1, y: 1 }, also: [{ x: 3, y: 1 }] }));
   // Three copies: two picks wait, the third sends; a square picked twice changes nothing.
   const storm = { ...base, area: { shape: "box", size: 2, copies: 3, range: 30 } } as never;
   const one = rulesetAimTake(storm, undefined, { x: 1, y: 1 });
@@ -2287,12 +2911,108 @@ function drawn(...rows: string[]): TacticalGrid {
   assert.equal(rulesetAimSoFar(undefined), null);
 }
 
-// ── The menu groups, the movement group first ──
+// ── The menu groups, the movement group first on a turn ──
 {
+  // A symbol throw's spends (1.382) are only ever asked in a window of their own, so they lead it.
   assert.deepEqual(
     [...RULESET_MENU_KINDS],
-    ["move", "attack", "reload", "ability", "item", "switch", "block", "contest", "standard", "end-turn"],
+    ["spend", "move", "attack", "reload", "ability", "item", "switch", "block", "contest", "standard", "end-turn"],
   );
+  assert.ok(messages["game.combat.ruleset.group.spend"], "en.json is missing the spend heading");
+  const engine = {
+    id: "engine-spends",
+    kind: "spend",
+    label: "Cut deeper, Rally",
+    targets: { side: "self", count: 0 },
+    targetIds: [],
+    symbolSpend: { engine: true, picks: [] },
+  } as never;
+  assert.equal(rulesetOptionLabel(engine, t), "Let the Engine choose: Cut deeper, Rally");
+  // The browser's choice is carried into a symbol fight once, and never while a decision is open.
+  const fightView = (choose: boolean, extra: Record<string, unknown> = {}) =>
+    ({ id: "fight", instanceId: "row-1", revision: 4, ruleset: { spends: { choose } }, ...extra }) as never;
+  const sends = { key: "fight|row-1", send: true, revision: 4, view: 100 };
+  const carriedOnce = { key: "fight|row-1", lost: 0 };
+  assert.deepEqual(rulesetSpendCarry(fightView(false), 100, false, null, true), sends);
+  assert.deepEqual(rulesetSpendCarry(fightView(false), 100, false, null, false), { ...sends, send: false });
+  assert.deepEqual(rulesetSpendCarry(fightView(true), 100, false, null, true), { ...sends, send: false });
+  assert.equal(rulesetSpendCarry(fightView(false), 100, false, carriedOnce, true), null, "carried once");
+  assert.equal(rulesetSpendCarry(fightView(false, { window: { id: "w" } }), 100, false, null, true), null, "waits");
+  assert.equal(rulesetSpendCarry(fightView(false), 100, true, null, true), null, "waits for a step in flight");
+  assert.equal(
+    rulesetSpendCarry({ id: "fight", revision: 1 } as never, 100, false, null, true),
+    null,
+    "no symbol fight",
+  );
+  assert.equal(
+    rulesetSpendCarry(fightView(false, { outcome: "victory" }), 100, false, null, true),
+    null,
+    "a fight over",
+  );
+  assert.deepEqual(
+    rulesetSpendCarry(fightView(false, { instanceId: "row-2" }), 100, false, carriedOnce, true),
+    { ...sends, key: "fight|row-2" },
+    "a restored checkpoint is another fight",
+  );
+  // One the rules refused waits for the fight to move; one lost on the way waits for a fresh view,
+  // up to its tries, and a refusal never counts against them.
+  const refusedAt = { key: "fight|row-1", lost: 0, failed: { refused: true as const, at: 4 } };
+  assert.equal(rulesetSpendCarry(fightView(false), 100, false, refusedAt, true), null, "not again at that revision");
+  assert.deepEqual(rulesetSpendCarry(fightView(false, { revision: 5 }), 100, false, refusedAt, true), {
+    ...sends,
+    revision: 5,
+  });
+  const lost = (count: number) => ({ key: "fight|row-1", lost: count, failed: { refused: false as const, view: 100 } });
+  assert.equal(rulesetSpendCarry(fightView(false), 100, false, lost(1), true), null, "lost: not from the same view");
+  assert.deepEqual(
+    rulesetSpendCarry(fightView(false), 101, false, lost(1), true),
+    { ...sends, view: 101 },
+    "a fresh one",
+  );
+  assert.equal(
+    rulesetSpendCarry(fightView(false), 101, false, lost(RULESET_SPEND_CARRY_TRIES), true),
+    null,
+    "its tries",
+  );
+  // The carry itself: one command however often it runs, and a failure marked by how it failed.
+  {
+    const carried: { current: RulesetSpendCarried | null } = { current: null };
+    const sent: Array<(error: unknown) => void> = [];
+    const send = (_command: unknown, options: { onError: (error: unknown) => void }) => sent.push(options.onError);
+    const refused = (error: unknown) => error === "refused";
+    /** One render of the screen: the gate, then the effect, as DirectedCombatUI runs them. */
+    const render = (view: number, revision = 4) =>
+      runRulesetSpendCarry(
+        rulesetSpendCarry(fightView(false, { revision }), view, false, carried.current, true),
+        carried,
+        send,
+        refused,
+      );
+    render(100);
+    render(100);
+    assert.equal(sent.length, 1, "run twice by one closure, one command leaves");
+    assert.deepEqual(carried.current, carriedOnce);
+    sent[0]!("refused");
+    assert.deepEqual(carried.current, refusedAt, "a refusal is marked at its revision, and not counted");
+    render(100);
+    assert.equal(sent.length, 1, "and not sent again there");
+    render(100, 5);
+    assert.equal(sent.length, 2, "but once the fight has moved");
+    sent[1]!(new Error("network"));
+    assert.deepEqual(carried.current, { key: "fight|row-1", lost: 1, failed: { refused: false, view: 100 } });
+    render(100, 5);
+    render(100, 5);
+    assert.equal(sent.length, 2, "a lost one is not resent in a burst from the view it failed on");
+    render(101, 5);
+    assert.equal(sent.length, 3, "only once a fresh view comes in");
+    sent[2]!(new Error("network"));
+    render(102, 5);
+    sent[3]!(new Error("network"));
+    render(103, 5);
+    assert.equal(sent.length, RULESET_SPEND_CARRY_TRIES + 1, "three losses in all, after the refusal, then it stops");
+    runRulesetSpendCarry({ ...sends, send: false }, { current: null }, send, refused);
+    assert.equal(sent.length, RULESET_SPEND_CARRY_TRIES + 1, "nothing to send is nothing sent");
+  }
   const grid = drawn(".....", ".....");
   const state = createRulesetEncounter({
     definition: fiveE,
@@ -2414,6 +3134,65 @@ function drawn(...rows: string[]): TacticalGrid {
   // A fight with no board has no unit to say it in, and the line still prints.
   const flat = rulesetCombatNames(fiveE, viewOf(state), t);
   assert.equal(rulesetCombatEventLine(walked, flat, t), "Brenna moves to 3, 0 for 3 and has 3 left.");
+}
+
+// ── A phone's tap is never taken for a hover ──
+{
+  // A board square that changes the page under a tap's mouse enter has the tap read as a hover, so
+  // the first tap on a square did nothing. Hover reads a square for a mouse or a pen only, and a
+  // phone is told to tap rather than press Enter.
+  const boardText = readSource("packages/client/src/components/game/RulesetCombatBoard.tsx");
+  assert.ok(!boardText.includes("onMouseEnter="), "the board reads a square on the mouse's enter again");
+  assert.match(boardText, /onPointerEnter=\{\(event\) => \{\s*if \(event\.pointerType !== "touch"\)/u);
+  for (const key of ["aimPromptTouch", "movePromptTouch", "teleportPromptTouch"]) {
+    const line = messages[`game.combat.ruleset.board.${key}`];
+    assert.ok(line && /^Tap /u.test(line) && !/Enter|Escape/u.test(line), `${key}: ${line}`);
+  }
+  assert.equal(messages["game.combat.ruleset.menu.fleeConfirmTouch"], "Leave the fight? Tap again");
+}
+
+// ── A companion is handed to the Engine whenever no decision is open ──
+{
+  // Having acted this round locked the select, so a companion whose turn came before any player's
+  // could never be handed over; the ruleset fight's server takes the change at any time.
+  const directed = readSource("packages/client/src/components/game/DirectedCombatUI.tsx");
+  assert.match(
+    directed,
+    /party=\{s\.party\s*\.filter\(\(member\) => !board\.yours \|\| board\.yours\.includes\(member\.id\)\)\s*\.map\(\(member\) => \(\{ \.\.\.member, hasActed: false \}\)\)\}/u,
+  );
+}
+
+// ── Closing setup after a failed Start keeps the game the Start made ──
+{
+  // The chat read lags behind Start Game, so the close used to try a delete the server refuses.
+  const surface = readSource("packages/client/src/components/game/GameSurface.tsx");
+  assert.match(surface, /const setupMadeGame = createGame\.data\?\.sessionChat\.id === activeChatId;/u);
+  assert.match(surface, /needsCreation && !setupMadeGame && !isMessagesLoading && messages\.length === 0/u);
+  // Closed, it stays closed across a reload, and the page says setup didn't finish rather than spin.
+  assert.match(surface, /writeSetupDismissed\(activeChatId, true\)/u);
+  assert.match(surface, /readSetupDismissed\(activeChatId\) \? activeChatId : null/u);
+  assert.match(surface, /setupWizardDismissed && sessionStatus === "setup" && !gameSetup\.isPending && !isStreaming/u);
+  assert.ok(messages["ui.game.gamesurfacecomponent.setupNotFinished"]);
+}
+
+// ── A directed fight already over goes straight to its end (laptop playtest 2026-10-26) ──
+{
+  // The party fell and the server restarted before "Continue story": the same fight was set up again
+  // behind "Combat starting", and only a second press showed the fall notice. The setup now looks the
+  // fight up by its message first, and one already over is ended from its own summary, once.
+  const surface = readSource("packages/client/src/components/game/GameSurface.tsx");
+  const setup = surface.slice(
+    surface.indexOf("const generateCombatStateForMessage = useCallback("),
+    surface.indexOf('.post<EncounterInitResponse>("/encounter/init"'),
+  );
+  assert.match(setup, /\/game\/combat\/director\/state\?\$\{params\}/u);
+  assert.match(setup, /if \(session\?\.outcome && session\.summary\) \{/u);
+  assert.match(setup, /handleCombatEndRef\.current\(\s*session\.summary\.outcome,/u);
+  assert.match(setup, /if \(endedDirectedFightRef\.current === directedFight\) \{/u);
+  assert.match(
+    surface,
+    /if \(activeChatId && fightKey\) endedDirectedFightRef\.current = `\$\{activeChatId\}:\$\{fightKey\}`;/u,
+  );
 }
 
 console.log("ruleset-combat-screen-client regression passed");

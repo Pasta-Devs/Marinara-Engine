@@ -1019,6 +1019,14 @@ export function applyAction(state: TacticalCombatState, action: TacticalAction):
   if (!unit) return { ok: false, error: `Unknown unit: ${action.unitId}` };
   if (unit.hp <= 0) return { ok: false, error: `${unit.name} is defeated.` };
   if (unit.side !== "party") return { ok: false, error: "You can only command party units." };
+  if (action.type === "orders") {
+    const charge = action.orders?.protectId ? next.units.find((one) => one.id === action.orders!.protectId) : undefined;
+    if (action.orders?.protectId && (!charge || charge.side !== "party" || charge.id === unit.id))
+      return { ok: false, error: "A companion protects somebody else of the party." };
+    if (action.orders) unit.orders = action.orders;
+    else delete unit.orders;
+    return { ok: true, state: next, events };
+  }
   if (unit.hasActed) return { ok: false, error: `${unit.name} has already acted this turn.` };
   if (next.initiative && action.type !== "control") {
     const current = currentTacticalActor(next);

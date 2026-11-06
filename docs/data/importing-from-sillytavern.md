@@ -1,104 +1,86 @@
 # Importing from SillyTavern
 
-This guide shows how to bring your SillyTavern data into Marinara Engine. You can import one file at a time, or scan a whole SillyTavern folder and import everything at once.
+Bring your SillyTavern data into Marinara Engine. Import one file at a time, or scan a whole SillyTavern folder and import everything at once.
 
 ## What you can bring over
 
-Marinara Engine can import these kinds of SillyTavern data:
-
-- Characters (character cards)
-- Chats (message logs)
-- Group chats (chats with more than one character)
-- Presets (generation settings)
-- Lorebooks (SillyTavern calls these "World Info")
-- Backgrounds (chat background images)
-- Personas (your own **{{user}}** profiles)
-
-A lorebook is a set of notes the AI reads when certain words come up in the chat. A preset is a saved bundle of generation settings. A persona is the profile that stands in for you in a chat.
-
-There are two ways to import. Use the single-file buttons for one file. Use the **Import from SillyTavern Folder** wizard to move a whole SillyTavern install at once.
+| SillyTavern data | In Marinara |
+| --- | --- |
+| Characters | Characters |
+| Chats and group chats | Chats |
+| Presets | Presets (a saved bundle of generation settings) |
+| World Info | Lorebooks (notes the AI reads when certain words come up) |
+| Backgrounds | Chat backgrounds |
+| Personas | Personas (the profile that stands in for you) |
 
 ## Quick single-file imports
 
-Open **Settings**, then the **Imports** tab, then find the **SillyTavern Import** section. Its description reads "Bring over characters, chats, presets, and lorebooks from SillyTavern files."
+1. Open **Settings → Imports**.
+2. In **SillyTavern Import**, click the button for your file type.
+3. Choose the file.
 
-This section has four one-file buttons. Each one opens a normal file picker with no extra options:
+| Button | File |
+| --- | --- |
+| **Import Character (JSON/PNG)** | A `.json` or `.png` character card. |
+| **Import Chat (JSONL)** | A `.jsonl` chat log (one JSON record per line, the format SillyTavern saves chats in). |
+| **Import Preset (JSON)** | A `.json` preset. |
+| **Import Lorebook (JSON)** | A `.json` World Info file. |
 
-- **Import Character (JSON/PNG)** takes a `.json` or `.png` character card.
-- **Import Chat (JSONL)** takes a `.jsonl` chat log. It always creates a **Roleplay** chat and switches you to it.
-- **Import Preset (JSON)** takes a `.json` preset file.
-- **Import Lorebook (JSON)** takes a `.json` World Info file.
+The buttons have no options. A character import keeps all source tags and limits any regex scripts to that character. A regex script is a find-and-replace rule for text. To choose these options, use **Import** in the Characters panel. See [Importing and Exporting Character Cards](../characters/import-export.md).
 
-JSONL means one JSON record per line. It is the format SillyTavern uses to save a chat log.
+If a character card has a lorebook inside it, your browser asks whether to import it as its own lorebook. Click **OK** to keep it as a lorebook you can reuse, or **Cancel** to import only the character.
 
-When you import a character whose card has an embedded lorebook, a browser prompt asks if you also want to import it as a standalone Marinara lorebook. Click **OK** to keep the World Info as its own lorebook you can reuse. Click **Cancel** to skip that step and import only the character.
+**Import Chat (JSONL)** creates a Roleplay chat, unless the file records another mode, and opens it.
 
-These quick buttons use fixed defaults you cannot change here. They keep all source tags and they scope any regex scripts to the character only. A regex script is a find-and-replace rule that changes text before or after the AI sees it. To choose those options yourself, use the **Import** button in the Characters panel instead. See [Importing and Exporting Character Cards](../characters/import-export.md).
+### Import a chat into a mode you choose
 
-### Importing a chat into a chosen mode
+To pick the mode, use the import button at the top of the chat list. Its tooltip is **Import SillyTavern or Marinara chat JSONL**. It imports into the mode tab you have open (Conversation, Roleplay or Game). See [Exporting and Importing Chats](../chats/export-import.md).
 
-The single-file **Import Chat (JSONL)** button above always makes a **Roleplay** chat. If you want the chat to land in a different mode, use the small import button at the top of the chat list instead. Its tooltip reads **Import SillyTavern or Marinara chat JSONL**. That button imports the file into whichever mode tab you have open, such as Conversation, Roleplay, or Game. For more on chat import and export, see [Exporting and Importing Chats](../chats/export-import.md).
+## Import a SillyTavern folder
 
-## Import from SillyTavern Folder
+Before you start: the wizard reads files on the server computer. If SillyTavern is on another computer, copy its folder (the one where you installed SillyTavern) to the Marinara computer first. On the Marinara computer the wizard works right away. From another device, set the admin secret and enter it in **Settings → Advanced → Admin Access**. See [Backing Up and Restoring Marinara](backup-and-restore.md) and the "Privileged APIs (ADMIN_SECRET)" section of the [Server Configuration Reference](../CONFIGURATION.md).
 
-This wizard scans a full SillyTavern folder and imports many items at once. It reads characters, chats, group chats, presets, lorebooks, backgrounds, and personas together.
+1. Open **Settings → Imports → SillyTavern Import**.
+2. Click **Import from SillyTavern Folder**.
+3. Choose your SillyTavern folder. Pick the main folder, usually the one that holds a `data/` or `public/` folder. Use one of these ways:
+   - Click **Browse** and pick the folder.
+   - If there is no folder chooser (a remote server), an in-app folder browser opens. It lists only folders inside the home folder of the user that runs the server. Click **Select This Folder**.
+   - Type the path in **SillyTavern Folder Path**, for example `/path/to/SillyTavern`. A typed path works only if the server's `IMPORT_ALLOWED_ROOTS` setting lists a folder that contains it.
+4. Click **Scan Folder**. Marinara shows how many items it found in each category.
+5. On **Choose exactly what to import**, check the items you want. Each category has **All** and **None** buttons and a **Show** or **Hide** toggle for the single items.
+6. Click **Import Selected**. A progress bar shows the current item and a count per category.
+7. When you see **Import complete!**, read the count for each category and click **Done**.
 
-To open it, go to **Settings**, then **Imports**, then the **SillyTavern Import** section, then click **Import from SillyTavern Folder**. A window titled **Import from SillyTavern** opens.
+Most items start selected. Marinara leaves SillyTavern's stock presets unchecked, such as `deterministic`, `neutral` and the `universal-*` presets, and a banner says so. Leave them unchecked unless you want copies.
 
-### Step 1: point at your SillyTavern folder
+If the scan finds characters, two more options appear:
 
-1. In the field labeled **SillyTavern Folder Path**, type the path to your SillyTavern folder. An example is `/path/to/SillyTavern`.
-2. Or click **Browse** to pick the folder with your computer's folder chooser. On a remote or headless server with no folder chooser, an in-app folder browser opens instead, with a **Select This Folder** button.
-3. Point at the main SillyTavern folder. The tip in the window says this is usually the folder that holds a `data/` or `public/` folder inside it.
-4. Click **Scan Folder**. The button shows **Scanning...** while it works.
+**Imported character tags** (default **All tags**):
 
-After the scan, Marinara reports how many items it found in each category. If it cannot read the folder, it shows an error such as "Could not find SillyTavern data directory."
+- **All tags** keeps the source tags.
+- **No tags** skips them.
+- **Existing only** keeps only tags you already have.
 
-### Step 2: choose what to import
+**Imported regex scripts** (default **Character only**):
 
-The next screen is titled **Choose exactly what to import**. It shows a checklist for each category: **Characters**, **Chats**, **Group Chats**, **Presets**, **Lorebooks**, **Backgrounds**, and **Personas**. A counter shows how many items you have selected.
+- **Character only** applies the scripts to each character.
+- **Global** adds them to **Presets → Regexes** for every chat.
 
-Each category has **All** and **None** buttons and a **Show** or **Hide** toggle so you can see the individual items and their dates.
+If it did not work:
 
-Almost everything starts pre-selected. SillyTavern's built-in presets are the exception. Marinara detects them and leaves them unchecked, and a banner explains why. These are the stock presets such as `default`, `deterministic`, `neutral`, and the `universal-*` presets. Leave them unchecked unless you really want copies.
+- "Could not find SillyTavern data directory." means Marinara cannot read that folder. Pick the main SillyTavern folder.
+- "folderPath is not allowed" means the server refused the path. Click **Browse** and pick the folder instead. The server's owner can limit which folders may be imported with the `IMPORT_ALLOWED_ROOTS` setting. If it is set, even a picked folder must be inside one of those folders. Ask whoever runs the server, or see the [Server Configuration Reference](../CONFIGURATION.md).
+- If one item fails, Marinara skips it, keeps going and lists it under warnings on the last step, for example `Character "Foo": error message`.
 
-If the scan found any characters, two extra controls appear:
+## What happens to your data
 
-- **Imported character tags** sets the tag import mode. Choose **All tags** to keep the source tags, **No tags** to skip them, or **Existing only** to keep only tags you already have in Marinara. The default is **All tags**.
-- **Imported regex scripts** sets where regex scripts go. Choose **Character only** so the scripts apply to each bot, or **Global** to add them to **Presets -> Regexes** for every chat. The default is **Character only**.
-
-When your selection looks right, click **Import Selected**. Click **Back** to return to the folder step.
-
-### Step 3: watch the progress
-
-Marinara imports the items one at a time. You see a spinner, the current category and item name, a progress bar, and running counts per category.
-
-### Step 4: read the results
-
-The last step shows an **Import complete!** banner when the import succeeds, or an error banner when it fails. On success, a card for each category shows its final count. If any single item failed, a warnings list shows one line per failure, such as `Character "Foo": error message`. Click **Done** to close the window.
-
-### How the wizard handles your data
-
-- The import is best-effort per item. If one character, chat, preset, lorebook, background, or persona fails, Marinara skips it, records a warning, and keeps going with the rest.
-- Several chat files that belong to one character import as branches of a single chat, not as separate chats.
-- Group chats always import as **Roleplay** chats.
-- Imported items keep the source file's last-changed date as their date in Marinara. They do not use the moment you ran the import.
-
-## Access and folder rules
-
-The single-file import buttons work for everyone with no extra setup.
-
-The **Import from SillyTavern Folder** wizard reads files from disk, so it needs privileged access. On the same machine as the server (loopback), it works with no extra setup. From another device or browser, you must set an admin secret on the server. Then save the same value in **Settings -> Advanced -> Admin Access**. See [Server Configuration Reference](../CONFIGURATION.md) for how to set the admin secret.
-
-If your server sets `IMPORT_ALLOWED_ROOTS`, Marinara rejects typed paths outside those folders. Paths you pick with **Browse** or the in-app folder browser always work, even with that setting on.
+- Chat files that belong to one character import as branches of one chat. A branch is a copy of a chat that you continue separately.
+- Group chats import as Roleplay chats.
+- Imported items keep the source file's last-changed date, not the date of the import.
 
 ## What does not transfer
 
-The folder wizard only scans the seven categories listed above. Other SillyTavern data, such as global app settings and quick replies, is not read and is not imported.
-
-SillyTavern's built-in presets are left unchecked by default, so they do not come over unless you check them yourself.
-
-Marinara skips any single item that fails to convert. Check the warnings list on the last step of the wizard to see exactly what was left out.
+The wizard reads only the categories in the first table. Other SillyTavern data, such as global app settings and quick replies, is not imported.
 
 ## Related guides
 

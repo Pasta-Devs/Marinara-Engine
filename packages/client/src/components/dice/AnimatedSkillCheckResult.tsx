@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { skillCheckLightKeptIndices, skillCheckSymbolText, type SkillCheckResult } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { AnimatedDiceRoll } from "./AnimatedDiceRoll";
+import { skillCheckTone, TONE_ACCENT } from "./dice-tone";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface AnimatedSkillCheckResultProps {
@@ -12,15 +13,6 @@ interface AnimatedSkillCheckResultProps {
   onDismiss?: () => void;
   className?: string;
 }
-
-type Tone = "critical-success" | "success" | "failure" | "critical-failure";
-
-const TONE_ACCENT: Record<Tone, string> = {
-  "critical-success": "oklch(0.82 0.15 86)",
-  success: "oklch(0.72 0.16 158)",
-  failure: "oklch(0.68 0.18 20)",
-  "critical-failure": "oklch(0.60 0.22 20)",
-};
 
 function resultLabel(result: SkillCheckResult, localizeUi: (key: string) => string): string {
   // The ruleset's own band, in its own words (1.135); the tone below still says success or failure.
@@ -46,17 +38,7 @@ export function AnimatedSkillCheckResult({
 }: AnimatedSkillCheckResultProps) {
   const { t: localizeUi } = useUiTranslation();
   const label = resultLabel(result, localizeUi);
-  const tone = result.symbols
-    ? result.success
-      ? "success"
-      : "failure"
-    : result.criticalSuccess
-      ? "critical-success"
-      : result.criticalFailure
-        ? "critical-failure"
-        : result.success
-          ? "success"
-          : "failure";
+  const tone = skillCheckTone(result);
   const rollMode = result.rollMode !== "normal" ? ` · ${result.rollMode}` : "";
   const resolvedAccent = accentColor ?? TONE_ACCENT[tone];
   const style = resolvedAccent ? ({ "--dice-accent": resolvedAccent } as CSSProperties) : undefined;
@@ -68,6 +50,8 @@ export function AnimatedSkillCheckResult({
     >
       <div className="skill-check-roll-meta">
         <span>
+          {/* Who rolled, when the check names a party member: a party of four cannot tell otherwise. */}
+          {result.who ? localizeUi("ui.dice.rolledBy", { name: result.who }) : ""}
           {result.skill} {localizeUi("ui.agents.customagentrepositoriesmodal.check")}
         </span>
         <span>

@@ -34,6 +34,8 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { AnimatedText } from "./AnimatedText";
 import { GameMakeWorld } from "./GameMakeWorld";
 import { useOverworldGamesEnabled } from "../../hooks/use-world-library";
+import { StoryClockDial } from "./StoryClockDial";
+import { GameRulesetUpdate } from "./GameRulesetUpdate";
 
 import type { GameNpc, WorldFile, WorldJournal } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -71,6 +73,8 @@ interface Journal {
 
 interface GameJournalProps {
   chatId: string;
+  /** The game's ruleset pin (`gameRuleset`), so the Journal can offer a newer stored version of it. */
+  rulesetPin?: unknown;
   npcs?: GameNpc[];
   onClose: () => void;
   onNpcPortraitClick?: (npcName: string) => void;
@@ -199,6 +203,7 @@ function dedupeAdjacentInventoryEntries<
 
 export function GameJournal({
   chatId,
+  rulesetPin,
   npcs,
   onClose,
   onNpcPortraitClick,
@@ -401,6 +406,8 @@ export function GameJournal({
           </button>
         </div>
       )}
+
+      <GameRulesetUpdate chatId={chatId} pin={rulesetPin} />
 
       {/* Tabs — horizontally scrollable on mobile */}
       <div className="overflow-x-auto border-b border-white/10 px-4 py-2 scrollbar-hide [-webkit-overflow-scrolling:touch]">
@@ -840,6 +847,25 @@ function WorldView({ chatId, turnKey }: { chatId: string; turnKey: string | null
   );
   return (
     <div className="flex flex-col gap-4">
+      {shown.clocks?.length
+        ? section(
+            localizeUi("ui.game.worldview.clocks"),
+            shown.clocks.map((clock) => (
+              <div key={clock.flag} className={cn(row, "flex items-center gap-3")}>
+                <StoryClockDial clock={clock} size={32} decorative />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-white/85">{clock.title}</span>
+                    <span className="shrink-0 text-white/45">
+                      {localizeUi("ui.game.worldview.clockFilled", { filled: clock.filled, segments: clock.segments })}
+                    </span>
+                  </div>
+                  <div className="text-white/60">{clock.text}</div>
+                </div>
+              </div>
+            )),
+          )
+        : null}
       {shown.story?.length
         ? section(
             localizeUi("ui.game.worldview.story"),

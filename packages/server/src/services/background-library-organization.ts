@@ -1,3 +1,7 @@
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "fs";
+import { randomUUID } from "crypto";
+import { join } from "path";
+
 export type BackgroundLibraryFolder = {
   id: string;
   name: string;
@@ -68,6 +72,33 @@ export function normalizeBackgroundLibraryOrganization(value: unknown): Backgrou
   return { folders, assignments, favorites };
 }
 
+const organizationPath = (backgroundsDir: string) => join(backgroundsDir, "organization.json");
+
+export function readBackgroundLibraryOrganization(backgroundsDir: string): BackgroundLibraryOrganization {
+  const path = organizationPath(backgroundsDir);
+  if (!existsSync(path)) return normalizeBackgroundLibraryOrganization(undefined);
+  try {
+    return normalizeBackgroundLibraryOrganization(JSON.parse(readFileSync(path, "utf-8")));
+  } catch {
+    return normalizeBackgroundLibraryOrganization(undefined);
+  }
+}
+
+export function writeBackgroundLibraryOrganization(
+  backgroundsDir: string,
+  organization: BackgroundLibraryOrganization,
+): void {
+  mkdirSync(backgroundsDir, { recursive: true });
+  const path = organizationPath(backgroundsDir);
+  const temporaryPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temporaryPath, JSON.stringify(organization, null, 2), "utf-8");
+    renameSync(temporaryPath, path);
+  } finally {
+    if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
+  }
+}
+
 export function removeBackgroundFolder(
   organization: BackgroundLibraryOrganization,
   folderId: string,
@@ -109,9 +140,10 @@ export function moveBackgroundAssignment(
   if (folderId && newBackgroundId) assignments[newBackgroundId] = folderId;
 
   // Renaming or deleting a file carries its star with it, so a rename does not silently unstar.
+  // A target that is already starred keeps its star.
   const wasFavorite = organization.favorites.includes(oldBackgroundId);
-  const favorites = organization.favorites.filter((id) => id !== oldBackgroundId && id !== newBackgroundId);
-  if (wasFavorite && newBackgroundId) favorites.push(newBackgroundId);
+  const favorites = organization.favorites.filter((id) => id !== oldBackgroundId);
+  if (wasFavorite && newBackgroundId && !favorites.includes(newBackgroundId)) favorites.push(newBackgroundId);
 
   return { ...organization, assignments, favorites };
 }

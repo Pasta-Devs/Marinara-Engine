@@ -73,7 +73,7 @@ export function characterMatchesSearch(character: CharacterDisplayInfo | null | 
 export function parseCharacterDisplayData(raw: { data: unknown; comment?: string | null }): CharacterDisplayInfo {
   const comment = typeof raw.comment === "string" ? raw.comment.trim() : "";
 
-  let record: Record<string, unknown> | null = null;
+  let record: Record<string, unknown> | null;
   try {
     const parsed = typeof raw.data === "string" ? JSON.parse(raw.data) : raw.data;
     record = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;

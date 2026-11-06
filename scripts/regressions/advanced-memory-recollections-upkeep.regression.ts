@@ -148,7 +148,10 @@ try {
   const card = (name: string, extra: Record<string, unknown> = {}) =>
     JSON.stringify({ name, description: `{{char}} keeps the lighthouse with {{user}}.`, ...extra });
   for (const [id, data] of [
-    ["ada", card("Ada", { creator_notes: "{{char}} plays opposite {{persona}}." })],
+    [
+      "ada",
+      card("Ada", { scenario: "{{char}} plays opposite {{persona}}.", creator_notes: "CREATOR_NOTES_NEVER_SENT" }),
+    ],
     ["bram", card("Bram")],
     // Bram's own secret is in his card; Ada's prompt never holds it.
     ["bramx", card("Bram", { extensions: { backstory: `Only Bram knows ${SECRET.slice(15)}` } })],
@@ -280,10 +283,13 @@ try {
   );
   assert.match(summaryCall.system, /no asterisks anywhere/u);
   assert.equal(
-    cardsOf(summaryCall.system).find((item) => item.name === "Ada")!.creatorNotes,
+    cardsOf(summaryCall.system).find((item) => item.name === "Ada")!.scenario,
     "Ada plays opposite a keeper of lamps.",
     "card macros resolve as in a reply's prompt, the persona included",
   );
+  // #8582: creator notes are never sent to a model, the summarizer included.
+  assert.equal(cardsOf(summaryCall.system).find((item) => item.name === "Ada")!.creatorNotes, undefined);
+  assert.equal(summaryCall.system.includes("CREATOR_NOTES_NEVER_SENT"), false);
   const refill = since(mark, "recollect");
   assert.equal(refill.length, 1, "Ada's left-out recollection is asked for once more");
   assert(refill[0]!.user.includes(`User-corrected summary (preserve every character condition):\nAda and Bram fixed`));

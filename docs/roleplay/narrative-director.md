@@ -1,99 +1,68 @@
 # Narrative Director and Secret Plot
 
-This guide explains the Narrative Director agent in Marinara Engine. It covers the Push Story button, the Natural and Random Event modes, and the hidden Secret Plot arc. These features are for Roleplay Mode.
+The Narrative Director is an agent (a helper that runs alongside replies) that steers the plot of a Roleplay chat. **Push Story** nudges one reply when the scene feels stuck. **Secret Plot** keeps a hidden long-term arc that shapes many replies. It works in Roleplay only. For how agents work in general, see the [Agents overview](../agents/agents-overview.md).
 
-## What the Narrative Director is
+## Add the Narrative Director to a chat
 
-An agent is an AI helper that runs behind your chat to do a background job. The Narrative Director is one of these agents. It writes a one-time direction for the next reply, so the story moves the way you want. To learn how agents work in general, see the [Agents overview](../agents/agents-overview.md).
+1. Open **Chat Settings** with the sliders button in the chat, and go to **Agents**.
+2. Turn on **Enable Agents**, then add the **Narrative Director** agent.
 
-The Narrative Director works in Roleplay Mode only. It does nothing on its own. It acts only when you arm it (switch it on for one reply) with the **Push Story** button, or when you turn on the **Secret Plot** feature.
+A **Push Story** button now appears above your message box, and a **Narrative Director** card appears in **Agents**. The agent does nothing until you use **Push Story** or turn on **Secret Plot**.
 
-To use it, you first add the agent to your chat. Open **Chat Settings**, go to the **Agents** section, and enable the **Narrative Director** agent. Once it is active, a **Push Story** button appears above your message box, and a **Narrative Director** settings card appears in the **Agents** section.
+## Push a story forward
 
-## Push Story
+**Push Story** works once. It shapes the next reply only, then turns itself off. Add the Narrative Director to the chat first (see above).
 
-**Push Story** is a one-shot button. It shapes the next reply only, then turns itself off. Use it when the scene feels stuck and you want the AI to move things along.
+1. Click **Push Story** above your message box. A menu asks how to push:
+   - **Naturally**: push the existing plot forward. The AI advances threads already in your story.
+   - **Randomly**: add a plausible surprise to the scene.
+2. Choose one. You see "The next time a character responds, they will push the story forward naturally!" (or "randomly!"). The button now reads **Push Story: Naturally** or **Push Story: Randomly**.
+3. Send your next message, or generate a new reply. The AI writes that one reply with the push applied.
+4. After the reply, **Push Story** turns off by itself.
 
-Follow these steps to use it.
+You choose the mode from this menu each time. There is no default mode and no mode setting in **Chat Settings**.
 
-1. Open a Roleplay chat that has the **Narrative Director** agent active.
-2. Find the **Push Story** button above your message box.
-3. Click **Push Story**. In Natural mode you should see the message "The next time a character responds, they will push the story forward naturally!" In Random Event mode the message ends with "randomly!" instead.
-4. Send your next message, or generate a new reply.
-5. The AI writes that one reply with the story push applied.
-6. After the reply, **Push Story** turns off by itself.
+To cancel before you send, click the armed button again. You see "Push Story disarmed."
 
-If you change your mind before you send, click **Push Story** again to turn it off. You should see the message "Push Story disarmed."
+If it did not work: **Push Story** does not respond while a reply is generating. Wait for the reply to finish, then click it.
 
-The **Push Story** button is not available while a reply is still generating. Wait for the current reply to finish, then arm it.
+## Turn on Secret Plot
 
-## Natural and Random Event modes
+**Secret Plot** is a hidden long-term arc. The AI keeps a secret plan for where the story goes. The plan is added to the prompt but stays hidden from you unless you reveal it. It is off by default. Unlike **Push Story**, it works over many replies and updates its plan on a schedule.
 
-**Push Story** has two modes. You pick the mode in the **Narrative Director** card inside **Chat Settings**. The mode you pick changes what kind of push you get.
+1. Open **Chat Settings → Agents** and find the **Narrative Director** card.
+2. Turn on the **Secret Plot** toggle. Its label reads "Maintain a hidden long-term arc for this roleplay."
+3. Set **Run Interval**, if you want. It is how many messages (yours and the AI's) pass between updates to the arc. The default is 8. You can use any whole number from 1 to 100. A lower number updates the plan more often.
 
-The two modes are:
+## Reveal and edit the hidden arc
 
-- **Natural**: Push the existing plot forward. The AI advances the threads that are already in your story.
-- **Random Event**: Add a plausible surprise. The AI introduces a new twist that still fits the scene.
+The **Secret plot** panel is below **Run Interval**.
 
-**Natural** is the default. To change the mode, open **Chat Settings**, go to **Agents**, find the **Narrative Director** card, and click the mode you want.
+1. Click **Reveal spoilers**. It reads **Reveal empty arc** if the AI has not written an arc yet. While hidden, the panel shows "Spoilers hidden". Click **Hide spoilers** to hide it again.
+2. Edit the fields you want:
+   - **Arc description**: the overall hidden storyline.
+   - **Protagonist arc**: where your character is heading.
+   - **Character arc**: where one chosen character is heading.
+   - **Completed**: tick it when the arc is finished.
+3. Use the save button to keep your changes.
 
-The tooltip on the **Push Story** button tells you which mode is armed. In **Natural** mode it reads "Arm a natural Narrative Director push for the next response." In **Random Event** mode it reads "Arm a random Narrative Director event for the next response."
+To throw the arc away and have the AI write a new one, click **Regenerate**. A dialog titled "Regenerate Secret Plot" asks you to confirm. Choose **Regenerate** to replace the arc, or **Keep Current Arc** to cancel.
 
-## Secret Plot
+The arc is stored with the **Narrative Director** agent. Clearing the chat's agent results does not erase it. It is deleted only when you remove the agent from the chat, and a warning says so first.
 
-**Secret Plot** is a hidden long-term arc for your roleplay. The AI keeps a secret plan for where the story is going. This plan is added to the prompt, but it stays hidden from you unless you choose to reveal it. It is off by default.
+## Change the Secret Plot prompt
 
-Unlike **Push Story**, which acts once, **Secret Plot** runs over many replies. It updates its hidden plan on a set schedule as the chat continues.
-
-### Turning on Secret Plot
-
-1. Open **Chat Settings** and go to the **Agents** section.
-2. Find the **Narrative Director** card.
-3. Turn on the **Secret Plot** toggle. Its label reads "Maintain a hidden long-term arc for this roleplay."
-
-### Run Interval
-
-When **Secret Plot** is on, a **Run Interval** field appears. This sets how many user and assistant messages pass between updates to the hidden arc.
-
-The default is 8. You can set any whole number from 1 to 100. A lower number updates the plan more often. A higher number updates it less often.
-
-### Reveal and edit the hidden arc
-
-Below the **Run Interval** field is the **Secret plot** panel. Use it to look at and change the hidden plan.
-
-Click the reveal button to show the arc. It reads **Reveal spoilers** once an arc exists, or **Reveal empty arc** if the AI has not written one yet. Click **Hide spoilers** to hide it again. While the arc is hidden, the panel shows "Spoilers hidden".
-
-When the arc is revealed, you can edit these fields:
-
-- **Arc description**: the overall hidden storyline.
-- **Protagonist arc**: where your character is heading.
-- **Character arc**: where one selected character in the roleplay is heading.
-- **Completed**: a checkbox you tick when the arc is finished.
-
-After you edit a field, use the save button to keep your changes.
-
-To throw away the current arc and have the AI write a fresh one, click **Regenerate**. A dialog titled "Regenerate Secret Plot" asks you to confirm. Choose **Regenerate** to replace it, or **Keep Current Arc** to cancel.
-
-### The arc stays with the agent
-
-The hidden arc is stored with the **Narrative Director** agent. Clearing your chat's agent runs and memory does not erase it. The arc is deleted only when you remove the **Narrative Director** agent from the chat. If you remove the agent, a warning tells you the hidden arc will be wiped and cannot be undone.
-
-### Secret Plot prompt
-
-The **Secret Plot Prompt** holds the instructions the Narrative Director follows when it writes and updates the hidden arc. The built-in prompt frames each arc as a mystery to uncover. That suits adventure and intrigue, but it may not fit a story driven by the characters.
-
-To use your own instructions, follow these steps.
+The **Secret Plot Prompt** holds the instructions the Narrative Director follows when it writes and updates the arc. The built-in prompt treats each arc as a mystery to uncover. That suits adventure and intrigue, but may not fit a story driven by its characters.
 
 1. Open **Agents** and edit the **Narrative Director**.
 2. In the **Secret Plot** section, click **Copy default to edit**.
 3. Change the text, then save the agent.
 
-Click **Reset to default** to go back to the built-in prompt, then save the agent.
+Click **Reset to default** to return to the built-in prompt, then save the agent.
 
-Keep the JSON reply format at the end of the prompt: an `overarchingArc` object with `description`, `protagonistArc`, an optional `characterArc`, and `completed`. Without it, the arc can't be read.
+> **Note:** Do not delete the last part of the prompt. It describes the reply format, and without it Marinara cannot read the arc.
 
-This prompt is saved on the agent, so it applies to every chat that uses that Narrative Director.
+The prompt is saved on the agent, so it applies to every chat that uses that Narrative Director.
 
 ## Related guides
 

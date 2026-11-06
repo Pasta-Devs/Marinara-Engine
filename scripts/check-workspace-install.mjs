@@ -20,9 +20,20 @@ const checks = [
 export function workspaceLockfileMatches(root) {
   try {
     const expectedLockfile = readFileSync(join(root, "pnpm-lock.yaml"), "utf8");
-    const installedLockfile = readFileSync(join(root, "node_modules", ".pnpm", "lock.yaml"), "utf8");
+    const workspaceStoreLock = join(root, ".pnpm", "lock.yaml");
+    const installedLockfile = readFileSync(
+      existsSync(workspaceStoreLock) ? workspaceStoreLock : join(root, "node_modules", ".pnpm", "lock.yaml"),
+      "utf8",
+    );
+    // pnpm 12 puts package-manager dependencies in a separate first YAML document;
+    // the installed store records only the project document. Launchers verify the
+    // package manager separately using the exact package.json descriptor.
     return (
-      expectedLockfile.replace(/\r\n?/gu, "\n") === installedLockfile.replace(/\r\n?/gu, "\n")
+      expectedLockfile
+        .replace(/\r\n?/gu, "\n")
+        .split(/^---[ \t]*$/mu)
+        .at(-1)
+        .trimStart() === installedLockfile.replace(/\r\n?/gu, "\n").trimStart()
     );
   } catch {
     return false;

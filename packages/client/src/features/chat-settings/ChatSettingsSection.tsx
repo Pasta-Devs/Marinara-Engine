@@ -18,6 +18,10 @@ interface ChatSettingsSectionProps {
   contentClassName?: string;
   /** Popped out, the content fills its window (see Drawer `fill`). */
   fill?: boolean;
+  /** Header buttons beside the help tip (see Drawer `actions`). */
+  actions?: ReactNode;
+  /** The same buttons in the title bar once the section is popped out (see Drawer `detachedHeaderControls`). */
+  detachedHeaderControls?: ReactNode;
   children: ReactNode;
 }
 
@@ -33,6 +37,8 @@ export function ChatSettingsSection({
   forceOpen = false,
   contentClassName,
   fill,
+  actions,
+  detachedHeaderControls,
   children,
 }: ChatSettingsSectionProps) {
   const rememberedOpen = useUIStore((s) => (id ? s.chatSettingsExpandedSections[id] : undefined));
@@ -69,6 +75,8 @@ export function ChatSettingsSection({
       style={style}
       bodyClassName={contentClassName}
       fill={fill}
+      actions={actions}
+      detachedHeaderControls={detachedHeaderControls}
       rootAttributes={{ "data-chat-settings-section": id }}
     >
       {children}

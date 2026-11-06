@@ -8,6 +8,7 @@ import {
   llmFetch,
   llmHttpErrorFromResponse,
   sanitizeApiError,
+  toolCallFinishReason,
   type ChatCompletionResult,
   type ChatMessage,
   type ChatOptions,
@@ -24,7 +25,7 @@ import {
   type GenerationParameterSendKey,
 } from "@marinara-engine/shared";
 import { getEmbeddingRequestTimeoutMs, isDebugAgentsEnabled } from "../../../config/runtime-config.js";
-import { logDebugOverride } from "../../../lib/logger.js";
+import { debugJson, logDebugOverride } from "../../../lib/logger.js";
 import { decodePossiblyCompressedBody } from "../../../utils/security.js";
 
 /** A single Gemini response part (text, thought summary, or signature-only). */
@@ -669,8 +670,8 @@ export class GoogleProvider extends BaseLLMProvider {
   }
 
   async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
-    if (this.shouldSuppressModelParameters(options) || !options.tools?.length)
-      return super.chatComplete(messages, options);
+    if (!options.tools?.length || options.forceTextualToolCalls) return super.chatComplete(messages, options);
+    const suppressModelParameters = this.shouldSuppressModelParameters(options);
 
     const configuredMaxTokens = this.applyMaxTokensCap(options.maxTokens ?? 4096);
     const contextFit = this.fitMessagesToContext(messages, { ...options, maxTokens: configuredMaxTokens });
@@ -679,7 +680,9 @@ export class GoogleProvider extends BaseLLMProvider {
     const maxTokens = this.applyMaxTokensCap(contextFit.maxTokens ?? configuredMaxTokens);
     const model = options.model || "gemini-2.0-flash";
 
-    const supportsThinking = isGeminiThinkingLevelModel(model) || /gemini-2\.5|gemini-2\.0-flash-thinking/i.test(model);
+    const supportsThinking =
+      !suppressModelParameters &&
+      (isGeminiThinkingLevelModel(model) || /gemini-2\.5|gemini-2\.0-flash-thinking/i.test(model));
     const thinkingConfig =
       this.shouldSendParameter(options, "reasoningEffort") && supportsThinking
         ? resolveGeminiThinkingConfig(model, options, maxTokens ?? 4096)
@@ -690,15 +693,10 @@ export class GoogleProvider extends BaseLLMProvider {
         ? normalizeGoogleGenerativeLanguageBaseUrl(this.baseUrl)
         : normalizeGoogleBaseUrl(this.baseUrl);
 
-    // Stream the tools round whenever the caller wired a token sink and did not opt out.
-    // The gate is deliberately narrower than the base `options.stream ?? !!options.onToken`
-    // formula: a caller that sets `stream: true` without a sink (the agent tool loop) keeps
-    // the buffered path it uses today. Only the official endpoint streams thinking;
-    // unrecognized proxies retain the workaround for stripped thought parts.
+    // Internal streaming also keeps quiet tool rounds alive without a UI token sink.
+    // Unrecognized proxies retain the workaround for stripped thought parts.
     const useStream =
-      !!options.onToken &&
-      options.stream !== false &&
-      (!thinkingConfig || supportsGoogleThinkingStreaming(base, model));
+      (options.stream ?? !!options.onToken) && (!thinkingConfig || supportsGoogleThinkingStreaming(base, model));
     const endpoint = useStream ? "streamGenerateContent" : "generateContent";
     const url =
       this.providerKind === "google_vertex"
@@ -709,23 +707,29 @@ export class GoogleProvider extends BaseLLMProvider {
     const body: Record<string, unknown> = {
       contents: withGeminiContinuation(model, formatGoogleContents(messages)),
       generationConfig: {
-        ...(this.shouldSendParameter(options, "temperature") ? { temperature: options.temperature ?? 1 } : {}),
+        ...(!suppressModelParameters && this.shouldSendParameter(options, "temperature")
+          ? { temperature: options.temperature ?? 1 }
+          : {}),
         ...(this.shouldSendParameter(options, "maxTokens") ? { maxOutputTokens: maxTokens } : {}),
-        ...(this.shouldSendParameter(options, "topP") ? { topP: options.topP ?? 1 } : {}),
-        ...(this.shouldSendParameter(options, "topK") &&
-        typeof options.topK === "number" &&
-        Number.isFinite(options.topK)
-          ? { topK: Math.max(0, Math.trunc(options.topK)) }
+        ...(!suppressModelParameters
+          ? {
+              ...(this.shouldSendParameter(options, "topP") ? { topP: options.topP ?? 1 } : {}),
+              ...(this.shouldSendParameter(options, "topK") &&
+              typeof options.topK === "number" &&
+              Number.isFinite(options.topK)
+                ? { topK: Math.max(0, Math.trunc(options.topK)) }
+                : {}),
+              ...(this.shouldSendParameter(options, "frequencyPenalty") && options.frequencyPenalty
+                ? { frequencyPenalty: options.frequencyPenalty }
+                : {}),
+              ...(this.shouldSendParameter(options, "presencePenalty") && options.presencePenalty
+                ? { presencePenalty: options.presencePenalty }
+                : {}),
+              ...(thinkingConfig ? { thinkingConfig } : {}),
+            }
           : {}),
-        ...(this.shouldSendParameter(options, "frequencyPenalty") && options.frequencyPenalty
-          ? { frequencyPenalty: options.frequencyPenalty }
-          : {}),
-        ...(this.shouldSendParameter(options, "presencePenalty") && options.presencePenalty
-          ? { presencePenalty: options.presencePenalty }
-          : {}),
-        ...(thinkingConfig ? { thinkingConfig } : {}),
         ...googleResponseFormatConfig(options.responseFormat),
-        ...(options.stop?.length ? { stopSequences: options.stop } : {}),
+        ...(!suppressModelParameters && options.stop?.length ? { stopSequences: options.stop } : {}),
       },
       tools: formatGoogleTools(options.tools),
     };
@@ -739,8 +743,8 @@ export class GoogleProvider extends BaseLLMProvider {
     applyGoogleFunctionCallingMode(body, options.toolChoice);
     logDebugOverride(
       options.debugMode === true || isDebugAgentsEnabled(),
-      "[debug/gemini] final tool request:\n%j",
-      body,
+      "[debug/gemini] final tool request:\n%s",
+      debugJson(body),
     );
     const authHeaders =
       this.providerKind === "google_vertex"
@@ -785,7 +789,7 @@ export class GoogleProvider extends BaseLLMProvider {
       return {
         content: content || null,
         toolCalls,
-        finishReason: toolCalls.length > 0 ? "tool_calls" : normalizeGeminiFinishReason(candidate?.finishReason),
+        finishReason: toolCallFinishReason(toolCalls.length, normalizeGeminiFinishReason(candidate?.finishReason)),
         usage: geminiUsage(json.usageMetadata),
         ...(parts.length > 0 ? { providerMetadata: { geminiParts: parts } } : {}),
       };
@@ -912,9 +916,14 @@ export class GoogleProvider extends BaseLLMProvider {
     // replay hole this fix closes rather than creates.
     const responseParts: GeminiPart[] = [];
     if (thoughtText) responseParts.push({ text: thoughtText, thought: true });
+    // A signature streamed on a part of its own (an empty text part beside the call) belongs to the
+    // round's first call when that call came without one: Gemini refuses a replayed call missing it.
+    const firstCall = toolParts[0];
+    const signsCall = !!lastSignature && !!firstCall && !firstCall.thoughtSignature;
+    if (signsCall) firstCall.thoughtSignature = lastSignature;
     if (responseText) {
       const textPart: GeminiPart = { text: responseText };
-      if (lastSignature) textPart.thoughtSignature = lastSignature;
+      if (lastSignature && !signsCall) textPart.thoughtSignature = lastSignature;
       responseParts.push(textPart);
     }
     responseParts.push(...toolParts);
@@ -925,9 +934,7 @@ export class GoogleProvider extends BaseLLMProvider {
       toolCalls,
       finishReason: options.signal?.aborted
         ? "abort"
-        : toolCalls.length > 0
-          ? "tool_calls"
-          : normalizeGeminiFinishReason(lastFinishReason),
+        : toolCallFinishReason(toolCalls.length, normalizeGeminiFinishReason(lastFinishReason)),
       usage: streamUsage,
       ...(responseParts.length > 0 ? { providerMetadata: { geminiParts: responseParts } } : {}),
     };

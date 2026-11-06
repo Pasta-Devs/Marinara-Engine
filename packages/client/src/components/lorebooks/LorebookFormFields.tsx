@@ -19,15 +19,18 @@ export function FieldGroup({
   label,
   icon: Icon,
   help,
+  mariField,
   children,
 }: {
   label: string;
   icon: typeof FileText;
   help?: string;
+  /** Professor Mari's `data-mari-field` id for this field. */
+  mariField?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0" data-mari-field={mariField}>
       <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--marinara-editor-muted)]">
         <Icon size="0.8125rem" className="mari-chrome-accent-icon mari-accent-animated" />
         {label}

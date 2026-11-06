@@ -13,7 +13,11 @@ import type {
   RulesetStartingGear,
   RulesetStartingGearLine,
 } from "../../schemas/ruleset.schema.js";
-import { gameInventoryCoinRef } from "../../utils/game-inventory-stacks.js";
+import {
+  gameInventoryBagKey,
+  gameInventoryCoinRef,
+  type GameInventoryStack,
+} from "../../utils/game-inventory-stacks.js";
 import { rulesetLayeredCurrencies, type RulesetLayerOptions } from "./layers.js";
 import type { RulesetItemBook } from "./item-book.js";
 import { parseDiceNotation } from "../../utils/dice-notation.js";
@@ -157,17 +161,34 @@ export interface RulesetStartingGearBuilderContext {
   freeEdit?: boolean;
 }
 
-/** The lines a selection takes, each with the key a pick names it by. */
+/** Whether a choice's option is offered to this sheet (1.661): one with no `offeredWhen`, or whose
+ *  `offeredWhen` reads above zero. Every option is offered where there is no sheet to read. */
+export function rulesetStartingGearOptionOffered(
+  definition: RulesetDefinition,
+  option: RulesetStartingGear["choices"][number]["options"][number],
+  build: RulesetSheetBuild | undefined,
+): boolean {
+  return !option.offeredWhen || !build || resolveRulesetValueRef(definition, build, option.offeredWhen) > 0;
+}
+
+/** The lines a selection takes, each with the key a pick names it by. An option not offered to the
+ *  sheet is refused (1.661), and a choice none of whose options is offered takes nothing. */
 function selectedLines(
+  definition: RulesetDefinition,
   gear: RulesetStartingGear,
   choices: readonly number[],
+  build: RulesetSheetBuild | undefined,
 ): { lines: Array<{ key: string; line: RulesetStartingGearLine }> } | { refused: string } {
   if (choices.length !== gear.choices.length) return { refused: `"${gear.label}" asks ${gear.choices.length} choices` };
   const lines = gear.lines.map((line, index) => ({ key: String(index), line }));
   for (const [choiceIndex, choice] of gear.choices.entries()) {
+    if (!choice.options.some((one) => rulesetStartingGearOptionOffered(definition, one, build))) continue;
     const optionIndex = choices[choiceIndex]!;
     const option = Number.isInteger(optionIndex) ? choice.options[optionIndex] : undefined;
     if (!option) return { refused: `Choose one of "${choice.label}"` };
+    if (!rulesetStartingGearOptionOffered(definition, option, build)) {
+      return { refused: `"${option.label}" is not offered to this sheet` };
+    }
     option.lines.forEach((line, lineIndex) => lines.push({ key: `${choiceIndex}.${lineIndex}`, line }));
   }
   return { lines };
@@ -199,7 +220,7 @@ export function resolveRulesetStartingGear(
   ) {
     return { ok: false, reason: "does-not-fit", detail: `Starting gear "${gear.label}" does not fit this sheet` };
   }
-  const selected = selectedLines(gear, selection.choices);
+  const selected = selectedLines(definition, gear, selection.choices, builder?.build ?? amounts?.build);
   if ("refused" in selected) return { ok: false, reason: "choice", detail: selected.refused };
 
   // The game's own catalog items: what a layer hides is not among them, and nor is a coin, an item the
@@ -275,4 +296,53 @@ export function resolveRulesetStartingGear(
   }
   if (adds.size === 0) return { ok: false, reason: "empty", detail: `Nothing of "${gear.label}" is in this game` };
   return { ok: true, gear, adds: [...adds.values()], dropped };
+}
+
+/**
+ * What of the gear a bag still takes, given what it already holds (laptop 2026-10-26: the Game Master
+ * handed out a shield, a quarterstaff and a shortbow before the party had taken its kits, so a druid
+ * who then took the Druid kit carried two of each). A thing worn (one of the ruleset's items with
+ * slots) is taken only as far as the bag does not already hold that item: the count the gear gives,
+ * less what the bag holds of it. Everything else (coins, torches, rations, plain items) is taken as it
+ * is. `held` names what was left out, whole or in part. A caller taking the gear again on purpose
+ * takes all of it and does not ask.
+ */
+export function rulesetStartingGearUnheld(
+  adds: readonly RulesetStartingGearAdd[],
+  stacks: readonly GameInventoryStack[],
+  holder: string | undefined,
+  book: Pick<RulesetItemBook, "itemOf">,
+): { adds: RulesetStartingGearAdd[]; held: string[] } {
+  const bagKey = gameInventoryBagKey(holder);
+  const held: string[] = [];
+  const out: RulesetStartingGearAdd[] = [];
+  for (const add of adds) {
+    const worn = !!add.item && Object.values(book.itemOf(add.item)?.slots ?? {}).some((count) => count > 0);
+    const has = worn
+      ? stacks
+          .filter((stack) => stack.item === add.item && gameInventoryBagKey(stack.holder) === bagKey)
+          .reduce((total, stack) => total + stack.quantity, 0)
+      : 0;
+    if (has > 0) held.push(add.name);
+    const count = add.count - has;
+    if (count > 0) out.push(has > 0 ? { ...add, count } : add);
+  }
+  return { adds: out, held };
+}
+
+/**
+ * What of the gear just added is put on: for a line that puts on several ("Two shortswords"), one of
+ * them at a time, each into slots still free, so a dual-wielder starts with a blade in each hand and
+ * whatever finds no slot stays carried (laptop 2026-10-26: two shortswords were one stack, one held).
+ * `ids` is the stack each add went into, in the same order, or none where it went nowhere.
+ */
+export function rulesetStartingGearEquips(
+  adds: readonly RulesetStartingGearAdd[],
+  ids: ReadonlyArray<string | undefined>,
+): Array<{ op: "equip"; id: string }> {
+  return adds.flatMap((add, index) => {
+    const id = ids[index];
+    // A stack of several gives one of itself to each equip, and the last is put on where it lies.
+    return add.equip && id ? Array.from({ length: Math.min(add.count, 16) }, () => ({ op: "equip" as const, id })) : [];
+  });
 }

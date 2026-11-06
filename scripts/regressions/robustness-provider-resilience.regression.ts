@@ -223,8 +223,8 @@ process.env.PROVIDER_RETRY_TRANSIENT_ERRORS = "true";
   assert.equal(withRateLimitAwareProvider(existing, "conn-prewrapped"), existing, "default reuse is unchanged");
   assert.match(
     fallbackSource,
-    /primary instanceof RateLimitAwareProvider \? primary\.withoutTransientRetry\(\) : primary/u,
-    "an inner wrapper under admission is opted out too",
+    /primary instanceof RateLimitAwareProvider \? primary\.provider : primary/u,
+    "an inner wrapper under admission is replaced, so it neither retries nor takes a second account slot",
   );
 }
 {

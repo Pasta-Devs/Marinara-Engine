@@ -241,7 +241,7 @@ const snapshotShape = z
   .object({
     snapshotVersion: z.union([z.literal(1), z.literal(2), z.literal(WORLD_SNAPSHOT_VERSION)]),
     generatorVersion: z.number().int().min(1),
-    kit: z.unknown(),
+    kit: z.unknown().optional(),
     seed: z.number().int().min(0).max(0xffffffff),
     grounding: z.enum(WORLD_GROUNDINGS),
     brief: worldBriefSchema,

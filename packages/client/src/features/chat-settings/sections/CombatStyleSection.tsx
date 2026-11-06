@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { Swords } from "lucide-react";
 import type { GameCombatStyle } from "@marinara-engine/shared";
 import { ChatSettingsSection } from "../ChatSettingsSection";
+import { getCombatStyle, isBuiltInCombatStyle, listCombatStyles } from "../../../components/game/combat-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface CombatStyleSectionProps {
@@ -14,6 +15,8 @@ interface CombatStyleSectionProps {
   /** Whether that ruleset also says what one cell of a board is worth. With it the choice below
    *  decides whether such a fight has positions; without it, it is kept and not used. */
   rulesetHasPositions?: boolean;
+  /** The styles this game's ruleset lets it play (`combat.styles`, 1.379), or null for every one. */
+  allowedStyles?: readonly string[] | null;
   onCombatStyleChange: (style: GameCombatStyle) => void;
   /** Who acts when in a Tactical battle (combat C6c). */
   turnOrder: "side" | "initiative";
@@ -25,11 +28,13 @@ export function CombatStyleSection({
   combatStyle,
   rulesetResolvesFights,
   rulesetHasPositions,
+  allowedStyles,
   onCombatStyleChange,
   turnOrder,
   onTurnOrderChange,
 }: CombatStyleSectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const offered = (id: string) => !allowedStyles || allowedStyles.includes(id);
   return (
     <ChatSettingsSection
       id="combat-style"
@@ -48,10 +53,21 @@ export function CombatStyleSection({
             onChange={(event) => onCombatStyleChange(event.target.value as GameCombatStyle)}
             className="mari-preset-native-select w-full truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
           >
-            <option value="classic">
-              {localizeUi("ui.chatSettings.combatstylesection.classicCinematicMenuBattles")}
-            </option>
-            <option value="tactical">{localizeUi("game.combat.preference.tacticalLabel")}</option>
+            {offered("classic") && (
+              <option value="classic">
+                {localizeUi("ui.chatSettings.combatstylesection.classicCinematicMenuBattles")}
+              </option>
+            )}
+            {offered("tactical") && (
+              <option value="tactical">{localizeUi("game.combat.preference.tacticalLabel")}</option>
+            )}
+            {listCombatStyles()
+              .filter((id) => !isBuiltInCombatStyle(id) && offered(id))
+              .map((id) => (
+                <option key={id} value={id}>
+                  {getCombatStyle(id).label ?? id}
+                </option>
+              ))}
           </select>
         </label>
         {/* A ruleset's own fights roll initiative by its own rules, so the choice is for Tactical battles. */}
@@ -69,6 +85,11 @@ export function CombatStyleSection({
               <option value="side">{localizeUi("ui.chatSettings.combatstylesection.turnOrderSide")}</option>
             </select>
           </label>
+        )}
+        {allowedStyles && (
+          <p className="text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("game.combat.ruleset.stylesLimited")}
+          </p>
         )}
         {rulesetResolvesFights && (
           <p className="text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">

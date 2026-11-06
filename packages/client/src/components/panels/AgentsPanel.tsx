@@ -15,6 +15,11 @@ import {
   PenLine,
   Radar,
   Puzzle,
+  LayoutGrid,
+  BookOpen,
+  Compass,
+  ImageIcon,
+  Drama,
   Camera,
   Download,
   Check,
@@ -25,9 +30,13 @@ import {
   Dices,
   Grid3x3,
   Upload,
-  AppWindow,
+  CirclePlus,
+  Store,
+  MessageSquare,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
+import { NeedsModelChip, agentModelNeed } from "../connections/NeedsModelChip";
 import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
 import {
   useAgentConfigs,
@@ -45,6 +54,8 @@ import {
   useImportRuleset,
   useImportRulesetPackage,
   readRulesetPackage,
+  rulesetPacksForPage,
+  type RulesetPickedPack,
   useInstalledCapabilityPackages,
   useInstalledRulesets,
   useRemoveRuleset,
@@ -58,12 +69,15 @@ import {
   getDefaultBuiltInAgentSettings,
   getFolderImportEntries,
   isAgentConfigDeleted,
+  isAgentAvailableInChatMode,
   isRetiredBuiltInAgentId,
+  isRulesetLocalePackFile,
   isRulesetPackageFile,
   normalizeAgentPhaseForType,
   parseRulesetDefinition,
   RULESET_LOCAL_NAMESPACE,
   RULESET_MAX_BYTES,
+  RULESET_LOCALE_MAX_BYTES,
   RULESET_PACKAGE_FILE_MAX_BYTES,
   type CustomAgentCapability,
   type AgentCategory,
@@ -77,6 +91,7 @@ import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadZipFile } from "../../lib/download-zip";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import {
+  createDuplicateAgentInput,
   countSkippedAgentImportFunctions,
   createAgentFolderPackageFilename,
   createAgentFolderPackageFiles,
@@ -119,6 +134,32 @@ import { Modal } from "../ui/Modal";
 import { RulesetImportReviewModal } from "../agents/RulesetImportReviewModal";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
+import {
+  hasUpdate,
+  iconOf,
+  ORGANIZER_SECTIONS,
+  sectionLabelKey,
+  sectionOf,
+  taglineOf,
+  type OrganizerSectionId,
+} from "../agents/organizer/organizer-model";
+
+const STORE_SECTION_ICONS: Record<OrganizerSectionId, ReactNode> = {
+  apps: <LayoutGrid size="0.8125rem" />,
+  games: <Dices size="0.8125rem" />,
+  writing: <PenLine size="0.8125rem" />,
+  memory: <BookOpen size="0.8125rem" />,
+  trackers: <Radar size="0.8125rem" />,
+  adventure: <Compass size="0.8125rem" />,
+  media: <ImageIcon size="0.8125rem" />,
+  alive: <Drama size="0.8125rem" />,
+  more: <Puzzle size="0.8125rem" />,
+};
+import { useChatStore } from "../../stores/chat.store";
+import { requestChatSettingsSectionOpen } from "../../lib/chat-floating-ui-events";
+import { confirmEditorLeave } from "../../lib/editor-leave";
+import { useUpdateChatMetadata } from "../../hooks/use-chats";
+import { parseChatMetadata } from "../../lib/chat-display";
 
 type JsonRecord = Record<string, unknown>;
 type NormalizedAgentImport = NonNullable<ReturnType<typeof normalizeAgentImportEntry>>;
@@ -136,6 +177,10 @@ type PendingRulesetImport = {
   /** A ruleset package file (a parsed `.ruleset.json`), imported whole; with each catalog file's entry count. */
   packageFile?: Record<string, unknown>;
   catalogs?: Record<string, number>;
+  /** Language packs picked with the package file, in the page's language (1.811). */
+  packs?: RulesetPickedPack[];
+  /** Packs were picked, but none in the page's language: the ruleset will read in English. */
+  packsOtherLanguage?: boolean;
 };
 const AGENT_GRADIENT_SURFACE =
   "mari-panel-gradient-surface mari-panel-gradient--agents text-[var(--mari-panel-gradient-text)]";
@@ -233,27 +278,6 @@ function createBuiltInAgentConfigRow(
 
 function getAgentLibraryDisplayName(agent: AgentConfigRow) {
   return BUILT_IN_AGENTS.find((entry) => entry.id === agent.type)?.name ?? agent.name;
-}
-
-function createDuplicateAgentInput(agent: AgentConfigRow) {
-  const settings = sanitizeAgentSettingsForTransfer(parseAgentSettings(agent.settings));
-  if (typeof settings.author !== "string" || !settings.author.trim()) {
-    settings.author = "Unknown";
-  }
-  const resultType = typeof settings.resultType === "string" ? settings.resultType : undefined;
-
-  return {
-    type: `${agent.type}-copy`,
-    name: `${getAgentLibraryDisplayName(agent)} (Copy)`,
-    description: agent.description,
-    phase: normalizeAgentPhaseForType(agent.type, agent.phase),
-    enabled: true,
-    connectionId: agent.connectionId,
-    imagePath: agent.imagePath,
-    promptTemplate: agent.promptTemplate,
-    settings,
-    ...(resultType ? { resultType } : {}),
-  };
 }
 
 export function AgentsPanel() {
@@ -374,8 +398,71 @@ export function AgentsPanel() {
   const capabilityAgentRegistryReady = !capabilityAgentsLoading && capabilityAgents !== undefined;
   const catalogArtworkByAgentId = useMemo(
     () =>
-      new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, entry.iconUrl ?? null] as const)),
+      new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, iconOf(entry) ?? null] as const)),
     [capabilityCatalog],
+  );
+  const catalogEntryById = useMemo(
+    () => new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, entry] as const)),
+    [capabilityCatalog],
+  );
+  // Agents not in the catalog (offline, sideloaded) fall back to their built-in category.
+  const storeSectionOf = (agent: { id: string; category: string }): OrganizerSectionId => {
+    const entry = catalogEntryById.get(packageIdByAgentType.get(agent.id) ?? agent.id);
+    if (entry) return sectionOf(entry);
+    return agent.category === "writer" ? "writing" : agent.category === "tracker" ? "trackers" : "more";
+  };
+  const catalogTaglineByAgentId = useMemo(
+    () => new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, taglineOf(entry)] as const)),
+    [capabilityCatalog],
+  );
+  const organizerUpdateCount = useMemo(() => {
+    const installedById = new Map((installedPackages ?? []).map((pkg) => [pkg.id, pkg]));
+    return (capabilityCatalog?.packages ?? []).filter((entry) => hasUpdate(entry, installedById.get(entry.manifest.id)))
+      .length;
+  }, [capabilityCatalog, installedPackages]);
+  const activeChat = useChatStore((state) => state.activeChat);
+  const updateChatMetadata = useUpdateChatMetadata();
+  const activeChatAgentIds = useMemo(() => {
+    const metadata = activeChat ? parseChatMetadata(activeChat.metadata) : {};
+    // Agents switched off for the chat do not run, so none count as in it; + turns them back on.
+    const ids = metadata.enableAgents === true ? metadata.activeAgentIds : undefined;
+    return new Set(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : []);
+  }, [activeChat]);
+  // A chat stores either the agent's id or its type; built-in rows use the type as id.
+  const isInActiveChat = useCallback(
+    (agent: { id: string; type: string }) => activeChatAgentIds.has(agent.id) || activeChatAgentIds.has(agent.type),
+    [activeChatAgentIds],
+  );
+  // Same as the Omnibar: drop it from the list and offer Undo. Agent memory stays.
+  const removeFromActiveChat = useCallback(
+    async (agent: { id: string; type: string; name: string }) => {
+      const chat = useChatStore.getState().activeChat;
+      if (!chat) return;
+      const raw = parseChatMetadata(chat.metadata).activeAgentIds;
+      const previous = Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string") : [];
+      const next = previous.filter((id) => id !== agent.id && id !== agent.type);
+      try {
+        await updateChatMetadata.mutateAsync({ id: chat.id, activeAgentIds: next });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : localizeUi("ui.panels.agentspanel.removeFromChatFailed"));
+        return;
+      }
+      toast.success(localizeUi("commandCenter.actions.removedFromChat", { name: agent.name }), {
+        action: {
+          label: localizeUi("ui.chat.chatresourcedropoverlay.undo"),
+          // Put back only what this action removed, so a later removal stays.
+          onClick: () => {
+            const current = useChatStore.getState().activeChat;
+            if (current?.id !== chat.id) return;
+            const ids = parseChatMetadata(current.metadata).activeAgentIds;
+            const now = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
+            const removed = previous.filter((id) => !next.includes(id) && !now.includes(id));
+            updateChatMetadata.mutate({ id: chat.id, activeAgentIds: [...now, ...removed] });
+          },
+        },
+      });
+    },
+    [localizeUi, updateChatMetadata],
   );
   const visibleAgentConfigs = useMemo(
     () => agentConfigRows.filter((config) => !isAgentConfigDeleted(config.settings)),
@@ -446,19 +533,17 @@ export function AgentsPanel() {
   const agentSearchQuery = agentSearch.trim().toLowerCase();
   const agentSearchActive = agentSearchQuery.length > 0;
   const agentFilterActive = agentSearchActive || agentModeFilter !== "all";
-  const modeAllowlistByAgentType = useMemo(
-    () => new Map(availableBuiltInAgents.map((agent) => [agent.id, agent.modeAllowlist] as const)),
-    [availableBuiltInAgents],
-  );
   const matchesAgentFilters = (agent: { type: string; name: string; description: string; category: string }) => {
-    const modeAllowlist = modeAllowlistByAgentType.get(agent.type);
-    const matchesMode = agentModeFilter === "all" || !modeAllowlist?.length || modeAllowlist.includes(agentModeFilter);
+    const matchesMode =
+      agentModeFilter === "all" ||
+      (agent.category !== "app" && isAgentAvailableInChatMode(agentModeFilter, agent.type));
     const matchesSearch =
       !agentSearchQuery ||
       agent.name.toLowerCase().includes(agentSearchQuery) ||
       agent.description.toLowerCase().includes(agentSearchQuery) ||
       agent.category.toLowerCase().includes(agentSearchQuery);
-    return matchesMode && matchesSearch;
+    // Home screen apps open from their Home tab, so the panel lists chat agents only.
+    return agent.category !== "app" && matchesMode && matchesSearch;
   };
   const getAgentFilterData = (agent: AgentConfigRow) => ({
     type: agent.type,
@@ -468,37 +553,39 @@ export function AgentsPanel() {
       ? builtInCategory(agent.type, availableBuiltInAgents.find((entry) => entry.id === agent.type)?.category ?? "misc")
       : "custom",
   });
+  const panelBuiltInAgents = visibleBuiltInDisplayAgents.filter(
+    (agent) => !folderedAgentIds.has(agent.id) && matchesAgentFilters({ ...agent, type: agent.id }),
+  );
   const agentCategorySections: Array<{
-    category: AgentCategory | "app";
+    key: string;
     title: string;
-    emptyMessage: string;
+    hint?: string;
     icon: ReactNode;
-  }> = [
-    {
-      category: "app",
-      title: localizeUi("ui.panels.agentspanel.apps"),
-      emptyMessage: localizeUi("ui.panels.agentspanel.noAppsYet"),
-      icon: <AppWindow size="0.8125rem" />,
-    },
-    {
-      category: "writer",
-      title: localizeUi("ui.panels.agentspanel.writingAgents"),
-      emptyMessage: localizeUi("ui.panels.agentspanel.noWritingAgentsYet"),
-      icon: <PenLine size="0.8125rem" />,
-    },
-    {
-      category: "tracker",
-      title: localizeUi("ui.panels.agentspanel.trackerAgents"),
-      emptyMessage: localizeUi("ui.panels.agentspanel.noTrackerAgentsYet"),
-      icon: <Radar size="0.8125rem" />,
-    },
-    {
-      category: "misc",
-      title: localizeUi("ui.panels.agentspanel.miscAgents"),
-      emptyMessage: localizeUi("ui.panels.agentspanel.noMiscAgentsYet"),
-      icon: <Puzzle size="0.8125rem" />,
-    },
-  ];
+    agents: typeof panelBuiltInAgents;
+  }> = activeChat
+    ? [
+        {
+          key: "in-chat",
+          title: localizeUi("ui.panels.agentspanel.inThisChat"),
+          hint: activeChat.name,
+          icon: <MessageSquare size="0.8125rem" />,
+          agents: panelBuiltInAgents.filter((agent) => isInActiveChat({ id: agent.id, type: agent.id })),
+        },
+        {
+          key: "not-in-chat",
+          title: localizeUi("ui.panels.agentspanel.notInThisChat"),
+          hint: localizeUi("ui.panels.agentspanel.notInThisChatHint"),
+          icon: <CirclePlus size="0.8125rem" />,
+          agents: panelBuiltInAgents.filter((agent) => !isInActiveChat({ id: agent.id, type: agent.id })),
+        },
+      ]
+    : // The Agent Organizer's store sections, so an agent sits in the same group in both places.
+      ORGANIZER_SECTIONS.map((section) => ({
+        key: section,
+        title: localizeUi(sectionLabelKey(section)),
+        icon: STORE_SECTION_ICONS[section],
+        agents: panelBuiltInAgents.filter((agent) => storeSectionOf(agent) === section),
+      })).filter((section) => section.agents.length > 0);
   const visibleCustomAgents = manualOrder.orderItems(
     sortBasicPanelItems(
       customAgents.filter(
@@ -522,17 +609,7 @@ export function AgentsPanel() {
       return agent ? matchesAgentFilters(getAgentFilterData(agent)) : false;
     }),
   );
-  const hasVisibleAgents =
-    agentCategorySections.some((section) =>
-      visibleBuiltInDisplayAgents.some(
-        (agent) =>
-          !folderedAgentIds.has(agent.id) &&
-          agent.category === section.category &&
-          matchesAgentFilters({ ...agent, type: agent.id }),
-      ),
-    ) ||
-    visibleCustomAgents.length > 0 ||
-    hasVisibleFolderAgents;
+  const hasVisibleAgents = panelBuiltInAgents.length > 0 || visibleCustomAgents.length > 0 || hasVisibleFolderAgents;
   const selectedAgents = useMemo(
     () => selectableAgents.filter((agent) => selectedAgentIds.has(agent.id)),
     [selectableAgents, selectedAgentIds],
@@ -747,6 +824,8 @@ export function AgentsPanel() {
 
   const handleDuplicateAgent = useCallback(
     async (agent: AgentConfigRow) => {
+      if (!capabilityAgentRegistryReady || builtInAgentIds.has(agent.type) || packageIdByAgentType.has(agent.type))
+        return;
       try {
         const created = await createAgent.mutateAsync(createDuplicateAgentInput(agent));
         const createdId = typeof created === "object" && created && "id" in created ? String(created.id) : null;
@@ -756,7 +835,7 @@ export function AgentsPanel() {
         toast.error(error instanceof Error ? error.message : localizeUi("ui.panels.agentspanel.failedToCopyAgent"));
       }
     },
-    [createAgent, openAgentDetail, localizeUi],
+    [builtInAgentIds, capabilityAgentRegistryReady, createAgent, openAgentDetail, localizeUi, packageIdByAgentType],
   );
 
   const handleDeleteSelectedAgents = useCallback(async () => {
@@ -934,6 +1013,10 @@ export function AgentsPanel() {
             })()
           : await (async () => {
               const parsed = JSON.parse(await file.text());
+              // A Game Mode ruleset or its language pack is imported as a ruleset, never read for agents.
+              if (isRulesetPackageFile(parsed)) throw new Error(localizeUi("game.ruleset.import.useRulesetImport"));
+              if (isRulesetLocalePackFile(parsed))
+                throw new Error(localizeUi("game.ruleset.import.packUseRulesetImport"));
               return {
                 agents: getAgentImportEntries(parsed).map((raw): FolderPackageImportEntry => ({
                   raw,
@@ -951,7 +1034,7 @@ export function AgentsPanel() {
 
       event.target.value = "";
     },
-    [agentImportsDisabledHelp, agentImportsEnabled, prepareAgentEntries],
+    [agentImportsDisabledHelp, agentImportsEnabled, localizeUi, prepareAgentEntries],
   );
 
   const handleImportAgentFolder = useCallback(
@@ -989,41 +1072,70 @@ export function AgentsPanel() {
     async (event: ChangeEvent<HTMLInputElement>) => {
       setAgentImportError(null);
       setAgentImportSuccess(null);
-      const file = event.target.files?.[0];
+      const files = Array.from(event.target.files ?? []);
       event.target.value = "";
-      if (!file) return;
+      if (!files.length) return;
       if (!agentImportsEnabled) {
         setAgentImportError(agentImportsDisabledHelp);
         return;
       }
-      if (file.size > RULESET_PACKAGE_FILE_MAX_BYTES) {
+      // One ruleset, with the language packs (1.811) published beside its package file if any were picked.
+      const picked: Array<{ file: File; text: string; document: unknown }> = [];
+      for (const file of files) {
+        if (file.size > RULESET_PACKAGE_FILE_MAX_BYTES) {
+          setAgentImportError(
+            localizeUi("game.ruleset.import.packageTooLarge", {
+              limit: RULESET_PACKAGE_FILE_MAX_BYTES / 1024 / 1024,
+            }),
+          );
+          return;
+        }
+        let text: string;
+        try {
+          text = await file.text();
+        } catch {
+          setAgentImportError(localizeUi("game.ruleset.import.unreadable"));
+          return;
+        }
+        try {
+          picked.push({ file, text, document: JSON.parse(text) });
+        } catch {
+          setAgentImportError(localizeUi("game.ruleset.import.notJson"));
+          return;
+        }
+      }
+      const packFiles = picked.filter((each) => isRulesetLocalePackFile(each.document));
+      const rulesetFiles = picked.filter((each) => !isRulesetLocalePackFile(each.document));
+      if (rulesetFiles.length > 1) {
+        setAgentImportError(localizeUi("game.ruleset.import.oneAtATime"));
+        return;
+      }
+      const main = rulesetFiles[0];
+      // A pack translates a package; on its own, or beside a ruleset file with no package, it has nothing to attach to.
+      if (!main || (packFiles.length && !isRulesetPackageFile(main.document))) {
+        setAgentImportError(localizeUi("game.ruleset.import.packNeedsPackage"));
+        return;
+      }
+      const oversized = packFiles.find((each) => each.file.size > RULESET_LOCALE_MAX_BYTES);
+      if (oversized) {
         setAgentImportError(
-          localizeUi("game.ruleset.import.packageTooLarge", {
-            limit: RULESET_PACKAGE_FILE_MAX_BYTES / 1024 / 1024,
+          localizeUi("game.ruleset.import.packTooLarge", {
+            name: oversized.file.name,
+            limit: RULESET_LOCALE_MAX_BYTES / 1024 / 1024,
           }),
         );
         return;
       }
-      let text: string;
-      try {
-        text = await file.text();
-      } catch {
-        setAgentImportError(localizeUi("game.ruleset.import.unreadable"));
-        return;
-      }
-      let document: unknown;
-      try {
-        document = JSON.parse(text);
-      } catch {
-        setAgentImportError(localizeUi("game.ruleset.import.notJson"));
-        return;
-      }
+      const { file, text, document } = main;
       // A package file (`.ruleset.json`, with its catalog files) is read by the Engine, keeping nothing,
       // and reviewed like a ruleset file.
       if (isRulesetPackageFile(document)) {
         const packageFile = document as Record<string, unknown>;
+        const packs = rulesetPacksForPage(
+          packFiles.map((each) => ({ name: each.file.name, document: each.document as Record<string, unknown> })),
+        );
         try {
-          const read = await readRulesetPackage(packageFile);
+          const read = await readRulesetPackage(packageFile, packs);
           const parsed = parseRulesetDefinition(JSON.parse(read.ruleset ?? ""));
           if (!parsed.ok) throw new Error(parsed.issues.slice(0, 3).join("; "));
           setRulesetImportFailure(null);
@@ -1033,6 +1145,8 @@ export function AgentsPanel() {
             text: read.ruleset ?? "",
             packageFile,
             catalogs: read.catalogs,
+            packs,
+            packsOtherLanguage: packFiles.length > 0 && packs.length === 0,
           });
         } catch (error) {
           setAgentImportError(
@@ -1078,14 +1192,22 @@ export function AgentsPanel() {
     setRulesetImportFailure(null);
     try {
       const result = pending.packageFile
-        ? await importRulesetPackage.mutateAsync(pending.packageFile)
+        ? await importRulesetPackage.mutateAsync({ file: pending.packageFile, packs: pending.packs })
         : await importRuleset.mutateAsync(pending.text);
       setPendingRulesetImport(null);
+      // The same version again, now with its language pack: the pack is what changed.
+      const translated =
+        result.status === "unchanged" && !!pending.packs?.length && "locales" in result && !!result.locales?.length;
+      const imported = localizeUi(
+        result.status === "added"
+          ? "game.ruleset.import.added"
+          : translated
+            ? "game.ruleset.import.translationAdded"
+            : "game.ruleset.import.unchanged",
+        { name: pending.definition.name, version: result.version },
+      );
       setAgentImportSuccess(
-        localizeUi(result.status === "added" ? "game.ruleset.import.added" : "game.ruleset.import.unchanged", {
-          name: pending.definition.name,
-          version: result.version,
-        }),
+        pending.packsOtherLanguage ? `${imported} ${localizeUi("game.ruleset.import.packOtherLanguage")}` : imported,
       );
     } catch (error) {
       // The server's refusals are already sentences the author can act on, version conflicts
@@ -1150,18 +1272,21 @@ export function AgentsPanel() {
     (agent: AgentConfigRow) => {
       const builtInMeta = availableBuiltInAgents.find((entry) => entry.id === agent.type);
       const custom = !builtInMeta;
-      const category = custom ? "custom" : builtInCategory(agent.type, builtInMeta.category);
       return renderAgentCard({
+        needs: agentModelNeed(agent.type, agent.settings),
         localizeUi,
         id: agent.id,
         type: agent.type,
         name: getAgentLibraryDisplayName(agent),
-        description: agent.description,
-        category,
+        description: catalogTaglineByAgentId.get(agent.type) ?? agent.description,
+        inChat: activeChat ? isInActiveChat({ id: agent.id, type: agent.type }) : undefined,
+        onRemoveFromChat: () =>
+          void removeFromActiveChat({ id: agent.id, type: agent.type, name: getAgentLibraryDisplayName(agent) }),
         imagePath: agent.imagePath || (builtInMeta ? catalogArtworkByAgentId.get(agent.type) : null) || null,
+        storeLogo: !agent.imagePath,
         custom,
         openAgentDetail,
-        onDuplicate: () => void handleDuplicateAgent(agent),
+        onDuplicate: custom && capabilityAgentRegistryReady ? () => void handleDuplicateAgent(agent) : undefined,
         onImagePick: () => handlePickAgentImage(custom ? agent.id : agent.type),
         selectionMode,
         selected: selectedAgentIds.has(agent.id),
@@ -1206,13 +1331,16 @@ export function AgentsPanel() {
         nativeDragEnabled: nativeAgentDragEnabled,
         touchSafeDragMode: touchSafeAgentDragMode,
         suppressClickRef: suppressAgentClickRef,
-        onDelete: capabilityAgentRegistryReady ? () => void confirmAndRemoveAgent(agent) : undefined,
+        onDelete: custom && capabilityAgentRegistryReady ? () => void confirmAndRemoveAgent(agent) : undefined,
       });
     },
     [
+      activeChat,
       availableBuiltInAgents,
-      builtInCategory,
       catalogArtworkByAgentId,
+      catalogTaglineByAgentId,
+      isInActiveChat,
+      removeFromActiveChat,
       capabilityAgentRegistryReady,
       confirmAndRemoveAgent,
       draggedAgentId,
@@ -1302,6 +1430,8 @@ export function AgentsPanel() {
         // By extension only: the Agent import input beside this one is the panel's JSON-typed input.
         // A ruleset comes as its file, or as a package file (`.ruleset.json`) with its catalog files.
         accept=".ruleset.json,.json"
+        // With its language packs (`<id>-<version>.<lang>.json`), when the ruleset has them.
+        multiple
         className="hidden"
         onChange={(event) => void handleRulesetFileSelected(event)}
       />
@@ -1311,8 +1441,13 @@ export function AgentsPanel() {
         onClick={() => openAgentCatalog()}
         className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
       >
-        <Sparkles size="0.875rem" />
+        <Store size="0.875rem" />
         {localizeUi("ui.agents.agentcatalogview.downloadAgents")}
+        {organizerUpdateCount > 0 && (
+          <span className="rounded-md bg-[var(--marinara-chat-chrome-accent,var(--primary))] px-1.5 py-0.5 text-[0.625rem] font-semibold leading-none text-[var(--primary-foreground)]">
+            {localizeUi("ui.panels.agentspanel.updateCount", { count: organizerUpdateCount })}
+          </span>
+        )}
       </button>
 
       <div className="flex gap-2">
@@ -1421,7 +1556,7 @@ export function AgentsPanel() {
         </div>
       )}
 
-      {hasInstalledAgents && !hasVisibleAgents && (
+      {hasInstalledAgents && agentFilterActive && !hasVisibleAgents && (
         <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
           {localizeUi("ui.panels.agentspanel.noAgentsMatchFilters")}
         </p>
@@ -1623,84 +1758,86 @@ export function AgentsPanel() {
         agentCategorySections.map((section) => {
           const visibleAgents = manualOrder.orderItems(
             sortBasicPanelItems(
-              visibleBuiltInDisplayAgents.filter(
-                (agent) =>
-                  !folderedAgentIds.has(agent.id) &&
-                  agent.category === section.category &&
-                  matchesAgentFilters({ ...agent, type: agent.id }),
-              ),
+              section.agents,
               sort,
               (agent) => agent.name,
               (agent) => agent.createdAt || agent.updatedAt,
             ),
           );
-          if (visibleAgents.length === 0 && agentFilterActive) return null;
+          if (visibleAgents.length === 0) return null;
           return (
-            <PanelSection key={section.category} title={section.title} icon={section.icon}>
-              {visibleAgents.length === 0 ? (
-                <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">{section.emptyMessage}</p>
-              ) : (
-                visibleAgents.map((agent) => {
-                  const sourceAgent = createBuiltInAgentConfigRow(agent, configByType.get(agent.id));
-                  return renderAgentCard({
-                    localizeUi,
-                    id: agent.id,
-                    type: agent.id,
-                    name: agent.name,
-                    description: agent.description,
-                    category: agent.category,
-                    imagePath: sourceAgent.imagePath || catalogArtworkByAgentId.get(agent.id) || null,
-                    custom: false,
-                    openAgentDetail,
-                    onDuplicate: () => void handleDuplicateAgent(sourceAgent),
-                    onImagePick: () => handlePickAgentImage(agent.id),
-                    selectionMode,
-                    selected: selectedAgentIds.has(agent.id),
-                    onToggleSelected: () => toggleAgentSelection(agent.id),
-                    isDragging: draggedAgentId === agent.id,
-                    onDragStart: (event) => {
-                      const ids = getDraggedAgentIds(agent.id);
-                      const agentTypes = getDraggedAgentTypes(agent.id);
-                      setDraggedAgentId(agent.id);
-                      event.dataTransfer.effectAllowed = "copyMove";
-                      event.dataTransfer.setData("application/x-marinara-agent-ids", JSON.stringify(ids));
-                      event.dataTransfer.setData("text/plain", agent.id);
-                      writeChatResourceDragPayload(event.dataTransfer, {
+            <PanelSection
+              key={section.key}
+              title={localizeUi("ui.panels.agentspanel.groupTitle", {
+                title: section.title,
+                count: visibleAgents.length,
+              })}
+              icon={section.icon}
+            >
+              {section.hint && (
+                <p className="mari-chrome-text-muted truncate px-1 pb-1 text-[0.625rem]">{section.hint}</p>
+              )}
+              {visibleAgents.map((agent) => {
+                const sourceAgent = createBuiltInAgentConfigRow(agent, configByType.get(agent.id));
+                return renderAgentCard({
+                  needs: agentModelNeed(agent.id, sourceAgent.settings),
+                  localizeUi,
+                  id: agent.id,
+                  type: agent.id,
+                  name: agent.name,
+                  description: catalogTaglineByAgentId.get(agent.id) ?? agent.description,
+                  inChat: activeChat ? isInActiveChat({ id: agent.id, type: agent.id }) : undefined,
+                  onRemoveFromChat: () => void removeFromActiveChat({ id: agent.id, type: agent.id, name: agent.name }),
+                  imagePath: sourceAgent.imagePath || catalogArtworkByAgentId.get(agent.id) || null,
+                  storeLogo: !sourceAgent.imagePath,
+                  custom: false,
+                  openAgentDetail,
+                  onImagePick: () => handlePickAgentImage(agent.id),
+                  selectionMode,
+                  selected: selectedAgentIds.has(agent.id),
+                  onToggleSelected: () => toggleAgentSelection(agent.id),
+                  isDragging: draggedAgentId === agent.id,
+                  onDragStart: (event) => {
+                    const ids = getDraggedAgentIds(agent.id);
+                    const agentTypes = getDraggedAgentTypes(agent.id);
+                    setDraggedAgentId(agent.id);
+                    event.dataTransfer.effectAllowed = "copyMove";
+                    event.dataTransfer.setData("application/x-marinara-agent-ids", JSON.stringify(ids));
+                    event.dataTransfer.setData("text/plain", agent.id);
+                    writeChatResourceDragPayload(event.dataTransfer, {
+                      version: 1,
+                      kind: "agent",
+                      ids: agentTypes,
+                      label:
+                        ids.length === 1
+                          ? agent.name
+                          : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", { count: ids.length }),
+                    });
+                  },
+                  onDragEnd: () => {
+                    setDraggedAgentId(null);
+                    clearActiveChatResourceDrag();
+                  },
+                  onTouchStart: (event) =>
+                    startAgentTouchDrag(event, agent.id, {
+                      sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="agent"]'),
+                      chatResourcePayload: {
                         version: 1,
                         kind: "agent",
-                        ids: agentTypes,
+                        ids: getDraggedAgentTypes(agent.id),
                         label:
-                          ids.length === 1
+                          getDraggedAgentIds(agent.id).length === 1
                             ? agent.name
-                            : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", { count: ids.length }),
-                      });
-                    },
-                    onDragEnd: () => {
-                      setDraggedAgentId(null);
-                      clearActiveChatResourceDrag();
-                    },
-                    onTouchStart: (event) =>
-                      startAgentTouchDrag(event, agent.id, {
-                        sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="agent"]'),
-                        chatResourcePayload: {
-                          version: 1,
-                          kind: "agent",
-                          ids: getDraggedAgentTypes(agent.id),
-                          label:
-                            getDraggedAgentIds(agent.id).length === 1
-                              ? agent.name
-                              : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", {
-                                  count: getDraggedAgentIds(agent.id).length,
-                                }),
-                        },
-                      }),
-                    nativeDragEnabled: nativeAgentDragEnabled,
-                    touchSafeDragMode: touchSafeAgentDragMode,
-                    suppressClickRef: suppressAgentClickRef,
-                    onDelete: capabilityAgentRegistryReady ? () => void confirmAndRemoveAgent(sourceAgent) : undefined,
-                  });
-                })
-              )}
+                            : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", {
+                                count: getDraggedAgentIds(agent.id).length,
+                              }),
+                      },
+                    }),
+                  nativeDragEnabled: nativeAgentDragEnabled,
+                  touchSafeDragMode: touchSafeAgentDragMode,
+                  suppressClickRef: suppressAgentClickRef,
+                });
+              })}
             </PanelSection>
           );
         })}
@@ -1714,16 +1851,18 @@ export function AgentsPanel() {
           ) : (
             visibleCustomAgents.map((agent) =>
               renderAgentCard({
+                needs: agentModelNeed(agent.type, agent.settings),
                 localizeUi,
                 id: agent.id,
                 type: agent.type,
                 name: agent.name,
-                description: agent.description,
-                category: "custom",
+                description: catalogTaglineByAgentId.get(agent.type) ?? agent.description,
+                inChat: activeChat ? isInActiveChat({ id: agent.id, type: agent.type }) : undefined,
+                onRemoveFromChat: () => void removeFromActiveChat({ id: agent.id, type: agent.type, name: agent.name }),
                 imagePath: agent.imagePath ?? null,
                 custom: true,
                 openAgentDetail,
-                onDuplicate: () => void handleDuplicateAgent(agent),
+                onDuplicate: capabilityAgentRegistryReady ? () => void handleDuplicateAgent(agent) : undefined,
                 onImagePick: () => handlePickAgentImage(agent.id),
                 selectionMode,
                 selected: selectedAgentIds.has(agent.id),
@@ -1773,6 +1912,16 @@ export function AgentsPanel() {
             )
           )}
         </PanelSection>
+      )}
+
+      {hasInstalledAgents && (capabilityCatalog?.packages.length ?? 0) > 0 && (
+        <button
+          type="button"
+          onClick={() => openAgentCatalog()}
+          className="mari-chrome-text-muted border-t border-[var(--border)] px-1 pt-3 text-left text-[0.6875rem] hover:text-[var(--foreground)]"
+        >
+          {localizeUi("ui.panels.agentspanel.browseOrganizer", { count: capabilityCatalog?.packages.length ?? 0 })}
+        </button>
       )}
 
       {visibleRulesets.length > 0 && (
@@ -1976,11 +2125,26 @@ export function AgentsPanel() {
           label: catalog.label,
           count: catalog.entries?.length ?? pendingRulesetImport?.catalogs?.[catalog.id] ?? 0,
         }))}
+        translation={!!pendingRulesetImport?.packs?.length}
         onCancel={() => setPendingRulesetImport(null)}
         onConfirm={() => void handleConfirmRulesetImport()}
       />
     </div>
   );
+}
+
+/**
+ * The open chat's id when Chat Settings lists per-agent menus for it: local roleplay chats only.
+ * ponytail: agents without their own menu (trackers) land at the top of the Agents section;
+ * pass a per-agent flag from the drawer's menu list if that is not enough.
+ */
+function agentChatSettingsChatId(): string | null {
+  const chat = useChatStore.getState().activeChat;
+  if (!chat) return null;
+  const metadata = parseChatMetadata(chat.metadata);
+  if (metadata.multiplayerSetup === true || metadata.multiplayer) return null;
+  const mode = (chat as { mode?: unknown }).mode;
+  return mode === "conversation" || mode === "game" ? null : chat.id;
 }
 
 function renderAgentCard({
@@ -1989,8 +2153,8 @@ function renderAgentCard({
   type,
   name,
   description,
-  category,
   imagePath,
+  storeLogo = false,
   custom,
   openAgentDetail,
   onDuplicate,
@@ -2006,17 +2170,21 @@ function renderAgentCard({
   nativeDragEnabled = true,
   touchSafeDragMode = false,
   suppressClickRef,
+  needs,
+  inChat,
+  onRemoveFromChat,
 }: {
   localizeUi: TFunction;
   id: string;
   type: string;
   name: string;
   description: string;
-  category: AgentCategory | "app" | "custom";
   imagePath?: string | null;
+  /** The image is the store logo, not a picture the user set, so it gets a margin. */
+  storeLogo?: boolean;
   custom: boolean;
   openAgentDetail: (id: string) => void;
-  onDuplicate: () => void;
+  onDuplicate?: () => void;
   onImagePick: () => void;
   onDelete?: () => void;
   selectionMode?: boolean;
@@ -2029,10 +2197,17 @@ function renderAgentCard({
   nativeDragEnabled?: boolean;
   touchSafeDragMode?: boolean;
   suppressClickRef?: { current: boolean };
+  /** A model the agent cannot run without; the card shows the chip while none is set. */
+  needs?: ReturnType<typeof agentModelNeed>;
+  /** Set only while a chat is open: whether this agent is on in it. */
+  inChat?: boolean;
+  onRemoveFromChat?: () => void;
 }) {
+  const chatSettingsChatId = inChat ? agentChatSettingsChatId() : null;
   const iconClasses = cn(
-    "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm",
-    AGENT_GRADIENT_SURFACE,
+    "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm",
+    imagePath ? "bg-[var(--secondary)]" : AGENT_GRADIENT_SURFACE,
+    storeLogo && "[&>img]:h-[68%]! [&>img]:w-[68%]! [&>img]:object-contain!",
   );
 
   return (
@@ -2127,9 +2302,11 @@ function renderAgentCard({
         className={cn(
           "min-w-0 flex-1 cursor-grab text-left active:cursor-grabbing",
           !selectionMode &&
-            (onDelete
-              ? "pr-0 max-md:pr-24 [@media(pointer:coarse)]:pr-24"
-              : "pr-0 max-md:pr-16 [@media(pointer:coarse)]:pr-16"),
+            (custom && onDuplicate
+              ? onDelete
+                ? "pr-0 max-md:pr-[4.5rem] [@media(pointer:coarse)]:pr-[4.5rem]"
+                : "pr-0 max-md:pr-10 [@media(pointer:coarse)]:pr-10"
+              : onDelete && "pr-0 max-md:pr-10 [@media(pointer:coarse)]:pr-10"),
         )}
         onClick={(event) => {
           event.stopPropagation();
@@ -2142,27 +2319,80 @@ function renderAgentCard({
         }}
       >
         <div className="truncate text-sm font-medium">{name}</div>
-        <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)] line-clamp-2">
+        <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)] truncate">
           {description || localizeUi("ui.panels.agentcard.noDescription")}
         </div>
-        <div className="mt-1 text-[0.5625rem] uppercase text-[var(--muted-foreground)]/80">
-          {custom ? localizeUi("ui.panels.agentcard.custom") : category}
-        </div>
+        {needs && !selectionMode && <NeedsModelChip kind={needs.kind} own={needs.own} className="mt-1" />}
       </button>
-      {!selectionMode && (
-        <div className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto">
-          <ChatResourceActionButton payload={{ version: 1, kind: "agent", ids: [type], label: name }} />
-          <button
-            className="mari-chrome-control mari-chrome-control--small p-1.5"
-            title={localizeUi("ui.panels.agentcard.copyAgent")}
-            aria-label={localizeUi("ui.panels.agentcard.copyAgent")}
-            onClick={(event) => {
-              event.stopPropagation();
-              onDuplicate();
-            }}
-          >
-            <Copy size="0.75rem" />
-          </button>
+      {!selectionMode && inChat && chatSettingsChatId && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            const ui = useUIStore.getState();
+            // A detail page (agent, character, ...) replaces the chat view, so leave it first.
+            if (!confirmEditorLeave(ui, localizeUi("commandCenter.dirtyEditor"))) return;
+            ui.closeAllDetails();
+            // On phones the panel covers the chat, so close it to show the drawer.
+            if (window.matchMedia("(max-width: 767px)").matches) ui.closeRightPanel();
+            // Next frame: the chat view has mounted its listener, and the panel's close is done.
+            // Custom agents share one menu in Chat Settings.
+            requestAnimationFrame(() =>
+              requestChatSettingsSectionOpen(chatSettingsChatId, `agent:${custom ? "custom-agents" : type}`),
+            );
+          }}
+          title={localizeUi("ui.panels.agentspanel.chatSettings", { name })}
+          aria-label={localizeUi("ui.panels.agentspanel.chatSettings", { name })}
+          className="mari-chrome-control mari-chrome-control--small h-7 w-7 shrink-0 p-0"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
+        </button>
+      )}
+      {!selectionMode && inChat !== undefined && (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+          {inChat ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onRemoveFromChat?.();
+              }}
+              title={localizeUi("ui.panels.agentspanel.removeFromChat", { name })}
+              aria-label={localizeUi("ui.panels.agentspanel.removeFromChat", { name })}
+              className="mari-chrome-control mari-chrome-control--small h-7 w-7 p-0 text-[var(--marinara-chat-chrome-accent,var(--primary))]"
+            >
+              <Check className="h-3.5 w-3.5 shrink-0" />
+            </button>
+          ) : (
+            <ChatResourceActionButton
+              payload={{ version: 1, kind: "agent", ids: [type], label: name }}
+              icon={Plus}
+              iconClassName="h-3.5 w-3.5 shrink-0"
+              className="h-7 w-7 p-0"
+            />
+          )}
+        </span>
+      )}
+      {!selectionMode && ((custom && onDuplicate) || onDelete) && (
+        <div
+          className={cn(
+            "pointer-events-none absolute top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto",
+            inChat === undefined ? "right-2" : chatSettingsChatId ? "right-20" : "right-11",
+          )}
+        >
+          {custom && onDuplicate && (
+            <button
+              className="mari-chrome-control mari-chrome-control--small p-1.5"
+              title={localizeUi("ui.panels.agentcard.copyAgent")}
+              aria-label={localizeUi("ui.panels.agentcard.copyAgent")}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDuplicate();
+              }}
+            >
+              <Copy size="0.75rem" />
+            </button>
+          )}
           {onDelete && (
             <button
               className="mari-chrome-control mari-chrome-control--small p-1.5"

@@ -744,7 +744,8 @@ test.describe("Pop-out drawers on desktop", () => {
       };
       const preset = await create("/api/prompts", {
         name: "Inherited pop-out parameters",
-        parameters: { temperature: 1.37, maxTokens: 777, enabledParameters: inheritedSend },
+        // Presets do not set token limits any more (#7940), so the output starts at the 4096 default.
+        parameters: { temperature: 1.37, enabledParameters: inheritedSend },
       });
       const chat = await create("/api/chats", {
         name: "Pop-out parameters",
@@ -772,18 +773,23 @@ test.describe("Pop-out drawers on desktop", () => {
       for (const topP of ["0.9", "0.8"]) {
         await settle(popped);
         await expect(popped.getByRole("textbox", { name: "Temperature", exact: true })).toHaveValue("1.37");
-        await expect(popped.getByRole("textbox", { name: "Max Output Tokens", exact: true })).toHaveValue("777");
+        await expect(popped.getByRole("textbox", { name: "Max Output Tokens", exact: true })).toHaveValue("4096");
+        for (const label of ["Temperature", "Top P", "Frequency", "Presence"]) {
+          await expect(popped.getByRole("checkbox", { name: `Send ${label} parameter`, exact: true })).toBeChecked();
+        }
         const input = popped.getByRole("textbox", { name: "Top P", exact: true });
         await expect(input).toBeEnabled();
         await input.fill(topP);
         await input.press("Tab");
+        // Editing another value keeps the inherited Send switches inherited: they are not copied into the chat.
         await expect
           .poll(async () => {
             const row = await (await request.get(`/api/chats/${chat.id}`)).json();
             const metadata = typeof row.metadata === "string" ? JSON.parse(row.metadata) : row.metadata;
-            return metadata.chatParameters;
+            const { topP: saved, enabledParameters } = metadata.chatParameters ?? {};
+            return { topP: saved, enabledParameters };
           })
-          .toMatchObject({ topP: Number(topP), enabledParameters: inheritedSend });
+          .toEqual({ topP: Number(topP), enabledParameters: undefined });
         if (topP === "0.9") {
           await expect
             .poll(async () => (await readSavedLayout(request, chat.id))?.detached)
@@ -817,14 +823,19 @@ test.describe("Pop-out drawers on desktop", () => {
       await settle(popped);
       const placed = await box(popped);
 
-      // Save As stores the layout, including the user's explicit pin.
+      // A new profile from this chat stores the layout, including the user's explicit pin.
       await popped.locator('[data-window-control="pin"]').click();
       await settings.getByRole("button", { name: "Hide these tips for this chat", exact: true }).click();
       await expect(settings.locator("[data-chat-settings-top-row]")).toHaveCount(0);
-      await settings.locator('button[title="Save current chat settings as a new profile"]').click();
-      const dialog = page.getByRole("dialog").filter({ hasText: "Name for the new profile:" });
-      await dialog.getByRole("textbox").fill(profileName);
-      await dialog.getByRole("button", { name: "Create", exact: true }).click();
+      await settings.getByTitle("New profile from this chat's settings", { exact: true }).click();
+      const builder = page.getByRole("dialog", { name: "New settings profile", exact: true });
+      await builder.getByLabel("Profile name", { exact: true }).fill(profileName);
+      await builder.getByRole("button", { name: "Save and choose chats…", exact: true }).click();
+      // Its second step has this chat checked, so the new profile is applied to it.
+      await page
+        .getByRole("dialog", { name: `Use “${profileName}” in…`, exact: true })
+        .getByRole("button", { name: "Apply to 1 chat", exact: true })
+        .click();
       const profiles = async () =>
         (await (await request.get("/api/chat-presets?mode=roleplay")).json()) as Array<{
           id: string;

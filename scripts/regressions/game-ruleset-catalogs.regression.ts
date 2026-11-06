@@ -812,6 +812,11 @@ try {
     );
     const loaded = await loadTurnRulesetCatalogs(context, '[sheet: op="cast" spell="Last Ember"]');
     assert.deepEqual(Object.keys(loaded), ["knacks"]);
+    // A rest that uses a feature as it ends reads them as well (ship readiness: Arcane Recovery).
+    assert.deepEqual(
+      Object.keys(await loadTurnRulesetCatalogs(context, '[sheet: op="rest" rest="Short rest" use="Last Ember"]')),
+      ["knacks"],
+    );
     assert.deepEqual(
       loaded.knacks!.map((entry) => entry.id),
       emberEntries.map((entry) => entry.id),

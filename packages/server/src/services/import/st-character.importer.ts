@@ -10,11 +10,15 @@ import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
 import {
+  DESCRIPTION_SPLIT_VERSION,
+  unassignCardFieldAlternatives,
   capImportedRulesetSheets,
   containsDecisionStatements,
   dropUnreadableOnboarding,
   isPatternSafe,
   ONBOARDING_MAX_QUESTIONS,
+  splitCharacterDescription,
+  type DescriptionSplitResult,
 } from "@marinara-engine/shared";
 import type {
   CharacterBookEntryPosition,
@@ -29,6 +33,7 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { isAllowedImageBuffer } from "../../utils/security.js";
+import { parseJsonBytes } from "../../utils/large-json.js";
 import { openZipArchive, type ZipArchive } from "../../lib/zip-reader.js";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "./import-timestamps.js";
 import { restoreSprites } from "./marinara.importer.js";
@@ -40,14 +45,17 @@ export const IMPORT_BODY_LIMIT_BYTES = 256 * 1024 * 1024;
 const IMPORT_METADATA_KEY = "importMetadata";
 
 /** Remove Marinara sprite binaries from card metadata before the normalized card is stored. */
-export function takeEmbeddedMarinaraSprites(raw: Record<string, unknown>): unknown {
+export function takeEmbeddedMarinaraSprites(
+  raw: Record<string, unknown>,
+  key: "sprites" | "spriteCatalog" = "sprites",
+): unknown {
   const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
   if (!cardData.extensions || typeof cardData.extensions !== "object") return undefined;
   const extensions = cardData.extensions as Record<string, unknown>;
   if (!extensions.marinara || typeof extensions.marinara !== "object") return undefined;
   const marinara = extensions.marinara as Record<string, unknown>;
-  const sprites = marinara.sprites;
-  delete marinara.sprites;
+  const sprites = marinara[key];
+  delete marinara[key];
   return sprites;
 }
 
@@ -120,6 +128,8 @@ export interface STCharacterImportOptions {
   existingTagKeys?: ReadonlySet<string>;
   /** Where embedded regex scripts land: scoped to the character (default) or global. */
   regexScriptScope?: "character" | "global";
+  /** Split a labelled description into personality, appearance, backstory and the other card fields. */
+  splitDescription?: boolean;
 }
 
 // SillyTavern regex placement ids → our placement strings (1 = user input, 2 = AI output).
@@ -212,6 +222,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   const shouldImportEmbeddedLorebook = options?.importEmbeddedLorebook ?? true;
   const tagImportMode = options?.tagImportMode ?? "all";
   const embeddedMarinaraSprites = takeEmbeddedMarinaraSprites(raw);
+  const embeddedSpriteCatalog = takeEmbeddedMarinaraSprites(raw, "spriteCatalog");
 
   // Extract avatar data URL if present (from PNG import)
   const avatarDataUrl = raw._avatarDataUrl as string | null;
@@ -222,11 +233,19 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   delete raw._botBrowserSource;
 
   const data = normalizeCharacterData(raw);
+  data.extensions.cardFieldAlternatives = unassignCardFieldAlternatives(data.extensions.cardFieldAlternatives);
   const rawEmbeddedLorebook = extractRawCharacterBook(raw) ?? data.character_book;
   if (rawEmbeddedLorebook) {
     data.character_book = normalizeCharacterBook(rawEmbeddedLorebook);
   }
   data.tags = await filterImportedTags(data.tags, db, tagImportMode, options?.existingTagKeys);
+
+  // Cards that keep everything in the description are split into Marinara's fields when asked.
+  // The card is imported as it came and the split is saved afterwards as a new card version, so
+  // the unsplit card stays in the version history. The outcome is reported for every card, so the
+  // import list can show the same summary as the editor's split dialog.
+  const split = options?.splitDescription ? splitCharacterDescription(data) : null;
+  let descriptionSplit: DescriptionSplitResult | null = split;
 
   // Tag with browser source if imported from browser
   if (botBrowserSource) {
@@ -309,35 +328,34 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
         characterId: charId,
         namePrefix: data.name,
         timestampOverrides: options?.timestampOverrides,
+        beforeCommit: async (tx, result) => {
+          const updatedImportMetadata = {
+            ...(data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>),
+            embeddedLorebook: {
+              ...(((data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>)?.embeddedLorebook as
+                Record<string, unknown> | undefined) ?? {}),
+              hasEmbeddedLorebook: true,
+              lorebookId: result.lorebookId,
+            },
+          };
+          data.extensions[IMPORT_METADATA_KEY] = updatedImportMetadata;
+          const updated = await createCharactersStorage(tx).update(
+            charId,
+            { extensions: { ...data.extensions } },
+            undefined,
+            {
+              updatedAt: normalizedTimestamps?.updatedAt ?? normalizedTimestamps?.createdAt ?? null,
+              skipVersionSnapshot: true,
+            },
+          );
+          if (!updated) throw new Error("Character no longer exists");
+          await syncCharacterBookFromLorebook(tx, result.lorebookId, { throwOnError: true });
+        },
       });
-      if (result && "lorebookId" in result) {
-        lorebookResult = {
-          lorebookId: result.lorebookId as string,
-          entriesImported: result.entriesImported as number,
-        };
-
-        const updatedImportMetadata = {
-          ...(data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>),
-          embeddedLorebook: {
-            ...(((data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>)?.embeddedLorebook as
-              Record<string, unknown> | undefined) ?? {}),
-            hasEmbeddedLorebook: true,
-            lorebookId: result.lorebookId as string,
-          },
-        };
-        data.extensions[IMPORT_METADATA_KEY] = updatedImportMetadata;
-        await storage.update(charId, { extensions: { ...data.extensions } }, undefined, {
-          updatedAt: normalizedTimestamps?.updatedAt ?? normalizedTimestamps?.createdAt ?? null,
-          skipVersionSnapshot: true,
-        });
-        await syncCharacterBookFromLorebook(db, result.lorebookId as string);
-      } else if (hasEmbeddedLorebook) {
-        throw new Error(
-          typeof result?.error === "string"
-            ? result.error
-            : "Character imported but the embedded lorebook could not be saved — the import has been rolled back.",
-        );
-      }
+      lorebookResult = {
+        lorebookId: result.lorebookId,
+        entriesImported: result.entriesImported,
+      };
     } catch (err) {
       await rollbackImportedCharacter(db, charId, avatarPath);
       logger.warn(err, "Rolled back character import after embedded lorebook import failed");
@@ -374,9 +392,30 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
 
   if (charId && embeddedMarinaraSprites !== undefined) {
     try {
-      await restoreSprites(embeddedMarinaraSprites, charId);
+      await restoreSprites(embeddedMarinaraSprites, charId, embeddedSpriteCatalog);
     } catch (err) {
       logger.warn(err, "Skipped optional embedded sprite restore for %s", charId);
+    }
+  }
+
+  if (charId && split?.status === "changed") {
+    const { appearance, backstory, ...fields } = split.after;
+    try {
+      await storage.update(charId, { ...fields, extensions: { appearance, backstory } }, undefined, {
+        versionSource: DESCRIPTION_SPLIT_VERSION.source,
+        versionReason: DESCRIPTION_SPLIT_VERSION.reason,
+        updatedAt: normalizedTimestamps?.updatedAt ?? normalizedTimestamps?.createdAt ?? null,
+      });
+    } catch (err) {
+      logger.warn(err, "Imported %s without splitting its description", charId);
+      descriptionSplit = {
+        ...split,
+        status: "skipped",
+        reason: "the split could not be saved",
+        after: { ...split.before },
+        changed: [],
+        keywordSorted: false,
+      };
     }
   }
 
@@ -391,6 +430,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
       skipped: hasEmbeddedLorebook && !shouldImportEmbeddedLorebook,
     },
     ...(lorebookResult ? { lorebook: lorebookResult } : {}),
+    ...(descriptionSplit ? { descriptionSplit } : {}),
   };
 }
 
@@ -498,7 +538,7 @@ export function inspectCharX(buf: Buffer): STCharacterImportPreview {
 function readCharXCardJson(zip: ZipArchive): Record<string, unknown> | null {
   const cardEntry = zip.getEntry("card.json");
   if (!cardEntry) return null;
-  return JSON.parse(cardEntry.read(IMPORT_BODY_LIMIT_BYTES).toString("utf-8")) as Record<string, unknown>;
+  return parseJsonBytes(cardEntry.read(IMPORT_BODY_LIMIT_BYTES)) as Record<string, unknown>;
 }
 
 function normalizeCharacterData(raw: Record<string, unknown>): CharacterData {
@@ -566,7 +606,7 @@ function normalizeCharacterBookPosition(value: unknown): CharacterBookEntryPosit
     if (value === "after_char" || value === "at_depth" || value === "depth") return value;
     return "before_char";
   }
-  if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 6) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 7) {
     return value as CharacterBookEntryPosition;
   }
   return "before_char";
@@ -623,6 +663,7 @@ const CHARACTER_BOOK_ENTRY_PASSTHROUGH_FIELDS = [
   "excludeRecursion",
   "delayUntilRecursion",
   "vectorized",
+  "outletName",
   "decisionStatement",
   "decisionMode",
 ];
@@ -725,9 +766,7 @@ function normalizeV2(raw: Record<string, unknown>): CharacterData {
   }
   return {
     name: String(raw.name ?? "Unknown"),
-    summary: String(raw.summary ?? "")
-      .trim()
-      .slice(0, 500),
+    summary: String(raw.summary ?? "").trim(),
     description: String(raw.description ?? ""),
     personality: String(raw.personality ?? ""),
     scenario: String(raw.scenario ?? ""),

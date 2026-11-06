@@ -11,7 +11,13 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { api } from "../lib/api-client";
+import { isSpriteImageFile } from "../lib/sprite-folder-import";
 import { chatKeys } from "./use-chats";
+import {
+  spriteCatalogSchema,
+  normalizeSpriteExpressionLabel,
+  type CharacterSpriteCatalog,
+} from "@marinara-engine/shared";
 import type { ChatGalleryIndex } from "../lib/card-asset-links";
 import { useUIStore } from "../stores/ui.store";
 import {
@@ -448,6 +454,9 @@ export interface SpriteInfo {
   expression: string;
   filename: string;
   url: string;
+  label?: string;
+  folderId?: string | null;
+  folderName?: string | null;
 }
 
 export type SpriteCleanupEngine = "auto" | "backgroundremover" | "builtin";
@@ -565,6 +574,114 @@ export function useCharacterSprites(characterId: string | null) {
   });
 }
 
+export function useSpriteCatalog(characterId: string | null) {
+  return useQuery({
+    queryKey: [...spriteKeys.list(characterId ?? ""), "catalog"],
+    queryFn: () => api.get<CharacterSpriteCatalog>(`/sprites/${characterId}/catalog`),
+    enabled: !!characterId,
+  });
+}
+
+export function useMutateSpriteCatalog(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ method, path, body }: { method: "post" | "patch" | "delete"; path: string; body?: unknown }) =>
+      api[method]<CharacterSpriteCatalog>(`/sprites/${characterId}/${path}`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: spriteKeys.list(characterId) });
+    },
+  });
+}
+
+export function useImportSpriteFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      characterId,
+      files,
+      folderId,
+      preserveFolders,
+      fullBody,
+      onProgress,
+    }: {
+      characterId: string;
+      files: File[];
+      folderId: string | null;
+      preserveFolders: boolean;
+      fullBody: boolean;
+      onProgress: (progress: { done: number; total: number }) => void;
+    }) => {
+      const manifestFile = files.find((file) => file.name === "catalog.json");
+      const manifest = manifestFile
+        ? await manifestFile
+            .text()
+            .then((text) => spriteCatalogSchema.parse(JSON.parse(text)))
+            .catch(() => null)
+        : null;
+      let catalog = await api.get<CharacterSpriteCatalog>(`/sprites/${characterId}/catalog`);
+      async function getFolder(
+        name: string,
+        category: "expressions" | "full-body" = fullBody ? "full-body" : "expressions",
+      ) {
+        name = name.trim();
+        const existing = catalog.folders.find(
+          (folder) => folder.name.toLowerCase() === name.toLowerCase() && folder.category === category,
+        );
+        if (existing) return existing.id;
+        catalog = await api.post<CharacterSpriteCatalog>(`/sprites/${characterId}/folders`, {
+          name,
+          category,
+        });
+        return catalog.folders.find((folder) => folder.name === name && folder.category === category)!.id;
+      }
+      if (manifest && preserveFolders)
+        for (const folder of manifest.folders) if (folder.category) await getFolder(folder.name, folder.category);
+      const images = files.filter(isSpriteImageFile);
+      let imported = 0,
+        failed = 0;
+      let firstError: string | undefined;
+      onProgress({ done: 0, total: images.length });
+      for (const [index, file] of images.entries()) {
+        try {
+          const handle = file.name.replace(/\.[^.]+$/u, "");
+          const metadata = manifest && Object.hasOwn(manifest.sprites, handle) ? manifest.sprites[handle] : undefined;
+          let destination = folderId;
+          if (preserveFolders) {
+            if (metadata) {
+              const sourceFolder = manifest?.folders.find((folder) => folder.id === metadata.folderId);
+              destination = sourceFolder
+                ? await getFolder(sourceFolder.name, metadata.label.startsWith("full_") ? "full-body" : "expressions")
+                : null;
+            } else {
+              const parts = file.webkitRelativePath.split("/").slice(0, -1);
+              if (parts.length) destination = await getFolder(parts.join(" / ").slice(0, 100));
+            }
+          }
+          const image = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          });
+          await api.post(`/sprites/${characterId}`, {
+            expression: metadata?.label ?? normalizeSpriteExpressionLabel(handle, { fullBody }),
+            image,
+            folderId: destination,
+          });
+          imported++;
+        } catch (error) {
+          failed++;
+          firstError ??= error instanceof Error ? error.message : String(error);
+        }
+        onProgress({ done: index + 1, total: images.length });
+      }
+      return { imported, failed, firstError, catalogIgnored: Boolean(manifestFile && !manifest) };
+    },
+    onSuccess: (_result, input) => qc.invalidateQueries({ queryKey: spriteKeys.list(input.characterId) }),
+    onError: (_error, input) => qc.invalidateQueries({ queryKey: spriteKeys.list(input.characterId) }),
+  });
+}
+
 /**
  * Fetch the small, bounded set of sprite lists used by Home's recent-chat
  * previews without coupling the feed contract to filesystem-backed assets.
@@ -599,8 +716,22 @@ export function useCharacterSpritePreviews(characterIds: string[]) {
 export function useUploadSprite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ characterId, expression, image }: { characterId: string; expression: string; image: string }) =>
-      api.post<SpriteInfo>(`/sprites/${characterId}`, { expression, image }),
+    mutationFn: ({
+      characterId,
+      expression,
+      image,
+      folderId,
+    }: {
+      characterId: string;
+      expression: string;
+      image: string;
+      folderId?: string | null;
+    }) =>
+      api.post<SpriteInfo>(`/sprites/${characterId}`, {
+        expression,
+        image,
+        ...(folderId !== undefined ? { folderId } : {}),
+      }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: spriteKeys.list(variables.characterId) });
     },
@@ -933,14 +1064,25 @@ export type GreetingImageBakeResult = { url: string; file?: string; error?: stri
 export function useBakeCharacterGalleryImages(characterId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (urls: string[]) => {
+    mutationFn: async ({
+      urls,
+      bakedImages,
+    }: {
+      urls: string[];
+      bakedImages: Array<{ url: string; file: string }>;
+    }) => {
       const results: GreetingImageBakeResult[] = [];
       for (let start = 0; start < urls.length; start += GREETING_IMAGE_BAKE_MAX_PER_REQUEST) {
         const batch = urls.slice(start, start + GREETING_IMAGE_BAKE_MAX_PER_REQUEST);
         try {
           const response = await api.post<{ results: GreetingImageBakeResult[] }>(
             `/characters/${characterId}/gallery/bake`,
-            { urls: batch },
+            {
+              urls: batch,
+              bakedImages: bakedImages
+                .filter((entry) => batch.includes(entry.url))
+                .slice(0, GREETING_IMAGE_BAKE_MAX_PER_REQUEST),
+            },
           );
           results.push(...response.results);
         } catch (error) {
@@ -1370,6 +1512,18 @@ export function useUploadPersonaAvatar() {
   return useMutation({
     mutationFn: ({ id, avatar, filename }: { id: string; avatar: string; filename?: string }) =>
       api.post<Persona>(`/characters/personas/${id}/avatar`, { avatar, filename }),
+    onSuccess: async (updatedPersona) => {
+      await syncCachedPersona(qc, updatedPersona);
+      invalidatePersonaPages(qc);
+      void invalidatePersonaVersions(qc, updatedPersona.id);
+    },
+  });
+}
+
+export function useRemovePersonaAvatar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<Persona>(`/characters/personas/${id}/avatar`),
     onSuccess: async (updatedPersona) => {
       await syncCachedPersona(qc, updatedPersona);
       invalidatePersonaPages(qc);

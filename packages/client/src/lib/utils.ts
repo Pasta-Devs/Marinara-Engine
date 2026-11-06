@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import type { CSSProperties } from "react";
 import type { AvatarCrop, LegacyAvatarCrop } from "@marinara-engine/shared";
+import { getCssColorFallback } from "./css-colors";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -90,4 +91,17 @@ export function getAvatarCropStyle(crop?: AvatarCrop | null): CSSProperties {
     maxHeight: "none",
     objectFit: "fill",
   };
+}
+
+/** Inline style for the name-color border over one merged Narrator avatar. The border is its own
+ *  overlay because a crop may transform or pan the `<img>`, and it outlines whatever box it is
+ *  given, following that box's corner radius. With a `share`, the box is the whole frame and only
+ *  that avatar's column of the frame's ring is kept, so avatars side by side in a round frame split
+ *  one ring between them. A gradient name color uses its first color. */
+export function getMergedAvatarBorderStyle(nameColor: string, share?: { index: number; count: number }): CSSProperties {
+  const boxShadow = `inset 0 0 0 0.125rem ${getCssColorFallback(nameColor, "transparent")}`;
+  if (!share) return { boxShadow };
+  const left = (share.index * 100) / share.count;
+  const right = ((share.count - share.index - 1) * 100) / share.count;
+  return { boxShadow, clipPath: `inset(0 ${right}% 0 ${left}%)` };
 }

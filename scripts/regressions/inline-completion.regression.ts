@@ -16,4 +16,20 @@ assert.equal(completeInline("d ", candidates), "");
 assert.equal(completeInline("c", candidates), "");
 assert.equal(completeInline("DC", ["dc", "dc simulator"]), " simulator");
 assert.equal(completeInline("dc ", ["dc simulation", "dc simulator"]), "simulation");
+// A leading @ or @" is masked: `@Jes` suggests what `Jes` does
+const names = ["Jessica", "Jessica Rabbit", "Alice in Wonderland"];
+assert.equal(completeInline("Jes", names), "sica");
+assert.equal(completeInline("@Jes", names), "sica");
+assert.equal(completeInline('@"Jes', names), "sica");
+assert.equal(completeInline("tell me about @Jes", names), "sica");
+assert.equal(completeInline('see @"Jessica R', names), "abbit");
+assert.equal(completeInline('@"Alice in', names), " Wonderland");
+assert.equal(completeInline("@Jel", names), "");
+assert.equal(completeInline("@Je", names), "ssica");
+assert.equal(completeInline("@J", names), "");
+assert.equal(completeInline("@", names), "");
+assert.equal(completeInline('@"', names), "");
+assert.equal(completeInline("@Jessica", names), " Rabbit");
+// not a trigger inside a word
+assert.equal(completeInline("me@Jes", names), "");
 console.log("Inline completion regression passed");

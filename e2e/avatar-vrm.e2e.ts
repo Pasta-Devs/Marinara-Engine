@@ -7,7 +7,7 @@ import { TRIPO_MADE_VRM_COLOUR, tripoMadeVrm } from "../scripts/regressions/fixt
 import { serveWithServerCsp } from "./server-csp-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
-const RENDERER = "/src/features/avatars/renderers/vrm/vrm-renderer.ts";
+const RENDERER = process.env.VRM_RENDERER_URL ?? "/src/features/avatars/renderers/vrm/vrm-renderer.ts";
 const OWNER_ID = "e2e-vrm-generated";
 const COLOUR = TRIPO_MADE_VRM_COLOUR;
 

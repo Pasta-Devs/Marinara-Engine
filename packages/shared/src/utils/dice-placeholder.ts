@@ -337,6 +337,9 @@ function signedModifier(modifier: number): string {
   return `${modifier > 0 ? "+" : "-"}${Math.abs(modifier)}`;
 }
 
+/** The text just before a placeholder written as a sheet command's amount: `[sheet: ... amount="`. */
+const SHEET_AMOUNT_BEFORE_PLACEHOLDER = /\[sheet:[^\]\n]*\bamount\s*=\s*["']?\s*$/i;
+
 /**
  * Roll every readable placeholder and replace every unreadable one.
  *
@@ -358,9 +361,24 @@ export function resolveRollPlaceholders(content: string, deps: RollPlaceholderDe
 
   let result = "";
   let cursor = 0;
+  // A sheet command's amount that repeats a roll the narration already showed is that same roll: the
+  // player reads one number, so the sheet takes the same one. Each narrated roll pairs with one amount.
+  const narrated: Array<{ key: string; text: string }> = [];
   for (const span of spans) {
     result += content.slice(cursor, span.start);
     cursor = span.end;
+
+    const key = span.body.toLowerCase().replace(/\s+/g, "");
+    const inSheetAmount = SHEET_AMOUNT_BEFORE_PLACEHOLDER.test(
+      content.slice(content.lastIndexOf("\n", span.start) + 1, span.start),
+    );
+    if (inSheetAmount && !span.refusal) {
+      const pairIndex = narrated.map((entry) => entry.key).lastIndexOf(key);
+      if (pairIndex >= 0) {
+        result += narrated.splice(pairIndex, 1)[0]!.text;
+        continue;
+      }
+    }
 
     const refuse = (reason: RollPlaceholderRefusal, name?: string) => {
       refusals.push({ raw: span.raw, reason, ...(name === undefined ? {} : { name }) });
@@ -418,6 +436,7 @@ export function resolveRollPlaceholders(content: string, deps: RollPlaceholderDe
       index: result.length,
     });
     result += text;
+    if (!inSheetAmount) narrated.push({ key, text });
   }
   result += content.slice(cursor);
   return { content: result, changed: true, records, refusals, clamps };

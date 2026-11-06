@@ -1,133 +1,137 @@
 # Chat Backgrounds
 
-This guide covers the background library in Marinara Engine. These are images you upload and pick from by hand to sit behind your chat. For the **Background** agent that picks a scene backdrop for you each turn, see [Roleplay Backgrounds](../roleplay/backgrounds.md). For AI-generated scene backgrounds you make from the Gallery, see [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
+The background library holds images you upload and pick by hand to sit behind your chat. For the **Background** agent that picks a backdrop for you each turn, see [Roleplay Backgrounds](../roleplay/backgrounds.md). For AI-generated backgrounds made from the Gallery, see [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
+
+A chat background shows in all chat modes. In Conversation chats, the gradient from **Conversation Theme** stays over the image, and **Conversation background image opacity** sets how strongly the image shows. See [Appearance Settings](appearance-settings.md).
+
+## Change the background of a chat
+
+Before you start: open the chat you want to change. The background you pick applies to that chat.
+
+1. Open **Settings**, then **Appearance**, then the **App** button.
+2. In **Backgrounds**, tap **Browse library**.
+3. Tap a picture. It becomes this chat's background, and the window closes.
+
+To use your own image, import it first (see [Import a background](#import-a-background)).
 
 ## Where to find backgrounds
 
-You manage backgrounds in one place: **Settings**, then the **Appearance** tab, then the **Backgrounds** section.
+1. Open **Settings**.
+2. Select the **Appearance** tab, then the **App** button.
+3. Find the **Backgrounds** section.
 
-The **Backgrounds** section has three parts:
+It has the **Chat Background** picker, the **Background Blur** slider, and the **Conversation background image opacity** and **Chat List Backgrounds** controls (see [Appearance Settings](appearance-settings.md)).
 
-1. The **Chat Background** picker, where you choose the image for the chat you are in.
-2. The **Background Blur** slider.
-3. The background library, where you import, organize, filter, tag, rename, download, and delete images.
-
-A chat background only shows in Roleplay and Game mode chats. Conversation mode uses a gradient instead, which you set in the **Conversation Theme** section. See [Appearance Settings](appearance-settings.md) for that.
+The picker shows a preview of the current background, or **Default background** when none is chosen. Under it, up to three **Recent** backgrounds are one tap away. Click **Browse library** to open the **Background Library** window.
 
 ## The background library
 
-The library holds every image you can pick from. It mixes images you uploaded with the built-in art bundled with Marinara. Each image shows a small label so you can tell them apart:
+The library mixes images you uploaded with art bundled with Marinara. Each image has a label.
 
-- **Library**: an image you uploaded yourself. You can rename, tag, and delete these.
-- **Game asset**: a built-in image bundled with Marinara. These are read-only. You cannot rename, tag, or delete them.
+| Label | Meaning |
+| --- | --- |
+| **My upload** | An image you uploaded. You can rename, tag and delete it. |
+| **Game asset** | Built-in art. It is read-only: no rename, tags or delete. |
+
+The **Filter by source** buttons, **All sources**, **My uploads** and **Game assets**, show how many images each holds.
 
 ### Import a background
 
-1. Find the **Import Backgrounds** box at the top of the library.
-2. Drag one or more image files onto the box, or click it to pick files.
-3. Wait for the upload to finish. The box shows **Importing...** while it works.
-4. Your new images appear in the grid below with the **Library** label.
+1. In the **Background Library** window, find **Import Backgrounds** next to the search box.
+2. Tap or click it and pick image files. You can pick several at once. On a computer you can also drop files on it.
+3. Wait. It shows **Importing…** while it works.
 
-You can import several files at once. Each file must be an image in one of these formats: JPG, PNG, GIF, WebP, or AVIF. Each file can be up to 20 MB.
+The new images appear in the grid with the **My upload** label.
 
-Marinara checks the real contents of every file, not just its name. If you rename a non-image file to end in `.png`, the upload is rejected.
+Each file must be JPG, PNG, GIF, WebP or AVIF, up to 20 MB. Marinara checks what is inside the file, not its name. A non-image renamed to `.png` is rejected.
 
 ### Pick a background for the current chat
 
-1. Open **Settings**, then **Appearance**, then **Backgrounds**.
-2. In the grid, click the thumbnail you want.
-3. A checkmark appears on the selected image. It becomes the background for the chat you have open.
-4. To go back to the default, click the selected thumbnail again, or click the **Remove** button next to **Chat Background**.
+1. Open **Browse library**.
+2. Click a thumbnail. A check mark appears, the image becomes this chat's background, and the window closes.
+3. To go back to the default, click the selected thumbnail again, or click the X (**Clear selection**) on the preview.
 
-### Search the library
+### Search and filter
 
-Use the **Search backgrounds** box above the library to filter by name, tag, or source. The count line shows how many images match, for example "3 of 20 backgrounds". Click the small X in the search box to clear it.
+- **Search backgrounds** filters by name, tag or source. A count line shows how many match, for example "3 of 20 backgrounds". Click the X in the box to clear it.
+- **Sort backgrounds** offers **Manual order**, **A-Z**, **Z-A**, **Newest** and **Oldest**. With **Manual order**, drag to reorder, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused image.
+- The folder chips **All folders**, **Favorites** and **Unfiled**, plus one chip per folder, filter by folder.
+- Under tags, **All** clears tag filters. Expand **Tags** and pick one or more tags. An image matches if it has any picked tag.
 
-Use the selector beside search to sort backgrounds **A-Z**, **Z-A**, **Newest**, or **Oldest**. Select **All** to clear tag filters, or expand **Tags** and select one or more tags. When several tags are selected, a background matches if it has any selected tag.
+Click the star on an image to add it to your favorites. It does not change the default background.
 
 ### Organize backgrounds into folders
 
-Folders organize the library without moving or hiding the underlying image files.
+Folders organize the library without moving or hiding the image files.
 
-1. Click **New Folder**. Marinara creates a uniquely named folder.
-2. Double-click or double-tap the folder name to rename it. You can also focus it and press F2.
-3. On desktop, drag a background row into a folder. On a phone or tablet, press and hold the row, then drag it.
-4. Drag a background back into the unfiled area to remove it from its folder.
+1. Click **New Folder**, type a name and click **Add**.
+2. Tap an image's **Move to folder** button and pick the folder. Or drag the image onto a folder chip. On a phone or tablet, press and hold the image, then drag.
+3. To bring an image back, drag it onto **Unfiled**.
+4. Select a folder chip to show the pencil (**Rename folder**) and trash (**Delete folder**) buttons.
 
-Folders and assignments are saved on the server and included in backups. Deleting a folder returns its backgrounds to the unfiled list; it does not delete the images. Search and tag filters automatically reveal matching items inside their folders.
-
-The **Background** agent still sees every available background, including backgrounds placed in folders. Folders affect organization in Settings only.
+Deleting a folder returns its images to **Unfiled** and does not delete them. Folders are saved on the server and included in backups. The **Background** agent still sees every background, including those in folders.
 
 ### Rename a background
 
-You can only rename images with the **Library** label.
+Only **My upload** images can be renamed.
 
-1. Hover over the image row and click the pencil icon (**Rename**).
-2. Type the new name. You do not need to type the file suffix.
+1. Click the pencil (**Rename background**) on the image.
+2. Type the new name. You do not need the file suffix.
 3. Click **Save**.
 
 ### Tag a background
 
-Tags help you group and search your uploads. You can only tag images with the **Library** label.
+Only **My upload** images can be tagged.
 
-1. Click the tag icon (**Edit tags**) on the image row.
-2. Type a tag in the **Add tag...** field. As you type, Marinara suggests tags you used before.
-3. Press Enter or click **Add**.
-4. To remove a tag, click it. While tag editing is open, each tag shows as a button with an X.
+1. Click the tag icon (**Edit tags**) on the image.
+2. Type a tag in **Add tag…**. Marinara suggests tags you used before.
+3. Press <kbd>Enter</kbd> or click **Add**.
+
+To remove a tag, click it while editing tags.
 
 ### Download a background
 
-You can download any background, including the built-in ones. Hover over the image row and click the download icon (**Download background**). The image saves with its file name. On an iPhone or iPad, the share sheet opens so you can save it; if it does not open, tap **Save file** in the message that appears.
+Click the download icon (**Download background**) on any image, including built-in ones. On an iPhone or iPad, the share sheet opens. If it does not, tap **Save file** in the message that appears.
 
 ### Delete a background
 
-You can only delete images with the **Library** label. Hover over the image row and click the trash icon, then confirm the deletion. If the image was the current chat background or the default Roleplay background, Marinara switches back to the built-in default for you.
+Only **My upload** images can be deleted.
 
-## Setting a default Roleplay background
+1. Click the trash icon (**Delete background**) on the image.
+2. Confirm.
 
-The default Roleplay background is the image every new Roleplay chat starts with, before it picks its own. Set it once and every new Roleplay chat uses it.
+If it was the current chat background or the default Roleplay background, Marinara switches back to the built-in default.
 
-1. In the **Backgrounds** section, find the image you want in the grid.
-2. Click the pin icon (**Set as default for new Roleplay chats**) on that image row.
-3. The pin button stays highlighted, and a **Default** label appears on the thumbnail. New Roleplay chats now start with it.
+## Set a default Roleplay background
 
-The star in the image's top-left corner adds it to your favorites. It does not change the default.
+The default Roleplay background is the image every new Roleplay chat starts with.
 
-To go back, click the pin on the current default image. You can also click the **Reset Roleplay default** button near the top of the grid. That button only appears when your default background differs from the built-in one.
+1. In the **Background Library** window, find the image.
+2. Click its pin icon (**Set as default for new Roleplay chats**).
+
+The thumbnail shows a **Default** label. To undo it, click the pin on that image again, or click **Reset Roleplay default** above the grid. That button appears only when your default differs from the built-in one.
 
 ## Background Blur
 
-**Background Blur** softens the background image behind the chat so text is easier to read. It applies to Roleplay and Game mode backgrounds.
+**Background Blur** softens the background behind the chat so text is easier to read. It applies to backgrounds in all chat modes.
 
 1. In the **Backgrounds** section, find the **Background Blur** slider.
-2. Drag it from 0 to 24. Higher numbers mean more blur.
-3. Set it to 0 to keep backgrounds sharp. At 0 the value reads **Off**.
+2. Drag it from 0 to 24. Higher means more blur.
 
-The default is 0 (**Off**).
-
-## How your uploads and built-in backgrounds mix
-
-The library shows your uploads and the built-in **Game asset** images together in one grid. You pick from both the same way. The difference is that **Game asset** images are read-only, so the rename, tag, and delete controls do not appear on them.
-
-AI-generated scene backgrounds you create from the Gallery also land in this same library, so you can reuse them later. See [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
+At 0 it reads **Off**, and backgrounds stay sharp. The default is 0.
 
 ## Where your background choices are saved
 
-Three different settings decide what background a chat shows, and they save in different ways:
+| Setting | Saved |
+| --- | --- |
+| The **Chat Background** for a chat | With that chat on the server. It follows the chat to any device. |
+| Folders and their assignments | On the server, with the library. |
+| The default Roleplay background and **Background Blur** | Per device. They do not sync between browsers or devices. |
 
-- The **Chat Background** you pick for a chat is saved with that chat on the server. It follows the chat to any device you open it on.
-- Background folders and their assignments are saved on the server and follow the library to other devices.
-- The default Roleplay background and **Background Blur** are saved per device. They do not sync between browsers or devices. For the full sync model, see [Appearance Settings](appearance-settings.md).
-
-## Automatic and AI-generated backgrounds
-
-This guide covers the library you pick from by hand. Two related features handle backgrounds for you:
-
-- The **Background** agent can pick a scene backdrop from your library on its own, turn by turn, in Roleplay chats. See [Roleplay Backgrounds](../roleplay/backgrounds.md).
-- The Gallery can generate a brand new scene background with AI from the current scene. See [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
+For the full sync model, see [Appearance Settings](appearance-settings.md).
 
 ## Related guides
 
-- [Roleplay Backgrounds](../roleplay/backgrounds.md): the Background agent that auto-picks a backdrop each turn.
-- [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md): AI-generated scene backgrounds made from the Gallery.
-- [Appearance Settings](appearance-settings.md): the full Appearance tab, including which settings sync and which stay on one device.
+- [Roleplay Backgrounds](../roleplay/backgrounds.md): the Background agent that picks a backdrop each turn.
+- [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md): AI-generated scene backgrounds made from the Gallery. They also land in this library.
+- [Appearance Settings](appearance-settings.md): the full Appearance tab.

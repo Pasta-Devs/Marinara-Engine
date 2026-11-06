@@ -146,25 +146,38 @@ releaseStoppedList();
 // Removal or replacement during async discovery invalidates the captured activation.
 for (const replace of [false, true]) {
   let finishList!: (actions: Array<{ name: string }>) => void;
-  const waitingList = new Promise<Array<{ name: string }>>((resolve) => { finishList = resolve; });
+  const waitingList = new Promise<Array<{ name: string }>>((resolve) => {
+    finishList = resolve;
+  });
   let oldRuns = 0;
   let newRuns = 0;
   const removeOld = registerCapabilityService("mari-actions:changing", {
     list: () => waitingList,
-    run: async () => { oldRuns++; return { ok: true, value: "old" }; },
+    run: async () => {
+      oldRuns++;
+      return { ok: true, value: "old" };
+    },
   });
   const pendingList = listCapabilityMariActions(live);
   const pendingRun = runCapabilityMariAction("changing", "mutate", {}, live);
   await new Promise((resolve) => setImmediate(resolve));
   removeOld();
-  const removeNew = replace ? registerCapabilityService("mari-actions:changing", {
-    list: () => [{ name: "mutate" }],
-    run: async () => { newRuns++; return { ok: true, value: "new" }; },
-  }) : undefined;
+  const removeNew = replace
+    ? registerCapabilityService("mari-actions:changing", {
+        list: () => [{ name: "mutate" }],
+        run: async () => {
+          newRuns++;
+          return { ok: true, value: "new" };
+        },
+      })
+    : undefined;
   finishList([{ name: "mutate" }]);
   await assert.rejects(pendingRun, /changed while listing/, "stale discovery cannot authorize an action");
-  assert.equal((await pendingList).some((entry) => entry.package === "changing"), false,
-    "an old activation is not advertised after removal or replacement");
+  assert.equal(
+    (await pendingList).some((entry) => entry.package === "changing"),
+    false,
+    "an old activation is not advertised after removal or replacement",
+  );
   assert.equal(oldRuns, 0, "a removed activation cannot run after its list resolves");
   assert.equal(newRuns, 0, "a pending old call is not silently routed to the replacement");
   if (replace) {
@@ -301,7 +314,7 @@ assert.equal(badInput.success, false);
 assert.match(badInput.output, /package_service input must be a JSON object/);
 const missingPackage = await run({ action: "add-idea" });
 assert.equal(missingPackage.success, false);
-assert.match(missingPackage.output, /requires a non-empty package string/);
+assert.match(missingPackage.output, /needs a non-empty top-level "package" string \(none was sent\)/);
 const failed = await run({ package: "slurp2", action: "add-idea", input: { text: "too many" } });
 assert.equal(failed.success, false);
 assert.match(failed.output, /slurp2 add-idea failed: That is plenty of ideas/);

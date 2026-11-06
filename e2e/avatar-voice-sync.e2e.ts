@@ -8,6 +8,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync, writeFileSync } from "node:fs";
+import { PNGTUBER_DEFAULT_MOTION } from "@marinara-engine/shared";
 import { paintPng, solid } from "../scripts/regressions/fixtures/avatar-2d-fixtures.js";
 import { expressiveVrm } from "../scripts/regressions/fixtures/avatar-3d-fixtures.js";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -301,6 +302,34 @@ for (const kind of ["2d", "3d"] as const) {
             });
             expect(saved.ok(), await saved.text()).toBeTruthy();
           }
+          const savedAvatar = await request.put(`/api/avatar-models/character/${character.id}`, {
+            data: {
+              enabled: true,
+              activeKind: "pngtuber",
+              kinds: {
+                pngtuber: {
+                  layers: Object.fromEntries(
+                    ["neutral", "happy", "sad", "angry"].map((label) => [
+                      label,
+                      {
+                        base: { source: "sprite", label },
+                        mouthOpen: { source: "sprite", label: `${label}_talk` },
+                      },
+                    ]),
+                  ),
+                  expressionMap: Object.fromEntries(
+                    ["neutral", "happy", "sad", "angry"].map((target) => [
+                      target,
+                      { target, source: "user", confidence: 1 },
+                    ]),
+                  ),
+                  motion: PNGTUBER_DEFAULT_MOTION,
+                  source: "sprites",
+                },
+              },
+            },
+          });
+          expect(savedAvatar.ok(), await savedAvatar.text()).toBeTruthy();
         } else {
           const imported = await request.post(`/api/avatar-models/character/${character.id}/import`, {
             multipart: {

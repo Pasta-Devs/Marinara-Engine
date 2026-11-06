@@ -34,6 +34,7 @@ export type SettingsSectionId =
   | "theme-library"
   | "profile-marinara"
   | "sillytavern-import"
+  | "access-status"
   | "admin-access"
   | "multiplayer"
   | "features"
@@ -304,6 +305,13 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "SillyTavern Import",
     description: "Bring over characters, chats, presets, and lorebooks.",
     aliases: ["sillytavern", "st", "character", "chat", "preset", "lorebook", "import"],
+  },
+  {
+    id: "access-status",
+    tab: "advanced",
+    label: "Access",
+    description: "Who can open Marinara without a password.",
+    aliases: ["password", "login", "remote", "network", "security", "exposed"],
   },
   {
     id: "admin-access",

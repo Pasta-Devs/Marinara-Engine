@@ -2,6 +2,8 @@
 // cropped portrait escape its avatar slot and cover the whole picker. Both persona pickers are covered: the
 // new-chat setup and Chat Settings.
 // #7151: titles distinguish duplicate character names; blank titles retain the localized source fallback.
+// Both now open the shared "Personas" picker window (#8763), where Play as a character starts open while that
+// setting is on.
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { openChatSettings } from "./chat-settings-tools.js";
@@ -21,11 +23,15 @@ const seededCharacters = [
   { name: "Portrait guide", comment: "Mountain version", avatarPath, crop: { zoom: 2.5, offsetX: 10, offsetY: -5 } },
   { name: longName, comment: "   ", avatarPath: null, crop: null },
 ];
+// The picker lists a lone folder flat, without its folder row, so a character outside the folder keeps the
+// seeded folder a folder on a fresh server too.
+const outsideCharacter = "Play as outsider 7093";
 
 type Seeded = { chatId: string; groupId: string; characterIds: string[]; folderName: string };
 
 async function seed(page: Page, request: APIRequestContext): Promise<Seeded> {
-  const folderName = `Play as folder 7093 ${test.info().project.name} ${test.info().title.slice(0, 8)}`;
+  // Unique per run: a run that times out cannot clean up, and its folder must not clash with the next run's.
+  const folderName = `Play as folder 7093 ${test.info().project.name} ${test.info().title.slice(0, 8)} ${Date.now()}`;
   await page.route(`**${avatarPath}`, (route) =>
     route.fulfill({
       contentType: "image/svg+xml",
@@ -49,12 +55,14 @@ async function seed(page: Page, request: APIRequestContext): Promise<Seeded> {
   }
   const group = await request.post("/api/characters/groups", { data: { name: folderName, characterIds } });
   expect(group.ok(), await group.text()).toBeTruthy();
+  const outsider = await request.post("/api/characters", { data: { data: { name: outsideCharacter } } });
+  expect(outsider.ok(), await outsider.text()).toBeTruthy();
   const chat = await request.post("/api/chats", { data: { name: "Play as character 7093", mode: "roleplay" } });
   expect(chat.ok(), await chat.text()).toBeTruthy();
   const seeded = {
     chatId: ((await chat.json()) as { id: string }).id,
     groupId: ((await group.json()) as { id: string }).id,
-    characterIds,
+    characterIds: [...characterIds, ((await outsider.json()) as { id: string }).id],
     folderName,
   };
   await seedUIState(page, {
@@ -82,14 +90,15 @@ async function cleanUp(request: APIRequestContext, seeded: Seeded | undefined) {
   for (const id of seeded.characterIds) await request.delete(`/api/characters/${id}`);
 }
 
-/** Opens Play as a character and the seeded folder, then returns the picker and its character rows. */
-async function openFolder(scope: Locator, folderName: string) {
-  const playAs = scope.getByRole("button", { name: "Play as a character" });
-  // Both pickers put this toggle in their scrolling list, directly inside the picker frame.
+/** Finds Play as a character in the open Personas picker, opens the seeded folder, and returns its character rows. */
+async function openFolder(page: Page, folderName: string) {
+  const picker = page.getByRole("dialog", { name: "Personas", exact: true });
+  const playAs = picker.getByRole("button", { name: "Play as a character" });
+  // The toggle sits in the picker's scrolling list.
   const list = playAs.locator("xpath=..");
-  const picker = list.locator("xpath=..");
   await playAs.scrollIntoViewIfNeeded();
-  await playAs.click();
+  // "Show characters in Persona pickers" is on, so the section is already open.
+  await expect(playAs).toHaveAttribute("aria-expanded", "true");
   const folder = picker.getByRole("button", { name: new RegExp(folderName) });
   await folder.scrollIntoViewIfNeeded();
   await folder.click();
@@ -175,18 +184,33 @@ test("new chat setup keeps Play as a character folders usable", async ({ page, r
       .click();
     await next.click();
     await expect(wizard.getByRole("heading", { name: "Persona & Characters", exact: true })).toBeVisible();
+    await wizard.getByRole("button", { name: "None", exact: true }).click();
 
-    const { picker, list, playAs, folder, rows } = await openFolder(wizard, seeded.folderName);
+    // The picker window sits over the wizard, so the wizard's Next button is not part of this check.
+    const { picker, list, playAs, folder, rows } = await openFolder(page, seeded.folderName);
     await expectAvatarsInSlots(picker, 2);
-    await expectReachable([picker.getByPlaceholder("Search personas", { exact: true }), playAs, folder, ...rows, next]);
+    await expectReachable([
+      picker.getByPlaceholder("Search personas and characters", { exact: true }),
+      playAs,
+      folder,
+      ...rows,
+    ]);
     await expectNoSidewaysScroll(page, list);
     await page.screenshot({ path: info.outputPath("setup-folder-open.png"), animations: "disabled" });
     for (const [index, row] of rows.entries()) {
       await expect(row).toContainText(seededCharacters[index]!.comment.trim() || "Character");
     }
 
+    // Picking closes the window, and the field shows the pick in its small round slot.
     await rows[0]!.click();
-    await expect(rows[0]!).toHaveAttribute("aria-pressed", "true");
+    await expect(picker).toHaveCount(0);
+    const chosen = wizard.getByRole("button", { name: "Portrait guide", exact: true });
+    await expectAvatarsInSlots(chosen, 1);
+    // Opened again, the picker opens the pick's folder and marks the pick; closing the folder hides its rows.
+    await chosen.click();
+    await expect(folder).toHaveAttribute("aria-expanded", "true");
+    // A single pick is marked current; aria-pressed is for multiple picks.
+    await expect(rows[0]!).toHaveAttribute("aria-current", "true");
     await folder.click();
     await expect(folder).toHaveAttribute("aria-expanded", "false");
     await expect(rows[0]!).toHaveCount(0);
@@ -208,11 +232,12 @@ test("Chat Settings keeps Play as a character folders usable", async ({ page, re
     if ((await header.getAttribute("aria-expanded")) !== "true") await header.click();
     await section.getByRole("button", { name: /Choose\s+Persona/ }).click();
 
-    const { picker, list, playAs, folder, rows } = await openFolder(section, seeded.folderName);
+    const { picker, list, playAs, folder, rows } = await openFolder(page, seeded.folderName);
     await expectAvatarsInSlots(picker, 2);
     await expectReachable([
-      picker.getByPlaceholder("Search personas", { exact: true }),
-      picker.getByRole("button", { name: "Close picker" }),
+      picker.getByPlaceholder("Search personas and characters", { exact: true }),
+      // A floating window on desktop, a bottom sheet titled like the window on a phone.
+      picker.getByRole("button", { name: /^Close( Personas)?$/ }),
       playAs,
       folder,
       ...rows,
@@ -226,8 +251,10 @@ test("Chat Settings keeps Play as a character folders usable", async ({ page, re
     // The chosen character then shows above the picker in the same small round slot.
     await rows[0]!.click();
     await expect(picker).toHaveCount(0);
-    const change = section.getByRole("button", { name: /Change\s+Persona/ });
+    // The choice is a row that opens the picker again ("Change persona").
+    const change = section.getByRole("button", { name: /Portrait guide\s+Coast version/ });
     await expect(change).toBeVisible();
+    await expect(change).toHaveAttribute("title", "Change persona");
     await expect(section.getByText("Coast version", { exact: true })).toBeVisible();
     await expectAvatarsInSlots(section, 1);
     await expectReachable([change]);

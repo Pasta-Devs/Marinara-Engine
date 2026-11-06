@@ -231,14 +231,14 @@ assert.equal(
   "Storyboard slider and number cards must share equal-height wrappers",
 );
 assert.equal(
-  (homeBrowserHub.match(/\? "flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0"/gu) ?? []).length,
+  (homeBrowserHub.match(/\? "min-w-\[6\.5rem\] flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0"/gu) ?? []).length,
   3,
   "mobile Home tabs must expand only the active tab and collapse inactive tabs to icons",
 );
 assert.equal(
-  (homeBrowserHub.match(/\? "block" : "hidden sm:block"/gu) ?? []).length,
+  (homeBrowserHub.match(/\|\| !mobileShell \? "block" : "hidden"/gu) ?? []).length,
   3,
-  "inactive mobile Home tabs must hide their labels while retaining desktop labels",
+  "inactive phone-shell Home tabs must hide their labels in both orientations while retaining desktop labels",
 );
 assert.equal(
   (advancedParameters.match(/<AgentSettingsActionButton/gu) ?? []).length,

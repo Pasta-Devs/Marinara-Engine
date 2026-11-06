@@ -234,10 +234,65 @@ try {
     );
   }
 
+  // ── A screen holding an older row still restores the sheet the game reads (laptop 2026-10-27) ──
+  {
+    const restChat = await chats.create({ name: "Rest", mode: "game", characterIds: [] } as never);
+    const restId = restChat.id as string;
+    const spent = { mira: { pools: { slots_3: { value: 0 } } } };
+    const older = await chats.createMessage({ chatId: restId, role: "assistant", content: "The fight ends." });
+    const newer = await chats.createMessage({ chatId: restId, role: "assistant", content: "The story goes on." });
+    for (const message of [older, newer]) {
+      await states.updateByMessage(message.id, 0, restId, { rulesetLive: spent }, undefined, { baseSnapshot: null });
+    }
+    const rested = await app.inject({
+      method: "PATCH",
+      url: `/api/chats/${restId}/game-state`,
+      payload: { rulesetLive: {}, messageId: older.id, swipeIndex: 0, manual: true },
+    });
+    assert.equal(rested.statusCode, 200, rested.body);
+    assert.equal(rested.json().rulesetLive, null, "the answer is the restored sheet");
+    assert.equal(rested.json().messageId, newer.id, "and the row it lives on, so the screen follows it");
+    const reloaded = await app.inject({ method: "GET", url: `/api/chats/${restId}/game-state` });
+    assert.equal(reloaded.json().rulesetLive, null, "a reload reads the rest, not the spent slot");
+    // Other fields of the same patch still go to the row the screen named.
+    const mixed = await app.inject({
+      method: "PATCH",
+      url: `/api/chats/${restId}/game-state`,
+      payload: { rulesetLive: spent, weather: "rain", messageId: older.id, swipeIndex: 0, manual: true },
+    });
+    assert.equal(mixed.statusCode, 200, mixed.body);
+    assert.equal(mixed.json().weather, "rain");
+    assert.deepEqual(mixed.json().rulesetLive, spent);
+    assert.deepEqual(
+      (await app.inject({ method: "GET", url: `/api/chats/${restId}/game-state` })).json().rulesetLive,
+      spent,
+    );
+    assert.equal((await states.getByChatAndMessage(restId, older.id, 0))?.weather, "rain");
+  }
+
+  // ── A rest taken while a reply is being written survives the reply's own row (laptop 2026-10-27) ──
+  {
+    const { rebaseTurnRulesetLive } = await import("../../packages/server/src/routes/generate/generate-route-utils.js");
+    const start = { wiz: { pools: { slots_9: { value: 0 } } }, rogue: { pools: { hp: { value: 5 } } } };
+    const now = { rogue: { pools: { hp: { value: 5 } } } };
+    // The turn left the wizard alone: the rest on the sheet stands.
+    assert.deepEqual(rebaseTurnRulesetLive(start, start, now), now);
+    // The turn hurt the rogue and left the wizard: both kept.
+    const hurt = { ...start, rogue: { pools: { hp: { value: 2 } } } };
+    assert.deepEqual(rebaseTurnRulesetLive(start, hurt, now), { rogue: { pools: { hp: { value: 2 } } } });
+    // The turn spent the wizard's slot too: the turn's stands, it already started from the sheet.
+    const cast = { ...start, wiz: { pools: { slots_9: { value: 0 }, slots_8: { value: 0 } } } };
+    assert.deepEqual(rebaseTurnRulesetLive(start, cast, now), cast);
+    // Nobody edited the sheet meanwhile: the turn's own state, as it was.
+    assert.deepEqual(rebaseTurnRulesetLive(start, hurt, start), hurt);
+  }
+
   // ── The Game Master sees the sheets as they stand, late in the prompt ──
   {
     const blocks = renderGameRulesetSheetBlocks(fiveE, [{ name: "Mira", rulesetSheet: wizard }], second.live);
-    assert.equal(blocks.length, 1);
+    // Her last slot spent, the Game Master hears the party is worn down (Alyssa 2026-10-26).
+    assert.equal(blocks.length, 2);
+    assert.match(blocks[1]!, /^THE PARTY IS WORN DOWN: Mira 32\/32 Hit points, 0 of 2 slots left\./);
     assert.match(blocks[0]!, /^Mira\n/);
     assert.match(blocks[0]!, /3rd-level slots 0\/2/);
     const base = { hasSceneModel: true } as never as Parameters<typeof buildGmFormatReminder>[0];

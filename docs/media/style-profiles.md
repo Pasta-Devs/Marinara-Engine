@@ -1,31 +1,22 @@
 # Image Style Profiles
 
-This guide explains image style profiles in Marinara Engine. A style profile is a reusable "house style" that shapes every image prompt before Marinara sends it to your image provider. Use it to make avatars, portraits, selfies, backgrounds, illustrations, and sprites look consistent.
+A style profile is a reusable "house style" that shapes every image prompt before Marinara sends it to your image service. Use it to make avatars, portraits, selfies, backgrounds, illustrations and sprites look consistent. This guide shows how to pick, edit and test one.
 
 ## What a style profile is
 
-Marinara Engine can generate many kinds of images: character and persona avatars, portraits, Conversation-mode selfies, scene backgrounds, in-scene illustrations, and character sprites. Every one of those images starts as a text prompt.
+Every generated image starts as a text prompt: avatars, portraits, Conversation selfies, scene backgrounds, illustrations and sprites. A style profile is a saved set of rules Marinara adds to that prompt. It can add positive words (what you want), negative words (what you want to avoid) and a preferred prompt style. You pick one profile as the app-wide default. You can override it for one chat or one image model.
 
-A style profile is a saved set of rules that Marinara adds to that text prompt. It can add positive words (what you want), negative words (what you want to avoid), and a preferred prompt style. This keeps a single look across every image, so you do not have to retype the same style words each time.
-
-You pick one profile as the app-wide default. You can override it for a single chat or a single image connection. All of that is explained below.
-
-To find the editor, follow these steps.
-
-1. Open **Settings**.
-2. Open the **Generations** tab.
-3. Find the **Image Generation** section.
-4. Scroll to **Style Profiles**.
+To find the editor, open **Settings → Generations → Image Generation** and scroll to **Style Profiles**.
 
 ## The built-in profiles
 
-Marinara ships with 10 built-in style profiles. **Auto** is the default. You can edit any of them, and you can reset a built-in profile back to its original values at any time.
+Marinara has 10 built-in style profiles. **Auto** is the default. You can edit any of them and reset a built-in profile to its original values at any time.
 
-Some terms used below:
+Terms used below:
 
-- SDXL means Stable Diffusion XL. It is a popular open image model you can run on your own computer or through a cloud service.
-- A checkpoint is one trained image model file. People download different checkpoints for different art looks. Examples named in these profiles are Illustrious, Pony, and NovelAI.
-- Danbooru is a large anime image website. Its short comma-separated tags (like "1girl, long hair, smile") became a common way to prompt anime image models.
+- SDXL is Stable Diffusion XL, a popular open image model you can run on your computer or through a cloud service.
+- A checkpoint is one trained image model file. Illustrious, Pony and NovelAI are examples named here.
+- Danbooru is a large anime image website. Its short comma-separated tags, like "1girl, long hair, smile", became a common way to prompt anime image models.
 
 The built-in profiles are:
 
@@ -42,17 +33,17 @@ The built-in profiles are:
 
 ## Changing the global style
 
-The global default profile applies to every generated image unless a chat or connection overrides it. To change it, follow these steps.
+The default profile applies to every image unless a chat or image model overrides it.
 
-1. Open **Settings**, then the **Generations** tab, then **Image Generation**, then **Style Profiles**.
-2. Open the **Default style** dropdown.
-3. Pick the profile you want to use app-wide.
+1. Open **Settings → Generations → Image Generation → Style Profiles**.
+2. Open the **Default style** list.
+3. Pick a profile.
 
-Your choice saves right away. New images use the profile you picked.
+Your choice saves at once, and new images use it.
 
 ## Cloning and customizing a profile
 
-You can edit a built-in profile in place, but the **Clone** button lets you keep the original and build your own version. To create and customize a profile, follow these steps.
+You can edit a built-in profile in place, or use **Clone** to keep the original and build your own.
 
 1. Open the **Editing** dropdown and pick the profile closest to what you want.
 2. Click **Clone**. Marinara makes a copy, selects it for editing, and immediately makes the copy your app-wide default style.
@@ -70,7 +61,7 @@ Two buttons help you manage profiles:
 
 ## Prompt grammar modes
 
-The **Prompt grammar** dropdown tells Marinara how the image model prefers to read a prompt. Pick the mode that matches your image model. There are four modes.
+**Prompt grammar** tells Marinara how the image model prefers to read a prompt. Pick the mode that matches your model.
 
 - **Hybrid**: a mix of sentences and tags. A safe general choice.
 - **Danbooru tags**: short comma-separated Danbooru-style tags. Best for anime SDXL checkpoints like Illustrious, Pony, and NovelAI.
@@ -79,7 +70,7 @@ The **Prompt grammar** dropdown tells Marinara how the image model prefers to re
 
 ## The Test bench
 
-The **Test bench** section lets you preview exactly what Marinara would send, without generating a real image. Open it inside the Style Profiles editor. To use it, follow these steps.
+The **Test bench**, inside the Style Profiles editor, previews exactly what Marinara would send, with no real image made.
 
 1. Pick an **Image kind** (for example, portrait or background).
 2. Type a rough prompt into **Sample input**.
@@ -89,12 +80,12 @@ The Test bench also shows a short note about cleanup. When it changes nothing, i
 
 ## How Marinara cleans the prompt
 
-Before any image request leaves Marinara, it compiles your prompt with the active profile. The compiler does a few things:
+Before any image request leaves Marinara, it compiles your prompt with the active profile. The compiler:
 
-- It removes near-duplicate tags, such as a repeated quality tag.
-- It moves simple negative phrases (like "avoid text" or "no watermark") into the negative prompt.
-- It keeps your own wording for background, illustration, and selfie images. For portrait, avatar, and sprite images, it distills your words down to short visual tags it recognizes.
-- It adds the profile's per-image tags for the kind of image being made.
+- removes near-duplicate tags, such as a repeated quality tag;
+- moves simple negative phrases like "avoid text" or "no watermark" into the negative prompt;
+- keeps your own wording for background, illustration and selfie images, but distills your words to short visual tags it recognizes for portrait, avatar and sprite images; and
+- adds the profile's per-image tags for the kind of image being made.
 
 ## Before and after example
 
@@ -120,13 +111,13 @@ If your subject words disappear for a portrait, avatar, or sprite, try the **ill
 
 ## Setting precedence: chat, connection, then global
 
-Marinara can pick a style profile from three places. The most specific choice wins. The order is:
+Marinara can pick a style profile from three places. The most specific choice wins.
 
-1. An explicit profile chosen for the current chat or game.
-2. The **Style Profile** set on the image connection (under **Local Image Defaults** in the connection editor).
-3. The global **Default style** you set in **Settings**.
+1. A profile chosen for the current chat or game.
+2. The style profile set on the image model, under **Local image defaults** in its editor.
+3. The global **Default style** in **Settings**.
 
-The **Local Image Defaults** section appears only for local Stable Diffusion connections (AUTOMATIC1111 / SD Web UI, ComfyUI, and NovelAI). For every other provider, the choice falls straight through to the global **Default style**. To set a per-connection profile, open the connection, expand **Local Image Defaults**, and pick a profile in the **Style Profile** dropdown. Leave it on **Use global default** to follow the global choice. When Marinara can guess a good profile from the connection's model name, it shows a "Use ..." button that applies that profile in one click.
+The **Local image defaults** section appears only for AUTOMATIC1111 / SD Web UI, ComfyUI and NovelAI. For every other service the choice falls through to the global **Default style**. To set a per-model profile, open the image model, expand **Local image defaults** and pick a profile in the style profile list. Leave it on **Use global default** to follow the global choice. When Marinara can guess a good profile from the model's name, it shows a "Use ..." button that applies it in one click.
 
 ## Related guides
 

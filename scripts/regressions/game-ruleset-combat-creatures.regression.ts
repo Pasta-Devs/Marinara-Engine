@@ -644,8 +644,9 @@ const traveller = (live: unknown = {}): RulesetCombatantInput => ({
   assert.deepEqual([held.save, held.difficulty, held.modifier, held.success], ["str_save", 12, 7, true]);
   assert.deepEqual(who(loose.state, "brenna").tracked, []);
 
-  // Somebody who drops to the first strike is still there for the second: being down is not being
-  // out, and the fight treats a sequence exactly as it treats any other action.
+  // Somebody who drops to the first strike is still there for the second of a cruel one's: being
+  // down is not being out. Anybody else's second strike, with nobody else in reach, is not made
+  // (re-test 14).
   const frail = fight(
     fiveE,
     [fighter({ pools: { hp: { value: 4 } } }), creature("lurker", "Thorn Lurker", "thorn-lurker")],
@@ -658,6 +659,22 @@ const traveller = (live: unknown = {}): RulesetCombatantInput => ({
   );
   // The second strike is rolled twice, because a fighter lying unconscious is easier to hit: the
   // conditions a sequence's own first part applied are read by its second.
+  const spared = act(
+    fiveE,
+    structuredClone(frail),
+    { actorId: "lurker", optionId: "claw_and_snare", targetIds: ["brenna"] },
+    18,
+    4,
+    17,
+    3,
+    2,
+  );
+  assert.deepEqual(
+    eventsOf(spared.events, "attack").map((event) => event.optionId),
+    ["barbed_claw"],
+    "no second strike at the fallen",
+  );
+  who(frail, "lurker").temperament = "cruel";
   const felled = act(
     fiveE,
     frail,

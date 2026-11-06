@@ -2,6 +2,8 @@
 // Personal Extension Types
 // ──────────────────────────────────────────────
 
+import { MAX_DICE_COUNT, MAX_DICE_SIDES } from "../utils/dice-notation.js";
+
 export type PersonalExtensionRuntime = "client" | "server";
 
 /** Shared utility API available to Browser, Full page access, and Server extensions. */
@@ -50,6 +52,29 @@ export type PersonalExtensionContributionPosition = (typeof PERSONAL_EXTENSION_C
 
 /** Kebab-case Lucide icon name, resolved by the client icon catalog. */
 export type PersonalExtensionContributionIcon = string;
+
+/**
+ * Bounds on `marinara.dice.registerFormat`. An extension reads its own notation and names the dice
+ * to throw; Marinara throws them with its own roller, so the extension never chooses a face.
+ */
+export const PERSONAL_EXTENSION_DICE_LIMITS = {
+  formatsPerExtension: 4,
+  notationLength: 100,
+  /** Dice one roll may throw, and the faces each may have; the same ceilings as `/roll`. */
+  dice: MAX_DICE_COUNT,
+  minSides: 2,
+  maxSides: MAX_DICE_SIDES,
+  textLength: 200,
+  /** How long Marinara waits for the extension to read a notation, or to read the thrown faces. */
+  responseTimeoutMs: 2_000,
+} as const;
+
+/** A dice format as the host lists it; the extension's `parse` and `read` stay in its sandbox. */
+export interface PersonalExtensionDiceFormatDescriptor {
+  id: string;
+  label: string;
+  description?: string;
+}
 
 export const PERSONAL_EXTENSION_UI_ELEMENT_KINDS = [
   "heading",
@@ -246,6 +271,11 @@ export interface PersonalExtension {
   createdAt: string;
   updatedAt: string;
 }
+
+/** List responses retain revision metadata without historical executable code. */
+export type PersonalExtensionListItem = Omit<PersonalExtension, "revisions"> & {
+  revisions: Omit<PersonalExtensionRevision, "css" | "js" | "serverJs">[];
+};
 
 export interface PersonalClientExtensionRuntime {
   id: string;

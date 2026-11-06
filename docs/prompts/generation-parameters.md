@@ -1,69 +1,79 @@
 # Generation Parameters
 
-This guide explains the generation parameters in Marinara Engine. These are the settings that control how the AI writes each reply, such as **Temperature** and **Max Output Tokens**. Presets and connections provide defaults; the **Advanced Parameters** panel provides overrides for each chat.
-
-## What generation parameters do
-
-A generation parameter is a sampling setting. It shapes how the model turns your prompt into text. It does not change what you say to the AI. It changes how the AI writes back.
-
-For example, one parameter makes replies more random and creative. Another sets the longest reply the model may write. Most people never need to touch these. The defaults work well for normal chatting and roleplay.
-
-Change these settings only when you want to fix a specific problem. This guide lists common problems and which parameter to try near the end.
+Generation parameters are the settings that control how the model writes each reply, such as **Temperature** and **Max Output Tokens**. Presets and accounts provide defaults, and the **Advanced Parameters** section of **Chat Settings** overrides them for one chat. The defaults work well for normal chatting and roleplay, so change these only to fix a specific problem.
 
 ## Where to find them
 
-Edit base values under **Presets > Parameters**, connection values under **Connections > Default Chat Parameters**, and chat overrides under **Chat Settings > Advanced Parameters**.
+| What | Where |
+| --- | --- |
+| Starting values for a preset | **Presets**, open a preset, **Parameters** tab |
+| Values saved on an account | **Connections**, open the account, **Chat defaults** section |
+| Overrides for one chat | **Chat Settings**, **Advanced Parameters** section |
 
-1. Open the chat you want to change.
-2. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
-3. Find the **Advanced Parameters** section and click it to expand it.
+Presets do not set context or output token limits. Set the context window in **Connections**, and output limits in **Connections** or **Advanced Parameters**. Older preset files still load, but their saved token limits are ignored. The built-in **Marinara's Universal Preset** contributes no generation parameters.
 
-You should see a help note that reads: "Override generation parameters for this chat. Only change these if you know what you're doing." Every setting below sits inside **Advanced Parameters**.
+To override parameters for one chat:
 
-**Advanced Parameters** is available in every chat mode (Conversation, Roleplay, and Game).
+1. Open the chat.
+2. Open **Chat Settings**.
+3. Find **Advanced Parameters** and click it to expand it.
+4. Find the parameter, for example **Temperature**, and type a new value.
+5. Check the small switch beside its name. If it is off, turn it on. A parameter whose switch is off is not sent, so your change does nothing. **Temperature** starts with its switch off (see [The Send switch](#the-send-switch)).
+
+You see a note: "Change generation settings for this chat only. Leave these alone unless you know what they do." **Advanced Parameters** is available in Conversation, Roleplay and Game chats.
 
 ## Each parameter in plain language
 
-Each numeric parameter has an input box and its own on and off switch. That switch decides if the parameter is sent to the model. It is explained in the next section.
+Each numeric parameter has an input box and a Send switch (see below).
 
-**Temperature** controls randomness. The range is 0 to 2. Lower values make replies more focused and predictable. Higher values make replies more creative and varied. A value near 1 is a common middle ground.
+| Parameter | What it does | Range |
+| --- | --- | --- |
+| **Temperature** | Randomness. Lower is more focused and predictable. Higher is more creative. Near 1 is a common middle. | 0 to 2 |
+| **Max Output Tokens** | The longest reply the model may write in one turn. Tokens are small pieces of text. Raise it if replies are cut off. | No fixed upper limit |
+| **Top P** | The model picks only from the most likely words whose combined chance reaches this value. 1 considers everything. | 0 to 1 |
+| **Top K** | Limits the model to the top few likely words at each step. 0 turns it off. Many services ignore it. | 0 to 500 |
+| **Frequency** | Penalizes words more the more often they already appeared. Positive values cut repeated words. | -2 to 2 |
+| **Presence** | Penalizes words that appeared at all. Positive values push toward new topics. | -2 to 2 |
 
-**Max Output Tokens** sets the longest reply the model may write in one turn. A token is a small chunk of text, roughly a short word or part of a word. Raise this if replies keep getting cut off. There is no fixed upper limit in the box.
+**Frequency** and **Presence** are the repetition penalties.
 
-**Top P** is called nucleus sampling. The range is 0 to 1. The model only picks from the most likely words whose combined chance reaches this value. Lower values make replies more focused. A value of 1 lets the model consider everything.
+**Reasoning Effort** tells a thinking-capable model, one that works through a problem in hidden steps first, how much to reason before it answers. The choices are **Off**, **Low**, **Medium**, **High**, **Extra high** and **Maximum**. If the model does not support your tier, Marinara lowers it to the strongest tier the model allows. After you pick a model, the buttons are named after the level that model gets, so **Maximum** can show as **Max**, **Extra high** or **High**.
 
-**Top K** limits the model to the top few most likely words at each step. The range is 0 to 500. A value of 0 turns this limit off. Many providers ignore this setting.
+- With the Send switch on, **Off** asks the service to turn thinking off, when the model is known to support that. Some models cannot turn thinking off and may still return reasoning. Choose a non-reasoning model when thinking must be absent.
+- With the Send switch off, no reasoning preference is sent, and the service uses its own default.
 
-**Frequency** penalizes words the more often they already appeared. The range is -2 to 2. A positive value reduces repeated words. This is the frequency penalty, shown in the app as **Frequency**.
+**Verbosity** sets how long and detailed replies should be: **None**, **Low**, **Medium** or **High**. Only some models use it.
 
-**Presence** penalizes words that appeared at all, no matter how often. The range is -2 to 2. A positive value pushes the model toward new topics. This is the presence penalty, shown in the app as **Presence**.
+## Tuning tips
 
-Together, **Frequency** and **Presence** are the repetition penalties.
+Change one setting at a time so you can tell what helped. These are rules of thumb, and models differ.
 
-**Reasoning Effort** tells a thinking-capable model how much to reason before it answers. A thinking-capable model is one that works through a problem in hidden steps first. The choices are **Off**, **Low**, **Medium**, **High**, **Extra high**, and **Maximum**. If the model does not support the tier you pick, Marinara lowers it to the strongest tier that model allows. Once a connection is chosen, the buttons are named after the level that model gets, so **Maximum** can show as **Max**, **Extra high**, or **High**, and levels that send the same thing show as one button.
+| Problem | Try |
+| --- | --- |
+| Replies feel stiff or repetitive | Raise **Temperature** a little, to between 1.1 and 1.3. |
+| Replies feel chaotic or off-topic | Lower **Temperature**, to between 0.7 and 0.9. |
+| Replies are cut off | Raise **Max Output Tokens**. |
+| A character repeats the same phrasing | Raise **Frequency** or **Presence** a little, to between 0.3 and 0.6. |
 
-When the parameter switch is on, **Off** asks the provider to disable thinking explicitly instead of merely leaving out the effort setting. Marinara sends the provider-specific off control only to models known to support it. Some reasoning-mandatory models cannot turn thinking off and may still return reasoning; choose a non-reasoning model when thinking must be absent. Turning the parameter switch itself off is different: it sends no reasoning preference and leaves the provider's default behavior unchanged.
-
-**Verbosity** controls how long and detailed replies should be. The choices are **None**, **Low**, **Medium**, and **High**. **Low** keeps replies short. **High** encourages longer, more descriptive replies. Only some models use this setting.
+To see which parameters were sent for a message, use **Peek Prompt**. It shows the assembled prompt plus the model, temperature, max tokens, reasoning effort and more.
 
 ## The Send switch
 
-Every numeric parameter, plus **Reasoning Effort** and **Verbosity**, has a small on and off switch next to its name. The switch has no text label in the app; this guide calls it the Send switch. Hover it to see "This parameter is sent to the model" or "This parameter is not sent to the model."
+Every numeric parameter, plus **Reasoning Effort** and **Verbosity**, has a small switch by its name. It has no text label. Hover over it to see "This parameter is sent to the model" or "This parameter is not sent to the model."
 
-When a parameter's Send switch is on, Marinara includes that parameter in the request to the provider. When it is off, Marinara leaves that parameter out completely. The provider then uses its own default for that setting.
+- On: Marinara includes the parameter in the request.
+- Off: Marinara leaves it out, and the service uses its own default. This differs from a value such as 0 or 1, which still tells the service what to use.
 
-Turning the Send switch off is different from setting a value like 1 or 0. A value of 1 still tells the provider what to use. Turning the switch off tells the provider nothing, so the model decides.
+Use it when a service says two settings cannot be used together (turn one off), or when an error says a parameter is not accepted (turn it off) or is required (turn it on).
 
-Use the Send switch when a provider says two settings cannot be used together. Turn one of them off and try again. You will also use it when an error says a parameter is not accepted or is required. Turn that parameter's switch off if it is not accepted, or on if it is required.
-
-In a chat's **Advanced Parameters**, only **Max Output Tokens** and **Reasoning Effort** have their Send switch on by default. The others start off.
+In a chat's **Advanced Parameters**, only **Max Output Tokens** and **Reasoning Effort** are sent by default.
 
 ## Default values
 
-The table shows fallback values displayed by the parameter editor and the default Send switches. These are not necessarily the values sent to the model: without a preset, generation starts at `4096` output tokens before connection and chat overrides. An active scene can use `8192`. Game uses saved connection and chat parameters, with task defaults only for unconfigured values. The **Effective** line shows the resolved value.
+These are the values the editor shows, not always what is sent. Without a preset, generation starts at 4096 output tokens before account and chat overrides. An active scene can use 8192. The **Effective** line shows the resolved value.
 
 | Parameter | Starting value | Sent by default |
-|---|---|---|
+| --- | --- | --- |
 | Temperature | 1 | No |
 | Max Output Tokens | 4096 in Conversation, 8192 in Roleplay; no Game override | Yes |
 | Top P | 1 | No |
@@ -73,118 +83,88 @@ The table shows fallback values displayed by the parameter editor and the defaul
 | Reasoning Effort | Maximum | Yes |
 | Verbosity | High | No |
 
-The value still shows in the box even when the **Send toggle** is off. It is just not sent until you turn the toggle on.
+A value still shows in the box when its Send switch is off. It is not sent until you turn the switch on.
 
-## Assistant Prefill
+## Prefills and thinking tags
 
-**Assistant Prefill** is optional text added at the very start of the AI's reply, right after your message. Most people leave it empty.
+**Assistant Prefill** is optional text added at the start of the AI's reply. Leave it empty unless a model supports it.
 
-Use it only for models that support a prefill or a set opening tag. For example, you might type an opening tag like the one shown in the placeholder to force the model to start in a certain way. If you are not sure you need this, leave it blank.
+- It is the last thing sent, after your message and every instruction that follows it.
+- If the chat ends on an AI reply and **Post-Processing Messages** is **Apply**, the prefill is added to the end of that reply.
+- Some models refuse a prompt that ends on the AI's own words, including **Claude (Subscription)** with any model. For them, Marinara adds the prefill to the start of the AI's last reply instead, so the new reply does not start with it.
+- In a chat with no AI reply yet, the prefill is sent as your message at the end.
 
-## Assistant Reasoning Prefill
+**Assistant Reasoning Prefill** is optional hidden text added at the start of the AI's reasoning, before the visible reply. Use it only with models that support a separate reasoning prefill, such as Kimi K3. It can be used with **Assistant Prefill**.
 
-**Assistant Reasoning Prefill** is optional hidden text added at the very start of the AI's reasoning, before it writes the visible reply. Most people leave it empty.
-
-Use it only for models that support a separate reasoning prefill, such as Kimi K3. You can use it alongside **Assistant Prefill**: one starts the model's hidden reasoning, while the other starts its visible reply. If you are not sure your model supports this, leave it blank.
-
-## Thinking Tags
-
-**Thinking Tags** tell Marinara how a model marks its hidden reasoning inside plain text. Some models wrap their reasoning in tags. If Marinara knows those tags, it can hide that reasoning behind the **View model thoughts** action instead of showing it in the reply.
-
-You write one wrapper per line, with a slot in the middle for the hidden text. Common wrappers such as think, thinking, thought, pipe, channel, and bracket pairs are already recognized. You only need this field for models that use an unusual wrapper.
+**Thinking Tags** tell Marinara how a model marks its hidden reasoning in plain text, so it can hide that reasoning behind **View model thoughts**. Write one wrapper per line, with a slot in the middle for the hidden text. Common wrappers such as think, thinking, thought, pipe, channel and bracket pairs are already recognized. You need this only for an unusual wrapper.
 
 ## Custom Parameters
 
-**Custom Parameters** lets you add raw settings that Marinara does not show as its own field. You type a JSON object, and Marinara merges it into the request sent to the provider.
+**Custom Parameters** lets you add raw settings Marinara has no field for. Type a JSON object, and Marinara merges it into the request.
 
-Custom Parameters saved as connection defaults are sent for every API-backed text generation that uses that connection, including Conversation, Roleplay, Game, Noodle, summaries, agents, and installed agent packages. This also applies to custom endpoints running on your own machine. Per-chat Custom Parameters are added for that chat and override matching connection-level keys.
-
-This is an advanced field. A wrong key can make the provider reject the request. The object must use lowercase `true`, `false`, and `null`. Leave this empty unless a provider's guide tells you to add a specific key.
+- Saved as account defaults, they are sent for every text generation that uses the account: Conversation, Roleplay, Game, Noodle, summaries, agents and installed agent packages. This includes custom endpoints on your own machine.
+- Per-chat Custom Parameters are added for that chat and override matching account keys.
+- A wrong key can make the service reject the request. Use lowercase `true`, `false` and `null`. Leave this empty unless a service's guide tells you to add a key.
 
 ## Service Tier
 
-**Service Tier** only appears when the chat's connection uses the OpenRouter or NanoGPT provider. It picks how the provider routes your request. The choices are **Default**, **Flex**, and **Priority**. **Flex** can be cheaper and slower. **Priority** can be faster and cost more. **Default** sends no tier at all.
+**Service Tier** appears only when the chat's account uses OpenRouter or NanoGPT. It picks how the service routes your request. **Default** sends no tier. **Flex** can be cheaper and slower. **Priority** can be faster and cost more.
 
 ## Context message limit
 
-**Limit Context Messages** controls how much chat history is sent to the model. Turn it on to send only the last N messages instead of the whole chat.
+**Limit Context Messages** (also labeled **Context message limit**) sends only the last N messages instead of the whole chat. It is off by default. When you turn it on, the count starts at 50, and you can set 1 to 9999. A smaller number lowers cost and speeds things up, and the AI remembers less.
 
-When you enable it, the count starts at 50. You can set any number from 1 to 9999. A smaller number sends less history, which can lower cost and speed things up. It also means the AI remembers less of the older conversation. This setting is off by default.
-
-In a Roleplay chat with **Advanced Memory Recall** on, this limit is not used. Advanced Memory decides how much history to send with its **Maximum allowed context before compression (tokens)** setting, and older scenes come back as summaries and excerpts. To send less history there, lower that setting in **Chat Settings → Memory Recall**. A note under **Limit Context Messages** says so while both are on. See [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay).
+In a Roleplay chat with **Advanced Memory Recall** on, this limit is not used. Advanced Memory Recall sets how much history is sent with **Maximum allowed context before compression (tokens)**. To send less, lower that setting in **Chat Settings → Memory Recall**. See [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay-and-game-mode).
 
 ## Exclude Past Reasoning
 
-**Exclude Past Reasoning** is on by default. It keeps saved thinking and reasoning from earlier turns out of new prompts. That reasoning is not sent to the model again.
+**Exclude Past Reasoning** is on by default. It keeps saved reasoning from earlier turns out of new prompts. Leave it on unless you have a clear reason to feed old reasoning back.
 
-Turning it off reveals **Past reasoning blocks**. The default is `1`, keeping the most recent available assistant reasoning block; `0` includes all available blocks. The choice is saved for this chat and stays saved when you turn exclusion back on. This does not delete stored thoughts. Only reasoning supported by the current connection can be replayed.
+Turning it off shows **Past reasoning blocks**. The default is 1, which keeps the most recent available reasoning block. A value of 0 includes all available blocks. This does not delete stored thoughts, and only reasoning the current account supports can be replayed.
 
-Leave it on unless you have a clear reason to feed old reasoning back into the model.
+## Image captioning
 
-## Image Captioning
+**Image captioning** makes Marinara describe each attached image in words, using another model, instead of sending the image. Use it for models that cannot see images. It is off by default.
 
-**Image Captioning** changes how the AI handles image attachments. When it is on, Marinara describes each attached image in text using a connection you choose, instead of sending the image itself.
+1. In **Advanced Parameters**, turn on **Image captioning**.
+2. Pick a model in the **Captioning model** dropdown.
+3. Optionally edit the **Captioning Prompt**, the instructions sent with each image. The reset button, or clearing the box, restores the default. The prompt is saved for this chat only, and **Save as Connection Default** does not copy it.
 
-Use this for models that cannot see images. When you turn it on, pick a connection in the **Captioning Connection** dropdown. A text-only endpoint may fail if you point it at the wrong connection. This setting is off by default.
-
-The **Captioning Prompt** box below the dropdown holds the instructions sent with each image. Edit it to change the descriptions, for example to ask for more detail. The reset button next to the label brings back the default prompt, and so does clearing the box. The prompt is saved for this chat only, and **Save as Connection Default** does not copy it.
-
-If captioning fails, for example because the captioning connection is broken, deleted, or sends back nothing, the reply stops with an **Image captioning failed** error. Marinara does not send the image itself instead. Fix or change the captioning connection, or turn Image Captioning off.
+If it did not work: when captioning fails, because the captioning account is broken, deleted or returns nothing, the reply stops with an **Image captioning failed** error. Marinara does not send the image instead. Fix or change the captioning model, or turn **Image captioning** off.
 
 ## Save as Connection Default
 
-At the bottom of **Advanced Parameters**, the **Save as Connection Default** button writes your current parameter values onto the connection itself. After that, new chats using that same connection start from these values.
+At the bottom of **Advanced Parameters**, **Save as Connection Default** writes your current values onto the account. New chats that use that account then start from them. It appears only for a saved, normal account. It is hidden for the random pool and the built-in model.
 
-The button only appears for a normal, saved connection. It is hidden for the random connection pool and for the built-in local model.
-
-The **Reset to Defaults** button below it clears every per-chat parameter change and returns this chat to its inherited settings.
+**Reset to Defaults** clears every per-chat change and returns the chat to its inherited settings. Inherited Send switches follow the selected account. A Send switch you changed yourself stays a chat override until you reset it.
 
 ## How defaults layer and override
 
-Parameters are resolved one field at a time, in this order:
+Marinara resolves each parameter through this list. Later items override earlier ones.
 
-1. The selected preset's **Parameters**, or built-in generation defaults when no preset is used (temperature `1`, maximum output `4096`). In Roleplay, a connection's preset override takes precedence over the chat's selected preset.
-2. The connection's **Default Chat Parameters**.
+1. The preset's **Parameters**, or built-in defaults when no preset is used. Output starts at 4096 tokens, because presets cannot set output limits. In Roleplay, an account's preset override beats the chat's selected preset.
+2. The account's **Chat defaults**.
 3. This chat's **Advanced Parameters**.
-4. Mode rules: an active scene chat sets output to `8192`, reasoning to **Maximum**, and verbosity to **High**. Game uses the saved connection and chat parameters without forcing sampling, reasoning, or a minimum output size. Its helper calls also honor saved parameters; task defaults apply only when a value is not configured.
-5. Output limits: Game applies the model's known output limit, and the connection's **Max Output Tokens override** caps requests in every mode. Available context can reduce the output budget further.
+4. Mode rules. An active scene chat sets output to 8192, reasoning to **Maximum** and verbosity to **High**. Game uses saved account and chat parameters without forcing sampling, reasoning or a minimum output size.
+5. Output limits. Game applies the model's known output limit, and the account's **Max output tokens override** caps requests in every mode. Available context can reduce the budget further.
 
-The **Effective** line beside a parameter shows the saved value and its winning layer, including mode rules and output caps. In the connection editor it uses the currently open chat with that connection, or a Roleplay baseline when no chat is open. Save edits to refresh it. A disabled Send switch is shown as **not sent**; providers can still impose required parameters or normalize unsupported values. Custom Parameters and context fitting may further change the final request.
-
-For example, a preset at `8192` and this chat at `16384` show **Effective: 16384 · this chat**. A connection output cap of `4096` changes that to **Effective: 4096 · output token cap**. Resetting chat parameters exposes the next applicable layer; it does not remove preset or mode rules.
+The **Effective** line beside a parameter shows the value that wins and which layer it came from, for example **Effective: 16384 · this chat**, or **Effective: 4096 · output token cap** when an account cap applies. A disabled Send switch shows **not sent**. Services can still require parameters or adjust unsupported values. Custom Parameters and context fitting may change the final request. Resetting chat parameters removes only this chat's override (item 3). The value then comes from the account's **Chat defaults** if set, otherwise from the preset. Mode rules and output limits (items 4 and 5) still apply afterwards.
 
 ## Parameters for agents
 
-Agent calls use the **Default Chat Parameters** saved on the connection they run on: the agent's own connection, or the chat's connection when the agent has none. Marinara applies them with the same rules as a chat reply, including the Send switches and the model limits below. Presets and a chat's **Advanced Parameters** do not change agent calls, apart from the temperature rule below.
+Agent calls use the **Chat defaults** saved on the account they run on: the agent's own account, or the chat's account when the agent has none. The Send switches and model limits apply as for a chat reply. Presets and a chat's **Advanced Parameters** do not change agent calls, except for the temperature rule below.
 
-- **Sent to agents**: Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, custom headers, and the extra parameters you add under **Settings**, then **Advanced**, then **Parameters** (such as Top A or a seed). A parameter whose Send switch is off is not sent.
-- **Not sent to agents**: Max Output Tokens, stop sequences, prefills, Thinking Tags, and other prompt-format settings. Each agent keeps its own **Max Output Tokens**.
-- **Temperature**: an agent uses the connection's temperature, or `0.7` when none is saved. Beholder always uses `0`, and the Illustrator's prompt writer uses its own value. During a chat reply, agents on the chat's connection take the temperature and Send switches the chat resolved, as before, but a parameter switched off on the connection is still not sent. Retries use the connection's saved values and Send switches, not the chat's.
-- **Reasoning Effort**: a level you pick, or **Off**, applies to every agent on that connection whose model takes Reasoning Effort. Turning on **Use custom defaults for this connection** starts Reasoning Effort at **Maximum** on most connections (**Default** on Codex), so agents on it think at the model's highest level, which is slower and costs more. Pick a lower level, or turn its Send switch off, if agents should think less. With no level saved (custom defaults off, or **Default** on a Codex connection), agents that answer in JSON ask for thinking off and other agents leave the model's default.
-- **Room to think**: when the connection saves a Reasoning Effort for the model, Marinara adds room for thinking on top of the agent's **Max Output Tokens**, so the answer is not cut short. The room stays within the connection's output cap, the model's limit, and the context the prompt leaves free. A custom endpoint gets it even when it does not send the level, because a local model may think on its own.
+- **Sent to agents:** Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, custom headers, and the extra parameters you add under **Settings**, then **Advanced**, then **Parameters** (such as Top A or a seed). A parameter whose Send switch is off is not sent.
+- **Not sent to agents:** Max Output Tokens, stop sequences, prefills, Thinking Tags and other prompt-format settings. Each agent keeps its own **Max Output Tokens**.
+- **Temperature:** an agent uses the account's temperature, or 0.7 when none is saved. Beholder always uses 0, and the Illustrator's prompt writer uses its own value. During a chat reply, agents on the chat's account take the temperature and Send switches the chat resolved. Retries use the account's saved values.
+- **Reasoning Effort:** a level you pick, or **Off**, applies to every agent on that account whose model takes it. **Use custom defaults for this model** starts Reasoning Effort at **Maximum** on most accounts (**Default** on Codex), so agents think at the highest level, which is slower and costs more. Pick a lower level, or turn its Send switch off, to make them think less. With no level saved, agents that answer in JSON ask for thinking off, and other agents leave the model's default.
+- **Room to think:** when the account saves a Reasoning Effort, Marinara adds room for thinking on top of the agent's **Max Output Tokens**, within the account's output cap, the model's limit and the free context. A custom endpoint gets it even when it does not send the level.
 
-Installed agent packages follow the same connection values. A value the connection saves and sends replaces what the package asks for, and anything the connection leaves unset keeps the package's own setting. A **Reasoning Effort** or **Max Output Tokens** switched off on the connection is not sent, even when the package asks for it. Temperature and Verbosity start switched off, so for those the package's own value stays. Packages keep their own output budget, plus room to think when the connection's Reasoning Effort applies.
+Installed agent packages follow the same account values. A value the account saves and sends replaces what the package asks for, and anything unset keeps the package's own setting. **Reasoning Effort** or **Max Output Tokens** switched off on the account is not sent, even if the package asks. Temperature and Verbosity start switched off, so the package's own value stays.
 
 ## Some models ignore some parameters
 
-Not every model accepts every parameter. When Marinara knows a model rejects a setting, it leaves that setting out of the request. The slider or box still shows in the app, but changing it has no effect for that model.
-
-This is common with certain reasoning and thinking models, which refuse sampling settings like temperature. If a setting seems to do nothing, the model may not accept it. Model behavior also depends heavily on which model you picked, so the same value can feel different across models.
-
-If you use an auto-routing model that can change which model answers each time, your parameters may behave differently from turn to turn. Pinning one specific model keeps behavior steady.
-
-## Symptom-based tuning tips
-
-Most people never change these. If you want to try, change one setting at a time so you can tell what helped.
-
-- Replies feel stiff or repetitive: raise **Temperature** a little, for example from 1 to a value between 1.1 and 1.3.
-- Replies feel chaotic or off-topic: lower **Temperature**, for example to a value between 0.7 and 0.9.
-- Replies get cut off in the middle: raise **Max Output Tokens**.
-- A character keeps repeating the same phrasing: raise **Frequency** or **Presence** a little, for example to a value between 0.3 and 0.6.
-
-These are rules of thumb, not tested recommendations. Different models respond differently, so a value that works on one connection may not carry over to another.
-
-To see exactly which parameters were sent for a message, use **Peek Prompt**. It shows the assembled prompt plus the model, temperature, max tokens, reasoning effort, and more.
+Not every model accepts every parameter. When Marinara knows a model rejects a setting, it leaves it out of the request. The control still shows, but changing it has no effect. This is common with reasoning models, which refuse sampling settings such as temperature. With an auto-routing model that changes which model answers each time, parameters can behave differently from turn to turn. Pin one model to keep behavior steady.
 
 ## Related guides
 

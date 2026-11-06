@@ -137,11 +137,15 @@ const runtimeSource = readFileSync(
   ),
   "utf8",
 );
+const hostFailureGuard = /if\s*\(hostLifecycleError\s*\|\|\s*hostDependencyError\)\s*\{[\s\S]*?\n\s*return;\s*\}/u.exec(
+  runtimeSource,
+);
 assert.ok(
-  runtimeSource.indexOf("if (hostLifecycleError) {\n        // Keep the installed version") > 0 &&
-    runtimeSource.indexOf("if (hostLifecycleError) {\n        // Keep the installed version") <
+  hostFailureGuard &&
+    hostFailureGuard.index > 0 &&
+    hostFailureGuard.index + hostFailureGuard[0].length <
       runtimeSource.indexOf("await capabilityPackageManager.rollbackRuntime(installed.id)"),
-  "host lifecycle errors return before rollback and before the error status is persisted",
+  "host lifecycle and dependency errors return before rollback and before the error status is persisted",
 );
 assert.equal(
   runtimeSource.match(/was not activated because the server finished starting too early/gu)?.length,

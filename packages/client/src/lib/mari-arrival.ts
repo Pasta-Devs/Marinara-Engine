@@ -3,6 +3,7 @@
 // on the client from data the omnibar already has; no model call (R22). The
 // input types carry names, counts and times only, never message text, so
 // nothing here can show (or later send) what a chat says.
+import type { AddJob } from "./add-connection";
 import type { MariSuggestionAction, MariSuggestionChip } from "@marinara-engine/shared";
 import { parseChatMetadata } from "./chat-display";
 import type { MariReferencedResource } from "./mari-referenced-resources";
@@ -11,7 +12,8 @@ import type { OmnibarContext } from "./omnibar-search";
 import { formatRelativeContact } from "./relative-time";
 
 /** Two actions only the omnibar can run: back to its search on settings, and K5's Undo. */
-export type MariArrivalAction = MariSuggestionAction | { kind: "find-setting" } | { kind: "undo-setting" };
+export type MariArrivalAction =
+  MariSuggestionAction | { kind: "find-setting" } | { kind: "undo-setting" } | { kind: "add-connection"; job: AddJob };
 export type MariArrivalCard = Omit<MariSuggestionChip, "action"> & {
   action?: MariArrivalAction;
   /** N6 (R22): picking this card is the deliberate "fix" act, so only its send carries the live error text. */
@@ -277,8 +279,9 @@ export function buildMariArrival(context: OmnibarContext, data: MariArrivalData)
         act(
           "pick-connection",
           t("mari.arrival.cards.pickConnection", "Pick a connection"),
-          { kind: "panel", panel: "connections" },
-          t("mari.arrival.cards.pickConnectionDetail", "Opens your connections"),
+          // The Add window for the job the error names: an image model for image agents, else the Agents model.
+          { kind: "add-connection", job: /image/i.test(agent.lastError!) ? "images" : "agents" },
+          t("mari.arrival.cards.addAgentModelDetail", "Adds the model this agent needs"),
           "Link2",
         ),
       );

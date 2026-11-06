@@ -61,7 +61,15 @@ test("a new Mari thread from a chat keeps Mari's connection", async ({ page, req
     expect(chat.ok(), await chat.text()).toBeTruthy();
     chatId = ((await chat.json()) as { id: string }).id;
 
-    await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), APP_VERSION);
+    // The chat opens from storage on load. Importing chat.store.ts from the test can load a second copy of the store
+    // once Vite has hot-updated the client during a run, which leaves the app on Home.
+    await page.addInitScript(
+      ({ v, id }) => {
+        localStorage.setItem("marinara:whats-new:seen-version", v);
+        localStorage.setItem("marinara-active-chat-id", id);
+      },
+      { v: APP_VERSION, id: chatId },
+    );
     await seedUIState(page, {
       hasCompletedOnboarding: true,
       rightPanelOpen: false,
@@ -69,10 +77,7 @@ test("a new Mari thread from a chat keeps Mari's connection", async ({ page, req
     });
     const restart = page.waitForRequest((r) => r.url().includes("/internal/professor-mari/restart"));
     await page.goto("/");
-    await page.evaluate(async (id) => {
-      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
-      useChatStore.getState().setActiveChatId(id);
-    }, chatId);
+    await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
     await page
       .locator("main")
       .first()

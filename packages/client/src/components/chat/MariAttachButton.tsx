@@ -2,15 +2,27 @@
 // (like Claude's "+") instead of jumping straight to the file picker. Shared by both the floating
 // and docked composers so the menu can't drift between them. Mirrors the adjacent connection popover
 // (anchored div + outside-click + in-dialog focus scope), matching the surrounding composer code.
+// It doubles as the index of what she can do: Attach, the `@` link, and her commands (the `/` menu's list).
 import { useEffect, useRef, useState } from "react";
-import { Loader2, MessageSquareText, Paperclip, Layers } from "lucide-react";
+import { AtSign, Layers, Loader2, MessageSquareText, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useInDialogFocusScope } from "../../hooks/use-in-dialog-focus-scope";
+import { MARI_COMMANDS, type MariCommandId } from "../../lib/mari-commands";
+import { MariRow } from "./mari-primitives";
+
+/** Attach already holds these two, so the Mari section leaves them out. */
+const ATTACH_SECTION_COMMANDS: readonly MariCommandId[] = ["attach", "context"];
 
 interface Props {
   onAttachFiles: () => void;
   onAddChatHistory: () => void;
   onViewContext: () => void;
+  /** Types `@` at the caret so the picker opens. */
+  onLinkWithAt: () => void;
+  onCommand: (id: MariCommandId) => void;
+  availableCommands: readonly MariCommandId[];
+  /** A count shown beside a command (active skills, saved memories, pending approvals). */
+  commandCounts?: Partial<Record<MariCommandId, number>>;
   /** Pending file attachments on the composer (drives the active paperclip state). */
   attachedFileCount: number;
   /** Attached reference-context items on this Mari chat (drives the menu badge). */
@@ -23,6 +35,10 @@ export function MariAttachButton({
   onAttachFiles,
   onAddChatHistory,
   onViewContext,
+  onLinkWithAt,
+  onCommand,
+  availableCommands,
+  commandCounts = {},
   attachedFileCount,
   attachedContextCount,
   disabled,
@@ -45,6 +61,10 @@ export function MariAttachButton({
   }, [open]);
   // Escape closes only this menu; a second Escape reaches the omnibar.
   const onMenuKeyDown = useInDialogFocusScope(menuRef, () => setOpen(false), open);
+
+  const mariCommands = MARI_COMMANDS.filter(
+    (command) => availableCommands.includes(command.id) && !ATTACH_SECTION_COMMANDS.includes(command.id),
+  );
 
   const run = (action: () => void) => {
     setOpen(false);
@@ -78,42 +98,58 @@ export function MariAttachButton({
           ref={menuRef}
           role="menu"
           onKeyDown={onMenuKeyDown}
-          className="absolute bottom-full left-0 z-20 mb-2 flex min-w-[15rem] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 text-left shadow-2xl"
+          className="mari-composer-menu__popover"
+          data-component="MariAttachMenu"
         >
-          <button
-            type="button"
+          <p className="mari-composer-menu__head">{localizeUi("mari.composerCommands.section.attach")}</p>
+          <MariRow
             role="menuitem"
+            slot={<Paperclip aria-hidden="true" />}
+            title={localizeUi("ui.chat.homeprofessormarichat.attachMenuFiles")}
+            fact={localizeUi("mari.composerCommands.attachMenu.filesFact")}
             onClick={() => run(onAttachFiles)}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            <Paperclip size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-            {localizeUi("ui.chat.homeprofessormarichat.attachMenuFiles")}
-          </button>
-          <button
-            type="button"
+          />
+          <MariRow
             role="menuitem"
+            slot={<MessageSquareText aria-hidden="true" />}
+            title={localizeUi("ui.chat.homeprofessormarichat.attachMenuChatHistory")}
+            fact={localizeUi("mari.composerCommands.attachMenu.chatHistoryFact")}
             onClick={() => run(onAddChatHistory)}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            <MessageSquareText size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-            {localizeUi("ui.chat.homeprofessormarichat.attachMenuChatHistory")}
-          </button>
-          <button
-            type="button"
+          />
+          <MariRow
             role="menuitem"
+            slot={<Layers aria-hidden="true" />}
+            title={localizeUi("ui.chat.homeprofessormarichat.attachMenuViewContext")}
+            fact={localizeUi("mari.composerCommands.attachMenu.viewContextFact")}
+            badge={attachedContextCount > 0 ? attachedContextCount : undefined}
             onClick={() => run(onViewContext)}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            <Layers size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-            <span className="min-w-0 flex-1 truncate">
-              {localizeUi("ui.chat.homeprofessormarichat.attachMenuViewContext")}
-            </span>
-            {attachedContextCount > 0 && (
-              <span className="shrink-0 rounded-full bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.625rem] font-semibold text-[var(--primary)]">
-                {attachedContextCount}
-              </span>
-            )}
-          </button>
+          />
+          <hr className="mari-composer-menu__divider" />
+          <p className="mari-composer-menu__head">{localizeUi("mari.composerCommands.section.reference")}</p>
+          <MariRow
+            role="menuitem"
+            slot={<AtSign aria-hidden="true" />}
+            title={localizeUi("mari.composerCommands.linkWithAt.label")}
+            fact={localizeUi("mari.composerCommands.linkWithAt.fact")}
+            onClick={() => run(onLinkWithAt)}
+          />
+          {mariCommands.length > 0 && (
+            <>
+              <hr className="mari-composer-menu__divider" />
+              <p className="mari-composer-menu__head">{localizeUi("mari.composerCommands.section.mari")}</p>
+              {mariCommands.map((command) => (
+                <MariRow
+                  key={command.id}
+                  role="menuitem"
+                  slot={<command.Icon aria-hidden="true" />}
+                  title={localizeUi(command.labelKey)}
+                  fact={localizeUi(command.factKey)}
+                  badge={commandCounts[command.id] || undefined}
+                  onClick={() => run(() => onCommand(command.id))}
+                />
+              ))}
+            </>
+          )}
         </div>
       )}
     </>

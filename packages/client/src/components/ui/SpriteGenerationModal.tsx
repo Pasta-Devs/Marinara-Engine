@@ -6,9 +6,11 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { X, Loader2, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film } from "lucide-react";
 import { Modal } from "./Modal";
+import { NeedsModelChip } from "../connections/NeedsModelChip";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { cn } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
-import { useSpriteCapabilities } from "../../hooks/use-characters";
+import { useSpriteCapabilities, type SpriteInfo } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
 import { api } from "../../lib/api-client";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
@@ -29,7 +31,7 @@ interface SpriteGenerationModalProps {
   /** Optional initial mode shown when opening */
   initialSpriteType?: "expressions" | "full-body";
   /** Existing portrait sprites that full-body generation can mirror */
-  existingExpressionSprites?: Array<{ expression: string; url: string }>;
+  existingExpressionSprites?: Array<{ expression: string; label?: string; url: string }>;
   /** Pre-filled appearance description */
   defaultAppearance?: string;
   /** Pre-filled avatar (base64 data URL) for reference */
@@ -671,7 +673,7 @@ export function SpriteGenerationModal({
   const existingPortraitSprites = useMemo(() => {
     const seen = new Set<string>();
     return existingExpressionSprites.flatMap((sprite) => {
-      const expression = normalizeSpriteLabel(sprite.expression);
+      const expression = normalizeSpriteLabel(sprite.label ?? sprite.expression);
       if (!expression || !sprite.url || seen.has(expression)) return [];
       seen.add(expression);
       return [{ expression, url: sprite.url }];
@@ -1949,13 +1951,21 @@ export function SpriteGenerationModal({
     setError(null);
 
     try {
+      const existing = await api.get<SpriteInfo[]>(`/sprites/${entityId}`);
       const results = await Promise.allSettled(
-        saveTargets.map(({ cell, expression }) =>
-          api.post(`/sprites/${entityId}`, {
-            expression,
+        saveTargets.map(({ cell, expression }) => {
+          const matches = existing.filter(
+            (sprite) =>
+              normalizeSpriteExpressionLabel(sprite.label ?? sprite.expression, {
+                fullBody: sprite.expression.startsWith("full_"),
+              }) === expression,
+          );
+          return api.post(`/sprites/${entityId}`, {
+            expression: matches.length === 1 ? matches[0]!.expression : expression,
             image: cell.dataUrl,
-          }),
-        ),
+            ...(matches.length === 1 ? {} : { folderId: null, replaceExisting: true }),
+          });
+        }),
       );
       const failed = results
         .map((result, index) => ({ result, target: saveTargets[index]! }))
@@ -2129,29 +2139,15 @@ export function SpriteGenerationModal({
                   : localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
               </label>
               {activeGenerationConnections.length === 0 ? (
-                <p className="text-xs text-[var(--destructive)]">
-                  {animatedExpressionMode
-                    ? localizeUi("ui.ui.spritegenerationmodal.noVideoGenerationConnectionsFound")
-                    : localizeUi("ui.ui.spritegenerationmodal.noImageGenerationConnectionsFound")}
-                </p>
+                <NeedsModelChip kind={animatedExpressionMode ? "video" : "image"} />
               ) : (
-                <select
-                  value={effectiveConnectionId ?? ""}
-                  onChange={(e) =>
-                    animatedExpressionMode
-                      ? setVideoConnectionId(e.target.value || null)
-                      : setConnectionId(e.target.value || null)
-                  }
-                  className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
-                >
-                  {activeGenerationConnections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                      {c.model ? localizeUi("ui.ui.spritegenerationmodal.value1", { value1: c.model }) : ""}
-                      {isDefaultGenerationConnection(c) ? localizeUi("ui.ui.avatargenerationmodal.default") : ""}
-                    </option>
-                  ))}
-                </select>
+                <ConnectionSelect
+                  job={localizeUi("connections.picker.job.sprites")}
+                  kind={animatedExpressionMode ? "video" : "image"}
+                  value={effectiveConnectionId}
+                  onChange={animatedExpressionMode ? setVideoConnectionId : setConnectionId}
+                  className="rounded-lg px-3 py-2 text-xs"
+                />
               )}
             </div>
 

@@ -197,6 +197,49 @@ try {
   assert.equal(rawDecodedPersona.avatarCrop, JSON.stringify(serializedLegacyAvatarCrop));
   assert.equal(rawDecodedPersona.tags, JSON.stringify(["serialized", "accepted"]));
 
+  // Distinguish omitted fields from explicit clears across a persisted read.
+  const clearRegressionPersona = await requestJson("POST", "/api/characters/personas", 200, {
+    name: "Crop Clear Regression",
+    description: "Original description",
+    tags: ["crop-regression", "preserved"],
+    avatarCrop: serializedLegacyAvatarCrop,
+  });
+  assert.deepEqual(clearRegressionPersona.tags, ["crop-regression", "preserved"]);
+  assert.deepEqual(clearRegressionPersona.avatarCrop, serializedLegacyAvatarCrop);
+
+  await requestJson("PATCH", `/api/characters/personas/${clearRegressionPersona.id}`, 200, {
+    description: "Edited description",
+  });
+  const afterDescriptionPatch = await requestJson("GET", `/api/characters/personas/${clearRegressionPersona.id}`, 200);
+  assert.equal(afterDescriptionPatch.description, "Edited description");
+  assert.deepEqual(
+    afterDescriptionPatch.avatarCrop,
+    serializedLegacyAvatarCrop,
+    "a description-only PATCH must preserve avatarCrop",
+  );
+  assert.deepEqual(
+    afterDescriptionPatch.tags,
+    ["crop-regression", "preserved"],
+    "a description-only PATCH must preserve tags",
+  );
+
+  await requestJson("PATCH", `/api/characters/personas/${clearRegressionPersona.id}`, 200, {
+    avatarCrop: null,
+    tags: [],
+  });
+  const afterClearPatch = await requestJson("GET", `/api/characters/personas/${clearRegressionPersona.id}`, 200);
+  assert.equal(
+    afterClearPatch.avatarCrop,
+    null,
+    "an explicit null avatarCrop must project as null, not undefined or {}",
+  );
+  assert.deepEqual(afterClearPatch.tags, [], "an explicit empty tags array must project as [], not undefined");
+  assert.equal(
+    afterClearPatch.description,
+    "Edited description",
+    "clearing avatarCrop and tags must preserve the edited description",
+  );
+
   const statIconsClearPatch = await requestJson("PATCH", `/api/characters/personas/${decodedPersona.id}`, 200, {
     trackerCardColors: { mode: "custom", statIcons: [] },
   });

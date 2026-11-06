@@ -1,4 +1,4 @@
-import type { CapabilityPackageManifest } from "@marinara-engine/shared";
+import type { CapabilityCatalogPackage, CapabilityPackageManifest } from "@marinara-engine/shared";
 
 function normalizeLocale(locale: string | undefined) {
   return locale?.trim().replace(/_/g, "-").toLowerCase() ?? "";
@@ -41,5 +41,23 @@ export function resolveCapabilityPackageDisplay(manifest: CapabilityPackageManif
           })),
         }
       : {}),
+  };
+}
+
+/** A catalog entry as its store card shows it: a ruleset's name and description from the catalog's
+ *  listing of its language pack (1.811) where it lists one in this language, else as the manifest says. */
+export function resolveCapabilityCatalogEntryDisplay(
+  entry: Pick<CapabilityCatalogPackage, "manifest" | "locales">,
+  locale: string | undefined,
+) {
+  const display = resolveCapabilityPackageDisplay(entry.manifest, locale);
+  const packs = entry.locales ?? {};
+  const pack = localeCandidates(locale)
+    .map((candidate) => packs[Object.keys(packs).find((key) => normalizeLocale(key) === candidate) ?? ""])
+    .find(Boolean);
+  return {
+    ...display,
+    name: pack?.name ?? display.name,
+    description: pack?.description ?? display.description,
   };
 }

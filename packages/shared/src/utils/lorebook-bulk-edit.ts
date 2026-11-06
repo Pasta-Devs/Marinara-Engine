@@ -4,6 +4,7 @@
 // selection, payload building). Kept free of storage so it is easy to test.
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { partialInput } from "./zod-input.js";
 
 export const LOREBOOK_BULK_MAX_ENTRIES = 5000;
 export const LOREBOOK_BULK_MAX_KEYS = 200;
@@ -11,8 +12,8 @@ export const LOREBOOK_BULK_MAX_KEYS = 200;
 const bulkKeyListSchema = z.array(z.string().max(500)).max(LOREBOOK_BULK_MAX_KEYS).default([]);
 
 /** Plain field changes applied identically to every selected entry. */
-export const lorebookBulkSetSchema = z
-  .object({
+export const lorebookBulkSetSchema = partialInput(
+  z.object({
     enabled: z.boolean(),
     constant: z.boolean(),
     probability: z.number().min(0).max(100).nullable(),
@@ -20,13 +21,13 @@ export const lorebookBulkSetSchema = z
     depth: z.number().int().min(0),
     folderId: z.string().nullable(),
     tag: z.string().max(200),
-  })
-  .partial();
+  }),
+);
 
 export const lorebookBulkEditSchema = z
   .object({
     entryIds: z.array(z.string().min(1)).min(1).max(LOREBOOK_BULK_MAX_ENTRIES),
-    set: lorebookBulkSetSchema.default({}),
+    set: lorebookBulkSetSchema.prefault({}),
     /** Which key list the add/remove operations touch. */
     keyField: z.enum(["keys", "secondaryKeys"]).default("keys"),
     addKeys: bulkKeyListSchema,

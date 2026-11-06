@@ -84,7 +84,7 @@
   <img src="docs/screenshots/Desktop_Chat_Settings_Window.png" width="45%" alt="Chat Settings window" />
 </p>
 <p align="center">
-  <em>Pick and pin models right from the chat input &nbsp;&nbsp;·&nbsp;&nbsp; Chat Settings in a movable window</em>
+  <em>Pick and star models right from the chat input &nbsp;&nbsp;·&nbsp;&nbsp; Chat Settings in a movable window</em>
 </p>
 
 <p align="center">
@@ -126,7 +126,7 @@
 
 ## Latest Release
 
-Current stable release: **[v2.5.1](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.5.1)**.
+Current stable release: **[v2.5.2](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.5.2)**.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes. Tagged releases use the `vX.Y.Z` format and are published on the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page with a Windows installer, Android bootstrap APK, and named versioned source ZIP. Android APKs are Termux bootstrap + WebView shells: they can download Termux from F-Droid, launch Android's installer, start the Termux setup flow after required permission prompts, then open the local Marinara server on the same device. **[Download the latest Android APK directly](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk).**
 
@@ -134,14 +134,14 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed release notes. Tagged releases use
 
 ## Installation
 
-| Platform                 | Guide                                                                                        |
-| ------------------------ | -------------------------------------------------------------------------------------------- |
-| 🐳 Docker / Podman       | [Container Installation Guide](docs/installation/containers.md) — recommended                |
-| 🪟 Windows               | [Windows Installation Guide](docs/installation/windows.md)                                   |
-| 🍎🐧 macOS / Linux       | [macOS / Linux Installation Guide](docs/installation/macos-linux.md)                         |
+| Platform                 | Guide                                                                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🐳 Docker / Podman       | [Container Installation Guide](docs/installation/containers.md) — recommended                                                                   |
+| 🪟 Windows               | [Windows Installation Guide](docs/installation/windows.md)                                                                                      |
+| 🍎🐧 macOS / Linux       | [macOS / Linux Installation Guide](docs/installation/macos-linux.md)                                                                            |
 | 🤖 Android APK Bootstrap | [Download APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) · [Guide](android/README.md) |
-| 🤖 Android Manual Termux | [Android (Termux) Installation Guide](docs/installation/android-termux.md) — manual fallback |
-| 📱 iOS / iPadOS          | [iOS / iPadOS PWA Guide](docs/installation/ios-pwa.md)                                       |
+| 🤖 Android Manual Termux | [Android (Termux) Installation Guide](docs/installation/android-termux.md) — manual fallback                                                    |
+| 📱 iOS / iPadOS          | [iOS / iPadOS PWA Guide](docs/installation/ios-pwa.md)                                                                                          |
 
 > **Recommended Android path:** tap **Download APK** above, open it, then tap **Install / Start Marinara**. Choose app or browser on its launcher; the APK remembers the choice and signs in automatically. It creates and uses its private localhost credential automatically; users never provide a signing key or local-access secret. Android still shows its required app-install and Termux permission prompts. If Android blocks the automatic handoff, the [Android APK Guide](android/README.md) has the manual fallback.
 
@@ -149,7 +149,7 @@ Each guide covers installation, updating, and LAN access for that platform. See 
 
 Upgrading from an older release? See [Upgrading Marinara Engine](docs/UPGRADING.md) for the platform-by-platform upgrade path.
 
-Security defaults are intentionally local-first: loopback access works out of the box, while ordinary LAN and public clients require Basic Auth unless you explicitly opt back in. Direct Tailscale sockets and actual same-host Docker container networks are detected and trusted automatically, Docker only while no Basic Auth or IP allowlist is set; unrelated CGNAT, LAN, host-network, and proxy-forwarded traffic still follows normal access control, including visitors that a reverse proxy or tunnel on the same machine forwards to loopback. Set `BYPASS_AUTH_TAILSCALE=true` or `BYPASS_AUTH_DOCKER=true` only when you need the legacy broad compatibility bypass, or `false` when you want matching direct clients to authenticate too. Set `REQUIRE_AUTH_FOR_DOCKER_PROXY=false` or `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` only when every upstream client is trusted. `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` restores unauthenticated access for other trusted private networks; public clients still require `ALLOW_UNAUTHENTICATED_REMOTE=true`. Powerful actions such as backups, bulk import, update apply, sidecar install/download/delete, haptics, and custom tool mutation also require `ADMIN_SECRET`; see [Access Control](docs/CONFIGURATION.md#access-control).
+Security defaults are intentionally local-first: loopback access works out of the box, while ordinary LAN and public clients need a login. Set it in **Settings → Advanced → Access** in a signed-in browser, or type the one-time setup code from the server log on the page that blocks another device. `pnpm reset-login` removes a forgotten app login (in Docker: `docker exec <container> node scripts/reset-login.mjs`). See [Remote Access](docs/REMOTE_ACCESS.md#option-1-login-recommended). Direct Tailscale sockets and actual same-host Docker container networks are detected and trusted automatically, Docker only while no app login, Basic Auth, `IP_ALLOWLIST`, or `TRUSTED_AUTH_PROXY` is set. Other traffic follows normal access control, including visitors that a reverse proxy or tunnel on the same machine forwards to loopback. Powerful actions such as backups, bulk import, update apply, sidecar install/download/delete, haptics, and custom tool mutation also require the admin secret: make it in **Settings → Advanced → Admin Access** on the server's own computer, or set `ADMIN_SECRET`; see [Access Control](docs/CONFIGURATION.md#access-control) for all access settings.
 
 ---
 
@@ -178,7 +178,7 @@ See [Appearance Settings](docs/appearance/appearance-settings.md) and [Custom CS
 
 ### AI Agent System
 
-Agents are optional AI helpers that work alongside your chats: they track the world, polish the prose, draw pictures, play music, and more. A fresh install comes with none, so Marinara stays light. Open **Agents → Download Agents** to install only the ones you want from the official [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog, then turn them on for each chat in **Chat Settings**. Marinara asks before updating an installed agent, and you can uninstall anything you no longer need. Packages marked as previews are offered only on the Engine `staging` update channel.
+Agents are optional AI helpers that work alongside your chats: they track the world, polish the prose, draw pictures, play music, and more. A fresh install comes with none, so Marinara stays light. Open **Agents → Agent Organizer** to install only the ones you want from the official [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog, then turn them on for each chat in **Chat Settings**. Marinara asks before updating an installed agent, and you can uninstall anything you no longer need. Packages marked as previews are offered only on the Engine `staging` update channel.
 
 - **Writer Agents** shape the story and clean up the prose: Prose Guardian, Continuity Checker, Narrative Director, Knowledge Retrieval, Knowledge Router, and Card Evolution Auditor.
 - **Tracker Agents** keep track of the world, the cast, and your persona: World State, Expression Engine, Quest Tracker, Background, Character Tracker, Persona Stats, Custom Tracker, Inventory Tracker, Beholder, Memory Nag, World Maps, Quartermaster, and Relationship Tracker.
@@ -207,7 +207,7 @@ Personal Extensions are disabled-by-default drafts authored for you by Professor
 - **Voice and audio:** text-to-speech through OpenAI-compatible servers, ElevenLabs, PocketTTS, or xAI Voice, plus optional ElevenLabs sound effects and music in Game Mode.
 - **Decision models:** an optional fast model that answers yes-or-no questions about the story, so agents, lorebook entries, and prompt sections switch on only when they should. Use a local model, a hosted TypeSafe or OpenRouter connection, or a server you run.
 
-Change a connection's model right from the **Connections** menu by the chat input: search the list or type a model ID, and star models to pin them to the top. Each chat can use its own connection or pick from a random pool, and API keys are encrypted at rest with AES-256. See [Supported AI Providers](docs/connections/providers-reference.md) and [Decision Models](docs/connections/decision-models.md).
+Change a chat's model right from the **Connections** menu by the chat input: search the list or type a model ID, and star models to add them to **Starred**. A pick there changes only that chat. Each chat can use its own model or pick from **Shuffle**, and API keys are encrypted at rest with AES-256. See [Supported AI Providers](docs/connections/providers-reference.md) and [Decision Models](docs/connections/decision-models.md).
 
 ### Export & Data
 
@@ -226,8 +226,9 @@ The full guide library is browsable inside the app: open **Documentation** from 
 | [docs/conversation/getting-started.md](docs/conversation/getting-started.md)         | Conversation Mode setup, DMs, groups, profiles (display name, about me, behavior), calls, selfies, and table games |
 | [docs/roleplay/getting-started.md](docs/roleplay/getting-started.md)                 | Roleplay Mode setup, sprites, HUD, agents, and connected chats                                                     |
 | [docs/game/getting-started.md](docs/game/getting-started.md)                         | Game Mode setup, world-gen, party play, storyboards, and troubleshooting                                           |
+| [docs/game/rulesets.md](docs/game/rulesets.md)                                       | Playing Game Mode on a ruleset such as 5e (SRD 5.1): choosing one, checks, sheets, and battles                     |
 | [docs/agents/built-in-agents.md](docs/agents/built-in-agents.md)                     | Modes, behavior, and setup for the downloadable first-party agents and feature packages                            |
-| [docs/noodle/overview.md](docs/noodle/overview.md)                                   | Noodle social timeline: setup, posting, interactions, images, and chat carryover                                   |
+| [docs/agents/noodle.md](docs/agents/noodle.md)                                       | Noodle social timeline: setup, posting, interactions, images, and chat carryover                                   |
 | [docs/prompts/generation-parameters.md](docs/prompts/generation-parameters.md)       | Sampler and output-parameter reference across providers                                                            |
 | [docs/REMOTE_ACCESS.md](docs/REMOTE_ACCESS.md)                                       | Remote access, Basic Auth, IP allowlists, and admin access                                                         |
 | [docs/conversation/calls.md](docs/conversation/calls.md)                             | Conversation audio-call setup, Local Whisper, TTS, and troubleshooting                                             |
@@ -237,7 +238,7 @@ The full guide library is browsable inside the app: open **Documentation** from 
 | [docs/media/tts-setup.md](docs/media/tts-setup.md)                                   | Text to speech (TTS) setup and voices                                                                              |
 | [docs/media/scene-video.md](docs/media/scene-video.md)                               | Scene-video provider setup and the Gallery animation workflow                                                      |
 | [docs/game/storyboard.md](docs/game/storyboard.md)                                   | Storyboard Agent installation, global defaults, and Roleplay and Game Mode workflows                               |
-| [docs/game/ltx-2-3-storyboards.md](docs/game/ltx-2-3-storyboards.md)                   | Krea 2 first frames, local LTX 2.3 ComfyUI animation, and tested Game Mode settings                               |
+| [docs/game/ltx-2-3-storyboards.md](docs/game/ltx-2-3-storyboards.md)                 | Krea 2 first frames, local LTX 2.3 ComfyUI animation, and tested Game Mode settings                                |
 | [docs/agents/agents-overview.md](docs/agents/agents-overview.md)                     | Agent system overview: downloading agents, phases, per-chat setup, and custom agents                               |
 | [docs/extending/custom-tools.md](docs/extending/custom-tools.md)                     | Function calling, custom tools, webhooks, scripts, and agent tool enablement                                       |
 | [docs/prompts/presets.md](docs/prompts/presets.md)                                   | Preset editor, prompt sections, groups, ordering, and variables                                                    |
@@ -255,7 +256,7 @@ The full guide library is browsable inside the app: open **Documentation** from 
 | [android/README.md](android/README.md)                                               | Android Termux bootstrap + WebView shell guide                                                                     |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                                                   | Contributor workflow, validation, versioning, and release steps                                                    |
 | [CHANGELOG.md](CHANGELOG.md)                                                         | Release notes                                                                                                      |
-| [AGENTS.md](AGENTS.md)                                                               | Maintainer notes for coding agents                                                                     |
+| [AGENTS.md](AGENTS.md)                                                               | Maintainer notes for coding agents                                                                                 |
 
 ---
 
@@ -283,6 +284,8 @@ The full guide library is browsable inside the app: open **Documentation** from 
 ## License
 
 Marinara Engine source code is licensed under the [GNU AGPLv3](LICENSE).
+
+Provider icons come from [Lobe Icons](https://github.com/lobehub/lobe-icons) by LobeHub ([MIT](packages/client/src/assets/provider-icons/LICENSE)); see [their notice](packages/client/src/assets/provider-icons/README.md) for the marks Marinara drew itself. Product names and logos are trademarks of their owners. Marinara Engine is not affiliated with them.
 
 ## Trademark & Branding
 

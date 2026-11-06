@@ -36,6 +36,7 @@ export function RulesetImportReviewModal({
   importing,
   failure,
   catalogs = [],
+  translation = false,
   onCancel,
   onConfirm,
 }: {
@@ -50,6 +51,8 @@ export function RulesetImportReviewModal({
   failure: string | null;
   /** Its catalogs and how many entries each holds (a package file's files included). */
   catalogs?: Array<{ label: string; count: number }>;
+  /** Language packs come with it (1.811): importing an installed version again keeps their translation. */
+  translation?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -82,7 +85,12 @@ export function RulesetImportReviewModal({
 
           {installedVersions.includes(review.version) && (
             <div role="status" className="rounded-lg bg-[var(--primary)]/10 px-3 py-2 text-xs text-[var(--primary)]">
-              {t("game.ruleset.import.alreadyInstalled", { version: review.version })}
+              {t(
+                translation
+                  ? "game.ruleset.import.alreadyInstalledTranslation"
+                  : "game.ruleset.import.alreadyInstalled",
+                { version: review.version },
+              )}
             </div>
           )}
 

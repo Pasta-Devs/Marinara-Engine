@@ -518,12 +518,15 @@ export function createAgentPipeline(
         parallelResults?: AgentResult[];
         /** Decision answers taken with the finished reply, in place of the pre-reply ones. */
         decisions?: AgentContext["decisions"];
+        /** The map location after the reply, in place of the pre-reply one (#8251). */
+        currentLocation?: AgentContext["currentLocation"];
       } = {},
     ): Promise<AgentResult[]> {
       const postAgents = agents.filter((agent) => agent.phase === "post_processing");
       const fullContext: AgentContext = {
         ...baseContext,
         ...("decisions" in options ? { decisions: options.decisions } : {}),
+        ...("currentLocation" in options ? { currentLocation: options.currentLocation } : {}),
         mainResponse,
         preGenInjections: options.preGenInjections ?? preGenerationInjections,
         parallelResults: options.parallelResults ?? parallelPhaseResults,

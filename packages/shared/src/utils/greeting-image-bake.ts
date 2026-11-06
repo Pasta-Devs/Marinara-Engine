@@ -75,6 +75,23 @@ export function readBakedGreetingImages(extensions: unknown): BakedGreetingImage
   );
 }
 
+/** Whether greetings currently use any of their recorded gallery copies. */
+export function hasBakedGreetingImages(data: GreetingFields): boolean {
+  const texts = greetingTexts(data);
+  return readBakedGreetingImages(data.extensions).some((entry) =>
+    texts.some((text) => text.includes(bakedGreetingImageRef(entry.file))),
+  );
+}
+
+/** Reusable mappings still named by a greeting URL or portable gallery reference. */
+export function referencedBakedGreetingImages(data: GreetingFields): BakedGreetingImage[] {
+  const urls = new Set(findGreetingImageUrls(data));
+  const texts = greetingTexts(data);
+  return readBakedGreetingImages(data.extensions).filter(
+    (entry) => urls.has(entry.url) || texts.some((text) => text.includes(bakedGreetingImageRef(entry.file))),
+  );
+}
+
 // The list is read after the greetings are mapped, so it can depend on what the mapping found.
 function withGreetings<T extends GreetingFields>(
   data: T,
@@ -103,20 +120,23 @@ export function applyBakedGreetingImages<T extends GreetingFields>(data: T, bake
       if (ref) used.add(url);
       return ref;
     });
-  // A link edited away while the download ran gets no record.
+  // Retain reusable copies across toggles; a link edited away during download gets no new record.
   return withGreetings(data, rewrite, () => [
-    ...readBakedGreetingImages(data.extensions),
-    ...baked.filter((entry) => used.has(entry.url)),
+    ...new Map(
+      [...referencedBakedGreetingImages(data), ...baked.filter((entry) => used.has(entry.url))].map((entry) => [
+        entry.url,
+        entry,
+      ]),
+    ).values(),
   ]);
 }
 
 /** Put the original web URLs back in place of baked gallery references. */
 export function restoreBakedGreetingImages<T extends GreetingFields>(data: T): T {
-  const baked = readBakedGreetingImages(data.extensions);
-  if (baked.length === 0) return data;
+  if (readBakedGreetingImages(data.extensions).length === 0) return data;
+  const baked = referencedBakedGreetingImages(data);
   const restore = (text: string) =>
     baked.reduce((next, entry) => next.split(bakedGreetingImageRef(entry.file)).join(entry.url), text);
-  // An empty list, not a missing key: character saves merge extensions, so a
-  // removed key would leave the stored list behind.
-  return withGreetings(data, restore, () => []);
+  // Keep the URL-to-file mapping so converting again can reuse the same gallery copy.
+  return withGreetings(data, restore, () => baked);
 }

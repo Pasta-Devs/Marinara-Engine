@@ -1,3 +1,5 @@
+import { partialInput } from "@marinara-engine/shared";
+import { filterAudioGenerationConnections, matchesAudioGenerationConnectionId } from "./connection-filters";
 import {
   worldGeneratorReads,
   gameWorldSchema,
@@ -6,6 +8,8 @@ import {
   readWorldSnapshot,
   rulesetRefSchema,
   storyScriptSchema,
+  TACTICAL_BATTLEFIELD_SIZES,
+  type TacticalBattlefieldSize,
 } from "@marinara-engine/shared";
 import {
   ANIME_GAME_PROMPT_TEMPLATE_ID,
@@ -75,6 +79,9 @@ export interface GameSetupImportConnection {
   imageService?: string | null;
   videoService?: string | null;
   audioSource?: string | null;
+  audioGenerationSource?: string | null;
+  audioGenerationLegacyConnectionId?: string | null;
+  profileImportReviewRequired?: unknown;
 }
 
 export interface GameSetupImportContext {
@@ -110,13 +117,21 @@ export interface GameSetupSummarySection {
 
 const TACTICAL_BATTLEFIELD_SEED_MAX = 0xffffffff;
 const TACTICAL_BATTLEFIELD_INSTRUCTIONS_MAX = 4_000;
-const TACTICAL_BATTLEFIELD_SIZES = new Set(["small", "medium", "large"]);
+const TACTICAL_BATTLEFIELD_SIZE_SET = new Set<string>(TACTICAL_BATTLEFIELD_SIZES);
+const BATTLEFIELD_SIZE_SUMMARY_KEYS: Record<TacticalBattlefieldSize, string> = {
+  small: "ui.game.gamesetupsummary.sizeSmall",
+  medium: "ui.game.gamesetupsummary.sizeMedium",
+  large: "ui.game.gamesetupsummary.sizeLarge",
+  huge: "ui.game.gamesetupsummary.sizeHuge",
+  vast: "ui.game.gamesetupsummary.sizeVast",
+  colossal: "ui.game.gamesetupsummary.sizeColossal",
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-const importedGenerationParametersSchema = generationParametersSchema.partial().strict();
+const importedGenerationParametersSchema = partialInput(generationParametersSchema).strict();
 
 function parseGenerationParameters(value: unknown): Partial<GenerationParameters> | undefined {
   if (value === undefined) return undefined;
@@ -268,7 +283,7 @@ function parseShareConfig(value: unknown): GameSetupConfig {
     }
     if (
       battlefield.size !== undefined &&
-      (typeof battlefield.size !== "string" || !TACTICAL_BATTLEFIELD_SIZES.has(battlefield.size))
+      (typeof battlefield.size !== "string" || !TACTICAL_BATTLEFIELD_SIZE_SET.has(battlefield.size))
     ) {
       throw new Error(translate("ui.game.gamesetupshare.invalidTacticalBattlefieldSize"));
     }
@@ -558,9 +573,11 @@ function resolveConnectionId(
       if (model && normalizeLookupValue(connection.model) === model) score += 3;
       if (
         service &&
-        [connection.imageService, connection.videoService, connection.audioSource].some(
-          (candidate) => normalizeLookupValue(candidate) === service,
-        )
+        [
+          connection.imageService,
+          connection.videoService,
+          connection.audioGenerationSource ?? connection.audioSource,
+        ].some((candidate) => normalizeLookupValue(candidate) === service)
       ) {
         score += 2;
       }
@@ -689,7 +706,11 @@ export function resolveGameSetupImport(
   const sceneConnectionId = resolveConnectionId(sourceConfig.sceneConnectionId, snapshots?.scene, context.connections);
   const imageConnectionId = resolveConnectionId(sourceConfig.imageConnectionId, snapshots?.image, context.connections);
   const videoConnectionId = resolveConnectionId(sourceConfig.videoConnectionId, snapshots?.video, context.connections);
-  const audioConnectionId = resolveConnectionId(sourceConfig.audioConnectionId, snapshots?.audio, context.connections);
+  const audioConnections = filterAudioGenerationConnections(context.connections);
+  const audioConnectionId =
+    audioConnections.find((connection) =>
+      matchesAudioGenerationConnectionId(connection, sourceConfig.audioConnectionId),
+    )?.id ?? resolveConnectionId(sourceConfig.audioConnectionId, snapshots?.audio, audioConnections);
   if ((sourceConfig.sceneConnectionId || snapshots?.scene) && !sceneConnectionId) {
     warnings.push(`${describeSavedResource(snapshots?.scene?.name, "The saved scene connection")} is unavailable.`);
   }
@@ -844,11 +865,12 @@ function tacticalBattlefieldRows(config: GameSetupConfig): GameSetupSummaryRow[]
       value:
         settings?.size == null
           ? translate("ui.game.gamesetupsummary.auto")
-          : settings.size === "small"
-            ? translate("ui.game.gamesetupsummary.sizeSmall")
-            : settings.size === "large"
-              ? translate("ui.game.gamesetupsummary.sizeLarge")
-              : translate("ui.game.gamesetupsummary.sizeMedium"),
+          : translate(
+              Object.hasOwn(BATTLEFIELD_SIZE_SUMMARY_KEYS, settings.size)
+                ? BATTLEFIELD_SIZE_SUMMARY_KEYS[settings.size]
+                : // An older or malformed value reads as the medium board it played as.
+                  BATTLEFIELD_SIZE_SUMMARY_KEYS.medium,
+            ),
     },
   ];
 }

@@ -66,6 +66,15 @@ assert.equal(sanitized[0]!.prompt, "girl, copper hair, green eyes", "whitespace 
 assert.deepEqual(sanitized[0]!.position, { x: 1, y: 0 }, "positions clamp to the unit square");
 assert.equal(sanitized[1]!.negativePrompt, "copper hair");
 assert.deepEqual(sanitized[1]!.position, { x: 0.33, y: 0.5 }, "positions round to two decimals and coerce strings");
+const longCaption = "embroidered silver threads, ".repeat(100) + "opal antlers";
+const longExclusions = "incorrect fur markings, ".repeat(100) + "missing anklets";
+const fullCaption = sanitizeCharacterPrompts(
+  [{ name: roster[0], prompt: longCaption, negativePrompt: longExclusions }],
+  roster,
+  22,
+)[0]!;
+assert.equal(fullCaption.prompt, longCaption, "the character caption is not clipped at 1,400 characters");
+assert.equal(fullCaption.negativePrompt, longExclusions, "character exclusions are not clipped at 700 characters");
 
 const noPositions = sanitizeCharacterPrompts(
   [
@@ -224,7 +233,9 @@ console.log("illustrator character prompts regression (manual + executor) passed
   const oversized = buildCharacterAppearanceReferenceBlock(
     Array.from({ length: 40 }, (_, index) => ({ name: `Colonist ${index + 1}`, appearance: "x".repeat(400) })),
   );
-  assert.ok(oversized.length < 9000, "the reference block is capped so a huge ensemble cannot flood the prompt");
+  for (let index = 0; index < 40; index += 1) {
+    assert.ok(oversized.includes(`[Colonist ${index + 1}] ${"x".repeat(400)}`), "every appearance is retained");
+  }
 }
 
 // #7053: an enabled, non-empty card override replaces the card appearance for
@@ -273,7 +284,7 @@ console.log("illustrator character prompts regression (manual + executor) passed
     readIllustratorAppearance({ appearance: normalAppearance, extensions: { imageAppearanceEnabled: true } }),
     normalizeIllustratorAppearance(normalAppearance),
   );
-  // Normalization still applies to the override (macro comments stripped, clipped).
+  // Normalization still applies to the override (macro comments stripped, whitespace normalized).
   assert.equal(
     readIllustratorAppearance({
       appearance: normalAppearance,
@@ -285,14 +296,13 @@ console.log("illustrator character prompts regression (manual + executor) passed
     "1girl, red hair",
     "the override is macro-stripped by the existing normalizer, not used raw",
   );
-  assert.ok(
-    (
-      readIllustratorAppearance({
-        appearance: normalAppearance,
-        extensions: { imageAppearanceEnabled: true, imageAppearance: "y".repeat(9000) },
-      }) ?? ""
-    ).length < 9000,
-    "the override is clipped by the existing normalizer",
+  assert.equal(
+    readIllustratorAppearance({
+      appearance: normalAppearance,
+      extensions: { imageAppearanceEnabled: true, imageAppearance: "y".repeat(9000) },
+    }),
+    "y".repeat(9000),
+    "the complete override is preserved by the normalizer",
   );
 
   // Personas are keyed by their own id, so both halves stay symmetric.
@@ -468,18 +478,18 @@ assert.equal(
   buildUncaptionedCharacterAppearanceBlock(
     [
       { name: "Aster", appearance: atLimitAppearance },
-      { name: "Briar", appearance: "would exceed the limit" },
+      { name: "Briar", appearance: "blue hair" },
     ],
     ["Aster", "Briar"],
     [],
   ),
-  appearancePrefix + atLimitAppearance,
-  "appearance fallback keeps complete lines within the existing reference budget",
+  appearancePrefix + atLimitAppearance + "\nBriar's Appearance: blue hair",
+  "appearance fallback retains later characters past the former reference budget",
 );
 assert.equal(
   buildUncaptionedCharacterAppearanceBlock([{ name: "Aster", appearance: atLimitAppearance + "x" }], ["Aster"], []),
-  "",
-  "an oversized first appearance is omitted instead of truncating its text",
+  appearancePrefix + atLimitAppearance + "x",
+  "a long first appearance is retained in full",
 );
 
 assert.equal(
@@ -491,8 +501,8 @@ assert.equal(
     ["Aster", "Briar"],
     [],
   ),
-  "Briar's Appearance: blue hair",
-  "an oversized entry does not discard later appearances that fit the budget",
+  appearancePrefix + atLimitAppearance + "x\nBriar's Appearance: blue hair",
+  "long entries and later appearances are both retained",
 );
 
 // Illustrate commands write their prompt like the Illustration button, so they get the same

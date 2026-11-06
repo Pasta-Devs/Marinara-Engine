@@ -4,8 +4,8 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { request } from "node:https";
 import { networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
-import { connect } from "node:net";
-import { connect as tlsConnect } from "node:tls";
+import { connect, Socket } from "node:net";
+import { connect as tlsConnect, TLSSocket } from "node:tls";
 import type { MultiplayerPeerResponse } from "../../packages/shared/src/schemas/multiplayer.schema.js";
 import {
   startMultiplayerPeerServer,
@@ -207,6 +207,40 @@ try {
   enabled = true;
   for (let count = 0; count < MULTIPLAYER_PEER_SERVER_LIMITS.requestsPerAddress; count++) await post(listener.port);
   assert.equal((await post(listener.port)).data.code, "rate-limited");
+
+  // Requests are limited per IPv4 address or IPv6 /64, as sockets are, so one IPv6 host cannot spend
+  // the shared budget from many addresses of its block. Loopback has no such block, so the listener
+  // is shown chosen peer addresses.
+  let peer = "";
+  const remoteAddress = Object.getOwnPropertyDescriptor(Socket.prototype, "remoteAddress")!.get!;
+  Object.defineProperty(TLSSocket.prototype, "remoteAddress", {
+    configurable: true,
+    get(this: TLSSocket) {
+      return peer || remoteAddress.call(this);
+    },
+  });
+  try {
+    const block = await startMultiplayerPeerServer({
+      tls,
+      port: 0,
+      host: "127.0.0.1",
+      enabled: () => true,
+      handle: async () => valid,
+    });
+    listeners.push(block);
+    peer = "2001:db8:1:2::a";
+    for (let count = 0; count < MULTIPLAYER_PEER_SERVER_LIMITS.requestsPerAddress; count++) await post(block.port);
+    peer = "2001:db8:1:2::b";
+    assert.equal(
+      (await post(block.port)).data.code,
+      "rate-limited",
+      "another address of the same /64 shares its limit",
+    );
+    peer = "2001:db8:1:3::a";
+    assert.deepEqual((await post(block.port)).data, valid, "a guest in another /64 is still served");
+  } finally {
+    Reflect.deleteProperty(TLSSocket.prototype, "remoteAddress");
+  }
 
   // With no bind host the room listener accepts IPv4 and IPv6 guests. A second client address
   // (IPv6 loopback, or 127.0.0.2 where only IPv4 exists) proves one flooding address cannot

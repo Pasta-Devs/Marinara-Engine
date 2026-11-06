@@ -51,17 +51,23 @@ export interface GameLootPlan {
 /**
  * The loot of one won fight. `tables` are the loot tables of the defeated opponents that carry one
  * (a ruleset fight's bestiary creatures); `defeated` is how many opponents fell, which the native tables
- * count by; `difficulty` is the game's. Null when nothing drops.
+ * count by; `difficulty` is the game's; `carried` is what the defeated still had on them (1.795), each by
+ * its item reference, which drops as it is. Null when nothing drops.
  */
 export async function planGameVictoryLoot(
   db: DB,
   chatId: string,
-  fight: { tables: readonly string[]; defeated: number; difficulty: string },
+  fight: {
+    tables: readonly string[];
+    defeated: number;
+    difficulty: string;
+    carried?: ReadonlyArray<{ ref: string; name: string; count: number }>;
+  },
   roll: (sides: number) => number,
   random: () => number = Math.random,
 ): Promise<GameLootPlan | null> {
   const context = await loadGameRulesetSheetContext(db, chatId);
-  if (context?.definition.items?.lootTables?.length) {
+  if (context?.definition.items?.lootTables?.length || (context && fight.carried?.length)) {
     const book = await loadGameInventoryItemBook(db, { chatId }, "player");
     if (!book) return null;
     // Into the shared view, the player's own bag asked first: the card named for who the chat plays
@@ -77,6 +83,10 @@ export async function planGameVictoryLoot(
         const before = counts.get(drop.item)?.count ?? 0;
         counts.set(drop.item, { name: drop.name, count: before + drop.count });
       }
+    }
+    for (const had of fight.carried ?? []) {
+      const before = counts.get(had.ref)?.count ?? 0;
+      counts.set(had.ref, { name: counts.get(had.ref)?.name ?? had.name, count: before + had.count });
     }
     const ops = [...counts].map(([item, drop]) => ({
       op: "add" as const,

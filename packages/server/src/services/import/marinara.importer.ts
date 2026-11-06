@@ -1,3 +1,4 @@
+import { restoreSpriteCatalog } from "../sprites/sprite-catalog.js";
 import {
   decodeLorebookImages,
   saveDecodedLorebookImages,
@@ -7,8 +8,11 @@ import {
 // Import: Marinara Engine native format (.marinara.json)
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
+import { inArray } from "../../db/file-query.js";
+import { characters, chats, personas } from "../../db/schema/index.js";
 import {
   canReparentFolder,
+  unassignCardFieldAlternatives,
   getFolderImportEntries,
   getFolderManifestConfig,
   isJsonRecord,
@@ -144,6 +148,20 @@ async function saveAvatarFromDataUrl(dataUrl: unknown, prefix: string, id: strin
   return { avatarPath: `/api/avatars/file/${filename}`, filePath: filepath };
 }
 
+function readLinkIds(ids: unknown, legacyId: unknown): string[] {
+  const listed = Array.isArray(ids) ? ids.filter((value): value is string => typeof value === "string") : [];
+  if (listed.length > 0) return listed;
+  return typeof legacyId === "string" ? [legacyId] : [];
+}
+
+/** The given IDs that name a row of `table` on this install, in their original order. */
+async function keepLocalIds(db: DB, table: typeof characters | typeof personas | typeof chats, ids: string[]) {
+  if (ids.length === 0) return [];
+  const rows = await db.select({ id: table.id }).from(table).where(inArray(table.id, ids));
+  const local = new Set(rows.map((row) => row.id));
+  return ids.filter((id) => local.has(id));
+}
+
 function readLorebookScope(value: unknown): { mode: "all" | "disabled" | "specific"; chatIds: string[] } {
   if (!value || typeof value !== "object") return { mode: "all", chatIds: [] };
   const raw = value as Record<string, unknown>;
@@ -158,13 +176,23 @@ function readLorebookScope(value: unknown): { mode: "all" | "disabled" | "specif
 // by writing each one under data/sprites/<id>/. Filenames are sanitized to
 // just an expression stem + an extension matching the actual image bytes, so
 // a malicious export can't traverse out of the sprites dir.
-export async function restoreSprites(sprites: unknown, id: string): Promise<void> {
+export async function restoreSprites(sprites: unknown, id: string, catalog?: unknown): Promise<void> {
+  const restoreCatalog = async (restored: ReadonlyMap<string, string>) => {
+    try {
+      await restoreSpriteCatalog(id, catalog, restored);
+    } catch (err) {
+      logger.warn(err, "Could not restore optional sprite catalog for %s", id);
+    }
+  };
   if (sprites === undefined || sprites === null) return;
   if (!Array.isArray(sprites)) {
     logger.warn("Skipped invalid sprite collection for %s", id);
     return;
   }
-  if (sprites.length === 0) return;
+  if (sprites.length === 0) {
+    await restoreCatalog(new Map());
+    return;
+  }
   if (sprites.length > MAX_EMBEDDED_SPRITE_COUNT) {
     logger.warn("Skipped %d embedded sprites for %s; limit is %d", sprites.length, id, MAX_EMBEDDED_SPRITE_COUNT);
     return;
@@ -198,6 +226,7 @@ export async function restoreSprites(sprites: unknown, id: string): Promise<void
   // whose stems sanitize to the same string (e.g. "happy!" and "happy?" both
   // collapsing to "happy_") don't silently overwrite each other.
   const usedNames = new Set<string>();
+  const restored = new Map<string, string>();
   for (const { decoded, index, rawName } of prepared) {
     const stem =
       rawName
@@ -217,10 +246,12 @@ export async function restoreSprites(sprites: unknown, id: string): Promise<void
     try {
       const filepath = assertInsideDir(dir, join(dir, safeName));
       await writeFile(filepath, decoded.buffer);
+      restored.set(rawName.replace(/\.[^.]+$/, ""), safeName.replace(/\.[^.]+$/, ""));
     } catch (err) {
       logger.warn(err, "Failed to restore sprite %d for %s", index, id);
     }
   }
+  await restoreCatalog(restored);
 }
 
 // Restore gallery images embedded as
@@ -464,6 +495,7 @@ async function importCharacter(data: unknown, db: DB) {
     metadata?: unknown;
     avatar?: unknown;
     sprites?: unknown;
+    spriteCatalog?: unknown;
     gallery?: unknown;
   };
   const charData = isJsonRecord(d?.data) ? { ...d.data } : undefined;
@@ -476,6 +508,7 @@ async function importCharacter(data: unknown, db: DB) {
     charData.extensions && typeof charData.extensions === "object"
       ? ({ ...(charData.extensions as Record<string, unknown>) } as Record<string, unknown>)
       : {};
+  extensions.cardFieldAlternatives = unassignCardFieldAlternatives(extensions.cardFieldAlternatives);
   const useCharacterSheetAsReference = extensions.useCharacterSheetAsReference === true;
   delete extensions.characterSheetImageId;
   extensions.useCharacterSheetAsReference = false;
@@ -539,7 +572,7 @@ async function importCharacter(data: unknown, db: DB) {
         throw error;
       }
     }
-    await restoreSprites(d.sprites, result.id);
+    await restoreSprites(d.sprites, result.id, d.spriteCatalog);
     const characterSheetImageId = await restoreCharacterGallery(d.gallery, result.id, galleryStorage);
     if (characterSheetImageId) {
       await storage.update(
@@ -633,6 +666,7 @@ async function importPersona(data: unknown, db: DB) {
   // Alias selection and native-import defaults stay local; the shared adapter
   // owns the legacy structured-field inventory and its decoding policy.
   const personaInput: Record<string, unknown> = {
+    cardFieldAlternatives: unassignCardFieldAlternatives(d.cardFieldAlternatives),
     name: typeof d.name === "string" ? d.name : "Imported Persona",
     ...(d.avatarCrop === undefined ? {} : { avatarCrop: d.avatarCrop }),
     ...(d.trackerCardColors === undefined ? {} : { trackerCardColors: d.trackerCardColors }),
@@ -651,6 +685,8 @@ async function importPersona(data: unknown, db: DB) {
     "comment",
     "creator",
     "phoneticName",
+    "summary",
+    "mes_example",
     "description",
     "personality",
     "scenario",
@@ -694,7 +730,7 @@ async function importPersona(data: unknown, db: DB) {
       logger.warn(err, "Skipped optional persona avatar restore for %s; persona row is already imported", result.id);
     }
     try {
-      await restoreSprites(d.sprites, result.id);
+      await restoreSprites(d.sprites, result.id, d.spriteCatalog);
     } catch (err) {
       logger.warn(err, "Skipped optional persona sprite restore for %s; persona row is already imported", result.id);
     }
@@ -734,6 +770,19 @@ async function importLorebookPayload(data: unknown, db: DB) {
   for (const entry of d.entries ?? []) decodedImages.set(entry, await decodeLorebookImages(entry.images));
   const savedImages = new Map<Record<string, unknown>, Awaited<ReturnType<typeof saveDecodedLorebookImages>>>();
   const lb = d.lorebook;
+  // Links and chat scope name rows of the exporting install. Keep the ones that exist here (a restore on
+  // the same install), so links do not dangle and a "specific chats" scope does not hide the book everywhere.
+  const scope = readLorebookScope(lb.scope);
+  const legacyChatId = typeof lb.chatId === "string" ? lb.chatId : null;
+  const [characterIds, personaIds, localChatIds] = await Promise.all([
+    keepLocalIds(db, characters, readLinkIds(lb.characterIds, lb.characterId)),
+    keepLocalIds(db, personas, readLinkIds(lb.personaIds, lb.personaId)),
+    keepLocalIds(db, chats, legacyChatId ? [...scope.chatIds, legacyChatId] : scope.chatIds),
+  ]);
+  const scopeChatIds = scope.chatIds.filter((chatId) => localChatIds.includes(chatId));
+  // A "specific chats" scope with none of its chats here applies to all chats, so the book can be added to
+  // one. It is then imported as non-global, or a global book limited to a few chats would join every chat.
+  const scopeCollapsed = scope.mode === "specific" && scopeChatIds.length === 0;
   let newLb: Record<string, unknown> | null = null;
   try {
     for (const entry of d.entries ?? [])
@@ -753,22 +802,12 @@ async function importLorebookPayload(data: unknown, db: DB) {
         vectorIncludeAssistant: lb.vectorIncludeAssistant === true,
         vectorScoreThreshold: Number(lb.vectorScoreThreshold ?? 0.3),
         vectorMaxResults: Number(lb.vectorMaxResults ?? 10),
-        characterId: typeof lb.characterId === "string" ? lb.characterId : null,
-        characterIds: Array.isArray(lb.characterIds)
-          ? lb.characterIds.filter((value): value is string => typeof value === "string")
-          : typeof lb.characterId === "string"
-            ? [lb.characterId]
-            : [],
-        personaId: typeof lb.personaId === "string" ? lb.personaId : null,
-        personaIds: Array.isArray(lb.personaIds)
-          ? lb.personaIds.filter((value): value is string => typeof value === "string")
-          : typeof lb.personaId === "string"
-            ? [lb.personaId]
-            : [],
-        chatId: typeof lb.chatId === "string" ? lb.chatId : null,
-        isGlobal: lb.isGlobal === true || lb.isGlobal === "true",
+        characterIds,
+        personaIds,
+        chatId: legacyChatId && localChatIds.includes(legacyChatId) ? legacyChatId : null,
+        isGlobal: !scopeCollapsed && (lb.isGlobal === true || lb.isGlobal === "true"),
         enabled: lb.enabled !== false,
-        scope: readLorebookScope(lb.scope),
+        scope: scopeCollapsed ? { mode: "all", chatIds: [] } : { ...scope, chatIds: scopeChatIds },
         tags: Array.isArray(lb.tags) ? lb.tags.map(String) : [],
         generatedBy: "import",
         sourceAgentId: typeof lb.sourceAgentId === "string" ? lb.sourceAgentId : null,

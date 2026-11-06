@@ -424,6 +424,12 @@ try {
     // Without the switch, `with=` on an ability check still means nothing.
     const unpaired = pool((doc) => delete doc.resolution.pool.abilityPlusAbility);
     assert.equal(matchRulesetCheckTarget(unpaired, "Nerve", "Warmth")?.withAbility, undefined);
+    // A tool that is no skill on the sheet, rolled with an ability, is that ability's check (laptop
+    // room playtest 2026-10-30: "Leatherworker's tools" rolled +0); with none it is still nothing.
+    const tool = matchRulesetCheckTarget(gravewatch, "Tanner's tools", "Warmth");
+    assert.deepEqual(tool, { type: "ability", id: "warmth", label: "Tanner's tools" });
+    assert.equal(rulesetCheckModifier(warden, tool), 4);
+    assert.equal(matchRulesetCheckTarget(gravewatch, "Tanner's tools"), null);
 
     // The record names the second ability, so a reader can tell where the extra dice came from.
     const rolled = await resolve(gravewatch, `[skill_check: skill="Nerve" dc="1" with="Warmth"]`);

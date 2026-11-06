@@ -181,7 +181,14 @@ export async function resolveConversationPresenceRuntime(args: {
   if (!args.regenerateMessageId && !args.impersonate) {
     respondingConvoCharInfo = respondingConvoCharInfo.filter((character) => effectiveStatus(character) !== "offline");
   }
-  if (respondingConvoCharInfo.length === 0 && !args.regenerateMessageId && !args.impersonate) {
+  // A conversation with no character at all is answered as a plain assistant: there is nobody whose presence
+  // could hold the reply back, and ending here sent the player nothing at all (playtest 2026-10-26).
+  if (
+    requestedResponders.length > 0 &&
+    respondingConvoCharInfo.length === 0 &&
+    !args.regenerateMessageId &&
+    !args.impersonate
+  ) {
     const sceneNames = requestedResponders
       .filter((character) => sceneBusyCharIds.has(character.charId))
       .map((character) => character.displayName);
@@ -190,6 +197,12 @@ export async function resolveConversationPresenceRuntime(args: {
       .map((character) => character.displayName);
     if (sceneNames.length) args.writeSse({ type: "offline", reason: "scene_busy", characters: sceneNames });
     if (offlineNames.length) args.writeSse({ type: "offline", characters: offlineNames });
+    // A user message nobody can answer: say so instead of ending the stream silently.
+    if (convoCharInfo.length === 0 && args.chatMessages.at(-1)?.role === "user")
+      args.writeSse({
+        type: "error",
+        data: "This chat has no character. Add a character before sending a message.",
+      });
     args.writeSse({ type: "done" });
     args.endSse();
     return buildPresenceResult({

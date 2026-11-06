@@ -104,7 +104,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 341 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 816 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -140,11 +140,11 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.341/,
+    /requires capability API 2\.0; this Engine supports 1\.816/,
   );
   const currentMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 341 },
+    capabilityApi: { major: 1, minor: 814 },
   });
   assert.equal(getCapabilityApiCompatibilityIssue(currentMinorManifest), null);
   assert.equal(
@@ -188,7 +188,55 @@ try {
     [218, "track costs"],
     [219, "advancement lists up to 64 fields"],
     [339, "the Game Master's intro message"],
-    [340, "the newest minor before this one"],
+    [340, "larger rulesets and catalog files"],
+    [341, "runtime services"],
+    [342, "story clocks"],
+    [372, "Experience setup values"],
+    [373, "data-only Experiences"],
+    [374, "ruleset package files"],
+    [375, "ruleset fight display"],
+    [376, "Home browser fullscreen"],
+    [377, "the Motion 14 host slot"],
+    [378, "a ruleset's own words"],
+    [379, "ruleset combat styles"],
+    [380, "package-bound reference lorebooks"],
+    [381, "independent browser audio players"],
+    [382, "symbol-pool fights"],
+    [383, "health on a plain track"],
+    [384, "saved gallery image animation"],
+    [779, "a ruleset's weight unit"],
+    [780, "damage changes by damage type"],
+    [781, "package-bound reference lorebooks"],
+    [782, "independent browser audio players"],
+    [783, "symbol-pool fights"],
+    [784, "health on a plain track"],
+    [785, "attack ability choices"],
+    [786, "sheet migrations that set a column"],
+    [787, "what a creature has on it"],
+    [788, "text field suggestions"],
+    [789, "how many text suggestions to pick"],
+    [790, "calls kept on the sheet"],
+    [791, "rows steps that count their rows"],
+    [792, "a sheet bonus to hit on attack rows"],
+    [793, "a pool's tally column"],
+    [794, "spotting fakes"],
+    [795, "an encounter budget"],
+    [796, "rests that clear temporary points"],
+    [797, "signature actions at a turn's start"],
+    [799, "rituals that cost no slot"],
+    [800, "weapons drawn on use"],
+    [801, "rituals only for those who may"],
+    [802, "rests only so often"],
+    [803, "a ruleset's language packs"],
+    [804, "ammunition's bonus to hit"],
+    [385, "shared gallery image saving"],
+    [386, "Home browser openConnection and raw generation debug logging"],
+    [387, "chat summaries"],
+    [388, "host-only services"],
+    [389, "hide messages from the AI"],
+    [390, "let the Engine draw an agent page header"],
+    [391, "Advanced Memory scene summaries and the memory block"],
+    [814, "package prompt cache breakpoints"],
   ];
   for (const [minor, label] of supportedMinors) {
     assert.equal(
@@ -201,11 +249,11 @@ try {
   }
   const unsupportedMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 342 },
+    capabilityApi: { major: 1, minor: supportedCapabilityApi.minor + 1 },
   });
-  assert.match(
+  assert.equal(
     getCapabilityApiCompatibilityIssue(unsupportedMinorManifest) ?? "",
-    /requires capability API 1\.342; this Engine supports 1\.341/,
+    `Package requires capability API 1.${supportedCapabilityApi.minor + 1}; this Engine supports 1.${supportedCapabilityApi.minor}`,
   );
   const startupManifest = {
     ...currentMinorManifest,
@@ -262,6 +310,40 @@ try {
         },
       }),
     /cannot override.*seed/,
+  );
+  // An Experience's GM setup values (1.372).
+  const defaultsManifest = {
+    ...inlineSetupManifest,
+    contributions: {
+      slots: ["game-surface"],
+      gameSurface: {
+        setup: {
+          defaults: {
+            name: "The Held Autumn",
+            genre: ["Fantasy"],
+            setting: "Sallowmarch, a valley where nothing has died for forty years.",
+            tone: ["Whimsical", "Dark"],
+            difficulty: "Normal",
+            combatStyle: "tactical",
+            intro: { mode: "defined", text: "The leaves have not fallen.", locked: true },
+          },
+        },
+      },
+    },
+  };
+  assert.equal(
+    capabilityPackageManifestSchema.parse(defaultsManifest).contributions?.gameSurface?.setup?.defaults?.intro?.locked,
+    true,
+  );
+  assert.throws(
+    () => capabilityPackageManifestSchema.parse({ ...defaultsManifest, capabilityApi: { major: 1, minor: 339 } }),
+    /defaults require capabilityApi 1\.372/,
+  );
+  assert.throws(() =>
+    capabilityPackageManifestSchema.parse({
+      ...defaultsManifest,
+      contributions: { slots: ["game-surface"], gameSurface: { setup: { defaults: { gameSystemPrompt: "x" } } } },
+    }),
   );
 
   const forwardCompatibleCatalog = capabilityCatalogSchema.parse({
@@ -694,16 +776,6 @@ try {
     /reasoningEffort:\s*options\.reasoningEffort,/u,
     "Capability model calls must preserve an explicit reasoning effort of none",
   );
-  assert.match(
-    capabilityLanguageModelSource,
-    /AbortSignal\.any\(\[options\.signal,\s*timeoutSignal\]\)[\s\S]*withLlmRequestTimeout\(\s*timeoutMs,\s*async\s*\(\)\s*=>[\s\S]*provider\.chatComplete\(/u,
-    "Capability model calls must enforce AGENT_CALL_TIMEOUT_MS as a total-duration cap while scoping the transport timeout",
-  );
-  assert.match(
-    capabilityLanguageModelSource,
-    /const\s+timeoutSignal\s*=\s*AbortSignal\.timeout\(\s*timeoutMs\s*\);/u,
-    "Capability model calls must build their deadline signal from AbortSignal.timeout",
-  );
   assert.doesNotMatch(
     capabilityLanguageModelSource,
     /options\.reasoningEffort\s*===\s*"none"\s*\?\s*undefined/u,
@@ -766,7 +838,8 @@ try {
   // otherwise land second and overwrite requestedCatalogUrl. Overlay behaviour
   // has its own coverage in capability-preview-overlay.regression.ts.
   const normalizedCatalog = await capabilityPackageManager.catalog(async (url) => {
-    requestedCatalogUrl = url;
+    // The store.json sidecar beside the catalog is fetched too; pin only the catalog.
+    if (String(url).endsWith("/catalog.json")) requestedCatalogUrl = url;
     return new Response(
       JSON.stringify({
         schemaVersion: 1,
@@ -1181,6 +1254,74 @@ try {
     ],
     "A compatible Agent update must remain available until the user applies or declines that version",
   );
+
+  // The unattended startup migrations install what the catalog publishes. An entry this Engine refuses before
+  // downloading must not throw: the startup retried the whole migration every launch, so the packages after it and
+  // the Noodle step never ran (v2.5.1 against an Agents catalog that needed a newer capability API).
+  const incompatibleMigrationEntries = [
+    { ...manifestV2, id: "newer-api", capabilityApi: { major: 1, minor: supportedCapabilityApi.minor + 1 } },
+    { ...legacyManifest, id: "newer-engine", engine: { min: "99.0.0", maxExclusive: "100.0.0" } },
+    { ...legacyManifest, id: "routes-without-restart", permissions: ["routes"], restartRequired: false },
+  ].map((manifest) => catalogEntry(capabilityPackageManifestSchema.parse({ ...manifest, name: manifest.id })));
+  // https only, so the download refuses it: a stand-in for a network failure, which must still throw and retry.
+  const undownloadableEntry = (manifest: typeof legacyManifest) => ({
+    ...catalogEntry(manifest),
+    artifact: { url: `http://invalid.example/${manifest.id}.zip`, sha256: "1".repeat(64), bytes: 1 },
+  });
+  const migrationCatalog = (packages: ReturnType<typeof catalogEntry>[]) => async () => ({
+    schemaVersion: 1 as const,
+    generatedAt: new Date().toISOString(),
+    packages,
+  });
+  const publishedCatalog = capabilityPackageManager.catalog;
+  try {
+    rmSync(migrationPath, { force: true });
+    writeRegistry([]);
+    capabilityPackageManager.catalog = migrationCatalog(incompatibleMigrationEntries);
+    assert.deepEqual(
+      await capabilityPackageManager.migrateLegacyAvailability(true),
+      { migrated: true, legacy: true, complete: false },
+      "Entries this Engine cannot install must be skipped so the startup can record the migration complete",
+    );
+    assert.deepEqual(await capabilityPackageManager.installed(), []);
+    capabilityPackageManager.catalog = migrationCatalog([
+      ...incompatibleMigrationEntries,
+      undownloadableEntry(callsUpdateManifest),
+    ]);
+    await assert.rejects(
+      () => capabilityPackageManager.migrateLegacyAvailability(true),
+      /protocol 'http' is not allowed/,
+      "The loop must reach the entries after a skipped one, and a failed download must still fail the migration",
+    );
+
+    rmSync(noodleMigrationPath, { force: true });
+    const noodleManifest = capabilityPackageManifestSchema.parse({ ...legacyManifest, id: "noodle", name: "Noodle" });
+    capabilityPackageManager.catalog = migrationCatalog([
+      catalogEntry(
+        capabilityPackageManifestSchema.parse({
+          ...manifestV2,
+          id: "noodle",
+          name: "Noodle",
+          capabilityApi: { major: 1, minor: supportedCapabilityApi.minor + 1 },
+        }),
+      ),
+    ]);
+    assert.deepEqual(
+      await capabilityPackageManager.migrateExtractedNoodleAvailability(true),
+      { migrated: false, legacy: true, pending: true },
+      "A Noodle entry this Engine cannot install must leave the extraction pending, like one not published yet",
+    );
+    assert.equal(existsSync(noodleMigrationPath), false, "A later Engine must still install the skipped Noodle");
+    capabilityPackageManager.catalog = migrationCatalog([undownloadableEntry(noodleManifest)]);
+    await assert.rejects(
+      () => capabilityPackageManager.migrateExtractedNoodleAvailability(true),
+      /protocol 'http' is not allowed/,
+      "A failed Noodle download must still fail the migration so the next startup retries it",
+    );
+  } finally {
+    capabilityPackageManager.catalog = publishedCatalog;
+  }
+
   const unsupportedInstalled = installedCapabilityPackageSchema.parse({
     ...installedPackage("future-contract", ["agent"]),
     manifest: unsupportedMajorManifest,

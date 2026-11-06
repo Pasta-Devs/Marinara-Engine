@@ -2,13 +2,36 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolvePlaywrightProjectStdio, resolvePnpmRunner } from "../pnpm-runner.mjs";
+import { removeLegacyPnpmStore, resolvePlaywrightProjectStdio, resolvePnpmRunner } from "../pnpm-runner.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const nativeRunner = resolvePnpmRunner({
+  environment: { npm_config_user_agent: "pnpm/12.15.0", npm_execpath: process.execPath },
+});
+assert.deepEqual(
+  nativeRunner,
+  { command: process.execPath, args: [] },
+  "Native pnpm must execute directly, not as Node source",
+);
+assert.equal(spawnSync(nativeRunner.command, [...nativeRunner.args, "--version"]).status, 0);
+const nativeCli = spawnSync(
+  process.execPath,
+  [fileURLToPath(new URL("../pnpm-runner.mjs", import.meta.url)), "--version"],
+  {
+    encoding: "utf8",
+    env: { ...process.env, npm_config_user_agent: "pnpm/12.15.0", npm_execpath: process.execPath },
+  },
+);
+assert.equal(nativeCli.status, 0, nativeCli.stderr);
+assert.equal(
+  nativeCli.stdout.trim(),
+  process.version,
+  "Nested scripts reuse the native runner instead of a global pnpm",
+);
 const windowsNode = "C:\\Program Files\\nodejs\\node.exe";
 const windowsPnpmCli =
   "C:\\Users\\runner\\AppData\\Local\\pnpm\\.tools\\pnpm\\10.34.5\\node_modules\\pnpm\\bin\\pnpm.cjs";
@@ -41,7 +64,8 @@ assert.deepEqual(
     environment: {
       ComSpec: windowsComSpec,
       npm_config_user_agent: "pnpm/10.34.5 npm/? node/v24.15.0 win32 x64",
-      npm_execpath: "C:\\Users\\runner\\AppData\\Local\\pnpm\\.tools\\@pnpm+exe\\10.34.5\\node_modules\\@pnpm\\exe\\pnpm.exe",
+      npm_execpath:
+        "C:\\Users\\runner\\AppData\\Local\\pnpm\\.tools\\@pnpm+exe\\10.34.5\\node_modules\\@pnpm\\exe\\pnpm.exe",
     },
   }),
   { command: windowsComSpec, args: ["/d", "/s", "/c", "pnpm"] },
@@ -81,6 +105,65 @@ assert.equal(
   "inherit",
   "POSIX Playwright project children keep inherited stdio.",
 );
+
+// pnpm 12 keeps the checkout's store in .pnpm-store/v11; the pnpm 10 store beside it is dead weight.
+const storeRoot = mkdtempSync(join(tmpdir(), "marinara-legacy-store-"));
+try {
+  for (const layout of ["v10/files/00", "v11/files/00"])
+    mkdirSync(join(storeRoot, ".pnpm-store", layout), { recursive: true });
+  assert.equal(removeLegacyPnpmStore(storeRoot, {}), false, "Without a pnpm user agent nothing is removed.");
+  assert.equal(
+    removeLegacyPnpmStore(storeRoot, { npm_config_user_agent: "pnpm/10.34.5 npm/? node/v24.15.0 linux x64" }),
+    false,
+    "A pnpm 10 install still uses its v10 store.",
+  );
+  assert.ok(existsSync(join(storeRoot, ".pnpm-store", "v10")));
+  assert.equal(
+    removeLegacyPnpmStore(storeRoot, { npm_config_user_agent: "pnpm/12.15.0 npm/? node/? linux x64" }),
+    true,
+    "A pnpm 12 install reclaims the stranded pnpm 10 store.",
+  );
+  assert.ok(!existsSync(join(storeRoot, ".pnpm-store", "v10")));
+  assert.ok(existsSync(join(storeRoot, ".pnpm-store", "v11", "files", "00")), "The live v11 store stays.");
+  assert.equal(
+    removeLegacyPnpmStore(storeRoot, { npm_config_user_agent: "pnpm/12.15.0 npm/? node/? linux x64" }),
+    false,
+  );
+} finally {
+  rmSync(storeRoot, { recursive: true, force: true });
+}
+const nativeDepsSource = readFileSync(join(repositoryRoot, "scripts", "ensure-native-deps.mjs"), "utf8");
+assert.match(nativeDepsSource, /removeLegacyPnpmStore\(repoRoot\)/u, "The root postinstall reclaims the v10 store.");
+// Termux drops the v10 store before installing, so both stores never have to fit at once. The launcher runs
+// under set -e, so a store it cannot remove, like a prune that fails, is a warning and startup goes on.
+const termuxLauncherSource = readFileSync(join(repositoryRoot, "start-termux.sh"), "utf8");
+const pruneStart = termuxLauncherSource.indexOf("prune_pnpm_store() {");
+const pruneEnd = termuxLauncherSource.indexOf("\ninstall_workspace_dependencies()", pruneStart);
+assert.ok(pruneStart >= 0 && pruneEnd > pruneStart, "start-termux.sh must define prune_pnpm_store");
+const termuxStoreRoot = mkdtempSync(join(tmpdir(), "marinara-termux-store-"));
+const runTermuxPrune = (stubs) => {
+  mkdirSync(join(termuxStoreRoot, ".pnpm-store", "v10", "files"), { recursive: true });
+  writeFileSync(join(termuxStoreRoot, "pnpm-calls"), "");
+  const script = `set -e\n${termuxLauncherSource.slice(pruneStart, pruneEnd)}\n${stubs}\nprune_pnpm_store\necho startup-continued`;
+  const result = spawnSync("bash", ["-c", script], { cwd: termuxStoreRoot, encoding: "utf8" });
+  assert.equal(result.status, 0, `prune_pnpm_store must not stop startup:\n${result.stdout}${result.stderr}`);
+  assert.match(result.stdout, /startup-continued/u);
+  return { output: result.stdout, pnpmCalls: readFileSync(join(termuxStoreRoot, "pnpm-calls"), "utf8") };
+};
+try {
+  const recordPnpm = 'run_pnpm() { echo "$*" >> pnpm-calls; }';
+  let run = runTermuxPrune(recordPnpm);
+  assert.ok(!existsSync(join(termuxStoreRoot, ".pnpm-store", "v10")), "Termux removes the v10 store.");
+  assert.equal(run.pnpmCalls, "store prune\n");
+  assert.doesNotMatch(run.output, /\[WARN\]/u);
+  run = runTermuxPrune(`rm() { return 1; }\n${recordPnpm}`);
+  assert.match(run.output, /\[WARN\] Could not remove the pnpm 10 dependency cache/u);
+  assert.equal(run.pnpmCalls, "store prune\n", "The store is still pruned after a failed removal.");
+  run = runTermuxPrune("run_pnpm() { return 1; }");
+  assert.match(run.output, /\[WARN\] Could not prune the pnpm store/u);
+} finally {
+  rmSync(termuxStoreRoot, { recursive: true, force: true });
+}
 
 async function reservePort() {
   const server = createServer();

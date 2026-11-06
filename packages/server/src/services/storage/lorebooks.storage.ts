@@ -1251,20 +1251,21 @@ export function createLorebooksStorage(db: DB) {
     },
 
     /** Delete many entries of one lorebook in a single pass (chat metadata pruned once). */
-    async bulkRemoveEntries(lorebookId: string, entryIds: string[]) {
+    async bulkRemoveEntries(lorebookId: string, entryIds: string[], beforeCommit?: (tx: DB) => Promise<unknown>) {
       const uniqueEntryIds = Array.from(new Set(entryIds));
       let deleted = 0;
-      await createChatsStorage(db).pruneLorebookChatMetadata(async () => {
-        const rows = await db
+      await createChatsStorage(db).pruneLorebookChatMetadata(async (tx) => {
+        const rows = await tx
           .select({ id: lorebookEntries.id })
           .from(lorebookEntries)
           .where(and(eq(lorebookEntries.lorebookId, lorebookId), inArray(lorebookEntries.id, uniqueEntryIds)));
         const ids = rows.map((row) => row.id as string);
         if (ids.length > 0) {
-          await db
+          await tx
             .delete(lorebookEntries)
             .where(and(eq(lorebookEntries.lorebookId, lorebookId), inArray(lorebookEntries.id, ids)));
         }
+        if (ids.length > 0) await beforeCommit?.(tx);
         deleted = ids.length;
         return ids;
       });
@@ -1353,9 +1354,10 @@ export function createLorebooksStorage(db: DB) {
       return this.listEntries(lorebookId);
     },
 
-    async removeEntry(id: string) {
+    async removeEntry(id: string, beforeCommit?: (tx: DB) => Promise<unknown>) {
       await createChatsStorage(db).pruneLorebookChatMetadata(async (tx) => {
         await tx.delete(lorebookEntries).where(eq(lorebookEntries.id, id));
+        await beforeCommit?.(tx);
         return [id];
       });
     },

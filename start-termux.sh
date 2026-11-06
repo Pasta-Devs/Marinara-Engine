@@ -102,6 +102,19 @@ if ! command -v node &> /dev/null || ! node -v &> /dev/null; then
     pkg install -y -o Dpkg::Options::="--force-confold" nodejs-lts
 fi
 
+# Termux does not support partial upgrades: a nodejs-lts newer than the rest of
+# Termux (such as its libc++) cannot start ("CANNOT LINK EXECUTABLE"), and
+# reinstalling it does not help. Upgrading every package repairs it.
+if ! node -v &> /dev/null; then
+    echo "  [..] Node.js cannot start — upgrading all Termux packages..."
+    pkg upgrade -y -o Dpkg::Options::="--force-confold" || true
+    if ! node -v &> /dev/null; then
+        echo "  [ERR] Node.js could not start in Termux."
+        echo "        Try:  pkg upgrade && pkg install nodejs-lts"
+        exit 1
+    fi
+fi
+
 if ! NODE_VERSION=$(node -v 2>/dev/null | cut -d'.' -f1 | tr -d 'v'); then
     echo "  [ERR] Node.js is still not working after install."
     echo "        Try:  pkg upgrade && pkg install nodejs-lts"
@@ -221,7 +234,7 @@ load_launcher_setting() {
 # Read only settings used by this launcher. The server loads every other .env
 # value itself. Node parses these as inert dotenv data; no shell code is sourced.
 if [ -f .env ]; then
-    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR MARINARA_MAX_RESIDENT_CHATS; do
+    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR MARINARA_MAX_RESIDENT_CHATS LOG_FORMAT; do
         load_launcher_setting "$setting_name"
     done
 fi
@@ -273,6 +286,13 @@ prune_pnpm_store() {
     # Old releases otherwise accumulate there indefinitely and can consume several
     # gigabytes even though the built application itself is comparatively small.
     echo "  [..] Reclaiming dependency cache space from older releases..."
+    # The pinned pnpm 12 never reads the pnpm 10 store and its prune cannot see it. Drop it before the
+    # install so both stores never have to fit at once (the install relinks node_modules anyway).
+    # ponytail: only the v10 layout; delete once no supported update starts from a pnpm 10 install.
+    # Under set -e a bare rm that fails (read-only file, busy mount) would end startup; it only costs space.
+    if ! rm -rf .pnpm-store/v10; then
+        echo "  [WARN] Could not remove the pnpm 10 dependency cache (.pnpm-store/v10); continuing with it in place."
+    fi
     if ! run_pnpm store prune >/dev/null 2>&1; then
         echo "  [WARN] Could not prune the pnpm store; continuing without removing cached packages."
     fi
@@ -588,6 +608,9 @@ fi
 export NODE_ENV=production
 export PORT=${PORT:-7860}
 export HOST=${HOST:-0.0.0.0}
+# The server's output reaches Termux through tee, so it cannot see a terminal and would print
+# JSON lines. Ask for readable ones, so debug mode's prompts keep their line breaks.
+export LOG_FORMAT=${LOG_FORMAT:-pretty}
 
 if [ -n "$SSL_CERT" ] && [ -n "$SSL_KEY" ]; then
   PROTOCOL=https
@@ -633,9 +656,10 @@ echo "    Press Ctrl+C to stop"
 echo "  ══════════════════════════════════════════"
 echo ""
 
-# Open in Termux browser if available (no-op if not)
+# Keep the authenticated Android entry path, opening only after server readiness.
+BROWSER_ARGS=()
 if [ "$AUTO_OPEN_BROWSER_ENABLED" = "1" ] && command -v termux-open-url &> /dev/null; then
-    (sleep 3 && termux-open-url "${PROTOCOL}://${BROWSER_HOST}:${PORT}${LOCAL_BROWSER_PATH}") &
+    BROWSER_ARGS=(--open-browser "${PROTOCOL}://${BROWSER_HOST}:${PORT}${LOCAL_BROWSER_PATH}")
 elif [ "$AUTO_OPEN_BROWSER_ENABLED" != "1" ]; then
     echo "  [OK] Auto-open disabled (AUTO_OPEN_BROWSER=${AUTO_OPEN_BROWSER_VALUE})"
 fi
@@ -691,7 +715,7 @@ cd packages/server
 # Preserve Node's real exit status. The launcher's session-wide tee has already
 # made update, build, and server output durable for the next support report.
 set +e
-node ../../scripts/run-server.mjs dist/index.js
+node ../../scripts/run-server.mjs dist/index.js "${BROWSER_ARGS[@]}"
 MARINARA_SERVER_STATUS=$?
 set -e
 if [ "$MARINARA_SERVER_STATUS" -ne 0 ]; then

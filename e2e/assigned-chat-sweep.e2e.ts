@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseCharacter } from "./character-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 test.use({ actionTimeout: 10000 });
@@ -78,8 +79,10 @@ test("mobile character reordering keeps Settings still and restores scrolling", 
     const section = page.locator('[data-chat-settings-section="roleplay-characters"]');
     const header = section.locator('[role="button"][aria-expanded]').first();
     if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
-    const rows = section.locator('[data-touch-reorder-item="chat-settings-character"]');
-    const handle = rows.first().getByTitle("Drag to reorder", { exact: true });
+    // 5e6cec22c0 dropped the grip: a long press anywhere on the row picks it up, as in the other sidebar lists.
+    const rows = section.locator('[data-drag-kind="chat-settings-character"]');
+    const preview = page.locator('body > [data-drag-kind="chat-settings-character"][aria-hidden="true"]');
+    const handle = rows.first().locator("[data-drag-surface]");
     await handle.scrollIntoViewIfNeeded();
     const scroller = page.locator(".mari-chat-settings-drawer .overflow-y-auto").first();
     await rows.first().evaluate((el) => el.scrollIntoView({ block: "center" }));
@@ -91,20 +94,19 @@ test("mobile character reordering keeps Settings still and restores scrolling", 
     const endY = target.y + target.height - 4;
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
-    for (let i = 1; i <= 8; i++) {
-      await cdp.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x, y: y + ((endY - y) * i) / 8 }],
-      });
-    }
+    await expect(preview).toBeVisible();
+    // One move straight to the lower half: on the way, the shared hook's insertion gap opens above the next row and
+    // pushes it down under a gliding finger, which would drop the row back where it was.
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: endY }] });
+    await expect(rows.nth(1)).toHaveAttribute("data-drag-insert", "after");
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await expect
       .poll(async () => (await (await request.get(`/api/chats/${data.chat.id}`)).json()).characterIds)
       .toEqual([cards[1].id, cards[0].id, cards[2].id, cards[3].id]);
     expect(await scroller.evaluate((el) => el.scrollTop)).toBe(startScroll);
-    const edgeHandle = rows.first().getByTitle("Drag to reorder", { exact: true });
+    const edgeHandle = rows.first().locator("[data-drag-surface]");
     await scroller.evaluate((el) => {
-      const row = el.querySelector('[data-touch-reorder-item="chat-settings-character"]')!;
+      const row = el.querySelector('[data-drag-kind="chat-settings-character"]')!;
       el.scrollTop += row.getBoundingClientRect().top - el.getBoundingClientRect().top - 16;
     });
     const edgeScroll = await scroller.evaluate((el) => el.scrollTop);
@@ -113,18 +115,14 @@ test("mobile character reordering keeps Settings still and restores scrolling", 
       type: "touchStart",
       touchPoints: [{ x: edge.x + edge.width / 2, y: edge.y + edge.height / 2 }],
     });
-    await expect(
-      page.locator('body > [data-touch-reorder-item="chat-settings-character"][aria-hidden="true"]'),
-    ).toBeVisible();
+    await expect(preview).toBeVisible();
     await page.waitForTimeout(200);
     expect(
       await scroller.evaluate((el) => el.scrollTop),
       "Active drag near the panel edge must not scroll Settings",
     ).toBe(edgeScroll);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
-    await expect(
-      page.locator('body > [data-touch-reorder-item="chat-settings-character"][aria-hidden="true"]'),
-    ).toHaveCount(0);
+    await expect(preview).toHaveCount(0);
     const rect = (await scroller.boundingBox())!;
     const sx = rect.x + rect.width - 12;
     const sy = rect.y + rect.height / 2;
@@ -369,11 +367,14 @@ test("Game setup offers library cards in both the GM and party pickers", async (
     await page.getByRole("button", { name: "Next", exact: true }).click();
     await page.getByRole("button", { name: "Next", exact: true }).click();
     await page.getByRole("button", { name: /Character GM/ }).click();
-    const choices = page.getByRole("button", { name: new RegExp(`${name}$`) });
-    await expect(choices).toHaveCount(2);
-    await choices.last().click();
-    await expect(page.getByText("Party Members (1 selected)", { exact: true })).toBeVisible();
-    await choices.first().click();
+    // #8763: the GM and party fields are CharacterSelect pickers over the whole library.
+    const wizard = page.locator('[data-component="GameSetupWizard"]');
+    const party = wizard.getByRole("button", { name: "Choose a character", exact: true });
+    await chooseCharacter(page, party, "Characters", name);
+    await expect(wizard.getByText("Party Members (1 selected)", { exact: true })).toBeVisible();
+    const gm = wizard.getByText("GM Character", { exact: true }).locator("..").getByRole("button");
+    await chooseCharacter(page, gm, "Characters", name);
+    await expect(gm).toContainText(name);
     await expect(page.getByText("No characters found.", { exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("game-library-pickers.png") });
   } finally {

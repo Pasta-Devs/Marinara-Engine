@@ -1,104 +1,103 @@
 # Linking Lorebooks to Characters and Personas
 
-This guide shows how to link lorebooks to a character or a persona so they turn on automatically in the right chats. It also covers embedding a lorebook inside a character card, and the per-chat **Lorebooks** controls. A lorebook is a keyword-triggered set of world-info entries. See [Lorebooks Overview](overview.md) if you are new to them.
+Link a lorebook to a character or persona and it turns on by itself in the right chats. You can also embed a lorebook inside a character card, and control lorebooks for one chat. New to lorebooks? Start with [Lorebooks Overview](overview.md).
 
-## Two ways to attach a lorebook
+## Link or embed
 
-There are two different ways to attach a lorebook to a character. They behave differently, so pick the one you want.
+| Feature | Link (assign) | Embed |
+| --- | --- | --- |
+| What happens | The character or persona points to a lorebook in your library. | The lorebook is written into the character card. |
+| Turns on | In chats with that character or persona. | Same, and it travels with the card. |
+| Exports with the card | No | Yes |
+| Available for | Characters and personas | Characters only |
 
-- **Link (Assign)**: the lorebook stays in your library. The character or persona points to it. The lorebook turns on by itself in chats that include that character or use that persona. A linked lorebook does NOT travel inside an exported character card.
-- **Embed**: the lorebook is written into the character card itself. It travels with the card when you export or share the character. Embedding is available for characters only, not personas.
-
-Most of the time you want to link a lorebook. Embed only when you plan to share the character card with the lorebook baked in.
+Most of the time, link. Embed only when you plan to share the card with its lorebook.
 
 ## The Lorebook tab in the editor
 
-Both the Character editor and the Persona editor have a **Lorebook** tab.
+The character editor and the persona editor both have a **Lorebook** tab.
 
 1. Open a character or persona for editing.
-2. Click the **Lorebook** tab.
-3. You will see a **Lorebooks** section with two buttons: **New** and **Assign Lorebook**.
+2. Click the **Lorebook** tab. The **Lorebooks** section has two buttons, **New** and **Assign Lorebook**.
 
-**New** creates a fresh lorebook that is already linked to the character or persona you are editing. It opens the **Create Lorebook** window with the **Category** set to **Character**.
-
-**Assign Lorebook** links an existing lorebook from your library. The picker only shows lorebooks in the **Character** category. This is described next.
+**New** creates a lorebook already linked to this character or persona, with its category set to **Character**. **Assign Lorebook** links a lorebook you already have.
 
 ## Assign an existing lorebook
 
-The **Assign Lorebook** picker only shows lorebooks whose **Category** is **Character**. This is true when editing a persona too. A lorebook in another category, such as World or NPC, will not appear in the picker or in the assigned list. To make it appear, open the lorebook and set its **Category** to **Character** on the **Overview** tab. The **New** button avoids this problem, because it creates a Character-category lorebook for you.
+Before you start: the picker lists only lorebooks whose **Category** is **Character**, for personas too. If a lorebook is missing, open it, set **Category** to **Character** on the **Overview** tab, and try again.
 
 1. In the **Lorebook** tab, click **Assign Lorebook**.
-2. In the search box, type part of the lorebook name to find it.
-3. Click the lorebook you want. A check mark appears next to it.
-4. On the right, choose a **Scope** (see the next section).
+2. Type part of the name in the search box.
+3. Click the lorebook. A check mark appears.
+4. Leave **Scope** on **All chats with** the name, or change it (see below).
 5. Click **Assign**.
 
-The lorebook now appears in the assigned list. Each assigned lorebook row has a **Scope** button to change its scope later, and a trash icon to remove the link. Click the lorebook name to open it in the full editor.
+The lorebook now shows in the assigned list. Use the **Scope** button on its row to change the scope, and the trash icon to remove the link. Click the name to open the lorebook.
 
-A lorebook that is set to Global is active in every chat. It cannot also be linked to a character or persona. Global is explained in [Lorebooks Overview](overview.md).
+A global lorebook cannot also be linked. See [Lorebooks Overview](overview.md).
 
-## Scope: which chats can use the linked lorebook
+### Scope
 
-**Scope** controls where a linked lorebook is allowed to turn on. It does not mean every chat in Marinara. It means chats that include this character, or that use this persona. There are three scope modes.
+**Scope** decides which chats may use the linked lorebook. Only chats with this character, or using this persona, are ever considered.
 
-- **All chats with [name]**: the default. The lorebook turns on in every chat that includes this character or uses this persona.
-- **Disabled for all chats**: the link stays, but the lorebook never turns on. Use this to pause a lorebook without unlinking it.
-- **Specific chats**: you pick exact chats from a checklist. Only the chats you check can use the lorebook. The list shows chats that already include this character or use this persona.
+| Scope | Result |
+| --- | --- |
+| **All chats with** (the name) | The default. It turns on in every such chat. |
+| **Disabled for all chats** | The link stays, but the lorebook never turns on. Use it to pause. |
+| **Specific chats** | Only the chats you check in the list. Check at least one before you can save. |
 
-If you choose **Specific chats**, you must check at least one chat before you can save.
-
-To change scope later, click the **Scope** button on the assigned lorebook row, adjust it, and click **Assign** again.
+To change scope later, click **Scope** on the row, adjust it, and click **Assign** again.
 
 ## Embed a lorebook into a character card
 
-Embedding writes a lorebook into the character card so it exports with the character. This is for characters only. Use it when you want to share a character that already carries its world info.
+Before you start: assign the lorebook to the character first (see above).
 
-1. Open the character in the Character editor.
-2. Go to the **Lorebook** tab.
-3. Make sure the lorebook you want is already assigned (see above).
-4. On that lorebook's row, click **Embed into card**.
+1. Open the character and click the **Lorebook** tab.
+2. On the lorebook's row, click **Embed into card**.
 
-You should see an **Embedded** badge appear on the row. From now on the lorebook entries live inside the card and export with it.
+An **Embedded** badge appears on the row, and the entries now export with the card.
 
-A character card holds one embedded lorebook at a time. If a card already has one, the **Embed into card** button is disabled with the note "Remove the current embedded lorebook first". Remove the existing embedded copy before embedding a different lorebook.
+A card holds one embedded lorebook. If it already has one, **Embed into card** is disabled, and its tooltip says to remove the current embedded lorebook first.
 
-If you edit the linked lorebook after embedding, click **Refresh** on its row. This rewrites the embedded copy from the lorebook's current entries, so the baked-in copy stays up to date.
+After you edit the linked lorebook, click **Refresh** on its row to rewrite the embedded copy from the current entries.
 
-## Managing an embedded lorebook
+### Manage an embedded lorebook
 
-When a character card already has an embedded lorebook, extra controls appear below the assigned list. A read-only list of the embedded entries appears there too.
+When a card has an embedded lorebook, these controls appear under the assigned list, with a read-only list of its entries.
 
-- **Import Embedded Lorebook**: turns the card's baked-in entries into a normal, editable lorebook in your library. The new lorebook is linked back to the character. The button reads **Reimport Embedded Lorebook** once a linked copy already exists.
-- **Edit Embedded Lorebook**: opens that linked lorebook in the full editor. Your edits there sync back into the card's embedded copy automatically.
-- **Remove from card**: deletes the embedded copy from the card. Any separately linked lorebook in your library is left alone.
+- **Import Embedded Lorebook** turns the card's entries into a normal lorebook in your library, linked back to the character. Once a linked copy exists, the button reads **Reimport Embedded Lorebook**.
+- **Edit Embedded Lorebook** opens that linked lorebook. Your edits sync back into the card's copy.
+- **Remove from card** deletes the embedded copy. A separately linked lorebook is left alone.
 
-This is useful for cards you imported from other tools. Many imported cards arrive with an embedded lorebook. Click **Import Embedded Lorebook** to get a fully editable version in Marinara.
+Many cards imported from other tools arrive with an embedded lorebook. Click **Import Embedded Lorebook** to get an editable version.
 
 ## The Chat Settings Lorebooks section
 
-Each chat has its own **Lorebooks** controls. This is where you see which lorebooks are active in the current chat and adjust them for that chat only.
+Each chat has its own lorebook controls.
 
 1. Open a chat.
 2. Open **Chat Settings**.
-3. Find the **Lorebooks** section. The count badge shows how many lorebooks are active.
+3. Find the **Lorebooks** section. A badge shows how many lorebooks are active.
 
-Every active lorebook shows one or more badges telling you why it is on:
+Each active lorebook has a badge that says why it is on.
 
-- **Chat**: you pinned it to this chat by hand.
-- **Global**: it is a global lorebook.
-- **Character**: it is linked to a character in this chat.
-- **Persona**: it is linked to the persona in this chat.
+| Badge | Meaning |
+| --- | --- |
+| **Chat** | You added it to this chat. |
+| **Global** | It is a global lorebook. |
+| **Character** | It is linked to a character in this chat. |
+| **Persona** | It is linked to this chat's persona. |
 
-You can change what is active for just this chat.
+You can change what is active for this chat only.
 
-- **Add Lorebook**: pins a lorebook to this chat. Pinned lorebooks show the **Chat** badge.
-- Trash icon (**Remove from chat**): unpins a lorebook you added by hand.
-- Eye-off icon (**Disable in this chat**): temporarily hides an auto-activated lorebook for this chat only, without unlinking it. Disabled lorebooks show a struck-through name and a **Disabled** badge.
-- Eye icon (**Enable in this chat**): turns a disabled lorebook back on for this chat.
+- **Add Lorebook** adds a lorebook to this chat. It shows the **Chat** badge.
+- The trash icon (**Remove from chat**) removes a lorebook you added.
+- The eye-off icon (**Disable in this chat**) hides an automatic lorebook here without unlinking it. It then shows a struck-through name and a **Disabled** badge.
+- The eye icon (**Enable in this chat**) turns it back on.
 
 ### Lorebook Token Budget
 
-**Lorebook Token Budget** is a numeric field in this section. It caps how much lorebook text can be injected in this chat, measured in tokens. The default is **8192**. Set it to **0** for no cap. This chat-wide budget is separate from each lorebook's own token budget. Both limits apply. See [Lorebook Token Budgets and Recursion](token-budgets.md) for how the two budgets work together.
+**Lorebook Token Budget** caps how many tokens of lorebook text this chat can add. The default is 8192, and 0 means no cap. It applies on top of each lorebook's own **Token Budget**. See [Lorebook Token Budgets and Recursion](token-budgets.md).
 
 ## Related guides
 

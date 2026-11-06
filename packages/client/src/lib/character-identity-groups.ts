@@ -22,6 +22,8 @@ function parseIds(value: unknown): string[] {
   }
 }
 
+export const UNGROUPED_CHARACTER_GROUP_ID = "__ungrouped-character-persona__";
+
 export function buildCharacterIdentityGroups(
   characters: CharacterIdentityChoice[],
   characterGroups: CharacterGroup[],
@@ -42,7 +44,7 @@ export function buildCharacterIdentityGroups(
   const ungrouped = characters.filter((character) => !groupedIds.has(character.id));
   if (ungrouped.length > 0) {
     groups.push({
-      id: "__ungrouped-character-persona__",
+      id: UNGROUPED_CHARACTER_GROUP_ID,
       name: ungroupedLabel,
       description: "",
       avatarPath: null,

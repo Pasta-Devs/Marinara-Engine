@@ -4,9 +4,9 @@
 
 export const EMOJI_CATEGORIES = [
   {
-    "label": "Smileys & Emotion",
-    "icon": "😀",
-    "emojis": [
+    label: "Smileys & Emotion",
+    icon: "😀",
+    emojis: [
       "😀",
       "😃",
       "😄",
@@ -177,13 +177,13 @@ export const EMOJI_CATEGORIES = [
       "🗨️",
       "🗯️",
       "💭",
-      "💤"
-    ]
+      "💤",
+    ],
   },
   {
-    "label": "People & Body",
-    "icon": "👋",
-    "emojis": [
+    label: "People & Body",
+    icon: "👋",
+    emojis: [
       "👋",
       "🤚",
       "🖐️",
@@ -571,13 +571,13 @@ export const EMOJI_CATEGORIES = [
       "🧑‍🧒",
       "🧑‍🧒‍🧒",
       "👣",
-      "🫆"
-    ]
+      "🫆",
+    ],
   },
   {
-    "label": "Animals & Nature",
-    "icon": "🐾",
-    "emojis": [
+    label: "Animals & Nature",
+    icon: "🐾",
+    emojis: [
       "🐵",
       "🐒",
       "🦍",
@@ -737,13 +737,13 @@ export const EMOJI_CATEGORIES = [
       "🪹",
       "🪺",
       "🍄",
-      "🪾"
-    ]
+      "🪾",
+    ],
   },
   {
-    "label": "Food & Drink",
-    "icon": "🍕",
-    "emojis": [
+    label: "Food & Drink",
+    icon: "🍕",
+    emojis: [
       "🍇",
       "🍈",
       "🍉",
@@ -874,13 +874,13 @@ export const EMOJI_CATEGORIES = [
       "🥄",
       "🔪",
       "🫙",
-      "🏺"
-    ]
+      "🏺",
+    ],
   },
   {
-    "label": "Travel & Places",
-    "icon": "🚗",
-    "emojis": [
+    label: "Travel & Places",
+    icon: "🚗",
+    emojis: [
       "🌍",
       "🌎",
       "🌏",
@@ -1099,13 +1099,13 @@ export const EMOJI_CATEGORIES = [
       "☄️",
       "🔥",
       "💧",
-      "🌊"
-    ]
+      "🌊",
+    ],
   },
   {
-    "label": "Activities",
-    "icon": "⚽",
-    "emojis": [
+    label: "Activities",
+    icon: "⚽",
+    emojis: [
       "🎃",
       "🎄",
       "🎆",
@@ -1190,13 +1190,13 @@ export const EMOJI_CATEGORIES = [
       "🧵",
       "🪡",
       "🧶",
-      "🪢"
-    ]
+      "🪢",
+    ],
   },
   {
-    "label": "Objects",
-    "icon": "💡",
-    "emojis": [
+    label: "Objects",
+    icon: "💡",
+    emojis: [
       "👓",
       "🕶️",
       "🥽",
@@ -1462,13 +1462,13 @@ export const EMOJI_CATEGORIES = [
       "🪬",
       "🗿",
       "🪧",
-      "🪪"
-    ]
+      "🪪",
+    ],
   },
   {
-    "label": "Symbols",
-    "icon": "💯",
-    "emojis": [
+    label: "Symbols",
+    icon: "💯",
+    emojis: [
       "🏧",
       "🚮",
       "🚰",
@@ -1692,13 +1692,13 @@ export const EMOJI_CATEGORIES = [
       "💠",
       "🔘",
       "🔳",
-      "🔲"
-    ]
+      "🔲",
+    ],
   },
   {
-    "label": "Flags",
-    "icon": "🏁",
-    "emojis": [
+    label: "Flags",
+    icon: "🏁",
+    emojis: [
       "🏁",
       "🚩",
       "🎌",
@@ -1968,9 +1968,9 @@ export const EMOJI_CATEGORIES = [
       "🇿🇼",
       "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
       "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-      "🏴󠁧󠁢󠁷󠁬󠁳󠁿"
-    ]
-  }
+      "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
+    ],
+  },
 ] as const;
 
 export const EMOJI_SEARCH_NAMES: Readonly<Record<string, string>> = {
@@ -3556,7 +3556,7 @@ export const EMOJI_SEARCH_NAMES: Readonly<Record<string, string>> = {
   "🆑": "cl button",
   "🆒": "cool button",
   "🆓": "free button",
-  "ℹ️": "information",
+  ℹ️: "information",
   "🆔": "id button",
   "Ⓜ️": "circled m",
   "🆕": "new button",
@@ -3887,5 +3887,5 @@ export const EMOJI_SEARCH_NAMES: Readonly<Record<string, string>> = {
   "🇿🇼": "flag: zimbabwe",
   "🏴󠁧󠁢󠁥󠁮󠁧󠁿": "flag: england",
   "🏴󠁧󠁢󠁳󠁣󠁴󠁿": "flag: scotland",
-  "🏴󠁧󠁢󠁷󠁬󠁳󠁿": "flag: wales"
+  "🏴󠁧󠁢󠁷󠁬󠁳󠁿": "flag: wales",
 };

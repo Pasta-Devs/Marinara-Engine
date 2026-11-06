@@ -152,7 +152,21 @@ try {
   assert.equal(untouched.enabled, false, "a rejected edit leaves fields unchanged");
   assert.ok(!untouched.keys.includes("Pier"), "a rejected edit leaves keys unchanged");
   assert.equal((await request("GET", `/api/lorebooks/${other.id}/entries/${foreign.id}`)).keys[0], "Harbor");
-  await request("POST", `/api/lorebooks/${book.id}/entries/bulk-edit`, { entryIds: allIds, set: {} }, 400);
+  for (const [set, message] of [
+    [{ enabled: "yes" }, "Invalid input: expected boolean, received string"],
+    [{ probability: "often" }, "Invalid input: expected number, received string"],
+    [{ folderId: 5 }, "Invalid input: expected string, received number"],
+    [{ probability: 101 }, "Too big: expected number to be <=100"],
+    [{}, "Choose at least one change to apply"],
+  ]) {
+    const invalid = await request(
+      "POST",
+      `/api/lorebooks/${book.id}/entries/bulk-edit`,
+      { entryIds: allIds, set },
+      400,
+    );
+    assert.deepEqual(invalid, { error: message });
+  }
   await request("POST", `/api/lorebooks/missing/entries/bulk-edit`, { entryIds: allIds, set: { enabled: true } }, 404);
 
   // Delete: one pass, only this book's entries.

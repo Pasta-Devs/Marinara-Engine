@@ -1,3 +1,4 @@
+import { chooseConnection } from "./connection-picker.js";
 // Making a 2D avatar from a sprite, end to end against the real server with local image and vision models
 // that hold their answers: Cancel aborts the picture or mesh avatar being made (the model's request closes)
 // and leaves the panel idle with only finished pictures, Try again shows the picture being redone, and a
@@ -6,10 +7,15 @@
 // pictures in one sheet; they are offered, kept and saved together.
 import { expect, test, type Page } from "@playwright/test";
 import AdmZip from "adm-zip";
+import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { sharp } from "../scripts/regressions/fixtures/avatar-2d-fixtures.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
+
+const APP_VERSION = (
+  JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
+).version;
 
 const LAYOUT = {
   headBox: [110, 40, 490, 470],
@@ -154,8 +160,9 @@ async function mountGenerationPanel(page: Page, ownerId: string) {
     )) as { AvatarGenerationPanel: unknown };
     const mount = document.createElement("div");
     mount.dataset.avatarGeneration = "true";
+    // Under the app's windows (z-index 10000), so the model picker the panel opens (#8456) stays on top.
     mount.style.cssText =
-      "position:fixed;inset:0;z-index:99999;overflow:auto;background:var(--background);color:var(--foreground);padding:12px";
+      "position:fixed;inset:0;z-index:9999;overflow:auto;background:var(--background);color:var(--foreground);padding:12px";
     document.body.append(mount);
     ReactDOM.createRoot(mount).render(
       React.createElement(
@@ -214,9 +221,15 @@ test("Cancel stops the picture being made, and avatars made from a sprite keep i
       route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
     );
     await seedUIState(page, { hasCompletedOnboarding: true, reviewImagePromptsBeforeSend: false });
+    // What's New would cover the model picker.
+    await page.addInitScript(
+      (version) => localStorage.setItem("marinara:whats-new:seen-version", version),
+      APP_VERSION,
+    );
     await page.goto("/");
     const panel = await mountGenerationPanel(page, characterId);
-    await panel.getByLabel("Image connection").selectOption(imageId);
+    // The image field is a model picker since #8456.
+    await chooseConnection(page, panel.getByRole("button", { name: /^Image model/ }), imageId);
 
     // ── Cancel while a blink picture is being drawn ──
     // Every feeling shows the one neutral face, so it is the only row, with its blink and talk slots empty.
@@ -287,7 +300,12 @@ test("Cancel stops the picture being made, and avatars made from a sprite keep i
       .toMatchObject({ source: "file", path: expect.stringMatching(/^pngtuber\/.+\.png$/u) });
 
     // ── Cancel while the vision model looks at the sprite for the mesh avatar ──
-    await panel.getByLabel("Chat connection that can see pictures").selectOption(visionId);
+    await chooseConnection(
+      page,
+      // Renamed from "Chat connection" in #8456.
+      panel.getByRole("button", { name: /^Chat provider that can see pictures/ }),
+      visionId,
+    );
     // The neutral sprite is picked for a mesh avatar until the user picks another.
     await expect(
       panel.getByRole("group", { name: "Sprite to use" }).getByRole("button", { name: "neutral" }),
@@ -366,9 +384,14 @@ test("An image connection that can't edit draws a new face with its blink and ta
       route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
     );
     await seedUIState(page, { hasCompletedOnboarding: true, reviewImagePromptsBeforeSend: false });
+    // What's New would cover the model picker.
+    await page.addInitScript(
+      (version) => localStorage.setItem("marinara:whats-new:seen-version", version),
+      APP_VERSION,
+    );
     await page.goto("/");
     const panel = await mountGenerationPanel(page, characterId);
-    await panel.getByLabel("Image connection").selectOption(connectionId);
+    await chooseConnection(page, panel.getByRole("button", { name: /^Image model/ }), connectionId);
     await panel.getByRole("button", { name: "Make 2 pictures" }).click();
 
     // One sheet makes the new face and both of its pictures.

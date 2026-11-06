@@ -151,7 +151,8 @@ try {
       };`,
     react: `export const useState = (initial) => globalThis.__gearHooks.useState(initial);
       export const useMemo = (fn) => fn(); export const useCallback = (fn) => fn;
-      export const useRef = (current) => ({ current }); export const useId = () => 'gear-test';`,
+      export const useRef = (current) => ({ current }); export const useId = () => 'gear-test'; export const useEffect = () => {};
+      export const createContext = (value) => ({ value }); export const useContext = (context) => context.value;`,
     "react/jsx-runtime": `export const Fragment = 'fragment'; export const jsx = (type, props) => ({type, props}); export const jsxs = jsx;`,
     "react-i18next": `export const useTranslation = () => ({ t: (key) => key });`,
     "@tanstack/react-query": `export const useQueries = ({combine}) => combine([]);`,
@@ -163,7 +164,7 @@ try {
     "../../lib/ruleset-catalog": `export const visibleCatalogEntries = (_d, _l, _c, entries) => entries;`,
     "../../lib/ruleset-resolution": `export const rulesetCheckValueText = (_d, value) => String(value);`,
     "../ui/DraftNumberInput": `export const DraftNumberInput = 'number';`,
-    "./RulesetTypedInput": `export const TypedInput = 'input', inputClass = '', labelClass = ''; export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));`,
+    "./RulesetTypedInput": `export const TypedInput = 'input', inputClass = '', labelClass = ''; export const rulesetPickCount = () => undefined; export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));`,
   };
   const built = await bundle({
     stdin: {

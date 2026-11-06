@@ -1,4 +1,7 @@
-import { readFile } from "node:fs/promises";
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,6 +40,163 @@ try {
   ];
 
   const failures = unsafePatterns.filter(({ pattern }) => pattern.test(code));
+  // #7933: nsExec and cmd.exe stripped the nested download quotes before PowerShell parsed them.
+  // Windows compiles and runs these exact NSIS/nsExec lines with only the provider APIs stubbed.
+  const prerequisiteLines = lines.filter((line) => /nsExec::ExecToLog.*powershell/i.test(line));
+  const prerequisiteScripts = prerequisiteLines.map(
+    (line) => /^\s*nsExec::ExecToLog `powershell -NoProfile -Command "([^"\r\n]+)"`$/.exec(line)?.[1],
+  );
+  if (prerequisiteScripts.length !== 4 || prerequisiteScripts.some((script) => !script)) {
+    failures.push({
+      message: "Prerequisite PowerShell commands must run directly with one intact quoted script argument.",
+    });
+  } else {
+    const executable = process.platform === "win32" ? "powershell.exe" : "pwsh";
+    const probe = spawnSync(executable, ["-NoProfile", "-Command", "exit 0"], { windowsHide: true });
+    if (probe.error?.code === "ENOENT" && process.platform !== "win32") {
+      console.log("PowerShell unavailable; native prerequisite command proof runs in the Windows platform check.");
+    } else {
+      assert.equal(probe.status, 0, `PowerShell must be available: ${probe.error ?? probe.stderr}`);
+      // Windows PowerShell expands 8.3 aliases such as RUNNER~1; compare the same canonical directory.
+      const temp = await realpath(await mkdtemp(resolve(tmpdir(), "Marinara O'Brien & (prereq) ")));
+      try {
+        const definitions = new Map(
+          [...content.matchAll(/^!define (\w+) "([^"\r\n]+)"$/gm)].map((match) => match.slice(1)),
+        );
+        const stubPath = resolve(temp, "prerequisite-stubs.ps1");
+        const tracePath = resolve(temp, "trace.txt");
+        const inheritedTemp = resolve(temp, "inherited-temp");
+        await mkdir(inheritedTemp);
+        const preamble =
+          [
+            "$ErrorActionPreference = 'Stop'",
+            "if ($env:TEMP -ne $env:MARINARA_INHERITED_TEMP) { throw 'Inherited temporary directory fixture was not applied' }",
+            "function Trace($label) { [IO.File]::AppendAllText($env:MARINARA_TRACE_FILE, $label + [Environment]::NewLine) }",
+            "function Invoke-WebRequest { param($Uri, $OutFile, [switch]$UseBasicParsing); if ($Uri -ne $env:MARINARA_EXPECT_URI -or $OutFile -ne $env:MARINARA_EXPECT_FILE -or !$UseBasicParsing) { throw ('Unexpected download arguments: URI=' + $Uri + '; expected URI=' + $env:MARINARA_EXPECT_URI + '; file=' + $OutFile + '; expected file=' + $env:MARINARA_EXPECT_FILE + '; basic parsing=' + $UseBasicParsing) }; Trace 'download-stub' }",
+            "function Get-FileHash { param($Algorithm, $LiteralPath); if ($Algorithm -ne 'SHA256' -or $LiteralPath -ne $env:MARINARA_EXPECT_FILE) { throw 'Unexpected hash arguments' }; Trace 'hash-stub'; @{ Hash = $env:MARINARA_STUB_HASH } }",
+            "function Get-AuthenticodeSignature { param($LiteralPath); if ($LiteralPath -ne $env:MARINARA_EXPECT_FILE) { throw 'Unexpected signature path' }; Trace 'signature-stub'; @{ Status = $env:MARINARA_STUB_SIGNATURE } }",
+          ].join("; ") + "; ";
+        await writeFile(stubPath, preamble);
+        let harness;
+        if (process.platform === "win32") {
+          const compiler = resolve(process.env["ProgramFiles(x86)"] || "C:/Program Files (x86)", "NSIS/makensis.exe");
+          const harnessPath = resolve(temp, "prerequisites.nsi");
+          harness = resolve(temp, "prerequisites.exe");
+          const helper = /Function SetPrerequisiteInstallerPath[\s\S]*?FunctionEnd/.exec(content)?.[0];
+          assert.ok(helper, "Installer must publish the one resolved prerequisite path");
+          const cases = prerequisiteLines.map((line, index) => {
+            const filename = index < 2 ? "git-install.exe" : "node-install.msi";
+            const pathSetup = `StrCpy $PREREQUISITE_INSTALLER "$TEMP\\${filename}"`;
+            assert.ok(content.includes(pathSetup), "Download, verification and execution must share the NSIS path");
+            return [
+              `  $` + `{Case} ${index}`,
+              `    ${pathSetup}`,
+              "    Call SetPrerequisiteInstallerPath",
+              // Preserve the actual NSIS quoting and argument expansion; only load offline API stubs.
+              line.replace('-Command "', () => '-Command ". $$env:MARINARA_PREREQUISITE_STUB; '),
+              "    Pop $0",
+              "    SetErrorLevel $0",
+              "    Quit",
+            ].join("\n");
+          });
+          const harnessSource = [
+            "Unicode true",
+            '!include "LogicLib.nsh"',
+            `OutFile "${harness.replace(/\$/g, () => "$$")}"`,
+            "RequestExecutionLevel user",
+            "SilentInstall silent",
+            "Var PREREQUISITE_INSTALLER",
+            ...[...definitions]
+              .filter(([key]) => /^(?:GIT|NODE)_(?:DOWNLOAD_URL|SHA256)$/.test(key))
+              .map(([key, value]) => `!define ${key} "${value}"`),
+            helper,
+            "Section",
+            // NSIS has already resolved $TEMP; give its PowerShell children a different inherited directory.
+            "  ReadEnvStr $1 MARINARA_INHERITED_TEMP",
+            `  System::Call 'Kernel32::SetEnvironmentVariable(t "TEMP", t "$1") i'`,
+            `  System::Call 'Kernel32::SetEnvironmentVariable(t "TMP", t "$1") i'`,
+            "  ReadEnvStr $0 MARINARA_COMMAND_INDEX",
+            "  $" + "{Switch} $0",
+            ...cases,
+            "  $" + "{EndSwitch}",
+            "  SetErrorLevel 99",
+            "SectionEnd",
+          ].join("\n");
+          await writeFile(harnessPath, "\ufeff" + harnessSource);
+          const compiled = spawnSync(compiler, ["/V2", harnessPath], {
+            encoding: "utf8",
+            windowsHide: true,
+            timeout: 30_000,
+          });
+          assert.equal(
+            compiled.status,
+            0,
+            `NSIS harness must compile: ${compiled.error ?? compiled.stdout + compiled.stderr}`,
+          );
+        }
+        for (const [index, script] of prerequisiteScripts.entries()) {
+          const isGit = index < 2;
+          const name = isGit ? "GIT" : "NODE";
+          const expanded = script.replace(/\$\$/g, "$").replace(/\$\{(\w+)\}/g, (_, key) => {
+            assert.ok(definitions.has(key), `Unknown installer definition ${key}`);
+            return definitions.get(key);
+          });
+          const env = {
+            ...process.env,
+            TMP: harness ? temp : inheritedTemp,
+            TEMP: harness ? temp : inheritedTemp,
+            MARINARA_INHERITED_TEMP: inheritedTemp,
+            TMPDIR: inheritedTemp,
+            MARINARA_COMMAND_INDEX: String(index),
+            MARINARA_PREREQUISITE_STUB: stubPath,
+            MARINARA_TRACE_FILE: tracePath,
+            MARINARA_PREREQUISITE_INSTALLER: resolve(
+              harness ? inheritedTemp : temp,
+              isGit ? "git-install.exe" : "node-install.msi",
+            ),
+            MARINARA_EXPECT_URI: definitions.get(`${name}_DOWNLOAD_URL`),
+            MARINARA_EXPECT_FILE: resolve(temp, isGit ? "git-install.exe" : "node-install.msi"),
+            MARINARA_STUB_HASH: definitions.get(`${name}_SHA256`),
+            MARINARA_STUB_SIGNATURE: "Valid",
+          };
+          const run = async (overrides = {}) => {
+            await writeFile(tracePath, "");
+            const result = spawnSync(
+              harness || executable,
+              harness ? ["/S"] : ["-NoProfile", "-Command", ". $env:MARINARA_PREREQUISITE_STUB; " + expanded],
+              {
+                env: { ...env, ...overrides },
+                encoding: "utf8",
+                // A cold PowerShell start, and the first launch of a freshly compiled harness, can take longer
+                // than 15 seconds on a hosted Windows runner; a stub that hangs still fails well inside the job.
+                timeout: 60_000,
+                windowsHide: true,
+              },
+            );
+            return { ...result, trace: await readFile(tracePath, "utf8") };
+          };
+          const valid = await run();
+          assert.equal(valid.status, 0, `${name} prerequisite command failed: ${valid.error ?? valid.stderr}`);
+          if (index % 2 === 0) {
+            assert.match(valid.trace, /download-stub/, `${name} download command must reach Invoke-WebRequest`);
+          } else {
+            assert.match(valid.trace, /hash-stub[\s\S]*signature-stub/, `${name} must verify hash before signature`);
+            const badHash = await run({ MARINARA_STUB_HASH: "0".repeat(64) });
+            assert.equal(badHash.status, 1, `${name} must refuse a mismatched hash`);
+            assert.doesNotMatch(badHash.trace, /signature-stub/, `${name} must stop at a mismatched hash`);
+            const badSignature = await run({ MARINARA_STUB_SIGNATURE: "NotSigned" });
+            assert.equal(badSignature.status, 1, `${name} must refuse an invalid signature`);
+            assert.match(badSignature.trace, /signature-stub/, `${name} must reach signature verification`);
+          }
+        }
+        console.log(
+          `Git and Node.js ${harness ? "compiled NSIS/nsExec" : "PowerShell-only"} prerequisite commands passed positive and integrity-failure controls with differing inherited temp paths.`,
+        );
+      } finally {
+        await rm(temp, { recursive: true, force: true });
+      }
+    }
+  }
   const sharedBuild = sharedPackage?.scripts?.build;
   if (typeof sharedBuild !== "string" || /\bpnpm(?:\.cmd)?\s/i.test(sharedBuild)) {
     failures.push({

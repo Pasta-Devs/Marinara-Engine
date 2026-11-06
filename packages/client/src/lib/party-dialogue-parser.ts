@@ -14,7 +14,7 @@
 //   Expression tag is optional — lines without it still parse.
 // ──────────────────────────────────────────────
 
-import type { PartyDialogueLine, PartyDialogueType } from "@marinara-engine/shared";
+import { repairGameSpeakerLine, type PartyDialogueLine, type PartyDialogueType } from "@marinara-engine/shared";
 import { stripSurroundingDialogueQuotes } from "./dialogue-quotes";
 
 const VALID_TYPES = new Set<PartyDialogueType>(["main", "side", "extra", "action", "thought", "whisper"]);
@@ -40,7 +40,7 @@ export function parsePartyDialogue(raw: string): PartyDialogueLine[] {
   let skipped = 0;
 
   for (const line of lines) {
-    const trimmed = line.trim();
+    const trimmed = repairGameSpeakerLine(line.trim());
     if (!trimmed) continue;
 
     let character: string;

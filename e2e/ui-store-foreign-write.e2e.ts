@@ -14,8 +14,6 @@ import { seedUIState } from "./ui-state-fixture.js";
 // load it rewrites the shared key with only the settings it knows: everything below disappears from the blob.
 const DROPPED_BY_V74_COPY = [
   "showHomeBrowserAddressBar",
-  "showHomeBrowserDesktopBookmarksOnOtherTabs",
-  "showHomeBrowserMobileBookmarksOnOtherTabs",
   "noodleNavigation",
   "libraryManualOrders",
   "trackerPanelOpenByChatId",
@@ -23,13 +21,11 @@ const DROPPED_BY_V74_COPY = [
   "reduceAmbientEffects",
   "mariPanelSortMode",
   "omnibarAsideEnabled",
-  "omnibarAsideConnectionId",
   "omnibarAsideDisclosed",
   "omnibarAsideDelayMs",
   "mariEditViewMode",
   "mariUnlockedPackIds",
   "mariSeasonOptOut",
-  "mariConnectionId",
   "conversationBackgroundImageOpacity",
   "chatWidgetPreset",
   "chatWidgetFont",
@@ -62,7 +58,6 @@ const DROPPED_BY_V74_COPY = [
   "colorInlineNames",
   "disableInlineNameGradients",
   "continueAddsNewline",
-  "commandCenterMariEnabled",
   "omnibarSuggestionsEnabled",
   "seasonalThemesDisabled",
   "seasonalGreetingYears",
@@ -75,6 +70,7 @@ const DROPPED_BY_V74_COPY = [
   "roleplayNarratorAvatarCycling",
   "roleplayDisplayStyle",
   "roleplayChatPosition",
+  "roleplayChatWidthPercent",
   "roleplayVnAutoPlay",
   "roleplayVnAutoPlayDelay",
   "roleplayVnPortraitScale",
@@ -188,8 +184,8 @@ ui?.getState().setRoleplayReducedPaintEffects(true);`,
 
   test("settings survive an old package client saving its v74 copy over them", async ({ page }) => {
     await prepare(page);
-    // From a v74 blob, migrations would size the sheet like this background and restore this old Mari connection;
-    // the user's saved sheet size and cleared connection must win instead.
+    // From a v74 blob, migrations would size the sheet like this background; the user's saved sheet size must win
+    // instead. (Professor Mari's connection is a server setting now, not part of this store.)
     await seedUIState(page, { hasCompletedOnboarding: true, imageBackgroundWidth: 1536 }, "if-missing");
     await page.addInitScript((key) => localStorage.setItem(key, "e2e-legacy-mari"), LEGACY_MARI_CONNECTION_KEY);
     await recordStorageWrites(page);
@@ -207,6 +203,7 @@ ui?.getState().setRoleplayReducedPaintEffects(true);`,
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       const ui = useUIStore.getState();
       ui.setSidebarWidth(400);
+      ui.setRoleplayChatWidthPercent(67);
       ui.setRoleplayReducedPaintEffects(settings.roleplayReducedPaintEffects);
       ui.selectImpersonatePromptTemplate({ id: settings.activeImpersonatePromptTemplateId, prompt: "Stay in voice." });
     }, LOCAL_SETTINGS);
@@ -214,9 +211,11 @@ ui?.getState().setRoleplayReducedPaintEffects(true);`,
       .poll(async () => pick((await readStored(page))?.state ?? {}, Object.keys(LOCAL_SETTINGS)))
       .toEqual(LOCAL_SETTINGS);
     const saved = pick(await readPersisted(page), [...DROPPED_BY_V74_COPY, "sidebarWidth"]);
-    expect(pick(saved, ["imageCharacterSheetWidth", "mariConnectionId", "sidebarWidth"])).toEqual({
+    expect(
+      pick(saved, ["imageCharacterSheetWidth", "roleplayChatWidthPercent", "sidebarWidth"]),
+    ).toEqual({
       imageCharacterSheetWidth: 1280,
-      mariConnectionId: null,
+      roleplayChatWidthPercent: 67,
       sidebarWidth: 400,
     });
 
@@ -262,14 +261,12 @@ ui?.getState().setRoleplayReducedPaintEffects(true);`,
         pick(await readPersisted(page), [
           "imageCharacterSheetWidth",
           "imageCharacterSheetHeight",
-          "mariConnectionId",
           "roleplayReducedPaintEffects",
           "activeImpersonatePromptTemplateId",
         ]),
       ).toEqual({
         imageCharacterSheetWidth: legacy.sheet[0],
         imageCharacterSheetHeight: legacy.sheet[1],
-        mariConnectionId: "e2e-legacy-mari",
         roleplayReducedPaintEffects: false,
         activeImpersonatePromptTemplateId: null,
       });

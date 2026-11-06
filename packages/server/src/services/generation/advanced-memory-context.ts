@@ -40,7 +40,7 @@ const memorySnapshotSchema = z.object({
       sourceEndMessageId: z.string().nullable().optional(),
       sourceFingerprint: z.string(),
       policyRevision: z.string(),
-      recordRevisions: z.record(z.string()),
+      recordRevisions: z.record(z.string(), z.string()),
       estimatedTokensBefore: z.number().finite().nonnegative(),
       estimatedTokensAfter: z.number().finite().nonnegative(),
       budgetTokens: z.number().finite().positive(),

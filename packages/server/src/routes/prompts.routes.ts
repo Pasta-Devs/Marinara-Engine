@@ -1,11 +1,13 @@
 // ──────────────────────────────────────────────
 // Routes: Prompts (Presets, Groups, Sections, Choices)
 // ──────────────────────────────────────────────
+import { applyChatModelOverride, readChatModelOverride } from "../services/generation/connection-resolution.js";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { extname, join } from "path";
 import {
   createPromptPresetSchema,
+  DEFAULT_GENERATION_PARAMS,
   updatePromptPresetSchema,
   createPromptSectionSchema,
   updatePromptSectionSchema,
@@ -508,7 +510,13 @@ export async function promptsRoutes(app: FastifyInstance) {
     let personaId: string | null = null;
     let personaName = "User";
     let personaDescription = "";
-    let personaFields: { personality?: string; scenario?: string; backstory?: string; appearance?: string } = {};
+    let personaFields: {
+      example?: string;
+      personality?: string;
+      scenario?: string;
+      backstory?: string;
+      appearance?: string;
+    } = {};
     // Get active persona
     const activePersona = await resolveChatUserIdentity(charStorage, chat);
     if (activePersona) {
@@ -524,6 +532,7 @@ export async function promptsRoutes(app: FastifyInstance) {
       personaName = activePersona.name;
       personaDescription = cardPromptText(activePersona.description);
       personaFields = {
+        example: cardPromptText(activePersona.mesExample),
         personality: cardPromptText(activePersona.personality),
         scenario: cardPromptText(activePersona.scenario),
         backstory: cardPromptText(activePersona.backstory),
@@ -538,9 +547,9 @@ export async function promptsRoutes(app: FastifyInstance) {
     ]);
 
     const connections = createConnectionsStorage(app.db);
-    const connection = chat.connectionId
-      ? await connections.getById(chat.connectionId)
-      : await connections.getDefault();
+    const stored = chat.connectionId ? await connections.getById(chat.connectionId) : await connections.getDefault();
+    // A preview shows what generation sends: the chat's catalog pick on its own Model.
+    const connection = stored ? applyChatModelOverride(stored, readChatModelOverride(chat)) : null;
     const assemblerInput: AssemblerInput = {
       db: app.db,
       model: connection?.model,
@@ -550,7 +559,9 @@ export async function promptsRoutes(app: FastifyInstance) {
             chatMode: chat.mode,
             isSceneChat: chatMeta.sceneStatus === "active",
             chatParameters: chatMeta.chatParameters,
-            baseReasoningEffort: parsePresetParameters(preset.parameters).reasoningEffort ?? null,
+            baseReasoningEffort: isStockMarinaraUniversalPreset(preset)
+              ? DEFAULT_GENERATION_PARAMS.reasoningEffort
+              : (parsePresetParameters(preset.parameters).reasoningEffort ?? null),
           })
         : undefined,
       preset: preset as any,

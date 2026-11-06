@@ -141,12 +141,15 @@ test("effective parameter sources and preset edits survive saved chat overrides"
     }, preset.id);
     const editor = page.locator(".mari-editor-shell");
     const parameters = editor.locator('[data-editor-section="parameters"]');
-    await parameters.getByRole("textbox", { name: "Max Output Tokens", exact: true }).fill("9000");
-    await parameters.getByRole("textbox", { name: "Max Output Tokens", exact: true }).blur();
+    // #7940 removed token limits from presets (Connections and Chat Settings own them), so the preset edit that
+    // must survive is a sampler value.
+    await expect(parameters.getByRole("textbox", { name: "Max Output Tokens", exact: true })).toHaveCount(0);
+    await parameters.getByRole("textbox", { name: "Temperature", exact: true }).fill("0.7");
+    await parameters.getByRole("textbox", { name: "Temperature", exact: true }).blur();
     await editor.locator(".mari-editor-header .mari-editor-action--primary").click();
     await expect
-      .poll(async () => record((await (await request.get(`/api/prompts/${preset.id}`)).json()).parameters).maxTokens)
-      .toBe(9000);
+      .poll(async () => record((await (await request.get(`/api/prompts/${preset.id}`)).json()).parameters).temperature)
+      .toBe(0.7);
     await parameters.screenshot({ path: testInfo.outputPath("preset-parameters.png") });
     await page.evaluate(async (id) => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -329,7 +332,7 @@ test("blank local models run agent retries and manual Illustrator prompts", asyn
       name: "Default loaded model",
       provider: "custom",
       baseUrl: `http://127.0.0.1:${address.port}/v1`,
-      model: "",
+      // No model key at all: #8456 refuses an explicit empty model ID, and an omitted one is still stored blank.
       apiKey: "",
     });
     const image = await f.create("connections", {

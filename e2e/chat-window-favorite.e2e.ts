@@ -243,3 +243,63 @@ test("the upgraded default stays starred until an automatically placed button is
     await request.put(favoritePath(mode), { data: { value: original ?? "null" } });
   }
 });
+
+test("roleplay: starring after turning on Scoped Regex Scripts keeps it on in new chats (#8676)", async ({
+  page,
+  request,
+}) => {
+  const mode = "roleplay";
+  const original = await readFavorite(request, mode);
+  const character = (await (
+    await request.post("/api/characters", { data: { data: { name: "Scoped Favorite Character" } } })
+  ).json()) as { id: string };
+  const script = (await (
+    await request.post("/api/regex-scripts", {
+      data: {
+        name: "Scoped favorite fixture",
+        findRegex: "RAW_SCOPED",
+        replaceString: "formatted",
+        placement: ["ai_output"],
+        targetCharacterIds: [character.id],
+      },
+    })
+  ).json()) as { id: string };
+  const chatIds: string[] = [];
+  const create = async () => {
+    const response = await request.post("/api/chats", {
+      data: { name: "Scoped favorite", mode, characterIds: [character.id] },
+    });
+    expect(response.ok()).toBeTruthy();
+    const { id } = (await response.json()) as { id: string };
+    chatIds.push(id);
+    return id;
+  };
+  try {
+    expect((await request.put(favoritePath(mode), { data: { value: "null" } })).ok()).toBeTruthy();
+    await prepare(page, await create());
+    await page.goto("/");
+    const settings = await openChatSettings(page);
+    const star = settings.locator('[data-chat-settings-control="favorite-layout"]');
+    await expect(star).toBeEnabled();
+    // The layout is starred first, as on an upgraded install, so a filled star must not hide the new choice.
+    await star.click();
+    await expect(star).toHaveAttribute("aria-pressed", "true");
+    const section = settings.locator(`[data-chat-settings-section="${mode}-scoped-regex"]`);
+    const exclusive = section.getByRole("button", { name: "Exclusive", exact: true });
+    if (!(await exclusive.isVisible())) await section.getByText("Scoped Regex Scripts", { exact: true }).click();
+    await exclusive.click();
+    await expect(exclusive).toHaveAttribute("aria-pressed", "true");
+    await expect(star).toHaveAttribute("aria-pressed", "false");
+    await star.click();
+    await expect(star).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(async () => JSON.parse((await readFavorite(request, mode)) ?? "null")?.scopedRegexMode)
+      .toBe("exclusive");
+    expect((await readMetadata(request, await create())).scopedRegexMode).toBe("exclusive");
+  } finally {
+    for (const id of chatIds) await request.delete(`/api/chats/${id}?force=true`);
+    await request.delete(`/api/regex-scripts/${script.id}`);
+    await request.delete(`/api/characters/${character.id}`);
+    await request.put(favoritePath(mode), { data: { value: original ?? "null" } });
+  }
+});

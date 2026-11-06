@@ -30,7 +30,13 @@ import {
   isClaudeStrictRequestModel,
   shouldSuppressUnknownModelParameters,
 } from "@marinara-engine/shared";
-import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } from "../base-provider.js";
+import {
+  BaseLLMProvider,
+  markLlmRequestActivity,
+  type ChatMessage,
+  type ChatOptions,
+  type LLMUsage,
+} from "../base-provider.js";
 import { resolveAnthropicAdaptiveEffort, supportsAnthropicThinkingDisable } from "./anthropic.provider.js";
 import { logger } from "../../../lib/logger.js";
 import { isClaudeSubscriptionResumeEnabled } from "../../../config/runtime-config.js";
@@ -290,10 +296,10 @@ interface PromptSelection {
  * everything the SDK call needs. Resolved per-call so env-var changes take
  * effect on the next request without a restart.
  */
-function selectPromptPath(messages: ChatMessage[], model: string, extendedCacheTtl: boolean): PromptSelection {
+function selectPromptPath(messages: ChatMessage[], model: string): PromptSelection {
   if (isClaudeSubscriptionResumeEnabled()) {
     try {
-      return buildResumeSelection(messages, model, extendedCacheTtl);
+      return buildResumeSelection(messages, model);
     } catch (err) {
       // The only realistic failure is creating the scratch working directory
       // on a read-only / permission-locked data dir. Degrade to the fold path
@@ -304,7 +310,7 @@ function selectPromptPath(messages: ChatMessage[], model: string, extendedCacheT
   return buildFoldSelection(messages);
 }
 
-function buildResumeSelection(messages: ChatMessage[], model: string, extendedCacheTtl: boolean): PromptSelection {
+function buildResumeSelection(messages: ChatMessage[], model: string): PromptSelection {
   const split = splitHistoryForResume(messages);
   const systemPrompt = extractSystemPrompt(messages);
   if (split.shape === "trailing-assistant-continue") {
@@ -341,20 +347,12 @@ function buildResumeSelection(messages: ChatMessage[], model: string, extendedCa
     split.history,
     { sessionId, cwd, version: SDK_VERSION, gitBranch: "main", permissionMode: "bypassPermissions" },
     model,
-    // ponytail: only with the 1-hour cache on, where Claude Code's own markers are known to be
-    // 1h too. Without it Claude Code picks an account-dependent TTL and an extra plain marker
-    // fails ("maximum of 4 blocks with cache_control"). Upgrade path: mirror Claude Code's TTL.
-    extendedCacheTtl ? { type: "ephemeral", ttl: "1h" } : undefined,
-  );
-  const markedEntry = entries.findIndex(
-    (entry) => entry.type === "assistant" && entry.message.content.some((block) => "cache_control" in block),
   );
   logger.debug(
-    "[claude-subscription] resume path: shape=%s sessionId=%s historyLen=%d historyCacheMarker=%s",
+    "[claude-subscription] resume path: shape=%s sessionId=%s historyLen=%d",
     split.shape,
     sessionId,
     split.history.length,
-    markedEntry >= 0 ? `entry ${markedEntry + 1} of ${entries.length}` : "none",
   );
   return {
     promptArg: singleMessageIterable(currentToSdkUserMessage(split.current)),
@@ -419,7 +417,6 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
     const { promptArg, systemPrompt, resumeSessionId, resumeCwd, sessionStore } = selectPromptPath(
       contextFit.messages,
       options.model,
-      options.anthropicExtendedCacheTtl === true,
     );
 
     const { query } = await loadSdk();
@@ -603,6 +600,7 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       });
 
       for await (const message of queryHandle) {
+        markLlmRequestActivity();
         if (message.type === "stream_event") {
           const event = message.event as {
             type: string;

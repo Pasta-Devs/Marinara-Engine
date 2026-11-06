@@ -101,15 +101,15 @@ export async function resolveChatSummaryConnection(args: {
       category: "agents",
     });
 
+  // A chat that follows Main has no connection of its own: Main is the default when the caller names none and the chat has none.
+  const mainConnectionId =
+    args.defaultConnectionId ?? (args.chatConnectionId ? null : (await args.connections.getDefault())?.id);
   pushUniqueCandidate(candidates, summaryConnectionId ? { id: summaryConnectionId, source: "summary" } : null);
   pushUniqueCandidate(
     candidates,
     defaultAgentConnection?.id ? { id: defaultAgentConnection.id, source: "agent-default" } : null,
   );
-  pushUniqueCandidate(
-    candidates,
-    args.defaultConnectionId ? { id: args.defaultConnectionId, source: "default" } : null,
-  );
+  pushUniqueCandidate(candidates, mainConnectionId ? { id: mainConnectionId, source: "default" } : null);
   pushUniqueCandidate(candidates, args.chatConnectionId ? { id: args.chatConnectionId, source: "chat" } : null);
 
   if (candidates.length === 0) {

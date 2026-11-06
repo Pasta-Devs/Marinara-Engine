@@ -189,7 +189,7 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
     private readonly primary: BaseLLMProvider,
     private readonly fallback: BaseLLMProvider,
     private readonly connection: FallbackConnection,
-    private readonly category: "main" | "agents",
+    private readonly category: "main" | "agents" | "feature",
     private readonly onFallback?: GenerationFallbackNotifier,
     /** Reports the one logical attempt's outcome once the primary-plus-fallback chain settles. */
     private readonly settleAttempt?: (outcome: "completed" | "failed") => Promise<void>,
@@ -378,12 +378,26 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
   }
 
   private async chatCompleteChain(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+    // Text the primary already streamed through onToken has reached the caller, so a fallback
+    // reply would be appended after it, exactly as in chatChain. A keepalive-only onToken kept
+    // nothing, so its caller still gets the fallback's reply.
+    let emittedUsableOutput = false;
     try {
+      const primaryOptions =
+        options.onToken && !options.onTokenKeepaliveOnly
+          ? {
+              ...options,
+              onToken: async (chunk: string) => {
+                emittedUsableOutput ||= chunk.trim().length > 0;
+                await options.onToken?.(chunk);
+              },
+            }
+          : options;
       const result = await this.primary.chatComplete(
         prepareAssistantReasoningPrefillMessages(messages, this.primarySupportsAssistantReasoningPrefill),
-        options,
+        primaryOptions,
       );
-      const hasUsableOutput = Boolean(result.content?.trim()) || result.toolCalls.length > 0;
+      const hasUsableOutput = emittedUsableOutput || Boolean(result.content?.trim()) || result.toolCalls.length > 0;
       if (hasUsableOutput || options.signal?.aborted) {
         if (hasUsableOutput) this.onProviderUsed?.({ kind: "primary" });
         return result;
@@ -392,7 +406,8 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
         reason: "empty",
       });
     } catch (error) {
-      if (isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error)) throw error;
+      if (emittedUsableOutput || isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error))
+        throw error;
       await this.logFallback(error, options.model);
     }
     options.signal?.throwIfAborted();
@@ -428,21 +443,22 @@ export function withConnectionFallbackProvider({
   fallbackSupportsAssistantReasoningPrefill = true,
 }: ConnectionFallbackProviderArgs): BaseLLMProvider {
   const { primaryMode, fallbackMode, settle } = splitConnectionAttemptAcrossFallback(admissionMode);
+  // A primary that is already wrapped (createLLMProvider with a connectionId, or a capability package passing
+  // one to llm.withFallback) is unwrapped: the layer added below replaces it. Two layers would take two shared
+  // account slots for one request and deadlock at a cap of 1.
+  const primaryLeg = primary instanceof RateLimitAwareProvider ? primary.provider : primary;
   if (!isFallbackConnectionUsable(fallbackConnection, primaryConnectionId, fallbackBaseUrl)) {
     // No fallback exists, so the primary is the whole logical attempt and owns its own outcome.
     // Rate-limit-aware wraps outside admission so a 429 pauses/retries this connection here too —
     // the main chat/agent path builds `primary` without a connectionId, so it is added here.
     return withRateLimitAwareProvider(
-      withConnectionAdmissionProvider(wrapProvider(primary), primaryConnectionId, admissionMode),
+      withConnectionAdmissionProvider(wrapProvider(primaryLeg), primaryConnectionId, admissionMode),
       primaryConnectionId,
     );
   }
   // A fallback exists, so a transient failure on the primary goes straight to it instead of
   // waiting out a transient backoff first (PROVIDER_RETRY_TRANSIENT_ERRORS). Rate limits are
-  // unchanged. A primary that is already wrapped (createLLMProvider with a connectionId, or a
-  // capability package passing one to llm.withFallback) has its own wrapper opted out too, since
-  // admission may sit between it and the outer wrapper below.
-  const primaryLeg = primary instanceof RateLimitAwareProvider ? primary.withoutTransientRetry() : primary;
+  // unchanged.
   const admittedPrimary = withRateLimitAwareProvider(
     withConnectionAdmissionProvider(wrapProvider(primaryLeg), primaryConnectionId, primaryMode),
     primaryConnectionId,

@@ -69,7 +69,11 @@ for (const kind of ["character", "persona", "lorebook"] as const) {
       await expect(rows.nth(0)).toContainText(`${prefix} Alpha`);
       await sort.selectOption("oldest");
       await expect(rows.nth(0)).toContainText(`${prefix} Zebra`);
-      const search = page.getByRole("textbox", { name: `Search ${kind}s`, exact: true });
+      // Character and persona search also match tags (#8427).
+      const search = page.getByRole("textbox", {
+        name: kind === "lorebook" ? "Search lorebooks" : `Search ${kind}s/tags`,
+        exact: true,
+      });
       await search.fill(`${prefix} Alpha`);
       await expect(rows).toHaveCount(1);
       await expect(rows.first()).toContainText(`${prefix} Alpha`);
@@ -105,8 +109,26 @@ for (const theme of ["light", "dark"] as const) {
       const prefix = `Folder-order-${Date.now()}`;
       const ids: string[] = [];
       let itemId = "";
+      let accountsBefore = new Set<string>();
       const resource = kind === "persona" ? "characters/personas" : `${kind}s`;
       try {
+        if (kind === "connection") {
+          accountsBefore = new Set(
+            ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).map((a) => a.id),
+          );
+          // A panel with no connection shows the first-run screen instead of folders (#8456).
+          const response = await request.post("/api/connections", {
+            data: {
+              name: `${prefix} Connection`,
+              provider: "openai",
+              model: "gpt-5.5",
+              apiKey: "synthetic-ui-fixture-key",
+              baseUrl: "http://127.0.0.1:9/v1",
+            },
+          });
+          expect(response.ok(), await response.text()).toBeTruthy();
+          itemId = (await response.json()).id;
+        }
         for (const name of ["Zebra", "Alpha", "Middle"]) {
           const response = await request.post(`/api/${folderPath}`, {
             data: { name: `${prefix} ${name}`, ...(kind === "chat" ? { mode: "conversation" } : {}) },
@@ -165,18 +187,46 @@ for (const theme of ["light", "dark"] as const) {
             }),
           });
         });
-        await prepare(page, { theme, sidebarOpen: kind === "chat" });
+        // Connection folders show in the panel's Group by folder view (#8456).
+        await prepare(page, { theme, sidebarOpen: kind === "chat", connectionsGroupBy: "folder" });
         await page.goto("/");
         if (kind !== "chat") await clickTopbarPanel(page, `${kind}s`);
-        const rows = page.locator(`[data-${kind}-folder-id]`).filter({ hasText: prefix });
+        // The connection list ends with a "Not in a folder" group, which has no folder id.
+        const rows = page
+          .locator(`[data-${kind}-folder-id]:not([data-${kind}-folder-id=""])`)
+          .filter({ hasText: prefix });
         const order = () =>
           rows.evaluateAll(
             (nodes, attribute) => nodes.map((node) => node.getAttribute(attribute)),
             `data-${kind}-folder-id`,
           );
-        const sort = page.locator(
+        const sortSelect = page.locator(
           `select.mari-chrome-sort-field[title="${kind === "chat" ? "Sort chats" : "Sort order"}"]:visible`,
         );
+        // The Connections panel sorts from its More actions menu unless it is two columns wide (#8456).
+        const connectionSortLabels: Record<string, RegExp> = {
+          "name-asc": /^A.Z$/u,
+          "name-desc": /^Z.A$/u,
+          newest: /^Newest$/u,
+          oldest: /^Oldest$/u,
+          custom: /^Custom$/u,
+        };
+        const connectionSortItem = (value: string) =>
+          page.getByRole("menuitemradio", { name: connectionSortLabels[value] });
+        const sort = {
+          selectOption: async (value: string) => {
+            if (kind !== "connection") return sortSelect.selectOption(value);
+            await page.getByRole("button", { name: "More actions", exact: true }).click();
+            await connectionSortItem(value).click();
+            return [value];
+          },
+        };
+        const expectSort = async (value: string) => {
+          if (kind !== "connection") return expect(sortSelect).toHaveValue(value);
+          await page.getByRole("button", { name: "More actions", exact: true }).click();
+          await expect(connectionSortItem(value)).toHaveAttribute("aria-checked", "true");
+          await page.keyboard.press("Escape");
+        };
         await expect(rows).toHaveCount(3);
         await sort.selectOption("name-asc");
         await expect.poll(order).toEqual([ids[1], ids[2], ids[0]]);
@@ -219,7 +269,7 @@ for (const theme of ["light", "dark"] as const) {
             await page.mouse.move(start.x + start.width / 2, target.y + 2);
             await expect(rows.first()).toHaveAttribute("data-drag-insert", "before");
             await page.mouse.up();
-            await expect(sort).toHaveValue("custom");
+            await expectSort("custom");
             await expect.poll(order).toEqual(ids);
             await expect
               .poll(async () => {
@@ -233,7 +283,13 @@ for (const theme of ["light", "dark"] as const) {
           }
         }
       } finally {
+        // Creating the Connection may also create its account; remove that one too, never an older one.
+        const accountId =
+          kind === "connection" && itemId
+            ? ((await (await request.get(`/api/connections/${itemId}`)).json()) as { accountId?: string }).accountId
+            : undefined;
         if (itemId) await request.delete(`/api/${resource}/${itemId}`);
+        if (accountId && !accountsBefore.has(accountId)) await request.delete(`/api/connection-accounts/${accountId}`);
         for (const id of ids) await request.delete(`/api/${folderPath}/${id}`);
       }
     });

@@ -78,6 +78,30 @@ function parseScript(row: RegexScriptRow) {
   };
 }
 
+// Each script's pattern is checked and compiled once, not once per message it touches. Patterns with
+// macros resolve to a different source per speaker, so the key is the resolved source and its flags.
+const COMPILED_PATTERN_LIMIT = 500;
+const compiledPatterns = new Map<string, RegExp | null>();
+
+export function compileRegexScriptPattern(source: string, flags: string): RegExp | null {
+  const key = `${flags}\u0000${source}`;
+  if (compiledPatterns.has(key)) return compiledPatterns.get(key)!;
+  let compiled: RegExp | null = null;
+  if (isPatternSafe(source)) {
+    try {
+      compiled = new RegExp(source, flags);
+    } catch {
+      compiled = null;
+    }
+  }
+  if (compiledPatterns.size >= COMPILED_PATTERN_LIMIT) {
+    const oldest = compiledPatterns.keys().next().value;
+    if (oldest !== undefined) compiledPatterns.delete(oldest);
+  }
+  compiledPatterns.set(key, compiled);
+  return compiled;
+}
+
 /**
  * Applies all enabled regex scripts for a given placement to the input text.
  * @param depth — message depth (0 = latest message, 1 = one before, etc.). When
@@ -142,8 +166,10 @@ function applyScripts(
         ? resolveRegexPatternLiteralMacros(script.findRegex, options.resolveMacros)
         : script.findRegex;
       if (!findRegex) continue;
-      if (!isPatternSafe(findRegex)) continue;
-      const re = new RegExp(findRegex, script.flags);
+      const re = compileRegexScriptPattern(findRegex, script.flags);
+      if (!re) continue;
+      // A shared sticky pattern resumes from its last match, so every use starts at the beginning.
+      re.lastIndex = 0;
       result = applyRegexReplacement(result, re, script.replaceString, (value) =>
         options?.resolveMacros ? options.resolveMacros(value) : value,
       );
@@ -216,5 +242,12 @@ export function useApplyRegex() {
     [activePromptPresetId, parsedScripts, presetScopedRegexMode, quoteFormat],
   );
 
-  return { applyToAIOutput, applyToUserInput };
+  // Depth counts back from the newest message, so a new message changes it for every older one. Callers
+  // that keep finished text per message only need to rebuild on a new message when some script uses it.
+  const usesDepthRange = useMemo(
+    () => parsedScripts.some((script) => script.enabledBool && (script.minDepth != null || script.maxDepth != null)),
+    [parsedScripts],
+  );
+
+  return { applyToAIOutput, applyToUserInput, usesDepthRange };
 }

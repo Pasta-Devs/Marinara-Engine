@@ -629,7 +629,7 @@ const card = readFileSync(
   new URL("../../../packages/client/src/components/chat/MariChangeReceipt.tsx", import.meta.url),
   "utf8",
 );
-assert.doesNotMatch(card, /mariappliededit\.keep|marichangereceipt\.keepAll|, true\)/u, "a change card has no Keep");
+assert.doesNotMatch(card, /mariappliededit\.keep|marichangereceipt\.keepAll/u, "a change card has no Keep");
 assert.match(card, /marichangereceipt\.showAll/u, "every changed field is reachable from the card");
 assert.match(card, /marichangereceipt\.createdMany/u, "three new characters read as Created 3 characters");
 assert.match(

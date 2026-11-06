@@ -111,7 +111,18 @@ assert.equal(weatherHitPenalty(storm, { projectile: true, requiresSight: true })
 assert.equal(weatherHitPenalty(storm, {}), 0);
 assert.equal(classicHitProbability(0, 0, undefined, {}), 0.525);
 assert.ok(classicHitProbability(0, 0, storm, { projectile: true }) < 0.525);
+// Every plain die now comes from the shared secure roller (crypto.getRandomValues, #8489), so a
+// pinned Math.random() no longer pins the dice. Pin the secure draw as well; the return undoes it.
+const pinSecureDraws = (draw: number) => {
+  Object.defineProperty(globalThis.crypto, "getRandomValues", {
+    value: <T extends ArrayBufferView>(array: T) => ((array as unknown as Uint32Array).fill(draw), array),
+    configurable: true,
+    writable: true,
+  });
+  return () => Reflect.deleteProperty(globalThis.crypto, "getRandomValues");
+};
 const oldRandom = Math.random;
+const unpinSecureDraws = pinSecureDraws(0x8000_0000);
 try {
   Math.random = () => 0.5;
   const enemy = unit("foe", "enemy"),
@@ -164,6 +175,7 @@ try {
   assert.equal(item(rain), Math.floor(item() * 0.85));
 } finally {
   Math.random = oldRandom;
+  unpinSecureDraws();
 }
 const arena = () => {
   const s = createTacticalCombat([{ ...unit("hero"), projectile: true, requiresSight: true }], [unit("foe", "enemy")], {
@@ -208,9 +220,11 @@ let casualMistakes = 0,
 for (let seed = 0; seed < 100; seed++) {
   const actor = unit("foe", "enemy");
   actor.tactics = { ...assignCombatTactics(actor, seed), adjective: "disciplined", proficiency: "trained" };
+  // Two blows nearly alike: one that gains clearly less than the best never wavers past it at any
+  // difficulty (re-test 13), so the difficulty shows only between blows this close.
   const candidates = [
     { action: "better", damage: 0.3 },
-    { action: "weaker", damage: 0.27 },
+    { action: "weaker", damage: 0.295 },
   ];
   casualMistakes += Number(chooseCombatCandidate(structuredClone(actor), candidates, 1, "casual") === "weaker");
   brutalMistakes += Number(chooseCombatCandidate(structuredClone(actor), candidates, 1, "brutal") === "weaker");

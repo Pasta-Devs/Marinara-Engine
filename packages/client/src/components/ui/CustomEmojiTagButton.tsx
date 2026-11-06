@@ -24,8 +24,6 @@ export interface TaggableImage {
   customName?: string | null;
 }
 
-const NAME_PROMPT_MESSAGE = "Name it. In prompts it appears as :name: (emoji) or sticker:name: (sticker).";
-
 export function CustomEmojiTagButton({
   image,
   onApply,
@@ -34,6 +32,7 @@ export function CustomEmojiTagButton({
   onApply: (patch: CustomTagPatch) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const namePromptMessage = localizeUi("ui.ui.customemojitagbutton.namePrompt");
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [flashing, setFlashing] = useState(false);
@@ -61,10 +60,13 @@ export function CustomEmojiTagButton({
       let name = keepName ?? "";
       if (!keepName) {
         const input = await showPromptDialog({
-          title: kind === "emoji" ? "Custom Emoji" : "Custom Sticker",
-          message: NAME_PROMPT_MESSAGE,
+          title:
+            kind === "emoji"
+              ? localizeUi("ui.ui.customemojitagbutton.customEmoji")
+              : localizeUi("ui.ui.customemojitagbutton.customSticker"),
+          message: namePromptMessage,
           defaultValue: image.customName ?? "",
-          placeholder: "e.g. kekw",
+          placeholder: localizeUi("ui.ui.customemojitagbutton.namePlaceholder"),
         });
         if (input === null) return; // cancelled
         name = input;
@@ -76,7 +78,7 @@ export function CustomEmojiTagButton({
       }
       onApply({ customKind: kind, customName: slug, width, height });
     } catch {
-      triggerFlash("Could not read this image to measure it.");
+      triggerFlash(localizeUi("ui.ui.customemojitagbutton.couldNotMeasure"));
     } finally {
       setBusy(false);
     }
@@ -85,9 +87,9 @@ export function CustomEmojiTagButton({
   async function rename() {
     const input = await showPromptDialog({
       title: localizeUi("ui.chat.chatbranchselector.rename"),
-      message: NAME_PROMPT_MESSAGE,
+      message: namePromptMessage,
       defaultValue: image.customName ?? "",
-      placeholder: "e.g. kekw",
+      placeholder: localizeUi("ui.ui.customemojitagbutton.namePlaceholder"),
     });
     if (input === null) return;
     const slug = slugifyCustomName(input);
@@ -100,28 +102,43 @@ export function CustomEmojiTagButton({
 
   const items: ContextMenuItem[] = tagged
     ? [
-        { label: "Rename", icon: <Pencil size="0.75rem" />, onSelect: () => void rename() },
+        {
+          label: localizeUi("ui.chat.chatbranchselector.rename"),
+          icon: <Pencil size="0.75rem" />,
+          onSelect: () => void rename(),
+        },
         image.customKind === "emoji"
           ? {
-              label: "Switch to sticker",
+              label: localizeUi("ui.ui.customemojitagbutton.switchToSticker"),
               icon: <Sticker size="0.75rem" />,
               onSelect: () => void applyKind("sticker", image.customName),
             }
           : {
-              label: "Switch to emoji",
+              label: localizeUi("ui.ui.customemojitagbutton.switchToEmoji"),
               icon: <Smile size="0.75rem" />,
               onSelect: () => void applyKind("emoji", image.customName),
             },
         {
-          label: image.customKind === "emoji" ? "Remove emoji" : "Remove sticker",
+          label:
+            image.customKind === "emoji"
+              ? localizeUi("ui.ui.customemojitagbutton.removeEmoji")
+              : localizeUi("ui.ui.customemojitagbutton.removeSticker"),
           icon: <X size="0.75rem" />,
           onSelect: () => onApply({ customKind: null, customName: null }),
           destructive: true,
         },
       ]
     : [
-        { label: "Make emoji", icon: <Smile size="0.75rem" />, onSelect: () => void applyKind("emoji") },
-        { label: "Make sticker", icon: <Sticker size="0.75rem" />, onSelect: () => void applyKind("sticker") },
+        {
+          label: localizeUi("ui.ui.customemojitagbutton.makeEmoji"),
+          icon: <Smile size="0.75rem" />,
+          onSelect: () => void applyKind("emoji"),
+        },
+        {
+          label: localizeUi("ui.ui.customemojitagbutton.makeSticker"),
+          icon: <Sticker size="0.75rem" />,
+          onSelect: () => void applyKind("sticker"),
+        },
       ];
 
   return (

@@ -1,11 +1,9 @@
 import {
   MariSuggestionChip,
-  MariGuidedPlanStep,
   ProfessorMariAskContext,
   MariWorkspaceActionResult,
   MariWorkspaceStatus,
 } from "@marinara-engine/shared";
-import { Sparkles } from "lucide-react";
 import type { MariWorkspacePendingApproval, Message } from "@marinara-engine/shared";
 import { RefObject, ReactElement, ReactNode, Dispatch, SetStateAction, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,13 +17,12 @@ import { cn } from "../../../lib/utils";
 import { MariNote } from "../mari-primitives";
 import { MariStorySprite } from "../MariStorySprite";
 import { MariSuggestionChips, MariNextStepCards } from "../MariSuggestionChips";
-import { TranscriptRow } from "../MariTranscriptRow";
 import { MariTurnReviews, MariWorkTimelineOutcome } from "./CompactMariMessage";
-import { ProfessorMariRecovery, continuedThereByContext } from "./mari-chat-helpers";
+import { ProfessorMariRecovery, continuedThereByContext, toMessageExtra } from "./mari-chat-helpers";
 import { WorkspaceTimelineItem, getMessageRunError, getMessageRunTime } from "./mari-tool-presentation";
 import { LoadingHistoryState } from "./MariChatStates";
-import { CompactMarkdown } from "./MariReplyContent";
 import { MariWorkTimeline } from "./MariWorkTimeline";
+import { MariConnectionGuidance } from "./MariConnectionGuidance";
 
 /** Her transcript: the arrival or empty welcome, earlier turns, the active turn with its live timeline, reviews and errors. */
 /** One review in a turn: still pending (`outcome: null`) or already decided. */
@@ -48,7 +45,6 @@ type MariTranscriptProps = {
   emptyStateReady: boolean;
   focusedCharacter: CharacterPreviewModel | null;
   focusedLorebook: LorebookPreviewModel | null;
-  guidedPlanStep: MariGuidedPlanStep | null;
   handleDeleteMessage: (messageId: string) => Promise<void>;
   handleNewAboutContext: () => Promise<void>;
   handleRegenerateMessage: (messageId: string) => Promise<void>;
@@ -91,8 +87,7 @@ type MariTranscriptProps = {
   showConnectionFirstHint: boolean;
   showJumpToLatest: boolean;
   showNextStepCards: boolean;
-  showSuggestionPrompt: boolean;
-  suggestionQuestion: string | null;
+  todoListNode: ReactElement | null;
   transcriptHeadMessages: Message[];
   workspaceRunClock: { startedAt: number; endedAt: number | null } | null;
   workspaceStatus: MariWorkspaceStatus | null;
@@ -117,7 +112,6 @@ export function MariTranscript({
   emptyStateReady,
   focusedCharacter,
   focusedLorebook,
-  guidedPlanStep,
   handleDeleteMessage,
   handleNewAboutContext,
   handleRegenerateMessage,
@@ -152,8 +146,7 @@ export function MariTranscript({
   showConnectionFirstHint,
   showJumpToLatest,
   showNextStepCards,
-  showSuggestionPrompt,
-  suggestionQuestion,
+  todoListNode,
   transcriptHeadMessages,
   workspaceRunClock,
   workspaceStatus,
@@ -232,9 +225,9 @@ export function MariTranscript({
               </div>
             ) : null}
             {showConnectionFirstHint && (
-              <p className="px-3 py-1 text-center text-xs text-[var(--muted-foreground)]">
-                {localizeUi("ui.chat.homeprofessormarichat.selectAConnectionFirst")}
-              </p>
+              <div className="mx-auto max-w-prose px-3 py-2">
+                <MariConnectionGuidance showSelectionHint />
+              </div>
             )}
             {/* M4: the active turn reserves the transcript's visible height (set on send) so
                                   nothing below it changes the scrollable height until a new turn replaces it. */}
@@ -296,6 +289,7 @@ export function MariTranscript({
                       onRegenerate={!isBusy ? () => handleRegenerateMessage(latestMessage.id) : undefined}
                       onDelete={!isBusy ? () => handleDeleteMessage(latestMessage.id) : undefined}
                       reviews={renderTurnReviews(latestMessage.id)}
+                      nothingChanged={toMessageExtra(latestMessage)?.mariNothingChanged === true}
                     />
                   ) : null}
                 </MariWorkTimeline>
@@ -335,16 +329,8 @@ export function MariTranscript({
                   {reviewsByTurn.unassigned.map(renderTurnPrompt)}
                 </div>
               ) : null}
-              {/* Only a real question gets a line (a guided plan step, or held changes); generic
-                                    "what next?" prompts are left to the chips, as in Claude and Gemini. */}
-              {omnibarMode && messages.length > 0 && showSuggestionPrompt && suggestionQuestion && guidedPlanStep ? (
-                <TranscriptRow layout="document" marker={null} className="mari-suggestion-turn">
-                  <div className="mari-suggestion-question-turn">
-                    <Sparkles size="0.8rem" aria-hidden="true" />
-                    <CompactMarkdown content={suggestionQuestion} />
-                  </div>
-                </TranscriptRow>
-              ) : null}
+              {/* Her own list for a longer job: pinned under her newest line, above the next-step chips. */}
+              {todoListNode}
               {showNextStepCards ? (
                 <MariNextStepCards chips={chipRowChips} onSelect={handleSuggestionSelect} disabled={isBusy} />
               ) : null}

@@ -3,7 +3,7 @@
 # ──────────────────────────────────────────────
 
 # ── Stage 1: Build ──
-FROM node:24-trixie-slim@sha256:6950b66b4c0cb0151ce89fa75074673850763d096b044f422c6729b588dd4956 AS builder
+FROM node:24-trixie-slim@sha256:43b9ba1142b8dcf33fa8f922ca1be85714adc444e0586c7cf7726daaeabc1bea AS builder
 ARG BUILD_COMMIT
 ARG BUILD_BRANCH
 WORKDIR /app
@@ -16,6 +16,7 @@ COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
 COPY scripts/clean-stale-client-artifacts.mjs scripts/clean-stale-client-artifacts.mjs
 COPY scripts/ensure-native-deps.mjs scripts/ensure-native-deps.mjs
+COPY scripts/pnpm-runner.mjs scripts/pnpm-runner.mjs
 
 # Enable corepack — version is read from the packageManager field in package.json
 RUN corepack enable && corepack install
@@ -41,7 +42,7 @@ RUN pnpm build
 RUN BUILD_COMMIT="$BUILD_COMMIT" BUILD_BRANCH="$BUILD_BRANCH" node -e 'const fs = require("node:fs"); const meta = {}; if (process.env.BUILD_COMMIT) meta.commit = process.env.BUILD_COMMIT; if (process.env.BUILD_BRANCH) meta.branch = process.env.BUILD_BRANCH; if (Object.keys(meta).length > 0) fs.writeFileSync("packages/server/dist/config/build-meta.json", JSON.stringify(meta));'
 
 # ── Stage 2: Production ──
-FROM node:24-trixie-slim@sha256:6950b66b4c0cb0151ce89fa75074673850763d096b044f422c6729b588dd4956 AS production
+FROM node:24-trixie-slim@sha256:43b9ba1142b8dcf33fa8f922ca1be85714adc444e0586c7cf7726daaeabc1bea AS production
 WORKDIR /app
 
 # llama-server dynamically links these at runtime
@@ -62,6 +63,7 @@ COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
 COPY scripts/clean-stale-client-artifacts.mjs scripts/clean-stale-client-artifacts.mjs
 COPY scripts/ensure-native-deps.mjs scripts/ensure-native-deps.mjs
+COPY scripts/pnpm-runner.mjs scripts/pnpm-runner.mjs
 
 # Enable corepack — version is read from the packageManager field in package.json
 RUN corepack enable && corepack install
@@ -82,6 +84,8 @@ COPY scripts/install-backgroundremover.mjs scripts/install-backgroundremover.mjs
 # The storage downgrade escape hatch (#4708) — docs/TROUBLESHOOTING.md tells
 # Docker users to run it in a one-off container, so it must ship in the image.
 COPY scripts/protect-launcher-data.mjs scripts/protect-launcher-data.mjs
+# `docker exec <container> node scripts/reset-login.mjs` removes a forgotten app login.
+COPY scripts/reset-login.mjs scripts/read-launcher-env.mjs scripts/
 
 # User guides served by the in-app documentation viewer (/api/docs)
 COPY README.md README.md

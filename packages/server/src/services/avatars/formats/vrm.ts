@@ -100,8 +100,9 @@ const REQUIRED_HUMAN_BONES = [
   "rightHand",
 ] as const;
 
-/** Custom expression names that clearly mean a slot (VRoid, UniVRM and VRChat conventions, English and
- *  Japanese), compared as sprite lookup tokens. Emotions also fall back to the sprite-label word stems. */
+/** Custom expression names that clearly mean a slot (VRoid, UniVRM, VRChat, Oculus and ARKit conventions,
+ *  English and Japanese), compared as sprite lookup tokens. Emotions also fall back to the sprite-label word
+ *  stems. GLB and FBX blend shapes are matched with the same names. */
 const SLOT_NAME_ALIASES: Readonly<Record<AvatarExpressionSlot, readonly string[]>> = {
   neutral: ["neutral", "default", "normal", "通常"],
   happy: ["happy", "joy", "smile", "喜び", "笑顔"],
@@ -109,17 +110,28 @@ const SLOT_NAME_ALIASES: Readonly<Record<AvatarExpressionSlot, readonly string[]
   sad: ["sad", "sorrow", "悲しみ"],
   relaxed: ["relaxed", "relax", "fun", "calm", "楽しい", "楽しみ"],
   surprised: ["surprised", "surprise", "shock", "驚き", "びっくり"],
-  aa: ["a", "aa", "あ", "vrc.v_aa", "mth_a"],
-  ih: ["i", "ih", "い", "vrc.v_ih", "mth_i"],
-  ou: ["u", "ou", "う", "vrc.v_ou", "mth_u"],
-  ee: ["e", "ee", "え", "vrc.v_e", "mth_e"],
-  oh: ["o", "oh", "お", "vrc.v_oh", "mth_o"],
-  blink: ["blink", "eyeclose", "eyesclosed", "vrc.blink", "まばたき", "瞬き"],
+  aa: ["a", "aa", "あ", "vrc.v_aa", "mth_a", "fcl_mth_a", "viseme_aa"],
+  ih: ["i", "ih", "い", "vrc.v_ih", "mth_i", "fcl_mth_i", "viseme_i"],
+  ou: ["u", "ou", "う", "vrc.v_ou", "mth_u", "fcl_mth_u", "viseme_u"],
+  ee: ["e", "ee", "え", "vrc.v_e", "mth_e", "fcl_mth_e", "viseme_e"],
+  oh: ["o", "oh", "お", "vrc.v_oh", "mth_o", "fcl_mth_o", "viseme_o"],
+  blink: ["blink", "eyeclose", "eyesclosed", "vrc.blink", "fcl_eye_close", "eyeblink", "まばたき", "瞬き"],
 };
-const SLOT_ALIAS_TOKENS: ReadonlyMap<AvatarExpressionSlot, ReadonlySet<string>> = new Map(
-  AVATAR_EXPRESSION_SLOTS.map((slot) => [slot, new Set(SLOT_NAME_ALIASES[slot].map(normalizeSpriteLookupToken))]),
-);
+/** Names that only roughly mean a slot (an open jaw for every vowel, a smiling mouth for happy): used when the
+ *  model has nothing that clearly means it. */
+const SLOT_LOOSE_ALIASES: Partial<Record<AvatarExpressionSlot, readonly string[]>> = {
+  happy: ["mouthsmile"],
+  aa: ["mouthopen", "jawopen"],
+};
+function aliasTokens(aliases: Partial<Record<AvatarExpressionSlot, readonly string[]>>) {
+  return new Map(
+    AVATAR_EXPRESSION_SLOTS.map((slot) => [slot, new Set((aliases[slot] ?? []).map(normalizeSpriteLookupToken))]),
+  ) as ReadonlyMap<AvatarExpressionSlot, ReadonlySet<string>>;
+}
+const SLOT_ALIAS_TOKENS = aliasTokens(SLOT_NAME_ALIASES);
+const SLOT_LOOSE_ALIAS_TOKENS = aliasTokens(SLOT_LOOSE_ALIASES);
 const NAME_MATCH_CONFIDENCE = 0.9;
+const LOOSE_MATCH_CONFIDENCE = 0.7;
 const STEM_MATCH_CONFIDENCE = 0.6;
 
 /** Limits of the stored data (avatarConfigSchema); longer names cannot be bound and are skipped. */
@@ -133,6 +145,22 @@ const MAX_URL_LENGTH = 2048;
 const DAMAGED = "This VRM file is incomplete or damaged.";
 const NOT_A_VRM = "This isn't a VRM file. Choose a .vrm model, for example one exported from VRoid Studio.";
 const BROKEN_SKELETON = "This model's skeleton points to parts that aren't in the file, so it can't be used.";
+
+/** A GLB refusal in the words of the format being imported (VRM here, plain GLB models in glb-fbx.ts). */
+export interface GlbRefusalText {
+  damaged: string;
+  notGlb: string;
+  /** What the oversized-description refusal compares against: "any VRM model". */
+  anyModel: string;
+  /** How to export a model that points to outside files. */
+  singleFile: string;
+}
+const VRM_GLB_TEXT: GlbRefusalText = {
+  damaged: DAMAGED,
+  notGlb: NOT_A_VRM,
+  anyModel: "any VRM model",
+  singleFile: "Export it again as a single .vrm file.",
+};
 
 export type ValidatedVrmFile =
   | {
@@ -158,53 +186,53 @@ function stringList(value: unknown): string[] {
 }
 
 /** Reads the JSON chunk of a GLB after checking every chunk length against the bytes actually present. */
-function readGlbJson(bytes: Uint8Array): JsonRecord {
+export function readGlbJson(bytes: Uint8Array, text: GlbRefusalText = VRM_GLB_TEXT): JsonRecord {
   if (bytes.byteLength < GLB_HEADER_BYTES + GLB_CHUNK_HEADER_BYTES) {
-    throw new AvatarImportError("invalid-file", DAMAGED);
+    throw new AvatarImportError("invalid-file", text.damaged);
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (view.getUint32(0, true) !== GLB_MAGIC) throw new AvatarImportError("unsupported-format", NOT_A_VRM);
+  if (view.getUint32(0, true) !== GLB_MAGIC) throw new AvatarImportError("unsupported-format", text.notGlb);
   if (view.getUint32(4, true) !== 2) {
     throw new AvatarImportError("unsupported-format", "This model uses an old glTF version that avatars can't load.");
   }
-  if (view.getUint32(8, true) !== bytes.byteLength) throw new AvatarImportError("invalid-file", DAMAGED);
+  if (view.getUint32(8, true) !== bytes.byteLength) throw new AvatarImportError("invalid-file", text.damaged);
 
   let json: unknown;
   let offset = GLB_HEADER_BYTES;
   for (let index = 0; offset < bytes.byteLength; index += 1) {
-    if (bytes.byteLength - offset < GLB_CHUNK_HEADER_BYTES) throw new AvatarImportError("invalid-file", DAMAGED);
+    if (bytes.byteLength - offset < GLB_CHUNK_HEADER_BYTES) throw new AvatarImportError("invalid-file", text.damaged);
     const length = view.getUint32(offset, true);
     const type = view.getUint32(offset + 4, true);
     offset += GLB_CHUNK_HEADER_BYTES;
-    if (length > bytes.byteLength - offset) throw new AvatarImportError("invalid-file", DAMAGED);
+    if (length > bytes.byteLength - offset) throw new AvatarImportError("invalid-file", text.damaged);
     if (index === 0) {
-      if (type !== GLB_CHUNK_JSON || length === 0) throw new AvatarImportError("invalid-file", DAMAGED);
+      if (type !== GLB_CHUNK_JSON || length === 0) throw new AvatarImportError("invalid-file", text.damaged);
       if (length > VRM_MAX_JSON_CHUNK_BYTES) {
         throw new AvatarImportError(
           "invalid-file",
-          "This file's model description is far larger than any VRM model needs, so it can't be read safely.",
+          `This file's model description is far larger than ${text.anyModel} needs, so it can't be read safely.`,
         );
       }
       try {
         json = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(offset, offset + length)));
       } catch {
-        throw new AvatarImportError("invalid-file", DAMAGED);
+        throw new AvatarImportError("invalid-file", text.damaged);
       }
     } else if (type === GLB_CHUNK_JSON || (type === GLB_CHUNK_BIN && index !== 1)) {
-      throw new AvatarImportError("invalid-file", DAMAGED);
+      throw new AvatarImportError("invalid-file", text.damaged);
     }
     offset += length;
   }
   const version = isRecord(json) && isRecord(json.asset) ? json.asset.version : undefined;
   if (!isRecord(json) || typeof version !== "string" || !version.startsWith("2")) {
-    throw new AvatarImportError("invalid-file", DAMAGED);
+    throw new AvatarImportError("invalid-file", text.damaged);
   }
   return json;
 }
 
 /** three's GLTFLoader cannot decode these without decoders the Engine does not ship. Draco throws even
  *  when optional; meshopt and Basis textures fall back to plain data unless the file requires them. */
-function refuseCompression(json: JsonRecord): void {
+export function refuseCompression(json: JsonRecord): void {
   const used = stringList(json.extensionsUsed);
   const required = stringList(json.extensionsRequired);
   const refused = [
@@ -226,26 +254,23 @@ function refuseCompression(json: JsonRecord): void {
 
 /** A stored model must carry all of its data: a buffer or image that points to an address outside the file
  *  would make the browser fetch it while loading the avatar. */
-function refuseExternalFiles(json: JsonRecord): void {
+export function refuseExternalFiles(json: JsonRecord, text: GlbRefusalText = VRM_GLB_TEXT): void {
   const external = [json.buffers, json.images].some(
     (list) =>
       Array.isArray(list) &&
       list.some((entry) => isRecord(entry) && entry.uri !== undefined && !/^data:/iu.test(String(entry.uri))),
   );
   if (external) {
-    throw new AvatarImportError(
-      "unsupported-format",
-      "This model points to files outside itself. Export it again as a single .vrm file.",
-    );
+    throw new AvatarImportError("unsupported-format", `This model points to files outside itself. ${text.singleFile}`);
   }
 }
 
 /** three's GLTFLoader shows the file's default scene; three-vrm and the VRM animation loader fail without one. */
-function requireScene(json: JsonRecord): void {
+export function requireScene(json: JsonRecord, text: GlbRefusalText = VRM_GLB_TEXT): void {
   const index = json.scene ?? 0;
   const scenes = Array.isArray(json.scenes) ? json.scenes : [];
   if (typeof index !== "number" || !Number.isInteger(index) || index < 0 || !isRecord(scenes[index])) {
-    throw new AvatarImportError("invalid-file", DAMAGED);
+    throw new AvatarImportError("invalid-file", text.damaged);
   }
 }
 
@@ -474,10 +499,15 @@ export function bindVrmExpressions(
       continue;
     }
     const aliases = SLOT_ALIAS_TOKENS.get(slot);
+    const looseAliases = SLOT_LOOSE_ALIAS_TOKENS.get(slot);
     for (const name of names) {
       if (presets.has(name) || !usable(name)) continue;
       const token = normalizeSpriteLookupToken(name);
-      let confidence = aliases?.has(token) ? NAME_MATCH_CONFIDENCE : 0;
+      let confidence = aliases?.has(token)
+        ? NAME_MATCH_CONFIDENCE
+        : looseAliases?.has(token)
+          ? LOOSE_MATCH_CONFIDENCE
+          : 0;
       if (!confidence && emotions.includes(slot)) {
         const mapped = mapSpriteExpressionToAvatarEmotion(name);
         if (mapped?.emotion === slot) confidence = STEM_MATCH_CONFIDENCE * mapped.weight;
@@ -628,7 +658,7 @@ export const vrmImporter: AvatarFormatImporter<"vrm", ValidatedVrmFile> = {
     if (!validated) {
       throw new AvatarImportError(
         "unsupported-format",
-        "This is a plain 3D model, not a VRM. Convert it to VRM first, for example with the VRM add-on for Blender.",
+        "This is a plain 3D model, not a VRM. Import it as a GLB or FBX model instead, or convert it to VRM, for example with the VRM add-on for Blender.",
       );
     }
     requireScene(json);

@@ -36,7 +36,7 @@ test("Codex connections set their thinking level in connection settings", async 
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openConnectionDetail(id);
     }, id);
-    await expect(page.getByPlaceholder("Connection name")).toHaveValue("Codex effort fixture");
+    await expect(page.getByPlaceholder("Model name", { exact: true })).toHaveValue("Codex effort fixture");
   };
 
   try {
@@ -45,7 +45,7 @@ test("Codex connections set their thinking level in connection settings", async 
 
     await page.goto("/");
     await open();
-    const defaults = page.getByRole("checkbox", { name: "Use custom defaults for this connection", exact: true });
+    const defaults = page.getByRole("checkbox", { name: "Use custom defaults for this model", exact: true });
     await defaults.scrollIntoViewIfNeeded();
     await defaults.press("Space");
     await expect(defaults).toBeChecked();

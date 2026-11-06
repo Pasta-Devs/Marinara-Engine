@@ -151,7 +151,6 @@ export function suppressesReferencePromptLine(
 }
 
 const MAX_ILLUSTRATOR_REFERENCE_IMAGES = 6;
-const MAX_ILLUSTRATOR_APPEARANCE_CHARS = 1400;
 export const NAME_STOPWORDS = new Set(["the", "a", "an", "il", "la", "le", "de", "van", "von", "dr", "mr", "ms"]);
 
 export const ILLUSTRATOR_TEXT_NEGATIVE_PROMPT =
@@ -304,20 +303,15 @@ function buildNameAliases(name: string, opts: { includeStandaloneTokens?: boolea
 
 export function normalizeIllustratorAppearance(value: unknown): string | null {
   const cleaned = typeof value === "string" ? stripMacroComments(value).replace(/\s+/g, " ").trim() : "";
-  if (!cleaned) return null;
-  if (cleaned.length <= MAX_ILLUSTRATOR_APPEARANCE_CHARS) return cleaned;
-  const limit = MAX_ILLUSTRATOR_APPEARANCE_CHARS - 3;
-  const clipped = cleaned.slice(0, limit).trimEnd();
-  const wordBoundary = clipped.lastIndexOf(" ");
-  return `${(wordBoundary > 0 ? clipped.slice(0, wordBoundary) : clipped).trimEnd()}...`;
+  return cleaned || null;
 }
 
 /**
  * Resolves the appearance text used for IMAGE prompts (#7053): the card's
  * `extensions.imageAppearance` wins over `extensions.appearance`/`appearance`
  * when the toggle is on and the override is non-empty. Both candidates go
- * through `normalizeIllustratorAppearance` so macro-stripping and clipping are
- * unchanged; the helper only picks override-vs-fallback.
+ * through `normalizeIllustratorAppearance` so macro-stripping and whitespace handling
+ * are identical; the helper only picks override-vs-fallback.
  */
 export function readIllustratorAppearance(data: Record<string, unknown>): string | null {
   const extensions = parseRecord(data.extensions);

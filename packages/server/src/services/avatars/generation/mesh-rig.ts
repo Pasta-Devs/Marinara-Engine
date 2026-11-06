@@ -16,7 +16,7 @@ import {
   type AvatarOwnerRef,
 } from "@marinara-engine/shared";
 import type { DB } from "../../../db/connection.js";
-import { logDebugOverride } from "../../../lib/logger.js";
+import { debugJson, logDebugOverride } from "../../../lib/logger.js";
 import { resolveBaseUrl } from "../../generation/connection-base-url.js";
 import { applyProviderMaxTokensOverride } from "../../generation/generation-parameters.js";
 import { redactImageCaptionMessagesForLog } from "../../generation/image-captioning-runtime.js";
@@ -148,7 +148,7 @@ export async function requestMeshRigLayout(args: {
       args.debug,
       "[debug/avatar-generation] mesh rig layout messages (attempt %d):\n%s",
       attempt + 1,
-      JSON.stringify(redactImageCaptionMessagesForLog(messages), null, 2),
+      debugJson(redactImageCaptionMessagesForLog(messages)),
     );
     const result = await args.provider.chatComplete(messages, {
       model: args.model,

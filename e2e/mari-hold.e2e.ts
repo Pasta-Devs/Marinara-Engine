@@ -245,11 +245,18 @@ test("a slow phone push into an edge does not bonk her", async ({ page, isMobile
 });
 
 test("two fast hits on opposite edges make her dizzy", async ({ page }) => {
+  // Dizzy needs both wall hits inside 900 ms, and a hit reads the hand's speed on animation frames, which a loaded
+  // headless browser (WebKit most of all) does not keep to. So the page's clock stops once she is held, and each
+  // hit then gets its frames at 60 fps.
+  await page.clock.install();
   await page.goto("/");
   const { figure, startY } = await holdWidgetAndDrag(page);
   const width = page.viewportSize()!.width;
-  await page.mouse.move(2, startY, { steps: 2 });
-  await page.mouse.move(width - 2, startY, { steps: 2 });
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+  for (const x of [2, width - 2]) {
+    await page.mouse.move(x, startY, { steps: 2 });
+    await page.clock.runFor(200);
+  }
   await expect(figure).toHaveAttribute("data-dizzy", "true");
   const box = await figure.boundingBox();
   expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);

@@ -2,6 +2,8 @@ import {
   VIDEO_DEFAULTS_STORAGE_KEY,
   createDefaultVideoGenerationProfile,
   inferVideoSource,
+  getOpenRouterVideoModelLimits,
+  resolveOpenRouterVideoModelDefaults,
   normalizeVideoGenerationProfile,
   type VideoAspectRatio,
   type VideoGenerationDefaultsProfile,
@@ -110,6 +112,13 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
   const isSeedance = source === "seedance" || serviceHint === "seedance";
   const isSwarmUi = source === "swarmui" || serviceHint === "swarmui";
   const isComfyUi = source === "comfyui" || serviceHint === "comfyui" || isSwarmUi;
+  const openRouterLimits = isOpenRouter ? getOpenRouterVideoModelLimits(connection.model ?? "") : null;
+  if (isOpenRouter || isNanoGpt) {
+    videoDefaults.openrouter = resolveOpenRouterVideoModelDefaults(
+      isNanoGpt ? "" : (connection.model ?? ""),
+      videoDefaults.openrouter,
+    );
+  }
   const activeDefaults = isXai
     ? videoDefaults.xai
     : isGoogleVeo
@@ -189,8 +198,8 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
       : undefined,
     resolution,
     promptLimits: getSceneVideoPromptLimits(isXai, isGeminiOmni),
-    minDurationSeconds: isGoogleVeo || isSeedance ? 4 : 1,
-    maxDurationSeconds: isXai || isSeedance ? 15 : isGoogleVeo ? 8 : 60,
+    minDurationSeconds: openRouterLimits?.minDurationSeconds ?? (isGoogleVeo || isSeedance ? 4 : 1),
+    maxDurationSeconds: openRouterLimits?.maxDurationSeconds ?? (isXai || isSeedance ? 15 : isGoogleVeo ? 8 : 60),
     publicReferenceUpload: resolveVideoReferencePublicUploadOptions(isSeedance, videoDefaults.seedance),
     activeDefaults,
     videoDefaults,

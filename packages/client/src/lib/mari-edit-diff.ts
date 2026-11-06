@@ -4,7 +4,7 @@
 // arrays) so the reviewer sees "Personality changed", not "data changed".
 
 import type { MariDbRowChange } from "@marinara-engine/shared";
-import { diffWords, type DiffSegment } from "./word-diff";
+import { diffWords, groupChangeRuns, type DiffSegment } from "./word-diff";
 
 export interface FieldChange {
   path: string;
@@ -283,15 +283,15 @@ export function computeFieldChanges(change: MariDbRowChange): FieldChange[] {
 }
 
 /**
- * Tracked changes for a prose field: word by word when much of the old text survives (a greeting
- * reworked around its lines, a sentence added), or the whole old text struck and the whole new text
- * inserted when it was rewritten, since a word-by-word diff of a rewrite is confetti.
+ * Tracked changes for a prose field: run by run when much of the old text survives (a greeting
+ * reworked around its lines, a sentence added), each edited run's old words struck whole before its
+ * new words; or the whole old text struck and the whole new text inserted when it was rewritten.
  */
 export function trackProseChange(before: string, after: string): DiffSegment[] {
   const segments = diffWords(before, after);
   const words = (text: string) => text.replace(/\s+/g, "").length;
   const kept = segments.reduce((sum, segment) => sum + (segment.type === "equal" ? words(segment.value) : 0), 0);
-  if (kept >= 0.4 * words(before)) return segments;
+  if (kept >= 0.4 * words(before)) return groupChangeRuns(segments);
   return [
     ...(before ? [{ type: "removed" as const, value: before }] : []),
     ...(before && after ? [{ type: "equal" as const, value: " " }] : []),

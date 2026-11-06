@@ -199,9 +199,8 @@ function compileImagePromptPass(
     ? [
         { value: promptPrefix, sourcePrompt: false, hardPrefix: true },
         // Explicit profile configuration is a provider-facing prefix, even for
-        // compact avatar/portrait prompts. Protect it from priority sorting and
-        // the compact token budget so inferred source cues cannot move ahead of
-        // or silently replace the user's configured tags.
+        // tagged portrait prompts. Inferred source cues follow, rather than
+        // silently replace, the user's configured tags.
         { value: profile.positiveTags, sourcePrompt: false, hardPrefix: true },
         { value: profileSubjectTags, sourcePrompt: false, hardPrefix: true },
         { value: sourceCues.join(", "), sourcePrompt: false },
@@ -266,17 +265,13 @@ function compileImagePromptPass(
   }
 
   const hardPrefix = dedupeFragments(hardPrefixFragments, profile.rules.dedupeStrength, positiveDiagnostics);
-  let positive = compactPromptFragments(
-    dedupeFragments([...hardPrefix, ...positiveFragments], profile.rules.dedupeStrength, positiveDiagnostics),
-    compactPrompt,
-    hardPrefix.length,
+  let positive = dedupeFragments(
+    [...hardPrefix, ...positiveFragments],
+    profile.rules.dedupeStrength,
+    positiveDiagnostics,
   );
   if (positive.length === 0) {
-    positive = fallbackPositiveFragments(
-      [generatedStylePart, input.prompt, userPositivePart],
-      promptMode,
-      compactPrompt,
-    );
+    positive = fallbackPositiveFragments([generatedStylePart, input.prompt, userPositivePart], promptMode);
   }
   const negative = dedupeFragments(negativeFragments, profile.rules.dedupeStrength, negativeDiagnostics);
 
@@ -298,7 +293,7 @@ function resolveImagePromptCompilationMode(input: CompileImagePromptInput, profi
   const applyPromptModeToSourcePrompt = input.applyPromptModeToSourcePrompt === true;
   const preserveGeneratedPrompt =
     !applyPromptModeToSourcePrompt &&
-    (input.kind === "illustration" || input.kind === "background" || input.kind === "selfie");
+    ["portrait", "sprite", "illustration", "background", "selfie"].includes(input.kind);
   const compactTags =
     !applyPromptModeToSourcePrompt && !preserveGeneratedPrompt && taggedPromptMode && input.kind !== "avatar";
   const compactVisualPrompt =
@@ -346,14 +341,12 @@ function normalizePromptContainmentText(value: string): string {
 function fallbackPositiveFragments(
   values: Array<string | null | undefined>,
   promptMode: ImageStyleProfile["promptMode"],
-  compactPrompt: boolean,
 ): string[] {
-  const fallbackFragments = values
+  return values
     .flatMap((value) => splitPromptFragments(value, "natural"))
     .filter((fragment) => !extractNegativeFragment(fragment) && !hasAvoidInstructionPrefix(fragment))
     .map((fragment) => cleanPromptFragment(fragment, promptMode))
     .filter(Boolean);
-  return compactPromptFragments(fallbackFragments, compactPrompt);
 }
 
 function imagePromptPrefixFromDefaults(defaults: ImageGenerationDefaultsProfile | null | undefined): string {
@@ -567,6 +560,13 @@ function findTopLevelSentenceBoundary(value: string): number {
 
     const insideGroup = parenDepth > 0 || bracketDepth > 0 || braceDepth > 0;
     if (!insideGroup && /[.!?]/.test(char) && (!value[index + 1] || /\s/.test(value[index + 1]!))) {
+      // Titles within an exclusion are not sentence ends: "Avoid Dr. Smith's glasses. Red coat".
+      if (
+        char === "." &&
+        /\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|Mt)\.$/i.test(value.slice(Math.max(0, index - 5), index + 1))
+      ) {
+        continue;
+      }
       return index;
     }
   }
@@ -609,7 +609,6 @@ function splitPromptFragments(
   const normalized = text
     .replace(/\r\n?/g, "\n")
     .replace(/[.!?]\s+(?=(?:avoid|no|without|exclude|do not include|don't include)\b)/gi, "\n")
-    .replace(/((?:^|\n)(?:avoid|no|without|exclude|do not include|don't include)\s+[^.!?\n]+[.!?])\s+(?=\S)/gim, "$1\n")
     .replace(/\b(?:avoid|negative prompt|undesired content)\s*:/gi, "\navoid ")
     .replace(/\b(?:SD|Stable Diffusion)\/Illustrious\s+tags?\s*:/gi, "\n")
     .replace(/\b(?:positive prompt|tags?)\s*:/gi, "\n");
@@ -631,12 +630,24 @@ function splitPromptFragments(
         fragments.push(clean);
       }
     }
-    return fragments;
+    return fragments.flatMap(splitNegativePromptSentence);
   }
 
   const prepared = sourcePrompt ? distillTaggedPromptSource(normalized) : normalized;
 
-  return splitPromptListItems(prepared);
+  return splitPromptListItems(prepared).flatMap(splitNegativePromptSentence);
+}
+
+function splitNegativePromptSentence(value: string): string[] {
+  const fragments: string[] = [];
+  while (hasAvoidInstructionPrefix(value)) {
+    const boundary = findTopLevelSentenceBoundary(value);
+    if (boundary < 0) break;
+    fragments.push(value.slice(0, boundary + 1));
+    value = value.slice(boundary + 1).trim();
+  }
+  if (value) fragments.push(value);
+  return fragments;
 }
 
 function splitNegativePromptItems(value: string): string[] {
@@ -927,109 +938,12 @@ function hasVisualCue(value: string): boolean {
   );
 }
 
-function compactPromptFragments(
-  fragments: string[],
-  compactPrompt: boolean,
-  protectedCount = 0,
-  maxTokens = 75,
-): string[] {
-  if (!compactPrompt) return fragments;
-
-  const separator = ", ";
-  const protectedFragments = fragments.slice(0, protectedCount);
-  const ranked = fragments
-    .slice(protectedCount)
-    .map((fragment, index) => ({ fragment, index, priority: compactTagPriority(fragment) }))
-    .sort((a, b) => a.priority - b.priority || a.index - b.index);
-  const result: string[] = [...protectedFragments];
-  let tokens = estimatedPromptTokens(result, separator);
-
-  for (const { fragment } of ranked) {
-    if (isLowPriorityCompactTag(fragment) && tokens > Math.floor(maxTokens * 0.8)) continue;
-    const nextTokens =
-      tokens + (result.length ? estimatedPromptTokenCount(separator) : 0) + estimatedPromptTokenCount(fragment);
-    if (nextTokens > maxTokens) continue;
-    result.push(fragment);
-    tokens = nextTokens;
-  }
-
-  return result;
-}
-
-function estimatedPromptTokens(fragments: string[], separator: string): number {
-  if (fragments.length === 0) return 0;
-  return (
-    fragments.reduce((count, fragment) => count + estimatedPromptTokenCount(fragment), 0) +
-    (fragments.length - 1) * estimatedPromptTokenCount(separator)
-  );
-}
-
-function estimatedPromptTokenCount(value: string): number {
-  const clean = value.trim();
-  if (!clean) return 0;
-  const lexicalTokens = clean.match(/<[^>]+>|[\p{L}\p{N}_'-]+|[^\s\p{L}\p{N}]/gu) ?? [];
-  return lexicalTokens.reduce((count, token) => count + Math.max(1, Math.ceil(token.length / 8)), 0);
-}
-
-function compactTagPriority(value: string): number {
-  const tag = value.trim().toLowerCase();
-  if (
-    /\b(?:fantasy|medieval|kingdom|castle|village|tavern|dungeon|forest|field|farm|road|market|city|urban|street|alley|temple|church|ruins?|graveyard|cave|mountain|river|lake|desert|snow|rain|storm|fog|night|dawn|morning|noon|afternoon|evening|sci-fi|scifi|cyberpunk|space|futuristic|modern|contemporary|western|victorian|steampunk|environment|landscape|scenery|location|interior|exterior)\b/.test(
-      tag,
-    )
-  ) {
-    return 1;
-  }
-  if (
-    /^(?:female|male|woman|man|girl|boy|non[-\s]?binary|androgynous|genderless|human|elf|dwarf|orc|android|robot|person)$/.test(
-      tag,
-    )
-  )
-    return 0;
-  if (/^(?:readable expression|clear silhouette|readable face|natural expression)$/.test(tag)) return 7;
-  if (/\b(?:avatar|face-and-shoulders portrait|shoulders-up composition|centered portrait)\b/.test(tag)) {
-    return 1;
-  }
-  if (/\b(?:hair|eyes?)\b/.test(tag)) {
-    return 2;
-  }
-  if (
-    /\b(?:armor|armour|dress|shirt|blouse|trousers|coat|jacket|blazer|robe|uniform|sword|staff|hat|glasses|boots|ring)\b/.test(
-      tag,
-    )
-  ) {
-    return 3;
-  }
-  if (
-    /\b(?:adult|young adult|middle-aged|middle aged|elderly|senior|twenties|thirties|forties|fifties|sixties|skin|body|petite|tall|short|slim|muscular|statuesque|scar|freckles|beard|makeup|cheekbones|nails)\b/.test(
-      tag,
-    )
-  ) {
-    return 4;
-  }
-  if (/\b(?:portrait|close-up|upper body|face-and-shoulders|full body|centered|looking at viewer)\b/.test(tag)) {
-    return 5;
-  }
-  if (/\b(?:photorealistic|anime|cinematic|digital painting|painterly|illustration|realistic)\b/.test(tag)) return 6;
-  if (
-    /^(?:masterpiece|best quality|high quality|sharp focus|natural lighting|detailed textures|absurdres)$/.test(tag)
-  ) {
-    return 7;
-  }
-  return 3;
-}
-
-function isLowPriorityCompactTag(value: string): boolean {
-  return /^(?:single subject|centered composition|readable expression|clear silhouette|readable face|natural expression|photorealistic|realistic|anime style|cinematic|digital painting|painterly|illustration|high quality|sharp focus|natural lighting|detailed textures|best quality|masterpiece|absurdres)$/i.test(
-    value.trim(),
-  );
-}
-
 function extractNegativeFragment(fragment: string): string | null {
   const clean = fragment.trim();
   const match = clean.match(/^(?:avoid|no|without|exclude|do not include|don't include)\s+(.+)/i);
   if (!match?.[1]) return null;
-  const firstSentence = match[1].split(/[.!?]+(?:\s+|$)/u, 1)[0] ?? match[1];
+  const boundary = findTopLevelSentenceBoundary(match[1]);
+  const firstSentence = boundary < 0 ? match[1] : match[1].slice(0, boundary);
   const negative = (splitPromptListItems(firstSentence)[0] ?? "")
     .replace(/[.]+$/g, "")
     .replace(/^(?:any|all)\s+/i, "")

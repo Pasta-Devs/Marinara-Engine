@@ -34,6 +34,7 @@ import {
   type RulesetSheetItem,
   type RulesetStatBlock,
 } from "../../packages/shared/src/index.js";
+import { letAnswerThrough } from "./fixtures/ruleset-counter-pass.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-roll-answers-"));
 process.env.DATA_DIR = dataDir;
@@ -424,11 +425,16 @@ try {
       );
       assert.ok(held.state.window, JSON.stringify(held.events));
       const answer = rulesetWindowOptions(definition, held.state, "corwin").find((one) => one.label === "Counter")!;
-      return applyRulesetCombatChoice(
+      const roller = (sides: number) => (sides === 20 ? 12 : 3);
+      return letAnswerThrough(
         definition,
-        held.state,
-        { actorId: "corwin", optionId: answer.id, targetIds: [], window: held.state.window!.id },
-        (sides) => (sides === 20 ? 12 : 3),
+        applyRulesetCombatChoice(
+          definition,
+          held.state,
+          { actorId: "corwin", optionId: answer.id, targetIds: [], window: held.state.window!.id },
+          roller,
+        ),
+        roller,
       );
     };
     // 12 and the +4 is 16 against 15: the bard's 3 makes it 13, and the bolt lands.

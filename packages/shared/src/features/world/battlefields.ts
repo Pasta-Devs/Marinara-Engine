@@ -67,3 +67,59 @@ export function worldSceneLike(
   if (scene) return scene.like;
   return TACTICAL_ENVIRONMENTS.find((each) => each === key);
 }
+
+/** The engine's battlefields a place's own words say it is, first match first: a cistern or a crypt is a
+ *  dungeon, an arena or a keep a castle, a hall or a tavern a mansion. Never the open ground. */
+const PLACE_WORDS: ReadonlyArray<readonly [TacticalEnvironment, RegExp]> = [
+  ["cave", /\b(caves?|caverns?|grottos?|grottoes|mineshafts?|mines)\b/u],
+  [
+    "dungeon",
+    /\b(underground|subterranean|cisterns?|sewers?|tunnels?|crypts?|catacombs?|tombs?|vaults?|cellars?|basements?|dungeons?|undercroft|oubliette|labyrinth|ossuary|mausoleum|prison|jail|bunker)\b/u,
+  ],
+  [
+    "castle",
+    /\b(arenas?|colosseum|coliseum|amphitheat(?:re|er)|fighting pits?|gladiator\w*|castles?|fortress(?:es)?|forts?|citadels?|battlements?|ramparts?|throne rooms?)\b/u,
+  ],
+  [
+    "mansion",
+    /\b(mansions?|manors?|halls?|taverns?|inns?|librar(?:y|ies)|temples?|chapels?|churche?s?|cathedrals?|shrines?|palaces?|ballrooms?|warehouses?|workshops?|forges?|foundry|foundries|chambers?|indoors?)\b/u,
+  ],
+  ["ruins", /\b(ruins?|ruined)\b/u],
+  ["city", /\b(streets?|alleys?|alleyways?|markets?|plaza|town square|docks?|harbou?rs?|rooftops?)\b/u],
+];
+
+/** The scenes a place under a roof or underground is laid out as. */
+const ENCLOSED: ReadonlySet<TacticalEnvironment> = new Set(["cave", "dungeon", "castle", "mansion"]);
+
+/** Words that say a place is open ground after all. */
+const OPEN_GROUND =
+  /\b(plains?|fields?|meadows?|grasslands?|prairies?|steppes?|outside|outdoors?|open air|open-air)\b/u;
+
+/** The battlefield a place's own words name, or undefined when they name none. */
+function placeWordsLike(text: string | null | undefined): TacticalEnvironment | undefined {
+  const lower = text?.toLowerCase() ?? "";
+  return lower ? PLACE_WORDS.find(([, words]) => words.test(lower))?.[0] : undefined;
+}
+
+/**
+ * The scene a fight is laid out as, from the Game Master's scene word and the place it described (cheap-GM
+ * playtest 2026-10-26: an iron arena and an underground cistern were fought on Plains boards). A
+ * setting's own scene is kept as the setting says it; an engine scene is kept too, except the open
+ * plains where the place is plainly a cistern, an arena or a hall. A word that is no scene at all is read
+ * for the place it names, then the description. Undefined where neither says anything.
+ */
+export function worldSceneForPlace(
+  fields: WorldBattlefields,
+  word: string | null | undefined,
+  description: string | null | undefined,
+): string | undefined {
+  const key = word?.trim() ?? "";
+  const like = worldSceneLike(fields, key);
+  const named = placeWordsLike(key) ?? placeWordsLike(description);
+  if (like === undefined) return named ?? (key || undefined);
+  const setting = fields.scenes.find((scene) => scene.label.trim().toLowerCase() === key.toLowerCase());
+  if (setting && setting.label !== setting.like) return key;
+  if (like !== "plains" || !named || !ENCLOSED.has(named)) return key;
+  // Plains said of a place that is open ground too ("the field below the castle") stay plains.
+  return OPEN_GROUND.test(`${description ?? ""}`.toLowerCase()) ? key : named;
+}

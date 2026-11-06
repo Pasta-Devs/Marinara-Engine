@@ -57,6 +57,33 @@ function readValues(body: string): Map<string, string> {
   return values;
 }
 
+/** The `day` attributes of a place tag's body that say a new day, as the Engine reads them. */
+function newDayAttributes(body: string) {
+  return readGmTagAttributes(body).filter(
+    (attribute) => attribute.key.trim().toLowerCase() === "day" && clean(attribute.rawValue)?.toLowerCase() === "new",
+  );
+}
+
+/** Whether a `[place: ...]` tag begins a new market day, however its `day="new"` is quoted. */
+export function gamePlaceTagBeginsDay(tag: string): boolean {
+  const body = new RegExp(createPlaceTagRegex().source, "i").exec(tag)?.[1];
+  if (body === undefined) return false;
+  const first = readGmTagAttributes(body).find((attribute) => attribute.key.trim().toLowerCase() === "day");
+  return !!first && clean(first.rawValue)?.toLowerCase() === "new";
+}
+
+/** Every `[place: ...]` tag of `text` with any new day it says taken out, the rest as written. */
+export function withoutGamePlaceNewDays(text: string): string {
+  return text.replace(createPlaceTagRegex(), (whole, body: string) => {
+    let kept = body;
+    for (const attribute of newDayAttributes(body).reverse()) {
+      const before = kept.slice(0, attribute.start).replace(/\s+$/, "");
+      kept = `${before}${kept.slice(attribute.end)}`;
+    }
+    return kept === body ? whole : `[place:${kept}]`;
+  });
+}
+
 function serialize(place: GamePlace, answer: { result: "ok" } | { result: "refused"; reason: string }): string {
   const parts: string[] = [];
   if (place.name) parts.push(`name="${place.name}"`);

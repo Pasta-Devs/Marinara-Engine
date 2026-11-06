@@ -50,7 +50,12 @@ jobs:
           elif [[ "$COMMENT_BODY" =~ ^/dottore[[:space:]]+approve[[:space:]]*$ ]]; then
             REVIEW_MODE=approve
           fi
-          TARGET_REF="$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" --json baseRefName -q .baseRefName)"
+          read -r STATE DRAFT TARGET_REF < <(gh pr view "$PR_NUM" --repo "${{ github.repository }}" \
+            --json state,isDraft,baseRefName --jq '"\(.state) \(.isDraft) \(.baseRefName)"')
+          if [ "$STATE" != OPEN ] || [ "$DRAFT" != false ]; then
+            echo "Dottore waits until this pull request is open and Ready for review."
+            exit 0
+          fi
           if ! jq -en --arg refs "$DOTTORE_BASE_REFS" --arg ref "$TARGET_REF" '$refs | split(",") | index($ref) != null' >/dev/null; then
             # Someone asked, so answer on the pull request; the job itself is not a failure.
             gh pr comment "$PR_NUM" --repo "${{ github.repository }}" \
@@ -161,7 +166,12 @@ jobs:
             admin|maintain|write) ;;
             *) echo "$SENDER lacks write access ($PERMISSION); not dispatching."; exit 0 ;;
           esac
-          TARGET_REF="$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" --json baseRefName -q .baseRefName)"
+          read -r STATE DRAFT TARGET_REF < <(gh pr view "$PR_NUM" --repo "${{ github.repository }}" \
+            --json state,isDraft,baseRefName --jq '"\(.state) \(.isDraft) \(.baseRefName)"')
+          if [ "$STATE" != OPEN ] || [ "$DRAFT" != false ]; then
+            echo "Dottore waits until this pull request is open and Ready for review."
+            exit 0
+          fi
           if ! jq -en --arg refs "$DOTTORE_BASE_REFS" --arg ref "$TARGET_REF" '$refs | split(",") | index($ref) != null' >/dev/null; then
             gh pr comment "$PR_NUM" --repo "${{ github.repository }}" \
               --body "🩺 Dottore repairs pull requests into ${DOTTORE_BASE_REFS//,/, } only; this one targets $TARGET_REF."

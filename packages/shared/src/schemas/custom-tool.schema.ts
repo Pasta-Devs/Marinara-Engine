@@ -2,6 +2,7 @@
 // Custom Tool Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
 
 export const toolExecutionTypeSchema = z.enum(["webhook", "static", "script"]);
 
@@ -12,7 +13,7 @@ export const createCustomToolSchema = z.object({
     .max(100)
     .regex(/^[a-z][a-z0-9_]*$/, "Tool name must be lowercase snake_case"),
   description: z.string().min(1).max(500),
-  parametersSchema: z.record(z.unknown()).default({}),
+  parametersSchema: z.record(z.string(), z.unknown()).prefault({}),
   executionType: toolExecutionTypeSchema.default("static"),
   webhookUrl: z.string().url().nullable().default(null),
   staticResult: z.string().nullable().default(null),
@@ -22,7 +23,7 @@ export const createCustomToolSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
-export const updateCustomToolSchema = createCustomToolSchema.partial();
+export const updateCustomToolSchema = partialInput(createCustomToolSchema);
 export const reorderCustomToolsSchema = z.object({
   toolIds: z.array(z.string().min(1)),
 });

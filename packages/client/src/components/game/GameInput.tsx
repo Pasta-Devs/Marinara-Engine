@@ -20,7 +20,12 @@ import { SpeechToTextButton } from "../ui/SpeechToTextButton";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { translateDraftText } from "../../lib/draft-translation";
-import { formatTextQuotes, type DiceRollResult, type PendingSpatialTransition } from "@marinara-engine/shared";
+import {
+  formatTextQuotes,
+  skillCheckSymbolText,
+  type DiceRollResult,
+  type PendingSpatialTransition,
+} from "@marinara-engine/shared";
 import { getChatInputShellClass } from "../chat/chat-input-styles";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import type { PendingSpatialTransitionDraft } from "../../stores/chat.store";
@@ -58,6 +63,10 @@ interface GameInputProps {
   draftKey?: string;
   /** Increment to request focus on the textarea (used by the Interrupt button to jump the player into typing). */
   focusToken?: number;
+  /** Increment to send what the input holds, as Send would (Retry after a turn that failed before it was saved). */
+  sendToken?: number;
+  /** Called when a `sendToken` finds nothing the input can send (it was cleared, or the input is disabled). */
+  onSendTokenUnsent?: () => void;
   /** Trigger the same scene illustration action exposed in the Game Gallery. */
   onIllustrate?: () => void | Promise<void>;
   spatialCapabilityEnabled?: boolean;
@@ -117,6 +126,11 @@ function clearGameInputDraft(storageKey: string | null): void {
 }
 
 function formatDiceResultTag(result: DiceRollResult): string {
+  // A ruleset's symbol dice tell the GM their net symbols and the verdict, not a sum of face numbers.
+  if (result.symbols) {
+    const symbolText = skillCheckSymbolText(result) || "no net symbols";
+    return `[dice: ${result.notation} = ${symbolText}; ${result.success ? "success" : "failure"}]`;
+  }
   const rollDetail =
     result.rolls.length > 1 || result.modifier !== 0
       ? ` (${result.rolls.join(", ")}${result.modifier ? ` ${result.modifier > 0 ? "+" : ""}${result.modifier}` : ""})`
@@ -140,6 +154,8 @@ export function GameInput({
   inline,
   draftKey,
   focusToken,
+  sendToken,
+  onSendTokenUnsent,
   onIllustrate,
   spatialCapabilityEnabled = false,
   interruptMode,
@@ -248,7 +264,7 @@ export function GameInput({
     const commitPendingMove = !!pendingMoveLabel && addressMode === "scene";
     const hasTurnContent =
       trimmed.length > 0 || attachments.length > 0 || commitPendingMove || canSubmitSpatialMove || !!queuedDice;
-    if (!hasTurnContent || disabled || rollingQueuedDice) return;
+    if (!hasTurnContent || disabled || rollingQueuedDice) return false;
 
     if (isIllustrateSlashCommand(trimmed) && onIllustrate) {
       setText("");
@@ -270,7 +286,7 @@ export function GameInput({
 
     if (queuedDice) {
       setRollingQueuedDice(true);
-      let diceResult: DiceRollResult | null = null;
+      let diceResult: DiceRollResult | null;
       try {
         diceResult = await onRollDice(queuedDice);
       } finally {
@@ -312,6 +328,28 @@ export function GameInput({
       });
     }
   };
+
+  const handleSendRef = useRef(handleSend);
+  handleSendRef.current = handleSend;
+  const onSendTokenUnsentRef = useRef(onSendTokenUnsent);
+  onSendTokenUnsentRef.current = onSendTokenUnsent;
+  const lastSendTokenRef = useRef(sendToken ?? 0);
+  // A resend already under way has emptied the input, so a second press must not read that as nothing to send.
+  const tokenSendInFlightRef = useRef(false);
+  useEffect(() => {
+    if (!sendToken || lastSendTokenRef.current === sendToken) return;
+    lastSendTokenRef.current = sendToken;
+    if (tokenSendInFlightRef.current) return;
+    tokenSendInFlightRef.current = true;
+    void handleSendRef
+      .current()
+      .then((sent) => {
+        if (sent === false) onSendTokenUnsentRef.current?.();
+      })
+      .finally(() => {
+        tokenSendInFlightRef.current = false;
+      });
+  }, [sendToken]);
 
   const handleKeyDown = (e: KeyboardEvent) => {
     const shouldSend = enterToSend ? e.key === "Enter" && !e.shiftKey : e.key === "Enter" && (e.metaKey || e.ctrlKey);

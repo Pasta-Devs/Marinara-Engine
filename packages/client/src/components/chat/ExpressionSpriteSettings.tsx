@@ -333,8 +333,8 @@ function SpriteDisplayModeToggle({
 }) {
   const { t: localizeUi } = useTranslation();
   const options: Array<{ id: SpriteDisplayMode; label: string }> = [
-    { id: "expressions", label: "Expressions" },
-    { id: "full-body", label: "Full-body" },
+    { id: "expressions", label: localizeUi("ui.chat.spritedisplaymodetoggle.expressions") },
+    { id: "full-body", label: localizeUi("ui.chat.spritedisplaymodetoggle.fullBody") },
   ];
 
   return (

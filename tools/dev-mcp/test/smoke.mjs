@@ -58,6 +58,14 @@ try {
   console.log(`tools (${tools.length}): ${tools.map((t) => t.name).join(", ")}`);
   const missing = EXPECTED_TOOLS.filter((name) => !tools.some((t) => t.name === name));
   if (missing.length) failures.push(`missing tools: ${missing.join(", ")}`);
+  const characterSet = tools.find((tool) => tool.name === "edit_character")?.inputSchema.properties?.set;
+  if (characterSet?.type !== "object" || characterSet.additionalProperties?.type !== "string") {
+    failures.push("edit_character: set must describe a record of strings");
+  }
+  const metadataSet = tools.find((tool) => tool.name === "set_chat_metadata")?.inputSchema.properties?.set;
+  if (metadataSet?.type !== "object" || metadataSet.additionalProperties === false) {
+    failures.push("set_chat_metadata: set must describe arbitrary JSON metadata values");
+  }
 
   async function call(name, args = {}, { expectError = false, show = 600 } = {}) {
     const started = Date.now();
@@ -69,6 +77,11 @@ try {
     if (!ok) failures.push(`${name}: ${text.slice(0, 200)}`);
     return { text, isError: result.isError, json: (() => { try { return JSON.parse(text); } catch { return null; } })() };
   }
+
+  const invalidRecord = await call("edit_character", {
+    character: "schema-validation-only", reason: "smoke test schema validation", set: { personality: 42 }, dryRun: true,
+  }, { expectError: true });
+  if (!invalidRecord.text.includes("Input validation error")) failures.push("edit_character: invalid record value reached the handler");
 
   const statusResult = await call("engine_status", {}, { show: 1500 });
   const online = statusResult.json?.online === true;
@@ -88,7 +101,9 @@ try {
       await call("cache_report", { chat, last: 5 });
       await call("get_prompt", { chat, which: "next", grep: "the" }, { show: 800 });
       await call("diff_prompts", { chat, mode: "next" }, { expectError: null });
-      await call("set_chat_metadata", { chat, reason: "smoke test dry run", set: { smokeTestDryRun: true }, dryRun: true });
+      const metadata = { smokeTestDryRun: true, smokeTestNested: { values: ["text", 42, true, null] } };
+      const preview = await call("set_chat_metadata", { chat, reason: "smoke test dry run", set: metadata, dryRun: true });
+      if (JSON.stringify(preview.json?.wouldSet) !== JSON.stringify(metadata)) failures.push("set_chat_metadata: nested JSON values changed in the dry run");
     }
     const connections = await call("list_connections");
     if (/apiKey|baseUrl/i.test(connections.text)) failures.push("list_connections leaked a key or base URL field");

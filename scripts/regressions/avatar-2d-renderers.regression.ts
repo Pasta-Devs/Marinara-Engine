@@ -418,7 +418,7 @@ assert.deepEqual(face.meshAvatarOverrides({}, { still: true, blink: false, eyeOp
   eyeROpen: 1,
 });
 // With blinking off (or a director blink), the eyelid override keeps each feeling's own eye shape, the
-// openness mesh-avatar 0.1.1's emotion presets hold: wide for surprised, narrowed for the others.
+// openness mesh-avatar 0.2.1's emotion presets hold: wide for surprised, narrowed for the others.
 for (const [emotion, eyes] of Object.entries({ happy: 0.8, angry: 0.72, sad: 0.78, relaxed: 0.82, surprised: 1.18 })) {
   let eyeOpen = 1;
   for (let index = 0; index < 60; index += 1) eyeOpen = face.easeMeshAvatarEyes(eyeOpen, emotion as never, 1 / 30);
@@ -440,9 +440,9 @@ const meshRuntime = readFileSync(
   new URL("../../packages/client/node_modules/mesh-avatar/dist/index.js", import.meta.url),
   "utf8",
 );
-const composeBody = meshRuntime.match(/  function w\(M\) \{\n([\s\S]*?)\n  \}\n  function T\(M\)/u)?.[1];
+const composeBody = meshRuntime.match(/  function A\(M\) \{\n([\s\S]*?)\n  \}\n  function E\(M\)/u)?.[1];
 assert.ok(composeBody, "the pinned runtime's parameter composition exists");
-const compose = new Function("j", "P", "W", "J", "e", `let q; return function(M) {${composeBody}}`);
+const compose = new Function("L", "P", "G", "q", "e", `let J; return function(M) {${composeBody}}`);
 function runtimeParameters(
   overrides: Record<string, number>,
   open: number,

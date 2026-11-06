@@ -1,7 +1,12 @@
-import { clipVerbatimVideoSource, compactVideoPromptText } from "./prompt-context.js";
+import { clipVerbatimVideoSource } from "./prompt-context.js";
 import type { PromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
-import { loadPrompt, ROLEPLAY_GALLERY_VIDEO_DIRECTOR } from "../prompt-overrides/index.js";
-import { appendVideoPromptInstructions } from "../generation/image-prompt-instructions.js";
+import { tryParseJsonRecord } from "../../lib/json-repair.js";
+import { loadPrompt, ROLEPLAY_CLIP_DIRECTOR, ROLEPLAY_GALLERY_VIDEO_DIRECTOR } from "../prompt-overrides/index.js";
+import {
+  appendGoverningVideoPromptInstructions,
+  normalizeVideoPromptInstructionsText,
+  withGoverningVideoFormat,
+} from "../generation/image-prompt-instructions.js";
 
 const ROLEPLAY_VIDEO_DIRECTION_MAX_LENGTH = 6_000;
 
@@ -14,6 +19,10 @@ export interface RoleplayVideoDirectionContext {
   setting: string;
   /** The video connection's Video Prompting Instructions. */
   videoPromptInstructions?: string | null;
+  /** The clip has no picture of this moment (text to video, or starting from an avatar): describe the scene. */
+  withoutPicture?: boolean;
+  /** Attach Card Appearance for videos: the people's appearance details to build in (formatVideoAppearanceDetails). */
+  appearanceDetails?: string;
 }
 
 export type RoleplayVideoDirectionMessages = [{ role: "system"; content: string }, { role: "user"; content: string }];
@@ -31,23 +40,32 @@ export function buildRoleplayVideoDirectionUserPrompt(ctx: RoleplayVideoDirectio
     referenceImagePrompt
       ? `<first_frame_generation_context>\n${referenceImagePrompt}\n</first_frame_generation_context>`
       : "",
-    "Write one duration-aware narrationBeat. Use the first-frame generation context only to understand the starting pose and scene; do not repeat it in the output.",
+    ctx.appearanceDetails?.trim() ?? "",
+    normalizeVideoPromptInstructionsText(ctx.videoPromptInstructions)
+      ? "Write the clip's video prompt exactly as the video prompting instructions below say; it may be returned as plain text instead of JSON."
+      : ctx.withoutPicture
+        ? "Write one duration-aware narrationBeat that describes the scene and its action."
+        : "Write one duration-aware narrationBeat. Use the first-frame generation context only to understand the starting pose and scene; do not repeat it in the output.",
   ]
     .filter(Boolean)
     .join("\n\n");
   // Next to the request, so they still apply when the director's system prompt is overridden.
-  return appendVideoPromptInstructions(prompt, ctx.videoPromptInstructions);
+  return appendGoverningVideoPromptInstructions(prompt, ctx.videoPromptInstructions);
 }
 
 export async function buildRoleplayVideoDirectionMessages(
   storage: PromptOverridesStorage,
   ctx: RoleplayVideoDirectionContext,
 ): Promise<RoleplayVideoDirectionMessages> {
-  const systemPrompt = await loadPrompt(storage, ROLEPLAY_GALLERY_VIDEO_DIRECTOR, {
-    durationSeconds: ctx.durationSeconds,
-  });
+  const systemPrompt = await loadPrompt(
+    storage,
+    ctx.withoutPicture ? ROLEPLAY_CLIP_DIRECTOR : ROLEPLAY_GALLERY_VIDEO_DIRECTOR,
+    {
+      durationSeconds: ctx.durationSeconds,
+    },
+  );
   return [
-    { role: "system", content: systemPrompt },
+    { role: "system", content: withGoverningVideoFormat(systemPrompt, ctx.videoPromptInstructions) },
     { role: "user", content: buildRoleplayVideoDirectionUserPrompt(ctx) },
   ];
 }
@@ -58,9 +76,17 @@ function unwrapJsonFence(value: string): string {
   return fenced?.[1]?.trim() ?? trimmed;
 }
 
-export function resolveRoleplayVideoDirection(value: unknown, maxLength: number | null): string {
+export function resolveRoleplayVideoDirection(
+  value: unknown,
+  maxLength: number | null,
+  videoPromptInstructions?: unknown,
+): string {
   if (typeof value !== "string") return "";
   const unwrapped = unwrapJsonFence(value);
+  // A JSON shape the video prompting instructions ask for (they name JSON or show an object) is the prompt itself, not
+  // a missing narrationBeat. Any other object, such as an error payload, is no prompt.
+  const instructions = normalizeVideoPromptInstructionsText(videoPromptInstructions);
+  const otherJson = /\bjson\b|\{/iu.test(instructions) ? unwrapped : "";
   let narrationBeat: string;
   try {
     const parsed = JSON.parse(unwrapped) as unknown;
@@ -68,17 +94,26 @@ export function resolveRoleplayVideoDirection(value: unknown, maxLength: number 
       narrationBeat = parsed;
     } else if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       const candidate = (parsed as Record<string, unknown>).narrationBeat;
-      narrationBeat = typeof candidate === "string" ? candidate : "";
+      narrationBeat = typeof candidate === "string" ? candidate : otherJson;
     } else {
-      narrationBeat = "";
+      narrationBeat = Array.isArray(parsed) ? otherJson : "";
     }
   } catch {
-    narrationBeat = unwrapped.replace(/^narration\s*beat\s*:\s*/iu, "");
+    // A JSON answer with a slip (an unescaped quote) is repaired; plain text, such as a format the video
+    // connection's instructions ask for, is used as written.
+    const repaired = unwrapped.startsWith("{") ? tryParseJsonRecord(unwrapped)?.narrationBeat : undefined;
+    narrationBeat = typeof repaired === "string" ? repaired : unwrapped.replace(/^narration\s*beat\s*:\s*/iu, "");
   }
-  return compactVideoPromptText(
-    narrationBeat,
+  const maxChars =
     maxLength && maxLength > 0
       ? Math.min(maxLength, ROLEPLAY_VIDEO_DIRECTION_MAX_LENGTH)
-      : ROLEPLAY_VIDEO_DIRECTION_MAX_LENGTH,
-  );
+      : ROLEPLAY_VIDEO_DIRECTION_MAX_LENGTH;
+  // Line breaks stay: a format the video connection's instructions ask for (one field per line) must survive.
+  const tidy = narrationBeat
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/gu, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+  return tidy.length <= maxChars ? tidy : `${tidy.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
 }

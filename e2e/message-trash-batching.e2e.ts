@@ -174,7 +174,8 @@ for (const conflictsOnly of [false, true]) {
             conflictEntryIds: batches[0],
             error: "Synthetic later-batch failure",
           });
-          await expect(panel.locator("button").filter({ hasText: /^Restore$/ })).toHaveCount(5001);
+          // The 5,001 rows come back 200 at a time; a slow runner needs the same allowance as the waits around it.
+          await expect(panel.locator("button").filter({ hasText: /^Restore$/ })).toHaveCount(5001, { timeout: 30_000 });
           // Re-enabling every row's buttons re-renders all 5,001 rows again.
           await expect(restoreAll).toBeEnabled({ timeout: 30_000 });
           expect(remaining.map((entry) => entry.id)).toEqual(batches.flat());

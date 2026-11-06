@@ -103,18 +103,18 @@ try {
     });
     assert.ok(remote.statusCode >= 400, `remote diagnostics must be refused (got ${remote.statusCode})`);
 
-    // 6. /api/health answers everyone, but the local model file names and GPU details only reach this machine
-    //    or a signed-in caller.
+    // 6. /api/health tells a stranger only that the server is up. Version, OS, local model file names and GPU
+    //    details only reach this machine or a signed-in caller.
     const health = async (headers: Record<string, string> = {}, remoteAddress = "127.0.0.1") => {
       const reply = await app.inject({ method: "GET", url: "/api/health", remoteAddress, headers });
       assert.equal(reply.statusCode, 200, reply.body);
       const parsed = reply.json();
       assert.equal(parsed.status, "ok");
-      assert.equal(typeof parsed.version, "string");
-      assert.equal(typeof parsed.build, "string");
-      return { raw: reply.body, sidecars: parsed.sidecars };
+      return parsed;
     };
     const local = await health();
+    assert.equal(typeof local.version, "string");
+    assert.equal(typeof local.build, "string");
     assert.equal(local.sidecars?.slots?.[0]?.model, MODEL_FILE, "this machine sees its own model slots");
     for (const [label, auth] of [
       ["no sign-in configured", null],
@@ -123,17 +123,32 @@ try {
       if (auth) Object.assign(process.env, auth);
       try {
         const stranger = await health({}, "203.0.113.7");
-        assert.equal(stranger.sidecars, null, `${label}: a stranger gets no model or GPU section`);
-        assert.ok(!stranger.raw.includes("marker-private-model"), `${label}: no model file name leaks`);
+        assert.deepEqual(stranger, { status: "ok" }, `${label}: a stranger only learns the server is up`);
         if (auth) {
           const basic = `Basic ${Buffer.from(`${auth.BASIC_AUTH_USER}:${auth.BASIC_AUTH_PASS}`).toString("base64")}`;
           const signedIn = await health({ authorization: basic }, "203.0.113.7");
+          assert.equal(typeof signedIn.version, "string", "a signed-in browser keeps the version");
           assert.equal(signedIn.sidecars?.slots?.[0]?.model, MODEL_FILE, "a signed-in browser keeps its diagnostics");
         }
       } finally {
         delete process.env.BASIC_AUTH_USER;
         delete process.env.BASIC_AUTH_PASS;
       }
+    }
+
+    // An Android install with a local secret keeps the details from on-device apps that lack it.
+    const androidSecret = "a".repeat(64);
+    process.env.MARINARA_ANDROID_SECRET = androidSecret;
+    try {
+      assert.deepEqual(
+        await health(),
+        { status: "ok" },
+        "a device-local caller without the Android secret gets only status",
+      );
+      const androidApp = await health({ "x-marinara-android-secret": androidSecret });
+      assert.equal(typeof androidApp.version, "string", "the Android app keeps the details");
+    } finally {
+      delete process.env.MARINARA_ANDROID_SECRET;
     }
 
     // 7. A package whose activation failed shows as failed, with the time of

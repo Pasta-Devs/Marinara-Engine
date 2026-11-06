@@ -251,7 +251,7 @@ export const ttsSourceProfilesSchema = z
     pockettts: ttsSourceProfileSchema.optional(),
     xai: ttsSourceProfileSchema.optional(),
   })
-  .default({});
+  .prefault({});
 export type TTSSourceProfiles = z.infer<typeof ttsSourceProfilesSchema>;
 
 /**
@@ -277,7 +277,7 @@ export const ttsConfigSchema = ttsConfigBaseSchema.extend({
    */
   connectionId: z.string().default(""),
   /** Voices and speech settings kept separately for each Audio connection, by connection ID. */
-  connectionProfiles: z.record(z.string(), ttsConnectionProfileSchema).default({}),
+  connectionProfiles: z.record(z.string(), ttsConnectionProfileSchema).prefault({}),
 });
 
 export type TTSConfig = z.infer<typeof ttsConfigSchema>;
@@ -318,6 +318,79 @@ export function ttsSourceProfileFromConfig(config: TTSConfig): TTSSourceProfile 
 
 export const TTS_SETTINGS_KEY = "tts";
 export const TTS_API_KEY_MASK = "••••••";
+
+const ELEVENLABS_TTS_MODEL_ALIASES: Record<string, string> = {
+  tts_v3: "eleven_v3",
+  elevenlabs_v3: "eleven_v3",
+  elevenlabs_tts_v3: "eleven_v3",
+};
+
+export function normalizeElevenLabsTtsModelId(model: string): string {
+  const trimmed = model.trim();
+  const key = trimmed.toLowerCase();
+  return Object.hasOwn(ELEVENLABS_TTS_MODEL_ALIASES, key) ? ELEVENLABS_TTS_MODEL_ALIASES[key]! : trimmed;
+}
+
+// Eleven v3 and v4 have no speed setting, so speech requests leave it out and the slider is off.
+const ELEVENLABS_MODELS_WITHOUT_SPEED = new Set(["eleven_v3", "eleven_v4", "eleven_v4_turbo"]);
+
+export function elevenLabsModelSupportsSpeed(model: string): boolean {
+  return !ELEVENLABS_MODELS_WITHOUT_SPEED.has(normalizeElevenLabsTtsModelId(model).toLowerCase());
+}
+
+// Eleven v3 and v4 act on bracketed audio tags (ElevenLabs' v3/v4 prompting guide). Every other ElevenLabs model reads
+// a bracket aloud as words. NanoGPT names Eleven v3 "Elevenlabs-V3".
+const ELEVENLABS_AUDIO_TAG_MODELS = new Set(["eleven_v3", "eleven_v4", "elevenlabs-v3"]);
+
+export function elevenLabsModelSupportsAudioTags(model: string): boolean {
+  return ELEVENLABS_AUDIO_TAG_MODELS.has(normalizeElevenLabsTtsModelId(model).toLowerCase());
+}
+
+/** The sprite expressions Game mode resolves each spoken line to (GameNarration sends one as the line's tone). */
+export const GAME_TTS_EMOTIONS = [
+  "neutral",
+  "happy",
+  "sad",
+  "angry",
+  "surprised",
+  "scared",
+  "disgusted",
+  "thinking",
+  "laughing",
+  "crying",
+  "blushing",
+  "smirk",
+  "embarrassed",
+  "determined",
+  "confused",
+  "sleepy",
+] as const;
+
+export type GameTtsEmotion = (typeof GAME_TTS_EMOTIONS)[number];
+
+/**
+ * The ElevenLabs audio tag each game expression is spoken with, or null when no documented tag means it. A game
+ * expression is a sprite name, not a delivery cue: an undocumented word in brackets is read aloud before the line
+ * ("neutral. Four thirty-one…", #8619). Tags are from ElevenLabs' v3/v4 prompting guide.
+ */
+export const ELEVENLABS_AUDIO_TAG_FOR_GAME_EMOTION: Record<GameTtsEmotion, string | null> = {
+  neutral: null,
+  happy: "happy",
+  sad: "sad",
+  angry: "angry",
+  surprised: "surprised",
+  scared: null,
+  disgusted: "appalled",
+  thinking: "thoughtful",
+  laughing: "laughs",
+  crying: "crying",
+  blushing: null,
+  smirk: "mischievously",
+  embarrassed: null,
+  determined: null,
+  confused: null,
+  sleepy: null,
+};
 
 export const ttsRoleplaySpeakerSegmentSchema = z.discriminatedUnion("kind", [
   z.object({

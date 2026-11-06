@@ -14,6 +14,8 @@ export const VIDEO_CALL_CLIP_DURATION_MIN = 1;
 export const VIDEO_CALL_CLIP_DURATION_MAX = 15;
 export const VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MIN = 1;
 export const VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MAX = 8;
+export const VIDEO_PER_REPLY_MIN = 1;
+export const VIDEO_PER_REPLY_MAX = 10;
 
 export const DEFAULT_CONVERSATION_CALL_VIDEO_CLIP_DURATIONS: ConversationCallVideoClipDurations = {
   idle: 5,
@@ -29,6 +31,7 @@ export const DEFAULT_VIDEO_GENERATION_USER_SETTINGS: VideoGenerationUserSettings
   callClipDurations: DEFAULT_CONVERSATION_CALL_VIDEO_CLIP_DURATIONS,
   callCustomClipDurationSeconds: 5,
   animatedExpressionClipDurationSeconds: 3,
+  maxCharacterVideosPerReply: 3,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -83,6 +86,12 @@ export function normalizeVideoGenerationUserSettings(raw: unknown): VideoGenerat
       DEFAULT_VIDEO_GENERATION_USER_SETTINGS.animatedExpressionClipDurationSeconds,
       VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MIN,
       VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MAX,
+    ),
+    maxCharacterVideosPerReply: clampVideoDuration(
+      source.maxCharacterVideosPerReply,
+      DEFAULT_VIDEO_GENERATION_USER_SETTINGS.maxCharacterVideosPerReply,
+      VIDEO_PER_REPLY_MIN,
+      VIDEO_PER_REPLY_MAX,
     ),
   };
 }

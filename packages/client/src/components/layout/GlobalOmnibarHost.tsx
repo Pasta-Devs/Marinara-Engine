@@ -9,6 +9,7 @@ import {
   writeCommandCenterSessionState,
 } from "../../lib/command-center";
 import { isShortcutsHelpKey, isTypingTarget } from "../../lib/keyboard-shortcuts";
+import { captureMariFieldDraft } from "../../hooks/use-mari-editor-fields";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import { parseOmnibarScope } from "../../lib/omnibar-scope";
 import {
@@ -103,7 +104,7 @@ export function GlobalOmnibar() {
       void GlobalOmnibarDialog.preload()
         .then(() => import("./GlobalOmnibar"))
         // Her pane's code too, so the first ⌘J does not fetch and run it before her chat can load.
-        .then((module) => (useUIStore.getState().commandCenterMariEnabled ? module.OmnibarMariPane.preload() : null))
+        .then((module) => module.OmnibarMariPane.preload())
         .catch(() => undefined);
     if (typeof window.requestIdleCallback === "function") {
       const id = window.requestIdleCallback(preload, { timeout: 5_000 });
@@ -151,11 +152,12 @@ export function GlobalOmnibar() {
         const dialog = event.target instanceof Element ? event.target.closest('[aria-modal="true"]') : null;
         if (ui.omnibarOpen && dialog && !dialog.closest('[data-component="GlobalOmnibar"]')) return;
         event.preventDefault();
+        if (!ui.omnibarOpen) captureMariFieldDraft();
         setOpen(!ui.omnibarOpen);
-      } else if (isAskMariShortcut(event) && !ui.omnibarOpen && ui.commandCenterMariEnabled) {
-        // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8). While the
-        // omnibar is open its dialog owns ⌘J (back to search, or into Mari).
+      } else if (isAskMariShortcut(event) && !ui.omnibarOpen) {
+        // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8).
         event.preventDefault();
+        captureMariFieldDraft();
         requestProfessorMariOpen();
       } else if (
         isShortcutsHelpKey(event) &&
@@ -164,7 +166,8 @@ export function GlobalOmnibar() {
         // the overlay registry too.
         !ui.modal &&
         !isModalOverlayOpen() &&
-        !isTypingTarget(event.target)
+        // A package shadow root retargets the event to its host; the path retains its editor.
+        !event.composedPath().some(isTypingTarget)
       ) {
         event.preventDefault();
         ui.openModal("keyboard-shortcuts");

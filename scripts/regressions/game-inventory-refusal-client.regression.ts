@@ -37,6 +37,11 @@ assert.equal(
   null,
   "a fake seen through has its own notice",
 );
+assert.equal(
+  gameInventoryRefusalKeys({ action: "buy", ok: false, reason: "held" }),
+  null,
+  "a buy held for a companion's warning is theirs to tell (1.802)",
+);
 // Every key it can return is in the locale.
 const reasons = [
   "no-market",

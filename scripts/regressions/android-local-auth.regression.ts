@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -378,6 +379,71 @@ try {
       unverifiableExitIndex < bootstrapCheckoutIndex,
     "an unverifiable APK bootstrap target must also stop before checkout",
   );
+
+  // #8675: Termux does not support partial upgrades, so a nodejs-lts newer than Termux's libc++ cannot
+  // start. Both Termux entry points must repair that with a full pkg upgrade before anything runs node,
+  // instead of letting the storage-format guard fail and blame the APK. Run the real shell with stubs.
+  const bootstrapShell = activitySource
+    .slice(activitySource.indexOf('return "set -e\\n"'), activitySource.indexOf("+ launcherCommand;"))
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("//"))
+    .join("\n")
+    .match(/"(?:[^"\\]|\\.)*"/gu)!
+    .map((literal) => JSON.parse(literal) as string)
+    .join("");
+  const termuxLauncherSource = readFileSync(resolve(repositoryRoot, "start-termux.sh"), "utf8");
+  const sliceBetween = (source: string, start: string, end: string): string => {
+    const from = source.indexOf(start);
+    const to = source.indexOf(end, from);
+    assert.ok(from >= 0 && to > from, `missing Termux Node.js setup between ${start} and ${end}`);
+    return source.slice(from + start.length, to);
+  };
+  const nodeRepairStubs = String.raw`
+node() {
+  if [ "$NODE_STATE" = ok ]; then echo v24.22.2; return 0; fi
+  echo 'CANNOT LINK EXECUTABLE "node": cannot locate symbol "_ZNSt6__ndk113__hash_memoryEPKvm"' >&2
+  return 1
+}
+pkg() {
+  echo "pkg $*"
+  if [ "$1" = upgrade ] && [ "$NODE_STATE" = repairable ]; then NODE_STATE=ok; fi
+}
+`;
+  for (const [entryPoint, nodeSetup, guardIndex, nodeCheckIndex] of [
+    [
+      "APK bootstrap",
+      sliceBetween(bootstrapShell, "pkg install -y git nodejs-lts\n", 'if [ ! -d "$HOME/Marinara-Engine/.git" ]'),
+      bootstrapShell.indexOf("protect-launcher-data.mjs check-target"),
+      bootstrapShell.indexOf("node --version"),
+    ],
+    [
+      "start-termux.sh",
+      sliceBetween(termuxLauncherSource, "# ── Check Node.js ──\n", 'echo "  [OK] Node.js $(node -v) found"'),
+      termuxLauncherSource.indexOf("protect-launcher-data.mjs check-target"),
+      termuxLauncherSource.indexOf("# ── Check Node.js ──"),
+    ],
+  ] as const) {
+    assert.ok(nodeCheckIndex >= 0 && nodeCheckIndex < guardIndex, `${entryPoint} must check Node.js before the guard`);
+    const probe = (nodeState: "ok" | "repairable" | "broken") =>
+      spawnSync("bash", ["-c", `set -e\n${nodeRepairStubs}\n${nodeSetup}`], {
+        encoding: "utf8",
+        env: { ...process.env, NODE_STATE: nodeState },
+      });
+    const healthy = probe("ok");
+    assert.equal(healthy.status, 0, `${entryPoint}: ${healthy.stdout}${healthy.stderr}`);
+    assert.doesNotMatch(healthy.stdout, /pkg upgrade/u, `${entryPoint} must not upgrade Termux when Node.js runs`);
+    const repaired = probe("repairable");
+    assert.equal(
+      repaired.status,
+      0,
+      `${entryPoint} must continue once pkg upgrade repairs Node.js: ${repaired.stdout}`,
+    );
+    assert.match(repaired.stdout, /^pkg upgrade -y -o Dpkg::Options::=--force-confold$/mu);
+    const broken = probe("broken");
+    assert.equal(broken.status, 1, `${entryPoint} must stop when Node.js still cannot start`);
+    assert.match(broken.stdout, /Node\.js could not start in Termux\.[\s\S]*pkg upgrade/u);
+    assert.doesNotMatch(broken.stdout, /newer APK/u, `${entryPoint} must not blame the APK for a Termux problem`);
+  }
   assert.doesNotMatch(
     activitySource,
     /git clone[^\n]+\|\| git clone/u,
@@ -449,7 +515,7 @@ try {
   );
   assert.match(
     wrapperProperties,
-    /distributionSha256Sum=dce76f55f8e251a3a1f130eb120f30b3d271de2b76c9b0729d316b5a1b6dc01f/u,
+    /distributionSha256Sum=21bd5da2de49b642904077f38c0efdc7778e92b3ed0889392dca61b97e389607/u,
   );
 
   console.info("Android local authentication regressions passed.");

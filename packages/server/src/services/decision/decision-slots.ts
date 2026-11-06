@@ -109,7 +109,7 @@ export function describeDecisionSlot(
   if (slot === "primary") {
     const status = sidecarModelService.getStatus();
     if (!status.modelDownloaded) return { available: false, reason: "no_model" };
-    return { available: true, label: status.modelDisplayName ?? "Primary local model" };
+    return { available: true, label: status.modelDisplayName ?? "Built-in model" };
   }
   if (slot === "utility") {
     const status = utilitySidecarService.getStatus();

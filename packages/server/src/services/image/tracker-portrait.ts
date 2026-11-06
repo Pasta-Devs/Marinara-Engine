@@ -22,25 +22,20 @@ export interface TrackerPortraitCharacter {
   outfit?: unknown;
 }
 
-const clause = (value: unknown, max: number) =>
-  (typeof value === "string" ? value : "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, max)
-    .replace(/[\s.,;:!?]+$/u, "");
+const clause = (value: unknown) => (typeof value === "string" ? value : "").replace(/\s+/g, " ").trim();
 
 /**
  * The portrait prompt: the tracked look, plus the tracked outfit unless `includeOutfit` is off.
- * The outfit gets its own labeled line so tag-style profiles keep it when they shorten the prompt.
+ * Keep the complete tracked text; style compilation must not choose which visual details survive.
  */
 export function buildTrackerPortraitPrompt(character: TrackerPortraitCharacter, includeOutfit: boolean): string {
-  const name = clause(character.name, 100) || "Character";
-  const appearance = clause(character.appearance, 550);
-  // One sentence, so tag profiles keep every part of the outfit, not just its first sentence.
-  const outfit = includeOutfit ? clause(character.outfit, 250).replace(/[.!?]+\s+/g, ", ") : "";
+  const name = clause(character.name) || "Character";
+  const appearance = clause(character.appearance);
+  const outfit = includeOutfit ? clause(character.outfit) : "";
   return [
-    `Portrait of ${name}${appearance ? `, ${appearance}` : ""}.`,
-    outfit ? `Outfit: ${outfit}.` : "",
+    `Portrait of ${name}.`,
+    appearance,
+    outfit,
     "Character portrait, head and shoulders, detailed face, high quality",
   ]
     .filter(Boolean)
@@ -129,6 +124,7 @@ export async function generateTrackerPortrait(args: {
         imageDefaults,
         quality: resolveConnectionImageQuality(connection),
         debugMode: args.debugMode,
+        preserveProviderOutput: true,
         fallback: await resolveImageConnectionFallback(connections, connection.id),
         onFallback: args.onFallback,
       },

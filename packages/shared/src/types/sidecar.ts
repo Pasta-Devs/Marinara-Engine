@@ -80,6 +80,8 @@ export interface SidecarConfig {
    *  Takes the place of a `defaultForAgents` connection row, which the sidecar
    *  cannot have — it is a pseudo-connection with no stored row (#5539). */
   useAsAgentsDefault: boolean;
+  /** Whether the built-in model is Main (a connection row cannot be the sidecar). Setting a row as Main clears it. */
+  useAsMainDefault: boolean;
   /** Whether to use the sidecar for game scene analysis (backgrounds, music, weather, effects). */
   useForGameScene: boolean;
   /** Context size for the model. Default 8192. */
@@ -385,6 +387,7 @@ export const SIDECAR_DEFAULT_CONFIG: SidecarConfig = {
   customModelRepo: null,
   useForTrackers: false,
   useAsAgentsDefault: false,
+  useAsMainDefault: false,
   useForGameScene: true,
   contextSize: 8192,
   maxTokens: 4096,

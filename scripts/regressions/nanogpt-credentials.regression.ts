@@ -8,6 +8,8 @@ process.env.DATA_DIR = directory;
 process.env.FILE_STORAGE_DIR = join(directory, "storage");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionAccountsStorage } =
+  await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
 const { createConnectionSchema } = await import("../../packages/shared/src/schemas/connection.schema.js");
 const { sanitizeProfileTableRows, quarantineProfileApiConnectionRow } =
   await import("../../packages/server/src/routes/backup.routes.js");
@@ -46,8 +48,11 @@ try {
   const imported = quarantineProfileApiConnectionRow(connection);
   assert.equal(imported.row.managementTokenEncrypted, "");
   assert.equal(imported.row.profileImportReviewRequired, "true");
-  await storage.update(connection.id, { managementToken: "" });
+  // The Model is linked to a Connection, which holds its token.
+  await createConnectionAccountsStorage(db).update(connection.accountId!, { managementToken: "" });
   assert.equal(await storage.getManagementToken(connection.id), null);
+  // A linked Model takes its provider from its Connection, so the copy leaves it first.
+  await storage.update(copy.id, { accountId: null });
   await storage.update(copy.id, { provider: "openai" });
   assert.equal((await storage.getById(copy.id))!.managementTokenEncrypted, "");
   assert.equal((await storage.getById(copy.id))!.showUsageWidget, "false");

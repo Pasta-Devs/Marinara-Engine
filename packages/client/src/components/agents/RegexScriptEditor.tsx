@@ -11,7 +11,6 @@ import {
   useDeleteRegexScript,
   type RegexScriptRow,
 } from "../../hooks/use-regex-scripts";
-import { useCharacters } from "../../hooks/use-characters";
 import { usePresets } from "../../hooks/use-presets";
 import {
   ArrowLeft,
@@ -34,6 +33,7 @@ import { cn } from "../../lib/utils";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { ApiError } from "../../lib/api-client";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { CharacterSelect } from "../characters/CharacterSelect";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -55,12 +55,12 @@ import { OvChipInput, OvChipPicker, OvNum, OvSeg, OvToggle } from "../overhaul/L
 // ═══════════════════════════════════════════════
 const PLACEMENT_META: Record<RegexPlacement, { label: string; description: string }> = {
   ai_output: {
-    label: "AI Output",
-    description: "Applied to AI responses before they are displayed.",
+    label: "ui.agents.regexscripteditor.placementAiOutput",
+    description: "ui.agents.regexscripteditor.placementAiOutputHint",
   },
   user_input: {
-    label: "User Input",
-    description: "Applied to your messages before they are sent.",
+    label: "ui.agents.regexscripteditor.placementUserInput",
+    description: "ui.agents.regexscripteditor.placementUserInputHint",
   },
 };
 
@@ -80,16 +80,16 @@ const REGEX_FLAG_TITLES: Record<string, string> = {
 
 const APPLY_MODE_META: Record<RegexApplyMode, { label: string; description: string }> = {
   display: {
-    label: "Only Display",
-    description: "Change what appears in chat only.",
+    label: "ui.agents.regexscripteditor.applyModeDisplay",
+    description: "ui.agents.regexscripteditor.applyModeDisplayHint",
   },
   prompt: {
-    label: "Only Prompt",
-    description: "Change what the model receives only.",
+    label: "ui.agents.regexscripteditor.applyModePrompt",
+    description: "ui.agents.regexscripteditor.applyModePromptHint",
   },
   both: {
-    label: "Both",
-    description: "Change display and prompt text.",
+    label: "ui.agents.regexscripteditor.applyModeBoth",
+    description: "ui.agents.regexscripteditor.applyModeBothHint",
   },
 };
 
@@ -142,17 +142,6 @@ function parseStringArray(value: unknown): string[] {
     return parseStringArray(JSON.parse(value) as unknown);
   } catch {
     return [];
-  }
-}
-
-function parseCharacterData(value: unknown): Record<string, unknown> {
-  if (isRecord(value)) return value;
-  if (typeof value !== "string") return {};
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return isRecord(parsed) ? parsed : {};
-  } catch {
-    return {};
   }
 }
 
@@ -253,7 +242,6 @@ export function RegexScriptEditor() {
   const quoteFormat = useUIStore((s) => s.quoteFormat);
 
   const { data: regexScripts } = useRegexScripts();
-  const { data: characters } = useCharacters();
   const { data: promptPresets } = usePresets();
   const updateScript = useUpdateRegexScript();
   const createScript = useCreateRegexScript();
@@ -296,24 +284,6 @@ export function RegexScriptEditor() {
   // ── Test area ──
   const [testInput, setTestInput] = useState("");
 
-  const characterOptions = useMemo(() => {
-    if (!Array.isArray(characters)) return [];
-    return characters
-      .map((character) => {
-        if (!isRecord(character) || typeof character.id !== "string") return null;
-        const row = character as Record<string, unknown>;
-        const data = parseCharacterData(row.data);
-        const name =
-          typeof data.name === "string" && data.name.trim()
-            ? data.name.trim()
-            : typeof row.name === "string" && row.name.trim()
-              ? row.name.trim()
-              : "Unnamed";
-        return { id: character.id, name };
-      })
-      .filter((character): character is { id: string; name: string } => character !== null)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [characters]);
   const promptPresetOptions = useMemo(
     () =>
       (promptPresets ?? [])
@@ -811,14 +781,17 @@ export function RegexScriptEditor() {
                 />
                 {localCharacterScopeEnabled ? (
                   <div className="ov-grow">
-                    <OvChipPicker
-                      options={characterOptions.map((o) => ({ value: o.id, label: o.name }))}
-                      selected={localTargetCharacterIds}
-                      onChange={(next) => {
-                        setLocalTargetCharacterIds(next);
+                    <CharacterSelect
+                      kind="character"
+                      multiple
+                      variant="picker"
+                      placeholder="Add character…"
+                      aria-label={localizeUi("ui.agents.regexscripteditor.addCharacter")}
+                      value={localTargetCharacterIds}
+                      onChange={(ids) => {
+                        setLocalTargetCharacterIds(ids);
                         markDirty();
                       }}
-                      placeholder="Add character…"
                     />
                     {characterScopeError ? <span className="ov-row__note is-error">{characterScopeError}</span> : null}
                   </div>
@@ -1133,8 +1106,8 @@ export function RegexScriptEditor() {
                           : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                       )}
                     >
-                      <span className="font-medium">{meta.label}</span>
-                      <span className="text-[0.5625rem] opacity-70">{meta.description}</span>
+                      <span className="font-medium">{localizeUi(meta.label)}</span>
+                      <span className="text-[0.5625rem] opacity-70">{localizeUi(meta.description)}</span>
                     </button>
                   );
                 },
@@ -1170,19 +1143,15 @@ export function RegexScriptEditor() {
               </div>
               {localCharacterScopeEnabled && (
                 <div>
-                  <ScopeTargetPicker
-                    icon={<Users size="0.75rem" />}
-                    options={characterOptions}
-                    selectedIds={localTargetCharacterIds}
-                    addLabel={localizeUi("ui.agents.regexscripteditor.addCharacter")}
-                    emptyLabel={localizeUi("ui.agents.regexscripteditor.noCharactersFound")}
-                    removeLabel={(name) => localizeUi("ui.agents.regexscripteditor.removeValue1", { value1: name })}
-                    onAdd={(id) => {
-                      setLocalTargetCharacterIds((previous) => [...previous, id]);
-                      markDirty();
-                    }}
-                    onRemove={(id) => {
-                      setLocalTargetCharacterIds((previous) => previous.filter((value) => value !== id));
+                  <CharacterSelect
+                    kind="character"
+                    multiple
+                    variant="picker"
+                    placeholder={localizeUi("ui.agents.regexscripteditor.addCharacter")}
+                    aria-label={localizeUi("ui.agents.regexscripteditor.addCharacter")}
+                    value={localTargetCharacterIds}
+                    onChange={(ids) => {
+                      setLocalTargetCharacterIds(ids);
                       markDirty();
                     }}
                   />
@@ -1322,8 +1291,10 @@ export function RegexScriptEditor() {
                               : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                           )}
                         >
-                          <span className="font-medium">{meta.label}</span>
-                          <span className="text-[0.5625rem] leading-snug opacity-70">{meta.description}</span>
+                          <span className="font-medium">{localizeUi(meta.label)}</span>
+                          <span className="text-[0.5625rem] leading-snug opacity-70">
+                            {localizeUi(meta.description)}
+                          </span>
                         </button>
                       );
                     },

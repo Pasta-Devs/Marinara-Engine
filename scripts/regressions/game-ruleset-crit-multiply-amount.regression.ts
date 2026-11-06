@@ -254,7 +254,10 @@ try {
     assert.equal(parseRulesetDefinition(many(120)).ok, true, "120 derived values read");
     assert.equal(parseRulesetDefinition(many(240)).ok, true, "240 since 1.88");
     assert.equal(parseRulesetDefinition(many(400)).ok, true, "400 since 1.111");
-    assert.equal(parseRulesetDefinition(many(401)).ok, false, "401 do not");
+    assert.equal(parseRulesetDefinition(many(800)).ok, true, "800 since 1.729");
+    assert.equal(parseRulesetDefinition(many(801)).ok, false, "801 do not");
+    assert.match(issue(728, many(401)) ?? "", /1\.729/);
+    assert.equal(issue(729, many(401)), null);
     assert.match(issue(83, many(61)) ?? "", /more than 60 derived values.*1\.84/);
     assert.equal(issue(84, many(61)), null);
     assert.equal(issue(83, many(60)), null, "60 is still 1.83's");

@@ -1,144 +1,108 @@
 # Custom Emojis, Stickers, and GIFs
 
-This guide covers the extra images you can add to a Conversation Mode chat: custom emojis, custom stickers, and searched GIFs. It also explains how to control which custom emojis and stickers the character is allowed to use in its replies.
-
-These tools work in Conversation Mode only. Roleplay and Game modes get the plain emoji picker, with no custom emojis, no stickers, and no GIF search.
+Upload your own emojis and stickers, search GIFs, and control which custom emojis and stickers a character may use in its replies. These tools work in Conversation Mode only. Roleplay and Game Mode have the plain emoji picker.
 
 ## Where to find these tools
 
-In a Conversation Mode chat, look at the message input bar. There is a round button with a smiley-face icon, labeled **Emoji, GIFs & stickers**. Click it to open a small panel above the input bar.
+In a Conversation chat, click the round smiley button **Emoji, GIFs & stickers** next to the message box. A panel opens above it (a sheet above the keyboard on a phone). Its tabs are:
 
-The panel has these tabs:
-
-- **Emoji**: the standard emoji grid, plus a star tab labeled **Custom emojis** for your uploaded images.
+- **Emoji**: the standard emoji grid, plus a star tab **Custom emojis** for your uploaded images.
 - **GIFs**: live GIF search.
+- **Kaomoji**: text faces such as `(^_^)`.
 - **Stickers**: your uploaded stickers.
 
-A **Tools** tab also appears when other input tools are turned on. On mobile the same tabs open in a sheet above the keyboard.
+A **Tools** tab also shows when other input tools are on.
 
-## Custom emojis
+## Upload a custom emoji
 
-A custom emoji is a small image you upload once and reuse in any Conversation chat. In a message you write it as a shortcode, which is the emoji name wrapped in colons, like `:kekw:`.
+A custom emoji is a small image you upload once and use in any Conversation chat. In a message you write it as a shortcode: the name between colons, like `:kekw:`.
 
-Custom emojis are shared across your whole profile. You upload them one time, then use them everywhere.
+1. Open the panel, go to **Emoji**, then the star tab **Custom emojis**.
+2. Click **Upload** and choose one or more image files.
+3. In the **Name this emoji** dialog, type a name and click **Add**.
 
-### Uploading a custom emoji
+The emoji appears in the **Custom emojis** grid.
 
-1. Open the **Emoji, GIFs & stickers** panel and go to the **Emoji** tab.
-2. Click the star tab labeled **Custom emojis**.
-3. Click **Upload** and choose one or more image files.
-4. In the **Name this emoji** dialog, type a name and click **Add**.
+Rules:
 
-You should see the new emoji appear in the **Custom emojis** grid.
+- A name is 1 to 32 characters: lowercase letters, numbers and underscores. The app changes other characters for you.
+- The image can be at most 256 by 256 pixels. Animated GIF files work and play in the chat.
+- Names must be unique. A taken name shows `An emoji named ":name:" already exists.`
 
-Emoji names follow strict rules. A name is 1 to 32 characters. You can use only lowercase letters, numbers, and underscores. If you type spaces or capital letters, the app cleans the name for you. For example, it lowercases letters and turns other characters into underscores.
+If it did not work: check the name and the image size against the rules above.
 
-A custom emoji image must be no larger than 256 by 256 pixels. The app checks this when you upload. Names must be unique across all your custom emojis. If you pick a name that is already taken, you see an error like `An emoji named ":name:" already exists.`
+## Use a custom emoji
 
-You can upload an animated GIF file as a custom emoji. It plays back animated in the chat. This is separate from the **GIFs** tab described below.
+Click a tile in the **Custom emojis** grid. This inserts its shortcode into your message and does not send it. You can also type the shortcode, in lowercase, exactly as saved.
 
-### Using a custom emoji
+In a Conversation chat a shortcode shows as a small inline image. A message of only emoji shortcodes shows them larger. If the name no longer exists, for example after you delete it, the message shows the plain text `:kekw:`.
 
-Click any tile in the **Custom emojis** grid to drop its shortcode into your message. This does not send the message, it only inserts the text. You can also type the shortcode by hand, for example `:kekw:`. Type the name in lowercase, exactly as you saved it.
-
-### Renaming, deleting, exporting, and importing
+## Rename, delete, export and import
 
 Click **Edit** at the top of the **Custom emojis** tab to turn on edit mode.
 
-In edit mode:
-
-- Click a tile to open the **Rename emoji** dialog, then click **Rename**.
-- Click the small trash badge on a tile to delete that emoji. The **Delete emoji** dialog warns that messages that already used it will show the plain text instead.
-- Click **Export** to download all your custom emojis as a file named `marinara-custom-emojis.json`. This file holds the images inside it, so it is fully portable.
-- Click **Import** to load a previously exported file. The import skips emojis that fail the name or size rules, or that clash with an existing name.
+- Click a tile to open **Rename emoji**, then click **Rename**.
+- Click the trash badge on a tile to delete it. **Delete emoji** warns that messages that used it will show the text instead.
+- Click **Export** to download all your custom emojis as `marinara-custom-emojis.json`. The images are inside the file.
+- Click **Import** to load an exported file. It skips emojis that break the name or size rules or clash with an existing name.
 
 ## Custom stickers
 
-A custom sticker works like a custom emoji, but for larger images. You write a sticker as `sticker:name:`, and it always renders as a big block image on its own line.
+A sticker is a larger image that shows on its own line. You normally click it in the **Stickers** tab; the text `sticker:name:` is what gets inserted. On the **Stickers** tab, click **Upload** and use **Edit**, **Export** and **Import** as for emojis. The differences:
 
-Open the **Stickers** tab in the same panel. Uploading, naming, renaming, deleting, exporting, and importing all work the same way as emojis, with these differences:
+- The upload dialog is **Name this sticker**.
+- The largest image is 512 by 512 pixels (emojis: 256 by 256).
+- The export file is `marinara-custom-stickers.json`.
 
-- The upload dialog is titled **Name this sticker**.
-- A sticker image must be no larger than 512 by 512 pixels.
-- Sticker names are unique across all your stickers. A duplicate shows `A sticker named "sticker:name:" already exists.`
-- Exports download a file named `marinara-custom-stickers.json`.
+To send a sticker, click its tile. The **Send sticker** dialog offers:
 
-### Sending a sticker
+- **Send & reply**: posts the sticker as its own message and lets the character answer.
+- **Add to message**: puts the `sticker:name:` text in your message so you can keep typing.
 
-Click a sticker tile in the grid. A **Send sticker** dialog asks how you want to use it, with two choices:
+## Search GIFs
 
-- **Send & reply**: posts the sticker as its own message right away and lets the character respond.
-- **Add to message**: drops the `sticker:name:` text into your message so you can keep typing.
+The **GIFs** tab searches Giphy, an online GIF library. Type in the search box or browse the trending list, then click a GIF to send it.
 
-## GIF search (Giphy)
+Before you start: GIF search needs a free Giphy API key. A key is a secret code that lets Marinara use the Giphy service for you. Without one, the tab shows a setup card. Setting it up means editing the `.env` file, which is Marinara's plain text settings file. It sits in the Marinara project folder, or at `/app/data/.env` in Docker (see [Edit the .env file](../CONFIGURATION.md#edit-the-env-file)).
 
-The **GIFs** tab searches Giphy, a large online GIF library. Type in the search box to find GIFs, or browse the trending list. Click a GIF to send it into the chat.
+1. Open the Giphy developer dashboard at `https://developers.giphy.com/dashboard/`.
+2. Create an API key for a web app and copy it.
+3. Open the `.env` file in a text editor.
+4. Add this line at the end, with your key in place of `your_key_here`, and save the file:
 
-### GIF search needs a key
+   ```text
+   GIPHY_API_KEY=your_key_here
+   ```
 
-GIF search needs a free Giphy API key. An API key is a secret code that lets Marinara Engine talk to the Giphy service on your behalf. Without a key, the **GIFs** tab shows a setup card instead of results.
+5. Restart Marinara. That means stop it and start it again the way you normally start it (see [Installation](../INSTALLATION.md)).
 
-To set up GIF search:
+GIF results use Giphy's mature rating. You cannot change it in the app, so results can include adult GIFs. There is no safe-only GIF source.
 
-1. Open the Giphy Developer Dashboard at `https://developers.giphy.com/dashboard/`.
-2. Create a free API key for a web app.
-3. Add the key to your `.env` file. This is the server settings file for Marinara.
+## Tag a gallery image as an emoji or sticker
 
-Add a line like this to `.env`:
-
-```
-GIPHY_API_KEY=your_key_here
-```
-
-After you add the key, restart Marinara. For a full explanation of the `.env` file, see the server configuration guide linked below.
-
-### GIF content rating
-
-GIF results use Giphy's mature content rating. This is fixed and cannot be changed in the app. Results can include suggestive or adult GIFs, so search with that in mind. There is no offline or safe-only GIF source.
-
-## Tagging a gallery image as an emoji or sticker
-
-You can tag any image already saved in a Character Gallery or Persona Gallery as a custom emoji or sticker. A tagged gallery image is scoped to that one character or persona. It works only in chats that include them.
-
-To tag a gallery image:
+Any image in a Character Gallery or Persona Gallery can become an emoji or sticker. It works only in chats that include that character or persona.
 
 1. Open the **Character Editor** or **Persona Editor**.
-2. Go to the **Gallery** tab and open the **Images** sub-tab.
-3. Hover an image and click the small tag button in its top-left corner.
+2. Open the **Gallery** tab, then the **Images** sub-tab.
+3. Hover an image and click the tag button in its top-left corner.
 4. Choose **Make emoji** or **Make sticker**.
 5. In the **Custom Emoji** or **Custom Sticker** dialog, type a name.
 
-You should see the tag button change to show the assigned name.
-
-The same size limits apply here. **Make emoji** caps at 256 by 256 pixels and **Make sticker** caps at 512 by 512 pixels. If an image is too big for the kind you picked, you see a red error toast.
-
-To change a tagged image later, click its tag button again. The menu offers **Rename**, a switch option like **Switch to sticker**, and a remove option like **Remove emoji**. Tagging does not move or copy the image, it stays a normal gallery image too.
+The tag button now shows the name. The same size limits apply, and an image that is too big shows a red error. To change it later, click the tag button again for **Rename**, a switch option such as **Switch to sticker**, or a remove option such as **Remove emoji**. The image also stays a normal gallery image.
 
 ## Selection preferences
 
-Marinara can tell the responding character which of your custom emojis and stickers it may use in its reply. You control this with **Selection preferences**.
+Marinara tells the responding character which custom emojis and stickers it may use. To change how it picks them, click the gear **Selection preferences** at the top of the **Custom emojis** or **Stickers** tab. Both open the same setting, saved per chat.
 
-To open the panel, click the gear icon labeled **Selection preferences**. It sits at the top of the **Custom emojis** tab and the **Stickers** tab. Both open the same setting. This setting is saved per chat, so each chat can differ.
-
-The panel has one mode row with three choices:
-
-- **Semantic** (the default): offers the emojis and stickers that best fit the recent conversation. Semantic mode uses a local embedder, which is a small AI model that runs on your own machine. If it is not available, this mode falls back to random.
+- **Semantic** (default): offers the ones that best fit the recent conversation. It uses a small model on your own computer. If that is not available, it picks at random.
 - **Random**: offers a random set each reply.
-- **Tool-call**: a model call picks the fitting ones each reply. You must choose a connection in the dropdown that appears. If the connection is unset or fails, it falls back to semantic. In a group chat turn where more than one character replies, Tool-call is skipped for that turn and selection falls back to semantic.
+- **Tool-call**: a model picks the fitting ones each reply. Choose a model in **Select a model…**. If none is set or it fails, it uses semantic. It is skipped when several characters reply in one group turn.
 
-Below the modes is **Max offered (each)**. This is how many custom emoji names and how many sticker names are offered to the character each turn. The default is 20. You can set it from 1 to 100.
+**Max offered (each)** is how many emoji names and how many sticker names are offered per turn. The default is 20, from 1 to 100.
 
-## How custom emojis and stickers show up
+## Reactions use only your main custom emojis
 
-In a Conversation chat, an emoji shortcode like `:kekw:` renders as a small inline image on the text line. If a message contains only emoji shortcodes and nothing else, they render larger.
-
-A sticker like `sticker:wave:` always renders as a large block image on its own line.
-
-If a name cannot be found, for example after you delete that emoji, the message shows the plain shortcode text instead, like `:kekw:`.
-
-## Reactions use only the global emoji pool
-
-You can react to a message with a custom emoji. Reactions can use only your main custom emojis, the global pool. Gallery-tagged emojis, stickers, and GIFs are not available as reactions. Message reactions are covered in the Conversation Mode getting-started guide.
+You can react to a message with a custom emoji, but only from the emojis you uploaded on the **Custom emojis** tab. Gallery-tagged emojis, stickers and GIFs are not available as reactions. See [React and get notified](getting-started.md#react-and-get-notified).
 
 ## Related guides
 

@@ -1,6 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import { hideExistingItems } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -24,6 +25,8 @@ test("Decision settings, test errors and custom-agent questions survive reload",
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Missing mock server port");
+  // The page sees only the Model this spec makes, whatever earlier specs left on the shared server.
+  await hideExistingItems(page, request, "/api/connections");
   const created = await request.post("/api/connections", {
     data: {
       name: `Decision ${testInfo.project.name}`,
@@ -67,16 +70,31 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     }, type);
     await expect(page.getByLabel("Question", { exact: true })).toBeVisible();
   };
+  // #8456: Decision is one row of the Jobs box. The row opens its "Model for Decision" picker, and its gear opens
+  // the rest of the job's settings in place.
+  const decisionTile = page.locator('[data-defaults-tile="decision"]');
   const openDefaults = async () => {
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().closeAllDetails();
       useUIStore.getState().openRightPanel("connections");
     });
-    const expand = page.getByRole("button", { name: "Expand connection defaults" });
-    await expect(expand.or(page.getByRole("button", { name: "Collapse connection defaults" }))).toBeVisible();
-    if (await expand.isVisible()) await expand.click();
-    await expect(page.getByLabel("Decision model", { exact: true })).toBeVisible();
+    const defaults = page.locator('[data-connections-row="defaults"]');
+    await expect(defaults).toBeVisible();
+    if ((await defaults.getAttribute("aria-expanded")) !== "true") await defaults.click();
+    await expect(decisionTile).toBeVisible();
+    const gear = page.getByRole("button", { name: "Decision settings", exact: true });
+    if ((await gear.getAttribute("aria-expanded")) !== "true") await gear.click();
+    await expect(page.getByRole("region", { name: "Decision settings", exact: true })).toBeVisible();
+  };
+  const pickDecision = async (choice: (picker: Locator) => Locator) => {
+    await decisionTile.click();
+    const picker = page.getByRole("dialog", { name: "Model for Decision", exact: true });
+    await expect(picker).toBeVisible();
+    // Checked first, so a missing choice fails here and the cleanup below still runs.
+    await expect(choice(picker)).toBeVisible();
+    await choice(picker).click();
+    await expect(picker).toBeHidden();
   };
   const screenshot = async (name: string) => {
     await page.screenshot({ path: testInfo.outputPath(`${name}.png`), animations: "disabled" });
@@ -91,33 +109,30 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await expect(question).toHaveValue("Did the location change?");
     await screenshot("activation-without-default-dark");
     await openDefaults();
-    // Local model entries are always listed, never hidden: a user who was told
-    // activation questions work with their own local model must be able to see why
-    // the entry is not selectable rather than wonder where it went.
-    const decisionModel = page.getByLabel("Decision model", { exact: true });
-    await expect(decisionModel.locator("optgroup[label='Local models']")).toHaveCount(1);
-    const primary = decisionModel.locator("option[value='sidecar:local']");
-    await expect(primary).toHaveCount(1);
-    await expect(primary).toBeDisabled();
-    await expect(primary).toContainText("No model downloaded");
-    // The managed decision sidecar is listed too, disabled, with whichever reason
-    // applies to this machine: it has not been turned on, nothing is installed, or
-    // the platform cannot run it. Each is a different fix, so the text is not
-    // pinned to one of them.
-    const decisionSidecar = decisionModel.locator("option[value='decision-sidecar:local']");
-    await expect(decisionSidecar).toHaveCount(1);
-    await expect(decisionSidecar).toBeDisabled();
-    await expect(decisionSidecar).toContainText(/Not enabled|Not installed|Requires/u);
-    await decisionModel.selectOption(connection.id);
-    // Offered once a model is chosen: with None there is nothing to ask.
+    // A user who was told activation questions work with the built-in model must see why it is not offered. #8456
+    // dropped the disabled built-in and decision-sidecar entries (with their reasons) from the Decision model list:
+    // the picker offers only models that can answer, and the job's settings offer to set the built-in model up.
+    await expect(page.getByRole("button", { name: "Set up the built-in model", exact: true })).toBeVisible();
     const smartOrder = page.getByLabel(/pick who speaks in Smart response order/u);
+    // Offered once a model is chosen: with None there is nothing to ask.
+    await expect(smartOrder).toHaveCount(0);
+    // The only Model the page knows is this Decision connection, so the picker has no chat models to list.
+    await pickDecision((picker) => picker.locator(`[data-switcher-extra="${connection.id}"]`));
+    await expect(decisionTile).toContainText(connection.name);
     await expect(smartOrder).not.toBeChecked();
     await smartOrder.check();
     await expect.poll(async () => (await (await request.get("/api/decision/smart-order")).json()).enabled).toBe(true);
-    await page.getByRole("button", { name: "Test", exact: true }).click();
+    // #8456: a Decision connection is tested from its Model editor; the job's own Test is left to the built-in slots.
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().closeAllDetails();
+      useUIStore.getState().openConnectionDetail(id);
+    }, connection.id);
+    const testButton = page.getByRole("button", { name: "Test provider", exact: true });
+    await testButton.click();
     await expect(page.getByRole("status").filter({ hasText: "Probability of yes: 0.800" })).toBeVisible();
     reject = true;
-    await page.getByRole("button", { name: "Test", exact: true }).click();
+    await testButton.click();
     await expect(page.getByRole("status").filter({ hasText: "server rejected the input" })).toBeVisible();
     await screenshot("decision-default-error-dark");
     await openAgent();
@@ -148,9 +163,10 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await screenshot("activation-configured-light");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await openDefaults();
-    await expect(page.getByLabel(/pick who speaks in Smart response order/u)).toBeChecked();
-    await page.getByLabel("Decision model", { exact: true }).selectOption("");
-    await expect(page.getByLabel(/pick who speaks in Smart response order/u)).toHaveCount(0);
+    await expect(decisionTile).toContainText(connection.name);
+    await expect(smartOrder).toBeChecked();
+    await pickDecision((picker) => picker.locator("[data-switcher-default]"));
+    await expect(smartOrder).toHaveCount(0);
     await openAgent();
     await expect(question).toBeDisabled();
     await expect(question).toHaveValue("Did {{char}} enter a new location?");
@@ -159,6 +175,8 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await request.post("/api/decision/smart-order", { data: { enabled: false } });
     await request.delete(`/api/agents/${agent.id}`);
     await request.delete(`/api/connections/${connection.id}`);
+    // The Model's account outlives its last Model (#8456).
+    if (connection.accountId) await request.delete(`/api/connection-accounts/${connection.accountId}`);
     server.closeAllConnections();
     await new Promise<void>((resolve, rejectClose) =>
       server.close((error) => (error ? rejectClose(error) : resolve())),
@@ -335,61 +353,212 @@ test("generation gates post agents on the completed reply and fails open without
 });
 
 test("OpenRouter decision shortcut links a key and warns before its deletion", async ({ page, request }, testInfo) => {
+  // A stand-in for OpenRouter: its model list, and chat completions with log-probabilities. It keeps the key each
+  // decision request carries.
+  const keys: string[] = [];
+  const server = createServer(async (req, res) => {
+    for await (const chunk of req) void chunk;
+    if (req.method === "GET" && req.url === "/v1/models") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ data: [{ id: "fixture", name: "Fixture" }] }));
+      return;
+    }
+    if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+      res.writeHead(404, { "content-type": "text/plain" });
+      res.end("404 page not found");
+      return;
+    }
+    keys.push(req.headers.authorization ?? "");
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        choices: [
+          {
+            message: { role: "assistant", content: "Yes" },
+            logprobs: {
+              content: [
+                {
+                  token: "Yes",
+                  logprob: Math.log(0.8),
+                  top_logprobs: [
+                    { token: "Yes", logprob: Math.log(0.8) },
+                    { token: "No", logprob: Math.log(0.2) },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Missing mock server port");
   await seedUIState(page, { hasCompletedOnboarding: true, rightPanelOpen: false, sidebarOpen: false });
   await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  const name = `Borrowed key ${testInfo.project.name}`;
   const response = await request.post("/api/connections", {
     data: {
-      name: `Borrowed key ${testInfo.project.name}`,
+      name,
       provider: "openrouter",
-      baseUrl: "https://openrouter.ai/api/v1",
+      baseUrl: `http://127.0.0.1:${address.port}/v1`,
       apiKey: "fixture-only",
       model: "fixture",
     },
   });
   expect(response.ok()).toBeTruthy();
   const source = await response.json();
+  const accountId: string = source.accountId;
+  const rows = async () => (await (await request.get("/api/connections")).json()) as Array<Record<string, any>>;
+  const status = async (path: string) => (await request.get(path)).status();
+  const accountName = async (id: string) =>
+    ((await (await request.get("/api/connection-accounts")).json()) as Array<Record<string, any>>).find(
+      (account) => account.id === id,
+    )!.name as string;
+  // Done makes the new row the Decision model; the finally block puts back what earlier specs chose.
+  const previousDecision = ((await (await request.get("/api/decision/options")).json()) as { selected: string | null })
+    .selected;
   let linkedId = "";
-  const open = async (id: string) => {
-    await page.evaluate(async (id) => {
-      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-      useUIStore.getState().openConnectionDetail(id);
-    }, id);
-    await expect(page.getByPlaceholder("Connection name")).toBeVisible();
-  };
+  let lender: { id: string; accountId?: string | null } | null = null;
+  let borrowerId = "";
   try {
+    expect(accountId).toBeTruthy();
+    // A Decision Model that borrows another Model's key, for the last part; made before the page loads, so the
+    // page's lists have both. The lender has OpenRouter's own address, so the link holds until the deletion. Nothing
+    // here sends it a request.
+    const lenderName = `Lent key ${testInfo.project.name}`;
+    const lent = await request.post("/api/connections", {
+      data: {
+        name: lenderName,
+        provider: "openrouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        // A key per project: the mobile projects share one server, and one key would share one Connection.
+        apiKey: `fixture-lent-${testInfo.project.name}`,
+        model: "fixture",
+      },
+    });
+    expect(lent.ok()).toBeTruthy();
+    lender = await lent.json();
+    const lenderId = lender!.id;
+    const borrowerName = `Borrowed decisions ${testInfo.project.name}`;
+    const borrowed = await request.post("/api/connections", {
+      data: {
+        name: borrowerName,
+        provider: "decision",
+        decisionSource: "openrouter",
+        model: "jev-latest",
+        credentialsFromConnectionId: lenderId,
+      },
+    });
+    expect(borrowed.ok()).toBeTruthy();
+    borrowerId = (await borrowed.json()).id;
     await page.goto("/");
-    await open(source.id);
-    await page.getByRole("button", { name: "Use this key for decisions", exact: true }).click();
-    await expect(page.getByLabel("Decision source", { exact: true })).toHaveValue("openrouter");
-    await expect(page.getByLabel("API key source", { exact: true })).toHaveValue(source.id);
-    const rows = await (await request.get("/api/connections")).json();
-    const linked = rows.find(
-      (row: { credentialsFromConnectionId?: string }) => row.credentialsFromConnectionId === source.id,
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openRightPanel("connections");
+    });
+    const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
+    await actions.scrollIntoViewIfNeeded();
+    await actions.click();
+    await page.getByRole("menuitem", { name: "Use this key for decisions", exact: true }).click();
+    // #8456: the shortcut opens the key's Connection on its decision models, with a Decision Model for the source's
+    // model made under that Connection; testing it there is what keeps it. It reaches the key through its Connection,
+    // so the old editor fields (Decision source "openrouter", API key source = the source Model) and the
+    // credentialsFromConnectionId link are not used by this Model.
+    const dialog = page.getByRole("dialog", { name: "Add models to OpenRouter", exact: true });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Test decision", exact: true }).click();
+    await expect(dialog.getByText(/^Probability of yes: 0\.800/u)).toBeVisible();
+    const linked = (await rows()).find((row) => row.provider === "decision" && row.accountId === accountId);
+    // Kept, but not the Decision model until Done.
+    expect(linked).toMatchObject({ decisionSource: "openai_compatible", model: "fixture", defaultForAgents: "false" });
+    expect(linked?.credentialsFromConnectionId ?? null).toBeNull();
+    linkedId = linked!.id;
+    // The Decision Model has no key of its own: the test went out with the Connection's.
+    expect(keys.length).toBeGreaterThan(0);
+    expect(new Set(keys)).toEqual(new Set(["Bearer fixture-only"]));
+    await dialog.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    // Done sets the window's job (AddFor in lib/add-connection.ts): the row becomes the Decision model, with an Undo
+    // toast like a pick in "Model for Decision".
+    await expect(page.getByText("Decision now uses Fixture", { exact: true })).toBeVisible();
+    await expect.poll(async () => (await rows()).find((row) => row.id === linkedId)?.defaultForAgents).toBe("true");
+    expect(
+      (await rows())
+        .filter((row) => row.accountId === accountId)
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual([source.id, linkedId].sort());
+    // Deleting the key's Connection warns that its Decision Model goes too.
+    const sourceAccountName = await accountName(accountId);
+    // The Decision Model is named after its Connection; the card's own menu comes before its Models' menus.
+    const accountActions = page
+      .locator(`[data-connection-account-id="${accountId}"]`)
+      .getByRole("button", { name: `Actions for ${sourceAccountName}`, exact: true })
+      .first();
+    await accountActions.scrollIntoViewIfNeeded();
+    await accountActions.click();
+    await page.getByRole("menuitem", { name: "Delete account", exact: true }).click();
+    const warning = page.getByRole("dialog", { name: "Delete account", exact: true });
+    await expect(warning).toContainText(`Delete ${sourceAccountName}? Its 2 models go too.`);
+    await expect(warning).toContainText(name);
+    await warning.getByRole("button", { name: "Delete with its 2 models", exact: true }).click();
+    // The window deletes the Models one after another, then the Connection.
+    await expect
+      .poll(async () => [await status(`/api/connections/${linkedId}`), await status(`/api/connections/${source.id}`)])
+      .toEqual([404, 404]);
+
+    // A Decision Model can still borrow another Model's key ("API key source" in its editor). Deleting that Model
+    // warns first, and the Decision Model then asks to be relinked.
+    const openEditor = async (id: string) => {
+      await page.evaluate(async (id) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().closeAllDetails();
+        useUIStore.getState().openConnectionDetail(id);
+      }, id);
+    };
+    const keySource = page.getByLabel("API key source", { exact: true });
+    await openEditor(borrowerId);
+    await expect(keySource).toHaveValue(lenderId);
+    await expect(keySource.locator("option:checked")).toHaveText(
+      `Use key from “${await accountName(lender!.accountId!)}”`,
     );
-    expect(linked).toMatchObject({ provider: "decision", defaultForAgents: "true", apiKeyEncrypted: "" });
-    linkedId = linked.id;
-    await open(source.id);
-    await page.getByRole("button", { name: "Delete connection", exact: true }).click();
-    const firstDialog = page.getByRole("dialog");
-    await firstDialog.getByRole("button", { name: "Delete", exact: true }).click();
-    const linkedDialog = page.getByRole("dialog");
-    await expect(linkedDialog).toContainText("This key is used for decisions");
-    await linkedDialog.getByRole("button", { name: "Delete connection", exact: true }).click();
-    await expect.poll(async () => (await request.get(`/api/connections/${source.id}`)).status()).toBe(404);
-    await open(linkedId);
-    await expect(page.getByLabel("API key source", { exact: true }).locator("option:checked")).toContainText(
-      "missing or incompatible",
-    );
-    await page.getByRole("button", { name: "Test Connection", exact: true }).click();
-    await expect(
-      page.getByText(
-        "Decision test failed: Linked connection is missing or incompatible. Choose another or enter a key.",
-        { exact: true },
-      ),
-    ).toBeVisible();
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().closeAllDetails();
+      useUIStore.getState().openRightPanel("connections");
+    });
+    const lenderActions = page.getByRole("button", { name: `Actions for ${lenderName}`, exact: true });
+    await lenderActions.scrollIntoViewIfNeeded();
+    await lenderActions.click();
+    await page.getByRole("menuitem", { name: "Remove", exact: true }).click();
+    const removeModel = page.getByRole("dialog", { name: "Delete model", exact: true });
+    await expect(removeModel).toContainText(borrowerName);
+    await removeModel.getByRole("button", { name: "Delete", exact: true }).click();
+    const keyWarning = page.getByRole("dialog", { name: "This key is used for decisions", exact: true });
+    await expect(keyWarning).toContainText(`${borrowerName} will need another linked account or a separate key.`);
+    await keyWarning.getByRole("button", { name: "Delete account", exact: true }).click();
+    await expect.poll(() => status(`/api/connections/${lenderId}`)).toBe(404);
+    await openEditor(borrowerId);
+    await expect(keySource).toHaveValue(lenderId);
+    const relink = "Linked account is missing or incompatible. Choose another or enter a key.";
+    await expect(keySource.locator("option:checked")).toHaveText(relink);
+    await page.getByRole("button", { name: "Test provider", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: `Decision test failed: ${relink}` })).toBeVisible();
   } finally {
     if (linkedId) await request.delete(`/api/connections/${linkedId}`);
     await request.delete(`/api/connections/${source.id}`);
+    // The Model's account outlives its last Model (#8456).
+    if (accountId) await request.delete(`/api/connection-accounts/${accountId}`);
+    if (borrowerId) await request.delete(`/api/connections/${borrowerId}`);
+    if (lender) await request.delete(`/api/connections/${lender.id}`);
+    if (lender?.accountId) await request.delete(`/api/connection-accounts/${lender.accountId}`);
+    await request.post("/api/decision/select", { data: { id: previousDecision } });
+    server.closeAllConnections();
+    await new Promise<void>((resolve, rejectClose) =>
+      server.close((error) => (error ? rejectClose(error) : resolve())),
+    );
   }
 });

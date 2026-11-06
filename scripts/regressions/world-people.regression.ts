@@ -374,27 +374,15 @@ const thornmere = placeNamed("Thornmere");
   assert.ok(after.find((npc) => npc.id === "b")!.reputation > 0, "the world id finds the right Oswin Holt");
 
   // Tracked people who share a name are told apart by their sheet and id.
-  const { buildGmSystemPrompt } = await import("../../packages/server/src/services/game/gm-prompts.js");
-  const prompt = buildGmSystemPrompt({
-    gameActiveState: "exploration",
-    storyArc: null,
-    plotTwists: null,
+  const { buildGmSceneState } = await import("../../packages/server/src/services/game/gm-prompts.js");
+  const prompt = buildGmSceneState({
     map: null,
     npcs: [
       { ...npcs[0]!, role: "steward", description: "steward; old, a limp" },
       { ...npcs[1]!, role: "fisher", description: "fisher; young, freckles" },
       { id: "c", name: "Bryn", emoji: "", description: "x", location: "", reputation: 3, notes: [], role: "baker" },
     ],
-    sessionSummaries: [],
-    sessionNumber: 1,
-    partyNames: [],
-    playerName: "Player",
-    gmCharacterCard: null,
-    difficulty: "normal",
-    genre: "Fantasy",
-    setting: "x",
-    tone: "y",
-  } as unknown as Parameters<typeof buildGmSystemPrompt>[0]);
+  } as unknown as Parameters<typeof buildGmSceneState>[0]);
   assert.ok(
     prompt.includes("- Oswin Holt (steward; steward; old, a limp; id p5-1) @ unknown"),
     prompt.slice(prompt.indexOf("<tracked_npcs>"), prompt.indexOf("</tracked_npcs>")),

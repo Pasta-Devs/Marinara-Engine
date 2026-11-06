@@ -18,6 +18,11 @@ const app = Fastify();
 const requests: Record<string, unknown>[] = [];
 const longTranslation = `${"Zażółć gęślą jaźń. ".repeat(3000)}KONIEC PEŁNEGO TŁUMACZENIA`;
 const provider = createServer(async (request, response) => {
+  if (request.method === "GET" && request.url === "/v1/models" && request.headers.authorization === "Bearer old-key") {
+    response.writeHead(401, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "Invalid key" }));
+    return;
+  }
   if (request.method === "GET" && request.url === "/v1/models") {
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ data: [{ id: "L3-8B-Stheno-v3.2" }] }));
@@ -272,6 +277,31 @@ try {
     assert.equal(tested.json().success, true, tested.body);
     assert.equal(requests.at(-1)!.max_tokens, expected, `${model} test budget`);
   }
+
+  // Test checks a key typed in the editor before it is saved, and the saved key stays as it is.
+  const rotating = await storage.create({
+    name: "Key rotation fixture",
+    provider: "custom",
+    baseUrl: `http://127.0.0.1:${address.port}/v1`,
+    apiKey: "old-key",
+    model: "fixture-model",
+  });
+  const savedTest = await app.inject({ method: "POST", url: `/api/connections/${rotating.id}/test` });
+  assert.equal(savedTest.json().success, false, savedTest.body);
+  const draftTest = await app.inject({
+    method: "POST",
+    url: `/api/connections/${rotating.id}/test`,
+    payload: { apiKey: "new-key" },
+  });
+  assert.equal(draftTest.json().success, true, draftTest.body);
+  assert.doesNotMatch(draftTest.body, /new-key/);
+  assert.equal((await storage.getWithKey(rotating.id))?.apiKey, "old-key");
+  const badAddress = await app.inject({
+    method: "POST",
+    url: `/api/connections/${rotating.id}/test`,
+    payload: { baseUrl: "not an address" },
+  });
+  assert.equal(badAddress.statusCode, 400, badAddress.body);
 } finally {
   try {
     try {

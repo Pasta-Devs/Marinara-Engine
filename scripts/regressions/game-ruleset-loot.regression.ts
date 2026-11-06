@@ -29,6 +29,8 @@ import {
   type GameInventoryStack,
   type RulesetCatalogEntry,
   type RulesetDefinition,
+  dropGameLootRepeats,
+  GAME_LOOT_GIVEN_LINE,
 } from "../../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-ruleset-loot-"));
@@ -652,6 +654,25 @@ try {
       "",
     );
     assert.doesNotMatch(reminder(plain), /\[loot:/);
+  }
+
+  // ── What a won fight dropped is not added again by the reply to its recap (laptop playtest
+  //    2026-10-25: "Found: Staff, gold pieces ×15", then the gold earned again and a second Staff) ──
+  {
+    const recap = `OUTCOME: VICTORY (after 3 rounds)\n${GAME_LOOT_GIVEN_LINE}Staff, Crossbow, heavy, gold pieces ×15\nParty: ...`;
+    const reply =
+      'The staff lies by the fallen priest. [inventory: action="add" item="Staff"] ' +
+      '[inventory: action="earn" item="gold pieces" count="15" who="Aldric"] ' +
+      '[inventory: action="add" item="Staff"] [inventory: action="add" item="Crossbow, heavy"] ' +
+      '[inventory: action="earn" item="gold pieces" count="5"] [inventory: action="add" item="Rope"]';
+    const kept = dropGameLootRepeats(reply, recap);
+    assert.equal(
+      kept,
+      'The staff lies by the fallen priest.   [inventory: action="add" item="Staff"]  ' +
+        '[inventory: action="earn" item="gold pieces" count="5"] [inventory: action="add" item="Rope"]',
+      "each drop once, at its count; a second Staff and other coins stay",
+    );
+    assert.equal(dropGameLootRepeats(reply, "OUTCOME: VICTORY"), reply, "no loot line, nothing taken");
   }
 
   console.log(

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { getCssGradientColorStops, isCssGradient } from "./css-colors";
+import { getCssGradientColorStops, isCssGradient, withCssPaintAlpha } from "./css-colors";
 
 export interface ChatWidgetColors {
   border?: string;
@@ -13,6 +13,7 @@ export const CHAT_WIDGET_COLOR_PROPERTIES = [
   "--mari-widget-custom-background",
   "--mari-widget-custom-background-solid",
   "--mari-widget-custom-background-image",
+  "--mari-widget-custom-roleplay-background",
   "--mari-widget-custom-text",
   "--mari-widget-custom-text-solid",
   "--mari-widget-custom-text-image",
@@ -67,6 +68,7 @@ export function getChatWidgetColorStyle(colors: ChatWidgetColors = {}): WidgetCo
   }
   if (background) {
     style["--mari-widget-custom-background"] = background;
+    style["--mari-widget-custom-roleplay-background"] = withCssPaintAlpha(background, "var(--mari-rp-bubble-opacity)");
     style["--mari-widget-custom-background-solid"] = solidFallback(background, "transparent");
     style["--mari-widget-custom-background-image"] = isCssGradient(background)
       ? background

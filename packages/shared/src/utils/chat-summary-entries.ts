@@ -230,8 +230,13 @@ export function getChatSummaryMessageIdsToUnhideAfterDelete(
   const retainedCoverage = new Set<string>();
 
   for (const entry of entries) {
-    const coverage = entry.hiddenMessageIds ?? entry.messageIds ?? [];
-    const target = deletedEntryIds.has(entry.id) ? deletedCoverage : entry.enabled ? retainedCoverage : null;
+    const deleted = deletedEntryIds.has(entry.id);
+    // A deleted entry shows only what it hid itself: an entry that hid nothing has no
+    // hiddenMessageIds, and its covered messages may have been hidden by hand since.
+    // Retained entries keep their full coverage hidden, so legacy entries that predate
+    // hiddenMessageIds still protect what they may have hidden.
+    const coverage = deleted ? (entry.hiddenMessageIds ?? []) : (entry.hiddenMessageIds ?? entry.messageIds ?? []);
+    const target = deleted ? deletedCoverage : entry.enabled ? retainedCoverage : null;
     if (!target) continue;
     for (const messageId of coverage) target.add(messageId);
   }

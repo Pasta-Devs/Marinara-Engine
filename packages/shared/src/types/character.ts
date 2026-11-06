@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Character Card V2 Types (compatible with ST / Chub)
 // ──────────────────────────────────────────────
+import type { CardFieldAlternative } from "../schemas/card-field-alternative.schema.js";
 import type { ChoiceDisplayMode, ChoiceOption, ChoiceOptionSort } from "./prompt.js";
 
 /** Full Character Card V2 envelope. */
@@ -34,6 +35,8 @@ export interface CharacterData {
 
 /** ST-compatible extension fields. */
 export interface CharacterExtensions {
+  /** Chat-specific replacements; the authored base fields remain unchanged. */
+  cardFieldAlternatives?: CardFieldAlternative[];
   talkativeness: number;
   fav: boolean;
   world: string;
@@ -58,6 +61,8 @@ export interface CharacterExtensions {
   nameAliases?: string[];
   /** Marinara Engine: RPG stats toggle + custom attributes */
   rpgStats?: RPGStatsConfig;
+  /** Marinara Engine: the picture on this character's fight token. Missing means the avatar. */
+  combatIcon?: CombatIconChoice;
   /** Marinara Engine: starting builds for Game Mode rulesets, keyed by ruleset id. A game copies
    *  the one it needs; a sheet for a ruleset that is not installed is kept dormant. */
   rulesetSheets?: Record<string, unknown>;
@@ -186,6 +191,10 @@ export interface RPGStatsConfig {
   pools?: RPGStatPool[];
 }
 
+/** What a fight token shows: the avatar, a picture from the owner's gallery, or the initials. */
+export type CombatIconChoice =
+  { source: "avatar" } | { source: "initials" } | { source: "image"; imageId: string; url: string };
+
 /** A character-profile default for a text-valued Character Tracker field. */
 export interface CharacterTrackerCustomFieldDefault {
   name: string;
@@ -269,12 +278,15 @@ export interface CharacterCardVersion {
 
 /** Snapshot data saved for a previous persona card state. */
 export interface PersonaCardSnapshot {
+  cardFieldAlternatives?: string;
   name: string;
   creator: string;
   personaVersion: string;
   versioningEnabled: string;
   creatorNotes: string;
   phoneticName?: string;
+  summary?: string;
+  mes_example?: string;
   description: string;
   personality: string;
   scenario: string;

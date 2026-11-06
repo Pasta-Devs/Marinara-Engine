@@ -1,114 +1,104 @@
 # Character and Persona Galleries
 
-This guide covers the **Gallery** tab inside the character and persona editors. It explains how to add images and videos that stay attached to a character or persona. It also shows how to tag a gallery image as a custom emoji or sticker.
+The **Gallery** tab in the character and persona editors keeps images and videos attached to a character or persona, so they stay even if you delete chats. Use it for reference sheets, outfit variants and imported image packs. You can also tag a gallery image as a custom emoji or sticker.
 
 ## The Gallery tab
 
-Every character and every persona has its own **Gallery** tab. Open a character in the **Character Editor**, or a persona in the **Persona Editor**, then click the **Gallery** tab (camera icon).
+Every character and persona has its own **Gallery** tab (camera icon). Open the character in the Character Editor or the persona in the Persona Editor, then click **Gallery**. A character's gallery is titled **Character Gallery**, and a persona's is **Persona Gallery**. They work the same way.
 
 The Gallery has two sub-tabs:
 
-- **Images**: pictures you upload for this character or persona.
-- **Videos**: videos you upload, plus scene videos and video-call clips tied to this character.
+- **Images** holds pictures you upload.
+- **Videos** holds videos you upload, plus scene videos and video-call clips tied to this character.
 
-A character's gallery is titled **Character Gallery**. A persona's gallery is titled **Persona Gallery**. Both work the same way.
+A chat's own gallery is different. It holds scene illustrations and generated attachments for that one chat. Keep short-lived scene art there, and lasting art here.
 
-## How the Gallery differs from a chat's gallery
+### Add images
 
-Gallery images belong to the character or persona, not to one chat. If you delete a chat, these gallery images stay. Use the Gallery for reference sheets, outfit variants, or imported character image packs.
+1. Open the **Gallery** tab and select **Images**.
+2. Drag image files onto **Upload Character Images**, or click it to pick files. In a persona the box reads **Upload Persona Images**.
+3. Wait for the upload to finish. The new images appear in the grid.
 
-A chat's own gallery is different. It holds scene-specific illustrations and generated message attachments for that single chat. Keep short-lived scene art in the chat gallery. Keep lasting character art in the character or persona Gallery.
+Click an image to see it larger. Each tile has a download control and a delete control.
 
-## Adding images
+### Add videos
 
-1. Open the character or persona editor.
-2. Click the **Gallery** tab.
-3. Make sure the **Images** sub-tab is selected.
-4. Drag image files onto the **Upload Character Images** box, or click it to pick files. In a persona, this box is labeled **Upload Persona Images**.
-5. Wait for the upload to finish. Your new gallery images appear in the grid below.
+1. Open the **Gallery** tab and select **Videos**.
+2. Drag video files onto **Upload Character Videos**, or click it to pick files. In a persona the box reads **Upload Persona Videos**.
+3. Wait for the upload to finish.
 
-You can upload common image types, such as JPG, PNG, GIF, WebP, and AVIF. Click any image to open a larger view. Each image tile also has a download control and a delete control.
+Supported types are MP4, WebM and MOV. Newest videos are listed first. To see which scene videos and clips appear for which character, see [Which videos are listed](#which-videos-are-listed).
 
-## Adding videos
+## Tag a gallery image as a custom emoji or sticker
 
-1. Click the **Gallery** tab.
-2. Select the **Videos** sub-tab.
-3. Drag video files onto the **Upload Character Videos** box, or click it to pick files. In a persona, this box is labeled **Upload Persona Videos**.
-4. Wait for the upload to finish.
+A custom emoji is a small inline image written as `:name:`. A sticker is a larger block image written as `sticker:name:`. Both work only in Conversation Mode chats, the messenger-style mode.
 
-Supported video types are MP4, WebM, and MOV. The **Videos** sub-tab also lists scene videos generated in chats with this character, plus any video-call clips. They are sorted with the newest first. A Conversation video message is listed only for the characters it shows. That is the character who sent it and anyone it names. A first name is enough when no one else in the chat shares it, as long as it is written with a capital letter. Everyone in the chat is included when the text asks for a group photo or selfie. Names spoken inside quotation marks don't count. Your persona's gallery lists the clip only when it names your persona. Older videos, and videos from Roleplay and Game Mode chats, are listed for every character and the persona of their chat.
+1. Open the **Gallery** tab and select **Images**.
+2. Click the small tag button in the image's top-left corner (tooltip **Tag as emoji or sticker**).
+3. Click **Make emoji** or **Make sticker**.
+4. In the **Custom Emoji** or **Custom Sticker** dialog, type a name and confirm.
 
-## Tagging a gallery image as a custom emoji or sticker
+A name uses 1 to 32 lowercase letters, numbers and underscores. Other characters are converted for you, so "Big Grin" becomes `big_grin`.
 
-You can turn a gallery image into a custom emoji or a sticker for **Conversation Mode** (the messenger-style chat mode). A custom emoji is a small inline image written as `:name:`. A sticker is a larger block image written as `sticker:name:`. These only work in Conversation Mode chats.
+If it did not work: an emoji image must be no larger than 256 by 256 pixels, and a sticker no larger than 512 by 512. If the image is too big, an error appears and nothing is tagged.
 
-To tag an image:
+### Manage a tagged image
 
-1. Open the **Gallery** tab and select the **Images** sub-tab.
-2. Find the image you want. In its top-left corner is a small tag button, with the tooltip **Tag as emoji or sticker**.
-3. Click the tag button. A menu opens with **Make emoji** and **Make sticker**.
-4. Click **Make emoji** or **Make sticker**.
-5. In the **Custom Emoji** or **Custom Sticker** dialog, type a name, then confirm.
+Once an image is tagged, its overlay button shows the name. Click it for more options:
 
-The name uses lowercase letters, numbers, and underscores, up to 32 characters. Other characters are converted for you. For example, "Big Grin" becomes `big_grin`.
+- **Rename** changes the name.
+- **Switch to sticker** or **Switch to emoji** changes the kind. The new kind's size limit is checked, so a sticker larger than 256 by 256 cannot become an emoji. An error appears and the kind stays.
+- **Remove emoji** or **Remove sticker** untags the image. The image stays in the Gallery.
 
-Size limits depend on the kind you pick, not on the gallery. An emoji image must be no larger than 256 by 256 pixels. A sticker image must be no larger than 512 by 512 pixels. If the image is too big, an error message appears and the tag is not applied.
-
-### Managing a tagged image
-
-Once an image is tagged, its overlay button shows the assigned name. Click it to open a menu with more options:
-
-- **Rename**: change the name.
-- **Switch to sticker** or **Switch to emoji**: change which kind it is. The switch re-checks the size limit of the new kind. A sticker image larger than 256 by 256 pixels is too big to become an emoji. If that happens, an error appears and the kind stays the same.
-- **Remove emoji** or **Remove sticker**: untag the image. This does not delete the image from the Gallery.
-
-### Where these scoped emojis and stickers work
-
-A gallery-tagged emoji or sticker is scoped to that one character or persona. It only works in Conversation Mode chats that include that character or persona. This is separate from the global emoji and sticker pools that live in the message composer.
-
-If a gallery name matches a name in the global pool, the gallery version wins for that chat. Names are not checked for uniqueness. Pick a distinct name for each image to avoid surprises.
+A gallery-tagged emoji or sticker works only for that one character or persona, in Conversation Mode chats that include them. This is separate from the global emoji and sticker pools in the message composer. If a gallery name matches a global name, the gallery version wins in that chat. Names are not checked for uniqueness, so pick a distinct name for each image.
 
 ## Reuse a gallery image in messages and greetings
 
-Any image in a character's Gallery can be displayed inside chat text: a greeting, an example message, or a message the character sends. Hover a gallery image and click **Copy image reference** (the link icon). It copies a small piece of Markdown you can paste anywhere the character speaks:
+Any image in a character's Gallery can show inside chat text: a greeting, an example message or a message the character sends. Hover a gallery image and click **Copy image reference** (the link icon). It copies a piece of Markdown to paste wherever the character speaks:
 
 ```text
 ![sunset selfie](card://self/gallery/k3m2xq7.png)
 ```
 
-The one rule: **`self` means the character who is speaking that message.** When the message renders, Marinara replaces `self` with that character and shows the image from their gallery.
+`self` means the character who is speaking that message. When the message shows, Marinara replaces `self` with that character and loads the image from their gallery.
 
-Where it works:
+It works in:
 
-- **First Message**, **Alternate Greetings**, and **Example Dialogue** on the character card. The field's Markdown preview shows the image while you edit.
-- Any message a character sends, in **Roleplay** and **Conversation** mode alike.
-- **Group chats**: in a multi-speaker reply, `self` resolves per speaker, so each character's line shows that character's own gallery image. If the speaker's gallery does not have the file, Marinara looks it up in the other chat characters' galleries, so the right image still appears even when a reply is merged under one speaker.
+- **First Message**, **Alternate Greetings** and **Example Dialogue** on the character card. The field's Markdown preview shows the image while you edit.
+- Any message a character sends, in Roleplay and Conversation mode.
+- Group chats. In a multi-speaker reply, `self` resolves for each speaker. If the speaker's gallery lacks the file, Marinara checks the other characters in the chat, in chat order. If two characters have the same filename, the speaker's own image wins.
 
-Where it does not work, by design:
+It does not work in:
 
-- **Your own messages**. They have no speaking character, so a `self` reference shows as a broken image. If you want to post a character's gallery image yourself, use the chat asset browser's insert (which writes the full `card://characters/<id>/...` form).
-- **System messages**. They do not render Markdown image syntax at all, so a reference shows as literal text.
-- **Persona galleries**. Persona images appear in your messages, which have no speaker. Use the persona form `card://personas/<id>/gallery/<file>` instead.
+- **Your own messages**. They have no speaking character, so a `self` reference shows as a broken image. To post a character's image yourself, use the chat asset browser's insert, which writes the full `card://characters/<id>/...` form.
+- **System messages**. They do not show Markdown images, so the reference shows as text.
+- **Persona galleries**. Your messages have no speaker, so use the persona form `card://personas/<id>/gallery/<file>`.
 
-One nuance for group chats: if two characters in the chat have gallery images with the **same filename**, the speaking character's image always wins. When the speaker does not have the file, the **first match wins**: the other characters are checked in the chat's character order. Give shared-name images distinct filenames if you need a specific character's version to show from another character's line.
-
-### Why `self` instead of the full link
-
-A full link contains the character's internal id (`card://characters/<id>/gallery/<file>`), and ids are regenerated whenever a character is imported, so full links break for anyone you share the character with. The `self` form carries no id and no server address. It survives a **native JSON export and import**: the gallery images travel inside the export and keep their filenames, so every reference keeps working on the other side.
-
-One honest caveat: **PNG card exports do not include the gallery**, so no gallery reference of any kind can work after a PNG-only share. Ship the native `.json` export when your character uses gallery images.
+A full link holds the character's internal id, and ids are regenerated when a character is imported, so full links break for anyone you share the character with. The `self` form carries no id. It survives a **Marinara Native** export and import, because the gallery images travel inside the export with their filenames. **Compatible PNG Card** and **Compatible JSON** exports do not include the gallery, so no gallery reference can work after sharing that way. Use **Marinara Native** when a character uses gallery images.
 
 ### Save web images from greetings
 
-Many cards show images from other websites in their greetings, and those links can break or change. When the **First Message** or **Alternate Greetings** show web images, **Dialogue & Greetings** has a **Save images locally** button. It downloads those images into the character's Gallery and swaps each link for a `card://self/gallery/...` reference, so the images still show if the website removes them or you are offline. Save the character afterwards to keep the new links.
+Many cards show images from other websites in their greetings, and those links can break. When **First Message** or **Alternate Greetings** show web images, **Dialogue & Greetings** has a **Save images locally** button.
 
-Nothing is downloaded until you press the button. Only PNG, JPEG, GIF, and WebP images up to 10 MB and 40 megapixels are saved. Links to your own computer or home network are refused. An image that can't be saved keeps its web link, and a notice says why.
+1. Open the **Card** tab and find **Dialogue & Greetings**.
+2. Click **Save images locally**. Marinara downloads the images into the Gallery and swaps each link for a `card://self/gallery/...` reference.
+3. Click **Save** to keep the new links.
 
-**Restore web links** puts the original links back in the greetings. The saved copies stay in the Gallery until you delete them. Compatible JSON and PNG exports use the original web links, since those cards carry no gallery. Lorebook images are not covered.
+Nothing downloads until you click the button. Only PNG, JPEG, GIF and WebP images up to 10 MB and 40 megapixels are saved. Links to your own computer or home network are refused. An image that cannot be saved keeps its web link, and a notice says why.
+
+**Restore web links** puts the original links back in the greetings. The saved copies stay in the Gallery until you delete them. Lorebook images are not covered.
+
+## Which videos are listed
+
+The **Videos** sub-tab lists scene videos generated in chats with this character, and video-call clips. Which character lists a video depends on where it came from:
+
+- A Conversation video message is listed for the characters it shows: the one who sent it and anyone it names. A first name is enough when no one else in the chat shares it, if it is written with a capital letter. Everyone in the chat is included when the text asks for a group photo or selfie. Names inside quotation marks do not count.
+- Your persona's gallery lists a clip only when it names your persona.
+- Older videos, and videos from Roleplay and Game Mode chats, are listed for every character and the persona of their chat.
 
 ## Related guides
 
 - [Creating and Editing Characters](creating-and-editing-characters.md)
-- [User Personas: Creating and Editing](personas.md)
+- [Personas](personas.md)
 - [Custom Emojis, Stickers, and GIFs](../conversation/emoji-stickers-gifs.md)
 - [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md)

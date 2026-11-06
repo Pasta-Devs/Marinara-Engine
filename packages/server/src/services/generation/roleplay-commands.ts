@@ -84,9 +84,24 @@ function readCommand(type: string, body: string): RoleplayCommand | null {
         .filter(Boolean);
       return subject ? { type, subject, ...(characters.length ? { characters } : {}) } : null;
     }
+    case "video": {
+      const subject = field("subject", 4_000);
+      const motion = field("motion", 2_000);
+      const characters = field("characters", 2_000)
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean);
+      return subject
+        ? { type, subject, ...(motion ? { motion } : {}), ...(characters.length ? { characters } : {}) }
+        : null;
+    }
     case "document": {
       const title = field("title", 200);
       return title && content ? { type, title, content, documentType: field("kind", 60) || "document" } : null;
+    }
+    case "html": {
+      const prompt = field("prompt", 2_000);
+      return prompt ? { type, prompt } : null;
     }
     case "sound": {
       const description = field("description", 1_000);
@@ -797,6 +812,8 @@ export function buildRoleplayCommandsReminder(args: {
   characterNames: string[];
   characterId?: string | null;
   interruptAvailable?: boolean;
+  /** Set when a clip may be made now: a video connection exists and the Video Run Interval has passed. */
+  video?: { instructions: string } | null;
 }): string {
   const lines: string[] = [];
   const enabled = (key: RoleplayCommandKey) => isRoleplayCommandAllowed(args.metadata, key, args.characterId);
@@ -807,9 +824,22 @@ export function buildRoleplayCommandsReminder(args: {
           ? " The image appears exactly where you write the command, so place it where the picture belongs: at the start, between paragraphs, or at the end."
           : ""),
     );
+  if (args.video && enabled("video") && args.availableAgentIds.has("illustrator")) {
+    lines.push(
+      '- [video: subject="the moment to show" motion="what moves and how the camera moves, in one or two present-tense sentences" characters="names of involved characters, separated by commas"] requests a short video clip instead of a still image. Use [video] rather than [illustrate] when the moment is about motion: action, violence, a chase, dancing, something breaking or falling.',
+    );
+    if (args.video.instructions)
+      lines.push(
+        `  Write motion following these video-model instructions; they are guidance, not text to copy: ${args.video.instructions}`,
+      );
+  }
   if (enabled("document"))
     lines.push(
       '- [document: kind="note|letter|journal|report|poster|terminal" title="title" content="full text"] creates an in-world document. Supply plain text only; the Engine applies the built-in style for that kind. Do not generate HTML or CSS or repeat the document contents in narration.',
+    );
+  if (enabled("html"))
+    lines.push(
+      '- [html: prompt="the artifact you want, in your own words"] creates one bespoke in-world artifact where you place the command: a spellbook page, a sign, a letter with a sketch, a terminal readout. Use it only when a specific prop matters to the scene, never as decoration or on every reply, and at most 3 times in a reply. The Engine makes it after your reply and you will see its text next turn as an "Artifact:" line. Do not write HTML or CSS, do not write that line yourself, and do not repeat the artifact in your narration.',
     );
   if (enabled("sound")) lines.push('- [sound: description="a brief sound effect"] plays a sound cue. Use sparingly.');
   if (enabled("music") && args.availableAgentIds.has("spotify"))

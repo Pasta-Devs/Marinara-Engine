@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { APP_VERSION } from "@marinara-engine/shared";
-import { useUIStore, type ChatModeShortcut } from "../../stores/ui.store";
+import { MOBILE_SHELL_MEDIA_QUERY, useUIStore, type ChatModeShortcut } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useTrackAchievement } from "../../hooks/use-achievements";
 import { docsLanguageKeys, useDocsLanguage, type DocsLanguageStatus } from "../../hooks/use-docs-language";
@@ -15,10 +15,12 @@ import { toast } from "sonner";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading, type MariPose } from "../../lib/mari-work-animations";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { WHATS_NEW_SEEN_VERSION_KEY } from "../modals/WhatsNewModal";
+import { LanguagePicker } from "../ui/LanguagePicker";
 
 // ─── Step definitions ─────────────────────────
 
@@ -110,7 +112,7 @@ const STEPS: TourStep[] = [
   {
     target: "panel-agents",
     title: "Agents",
-    body: "Agents add optional features without making the base app heavy. Open Download Agents here to browse and install image and video generation, trackers, writers, maps, audio and video calls, and various chat games, then enable the ones you want for each chat. You can update or uninstall them from the same catalog.",
+    body: "Agents add optional features without making the base app heavy. Open the Agent Organizer here to browse and install image and video generation, trackers, writers, maps, audio and video calls, and various chat games, then enable the ones you want for each chat. You can update or uninstall them from the same catalog.",
     side: "bottom",
     openPanel: "agents",
     sprite: { pose: "point-up", flip: true },
@@ -398,8 +400,8 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
 
   let maxHeight: number;
 
-  let top = 0;
-  let left = 0;
+  let top: number;
+  let left: number;
 
   if (placement === "right") {
     maxHeight = Math.min(Math.max(minScrollableHeight, availableViewportHeight), availableViewportHeight);
@@ -462,9 +464,9 @@ function TourCardContent({
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const { poses } = useMariAppearancePack();
-  // UX-06: on a phone there is no search field to point at; the same step tells the user about the pull-down.
-  const bodyKey =
-    currentStep.phoneBodyKey && getViewportWidth() < MOBILE_BREAKPOINT ? currentStep.phoneBodyKey : currentStep.bodyKey;
+  // UX-06: the phone shell (landscape too) has no search field to point at; the same step tells the user about the pull-down.
+  const mobileShell = useMatchMedia(MOBILE_SHELL_MEDIA_QUERY);
+  const bodyKey = currentStep.phoneBodyKey && mobileShell ? currentStep.phoneBodyKey : currentStep.bodyKey;
   const localizedBody = bodyKey
     ? localizeUi(bodyKey, { mod: formatShortcutKey("Mod") })
     : localize(currentStep.body ?? "");
@@ -593,7 +595,7 @@ function OnboardingTutorialInner() {
     docsLanguageStatus?.configured || !uiMatchedDocsLanguage ? activeDocsLanguage : uiMatchedDocsLanguage;
   const effectiveDocsLanguagePick = docsLanguagePick ?? suggestedDocsLanguage;
 
-  useDialogFocusScope(!modal, cardRef);
+  useDialogFocusScope(!modal, cardRef, undefined, undefined, "[data-language-picker-portal]");
 
   /**
    * Commit the picked docs language when the tour completes via "Get Started".
@@ -752,18 +754,13 @@ function OnboardingTutorialInner() {
       >
         {localizeUi("settings.application.docsLanguage.label")}
       </label>
-      <select
+      <LanguagePicker
         id="onboarding-docs-language"
+        label={localizeUi("settings.application.docsLanguage.label")}
         value={effectiveDocsLanguagePick}
-        onChange={(event) => setDocsLanguagePick(event.target.value)}
-        className="w-full rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-3 py-2 text-xs text-[var(--marinara-chat-chrome-panel-text)] outline-none focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-      >
-        {(docsLanguageOptions.length > 0 ? docsLanguageOptions : [{ code: "en", label: "English" }]).map((option) => (
-          <option key={option.code} value={option.code}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        onChange={setDocsLanguagePick}
+        options={docsLanguageOptions.length > 0 ? docsLanguageOptions : [{ code: "en", label: "English" }]}
+      />
     </div>
   ) : undefined;
 

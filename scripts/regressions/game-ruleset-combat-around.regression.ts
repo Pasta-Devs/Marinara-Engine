@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import {
   applyRulesetCombatChoice,
   createRulesetEncounter,
+  currentRulesetActor,
   parseRulesetDefinition,
   rowsFromCatalogEntry,
   rulesetCombatant,
@@ -33,6 +34,7 @@ import {
   type RulesetStatBlock,
   defaultRulesetSheetBuild,
 } from "../../packages/shared/src/index.js";
+import { rulesetZoneCells } from "../../packages/shared/src/features/ruleset-combat/grid.js";
 import type { TacticalGrid } from "../../packages/shared/src/features/tactical-combat/types.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-around-"));
@@ -196,6 +198,38 @@ try {
     assert.ok(!holds(step.state, "far"), "not the hero past 60 feet");
     assert.ok(!holds(step.state, "mummy"), "not the mummy lord itself");
     assert.equal(who(step.state, "mummy").signature!.points, 1, "two points spent");
+  }
+
+  // ── Bought between turns, what stays is laid: a kraken's Ink Cloud, doing nothing as it appears ──
+  for (const anchor of ["caster", undefined]) {
+    const step = channelled(
+      fight({
+        action: channel({
+          zone: { rounds: 1, triggers: ["turn-end"], atCast: false, ...(anchor ? { anchor } : {}) },
+        }),
+      }),
+    );
+    assert.ok(!holds(step.state, "near"), "nobody caught as it appears");
+    const mummy = who(step.state, "mummy");
+    assert.deepEqual(
+      (mummy.zones ?? []).map((one) => one.actionId),
+      ["channel"],
+      "the zone is laid",
+    );
+    // Around where the mummy lord stands, sixty feet every way, as on its own turn.
+    const cells = rulesetZoneCells(step.state, mummy, mummy.zones![0]!);
+    const has = (x: number, y: number) => cells.some((cell) => cell.x === x && cell.y === y);
+    assert.ok(has(8, 7) && has(6, 7) && has(12, 7) && has(8, 11), `${anchor ?? "point"}: its cells are laid`);
+    assert.ok(!has(25, 0), "and not past sixty feet");
+    // And whoever ends a turn in it from then on is caught: the hero behind the wall, next up.
+    assert.equal(currentRulesetActor(step.state)?.id, "behind");
+    const ended = applyRulesetCombatChoice(
+      definition,
+      step.state,
+      { actorId: "behind", optionId: "end-turn", targetIds: [] },
+      roll,
+    );
+    assert.ok(holds(ended.state, "behind"), `${anchor ?? "point"}: caught as its turn ends there`);
   }
 
   // ── Without throughWalls, the wall keeps the hero behind it out ──

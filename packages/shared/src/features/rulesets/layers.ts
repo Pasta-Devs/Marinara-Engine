@@ -194,6 +194,40 @@ function layered(definition: RulesetDefinition, layers: readonly RulesetLayer[])
       checkGuidance,
       ...(worldGuidance === undefined ? {} : { worldGuidance }),
     },
+    ...(definition.items ? { items: layeredItems(definition.items, layers) } : {}),
+  };
+}
+
+type RulesetItems = NonNullable<RulesetDefinition["items"]>;
+
+/** The items block with the layers' market and loot changes on it (Capability API 1.813): sellers
+ *  taken out, wares added to `unsold`, and loot tables replaced by id, the last layer that replaces
+ *  one winning. Nothing a layer does here adds an item, so every item the game knows stays known: a
+ *  carried one keeps working and the Game Master can still hand one out. The same reference comes back
+ *  when no layer touches items. A removal that would leave the market no seller at all (two layers
+ *  together, which the file check cannot see) is not made, because a market without sellers lets
+ *  anybody sell everything. */
+function layeredItems(items: RulesetItems, layers: readonly RulesetLayer[]): RulesetItems {
+  const changes = layers.flatMap((layer) => (layer.items ? [layer.items] : []));
+  if (changes.length === 0) return items;
+  let market = items.market;
+  if (market) {
+    const gone = new Set(changes.flatMap((change) => change.market?.removeSellers ?? []));
+    const unsold = changes.flatMap((change) => change.market?.unsold ?? []);
+    const sellers = market.sellers?.filter((seller) => !gone.has(seller.id));
+    market = {
+      ...market,
+      ...(market.sellers && sellers && sellers.length > 0 ? { sellers } : {}),
+      ...(unsold.length > 0 ? { unsold: [...(market.unsold ?? []), ...unsold] } : {}),
+    };
+  }
+  const replaced = new Map<string, NonNullable<RulesetItems["lootTables"]>[number]>();
+  for (const change of changes) for (const table of change.lootTables ?? []) replaced.set(table.id, table);
+  const lootTables = items.lootTables?.map((table) => replaced.get(table.id) ?? table);
+  return {
+    ...items,
+    ...(market ? { market } : {}),
+    ...(lootTables ? { lootTables } : {}),
   };
 }
 

@@ -9,12 +9,13 @@
 // a separate agreement even for free open-source apps, and its runtime cannot be bundled.
 // Developer notes: docs/development/optional-agent-packages.md, "Capability API 1.73: the avatar agents".
 import { normalizeSpriteExpressionKey, normalizeSpriteLookupToken } from "../utils/sprite-labels.js";
+import type { AvatarHumanoidBone } from "../utils/avatar-humanoid-bones.js";
 
 // ── Agents ──
 
 /** Package id and agent id of the 2D agent (PNGTuber sprites and mesh avatars). */
 export const AVATAR_2D_AGENT_ID = "2d-avatars";
-/** Package id and agent id of the 3D agent (VRM models). */
+/** Package id and agent id of the 3D agent (VRM, MMD, GLB and FBX models). */
 export const AVATAR_3D_AGENT_ID = "3d-avatars";
 export const AVATAR_AGENT_IDS = [AVATAR_2D_AGENT_ID, AVATAR_3D_AGENT_ID] as const;
 export type AvatarAgentId = (typeof AVATAR_AGENT_IDS)[number];
@@ -417,7 +418,7 @@ export function mapSpriteExpressionToAvatarFeeling(label: string | null | undefi
 
 // ── Kinds and owners ──
 
-export const AVATAR_KINDS = ["pngtuber", "mesh-avatar", "vrm"] as const;
+export const AVATAR_KINDS = ["pngtuber", "mesh-avatar", "vrm", "mmd", "glb-fbx"] as const;
 export type AvatarKind = (typeof AVATAR_KINDS)[number];
 
 /** The agent that has to be installed and on in a chat for each kind to show. */
@@ -425,7 +426,14 @@ export const AVATAR_KIND_AGENT: Readonly<Record<AvatarKind, AvatarAgentId>> = Ob
   pngtuber: AVATAR_2D_AGENT_ID,
   "mesh-avatar": AVATAR_2D_AGENT_ID,
   vrm: AVATAR_3D_AGENT_ID,
+  mmd: AVATAR_3D_AGENT_ID,
+  "glb-fbx": AVATAR_3D_AGENT_ID,
 });
+
+/** 3D kinds draw a model: they need no sprites and have a camera framing. */
+export function isAvatar3dKind(kind: AvatarKind): boolean {
+  return AVATAR_KIND_AGENT[kind] === AVATAR_3D_AGENT_ID;
+}
 
 export const AVATAR_OWNER_TYPES = ["character", "persona"] as const;
 export type AvatarOwnerType = (typeof AVATAR_OWNER_TYPES)[number];
@@ -517,7 +525,7 @@ export const AVATAR_CONFIG_VERSION = 1;
  *  Check paths with isAvatarFilePath(); the pattern alone does not refuse device names. */
 export type AvatarFilePath = string;
 export const AVATAR_FILE_PATH_PATTERN =
-  /^(?:pngtuber|mesh-avatar|vrm)\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$/u;
+  /^(?:pngtuber|mesh-avatar|vrm|mmd|glb-fbx)\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$/u;
 /** CON, PRN, AUX, NUL, COM0-9 and LPT0-9 name devices on Windows, with or without an extension. */
 const WINDOWS_DEVICE_NAME = /^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/iu;
 
@@ -629,6 +637,41 @@ export interface AvatarKindDataMap {
   pngtuber: PngtuberAvatarData;
   "mesh-avatar": MeshAvatarData;
   vrm: VrmAvatarData;
+  mmd: MmdAvatarData;
+  "glb-fbx": GlbFbxAvatarData;
+}
+
+export interface MmdAvatarData {
+  /** Imported PMX; UTF-8 text is normalized to UTF-16 for the MMD runtime. */
+  file: AvatarFilePath;
+  /** Exact PMX texture references mapped to checked, flat stored files. Never fetch the references directly. */
+  texturePaths: Record<string, AvatarFilePath>;
+  expressionMap: AvatarExpressionMap;
+  expressionNames?: string[];
+  /** Optional VMD with bone/morph names belonging to this model. */
+  idleAnimation?: AvatarFilePath | null;
+}
+
+/** Setup metadata stays small; the model and its native motion morphs are not trimmed. */
+export const AVATAR_MMD_METADATA_LIMITS = Object.freeze({
+  expressionNames: 256,
+  textures: 256,
+  textureReferenceChars: 512,
+});
+
+/** A plain glTF binary or FBX model whose rig is matched to humanoid bones by name at import
+ *  (matchAvatarHumanoidBones). It moves through three-vrm's humanoid, like a VRM, and its faces are its blend
+ *  shapes (morph targets). */
+export interface GlbFbxAvatarData {
+  /** `glb-fbx/model.glb` or `glb-fbx/model.fbx`. */
+  file: AvatarFilePath;
+  format: "glb" | "fbx";
+  /** The rig's own name for each humanoid bone found, as the file spells it. */
+  bones: Partial<Record<AvatarHumanoidBone, string>>;
+  /** Targets are blend shape names, or a left and right pair's shared name (pairedAvatarMorphNames). */
+  expressionMap: AvatarExpressionMap;
+  /** Every blend shape name the model has, for choosing bindings in setup. */
+  expressionNames?: string[];
 }
 
 export interface AvatarFeatureFlags {
@@ -653,7 +696,7 @@ export interface AvatarConfig {
   /** Show this owner's avatar in chats where the matching agent is on. */
   enabled: boolean;
   /** The kind to show when several are set up. When its agent is off in a chat, the stage falls back to
-   *  another set-up kind whose agent is on (pngtuber, then mesh-avatar, then vrm). */
+   *  another set-up kind whose agent is on, in AVATAR_KINDS order. */
   activeKind: AvatarKind | null;
   features: AvatarFeatureFlags;
   kinds: Partial<AvatarKindDataMap>;
@@ -698,6 +741,8 @@ export const AVATAR_IMPORT_EXTENSIONS: Readonly<Record<AvatarKind, readonly stri
   pngtuber: [".save"],
   "mesh-avatar": [".mavatar"],
   vrm: [".vrm", ".vrma"],
+  mmd: [".pmx", ".vmd", ".zip"],
+  "glb-fbx": [".glb", ".fbx"],
 });
 
 /** Response of `POST /api/avatar-models/:ownerType/:ownerId/import`. */

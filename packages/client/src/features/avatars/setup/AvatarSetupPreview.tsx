@@ -11,6 +11,7 @@ import {
   AVATAR_EXTRA_FEELINGS,
   AVATAR_FEELING_EMOTIONS,
   AVATAR_VISEMES,
+  isAvatar3dKind,
   isAvatarExtraFeeling,
   type AvatarConfig,
   type AvatarEmotion,
@@ -61,7 +62,7 @@ export function AvatarSetupPreview({
   const demo = !ownAvatar && kind === "pngtuber";
   const previewOwner = ownAvatar && owner ? owner : DEMO_AVATAR_OWNER;
   const previewConfig = ownAvatar ? config : demo ? DEMO_AVATAR_CONFIG : null;
-  const needsSprites = ownAvatar && kind !== "vrm";
+  const needsSprites = ownAvatar && !isAvatar3dKind(kind);
   // A talking head's extra feelings that have a face of their own.
   const pngtuber = kind === "pngtuber" ? previewConfig?.kinds.pngtuber : undefined;
   const feelings = useMemo(

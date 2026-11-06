@@ -1,5 +1,5 @@
 import type { CombatAttackTraits } from "../features/combat-conditions.js";
-import type { CombatAiHints, CombatController, CombatTactics } from "../features/combat-ai.js";
+import type { CombatAiHints, CombatController, CombatOrders, CombatTactics } from "../features/combat-ai.js";
 // ──────────────────────────────────────────────
 // Game Mode Types
 // ──────────────────────────────────────────────
@@ -26,11 +26,23 @@ export type GameActiveState = "exploration" | "dialogue" | "combat" | "travel_re
 export type GameGmMode = "standalone" | "character";
 
 /**
- * Combat presentation preference for Game Mode.
+ * The combat styles the engine ships with.
  * - `classic`: existing cinematic JRPG menu combat (GameCombatUI + combat.service).
  * - `tactical`: Fire Emblem / FFT style grid battle (tactical-combat feature engine).
  */
-export type GameCombatStyle = "classic" | "tactical";
+export const BUILT_IN_GAME_COMBAT_STYLES = ["classic", "tactical"] as const;
+export type BuiltInGameCombatStyle = (typeof BUILT_IN_GAME_COMBAT_STYLES)[number];
+
+/**
+ * Combat presentation preference for Game Mode: a built-in style, or the id of a style a client
+ * registered itself (the client's combat-style registry). An id the client does not know plays as
+ * `classic`.
+ */
+export type GameCombatStyle = BuiltInGameCombatStyle | (string & {});
+
+/** The shape of a combat style id, built-in or registered: what a game's setup and a ruleset's
+ *  `combat.styles` (Capability API 1.379) may name. */
+export const GAME_COMBAT_STYLE_ID_PATTERN = /^[a-z][a-z0-9_-]{0,47}$/;
 
 /** Status of a game session. */
 export type GameSessionStatus = "setup" | "active" | "concluded";
@@ -252,6 +264,15 @@ export interface GameSetupConfig {
   /** Versioned server-owned combat with interruption windows; absent preserves legacy battles. */
   combatDirector?: boolean;
   gmBossControl?: boolean;
+  /** With `gmBossControl`, the Game Master also plays every named opponent and every one with a
+   *  genius's mind (combat AI P9). Absent is bosses only, as every game before it. */
+  gmNamedControl?: boolean;
+  /** A cruel opponent (a `cruel` temperament, combat AI T3) may strike those already down. Absent is
+   *  never: off unless the game asks for it. */
+  cruelOpponents?: boolean;
+  /** The player plays every companion in a fight themselves. Absent, each companion fights on its
+   *  own (the Engine plays it) until the player takes it (Alyssa 2026-10-26). */
+  playerRunsCompanions?: boolean;
   /** Optional tactical battlefield preferences used for newly-created encounters. */
   tacticalBattlefield?: TacticalBattlefieldSetup;
   /** Who acts when in a new tactical fight (combat C6c): one unit at a time in a rolled order, or the
@@ -446,8 +467,23 @@ export interface DiceRollResult {
   modifier: number;
   /** Final total */
   total: number;
+  /** The places in `rolls` of the dice that counted, when the roll kept some (`4d6kh3`). Absent,
+   *  every die counted. */
+  kept?: number[];
   /** Optional difficulty class declared before the roll. */
   dc?: number;
+  /** The server's verdict against `dc`. Absent when the roll had no DC. */
+  success?: boolean;
+  /** Who rolled, or who and why, as the roll was asked for: a `[dice:]` tag's `who=`, or a tool
+   *  roll's reason. Absent on rolls that named nobody. */
+  label?: string;
+  /** A roll of a symbol-pool ruleset's dice by name (`2 ability 1 difficulty`). All four are present
+   *  together: each die's label and the symbols on its face, beside the 1-based faces in `rolls`, and
+   *  the net symbols after cancellation with their labels. `total` is then the net success symbol. */
+  thrown?: string[];
+  symbolFaces?: string[][];
+  symbols?: Record<string, number>;
+  symbolLabels?: Record<string, string>;
 }
 
 /** Result of a skill check resolution. */
@@ -491,6 +527,8 @@ export interface SkillCheckResult {
    * ignored. Only a ruleset game sets them.
    */
   withAbility?: string;
+  /** What the check was made for (1.752), as its tag's `for=` said. */
+  purpose?: string;
   bonusDice?: number;
   /**
    * What the roller's wound track took off this check, when the ruleset names one with
@@ -685,6 +723,8 @@ export interface Combatant extends CombatAttackTraits, RulesetEncounterBlueprint
   tactics?: CombatTactics;
   aiHints?: CombatAiHints;
   controller?: CombatController;
+  /** Its player's standing orders, while the Engine plays it. */
+  orders?: CombatOrders;
   skillCooldowns?: Record<string, number>;
   id: string;
   name: string;
@@ -852,7 +892,13 @@ export interface CombatSummary {
     defeated: boolean;
     hp: number;
     maxHp: number;
+    /** Out of the fight alive, its heart gone: run off, or given up to the party. */
+    left?: "fled" | "surrendered";
   }>;
+  /** The party gave itself up to honourable opponents (combat AI T6), who take it alive. */
+  yielded?: true;
+  /** The fight broke off with both sides standing, after rounds in which nothing changed (K8). */
+  stalled?: true;
   /** Resolved tactical terrain retained after the live combat snapshot is cleared. */
   battlefieldSummary?: string;
   /** What the win dropped into the party's bags, and how many of each nobody could carry. */

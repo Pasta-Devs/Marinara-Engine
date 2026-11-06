@@ -59,7 +59,7 @@ for (const tacticalBattlefield of [
   { seed: 1.5 },
   { seed: 4294967296 },
   { seed: "0" },
-  { size: "huge" },
+  { size: "gigantic" },
   { size: ["small"] },
   { instructions: 42 },
   { instructions: "x".repeat(10001) },

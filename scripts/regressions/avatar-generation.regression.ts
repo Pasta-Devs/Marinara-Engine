@@ -643,11 +643,13 @@ async function dotCentre(png: Buffer) {
     );
 
     // Canvases of another shape: GPT Image 1's fixed 2:3 canvas for 600x720, and for 300x900 a GPT Image 2
-    // canvas its size rules keep (one under 1024x1024 pixels would be grown to another shape).
+    // or 2.5 canvas its size rules keep (one under 1024x1024 or 1024x1536 pixels would be grown to another
+    // shape).
     mode = "echo";
     for (const [model, width, height, x, y, canvas] of [
       ["gpt-image-1", 600, 720, 200, 300, { width: 1024, height: 1536 }],
       ["gpt-image-2", 300, 900, 100, 150, { width: 608, height: 1792 }],
+      ["gpt-image-2.5-flare", 300, 900, 100, 150, { width: 736, height: 2176 }],
     ] as const) {
       echoCanvas = canvas;
       const png = await dotSprite(width, height, x, y);

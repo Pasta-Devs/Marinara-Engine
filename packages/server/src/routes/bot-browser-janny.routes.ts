@@ -4,9 +4,14 @@
 import type { FastifyInstance } from "fastify";
 import { logger } from "../lib/logger.js";
 import { fetchJannyCharacterCard } from "../services/bot-browser/janny-character-card.js";
-import { resolveValidatedImage, safeFetch } from "../utils/security.js";
+import { resolveValidatedImage, safeFetch, type OutboundUrlPolicy } from "../utils/security.js";
 
 const JANNY_SEARCH_URL = "https://search.jannyai.com/multi-search";
+const JANNY_SEARCH_POLICY: OutboundUrlPolicy = {
+  allowedProtocols: ["https:"],
+  allowedHostnames: ["search.jannyai.com"],
+  maxRedirects: 0,
+};
 const JANNY_IMAGE_BASE = "https://image.jannyai.com/bot-avatars/";
 const JANNY_SITE_BASE = "https://jannyai.com";
 const JANNY_API_SITE_BASE = "https://api.jannyai.com";
@@ -69,9 +74,11 @@ async function fetchJannyPage(path: string): Promise<string | null> {
   const directController = new AbortController();
   const directTimeout = setTimeout(() => directController.abort(), 15_000);
   try {
-    const direct = await fetch(`${JANNY_SITE_BASE}${path}`, {
+    const direct = await safeFetch(`${JANNY_SITE_BASE}${path}`, {
       headers: { "User-Agent": BROWSER_UA, Accept: "text/html,application/xhtml+xml,*/*" },
       signal: directController.signal,
+      policy: { allowedProtocols: ["https:"] },
+      maxResponseBytes: CHARACTER_PAGE_MAX_BYTES,
     });
     if (direct.ok) return await direct.text();
   } catch {
@@ -83,9 +90,11 @@ async function fetchJannyPage(path: string): Promise<string | null> {
   const proxyController = new AbortController();
   const proxyTimeout = setTimeout(() => proxyController.abort(), 15_000);
   try {
-    const proxied = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(`${JANNY_SITE_BASE}${path}`)}`, {
+    const proxied = await safeFetch(`https://corsproxy.io/?url=${encodeURIComponent(`${JANNY_SITE_BASE}${path}`)}`, {
       headers: { Accept: "text/html,application/xhtml+xml,*/*" },
       signal: proxyController.signal,
+      policy: { allowedProtocols: ["https:"] },
+      maxResponseBytes: CHARACTER_PAGE_MAX_BYTES,
     });
     if (proxied.ok) return await proxied.text();
   } catch {
@@ -228,11 +237,12 @@ async function backfillFromSearch(name: string, charId: string): Promise<JannyMe
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
-    const res = await fetch(JANNY_SEARCH_URL, {
+    const res = await safeFetch(JANNY_SEARCH_URL, {
       method: "POST",
       headers: jannySearchHeaders(token),
       body: JSON.stringify(body),
       signal: controller.signal,
+      policy: JANNY_SEARCH_POLICY,
     });
     if (res.status === 401 || res.status === 403) {
       // Mirror the search-route behavior so the next call re-scrapes a fresh token.
@@ -339,11 +349,12 @@ export async function botBrowserJannyRoutes(app: FastifyInstance) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
-      const res = await fetch(JANNY_SEARCH_URL, {
+      const res = await safeFetch(JANNY_SEARCH_URL, {
         method: "POST",
         headers: jannySearchHeaders(token),
         body: JSON.stringify(body),
         signal: controller.signal,
+        policy: JANNY_SEARCH_POLICY,
       });
       if (res.status === 401 || res.status === 403) {
         // Token may have rotated — bust the cache so the next call re-scrapes

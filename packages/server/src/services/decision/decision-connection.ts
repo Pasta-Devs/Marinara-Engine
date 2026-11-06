@@ -1,5 +1,8 @@
 import {
   DECISION_SOURCE_BASE_URLS,
+  PROVIDERS,
+  speaksOpenAIChat,
+  type APIProvider,
   decisionSourceTakesUrl,
   defaultDecisionStateTokens,
   resolveDecisionConnectionTimeoutMs,
@@ -16,6 +19,8 @@ export interface DecisionConnectionRow {
   credentialsFromConnectionId?: string | null;
   maxStateTokens?: number | null;
   decisionTimeoutMs?: number | null;
+  /** The Connection it belongs to, filled in by the storage for decision rows with an account. */
+  account?: { provider: string; baseUrl: string } | null;
 }
 
 export interface DecisionConnection {
@@ -55,18 +60,27 @@ export async function resolveDecisionConnection(
   row: DecisionConnectionRow,
   getWithKey: (id: string) => Promise<DecisionConnectionRow | null>,
 ): Promise<{ connection: DecisionConnection; error?: never } | { connection: null; error: DecisionConnectionError }> {
-  const source = row.decisionSource ?? "typesafe";
-  if (row.provider !== "decision" || !Object.hasOwn(DECISION_SOURCE_BASE_URLS, source)) {
+  if (row.provider !== "decision") return { connection: null, error: "invalid_source" };
+  // A Model under a vendor's Connection asks that vendor in OpenAI-style chat and reads the
+  // log-probabilities, at the Connection's address. Older rows (and Connections of the old
+  // "Decision" kind) keep their own source.
+  const vendor = row.account && row.account.provider !== "decision" ? row.account.provider : null;
+  if (vendor && !speaksOpenAIChat(vendor)) return { connection: null, error: "invalid_source" };
+  if (vendor && vendor !== "custom" && !row.apiKey.trim()) return { connection: null, error: "missing_key" };
+  const source = vendor ? "openai_compatible" : (row.decisionSource ?? "typesafe");
+  if (!Object.hasOwn(DECISION_SOURCE_BASE_URLS, source)) {
     return { connection: null, error: "invalid_source" };
   }
   let endpoint: URL;
   try {
     // TypeSafe may be sent to another address that serves its API (#7084). It keeps
     // TypeSafe's key rules and defaults; a blank address is TypeSafe's own.
-    const base = decisionSourceTakesUrl(source)
-      ? row.baseUrl
-      : (source === "typesafe" && row.baseUrl?.trim()) ||
-        DECISION_SOURCE_BASE_URLS[source as "typesafe" | "openrouter"];
+    const base = vendor
+      ? row.account?.baseUrl.trim() || PROVIDERS[vendor as APIProvider].defaultBaseUrl
+      : decisionSourceTakesUrl(source)
+        ? row.baseUrl
+        : (source === "typesafe" && row.baseUrl?.trim()) ||
+          DECISION_SOURCE_BASE_URLS[source as "typesafe" | "openrouter"];
     endpoint = new URL(
       source === "openai_compatible" ? decisionChatCompletionsUrl(base) : `${base.replace(/\/+$/, "")}/v1/systemone`,
     );

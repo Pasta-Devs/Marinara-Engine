@@ -14,6 +14,10 @@
 // ──────────────────────────────────────────────
 import {
   activeRulesetLayers,
+  applyExperienceRulesetOverlay,
+  EXPERIENCE_OVERLAY_BESTIARY,
+  readExperienceRulesetOverlay,
+  type ExperienceRulesetOverlay,
   resolveRulesetLayers,
   isCommunityRulesetId,
   parseRulesetDefinition,
@@ -24,10 +28,14 @@ import {
   type RulesetDefinition,
   type RulesetRef,
 } from "@marinara-engine/shared";
+import { createHash } from "node:crypto";
 import { getDB, type DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { createGameRulesetsStorage } from "../storage/game-rulesets.storage.js";
 import { capabilityPackageManager } from "../capability-packages/package-manager.service.js";
+// A cycle by design: the catalog service reads the registry, and the registry reads catalog files'
+// ids for an overlay; each only calls the other, never at load.
+import { rulesetFileCatalogIds } from "./ruleset-catalog.service.js";
 
 export type RulesetSource = { packageId: string | null; data: Buffer | string };
 /** One stored community version, as `game_rulesets` holds it. */
@@ -47,15 +55,116 @@ export type RegisteredRuleset = {
   /** Community only: every stored version, because a game pins an exact one. */
   versions?: ReadonlyMap<number, RulesetDefinition>;
 };
-export type RulesetRegistry = ReadonlyMap<string, RegisteredRuleset>;
+export type RulesetRegistry = ReadonlyMap<string, RegisteredRuleset> & {
+  /** The installed Experiences' ruleset overlays (1.355), by `<package id>\n<ruleset id>`. */
+  overlays?: ReadonlyMap<string, { overlay: ExperienceRulesetOverlay; sha256: string }>;
+  /** The entry ids of the catalog files each overlay adds to or names, by `<package id>\n<ruleset id>\n<version>`. */
+  overlayFileIds?: ReadonlyMap<string, { ids: ReadonlyMap<string, ReadonlySet<string>>; key: string }>;
+};
+
+/** An Experience's overlay read once per file (by its pinned hash), and its merges once per ruleset. */
+const readOverlays = new Map<string, ExperienceRulesetOverlay | null>();
+const mergedOverlays = new Map<string, RulesetDefinition | null>();
+const OVERLAYS_KEPT = 32;
+const keep = <T>(cache: Map<string, T>, key: string, value: T) => {
+  cache.set(key, value);
+  if (cache.size > OVERLAYS_KEPT) cache.delete(cache.keys().next().value!);
+  return value;
+};
+
+/** One ruleset plays under its bare id (a package), `local/<id>` (imported from a file) or `<owner>/<id>`
+ *  (from a repository): an Experience's overlay for its exact id wins, else the one for its bare id. */
+function overlayFor<T>(overlays: ReadonlyMap<string, T>, packId: string, rulesetId: string): T | undefined {
+  return overlays.get(`${packId}\n${rulesetId}`) ?? overlays.get(`${packId}\n${rulesetId.replace(/^[^/]+\//u, "")}`);
+}
+
+/** The game's Experience's overlay for its ruleset, merged in (1.355); the ruleset as it was when the
+ *  game has none, or when the overlay does not fit it (said once). */
+function withExperienceOverlay(
+  metadata: Record<string, unknown>,
+  registry: RulesetRegistry,
+  ref: RulesetRef,
+  definition: RulesetDefinition,
+): RulesetDefinition {
+  const packId = (metadata.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
+  if (typeof packId !== "string" || !registry.overlays?.size) return definition;
+  const found = overlayFor(registry.overlays, packId, ref.id);
+  if (!found) return definition;
+  const files = registry.overlayFileIds?.get(`${packId}\n${ref.id}\n${definition.version}`);
+  const key = `${found.sha256}\n${ref.id}\n${definition.version}\n${JSON.stringify(ref.options)}\n${files?.key ?? ""}`;
+  let merged = mergedOverlays.get(key);
+  if (merged === undefined) {
+    const applied = applyExperienceRulesetOverlay(definition, found.overlay, true, files?.ids);
+    if (!applied.ok) {
+      logger.warn(
+        '[game/rulesets] The Experience %s\'s overlay does not fit ruleset "%s"; left out (%s)',
+        packId,
+        ref.id,
+        applied.issues.slice(0, 3).join("; "),
+      );
+    }
+    merged = keep(mergedOverlays, key, applied.ok ? applied.definition : null);
+  }
+  return merged ?? definition;
+}
 
 type RegistryLog = (message: string) => void;
+
+/**
+ * Rulesets parsed, by the bytes they were parsed from. The registry is re-read on every call so that
+ * install, update and import need no invalidation, but the same bytes always parse to the same
+ * definition, and handing back the very same object lets what is worked out from it (a fighter's
+ * sheet, a fight's menu) be remembered from one request to the next instead of from scratch each
+ * time. Bytes that change are another key; the least recently read are let go.
+ *
+ * A definition handed out is shared: nothing changes it.
+ */
+const parsedByBytes = new Map<
+  string,
+  { json: true; parsed: ReturnType<typeof parseRulesetDefinition> } | { json: false }
+>();
+const PARSED_KEPT = 24;
+const freezesShared =
+  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.MARINARA_MEMO_FREEZE === "1";
+
+function parsedRuleset(text: string) {
+  const key = createHash("sha256").update(text).digest("base64");
+  const kept = parsedByBytes.get(key);
+  if (kept) {
+    parsedByBytes.delete(key);
+    parsedByBytes.set(key, kept);
+    return kept;
+  }
+  let made: { json: true; parsed: ReturnType<typeof parseRulesetDefinition> } | { json: false };
+  try {
+    made = { json: true, parsed: parseRulesetDefinition(JSON.parse(text)) };
+  } catch {
+    made = { json: false };
+  }
+  // In tests, a shared definition that something changes throws where it is changed.
+  if (freezesShared && made.json && made.parsed.ok) deepFreeze(made.parsed.definition);
+  parsedByBytes.set(key, made);
+  if (parsedByBytes.size > PARSED_KEPT) parsedByBytes.delete(parsedByBytes.keys().next().value!);
+  return made;
+}
+
+function deepFreeze(value: unknown): void {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return;
+  Object.freeze(value);
+  for (const one of Object.values(value)) deepFreeze(one);
+}
 
 /** Re-key a community definition under its namespaced id. The rest of the Engine and the client key
  *  sheets, pins and wizard choices by `definition.id`, so the id the file carries (always bare)
  *  would collide with an official ruleset's the moment it left this function. */
+const namespaced = new WeakMap<RulesetDefinition, Map<string, RulesetDefinition>>();
 function namespaceDefinition(definition: RulesetDefinition, rulesetId: string): RulesetDefinition {
-  return { ...definition, id: rulesetId };
+  // The same object for the same file each time, as `parsedRuleset` keeps it.
+  let byId = namespaced.get(definition);
+  if (!byId) namespaced.set(definition, (byId = new Map()));
+  let made = byId.get(rulesetId);
+  if (!made) byId.set(rulesetId, (made = { ...definition, id: rulesetId }));
+  return made;
 }
 
 /** Build the registry from raw sources. Pure apart from `log`, and never throws: a source the
@@ -83,14 +192,12 @@ export function buildRulesetRegistry(
       log(`Ruleset from ${owner} is ${bytes} bytes, over the ${RULESET_MAX_BYTES}-byte ceiling; dropped`);
       continue;
     }
-    let json: unknown;
-    try {
-      json = JSON.parse(typeof source.data === "string" ? source.data : source.data.toString("utf8"));
-    } catch {
+    const read = parsedRuleset(typeof source.data === "string" ? source.data : source.data.toString("utf8"));
+    if (!read.json) {
       log(`Ruleset from ${owner} is not valid JSON; dropped`);
       continue;
     }
-    const parsed = parseRulesetDefinition(json);
+    const parsed = read.parsed;
     if (!parsed.ok) {
       log(`Ruleset from ${owner} is not usable; dropped (${parsed.issues.slice(0, 5).join("; ")})`);
       continue;
@@ -114,14 +221,12 @@ export function buildRulesetRegistry(
       log(`Stored ruleset "${row.rulesetId}" is not namespaced and cannot shadow an official id; dropped`);
       continue;
     }
-    let json: unknown;
-    try {
-      json = JSON.parse(row.definition);
-    } catch {
+    const read = parsedRuleset(row.definition);
+    if (!read.json) {
       log(`Stored ruleset "${row.rulesetId}" version ${row.version} is not valid JSON; dropped`);
       continue;
     }
-    const parsed = parseRulesetDefinition(json);
+    const parsed = read.parsed;
     if (!parsed.ok) {
       log(
         `Stored ruleset "${row.rulesetId}" version ${row.version} is no longer usable; dropped (${parsed.issues
@@ -178,6 +283,8 @@ export type ResolvedGameRuleset =
  *  layer the Engine could not apply is left out and the game keeps its rules. A chosen layer the
  *  file does not have, or the later of a conflicting pair, is a debug line rather than a warning,
  *  because this runs on every turn and the same pin would repeat it for the life of the game. */
+const layeredBy = new WeakMap<RulesetDefinition, Map<string, ReturnType<typeof resolveRulesetLayers>>>();
+
 function resolvedWithLayers(
   ref: RulesetRef,
   definition: RulesetDefinition,
@@ -200,12 +307,17 @@ function resolvedWithLayers(
       );
     }
   }
-  // ponytail: no cache. With a layer on, this re-validates one definition per resolution, which
-  // is what `buildRulesetRegistry` already does for EVERY installed ruleset on every call, because
-  // the registry is deliberately re-read so install, update and import need no invalidation. A
-  // cache here would have nothing stable to key on (the registry and its definitions are new
-  // objects each time) until the registry itself is cached, and that is the upgrade path.
-  const layered = resolveRulesetLayers(definition, ref.options);
+  // Kept by the definition, which the registry hands back as the same object for the same file, and
+  // the options: the same pin gets the same layered object each time.
+  const optionsKey = JSON.stringify(ref.options);
+  let byOptions = layeredBy.get(definition);
+  if (!byOptions) layeredBy.set(definition, (byOptions = new Map()));
+  let layered = byOptions.get(optionsKey);
+  if (!layered) {
+    layered = resolveRulesetLayers(definition, ref.options);
+    if (freezesShared) deepFreeze(layered.definition);
+    byOptions.set(optionsKey, layered);
+  }
   for (const layer of active) {
     if (layered.applied.includes(layer)) continue;
     logger.debug(
@@ -229,6 +341,13 @@ function resolvedWithLayers(
  *  sheets are read tolerantly against the current schema; an OLDER one is not, because the game may
  *  depend on something the older file does not declare. */
 export function resolveGameRuleset(metadata: Record<string, unknown>, registry: RulesetRegistry): ResolvedGameRuleset {
+  const resolved = resolvePinnedRuleset(metadata, registry);
+  if (resolved.status !== "ok") return resolved;
+  const definition = withExperienceOverlay(metadata, registry, resolved.ref, resolved.definition);
+  return definition === resolved.definition ? resolved : { ...resolved, definition };
+}
+
+function resolvePinnedRuleset(metadata: Record<string, unknown>, registry: RulesetRegistry): ResolvedGameRuleset {
   const raw = metadata.gameRuleset;
   if (raw === undefined || raw === null) return { status: "legacy" };
   const parsed = rulesetRefSchema.safeParse(raw);
@@ -280,21 +399,68 @@ export function createRulesetRef(registered: RegisteredRuleset): RulesetRef {
  *  that every path which resolves a pin sees imported rulesets; `buildRulesetRegistry` stays the
  *  pure, injectable core. */
 export async function readRulesetRegistry(db?: DB): Promise<RulesetRegistry> {
-  const [sources, community] = await Promise.all([
+  const [sources, community, overlayFiles] = await Promise.all([
     capabilityPackageManager.rulesetSources(),
     createGameRulesetsStorage(db ?? (await getDB())).list(),
+    capabilityPackageManager.experienceRulesetOverlays(),
   ]);
-  return buildRulesetRegistry(
-    sources,
-    (message) => logger.warn("[game/rulesets] %s", message),
-    community.map((row) => ({
-      rulesetId: row.rulesetId,
-      version: row.version,
-      sourceKind: row.sourceKind,
-      sourceUrl: row.sourceUrl,
-      definition: row.definition,
-    })),
+  const overlays = new Map<string, { overlay: ExperienceRulesetOverlay; sha256: string }>();
+  for (const file of overlayFiles) {
+    let overlay = readOverlays.get(file.sha256);
+    if (overlay === undefined) {
+      const read = readExperienceRulesetOverlay(file.data.toString("utf8"));
+      if (!read.ok) logger.warn("[game/rulesets] %s's %s does not read: %s", file.packageId, file.path, read.issues[0]);
+      overlay = keep(readOverlays, file.sha256, read.ok ? read.overlay : null);
+    }
+    if (overlay) overlays.set(`${file.packageId}\n${file.ruleset}`, { overlay, sha256: file.sha256 });
+  }
+  const registry: RulesetRegistry = Object.assign(
+    buildRulesetRegistry(
+      sources,
+      (message) => logger.warn("[game/rulesets] %s", message),
+      community.map((row) => ({
+        rulesetId: row.rulesetId,
+        version: row.version,
+        sourceKind: row.sourceKind,
+        sourceUrl: row.sourceUrl,
+        definition: row.definition,
+      })),
+    ),
+    { overlays },
   );
+  // An overlay's entries are checked against its ruleset's catalog files too, whose ids only a read
+  // of the file gives; each file is read once per hash. Each overlay gets the catalogs it names, as
+  // two Experiences may overlay one ruleset.
+  const overlayFileIds = new Map<string, { ids: ReadonlyMap<string, ReadonlySet<string>>; key: string }>();
+  const packIds = new Set([...overlays.keys()].map((at) => at.slice(0, at.indexOf("\n"))));
+  for (const packId of packIds) {
+    for (const [rulesetId, registered] of registry) {
+      // The overlay a game of this ruleset with this Experience would play (an exact id's, else the bare id's).
+      const overlay = overlayFor(overlays, packId, rulesetId)?.overlay;
+      if (!overlay) continue;
+      const named = overlayCatalogIds(overlay);
+      if (!named.size) continue;
+      for (const definition of [registered.definition, ...(registered.versions?.values() ?? [])]) {
+        const where = `${packId}\n${rulesetId}\n${definition.version}`;
+        if (overlayFileIds.has(where)) continue;
+        try {
+          overlayFileIds.set(where, await rulesetFileCatalogIds(registered.packageId, definition, named, registry));
+        } catch (error) {
+          logger.warn(error, "[game/rulesets] The catalog files of %s could not be read for an overlay", definition.id);
+        }
+      }
+    }
+  }
+  return Object.assign(registry, { overlayFileIds });
+}
+
+/** The catalogs an overlay adds to or names a story cost in. */
+export function overlayCatalogIds(overlay: ExperienceRulesetOverlay): Set<string> {
+  return new Set([
+    ...(overlay.creatures?.length ? [EXPERIENCE_OVERLAY_BESTIARY] : []),
+    ...Object.keys(overlay.catalogs ?? {}),
+    ...(overlay.storyUses ?? []).map((use) => use.item.slice(0, use.item.indexOf("/"))),
+  ]);
 }
 
 /** The same registry for game resolution, which never throws: a failed read is an empty registry,

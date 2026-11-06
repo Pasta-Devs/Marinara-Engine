@@ -30,6 +30,11 @@ export interface ChatMessage {
   media?: ChatMediaAttachment[];
   /** Provider-specific metadata (e.g. Gemini parts with thought signatures) */
   providerMetadata?: Record<string, unknown>;
+  /**
+   * Cache the prompt up to and including this message (Capability API 1.814). Anthropic puts a cache breakpoint
+   * here whether or not `enableCaching` is on, keeping the last four, and then adds none of its own.
+   */
+  cacheBreakpoint?: boolean;
 }
 
 export interface ChatMediaAttachment {
@@ -46,6 +51,10 @@ export interface LLMToolCall {
     name: string;
     arguments: string;
   };
+  /** Provider-native fields the call came with, sent back with it unchanged on the next tool round:
+   *  Gemini's OpenAI-compatible endpoint puts the call's thought signature in
+   *  `extra_content.google.thought_signature`, and refuses the round without it. */
+  extra_content?: Record<string, unknown>;
 }
 
 export interface LLMToolDefinition {
@@ -88,6 +97,11 @@ export interface ChatOptions {
   captureReasoning?: boolean;
   /** Callback for streaming text tokens as they arrive (used in tool path) */
   onToken?: (chunk: string) => void | Promise<void>;
+  /**
+   * onToken only shows the call is alive and the caller reads the reply from the result, so a fallback connection may
+   * still answer after the primary streamed text and failed.
+   */
+  onTokenKeepaliveOnly?: boolean;
   /** Enable extended thinking (reasoning models) */
   enableThinking?: boolean;
   /**
@@ -194,7 +208,10 @@ export interface ContextFitSummary {
   replyBudgetTo: number;
 }
 
-export type GenerationFallbackCategory = "main" | "agents" | "illustrator" | "video";
+export type GenerationFallbackCategory = "main" | "agents" | "illustrator" | "video" | "feature";
+
+/** Why the chat's own Model did not answer, so the fallback did. */
+export type GenerationFallbackUnavailableReason = "off" | "needs_key" | "review" | "deleted";
 
 /** Why the chosen connection failed before the fallback answered. */
 export type GenerationFallbackReason =
@@ -202,9 +219,16 @@ export type GenerationFallbackReason =
 
 export type GenerationFallbackNotice = {
   category: GenerationFallbackCategory;
+  /** The fallback Model that answered. */
   connectionId: string;
   connectionName: string;
   model: string;
+  /** Set when the chat's own Model was unavailable and never tried; absent after a failed request. */
+  reason?: GenerationFallbackUnavailableReason;
+  /** The Model that could not answer, and its Connection (where "Fix" goes). */
+  unavailableConnectionId?: string;
+  unavailableName?: string;
+  unavailableAccountId?: string;
   /** The connection that failed first, such as the random pool's pick (#7697). */
   failed?: {
     connectionId: string;
@@ -233,6 +257,12 @@ export type ConnectionAdmissionMode =
    */
   | { kind: "none" };
 
+/** A looping GIF's timing. The Engine clamps it to 2..12 frames of 20..2000 ms (see resolveOpenAIGifAnimation). */
+export interface ImageAnimation {
+  frameCount?: number;
+  frameDurationMs?: number;
+}
+
 export interface ImageGenRequest {
   prompt: string;
   /** OpenAI GPT Image generation quality. Ignored by unsupported services and models. */
@@ -260,8 +290,16 @@ export interface ImageGenRequest {
   referenceIsCanvas?: boolean;
   /** Optional structured per-character prompts. NovelAI V4/V4.5 maps these to native character captions. */
   characterPrompts?: SceneIllustrationCharacterPrompt[];
+  /**
+   * Return one looping GIF (image/gif) instead of a still; `{}` uses the Engine defaults (9 frames, 200 ms).
+   * Only GPT Image 2.6 on an OpenAI connection makes one. The prompt is the only input: a request that also
+   * carries a reference picture, or a connection that can't make GIFs, is refused before any paid call.
+   */
+  animation?: ImageAnimation;
   /** Request a transparent image background when the provider/model supports it. */
   transparentBackground?: boolean;
+  /** Keep uncompressed provider output for sprite/portrait processing that requires its original pixels and format. */
+  preserveProviderOutput?: boolean;
   /** Optional caller-owned abort signal for cancelling long image requests. */
   signal?: AbortSignal;
   /** Emit the final provider request even when the global log level is above debug. */
@@ -351,7 +389,7 @@ export interface VideoGenerationRequest {
   // Gemini Omni currently takes duration guidance through the prompt, not video_config.
   durationSeconds: number;
   aspectRatio: "16:9" | "9:16";
-  resolution?: "480p" | "720p" | "1080p";
+  resolution?: "480p" | "720p" | "768p" | "1080p";
   referenceImage?: VideoReferenceImage | null;
   /** API-format workflow JSON for local ComfyUI video generation. */
   comfyWorkflow?: string;
@@ -396,6 +434,18 @@ export interface VideoGenerationResult {
   ext: "mp4";
 }
 
+export interface CapabilityGalleryImageAnimationInput {
+  connectionId: string;
+  galleryImageId: string;
+  prompt: string;
+  durationSeconds?: number;
+  aspectRatio?: "16:9" | "9:16";
+  /** Use the illustration as both endpoints where the selected provider supports it. */
+  loop?: boolean;
+  debugMode?: boolean;
+  signal?: AbortSignal;
+}
+
 export type FallbackConnection = {
   id: string;
   name?: string | null;
@@ -433,7 +483,7 @@ export interface CapabilityConnectionFallbackOptions {
   primaryConnectionName?: string | null;
   fallbackConnection: FallbackConnection | null | undefined;
   fallbackBaseUrl: string;
-  category: "main" | "agents";
+  category: "main" | "agents" | "feature";
   onFallback?: GenerationFallbackNotifier;
   onProviderUsed?: (origin: GenerationProviderOrigin) => void;
   admissionMode?: ConnectionAdmissionMode;
@@ -483,6 +533,9 @@ export interface CapabilityIntegrationHost {
     ): Promise<{ characterCount: number; personaCount: number }>;
   };
   videos: {
+    /** Capability API 1.384. Animate a saved Global Gallery image using a saved video connection.
+     *  Requires `network` and `storage`; credentials stay in the host. The package owns the returned video. */
+    animateGalleryImage?(input: CapabilityGalleryImageAnimationInput): Promise<VideoGenerationResult>;
     generate(
       source: string,
       baseUrl: string,

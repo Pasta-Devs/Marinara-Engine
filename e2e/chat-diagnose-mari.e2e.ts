@@ -1,11 +1,20 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
+import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
 
-// These scripted providers return the Classic JSON-frame protocol.
+// These scripted providers return the Classic JSON-frame protocol. The runtime is shared server state, so the
+// switch happens under the lock every runtime-switching Mari spec takes.
 test.beforeEach(async ({ request }) => {
+  await acquireMariThreadLock();
   expect((await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "classic" } })).ok()).toBe(
     true,
   );
+});
+
+test.afterEach(async ({ request }) => {
+  // Put back the default runtime, as mari-runtime-recovery does, so later specs on this server get Pi.
+  await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "pi" } }).catch(() => undefined);
+  releaseMariThreadLock();
 });
 
 // R3 (slice 62): proves the prompt wiring, not just that `chat.diagnose` exists in isolation.

@@ -72,6 +72,8 @@ const RESTART_REQUIRED_KEYS = new Set<string>([
   // Fastify reads the LogController configuration once at boot (app.ts), so
   // toggling this after startup has no effect until a restart.
   "LOG_DISABLE_REQUEST_LOGGING",
+  // The logger picks its output (readable lines or JSON) once, when it is created.
+  "LOG_FORMAT",
   // The watcher mode itself is decided once at startup.
   "MARINARA_ENV_WATCH",
   // Robustness settings read once at startup: the boot id cache flag is read at

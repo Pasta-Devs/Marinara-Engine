@@ -50,24 +50,29 @@ const { createGameRulesetsStorage } =
 const { resolveCombatRound } = await import("../../packages/server/src/services/game/combat.service.js");
 const { loadGameFightItems, loadGameInventoryItemBook } =
   await import("../../packages/server/src/services/game/game-inventory.service.js");
-const { encounterRoutes } = await import("../../packages/server/src/routes/encounter.routes.js");
+const { combatBlueprintCutOff, encounterRoutes } = await import("../../packages/server/src/routes/encounter.routes.js");
 const { gameRoutes } = await import("../../packages/server/src/routes/game.routes.js");
 const { gameInventoryRoutes } = await import("../../packages/server/src/routes/game-inventory.routes.js");
 const { combatDirectorRoutes, COMBAT_DIRECTOR_NAMESPACE } =
   await import("../../packages/server/src/routes/combat-director.routes.js");
 
 let replyText = "{}";
+let replyFinish = "stop";
+let asked = 0;
+const bodies: Array<Record<string, unknown>> = [];
 let prompt = "";
 const provider = createServer(async (req, res) => {
   let raw = "";
   for await (const chunk of req) raw += chunk;
   prompt = JSON.stringify(JSON.parse(raw).messages);
+  asked++;
+  bodies.push(JSON.parse(raw));
   res.setHeader("Content-Type", "application/json");
   res.end(
     JSON.stringify({
       id: "local-proof",
       object: "chat.completion",
-      choices: [{ index: 0, message: { role: "assistant", content: replyText }, finish_reason: "stop" }],
+      choices: [{ index: 0, message: { role: "assistant", content: replyText }, finish_reason: replyFinish }],
       usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
     }),
   );
@@ -650,6 +655,70 @@ try {
       (closedStart.json().combatState.itemEffects as CombatItemEffect[]).map((effect) => effect.name),
       ["Poultice"],
     );
+  }
+
+  // A setup cut off before it finished says so (playtest B1): the provider ran out of room, or the JSON
+  // stops part way, and either way the screen is told it was cut off rather than that it failed.
+  {
+    assert.equal(combatBlueprintCutOff("length", '{"party": []}'), true, "the provider says it ran out");
+    assert.equal(combatBlueprintCutOff("stop", '{"party": [{"name": "Get up onto the pili'), true, "inside a string");
+    assert.equal(combatBlueprintCutOff("stop", '```json\n{"party": [{"name": "A"}],'), true, "an object left open");
+    assert.equal(combatBlueprintCutOff("stop", '{"party": [{"name": "A \\"B\\" {"}]}'), false, "a whole answer");
+    assert.equal(combatBlueprintCutOff("stop", '```json\n{"party": []}\n```'), false, "fenced and whole");
+    assert.equal(combatBlueprintCutOff("stop", "not json at all"), false, "a refusal is not a cut-off");
+    const game = await newGame(emberPin);
+    replyText = '{"party": [{"name": "Hero"}], "enemies": [{"name": "Rat", "description": "Get up onto the pili';
+    replyFinish = "length";
+    asked = 0;
+    const cut = await app.inject({
+      method: "POST",
+      url: "/encounter/init",
+      payload: { chatId: game.chatId, settings: {} },
+    });
+    replyFinish = "stop";
+    assert.equal(cut.statusCode, 502, cut.body);
+    assert.equal(cut.json().reason, "cut-off");
+    assert.match(cut.json().error, /cut off before it finished/);
+    assert.equal(asked, 1, "a connection that does not think is not asked again");
+    // A connection that thinks hard: the setup thinks at medium at most, and asked again once cut off,
+    // not at all.
+    const thinker = await createConnectionsStorage(db).create({
+      name: "Local thinking fixture",
+      provider: "custom",
+      baseUrl: `http://127.0.0.1:${address.port}/v1`,
+      model: "fixture-model",
+      treatAsLocalEndpoint: true,
+    });
+    await createConnectionsStorage(db).updateDefaultParameters(thinker.id, { reasoningEffort: "xhigh" });
+    replyFinish = "length";
+    asked = 0;
+    bodies.length = 0;
+    const thought = await app.inject({
+      method: "POST",
+      url: "/encounter/init",
+      payload: { chatId: game.chatId, connectionId: thinker.id, settings: {} },
+    });
+    replyFinish = "stop";
+    assert.equal(thought.statusCode, 502, thought.body);
+    assert.equal(thought.json().reason, "cut-off");
+    assert.equal(asked, 2, "cut off, it is asked once more");
+    assert.equal(bodies[0]!.max_tokens, 12000 + 4096, "its own budget, with a medium think's room on top");
+    assert.equal(bodies[1]!.reasoning_effort, "none", "and then without thinking");
+    assert.equal(bodies[1]!.max_tokens, 12000);
+    // Asked twice at once for the same chat (opened again while its setup runs), the model is asked once.
+    replyText = JSON.stringify({ party: [{ name: "Hero" }], enemies: [{ name: "Rat" }] });
+    asked = 0;
+    const both = await Promise.all(
+      [0, 1].map(() =>
+        app.inject({ method: "POST", url: "/encounter/init", payload: { chatId: game.chatId, settings: {} } }),
+      ),
+    );
+    assert.deepEqual(
+      both.map((one) => one.statusCode),
+      [200, 200],
+    );
+    assert.equal(both[0]!.body, both[1]!.body, "the same answer for both");
+    assert.equal(asked, 1, "one setup at a time for a chat");
   }
 
   // The Classic round route: the ruleset's effect, whatever the screen sent; an item the battle does

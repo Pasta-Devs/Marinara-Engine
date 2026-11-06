@@ -65,14 +65,16 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 - Required checks and Dottore Review must complete before any `staging` merge. PRs from active Pasta-Devs organization members and owners do not require another human approval; outside and first-time contributors require an approving review from `SpicyMarinara`. Organization members with repository merge permission may merge internal PRs after those gates pass.
 - Only `SpicyMarinara` may promote the repository's `staging` branch into `main` or merge a same-repository `hotfix/*` branch.
 - Prefer focused patches that keep code, docs, and release metadata aligned in the same change.
+- Before proposing a provider integration, follow [CONTRIBUTING.md § AI provider integrations](CONTRIBUTING.md#ai-provider-integrations).
 - Route changes to downloadable agents such as Illustrator, Music DJ, and Lorebook Keeper to [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Agent definitions, default prompts, package-owned runtime code, metadata, artwork/assets, manifests, artifacts, and catalog entries must be fixed and submitted there against its `staging` branch, not in Marinara Engine.
 - Keep host integration changes in Marinara Engine. Package loading, capability APIs and shared contracts, Engine UI/settings, storage, provider/model routing, orchestration, and compatibility handling remain Engine-owned even when the affected feature is an agent. Determine which side of this boundary owns a fix before opening an issue, branch, or PR; split cross-repository changes when both sides are affected.
 - Agent-specific coordination rule: before starting issue work, check for an existing issue-linked branch, open PR, draft PR, or project board item so multiple agents do not duplicate effort. See `CONTRIBUTING.md` for the general contributor workflow.
 - Agent-specific coordination rule: when implementation effort starts for an issue, open a draft PR immediately so the project Kanban board shows the work in progress.
 - Agent-specific coordination rule: when starting work on an issue, tag or identify the GitHub user or agent owning that issue/PR on the single issue so ownership is visible before implementation proceeds.
-- Agent-specific coordination rule: assign every issue and PR you open to `SpicyMarinara` (`gh issue create --assignee SpicyMarinara`, `gh pr create --assignee SpicyMarinara`) so it shows in the maintainer's assigned list. If your account cannot assign, mention `@SpicyMarinara` in the description instead.
+- Agent-specific coordination rule: assign every issue and PR you open to yourself. If your account cannot assign, mention `@SpicyMarinara` in the description instead.
 - When preparing a PR, make the why explicit in the description so reviewers can see the user problem or rationale, not just the file changes.
 - Check `README.md`, `android/README.md`, `CONTRIBUTING.md`, `docs/CONFIGURATION.md`, `docs/TROUBLESHOOTING.md`, and `docs/FAQ.md` together when install, update, or release behavior changes.
+- When writing or editing user guides under `docs/`, follow `.agents/skills/docs-writing/SKILL.md`.
 - When a change adds, renames, or edits user-facing docs under `docs/`, also update every translated language pack on the `docs-i18n` branch to match — or open a `[docs-i18n] <paths>` follow-up issue. Renames/deletions must be mirrored there or the translation is silently orphaned. See `CONTRIBUTING.md § Translated documentation`.
 
 ## AI-Generated Pull Request

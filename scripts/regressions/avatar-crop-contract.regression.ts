@@ -306,14 +306,14 @@ assert.match(
 
 // ── 10. Drawer/wizard reuse decoded crop boundaries ──
 const drawerSource = readFileSync(join(repoRoot, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"), "utf8");
-const wizardSource = readFileSync(join(repoRoot, "packages/client/src/components/chat/ChatSetupWizard.tsx"), "utf8");
+// The wizards pick through the shared CharacterSelect list, so its rows carry the decoded crops.
+const wizardSource = readFileSync(
+  join(repoRoot, "packages/client/src/components/characters/CharacterPickerList.tsx"),
+  "utf8",
+);
 for (const [source, removedParsing, sharedCrop] of [
   [drawerSource, /charAvatarCrop|parseAvatarCropJson|AvatarCropValue/u, /getCharacterInfo\([^)]*\)\.avatarCrop/u],
-  [
-    wizardSource,
-    /getCharacterAvatarCrop|parseAvatarCropJson|AvatarCropValue/u,
-    /crop=\{getCharacterInfo\([^)]*\)\.avatarCrop \?\? null\}|crop=\{info\.avatarCrop \?\? null\}/u,
-  ],
+  [wizardSource, /getCharacterAvatarCrop|parseAvatarCropJson|AvatarCropValue/u, /crop=\{data\.avatarCrop\}/u],
 ] as const) {
   assert.doesNotMatch(source, removedParsing);
   assert.match(source, sharedCrop);
@@ -324,11 +324,7 @@ assert.match(
   "Drawer persona pickers must render decoded crops",
 );
 assert.doesNotMatch(drawerSource, /avatarCrop: isPersona \? null/u, "Drawer must not discard persona crops");
-assert.match(
-  wizardSource,
-  /crop=\{persona\.avatarCrop \?\? null\}/u,
-  "Wizard persona pickers must render decoded crops",
-);
+assert.match(wizardSource, /crop=\{persona\.avatarCrop\}/u, "Wizard persona pickers must render decoded crops");
 
 // ── 11. Removed names stay gone from packages and regression scripts ──
 function collectSourceFiles(dir: string): string[] {

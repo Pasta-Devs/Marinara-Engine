@@ -16,7 +16,8 @@ for (const provider of ["anthropic", "claude_subscription"] as const) {
     });
     await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
     const created = await request.post("/api/connections", {
-      data: { name: "Sonnet 5.5 fixture", provider, model: "" },
+      // A chat Model is created without a model id; the editor picks it (#8456 refuses an empty one).
+      data: { name: "Sonnet 5.5 fixture", provider },
     });
     expect(created.ok()).toBeTruthy();
     const { id } = await created.json();
@@ -25,19 +26,21 @@ for (const provider of ["anthropic", "claude_subscription"] as const) {
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
         useUIStore.getState().openConnectionDetail(id);
       }, id);
-      await expect(page.getByPlaceholder("Connection name")).toHaveValue("Sonnet 5.5 fixture");
+      await expect(page.getByPlaceholder("Model name", { exact: true })).toHaveValue("Sonnet 5.5 fixture");
     };
     try {
       await page.goto("/");
       await open();
-      await page.getByText("Select a model…", { exact: true }).click();
-      await page.getByPlaceholder("Search models…").fill("sonnet-5-5");
-      const choice = page.getByRole("button").filter({ hasText: /claude-sonnet-5-5|Claude Sonnet 5\.5/ });
+      // The editor lists models inline since #8456.
+      await page.getByRole("searchbox", { name: "Search models or type a model ID", exact: true }).fill("sonnet-5-5");
+      const choice = page.locator('[data-model-section="all"] [data-model-id="claude-sonnet-5-5"] [data-model-option]');
       await expect(choice).toHaveCount(1);
-      await expect(choice).toContainText("1.0M");
-      await expect(choice).toContainText("128K");
+      // Both rows show the 1M window. The subscription catalog lists no limits, so its row takes the
+      // built-in context window and shows no output limit; without a key, the API account lists the built-ins.
+      await expect(choice).toContainText("1m context");
+      if (provider === "anthropic") await expect(choice).toContainText("128k max output");
       await choice.click();
-      const defaults = page.getByRole("checkbox", { name: "Use custom defaults for this connection", exact: true });
+      const defaults = page.getByRole("checkbox", { name: "Use custom defaults for this model", exact: true });
       await defaults.scrollIntoViewIfNeeded();
       await defaults.press("Space");
       await expect(defaults).toBeChecked();
@@ -57,7 +60,8 @@ for (const provider of ["anthropic", "claude_subscription"] as const) {
             return {
               model: row.model,
               maxContext: row.maxContext,
-              effort: JSON.parse(row.defaultParameters).reasoningEffort,
+              // Until the save lands the row has no defaults yet; keep polling instead of throwing.
+              effort: JSON.parse(row.defaultParameters ?? "null")?.reasoningEffort,
             };
           })
           .toEqual({ model: "claude-sonnet-5-5", maxContext: 1_000_000, effort });

@@ -66,7 +66,8 @@ test("Professor Mari height slider keeps the old minimum and persists its choice
   // Phones always show Professor Mari full screen, so #7501 hides the window size section below 640px.
   const sizeSection = panel.getByRole("region", { name: "Professor Mari window", exact: true, includeHidden: true });
   const expectSizeSectionHidden = async () => {
-    await expect(panel.getByText("Ask Professor Mari from Search", { exact: true })).toBeVisible();
+    // The settings sheet is open (its "Ask Professor Mari from Search" switch is gone since #8379).
+    await expect(panel.getByRole("heading", { name: "Search and Professor Mari settings", exact: true })).toBeVisible();
     await expect(sizeSection).toHaveCount(1);
     await expect(sizeSection).toBeHidden();
   };

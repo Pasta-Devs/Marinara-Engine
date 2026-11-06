@@ -4,11 +4,40 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 import {
+  buildCustomToolPatch,
   importCustomToolEntries,
   normalizeCustomToolImportEntry,
   prepareCustomToolImportEntry,
   serializeCustomToolForTransfer,
 } from "../../packages/client/src/lib/custom-tool-transfer.js";
+
+// #8516: saving an existing tool sends only what changed. A toggle never re-sends (and so never re-validates) a name or
+// description stored by an import or by Mari, even one the editor would now reject.
+{
+  const stored = {
+    id: "tool-1",
+    name: "punch_tool\u200b",
+    description: `punch -> physical_strength ${"=> ".repeat(300)}`,
+    parametersSchema: JSON.stringify({ type: "object", required: [], properties: { a: { type: "string" } } }),
+    executionType: "script",
+    webhookUrl: null,
+    staticResult: null,
+    scriptBody: "return 1;",
+    includeHiddenContext: "false",
+    enabled: "true",
+  } as Parameters<typeof buildCustomToolPatch>[0];
+  const unchanged = serializeCustomToolForTransfer(stored);
+  assert.deepEqual(buildCustomToolPatch(stored, unchanged), {}, "nothing changed: nothing is sent");
+  assert.deepEqual(
+    buildCustomToolPatch(stored, { ...unchanged, includeHiddenContext: true }),
+    { includeHiddenContext: true },
+    "a toggle sends only the toggle",
+  );
+  // The same schema rebuilt with its keys in another order is not a change.
+  const reordered = { properties: { a: { type: "string" } }, required: [], type: "object" };
+  assert.deepEqual(buildCustomToolPatch(stored, { ...unchanged, parametersSchema: reordered }), {});
+  assert.deepEqual(buildCustomToolPatch(stored, { ...unchanged, name: "punch_tool" }), { name: "punch_tool" });
+}
 
 const requestedWebhook = {
   name: "send_private_context",

@@ -3,17 +3,45 @@
 // ──────────────────────────────────────────────
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
+import { ZodError as LegacyZodError } from "zod-v3";
 import { failureLevel } from "../lib/log-context.js";
+
+const MAX_VALIDATION_DETAILS = 50;
+
+export function* validationDetails(
+  issues: ZodError["issues"] | LegacyZodError["issues"],
+  prefix: PropertyKey[] = [],
+): Generator<{ path: string; message: string }> {
+  for (const issue of issues) {
+    const path = [...prefix, ...issue.path];
+    if (issue.code === "invalid_union" && "errors" in issue && issue.errors.length === 2) {
+      const [omitted, supplied] = issue.errors;
+      // partialInput's omission branch cannot explain a rejected, supplied value.
+      if (
+        omitted?.length === 1 &&
+        omitted[0]?.code === "invalid_type" &&
+        omitted[0].expected === "undefined" &&
+        supplied
+      ) {
+        yield* validationDetails(supplied, path);
+        continue;
+      }
+    }
+    yield { path: path.map(String).join("."), message: issue.message };
+  }
+}
 
 export function errorHandler(error: FastifyError, _request: FastifyRequest, reply: FastifyReply) {
   // Zod validation errors → 400
-  if (error instanceof ZodError) {
+  if (error instanceof ZodError || error instanceof LegacyZodError) {
+    const details = [];
+    for (const detail of validationDetails(error.issues)) {
+      details.push(detail);
+      if (details.length === MAX_VALIDATION_DETAILS) break;
+    }
     return reply.status(400).send({
       error: "Validation Error",
-      details: error.errors.map((e) => ({
-        path: e.path.join("."),
-        message: e.message,
-      })),
+      details,
     });
   }
 

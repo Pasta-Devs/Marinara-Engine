@@ -11,8 +11,14 @@
 // context limit, memory recall, discord mirror, etc.). Exported profile files leave out the outside
 // addresses and keys (CHAT_METADATA_LOCAL_DESTINATION_KEYS), and imported ones never bring them.
 //
+// Starting picks: a profile may also hold a persona, lorebooks to switch on and
+// a background (metadata.background). Applying the profile by hand COPIES them
+// into the chat; they are never linked, so later edits in the chat stay there,
+// "Save into profile" keeps the profile's own picks, and chats that follow the
+// profile never receive them.
+//
 // What profiles DO NOT carry: per-chat identity (name, characters,
-// persona, group, sprites, scene prompt, generated summaries, tags,
+// group, sprites, scene prompt, generated summaries, tags,
 // ephemeral lorebook overrides, generated schedules, scene lifecycle
 // state, connected chat link, hierarchical map state, folder/sort placement,
 // or running state such as multiplayer rooms and macro variables).
@@ -24,6 +30,10 @@ export interface ChatPresetSettings {
   /** Top-level chat fields */
   connectionId?: string | null;
   promptPresetId?: string | null;
+  /** Starting pick: persona copied into the chat when the profile is applied by hand. */
+  personaId?: string | null;
+  /** Starting pick: lorebooks switched on in the chat when the profile is applied by hand. */
+  lorebookIds?: string[];
   /** Subset of ChatMetadata — chat-specific keys (sprites, summary, tags, etc.) are stripped before saving. */
   metadata?: Partial<ChatMetadata>;
 }
@@ -91,6 +101,7 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "sceneBusyCharIds",
   // Lorebooks are owned by the chat, never by the profile.
   "activeLorebookIds",
+  "agentLorebookAttachments",
   // Hierarchical Maps definitions and per-chat editing choices stay with the chat.
   "spatialContext",
   "spatialContextHierarchyProfile",
@@ -146,6 +157,7 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "advancedMemoryState",
   "macroVariables",
   "inactiveCharacterIds",
+  "autoActiveCharacterPins",
   "intentCooldowns",
   "autonomousDailyBudget",
   "conversationCharacterStatuses",
@@ -171,6 +183,9 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "spatialSharedWorldLink",
   "trackerFeaturedCharacterKeys",
   "conversationSetupComplete",
+  // This chat's latest scene video and the message its last automatic video joined (the Video Run Interval anchor).
+  "sceneLastVideoId",
+  "lastAutomaticVideoMessageId",
 ] as const;
 
 /**
@@ -217,6 +232,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "forceToolCall", // Make the model call a tool
   "activeToolIds", // Tools the model may call
   "cardCssMode", // How character card styles apply
+  "colorInlineNames", // Colour character names in message text
   "scopedRegexMode", // Which scoped regex scripts run
   // Group chats
   "groupChatMode", // Merged or individual narration
@@ -224,6 +240,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "groupTurnPromptEnabled", // Tell each character it is their turn
   "groupSpeakerColors", // Colour speaker names
   "groupSpeakerNamesInHistory", // Speaker names in the history
+  "autoActiveCharacters", // Who keeps the active characters current
   // Conversation features
   "crossChatAwareness", // Characters remember their other chats
   "autonomousMessages", // Characters message on their own
@@ -264,9 +281,12 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "illustratorIncludeCharacterAppearance", // Illustrator: add card appearance
   "illustratorUseAvatarReferences", // Illustrator: send avatars as references
   "illustratorVideoIncludeCharacterAppearance", // Illustrator: add card appearance to video prompts
+  "illustratorVideoUseAvatarReferences", // Illustrator: a Prompt only clip starts from the avatar
   "illustratorAutoBackgroundsEnabled", // Illustrator: make a background when the scene moves
+  "illustratorVideoMode", // Illustrator: pictures, pictures and clips, or clips only
   "illustratorImagesPerGeneration", // Illustrator: images per run
   "illustratorRunInterval", // Illustrator: run interval
+  "illustratorVideoRunInterval", // Illustrator: messages between videos it makes on its own
   "sceneVideoConnectionId", // Illustrator: connection for scene videos
   "imageStyleProfileId", // Illustrator: image style
   "narrativeDirectorSecretPlotEnabled", // Director: secret plot

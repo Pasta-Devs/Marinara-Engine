@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFileNativeDB } from "../../../packages/server/src/db/file-backed-store.js";
 import { eq } from "../../../packages/server/src/db/file-query.js";
+import { personas } from "../../../packages/server/src/db/schema/characters.js";
 import { lorebookEntries } from "../../../packages/server/src/db/schema/lorebooks.js";
 import { MariDbService } from "../../../packages/server/src/services/mari-db/mari-db.service.js";
 
@@ -68,6 +69,15 @@ try {
     try {
       db = await createFileNativeDB();
       const mari = new MariDbService(db);
+      const preview = await mari.executeAction({
+        action: "persona.create",
+        personaId: "preview-persona",
+        data: { name: "Preview Persona" },
+        apply: false,
+      });
+      assert.equal(preview.ok, true, "an empty alternatives default passes preview validation");
+      assert.equal(preview.mode, "dry-run");
+      assert.deepEqual(preview.summary?.preview[0]?.after?.cardFieldAlternatives, []);
       const created = await mari.executeAction({
         action: "persona.create",
         personaId: "created-persona",
@@ -89,11 +99,203 @@ try {
 
       const fetched = await mari.executeAction({ action: "persona.get", personaId: "created-persona" });
       assert.equal(fetched.ok, true, "the created persona is persisted");
+      assert.deepEqual(created.summary?.preview[0]?.after?.cardFieldAlternatives, []);
+      assert.deepEqual((fetched.output as Record<string, unknown>).cardFieldAlternatives, []);
+      const [stored] = await db.select().from(personas).where(eq(personas.id, "created-persona"));
+      assert.equal(stored?.cardFieldAlternatives, "[]", "alternatives use the JSON-text storage contract");
+      assert.equal(
+        (fetched.output as Record<string, unknown>).summary,
+        "",
+        "a legacy create defaults summary",
+      );
+      assert.equal(
+        (fetched.output as Record<string, unknown>).mes_example,
+        "",
+        "a legacy create defaults dialogue",
+      );
       assert.equal(
         (fetched.output as Record<string, unknown>).useCharacterSheetAsReference,
         "false",
         "the persona stores the required character-sheet reference default",
       );
+
+      const authored = { summary: "A scientist's library summary.", mes_example: "{{user}}: Observe carefully." };
+      const authoredCreate = await mari.executeAction({
+        action: "persona.create",
+        personaId: "authored-persona",
+        data: { name: "Authored Persona", ...authored },
+        apply: true,
+      });
+      assert.equal(authoredCreate.ok, true, "Mari accepts the new card fields in a persona draft");
+      const authoredRead = await mari.executeAction({ action: "persona.get", personaId: "authored-persona" });
+      assert.equal(authoredRead.ok, true);
+      for (const [field, value] of Object.entries(authored)) {
+        assert.equal(
+          (authoredRead.output as Record<string, unknown>)[field],
+          value,
+          `${field} survives creation`,
+        );
+      }
+
+      const directCreate = await mari.executeAction({
+        action: "persona.create",
+        personaId: "direct-fields-persona",
+        name: "Direct Fields Persona",
+        description: "Preserve this description.",
+        ...authored,
+        apply: true,
+      });
+      assert.equal(directCreate.ok, true, "Mari accepts card fields at the top level");
+      const expectedFields: Record<string, string> = { ...authored };
+      const assertDirectFields = async () => {
+        const result = await mari.executeAction({ action: "persona.get", personaId: "direct-fields-persona" });
+        assert.equal(result.ok, true);
+        const row = result.output as Record<string, unknown>;
+        assert.equal(row.description, "Preserve this description.");
+        for (const [field, value] of Object.entries(expectedFields)) {
+          assert.equal(row[field], value, `${field} survives the Persona command`);
+        }
+      };
+      await assertDirectFields();
+      for (const [field, shape, value] of [
+        ["summary", "top-level", "  A revised top-level summary.  "],
+        ["mes_example", "patch", "  {{user}}: Revised nested dialogue.  "],
+        ["summary", "patch", "A revised nested summary."],
+        ["mes_example", "top-level", "{{user}}: Revised top-level dialogue."],
+      ] as const) {
+        const update = { [field]: value };
+        const updated = await mari.executeAction({
+          action: "persona.update",
+          personaId: "direct-fields-persona",
+          ...(shape === "top-level" ? update : { patch: update }),
+          apply: true,
+        });
+        assert.equal(updated.ok, true, `${field}-only ${shape} update succeeds: ${JSON.stringify(updated)}`);
+        expectedFields[field] = value.trim();
+        await assertDirectFields();
+      }
+
+      for (const [field, shape, value] of [
+        ["summary", "top-level", ""],
+        ["mes_example", "patch", ""],
+        ["summary", "patch", " \n "],
+        ["mes_example", "top-level", " \n "],
+      ] as const) {
+        const seeded = await mari.executeAction({
+          action: "persona.update",
+          personaId: "direct-fields-persona",
+          patch: { [field]: "Clear this field independently." },
+          apply: true,
+        });
+        assert.equal(seeded.ok, true);
+        expectedFields[field] = "Clear this field independently.";
+        await assertDirectFields();
+        const update = { [field]: value };
+        const cleared = await mari.executeAction({
+          action: "persona.update",
+          personaId: "direct-fields-persona",
+          ...(shape === "top-level" ? update : { patch: update }),
+          apply: true,
+        });
+        assert.equal(cleared.ok, true, `${field} clears through ${shape}: ${JSON.stringify(cleared)}`);
+        expectedFields[field] = "";
+        await assertDirectFields();
+      }
+      for (const payload of [
+        {},
+        { summary: null, mes_example: 17 },
+        { patch: { summary: 17, mes_example: null } },
+      ]) {
+        const ignored = await mari.executeAction({
+          action: "persona.update",
+          personaId: "direct-fields-persona",
+          ...payload,
+          apply: true,
+        });
+        assert.equal(ignored.ok, false, "omitted or non-string fields remain non-updates");
+        await assertDirectFields();
+      }
+
+      // Every persona text field clears with "", alone or beside another field; name never does.
+      const seedAbout = await mari.executeAction({
+        action: "persona.update",
+        personaId: "direct-fields-persona",
+        patch: { aboutMe: "Seeded bio.", comment: "Seeded comment." },
+        apply: true,
+      });
+      assert.equal(seedAbout.ok, true);
+      const besideName = await mari.executeAction({
+        action: "persona.update",
+        personaId: "direct-fields-persona",
+        patch: { name: "Direct Fields Renamed", aboutMe: "" },
+        apply: true,
+      });
+      assert.equal(besideName.ok, true, JSON.stringify(besideName));
+      assert.match(JSON.stringify(besideName), /verified/, "read-back verifies the cleared aboutMe");
+      const afterBeside = (await mari.executeAction({ action: "persona.get", personaId: "direct-fields-persona" }))
+        .output as Record<string, unknown>;
+      assert.equal(afterBeside.aboutMe, "");
+      assert.equal(afterBeside.name, "Direct Fields Renamed");
+      const loneClear = await mari.executeAction({
+        action: "persona.update",
+        personaId: "direct-fields-persona",
+        aboutMe: "Bio again.",
+        comment: "   ",
+        apply: true,
+      });
+      assert.equal(loneClear.ok, true);
+      const afterLone = (await mari.executeAction({ action: "persona.get", personaId: "direct-fields-persona" }))
+        .output as Record<string, unknown>;
+      assert.equal(afterLone.aboutMe, "Bio again.");
+      assert.equal(afterLone.comment, "", "whitespace-only clears");
+      const aloneEmpty = await mari.executeAction({
+        action: "persona.update",
+        personaId: "direct-fields-persona",
+        aboutMe: "",
+        apply: true,
+      });
+      assert.equal(aloneEmpty.ok, true, "a lone empty aboutMe counts as a patch field");
+      const afterAlone = (await mari.executeAction({ action: "persona.get", personaId: "direct-fields-persona" }))
+        .output as Record<string, unknown>;
+      assert.equal(afterAlone.aboutMe, "");
+      await mari.executeAction({
+        action: "persona.update",
+        personaId: "direct-fields-persona",
+        patch: { name: "", description: "Still applied." },
+        apply: true,
+      });
+      const afterName = (await mari.executeAction({ action: "persona.get", personaId: "direct-fields-persona" }))
+        .output as Record<string, unknown>;
+      assert.equal(afterName.name, "Direct Fields Renamed", 'name: "" is not applied');
+      expectedFields.description = "Still applied.";
+
+      const cliCreate = await mari.executeCli({
+        argv: ["personas", "create", "--id", "cli-persona", "--name", "CLI Persona", "--apply"],
+      });
+      assert.equal(cliCreate.ok, true, "the CLI create also receives every required persona default");
+      const cliRead = await mari.executeAction({ action: "persona.get", personaId: "cli-persona" });
+      assert.equal(cliRead.ok, true);
+      assert.equal((cliRead.output as Record<string, unknown>).summary, "");
+      assert.equal((cliRead.output as Record<string, unknown>).mes_example, "");
+      assert.deepEqual((cliRead.output as Record<string, unknown>).cardFieldAlternatives, []);
+
+      await mari.keepAppliedReview(reviewId);
+      const renamed = await mari.executeAction({
+        action: "persona.update",
+        personaId: "created-persona",
+        data: { name: "Renamed Persona" },
+        apply: true,
+      });
+      assert.equal(renamed.ok, true);
+      assert.ok(renamed.approval?.id);
+      const restarted = new MariDbService(db);
+      await restarted.restoreAppliedReview(renamed.approval.id);
+      const restored = await restarted.executeAction({ action: "persona.get", personaId: "created-persona" });
+      assert.equal(restored.ok, true);
+      assert.equal((restored.output as Record<string, unknown>).name, "Created Persona");
+      assert.deepEqual((restored.output as Record<string, unknown>).cardFieldAlternatives, []);
+      const [restoredRow] = await db.select().from(personas).where(eq(personas.id, "created-persona"));
+      assert.equal(restoredRow?.cardFieldAlternatives, "[]", "restored alternatives remain serialized JSON text");
     } finally {
       if (db) await db._fileStore.close();
       if (previousBlockStorageDir === undefined) delete process.env.FILE_STORAGE_DIR;

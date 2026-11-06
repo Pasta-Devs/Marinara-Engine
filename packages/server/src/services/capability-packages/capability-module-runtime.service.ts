@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { chmod, lstat, mkdir, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse as InjectResponse } from "fastify";
@@ -14,8 +14,9 @@ import {
   parseAgentSettingsRecord,
   type PackagedAchievementDefinition,
   type SceneOriginProvider,
+  supportedCapabilityApi,
 } from "@marinara-engine/shared";
-import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
+import { getEnvFilePath, isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { parseGameJsonish } from "../game/jsonish.js";
@@ -28,15 +29,21 @@ import {
   stripCapabilityConversationCommands,
   type CapabilityConversationCommandRegistration,
 } from "./capability-command-registry.service.js";
-import { getCapabilityService, registerCapabilityService } from "./capability-service-registry.service.js";
+import {
+  getCapabilityService,
+  isHostOnlyCapabilityService,
+  registerCapabilityService,
+} from "./capability-service-registry.service.js";
 import { assertCapabilityAgentRuntimeServiceRegistration } from "./capability-agent-runtime.service.js";
 import { assertCapabilityMariActionsServiceRegistration } from "./capability-mari-actions.service.js";
 import { createCapabilityDecisionHost } from "./capability-decision.service.js";
 import { createCapabilityIntegrationHost } from "./capability-integrations.service.js";
 import { createCapabilityLanguageModelHost } from "./capability-language-model.service.js";
 import {
+  CapabilityHostDependencyError,
   linkCapabilityNativeDependencies,
   linkCapabilityPackageDependencies,
+  linkCapabilitySnapshotDependencies,
 } from "./capability-native-dependencies.service.js";
 import {
   createCapabilityEmbeddingHost,
@@ -46,6 +53,7 @@ import { createCapabilityAchievementHost } from "./capability-achievement-host.s
 import { registerCapabilityAchievements } from "./capability-achievement-registry.service.js";
 import { createCapabilityPersistenceHost } from "./capability-persistence.service.js";
 import { createCapabilityResourceHost } from "./capability-resources.service.js";
+import { resolvePackageAgentLorebookEntries } from "./capability-agent-lorebook.service.js";
 import {
   registerCapabilityPrivilegedRoutes,
   runCapabilityInternalRoute,
@@ -81,7 +89,8 @@ type CapabilityActivationContext = {
     runtime: CapabilityRuntimeHost;
     registerTurnGameEngine(engine: AnyTurnGameEngine): Cleanup;
     registerConversationCommand(registration: CapabilityConversationCommandRegistration): Cleanup;
-    registerService<T>(key: string, service: T): Cleanup;
+    /** `hostOnly` (Capability API 1.388) keeps the service from `runtime.services.get`; only the Engine reads it. */
+    registerService<T>(key: string, service: T, options?: { hostOnly?: boolean }): Cleanup;
     /** Contribute text to each turn's system prompt. Requires the `prompt-context` permission. */
     registerPromptContext(contributor: CapabilityPromptContextContributor): Cleanup;
     /** Offer the model a tool this package handles. Requires the `tools` permission. */
@@ -107,12 +116,14 @@ async function createCapabilityRuntimeHost(
   packageId: string,
   permissions: readonly string[],
 ): Promise<CapabilityRuntimeHost> {
+  const canReadAgentLorebooks = permissions.includes("agent-runtime") && permissions.includes("chat-read");
   const agents = app.db ? createAgentsStorage(app.db) : null;
   const config = await agents?.getByType(packageId);
   const embeddings = app.db
     ? await createConfiguredCapabilityEmbeddingHost(app.db, config?.connectionId)
     : createCapabilityEmbeddingHost();
   return Object.freeze({
+    capabilityApi: supportedCapabilityApi,
     embeddings,
     async resolveEmbeddings() {
       const config = await agents?.getByType(packageId);
@@ -123,6 +134,15 @@ async function createCapabilityRuntimeHost(
     async getAgentConfig() {
       const config = await agents?.getByType(packageId);
       return config ? { connectionId: config.connectionId, settings: parseAgentSettingsRecord(config.settings) } : null;
+    },
+    async resolveAgentLorebookEntries(options: { chatId: string; signal?: AbortSignal }) {
+      if (!canReadAgentLorebooks) {
+        throw new Error("Resolving an agent reference lorebook requires agent-runtime and chat-read permissions.");
+      }
+      return resolvePackageAgentLorebookEntries(app.db, packageId, {
+        chatId: options.chatId,
+        signal: options.signal,
+      });
     },
     isDebugAgentsEnabled,
     json: Object.freeze({ parseJsonish: parseGameJsonish }),
@@ -146,10 +166,12 @@ async function createCapabilityRuntimeHost(
     persistence: createCapabilityPersistenceHost(app.db, permissions),
     resources: createCapabilityResourceHost(app.db),
     services: Object.freeze({
-      // Agent runtime hooks and Mari actions are read only by the Engine itself, so a package can't call
-      // another package's hooks through this lookup.
+      // Agent runtime hooks, Mari actions and services registered with `hostOnly` are read only by the Engine
+      // itself, so a package can't call another package's hooks through this lookup.
       get: <T>(key: string) =>
-        HOST_ONLY_SERVICE_PREFIXES.some((prefix) => key.startsWith(prefix)) ? null : getCapabilityService<T>(key),
+        HOST_ONLY_SERVICE_PREFIXES.some((prefix) => key.startsWith(prefix)) || isHostOnlyCapabilityService(key)
+          ? null
+          : getCapabilityService<T>(key),
     }),
     commands: Object.freeze({
       parse: (content: string) => parseCapabilityConversationCommands(content),
@@ -163,11 +185,14 @@ type CapabilityModule = {
   selfCheck?: (context: CapabilityActivationContext) => void | Promise<void>;
 };
 
-export function prepareCapabilityRuntimeEnvironment(dataDir = DATA_DIR): void {
+export function prepareCapabilityRuntimeEnvironment(dataDir = DATA_DIR, envFile = getEnvFilePath()): void {
   // Downloaded runtimes bundle Engine utilities and evaluate them before
-  // activate(context). Give those bundles the host's absolute resolved path;
-  // preserving a relative DATA_DIR would resolve beside the nested server.mjs.
+  // activate(context). Give those bundles the host's absolute resolved paths:
+  // a relative DATA_DIR would resolve beside the nested server.mjs, and without
+  // MARINARA_ENV_FILE their runtime-config looks for (and creates) .env two
+  // folders above the data folder, "/" for a short DATA_DIR (Pasta-Devs/Marinara-Agents#2036).
   process.env.DATA_DIR = dataDir;
+  process.env.MARINARA_ENV_FILE = envFile;
 }
 
 async function runCleanups(cleanups: Cleanup[]): Promise<void> {
@@ -313,16 +338,22 @@ class CapabilityModuleRuntime {
         await writeFile(output, data, { flag: "wx", mode: 0o400 });
       }
       await writeFile(join(root, "manifest.json"), JSON.stringify(installed.manifest), { flag: "wx", mode: 0o400 });
-      const nodeModules = join(DATA_DIR, "capability-packages", "node_modules");
-      if (existsSync(nodeModules) && !existsSync(join(root, "node_modules"))) {
-        await symlink(nodeModules, join(root, "node_modules"), process.platform === "win32" ? "junction" : "dir");
+      if (!existsSync(join(root, "node_modules"))) {
+        await linkCapabilitySnapshotDependencies(
+          root,
+          resolve(dirname(fileURLToPath(import.meta.url)), "../../../node_modules"),
+        );
       }
       return {
         entrypoint: join(root, verified.entrypoint),
         cleanup: () => removeRuntimeSnapshot(root),
       };
     } catch (error) {
-      await removeRuntimeSnapshot(root);
+      try {
+        await removeRuntimeSnapshot(root);
+      } catch (cleanupError) {
+        logger.warn(cleanupError, "Could not remove failed package runtime snapshot %s", root);
+      }
       throw error;
     }
   }
@@ -377,10 +408,10 @@ class CapabilityModuleRuntime {
             }
             return trackCleanup(registerCapabilityConversationCommand(registration));
           },
-          registerService: (key, service) => {
+          registerService: (key, service, options) => {
             assertCapabilityAgentRuntimeServiceRegistration(installed.id, installed.manifest.permissions ?? [], key);
             assertCapabilityMariActionsServiceRegistration(installed.id, installed.manifest.permissions ?? [], key);
-            return trackCleanup(registerCapabilityService(key, service));
+            return trackCleanup(registerCapabilityService(key, service, options));
           },
           // Gated on the permission the manifest already declares, so a package can't reach the prompt
           // without asking for it up front. Contract in capability-prompt-context.service.ts.
@@ -467,7 +498,15 @@ class CapabilityModuleRuntime {
       logger.info("Activated and verified capability package %s@%s", installed.id, installed.version);
     } catch (error) {
       const hostLifecycleError = isHostLifecycleActivationError(error);
-      if (hostLifecycleError) {
+      const hostDependencyError = error instanceof CapabilityHostDependencyError;
+      if (hostDependencyError) {
+        logger.warn(
+          error,
+          "Capability package %s@%s could not load Engine dependencies; its version is unchanged and activation will be retried on the next start",
+          installed.id,
+          installed.version,
+        );
+      } else if (hostLifecycleError) {
         // Not the package's fault and retried on the next start: one warning instead of an error.
         logger.warn(
           error,
@@ -494,8 +533,8 @@ class CapabilityModuleRuntime {
       } catch (cleanupError) {
         logger.warn(cleanupError, "Capability package %s cleanup failed after activation error", installed.id);
       }
-      if (hostLifecycleError) {
-        // Keep the installed version and status so the next boot activates it normally.
+      if (hostLifecycleError || hostDependencyError) {
+        // A host failure cannot be repaired by changing package versions. Retry the requested version next start.
         if (throwOnFailure) throw error;
         return;
       }
