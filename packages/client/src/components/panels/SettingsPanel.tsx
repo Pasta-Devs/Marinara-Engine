@@ -5582,16 +5582,22 @@ function GenerationsSettings() {
           {localizeUi("ui.panels.generationssettings.checkingInstalledAgents")}
         </div>
       ) : !illustratorInstalled ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-5 py-8 text-center">
-          <WandSparkles size="1.5rem" className="text-[var(--marinara-chat-chrome-highlight-text)]" />
-          <p className="max-w-md text-xs leading-relaxed text-[var(--marinara-chat-chrome-panel-text)]">
-            {localizeUi("ui.panels.generationssettings.downloadIllustratorAgentFirstFromAgentsTabToEnable")}
-          </p>
-          <button type="button" onClick={openDownloadAgents} className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}>
-            <Download size="0.8125rem" />
-            {localizeUi("ui.panels.generationssettings.downloadIllustratorAgent")}
-          </button>
-        </div>
+        <SettingsSection
+          title="Illustrator Agent"
+          description="Needed for image and video generation."
+          icon={<WandSparkles size="0.875rem" />}
+          {...getSettingsSectionAnchorProps("overall-generations")}
+        >
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-xs leading-relaxed text-[var(--marinara-chat-chrome-panel-text)]">
+              {localizeUi("ui.panels.generationssettings.downloadIllustratorAgentFirstFromAgentsTabToEnable")}
+            </p>
+            <button type="button" onClick={openDownloadAgents} className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}>
+              <Download size="0.8125rem" />
+              {localizeUi("ui.panels.generationssettings.downloadIllustratorAgent")}
+            </button>
+          </div>
+        </SettingsSection>
       ) : (
         <>
           <OverallGenerationSettings />
@@ -8008,21 +8014,23 @@ function AdvancedSettings() {
         {...getSettingsSectionAnchorProps("admin-access")}
       >
         <div className="flex min-w-0 flex-col gap-2">
-          <input
-            type="password"
-            value={adminSecret}
-            onChange={(e) => setAdminSecret(e.target.value)}
-            placeholder={localizeUi("ui.panels.advancedsettings.adminSecret")}
-            className="w-full min-w-0 rounded-lg bg-[var(--background)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"
-          />
-          <button
-            type="button"
-            onClick={saveAdminSecret}
-            className={cn(SETTINGS_PRIMARY_FULL_BUTTON_CLASS, "whitespace-nowrap")}
-          >
-            <Save size="0.8125rem" />
-            {localizeUi("ui.noodle.noodlehome.save")}
-          </button>
+          <div className="flex min-w-0 items-center gap-2">
+            <input
+              type="password"
+              value={adminSecret}
+              onChange={(e) => setAdminSecret(e.target.value)}
+              placeholder={localizeUi("ui.panels.advancedsettings.adminSecret")}
+              className="min-w-0 flex-1 rounded-lg bg-[var(--background)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"
+            />
+            <button
+              type="button"
+              onClick={saveAdminSecret}
+              className={cn(SETTINGS_PRIMARY_BUTTON_CLASS, "shrink-0 whitespace-nowrap")}
+            >
+              <Save size="0.8125rem" />
+              {localizeUi("ui.noodle.noodlehome.save")}
+            </button>
+          </div>
           <AdminSecretMaker
             onSaved={(secret) => {
               setAdminSecret(secret);

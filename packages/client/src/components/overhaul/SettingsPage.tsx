@@ -146,7 +146,6 @@ function useSectionChips(container: HTMLElement | null, fallback: SettingsSectio
       const anchors = Array.from(container.querySelectorAll<HTMLElement>('[id^="settings-section-"]')).filter(
         (el) => el.offsetParent !== null && !el.parentElement?.closest('[id^="settings-section-"]'),
       );
-      if (!anchors.length) return;
       const next = anchors.map((el) => {
         const id = el.id.replace("settings-section-", "") as SettingsSectionId;
         const titleNode = el.querySelector(":scope > div:first-child .font-semibold")?.firstChild;
@@ -332,14 +331,23 @@ function OverhaulSettingsMobile() {
       {level === "tab" ? (
         <>
           {head(localize(tab.label), () => go("root", true))}
-          <div className="ovm-settings__rows">
-            {chips.map((chip) =>
-              row(chip.id, chip.label, null, () => {
-                setSectionId(chip.id);
-                go("section");
-              }),
-            )}
-          </div>
+          {chips.length === 1 ? (
+            // One section (Media before the Illustrator Agent is installed): show it, no menu of one.
+            <div className="ov-settings__scroll ovm-settings__section">
+              <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
+                <OverhaulSettingsSections key={tab.id} sectionIds={tab.sections} />
+              </Suspense>
+            </div>
+          ) : (
+            <div className="ovm-settings__rows">
+              {chips.map((chip) =>
+                row(chip.id, chip.label, null, () => {
+                  setSectionId(chip.id);
+                  go("section");
+                }),
+              )}
+            </div>
+          )}
         </>
       ) : null}
       {level === "section" && sectionId ? (
@@ -469,13 +477,15 @@ function OverhaulSettingsDesktop() {
           ))}
         </div>
       </div>
-      <div className="ov-settings__chips">
-        {chips.map((chip) => (
-          <button key={chip.id} type="button" className="ov-chip" onClick={() => scrollToSection(chip.id)}>
-            {chip.label}
-          </button>
-        ))}
-      </div>
+      {chips.length > 1 ? (
+        <div className="ov-settings__chips">
+          {chips.map((chip) => (
+            <button key={chip.id} type="button" className="ov-chip" onClick={() => scrollToSection(chip.id)}>
+              {chip.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="ov-settings__scroll" ref={setScrollEl}>
         <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
           <OverhaulSettingsSections key={tab.id} sectionIds={tab.sections} />
