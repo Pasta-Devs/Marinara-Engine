@@ -132,7 +132,7 @@ try {
   }
 
   // Tag chips, excluded tags and folders filter on the server, so they cover cards outside loaded pages.
-  type CatalogBody = { items: { id: string }[]; total: number; folderCounts: Record<string, number> };
+  type CatalogBody = { items: { id: string }[]; total: number; favoriteFolderIds: string[] };
   const catalog = async (search: string, extra: string) =>
     (await getPage("/api/characters/catalog", search, 100, 0, extra)) as unknown as CatalogBody;
   const ids = (body: CatalogBody) => body.items.map((row) => row.id);
@@ -150,7 +150,8 @@ try {
   });
   const rootOnly = await catalog("Target", "&folder=none");
   assert.deepEqual(ids(rootOnly), ["tag-search-target-b"]);
-  assert.equal(rootOnly.folderCounts["tag-search-folder"], 1);
+  assert.deepEqual(rootOnly.favoriteFolderIds, ["tag-search-folder"]);
+  assert.deepEqual(ids(await catalog("Target", "&folder=any")), ["tag-search-target-a"]);
   assert.deepEqual(ids(await catalog("", "&folder=tag-search-folder")), ["tag-search-target-a"]);
   const tags = await app.inject({ method: "GET", url: "/api/characters/catalog/tags" });
   assert.ok((tags.json() as string[]).includes("Modern AU"));

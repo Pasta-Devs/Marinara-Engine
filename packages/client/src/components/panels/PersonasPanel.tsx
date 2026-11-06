@@ -1303,6 +1303,7 @@ export function PersonasPanel() {
         <PanelLoadMoreBar
           onLoadMore={() => void personaPages.fetchNextPage()}
           disabled={personaPages.isFetchingNextPage}
+          autoLoad={!personaPages.isFetchNextPageError}
         >
           {personaPages.isFetchingNextPage
             ? localizeUi("ui.characters.characterlibraryview.loading")

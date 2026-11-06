@@ -21,7 +21,7 @@ type CatalogOptions = {
   /** Any of these tags (case-insensitive); more matches rank first. */
   tags?: string[];
   excludeTags?: string[];
-  /** A folder id, or "none" for cards that are in no folder. */
+  /** A folder id, "none" for cards in no folder, or "any" for cards in some folder. */
   folder?: string;
   limit: number;
   offset: number;
@@ -182,10 +182,12 @@ export function createCharacterCatalog(db: DB) {
       for (const group of await db.select().from(characterGroups)) {
         for (const id of parseIdList(group.characterIds)) folderOf.set(id, [...(folderOf.get(id) ?? []), group.id]);
       }
-      const folderCounts: Record<string, number> = {};
+      // Favourite sort lifts folders that hold a favourite, also when their members are not loaded.
+      const favoriteFolderIds = new Set<string>();
       for (const item of entries)
-        for (const id of folderOf.get(item.id) ?? []) folderCounts[id] = (folderCounts[id] ?? 0) + 1;
+        if (item.favorite) for (const id of folderOf.get(item.id) ?? []) favoriteFolderIds.add(id);
       if (options.folder === "none") entries = entries.filter((item) => !folderOf.has(item.id));
+      else if (options.folder === "any") entries = entries.filter((item) => folderOf.has(item.id));
       else if (options.folder) entries = entries.filter((item) => folderOf.get(item.id)?.includes(options.folder!));
 
       const page = entries.slice(options.offset, options.offset + options.limit + 1);
@@ -196,7 +198,7 @@ export function createCharacterCatalog(db: DB) {
         hasMore: page.length > options.limit,
         catalogGeneration: catalog.generation,
         total: entries.length,
-        folderCounts,
+        favoriteFolderIds: [...favoriteFolderIds],
       };
     },
     /** Every tag in the library, for filter chips that must not depend on loaded pages. */

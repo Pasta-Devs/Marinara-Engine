@@ -3,6 +3,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 interface PanelLoadMoreBarProps {
   children: ReactNode;
   disabled?: boolean;
+  /** Off after a failed page, so the button retries instead of an endless loop. */
+  autoLoad?: boolean;
   onLoadMore: () => void;
 }
 
@@ -32,8 +34,8 @@ export function useLoadMoreWhenNear(onLoadMore: () => void, disabled: boolean) {
   return sentinelRef;
 }
 
-export function PanelLoadMoreBar({ children, disabled = false, onLoadMore }: PanelLoadMoreBarProps) {
-  const sentinelRef = useLoadMoreWhenNear(onLoadMore, disabled);
+export function PanelLoadMoreBar({ children, disabled = false, autoLoad = true, onLoadMore }: PanelLoadMoreBarProps) {
+  const sentinelRef = useLoadMoreWhenNear(onLoadMore, disabled || !autoLoad);
   return (
     <>
       <div ref={sentinelRef} aria-hidden className="h-px" />

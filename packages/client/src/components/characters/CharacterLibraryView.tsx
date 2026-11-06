@@ -582,7 +582,13 @@ export function CharacterLibraryView() {
     if (isPersonaLibrary) void personaPages.fetchNextPage();
     else void characterPages.fetchNextPage();
   };
-  const loadMoreSentinelRef = useLoadMoreWhenNear(fetchNextPage, isLoading || !hasNextPage || isFetchingNextPage);
+  const loadMoreSentinelRef = useLoadMoreWhenNear(
+    fetchNextPage,
+    isLoading ||
+      !hasNextPage ||
+      isFetchingNextPage ||
+      (isPersonaLibrary ? personaPages.isFetchNextPageError : characterPages.isFetchNextPageError),
+  );
 
   const placeholderClass = isPersonaLibrary ? "mari-avatar-placeholder--persona" : "mari-avatar-placeholder--character";
   const newCardButtonClass = cn(

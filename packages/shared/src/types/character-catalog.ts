@@ -31,6 +31,6 @@ export type CharacterCatalogPage = {
   catalogGeneration: number;
   /** Matching cards across all pages. */
   total: number;
-  /** Matching cards per folder id, before the folder filter. */
-  folderCounts: Record<string, number>;
+  /** Folders that hold a matching favourite, before the folder filter. */
+  favoriteFolderIds: string[];
 };

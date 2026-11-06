@@ -226,18 +226,18 @@ export function CharactersPanel() {
   const serverFavoriteFilter = favFilter === "favorites" || favFilter === "non-favorites" ? favFilter : "";
   const folderFilterActive =
     search.trim().length > 0 || includedTagValues.length > 0 || excludedTagValues.length > 0 || favFilter !== "all";
-  // Filters run on the server so they cover every card, not only loaded pages. Without filters the
-  // root list skips folder members, and the open folder loads its own members.
-  const characterPages = useCharacterPages({
+  // Filters run on the server so they cover every card, not only loaded pages. The root list skips
+  // folder members; folders load their own: all matching members while filtering, else the open one.
+  const serverFilters = {
     search: serverSearch,
     sort,
     favoriteFilter: serverFavoriteFilter,
     tags: includedTagValues,
     excludeTags: excludedTagValues,
-    folder: folderFilterActive ? undefined : "none",
-  });
+  };
+  const characterPages = useCharacterPages({ ...serverFilters, folder: "none" });
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
-  const folderMembers = useCharacterFolderMembers(folderFilterActive ? null : expandedGroupId, sort);
+  const folderMembers = useCharacterFolderMembers(folderFilterActive ? "any" : expandedGroupId, serverFilters);
   const catalogTags = useCharacterCatalogTags();
   const firstPage = characterPages.data?.pages[0];
   const characters = useMemo(() => {
@@ -433,11 +433,13 @@ export function CharactersPanel() {
   const sortedCharactersBySort = useMemo(() => {
     const list = [...filteredCharacters];
     const hasIncludedTags = includedTags.size > 0;
+    // Count lowercased chips once each, like the server, so later pages do not reorder loaded cards.
+    const lowerIncluded = new Set([...includedTags].map((tag) => tag.toLowerCase()));
     const matchCounts = hasIncludedTags
       ? new Map(
           list.map((c) => {
             const tags = new Set(getCharacterTags(c).map((t) => t.toLowerCase()));
-            return [c.id, [...includedTags].filter((tag) => tags.has(tag.toLowerCase())).length];
+            return [c.id, [...lowerIncluded].filter((tag) => tags.has(tag)).length];
           }),
         )
       : null;
@@ -521,14 +523,9 @@ export function CharactersPanel() {
   const sortedGroups = useMemo(() => {
     const folders = sortPanelFolders(parsedGroups, sort === "favorites" ? "name-asc" : sort);
     if (sort !== "favorites") return folders;
-    const favorites = new Set(
-      sortedCharacters.filter((character) => character.parsed.extensions?.fav).map((character) => character.id),
-    );
-    return folders.sort(
-      (a, b) =>
-        Number(b.memberIds.some((id) => favorites.has(id))) - Number(a.memberIds.some((id) => favorites.has(id))),
-    );
-  }, [parsedGroups, sort, sortedCharacters]);
+    const favoriteFolders = new Set(firstPage?.favoriteFolderIds);
+    return folders.sort((a, b) => Number(favoriteFolders.has(b.id)) - Number(favoriteFolders.has(a.id)));
+  }, [parsedGroups, sort, firstPage]);
 
   const folderedCharacterIds = useMemo(() => {
     const ids = new Set<string>();
@@ -1064,10 +1061,6 @@ export function CharactersPanel() {
               (characterOrder.get(a) ?? sortedCharacters.length) - (characterOrder.get(b) ?? sortedCharacters.length),
           );
           if (folderFilterActive && folderMemberIds.length === 0) return null;
-          // Filtered lists load folder members page by page; the server count covers the rest.
-          const folderCount = folderFilterActive
-            ? (firstPage?.folderCounts[group.id] ?? folderMemberIds.length)
-            : folderMemberIds.length;
           const isExpanded = (folderFilterActive && folderMemberIds.length > 0) || expandedGroupId === group.id;
           const isEditing = editingGroupId === group.id;
 
@@ -1155,24 +1148,24 @@ export function CharactersPanel() {
                     </>
                   )}
                 </div>
-                {folderCount > 0 && (
+                {folderMemberIds.length > 0 && (
                   <span
                     data-folder-item-count="inline"
                     className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)] max-md:hidden [@media(pointer:coarse)]:hidden"
                   >
-                    {folderCount}
+                    {folderMemberIds.length}
                   </span>
                 )}
                 <div
                   data-folder-actions
                   className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto"
                 >
-                  {folderCount > 0 && (
+                  {folderMemberIds.length > 0 && (
                     <span
                       data-folder-item-count="actions"
                       className="hidden px-1 text-[0.5625rem] text-[var(--muted-foreground)] max-md:inline [@media(pointer:coarse)]:inline"
                     >
-                      {folderCount}
+                      {folderMemberIds.length}
                     </span>
                   )}
                   <button
@@ -1864,6 +1857,7 @@ export function CharactersPanel() {
         <PanelLoadMoreBar
           onLoadMore={() => void characterPages.fetchNextPage()}
           disabled={characterPages.isFetchingNextPage}
+          autoLoad={!characterPages.isFetchNextPageError}
         >
           {characterPages.isFetchingNextPage
             ? localizeUi("ui.characters.characterlibraryview.loading")
