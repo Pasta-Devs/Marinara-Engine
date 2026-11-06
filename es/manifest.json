@@ -1,6 +1,6 @@
 {
   "language": "es",
-  "sourceCommit": "21da93b5902462277b2a01a39de6605d251cf292",
+  "sourceCommit": "68dbe348881c5ebe017fa1159eb21348661dfbe4",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -394,13 +394,18 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "4d293fa015f0d3d6688a259f5a6a7d30261834da0d3813e28445df66940e90e7",
-      "bytes": 190508
+      "sha256": "2924de1a3cfe870d58762ae7f24272526881fd8fe9f72f467fab06159d76ed99",
+      "bytes": 190559
     },
     {
       "path": "development/personal-extensions.md",
       "sha256": "2c976de5879270a1e39a92bca23a060f67d00f6898d90a5ecc0ec0e0c27b07c7",
       "bytes": 18427
+    },
+    {
+      "path": "development/ruleset-creators-guide.md",
+      "sha256": "bf0269f05678c785d1c89eb90ac8216614642e6e3cd89a03d316455597b0a190",
+      "bytes": 41594
     },
     {
       "path": "extending/custom-tools.md",
@@ -444,8 +449,8 @@
     },
     {
       "path": "extending/ruleset-layers-and-translations.md",
-      "sha256": "b138fe002f01f4cde812cf53638162cd4477426971174a3838d79ea80019a4c4",
-      "bytes": 16694
+      "sha256": "fe9cbcebe5fb887086681efb206924e638bda57f3ec6a2185e48e8a5ac151487",
+      "bytes": 16721
     },
     {
       "path": "extending/ruleset-mechanics.md",

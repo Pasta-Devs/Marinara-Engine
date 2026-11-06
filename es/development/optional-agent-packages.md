@@ -851,6 +851,8 @@ como `seasons` (ID de lugar a estación, `*` para el mundo entero) desde
 `GET /api/game/:chatId/overworld`; un campo de batalla creado lleva las estaciones iniciales de sus
 casillas como `seasons`, con claves `"x,y"`.
 
+<a id="capability-api-1355-ruleset-overlays"></a>
+
 #### Capability API 1.355: superposiciones de conjuntos de reglas
 
 El paquete de mapa de una Experience puede añadir contenido a los conjuntos de reglas de sus partidas

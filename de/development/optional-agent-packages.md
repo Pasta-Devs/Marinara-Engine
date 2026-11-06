@@ -823,6 +823,8 @@ POST /api/game/experience/check
 
 Die Story einer Welt kann Orte unabhängig vom Datum in einer Jahreszeit festhalten (`seasons` und die Aktion `season`: siehe [Story-Skripte schreiben](../extending/writing-story-scripts.md#seasons)), und die Schlachtfelder einer Welt können mit Jahreszeiten bemalt werden (`seasons`-Zeilen und `seasonKeys`). Ein Kartenpaket mit einem von beiden braucht 1.351. Die Oberwelt liest festgehaltene Orte als `seasons` (Orts-ID zu Jahreszeit, `*` für die ganze Welt) aus `GET /api/game/:chatId/overworld`; ein erstelltes Schlachtfeld führt die Anfangsjahreszeiten seiner Tiles als `seasons`, mit Schlüsseln im Format `"x,y"`.
 
+<a id="capability-api-1355-ruleset-overlays"></a>
+
 #### Capability API 1.355: Regelsatz-Overlays
 
 Das Kartenpaket einer Experience darf die Regelsätze ihrer Spiele ergänzen, solange die Experience eingeschaltet ist: mit eigenen Kreaturen, Zuständen und Gegenständen, die nicht zum Lieferumfang des Regelsatz-Pakets gehören.

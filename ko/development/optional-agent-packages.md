@@ -813,6 +813,8 @@ POST /api/game/experience/check
 
 월드의 스토리는 날짜와 무관하게 장소를 특정 계절로 고정할 수 있으며(`seasons`와 `season` 동작: [스토리 스크립트 작성하기](../extending/writing-story-scripts.md#seasons) 참고), 월드의 전장에도 계절을 칠할 수 있습니다(`seasons` 행과 `seasonKeys`). 어느 쪽이든 지도 팩에 있으면 1.351이 필요합니다. 오버월드는 `GET /api/game/:chatId/overworld`에서 고정된 장소를 `seasons`로 읽습니다(장소 ID에서 계절로의 매핑이며 월드 전체는 `*`). 만들어진 전장은 타일의 시작 계절을 `"x,y"`를 키로 하는 `seasons`에 담습니다.
 
+<a id="capability-api-1355-ruleset-overlays"></a>
+
 #### Capability API 1.355: 규칙 집합 오버레이
 
 Experience의 지도 팩은 Experience가 켜져 있는 동안 게임이 사용하는 규칙 집합에 자체 생물, 상태, 아이템을 추가할 수 있습니다. 이는 규칙 집합 패키지가 배포할 내용이 아닙니다.

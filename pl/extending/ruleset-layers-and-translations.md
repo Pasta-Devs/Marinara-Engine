@@ -55,6 +55,8 @@ Warstwa to nazwany wariant zestawu zasad, włączany przez gracza przy tworzeniu
 
 **Warstwy pisane przez inne osoby** (warstwa małej ilości magii dla cudzego zestawu zasad, dostarczana w osobnym pliku) są późniejszym rozszerzeniem. Obecnie warstwa jest dostarczana wewnątrz zestawu, do którego należy.
 
+<a id="translations"></a>
+
 ## Tłumaczenia
 
 **Tłumaczenia** (Capability API 1.811). Teksty zestawu zasad wyświetlane w innym języku tworzą jedno tłumaczenie na język, nazwane kodem tego języka tak jak własne pakiety językowe Engine (`ru`, `pt-BR`, `zh-Hans`). W oficjalnym katalogu agentów każde jest pakietem językowym obok pliku zestawu zasad (poniżej). Udostępniany plik pakietu zestawu zasad może zamiast tego zawierać je wewnątrz, po jednym pliku na język obok `ruleset.json`: `locales/<language>.json`, wymienionym w manifeście tak jak pozostałe pliki. W obu przypadkach każde tłumaczenie to katalog lokalizacji pakietu z sekcją `ruleset`: każdy klucz jest tekstem wyświetlanym przez zestaw zasad lub jego katalogi, zapisanym słowo w słowo po angielsku, a jego wartość to ten tekst w języku pliku.

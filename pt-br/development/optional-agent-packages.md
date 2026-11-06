@@ -820,6 +820,8 @@ POST /api/game/experience/check
 
 A história de um mundo pode manter lugares numa estação independentemente da data (`seasons` e a ação `season`: veja [escrever roteiros de história](../extending/writing-story-scripts.md#seasons)), e os campos de batalha de um mundo podem ser pintados com estações (linhas `seasons` e `seasonKeys`). Um pacote de mapas com qualquer um desses recursos exige 1.351. O overworld lê os lugares mantidos como `seasons` (ID de lugar para estação, `*` para o mundo inteiro) de `GET /api/game/:chatId/overworld`; um campo de batalha criado traz as estações iniciais dos seus tiles como `seasons`, indexadas por `"x,y"`.
 
+<a id="capability-api-1355-ruleset-overlays"></a>
+
 #### Capability API 1.355: sobreposições de conjuntos de regras
 
 O pacote de mapas de uma Experience pode acrescentar conteúdo aos conjuntos de regras usados pelas suas partidas enquanto a Experience está ligada: criaturas, condições e itens próprios, que não cabe ao pacote do conjunto de regras distribuir.

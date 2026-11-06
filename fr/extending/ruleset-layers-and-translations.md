@@ -55,6 +55,8 @@ Une couche est une variante nommée de ton ensemble de règles, activée par le 
 
 **Les couches écrites par quelqu'un d'autre** (une couche de magie rare pour un ensemble de règles que tu n'as pas écrit, livrée dans son propre fichier) viendront plus tard. Aujourd'hui, une couche est livrée à l'intérieur de l'ensemble de règles auquel elle appartient.
 
+<a id="translations"></a>
+
 ## Traductions
 
 **Traductions** (Capability API 1.811). Les chaînes affichées d'un ensemble de règles dans une autre langue sont regroupées en une traduction par langue, nommée d'après le code de la langue comme les propres packs de langue du moteur (`ru`, `pt-BR`, `zh-Hans`). Dans le catalogue officiel d'agents, chacune est un pack de langue à côté du fichier de l'ensemble de règles (ci-dessous). Un fichier de package d'ensemble de règles que tu partages peut les contenir à la place, avec un fichier par langue à côté de `ruleset.json` : `locales/<language>.json`, listé dans le manifeste comme les autres fichiers. Dans les deux cas, chacun est un catalogue de localisation de package avec une section `ruleset` : chaque clé est une chaîne affichée de l'ensemble de règles ou de ses catalogues, mot pour mot en anglais, et sa valeur est cette chaîne dans la langue du fichier.

@@ -872,6 +872,8 @@ lieux maintenus dans `seasons` (identifiant de lieu vers saison, `*` pour le mon
 `GET /api/game/:chatId/overworld` ; un champ de bataille créé porte les saisons initiales de ses
 tuiles dans `seasons`, avec les clés `"x,y"`.
 
+<a id="capability-api-1355-ruleset-overlays"></a>
+
 #### Capability API 1.355 : surcouches d'ensembles de règles
 
 Le pack de carte d'une Experience peut enrichir les ensembles de règles utilisés par ses parties,
