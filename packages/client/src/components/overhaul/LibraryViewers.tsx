@@ -327,7 +327,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       search={search}
       onSearch={setSearch}
       searchPlaceholder={localize("Search accounts and models")}
-      newLabel={localize("Add account")}
+      newLabel={localize("Add connection")}
       newAnchor="ov-add-account-viewer"
       onNew={() => openModal("create-connection", { anchor: "ov-add-account-viewer" })}
       groups={groups}

@@ -9302,3 +9302,22 @@ input.ov-edhead__title:focus {
   width: max-content;
   min-width: 9.5rem;
 }
+.ov-add-list__tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+/* Landing pages scroll as a whole: tables never shrink to the viewport (that clipped their last rows). */
+.ov-org > *,
+.ov-conn > * {
+  flex-shrink: 0;
+}
+/* Show the whole store banner (art is 8:3) instead of a cropped strip. */
+.ov-agentpage__banner {
+  height: auto;
+  aspect-ratio: 8 / 3;
+}
+.ov-org-card__art {
+  aspect-ratio: 8 / 3;
+}

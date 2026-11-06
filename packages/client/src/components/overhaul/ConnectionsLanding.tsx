@@ -316,11 +316,11 @@ export function ConnectionsLanding() {
           className="ov-btn ov-btn--primary"
           data-ov-add-account
           data-ov-anchor="ov-add-account"
-          aria-label={ovMobile ? t("connections.accounts.header.add") : undefined}
+          aria-label={ovMobile ? localize("Add connection") : undefined}
           onClick={() => openModal("create-connection", { anchor: "ov-add-account" })}
         >
           <Plus size={14} aria-hidden="true" />
-          {ovMobile ? localize("New") : t("connections.accounts.header.add")}
+          {ovMobile ? localize("New") : localize("Add connection")}
         </button>
         {ovMobile && kindSelect}
       </header>
