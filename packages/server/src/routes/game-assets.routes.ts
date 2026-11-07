@@ -20,7 +20,7 @@ import {
   rmSync,
   unlinkSync,
 } from "fs";
-import { realpath } from "fs/promises";
+import { open, realpath, stat } from "fs/promises";
 import { join, extname, basename, dirname, relative, resolve, sep } from "path";
 import { execFile } from "child_process";
 import { platform } from "os";
@@ -618,8 +618,28 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Music file not found" });
     }
 
+    // Bind the check to the file actually opened: a link swapped in after the check would make the open follow it,
+    // so the opened file must still be the one at a path inside the folders (same device and inode) (#8915).
+    let handle: Awaited<ReturnType<typeof open>>;
+    try {
+      handle = await open(canonicalPath, "r");
+    } catch {
+      return reply.status(404).send({ error: "Music file not found" });
+    }
+    try {
+      const [opened, recheck] = await Promise.all([handle.stat(), musicDjFolderFile(app.db, canonicalPath)]);
+      const current = recheck ? await stat(recheck) : null;
+      if (!opened.isFile() || !current || current.dev !== opened.dev || current.ino !== opened.ino) {
+        await handle.close();
+        return reply.status(404).send({ error: "Music file not found" });
+      }
+    } catch {
+      await handle.close().catch(() => undefined);
+      return reply.status(404).send({ error: "Music file not found" });
+    }
+
     const mime = MIME_MAP[realExt] ?? "application/octet-stream";
-    const stream = createReadStream(canonicalPath);
+    const stream = handle.createReadStream();
     return reply.header("Content-Type", mime).header("Cache-Control", "private, max-age=60").send(stream);
   });
 
