@@ -762,8 +762,14 @@ interface UIState {
   /** Not saved: an Advanced Memory scene to open, or a Fix to start, once its Chat Settings section shows. */
   advancedMemoryRequest: { chatId: string; sceneId?: string; fix?: boolean } | null;
   theme: "dark" | "light";
+  /** Background for Dark mode (and, from before the split, for both schemes). */
   appBackgroundColor: string;
+  /** Accent for Dark mode, and Light mode's too while appAccentColorLight is empty. */
   appAccentColor: string;
+  /** Light mode's own background ("" = the Light scheme default). */
+  appBackgroundColorLight: string;
+  /** Light mode's own accent ("" = use appAccentColor). */
+  appAccentColorLight: string;
   appAccentPulseMode: boolean;
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
@@ -1351,6 +1357,8 @@ interface UIState {
   setTheme: (theme: "dark" | "light") => void;
   setAppBackgroundColor: (color: string) => void;
   setAppAccentColor: (color: string) => void;
+  setAppBackgroundColorLight: (color: string) => void;
+  setAppAccentColorLight: (color: string) => void;
   setAppAccentPulseMode: (enabled: boolean) => void;
   setAppAccentRgbMode: (enabled: boolean) => void;
   setCustomCursorEnabled: (enabled: boolean) => void;
@@ -1725,6 +1733,8 @@ export function pickSyncedSettings(state: UIState) {
     theme: state.theme,
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
+    appBackgroundColorLight: state.appBackgroundColorLight,
+    appAccentColorLight: state.appAccentColorLight,
     reduceAmbientEffects: state.reduceAmbientEffects,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
@@ -1975,6 +1985,8 @@ export function pickPersistedUIState(state: UIState) {
     theme: state.theme,
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
+    appBackgroundColorLight: state.appBackgroundColorLight,
+    appAccentColorLight: state.appAccentColorLight,
     appAccentPulseMode: state.appAccentPulseMode,
     appAccentRgbMode: state.appAccentRgbMode,
     customCursorEnabled: state.customCursorEnabled,
@@ -2251,6 +2263,8 @@ export const useUIStore = create<UIState>()(
         theme: "dark" as const,
         appBackgroundColor: "",
         appAccentColor: "",
+        appBackgroundColorLight: "",
+        appAccentColorLight: "",
         appAccentPulseMode: getDefaultAppAccentPulseMode(),
         appAccentRgbMode: false,
         customCursorEnabled: true,
@@ -2674,6 +2688,8 @@ export const useUIStore = create<UIState>()(
         setTheme: (theme) => set({ theme }),
         setAppBackgroundColor: (color) => set({ appBackgroundColor: normalizeAppBackgroundColor(color) }),
         setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
+        setAppBackgroundColorLight: (color) => set({ appBackgroundColorLight: normalizeAppBackgroundColor(color) }),
+        setAppAccentColorLight: (color) => set({ appAccentColorLight: normalizeAppAccentColor(color) }),
         setAppAccentPulseMode: (enabled) => set({ appAccentPulseMode: enabled }),
         setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
         setCustomCursorEnabled: (enabled) => set({ customCursorEnabled: enabled }),
@@ -3500,6 +3516,8 @@ export const useUIStore = create<UIState>()(
             theme: "dark" as const,
             appBackgroundColor: "",
             appAccentColor: "",
+            appBackgroundColorLight: "",
+            appAccentColorLight: "",
             appAccentPulseMode: getDefaultAppAccentPulseMode(),
             appAccentRgbMode: false,
             customCursorEnabled: true,
@@ -4363,6 +4381,17 @@ export const useUIStore = create<UIState>()(
         delete persisted.trackerPanelWidth;
         // v103 -> v104: the three feature Model picks moved to the server; stage them for useMigrateFeatureModels.
         if (version <= 103) stageLegacyFeatureModels(persisted, version);
+        if (version <= 104) {
+          // Background and accent got a value per scheme (theming panel batch 2). Someone who set a
+          // background while in Light mode set it for Light mode.
+          persisted.appBackgroundColorLight =
+            persisted.theme === "light" && typeof persisted.appBackgroundColor === "string"
+              ? persisted.appBackgroundColor
+              : "";
+          persisted.appAccentColorLight = "";
+        }
+        persisted.appBackgroundColorLight = normalizeAppBackgroundColor(persisted.appBackgroundColorLight);
+        persisted.appAccentColorLight = normalizeAppAccentColor(persisted.appAccentColorLight);
         return persisted;
       },
       merge: (persistedState: unknown, currentState) => {

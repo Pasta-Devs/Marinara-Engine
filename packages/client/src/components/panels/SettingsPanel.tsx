@@ -59,7 +59,8 @@ import {
 } from "../../lib/api-client";
 import { ANDROID_BRIDGE_READY_EVENT, getAndroidBridgeToken } from "../../lib/android-bridge";
 import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
-import { extractImportantThemeCss, normalizeThemeCss, sanitizeAppCss } from "../../lib/theme-css";
+import { extractImportantThemeCss, normalizeThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
+import { cssContrast, fixContrast } from "../../lib/color-contrast";
 import { checkProtectedChrome } from "../../lib/theme-guard";
 import { useThemeSafetyStore, type ThemeGuardProblem } from "../../lib/theme-safety";
 import { takeThemeEditRequest, useThemeEditRequest } from "../../lib/theme-edit-request";
@@ -3642,6 +3643,74 @@ function ChatWidgetStylePreview({
   );
 }
 
+/**
+ * Under the Background and Accent pickers: a live contrast check with "Fix for me", and a note when
+ * the active custom theme sets the same colour (the theme wins over the picker).
+ */
+function ThemeColorNotes({
+  kind,
+  value,
+  background,
+  themeCss,
+  themeName,
+  onFix,
+}: {
+  kind: "background" | "accent";
+  value: string;
+  background: string;
+  themeCss: string | null;
+  themeName: string | null;
+  onFix: (color: string) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const theme = useUIStore((s) => s.theme);
+  const themeOverrides =
+    !!themeCss &&
+    (kind === "background"
+      ? themeSetsVariable(themeCss, "--background")
+      : themeSetsVariable(themeCss, "--primary") || themeSetsVariable(themeCss, "--marinara-app-accent-solid"));
+  // Text colour of the scheme on screen; the background check compares against it.
+  const [foreground, setForeground] = useState("");
+  useEffect(() => {
+    const frame = requestAnimationFrame(() =>
+      setForeground(getComputedStyle(document.documentElement).getPropertyValue("--foreground").trim()),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [theme, themeCss, value]);
+  const target = kind === "background" ? 4.5 : 3;
+  const ratio = kind === "background" ? (foreground ? cssContrast(foreground, value) : null) : cssContrast(value, background);
+  const low = ratio !== null && ratio < target;
+  const fix = () => {
+    // A background is fixed past the minimum, to comfortable reading (7:1); an accent to the minimum.
+    const fixed =
+      kind === "background" ? fixContrast(value, foreground, 7) : fixContrast(value, background, target);
+    if (fixed) onFix(fixed);
+  };
+  if (!low && !themeOverrides) return null;
+  return (
+    <div className="mt-1 flex flex-col gap-1 text-[0.625rem]">
+      {low ? (
+        <p role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[var(--destructive)]">
+          <span>
+            {localizeUi(kind === "background" ? "theming.pickers.lowContrastBackground" : "theming.pickers.lowContrastAccent", {
+              ratio: ratio!.toFixed(1),
+              target: target.toFixed(1).replace(/\.0$/, ""),
+            })}
+          </span>
+          <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={fix}>
+            {localizeUi("theming.pickers.fixForMe")}
+          </button>
+        </p>
+      ) : null}
+      {themeOverrides ? (
+        <p className="text-[var(--muted-foreground)]">
+          {localizeUi("theming.pickers.themeOverrides", { name: themeName ?? "" })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const { t: localizeUi } = useUiTranslation();
   const theme = useUIStore((s) => s.theme);
@@ -3650,10 +3719,18 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
   const rightPanelWidth = useUIStore((state) => state.rightPanelWidth);
   const setRightPanelWidth = useUIStore((state) => state.setRightPanelWidth);
-  const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
-  const setAppBackgroundColor = useUIStore((s) => s.setAppBackgroundColor);
-  const appAccentColor = useUIStore((s) => s.appAccentColor);
-  const setAppAccentColor = useUIStore((s) => s.setAppAccentColor);
+  // Background and accent pickers edit the scheme on screen; each scheme keeps its own (batch 2).
+  const appBackgroundColor = useUIStore((s) => (s.theme === "light" ? s.appBackgroundColorLight : s.appBackgroundColor));
+  const setAppBackgroundColor = useUIStore((s) =>
+    s.theme === "light" ? s.setAppBackgroundColorLight : s.setAppBackgroundColor,
+  );
+  const darkAccentColor = useUIStore((s) => s.appAccentColor);
+  const appAccentColor = useUIStore((s) =>
+    s.theme === "light" && s.appAccentColorLight.trim() ? s.appAccentColorLight : s.appAccentColor,
+  );
+  const setAppAccentColor = useUIStore((s) => (s.theme === "light" ? s.setAppAccentColorLight : s.setAppAccentColor));
+  const { data: appearanceThemes = [] } = useThemes();
+  const appearanceCustomTheme = appearanceThemes.find((item) => item.isActive) ?? null;
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
   const setAppAccentPulseMode = useUIStore((s) => s.setAppAccentPulseMode);
   const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
@@ -4132,13 +4209,23 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   onChange={handleAppBackgroundColorChange}
                   gradient
                   compact
-                  label={localizeUi("settings.controls.backgroundColor.label")}
+                  label={`${localizeUi("settings.controls.backgroundColor.label")} (${localizeUi(
+                    theme === "light" ? "ui.panels.appearancesettings.light" : "ui.panels.appearancesettings.dark",
+                  )})`}
                   helpText="Colors the main app shell background. Leave it on the scheme default to follow Dark and Light mode automatically. Gradients are supported for the shell paint."
                   emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
                     value1: defaultAppBackgroundColor,
                   })}
                   emptyPreviewValue={defaultAppBackgroundColor}
                   clearLabel="Reset to default"
+                />
+                <ThemeColorNotes
+                  kind="background"
+                  value={displayedAppBackgroundColor || defaultAppBackgroundColor}
+                  background={displayedAppBackgroundColor || defaultAppBackgroundColor}
+                  themeCss={appearanceCustomTheme?.css ?? null}
+                  themeName={appearanceCustomTheme?.name ?? null}
+                  onFix={handleAppBackgroundColorChange}
                 />
               </SearchableSettingTarget>
 
@@ -4148,13 +4235,28 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   onChange={handleAppAccentColorChange}
                   gradient
                   compact
-                  label={localizeUi("settings.controls.accentColor.label")}
+                  label={`${localizeUi("settings.controls.accentColor.label")} (${localizeUi(
+                    theme === "light" ? "ui.panels.appearancesettings.light" : "ui.panels.appearancesettings.dark",
+                  )})`}
                   helpText={localizeUi("settings.controls.accentColor.help")}
                   emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
                     value1: localizeUi("ui.ui.colorpicker.marinaraGradient"),
                   })}
                   emptyPreviewValue={defaultAppAccentColor}
                   clearLabel="Reset to default"
+                />
+                {theme === "light" && !useUIStore.getState().appAccentColorLight.trim() && darkAccentColor.trim() ? (
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("theming.pickers.accentFollowsDark")}
+                  </p>
+                ) : null}
+                <ThemeColorNotes
+                  kind="accent"
+                  value={displayedAppAccentColor || defaultAppAccentColor}
+                  background={displayedAppBackgroundColor || defaultAppBackgroundColor}
+                  themeCss={appearanceCustomTheme?.css ?? null}
+                  themeName={appearanceCustomTheme?.name ?? null}
+                  onFix={handleAppAccentColorChange}
                 />
               </SearchableSettingTarget>
 

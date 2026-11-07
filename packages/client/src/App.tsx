@@ -23,6 +23,7 @@ import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
 import { ThemeSafetyHost } from "./components/layout/ThemeSafetyHost";
 import { useThemeSafetyStore } from "./lib/theme-safety";
+import { removeRootVar, setRootVar } from "./lib/root-vars";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { WhatsNewModal } from "./components/modals/WhatsNewModal";
@@ -148,7 +149,8 @@ function formatRecoveryError(error: unknown) {
 }
 
 function getRecoveryChromeStyle(): CSSProperties {
-  const { appAccentColor, chatChromeTextColor, theme } = useUIStore.getState();
+  const { appAccentColor: darkAccent, appAccentColorLight, chatChromeTextColor, theme } = useUIStore.getState();
+  const appAccentColor = theme === "light" && appAccentColorLight.trim() ? appAccentColorLight : darkAccent;
   const defaultAccent = getDefaultAppAccentColor();
   const accentSource = appAccentColor.trim() || defaultAccent;
   const accent = getCssColorFallback(accentSource, getCssColorFallback(defaultAccent, "currentColor"));
@@ -168,6 +170,18 @@ function getRecoveryChromeStyle(): CSSProperties {
     "--marinara-chat-chrome-text": chromeText,
   } as CSSProperties;
 }
+
+/** Surfaces that follow a custom background: [variable, share of the text colour mixed in, %]. */
+const DERIVED_SURFACES: readonly [string, number][] = [
+  ["--card", 6],
+  ["--popover", 8],
+  ["--secondary", 11],
+  ["--muted", 11],
+  ["--input", 14],
+  ["--sidebar", 3],
+  ["--border", 16],
+  ["--sidebar-border", 16],
+];
 
 export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { error: unknown; hasError: boolean }> {
   state: { error: unknown; hasError: boolean } = { error: null, hasError: false };
@@ -376,13 +390,13 @@ function getAccentCursorValue(fill: string, stroke: string) {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 3`;
 }
 
-function setAccentCursorVariable(root: HTMLElement, accent: string, theme: "dark" | "light") {
+function setAccentCursorVariable(_root: HTMLElement, accent: string, theme: "dark" | "light") {
   const { fill, stroke } = getAccentCursorColors(accent, theme);
   const nextCursor = getAccentCursorValue(fill, stroke);
 
-  root.style.setProperty("--marinara-custom-cursor-fill", fill);
-  root.style.setProperty("--marinara-custom-cursor-stroke", stroke);
-  root.style.setProperty("--cursor-pink", nextCursor);
+  setRootVar("--marinara-custom-cursor-fill", fill);
+  setRootVar("--marinara-custom-cursor-stroke", stroke);
+  setRootVar("--cursor-pink", nextCursor);
 }
 
 function getSolidAccentGradient(accent: string) {
@@ -452,16 +466,16 @@ function applyAppAccentVariables({
   theme: "dark" | "light";
   updateCursor?: boolean;
 }) {
-  root.style.setProperty("--primary", accent);
-  root.style.setProperty("--ring", accent);
-  root.style.setProperty("--accent", getAccentSurface(surfaceAccent, theme));
-  root.style.setProperty("--sidebar-accent", `color-mix(in srgb, ${surfaceAccent} 12%, transparent)`);
-  root.style.setProperty("--sidebar-accent-foreground", accent);
-  root.style.setProperty("--glow-primary", getAccentGlow(surfaceAccent, theme));
-  root.style.setProperty("--marinara-app-accent-solid", accent);
-  root.style.setProperty("--marinara-app-accent-gradient", gradient);
-  root.style.setProperty("--marinara-chat-chrome-accent", accent);
-  root.style.setProperty("--marinara-chat-chrome-accent-gradient", gradient);
+  setRootVar("--primary", accent);
+  setRootVar("--ring", accent);
+  setRootVar("--accent", getAccentSurface(surfaceAccent, theme));
+  setRootVar("--sidebar-accent", `color-mix(in srgb, ${surfaceAccent} 12%, transparent)`);
+  setRootVar("--sidebar-accent-foreground", accent);
+  setRootVar("--glow-primary", getAccentGlow(surfaceAccent, theme));
+  setRootVar("--marinara-app-accent-solid", accent);
+  setRootVar("--marinara-app-accent-gradient", gradient);
+  setRootVar("--marinara-chat-chrome-accent", accent);
+  setRootVar("--marinara-chat-chrome-accent-gradient", gradient);
   if (updateCursor) setAccentCursorVariable(root, accent, theme);
 }
 
@@ -487,8 +501,8 @@ function getGradientRgbAccent(stops: string[]) {
   return `color-mix(in srgb, ${stops[fromIndex]} ${fromPercent}%, ${stops[toIndex]} ${toPercent}%)`;
 }
 
-function clearCustomAppAccentVariables(root: HTMLElement) {
-  APP_ACCENT_CUSTOM_VARIABLES.forEach((variable) => root.style.removeProperty(variable));
+function clearCustomAppAccentVariables(_root: HTMLElement) {
+  APP_ACCENT_CUSTOM_VARIABLES.forEach((variable) => removeRootVar(variable));
 }
 
 function canRunAccentAnimation(reducedMotionQuery: MediaQueryList, forcePaused = false) {
@@ -538,8 +552,14 @@ export function App() {
   const chatWidgetApplyShape = useUIStore((s) => s.chatWidgetApplyShape);
   const chatWidgetApplyColors = useUIStore((s) => s.chatWidgetApplyColors);
   const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
-  const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
-  const appAccentColor = useUIStore((s) => s.appAccentColor);
+  // Each scheme has its own background and accent (theming panel batch 2): Light mode's background
+  // never falls back to Dark's, and its accent follows Dark's until it gets its own.
+  const appBackgroundColor = useUIStore((s) =>
+    s.theme === "light" ? s.appBackgroundColorLight : s.appBackgroundColor,
+  );
+  const appAccentColor = useUIStore((s) =>
+    s.theme === "light" && s.appAccentColorLight.trim() ? s.appAccentColorLight : s.appAccentColor,
+  );
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
   const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
   const customCursorEnabled = useUIStore((s) => s.customCursorEnabled);
@@ -726,11 +746,17 @@ export function App() {
     const resolvedBackground = getCssColorFallback(background, defaultBackground);
 
     if (background) {
-      root.style.setProperty("--background", resolvedBackground);
-      root.style.setProperty("--marinara-app-background-paint", background);
+      setRootVar("--background", resolvedBackground);
+      setRootVar("--marinara-app-background-paint", background);
+      // Panels, inputs and cards take their shade from the chosen background, a step towards the text
+      // colour each, instead of keeping the scheme's own surfaces (theming panel batch 2).
+      for (const [variable, share] of DERIVED_SURFACES) {
+        setRootVar(variable, `color-mix(in srgb, ${resolvedBackground} ${100 - share}%, var(--foreground) ${share}%)`);
+      }
     } else {
-      root.style.removeProperty("--background");
-      root.style.removeProperty("--marinara-app-background-paint");
+      removeRootVar("--background");
+      removeRootVar("--marinara-app-background-paint");
+      for (const [variable] of DERIVED_SURFACES) removeRootVar(variable);
     }
 
     const syncLiteralBackground = () => {
@@ -759,7 +785,7 @@ export function App() {
           context.fillRect(0, 0, 1, 1);
           const [red, green, blue] = context.getImageData(0, 0, 1, 1).data;
           const shellSurface = `rgb(${red}, ${green}, ${blue})`;
-          root.style.setProperty("--marinara-shell-surface", shellSurface);
+          setRootVar("--marinara-shell-surface", shellSurface);
           context.putImageData(backgroundPixels, 0, 0);
           context.fillStyle = computedStyle.getPropertyValue("--marinara-topbar-surface").trim();
           context.fillRect(0, 0, 1, 1);
@@ -769,7 +795,7 @@ export function App() {
           console.warn("[theme] Could not read the canvas to flatten the page backing", error);
         }
       }
-      root.style.setProperty("--marinara-page-backing", literalBackground);
+      setRootVar("--marinara-page-backing", literalBackground);
       root.style.setProperty("background-color", literalBackground, "important");
       document.body.style.setProperty("background-color", literalBackground, "important");
       document.querySelector('meta[name="theme-color"]')?.setAttribute("content", literalBackground);
@@ -834,8 +860,8 @@ export function App() {
       (appAccentRgbMode || (appAccentPulseMode && !stageDefaultAccent) || themeAccentPulseConfig.enabled);
     const usesTimerDrivenAccentAnimation = accentAnimationEnabled;
 
-    root.style.setProperty("--marinara-app-accent-static", solidAccent);
-    root.style.setProperty(
+    setRootVar("--marinara-app-accent-static", solidAccent);
+    setRootVar(
       "--marinara-app-accent-static-gradient",
       accentIsGradient ? accentSource : getSolidAccentGradient(solidAccent),
     );
@@ -933,12 +959,12 @@ export function App() {
         // Pulse only the foreground-facing accent tokens. Recomputing surface,
         // sidebar, and glow tokens on every tick forces Firefox to restyle most
         // of the app and can briefly starve an otherwise independent canvas.
-        root.style.setProperty("--primary", liveAccent);
-        root.style.setProperty("--ring", liveAccent);
-        root.style.setProperty("--marinara-app-accent-solid", liveAccent);
-        root.style.setProperty("--marinara-app-accent-gradient", liveGradient);
-        root.style.setProperty("--marinara-chat-chrome-accent", liveAccent);
-        root.style.setProperty("--marinara-chat-chrome-accent-gradient", liveGradient);
+        setRootVar("--primary", liveAccent);
+        setRootVar("--ring", liveAccent);
+        setRootVar("--marinara-app-accent-solid", liveAccent);
+        setRootVar("--marinara-app-accent-gradient", liveGradient);
+        setRootVar("--marinara-chat-chrome-accent", liveAccent);
+        setRootVar("--marinara-chat-chrome-accent-gradient", liveGradient);
       }
       setAccentModeDataset();
     };
@@ -1062,15 +1088,14 @@ export function App() {
   ]);
 
   useEffect(() => {
-    const root = document.documentElement;
     const textColor = chatChromeTextColor.trim();
     const variables = ["--marinara-chat-chrome-text"];
 
     if (textColor) {
       const resolvedColor = getCssColorFallback(textColor, getDefaultChatChromeTextColor(theme));
-      variables.forEach((variable) => root.style.setProperty(variable, resolvedColor));
+      variables.forEach((variable) => setRootVar(variable, resolvedColor));
     } else {
-      variables.forEach((variable) => root.style.removeProperty(variable));
+      variables.forEach((variable) => removeRootVar(variable));
     }
   }, [chatChromeTextColor, theme]);
 
@@ -1093,7 +1118,7 @@ export function App() {
     document.documentElement.style.fontSize = `${fontSize}px`;
     // Pixel-sized parts of the new layout (icons, the top bar's buttons) scale by this, so they grow
     // with the text instead of staying put (theming panel H4). 1 at the default size.
-    document.documentElement.style.setProperty("--ov-ui-scale", String(Math.round((fontSize / 17) * 1000) / 1000));
+    setRootVar("--ov-ui-scale", String(Math.round((fontSize / 17) * 1000) / 1000));
   }, [fontSize]);
 
   useEffect(() => {
@@ -1167,14 +1192,13 @@ export function App() {
   // Apply custom font family via CSS variable
   useEffect(() => {
     const family = fontFamily ? stripFontFamilyQuotes(fontFamily) : "";
-    const rootStyle = document.documentElement.style;
     if (family) {
-      rootStyle.setProperty("--font-user", toCssFontFamilyValue(family));
+      setRootVar("--font-user", toCssFontFamilyValue(family));
       // Prompt fields (mari-prompt-font) stay monospace until a font is picked, then use the full app stack.
-      rootStyle.setProperty("--font-prompt", "var(--font-y2k)");
+      setRootVar("--font-prompt", "var(--font-y2k)");
     } else {
-      rootStyle.removeProperty("--font-user");
-      rootStyle.removeProperty("--font-prompt");
+      removeRootVar("--font-user");
+      removeRootVar("--font-prompt");
     }
   }, [fontFamily]);
 
@@ -1193,24 +1217,24 @@ export function App() {
     if (shape) root.dataset.chatWidgetShape = shape;
     else delete root.dataset.chatWidgetShape;
     const font = getChatWidgetFontFamily(chatWidgetFont);
-    if (font) root.style.setProperty("--mari-widget-font-override", font);
-    else root.style.removeProperty("--mari-widget-font-override");
+    if (font) setRootVar("--mari-widget-font-override", font);
+    else removeRootVar("--mari-widget-font-override");
   }, [chatWidgetPreset, chatWidgetFont, chatWidgetShape]);
 
   useEffect(() => {
     const root = document.documentElement;
     if (chatWidgetButtonSize === null) {
       delete root.dataset.chatWidgetButtonSize;
-      root.style.removeProperty("--mari-window-bubble-size");
+      removeRootVar("--mari-window-bubble-size");
     } else {
       root.dataset.chatWidgetButtonSize = String(chatWidgetButtonSize);
-      root.style.setProperty("--mari-window-bubble-size", `${chatWidgetButtonSize}px`);
+      setRootVar("--mari-window-bubble-size", `${chatWidgetButtonSize}px`);
     }
   }, [chatWidgetButtonSize]);
 
   useEffect(() => {
     // Root-authored gradient variables resolve their alpha here before inheritance.
-    document.documentElement.style.setProperty("--mari-rp-bubble-opacity", String(chatFontOpacity / 100));
+    setRootVar("--mari-rp-bubble-opacity", String(chatFontOpacity / 100));
     const colors = getChatWidgetColorStyle({
       border: chatWidgetBorderColor,
       background: chatWidgetBackgroundColor,
@@ -1221,8 +1245,8 @@ export function App() {
     else delete document.documentElement.dataset.chatWidgetColors;
     for (const property of CHAT_WIDGET_COLOR_PROPERTIES) {
       const value = colors[property];
-      if (value) document.documentElement.style.setProperty(property, value);
-      else document.documentElement.style.removeProperty(property);
+      if (value) setRootVar(property, value);
+      else removeRootVar(property);
     }
   }, [chatWidgetBorderColor, chatWidgetBackgroundColor, chatWidgetTextColor, chatFontOpacity]);
 

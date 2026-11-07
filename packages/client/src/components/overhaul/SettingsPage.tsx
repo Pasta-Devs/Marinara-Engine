@@ -8,6 +8,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { APP_VERSION, SETTINGS_SECTIONS, type SettingsSectionId } from "@marinara-engine/shared";
+import { useThemes } from "../../hooks/use-themes";
 import { useShallow } from "zustand/react/shallow";
 import { useUIStore } from "../../stores/ui.store";
 import { useMatchMedia } from "../../hooks/use-match-media";
@@ -208,8 +209,6 @@ function useSectionValues(): Partial<Record<SettingsSectionId, string>> {
       weatherEffects: state.weatherEffects,
       chatBackground: state.chatBackground,
       chatWidgetPreset: state.chatWidgetPreset,
-      activeCustomTheme: state.activeCustomTheme,
-      customThemes: state.customThemes,
       trackerPanelEnabled: state.trackerPanelEnabled,
       roleplayAvatarStyle: state.roleplayAvatarStyle,
       roleplayDisplayStyle: state.roleplayDisplayStyle,
@@ -218,7 +217,9 @@ function useSectionValues(): Partial<Record<SettingsSectionId, string>> {
     })),
   );
   const localize = useLocalizedUiText();
-  const customTheme = s.customThemes.find((item) => item.id === s.activeCustomTheme);
+  // The synced theme list, not the pre-sync local one (which always said None; theming panel).
+  const { data: syncedThemes = [] } = useThemes();
+  const customTheme = syncedThemes.find((item) => item.isActive);
   return {
     "app-style": `${VISUAL_THEME_LABELS[s.visualTheme] ?? s.visualTheme} · ${localize(s.theme === "light" ? "Light" : "Dark")}`,
     "text-scale": `${s.fontFamily ? s.fontFamily.split(",")[0]!.replace(/["']/g, "").trim() : localize("Default")} · ${s.fontSize} px`,
