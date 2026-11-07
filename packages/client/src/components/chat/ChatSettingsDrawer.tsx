@@ -4913,6 +4913,10 @@ export function ChatSettingsDrawer({
     return {
       connectionId: chat.connectionId ?? null,
       promptPresetId: chat.promptPresetId ?? null,
+      // Preset variable choices belong to the chat's preset, so they are saved with its id.
+      ...(chat.promptPresetId && {
+        presetVariables: { presetId: chat.promptPresetId, choices: metadata.presetChoices ?? {} },
+      }),
       // The window layout as shown, even if its save to the chat is still waiting.
       metadata: { ...metadata, windowLayout: readCurrentWindowLayout() },
     };

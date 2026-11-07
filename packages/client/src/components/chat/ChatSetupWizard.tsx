@@ -3664,6 +3664,8 @@ function RoleplaySetupWizard({
         }}
         presetId={chat.promptPresetId ?? null}
         chatId={chat.id}
+        // Start from the chat's choices, such as the ones the starred profile just gave it.
+        existingChoices={(metadata.presetChoices as Record<string, string | string[]> | undefined) ?? {}}
       />
 
       {showOnboardingWindow && (
