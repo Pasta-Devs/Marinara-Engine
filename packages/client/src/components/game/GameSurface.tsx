@@ -5634,9 +5634,11 @@ function GameSurfaceComponent({
         })
         .then(() => queryClient.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) }))
         .catch((error: unknown) => {
-          // Not applied: let a later pass over this message try again, and tell the player.
-          processedPartyChangeCommandsRef.current.delete(commandKey);
           console.warn("[mrpg_join] not applied:", error);
+          // A refusal (409: they already have their level, no such member, not an MRPG game) is the answer.
+          if (error instanceof ApiError && error.status === 409) return;
+          // A failure: let a later pass over this message try again, and tell the player.
+          processedPartyChangeCommandsRef.current.delete(commandKey);
           toast.error(localizeUi("ui.game.gamesurfacecomponent.mrpgJoinFailed", { name }));
         });
     }
