@@ -67,7 +67,11 @@ export function MarinaraLegacyUpgrade({ chatId }: { chatId: string }) {
   const offered = marinaraLegacyUpgradeOffered(meta);
   // What the upgrade offers: the starting tree a library card picked in its Game Mode section (before a
   // guess from the class), and the MRPG piece for each Legacy weapon and armour (owner 2026-11-06).
-  const { data: preview } = useQuery({
+  const {
+    data: preview,
+    isError: previewFailed,
+    refetch: retryPreview,
+  } = useQuery({
     queryKey: ["game", "marinara", "upgrade-legacy", "preview", chatId],
     queryFn: () =>
       api.get<{ trees: Record<string, MarinaraArchetype>; gear: GearOffer[] }>(
@@ -87,6 +91,8 @@ export function MarinaraLegacyUpgrade({ chatId }: { chatId: string }) {
   const tree = (id: string) => t(`game.combat.marinara.archetype.${id}`);
 
   const upgrade = async () => {
+    // One-way: only once the preview has loaded, so the trees and gear sent are the ones the player saw.
+    if (!preview) return;
     setBusy(true);
     try {
       const result = await api.post<{
@@ -98,9 +104,7 @@ export function MarinaraLegacyUpgrade({ chatId }: { chatId: string }) {
           name: card.name,
           primary: startingTree(card),
         })),
-        ...(preview
-          ? { gear: preview.gear.filter((offer) => !declined[offer.stackId]).map((offer) => offer.stackId) }
-          : {}),
+        gear: preview.gear.filter((offer) => !declined[offer.stackId]).map((offer) => offer.stackId),
       });
       await qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
       toast.success(
@@ -212,6 +216,18 @@ export function MarinaraLegacyUpgrade({ chatId }: { chatId: string }) {
             );
           })}
           <p className="leading-relaxed text-white/50">{t("game.combat.marinara.legacy.kept")}</p>
+          {previewFailed && (
+            <p className="leading-relaxed text-red-300/80">
+              {t("game.combat.marinara.legacy.previewFailed")}{" "}
+              <button
+                type="button"
+                onClick={() => void retryPreview()}
+                className="underline underline-offset-2 hover:text-red-200"
+              >
+                {t("game.combat.marinara.legacy.retry")}
+              </button>
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -224,10 +240,14 @@ export function MarinaraLegacyUpgrade({ chatId }: { chatId: string }) {
             <button
               type="button"
               onClick={() => void upgrade()}
-              disabled={busy}
+              disabled={busy || !preview}
               className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-[0.7rem] font-semibold text-[var(--primary-foreground)] disabled:cursor-wait disabled:opacity-50"
             >
-              {busy ? t("game.combat.marinara.legacy.working") : t("game.combat.marinara.legacy.confirm")}
+              {busy
+                ? t("game.combat.marinara.legacy.working")
+                : preview
+                  ? t("game.combat.marinara.legacy.confirm")
+                  : t("game.combat.marinara.legacy.loading")}
             </button>
           </div>
         </div>

@@ -55,12 +55,14 @@ export function MultiplayerPersonaFields({
           const persona = personas.find((item) => item.id === personaId);
           if (!persona) return;
           setPicked(persona.id);
-          const classic = personaClassic((persona as { personaStats?: unknown }).personaStats);
+          // Its MRPG picks only where the form shows them (a Game Mode room): nothing hidden is shared.
+          const { classic: _old, ...rest } = value;
+          const classic = game ? personaClassic((persona as { personaStats?: unknown }).personaStats) : undefined;
           onChange({
-            ...value,
+            ...rest,
             name: persona.name.slice(0, 80),
             description: persona.description.slice(0, MULTIPLAYER_LIMITS.description),
-            classic,
+            ...(classic ? { classic } : {}),
           });
         }}
       />

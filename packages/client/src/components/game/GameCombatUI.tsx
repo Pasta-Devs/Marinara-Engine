@@ -3768,7 +3768,7 @@ function CombatantCard({
       {/* Combatant sprite / avatar area */}
       <div
         className={cn(
-          "relative flex aspect-square shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 transition-all duration-200",
+          "relative flex aspect-square shrink-0 items-center justify-center rounded-xl border-2 transition-all duration-200",
           "h-[var(--combat-avatar-size)] w-[var(--combat-avatar-size)]",
           isKo && "grayscale opacity-40",
           isTargetable &&
@@ -3784,15 +3784,18 @@ function CombatantCard({
           impactTone === "miss" && "game-combatant-impact--miss",
         )}
       >
-        <CombatantSpriteVisual
-          combatant={combatant}
-          imageClassName="h-full w-full rounded-lg object-cover"
-          textClassName={cn(
-            compact ? "text-lg font-bold" : "text-xl font-bold sm:text-2xl xl:text-3xl",
-            side === "enemy" ? "text-red-300/60" : "text-blue-300/60",
-          )}
-          emojiClassName={compact ? "text-2xl leading-none" : "text-2xl leading-none sm:text-3xl xl:text-4xl"}
-        />
+        {/* Only the sprite is clipped to the box: the status badges and the turn marker sit past its edge. */}
+        <div className="flex h-full min-h-0 w-full min-w-0 items-center justify-center overflow-hidden rounded-[10px]">
+          <CombatantSpriteVisual
+            combatant={combatant}
+            imageClassName="h-full w-full rounded-lg object-cover"
+            textClassName={cn(
+              compact ? "text-lg font-bold" : "text-xl font-bold sm:text-2xl xl:text-3xl",
+              side === "enemy" ? "text-red-300/60" : "text-blue-300/60",
+            )}
+            emojiClassName={compact ? "text-2xl leading-none" : "text-2xl leading-none sm:text-3xl xl:text-4xl"}
+          />
+        </div>
 
         {combatant.statusEffects && combatant.statusEffects.length > 0 && (
           <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-10 flex max-w-[calc(100%+0.75rem)] flex-wrap justify-end gap-0.5">
@@ -3821,7 +3824,7 @@ function CombatantCard({
 
         {/* A foe who yielded waits on the party's spare-or-finish choice (Alyssa 2026-11-01). */}
         {combatant.marinara?.yielded && !isKo && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-amber-500/85 py-0.5 text-center text-[0.55rem] font-semibold uppercase tracking-wide text-black">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 rounded-b-[10px] bg-amber-500/85 py-0.5 text-center text-[0.55rem] font-semibold uppercase tracking-wide text-black">
             {localizeUi("game.combat.marinara.yielded")}
           </div>
         )}

@@ -9,6 +9,7 @@
 // (marinara-ai.ts) with its own temperament.
 // ──────────────────────────────────────────────
 
+import { logger } from "../../lib/logger.js";
 import {
   MARINARA_TAME,
   MARINARA_SKILL_EFFECTS,
@@ -1128,7 +1129,9 @@ export function marinaraBoardAiAction(
     }
     explain?.(ranked);
     return marinaraChoiceAction(actor, choice);
-  } catch {
+  } catch (err) {
+    // The generic board AI plays this turn instead; the failure is kept for the log.
+    logger.warn(err, "[marinara-director] board AI ranking failed for %s", actor.id);
     return null;
   } finally {
     for (const restore of unforced) restore();

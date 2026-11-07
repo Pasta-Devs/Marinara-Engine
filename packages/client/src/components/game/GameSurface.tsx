@@ -5633,7 +5633,12 @@ function GameSurfaceComponent({
           ...(join.sister ? { sister: join.sister } : {}),
         })
         .then(() => queryClient.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) }))
-        .catch((error: unknown) => console.warn("[mrpg_join] not applied:", error));
+        .catch((error: unknown) => {
+          // Not applied: let a later pass over this message try again, and tell the player.
+          processedPartyChangeCommandsRef.current.delete(commandKey);
+          console.warn("[mrpg_join] not applied:", error);
+          toast.error(localizeUi("ui.game.gamesurfacecomponent.mrpgJoinFailed", { name }));
+        });
     }
 
     if (directAddressMode) {

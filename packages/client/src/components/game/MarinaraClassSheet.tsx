@@ -734,14 +734,19 @@ function GearTab({
           "armor",
         )}
         {Array.from({ length: MARINARA_ACCESSORY_SLOTS }, (_, n) => {
-          const current = equipment.accessories?.[n];
+          const current = (equipment.accessories ?? []).filter(Boolean)[n];
           return slotSelect(
             t("game.combat.marinara.sheet.slot.accessory", { n: n + 1 }),
             current,
             options("accessory", current),
             (id) => {
-              const accessories = [...(equipment.accessories ?? [])];
-              accessories[n] = id;
+              // The accessories are a list, not fixed slots: a pick past the worn ones goes after them and a
+              // cleared one closes the gap, so each select shows what is stored at its place.
+              const accessories = (equipment.accessories ?? []).filter(Boolean);
+              if (n < accessories.length) {
+                if (id) accessories[n] = id;
+                else accessories.splice(n, 1);
+              } else if (id) accessories.push(id);
               wear({ ...equipment, accessories });
             },
           );
