@@ -4220,3 +4220,33 @@
 :root[data-overhaul="mobile"] .ovm-connpage .ov-acctpage__head:not(#ovm-x) {
   position: static;
 }
+
+/* All Tabs: a tab shows the picture of what it holds (character, persona, lorebook, preset; a chat shows its
+   character). The kind label sits on a shade at the bottom. Without a picture the icon stays. */
+.ovm-tabcard__thumb {
+  position: relative;
+  overflow: hidden;
+}
+.ovm-tabcard__pic {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ovm-tabcard__thumb.has-pic {
+  justify-content: flex-end;
+  padding-bottom: 0.625rem;
+}
+.ovm-tabcard__thumb.has-pic::after {
+  content: "";
+  position: absolute;
+  inset: 55% 0 0;
+  background: linear-gradient(transparent, rgb(0 0 0 / 0.7));
+}
+.ovm-tabcard__thumb.has-pic .ovm-tabcard__kind,
+.ovm-tabcard__thumb.has-pic .ov-tab__presence {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+}

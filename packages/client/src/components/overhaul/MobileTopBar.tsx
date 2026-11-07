@@ -15,6 +15,9 @@ import { useChatStore } from "../../stores/chat.store";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { overhaulTabKey, useOverhaulStore, type OverhaulTab } from "../../stores/overhaul.store";
 import { useChats } from "../../hooks/use-chats";
+import { useCharacter, usePersona } from "../../hooks/use-characters";
+import { useLorebook } from "../../hooks/use-lorebooks";
+import { usePresetFull } from "../../hooks/use-presets";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { preloadChatSettingsDrawer } from "../chat/ChatCommonOverlays";
@@ -147,6 +150,29 @@ function StackMenu({ onClose, anchor }: { onClose: () => void; anchor: HTMLEleme
   );
 }
 
+/** The picture of what a tab shows (avatar, lorebook or preset image); null falls back to its icon. */
+function pictureOf(value: unknown): string | null {
+  const item = value as { avatarPath?: unknown; imagePath?: unknown; preset?: { imagePath?: unknown } } | undefined;
+  const src = item?.avatarPath ?? item?.imagePath ?? item?.preset?.imagePath;
+  return typeof src === "string" && src ? src : null;
+}
+
+function useTabPicture(tab: OverhaulTab | null, chats: Chat[]): string | null {
+  const chat = tab?.kind === "chat" ? chats.find((entry) => entry.id === tab.id) : undefined;
+  // A chat shows its (first) character.
+  const characterId = tab?.kind === "character" ? tab.id : (chat?.characterIds?.[0] ?? null);
+  const character = useCharacter(characterId);
+  const persona = usePersona(tab?.kind === "persona" ? tab.id : null);
+  const lorebook = useLorebook(tab?.kind === "lorebook" ? tab.id : null);
+  const preset = usePresetFull(tab?.kind === "preset" ? tab.id : null);
+  if (!tab) return null;
+  if (tab.kind === "character" || tab.kind === "chat") return pictureOf(character.data);
+  if (tab.kind === "persona") return pictureOf(persona.data);
+  if (tab.kind === "lorebook") return pictureOf(lorebook.data);
+  if (tab.kind === "preset") return pictureOf(preset.data);
+  return null;
+}
+
 /** One tab as a card in the All Tabs grid. */
 function TabCard({
   tab,
@@ -168,6 +194,8 @@ function TabCard({
     const text = ref.current?.querySelector(".ovm-tabcard__label")?.textContent ?? "";
     setHidden(Boolean(query) && !text.toLowerCase().includes(query.toLowerCase()));
   });
+  const picture = useTabPicture(tab, chats);
+  const [pictureFailed, setPictureFailed] = useState(false);
   const kindLabel = tab
     ? localize(
         tab.kind === "chat"
@@ -205,8 +233,10 @@ function TabCard({
           else goHome();
         }}
       >
-        <span className="ovm-tabcard__thumb" aria-hidden="true">
-          {tab ? (
+        <span className={cn("ovm-tabcard__thumb", picture && !pictureFailed && "has-pic")} aria-hidden="true">
+          {picture && !pictureFailed ? (
+            <img className="ovm-tabcard__pic" src={picture} alt="" onError={() => setPictureFailed(true)} />
+          ) : tab ? (
             <span className="ovm-tabcard__glyph">
               <TabIcon tab={tab} chats={chats} />
             </span>

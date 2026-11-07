@@ -42,6 +42,7 @@ import {
   useLorebookActivationStats,
   lorebookKeys,
 } from "../../hooks/use-lorebooks";
+import { LorebookPictureField } from "./LorebookPictureField";
 import { useFeatureEnabled } from "../../hooks/use-feature-settings";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { useConnections, useDefaultEmbeddingConnection } from "../../hooks/use-connections";
@@ -2293,6 +2294,12 @@ export function LorebookEditor() {
       </button>
       {ovBookOpen || overhaulMobile ? (
         <div className="ov-bk__body">
+          {lorebookId ? (
+            <LorebookPictureField
+              id={lorebookId}
+              src={(rawLorebook as { imagePath?: string | null } | undefined)?.imagePath ?? null}
+            />
+          ) : null}
           <div className="ov-bk__grid ov-bk__grid--top">
             <label className="ov-bk__field">
               <span>{localizeUi("ui.lorebooks.lorebookeditor.name")}</span>
