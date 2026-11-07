@@ -207,6 +207,7 @@ import {
   isMessageHiddenFromAI,
   parseExtra,
   parseGameStateRow,
+  parseJsonField,
   parseSnapshotPlayerStats,
   preserveTrackerCharacterUiFields,
   resolveActiveCharacterIds,
@@ -1828,6 +1829,7 @@ export async function resolveRetryAgents(args: {
   const { agentTypes, chat, conns, agentsStore, agentPromptTemplateIds, activeMusicPlayerSource, onFallback } = args;
   const chatMode = ((chat as { mode?: ChatMode }).mode ?? "conversation") as ChatMode;
   const chatMeta = parseExtra((chat as { metadata?: unknown }).metadata);
+  const chatCharacterIds = parseJsonField<string[]>((chat as { characterIds?: unknown }).characterIds, []);
   const agentPromptTemplateSelections = {
     ...normalizeAgentPromptTemplateSelectionMap(chatMeta.agentPromptTemplateIds),
     ...normalizeAgentPromptTemplateSelectionMap(agentPromptTemplateIds),
@@ -2188,6 +2190,7 @@ export async function resolveRetryAgents(args: {
       settings: cfg.settings,
       activeMusicPlayerSource,
       chatMetadata: chatMeta,
+      chatCharacterIds,
     });
     const selectedPromptTemplate = resolveAgentPromptTemplate({
       promptTemplate: normalizeProseGuardianPromptTemplate(cfg.type as string, cfg.promptTemplate),
@@ -2280,6 +2283,7 @@ export async function resolveRetryAgents(args: {
       settings: undefined,
       activeMusicPlayerSource,
       chatMetadata: chatMeta,
+      chatCharacterIds,
     });
     const selectedPromptTemplate = resolveAgentPromptTemplate({
       promptTemplate: "",

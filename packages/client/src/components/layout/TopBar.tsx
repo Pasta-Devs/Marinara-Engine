@@ -28,6 +28,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
+import { preloadRightPanel } from "./right-panel-panels";
 import { useTranslation } from "react-i18next";
 import { selectSidebarShown, useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -266,13 +267,15 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   }, [closeAllDetails, closeRightPanel, mobileTopbarNavigation, setActiveChatId, setSidebarOpen]);
 
   const handleTopbarPointerOver = (event: ReactPointerEvent<HTMLElement>) => {
-    if (event.pointerType !== "mouse") return;
     if (!(event.target instanceof Element)) return;
     const button = event.target.closest("[data-topbar-hover-key]");
     if (!(button instanceof HTMLElement) || !event.currentTarget.contains(button)) return;
 
     const nextKey = button.dataset.topbarHoverKey;
     if (!nextKey) return;
+    // Hover, or the pointerover a tap sends first, starts the panel code before the click.
+    preloadRightPanel(nextKey);
+    if (event.pointerType !== "mouse") return;
     setHoveredTopbarKey((current) => (current === nextKey ? current : nextKey));
   };
 
