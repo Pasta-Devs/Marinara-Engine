@@ -1664,7 +1664,7 @@ export function ChatSidebar() {
 
       {/* Tabs */}
       <div className="px-3 pt-3">
-        <div className="mari-chrome-segmented">
+        <div className="mari-chrome-segmented" data-tour="chat-modes">
           {(["conversation", "roleplay", "game"] as const).map((tab) => {
             const cfg = MODE_CONFIG[tab];
             const isActive = activeTab === tab;

@@ -240,6 +240,7 @@ import {
   HostDeviceFileManagerError,
   isHostDeviceBrowser,
 } from "../../lib/host-device";
+import { DeviceLookSetting } from "./DeviceLookSetting";
 
 type CustomFontFace = {
   filename: string;
@@ -4078,6 +4079,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   "One tab bar on top, the Library on the right and Library pages in the middle. Desktop only; phones keep the standard layout.",
                 )}
               />
+
+              <DeviceLookSetting anchorId={getSettingsControlAnchorId("device-look")} />
 
               <label id={getSettingsControlAnchorId("theme-mode")} className="flex scroll-mt-3 flex-col gap-1">
                 <span className="text-xs font-medium inline-flex items-center gap-1">

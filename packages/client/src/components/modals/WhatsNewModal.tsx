@@ -936,6 +936,15 @@ function rememberAnnouncementWasShown() {
   }
 }
 
+/** No release has ever been recorded in this browser, so this is its first visit (any earlier one would have stored it). */
+function isFirstVisitOnThisDevice() {
+  try {
+    return window.localStorage.getItem(WHATS_NEW_SEEN_VERSION_KEY) === null;
+  } catch {
+    return false;
+  }
+}
+
 function hasSeenCurrentAnnouncement() {
   try {
     return window.localStorage.getItem(WHATS_NEW_SEEN_VERSION_KEY) === APP_VERSION;
@@ -963,7 +972,11 @@ export function WhatsNewModal({
 
   useEffect(() => {
     if (!presentationAllowed || !hasCompletedOnboarding) return;
-    if (!hasSeenCurrentAnnouncement()) {
+    if (isFirstVisitOnThisDevice()) {
+      // This browser has never opened Marinara: there's nothing "new" for it yet, so record the release
+      // quietly instead of greeting a brand-new device with a returning-user popup.
+      rememberAnnouncementWasShown();
+    } else if (!hasSeenCurrentAnnouncement()) {
       // Record presentation immediately so closing the app without pressing a
       // button cannot make the same release announcement reappear next launch.
       rememberAnnouncementWasShown();
