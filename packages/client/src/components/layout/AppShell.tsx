@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Layout: Main App Shell (Discord-like three-column)
 // ──────────────────────────────────────────────
+import { useCenterPageOpen } from "../../hooks/use-chat-theme";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
@@ -1148,6 +1149,10 @@ export function AppShell({
 
   const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
   const hasDetailView = detailView != null;
+  // Per-chat themes and the chat's root hooks step aside while a full page covers the chat.
+  useEffect(() => {
+    useCenterPageOpen.setState({ open: hasDetailView });
+  }, [hasDetailView]);
   const trackerPanelModeAvailable = activeChat?.mode === "roleplay";
   const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen && trackerPanelSurfaceOpen;
   const trackerPanelDetached = trackerPanelWindowTarget !== null;

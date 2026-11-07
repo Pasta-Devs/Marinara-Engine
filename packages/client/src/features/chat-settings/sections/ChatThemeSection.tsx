@@ -95,6 +95,14 @@ export function ChatThemeSection({ chat, style }: { chat: Chat; style?: CSSPrope
             className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
           />
         </div>
+        <p className="text-[0.6875rem] text-[var(--muted-foreground)]" data-chat-theme-source>
+          {own !== undefined
+            ? t("theming.chat.sourceChat", "This chat's own pick.")
+            : characterDefault !== undefined
+              ? t("theming.chat.sourceCharacter", "From this character's default, used in their one-on-one chats.")
+              : t("theming.chat.sourceApp", "From the app's theme in Settings > Appearance.")}{" "}
+          {t("theming.chat.sourcePages", "Settings and the Library always use the app's theme.")}
+        </p>
         {characterId && value !== FOLLOW ? (
           <label className="flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
             <input

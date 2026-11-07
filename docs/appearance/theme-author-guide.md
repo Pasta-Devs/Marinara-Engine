@@ -238,13 +238,21 @@ and `attr()`, and as CSS variables for `content:` and `counter()`:
 
 ## Per-chat looks
 
-Chat settings > Theme gives one chat its own theme ("Default look" turns custom themes off for that
-chat), and a chat with one character can make that the character's default. Inside a theme, tags
-are the portable way to style particular stories: `:root[data-chat-tags~="noir"] { --primary: #c9a227; }`.
+Chat settings > Theme gives one chat its own theme ("Default look" turns custom themes off for
+that chat). In a chat with exactly one character, the pick can become that character's default
+for their other one-on-one chats; group chats and game parties never borrow one member's default.
+The Theme section says where the current look comes from: the chat, the character, or the app.
+Settings, the Library, editors and Docs always use the app's theme, and `data-chat-id` and
+`data-chat-tags` are only on `<html>` while the chat itself is showing.
+
+Tags are the portable way to style particular stories inside one theme:
+`:root[data-chat-tags~="noir"] { --primary: #c9a227; }`. Add tags under Chat settings > Chat Name
+("+ Add tag"), from a chat row's tag button (or "Tags" in the long-press menu on touch screens).
+Tags are lowercased with spaces as `-` in the attribute, so "Noir Mystery" matches `noir-mystery`.
 
 Setting any `--mari-chat-*` variable (for example `--mari-chat-bg`, `--mari-chat-text`,
 `--mari-chat-radius`, `--mari-chat-font-family`) switches on the matching chat-surface styling by
-itself; users no longer need the "Apply preset …" switches for a theme's chat colours to show.
+itself; users don't need the "Apply preset …" switches for a theme's chat colours to show.
 
 ## Theme files
 

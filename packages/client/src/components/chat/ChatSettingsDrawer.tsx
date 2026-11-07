@@ -5948,6 +5948,7 @@ export function ChatSettingsDrawer({
               }}
               onNameValueChange={setNameVal}
               onSaveName={saveName}
+              chat={chat}
             />
           </div>
 
