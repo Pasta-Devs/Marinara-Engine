@@ -69,6 +69,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { SkipLinks } from "./SkipLinks";
 import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../../lib/overhaul-styles";
@@ -505,7 +506,10 @@ export function AppShell({
   const sidebarScale = Math.max(0.7, uiFontSize / 17);
   const sidebarDisplayMax = Math.max(
     SHARED_SIDEBAR_WIDTH_MIN,
-    Math.min(SHARED_SIDEBAR_WIDTH_MAX * sidebarScale, typeof window === "undefined" ? Infinity : window.innerWidth * 0.38),
+    Math.min(
+      SHARED_SIDEBAR_WIDTH_MAX * sidebarScale,
+      typeof window === "undefined" ? Infinity : window.innerWidth * 0.38,
+    ),
   );
   const scaledSidebarWidth = clampWidth(sharedSidebarWidth * sidebarScale, SHARED_SIDEBAR_WIDTH_MIN, sidebarDisplayMax);
   const storedSidebarWidth = (displayWidth: number) =>
@@ -940,7 +944,11 @@ export function AppShell({
       setRightPanelDragWidth(scaledSidebarWidth);
 
       const onMove = (moveEvent: MouseEvent) => {
-        const nextWidth = clampWidth(window.innerWidth - moveEvent.clientX, SHARED_SIDEBAR_WIDTH_MIN, sidebarDisplayMax);
+        const nextWidth = clampWidth(
+          window.innerWidth - moveEvent.clientX,
+          SHARED_SIDEBAR_WIDTH_MIN,
+          sidebarDisplayMax,
+        );
         rightPanelDragWidthRef.current = nextWidth;
         setRightPanelDragWidth(nextWidth);
       };
@@ -1595,6 +1603,7 @@ export function AppShell({
         showAmbientDecor && "retro-scanlines noise-bg geometric-grid",
       )}
     >
+      <SkipLinks />
       {overhaulActive && <OverhaulTopBar />}
       <div
         data-component="OverhaulShellRow"
@@ -1674,6 +1683,8 @@ export function AppShell({
         {/* Center content */}
         <main
           ref={mainRef}
+          id="mari-main"
+          tabIndex={-1}
           data-tour="chat-area"
           data-component="CenterContent"
           data-center-compact={centerCompact ? "true" : undefined}

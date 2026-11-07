@@ -603,6 +603,45 @@ export function App() {
     setCustomNotificationSoundUrl(customNotificationSound?.url ?? null);
   }, [customNotificationSound?.url]);
 
+  // Settings > Appearance > Accessibility (theming panel batch 6): styles/accessibility.css reads these.
+  const a11yLineHeight = useUIStore((s) => s.a11yLineHeight);
+  const a11yLetterSpacing = useUIStore((s) => s.a11yLetterSpacing);
+  const a11yStrongFocus = useUIStore((s) => s.a11yStrongFocus);
+  const a11yContrast = useUIStore((s) => s.a11yContrast);
+  const a11yColorBlindSafe = useUIStore((s) => s.a11yColorBlindSafe);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (a11yLineHeight > 1) {
+      root.dataset.mariA11yLineHeight = String(a11yLineHeight);
+      root.style.setProperty("--mari-a11y-line-height", String(a11yLineHeight));
+    } else {
+      delete root.dataset.mariA11yLineHeight;
+      root.style.removeProperty("--mari-a11y-line-height");
+    }
+    if (a11yLetterSpacing > 0) {
+      root.dataset.mariA11yLetterSpacing = String(a11yLetterSpacing);
+      root.style.setProperty("--mari-a11y-letter-spacing", `${a11yLetterSpacing}em`);
+    } else {
+      delete root.dataset.mariA11yLetterSpacing;
+      root.style.removeProperty("--mari-a11y-letter-spacing");
+    }
+    if (a11yStrongFocus) root.dataset.mariA11yFocus = "";
+    else delete root.dataset.mariA11yFocus;
+    if (a11yColorBlindSafe) root.dataset.mariCvdSafe = "";
+    else delete root.dataset.mariCvdSafe;
+
+    const query = window.matchMedia?.("(prefers-contrast: more)");
+    const applyContrast = () => {
+      const more = a11yContrast === "on" || (a11yContrast === "system" && !!query?.matches);
+      if (more) root.dataset.mariContrast = "more";
+      else delete root.dataset.mariContrast;
+    };
+    applyContrast();
+    if (a11yContrast !== "system" || !query) return;
+    query.addEventListener("change", applyContrast);
+    return () => query.removeEventListener("change", applyContrast);
+  }, [a11yLineHeight, a11yLetterSpacing, a11yStrongFocus, a11yContrast, a11yColorBlindSafe]);
+
   // [#3104 diagnostic] warn on long main-thread tasks (see lib/perf-diagnostics.ts)
   useEffect(() => {
     installLongTaskWarner();

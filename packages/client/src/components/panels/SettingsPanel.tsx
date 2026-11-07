@@ -75,6 +75,7 @@ import {
   type ThemePackage,
 } from "../../lib/theme-package";
 import { ThemeImportPreview, type ThemeInstallChoice } from "./settings/ThemeImportPreview";
+import { AccessibilitySettings } from "./settings/AccessibilitySettings";
 import { getChatWidgetFontFamily } from "../../lib/font-family";
 import { forceRefreshSpa } from "@/lib/browser-runtime";
 import {
@@ -4447,6 +4448,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
               </label>
             </div>
           </SettingsSection>
+
+          <AccessibilitySettings anchorId={getSettingsSectionAnchorId("accessibility")} />
 
           <SettingsSection
             title={localizeUi("ui.panels.appearancesettings.textColors")}

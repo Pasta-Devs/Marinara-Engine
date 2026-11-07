@@ -1,0 +1,128 @@
+/* ──────────────────────────────────────────────
+   Settings > Appearance > Accessibility (theming panel, batch 6)
+
+   App.tsx puts the user's choices on <html>:
+     data-mari-a11y-line-height    + --mari-a11y-line-height     line spacing in messages and long text
+     data-mari-a11y-letter-spacing + --mari-a11y-letter-spacing  letter spacing everywhere
+     data-mari-a11y-focus          strong focus rings
+     data-mari-contrast="more"     high contrast (the user's "On", or "Follow system" + prefers-contrast)
+     data-mari-cvd-safe            colour-blind-safe status, gauge and danger colours
+
+   These are the user's own needs, so they sit in mari-protected with !important: a custom theme
+   can't undo them. Themes can still tune the colours used here through the tokens below
+   (--mari-focus-ring-color, --mari-cvd-*), set on :root.
+   ────────────────────────────────────────────── */
+
+:root {
+  --mari-focus-ring-color: var(--primary);
+  --mari-focus-ring-contrast: var(--background);
+  --mari-cvd-good: #3b82f6;
+  --mari-cvd-warn: #eab308;
+  --mari-cvd-bad: #f97316;
+}
+
+[data-theme="light"] {
+  --mari-cvd-good: #1d4ed8;
+  --mari-cvd-warn: #a16207;
+  --mari-cvd-bad: #c2410c;
+}
+
+/* Skip links: out of sight until the keyboard lands on them. */
+.mari-skip-links {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2147483000;
+  display: flex;
+  gap: 0.375rem;
+  pointer-events: none;
+}
+.mari-skip-link {
+  position: absolute;
+  left: -9999px;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  pointer-events: auto;
+}
+.mari-skip-link:focus,
+.mari-skip-link:focus-visible {
+  position: static;
+  outline: 2px solid var(--mari-focus-ring-color);
+  outline-offset: 2px;
+}
+
+@layer mari-protected {
+  /* Skip links must stay reachable whatever a theme does. */
+  .mari-skip-link:focus,
+  .mari-skip-link:focus-visible {
+    position: static !important;
+    left: auto !important;
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* ─── Line spacing: reading text only, so menus and buttons keep their size ─── */
+  :root[data-mari-a11y-line-height] :is(p, li, blockquote, textarea, .mari-messages-scroll, [data-mari-part="message"]),
+  :root[data-mari-a11y-line-height] [data-mari-part="message"] :is(p, li, span, div) {
+    line-height: var(--mari-a11y-line-height) !important;
+  }
+
+  /* ─── Letter spacing: everywhere ─── */
+  :root[data-mari-a11y-letter-spacing] body,
+  :root[data-mari-a11y-letter-spacing] :is(input, textarea, select, button) {
+    letter-spacing: var(--mari-a11y-letter-spacing) !important;
+  }
+
+  /* ─── Strong focus rings ─── */
+  :root[data-mari-a11y-focus] :focus-visible:not(#mari-main) {
+    outline: 3px solid var(--mari-focus-ring-color) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 5px var(--mari-focus-ring-contrast) !important;
+  }
+
+  /* ─── High contrast ─── */
+  :root[data-mari-contrast="more"] {
+    --muted-foreground: color-mix(in srgb, var(--foreground) 88%, transparent) !important;
+    --border: color-mix(in srgb, var(--foreground) 45%, transparent) !important;
+    --input: color-mix(in srgb, var(--foreground) 50%, transparent) !important;
+    --ov-line: color-mix(in srgb, var(--foreground) 40%, transparent) !important;
+    --ovm-line: color-mix(in srgb, var(--foreground) 40%, transparent) !important;
+    --ov-muted: color-mix(in srgb, var(--foreground) 88%, transparent) !important;
+    --ov-dim: color-mix(in srgb, var(--foreground) 78%, transparent) !important;
+    --mari-focus-ring-color: var(--foreground) !important;
+  }
+  :root[data-mari-contrast="more"] :is(.ovm-topbar, .ovm-stack-menu, .ovm-alltabs, .ovm-sheet, .ovm-jump-top) {
+    --ov-line: color-mix(in srgb, var(--foreground) 40%, transparent) !important;
+  }
+  :root[data-mari-contrast="more"] :focus-visible:not(#mari-main) {
+    outline: 2px solid var(--mari-focus-ring-color) !important;
+    outline-offset: 2px !important;
+  }
+  :root[data-mari-contrast="more"][data-mari-a11y-focus] :focus-visible:not(#mari-main) {
+    outline-width: 3px !important;
+  }
+
+  /* ─── Colour-blind-safe palette: blue for good, orange for bad ─── */
+  :root[data-mari-cvd-safe] {
+    --mari-status-online: var(--mari-cvd-good) !important;
+    --mari-status-idle: var(--mari-cvd-warn) !important;
+    --mari-status-dnd: var(--mari-cvd-bad) !important;
+    --mari-gauge-ok: var(--mari-cvd-good) !important;
+    --mari-gauge-warn: var(--mari-cvd-warn) !important;
+    --mari-gauge-danger: var(--mari-cvd-bad) !important;
+    --destructive: var(--mari-cvd-bad) !important;
+  }
+  :root[data-mari-cvd-safe] .mari-chrome-control--danger {
+    --destructive: var(--mari-cvd-bad) !important;
+  }
+}
+
+#mari-main:focus {
+  outline: none;
+}

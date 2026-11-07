@@ -47,44 +47,46 @@ Scope light and dark separately with `[data-theme="light"]` and `[data-theme="da
 
 ### New layout
 
-| Token | Used for |
-| --- | --- |
-| `--ov-line` | Hairlines and panel borders |
-| `--ov-text`, `--ov-muted`, `--ov-dim` | Text, secondary text, faint text |
-| `--ov-accent` | Accent spots (defaults to `--primary`) |
-| `--ov-hover`, `--ov-active-bg` | Hover and pressed backgrounds |
-| `--ov-mode-conversation`, `--ov-mode-roleplay`, `--ov-mode-game` | Chat-mode colours in the chats sidebar and editors |
-| `--ov-serif` | Title font (follows `--mari-font-heading`) |
-| `--mari-selected-tint` | Selected rows, pills and toggles. Neutral (`--foreground`) by default; set it to `var(--primary)` for accent-tinted selection |
-| `--mari-selected-bg`, `--mari-selected-ring` | Derived from the tint (10% and 18%) |
+| Token                                                            | Used for                                                                                                                      |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--ov-line`                                                      | Hairlines and panel borders                                                                                                   |
+| `--ov-text`, `--ov-muted`, `--ov-dim`                            | Text, secondary text, faint text                                                                                              |
+| `--ov-accent`                                                    | Accent spots (defaults to `--primary`)                                                                                        |
+| `--ov-hover`, `--ov-active-bg`                                   | Hover and pressed backgrounds                                                                                                 |
+| `--ov-mode-conversation`, `--ov-mode-roleplay`, `--ov-mode-game` | Chat-mode colours in the chats sidebar and editors                                                                            |
+| `--ov-serif`                                                     | Title font (follows `--mari-font-heading`)                                                                                    |
+| `--mari-selected-tint`                                           | Selected rows, pills and toggles. Neutral (`--foreground`) by default; set it to `var(--primary)` for accent-tinted selection |
+| `--mari-selected-bg`, `--mari-selected-ring`                     | Derived from the tint (10% and 18%)                                                                                           |
 
 ### Theme tokens (v1)
 
 Each one defaults to the app's own look. Light mode has its own readable values.
 
-| Token | Used for |
-| --- | --- |
-| `--mari-font-ui` | The whole app's font |
-| `--mari-font-heading` | Page and section titles |
-| `--mari-font-chat` | Message text in roleplay and conversation chats |
-| `--mari-mode-conversation`, `--mari-mode-roleplay`, `--mari-mode-game` | Home chips, recent chats, the new-chat launcher, Home widget eyebrows |
-| `--mari-home-pink`, `--mari-home-violet` | The other Home widget accents |
-| `--mari-status-online`, `--mari-status-idle`, `--mari-status-dnd`, `--mari-status-offline` | Presence dots and labels |
-| `--mari-gauge-ok`, `--mari-gauge-warn`, `--mari-gauge-danger` | Game gauges and HP bars. A widget's own colour still wins in its normal state; danger always uses the token |
-| `--mari-game-combat`, `--mari-game-combat-text` | The game's Combat button |
-| `--mari-stage-empty-bg` | The game stage before a scene image loads |
-| `--mari-scrim` | The dimmed backdrop behind Ctrl+K |
-| `--mari-user-avatar-placeholder` | Your avatar when you have no picture (a gradient) |
+| Token                                                                                                    | Used for                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `--mari-font-ui`                                                                                         | The whole app's font                                                                                                        |
+| `--mari-font-heading`                                                                                    | Page and section titles                                                                                                     |
+| `--mari-font-chat`                                                                                       | Message text in roleplay and conversation chats                                                                             |
+| `--mari-mode-conversation`, `--mari-mode-roleplay`, `--mari-mode-game`                                   | Home chips, recent chats, the new-chat launcher, Home widget eyebrows                                                       |
+| `--mari-home-pink`, `--mari-home-violet`                                                                 | The other Home widget accents                                                                                               |
+| `--mari-status-online`, `--mari-status-idle`, `--mari-status-dnd`, `--mari-status-offline`               | Presence dots and labels                                                                                                    |
+| `--mari-gauge-ok`, `--mari-gauge-warn`, `--mari-gauge-danger`                                            | Game gauges and HP bars. A widget's own colour still wins in its normal state; danger always uses the token                 |
+| `--mari-game-combat`, `--mari-game-combat-text`                                                          | The game's Combat button                                                                                                    |
+| `--mari-stage-empty-bg`                                                                                  | The game stage before a scene image loads                                                                                   |
+| `--mari-scrim`                                                                                           | The dimmed backdrop behind Ctrl+K                                                                                           |
+| `--mari-user-avatar-placeholder`                                                                         | Your avatar when you have no picture (a gradient)                                                                           |
 | `--mari-art-saturation-1`, `--mari-art-lightness-1`, `--mari-art-saturation-2`, `--mari-art-lightness-2` | The gradient on cards without a picture. Each card keeps its own hue; set these (as percentages) to calm the gradients down |
-| `--mari-app-backdrop` | An image or gradient behind the whole app, painted once (see below) |
-| `--mari-accent-fx-animation` | The Accent Pulse or RGB Mode animation while one is on, otherwise `none` |
+| `--mari-app-backdrop`                                                                                    | An image or gradient behind the whole app, painted once (see below)                                                         |
+| `--mari-accent-fx-animation`                                                                             | The Accent Pulse or RGB Mode animation while one is on, otherwise `none`                                                    |
 
 ## Backdrops
 
 Set `--mari-app-backdrop` on `:root` to paint art behind the app:
 
 ```css
-:root { --mari-app-backdrop: url("data:image/webp;base64,…"); }
+:root {
+  --mari-app-backdrop: url("data:image/webp;base64,…");
+}
 ```
 
 It is drawn once on the app root, and the nested surfaces that used to repaint the background go
@@ -95,7 +97,9 @@ A chat's own background is an `<img data-mari-part="backdrop">`. The stock one (
 also has `data-default-background="true"`, so a theme can replace only that one:
 
 ```css
-img[data-mari-part="backdrop"][data-default-background] { opacity: 0 !important; }
+img[data-mari-part="backdrop"][data-default-background] {
+  opacity: 0 !important;
+}
 ```
 
 ## Accent effects
@@ -112,19 +116,24 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 
 ### On `<html>`
 
-| Attribute | Values |
-| --- | --- |
-| `data-theme` | `dark`, `light` |
-| `data-visual-theme` | `default` (Marinara), `sillytavern` (Dottore), `stage` |
-| `data-overhaul` | `on` (new layout, desktop), `mobile` (new layout, phone and tablet); absent in the old layout |
-| `data-custom-theme` | The active theme's id |
-| `data-seasonal-theme` | The seasonal look, when one is on |
-| `data-mari-accent-fx` | `pulse` or `rgb` while an accent effect runs |
-| `data-chat-id` | The open chat's id |
-| `data-chat-open-mode` | The open chat's mode: `roleplay`, `conversation`, `game` |
-| `data-chat-tags` | The open chat's tags, lowercase with spaces as `-`: style a story with `:root[data-chat-tags~="horror"]` |
-| `data-mari-chat-art-behind` | Present while the chat's background is shown behind the side panels (`--mari-chat-art` is the picture) |
-| `data-marinara-reduced-effects` | Present when ambient animation is reduced |
+| Attribute                       | Values                                                                                                   |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `data-theme`                    | `dark`, `light`                                                                                          |
+| `data-visual-theme`             | `default` (Marinara), `sillytavern` (Dottore), `stage`                                                   |
+| `data-overhaul`                 | `on` (new layout, desktop), `mobile` (new layout, phone and tablet); absent in the old layout            |
+| `data-custom-theme`             | The active theme's id                                                                                    |
+| `data-seasonal-theme`           | The seasonal look, when one is on                                                                        |
+| `data-mari-accent-fx`           | `pulse` or `rgb` while an accent effect runs                                                             |
+| `data-chat-id`                  | The open chat's id                                                                                       |
+| `data-chat-open-mode`           | The open chat's mode: `roleplay`, `conversation`, `game`                                                 |
+| `data-chat-tags`                | The open chat's tags, lowercase with spaces as `-`: style a story with `:root[data-chat-tags~="horror"]` |
+| `data-mari-chat-art-behind`     | Present while the chat's background is shown behind the side panels (`--mari-chat-art` is the picture)   |
+| `data-marinara-reduced-effects` | Present when ambient animation is reduced                                                                |
+| `data-mari-a11y-line-height`    | Present when the user widened line spacing (`--mari-a11y-line-height`)                                   |
+| `data-mari-a11y-letter-spacing` | Present when the user widened letter spacing (`--mari-a11y-letter-spacing`)                              |
+| `data-mari-a11y-focus`          | Present when strong focus rings are on                                                                   |
+| `data-mari-contrast`            | `more` when high contrast is on (the user's choice, or the device asks for it)                           |
+| `data-mari-cvd-safe`            | Present when colour-blind-safe colours are on                                                            |
 
 ### Areas
 
@@ -135,20 +144,20 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 
 ### Parts
 
-| Selector | What it is |
-| --- | --- |
-| `[data-mari-part="message"]` | One message. Also has `data-message-id` and `data-message-role` (`user`, `assistant`, `system`, …) |
-| `[data-mari-part="message"][data-latest]` | The newest reply from the character |
-| `[data-mari-part="message"][data-streaming]` | A reply that is still being written |
-| `[data-mari-part="composer"]` | The message box. `data-composer` is `roleplay`, `conversation` or `game` |
-| `[data-mari-part="home-widget"]` | A Home widget card. Its frame has `data-home-widget-id` (`recent`, `professor`, `whats-new`, `character-library`, …) |
-| `[data-mari-part="backdrop"]` | A chat's background image (see Backdrops) |
-| `[data-mari-part="stage-empty"]` | The game stage with no scene image |
-| `[data-chat-row]` | A row in the chats sidebar; `data-selected="true"` on the open chat |
-| `[data-chat-mode]` | The chat surface, by mode |
-| `.mari-messages-scroll` | The scrolling message list |
-| `.mari-rp-bubble`, `.mari-rp-bubble--user`, `.mari-message-assistant` | Roleplay and conversation bubbles |
-| `.mari-window`, `.mari-drawer` | Pop-out windows and drawers |
+| Selector                                                              | What it is                                                                                                           |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `[data-mari-part="message"]`                                          | One message. Also has `data-message-id` and `data-message-role` (`user`, `assistant`, `system`, …)                   |
+| `[data-mari-part="message"][data-latest]`                             | The newest reply from the character                                                                                  |
+| `[data-mari-part="message"][data-streaming]`                          | A reply that is still being written                                                                                  |
+| `[data-mari-part="composer"]`                                         | The message box. `data-composer` is `roleplay`, `conversation` or `game`                                             |
+| `[data-mari-part="home-widget"]`                                      | A Home widget card. Its frame has `data-home-widget-id` (`recent`, `professor`, `whats-new`, `character-library`, …) |
+| `[data-mari-part="backdrop"]`                                         | A chat's background image (see Backdrops)                                                                            |
+| `[data-mari-part="stage-empty"]`                                      | The game stage with no scene image                                                                                   |
+| `[data-chat-row]`                                                     | A row in the chats sidebar; `data-selected="true"` on the open chat                                                  |
+| `[data-chat-mode]`                                                    | The chat surface, by mode                                                                                            |
+| `.mari-messages-scroll`                                               | The scrolling message list                                                                                           |
+| `.mari-rp-bubble`, `.mari-rp-bubble--user`, `.mari-message-assistant` | Roleplay and conversation bubbles                                                                                    |
+| `.mari-window`, `.mari-drawer`                                        | Pop-out windows and drawers                                                                                          |
 
 ## Per-chat looks
 
@@ -188,6 +197,21 @@ Fonts load with the theme (as `@font-face` rules) and go away with it. Importing
 name as an installed one offers to update it. The CSS limit is 256 KiB; thumbnail, fonts and
 backgrounds together get 6 MiB. Plain `.css` files, `{ "name", "css" }` and the older
 `marinara.theme-folder` export still import.
+
+## Accessibility
+
+Settings > Appearance > Accessibility applies the user's line and letter spacing, focus rings,
+high contrast and colour-blind-safe colours from the `mari-protected` layer, so a theme can't undo
+them. A theme can still pick the colours they use by setting these on `:root`:
+
+| Token                                                  | Used for                                                                        |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `--mari-focus-ring-color`                              | Strong focus rings (defaults to `--primary`; high contrast uses `--foreground`) |
+| `--mari-focus-ring-contrast`                           | The halo around a strong focus ring (defaults to `--background`)                |
+| `--mari-cvd-good`, `--mari-cvd-warn`, `--mari-cvd-bad` | Colour-blind-safe status, gauges and Delete buttons (blue, yellow, orange)      |
+
+Use the status and gauge tokens above rather than fixed greens and reds, and the colour-blind-safe
+switch reaches your theme too. Skip links (`.mari-skip-link`) stay reachable whatever a theme does.
 
 ## Changes
 
