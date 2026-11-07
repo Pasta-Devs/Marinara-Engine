@@ -7,11 +7,11 @@ import { cssByteLimit, cssByteMessage, utf8ByteLength } from "./css-size.js";
 /** Thumbnail, fonts and backgrounds ride along with a theme package; together they stay under this. */
 export const MAX_THEME_META_BYTES = 6 * 1024 * 1024; // 6 MiB
 
-const dataUrl = (prefix: RegExp) =>
+const dataUrl = (prefix: RegExp, message = "Must be a data: URL") =>
   z
     .string()
     .max(MAX_THEME_META_BYTES)
-    .refine((value) => prefix.test(value), { message: "Must be a data: URL" });
+    .refine((value) => prefix.test(value), { message });
 
 /** Appearance settings a theme can suggest. The user picks which to apply when installing. */
 export const themeSettingsSchema = z
@@ -34,13 +34,19 @@ export const themeMetaSchema = z
     description: z.string().max(2000).optional(),
     /** Which color schemes the theme is designed for. */
     colorScheme: z.enum(["dark", "light", "both"]).optional(),
-    thumbnail: dataUrl(/^data:image\/(png|jpeg|webp|gif|avif);base64,/i).optional(),
+    thumbnail: dataUrl(
+      /^data:image\/(png|jpeg|webp|gif|avif);base64,/i,
+      "The thumbnail must be a PNG, JPEG, WebP, GIF or AVIF data: URL",
+    ).optional(),
     settings: themeSettingsSchema.optional(),
     fonts: z
       .array(
         z.object({
           family: z.string().min(1).max(120),
-          src: dataUrl(/^data:(font\/[a-z0-9.+-]+|application\/(font-woff2?|x-font-[a-z]+|octet-stream));base64,/i),
+          src: dataUrl(
+            /^data:(font\/[a-z0-9.+-]+|application\/(font-woff2?|x-font-[a-z]+|octet-stream));base64,/i,
+            "Fonts must be WOFF2, WOFF, TTF or OTF data: URLs",
+          ),
           weight: z.string().max(20).optional(),
           style: z.enum(["normal", "italic"]).optional(),
         }),
@@ -51,7 +57,10 @@ export const themeMetaSchema = z
       .array(
         z.object({
           name: z.string().min(1).max(120),
-          src: dataUrl(/^data:image\/(png|jpeg|webp|gif|avif);base64,/i),
+          src: dataUrl(
+            /^data:image\/(png|jpeg|webp|gif|avif);base64,/i,
+            "Backgrounds must be PNG, JPEG, WebP, GIF or AVIF data: URLs (SVG isn't allowed)",
+          ),
         }),
       )
       .max(12)

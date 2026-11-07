@@ -57,6 +57,18 @@ function useChromeCheck(css: string) {
   return problems;
 }
 
+/** "1.2" vs "1.10": true when `incoming` is a lower version than `installed`. */
+function olderThanInstalled(incoming: string | undefined, installed: string | undefined) {
+  if (!incoming || !installed) return false;
+  const a = incoming.split(/[.-]/).map((part) => Number.parseInt(part, 10) || 0);
+  const b = installed.split(/[.-]/).map((part) => Number.parseInt(part, 10) || 0);
+  for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+    const diff = (a[index] ?? 0) - (b[index] ?? 0);
+    if (diff !== 0) return diff < 0;
+  }
+  return false;
+}
+
 export function ThemeImportPreview({
   pkg: initialPkg,
   metaProblems,
@@ -212,7 +224,7 @@ export function ThemeImportPreview({
             <p className="mt-1 flex items-center gap-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               <Type size="0.75rem" />
               {t("theming.import.fonts", "Brings its fonts: {{fonts}}", {
-                fonts: meta.fonts.map((font) => font.family).join(", "),
+                fonts: [...new Set(meta.fonts.map((font) => font.family))].join(", "),
               })}
             </p>
           ) : null}
@@ -296,6 +308,14 @@ export function ThemeImportPreview({
         </fieldset>
       ) : null}
 
+      {sameName && olderThanInstalled(meta.version, sameName.meta?.version) ? (
+        <p className="flex items-center gap-1.5 text-[var(--foreground)]">
+          <AlertTriangle size="0.75rem" className="shrink-0" />
+          {t("theming.import.older", "This file is older than the installed one ({{installed}}).", {
+            installed: sameName.meta?.version ?? "",
+          })}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center justify-end gap-1.5">
         {remaining > 0 ? (
           <span className="mr-auto text-[0.625rem] text-[var(--muted-foreground)]">
@@ -321,7 +341,13 @@ export function ThemeImportPreview({
               disabled={busy || blocking}
               onClick={() => install(sameName.id, sameName.isActive)}
             >
-              {t("theming.import.update", "Update “{{name}}”", { name: sameName.name })}
+              {sameName.meta?.version && meta.version && sameName.meta.version !== meta.version
+                ? t("theming.import.updateVersions", "Update “{{name}}” ({{from}} → {{to}})", {
+                    name: sameName.name,
+                    from: sameName.meta.version,
+                    to: meta.version,
+                  })
+                : t("theming.import.update", "Update “{{name}}”", { name: sameName.name })}
             </button>
           </>
         ) : (

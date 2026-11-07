@@ -339,6 +339,41 @@ export function applyThemeSettings(settings: ThemeSettings, keys: ThemeSettingKe
   }
 }
 
+/** The touched settings as they are now, so Go back (or no answer) can put them back. */
+export function snapshotThemeSettings(keys: ThemeSettingKey[]): { settings: ThemeSettings; keys: ThemeSettingKey[] } {
+  const ui = useUIStore.getState();
+  const settings: ThemeSettings = {};
+  for (const key of keys) {
+    switch (key) {
+      case "colorScheme":
+        settings.colorScheme = ui.theme === "light" ? "light" : "dark";
+        break;
+      case "visualStyle":
+        settings.visualStyle = ui.visualTheme;
+        break;
+      case "accent":
+        settings.accent = ui.appAccentColor;
+        break;
+      case "accentLight":
+        settings.accentLight = ui.appAccentColorLight;
+        break;
+      case "background":
+        settings.background = ui.appBackgroundColor;
+        break;
+      case "backgroundLight":
+        settings.backgroundLight = ui.appBackgroundColorLight;
+        break;
+      case "fontFamily":
+        settings.fontFamily = ui.fontFamily;
+        break;
+      case "accentPulse":
+        settings.accentPulse = ui.appAccentPulseMode;
+        break;
+    }
+  }
+  return { settings, keys };
+}
+
 /** The current Appearance values, for "Include my Appearance settings" when packaging a theme. */
 export function currentThemeSettings(): ThemeSettings {
   const ui = useUIStore.getState();
@@ -378,9 +413,127 @@ export function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-export async function dataUrlToFile(dataUrl: string, name: string) {
-  const blob = await (await fetch(dataUrl)).blob();
-  const ext = blob.type.split("/")[1]?.replace("jpeg", "jpg") ?? "png";
+/**
+ * A File from a data: URL, decoded in place. (fetch() can't be used: the app's security policy
+ * doesn't let it load data: URLs.)
+ */
+export function dataUrlToFile(dataUrl: string, name: string) {
+  const match = dataUrl.match(/^data:([^;,]*)((?:;[^;,]*)*?)(;base64)?,(.*)$/s);
+  if (!match) throw new Error("Not a data: URL");
+  const type = match[1] || "application/octet-stream";
+  const payload = match[4] ?? "";
+  let bytes: Uint8Array;
+  if (match[3]) {
+    const binary = atob(payload.replace(/\s+/g, ""));
+    bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  } else {
+    bytes = new TextEncoder().encode(decodeURIComponent(payload));
+  }
+  const blob = new Blob([bytes as BlobPart], { type });
+  const ext = blob.type.split("/")[1]?.replace("jpeg", "jpg").replace("svg+xml", "svg") ?? "png";
   const fileName = /\.[a-z0-9]+$/i.test(name) ? name : `${name}.${ext}`;
   return new File([blob], fileName, { type: blob.type });
+}
+
+// ── Font names ──
+
+function dataUrlBytes(dataUrl: string) {
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0 || !/;base64$/i.test(dataUrl.slice(0, comma))) return null;
+  const binary = atob(dataUrl.slice(comma + 1).replace(/\s+/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+async function inflate(bytes: Uint8Array) {
+  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream("deflate"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/** The family name inside an OpenType "name" table (typographic family first, then family). */
+function nameTableFamily(table: Uint8Array) {
+  const view = new DataView(table.buffer, table.byteOffset, table.byteLength);
+  const count = view.getUint16(2);
+  const storage = view.getUint16(4);
+  const found = new Map<number, string>();
+  for (let index = 0; index < count; index += 1) {
+    const record = 6 + index * 12;
+    if (record + 12 > table.byteLength) break;
+    const platform = view.getUint16(record);
+    const nameId = view.getUint16(record + 6);
+    const length = view.getUint16(record + 8);
+    const offset = storage + view.getUint16(record + 10);
+    if ((nameId !== 1 && nameId !== 16) || found.has(nameId) || offset + length > table.byteLength) continue;
+    const raw = table.subarray(offset, offset + length);
+    let text = "";
+    if (platform === 3 || platform === 0) {
+      for (let i = 0; i + 1 < raw.length; i += 2) text += String.fromCharCode((raw[i]! << 8) | raw[i + 1]!);
+    } else {
+      text = String.fromCharCode(...raw);
+    }
+    if (text.trim()) found.set(nameId, text.trim());
+  }
+  return found.get(16) ?? found.get(1) ?? null;
+}
+
+/**
+ * The real family name of a bundled font (TTF, OTF or WOFF), so a theme's font is listed under the
+ * name its CSS uses rather than the file name. Null when it can't be read (WOFF2, broken files).
+ */
+export async function readFontFamily(dataUrl: string): Promise<string | null> {
+  try {
+    const bytes = dataUrlBytes(dataUrl);
+    if (!bytes || bytes.length < 12) return null;
+    const view = new DataView(bytes.buffer);
+    const signature = view.getUint32(0);
+    if (signature === 0x774f4646) {
+      // WOFF 1: a table directory of 20-byte entries after a 44-byte header; tables may be zlib'd.
+      const tables = view.getUint16(12);
+      for (let index = 0; index < tables; index += 1) {
+        const entry = 44 + index * 20;
+        if (view.getUint32(entry) !== 0x6e616d65) continue;
+        const offset = view.getUint32(entry + 4);
+        const compressed = view.getUint32(entry + 8);
+        const original = view.getUint32(entry + 12);
+        const data = bytes.subarray(offset, offset + compressed);
+        return nameTableFamily(compressed < original ? await inflate(data) : data);
+      }
+      return null;
+    }
+    if (signature !== 0x00010000 && signature !== 0x4f54544f && signature !== 0x74727565) return null;
+    const tables = view.getUint16(4);
+    for (let index = 0; index < tables; index += 1) {
+      const entry = 12 + index * 16;
+      if (view.getUint32(entry) !== 0x6e616d65) continue;
+      const offset = view.getUint32(entry + 8);
+      const length = view.getUint32(entry + 12);
+      return nameTableFamily(bytes.subarray(offset, offset + length));
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** A thumbnail scaled down to at most `maxWidth` pixels wide, as WebP (keeps theme files small). */
+export function shrinkImageDataUrl(dataUrl: string, maxWidth = 480): Promise<string> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      if (image.naturalWidth <= maxWidth) return resolve(dataUrl);
+      const canvas = document.createElement("canvas");
+      canvas.width = maxWidth;
+      canvas.height = Math.round((image.naturalHeight / image.naturalWidth) * maxWidth);
+      const context = canvas.getContext("2d");
+      if (!context) return resolve(dataUrl);
+      context.imageSmoothingQuality = "high";
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const small = canvas.toDataURL("image/webp", 0.85);
+      resolve(small.startsWith("data:image/webp") && small.length < dataUrl.length ? small : dataUrl);
+    };
+    image.onerror = () => resolve(dataUrl);
+    image.src = dataUrl;
+  });
 }

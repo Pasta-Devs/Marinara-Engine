@@ -229,5 +229,7 @@ The import preview tells the user when a theme tries to change any of these.
 
 ## Changes
 
-- **v1.0.1**: guard v2, protected Accessibility values, added-text checks.
+- **v1.0.1**: guard v2, protected Accessibility values, added-text checks. Install is all-or-nothing,
+  bundled backgrounds install, Go back also restores the settings a theme applied, theme fonts show
+  in the Font list, `url(#id)` references are kept, and bundled font names are read from the font.
 - **v1** (first published contract): theme tokens, part hooks, backdrop and accent effects above.

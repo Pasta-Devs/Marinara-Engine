@@ -69,6 +69,9 @@ import {
   buildThemeFile,
   currentThemeSettings,
   dataUrlToFile,
+  snapshotThemeSettings,
+  readFontFamily,
+  shrinkImageDataUrl,
   fileToDataUrl,
   readThemeFile,
   themeFontFaceCss,
@@ -4037,6 +4040,24 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
       return true;
     });
   }, [customFonts]);
+  // Fonts the active custom theme brings, so a font a theme picked can be seen and changed here.
+  const themeFontOptions = React.useMemo(() => {
+    const active = appearanceThemes.find((theme) => theme.isActive);
+    const seen = new Set(customFontOptions.map((font) => font.family));
+    const fonts: Array<{ family: string; theme: string }> = [];
+    for (const font of active?.meta?.fonts ?? []) {
+      if (!font.family || seen.has(font.family)) continue;
+      seen.add(font.family);
+      fonts.push({ family: font.family, theme: active!.name });
+    }
+    return fonts;
+  }, [appearanceThemes, customFontOptions]);
+  const missingFontFamily =
+    fontFamily &&
+    !customFontOptions.some((font) => font.family === fontFamily) &&
+    !themeFontOptions.some((font) => font.family === fontFamily)
+      ? fontFamily
+      : null;
   const unavailableWidgetFont =
     chatWidgetFont.startsWith("custom:") &&
     !customFontOptions.some((font) => `custom:${font.family}` === chatWidgetFont)
@@ -4333,6 +4354,23 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                       {f.family}
                     </option>
                   ))}
+                  {themeFontOptions.map((font) => (
+                    <option key={`theme:${font.family}`} value={font.family}>
+                      {localizeUi("theming.fonts.fromTheme", {
+                        family: font.family,
+                        theme: font.theme,
+                        defaultValue: "{{family}} · from {{theme}}",
+                      })}
+                    </option>
+                  ))}
+                  {missingFontFamily ? (
+                    <option value={missingFontFamily}>
+                      {localizeUi("theming.fonts.missing", {
+                        family: missingFontFamily,
+                        defaultValue: "{{family}} (not installed)",
+                      })}
+                    </option>
+                  ) : null}
                 </select>
                 {(!customFonts || customFonts.length === 0) && (
                   <p className="text-[0.625rem] text-[var(--muted-foreground)]">
@@ -5965,7 +6003,12 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     try {
       const packages = await readThemeFile(file);
       const latestThemes = await api.get<Theme[]>("/themes");
-      const fresh = packages.filter((pkg) => !findDuplicateTheme(latestThemes, pkg.name, pkg.css));
+      // Same CSS counts as already installed only when the details (version, thumbnail, fonts, …)
+      // match too; a file that only bumps its version is offered as an update.
+      const fresh = packages.filter((pkg) => {
+        const twin = findDuplicateTheme(latestThemes, pkg.name, pkg.css);
+        return !twin || JSON.stringify(twin.meta ?? {}) !== JSON.stringify(pkg.meta ?? {});
+      });
       const alreadySynced = packages.length - fresh.length;
       if (packages.length === 0) {
         toast.error(localizeUi("ui.panels.themessettings.noValidThemesFoundInFile"));
@@ -5985,9 +6028,14 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     }
   };
 
+  // All or nothing: the theme is saved first, then its backgrounds (each one may be skipped), and
+  // only then are its settings applied and the theme switched on. Settings are snapshotted first,
+  // so "Go back" (or no answer) puts them back too, and a failure part-way restores them.
   const handleInstallTheme = async (choice: ThemeInstallChoice) => {
     const { pkg } = choice;
     setImportBusy(true);
+    let created: Theme | null = null;
+    let restore: ReturnType<typeof snapshotThemeSettings> | null = null;
     try {
       let theme: Theme;
       if (choice.replaceId) {
@@ -6005,29 +6053,46 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
           meta: pkg.meta,
           installedAt: new Date().toISOString(),
         });
+        created = theme;
       }
-      if (pkg.meta.settings && choice.settingsKeys.length > 0) {
-        applyThemeSettings(pkg.meta.settings, choice.settingsKeys);
-      }
+      let skipped = 0;
       if (choice.addBackgrounds && pkg.meta.backgrounds?.length) {
         for (const background of pkg.meta.backgrounds) {
-          const formData = new FormData();
-          formData.append("file", await dataUrlToFile(background.src, background.name));
-          await api.upload("/backgrounds/upload", formData).catch((err: unknown) => {
+          try {
+            const formData = new FormData();
+            formData.append("file", dataUrlToFile(background.src, background.name));
+            await api.upload("/backgrounds/upload", formData);
+          } catch (err) {
+            skipped += 1;
             console.warn("[ThemesSettings] Couldn't add a theme background:", background.name, err);
-          });
+          }
         }
         void queryClient.invalidateQueries({ queryKey: ["backgrounds"] });
       }
-      if (choice.activate && !choice.replaceId) await activateTheme(theme);
-      toast.success(
-        choice.replaceId
-          ? localizeUi("ui.panels.themessettings.themeValue1Updated", { value1: theme.name })
-          : localizeUi("theming.import.installed", { name: theme.name }),
-      );
+      const keys = pkg.meta.settings ? choice.settingsKeys : [];
+      if (keys.length > 0) restore = snapshotThemeSettings(keys);
+      if (pkg.meta.settings && keys.length > 0) applyThemeSettings(pkg.meta.settings, keys);
+      if (choice.activate && !choice.replaceId) {
+        await activateTheme(theme, restore as { settings: Record<string, unknown>; keys: string[] } | null);
+      }
+      created = null;
+      const done = choice.replaceId
+        ? localizeUi("ui.panels.themessettings.themeValue1Updated", { value1: theme.name })
+        : localizeUi("theming.import.installed", { name: theme.name });
+      if (skipped > 0) {
+        toast.warning(
+          `${done} ${localizeUi("theming.import.backgroundsSkipped", {
+            count: skipped,
+            defaultValue: "{{count}} background(s) couldn't be added.",
+          })}`,
+        );
+      } else toast.success(done);
       setImportQueue((queue) => queue.slice(1));
     } catch (err) {
       console.error("[ThemesSettings] Failed to install theme:", err);
+      // Undo what got done: settings back as they were, and a theme created by this install removed.
+      if (restore) applyThemeSettings(restore.settings, restore.keys);
+      if (created) await deleteTheme.mutateAsync(created.id).catch(() => undefined);
       toast.error(
         getPrivilegedActionErrorMessage(err, localizeUi("ui.panels.themessettings.failedToImportThemeEnsureValidFile")),
       );
@@ -6120,20 +6185,27 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             meta={themeMeta}
             onChange={setThemeMeta}
             onPickThumbnail={() =>
-              pickThemeAsset("image/png,image/jpeg,image/webp", (dataUrl) =>
-                setThemeMeta((meta) => ({ ...meta, thumbnail: dataUrl })),
-              )
+              pickThemeAsset("image/png,image/jpeg,image/webp", (dataUrl) => {
+                void shrinkImageDataUrl(dataUrl).then((thumbnail) => setThemeMeta((meta) => ({ ...meta, thumbnail })));
+              })
             }
             onAddFont={() =>
-              pickThemeAsset(".woff2,.woff,.ttf,.otf", (dataUrl, file) =>
-                setThemeMeta((meta) => ({
-                  ...meta,
-                  fonts: [
-                    ...(meta.fonts ?? []),
-                    { family: file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " "), src: dataUrl },
-                  ],
-                })),
-              )
+              pickThemeAsset(".woff2,.woff,.ttf,.otf", (dataUrl, file) => {
+                // The family name comes from the font itself when it can be read, so it matches the
+                // name the theme's CSS uses; otherwise from the file name.
+                void readFontFamily(dataUrl).then((name) =>
+                  setThemeMeta((meta) => ({
+                    ...meta,
+                    fonts: [
+                      ...(meta.fonts ?? []),
+                      {
+                        family: name ?? file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " "),
+                        src: dataUrl,
+                      },
+                    ],
+                  })),
+                );
+              })
             }
             onAddBackground={() =>
               pickThemeAsset("image/png,image/jpeg,image/webp", (dataUrl, file) =>
@@ -6299,12 +6371,35 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                       toast.error(localizeUi("ui.panels.themessettings.failedToActivateTheme"));
                     })
                   }
-                  className="flex flex-1 items-center gap-2 min-w-0"
+                  className="flex flex-1 items-center gap-2 min-w-0 text-left"
+                  data-theme-card={t.id}
                 >
-                  <FileCode2 size="0.75rem" className="mari-chrome-accent-icon shrink-0" />
-                  <span className="mari-chrome-text truncate">{t.name}</span>
+                  {t.meta?.thumbnail ? (
+                    <img
+                      src={t.meta.thumbnail}
+                      alt=""
+                      className="h-7 w-11 shrink-0 rounded object-cover ring-1 ring-[var(--border)]"
+                    />
+                  ) : (
+                    <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded bg-[var(--muted)]/60 ring-1 ring-[var(--border)]">
+                      <FileCode2 size="0.75rem" className="mari-chrome-accent-icon" />
+                    </span>
+                  )}
+                  <span className="flex min-w-0 flex-col">
+                    <span className="mari-chrome-text truncate">{t.name}</span>
+                    {t.meta?.author || t.meta?.version ? (
+                      <span className="mari-chrome-text-muted truncate text-[0.625rem]">
+                        {[
+                          t.meta?.author ? localizeUi("theming.import.by", { author: t.meta.author }) : null,
+                          t.meta?.version ? `v${t.meta.version}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    ) : null}
+                  </span>
                   {activeCustomTheme?.id === t.id && (
-                    <Check size="0.75rem" className="mari-chrome-accent-icon shrink-0" />
+                    <Check size="0.75rem" className="mari-chrome-accent-icon ml-auto shrink-0" />
                   )}
                 </button>
                 <button
@@ -6312,7 +6407,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                   onClick={() => openEditTheme(t)}
                   className={SETTINGS_ICON_BUTTON_CLASS}
                   title={localizeUi("settings.actions.editThemeCss")}
-                  aria-label={localizeUi("settings.actions.editThemeCss")}
+                  aria-label={`${localizeUi("settings.actions.editThemeCss")}: ${t.name}`}
                 >
                   <Code size="0.75rem" />
                 </button>
@@ -6323,7 +6418,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                   }}
                   className={SETTINGS_ICON_BUTTON_CLASS}
                   title={localizeUi("settings.actions.exportTheme")}
-                  aria-label={localizeUi("settings.actions.exportTheme")}
+                  aria-label={`${localizeUi("settings.actions.exportTheme")}: ${t.name}`}
                 >
                   <Upload size="0.75rem" />
                 </button>
@@ -6352,7 +6447,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                   }}
                   className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger")}
                   title={localizeUi("settings.actions.removeTheme")}
-                  aria-label={localizeUi("settings.actions.removeTheme")}
+                  aria-label={`${localizeUi("settings.actions.removeTheme")}: ${t.name}`}
                 >
                   <Trash2 size="0.75rem" />
                 </button>

@@ -38,6 +38,8 @@ interface PendingKeep {
   deadline: number;
   /** Set while the person hovers or focuses the bar: the countdown waits with this much left. */
   pausedRemaining?: number | null;
+  /** Appearance settings the theme changed, as they were before: Go back puts them back. */
+  restoreSettings?: { settings: Record<string, unknown>; keys: string[] } | null;
 }
 
 interface ThemeSafetyState {
@@ -71,6 +73,10 @@ function readPendingKeep(): PendingKeep | null {
       previousId: typeof value.previousId === "string" ? value.previousId : null,
       deadline: value.deadline,
       pausedRemaining: null,
+      restoreSettings:
+        value.restoreSettings && typeof value.restoreSettings === "object" && Array.isArray(value.restoreSettings.keys)
+          ? value.restoreSettings
+          : null,
     };
   } catch {
     return null;

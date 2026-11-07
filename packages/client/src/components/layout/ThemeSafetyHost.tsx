@@ -14,6 +14,8 @@ import { useThemeSafetyStore, type ThemeGuardProblem } from "../../lib/theme-saf
 import { executeStateNavigation } from "../../lib/state-navigation";
 import { requestThemeEdit } from "../../lib/theme-edit-request";
 import { useUIStore } from "../../stores/ui.store";
+import { applyThemeSettings, type ThemeSettingKey } from "../../lib/theme-package";
+import type { ThemeSettings } from "@marinara-engine/shared";
 
 const SHADOW_CSS = `
 :host { all: initial; }
@@ -141,6 +143,13 @@ export function ThemeSafetyHost() {
       const pending = useThemeSafetyStore.getState().pendingKeep;
       if (!pending) return;
       useThemeSafetyStore.getState().settleKeep();
+      // Settings the theme changed go back too.
+      if (pending.restoreSettings?.keys.length) {
+        applyThemeSettings(
+          pending.restoreSettings.settings as ThemeSettings,
+          pending.restoreSettings.keys as ThemeSettingKey[],
+        );
+      }
       // Picked something else meanwhile (here or on another device): nothing to go back from.
       const current = themes.find((theme) => theme.isActive)?.id ?? null;
       if (themes.length > 0 && current !== pending.themeId) return;
