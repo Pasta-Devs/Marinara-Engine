@@ -111,6 +111,8 @@ A chat or a character can have its own music folder, so each story plays its own
 
 Music DJ uses the first folder it finds: this chat's folder, then the character's folder, then the default. A group chat never uses a character's folder. A chat or character folder plays even when the default source is Game Assets.
 
+While a chat plays from Game Assets (it has no folder on this device of its own), **This chat** also shows **Game Assets Music Folder**. Type a subfolder of Game Assets, such as `music/combat`, to play it in this chat only. Leave it empty to use the default.
+
 **In use:** shows the folder this chat plays and where it comes from: **This chat**, **From** and the character's name, or **Default**.
 
 - **Use default** removes this chat's folder. The chat then plays the character's folder, or the default.

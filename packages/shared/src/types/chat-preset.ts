@@ -186,8 +186,9 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   // This chat's latest scene video and the message its last automatic video joined (the Video Run Interval anchor).
   "sceneLastVideoId",
   "lastAutomaticVideoMessageId",
-  // A Music DJ folder on this device chosen for this one chat (#8901).
+  // A Music DJ folder on this device (#8901) or Game Assets music subfolder (#8916) chosen for this one chat.
   "customMusicExternalFolder",
+  "customMusicGameAssetsFolder",
 ] as const;
 
 /**
@@ -298,7 +299,6 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "proseGuardianStyleInstructions", // Prose Guardian: preferred style
   "proseGuardianHoldForRewrite", // Hold a reply until it is rewritten
   "lorebookKeeperReadBehindMessages", // Lorebook Keeper: how far behind it reads
-  "customMusicFolder", // Music DJ: music folder
   "spotifySourceType", // Music DJ: playlist or artist
   "spotifyPlaylistId", // Music DJ: playlist
   "spotifyPlaylistName", // Music DJ: playlist name
