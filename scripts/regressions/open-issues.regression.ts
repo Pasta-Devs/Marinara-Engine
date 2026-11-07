@@ -6033,8 +6033,8 @@ assert.match(
 );
 assert.match(
   conversationGroupSettingsSource,
-  // The close button also closes a pinned window, hence `onClose({ force: true })` (#7036).
-  /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;[\s\S]{0,250}onClose\((?:\{ force: true \})?\)[\s\S]{0,100}return true/u,
+  // The close button also closes a pinned window: `force` defaults to true (#7036); a card link passes false (#8933).
+  /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;[\s\S]{0,250}onClose\((?:\{ force(?:: true)? \})?\)[\s\S]{0,100}return true/u,
   "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
 );
 assert.match(
@@ -10893,5 +10893,43 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
 assert.match(gameSurfaceSource, /localStorage\.setItem\(`story-ending-closed:\$\{storyEndingKey\}`, "1"\)/u);
 assert.match(gameSurfaceSource, /readIntroPresentedFlag\(`story-ending-closed:\$\{storyEndingKey\}`\)/u);
 assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!storyEndingClosedBefore &&/u);
+
+// #8933: a member's name in Chat Settings opens their full card again (Characters and Game Mode party), only after
+// the drawer's guarded close (drafts and the inline card editor's saves finished; a pinned drawer stays open).
+{
+  const drawerSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+    "utf8",
+  );
+  const cardOpens = drawerSource.match(
+    /void requestClose\(false\)\.then\(\(closed\) => \{\s*if \(closed\) useUIStore\.getState\(\)\.openCharacterDetail\(c\.id, \{ initialTab: "card" \}\);/gu,
+  );
+  assert.equal(cardOpens?.length, 2, "both member-name buttons open the card after a guarded, unforced close");
+  assert.match(
+    drawerSource,
+    /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;\s*if \(!\(await \(inlineCardFlushRef\.current\?\.\(\) \?\? Promise\.resolve\(true\)\)\)\) return false;[\s\S]{0,80}onClose\(\{ force \}\);/u,
+    "the drawer's close waits for the inline card editor's saves",
+  );
+  assert.match(drawerSource, /onFlushChange=\{handleInlineCardFlushChange\}/u);
+  const inlineEditorSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/inline-editors/InlineChatCardEditor.tsx"),
+    "utf8",
+  );
+  assert.match(
+    inlineEditorSource,
+    /onFlushChange\(async \(\) => \{[\s\S]{0,400}commitField\(field\);\s*await saveQueueRef\.current;\s*return !lastSaveFailedRef\.current;/u,
+    "the inline card editor hands the drawer a flush that waits for its queued saves",
+  );
+  assert.match(
+    inlineEditorSource,
+    /onFlushChange\(async \(\) => \{[\s\S]{0,160}lastSaveFailedRef\.current = false;/u,
+    "a flush starts with no failure recorded",
+  );
+  assert.equal(
+    inlineEditorSource.match(/lastSaveFailedRef\.current = false;/gu)?.length,
+    1,
+    "a later successful save never clears a failure within the flush",
+  );
+}
 
 console.info("Open-issue regressions passed.");
