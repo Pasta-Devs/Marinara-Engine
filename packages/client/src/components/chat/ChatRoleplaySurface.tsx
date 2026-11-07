@@ -60,7 +60,7 @@ import {
   resolveTranscriptRenderWindowSize,
   TRANSCRIPT_RENDER_WINDOW_STEP,
 } from "../../lib/transcript-render-window";
-import { selectSidebarShown, useUIStore } from "../../stores/ui.store";
+import { DEFAULT_ROLEPLAY_BACKGROUND_URL, selectSidebarShown, useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useChatComposerFocused, useChatKeyboardOpen } from "../../hooks/use-visual-viewport-chat-bottom";
@@ -1041,6 +1041,9 @@ export function ChatRoleplaySurface({
   const sidebarOpen = useUIStore(selectSidebarShown);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
+  // The stock black backdrop is a dark-mode default; in Light mode the theme's own background shows instead.
+  const lightTheme = useUIStore((s) => s.theme === "light");
+  const shownChatBackground = lightTheme && chatBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL ? null : chatBackground;
   const roleplayReducedPaintEffects = useUIStore((s) => s.roleplayReducedPaintEffects);
   const defaultDisplayStyle = useUIStore((s) => s.roleplayDisplayStyle);
   const vnSpriteScale = useUIStore((s) => s.roleplayVnSpriteScale);
@@ -1830,7 +1833,7 @@ export function ChatRoleplaySurface({
           } as CSSProperties
         }
       >
-        <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
+        <CrossfadeBackground url={shownChatBackground} blurPx={chatBackgroundBlur} />
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
         {weatherEffects && <WeatherEffectsConnected paused={weatherEffectsPaused} />}
