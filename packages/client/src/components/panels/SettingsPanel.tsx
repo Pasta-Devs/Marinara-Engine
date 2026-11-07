@@ -59,7 +59,10 @@ import {
 } from "../../lib/api-client";
 import { ANDROID_BRIDGE_READY_EVENT, getAndroidBridgeToken } from "../../lib/android-bridge";
 import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
-import { normalizeThemeCss, sanitizeAppCss } from "../../lib/theme-css";
+import { extractImportantThemeCss, normalizeThemeCss, sanitizeAppCss } from "../../lib/theme-css";
+import { checkProtectedChrome } from "../../lib/theme-guard";
+import { useThemeSafetyStore, type ThemeGuardProblem } from "../../lib/theme-safety";
+import { takeThemeEditRequest, useThemeEditRequest } from "../../lib/theme-edit-request";
 import { getChatWidgetFontFamily } from "../../lib/font-family";
 import { forceRefreshSpa } from "@/lib/browser-runtime";
 import {
@@ -107,6 +110,7 @@ import {
 } from "@marinara-engine/shared";
 import {
   findDuplicateTheme,
+  useActivateTheme,
   useCreateTheme,
   useDeleteTheme,
   useSetActiveTheme,
@@ -5704,6 +5708,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const updateTheme = useUpdateTheme();
   const deleteTheme = useDeleteTheme();
   const setActiveTheme = useSetActiveTheme();
+  const activateTheme = useActivateTheme();
   const activeCustomTheme = syncedThemes.find((theme) => theme.isActive) ?? null;
   const isSavingTheme = createTheme.isPending || updateTheme.isPending || setActiveTheme.isPending;
 
@@ -5713,6 +5718,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const [themeName, setThemeName] = useState("");
   const [themeCss, setThemeCss] = useState("");
   const [livePreview, setLivePreview] = useState(true);
+  const [previewProblems, setPreviewProblems] = useState<ThemeGuardProblem[]>([]);
 
   // Replacing a dense app-level stylesheet invalidates styles across the full
   // document. Keep typing immediate and apply only the settled preview instead
@@ -5723,6 +5729,8 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
 
     if (!editorOpen || !livePreview) {
       existingStyle?.remove();
+      document.getElementById(`${previewStyleId}-important`)?.remove();
+      setPreviewProblems([]);
       return;
     }
 
@@ -5732,18 +5740,44 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
       document.head.appendChild(style);
     }
 
+    style.dataset.mariCustomCss = "preview";
+    let guardTimeout: number | undefined;
     const previewTimeout = window.setTimeout(() => {
-      style.textContent = sanitizeAppCss(themeCss);
+      const css = sanitizeAppCss(themeCss);
+      style.media = "";
+      style.textContent = css;
       // Keep the preview after the active-theme injector's saved CSS.
       document.head.appendChild(style);
+      let important = document.getElementById(`${previewStyleId}-important`) as HTMLStyleElement | null;
+      const importantCss = extractImportantThemeCss(css);
+      if (importantCss) {
+        important ??= document.createElement("style");
+        important.id = `${previewStyleId}-important`;
+        important.dataset.mariCustomCss = "preview";
+        important.media = "";
+        important.textContent = importantCss;
+        document.head.appendChild(important);
+      } else important?.remove();
+      // The preview obeys the same rule as a saved theme: it may restyle the top bar and the
+      // sidebars, never hide, move or cover them. A preview that does is paused, with the reason.
+      guardTimeout = window.setTimeout(() => {
+        const sheets = [style, important].filter((sheet): sheet is HTMLStyleElement => !!sheet?.isConnected);
+        const problems = checkProtectedChrome(sheets);
+        if (problems.length > 0) sheets.forEach((sheet) => (sheet.media = "not all"));
+        setPreviewProblems(problems);
+      }, 450);
     }, THEME_PREVIEW_DEBOUNCE_MS);
 
-    return () => window.clearTimeout(previewTimeout);
+    return () => {
+      window.clearTimeout(previewTimeout);
+      window.clearTimeout(guardTimeout);
+    };
   }, [editorOpen, livePreview, themeCss]);
 
   useEffect(
     () => () => {
       document.getElementById("marinara-css-editor-preview")?.remove();
+      document.getElementById("marinara-css-editor-preview-important")?.remove();
     },
     [],
   );
@@ -5762,12 +5796,26 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     setEditorOpen(true);
   }, []);
 
+  // "Edit theme" from the safety bar or a theme preview opens the editor on that theme.
+  const editRequestId = useThemeEditRequest((state) => state.themeId);
+  useEffect(() => {
+    if (!editRequestId) return;
+    const theme = syncedThemes.find((item) => item.id === editRequestId);
+    if (!theme) return;
+    takeThemeEditRequest();
+    openEditTheme(theme);
+  }, [editRequestId, openEditTheme, syncedThemes]);
+
   const handleSave = useCallback(async () => {
     try {
       const name = themeName.trim() || "Untitled Theme";
       const css = normalizeThemeCss(themeCss);
       if (editingId) {
         await updateTheme.mutateAsync({ id: editingId, name, css });
+        // Edited CSS gets a fresh check from the chrome guard.
+        if (useThemeSafetyStore.getState().blockedThemeId === editingId) {
+          useThemeSafetyStore.getState().clearBlockedTheme();
+        }
         toast.success(localizeUi("ui.panels.themessettings.themeValue1Updated", { value1: name }));
       } else {
         const theme = await createTheme.mutateAsync({
@@ -5775,7 +5823,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
           css,
           installedAt: new Date().toISOString(),
         });
-        await setActiveTheme.mutateAsync(theme.id);
+        await activateTheme(theme);
         toast.success(localizeUi("ui.panels.themessettings.themeValue1SavedAndActivated", { value1: name }));
       }
       setEditorOpen(false);
@@ -5783,7 +5831,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
       console.error("[ThemesSettings] Failed to save theme:", err);
       toast.error(localizeUi("ui.panels.themessettings.failedToSaveThemeCheckTheBrowserConsoleFor"));
     }
-  }, [createTheme, editingId, setActiveTheme, themeCss, themeName, updateTheme, localizeUi]);
+  }, [activateTheme, createTheme, editingId, themeCss, themeName, updateTheme, localizeUi]);
 
   const handleImportThemeFile = async (file: File) => {
     try {
@@ -5888,9 +5936,17 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     }
   };
   // ── CSS Editor View ──
+  // Inside the same section as the list, so the new layout's Settings page (which shows only
+  // settings sections) shows the editor too.
   if (editorOpen) {
     return (
-      <div className="flex flex-col gap-3">
+      <SettingsSection
+        title={localizeUi("ui.panels.themessettings.cssThemes")}
+        description={localizeUi("settings.sections.themeLibrary.componentDescription")}
+        icon={<Palette size="0.875rem" />}
+        {...getSettingsSectionAnchorProps("theme-library")}
+      >
+      <div className="flex flex-col gap-3" data-theme-editor="true">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -5947,6 +6003,12 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
           className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
         />
 
+        {previewProblems.length > 0 && (
+          <p role="alert" className="rounded-lg bg-[var(--destructive)]/10 px-3 py-2 text-[0.6875rem] text-[var(--destructive)] ring-1 ring-[var(--destructive)]/30">
+            {localizeUi("theming.editor.previewPaused")}
+          </p>
+        )}
+
         {/* CSS textarea */}
         <textarea
           value={themeCss}
@@ -5995,6 +6057,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
           </div>
         </details>
       </div>
+      </SettingsSection>
     );
   }
 
@@ -6043,11 +6106,9 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             <span className="text-xs font-medium">{localizeUi("ui.panels.themessettings.installedThemes")}</span>
             <button
               onClick={() =>
-                setActiveTheme.mutate(null, {
-                  onError: (err) => {
-                    console.error("[ThemesSettings] Failed to reset active theme:", err);
-                    toast.error(localizeUi("ui.panels.themessettings.failedToResetTheActiveTheme"));
-                  },
+                activateTheme(null).catch((err: unknown) => {
+                  console.error("[ThemesSettings] Failed to reset active theme:", err);
+                  toast.error(localizeUi("ui.panels.themessettings.failedToResetTheActiveTheme"));
                 })
               }
               className={cn(
@@ -6075,11 +6136,9 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
               >
                 <button
                   onClick={() =>
-                    setActiveTheme.mutate(t.id, {
-                      onError: (err) => {
-                        console.error("[ThemesSettings] Failed to activate theme:", err);
-                        toast.error(localizeUi("ui.panels.themessettings.failedToActivateTheme"));
-                      },
+                    activateTheme(t).catch((err: unknown) => {
+                      console.error("[ThemesSettings] Failed to activate theme:", err);
+                      toast.error(localizeUi("ui.panels.themessettings.failedToActivateTheme"));
                     })
                   }
                   className="flex flex-1 items-center gap-2 min-w-0"

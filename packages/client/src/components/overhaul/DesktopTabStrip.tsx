@@ -59,6 +59,7 @@ export function DesktopTabStrip({
   const tabGroups = useOverhaulStore((s) => s.tabGroups);
   const store = useOverhaulStore.getState;
   const stripRef = useRef<HTMLDivElement | null>(null);
+  const lastMoveRef = useRef<{ key: string; width: number } | null>(null);
   const [clipped, setClipped] = useState<Set<string>>(() => new Set());
   const [drag, setDrag] = useState<Drag | null>(null);
   const [drop, setDrop] = useState<DropSpot | null>(null);
@@ -121,13 +122,27 @@ export function DesktopTabStrip({
     return () => observer.disconnect();
   }, [items]);
 
+  // A new tab on screen gets its own chance to move into the strip.
+  useEffect(() => {
+    lastMoveRef.current = null;
+  }, [currentItemKey]);
+
   // The tab on screen is always in the strip: if it's in the overflow, it takes the last visible place.
   useEffect(() => {
     if (!currentItemKey || !clipped.has(currentItemKey)) return;
     const visible = items.filter((item) => !clipped.has(item.itemKey));
     const lastVisible = visible[visible.length - 1];
-    const at = lastVisible ? placeIndex({ itemKey: lastVisible.itemKey, where: "before" }, items) : 0;
+    // Not even one tab fits (huge Display Size on a narrow screen): there's no place to move it to.
+    // Moving it to the front anyway re-measured, found it still cut off and moved it again, forever
+    // (React #185, theming panel H3). It stays in the overflow menu instead.
+    if (!lastVisible) return;
+    const at = placeIndex({ itemKey: lastVisible.itemKey, where: "before" }, items);
     if (at === null) return;
+    // Moved once already at this strip width and still cut off: the tab is wider than the room left.
+    const width = Math.round(stripRef.current?.getBoundingClientRect().width ?? 0);
+    const lastMove = lastMoveRef.current;
+    if (lastMove && lastMove.key === currentItemKey && lastMove.width === width) return;
+    lastMoveRef.current = { key: currentItemKey, width };
     if (currentGroup) store().moveTabGroup(currentGroup.id, at);
     else if (currentKey) store().moveTab(currentKey, at);
   }, [clipped, currentGroup, currentItemKey, currentKey, items, store]);
