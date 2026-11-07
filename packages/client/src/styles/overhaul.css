@@ -9820,3 +9820,14 @@ input.ov-edhead__title:focus {
 :root[data-overhaul="on"] {
   --ov-chat-min: 400px;
 }
+
+/* New Game: one fixed height for every step, so the footer (Back / Next) never moves; the body scrolls. */
+.ov-gsw {
+  height: min(40rem, calc(100dvh - var(--ov-topbar-height, 2.75rem) - 2rem)) !important;
+}
+:root[data-overhaul="on"] [data-cs-docked="reflow"][data-cs-tracker="right"] {
+  --tracker-panel-overlay-clearance: 0px;
+  --tracker-panel-chat-clearance: 0px;
+  --tracker-panel-column-room: 0px;
+  --tracker-panel-hud-clear-right: 0px;
+}
