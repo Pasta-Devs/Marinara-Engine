@@ -187,7 +187,7 @@ Suit les barres d'état de ton propre personnage, comme Satiety, Energy et Hygie
 
 - **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : **Add as Prompt Section** (activé par défaut). Voir [Couleurs et caractéristiques des personnages](../characters/colors-and-stats.md).
+- **Réglages clés** : **Add as Prompt Section** (activé par défaut). Voir [Couleurs des personnages et Caractéristiques de Roleplay](../characters/colors-and-stats.md).
 
 ### Custom Tracker
 

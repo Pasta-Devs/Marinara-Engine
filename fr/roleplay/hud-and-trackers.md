@@ -187,6 +187,6 @@ Si ça n'a pas marché : si l'histoire a avancé pendant que tu modifiais, l'éd
 
 - [Référence des agents téléchargeables](../agents/built-in-agents.md)
 - [Agents : des aides IA pour tes chats](../agents/agents-overview.md)
-- [Couleurs des personnages et caractéristiques narratives](../characters/colors-and-stats.md) : l'onglet **Stats** (caractéristiques) définit les barres et les attributs avec lesquels un persona ou un personnage commence.
+- [Couleurs des personnages et Caractéristiques de Roleplay](../characters/colors-and-stats.md) : l'onglet **Stats** (caractéristiques) définit les barres et les attributs avec lesquels un persona ou un personnage commence.
 - [Mode Roleplay : premiers pas](getting-started.md)
 - [Game Mode : les widgets du HUD](../game/hud-widgets.md)

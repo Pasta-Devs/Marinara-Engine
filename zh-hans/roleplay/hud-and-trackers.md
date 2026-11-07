@@ -187,6 +187,6 @@ Character Tracker 有了图像连接后，角色的大卡片就能生成新肖�
 
 - [可下载智能体参考](../agents/built-in-agents.md)
 - [智能体：聊天里的 AI 帮手](../agents/agents-overview.md)
-- [角色颜色与剧情属性](../characters/colors-and-stats.md)：**Stats** 选项卡设定用户角色或角色一开始有哪些状态条和属性。
+- [角色颜色与角色扮演属性](../characters/colors-and-stats.md)：**Stats** 选项卡设定用户角色或角色一开始有哪些状态条和属性。
 - [Roleplay 模式：入门](getting-started.md)
 - [Game Mode：HUD 小组件](../game/hud-widgets.md)

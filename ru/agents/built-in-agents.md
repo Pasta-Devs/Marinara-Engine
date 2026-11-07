@@ -189,7 +189,7 @@
 
 - **Фаза**: Post-Processing.
 - **Где работает**: Roleplay.
-- **Главные настройки**: **Add as Prompt Section** (включено по умолчанию). Смотрите [Цвета персонажа и сюжетные характеристики](../characters/colors-and-stats.md).
+- **Главные настройки**: **Add as Prompt Section** (включено по умолчанию). Смотрите [Цвета персонажа и Характеристики ролевой игры](../characters/colors-and-stats.md).
 
 ### Custom Tracker
 

@@ -49,7 +49,7 @@ Un personaje nuevo puede mostrar "Character data will populate as the story prog
 1. Abre la hoja del personaje y haz clic en **Edit card**.
 2. Cambia lo que necesites:
    - **Class** (Clase) y una descripción corta en **Sheet Details** (Detalles de la hoja).
-   - **Story stats** (Estadísticas de historia; partidas Legacy): activa **Enable** (Activar) para llevar el registro de reservas y atributos. **Add Pool** (Añadir reserva) añade una barra (nombre, valor actual, valor máximo, color). **Add Attribute** (Añadir atributo) añade una puntuación como STR. Una partida con clases MRPG no los usa para pruebas ni peleas.
+   - **Roleplay Stats** (Estadísticas de Roleplay; partidas Legacy): activa **Enable** (Activar) para llevar el registro de reservas y atributos. **Add Pool** (Añadir reserva) añade una barra (nombre, valor actual, valor máximo, color). **Add Attribute** (Añadir atributo) añade una puntuación como STR. Una partida con clases MRPG no los usa para pruebas ni peleas.
    - **Abilities**, **Strengths** y **Weaknesses**: **Add** (Añadir) agrega una línea.
    - **Details**: **Add Detail** (Añadir detalle) añade un dato con etiqueta.
 3. Haz clic en **Save Sheet**. Haz clic en **Cancel** para descartar tus cambios.

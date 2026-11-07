@@ -46,7 +46,7 @@ Abas que têm guia próprio:
 | **Lorebook** | [Vincular lorebooks a personagens](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [Sprites de personagem](sprites.md) |
 | **Gallery** | [Galerias de personagem e de persona](galleries.md) |
-| **Colors** e **Stats** | [Cores do personagem e status da história](colors-and-stats.md) |
+| **Colors** e **Stats** | [Cores do personagem e Status de Roleplay](colors-and-stats.md) |
 
 As seções abaixo explicam **Metadata**, **Card**, **Voice** e **Advanced**, além dos avatares e do histórico de versões.
 

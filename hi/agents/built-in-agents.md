@@ -187,7 +187,7 @@ Tracker एजेंट सीन, कैरेक्टर और आपके 
 
 - **फ़ेज़**: Post-Processing।
 - **कहाँ चलता है**: Roleplay।
-- **मुख्य सेटिंग्स**: **Add as Prompt Section** (डिफ़ॉल्ट रूप से चालू)। देखें [कैरेक्टर के रंग और कहानी के स्टैट](../characters/colors-and-stats.md)।
+- **मुख्य सेटिंग्स**: **Add as Prompt Section** (डिफ़ॉल्ट रूप से चालू)। देखें [कैरेक्टर के रंग और रोलप्ले स्टैट](../characters/colors-and-stats.md)।
 
 ### Custom Tracker
 

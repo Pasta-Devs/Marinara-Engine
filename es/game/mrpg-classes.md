@@ -179,4 +179,4 @@ La actualización no se ofrece durante una pelea. Termina primero la pelea. Una 
 - [Game Mode: combate](combat.md)
 - [Game Mode: grupo y NPC](party-and-npcs.md)
 - [Game Mode: dados y pruebas de habilidad](dice-and-skill-checks.md)
-- [Colores del personaje y estadísticas de historia](../characters/colors-and-stats.md)
+- [Colores del personaje y Estadísticas de Roleplay](../characters/colors-and-stats.md)

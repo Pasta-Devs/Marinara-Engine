@@ -187,7 +187,7 @@ Acompanha as barras de status da persona (o personagem que você interpreta), co
 
 - **Fase**: Post-Processing.
 - **Onde funciona**: Roleplay.
-- **Configurações principais**: **Add as Prompt Section** (ativado por padrão). Veja [Cores do personagem e status da história](../characters/colors-and-stats.md).
+- **Configurações principais**: **Add as Prompt Section** (ativado por padrão). Veja [Cores do personagem e Status de Roleplay](../characters/colors-and-stats.md).
 
 ### Custom Tracker
 

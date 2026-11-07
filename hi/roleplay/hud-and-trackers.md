@@ -187,6 +187,6 @@ Character Tracker के पास इमेज कनेक्शन हो ज
 
 - [डाउनलोड किए जाने वाले एजेंट का रेफ़रेंस](../agents/built-in-agents.md)
 - [एजेंट: आपकी चैट में मदद करने वाले AI](../agents/agents-overview.md)
-- [कैरेक्टर के रंग और कहानी के स्टैट](../characters/colors-and-stats.md): **Stats** टैब तय करता है कि कोई पर्सोना या कैरेक्टर किन बार और एट्रिब्यूट के साथ शुरू होता है।
+- [कैरेक्टर के रंग और रोलप्ले स्टैट](../characters/colors-and-stats.md): **Stats** टैब तय करता है कि कोई पर्सोना या कैरेक्टर किन बार और एट्रिब्यूट के साथ शुरू होता है।
 - [Roleplay मोड: शुरुआत](getting-started.md)
 - [Game Mode: HUD विजेट](../game/hud-widgets.md)

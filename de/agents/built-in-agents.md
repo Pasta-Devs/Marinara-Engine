@@ -187,7 +187,7 @@ Führt Statusleisten für deinen eigenen Charakter mit, etwa Sättigung, Energie
 
 - **Phase**: Post-Processing.
 - **Einsatzbereich**: Roleplay.
-- **Wichtige Einstellungen**: **Add as Prompt Section** (standardmäßig an). Siehe [Charakterfarben und Story-Werte](../characters/colors-and-stats.md).
+- **Wichtige Einstellungen**: **Add as Prompt Section** (standardmäßig an). Siehe [Charakterfarben und Roleplay-Werte](../characters/colors-and-stats.md).
 
 ### Custom Tracker
 

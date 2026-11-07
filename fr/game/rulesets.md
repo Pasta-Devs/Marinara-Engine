@@ -183,5 +183,5 @@ Un ensemble de règles peut aussi utiliser des **Progress clocks** (horloges de 
 - [Game Mode : combats avec un ensemble de règles](fighting-on-a-ruleset.md)
 - [Game Mode : dés et tests de compétence](dice-and-skill-checks.md)
 - [Game Mode : l'équipe et les PNJ](party-and-npcs.md)
-- [Couleurs des personnages et caractéristiques narratives : fiches d'ensembles de règles](../characters/colors-and-stats.md#ruleset-sheets)
+- [Couleurs des personnages et Caractéristiques de Roleplay : fiches d'ensembles de règles](../characters/colors-and-stats.md#ruleset-sheets)
 - [Écrire des ensembles de règles Game Mode](../extending/writing-rulesets.md)

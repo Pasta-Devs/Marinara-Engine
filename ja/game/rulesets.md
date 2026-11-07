@@ -183,5 +183,5 @@ GMは、語りながらシートを最新の状態に保ちます。キャラク
 - [Game Mode: ルールセットでの戦闘](fighting-on-a-ruleset.md)
 - [Game Mode: ダイスとスキル判定](dice-and-skill-checks.md)
 - [Game Mode: パーティーとNPC](party-and-npcs.md)
-- [キャラクターの色と物語用ステータス: ルールセットのシート](../characters/colors-and-stats.md#ruleset-sheets)
+- [キャラクターの色とロールプレイ用ステータス: ルールセットのシート](../characters/colors-and-stats.md#ruleset-sheets)
 - [Game Modeのルールセットを作成する](../extending/writing-rulesets.md)

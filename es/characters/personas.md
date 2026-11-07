@@ -64,7 +64,7 @@ El editor de personas funciona como el [Character Editor](creating-and-editing-c
 | **Lorebook** | Adjunta entradas de lorebook (libro de trasfondo) que se activan cuando esta persona está en el chat. Consulta [Descripción general de los lorebooks](../lorebooks/overview.md). |
 | **Sprites** | Arte de pie para Game y Roleplay. Tiene **Facial Expressions** (Expresiones faciales), **Full-body** (Cuerpo completo) y **Clips**, y **Upload Folder** (Subir carpeta). Consulta [Sprites de personaje](sprites.md). |
 | **Gallery** (Galería) | Imágenes y videos de referencia, con **Upload Persona Images** (Subir imágenes de la persona) y **Upload Persona Videos** (Subir videos de la persona). Consulta [Galerías de personajes y personas](galleries.md). |
-| **Colors** (Colores) | Colores del nombre, del diálogo y del cuadro de mensaje. Consulta [Colores del personaje y estadísticas de historia](colors-and-stats.md). |
+| **Colors** (Colores) | Colores del nombre, del diálogo y del cuadro de mensaje. Consulta [Colores del personaje y Estadísticas de Roleplay](colors-and-stats.md). |
 | **Stats** (Estadísticas) | Barras de estado y atributos RPG. Consulta [Pestaña Stats](#stats-tab) más abajo. |
 
 La pestaña **Metadata** muestra:
@@ -109,7 +109,7 @@ Estas funciones son iguales que en los personajes, pero con la persona como suje
 La pestaña **Stats** tiene dos bloques separados. Ambos alimentan el HUD, el panel de estadísticas que se muestra en pantalla durante un chat.
 
 - **Enable Persona Stats** (Activar estadísticas de la persona) activa las barras de estado, indicadores de necesidades como el hambre y el ánimo. Un bloque recién activado empieza con Satiety, Energy, Hygiene y Mood, cada una en 100 de 100. El agente **Persona Stats** las ajusta a medida que avanza la historia.
-- **Enable story stats** (Activar estadísticas de historia) activa los Pools (barras como HP y MP) y los Attributes (números como la fuerza). Ambos se explican en [Colores del personaje y estadísticas de historia](colors-and-stats.md). Un bloque recién activado empieza con HP y MP en 100 de 100 y STR, DEX, CON, INT, WIS y CHA en 10. Se envían con la persona para el combate y Game Mode, y para las tiradas opcionales. Los agentes no los actualizan.
+- **Enable Roleplay Stats** (Activar Estadísticas de Roleplay) activa los Pools (barras como HP y MP) y los Attributes (números como la fuerza). Ambos se explican en [Colores del personaje y Estadísticas de Roleplay](colors-and-stats.md). Un bloque recién activado empieza con HP y MP en 100 de 100 y STR, DEX, CON, INT, WIS y CHA en 10. Se envían con la persona para el combate y Game Mode, y para las tiradas opcionales. Los agentes no los actualizan.
 
 Un bloque **Game Mode Icon** (Icono de Game Mode) define la imagen de tu ficha en un combate de Game Mode. Consulta [Icono de Game Mode](colors-and-stats.md#game-mode-icon). Cuando hay instalado un conjunto de reglas de Game Mode (un conjunto de reglas para juegos de estilo de mesa), un bloque **Ruleset sheets** (Fichas de conjuntos de reglas) contiene tu configuración inicial para él. Consulta [Fichas de conjuntos de reglas](colors-and-stats.md#ruleset-sheets). Los valores que estableces son los predeterminados de inicio para los chats nuevos.
 
@@ -139,7 +139,7 @@ Para eliminar, haz clic en **Delete** en una fila o en **Delete persona** en el 
 ## Guías relacionadas
 
 - [Elegir tu persona en un chat](choosing-your-persona.md)
-- [Colores del personaje y estadísticas de historia](colors-and-stats.md)
+- [Colores del personaje y Estadísticas de Roleplay](colors-and-stats.md)
 - [Crear y editar personajes](creating-and-editing-characters.md)
 - [Perfiles de Conversation Mode](../conversation/profiles.md)
 - [Macros](../prompts/macros.md)

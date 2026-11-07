@@ -183,5 +183,5 @@ Zestaw może też używać **Progress clocks** (zegary postępu): kół podzielo
 - [Game Mode: walki z zestawem zasad](fighting-on-a-ruleset.md)
 - [Game Mode: rzuty kośćmi i testy umiejętności](dice-and-skill-checks.md)
 - [Game Mode: drużyna i postacie NPC](party-and-npcs.md)
-- [Kolory postaci i statystyki fabularne: arkusze zestawu zasad](../characters/colors-and-stats.md#ruleset-sheets)
+- [Kolory postaci i Statystyki Roleplay: arkusze zestawu zasad](../characters/colors-and-stats.md#ruleset-sheets)
 - [Pisanie zestawów zasad Game Mode](../extending/writing-rulesets.md)

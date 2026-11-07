@@ -46,7 +46,7 @@ Character Editor चैट वाली जगह हटाकर पूरे �
 | **Lorebook** | [लोरबुक को कैरेक्टर से जोड़ना](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [कैरेक्टर स्प्राइट](sprites.md) |
 | **Gallery** | [कैरेक्टर और पर्सोना गैलरी](galleries.md) |
-| **Colors** और **Stats** | [कैरेक्टर के रंग और कहानी के स्टैट](colors-and-stats.md) |
+| **Colors** और **Stats** | [कैरेक्टर के रंग और रोलप्ले स्टैट](colors-and-stats.md) |
 
 नीचे के हिस्सों में **Metadata**, **Card**, **Voice** और **Advanced** के साथ अवतार और वर्ज़न हिस्ट्री की बात है।
 

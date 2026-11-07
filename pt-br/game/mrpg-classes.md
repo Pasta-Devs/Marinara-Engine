@@ -179,4 +179,4 @@ A atualização não é oferecida durante uma luta. Termine a luta primeiro. Uma
 - [Game Mode: combate](combat.md)
 - [Game Mode: equipe e NPCs](party-and-npcs.md)
 - [Game Mode: dados e testes de perícia](dice-and-skill-checks.md)
-- [Cores do personagem e status da história](../characters/colors-and-stats.md)
+- [Cores do personagem e Status de Roleplay](../characters/colors-and-stats.md)

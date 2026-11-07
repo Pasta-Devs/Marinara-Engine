@@ -187,6 +187,6 @@ Se não funcionou: se a história avançou enquanto você editava, o editor não
 
 - [Referência dos agentes para download](../agents/built-in-agents.md)
 - [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md)
-- [Cores do personagem e status da história](../characters/colors-and-stats.md): a aba **Stats** define as barras e os atributos com que uma persona ou um personagem começa.
+- [Cores do personagem e Status de Roleplay](../characters/colors-and-stats.md): a aba **Stats** define as barras e os atributos com que uma persona ou um personagem começa.
 - [Roleplay Mode: primeiros passos](getting-started.md)
 - [Game Mode: widgets do HUD](../game/hud-widgets.md)

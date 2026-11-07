@@ -47,7 +47,7 @@
 1. 打开这名角色的人物卡，点击 **Edit card**。
 2. 修改需要改的内容：
    - **Sheet Details**(人物卡详情) 下的 **Class**(职业) 和一段简短描述。
-   - **Story stats**(剧情属性)（Legacy 游戏）：打开 **Enable**(启用)，就能记录资源池和属性。**Add Pool**(添加资源条) 会添加一条资源条（名称、当前值、最大值、颜色）。**Add Attribute**(添加属性) 会添加 STR 之类的数值。采用 MRPG 职业的游戏不会把它们用于检定或战斗。
+   - **Roleplay Stats**(角色扮演属性)（Legacy 游戏）：打开 **Enable**(启用)，就能记录资源池和属性。**Add Pool**(添加资源条) 会添加一条资源条（名称、当前值、最大值、颜色）。**Add Attribute**(添加属性) 会添加 STR 之类的数值。采用 MRPG 职业的游戏不会把它们用于检定或战斗。
    - **Abilities**、**Strengths** 和 **Weaknesses**：**Add**(添加) 会追加一行。
    - **Details**：**Add Detail**(添加详情) 会添加一条带标签的信息。
 3. 点击 **Save Sheet**。点击 **Cancel** 则放弃修改。

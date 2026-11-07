@@ -183,5 +183,5 @@ GM поддерживает лист в актуальном состоянии,
 - [Game Mode: бои с набором правил](fighting-on-a-ruleset.md)
 - [Game Mode: броски кубиков и проверки навыков](dice-and-skill-checks.md)
 - [Game Mode: отряд и персонажи NPC](party-and-npcs.md)
-- [Цвета персонажа и сюжетные характеристики: листы наборов правил](../characters/colors-and-stats.md#ruleset-sheets)
+- [Цвета персонажа и Характеристики ролевой игры: листы наборов правил](../characters/colors-and-stats.md#ruleset-sheets)
 - [Создание наборов правил Game Mode](../extending/writing-rulesets.md)

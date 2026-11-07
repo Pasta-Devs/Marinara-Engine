@@ -46,7 +46,7 @@ Tabs mit eigener Anleitung:
 | **Lorebook** | [Lorebooks mit Charakteren und Personas verknüpfen](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [Charakter-Sprites](sprites.md) |
 | **Gallery** | [Galerien für Charaktere und Personas](galleries.md) |
-| **Colors** und **Stats** | [Charakterfarben und Story-Werte](colors-and-stats.md) |
+| **Colors** und **Stats** | [Charakterfarben und Roleplay-Werte](colors-and-stats.md) |
 
 Die Abschnitte unten behandeln **Metadata**, **Card**, **Voice** und **Advanced**, dazu Avatare und den Versionsverlauf.
 

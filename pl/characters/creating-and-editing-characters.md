@@ -46,7 +46,7 @@ Zakładki, które mają własne przewodniki:
 | **Lorebook** | [Podpinanie lorebooków do postaci](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [Sprite'y postaci](sprites.md) |
 | **Gallery** | [Galerie postaci i person](galleries.md) |
-| **Colors** i **Stats** | [Kolory postaci i statystyki fabularne](colors-and-stats.md) |
+| **Colors** i **Stats** | [Kolory postaci i Statystyki Roleplay](colors-and-stats.md) |
 
 Poniższe sekcje omawiają zakładki **Metadata**, **Card**, **Voice** i **Advanced**, a do tego awatary i historię wersji.
 

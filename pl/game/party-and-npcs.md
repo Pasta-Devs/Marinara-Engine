@@ -49,7 +49,7 @@ Przyciski **Retry** (ponów), **Save Sheet** (zapisanie arkusza) i **Cancel** (a
 1. Otwórz arkusz postaci i kliknij **Edit card**.
 2. Zmień to, czego potrzebujesz:
    - **Class** (klasa) i krótki opis w sekcji **Sheet Details** (szczegóły arkusza).
-   - **Story stats** (statystyki fabularne; gry Legacy): włącz **Enable** (włącz), żeby śledzić pule i atrybuty. **Add Pool** (dodanie puli) dodaje pasek (nazwa, wartość bieżąca, wartość maksymalna, kolor). **Add Attribute** (dodanie atrybutu) dodaje wartość taką jak STR. Gra korzystająca z klas MRPG nie używa ich w testach ani walkach.
+   - **Roleplay Stats** (Statystyki Roleplay; gry Legacy): włącz **Enable** (włącz), żeby śledzić pule i atrybuty. **Add Pool** (dodanie puli) dodaje pasek (nazwa, wartość bieżąca, wartość maksymalna, kolor). **Add Attribute** (dodanie atrybutu) dodaje wartość taką jak STR. Gra korzystająca z klas MRPG nie używa ich w testach ani walkach.
    - **Abilities**, **Strengths** i **Weaknesses**: **Add** (dodaj) dopisuje kolejną linię.
    - **Details**: **Add Detail** (dodanie szczegółu) dodaje opisany fakt.
 3. Kliknij **Save Sheet**. Kliknij **Cancel**, żeby odrzucić zmiany.

@@ -179,4 +179,4 @@ Legacy 游戏可以一直保留 Legacy 人物卡。要迁移，打开 **Journal*
 - [Game Mode：战斗](combat.md)
 - [Game Mode：队伍与 NPC](party-and-npcs.md)
 - [Game Mode：骰子与技能检定](dice-and-skill-checks.md)
-- [角色颜色与剧情属性](../characters/colors-and-stats.md)
+- [角色颜色与角色扮演属性](../characters/colors-and-stats.md)

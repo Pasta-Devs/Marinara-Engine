@@ -179,4 +179,4 @@ Während eines Kampfes wird das Upgrade nicht angeboten. Beende zuerst den Kampf
 - [Game Mode: Kampf](combat.md)
 - [Game Mode: Party und NPCs](party-and-npcs.md)
 - [Game Mode: Würfel und Fertigkeitsproben](dice-and-skill-checks.md)
-- [Charakterfarben und Story-Werte](../characters/colors-and-stats.md)
+- [Charakterfarben und Roleplay-Werte](../characters/colors-and-stats.md)

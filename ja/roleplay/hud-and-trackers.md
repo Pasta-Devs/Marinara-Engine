@@ -187,6 +187,6 @@ Character Trackerに画像用の接続が設定されていれば、キャラク
 
 - [ダウンロードできるエージェント一覧](../agents/built-in-agents.md)
 - [エージェント: チャットを支えるAIヘルパー](../agents/agents-overview.md)
-- [キャラクターの色と物語用ステータス](../characters/colors-and-stats.md): **Stats**タブでは、ペルソナやキャラクターが最初に持つバーと属性を設定します。
+- [キャラクターの色とロールプレイ用ステータス](../characters/colors-and-stats.md): **Stats**タブでは、ペルソナやキャラクターが最初に持つバーと属性を設定します。
 - [Roleplayモード: はじめに](getting-started.md)
 - [Game Mode: HUDウィジェット](../game/hud-widgets.md)

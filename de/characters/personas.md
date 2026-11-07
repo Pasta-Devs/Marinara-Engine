@@ -64,7 +64,7 @@ Der Persona-Editor funktioniert wie der [Charakter-Editor](creating-and-editing-
 | **Lorebook** | Hänge Lorebook-Einträge an, die auslösen, wenn diese Persona im Chat ist. Siehe [Lorebooks – Überblick](../lorebooks/overview.md). |
 | **Sprites** | Stehende Bilder für Game Mode und Roleplay. Mit **Facial Expressions**, **Full-body** und **Clips** sowie **Upload Folder** (Ordner hochladen). Siehe [Charakter-Sprites](sprites.md). |
 | **Gallery** | Referenzbilder und Videos, mit **Upload Persona Images** und **Upload Persona Videos**. Siehe [Galerien für Charaktere und Personas](galleries.md). |
-| **Colors** | Farben für Name, Dialog und Nachrichtenbox. Siehe [Charakterfarben und Story-Werte](colors-and-stats.md). |
+| **Colors** | Farben für Name, Dialog und Nachrichtenbox. Siehe [Charakterfarben und Roleplay-Werte](colors-and-stats.md). |
 | **Stats** | Statusbalken und RPG-Attribute. Siehe [Tab „Stats“](#stats-tab) unten. |
 
 Der Tab **Metadata** zeigt:
@@ -109,7 +109,7 @@ Diese Funktionen arbeiten wie bei Charakteren, nur mit der Persona als Gegenstan
 Der Tab **Stats** hat zwei getrennte Blöcke. Beide speisen das HUD, die Werteanzeige, die während eines Chats auf dem Bildschirm erscheint.
 
 - **Enable Persona Stats** (Persona-Werte aktivieren) schaltet Statusbalken ein, also Anzeigen für Bedürfnisse wie Hunger und Stimmung. Neu eingeschaltet beginnt der Block mit Satiety, Energy, Hygiene und Mood, jeweils bei 100 von 100. Der Agent **Persona Stats** passt sie im Lauf der Geschichte an.
-- **Enable story stats** (Story-Werte aktivieren) schaltet Pools (Balken wie HP und MP) und Attribute (Zahlen wie Stärke) ein. Beides erklärt [Charakterfarben und Story-Werte](colors-and-stats.md). Neu eingeschaltet beginnt der Block mit HP und MP bei 100 von 100 sowie STR, DEX, CON, INT, WIS und CHA bei 10. Diese Werte werden für Kampf und Game Mode sowie für optionale Würfe mit der Persona gesendet. Agenten aktualisieren sie nicht.
+- **Enable Roleplay Stats** (Roleplay-Werte aktivieren) schaltet Pools (Balken wie HP und MP) und Attribute (Zahlen wie Stärke) ein. Beides erklärt [Charakterfarben und Roleplay-Werte](colors-and-stats.md). Neu eingeschaltet beginnt der Block mit HP und MP bei 100 von 100 sowie STR, DEX, CON, INT, WIS und CHA bei 10. Diese Werte werden für Kampf und Game Mode sowie für optionale Würfe mit der Persona gesendet. Agenten aktualisieren sie nicht.
 
 Der Block **Game Mode Icon** (Symbol für Game Mode) legt das Bild auf deinem Token bei einem Kampf in Game Mode fest. Siehe [Symbol für Game Mode](colors-and-stats.md#game-mode-icon). Ist ein Game-Mode-Regelsatz (ein Regelwerk für Spiele im Tabletop-Stil) installiert, enthält der Block **Ruleset sheets** (Regelsatzbögen) deine Startkonfiguration dafür. Siehe [Regelsatzbögen](colors-and-stats.md#ruleset-sheets). Die Werte, die du hier setzt, sind die Startvorgaben für neue Chats.
 
@@ -139,7 +139,7 @@ Zum Löschen klick in einer Zeile auf **Delete** oder im Editor auf **Delete per
 ## Verwandte Anleitungen
 
 - [Die Persona für einen Chat auswählen](choosing-your-persona.md)
-- [Charakterfarben und Story-Werte](colors-and-stats.md)
+- [Charakterfarben und Roleplay-Werte](colors-and-stats.md)
 - [Charaktere anlegen und bearbeiten](creating-and-editing-characters.md)
 - [Conversation-Mode-Profile](../conversation/profiles.md)
 - [Makros](../prompts/macros.md)

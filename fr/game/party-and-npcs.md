@@ -47,7 +47,7 @@ Un nouveau personnage peut afficher "Character data will populate as the story p
 1. Ouvre la feuille du personnage et clique sur **Edit card**.
 2. Change ce dont tu as besoin :
    - **Class** (classe) et une courte description, sous **Sheet Details** (détails de la feuille).
-   - **Story stats** (caractéristiques narratives, parties Legacy) : active **Enable** (activer) pour suivre des jauges et des attributs. **Add Pool** (ajouter une jauge) ajoute une barre (nom, valeur actuelle, valeur maximale, couleur). **Add Attribute** (ajouter un attribut) ajoute un score comme STR. Une partie utilisant les classes MRPG ne s'en sert ni pour les jets ni pour les combats.
+   - **Roleplay Stats** (Caractéristiques de Roleplay, parties Legacy) : active **Enable** (activer) pour suivre des jauges et des attributs. **Add Pool** (ajouter une jauge) ajoute une barre (nom, valeur actuelle, valeur maximale, couleur). **Add Attribute** (ajouter un attribut) ajoute un score comme STR. Une partie utilisant les classes MRPG ne s'en sert ni pour les jets ni pour les combats.
    - **Abilities**, **Strengths** et **Weaknesses** : **Add** (ajouter) ajoute une ligne à la fin.
    - **Details** : **Add Detail** (ajouter un détail) ajoute une information avec son intitulé.
 3. Clique sur **Save Sheet**. Clique sur **Cancel** pour abandonner tes modifications.
