@@ -2159,7 +2159,7 @@ export function PersonaEditor() {
     <OvEditorHead
       section="personas"
       sectionLabel="Personas"
-      onBack={() => leaveWithoutSaving(() => openLibrarySection("personas"))}
+      onBack={() => openLibrarySection("personas")}
       title={formData.name}
       onTitleChange={(value) => updateField("name", value)}
       titlePlaceholder={localizeUi("ui.personas.personaeditor.personaName")}

@@ -1728,9 +1728,6 @@ import { useChatAvatarAgentIds } from "../../features/avatars/stage/use-chat-ava
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 
 /** Typewriter component for the intro screen — reveals text character-by-character. */
-/** Empty "New Game" chats about to be dropped because the player left them, by chat id. */
-const emptySetupChatDrops = new Map<string, ReturnType<typeof setTimeout>>();
-
 /** How long the world overview takes to type out at most, however long it is. */
 const INTRO_TYPEWRITER_MAX_MS = 20_000;
 
@@ -12793,12 +12790,10 @@ function GameSurfaceComponent({
   // The chat read can lag behind Start Game: once a game was made here (a failed setup still made
   // it), the chat holds a campaign the server keeps, so closing setup keeps it too.
   const setupMadeGame = createGame.data?.sessionChat.id === activeChatId;
-  const canAutoDeleteEmptySetupChat = needsCreation && !setupMadeGame && !isMessagesLoading && messages.length === 0;
-  // A "New Game" chat the player walks away from before any game was made in it is dropped, as
-  // closing the wizard already drops it, so leaving setup for another chat or page leaves no empty
-  // chat behind. The decision is the one the last commit saw for that chat; the drop waits a tick
-  // so a remount of the same chat (React's double effects in development) takes it back.
-  const leaveDropsChat = useRef<string | null>(null);
+  // Leaving an unfinished game is handled once, by the setup-draft janitor (use-setup-drafts): it only
+  // removes chats a New chat launcher made and the player never got into. A game that existed before
+  // (seeded, imported, or set up elsewhere) is never dropped just because its world isn't built yet
+  // (user panel 2, N1: leaving "Reach Campaign" deleted it right after "The campaign was kept").
   // Why the last Start Game did not finish, kept on screen over the wizard until the next try:
   // the game is already made by then, and a toast that fades leaves a player looking at a wizard
   // that seems to have done nothing.
@@ -12858,33 +12853,6 @@ function GameSurfaceComponent({
       document.removeEventListener("visibilitychange", reread);
     };
   }, [activeChatId, onSetupWizard, queryClient, setupBusy, unmade, waitingOnOtherSetup]);
-  useEffect(() => {
-    leaveDropsChat.current =
-      canAutoDeleteEmptySetupChat && !createGame.isPending && !gameSetup.isPending ? activeChatId : null;
-  });
-  useEffect(() => {
-    const chatId = activeChatId;
-    const waiting = emptySetupChatDrops.get(chatId);
-    if (waiting) {
-      clearTimeout(waiting);
-      emptySetupChatDrops.delete(chatId);
-    }
-    return () => {
-      if (leaveDropsChat.current !== chatId) return;
-      emptySetupChatDrops.set(
-        chatId,
-        setTimeout(() => {
-          emptySetupChatDrops.delete(chatId);
-          if (useChatStore.getState().activeChatId === chatId) return;
-          // Without force: the server refuses a chat that holds a game after all.
-          void api
-            .delete(`/chats/${chatId}`)
-            .then(() => queryClient.invalidateQueries({ queryKey: chatKeys.list() }))
-            .catch(() => undefined);
-        }, 0),
-      );
-    };
-  }, [activeChatId, queryClient]);
   const shouldShowSetupWizard =
     isSetupActive || (!setupWizardDismissed && (needsCreation || sessionStatus === "setup"));
 
@@ -12908,7 +12876,7 @@ function GameSurfaceComponent({
   if (shouldShowSetupWizard) {
     // Shared with an experience's own setup, so closing either one behaves identically.
     /** Closes setup from either wizard: no-op while a launch is pending, and drops an empty chat. */
-    const dismissSetupWizard = async () => {
+    const dismissSetupWizard = async (confirmed?: boolean) => {
       if (
         createGame.isPending ||
         gameSetup.isPending ||
@@ -12928,16 +12896,18 @@ function GameSurfaceComponent({
       // A new game whose world was never built (never made, or Create world failed) is only a draft:
       // closing setup removes it rather than leaving a half-made campaign behind.
       if (isUnfinishedSetup(chat)) {
-        const discard = await showConfirmDialog({
-          title: localizeUi("game.setupDraft.discardTitle", { defaultValue: "Discard this game?" }),
-          message: localizeUi("game.setupDraft.discardMessage", {
-            defaultValue:
-              "Its world hasn't been built yet, so closing setup deletes it. Your choices here will be lost.",
-          }),
-          confirmLabel: localizeUi("game.setupDraft.discard", { defaultValue: "Discard game" }),
-          cancelLabel: localizeUi("game.setupDraft.keepSettingUp", { defaultValue: "Keep setting up" }),
-          tone: "destructive",
-        });
+        const discard =
+          confirmed === true ||
+          (await showConfirmDialog({
+            title: localizeUi("game.setupDraft.discardTitle", { defaultValue: "Discard this game?" }),
+            message: localizeUi("game.setupDraft.discardMessage", {
+              defaultValue:
+                "Its world hasn't been built yet, so closing setup deletes it. Your choices here will be lost.",
+            }),
+            confirmLabel: localizeUi("game.setupDraft.discard", { defaultValue: "Discard game" }),
+            cancelLabel: localizeUi("game.setupDraft.keepSettingUp", { defaultValue: "Keep setting up" }),
+            tone: "destructive",
+          }));
         if (!discard) {
           useGameModeStore.getState().setSetupActive(true);
           return;

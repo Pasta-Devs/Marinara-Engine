@@ -16,7 +16,7 @@ import { useEffect, type RefObject } from "react";
 import { useUIStore } from "../stores/ui.store";
 
 /** The narrowest a chat column may get before Chat settings floats over it instead. */
-export const OV_CHAT_MIN_WIDTH = 400;
+export const OV_CHAT_MIN_WIDTH = 560;
 
 function chatMinWidth(host: HTMLElement): number {
   const value = Number.parseFloat(getComputedStyle(host).getPropertyValue("--ov-chat-min"));

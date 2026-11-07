@@ -1736,6 +1736,8 @@ export function LorebookEditor() {
   const entryDraftsRef = useRef(new Map<string, Partial<LorebookEntry>>());
   const [entryDraftCount, setEntryDraftCount] = useState(0);
   const [savingEntries, setSavingEntries] = useState(false);
+  // Bumped when kept edits come back after a reload, so open entry editors read their drafts again.
+  const [entryDraftsRestored, setEntryDraftsRestored] = useState(0);
   const saveEntryDraft = useCallback(
     async (entryId: string): Promise<boolean> => {
       const changes = entryDraftsRef.current.get(entryId);
@@ -1800,7 +1802,21 @@ export function LorebookEditor() {
     return ok;
   }, [handleSaveLorebook, localizeUi, lorebookDirty, saveEntryDraft]);
 
-  useEditorLeaveSave(`lorebookDetailId:${lorebookId}`, editorDirty, handleSaveAll, saving || savingEntries);
+  useEditorLeaveSave(`lorebookDetailId:${lorebookId}`, editorDirty, handleSaveAll, saving || savingEntries, {
+    // Entry edits are what a writer loses on a reload; the book's own settings are quick to redo.
+    ready: overhaulActive && Boolean(lorebook) && entries.length > 0,
+    get: () => Object.fromEntries(entryDraftsRef.current),
+    restore: (value) => {
+      if (!value || typeof value !== "object") return;
+      const known = new Set(entries.map((entry) => entry.id));
+      for (const [id, changes] of Object.entries(value as Record<string, Partial<LorebookEntry>>)) {
+        if (!known.has(id) || !changes || typeof changes !== "object") continue;
+        entryDraftsRef.current.set(id, { ...entryDraftsRef.current.get(id), ...changes });
+      }
+      setEntryDraftCount(entryDraftsRef.current.size);
+      setEntryDraftsRestored((count) => count + 1);
+    },
+  });
 
   // Prof. Mari and the lorebook's fields, as in the Character editor. An entry's fields anchor as
   // `entries.<entryId>.<key>` and belong to the entry's own record, so the entries are members here.
@@ -3196,7 +3212,10 @@ export function LorebookEditor() {
     <MariFieldReviewProvider value={mariReview.value}>
       <LorebookEntryDraftContext.Provider value={entryDraftRef}>
         <LorebookEntryDraftsContext.Provider value={overhaulActive ? entryDrafts : null}>
-          <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
+          <div
+            key={entryDraftsRestored}
+            className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden"
+          >
             <ExportFormatDialog
               open={exportDialogOpen}
               title={localizeUi("ui.lorebooks.lorebookeditor.exportLorebook")}

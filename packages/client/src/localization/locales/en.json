@@ -12993,7 +12993,7 @@
   "ui.game.gamesurfacecomponent.sessionValue1DetailsUpdated": "Session {{value1}} details updated.",
   "ui.game.gamesurfacecomponent.setGameDayToValue1": "Set game day to {{value1}}.",
   "ui.game.gamesurfacecomponent.setGameTimeToValue1": "Set game time to {{value1}}.",
-  "ui.game.gamesurfacecomponent.setupDidNotFinish": "Setup didn't finish: {{reason}} The game is saved. Press Create world to try again, or pick another connection.",
+  "ui.game.gamesurfacecomponent.setupDidNotFinish": "Setup didn't finish: {{reason}} Press Create world to try again, or pick another connection.",
   "ui.game.gamesurfacecomponent.setupFailureDismiss": "Dismiss",
   "ui.game.gamesurfacecomponent.setupNoReason": "the model gave no answer.",
   "ui.game.gamesurfacecomponent.setupNotFinished": "This game's setup didn't finish. Open setup to try again.",

@@ -670,6 +670,9 @@ export function FloatingWindow({
       const target = event.target;
       if (!(target instanceof Element)) return;
       if (rootRef.current?.contains(target)) return;
+      // A docked pane the chat makes room for is a sidebar: typing in the chat beside it keeps it open
+      // until its own close or the top-bar toggle (user panel 2, N10: tablets lost it on every tap).
+      if (rootRef.current?.parentElement?.dataset.csDocked === "reflow") return;
       // A browser extension's own UI, such as a Grammarly suggestion card, is not a press elsewhere in the app.
       if (isBrowserExtensionUi(target)) return;
       // The window's own toggle closes it on click; closing here too would let that click reopen it.
