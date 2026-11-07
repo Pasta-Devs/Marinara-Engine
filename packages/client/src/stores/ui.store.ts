@@ -34,6 +34,16 @@ import { markOmnibarOpenStart } from "../lib/omnibar-open-timing";
 import { readUIPersistence, UI_PERSISTENCE, UI_PERSISTENCE_HOST_COPY } from "../lib/ui-persistence";
 import { addApprovedRemoteImageUrl, normalizeApprovedRemoteImageUrls } from "../lib/remote-images";
 import { normalizeChatWidgetFont } from "../lib/font-family";
+import {
+  foldAppBackgroundColor,
+  normalizeUiStyleOverride,
+  normalizeUiStyleOverrides,
+  normalizeUiStylePresets,
+  type UiStyleOverride,
+  type UiStyleOverrides,
+  type UiStylePreset,
+  type UiStyleTargetId,
+} from "../lib/ui-style-overrides";
 import type { ChatWizardDefaults, ChatWizardMode } from "../lib/chat-wizard-defaults";
 import type { MariFieldReview } from "../lib/mari-editor-fields";
 import {
@@ -493,7 +503,8 @@ function normalizeAppAccentColor(value: unknown) {
   return LEGACY_DEFAULT_APP_ACCENTS.has(normalized.toLowerCase()) ? "" : normalized;
 }
 
-function normalizeAppBackgroundColor(value: unknown) {
+/** The retired Background Color, minus the stock scheme backgrounds; only migrations read it now. */
+export function normalizeAppBackgroundColor(value: unknown) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return DEFAULT_APP_BACKGROUNDS.has(normalized.toLowerCase()) ? "" : normalized;
 }
@@ -729,12 +740,23 @@ interface UIState {
   /** Not saved: an Advanced Memory scene to open, or a Fix to start, once its Chat Settings section shows. */
   advancedMemoryRequest: { chatId: string; sceneId?: string; fix?: boolean } | null;
   theme: "dark" | "light";
+  /** Retired Background Color: "" once folded into the Whole app part; keeps only values that part cannot hold. */
   appBackgroundColor: string;
   appAccentColor: string;
   appAccentPulseMode: boolean;
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
   reduceAmbientEffects: boolean;
+  /** User restyling of curated interface regions (Settings → Appearance); persisted and synced. */
+  uiStyleOverrides: UiStyleOverrides;
+  /** The user's saved style presets (a library that "Reset appearance" keeps); persisted and synced. */
+  uiStylePresets: UiStylePreset[];
+  /** Transient: the full-screen element picker is open. */
+  uiStylePickMode: boolean;
+  /** Transient: the region the style editor is editing. */
+  uiStyleSelectedTarget: UiStyleTargetId | null;
+  /** Transient: the unsaved draft layered over `uiStyleOverrides` while editing. */
+  uiStylePreview: { target: UiStyleTargetId; override: UiStyleOverride | null } | null;
   mariPanelSortMode: MariPanelSortMode;
   /** The omnibar aside may answer a dead-end query without being asked (R3/R10). */
   omnibarAsideEnabled: boolean;
@@ -1311,7 +1333,14 @@ interface UIState {
   closeModal: () => void;
   setAdvancedMemoryRequest: (request: UIState["advancedMemoryRequest"]) => void;
   setTheme: (theme: "dark" | "light") => void;
-  setAppBackgroundColor: (color: string) => void;
+  saveUiStyleOverride: (target: UiStyleTargetId, override: UiStyleOverride | null) => void;
+  resetUiStyleOverrides: () => void;
+  saveUiStylePreset: (name: string) => void;
+  applyUiStylePreset: (id: string) => void;
+  deleteUiStylePreset: (id: string) => void;
+  setUiStylePickMode: (enabled: boolean) => void;
+  setUiStyleSelectedTarget: (target: UiStyleTargetId | null) => void;
+  setUiStylePreview: (preview: UIState["uiStylePreview"]) => void;
   setAppAccentColor: (color: string) => void;
   setAppAccentPulseMode: (enabled: boolean) => void;
   setAppAccentRgbMode: (enabled: boolean) => void;
@@ -1687,6 +1716,8 @@ export function pickSyncedSettings(state: UIState) {
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    uiStyleOverrides: state.uiStyleOverrides,
+    uiStylePresets: state.uiStylePresets,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
@@ -1937,6 +1968,8 @@ export function pickPersistedUIState(state: UIState) {
     appAccentRgbMode: state.appAccentRgbMode,
     customCursorEnabled: state.customCursorEnabled,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    uiStyleOverrides: state.uiStyleOverrides,
+    uiStylePresets: state.uiStylePresets,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
@@ -2211,6 +2244,11 @@ export const useUIStore = create<UIState>()(
         appAccentRgbMode: false,
         customCursorEnabled: true,
         reduceAmbientEffects: false,
+        uiStyleOverrides: {},
+        uiStylePresets: [],
+        uiStylePickMode: false,
+        uiStyleSelectedTarget: null,
+        uiStylePreview: null,
         mariPanelSortMode: "az",
         // Quick answers send a model request from Search, so they are opt-in.
         omnibarAsideEnabled: false,
@@ -2606,7 +2644,41 @@ export const useUIStore = create<UIState>()(
         closeModal: () => set({ modal: null }),
         setAdvancedMemoryRequest: (advancedMemoryRequest) => set({ advancedMemoryRequest }),
         setTheme: (theme) => set({ theme }),
-        setAppBackgroundColor: (color) => set({ appBackgroundColor: normalizeAppBackgroundColor(color) }),
+        saveUiStyleOverride: (target, override) =>
+          set((state) => {
+            const next = { ...state.uiStyleOverrides };
+            const clean = normalizeUiStyleOverride(override);
+            if (clean) next[target] = clean;
+            else delete next[target];
+            return { uiStyleOverrides: next };
+          }),
+        resetUiStyleOverrides: () => set({ uiStyleOverrides: {}, uiStylePreview: null }),
+        saveUiStylePreset: (name) =>
+          set((state) => {
+            const [fresh] = normalizeUiStylePresets([{ id: "new", name, overrides: state.uiStyleOverrides }]);
+            if (!fresh) return {};
+            const same = state.uiStylePresets.find((preset) => preset.name.toLowerCase() === fresh.name.toLowerCase());
+            if (same) {
+              return {
+                uiStylePresets: state.uiStylePresets.map((preset) =>
+                  preset === same ? { ...preset, overrides: fresh.overrides } : preset,
+                ),
+              };
+            }
+            const id =
+              globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+            return { uiStylePresets: normalizeUiStylePresets([...state.uiStylePresets, { ...fresh, id }]) };
+          }),
+        applyUiStylePreset: (id) =>
+          set((state) => {
+            const preset = state.uiStylePresets.find((candidate) => candidate.id === id);
+            return preset ? { uiStyleOverrides: { ...preset.overrides }, uiStylePreview: null } : {};
+          }),
+        deleteUiStylePreset: (id) =>
+          set((state) => ({ uiStylePresets: state.uiStylePresets.filter((preset) => preset.id !== id) })),
+        setUiStylePickMode: (uiStylePickMode) => set({ uiStylePickMode }),
+        setUiStyleSelectedTarget: (uiStyleSelectedTarget) => set({ uiStyleSelectedTarget }),
+        setUiStylePreview: (uiStylePreview) => set({ uiStylePreview }),
         setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
         setAppAccentPulseMode: (enabled) => set({ appAccentPulseMode: enabled }),
         setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
@@ -3435,6 +3507,10 @@ export const useUIStore = create<UIState>()(
             appAccentRgbMode: false,
             customCursorEnabled: true,
             reduceAmbientEffects: false,
+            uiStyleOverrides: {},
+            uiStylePreview: null,
+            uiStyleSelectedTarget: null,
+            uiStylePickMode: false,
             mariPanelSortMode: "az",
             mariEditViewMode: "easy",
             mariWindowHeightRem: MARI_WINDOW_HEIGHT_DEFAULT_REM,
@@ -4144,6 +4220,10 @@ export const useUIStore = create<UIState>()(
         }
         persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
         persisted.appBackgroundColor = normalizeAppBackgroundColor(persisted.appBackgroundColor);
+        // v104 -> v105: Background Color became the Whole app part's background (use-settings-sync folds server copies).
+        if (version <= 104) {
+          Object.assign(persisted, foldAppBackgroundColor(persisted.appBackgroundColor, persisted.uiStyleOverrides));
+        }
         if (typeof persisted.appAccentPulseMode !== "boolean") {
           persisted.appAccentPulseMode = persisted.appAccentRgbMode !== true && getDefaultAppAccentPulseMode();
         }
@@ -4322,6 +4402,8 @@ export const useUIStore = create<UIState>()(
           mariSeasonOptOut: typeof persisted.mariSeasonOptOut === "string" ? persisted.mariSeasonOptOut : "",
           loadRemoteMessageImages: persisted.loadRemoteMessageImages === true,
           approvedRemoteImageUrls: normalizeApprovedRemoteImageUrls(persisted.approvedRemoteImageUrls),
+          uiStyleOverrides: normalizeUiStyleOverrides(persisted.uiStyleOverrides),
+          uiStylePresets: normalizeUiStylePresets(persisted.uiStylePresets),
           conversationBackgroundImageOpacity: normalizeConversationBackgroundImageOpacity(
             persisted.conversationBackgroundImageOpacity,
           ),
