@@ -62,7 +62,8 @@ export type CommandCenterTitleKey =
   | "importSillyTavern"
   | "updates"
   | "diagnostics"
-  | "backups";
+  | "backups"
+  | "schedules";
 
 export type CommandCenterLabels = Readonly<Record<CommandCenterTitleKey, string>>;
 export type CommandCenterTranslate = (key: CommandCenterTitleKey, fallback: string) => string;
@@ -100,6 +101,7 @@ export const DEFAULT_COMMAND_CENTER_LABELS: CommandCenterLabels = {
   updates: "Updates",
   diagnostics: "Support diagnostics",
   backups: "Backups and export",
+  schedules: "Schedules",
 };
 
 export function resolveCommandCenterTitles(source: CommandCenterTitleSource): CommandCenterLabels {

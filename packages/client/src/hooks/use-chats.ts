@@ -780,6 +780,8 @@ export function useCreateChat() {
       personaId?: string | null;
       personaCharacterId?: string | null;
       promptPresetId?: string | null;
+      /** A New chat launcher's chat: a draft until its setup wizard finishes. */
+      setupPending?: boolean;
     }) => api.post<Chat>("/chats", data),
     onSuccess: (chat) => {
       if (chat) {

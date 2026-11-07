@@ -48,6 +48,7 @@ export function useStartChatFromCharacter() {
           characterIds: [characterId],
           connectionId: starred?.settings.connectionId ?? undefined,
           promptPresetId: starred?.settings.promptPresetId ?? undefined,
+          setupPending: true,
         },
         {
           onSuccess: (chat) => {

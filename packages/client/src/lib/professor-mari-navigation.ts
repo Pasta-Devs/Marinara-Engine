@@ -21,7 +21,8 @@ export type ProfessorMariNavigationTarget =
   | { kind: "settings"; tab: ProfessorMariSettingsTab; controlId?: string; sectionId?: SettingsSectionId }
   | {
       kind: "surface";
-      surface: "card-downloads" | "character-library" | "persona-library" | "agent-catalog" | "game-assets";
+      surface:
+        "card-downloads" | "character-library" | "persona-library" | "agent-catalog" | "game-assets" | "schedules";
     }
   | {
       kind: "window";

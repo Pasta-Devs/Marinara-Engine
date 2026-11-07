@@ -1493,10 +1493,12 @@ export function buildOmnibarContextResults({
   }
   if (isActiveChatSurface && activeChat) {
     const chatTool = (
-      tool: "summary" | "lorebook" | "search" | "regenerate" | "advanced-parameters" | "memory-recall",
+      tool: "summary" | "lorebook" | "search" | "regenerate" | "advanced-parameters" | "memory-recall" | "peek-prompt",
       title: string,
       icon: OmnibarResult["icon"],
+      aliases?: readonly string[],
     ): OmnibarResult => ({
+      ...(aliases ? { aliases } : {}),
       id: `chat-tool:${tool}:${activeChat.id}`,
       title,
       category: "chat",
@@ -1523,6 +1525,16 @@ export function buildOmnibarContextResults({
       );
       push(chatTool("memory-recall", t("commandCenter.chatTools.memoryRecall", "Memory Recall"), "command"));
     }
+    // H3: Peek Prompt was only in a message's "…" menu. Typed, it builds the next prompt now.
+    push({
+      ...chatTool("peek-prompt", t("commandCenter.chatTools.peekPrompt", "Peek prompt"), "command", [
+        "prompt preview",
+        "view prompt",
+        "see prompt",
+        "context",
+      ]),
+      idleHidden: true,
+    });
     if (activeChat.mode !== "game") {
       // The button under the reply already does this; the empty list does not repeat it (slice 78).
       push({

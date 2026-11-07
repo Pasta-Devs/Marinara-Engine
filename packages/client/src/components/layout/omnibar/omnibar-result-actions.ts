@@ -15,6 +15,7 @@ import {
   requestChatSearchOpen,
   requestChatReplyCheckup,
   requestChatRegenerate,
+  requestChatPeekPrompt,
 } from "../../../lib/chat-floating-ui-events";
 import { openGlobalSearch } from "../../../lib/chat-insights";
 import { getChatActiveLorebookIds, getChatExcludedLorebookIds } from "../../../lib/chat-lorebooks";
@@ -320,6 +321,9 @@ export function createOmnibarResultActions({
               return;
             case "regenerate":
               requestChatRegenerate(action.chatId);
+              return;
+            case "peek-prompt":
+              requestChatPeekPrompt(action.chatId);
               return;
             case "advanced-parameters":
             case "memory-recall":

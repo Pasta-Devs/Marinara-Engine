@@ -66,6 +66,8 @@ export const createChatSchema = z.object({
   personaCharacterId: z.string().nullable().default(null),
   promptPresetId: z.string().nullable().default(null),
   connectionId: z.string().nullable().default(null),
+  /** Started from a New chat launcher: the chat is a draft until its setup wizard finishes. */
+  setupPending: z.boolean().optional(),
 });
 
 export const createMessageSchema = z.object({

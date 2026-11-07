@@ -75,6 +75,19 @@ function getScopeLabel(scope: LorebookScope, chats: Chat[], ownerType: LorebookO
   return `All chats with ${getOwnerLabel(ownerType, ownerName)}`;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  character: "Character",
+  world: "World",
+  npc: "NPC",
+  spellbook: "Spellbook",
+  uncategorized: "Uncategorized",
+};
+
+function categoryLabel(category: string | null | undefined) {
+  if (!category) return CATEGORY_LABELS.uncategorized!;
+  return CATEGORY_LABELS[category] ?? category.charAt(0).toUpperCase() + category.slice(1);
+}
+
 function matchesOwnerChat(chat: Chat, ownerType: LorebookOwnerType, ownerId: string | null) {
   if (!ownerId) return false;
   if (ownerType === "character") return chat.characterIds.includes(ownerId);
@@ -93,7 +106,8 @@ export function LorebookAssignmentSection({
   const { t: localizeUi } = useUiTranslation();
   const openModal = useUIStore((state) => state.openModal);
   const openLorebookDetail = useUIStore((state) => state.openLorebookDetail);
-  const { data: lorebooks = [], isLoading } = useLorebooks("character", { includeHidden: true });
+  // Any lorebook can be linked (a world lorebook too, H4); only Character lorebooks can be embedded in a card.
+  const { data: lorebooks = [], isLoading } = useLorebooks(undefined, { includeHidden: true });
   const { data: chats = [] } = useChats();
   const updateLorebook = useUpdateLorebook();
   const embedLorebook = useEmbedLorebook();
@@ -136,16 +150,23 @@ export function LorebookAssignmentSection({
 
   const filteredLorebooks = useMemo(() => {
     const query = draft?.search ?? "";
-    return (lorebooks as Lorebook[]).filter((lorebook) => {
-      if (lorebook.hiddenFromLibrary && !isLorebookAssignedToOwner(lorebook, ownerType, ownerId)) return false;
-      if (!query) return true;
-      return includesTextForMatch(`${lorebook.name} ${lorebook.description ?? ""}`, query);
-    });
+    return (lorebooks as Lorebook[])
+      .filter((lorebook) => {
+        if (lorebook.hiddenFromLibrary && !isLorebookAssignedToOwner(lorebook, ownerType, ownerId)) return false;
+        // Chat-owned books (a game's own lore) belong to that chat, not to a card.
+        if (lorebook.chatId && !isLorebookAssignedToOwner(lorebook, ownerType, ownerId)) return false;
+        if (!query) return true;
+        return includesTextForMatch(`${lorebook.name} ${lorebook.description ?? ""}`, query);
+      })
+      .sort((a, b) => Number(b.category === "character") - Number(a.category === "character"));
   }, [draft?.search, lorebooks, ownerId, ownerType]);
 
   const selectedLorebook = draft?.lorebookId
     ? (lorebooks as Lorebook[]).find((lorebook) => lorebook.id === draft.lorebookId)
     : null;
+  // A world (or other non-character) lorebook keeps its own scope: it may also be linked to chats, and
+  // narrowing it here would switch it off there too.
+  const keepsOwnScope = Boolean(selectedLorebook && selectedLorebook.category !== "character");
 
   const openAssignment = (lorebook?: Lorebook) => {
     const scope = lorebook ? normalizeLorebookScope(lorebook.scope) : DEFAULT_LOREBOOK_SCOPE;
@@ -176,7 +197,7 @@ export function LorebookAssignmentSection({
     try {
       await updateLorebook.mutateAsync({
         id: selectedLorebook.id,
-        scope: nextScope,
+        ...(keepsOwnScope ? {} : { scope: nextScope }),
         ...(ownerType === "character"
           ? { characterIds: uniqueIds([...ownerIds, ownerId]) }
           : { personaIds: uniqueIds([...ownerIds, ownerId]) }),
@@ -219,7 +240,7 @@ export function LorebookAssignmentSection({
     }
   };
 
-  const specificSelectionInvalid = draft?.mode === "specific" && draft.chatIds.length === 0;
+  const specificSelectionInvalid = !keepsOwnScope && draft?.mode === "specific" && draft.chatIds.length === 0;
   const ownerLabel = getOwnerLabel(ownerType, ownerName);
 
   return (
@@ -277,17 +298,30 @@ export function LorebookAssignmentSection({
                 >
                   <span className="block truncate text-xs font-medium text-[var(--foreground)]">{lorebook.name}</span>
                   <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                    {getScopeLabel(scope, eligibleChats, ownerType, ownerName)}
+                    {lorebook.category === "character"
+                      ? getScopeLabel(scope, eligibleChats, ownerType, ownerName)
+                      : localizeUi("ui.lorebooks.lorebookassignmentsection.worldLinkedScope", {
+                          defaultValue: "{{category}} lorebook · used in chats with {{name}}",
+                          category: categoryLabel(lorebook.category),
+                          name: ownerLabel,
+                        })}
                   </span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => openAssignment(lorebook)}
-                  className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
-                >
-                  {localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}
-                </button>
+                {lorebook.category === "character" ? (
+                  <button
+                    type="button"
+                    onClick={() => openAssignment(lorebook)}
+                    className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
+                  >
+                    {localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}
+                  </button>
+                ) : (
+                  <span className="rounded-lg bg-[var(--card)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.lorebooks.lorebookassignmentsection.linked", { defaultValue: "Linked" })}
+                  </span>
+                )}
                 {ownerType === "character" &&
+                  lorebook.category === "character" &&
                   (lorebook.id === embeddedLorebookId ? (
                     <>
                       <span className="rounded-lg bg-emerald-500/15 px-2 py-1 text-[0.625rem] font-medium text-emerald-500">
@@ -409,7 +443,7 @@ export function LorebookAssignmentSection({
                               ? localizeUi("ui.lorebooks.lorebookassignmentsection.alreadyAssignedToValue1", {
                                   value1: ownerName || ownerType,
                                 })
-                              : lorebook.description || "No description"}
+                              : [categoryLabel(lorebook.category), lorebook.description].filter(Boolean).join(" · ")}
                           </span>
                         </span>
                         {selected && <Check size="0.75rem" className="shrink-0" />}
@@ -419,89 +453,109 @@ export function LorebookAssignmentSection({
                 )}
               </div>
 
-              <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
-                <div>
-                  <p className="text-xs font-semibold">{localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}</p>
-                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi(
-                      "ui.lorebooks.lorebookassignmentsection.controlsWhereThisAssignmentIsActiveAllChatsMeans",
-                    )}{" "}
-                    {ownerLabel}
-                    {localizeUi("ui.lorebooks.lorebookassignmentsection.notEveryChatInMarinara")}
+              {keepsOwnScope ? (
+                <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
+                  <p className="text-xs font-semibold">
+                    {localizeUi("ui.lorebooks.lorebookassignmentsection.linkOnly", { defaultValue: "Link only" })}
+                  </p>
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.lorebooks.lorebookassignmentsection.linkOnlyHelp", {
+                      defaultValue:
+                        "{{category}} lorebooks are linked, never embedded in the card. It joins every chat with {{name}} and keeps its own scope, so chats it is already in are not affected.",
+                      category: categoryLabel(selectedLorebook?.category ?? "world"),
+                      name: ownerLabel,
+                    })}
                   </p>
                 </div>
-
-                {(["all", "disabled", "specific"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setDraft((current) => (current ? { ...current, mode } : current))}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors",
-                      draft.mode === mode
-                        ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/25"
-                        : "bg-[var(--card)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                    )}
-                  >
-                    {mode === "all"
-                      ? localizeUi("ui.lorebooks.lorebookassignmentsection.allChatsWithValue1", { value1: ownerLabel })
-                      : mode === "disabled"
-                        ? localizeUi("ui.lorebooks.lorebookassignmentsection.disabledForAllChats")
-                        : localizeUi("ui.lorebooks.lorebookassignmentsection.specificChats")}
-                    {draft.mode === mode && <Check size="0.75rem" />}
-                  </button>
-                ))}
-
-                {draft.mode === "specific" && (
-                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg bg-[var(--card)] p-1.5 ring-1 ring-[var(--border)]">
-                    {eligibleChats.length === 0 ? (
-                      <p className="px-2 py-3 text-[0.625rem] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.lorebooks.lorebookassignmentsection.noChatsInclude")} {ownerName || ownerType}{" "}
-                        {localizeUi("ui.lorebooks.lorebookassignmentsection.yet")}
-                      </p>
-                    ) : (
-                      eligibleChats.map((chat) => {
-                        const selected = draft.chatIds.includes(chat.id);
-                        return (
-                          <button
-                            key={chat.id}
-                            type="button"
-                            onClick={() =>
-                              setDraft((current) => {
-                                if (!current) return current;
-                                return {
-                                  ...current,
-                                  chatIds: selected
-                                    ? current.chatIds.filter((id) => id !== chat.id)
-                                    : [...current.chatIds, chat.id],
-                                };
-                              })
-                            }
-                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-[var(--accent)]"
-                          >
-                            <span
-                              className={cn(
-                                "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                                selected
-                                  ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
-                                  : "border-[var(--border)]",
-                              )}
-                            >
-                              {selected && <Check size="0.625rem" />}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-xs">{chat.name}</span>
-                              <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
-                                {MODE_LABELS[chat.mode] ?? chat.mode}
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      })
-                    )}
+              ) : (
+                <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
+                  <div>
+                    <p className="text-xs font-semibold">
+                      {localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}
+                    </p>
+                    <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi(
+                        "ui.lorebooks.lorebookassignmentsection.controlsWhereThisAssignmentIsActiveAllChatsMeans",
+                      )}{" "}
+                      {ownerLabel}
+                      {localizeUi("ui.lorebooks.lorebookassignmentsection.notEveryChatInMarinara")}
+                    </p>
                   </div>
-                )}
-              </div>
+
+                  {(["all", "disabled", "specific"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setDraft((current) => (current ? { ...current, mode } : current))}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors",
+                        draft.mode === mode
+                          ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/25"
+                          : "bg-[var(--card)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                      )}
+                    >
+                      {mode === "all"
+                        ? localizeUi("ui.lorebooks.lorebookassignmentsection.allChatsWithValue1", {
+                            value1: ownerLabel,
+                          })
+                        : mode === "disabled"
+                          ? localizeUi("ui.lorebooks.lorebookassignmentsection.disabledForAllChats")
+                          : localizeUi("ui.lorebooks.lorebookassignmentsection.specificChats")}
+                      {draft.mode === mode && <Check size="0.75rem" />}
+                    </button>
+                  ))}
+
+                  {draft.mode === "specific" && (
+                    <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg bg-[var(--card)] p-1.5 ring-1 ring-[var(--border)]">
+                      {eligibleChats.length === 0 ? (
+                        <p className="px-2 py-3 text-[0.625rem] text-[var(--muted-foreground)]">
+                          {localizeUi("ui.lorebooks.lorebookassignmentsection.noChatsInclude")} {ownerName || ownerType}{" "}
+                          {localizeUi("ui.lorebooks.lorebookassignmentsection.yet")}
+                        </p>
+                      ) : (
+                        eligibleChats.map((chat) => {
+                          const selected = draft.chatIds.includes(chat.id);
+                          return (
+                            <button
+                              key={chat.id}
+                              type="button"
+                              onClick={() =>
+                                setDraft((current) => {
+                                  if (!current) return current;
+                                  return {
+                                    ...current,
+                                    chatIds: selected
+                                      ? current.chatIds.filter((id) => id !== chat.id)
+                                      : [...current.chatIds, chat.id],
+                                  };
+                                })
+                              }
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-[var(--accent)]"
+                            >
+                              <span
+                                className={cn(
+                                  "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                                  selected
+                                    ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
+                                    : "border-[var(--border)]",
+                                )}
+                              >
+                                {selected && <Check size="0.625rem" />}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-xs">{chat.name}</span>
+                                <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
+                                  {MODE_LABELS[chat.mode] ?? chat.mode}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">

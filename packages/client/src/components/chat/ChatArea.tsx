@@ -15,6 +15,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useQueries, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { finishSetupDraft, isUnfinishedSetup } from "../../hooks/use-setup-drafts";
 import {
   useChatMessages,
   useChatMessageCount,
@@ -3034,7 +3035,7 @@ const LocalChatArea = memo(function LocalChatArea({
   // Peek prompt state
   const [peekPromptData, setPeekPromptData] = useState<PeekPromptData | null>(null);
 
-  const handlePeekPrompt = useCallback(
+  const handlePeekPrompt: (messageId?: string) => void = useCallback(
     (messageId?: string) => {
       if (!activeChatId) return;
       peekPrompt.mutate(messageId ? { chatId: activeChatId, messageId } : activeChatId, {
@@ -3064,6 +3065,17 @@ const LocalChatArea = memo(function LocalChatArea({
           });
         },
         onError: (error) => {
+          // H3: an older reply (or one made before prompts were saved) has no saved prompt. Instead of a dead
+          // end, show the prompt as it would be built now, and say that it is not the exact one.
+          if (messageId && error instanceof ApiError && error.status === 404) {
+            toast.info(
+              localizeUi("ui.chat.chatarea.peekPromptNoSavedFallback", {
+                defaultValue: "No saved prompt for that reply, so this is the prompt as it would be built now.",
+              }),
+            );
+            handlePeekPrompt();
+            return;
+          }
           const message =
             error instanceof ApiError
               ? error.message
@@ -3074,6 +3086,7 @@ const LocalChatArea = memo(function LocalChatArea({
         },
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the fallback calls this same callback
     [activeChatId, chatMeta.groupChatMode, checkMessage, handleReplyCheckupLink, messages, peekPrompt],
   );
 
@@ -3363,6 +3376,27 @@ const LocalChatArea = memo(function LocalChatArea({
     // A remount on the same chat keeps its open wizard; switching chats closes it.
     if (useChatStore.getState().setupWizardChatId !== activeChatId) setWizardOpen(false);
   }, [activeChatId, setWizardOpen]);
+
+  // Finishing setup (or Skip after making choices) turns the draft into a real chat.
+  const handleWizardFinish = useCallback(
+    (discarded?: boolean) => {
+      const chatId = useChatStore.getState().setupWizardChatId ?? activeChatId;
+      setWizardOpen(false);
+      if (discarded) return;
+      if (chatId) void finishSetupDraft(queryClient, chatId);
+      handleOpenSettingsPanel();
+    },
+    [activeChatId, handleOpenSettingsPanel, queryClient, setWizardOpen],
+  );
+  // A draft opened again (after a reload, or from its tab) goes straight back to its setup, once per visit.
+  const chatIsDraft = chat?.mode !== "game" && isUnfinishedSetup(chat);
+  const draftWizardShownFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!chat?.id || !chatIsDraft || chat.id !== activeChatId) return;
+    if (draftWizardShownFor.current === chat.id) return;
+    draftWizardShownFor.current = chat.id;
+    if (!wizardOpen) setWizardOpen(true);
+  }, [activeChatId, chat?.id, chatIsDraft, setWizardOpen, wizardOpen]);
 
   // Auto-open settings drawer for newly created chats
   const shouldOpenSettings = useChatStore((s) => s.shouldOpenSettings);
@@ -4176,10 +4210,7 @@ const LocalChatArea = memo(function LocalChatArea({
             }}
             onCloseSettings={handleCloseSettingsPanel}
             onOpenScheduleEditor={handleOpenScheduleEditor}
-            onWizardFinish={(discarded) => {
-              setWizardOpen(false);
-              if (!discarded) handleOpenSettingsPanel();
-            }}
+            onWizardFinish={handleWizardFinish}
             onClosePeekPrompt={() => setPeekPromptData(null)}
             onDeleteConfirm={handleDeleteConfirm}
             onDeleteSwipe={handleDeleteSwipe}
@@ -4265,10 +4296,7 @@ const LocalChatArea = memo(function LocalChatArea({
             onGenerateSelfie={handleGenerateConversationSelfie}
             onGenerateVideo={handleConversationGalleryVideo}
             onAnimateImage={handleConversationAnimateImage}
-            onWizardFinish={(discarded) => {
-              setWizardOpen(false);
-              if (!discarded) handleOpenSettingsPanel();
-            }}
+            onWizardFinish={handleWizardFinish}
             onClosePeekPrompt={() => setPeekPromptData(null)}
             onResetSpritePlacements={handleResetSpritePlacements}
             onSpriteSideChange={handleSetSpritePosition}
@@ -4426,10 +4454,7 @@ const LocalChatArea = memo(function LocalChatArea({
           onGenerateVideo={() => handleRoleplayVideo()}
           onRoleplayVideo={handleRoleplayVideo}
           onAnimateImage={(image) => handleGenerateRoleplaySceneVideo({ galleryImageId: image.id })}
-          onWizardFinish={(discarded) => {
-            setWizardOpen(false);
-            if (!discarded) handleOpenSettingsPanel();
-          }}
+          onWizardFinish={handleWizardFinish}
           onClosePeekPrompt={() => setPeekPromptData(null)}
           onResetSpritePlacements={handleResetSpritePlacements}
           onResetSpriteCharacterVisualSettings={handleResetSpriteCharacterVisualSettings}

@@ -2614,15 +2614,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     return { deleted: await storage.removeEmptySetupChat(req.params.id, initialChat) };
   });
 
-  // Delete chat
-  app.delete<{ Params: { id: string }; Querystring: { force?: string } }>("/:id", async (req, reply) => {
-    const force = req.query.force === "true" || req.query.force === "1";
-    const guard = await storage.canDeleteChat(req.params.id, { force });
-    if (!guard.allowed) {
-      return reply.status(409).send({ error: guard.reason });
-    }
+  /** Removes a chat and everything hanging off it: scene pointers, running generations, partner link, Mari queue. */
+  const removeChatCompletely = async (chatId: string) => {
     // If this is a scene chat, clean up the origin chat's scene pointer
-    const chat = await storage.getById(req.params.id);
+    const chat = await storage.getById(chatId);
     let scenePackageOrigin: ReturnType<typeof parseScenePackageOrigin> = null;
     let scenePackageData: ReturnType<typeof parseStoredScenePackageData> = null;
     if (chat) {
@@ -2648,23 +2643,56 @@ export async function chatsRoutes(app: FastifyInstance) {
         activeGenerations?: Map<string, { abortController?: AbortController }>;
       }
     ).activeGenerations;
-    activeGenerations?.get(req.params.id)?.abortController?.abort();
-    activeGenerations?.delete(req.params.id);
-    clearChatActivity(req.params.id);
+    activeGenerations?.get(chatId)?.abortController?.abort();
+    activeGenerations?.delete(chatId);
+    clearChatActivity(chatId);
     // Disconnect from partner chat before deleting
-    await storage.disconnectChat(req.params.id);
-    await storage.remove(req.params.id);
+    await storage.disconnectChat(chatId);
+    await storage.remove(chatId);
     // A Mari chat can be deleted here too (the chat list). Best effort, like her own delete route.
-    await deletePendingForChat(req.params.id).catch((err) =>
-      logger.warn(err, "[professor-mari] Could not delete the queued messages for chat %s", req.params.id),
+    await deletePendingForChat(chatId).catch((err) =>
+      logger.warn(err, "[professor-mari] Could not delete the queued messages for chat %s", chatId),
     );
     if (scenePackageOrigin)
       await releaseScenePackageOrigin(scenePackageOrigin, {
         kind: "deleted",
-        sceneChatId: req.params.id,
+        sceneChatId: chatId,
         data: scenePackageData,
       });
+  };
+
+  // Delete chat
+  app.delete<{ Params: { id: string }; Querystring: { force?: string } }>("/:id", async (req, reply) => {
+    const force = req.query.force === "true" || req.query.force === "1";
+    const guard = await storage.canDeleteChat(req.params.id, { force });
+    if (!guard.allowed) {
+      return reply.status(409).send({ error: guard.reason });
+    }
+    await removeChatCompletely(req.params.id);
     return reply.status(204).send();
+  });
+
+  // A New chat whose setup never finished (closed, left, reloaded, or a Create world that failed) is a draft:
+  // it is removed, game and all. Anything the player wrote, or a game that was built, keeps it, and the draft
+  // mark is dropped so it is never asked again.
+  app.post<{ Params: { id: string } }>("/:id/discard-unfinished-setup", async (req) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return { deleted: false };
+    const meta = parseExtra(chat.metadata) as Record<string, unknown>;
+    if (meta.setupPending !== true) return { deleted: false };
+    const keep = async () => {
+      await storage.patchMetadata(chat.id, { setupPending: null });
+      return { deleted: false };
+    };
+    const status = typeof meta.gameSessionStatus === "string" ? meta.gameSessionStatus : null;
+    if (chat.mode === "game" && status && status !== "setup") return keep();
+    const chatMessages = await storage.listMessages(chat.id);
+    const written = chatMessages.some((message: { role?: string }) =>
+      chat.mode === "game" ? true : message.role === "user",
+    );
+    if (written) return keep();
+    await removeChatCompletely(chat.id);
+    return { deleted: true };
   });
 
   // ── Messages ──

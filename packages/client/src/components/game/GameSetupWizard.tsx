@@ -1522,6 +1522,9 @@ export function GameSetupWizard({
         }),
       );
       const warnings = applySetupShareFile(shareFile);
+      // The game was made and only building its world failed (or setup was closed after Create world):
+      // reopen on the last step, where Create world tries again, not six Next presses back at step 1.
+      if (chatMetadata?.gameSessionStatus === "setup") setStep(GAME_SETUP_STEPS.length - 1);
       // This game's own ruleset and Experience are already fixed: no notice about importing them.
       setRulesetImportNotice(null);
       setExperienceImportNotice(null);

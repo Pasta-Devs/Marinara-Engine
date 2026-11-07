@@ -4,7 +4,10 @@ import { useChatStore } from "../stores/chat.store";
 import { isMobileShellViewport, useUIStore, type HomeRequest } from "../stores/ui.store";
 import { requestProfessorMariOpen } from "./professor-mari-open";
 import type { ProfessorMariNavigationTarget } from "./professor-mari-navigation";
-import { isOmnibarSettingsTarget } from "./settings-registry";
+import { isOmnibarSettingsTarget, SETTINGS_SEARCHABLE_CONTROLS } from "./settings-registry";
+import { overhaulSettingsTabFor, overhaulSettingsTabForClassicTab } from "../components/overhaul/settings-tabs";
+import { isOverhaulLook, isOverhaulMobile, useOverhaulStore } from "../stores/overhaul.store";
+import { openLibrarySection } from "../components/overhaul/library-navigation";
 
 const DISCORD_INVITE_URL = "https://discord.com/invite/KdAkTg94ME";
 const SUPPORT_URL = "https://ko-fi.com/marinara_spaghetti";
@@ -48,7 +51,9 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     ui.closeRightPanel();
     useChatStore.getState().setActiveChatId(target.chatId);
   } else if (target.kind === "panel") {
-    ui.openRightPanel(target.panel);
+    // New layout: a Library section is a page of its own, not just the highlighted pane entry.
+    if (isOverhaulLook()) openLibrarySection(target.panel);
+    else ui.openRightPanel(target.panel);
   } else if (target.kind === "settings" && isOmnibarSettingsTarget(target)) {
     // Q2: these live in the omnibar's settings view, which keeps the omnibar open.
     ui.openOmnibarSettings(target.controlId ?? null);
@@ -57,13 +62,30 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     ui.setSettingsTab(target.tab);
     ui.setSettingsTargetControlId(target.controlId ?? null);
     ui.setSettingsTargetSectionId(target.sectionId ?? null);
-    ui.openRightPanel("settings");
+    // New layout: Settings is a Library page; it reads the target above, picks its own tab and
+    // scrolls to the row (H3: these results used to close the omnibar and open nothing).
+    if (isOverhaulLook()) {
+      const sectionId =
+        target.sectionId ??
+        SETTINGS_SEARCHABLE_CONTROLS.find((control) => control.id === target.controlId)?.sectionId ??
+        null;
+      const tab = overhaulSettingsTabFor(sectionId) ?? overhaulSettingsTabForClassicTab(target.tab);
+      if (tab) useOverhaulStore.getState().setSettingsTab(tab);
+      openLibrarySection("settings");
+    } else ui.openRightPanel("settings");
   } else if (target.kind === "surface") {
     if (target.surface === "card-downloads") ui.openBotBrowser();
     else if (target.surface === "character-library") ui.openCharacterLibrary();
     else if (target.surface === "persona-library") ui.openPersonaLibrary();
     else if (target.surface === "agent-catalog") ui.openAgentCatalog();
-    else ui.openGameAssetsBrowser();
+    else if (target.surface === "schedules") {
+      // The Schedules page is part of the new layout; the classic layout keeps it in the Chats footer.
+      if (isOverhaulLook()) {
+        ui.closeAllDetails();
+        useOverhaulStore.getState().openSchedules();
+        if (isOverhaulMobile()) ui.setSidebarOpen(false);
+      } else ui.setSidebarOpen(true);
+    } else ui.openGameAssetsBrowser();
   } else if (target.kind === "resource") {
     if (target.resource === "character") ui.openCharacterDetail(target.id);
     else if (target.resource === "persona") ui.openPersonaDetail(target.id);
