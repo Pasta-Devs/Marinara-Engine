@@ -1940,7 +1940,19 @@ export function PersonaEditor() {
     closeDetail();
   }, [closeDetail]);
 
-  useEditorLeaveSave(`personaDetailId:${personaId}`, dirty, handleSave, mutationBusy);
+  // Unsaved edits survive a reload, as in the Character editor (user panel 3, PN2).
+  useEditorLeaveSave(`personaDetailId:${personaId}`, dirty, handleSave, mutationBusy, {
+    ready: !!formData && !!baselineForm && loadedPersonaIdRef.current === personaId,
+    name: formData?.name,
+    get: () => (formData ? Object.fromEntries(changedFieldKeys.map((key) => [key, formData[key]] as const)) : null),
+    restore: (value) => {
+      if (!value || typeof value !== "object" || !formDataRef.current) return;
+      for (const [key, kept] of Object.entries(value as Record<string, unknown>)) {
+        if (!(key in formDataRef.current)) continue;
+        updateField(key as keyof PersonaFormData, kept as PersonaFormData[keyof PersonaFormData]);
+      }
+    },
+  });
 
   // Prof. Mari and the persona's fields, as in the Character editor: focused field, reveal and
   // working glow, the companion panel or sheet, and her change reviewed in the fields.

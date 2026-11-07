@@ -14,6 +14,58 @@ import { useOverhaulMobile, type LibrarySection } from "../../stores/overhaul.st
 import { EditorCrumbs, type RailCrumb } from "./EditorRail";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { useEditorDraftOfferStore } from "../../hooks/use-editor-leave-save";
+
+/** "just now", "3 min ago", "2 h ago" for a kept draft (user panel 3, PR4: a few seconds read "1 min ago"). */
+function useDraftAge(savedAt: number) {
+  const { t } = useUiTranslation();
+  const minutes = Math.floor((Date.now() - savedAt) / 60_000);
+  if (minutes < 1) return t("editor.draft.justNow", { defaultValue: "just now" });
+  if (minutes < 60) return t("editor.draft.minutesAgo", { count: minutes, defaultValue: "{{count}} min ago" });
+  return t("editor.draft.hoursAgo", { count: Math.floor(minutes / 60), defaultValue: "{{count}} h ago" });
+}
+
+/**
+ * Edits kept from before a reload, offered back inside the editor they belong to: names the item,
+ * stays until Restore or Discard, and after Restore says they still need a Save (user panel 3, PV6/PN3/PR4).
+ */
+function OvDraftBar() {
+  const { t } = useUiTranslation();
+  const offer = useEditorDraftOfferStore((state) => state.offer);
+  const age = useDraftAge(offer?.savedAt ?? Date.now());
+  if (!offer) return null;
+  if (offer.state === "restored") {
+    return (
+      <div className="ov-stock-bar ov-draft-bar is-restored" role="status" data-component="OverhaulDraftBar">
+        <span className="ov-stock-bar__text">
+          {t("editor.draft.restored", { defaultValue: "Restored your unsaved changes. Save to keep them." })}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="ov-stock-bar ov-draft-bar" role="status" data-component="OverhaulDraftBar">
+      <span className="ov-stock-bar__text">
+        {offer.name
+          ? t("editor.draft.foundNamed", {
+              name: offer.name,
+              age,
+              defaultValue: "{{name}} has unsaved changes from before the page reloaded ({{age}}).",
+            })
+          : t("editor.draft.foundAge", {
+              age,
+              defaultValue: "Unsaved changes from before the page reloaded ({{age}}).",
+            })}
+      </span>
+      <button type="button" className="ov-btn" onClick={offer.discard}>
+        {t("editor.draft.discard", { defaultValue: "Discard" })}
+      </button>
+      <button type="button" className="ov-btn ov-btn--primary" onClick={offer.restore}>
+        {t("editor.draft.restore", { defaultValue: "Restore" })}
+      </button>
+    </div>
+  );
+}
 
 /**
  * Library viewers (Regex, Connections) hand their top header to the open item's editor:
@@ -202,6 +254,7 @@ export function OvEditorHead({
           {saveNode}
         </div>
       ) : null}
+      <OvDraftBar />
     </header>
   ) : (
     <header className={cn("ov-edhead", className)} data-component="OverhaulEditorHead">
@@ -217,6 +270,7 @@ export function OvEditorHead({
           {menuNode}
         </div>
       </div>
+      <OvDraftBar />
     </header>
   );
   return slot ? createPortal(head, slot) : head;

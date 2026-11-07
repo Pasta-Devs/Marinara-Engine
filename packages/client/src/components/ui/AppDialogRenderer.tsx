@@ -269,15 +269,17 @@ export function AppDialogRenderer() {
             className="flex flex-col-reverse gap-2 whitespace-nowrap sm:flex-row sm:items-center sm:justify-end"
             data-dialog-layout="row"
           >
-            <button
-              type="button"
-              onClick={dismissActiveDialog}
-              data-dialog-action="cancel"
-              className="w-full rounded-lg px-3 py-2 sm:mr-auto sm:w-auto text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            >
-              {dialog.cancelLabel ?? "Cancel"}
-            </button>
-            {[...dialog.choices].reverse().map((choice) => {
+            {!dialog.hideCancel && (
+              <button
+                type="button"
+                onClick={dismissActiveDialog}
+                data-dialog-action="cancel"
+                className="w-full rounded-lg px-3 py-2 sm:mr-auto sm:w-auto text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+              >
+                {dialog.cancelLabel ?? "Cancel"}
+              </button>
+            )}
+            {[...dialog.choices].reverse().map((choice, index) => {
               const primary = choice.key === dialog.choices[0]?.key;
               return (
                 <button
@@ -287,6 +289,8 @@ export function AppDialogRenderer() {
                   data-dialog-action={primary ? "confirm" : "choice"}
                   data-tone={choice.tone}
                   className={`w-full rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:w-auto ${
+                    dialog.hideCancel && index === 0 ? "sm:mr-auto " : ""
+                  }${
                     primary
                       ? "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85"
                       : choice.tone === "destructive"

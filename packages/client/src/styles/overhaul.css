@@ -10033,6 +10033,16 @@ input.ov-edhead__title:focus {
   font-size: 0.8125rem;
   color: var(--ov-text);
 }
+/* Kept edits from before a reload, inside the editor's header (OvDraftBar). */
+.ov-edhead .ov-draft-bar {
+  margin-top: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--ov-line));
+  border-radius: 0.5rem;
+}
+.ov-edhead .ov-draft-bar.is-restored {
+  background: color-mix(in srgb, var(--primary) 5%, var(--card));
+  color: var(--ov-muted, var(--muted-foreground));
+}
 .ov-stock-bar__text {
   flex: 1 1 16rem;
   min-width: 0;

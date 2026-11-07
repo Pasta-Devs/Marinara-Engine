@@ -189,7 +189,14 @@ import {
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
-import { discardUnfinishedSetup, isUnfinishedSetup } from "../../hooks/use-setup-drafts";
+import {
+  askLeaveSetup,
+  discardUnfinishedSetup,
+  isSetupKeptForLater,
+  isUnfinishedSetup,
+  keepSetupForLater,
+  setupDraftHasInput,
+} from "../../hooks/use-setup-drafts";
 import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import { cn, generateClientId } from "../../lib/utils";
 import { GAME_DIALOG_CLASS, GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
@@ -7159,7 +7166,10 @@ function GameSurfaceComponent({
   );
   useProvideChatGalleryActions(activeChatId, galleryActions);
 
+  const chatMetaRef = useRef(chatMeta);
+  chatMetaRef.current = chatMeta;
   const retryGeneration = useCallback(() => {
+    if (!chatMetaRef.current.gameId) return;
     // A turn that failed before the server saved it is back in the input (an interrupted or refused send): Retry sends
     // it again rather than asking the Game Master to go on without it. The failure banner clears once streaming starts.
     if (unsentTurnChatId && unsentTurnChatId === activeChatId) {
@@ -7172,6 +7182,7 @@ function GameSurfaceComponent({
 
   // The input no longer holds a turn it can send (cleared, or disabled): Retry asks the Game Master to go on instead.
   const retryWithoutUnsentTurn = useCallback(() => {
+    if (!chatMetaRef.current.gameId) return;
     setUnsentTurnChatId(null);
     setGenerationFailed(false);
     generate({ chatId: activeChatId, connectionId: null });
@@ -7179,6 +7190,8 @@ function GameSurfaceComponent({
 
   const generateInitialGameTurn = useCallback(() => {
     if (experienceStartupScopeRef.current !== experienceStartupScope || experienceStartupRef.current.blocked) return;
+    // A game that was never made has no world to open on: its setup comes first (user panel 3, PG2).
+    if (!chatMetaRef.current.gameId) return;
     const context = experienceStartupRef.current.context;
     generate({
       chatId: activeChatId,
@@ -12876,7 +12889,7 @@ function GameSurfaceComponent({
   if (shouldShowSetupWizard) {
     // Shared with an experience's own setup, so closing either one behaves identically.
     /** Closes setup from either wizard: no-op while a launch is pending, and drops an empty chat. */
-    const dismissSetupWizard = async (confirmed?: boolean) => {
+    const dismissSetupWizard = async (confirmed?: boolean | "later") => {
       if (
         createGame.isPending ||
         gameSetup.isPending ||
@@ -12888,38 +12901,42 @@ function GameSurfaceComponent({
         return;
       useGameModeStore.getState().setSetupActive(false);
       try {
-        if (await discardNewChatSetup(activeChatId)) return;
+        if (confirmed !== "later" && (await discardNewChatSetup(activeChatId))) return;
       } catch {
         toast.error(localizeUi("chat.wizard.cancelFailed"));
         return;
       }
-      // A new game whose world was never built (never made, or Create world failed) is only a draft:
-      // closing setup removes it rather than leaving a half-made campaign behind.
-      if (isUnfinishedSetup(chat)) {
-        const discard =
-          confirmed === true ||
-          (await showConfirmDialog({
-            title: localizeUi("game.setupDraft.discardTitle", { defaultValue: "Discard this game?" }),
-            message: localizeUi("game.setupDraft.discardMessage", {
-              defaultValue:
-                "Its world hasn't been built yet, so closing setup deletes it. Your choices here will be lost.",
-            }),
-            confirmLabel: localizeUi("game.setupDraft.discard", { defaultValue: "Discard game" }),
-            cancelLabel: localizeUi("game.setupDraft.keepSettingUp", { defaultValue: "Keep setting up" }),
-            tone: "destructive",
-          }));
-        if (!discard) {
+      // A new game whose world was never built (never made, or Create world failed) is a draft. Untouched,
+      // closing setup just removes it. With choices in it, closing asks one question, and dismissing that
+      // question keeps setting up (user panel 3, PG4/PN1/PN5).
+      let keepForLater = confirmed === "later";
+      const draft = isUnfinishedSetup(chat) || isSetupKeptForLater(chat);
+      if (draft && !keepForLater) {
+        const decision =
+          confirmed === true ? "discard" : setupDraftHasInput(chat) ? await askLeaveSetup("game") : "discard";
+        if (decision === "continue") {
           useGameModeStore.getState().setSetupActive(true);
           return;
         }
-        if (await discardUnfinishedSetup(queryClient, activeChatId)) return;
+        if (decision === "later") keepForLater = true;
+        else if (await discardUnfinishedSetup(queryClient, activeChatId)) {
+          toast.info(localizeUi("game.setupDraft.discarded", { defaultValue: "Game discarded." }));
+          return;
+        }
       }
+      if (keepForLater && !isSetupKeptForLater(chat)) await keepSetupForLater(queryClient, activeChatId);
       setDismissedSetupWizardChatId(activeChatId);
       writeSetupDismissed(activeChatId, true);
       // A Start Game that failed made the game without this page reading it yet: read it now, so
       // the closed setup shows as unfinished at once rather than only after a reload (re-test 10).
       if (setupMadeGame) void queryClient.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) });
-      if (needsCreation || sessionStatus === "setup") {
+      if (keepForLater) {
+        toast.info(
+          localizeUi("game.setupDraft.keptForLater", {
+            defaultValue: 'Game setup kept for later. It\'s in your chats as "Setup not finished".',
+          }),
+        );
+      } else if (needsCreation || sessionStatus === "setup") {
         toast.info(localizeUi("ui.game.gamesurfacecomponent.gameSetupDismissedTheCampaignWasKept"));
       }
     };
@@ -13156,7 +13173,9 @@ function GameSurfaceComponent({
   }
 
   // Setup was closed before it finished: nothing is loading or playable yet, so say so and offer it again.
-  if (setupWizardDismissed && sessionStatus === "setup" && !gameSetup.isPending && !isStreaming) {
+  // That includes a game that was never made at all (no world): it never falls through to the first-turn spinner,
+  // whose Retry would play a GM turn into a game with no world (user panel 3, PG2).
+  if (setupWizardDismissed && unmade && !gameSetup.isPending && !createGame.isPending && !isStreaming) {
     return (
       <>
         <div

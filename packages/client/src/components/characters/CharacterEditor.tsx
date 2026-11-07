@@ -998,6 +998,7 @@ export function CharacterEditor() {
     saving || updateSheet.isPending || avatarUploading || lorebookEmbedding,
     {
       ready: formData !== null && loadedCharacterIdRef.current === characterId,
+      name: formData?.name,
       get: () => ({ formData, comment: characterComment }),
       restore: (value) => {
         const kept = value as { formData?: CharacterData; comment?: string } | null;

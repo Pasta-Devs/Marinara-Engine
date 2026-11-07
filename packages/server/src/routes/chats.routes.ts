@@ -2679,7 +2679,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     const chat = await storage.getById(req.params.id);
     if (!chat) return { deleted: false };
     const meta = parseExtra(chat.metadata) as Record<string, unknown>;
-    if (meta.setupPending !== true) return { deleted: false };
+    // A draft kept for later ("Setup not finished") is only ever discarded on purpose, from its own setup.
+    if (meta.setupPending !== true && meta.setupUnfinished !== true) return { deleted: false };
     const keep = async () => {
       await storage.patchMetadata(chat.id, { setupPending: null });
       return { deleted: false };

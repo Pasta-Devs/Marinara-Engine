@@ -74,6 +74,7 @@ import { isMobileShellViewport, selectSidebarShown, useUIStore, type UserStatus 
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
+import { isSetupKeptForLater } from "../../hooks/use-setup-drafts";
 import { ChatRowPeek } from "./ChatRowPeek";
 import { Fragment, lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
@@ -1238,7 +1239,9 @@ export function ChatSidebar() {
           ? notificationLabel
           : hasDraft
             ? localizeUi("ui.layout.chatsidebar.unsentDraft")
-            : null;
+            : isSetupKeptForLater(chat)
+              ? localizeUi("ui.layout.chatsidebar.setupNotFinished", { defaultValue: "Setup not finished" })
+              : null;
     // Same precedence as the subtitle: whatever the line says is what the icon marks.
     const SubtitleIcon =
       typingCharacter || isGenerating
