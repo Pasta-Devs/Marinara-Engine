@@ -10917,8 +10917,18 @@ assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!stor
   );
   assert.match(
     inlineEditorSource,
-    /onFlushChange\(async \(\) => \{[\s\S]{0,200}commitField\(field\);\s*await saveQueueRef\.current;\s*return !lastSaveFailedRef\.current;/u,
+    /onFlushChange\(async \(\) => \{[\s\S]{0,400}commitField\(field\);\s*await saveQueueRef\.current;\s*return !lastSaveFailedRef\.current;/u,
     "the inline card editor hands the drawer a flush that waits for its queued saves",
+  );
+  assert.match(
+    inlineEditorSource,
+    /onFlushChange\(async \(\) => \{[\s\S]{0,160}lastSaveFailedRef\.current = false;/u,
+    "a flush starts with no failure recorded",
+  );
+  assert.equal(
+    inlineEditorSource.match(/lastSaveFailedRef\.current = false;/gu)?.length,
+    1,
+    "a later successful save never clears a failure within the flush",
   );
 }
 

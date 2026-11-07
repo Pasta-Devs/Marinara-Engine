@@ -218,7 +218,6 @@ export function InlineChatCardEditor({
       .then(async () => {
         try {
           await task();
-          lastSaveFailedRef.current = false;
           if (mountedRef.current) setSaveState("saved");
         } catch {
           lastSaveFailedRef.current = true;
@@ -284,6 +283,8 @@ export function InlineChatCardEditor({
   useEffect(() => {
     if (!onFlushChange) return;
     onFlushChange(async () => {
+      // Any save that fails from here on keeps the drawer open, even if a later one succeeds (Dottore on #8937).
+      lastSaveFailedRef.current = false;
       // Every field, so an edit still in its box is saved too; unchanged ones queue nothing.
       for (const field of CARD_FIELD_ORDER) commitField(field);
       await saveQueueRef.current;
