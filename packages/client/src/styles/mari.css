@@ -5470,20 +5470,20 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 [data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"][data-mari-sheet-snap="peek"]
   > .mari-companion-panel,
 html[data-mari-software-keyboard-open]
-  [data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"]
-  > .mari-companion-panel:not(:has(.mari-workspace-composer__input:focus)) {
+  [data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"]:not([data-mari-composer-focused])
+  > .mari-companion-panel {
   height: auto;
 }
 
 [data-mari-companion="sheet"][data-mari-sheet-snap="peek"] > .mari-companion-panel > :not(.mari-sheet-handle, header),
 [data-mari-companion="sheet"][data-mari-sheet-snap="peek"] > .mari-companion-panel .mari-omnibar-header-row,
 html[data-mari-software-keyboard-open]
-  [data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"]
-  > .mari-companion-panel:not(:has(.mari-workspace-composer__input:focus))
+  [data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"]:not([data-mari-composer-focused])
+  > .mari-companion-panel
   > :not(.mari-sheet-handle, header),
 html[data-mari-software-keyboard-open]
-  [data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"]
-  > .mari-companion-panel:not(:has(.mari-workspace-composer__input:focus))
+  [data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"]:not([data-mari-composer-focused])
+  > .mari-companion-panel
   .mari-omnibar-header-row {
   display: none;
 }
@@ -5494,8 +5494,8 @@ html[data-mari-software-keyboard-open]
 
 /* Composer only while she has the keyboard: it rides right above it. */
 html[data-mari-software-keyboard-open]
-  [data-mari-companion="sheet"]
-  > .mari-companion-panel:has(.mari-workspace-composer__input:focus) {
+  [data-component="GlobalOmnibar"][data-mari-companion="sheet"][data-mari-composer-focused]
+  > .mari-companion-panel {
   top: calc(var(--mari-visual-viewport-offset-top, 0px) + var(--mari-visual-viewport-height, 100dvh));
   bottom: auto;
   height: auto;
@@ -5504,22 +5504,22 @@ html[data-mari-software-keyboard-open]
 }
 
 html[data-mari-software-keyboard-open]
-  [data-mari-companion="sheet"]
-  > .mari-companion-panel:has(.mari-workspace-composer__input:focus)
+  [data-component="GlobalOmnibar"][data-mari-companion="sheet"][data-mari-composer-focused]
+  > .mari-companion-panel
   :is(.mari-omnibar-header-row, [data-component="HomeProfessorMariChat.Transcript"], .mari-workspace-glow-band) {
   display: none;
 }
 
 html[data-mari-software-keyboard-open]
-  [data-mari-companion="sheet"]
-  > .mari-companion-panel:has(.mari-workspace-composer__input:focus)
+  [data-component="GlobalOmnibar"][data-mari-companion="sheet"][data-mari-composer-focused]
+  > .mari-companion-panel
   > header {
   display: none;
 }
 
 html[data-mari-software-keyboard-open]
-  [data-mari-companion="sheet"]
-  > .mari-companion-panel:has(.mari-workspace-composer__input:focus)
+  [data-component="GlobalOmnibar"][data-mari-companion="sheet"][data-mari-composer-focused]
+  > .mari-companion-panel
   .mari-workspace-composer-dock {
   position: static;
 }
