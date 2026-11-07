@@ -10,12 +10,14 @@ import { newId, now } from "../../utils/id-generator.js";
 import { logger } from "../../lib/logger.js";
 import { createChatsStorage, withChatMetadataPatchQueue } from "./chats.storage.js";
 import { summaryHidingPatch } from "../../routes/generate/generate-route-utils.js";
+import { parsePromptPresetChoices } from "../generation/conversation-context-utils.js";
 import {
   CHAT_FOLLOWS_MAIN_KEY,
   CHAT_PRESET_EXCLUDED_METADATA_KEYS,
   CHAT_PRESET_EXCLUDED_PACKAGE_METADATA_KEYS,
   CHAT_PROFILE_FOLLOWER_SYNC_KEYS,
   chatFollowsChatPreset,
+  chatPresetVariablesFor,
   TRANSLATOR_DEFAULTS_SETTINGS_KEY,
   TRANSLATOR_SETTINGS_KEYS,
   normalizeTranslatorSettings,
@@ -196,6 +198,14 @@ function sanitizePresetMetadata(metadata: Record<string, unknown> | undefined | 
   return out;
 }
 
+/** Preset variable choices stay in a profile only with the prompt preset they were made for. */
+function sanitizePresetVariables(value: unknown, promptPresetId: unknown) {
+  if (!isRecord(value) || typeof promptPresetId !== "string" || !promptPresetId || value.presetId !== promptPresetId)
+    return undefined;
+  const choices = parsePromptPresetChoices(value.choices);
+  return choices ? { presetId: promptPresetId, choices } : undefined;
+}
+
 /** Strip chat-specific keys from a settings object before saving into a profile. */
 function sanitizePresetSettings(input: ChatPresetSettings | undefined | null): ChatPresetSettings {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
@@ -205,6 +215,8 @@ function sanitizePresetSettings(input: ChatPresetSettings | undefined | null): C
   if (typeof input.personaId === "string" && input.personaId.trim()) out.personaId = input.personaId.trim();
   const lorebookIds = readStringIds(input.lorebookIds);
   if (lorebookIds.length) out.lorebookIds = lorebookIds;
+  const presetVariables = sanitizePresetVariables(input.presetVariables, input.promptPresetId);
+  if (presetVariables) out.presetVariables = presetVariables;
   if (input.metadata) out.metadata = sanitizePresetMetadata(input.metadata as Record<string, unknown>);
   return out;
 }
@@ -370,12 +382,23 @@ export function createChatPresetsStorage(db: DB) {
      * (Advanced Parameters and image captioning only on the profile's connection, schedules only when
      * the profile has a value, agents minus the ones each chat sets up).
      * Every other key, the connection, the prompt preset and the recent-chat order stay the chat's own.
+     *
+     * Either way, a chat that ends up on the profile's prompt preset gets the preset variable choices
+     * saved with it; a chat on another preset, or a profile saved without choices, keeps the chat's own.
      */
     async applyToChat(
       presetId: string,
       chatId: string,
-      /** `keepPersona`: the user already picked who they play in this chat, so the profile's persona is skipped. */
-      options: { connectionId?: string | null; asFollower?: boolean; keepPersona?: boolean } = {},
+      /**
+       * `keepPersona`: the user already picked who they play in this chat, so the profile's persona is skipped.
+       * `promptPresetId`, like `connectionId`, replaces the profile's pick (a scene's own prompt preset).
+       */
+      options: {
+        connectionId?: string | null;
+        promptPresetId?: string | null;
+        asFollower?: boolean;
+        keepPersona?: boolean;
+      } = {},
     ) {
       return withChatMetadataPatchQueue(chatId, async () => {
         const preset = await storage.getById(presetId);
@@ -462,6 +485,13 @@ export function createChatPresetsStorage(db: DB) {
               (chatRow.connectionId ?? null) === (preset.settings.connectionId ?? null),
             )
           : appliedMetadata;
+        const nextPromptPresetId = options.asFollower
+          ? (chatRow.promptPresetId ?? null)
+          : options.promptPresetId !== undefined
+            ? options.promptPresetId
+            : (preset.settings.promptPresetId ?? null);
+        const presetChoices = chatPresetVariablesFor(preset.settings, nextPromptPresetId);
+        if (presetChoices) newMetadata.presetChoices = presetChoices;
         // A profile that turns "Hide summarised messages" on or off hides or shows those messages too.
         Object.assign(
           newMetadata,
@@ -477,7 +507,7 @@ export function createChatPresetsStorage(db: DB) {
           .set({
             ...(!options.asFollower && {
               connectionId: nextConnectionId,
-              promptPresetId: preset.settings.promptPresetId ?? null,
+              promptPresetId: nextPromptPresetId,
               ...(!options.keepPersona && preset.settings.personaId && (await personaExists(preset.settings.personaId))
                 ? { personaId: preset.settings.personaId, personaCharacterId: null }
                 : {}),
