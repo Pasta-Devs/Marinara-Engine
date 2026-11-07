@@ -412,6 +412,18 @@
 :root[data-overhaul="on"] [data-component="ChatSidebar"] .mari-sidebar-header {
   padding-inline: 0.75rem;
 }
+/* Large text: the header grows and wraps to a second row (the buttons move under the title)
+   instead of pushing "+ New" past the sidebar's edge. At normal sizes it stays one 3rem row. */
+:root[data-overhaul]:not([data-overhaul="mobile"]) [data-component="ChatSidebar"] .mari-sidebar-header {
+  height: auto;
+  min-height: 3rem;
+  flex-wrap: wrap;
+  row-gap: 0.375rem;
+  padding-block: 0.375rem;
+}
+:root[data-overhaul]:not([data-overhaul="mobile"]) [data-component="ChatSidebar"] .mari-sidebar-header > :last-child {
+  margin-inline-start: auto;
+}
 
 /* ─── Home ─── */
 /* Home fills the main area instead of floating as a card, and its own pages

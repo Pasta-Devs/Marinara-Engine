@@ -160,6 +160,13 @@
   border-radius: 0.5rem;
 }
 
+/* Appearance > Hide line under names: the user's choice beats a theme's line (important in a layer
+   outranks a theme's unlayered rules). */
+:root[data-mari-hide-name-rule] :is(.ov-rpmsg__head, [data-mari-part="message"] [data-mari-part="header"]) {
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+}
+
 /* ─── Page veil ───
    With a backdrop, Settings, the Library, editors, Docs and other full pages sit straight on the
    art. --mari-page-veil (a colour, transparent by default) lays a tint over the page so long text

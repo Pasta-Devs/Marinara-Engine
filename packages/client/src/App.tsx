@@ -45,6 +45,7 @@ import {
   isMobileShellViewport,
   MOBILE_SHELL_MEDIA_QUERY,
   useUIStore,
+  selectChatChromeTextColor,
 } from "./stores/ui.store";
 import { useOverhaulLook, useOverhaulStore } from "./stores/overhaul.store";
 import { loadOverhaulStyles } from "./lib/overhaul-styles";
@@ -151,7 +152,9 @@ function formatRecoveryError(error: unknown) {
 }
 
 function getRecoveryChromeStyle(): CSSProperties {
-  const { appAccentColor: darkAccent, appAccentColorLight, chatChromeTextColor, theme } = useUIStore.getState();
+  const state = useUIStore.getState();
+  const { appAccentColor: darkAccent, appAccentColorLight, theme } = state;
+  const chatChromeTextColor = selectChatChromeTextColor(state);
   const appAccentColor = theme === "light" && appAccentColorLight.trim() ? appAccentColorLight : darkAccent;
   const defaultAccent = getDefaultAppAccentColor();
   const accentSource = appAccentColor.trim() || defaultAccent;
@@ -565,7 +568,7 @@ export function App() {
   // In a fight on a board colour is information (whose turn, what may be aimed at), so the accent
   // holds still while one is on screen rather than drifting as if something changed.
   const fightOnScreen = useCombatScreenStore((state) => state.round !== null || state.tacticalShowing);
-  const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
+  const chatChromeTextColor = useUIStore(selectChatChromeTextColor);
   const hasModalOpen = useUIStore((s) => s.modal !== null);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const rightPanel = useUIStore((s) => s.rightPanel);
@@ -603,6 +606,14 @@ export function App() {
   useEffect(() => {
     setCustomNotificationSoundUrl(customNotificationSound?.url ?? null);
   }, [customNotificationSound?.url]);
+
+  // Appearance > Roleplay messages > Hide line under names (theme-tokens.css reads the attribute).
+  const hideMessageNameRule = useUIStore((s) => s.hideMessageNameRule);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (hideMessageNameRule) root.dataset.mariHideNameRule = "";
+    else delete root.dataset.mariHideNameRule;
+  }, [hideMessageNameRule]);
 
   // Settings > Appearance > Accessibility (theming panel batch 6): styles/accessibility.css reads these.
   const a11yLineHeight = useUIStore((s) => s.a11yLineHeight);
@@ -644,6 +655,7 @@ export function App() {
         strongFocus: a11yStrongFocus,
         highContrast: more,
         colorBlindSafe: a11yColorBlindSafe,
+        reduceMotion: reduceAmbientEffects,
         scheme: a11yScheme === "light" ? "light" : "dark",
       });
     };
@@ -651,7 +663,15 @@ export function App() {
     if (a11yContrast !== "system" || !query) return;
     query.addEventListener("change", applyContrast);
     return () => query.removeEventListener("change", applyContrast);
-  }, [a11yLineHeight, a11yLetterSpacing, a11yStrongFocus, a11yContrast, a11yColorBlindSafe, a11yScheme]);
+  }, [
+    a11yLineHeight,
+    a11yLetterSpacing,
+    a11yStrongFocus,
+    a11yContrast,
+    a11yColorBlindSafe,
+    a11yScheme,
+    reduceAmbientEffects,
+  ]);
 
   // [#3104 diagnostic] warn on long main-thread tasks (see lib/perf-diagnostics.ts)
   useEffect(() => {
@@ -1177,6 +1197,9 @@ export function App() {
     // Pixel-sized parts of the new layout (icons, the top bar's buttons) scale by this, so they grow
     // with the text instead of staying put (theming panel H4). 1 at the default size.
     setRootVar("--ov-ui-scale", String(Math.round((fontSize / 17) * 1000) / 1000));
+    // Large text: layouts that would clip (the phone's chat title) switch to their roomier form.
+    if (fontSize >= 19) document.documentElement.dataset.mariLargeText = "";
+    else delete document.documentElement.dataset.mariLargeText;
   }, [fontSize]);
 
   useEffect(() => {

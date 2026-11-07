@@ -18,7 +18,7 @@ import {
   type MessageReaction,
 } from "@marinara-engine/shared";
 import { toast } from "sonner";
-import { useUIStore, type ConversationMessageStyle } from "../../stores/ui.store";
+import { useUIStore, type ConversationMessageStyle, selectChatFontColor } from "../../stores/ui.store";
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { resolveMessageMacros } from "../../lib/chat-macros";
@@ -211,7 +211,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const collapseHiddenMessages = useUIStore((s) => s.summaryPopoverSettings.collapseHiddenMessages);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const chatFontSize = useUIStore((s) => s.chatFontSize);
-  const chatFontColor = useUIStore((s) => s.chatFontColor);
+  const chatFontColor = useUIStore(selectChatFontColor);
   const showMessageNumbers = useUIStore((s) => s.showMessageNumbers);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const conversationAvatarShape = useUIStore((s) => s.conversationAvatarShape);

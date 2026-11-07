@@ -442,8 +442,8 @@ export function getDefaultAppAccentColor() {
 }
 
 export function getDefaultAppAccentPulseMode() {
-  // Device input, not window width: a narrow desktop window still gets the desktop default.
-  return typeof window !== "undefined" && !window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  // Off everywhere (theming round 2, batch 6): motion is opt-in. Appearance > Accent Pulse turns it on.
+  return false;
 }
 
 export function getDefaultAppBackgroundColor(theme: "dark" | "light") {
@@ -1155,6 +1155,14 @@ interface UIState {
   defaultDialogueColor: string;
   /** Color for non-action chrome copy in tracker widgets, folder labels, settings descriptors, and popovers (empty = scheme default) */
   chatChromeTextColor: string;
+  /** Light mode's own chat text colour ("" = use chatFontColor). */
+  chatFontColorLight: string;
+  /** Light mode's own dialogue colour ("" = use defaultDialogueColor). */
+  defaultDialogueColorLight: string;
+  /** Light mode's own chrome text colour ("" = use chatChromeTextColor). */
+  chatChromeTextColorLight: string;
+  /** Hide the line under character and persona names in messages. */
+  hideMessageNameRule: boolean;
   /** Opacity for roleplay message backgrounds (0–100) */
   chatFontOpacity: number;
   /** When true, flatten expensive Roleplay paint effects for smoother navigation. */
@@ -1575,6 +1583,10 @@ interface UIState {
   setChatFontColor: (v: string) => void;
   setDefaultDialogueColor: (v: string) => void;
   setChatChromeTextColor: (v: string) => void;
+  setChatFontColorLight: (v: string) => void;
+  setDefaultDialogueColorLight: (v: string) => void;
+  setChatChromeTextColorLight: (v: string) => void;
+  setHideMessageNameRule: (v: boolean) => void;
   setChatFontOpacity: (v: number) => void;
   setRoleplayReducedPaintEffects: (v: boolean) => void;
   setShowRoleplayThinkingInMessages: (v: boolean) => void;
@@ -1886,6 +1898,10 @@ export function pickSyncedSettings(state: UIState) {
     chatFontColor: state.chatFontColor,
     defaultDialogueColor: state.defaultDialogueColor,
     chatChromeTextColor: state.chatChromeTextColor,
+    chatFontColorLight: state.chatFontColorLight,
+    defaultDialogueColorLight: state.defaultDialogueColorLight,
+    chatChromeTextColorLight: state.chatChromeTextColorLight,
+    hideMessageNameRule: state.hideMessageNameRule,
     chatFontOpacity: state.chatFontOpacity,
     showRoleplayThinkingInMessages: state.showRoleplayThinkingInMessages,
     keepRoleplayThinkingExpanded: state.keepRoleplayThinkingExpanded,
@@ -2152,6 +2168,10 @@ export function pickPersistedUIState(state: UIState) {
     chatFontColor: state.chatFontColor,
     defaultDialogueColor: state.defaultDialogueColor,
     chatChromeTextColor: state.chatChromeTextColor,
+    chatFontColorLight: state.chatFontColorLight,
+    defaultDialogueColorLight: state.defaultDialogueColorLight,
+    chatChromeTextColorLight: state.chatChromeTextColorLight,
+    hideMessageNameRule: state.hideMessageNameRule,
     chatFontOpacity: state.chatFontOpacity,
     roleplayReducedPaintEffects: state.roleplayReducedPaintEffects,
     showRoleplayThinkingInMessages: state.showRoleplayThinkingInMessages,
@@ -2497,6 +2517,10 @@ export const useUIStore = create<UIState>()(
         chatFontColor: "",
         defaultDialogueColor: "",
         chatChromeTextColor: "",
+        chatFontColorLight: "",
+        defaultDialogueColorLight: "",
+        chatChromeTextColorLight: "",
+        hideMessageNameRule: false,
         chatFontOpacity: 90,
         roleplayReducedPaintEffects: false,
         showRoleplayThinkingInMessages: false,
@@ -3512,6 +3536,10 @@ export const useUIStore = create<UIState>()(
         setChatFontColor: (v) => set({ chatFontColor: v }),
         setDefaultDialogueColor: (v) => set({ defaultDialogueColor: v }),
         setChatChromeTextColor: (v) => set({ chatChromeTextColor: normalizeChatChromeTextColor(v) }),
+        setChatFontColorLight: (v) => set({ chatFontColorLight: v }),
+        setDefaultDialogueColorLight: (v) => set({ defaultDialogueColorLight: v }),
+        setChatChromeTextColorLight: (v) => set({ chatChromeTextColorLight: normalizeChatChromeTextColor(v) }),
+        setHideMessageNameRule: (v) => set({ hideMessageNameRule: v }),
         setChatFontOpacity: (v) => set({ chatFontOpacity: Math.max(0, Math.min(100, v)) }),
         setRoleplayReducedPaintEffects: (v) => set({ roleplayReducedPaintEffects: v }),
         setShowRoleplayThinkingInMessages: (v) =>
@@ -3617,6 +3645,10 @@ export const useUIStore = create<UIState>()(
             chatFontColor: "",
             defaultDialogueColor: "",
             chatChromeTextColor: "",
+            chatFontColorLight: "",
+            defaultDialogueColorLight: "",
+            chatChromeTextColorLight: "",
+            hideMessageNameRule: false,
             chatFontOpacity: 90,
             roleplayReducedPaintEffects: false,
             showRoleplayThinkingInMessages: false,
@@ -4442,6 +4474,12 @@ export const useUIStore = create<UIState>()(
         persisted.defaultDialogueColor =
           typeof persisted.defaultDialogueColor === "string" ? persisted.defaultDialogueColor : "";
         persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
+        persisted.chatFontColorLight =
+          typeof persisted.chatFontColorLight === "string" ? persisted.chatFontColorLight : "";
+        persisted.defaultDialogueColorLight =
+          typeof persisted.defaultDialogueColorLight === "string" ? persisted.defaultDialogueColorLight : "";
+        persisted.chatChromeTextColorLight = normalizeChatChromeTextColor(persisted.chatChromeTextColorLight);
+        persisted.hideMessageNameRule = persisted.hideMessageNameRule === true;
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
         // v103 -> v104: the three feature Model picks moved to the server; stage them for useMigrateFeatureModels.
@@ -4521,3 +4559,14 @@ export const useUIStore = create<UIState>()(
     },
   ),
 );
+
+/** A text colour for the scheme on screen: Light mode's own value when it has one, else the shared one. */
+export function schemeTextColor(theme: "dark" | "light", shared: string, light: string): string {
+  return theme === "light" && light ? light : shared;
+}
+export const selectChatFontColor = (state: UIState) =>
+  schemeTextColor(state.theme, state.chatFontColor, state.chatFontColorLight);
+export const selectDefaultDialogueColor = (state: UIState) =>
+  schemeTextColor(state.theme, state.defaultDialogueColor, state.defaultDialogueColorLight);
+export const selectChatChromeTextColor = (state: UIState) =>
+  schemeTextColor(state.theme, state.chatChromeTextColor, state.chatChromeTextColorLight);
