@@ -3502,6 +3502,7 @@ export function LorebookEditor() {
                                       .catch(() => undefined)
                                   }
                                 >
+                                  <Save size={14} aria-hidden="true" />
                                   {localizeUi("ui.noodle.noodlehome.save")}
                                 </button>
                               ) : (

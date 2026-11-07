@@ -6,6 +6,7 @@ import {
   useOverhaulActive,
   useOverhaulStore,
   useOverhaulMobile,
+  useOverhaulTouchMessages,
 } from "../../stores/overhaul.store";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { useLibraryOrder } from "../../hooks/use-library-order";
@@ -68,7 +69,7 @@ import {
 import { useCharacterSummaries } from "../../hooks/use-characters";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useChatStore } from "../../stores/chat.store";
-import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
+import { confirmNonEmptyFolderDelete, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { isMobileShellViewport, selectSidebarShown, useUIStore, type UserStatus } from "../../stores/ui.store";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
@@ -109,8 +110,9 @@ import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { HelpTooltip } from "../ui/HelpTooltip";
-import { MobileChatsHomeButton } from "../overhaul/MobileTopBar";
-import { SwipeActionsRow } from "../overhaul/SwipeActionsRow";
+import { MobileChatsHomeButton, MobileLibraryButton } from "../overhaul/MobileTopBar";
+import { SwipeActionsRow, type SwipeAction } from "../overhaul/SwipeActionsRow";
+import { RowActionSheet } from "../overhaul/RowActionSheet";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
@@ -271,10 +273,15 @@ export function ChatSidebar() {
   const localize = useLocalizedUiText();
   const overhaulDesktop = useOverhaulActive();
   const overhaulMobile = useOverhaulMobile();
-  // Phones in the new layout: swipe a row left for Pin, Rename and Delete (the row then shows no trash icon).
+  // Touch screens in the new layout (phones, and tablets held sideways): swipe a row left for Pin,
+  // Rename and Delete, or long-press it for the same actions in a sheet (panel 3, PP2, PT2, PT6).
+  const overhaulTouch = useOverhaulTouchMessages();
   const swipeGesturesOn = useUIStore((s) => s.swipeGestures);
-  const swipeRows = overhaulMobile && swipeGesturesOn;
+  const swipeRows = overhaulTouch && swipeGesturesOn;
   const [swipeOpenChatId, setSwipeOpenChatId] = useState<string | null>(null);
+  const rowActionsRef = useRef(new Map<string, { title: string; actions: SwipeAction[] }>());
+  const [rowSheet, setRowSheet] = useState<{ title: string; actions: SwipeAction[] } | null>(null);
+  const closeRowSheet = useCallback(() => setRowSheet(null), []);
   const updateChatMetadata = useUpdateChatMetadata();
   // The overhaul look (compact rows, previews, mode counts) applies to phones too.
   const overhaulActive = overhaulDesktop || overhaulMobile;
@@ -990,6 +997,12 @@ export function ChatSidebar() {
       resetTouchDrag();
     },
     onCancel: resetTouchDrag,
+    // New layout: a still long-press opens the row's actions; moving the finger after pickup still drags.
+    onHoldRelease: (chatId) => {
+      if (!overhaulActive || multiSelectMode) return;
+      const entry = rowActionsRef.current.get(chatId);
+      if (entry) setRowSheet(entry);
+    },
   });
 
   // ── Batch actions ──
@@ -1146,6 +1159,25 @@ export function ChatSidebar() {
     );
   };
 
+  const renameChatWithSheet = async (chatId: string, currentName: string) => {
+    const next = (
+      await showPromptDialog({
+        title: localizeUi("ui.layout.chatsidebar.renameChat"),
+        message: "",
+        defaultValue: currentName,
+        confirmLabel: localizeUi("ui.layout.chatsidebar.renameShort"),
+      })
+    )?.trim();
+    if (!next || next === currentName) return;
+    renameChat.mutate(
+      { id: chatId, name: next.slice(0, 200) },
+      {
+        onError: () =>
+          toast.error(localizeUi("ui.layout.chatsidebar.renameFailed", { defaultValue: "Couldn't rename the chat." })),
+      },
+    );
+  };
+
   const renderChatRow = (entry: ChatListEntry) => {
     const { chat, branchCount, branchRows } = entry;
     const cfg = MODE_CONFIG[chat.mode] ?? MODE_CONFIG.conversation;
@@ -1227,44 +1259,45 @@ export function ChatSidebar() {
         ? null
         : chatBackgroundMetadataToUrl(chat.metadata?.background, BACKGROUND_THUMBNAIL_WIDTH);
 
+    const rowActions: SwipeAction[] = [
+      {
+        key: "pin",
+        label: isChatPinned(chat)
+          ? localizeUi("ui.layout.chatsidebar.unpinChat")
+          : localizeUi("ui.layout.chatsidebar.pinChat"),
+        icon: isChatPinned(chat) ? <PinOff size="1rem" /> : <Pin size="1rem" />,
+        onSelect: () => updateChatMetadata.mutate({ id: chat.id, pinned: !isChatPinned(chat) }),
+      },
+      {
+        key: "rename",
+        label: localizeUi("ui.layout.chatsidebar.renameShort"),
+        icon: <Pencil size="1rem" />,
+        // A sheet with a proper field, not the small inline box (panel 3, PP10).
+        onSelect: () => void renameChatWithSheet(chat.id, chat.name),
+      },
+      {
+        key: "delete",
+        label: localizeUi("lorebook.editor.batch.delete"),
+        icon: <Trash2 size="1rem" />,
+        tone: "danger",
+        onSelect: () => {
+          if (branchCount > 1 && chat.groupId) {
+            setDeleteTarget({ chatId: chat.id, chatName: displayName, groupId: chat.groupId, branchCount });
+          } else {
+            void confirmDeleteChat(chat.id, displayName);
+          }
+        },
+      },
+    ];
+    rowActionsRef.current.set(chat.id, { title: displayName, actions: rowActions });
+
     return (
       <div key={chat.groupId ?? chat.id} className="flex flex-col">
         <SwipeActionsRow
           enabled={swipeRows && !multiSelectMode && renamingChatId !== chat.id}
           open={swipeOpenChatId === chat.id}
           onOpenChange={(open) => setSwipeOpenChatId(open ? chat.id : null)}
-          actions={[
-            {
-              key: "pin",
-              label: isChatPinned(chat)
-                ? localizeUi("ui.layout.chatsidebar.unpinChat")
-                : localizeUi("ui.layout.chatsidebar.pinChat"),
-              icon: isChatPinned(chat) ? <PinOff size="1rem" /> : <Pin size="1rem" />,
-              onSelect: () => updateChatMetadata.mutate({ id: chat.id, pinned: !isChatPinned(chat) }),
-            },
-            {
-              key: "rename",
-              label: localizeUi("ui.layout.chatsidebar.renameShort"),
-              icon: <Pencil size="1rem" />,
-              onSelect: () => {
-                setRenameDraft(chat.name);
-                setRenamingChatId(chat.id);
-              },
-            },
-            {
-              key: "delete",
-              label: localizeUi("lorebook.editor.batch.delete"),
-              icon: <Trash2 size="1rem" />,
-              tone: "danger",
-              onSelect: () => {
-                if (branchCount > 1 && chat.groupId) {
-                  setDeleteTarget({ chatId: chat.id, chatName: displayName, groupId: chat.groupId, branchCount });
-                } else {
-                  void confirmDeleteChat(chat.id, displayName);
-                }
-              },
-            },
-          ]}
+          actions={rowActions}
         >
           <div
             role="button"
@@ -1721,17 +1754,7 @@ export function ChatSidebar() {
         {overhaulMobile ? <MobileChatsHomeButton /> : null}
         <div className="flex min-w-0 shrink-0 items-center gap-1">
           <PersonalExtensionContributionSlot surface="chats" position="header" className="max-w-28" />
-          {overhaulMobile ? (
-            <button
-              onClick={handleNewChatFromTab}
-              disabled={createChat.isPending}
-              className="ovm-icon-btn"
-              title={t(`navigation.chatSidebar.new.${activeTab}`)}
-              aria-label={t(`navigation.chatSidebar.new.${activeTab}`)}
-            >
-              <Plus size={22} aria-hidden="true" />
-            </button>
-          ) : null}
+          {overhaulMobile ? <MobileLibraryButton tour={false} /> : null}
           {overhaulDesktop ? (
             <>
               <button
@@ -1949,6 +1972,20 @@ export function ChatSidebar() {
           >
             <TextSearch size="0.875rem" />
           </button>
+          {overhaulMobile ? (
+            // "+ New" lives with the list's own tools, as on the Library pages (panel 3, PV7).
+            <button
+              type="button"
+              onClick={handleNewChatFromTab}
+              disabled={createChat.isPending}
+              className="ov-new-pill ovm-chats-new"
+              title={t(`navigation.chatSidebar.new.${activeTab}`)}
+              aria-label={t(`navigation.chatSidebar.new.${activeTab}`)}
+            >
+              <Plus size="1rem" aria-hidden="true" />
+              <span>{localize("New")}</span>
+            </button>
+          ) : null}
           {overhaulMobile ? (
             <div className="ov-menu-wrap ovm-chats-more">
               <button
@@ -2295,6 +2332,8 @@ export function ChatSidebar() {
           <CharacterScheduleManagerModal open onClose={() => setScheduleManagerOpen(false)} />
         </Suspense>
       )}
+
+      {rowSheet ? <RowActionSheet title={rowSheet.title} actions={rowSheet.actions} onClose={closeRowSheet} /> : null}
 
       {/* ── Delete Branch Modal ── */}
       <Modal

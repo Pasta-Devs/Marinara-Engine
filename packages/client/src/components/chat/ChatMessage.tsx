@@ -1,4 +1,5 @@
 import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
+import { avatarInitial } from "../../lib/avatar-initial";
 // ──────────────────────────────────────────────
 // Chat: Message — mode-aware rendering
 // ──────────────────────────────────────────────
@@ -151,6 +152,7 @@ import { ChatImageLightbox } from "./ChatImageLightbox";
 import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvMobileMessageSheet, useLongPress } from "../overhaul/MobileMessageSheet";
 import { OvRpMessageFooter } from "../overhaul/RpMessageFooter";
+import { SwipeCountChip } from "../overhaul/SwipeCountChip";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { toast } from "sonner";
 import { MessageThinkingModal } from "./MessageThinkingModal";
@@ -329,7 +331,7 @@ function AIVisibilityAvatar({ character, className }: { character: AIVisibilityC
         className,
       )}
     >
-      {character.name.trim().charAt(0).toUpperCase() || "?"}
+      {avatarInitial(character.name)}
     </span>
   );
 }
@@ -4775,6 +4777,10 @@ export const ChatMessage = memo(function ChatMessage({
                 onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
               />
             )}
+
+            {overhaulMobile && !overhaulActive && isLastAssistantMessage && !isUser && !editing ? (
+              <SwipeCountChip index={message.activeSwipeIndex ?? 0} count={swipeCount} />
+            ) : null}
 
             <MessageMarkIndicators message={message} className="px-1" />
 

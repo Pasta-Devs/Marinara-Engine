@@ -194,7 +194,14 @@ function DeleteConfirmationDialog({
           <ListChecks size="0.8rem" />
           <span>{t("chat.delete.dialog.more")}</span>
         </button>
-        <button type="button" onClick={onClose} className={DELETE_DIALOG_ACTION_CLASS}>
+        {/* Focus starts on the least destructive choice, not the window's × (panel 3, PR7). */}
+        <button
+          type="button"
+          onClick={onClose}
+          className={DELETE_DIALOG_ACTION_CLASS}
+          data-autofocus
+          data-tone="cancel"
+        >
           <X size="0.8rem" />
           <span>{t("chat.delete.dialog.cancel")}</span>
         </button>

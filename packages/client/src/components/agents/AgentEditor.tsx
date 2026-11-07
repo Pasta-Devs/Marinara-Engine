@@ -2479,7 +2479,7 @@ export function AgentEditor() {
               markDirty();
             }}
             meta={builtIn ? "Built-in agent" : "Custom agent"}
-            save={{ dirty, saving: isPending, error: !!saveError, onSave: handleSave }}
+            save={{ dirty: dirty || isNewCustomAgent, saving: isPending, error: !!saveError, onSave: handleSave }}
             actions={
               <>
                 <button type="button" className="ov-edbtn" onClick={handleExportAgent}>

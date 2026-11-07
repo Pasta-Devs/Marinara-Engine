@@ -613,7 +613,7 @@ export function RegexScriptEditor() {
               markDirty();
             }}
             meta={runsLabel}
-            save={{ dirty, saving: isPending, error: !!saveError, onSave: handleSave }}
+            save={{ dirty: dirty || isNew, saving: isPending, error: !!saveError, onSave: handleSave }}
             actions={
               <>
                 <OvToggle

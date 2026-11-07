@@ -80,7 +80,7 @@ import { ChatInput } from "./ChatInput";
 import { CyoaChoices } from "./CyoaChoices";
 import { CHAT_CONTROL_WINDOW_IDS, ChatConnectedChatWindow, ChatControlWindow } from "./ChatControlWindow";
 import { TrackerPanelBubble } from "./TrackerPanelBubble";
-import { useOverhaulMobile } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { PHONE_BUBBLE_SIZE_PX, WINDOW_BUBBLE_SIZE_PX, WINDOW_MARGIN_PX } from "../../lib/floating-window-layout";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { CHAT_TOOLBAR_ICON_GAP_CLASS, getChatToolbarButtonClass } from "./ChatToolbarControls";
@@ -1030,6 +1030,7 @@ export function ChatRoleplaySurface({
   // Panel-enabled chats use the Trackers button to reopen their selected surface.
   const phoneLayout = useMatchMedia("(max-width: 767px)");
   const overhaulMobile = useOverhaulMobile();
+  const overhaulLook = useOverhaulLook();
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const showTrackerPanelBubble =
@@ -2062,6 +2063,20 @@ export function ChatRoleplaySurface({
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/20 border-t-white/60" />
                   </div>
                 )}
+
+                {/* A roleplay with no messages yet: say what to do instead of a blank page (panel 3, round-1 #16). */}
+                {overhaulLook && !isLoading && !hasNextPage && !isStreaming && messages && messages.length === 0 ? (
+                  <div className="ov-rp-empty" data-component="RoleplayEmptyState">
+                    <strong>
+                      {characterNames.length
+                        ? localizeUi("ui.chat.chatroleplaysurface.emptyTitleWith", {
+                            names: characterNames.join(", "),
+                          })
+                        : localizeUi("ui.chat.chatroleplaysurface.emptyTitle")}
+                    </strong>
+                    <span>{localizeUi("ui.chat.chatroleplaysurface.emptyHint")}</span>
+                  </div>
+                ) : null}
 
                 {visibleMessages?.map((msg, i) => {
                   if (isMessageHiddenFromUser(msg)) return null;

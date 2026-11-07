@@ -36,6 +36,7 @@ export function buildChoiceOptionResults<T extends OmnibarResult>(parent: T): T[
     target: undefined,
     action: undefined,
     chooseValue: () => control.onChange(option.value),
+    undoChooseValue: () => control.onChange(control.value),
   }));
 }
 

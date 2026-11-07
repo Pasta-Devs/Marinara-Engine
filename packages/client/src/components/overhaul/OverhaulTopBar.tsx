@@ -39,7 +39,7 @@ import {
 import { useChats } from "../../hooks/use-chats";
 import { useCharacter, usePersona } from "../../hooks/use-characters";
 import { useLorebook } from "../../hooks/use-lorebooks";
-import { useConnection } from "../../hooks/use-connections";
+import { useConnection, useConnections } from "../../hooks/use-connections";
 import { usePresetFull } from "../../hooks/use-presets";
 import { getChatDisplayName, parseChatMetadata } from "../../lib/chat-display";
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
@@ -219,20 +219,17 @@ export function nameOf(record: unknown): string | null {
   return typeof name === "string" && name.trim() ? name : null;
 }
 
-/** "Universal · princess · 2 agents": the chat's preset, connection and agents at a glance. */
+/** "Roleplay · Claude Opus": the chat's mode and the model it talks to. */
 export function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: string }) {
-  const localize = useLocalizedUiText();
-  const preset = usePresetFull(chat.promptPresetId ?? null);
-  const connection = useConnection(chat.connectionId ?? null);
-  const presetName = nameOf((preset.data as { preset?: unknown } | undefined)?.preset ?? preset.data);
-  const connectionName = nameOf(connection.data);
-  const agents = Array.isArray(chat.metadata?.activeAgentIds) ? chat.metadata.activeAgentIds.length : 0;
-  const parts = [
-    presetName,
-    connectionName,
-    agents ? `${agents} ${localize(agents === 1 ? "agent" : "agents")}` : null,
-  ].filter(Boolean);
-  return <small>{parts.length ? parts.join(" · ") : fallback}</small>;
+  // One fixed format everywhere: "Mode · model" (panel 3, PV14/N10a). The preset and agent count made the
+  // label change while things loaded and from chat to chat; both are one click away in Chat settings.
+  const { data: connections } = useConnections();
+  const list = Array.isArray(connections) ? (connections as Array<Record<string, unknown>>) : [];
+  const connection = chat.connectionId
+    ? list.find((item) => item.id === chat.connectionId)
+    : list.find((item) => item.isDefault === true);
+  const parts = [fallback, nameOf(connection)].filter(Boolean);
+  return <small>{parts.join(" · ")}</small>;
 }
 
 /** Installed Home apps (Noodle, Slurp...) with their tab label and icon. */

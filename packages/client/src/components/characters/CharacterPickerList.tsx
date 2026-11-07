@@ -5,6 +5,7 @@
 // The shell (popover, sheet, inline tab) belongs to the caller.
 // ──────────────────────────────────────────────
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { avatarInitial } from "../../lib/avatar-initial";
 import {
   Ban,
   Check,
@@ -95,7 +96,7 @@ function Avatar({
   }
   return (
     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-foreground/10 bg-foreground/10 text-xs font-semibold text-foreground/45">
-      {(name || "?")[0]?.toUpperCase()}
+      {avatarInitial(name)}
     </div>
   );
 }

@@ -42,7 +42,8 @@ import {
 } from "./ConversationMessageShared";
 import { MessageReplyPreview } from "./MessageReplyPreview";
 import { ConversationMessageActions } from "./ConversationMessageActions";
-import { useOverhaulTouchMessages } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
+import { SwipeCountChip } from "../overhaul/SwipeCountChip";
 import { useLongPress } from "../overhaul/MobileMessageSheet";
 import { SystemMessage } from "./SystemMessage";
 import { RoleplayMessagePreview } from "./ChatMessage";
@@ -187,6 +188,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const [editValue, setEditValue] = useState(message.content);
   const [showActions, setShowActions] = useState(false);
   const overhaulMobile = useOverhaulTouchMessages();
+  const overhaulDesktopShell = useOverhaulActive();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const openMobileSheet = useCallback(() => setMobileSheetOpen(true), []);
   const closeMobileSheet = useCallback(() => setMobileSheetOpen(false), []);
@@ -1230,6 +1232,9 @@ export const ConversationMessage = memo(function ConversationMessage({
           <ConversationMessageSwipes ctx={ctx} />
         </div>
         <div className="px-4">
+          {overhaulMobile && !overhaulDesktopShell && isLastAssistantMessage && !isUser ? (
+            <SwipeCountChip index={message.activeSwipeIndex ?? 0} count={message.swipeCount ?? 1} />
+          ) : null}
           <MessageMarkIndicators message={message} className="px-1" />
           <GenerationFallbackMarker fallback={fallback} className="flex w-fit px-1" />
           {!isUser && replyCheckup && <div className="px-1">{replyCheckup}</div>}

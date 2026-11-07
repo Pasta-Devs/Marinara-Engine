@@ -1476,11 +1476,15 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     const parentId = readChoiceOptionId(result.id)?.parentId;
     setExpandedChoiceId(null);
     if (parentId && isChatScopedChoiceControlId(parentId)) {
+      const undo = result.undoChooseValue;
       toast.success(
         t("commandCenter.actions.chatControlChosen", "{{label}}: {{value}}", {
           label: result.description ?? result.command.title,
           value: result.title,
         }),
+        undo
+          ? { action: { label: t("ui.chat.chatresourcedropoverlay.undo", "Undo"), onClick: () => undo() } }
+          : undefined,
       );
       recordUse(result.id);
       onClose();
@@ -1836,7 +1840,12 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     if (result.id === "ask-professor-mari") {
       return result.group === "continue" ? t("commandCenter.open", "Open") : t("commandCenter.enter.ask", "Ask");
     }
-    if (result.chooseValue) return t("commandCenter.enter.choose", "Choose");
+    if (result.chooseValue) {
+      const parentId = readChoiceOptionId(result.id)?.parentId;
+      return parentId && isChatScopedChoiceControlId(parentId)
+        ? t("commandCenter.enter.useForChat", "Use for this chat")
+        : t("commandCenter.enter.choose", "Choose");
+    }
     switch (result.action?.kind) {
       case "add-to-chat":
         return t("commandCenter.enter.add", "Add");

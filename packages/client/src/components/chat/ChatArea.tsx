@@ -41,7 +41,7 @@ import { hasActiveTextSelection } from "../../lib/text-selection";
 import { readChatMetadata } from "../../lib/chat-wizard-defaults";
 import { useChatWindowLayout } from "../../hooks/use-chat-window-layout";
 import { ChatSettingsBubble } from "./ChatSettingsBubble";
-import { useOverhaulActive, useOverhaulMobile } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulMobile, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import {
   prefersReducedMotion,
   SWIPE_AXIS_RATIO,
@@ -709,10 +709,10 @@ const LocalChatArea = memo(function LocalChatArea({
   const showHistoryTrimNotice = useUIStore((s) => s.showHistoryTrimNotice);
   const intuitiveSwipeNavigation = useUIStore((s) => s.intuitiveSwipeNavigation);
   const intuitiveSwipeRerollLatest = useUIStore((s) => s.intuitiveSwipeRerollLatest);
-  // New layout on phones: touch swipes on the latest reply follow their own per-device switch.
-  const overhaulMobile = useOverhaulMobile();
+  // Touch screens in the new layout (phones, and tablets held sideways) share the swipe gestures (panel 3, PT6).
+  const overhaulTouch = useOverhaulTouchMessages();
   const phoneSwipeGestures = useUIStore((s) => s.swipeGestures);
-  const touchSwipesOn = overhaulMobile ? phoneSwipeGestures : intuitiveSwipeNavigation;
+  const touchSwipesOn = overhaulTouch ? phoneSwipeGestures : intuitiveSwipeNavigation;
   const editLastMessageOnArrowUp = useUIStore((s) => s.editLastMessageOnArrowUp);
   const ttsLineVolume = useUIStore((s) => s.ttsLineVolume);
   const lastAppError = useUIStore((s) => s.lastAppError);
@@ -2812,10 +2812,12 @@ const LocalChatArea = memo(function LocalChatArea({
       if (
         !options?.skipTouchConfirm &&
         window.matchMedia("(pointer: coarse)").matches &&
+        // A new reply costs money, so it says so in plain words (panel 3, PP3/PV5).
         !(await showConfirmDialog({
-          title: localizeUi("ui.chat.chatarea.regenerateMessage"),
-          message: localizeUi("ui.chat.chatarea.regenerateThisMessageAsANewSwipe"),
-          confirmLabel: localizeUi("ui.agents.secretplotpanel.regenerate"),
+          title: localizeUi("ui.chat.chatarea.generateANewReply"),
+          message: localizeUi("ui.chat.chatarea.generateANewReplyDetail"),
+          confirmLabel: localizeUi("ui.chat.chatarea.generate"),
+          tone: "accent",
           chatStyle: true,
         }))
       ) {
@@ -3164,6 +3166,20 @@ const LocalChatArea = memo(function LocalChatArea({
     return null;
   }, [messages]);
 
+  // A finger swipe only changes a reply nobody has answered yet: once the user has written after it,
+  // swapping it would leave their message answering a reply that no longer shows (panel 3, PP5).
+  const latestReplyIsLastMessage = useMemo(() => {
+    if (!messages || !latestAssistantMessageForSwipes) return false;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const candidate = messages[i]!;
+      if (candidate.role !== "user" && candidate.role !== "assistant") continue;
+      const extra = candidate.extra as { hiddenFromUser?: boolean } | string | null | undefined;
+      if (typeof extra === "object" && extra?.hiddenFromUser === true) continue;
+      return candidate.id === latestAssistantMessageForSwipes.id;
+    }
+    return false;
+  }, [messages, latestAssistantMessageForSwipes]);
+
   useEffect(() => {
     if (!activeChatId) return;
     const handlePeekPromptRequest = (event: Event) => {
@@ -3244,9 +3260,9 @@ const LocalChatArea = memo(function LocalChatArea({
         return true;
       }
 
-      // Phones in the new layout: swiping past the last reply makes a new one, but a new reply costs
-      // money, so it always asks first; an accidental swipe never spends anything.
-      if (fromTouch && overhaulMobile) {
+      // Touch screens in the new layout: swiping past the last reply makes a new one, but a new reply
+      // costs money, so it always asks first; an accidental swipe never spends anything.
+      if (fromTouch && overhaulTouch) {
         void handleRegenerate(latestAssistantMessageForSwipes.id);
         return true;
       }
@@ -3255,7 +3271,7 @@ const LocalChatArea = memo(function LocalChatArea({
       return true;
     },
     [
-      overhaulMobile,
+      overhaulTouch,
       touchSwipesOn,
       activeChatId,
       chatMode,
@@ -3350,7 +3366,7 @@ const LocalChatArea = memo(function LocalChatArea({
     if (!touchSwipesOn || intuitiveSwipeBlocked) return;
     // Phones in the new layout: only the latest reply reacts, and it follows the finger, so scrolling
     // back through history can never change a reply by accident.
-    const latestOnly = overhaulMobile;
+    const latestOnly = overhaulTouch;
     let followed: HTMLElement | null = null;
     let axisLocked = false;
     const release = (snap: boolean) => {
@@ -3372,7 +3388,7 @@ const LocalChatArea = memo(function LocalChatArea({
       const touch = event.touches.item(0);
       if (!touch) return;
       if (latestOnly) {
-        const latestId = latestAssistantMessageForSwipes?.id;
+        const latestId = latestReplyIsLastMessage ? latestAssistantMessageForSwipes?.id : undefined;
         const message = target instanceof Element ? target.closest<HTMLElement>("[data-message-id]") : null;
         const nearEdge = touch.clientX < SWIPE_EDGE_PX || touch.clientX > window.innerWidth - SWIPE_EDGE_PX;
         if (!latestId || message?.dataset.messageId !== latestId || nearEdge) {
@@ -3452,7 +3468,14 @@ const LocalChatArea = memo(function LocalChatArea({
       window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("touchcancel", handleTouchCancel);
     };
-  }, [intuitiveSwipeBlocked, latestAssistantMessageForSwipes, navigateLatestSwipe, overhaulMobile, touchSwipesOn]);
+  }, [
+    intuitiveSwipeBlocked,
+    latestAssistantMessageForSwipes,
+    latestReplyIsLastMessage,
+    navigateLatestSwipe,
+    overhaulTouch,
+    touchSwipesOn,
+  ]);
 
   useEffect(() => {
     if (chat) useChatStore.getState().setActiveChat(chat);
