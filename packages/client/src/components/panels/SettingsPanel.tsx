@@ -6277,42 +6277,30 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             onJumpToLine={jumpToCssLine}
           />
 
-          {/* Quick reference */}
+          {/* Quick reference: the stable v1.1 tokens and hooks; the full list is in the guide. */}
           <details className="group rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
             <summary className="cursor-pointer px-3 py-2 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]">
               {localizeUi("ui.panels.themessettings.cssVariableReference")}
             </summary>
-            <div className="border-t border-[var(--border)] px-3 py-2 font-mono text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-                <span>{localizeUi("ui.panels.themessettings.background")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.pageBackground")}</span>
-                <span>{localizeUi("ui.panels.themessettings.foreground")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.mainText")}</span>
-                <span>{localizeUi("ui.panels.themessettings.primary")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.accentButtons")}</span>
-                <span>{localizeUi("ui.panels.themessettings.primaryForeground")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.textOnPrimary")}</span>
-                <span>{localizeUi("ui.panels.themessettings.secondary")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.cardsInputs")}</span>
-                <span>{localizeUi("ui.panels.themessettings.card")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.cardBackground")}</span>
-                <span>{localizeUi("ui.panels.themessettings.border")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.borders")}</span>
-                <span>{localizeUi("ui.panels.themessettings.mutedForeground")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.dimmedText")}</span>
-                <span>{localizeUi("ui.panels.themessettings.sidebar")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.sidebarBg")}</span>
-                <span>{localizeUi("ui.panels.themessettings.sidebarBorder")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.sidebarBorder_26eaad1")}</span>
-                <span>{localizeUi("ui.panels.themessettings.marinaraShellEdgeBorder")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.leftRightShellEdge")}</span>
-                <span>{localizeUi("ui.panels.themessettings.destructive")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.errorDelete")}</span>
-                <span>{localizeUi("ui.panels.themessettings.popover")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.dropdownBg")}</span>
-                <span>{localizeUi("ui.panels.themessettings.accent")}</span>
-                <span className="text-white/40">{localizeUi("ui.panels.themessettings.hoverHighlights")}</span>
-              </div>
+            <div className="border-t border-[var(--border)] px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-0.5">
+                {THEME_REFERENCE.map(([token, key, fallback]) => (
+                  <Fragment key={token}>
+                    <dt className="font-mono text-[var(--foreground)]">{token}</dt>
+                    <dd>{localizeUi(key, { defaultValue: fallback })}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+              <button
+                type="button"
+                onClick={openThemeGuide}
+                className="mt-2 inline-flex items-center gap-1 font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+              >
+                <BookOpen size="0.6875rem" />
+                {localizeUi("theming.guide.link", {
+                  defaultValue: "Theme author guide: every token, part hook and safety rule",
+                })}
+              </button>
             </div>
           </details>
         </div>
@@ -6681,6 +6669,24 @@ function ThemePackageDetails({
     </details>
   );
 }
+
+/** The editor's quick reference: [token or hook, i18n key, English]. The guide has the rest. */
+const THEME_REFERENCE: Array<[string, string, string]> = [
+  ["--background / --foreground", "theming.ref.base", "Page background and text"],
+  ["--primary", "theming.ref.primary", "Accent: buttons, links, focus"],
+  ["--card / --sidebar / --border", "theming.ref.surfaces", "Panels, sidebars and lines"],
+  ["--mari-font-ui / -heading / -chat", "theming.ref.fonts", "App, title and message fonts"],
+  ["--mari-selected-tint", "theming.ref.selected", "Selected rows, tabs and pills"],
+  ["--mari-app-backdrop", "theming.ref.backdrop", "Art behind the whole app, chats included"],
+  ["--mari-page-veil", "theming.ref.veil", "Tint over Settings, Library and editors"],
+  ["--mari-top-bar-bg", "theming.ref.topBar", "Top bar background (tabs and icons stay on top)"],
+  ["--mari-home-widget-*", "theming.ref.homeWidgets", "Home widget borders, fonts, sizes and colours"],
+  ["--mari-text-outline / --mari-dialogue-color", "theming.ref.chatText", "Message outline and dialogue colour"],
+  ["--mari-composer-placeholder", "theming.ref.placeholder", "Message box placeholder, as a quoted string"],
+  ['[data-mari-part="message"]', "theming.ref.message", "One message: avatar, header, actions, reasoning parts inside"],
+  ["data-character / data-message-index", "theming.ref.messageData", "Who wrote it and its number (also --mari-msg-*)"],
+  [':root[data-chat-tags~="tag"]', "theming.ref.tags", "Style chats by their tags"],
+];
 
 const CSS_TEMPLATE = `/* ═══════════════════════════════════════
    My Custom Theme  ·  theme tokens v1

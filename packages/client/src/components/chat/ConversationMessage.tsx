@@ -42,6 +42,7 @@ import {
 } from "./ConversationMessageShared";
 import { MessageReplyPreview } from "./MessageReplyPreview";
 import { ConversationMessageActions } from "./ConversationMessageActions";
+import { messageHooks } from "../../lib/message-hooks";
 import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { SwipeCountChip } from "../overhaul/SwipeCountChip";
 import { useLongPress } from "../overhaul/MobileMessageSheet";
@@ -237,7 +238,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     : undefined;
   const messageTextStyle = useMemo<CSSProperties>(
     () => ({
-      fontSize: `${chatFontSize}px`,
+      fontSize: `var(--mari-chat-font-size, ${chatFontSize}px)`,
       ...(chatFontColor ? { color: `var(--mari-chat-resolved-text, ${chatFontColor})` } : {}),
     }),
     [chatFontSize, chatFontColor],
@@ -1177,11 +1178,22 @@ export const ConversationMessage = memo(function ConversationMessage({
   // Conversation replies show no model label, so the marker gets its own line under the reply (#7697).
   const fallback = isUser ? null : extra.generationInfo?.fallback;
 
+  // Theme hooks, the same as roleplay messages carry (see lib/message-hooks.ts).
+  const messageHookProps = messageHooks({
+    role: message.role,
+    characterId: isUser ? null : message.characterId,
+    characterName: displayName,
+    index: messageIndex,
+    generationMs: extra.generationInfo?.durationMs,
+    latest: !!isLastAssistantMessage && !isUser,
+    streaming: !!isStreaming,
+  });
+
   // ── Grouped multi-speaker layout ──
   if (groupedLayoutActive) {
     return (
       <>
-        <ConversationMessageGrouped ctx={ctx} msgRef={msgRef} reactionRow={reactionRow} />
+        <ConversationMessageGrouped ctx={ctx} msgRef={msgRef} reactionRow={reactionRow} hooks={messageHookProps} />
         <GenerationFallbackMarker fallback={fallback} className="flex w-fit px-4" />
         {replyCheckup && <div className="px-4">{replyCheckup}</div>}
         {sceneInvitation}
@@ -1198,7 +1210,8 @@ export const ConversationMessage = memo(function ConversationMessage({
         className={cn("min-w-0", !noHoverGroup && "group")}
         tabIndex={0}
         data-message-id={message.id}
-        data-message-role={message.role}
+        {...messageHookProps.attrs}
+        style={messageHookProps.style}
         onClick={handleMobileTap}
         {...longPress}
       >

@@ -27,6 +27,7 @@ import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useGenerate } from "../../hooks/use-generate";
+import { useThemedPlaceholder } from "../../hooks/use-themed-placeholder";
 import { useCommitSpatialOwnerTurn } from "../../hooks/use-spatial-context";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
@@ -332,6 +333,8 @@ export const ChatInput = memo(function ChatInput({
     }
     return t("chat.input.default");
   }, [activeCharacterNames, activeChatId, isMobileComposerViewport, mode, t]);
+  // A theme can set its own text with --mari-composer-placeholder (hooks/use-themed-placeholder.ts).
+  const themedPlaceholder = useThemedPlaceholder("roleplay", inputPlaceholder);
   const queuedResponseOrder = useMemo(
     () => new Map(responseQueue.map((characterId, index) => [characterId, index + 1])),
     [responseQueue],
@@ -2123,7 +2126,7 @@ export const ChatInput = memo(function ChatInput({
             ensureInputVisible();
           }}
           onBlur={releaseHeldDeleteWork}
-          placeholder={inputPlaceholder}
+          placeholder={themedPlaceholder}
           disabled={!activeChatId}
           rows={1}
           spellCheck

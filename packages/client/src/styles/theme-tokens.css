@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   THEME TOKENS (contract version 1)
+   THEME TOKENS (contract version 1, v1.1 additions)
    The colours, fonts and effects a custom theme can set without hunting for selectors.
    Every token defaults to the look the app had before it existed, so the default UI doesn't
    change. The full list, with the part hooks, is in docs/appearance/theme-author-guide.md. Bump
@@ -43,6 +43,12 @@
 
   /* Accent effects: "none" unless Accent Pulse or RGB Mode is on in the new layout. */
   --mari-accent-fx-animation: none;
+
+  /* v1.1 tokens with no value here on purpose: unset means "the user's setting".
+     --mari-text-outline       message text outline (e.g. 0, or 1px #3b2a1a); else Text Outline
+     --mari-dialogue-color     dialogue colour when the character has none of its own
+     --mari-chat-font-size     message text size; the Accessibility minimum still applies
+     --mari-composer-placeholder  the message box placeholder, as a CSS string */
 }
 
 /* Light mode: the same roles, dark enough to read on a light background (4.5:1 or better). */
@@ -65,16 +71,104 @@
   font-family: var(--mari-font-chat);
 }
 
-/* ─── App backdrop ───
-   A theme that sets --mari-app-backdrop (an image or gradient) gets it painted once, behind the
-   whole app, instead of once per nested surface. CustomThemeInjector sets the attribute. */
+/* ─── App backdrop (v1.1) ───
+   A theme that sets --mari-app-backdrop (one image or gradient) gets it painted once, behind the
+   whole app, instead of once per nested surface. CustomThemeInjector sets the attribute.
+     --mari-app-backdrop-size        cover        (e.g. auto, 100% auto, 64px)
+     --mari-app-backdrop-position    center       (e.g. bottom center)
+     --mari-app-backdrop-repeat      no-repeat    (e.g. repeat for tiles)
+     --mari-app-backdrop-attachment  fixed
+     --mari-app-backdrop-rendering   auto         (pixelated keeps pixel art crisp)
+   For several layers (art + a dot grid + a colour), set --mari-app-backdrop-layers to a whole
+   `background` value instead; it wins over the single-image token.
+   The art is drawn on a fixed layer under the app, so it also shows behind chats: the roleplay,
+   conversation and game surfaces go transparent and the stock chat background steps aside.
+   A background the user picked for a chat still shows on top. */
 :root[data-mari-app-backdrop] .mari-app {
-  background:
-    var(--mari-app-backdrop) center / cover no-repeat fixed,
-    var(--marinara-app-background-paint);
+  isolation: isolate;
 }
-:root[data-mari-app-backdrop] .mari-app :is(.mari-app-background-paint, [data-mari-part="home"]) {
-  background: transparent;
+:root[data-mari-app-backdrop] .mari-app::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image: var(--mari-app-backdrop, none);
+  background-size: var(--mari-app-backdrop-size, cover);
+  background-position: var(--mari-app-backdrop-position, center);
+  background-repeat: var(--mari-app-backdrop-repeat, no-repeat);
+  background-attachment: var(--mari-app-backdrop-attachment, fixed);
+  image-rendering: var(--mari-app-backdrop-rendering, auto);
+}
+:root[data-mari-app-backdrop-layers] .mari-app::after {
+  background: var(--mari-app-backdrop-layers);
+  image-rendering: var(--mari-app-backdrop-rendering, auto);
+}
+:root[data-mari-app-backdrop] {
+  --mari-stage-empty-bg: transparent;
+}
+:root[data-mari-app-backdrop]
+  .mari-app
+  :is(
+    .mari-app-background-paint,
+    [data-mari-part="home"],
+    .rpg-chat-area,
+    .mari-chat-area[data-chat-mode="conversation"],
+    [data-chat-mode="game"].mari-card-css
+  ) {
+  background: transparent !important;
+}
+:root[data-mari-app-backdrop] .mari-app img[data-mari-part="backdrop"][data-default-background] {
+  visibility: hidden;
+}
+
+/* ─── Home widgets (v1.1) ───
+   Every Home widget, Professor Mari included, takes the same tokens; each falls back to the stock
+   look. Border: --mari-home-widget-border, -border-width, -radius. Surface: --mari-home-widget-bg.
+   Type: --mari-home-widget-font, -title-font, -title-size, -title-color, -eyebrow-size, -text-size,
+   -muted. Rows grow when the text needs more room (larger fonts, Display Size, spacing) instead of
+   clipping it; they never shrink below the computed row height. */
+.mari-home-feed-shell > .mari-home-feed-grid {
+  grid-auto-rows: minmax(var(--home-grid-row-height, 13rem), auto);
+}
+.mari-home-professor-widget[data-mari-part="home-widget"] {
+  border-color: var(
+    --mari-home-widget-border,
+    color-mix(in srgb, var(--marinara-chat-chrome-accent) 36%, var(--border))
+  );
+  background: var(--mari-home-widget-bg, color-mix(in srgb, var(--marinara-chat-chrome-accent) 8%, var(--card)));
+}
+
+/* ─── Top bar art (v1.1) ───
+   --mari-top-bar-bg takes a whole `background` value (an image, a gradient, several layers) for
+   the top bar on every device; CustomThemeInjector sets the attribute when a theme sets it.
+   --mari-top-bar-rendering: pixelated keeps pixel art crisp. The tabs and icons always stay on
+   top: the protected layer keeps them visible, and the chrome guard checks they can be read. */
+:root[data-mari-top-bar-art] [data-component="TopBar"] {
+  background: var(--mari-top-bar-bg);
+  image-rendering: var(--mari-top-bar-rendering, auto);
+}
+:root[data-mari-top-bar-art] [data-component="TopBar"] :is(img, svg) {
+  image-rendering: auto;
+}
+/* Over art, tabs and icon buttons sit on a soft plate so their labels stay readable whatever the
+   picture does. A theme can restyle the plate (--mari-top-bar-plate), not remove the controls. */
+:root[data-mari-top-bar-art]
+  [data-component="TopBar"]
+  :is([role="tab"], button, a):not([aria-selected="true"], [aria-pressed="true"], .is-active) {
+  background-color: var(--mari-top-bar-plate, color-mix(in srgb, var(--background) 78%, transparent));
+  border-radius: 0.5rem;
+}
+
+/* ─── Page veil ───
+   With a backdrop, Settings, the Library, editors, Docs and other full pages sit straight on the
+   art. --mari-page-veil (a colour, transparent by default) lays a tint over the page so long text
+   stays readable, e.g. `--mari-page-veil: rgb(10 10 20 / 0.7)`. Chats and Home are left clear. */
+:root {
+  --mari-page-veil: transparent;
+}
+[data-component="CenterContent"][data-center-page] {
+  background-image: linear-gradient(var(--mari-page-veil), var(--mari-page-veil));
 }
 
 /* ─── Accent effects (Accent Pulse and RGB Mode in the new layout) ───

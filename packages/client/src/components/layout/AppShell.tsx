@@ -1689,6 +1689,7 @@ export function AppShell({
           data-component="CenterContent"
           data-center-compact={centerCompact ? "true" : undefined}
           data-shell-overlay-mode={shellOverlayMode ? "true" : undefined}
+          data-center-page={hasDetailView ? "true" : undefined}
           aria-label={localizeUi("ui.layout.appshell.mainContent")}
           className={cn(
             "@container mari-main mari-app-background-paint relative flex min-w-0 flex-1 flex-col overflow-hidden",
