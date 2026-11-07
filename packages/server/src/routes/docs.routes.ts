@@ -194,6 +194,7 @@ const DOC_ORDER: Record<string, string[]> = {
     "fonts.md",
     "chat-backgrounds.md",
     "custom-css-themes.md",
+    "theme-author-guide.md",
     "card-css-theming.md",
   ],
   data: ["importing-from-sillytavern.md", "backup-and-restore.md", "where-data-is-stored.md", "clearing-data.md"],

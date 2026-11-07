@@ -15,6 +15,7 @@
 // text, masks and blend-mode overlays no longer cause false alarms.
 // ──────────────────────────────────────────────
 import type { ThemeGuardProblem } from "./theme-safety";
+import { extractImportantThemeCss, sanitizeAppCss } from "./theme-css";
 
 type Area = ThemeGuardProblem["area"];
 
@@ -519,4 +520,28 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
     if (now.contrast !== null && now.contrast < 1.5 && (was.contrast ?? 4.5) >= 2.5) report("unreadable");
   }
   return problems;
+}
+
+/**
+ * Checks theme CSS that isn't applied yet (an import preview, the editor's Save): the CSS is
+ * switched on for this one task, measured against the page without it, and removed again before
+ * the browser paints, so nothing flashes.
+ */
+export function checkThemeCss(css: string): ThemeGuardProblem[] {
+  if (typeof document === "undefined") return [];
+  const sanitized = sanitizeAppCss(css);
+  const sheets: HTMLStyleElement[] = [];
+  try {
+    for (const text of [sanitized, extractImportantThemeCss(sanitized)]) {
+      if (!text) continue;
+      const style = document.createElement("style");
+      style.dataset.mariCustomCss = "check";
+      style.textContent = text;
+      document.head.appendChild(style);
+      sheets.push(style);
+    }
+    return checkProtectedChrome(sheets);
+  } finally {
+    sheets.forEach((sheet) => sheet.remove());
+  }
 }

@@ -61,7 +61,8 @@ import { ANDROID_BRIDGE_READY_EVENT, getAndroidBridgeToken } from "../../lib/and
 import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { extractImportantThemeCss, normalizeThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
 import { cssContrast, fixContrast } from "../../lib/color-contrast";
-import { checkProtectedChrome } from "../../lib/theme-guard";
+import { checkProtectedChrome, checkThemeCss } from "../../lib/theme-guard";
+import { ThemeEditorChecks } from "./settings/ThemeEditorChecks";
 import { useThemeSafetyStore, type ThemeGuardProblem } from "../../lib/theme-safety";
 import { takeThemeEditRequest, useThemeEditRequest } from "../../lib/theme-edit-request";
 import {
@@ -5881,6 +5882,10 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const [importQueue, setImportQueue] = useState<Array<ThemePackage & { metaProblems: string[] }>>([]);
   const [importBusy, setImportBusy] = useState(false);
   const [previewProblems, setPreviewProblems] = useState<ThemeGuardProblem[]>([]);
+  // What the chrome guard found when Save was pressed; cleared by the next edit.
+  const [saveProblems, setSaveProblems] = useState<ThemeGuardProblem[]>([]);
+  const cssBoxRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => setSaveProblems([]), [themeCss, themeMeta]);
 
   // Replacing a dense app-level stylesheet invalidates styles across the full
   // document. Keep typing immediate and apply only the settled preview instead
@@ -5970,33 +5975,60 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     openEditTheme(theme);
   }, [editRequestId, openEditTheme, syncedThemes]);
 
-  const handleSave = useCallback(async () => {
-    try {
-      const name = themeName.trim() || "Untitled Theme";
-      const css = normalizeThemeCss(themeCss);
-      if (editingId) {
-        await updateTheme.mutateAsync({ id: editingId, name, css, meta: themeMeta });
-        // Edited CSS gets a fresh check from the chrome guard.
-        if (useThemeSafetyStore.getState().blockedThemeId === editingId) {
-          useThemeSafetyStore.getState().clearBlockedTheme();
+  const handleSave = useCallback(
+    async (force = false) => {
+      try {
+        const name = themeName.trim() || "Untitled Theme";
+        const css = normalizeThemeCss(themeCss);
+        // Save runs the same guard as a live theme first, whether or not Preview is on, so a theme
+        // that hides or covers the protected chrome is caught here and not on someone else's screen.
+        if (!force) {
+          const problems = checkThemeCss(`${themeFontFaceCss(themeMeta)}\n${css}`);
+          setSaveProblems(problems);
+          if (problems.length > 0) return;
         }
-        toast.success(localizeUi("ui.panels.themessettings.themeValue1Updated", { value1: name }));
-      } else {
-        const theme = await createTheme.mutateAsync({
-          name,
-          css,
-          meta: themeMeta,
-          installedAt: new Date().toISOString(),
-        });
-        await activateTheme(theme);
-        toast.success(localizeUi("ui.panels.themessettings.themeValue1SavedAndActivated", { value1: name }));
+        setSaveProblems([]);
+        if (editingId) {
+          await updateTheme.mutateAsync({ id: editingId, name, css, meta: themeMeta });
+          // Edited CSS gets a fresh check from the chrome guard.
+          if (useThemeSafetyStore.getState().blockedThemeId === editingId) {
+            useThemeSafetyStore.getState().clearBlockedTheme();
+          }
+          toast.success(localizeUi("ui.panels.themessettings.themeValue1Updated", { value1: name }));
+        } else {
+          const theme = await createTheme.mutateAsync({
+            name,
+            css,
+            meta: themeMeta,
+            installedAt: new Date().toISOString(),
+          });
+          await activateTheme(theme);
+          toast.success(localizeUi("ui.panels.themessettings.themeValue1SavedAndActivated", { value1: name }));
+        }
+        setEditorOpen(false);
+      } catch (err) {
+        console.error("[ThemesSettings] Failed to save theme:", err);
+        toast.error(localizeUi("ui.panels.themessettings.failedToSaveThemeCheckTheBrowserConsoleFor"));
       }
-      setEditorOpen(false);
-    } catch (err) {
-      console.error("[ThemesSettings] Failed to save theme:", err);
-      toast.error(localizeUi("ui.panels.themessettings.failedToSaveThemeCheckTheBrowserConsoleFor"));
-    }
-  }, [activateTheme, createTheme, editingId, themeCss, themeMeta, themeName, updateTheme, localizeUi]);
+    },
+    [activateTheme, createTheme, editingId, themeCss, themeMeta, themeName, updateTheme, localizeUi],
+  );
+
+  const openThemeGuide = useCallback(() => {
+    useUIStore.getState().openModal("docs-viewer", { initialDoc: "appearance/theme-author-guide.md", newTab: true });
+  }, []);
+
+  const jumpToCssLine = useCallback((line: number) => {
+    const box = cssBoxRef.current;
+    if (!box) return;
+    const lines = box.value.split("\n");
+    const start = lines.slice(0, Math.max(0, line - 1)).reduce((total, text) => total + text.length + 1, 0);
+    const end = start + (lines[line - 1]?.length ?? 0);
+    box.focus();
+    box.setSelectionRange(start, end);
+    const lineHeight = Number.parseFloat(getComputedStyle(box).lineHeight) || 16;
+    box.scrollTop = Math.max(0, (line - 3) * lineHeight);
+  }, []);
 
   // Importing reads the file, then shows a preview per theme before anything is installed.
   const handleImportThemeFile = async (file: File) => {
@@ -6146,6 +6178,15 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
+                onClick={openThemeGuide}
+                className={SETTINGS_ICON_BUTTON_CLASS}
+                aria-label={localizeUi("theming.guide.open", { defaultValue: "Theme author guide" })}
+                title={localizeUi("theming.guide.open", { defaultValue: "Theme author guide" })}
+              >
+                <BookOpen size="0.75rem" />
+              </button>
+              <button
+                type="button"
                 onClick={() => setLivePreview(!livePreview)}
                 aria-pressed={livePreview}
                 className={SETTINGS_BUTTON_CLASS}
@@ -6160,7 +6201,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
               </button>
               <button
                 type="button"
-                onClick={handleSave}
+                onClick={() => void handleSave()}
                 disabled={isSavingTheme}
                 className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}
               >
@@ -6217,22 +6258,23 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             }
           />
 
-          {previewProblems.length > 0 && (
-            <p
-              role="alert"
-              className="rounded-lg bg-[var(--destructive)]/10 px-3 py-2 text-[0.6875rem] text-[var(--destructive)] ring-1 ring-[var(--destructive)]/30"
-            >
-              {localizeUi("theming.editor.previewPaused")}
-            </p>
-          )}
-
           {/* CSS textarea */}
           <textarea
+            ref={cssBoxRef}
             value={themeCss}
             onChange={(e) => setThemeCss(e.target.value)}
             spellCheck={false}
+            aria-label={localizeUi("theming.editor.cssLabel", { defaultValue: "Theme CSS" })}
             className="min-h-[22.5rem] resize-y rounded-lg border border-[var(--border)] bg-[#0d1117] p-3 font-mono text-[0.6875rem] leading-relaxed text-emerald-300 outline-none transition-colors focus:border-[var(--primary)]/50 placeholder:text-white/20"
             placeholder={localizeUi("settings.placeholders.themeCss")}
+          />
+
+          <ThemeEditorChecks
+            css={themeCss}
+            previewProblems={previewProblems}
+            saveProblems={saveProblems}
+            onSaveAnyway={() => void handleSave(true)}
+            onJumpToLine={jumpToCssLine}
           />
 
           {/* Quick reference */}
@@ -6468,19 +6510,27 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
           </div>
 
           {/* Info box */}
-          <div className="rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-            <strong>{localizeUi("ui.panels.themessettings.tip")}</strong>{" "}
-            {localizeUi("ui.panels.themessettings.cssThemesCanOverrideAnyCssVariableEG")}{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--background"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--primary"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--marinara-app-accent-solid"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--marinara-theme-accent-pulse"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--marinara-chat-chrome-accent"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--marinara-chat-chrome-accent-gradient"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--marinara-chat-chrome-surface-bg"}</code>
-            {localizeUi("ui.panels.themessettings.orAddCustomStylesJsonThemesShouldHave")}{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{'{ "name": "...", "css": "..." }'}</code>{" "}
-            {localizeUi("ui.panels.themessettings.formatImportedThemeFilesSyncToThisMarinaraServer")}
+          <div className="flex flex-col gap-1.5 rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            <p>
+              <strong>{localizeUi("ui.panels.themessettings.tip")}</strong>{" "}
+              {localizeUi("theming.tip.body", {
+                defaultValue:
+                  "Create Theme starts from a template built on the stable theme tokens, such as {{a}}, {{b}} and {{c}}. They keep their names between updates, so your theme keeps working. Themes sync to every device on this server.",
+                a: "--primary",
+                b: "--mari-font-ui",
+                c: "--mari-app-backdrop",
+              })}
+            </p>
+            <button
+              type="button"
+              onClick={openThemeGuide}
+              className="inline-flex items-center gap-1 self-start font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+            >
+              <BookOpen size="0.6875rem" />
+              {localizeUi("theming.guide.link", {
+                defaultValue: "Theme author guide: every token, part hook and safety rule",
+              })}
+            </button>
           </div>
         </div>
       </SettingsSection>
@@ -6633,83 +6683,66 @@ function ThemePackageDetails({
 }
 
 const CSS_TEMPLATE = `/* ═══════════════════════════════════════
-   My Custom Theme
+   My Custom Theme  ·  theme tokens v1
+   Remove the comment marks around a line and set your own value.
+   Every token is listed in the Theme Author Guide (book icon above).
    ═══════════════════════════════════════ */
 
 :root {
-  /* ── Core Colors ── */
-  /* --background: #0a0a0f; */
-  /* --foreground: #e4e4e7; */
+  --mari-tokens-version: 1;
+
+  /* ── Fonts ── */
+  /* --mari-font-ui: "Inter", system-ui, sans-serif; */
+  /* --mari-font-heading: Georgia, serif; */
+  /* --mari-font-chat: Georgia, serif; */
+
+  /* ── Accent and selection ── */
   /* --primary: #a78bfa; */
-  /* --primary-foreground: #fff; */
-  /* --marinara-app-accent-solid: var(--primary); */
-  /* --marinara-app-accent-gradient: linear-gradient(90deg, var(--marinara-app-accent-solid), color-mix(in srgb, var(--marinara-app-accent-solid) 76%, var(--foreground) 24%), var(--marinara-app-accent-solid)); */
-  /* --marinara-theme-accent-pulse: enabled; */
-  /* --marinara-theme-accent-pulse-source: #a78bfa; */
+  /* --primary-foreground: #ffffff; */
+  /* --mari-selected-tint: var(--primary); */
+  /* --ring: var(--primary); */
 
-  /* ── Surface Colors ── */
-  /* --card: #111118; */
-  /* --secondary: #1a1a24; */
-  /* --accent: #252534; */
-  /* --popover: #111118; */
+  /* ── Chat modes ── */
+  /* --mari-mode-conversation: #60a5fa; */
+  /* --mari-mode-roleplay: #f472b6; */
+  /* --mari-mode-game: #34d399; */
 
-  /* ── Borders ── */
-  /* --border: #27272a; */
-  /* --sidebar-border: #27272a; */
-  /* --marinara-shell-edge-border: color-mix(in srgb, var(--primary) 14%, var(--background) 86%); */
+  /* ── Status and gauges (the colour-blind-safe setting still wins) ── */
+  /* --mari-status-online: #22c55e; */
+  /* --mari-gauge-ok: #22c55e; */
+  /* --mari-gauge-warn: #eab308; */
+  /* --mari-gauge-danger: #ef4444; */
 
-  /* ── Text ── */
-  /* --muted-foreground: #71717a; */
-
-  /* ── Sidebar ── */
-  /* --sidebar: #0c0c12; */
-
-  /* ── Shared Chat / Roleplay / Game Chrome ── */
-  /* --marinara-chat-chrome-accent: var(--marinara-app-accent-solid); */
-  /* --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient); */
-  /* --marinara-chat-chrome-text: var(--foreground); Non-action chrome copy. */
-  /* --marinara-chat-chrome-button-text-base: var(--marinara-chat-chrome-accent); */
-  /* --marinara-chat-chrome-highlight-text-base: var(--marinara-chat-chrome-accent); */
-  /* --marinara-chat-chrome-surface-bg: var(--card); */
-  /* --marinara-chat-chrome-surface-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-surface-bg) 92%, var(--foreground) 8%); */
-  /* --marinara-chat-chrome-surface-bg-active: color-mix(in srgb, var(--marinara-chat-chrome-surface-bg) 88%, var(--foreground) 12%); */
-  /* --marinara-chat-chrome-button-bg: var(--marinara-chat-chrome-surface-bg); */
-  /* --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-surface-bg-hover) 90%, var(--marinara-chat-chrome-accent) 10%); */
-  /* --marinara-chat-chrome-button-bg-active: color-mix(in srgb, var(--marinara-chat-chrome-surface-bg-active) 84%, var(--marinara-chat-chrome-accent) 16%); */
-  /* --marinara-chat-chrome-button-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 12%, transparent); */
-  /* --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 20%, transparent); */
-  /* --marinara-chat-chrome-button-border-active: color-mix(in srgb, var(--marinara-chat-chrome-accent) 24%, transparent); */
-  /* --marinara-chat-chrome-button-text: color-mix(in srgb, var(--marinara-chat-chrome-button-text-base) 64%, transparent); */
-  /* --marinara-chat-chrome-button-text-hover: color-mix(in srgb, var(--marinara-chat-chrome-button-text-base) 92%, transparent); */
-  /* --marinara-chat-chrome-button-text-active: color-mix(in srgb, var(--marinara-chat-chrome-button-text-base) 96%, transparent); */
-  /* --marinara-chat-chrome-panel-bg: var(--marinara-chat-chrome-button-bg); */
-  /* --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 16%, transparent); */
-  /* --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent); */
-  /* --marinara-chat-chrome-panel-text: color-mix(in srgb, var(--marinara-chat-chrome-text) 90%, transparent); */
-  /* --marinara-chat-chrome-panel-title: color-mix(in srgb, var(--marinara-chat-chrome-text) 96%, transparent); */
-  /* --marinara-chat-chrome-panel-muted: color-mix(in srgb, var(--marinara-chat-chrome-text) 58%, transparent); */
-  /* --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--marinara-chat-chrome-accent) 9%, transparent); */
-  /* --marinara-chat-chrome-highlight-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent); */
-  /* --marinara-chat-chrome-highlight-text: color-mix(in srgb, var(--marinara-chat-chrome-highlight-text-base) 94%, transparent); */
-  /* --marinara-chat-chrome-input-bg: var(--marinara-chat-chrome-surface-bg); */
-
-  /* ── Chat windows and drawers (Chat Settings and its sections) ── */
-  /* --mari-window-bg: var(--marinara-chat-chrome-panel-bg); */
-  /* --mari-window-border: var(--marinara-chat-chrome-panel-border); */
-  /* --mari-window-radius: calc(var(--radius) + 0.25rem); */
-  /* --mari-window-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4); */
-  /* --mari-window-header-bg: transparent; */
-  /* --mari-drawer-border: var(--border); */
-  /* --mari-drawer-header-bg-hover: color-mix(in oklab, var(--accent) 50%, transparent); */
+  /* ── Art behind the whole app (make --card and --sidebar translucent to see it) ── */
+  /* --mari-app-backdrop: url("data:image/webp;base64,…"); */
 }
 
-/* Uncomment and edit the variables above.
-   You can also target shared chrome directly:
-   .marinara-chat-toolbar-button { border-radius: 0.5rem; }
-   .marinara-chat-popover { box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.4); }
-   [data-window="chat-settings"] .mari-window__header { background: rgb(0 0 0 / 0.2); }
+/* Dark and light can differ. Colours are full CSS colours, never a bare "270 25% 8%". */
+[data-theme="dark"] {
+  /* --background: #0a0a0f; */
+  /* --foreground: #e4e4e7; */
+  /* --card: #111118; */
+  /* --popover: #111118; */
+  /* --secondary: #1a1a24; */
+  /* --muted-foreground: #a1a1aa; */
+  /* --border: #27272a; */
+  /* --sidebar: #0c0c12; */
+  /* --ov-line: color-mix(in srgb, var(--foreground) 10%, transparent); */
+}
 
-   You can also add any custom CSS below: */
+[data-theme="light"] {
+  /* --background: #fafaf9; */
+  /* --foreground: #1c1917; */
+  /* --card: #ffffff; */
+  /* --border: #e7e5e4; */
+}
+
+/* Part hooks, for example:
+   [data-mari-part="message"][data-message-role="assistant"] { border-radius: 1rem; }
+   [data-mari-part="composer"] { border: 1px solid var(--primary); }
+   :root[data-chat-tags~="horror"] { --primary: #b91c1c; }
+
+   Add your own CSS below: */
 `;
 
 function triggerFilePicker(options: {

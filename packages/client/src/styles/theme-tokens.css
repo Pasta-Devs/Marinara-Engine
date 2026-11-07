@@ -2,7 +2,7 @@
    THEME TOKENS (contract version 1)
    The colours, fonts and effects a custom theme can set without hunting for selectors.
    Every token defaults to the look the app had before it existed, so the default UI doesn't
-   change. The full list, with the part hooks, is in styles/README-theming.md. Bump
+   change. The full list, with the part hooks, is in docs/appearance/theme-author-guide.md. Bump
    --mari-tokens-version and note it there when a token is renamed or removed.
    ═══════════════════════════════════════════════ */
 

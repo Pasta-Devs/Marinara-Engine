@@ -10,8 +10,7 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle, Check, ImageIcon, Type, Wand2 } from "lucide-react";
 import type { Theme } from "@marinara-engine/shared";
 import { cn } from "../../../lib/utils";
-import { extractImportantThemeCss, sanitizeAppCss } from "../../../lib/theme-css";
-import { checkProtectedChrome } from "../../../lib/theme-guard";
+import { checkThemeCss } from "../../../lib/theme-guard";
 import type { ThemeGuardProblem } from "../../../lib/theme-safety";
 import { problemText } from "../../layout/ThemeSafetyHost";
 import {
@@ -36,24 +35,10 @@ export interface ThemeInstallChoice {
   activate: boolean;
 }
 
-/** Hidden, moved or covered chrome, measured with the theme switched on for one frame-less task. */
+/** Hidden, moved or covered chrome, measured with the theme switched on for one task. */
 function useChromeCheck(css: string) {
   const [problems, setProblems] = useState<ThemeGuardProblem[]>([]);
-  useEffect(() => {
-    const sanitized = sanitizeAppCss(css);
-    const sheets: HTMLStyleElement[] = [];
-    for (const text of [sanitized, extractImportantThemeCss(sanitized)]) {
-      if (!text) continue;
-      const style = document.createElement("style");
-      style.media = "not all";
-      style.dataset.mariCustomCss = "import-check";
-      style.textContent = text;
-      document.head.appendChild(style);
-      sheets.push(style);
-    }
-    setProblems(checkProtectedChrome(sheets));
-    sheets.forEach((sheet) => sheet.remove());
-  }, [css]);
+  useEffect(() => setProblems(checkThemeCss(css)), [css]);
   return problems;
 }
 
