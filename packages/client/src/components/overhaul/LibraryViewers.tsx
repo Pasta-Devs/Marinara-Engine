@@ -18,6 +18,12 @@ import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../.
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { Toggle, flag, parseList, useRegexImport } from "./LibraryTables";
+import { DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
+import { ProviderIcon } from "../connections/ProviderIcon";
+import type { DeviceItem } from "../../hooks/use-device-setup";
+
+/** Built-in model and local voice engines share the Model viewer: their id is `device:<item>`. */
+export const DEVICE_PREFIX = "device:";
 
 export type OvViewerRow = {
   id: string;
@@ -271,6 +277,8 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
   const openModal = useUIStore((s) => s.openModal);
   const selectedId = useUIStore((s) => s.connectionDetailId);
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
+  const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
+  const engines = useDeviceEngines();
   const [search, setSearch] = useState("");
 
   // Same shape as the landing table: each account with its models, then models with no account.
@@ -309,8 +317,18 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       .filter((row) => hit(row))
       .map((row) => toRow(row, PROVIDERS[row.provider as APIProvider]?.name ?? row.provider ?? undefined));
     if (other.length) list.push({ id: "__other", label: localize("Other models"), rows: other });
+    const devices = engines
+      .filter((engine) => !needle || engine.name.toLowerCase().includes(needle))
+      .map((engine) => ({
+        id: `${DEVICE_PREFIX}${engine.item}`,
+        name: engine.name,
+        sub: [engine.state, engine.detail].filter(Boolean).join(" · "),
+        lead: <ProviderIcon provider={engine.item} size="sm" dim={engine.tone !== "ok"} />,
+      }));
+    if (devices.length) list.push({ id: "__device", label: localize("On this device"), rows: devices });
     return list;
-  }, [grouped, localize, search]);
+  }, [engines, grouped, localize, search]);
+  const device = selectedId?.startsWith(DEVICE_PREFIX) ? (selectedId.slice(DEVICE_PREFIX.length) as DeviceItem) : null;
 
   const firstId = groups.find((group) => group.rows.length)?.rows[0]?.id;
   useAutoSelect("connections", selectedId, firstId, openConnectionDetail);
@@ -334,7 +352,13 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       emptyList={localize("No accounts yet.")}
       emptyDetail={localize("Pick a model on the left, or add an account.")}
     >
-      {children}
+      {device ? (
+        <div className="ov-devpage">
+          <DeviceDetail key={device} item={device} onOpenDefaults={closeConnectionDetail} />
+        </div>
+      ) : (
+        children
+      )}
     </OvViewer>
   );
 }
