@@ -85,8 +85,7 @@ import {
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
 import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
-import { EditorCrumbs } from "../overhaul/EditorRail";
-import { openLibrarySection } from "../overhaul/library-navigation";
+import { OvEditorHead } from "../overhaul/EditorChrome";
 import { OvSeg } from "../overhaul/LoreEntryParts";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
@@ -244,7 +243,6 @@ export function PresetEditor() {
   const [ovResetKey, setOvResetKey] = useState(0);
   const [ovDetailEl, setOvDetailEl] = useState<HTMLElement | null>(null);
   const [ovVarsEl, setOvVarsEl] = useState<HTMLElement | null>(null);
-  const [ovMoreOpen, setOvMoreOpen] = useState(false);
   const presetDetailId = useUIStore((s) => s.presetDetailId);
   const presetDetailInitialTab = useUIStore((s) => s.presetDetailInitialTab) as TabId | null;
   const closePresetDetail = useUIStore((s) => s.closePresetDetail);
@@ -845,15 +843,11 @@ export function PresetEditor() {
               {saveButton}
             </div>
           ) : (
-            <header className="ov-preset__head">
-              <EditorCrumbs
-                items={[
-                  { label: localizeUi("Library"), onClick: () => openLibrarySection("characters") },
-                  { label: localizeUi("Presets"), onClick: handleClose },
-                  { label: data.preset.name },
-                ]}
-              />
-              <div className="ovm-preset__id">
+            <OvEditorHead
+              section="presets"
+              sectionLabel="Presets"
+              onBack={handleClose}
+              lead={
                 <span className="ovm-preset__art">
                   {presetArtwork ? (
                     <img src={presetArtwork} alt="" draggable={false} />
@@ -861,16 +855,10 @@ export function PresetEditor() {
                     <FileText size={22} aria-hidden="true" />
                   )}
                 </span>
-                <span className="ovm-preset__name">
-                  <strong>{localName || data.preset.name}</strong>
-                  <small>
-                    <span className={cn("ov-dot", dirty ? "is-dirty" : "is-saved")} />
-                    {dirty ? localizeUi("Unsaved changes") : localizeUi("ui.presets.preseteditor.changesSaved")}
-                  </small>
-                </span>
-                {saveButton}
-              </div>
-            </header>
+              }
+              title={localName || data.preset.name}
+              save={{ dirty, saving: updatePreset.isPending, onSave: handleSave }}
+            />
           )}
           <div className="ovm-preset__body">
             {!ovmPage ? (
@@ -920,81 +908,54 @@ export function PresetEditor() {
         className="mari-editor-shell ov-preset flex flex-1 flex-col overflow-hidden"
         data-component="OverhaulPresetEditor"
       >
-        <header className="ov-preset__head">
-          <EditorCrumbs
-            items={[
-              { label: localizeUi("Library"), onClick: () => openLibrarySection("characters") },
-              { label: localizeUi("Presets"), onClick: handleClose },
-              { label: data.preset.name },
-            ]}
-          />
-          <div className="ov-bk-head__row">
-            <h1>{localName || data.preset.name}</h1>
-            <span className="ov-bk-head__spacer" />
-            <span className="ov-preset__state">
-              <span className={cn("ov-dot", dirty ? "is-dirty" : "is-saved")} />
-              {dirty ? localizeUi("Unsaved changes") : localizeUi("ui.presets.preseteditor.changesSaved")}
-            </span>
-            <button
-              type="button"
-              className="ov-btn"
-              onClick={() =>
-                useUIStore.getState().openModal("docs-viewer", { initialDoc: "prompts/macros.md", newTab: true })
-              }
-            >
-              {localizeUi("Macro Reference")}
-              <ExternalLink size={13} aria-hidden="true" />
-            </button>
-            <button type="button" className="ov-btn" onClick={handleExportPreset}>
-              <Upload size={13} aria-hidden="true" />
-              {localizeUi("Export")}
-            </button>
-            <button
-              type="button"
-              className="ov-btn ov-btn--primary"
-              onClick={handleSave}
-              disabled={updatePreset.isPending || !dirty}
-            >
-              <Save size={13} aria-hidden="true" />
-              {localizeUi("ui.noodle.noodlehome.save")}
-            </button>
-            <div className="ov-bk-head__more">
+        <OvEditorHead
+          className="ov-preset__head"
+          section="presets"
+          sectionLabel="Presets"
+          onBack={handleClose}
+          title={localName || data.preset.name}
+          save={{ dirty, saving: updatePreset.isPending, onSave: handleSave }}
+          actions={
+            <>
               <button
                 type="button"
-                className="ov-btn ov-btn--icon"
-                aria-label={localizeUi("More")}
-                aria-expanded={ovMoreOpen}
-                onClick={() => setOvMoreOpen((open) => !open)}
+                className="ov-btn"
+                onClick={() =>
+                  useUIStore.getState().openModal("docs-viewer", { initialDoc: "prompts/macros.md", newTab: true })
+                }
               >
-                ···
+                {localizeUi("Macro Reference")}
+                <ExternalLink size={13} aria-hidden="true" />
               </button>
-              {ovMoreOpen ? (
-                <div className="ov-menu" role="menu" onClick={() => setOvMoreOpen(false)}>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() =>
-                      requestProfessorMariOpen({
-                        destination: "omnibar",
-                        draft: localizeUi("professorMari.handoff.explainResourceDraft"),
-                        context: {
-                          source: "preset-editor",
-                          capability: "explain",
-                          resource: { kind: "preset", id: presetDetailId, label: data.preset.name },
-                        },
-                      })
-                    }
-                  >
-                    <MessageCircleQuestion size={13} aria-hidden="true" /> {localizeUi("professorMari.handoff.ask")}
-                  </button>
-                  <button type="button" role="menuitem" className="is-danger" onClick={handleDelete}>
-                    <Trash2 size={13} aria-hidden="true" /> {localizeUi("Delete preset")}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </header>
+              <button type="button" className="ov-btn" onClick={handleExportPreset}>
+                <Upload size={13} aria-hidden="true" />
+                {localizeUi("Export")}
+              </button>
+            </>
+          }
+          menu={[
+            {
+              label: localizeUi("professorMari.handoff.ask"),
+              icon: <MessageCircleQuestion size={13} aria-hidden="true" />,
+              onSelect: () =>
+                requestProfessorMariOpen({
+                  destination: "omnibar",
+                  draft: localizeUi("professorMari.handoff.explainResourceDraft"),
+                  context: {
+                    source: "preset-editor",
+                    capability: "explain",
+                    resource: { kind: "preset", id: presetDetailId, label: data.preset.name },
+                  },
+                }),
+            },
+            {
+              label: localizeUi("Delete preset"),
+              icon: <Trash2 size={13} aria-hidden="true" />,
+              danger: true,
+              onSelect: () => void handleDelete(),
+            },
+          ]}
+        />
         <div className="ov-preset__body">
           <aside className="ov-preset__left">
             <p className="ov-preset__eyebrow">{localizeUi("Preset")}</p>

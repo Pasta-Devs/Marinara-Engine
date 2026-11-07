@@ -644,13 +644,13 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.ov-rail__more .mari-editor-actions {
+:is(.ov-rail__more, .ov-menu) .mari-editor-actions {
   display: grid !important;
   gap: 0.0625rem !important;
   width: 100%;
   padding: 0 !important;
 }
-.ov-rail__more .mari-editor-actions button[title] {
+:is(.ov-rail__more, .ov-menu) .mari-editor-actions button[title] {
   display: flex !important;
   width: 100% !important;
   height: auto !important;
@@ -667,25 +667,25 @@
   color: var(--ov-text) !important;
   text-align: left;
 }
-.ov-rail__more .mari-editor-actions button[title] svg {
+:is(.ov-rail__more, .ov-menu) .mari-editor-actions button[title] svg {
   width: 0.9375rem;
   height: 0.9375rem;
   flex: none;
 }
-.ov-rail__more .mari-editor-actions button[title] > :not(svg) {
+:is(.ov-rail__more, .ov-menu) .mari-editor-actions button[title] > :not(svg) {
   display: none;
 }
-.ov-rail__more .mari-editor-actions button[title]::after {
+:is(.ov-rail__more, .ov-menu) .mari-editor-actions button[title]::after {
   content: attr(title);
   overflow: hidden;
   font-size: 0.8125rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ov-rail__more .mari-editor-actions button[title]:hover:not(:disabled) {
+:is(.ov-rail__more, .ov-menu) .mari-editor-actions button[title]:hover:not(:disabled) {
   background: var(--ov-hover) !important;
 }
-.ov-rail__more .mari-editor-actions button[title]:has(svg.lucide-trash2, svg.lucide-trash-2) {
+:is(.ov-rail__more, .ov-menu) .mari-editor-actions button[title]:has(svg.lucide-trash2, svg.lucide-trash-2) {
   color: var(--destructive) !important;
 }
 .ov-rail__rule {
@@ -1712,7 +1712,7 @@
 .ov-menu button.is-danger {
   color: var(--destructive);
 }
-[data-overhaul] .mari-editor-content-inner--wide:has(> .ov-bk-head) {
+[data-overhaul] .mari-editor-content-inner--wide:has(> :is(.ov-bk-head, .ov-edhead)) {
   max-width: none;
 }
 .ov-bk-head {
@@ -2897,43 +2897,54 @@
   color: var(--ov-text);
   font-size: 0.875rem;
 }
+/* ─── The one editor header (2026-11-07): every Library editor — Character, Persona, Lorebook,
+   Preset, Regex, Connection, Agent — uses this: crumbs at the top, the item's name as the title,
+   the editor's buttons, save state, Save and ⋯ on the right of the same line. ─── */
 .ov-edhead {
+  flex: none;
   margin-bottom: 0.75rem;
   padding-bottom: 0.625rem;
   border-bottom: 1px solid var(--ov-line);
 }
-.ov-edhead__crumbs {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--ov-dim);
-  font-size: 0.75rem;
-}
-.ov-edhead__crumbs button:hover {
-  color: var(--ov-text);
-}
-.ov-edhead__crumbs span {
+.ov-edhead .ov-crumbs {
+  flex-wrap: nowrap;
+  min-width: 0;
+  margin: 0;
   overflow: hidden;
-  color: var(--ov-muted);
-  text-overflow: ellipsis;
+  font-size: 0.8125rem;
   white-space: nowrap;
+}
+.ov-edhead .ov-crumbs__item:last-child {
+  min-width: 0;
+  overflow: hidden;
+}
+.ov-edhead .ov-crumbs__item:last-child > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ov-edhead__row {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 0.25rem 0.75rem;
-  margin-top: 0.25rem;
+  min-height: 2.5rem;
+  margin-top: 0.375rem;
+}
+.ov-edhead__lead {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
 }
 .ov-edhead__title {
   min-width: 6rem;
   max-width: 100%;
+  flex: 0 1 auto;
   margin: 0;
   overflow: hidden;
   border: 0;
   background: transparent;
   color: var(--ov-text);
-  font: 600 1.75rem/1.2 var(--ov-serif);
+  font: 600 2rem/1.2 var(--ov-serif);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2947,16 +2958,57 @@ input.ov-edhead__title:focus {
   box-shadow: 0 1px 0 var(--ov-accent);
 }
 .ov-edhead__meta {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   color: var(--ov-muted);
   font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ov-edhead__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  align-self: center;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin-left: auto;
+}
+.ov-edhead__actions > :is(.ov-btn, .ov-edbtn) {
+  height: 2.125rem;
+}
+.ov-edhead__actions > :is(.ov-btn--icon, .ov-menu-wrap > .ov-edbtn--icon),
+.ov-edhead .ov-menu-wrap > .ov-edbtn--icon {
+  width: 2.125rem;
+  height: 2.125rem;
+}
+/* The one Save button: a quiet "Saved" pill until there is something to save, then the accent. */
+.ov-savebtn {
+  display: inline-flex;
+  height: 2.125rem;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 999px;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ov-savebtn:disabled {
+  cursor: default;
+}
+.ov-savebtn.is-dirty {
+  border-color: transparent;
+  background: var(--ov-accent);
+  color: var(--primary-foreground);
+}
+.ov-savebtn.is-dirty:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ov-accent) 88%, #fff);
+}
+.ov-savebtn.is-dirty:disabled {
+  opacity: 0.6;
 }
 .ov-edbtn {
   display: inline-flex;
@@ -5497,12 +5549,24 @@ input.ov-edhead__title:focus {
   min-height: 0;
   flex: 1;
 }
-/* Inside a viewer the left column already says where you are: no breadcrumb, a smaller title. */
-.ov-vw__main .ov-edhead__crumbs {
+/* The viewer's header row: the open item's editor header (portaled into the slot) or, with
+   nothing open, the section's own title. */
+.ov-vw__head {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.ov-vw__head:has(> .ov-vw__slot > *) > .ov-vw__top {
   display: none;
 }
-.ov-vw__main .ov-edhead__title {
-  font-size: 1.125rem !important;
+.ov-vw__slot > .ov-edhead {
+  margin: 0;
+  padding: 0.75rem 1.75rem 0.625rem;
+}
+.ov-vw__tools--list {
+  padding-bottom: 0.5rem;
+}
+.ov-vw__tools--list .is-new {
+  color: var(--ov-accent);
 }
 
 /* ─── Lorebook viewer: entries on the left, the open entry on the right (mockup) ─── */
@@ -9848,4 +9912,80 @@ input.ov-edhead__title:focus {
 }
 :root[data-overhaul="mobile"] .ov-gallery__size {
   display: none;
+}
+
+/* ─── Shared editor header, page frames (2026-11-07) ─── */
+/* Character and Persona: the header spans the page; the rail and the sections sit under it. */
+[data-overhaul] .ov-edpage {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+[data-overhaul] .ov-edpage > .ov-edhead {
+  margin: 0;
+  padding: 0.75rem 1.75rem 0.625rem;
+}
+/* An account's picture before its name in the header. */
+.ov-acctpage__pic {
+  position: relative;
+  flex: none;
+  border-radius: 0.75rem;
+}
+.ov-acctpage__pic > span:last-child {
+  position: absolute;
+  right: -0.25rem;
+  bottom: -0.25rem;
+  display: flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--ov-line);
+  color: var(--ov-text);
+}
+.ov-acctpage__pic {
+  display: flex;
+}
+.ov-edhead__lead .ov-acctpage__pic > :first-child {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+/* Every editor's header sits at the same place: flush with the pane, the same inner padding.
+   Editors whose page already pads (Regex, Agent, Connection) pull it back out. */
+:root[data-overhaul="on"] .ov-edhead:not(#ov-x) {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1.75rem 0.625rem;
+}
+:root[data-overhaul="on"] :is(.ov-vw__slot, .ov-edpage, .ov-lv) > .ov-edhead:not(#ov-x) {
+  margin-bottom: 0;
+}
+:root[data-overhaul="on"] .ov-ed > .ov-edhead:not(#ov-x) {
+  margin: -1rem -1.75rem 0.75rem;
+}
+:root[data-overhaul="on"] .mari-editor-content-inner > .ov-edhead:not(#ov-x),
+:root[data-overhaul="on"] .ov-acctpage > .ov-edhead:not(#ov-x) {
+  margin-inline: -1.75rem;
+}
+input.ov-edhead__title:not(#ov-x) {
+  height: auto;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Desktop: the header is one line; a long name gives way (ellipsis) before the buttons wrap. */
+:root[data-overhaul="on"] .ov-edhead__row {
+  flex-wrap: nowrap;
+}
+:root[data-overhaul="on"] .ov-edhead__title {
+  flex: 0 1 auto;
+  min-width: 4rem;
+}
+:root[data-overhaul="on"] .ov-edhead__actions {
+  flex: none;
+  flex-wrap: nowrap;
 }

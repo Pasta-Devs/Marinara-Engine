@@ -84,6 +84,8 @@ import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { priceBadge } from "./CostBadge";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { OvEditorHead } from "../overhaul/EditorChrome";
+import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { SettingsCheckbox, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
   CONNECTION_PARAMETER_DEFAULTS,
@@ -1250,6 +1252,13 @@ export function ConnectionEditor({
     conn,
   ]);
 
+  useEditorLeaveSave(
+    connectionId ? "" : `connectionDetailId:${connectionDetailId}`,
+    dirty,
+    handleSave,
+    updateConnection.isPending || saveConnectionDefaults.isPending,
+  );
+
   const handleDelete = useCallback(async () => {
     if (!connectionDetailId) return;
     if (
@@ -2218,101 +2227,154 @@ export function ConnectionEditor({
   return (
     <div className={cn("mari-editor-shell mari-connection-scope flex flex-1 flex-col overflow-hidden")}>
       {/* ── Header ── */}
-      <div className={"mari-editor-header"}>
-        <div className="mari-editor-header-main">
-          {/* On desktop the new layout's Library > Connections crumb goes back instead. */}
-          {!ovDesktop && (
-            <button
-              onClick={handleClose}
-              className="mari-editor-action inline-flex shrink-0"
-              aria-label={localizeUi("connections.editor.back")}
-            >
-              <ArrowLeft size="1.125rem" />
-            </button>
-          )}
-
-          <ProviderIcon
-            provider={localProvider}
-            baseUrl={localBaseUrl}
-            model={localModel}
-            service={
-              localProvider === "image_generation"
-                ? selectedImageService
-                : localProvider === "video_generation"
-                  ? selectedVideoProvider
-                  : localProvider === "audio"
-                    ? localAudioSource
-                    : null
-            }
-            name={localName}
-            size="sm"
-          />
-          <input
-            value={localName}
-            onChange={(e) => {
-              setLocalName(e.target.value);
-              markDirty();
-            }}
-            className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
-            placeholder={localizeUi("connections.editor.modelName")}
-            aria-label={localizeUi("connections.editor.modelName")}
-          />
-        </div>
-        <div className="mari-editor-actions flex shrink-0">
-          {saveError && (
-            <span className="mari-editor-status mr-2 text-[var(--destructive)]">
-              <AlertCircle size="0.6875rem" />{" "}
-              <span className="max-md:hidden">{localizeUi("ui.connections.connectioneditor.saveFailed")}</span>
-            </span>
-          )}
-          {savedFlash && !dirty && (
-            <span className="mari-editor-status mr-2 text-emerald-400">
-              <Check size="0.6875rem" />{" "}
-              <span className="max-md:hidden">{localizeUi("chat.settings.inlineEditor.saved")}</span>
-            </span>
-          )}
-          {dirty && !saveError && (
-            <span className="mari-editor-status mr-2 text-amber-400 max-md:hidden">
-              {localizeUi("ui.connections.connectioneditor.unsaved")}
-            </span>
-          )}
-          <button
-            onClick={async () => {
-              try {
-                await handleSave();
-              } catch {
-                // The existing error banner explains what must be fixed; keep the editor open.
+      {ovDesktop && !connectionId ? (
+        <OvEditorHead
+          section="connections"
+          sectionLabel="Connections"
+          onBack={closeEditor}
+          lead={
+            <ProviderIcon
+              provider={localProvider}
+              baseUrl={localBaseUrl}
+              model={localModel}
+              service={
+                localProvider === "image_generation"
+                  ? selectedImageService
+                  : localProvider === "video_generation"
+                    ? selectedVideoProvider
+                    : localProvider === "audio"
+                      ? localAudioSource
+                      : null
               }
-            }}
-            aria-label={localizeUi("ui.noodle.noodlehome.save")}
-            title={localizeUi("ui.noodle.noodlehome.save")}
-            disabled={updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError}
-            className="mari-editor-action mari-editor-action--primary inline-flex max-md:order-first disabled:opacity-50"
-          >
-            <Save size="0.8125rem" />
-            <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
-          </button>
+              name={localName}
+              size="sm"
+            />
+          }
+          title={localName}
+          onTitleChange={(value) => {
+            setLocalName(value);
+            markDirty();
+          }}
+          titlePlaceholder={localizeUi("connections.editor.modelName")}
+          meta={linkedAccount?.name}
+          save={{
+            dirty,
+            saving: updateConnection.isPending || saveConnectionDefaults.isPending,
+            error: !!saveError,
+            disabled: !!swarmUiWorkflowError,
+            onSave: handleSave,
+          }}
+          menu={[
+            {
+              label: localizeUi("ui.connections.connectioneditor.exportConnection"),
+              icon: <Upload size={13} aria-hidden="true" />,
+              onSelect: () => void handleExportConnection(),
+            },
+            {
+              label: localizeUi("ui.connections.connectioneditor.deleteConnection"),
+              icon: <Trash2 size={13} aria-hidden="true" />,
+              danger: true,
+              onSelect: () => void handleDelete(),
+            },
+          ]}
+        />
+      ) : (
+        <div className={"mari-editor-header"}>
+          <div className="mari-editor-header-main">
+            {/* On desktop the new layout's Library > Connections crumb goes back instead. */}
+            {!ovDesktop && (
+              <button
+                onClick={handleClose}
+                className="mari-editor-action inline-flex shrink-0"
+                aria-label={localizeUi("connections.editor.back")}
+              >
+                <ArrowLeft size="1.125rem" />
+              </button>
+            )}
 
-          <>
+            <ProviderIcon
+              provider={localProvider}
+              baseUrl={localBaseUrl}
+              model={localModel}
+              service={
+                localProvider === "image_generation"
+                  ? selectedImageService
+                  : localProvider === "video_generation"
+                    ? selectedVideoProvider
+                    : localProvider === "audio"
+                      ? localAudioSource
+                      : null
+              }
+              name={localName}
+              size="sm"
+            />
+            <input
+              value={localName}
+              onChange={(e) => {
+                setLocalName(e.target.value);
+                markDirty();
+              }}
+              className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
+              placeholder={localizeUi("connections.editor.modelName")}
+              aria-label={localizeUi("connections.editor.modelName")}
+            />
+          </div>
+          <div className="mari-editor-actions flex shrink-0">
+            {saveError && (
+              <span className="mari-editor-status mr-2 text-[var(--destructive)]">
+                <AlertCircle size="0.6875rem" />{" "}
+                <span className="max-md:hidden">{localizeUi("ui.connections.connectioneditor.saveFailed")}</span>
+              </span>
+            )}
+            {savedFlash && !dirty && (
+              <span className="mari-editor-status mr-2 text-emerald-400">
+                <Check size="0.6875rem" />{" "}
+                <span className="max-md:hidden">{localizeUi("chat.settings.inlineEditor.saved")}</span>
+              </span>
+            )}
+            {dirty && !saveError && (
+              <span className="mari-editor-status mr-2 text-amber-400 max-md:hidden">
+                {localizeUi("ui.connections.connectioneditor.unsaved")}
+              </span>
+            )}
             <button
-              onClick={handleExportConnection}
-              className="mari-editor-action inline-flex"
-              title={localizeUi("ui.connections.connectioneditor.exportConnection")}
-              aria-label={localizeUi("ui.connections.connectioneditor.exportConnection")}
+              onClick={async () => {
+                try {
+                  await handleSave();
+                } catch {
+                  // The existing error banner explains what must be fixed; keep the editor open.
+                }
+              }}
+              aria-label={localizeUi("ui.noodle.noodlehome.save")}
+              title={localizeUi("ui.noodle.noodlehome.save")}
+              disabled={updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError}
+              className="mari-editor-action mari-editor-action--primary inline-flex max-md:order-first disabled:opacity-50"
             >
-              <Upload size="0.9375rem" />
+              <Save size="0.8125rem" />
+              <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
             </button>
-            <button
-              onClick={handleDelete}
-              className="mari-editor-action inline-flex"
-              title={localizeUi("ui.connections.connectioneditor.deleteConnection")}
-              aria-label={localizeUi("ui.connections.connectioneditor.deleteConnection")}
-            >
-              <Trash2 size="0.9375rem" />
-            </button>
-          </>
+
+            <>
+              <button
+                onClick={handleExportConnection}
+                className="mari-editor-action inline-flex"
+                title={localizeUi("ui.connections.connectioneditor.exportConnection")}
+                aria-label={localizeUi("ui.connections.connectioneditor.exportConnection")}
+              >
+                <Upload size="0.9375rem" />
+              </button>
+              <button
+                onClick={handleDelete}
+                className="mari-editor-action inline-flex"
+                title={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+                aria-label={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+              >
+                <Trash2 size="0.9375rem" />
+              </button>
+            </>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Unsaved warning */}
       {showUnsavedWarning && (

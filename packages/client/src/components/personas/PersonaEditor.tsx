@@ -62,7 +62,6 @@ import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import {
   User,
-  MoreHorizontal,
   IdCard,
   Camera,
   Trash2,
@@ -91,7 +90,6 @@ import {
   Pencil,
   Check,
   MessageCircleQuestion,
-  Save,
 } from "lucide-react";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import {
@@ -154,7 +152,8 @@ import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { LazyEditorSection } from "../ui/LazyEditorSection";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { isOverhaulLook, useOverhaulLook } from "../../stores/overhaul.store";
-import { AddFieldChips, EditorCrumbs, EditorRail, RailMoreMenu } from "../overhaul/EditorRail";
+import { AddFieldChips, EditorRail } from "../overhaul/EditorRail";
+import { OvEditorHead } from "../overhaul/EditorChrome";
 import { MariContextChip } from "../chat/MariContextChip";
 import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
@@ -1337,12 +1336,9 @@ export function PersonaEditor() {
   }, [personaId, personaInitialTab]);
   const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
   const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
-  const [overhaulMoreOpen, setOverhaulMoreOpen] = useState(false);
-  const closeOverhaulMore = useCallback(() => setOverhaulMoreOpen(false), []);
   useEffect(() => {
     setOverhaulAddedSections([]);
     setOverhaulAddedFields([]);
-    setOverhaulMoreOpen(false);
   }, [personaId]);
   // ── Editor state machine ──
   // The draft and the authoritative baseline are each held in a ref *and* in
@@ -2159,20 +2155,20 @@ export function PersonaEditor() {
     setOverhaulAddedSections((prev) => (prev.includes(id) ? prev : [...prev, id]));
     window.setTimeout(() => scrollToSection(id as TabId), 60);
   };
+  const overhaulHead = overhaulActive ? (
+    <OvEditorHead
+      section="personas"
+      sectionLabel="Personas"
+      onBack={() => leaveWithoutSaving(() => openLibrarySection("personas"))}
+      title={formData.name}
+      onTitleChange={(value) => updateField("name", value)}
+      titlePlaceholder={localizeUi("ui.personas.personaeditor.personaName")}
+      save={{ dirty, onSave: handleSave, disabled: saveDisabled }}
+      menuContent={<div className="mari-editor-actions">{headerActions}</div>}
+    />
+  ) : null;
   const overhaulRail = overhaulActive ? (
     <EditorRail
-      crumbs={
-        <EditorCrumbs
-          items={[
-            { label: localizeUi("ui.overhaul.library", { defaultValue: "Library" }) },
-            {
-              label: localizeUi("ui.overhaul.personas", { defaultValue: "Personas" }),
-              onClick: () => leaveWithoutSaving(() => openLibrarySection("personas")),
-            },
-            { label: formData.name || localizeUi("ui.personas.personaeditor.personaName") },
-          ]}
-        />
-      }
       avatarUrl={avatarPreview}
       avatarStyle={getAvatarCropStyle(formData.avatarCrop)}
       placeholderIcon={User}
@@ -2205,9 +2201,6 @@ export function PersonaEditor() {
           ) : null}
         </>
       }
-      name={formData.name}
-      onNameChange={(value) => updateField("name", value)}
-      namePlaceholder={localizeUi("ui.personas.personaeditor.personaName")}
       subtitle={formData.comment}
       onSubtitleChange={(value) => updateField("comment", value)}
       subtitlePlaceholder={localizeUi("ui.personas.personaeditor.titleCommentEGModernAuVersion")}
@@ -2240,34 +2233,6 @@ export function PersonaEditor() {
             className="ov-mari-assist"
           />
         ) : null
-      }
-      actions={
-        <>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saveDisabled}
-            className={cn("ov-btn", dirty && !saveDisabled && "ov-btn--primary")}
-            title={saveLabel}
-          >
-            <Save size="0.875rem" />
-            {saveLabel}
-          </button>
-          <button
-            type="button"
-            className={cn("ov-btn ov-btn--icon", overhaulMoreOpen && "is-on")}
-            data-ov-more-trigger=""
-            onClick={() => setOverhaulMoreOpen((open) => !open)}
-            aria-expanded={overhaulMoreOpen}
-            title={localizeUi("ui.overhaul.more", { defaultValue: "More" })}
-            aria-label={localizeUi("ui.overhaul.more", { defaultValue: "More" })}
-          >
-            <MoreHorizontal size="0.875rem" />
-          </button>
-          <RailMoreMenu open={overhaulMoreOpen} onClose={closeOverhaulMore}>
-            {headerActions}
-          </RailMoreMenu>
-        </>
       }
       sectionsTitle={localizeUi("ui.overhaul.onThisPersona", { defaultValue: "On this persona" })}
       sections={OVERHAUL_TAB_ORDER.filter((tab) => showSection(tab.id)).map((tab) => ({
@@ -2371,12 +2336,19 @@ export function PersonaEditor() {
         wrapContent={(content) => <MariFieldReviewProvider value={mariReview.value}>{content}</MariFieldReviewProvider>}
         actionsSlot={headerActions}
         hideHeader={overhaulActive}
-        wrapBody={(body) => (
-          <div className={overhaulActive ? "ov-ed" : "contents"}>
-            {overhaulRail}
-            {body}
-          </div>
-        )}
+        wrapBody={(body) =>
+          overhaulActive ? (
+            <div className="ov-edpage">
+              {overhaulHead}
+              <div className="ov-ed">
+                {overhaulRail}
+                {body}
+              </div>
+            </div>
+          ) : (
+            <div className="contents">{body}</div>
+          )
+        }
       >
         <section data-editor-section="metadata">
           <PersonaMetadataTab

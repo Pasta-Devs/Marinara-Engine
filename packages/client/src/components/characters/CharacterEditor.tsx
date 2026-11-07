@@ -112,7 +112,6 @@ import {
   ArrowDown,
   ArrowUp,
   User,
-  MoreHorizontal,
   IdCard,
   Settings2,
   Library,
@@ -148,7 +147,6 @@ import {
   Check,
   Volume2,
   Sparkles,
-  Save,
 } from "lucide-react";
 import { PresetVariablesEditor } from "../presets/PresetVariablesEditor";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
@@ -238,7 +236,8 @@ import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
 import { isOverhaulLook, useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
-import { AddFieldChips, EditorCrumbs, EditorRail, RailMoreMenu } from "../overhaul/EditorRail";
+import { AddFieldChips, EditorRail } from "../overhaul/EditorRail";
+import { OvEditorHead } from "../overhaul/EditorChrome";
 import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { CharacterChatButton } from "../overhaul/CharacterChatButton";
@@ -574,12 +573,9 @@ export function CharacterEditor() {
   const overhaulActive = useOverhaulLook();
   const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
   const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
-  const [overhaulMoreOpen, setOverhaulMoreOpen] = useState(false);
-  const closeOverhaulMore = useCallback(() => setOverhaulMoreOpen(false), []);
   useEffect(() => {
     setOverhaulAddedSections([]);
     setOverhaulAddedFields([]);
-    setOverhaulMoreOpen(false);
   }, [characterId]);
   const { data: overhaulSprites } = useCharacterSprites(overhaulActive ? characterId : null);
   const { data: overhaulGallery } = useCharacterGalleryImages(overhaulActive ? characterId : null);
@@ -1498,20 +1494,21 @@ export function CharacterEditor() {
     setOverhaulAddedSections((prev) => (prev.includes(id) ? prev : [...prev, id]));
     window.setTimeout(() => scrollToSection(id as TabId), 60);
   };
+  const overhaulHead = overhaulActive ? (
+    <OvEditorHead
+      section="characters"
+      sectionLabel="Characters"
+      onBack={() => leaveWithoutSaving(() => openLibrarySection("characters"))}
+      title={formData.name}
+      onTitleChange={(value) => updateField("name", value)}
+      titlePlaceholder={localizeUi("ui.characters.charactereditor.characterName")}
+      actions={characterId ? <CharacterChatButton characterId={characterId} characterName={formData.name} /> : null}
+      save={{ dirty, onSave: handleSave, disabled: saveDisabled }}
+      menuContent={<div className="mari-editor-actions">{headerActions}</div>}
+    />
+  ) : null;
   const overhaulRail = overhaulActive ? (
     <EditorRail
-      crumbs={
-        <EditorCrumbs
-          items={[
-            { label: localizeUi("ui.overhaul.library", { defaultValue: "Library" }) },
-            {
-              label: localizeUi("ui.overhaul.characters", { defaultValue: "Characters" }),
-              onClick: () => leaveWithoutSaving(() => openLibrarySection("characters")),
-            },
-            { label: formData.name || localizeUi("ui.characters.charactereditor.characterName") },
-          ]}
-        />
-      }
       avatarUrl={avatarPreview}
       avatarStyle={getAvatarCropStyle(normalizeAvatarCrop(formData.extensions.avatarCrop))}
       placeholderIcon={User}
@@ -1536,9 +1533,6 @@ export function CharacterEditor() {
           ) : null}
         </>
       }
-      name={formData.name}
-      onNameChange={(value) => updateField("name", value)}
-      namePlaceholder={localizeUi("ui.characters.charactereditor.characterName")}
       subtitle={characterComment}
       onSubtitleChange={updateCharacterComment}
       subtitlePlaceholder={localizeUi("ui.characters.charactereditor.titleCommentEGModernAuVersion")}
@@ -1566,35 +1560,6 @@ export function CharacterEditor() {
             className="ov-mari-assist"
           />
         ) : null
-      }
-      actions={
-        <>
-          {characterId ? <CharacterChatButton characterId={characterId} characterName={formData.name} /> : null}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saveDisabled}
-            className={cn("ov-btn", dirty && !saveDisabled && "ov-btn--primary")}
-            title={saveLabel}
-          >
-            <Save size="0.875rem" />
-            {saveLabel}
-          </button>
-          <button
-            type="button"
-            className={cn("ov-btn ov-btn--icon", overhaulMoreOpen && "is-on")}
-            data-ov-more-trigger=""
-            onClick={() => setOverhaulMoreOpen((open) => !open)}
-            aria-expanded={overhaulMoreOpen}
-            title={localizeUi("ui.overhaul.more", { defaultValue: "More" })}
-            aria-label={localizeUi("ui.overhaul.more", { defaultValue: "More" })}
-          >
-            <MoreHorizontal size="0.875rem" />
-          </button>
-          <RailMoreMenu open={overhaulMoreOpen} onClose={closeOverhaulMore}>
-            {headerActions}
-          </RailMoreMenu>
-        </>
       }
       sectionsTitle={localizeUi("ui.overhaul.onThisCard", { defaultValue: "On this card" })}
       sections={OVERHAUL_TAB_ORDER.filter((tab) => showSection(tab.id)).map((tab) => ({
@@ -1713,12 +1678,19 @@ export function CharacterEditor() {
           onRevealWorkingField={revealWorkingField}
           actionsSlot={headerActions}
           hideHeader={overhaulActive}
-          wrapBody={(body) => (
-            <div className={overhaulActive ? "ov-ed" : "contents"}>
-              {overhaulRail}
-              {body}
-            </div>
-          )}
+          wrapBody={(body) =>
+            overhaulActive ? (
+              <div className="ov-edpage">
+                {overhaulHead}
+                <div className="ov-ed">
+                  {overhaulRail}
+                  {body}
+                </div>
+              </div>
+            ) : (
+              <div className="contents">{body}</div>
+            )
+          }
         >
           {!overhaulActive && characterId && mariChipField && (
             <div className="mb-3 flex justify-end">

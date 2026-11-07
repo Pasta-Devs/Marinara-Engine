@@ -91,6 +91,18 @@ export interface LorebookEntryDraft {
 }
 export const LorebookEntryDraftContext = createContext<{ current: LorebookEntryDraft | null } | null>(null);
 
+/**
+ * UI overhaul: the lorebook saves like every other editor, with its Save button. Entry edits wait
+ * here (per entry) instead of autosaving, survive switching between entries, and Save sends them.
+ */
+export interface LorebookEntryDrafts {
+  get: (entryId: string) => Partial<LorebookEntry> | undefined;
+  set: (entryId: string, changes: Partial<LorebookEntry>) => void;
+  /** Saves this entry's waiting edits now; false when they could not be saved. */
+  save: (entryId: string) => Promise<boolean>;
+}
+export const LorebookEntryDraftsContext = createContext<LorebookEntryDrafts | null>(null);
+
 interface Props {
   entry: LorebookEntry;
   lorebookId: string;
@@ -300,6 +312,7 @@ export function LorebookEntryRow({
   const { t: localizeUi } = useUiTranslation();
   const overhaul = useOverhaulLook();
   const ovDetailTarget = useContext(OvLoreDetailTarget);
+  const drafts = useContext(LorebookEntryDraftsContext);
   const updateEntry = useUpdateLorebookEntry();
   const deleteEntry = useDeleteLorebookEntry();
   const duplicateEntry = useDuplicateLorebookEntry();
@@ -307,14 +320,17 @@ export function LorebookEntryRow({
   // ── Inline-control optimistic state ──
   // We keep a local mirror of the entry's fields so the inputs feel snappy
   // while the mutation flushes. React Query invalidation will reconcile.
-  const [localEnabled, setLocalEnabled] = useState(entry.enabled && (chatEnabled?.enabled ?? true));
-  const [localStatus, setLocalStatus] = useState<EntryStatus>(deriveStatus(entry));
-  const [localPosition, setLocalPosition] = useState(entry.position);
-  const [localDepth, setLocalDepth] = useState(entry.depth);
-  const [localOrder, setLocalOrder] = useState(entry.order);
-  const [localProbability, setLocalProbability] = useState<number>(entry.probability ?? 100);
-  const [localName, setLocalName] = useState(entry.name);
-  const [localUseRegex, setLocalUseRegex] = useState(entry.useRegex ?? false);
+  // A row that remounts (search, folders) shows the edits still waiting for Save.
+  const waitingEdits = drafts?.get(entry.id);
+  const shownEntry = waitingEdits ? { ...entry, ...waitingEdits } : entry;
+  const [localEnabled, setLocalEnabled] = useState(shownEntry.enabled && (chatEnabled?.enabled ?? true));
+  const [localStatus, setLocalStatus] = useState<EntryStatus>(deriveStatus(shownEntry));
+  const [localPosition, setLocalPosition] = useState(shownEntry.position);
+  const [localDepth, setLocalDepth] = useState(shownEntry.depth);
+  const [localOrder, setLocalOrder] = useState(shownEntry.order);
+  const [localProbability, setLocalProbability] = useState<number>(shownEntry.probability ?? 100);
+  const [localName, setLocalName] = useState(shownEntry.name);
+  const [localUseRegex, setLocalUseRegex] = useState(shownEntry.useRegex ?? false);
   const [showVectorStatus, setShowVectorStatus] = useState(false);
   const [showMobileControls, setShowMobileControls] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
@@ -336,6 +352,9 @@ export function LorebookEntryRow({
   useEffect(() => {
     if (lastSyncedRef.current === entry) return;
     lastSyncedRef.current = entry;
+    // Edits still waiting for Save stay on screen over the refetched entry.
+    const waiting = drafts?.get(entry.id);
+    const shown = waiting ? { ...entry, ...waiting } : entry;
     const previousOutletName = upstreamOutletNameRef.current;
     upstreamOutletNameRef.current = entry.outletName;
     if (pendingOutletNameRef.current === previousOutletName) {
@@ -344,13 +363,14 @@ export function LorebookEntryRow({
     const previousImages = upstreamImagesRef.current;
     upstreamImagesRef.current = entry.images;
     if (pendingImagesRef.current === previousImages) pendingImagesRef.current = entry.images;
-    setLocalStatus(deriveStatus(entry));
-    setLocalPosition(entry.position);
-    setLocalDepth(entry.depth);
-    setLocalOrder(entry.order);
-    setLocalProbability(entry.probability ?? 100);
-    setLocalName(entry.name);
-    setLocalUseRegex(entry.useRegex ?? false);
+    setLocalStatus(deriveStatus(shown));
+    setLocalPosition(shown.position);
+    setLocalDepth(shown.depth);
+    setLocalOrder(shown.order);
+    setLocalProbability(shown.probability ?? 100);
+    setLocalName(shown.name);
+    setLocalUseRegex(shown.useRegex ?? false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- drafts is a stable store
   }, [entry]);
 
   useEffect(() => {
@@ -438,13 +458,17 @@ export function LorebookEntryRow({
 
   const patch = useCallback(
     (changes: Partial<LorebookEntry>, options?: { onError?: () => void }) => {
+      if (drafts) {
+        drafts.set(entry.id, changes);
+        return;
+      }
       if (onUpdateEntry) {
         void onUpdateEntry(entry.id, changes, changes).catch(() => options?.onError?.());
         return;
       }
       updateEntry.mutate({ lorebookId, entryId: entry.id, ...changes }, options);
     },
-    [lorebookId, entry.id, onUpdateEntry, updateEntry],
+    [lorebookId, entry.id, onUpdateEntry, updateEntry, drafts],
   );
 
   const handleStatusChange = useCallback(
@@ -1694,12 +1718,13 @@ function ExpandedDrawer({
     ],
     [installedCapabilities],
   );
-  const [form, setForm] = useState<Partial<LorebookEntry>>(() => ({ ...entry }));
+  const drafts = useContext(LorebookEntryDraftsContext);
+  const [form, setForm] = useState<Partial<LorebookEntry>>(() => ({ ...entry, ...drafts?.get(entry.id) }));
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const loadedEntryIdRef = useRef(entry.id);
-  const formRef = useRef<Partial<LorebookEntry>>({ ...entry });
+  const formRef = useRef<Partial<LorebookEntry>>({ ...entry, ...drafts?.get(entry.id) });
   const dirtyRef = useRef(false);
   const changedFieldsRef = useRef<Partial<LorebookEntry>>({});
   const savingRef = useRef(false);
@@ -1728,6 +1753,15 @@ function ExpandedDrawer({
 
   const saveNow = useCallback(async () => {
     clearAutosaveTimer();
+    if (drafts) {
+      // Overhaul: nothing saves on its own; this only runs for an explicit save (Professor Mari).
+      if (dirtyRef.current && (await drafts.save(loadedEntryIdRef.current))) {
+        dirtyRef.current = false;
+        changedFieldsRef.current = {};
+        if (mountedRef.current) setDirty(false);
+      }
+      return;
+    }
     if (!dirtyRef.current || savingRef.current) return;
 
     const versionAtStart = changeVersionRef.current;
@@ -1777,7 +1811,7 @@ function ExpandedDrawer({
       settle();
       if (mountedRef.current) setSaving(false);
     }
-  }, [clearAutosaveTimer, lorebookId, mutateEntryAsync, onUpdateEntry, queueAutosave]);
+  }, [clearAutosaveTimer, drafts, lorebookId, mutateEntryAsync, onUpdateEntry, queueAutosave]);
 
   useEffect(() => {
     saveNowRef.current = saveNow;
@@ -1788,7 +1822,7 @@ function ExpandedDrawer({
     return () => {
       mountedRef.current = false;
       clearAutosaveTimer();
-      if (dirtyRef.current) {
+      if (dirtyRef.current && !drafts) {
         const sourceChanges = buildEntrySavePayload(changedFieldsRef.current);
         if (onUpdateEntry) {
           void onUpdateEntry(loadedEntryIdRef.current, sourceChanges, changedFieldsRef.current).catch(() => undefined);
@@ -1801,12 +1835,25 @@ function ExpandedDrawer({
         }
       }
     };
-  }, [clearAutosaveTimer, lorebookId, mutateEntry, onUpdateEntry]);
+  }, [clearAutosaveTimer, drafts, lorebookId, mutateEntry, onUpdateEntry]);
 
   // If the underlying entry changes (e.g. due to an inline-control patch), refresh
   // the drawer form unless the user is in the middle of editing.
   useEffect(() => {
     const switched = loadedEntryIdRef.current !== entry.id;
+    if (drafts) {
+      // The waiting edits live in the lorebook's drafts; show them over the (re)loaded entry.
+      const waiting = drafts.get(entry.id);
+      const next = { ...entry, ...waiting };
+      formRef.current = next;
+      changedFieldsRef.current = { ...waiting };
+      dirtyRef.current = Boolean(waiting && Object.keys(waiting).length);
+      setForm(next);
+      setDirty(dirtyRef.current);
+      setSaveError(false);
+      loadedEntryIdRef.current = entry.id;
+      return;
+    }
     if (switched && dirtyRef.current) {
       const sourceChanges = buildEntrySavePayload(changedFieldsRef.current);
       if (onUpdateEntry) {
@@ -1832,7 +1879,7 @@ function ExpandedDrawer({
       setSaveError(false);
       loadedEntryIdRef.current = entry.id;
     }
-  }, [entry, lorebookId, mutateEntry, onUpdateEntry]);
+  }, [entry, drafts, lorebookId, mutateEntry, onUpdateEntry]);
 
   const update = useCallback(
     (patch: Partial<LorebookEntry>) => {
@@ -1844,14 +1891,16 @@ function ExpandedDrawer({
       formRef.current = next;
       changedFieldsRef.current = { ...changedFieldsRef.current, ...patch };
       setForm(next);
-      queueAutosave();
+      if (drafts) drafts.set(loadedEntryIdRef.current, patch);
+      else queueAutosave();
     },
-    [queueAutosave],
+    [drafts, queueAutosave],
   );
 
   const flushAutosave = useCallback(() => {
+    if (drafts) return;
     void saveNowRef.current();
-  }, []);
+  }, [drafts]);
   const overhaulMobile = useOverhaulMobile();
 
   const draftSlot = useContext(LorebookEntryDraftContext);

@@ -47,7 +47,8 @@ import {
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
-import { OvEditorHead, OvEyebrow, OvRow, OvSaveState } from "../overhaul/EditorChrome";
+import { OvEditorHead, OvEyebrow, OvRow } from "../overhaul/EditorChrome";
+import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { OvChipInput, OvChipPicker, OvNum, OvSeg, OvToggle } from "../overhaul/LoreEntryParts";
 
 // ═══════════════════════════════════════════════
@@ -407,23 +408,23 @@ export function RegexScriptEditor() {
   }, [dirty, closeRegexDetail]);
 
   const handleSave = useCallback(async () => {
-    if (!regexDetailId) return;
+    if (!regexDetailId) return false;
     setSaveError(null);
     if (localCharacterScopeEnabled && localTargetCharacterIds.length === 0) {
       setSaveError(localizeUi("ui.agents.regexscripteditor.chooseAtLeastOneCharacter"));
-      return;
+      return false;
     }
     if (localPromptPresetScopeEnabled && localTargetPromptPresetIds.length === 0) {
       setSaveError(localizeUi("ui.agents.regexscripteditor.chooseAtLeastOnePromptPreset"));
-      return;
+      return false;
     }
     if (blockingRegexError) {
       setSaveError(blockingRegexError);
-      return;
+      return false;
     }
     if (depthRangeError) {
       setSaveError(depthRangeError);
-      return;
+      return false;
     }
 
     const payload: Record<string, unknown> = {
@@ -462,8 +463,10 @@ export function RegexScriptEditor() {
       setDirty(false);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
+      return true;
     } catch (err) {
       setSaveError(describeRegexEditorError(err));
+      return false;
     }
   }, [
     regexDetailId,
@@ -493,6 +496,12 @@ export function RegexScriptEditor() {
   ]);
 
   const markDirty = useCallback(() => setDirty(true), []);
+  useEditorLeaveSave(
+    `regexDetailId:${regexDetailId}`,
+    dirty,
+    handleSave,
+    updateScript.isPending || createScript.isPending,
+  );
 
   const handleDelete = async () => {
     if (!dbRow) return;
@@ -585,15 +594,7 @@ export function RegexScriptEditor() {
     };
     return (
       <div className="mari-editor-shell flex flex-1 flex-col overflow-hidden">
-        <div
-          className="ov-ed"
-          onKeyDown={(event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
-              event.preventDefault();
-              void handleSave();
-            }
-          }}
-        >
+        <div className="ov-ed">
           <OvEditorHead
             section="regex"
             sectionLabel="Regex scripts"
@@ -604,7 +605,7 @@ export function RegexScriptEditor() {
               markDirty();
             }}
             meta={runsLabel}
-            status={<OvSaveState dirty={dirty} saving={isPending} error={!!saveError} />}
+            save={{ dirty, saving: isPending, error: !!saveError, onSave: handleSave }}
             actions={
               <>
                 <OvToggle
@@ -618,17 +619,6 @@ export function RegexScriptEditor() {
                 <button type="button" className="ov-edbtn" onClick={handleExport}>
                   <Upload size={13} aria-hidden="true" />
                   {localizeUi("chat.advancedMemory.export")}
-                </button>
-                <button
-                  type="button"
-                  className="ov-edbtn ov-edbtn--primary"
-                  disabled={!dirty || isPending}
-                  onClick={() => void handleSave()}
-                >
-                  <Save size={13} aria-hidden="true" />
-                  {savedFlash
-                    ? localizeUi("chat.settings.inlineEditor.saved")
-                    : localizeUi("chat.settingsProfile.builder.save")}
                 </button>
               </>
             }
