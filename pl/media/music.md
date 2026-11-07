@@ -22,7 +22,7 @@ Agenta Music DJ konfiguruje się w jednym wspólnym miejscu. Otwórz prawy panel
 
 ### Wybór źródła muzyki
 
-W edytorze **Music DJ** pole **Music Player** ma trzy przyciski: **Spotify**, **YouTube** i **Custom**. Wiersz pod nimi pokazuje, co jest aktywne, na przykład "Visible player: Spotify. Saved provider: Spotify." Ten wybór obowiązuje w całej aplikacji i nie zapisuje się osobno dla każdego czatu.
+W edytorze **Music DJ** pole **Music Player** ma trzy przyciski: **Spotify**, **YouTube** i **Custom**. Wiersz pod nimi pokazuje, co jest aktywne, na przykład "Visible player: Spotify. Saved provider: Spotify." Ten wybór obowiązuje w całej aplikacji i nie zapisuje się osobno dla każdego czatu. Folder, z którego tryb **Custom** odtwarza muzykę, może być inny dla każdego czatu lub postaci: zobacz [Osobny folder dla czatu lub postaci](#use-a-different-folder-for-a-chat-or-character).
 
 ## Konfiguracja Spotify
 
@@ -91,11 +91,34 @@ Tryb Custom odtwarza pliki dźwiękowe z komputera, na którym działa aplikacja
 W edytorze **Music DJ** znajdź **Custom Music Library** (własna biblioteka muzyki). Ma jeden przełącznik: **Use Game Assets music folder** (użycie folderu muzyki z Game Assets).
 
 - **Włączony**: tryb Custom czyta dźwięki wgrane do Game Assets, biblioteki zasobów aplikacji Marinara Engine dla trybu Game Mode. Folder wybierz w polu **Game Assets music folder**. Wpisz `music`, żeby objąć całą bibliotekę, albo podfolder, na przykład `music/combat`. **Open Folder** otwiera ten folder na komputerze z serwerem.
-- **Wyłączony**: tryb Custom czyta folder na urządzeniu z serwerem. Kliknij **Select Folder**, żeby otworzyć okno wyboru folderu na komputerze z serwerem, albo wklej ścieżkę w pole **Music folder on this device**.
+- **Wyłączony**: tryb Custom czyta folder na urządzeniu z serwerem. Kliknij **Select Folder**, żeby otworzyć okno wyboru folderu na komputerze z serwerem, albo wklej ścieżkę w pole **Default music folder on this device** (domyślny folder muzyki na tym urządzeniu). Korzysta z niego każdy czat, który nie ma własnego folderu.
 
-Konfiguracja w trybie Roleplay i Game pokazuje to samo źródło. Jeśli wybrano folder na urządzeniu z serwerem, ustawienia Music DJ w czacie pokazują tę ścieżkę i przycisk **Choose Folder**.
+Odtwarzanie z folderu spoza Game Assets wymaga lokalnego dostępu na serwerze. Zapisanie ręcznie wpisanej ścieżki folderu wymaga takiego samego dostępu jak okno wyboru folderu. Z innego urządzenia bez logowania lub sekretu administratora obie te rzeczy mogą być zablokowane. Zobacz [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
 
-Odtwarzanie z folderu spoza Game Assets wymaga lokalnego dostępu na serwerze. Z innego urządzenia bez logowania lub sekretu administratora ta funkcja może być zablokowana. Zobacz [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
+<a id="use-a-different-folder-for-a-chat-or-character"></a>
+
+### Osobny folder dla czatu lub postaci
+
+Czat albo postać może mieć własny folder muzyki, więc każda historia ma własną ścieżkę dźwiękową. Folder postaci obowiązuje w każdym czacie, w którym ta postać jest jedyną postacią.
+
+1. Otwórz czat i jego **Chat Settings** (ustawienia czatu).
+2. W ustawieniach **Music DJ**, przy wybranym odtwarzaczu **Custom**, otwórz **Apply to** (zastosowanie do) i wybierz, gdzie zapisać folder.
+3. Kliknij **Choose Folder** (wybór folderu) albo wklej ścieżkę w pole **Music folder on this device** (folder muzyki na tym urządzeniu).
+
+| Apply to | Które czaty używają folderu |
+| --- | --- |
+| **This chat** (ten czat) | Tylko ten czat. Gałąź zaczyna z tym samym folderem i może go zmienić. |
+| Imię postaci | Każdy czat, w którym ta postać jest jedyną postacią. Widoczne tylko w czacie z jedną postacią. |
+| **All chats (default)** (wszystkie czaty, domyślnie) | Każdy czat bez własnego folderu. To domyślny folder z edytora **Music DJ**. |
+
+Music DJ używa pierwszego folderu, jaki znajdzie: folderu tego czatu, potem folderu postaci, a na końcu domyślnego. Czat grupowy nigdy nie używa folderu postaci. Folder czatu lub postaci obowiązuje nawet wtedy, gdy domyślnym źródłem jest Game Assets.
+
+**In use:** (w użyciu) pokazuje folder, z którego ten czat odtwarza muzykę, i skąd ten folder pochodzi: **This chat**, **From** (od) razem z imieniem postaci albo **Default** (domyślny).
+
+- **Use default** (użycie domyślnego folderu) usuwa folder tego czatu. Czat odtwarza wtedy muzykę z folderu postaci albo z domyślnego.
+- **Unlink from** (odłączenie od) razem z imieniem postaci usuwa folder postaci ze wszystkich czatów.
+
+Ten sam wybór **Apply to** pojawia się przy dodawaniu agenta Music DJ do czatu. Eksporty czatów, profile ustawień i pliki **Export Profile** (eksport profilu) pomijają własny folder czatu. Eksporty agentów pomijają folder domyślny i foldery postaci. Każda ścieżka wskazuje pliki na tym serwerze, więc na innym serwerze nic nie znaczy.
 
 ## Korzystanie z odtwarzacza muzyki
 
@@ -145,7 +168,8 @@ Postać może wtedy podać nazwę utworu dla Spotify albo opisać utwór dla You
 - **Spotify nic nie odtwarza**: odtwarzanie wymaga Spotify Premium i aktywnego urządzenia Spotify. Otwórz desktopową aplikację Spotify na jakimś urządzeniu albo kliknij **Enable Marinara player** na komputerze.
 - **Okno logowania Spotify nie działa na innym komputerze**: skorzystaj z pola wklejania "Browser couldn't reach the callback?" albo ustaw `SPOTIFY_REDIRECT_URI` na serwerze.
 - **Wyszukiwanie w YouTube zawodzi**: sprawdź, czy **YouTube Data API v3** jest włączone dla twojego projektu i czy klucz nie jest ograniczony po nagłówku HTTP referrer. Po wyczerpaniu dziennego limitu spróbuj następnego dnia albo użyj innego klucza.
-- **Muzyka własna nie gra z folderu na urządzeniu przy dostępie zdalnym**: ten folder wymaga lokalnego dostępu na serwerze. Zobacz [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
+- **Przy dostępie zdalnym muzyka własna nie gra z folderu na urządzeniu albo wpisana ścieżka folderu się nie zapisuje**: oba przypadki wymagają lokalnego dostępu na serwerze. Zobacz [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
+- **Czat odtwarza muzykę z niewłaściwego folderu**: sprawdź **In use:** w ustawieniach **Music DJ** czatu. **This chat** ma pierwszeństwo przed folderem postaci, więc kliknij **Use default**, żeby czat znów korzystał z folderu postaci.
 - **Komenda z utworem od postaci nic nie robi w trybie Conversation**: podłącz Spotify albo zapisz klucz YouTube i sprawdź, czy przełączniki **Commands** i **Music** są włączone.
 
 ## Powiązane przewodniki

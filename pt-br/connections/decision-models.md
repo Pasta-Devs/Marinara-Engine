@@ -225,6 +225,7 @@ Outros controles da janela:
 - **GPU** escolhe a placa em um computador com várias GPUs NVIDIA. Trocar a placa interrompe o modelo, que inicia de novo na placa nova.
 - **Start this model when Marinara starts** (iniciar este modelo quando Marinara iniciar) é opcional. Com essa opção desativada, o modelo inicia na primeira vez que um agente precisar dele.
 - **Remove files** (remover arquivos) exclui o modelo e o ambiente de execução dele. Desativar o modelo para o processo e mantém os arquivos.
+- **Reinstall** (reinstalar) aparece quando o modelo instalado não consegue iniciar porque os arquivos ou o ambiente de execução dele estão ausentes ou desatualizados, geralmente depois de uma atualização. O modelo fica marcado como **Needs reinstall**, e a linha **Decision** mostra **Not set up**. Reinstalar mantém os arquivos que já foram baixados e estão íntegros, então geralmente só os pacotes Python do ambiente de execução são baixados de novo.
 
 A primeira resposta de um modelo depois que ele inicia é mais lenta; por isso, Marinara faz uma pergunta de aquecimento enquanto ele carrega. Se ela falhar, o modelo inicia mesmo assim e a primeira pergunta real absorve o atraso. Um turno com muitas declarações em um chat longo demora mais. Em um chat longo, Open-Jev 2B leva cerca de um quarto de segundo por declaração.
 

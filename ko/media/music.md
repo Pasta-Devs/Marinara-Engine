@@ -22,7 +22,7 @@ Music DJ 설정은 한곳에서 공유합니다. 오른쪽 **Agents** 패널을 
 
 ### 음악 소스 고르기
 
-**Music DJ** 편집기의 **Music Player** 항목에는 **Spotify**, **YouTube**, **Custom** 버튼 3개가 있습니다. 그 아래 줄에는 현재 동작 중인 소스가 표시됩니다. 예를 들면 "Visible player: Spotify. Saved provider: Spotify."입니다. 이 선택은 채팅별로 저장되지 않고 앱 전체에서 공유됩니다.
+**Music DJ** 편집기의 **Music Player** 항목에는 **Spotify**, **YouTube**, **Custom** 버튼 3개가 있습니다. 그 아래 줄에는 현재 동작 중인 소스가 표시됩니다. 예를 들면 "Visible player: Spotify. Saved provider: Spotify."입니다. 이 선택은 채팅별로 저장되지 않고 앱 전체에서 공유됩니다. **Custom**이 재생하는 폴더는 채팅이나 캐릭터마다 다르게 정할 수 있습니다. [채팅이나 캐릭터마다 다른 폴더 쓰기](#use-a-different-folder-for-a-chat-or-character)를 참고하세요.
 
 ## Spotify 설정
 
@@ -91,11 +91,34 @@ Custom 모드는 Marinara를 실행하는 컴퓨터의 오디오 파일을 재�
 **Music DJ** 편집기에서 **Custom Music Library**(사용자 지정 음악 라이브러리)를 찾으세요. 여기에는 **Use Game Assets music folder**(게임 에셋 음악 폴더 사용) 스위치 하나가 있습니다.
 
 - **On**: Custom 모드가 Game Assets(Game Mode용 Marinara 에셋 라이브러리)에 업로드한 오디오를 읽습니다. **Game Assets music folder**(게임 에셋 음악 폴더)에서 폴더를 고르세요. 라이브러리 전체는 `music`, 하위 폴더는 `music/combat`처럼 입력하세요. **Open Folder**(폴더 열기)는 서버 컴퓨터에서 그 폴더를 엽니다.
-- **Off**: Custom 모드가 서버 기기의 폴더를 읽습니다. **Select Folder**(폴더 선택)로 서버 컴퓨터의 폴더 선택 창을 열거나, **Music folder on this device**(이 기기의 음악 폴더)에 경로를 붙여 넣으세요.
+- **Off**: Custom 모드가 서버 기기의 폴더를 읽습니다. **Select Folder**(폴더 선택)로 서버 컴퓨터의 폴더 선택 창을 열거나, **Default music folder on this device**(이 기기의 기본 음악 폴더)에 경로를 붙여 넣으세요. 따로 폴더가 없는 채팅은 모두 이 폴더를 씁니다.
 
-Roleplay와 Game 설정에는 같은 소스가 표시됩니다. 서버 기기의 폴더를 골랐다면 채팅의 Music DJ 설정에 그 경로와 **Choose Folder**(폴더 선택) 버튼이 표시됩니다.
+Game Assets 밖의 폴더에서 재생하려면 서버의 로컬 접근 권한이 필요합니다. 입력한 폴더 경로를 저장할 때도 폴더 선택 창과 같은 권한이 필요합니다. 로그인이나 관리자 시크릿 없이 다른 기기에서 쓰면 둘 다 막힐 수 있습니다. [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)을 참고하세요.
 
-Game Assets 밖의 폴더에서 재생하려면 서버의 로컬 접근 권한이 필요합니다. 로그인이나 관리자 시크릿 없이 다른 기기에서 쓰면 이 기능이 막힐 수 있습니다. [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)을 참고하세요.
+<a id="use-a-different-folder-for-a-chat-or-character"></a>
+
+### 채팅이나 캐릭터마다 다른 폴더 쓰기
+
+채팅이나 캐릭터마다 음악 폴더를 따로 둘 수 있으므로, 이야기마다 다른 사운드트랙을 재생할 수 있습니다. 캐릭터의 폴더는 그 캐릭터 혼자 있는 모든 채팅에서 재생됩니다.
+
+1. 채팅을 열고 **Chat Settings**(채팅 설정)를 여세요.
+2. **Music DJ** 설정에서 **Custom** 플레이어를 선택한 상태로 **Apply to**(적용 대상)를 열고 폴더를 저장할 위치를 고르세요.
+3. **Choose Folder**(폴더 선택)를 클릭하거나 **Music folder on this device**(이 기기의 음악 폴더)에 경로를 붙여 넣으세요.
+
+| Apply to | 폴더를 쓰는 채팅 |
+| --- | --- |
+| **This chat**(이 채팅) | 이 채팅만 씁니다. 분기는 같은 폴더로 시작하고, 나중에 바꿀 수 있습니다. |
+| 캐릭터 이름 | 그 캐릭터 혼자 있는 모든 채팅이 씁니다. 캐릭터가 한 명인 채팅에서만 표시됩니다. |
+| **All chats (default)**(모든 채팅, 기본값) | 따로 폴더가 없는 모든 채팅이 씁니다. **Music DJ** 편집기에서 정한 기본 폴더입니다. |
+
+Music DJ는 처음 찾은 폴더를 씁니다. 이 채팅의 폴더, 캐릭터의 폴더, 기본 폴더 순서로 찾습니다. 그룹 채팅은 캐릭터의 폴더를 쓰지 않습니다. 채팅이나 캐릭터의 폴더는 기본 소스가 Game Assets여도 재생됩니다.
+
+**In use:**(사용 중)에는 이 채팅이 재생하는 폴더와 그 폴더의 출처가 표시됩니다. 출처는 **This chat**, **From**과 캐릭터 이름, **Default**(기본값) 중 하나입니다.
+
+- **Use default**(기본값 사용)는 이 채팅에 지정한 폴더를 해제합니다. 그러면 채팅은 캐릭터의 폴더를, 없으면 기본 폴더를 재생합니다.
+- **Unlink from**(연결 해제)과 캐릭터 이름이 적힌 버튼은 모든 채팅에서 그 캐릭터의 폴더를 해제합니다.
+
+채팅에 Music DJ를 추가할 때도 같은 **Apply to** 선택지가 나타납니다. 채팅 자체의 폴더는 채팅 내보내기, 설정 프로필, **Export Profile**(프로필 내보내기) 파일에 들어가지 않습니다. 에이전트를 내보낼 때는 기본 폴더와 캐릭터 폴더가 빠집니다. 각 경로는 이 서버의 파일을 가리키므로 다른 서버에서는 의미가 없습니다.
 
 ## 음악 플레이어 사용하기
 
@@ -145,7 +168,8 @@ Conversation에서는 Music DJ를 에이전트로 추가할 수 없습니다. �
 - **Spotify에서 아무것도 재생되지 않음**: 재생하려면 Spotify Premium과 동작 중인 Spotify 기기가 필요합니다. 기기에서 데스크톱 앱을 열거나, 데스크톱에서 **Enable Marinara player**를 클릭하세요.
 - **다른 컴퓨터에서 Spotify 로그인 창이 실패함**: "Browser couldn't reach the callback?" 붙여 넣기 상자를 쓰거나, 서버에 `SPOTIFY_REDIRECT_URI`를 설정하세요.
 - **YouTube 검색이 실패함**: 프로젝트에 **YouTube Data API v3**가 활성화되어 있고 키가 HTTP 리퍼러로 제한되지 않았는지 확인하세요. 하루 쿼터를 다 썼다면 다음 날 다시 시도하거나 다른 키를 쓰세요.
-- **원격 접근에서 기기 폴더의 Custom 음악이 재생되지 않음**: 그 폴더를 쓰려면 서버의 로컬 접근 권한이 필요합니다. [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)을 참고하세요.
+- **원격 접근에서 기기 폴더의 Custom 음악이 재생되지 않거나 입력한 폴더 경로가 저장되지 않음**: 둘 다 서버의 로컬 접근 권한이 필요합니다. [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)을 참고하세요.
+- **채팅에서 잘못된 폴더가 재생됨**: 채팅의 **Music DJ** 설정에서 **In use:**를 확인하세요. **This chat**이 캐릭터의 폴더보다 우선하므로, 다시 캐릭터의 폴더를 따르게 하려면 **Use default**를 클릭하세요.
 - **Conversation에서 캐릭터의 곡 명령어가 동작하지 않음**: Spotify를 연결하거나 YouTube 키를 저장하고, **Commands**와 **Music** 토글이 켜져 있는지 확인하세요.
 
 ## 관련 가이드

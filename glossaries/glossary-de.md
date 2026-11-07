@@ -1033,3 +1033,26 @@ Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against 
   *secret* in a header is **der Geheimwert**, as in `TROUBLESHOOTING.md`; *credentials* are
   **Zugangsdaten**. An auth *scheme* such as `Basic ...` is **das Schema**; a code span takes
   the hyphenated carrier noun „`Authorization: Bearer`-Header“ (§6).
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+- New glosses: **Apply to** *(Anwenden auf)*, **Use default** *(Standard verwenden)* and
+  **Unlink from** *(Trennen von)*, capitalised like **Disconnect** (Trennen) in the same file;
+  **Reinstall** *(neu installieren)* is lowercase like the other multi-word glosses in its file.
+  `ui/de.json` has no values for these keys, so they are coined; recheck them when the UI
+  translations ship. „Anwenden auf“ and **Choose Folder** (Ordner wählen) happen to equal
+  `ui/de.json` strings for other keys, which is not a wording source (§8).
+- Left bare: the option **This chat**, like **Liked Songs**; **All chats (default)**, whose own
+  parentheses would collide with a gloss; the statuses **In use:**, **From**, **Default**,
+  **Needs reinstall** and **Not set up** (§3.3); and the field labels
+  **Music folder on this device** and **Default music folder on this device**.
+- The heading „### Einen anderen Ordner für einen Chat oder Charakter nutzen“, an infinitive
+  like „## Eigene Musikdateien nutzen“, carries
+  `<a id="use-a-different-folder-for-a-chat-or-character"></a>`; the `game/game-assets.md`
+  link repeats it as link text.
+- A branch is **die Verzweigung**, a group chat **der Gruppenchat**, the runtime **die
+  Laufzeit**; exports are **Chat-Exporte**, **Einstellungsprofile**, **Agenten-Exporte**. Music
+  plays „aus dem Ordner“, not „den Ordner“, and a story „bekommt“ its soundtrack rather than
+  „spielt“ it (R1). The Troubleshooting lead-in opens „Über Fernzugriff …“ to cover both cases.

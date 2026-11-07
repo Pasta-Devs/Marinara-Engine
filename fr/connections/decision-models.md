@@ -225,6 +225,7 @@ Autres contrôles de la fenêtre :
 - Le menu **GPU** choisit la carte sur un ordinateur doté de plusieurs GPU NVIDIA. En changer arrête le modèle, qui redémarre sur la nouvelle carte.
 - Le réglage **Start this model when Marinara starts** (démarrer ce modèle au démarrage de Marinara) est facultatif. Désactivé, le modèle démarre la première fois qu'un agent en a besoin.
 - Le bouton **Remove files** (supprimer les fichiers) supprime le modèle et son environnement d'exécution. Désactiver le modèle arrête le processus et conserve les fichiers.
+- Le bouton **Reinstall** (réinstaller) apparaît quand le modèle installé ne peut pas démarrer parce que ses fichiers ou son environnement d'exécution sont manquants ou obsolètes, généralement après une mise à jour. Le modèle est alors marqué **Needs reinstall**, et la ligne **Decision** affiche **Not set up**. La réinstallation conserve les fichiers déjà téléchargés et complets : en général, seuls les paquets Python de l'environnement d'exécution sont téléchargés de nouveau.
 
 La première réponse d'un modèle après son démarrage est plus lente : Marinara pose donc une question de préchauffage pendant le chargement. Si elle échoue, le modèle démarre quand même et la première vraie question subit le retard. Un tour avec beaucoup d'énoncés sur un long chat prend plus de temps. Open-Jev 2B prend environ un quart de seconde par énoncé sur un long chat.
 

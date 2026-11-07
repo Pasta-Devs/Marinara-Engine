@@ -225,6 +225,7 @@ Inne kontrolki w tym oknie:
 - **GPU** wybiera kartę na komputerze z kilkoma kartami graficznymi NVIDIA. Zmiana karty zatrzymuje model, który uruchamia się ponownie na nowej karcie.
 - **Start this model when Marinara starts** (uruchamianie tego modelu przy starcie aplikacji Marinara) jest opcjonalne. Gdy jest wyłączone, model uruchamia się wtedy, gdy agent pierwszy raz go potrzebuje.
 - **Remove files** (usuń pliki) usuwa model i jego środowisko uruchomieniowe. Wyłączenie modelu zatrzymuje proces i zachowuje pliki.
+- **Reinstall** (ponowna instalacja) pojawia się, gdy zainstalowany model nie może się uruchomić, bo brakuje jego plików lub środowiska uruchomieniowego albo są one nieaktualne, zwykle po aktualizacji. Model dostaje oznaczenie **Needs reinstall**, a wiersz **Decision** pokazuje **Not set up**. Ponowna instalacja zachowuje pliki, które są już pobrane i kompletne, więc zwykle pobierają się ponownie tylko pakiety Python środowiska uruchomieniowego.
 
 Pierwsza odpowiedź modelu po uruchomieniu jest wolniejsza, więc podczas ładowania Marinara zadaje jedno pytanie rozgrzewające. Jeśli się nie uda, model i tak się uruchamia, a opóźnienie spada na pierwsze prawdziwe pytanie. Tura z wieloma stwierdzeniami w długim czacie trwa dłużej. Open-Jev 2B potrzebuje w długim czacie około ćwierci sekundy na stwierdzenie.
 

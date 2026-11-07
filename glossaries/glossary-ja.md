@@ -675,3 +675,16 @@ Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against 
 - The new section and the Troubleshooting row gloss their labels again, per the once-per-section rule; the **Warning:** callout uses them bare.
 
 These are translation choices, not a new native-reader review.
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+- **Shipped glosses**, byte-exact `ui/ja.json`: **Chat Settings**(チャット設定), **Choose Folder**(フォルダーを選択), **Music folder on this device**(この端末の音楽フォルダー), **Apply to**(適用対象) (`spriteLayoutApplyTo`) and **This chat**(このチャット) (`generationParameters.source.chat`).
+- **Coined**, because `ui/ja.json` has no value for these keys yet (recheck when they ship): **All chats (default)**(すべてのチャット、デフォルト), **Use default**(デフォルトを使用), **Unlink from**(リンクを解除), **Reinstall**(再インストール) and, in `game/game-assets.md` only, **Default music folder on this device**(この端末のデフォルトの音楽フォルダー). The `media/music.md` Off bullet keeps that file's bare field labels.
+- Left bare: the statuses **In use:**, **From**, **Default**, **Needs reinstall** and **Not set up**, and **Export Profile**, as in `integrations/*.md`. The Troubleshooting row glosses **This chat** and **Use default** again, per the once-per-section rule.
+- The heading is `### チャットやキャラクターごとに別のフォルダーを使う`, a plain-form verb like `## 自分の音楽ファイルを使う`, with `<a id="use-a-different-folder-for-a-chat-or-character"></a>` above it; the `game/game-assets.md` link uses it as link text.
+- Terms: 分岐, グループチャット, 設定プロファイル, ランタイム, Pythonパッケージ, サウンドトラック. A chat's folder is このチャットで再生するフォルダー, and the new row is チャットで違うフォルダーが再生される. **Use default** and **Unlink from** 指定を外します, so no one reads them as deleting files; the **Unlink from** item says ボタン, as `AgentAddSetupFields.tsx` confirms.
+- Left for a later pass: in `game/game-assets.md`, チャットにいる1人だけのキャラクター用 would be more precise as チャットの唯一のキャラクター用.
+
+These are translation choices, not a new native-reader review.
