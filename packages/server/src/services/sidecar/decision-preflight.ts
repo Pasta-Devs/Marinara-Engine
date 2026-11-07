@@ -120,11 +120,19 @@ export async function preflightDecisionModel(
   // afterwards, and asking for it again would both show "Needs about 10 GB free" for
   // a model that is sitting there and, because disk is judged before memory, hide the
   // launch-time memory recheck behind a verdict that says nothing about the GPU.
-  const onDisk = decisionRuntimeInstalled() && decisionRuntimeService.modelDownloaded(model);
+  // The weights and the runtime are judged apart: an update that pins a new runtime leaves the weights in place,
+  // and reinstalling then rebuilds only the runtime, so it needs only the runtime's share of the disk.
+  const weightsOnDisk = decisionRuntimeService.modelDownloaded(model);
+  const onDisk = decisionRuntimeInstalled() && weightsOnDisk;
+  const requiredDiskBytes = onDisk
+    ? null
+    : weightsOnDisk
+      ? Math.max(0, model.diskBytes - model.downloadSizeBytes)
+      : model.diskBytes;
   const unsupportedReason =
     chosen && !device && probe.devices.length > 0
       ? `The GPU chosen for the decision model (device ${cudaIndex}) is not present`
-      : platformReason(model, device, { beforeDownload: !onDisk });
+      : platformReason(model, device, { beforeDownload: !weightsOnDisk });
   const free = onDisk ? null : await freeDiskBytes();
 
   // The candidate is weighed as a configured slot alongside whatever else is running,
@@ -154,7 +162,7 @@ export async function preflightDecisionModel(
     device,
     candidate: "decision",
     freeDiskBytes: free,
-    requiredDiskBytes: onDisk ? null : model.diskBytes,
+    requiredDiskBytes,
     unsupportedReason,
   });
 
@@ -162,7 +170,7 @@ export async function preflightDecisionModel(
     assessment.verdict === "unsupported"
       ? unsupportedReason
       : assessment.verdict === "not_enough_disk"
-        ? `Needs about ${Math.ceil(model.diskBytes / 1_000_000_000)} GB free`
+        ? `Needs about ${Math.ceil((requiredDiskBytes ?? model.diskBytes) / 1_000_000_000)} GB free`
         : assessment.verdict === "wont_fit"
           ? `Needs about ${Math.ceil(model.vramBytes / 1_000_000_000)} GB of GPU memory`
           : assessment.verdict === "wont_fit_beside_sidecar"

@@ -434,6 +434,23 @@ exec sleep 30
   const installed = await preflightDecisionModel(huge, { fresh: true });
   assert.notEqual(installed.assessment.verdict, "not_enough_disk", "an installed model reaches the memory check");
   assert.equal(installed.installable, true);
+  // An update that pins a new runtime leaves the weights: reinstalling asks only the runtime's share of the disk.
+  const stampPath = join(runtime.directoryPath, "runtime-stamp.txt");
+  writeFileSync(stampPath, "{}\n");
+  assert.equal(decisionRuntimeInstalled(), false, "a stale stamp reads as not installed");
+  const weightsKept = {
+    ...model,
+    downloadSizeBytes: Number.MAX_SAFE_INTEGER - 1_000,
+    diskBytes: Number.MAX_SAFE_INTEGER,
+  };
+  const staleRuntime = await preflightDecisionModel(weightsKept, { fresh: true });
+  assert.notEqual(
+    staleRuntime.assessment.verdict,
+    "not_enough_disk",
+    "kept weights are not counted as still to download",
+  );
+  assert.equal(staleRuntime.installable, true, "a stale runtime can be reinstalled");
+  writeFileSync(stampPath, `${serializeDecisionRuntimeManifestStamp()}\n`);
 
   // ── a stop during a start's preflight cancels the start ───────────────────────
 
