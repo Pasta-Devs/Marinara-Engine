@@ -68,6 +68,13 @@ function sanitizeChoiceSelection(
   return candidates.find((value) => validValues.has(value));
 }
 
+/** A content-rating question (an NSFW option next to a SFW one). A new chat asks it rather than preselecting either. */
+function isContentRatingVariable(variable: VariableData): boolean {
+  if (variable.multiSelect || variable.randomPick) return false;
+  const labels = variable.options.map((opt) => `${opt.label ?? ""} ${opt.value ?? ""}`);
+  return labels.some((label) => /\bNSFW\b/i.test(label)) && labels.some((label) => /\bSFW\b/i.test(label));
+}
+
 function fallbackChoiceSelection(variable: VariableData): string | string[] | undefined {
   if (variable.multiSelect) return [];
   if (variable.randomPick && variable.options.length > 0) {
@@ -147,6 +154,9 @@ function ChatChoiceSelectionModal({
       const saved = defaultChoices[v.variableName];
       if (existing !== undefined) {
         initial[v.variableName] = sanitizeChoiceSelection(v, existing) ?? fallbackSelections[v.variableName] ?? "";
+      } else if (isContentRatingVariable(v)) {
+        // Never pick mature content for someone: they choose it themselves (Confirm waits for the pick).
+        initial[v.variableName] = "";
       } else if (saved !== undefined && !(v.randomPick && !v.multiSelect)) {
         initial[v.variableName] = sanitizeChoiceSelection(v, saved) ?? fallbackSelections[v.variableName] ?? "";
       } else if (v.multiSelect) {
@@ -223,12 +233,10 @@ function ChatChoiceSelectionModal({
           {variables.map((v) => {
             return (
               <div key={v.id} className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
-                <h4 className="mb-1 text-xs font-semibold text-[var(--foreground)]">{v.question}</h4>
-                <div className="mb-2 flex items-center gap-2">
-                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.presets.choiceselectionmodal.variable")}{" "}
-                    <code className="text-[var(--foreground)]">{`{{${v.variableName}}}`}</code>
-                  </p>
+                <h4 className="mb-1 text-xs font-semibold text-[var(--foreground)]" title={`{{${v.variableName}}}`}>
+                  {v.question}
+                </h4>
+                <div className="mb-2 flex items-center gap-2 empty:hidden">
                   {v.options.length === 1 && !v.multiSelect && (
                     <span className="flex items-center gap-0.5 rounded bg-[var(--accent)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--foreground)]">
                       {localizeUi("ui.presets.choiceselectionmodal.booleanToggle")}

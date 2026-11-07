@@ -379,6 +379,7 @@ export function OverhaulMobileTopBar() {
         className="ovm-title"
         onClick={() => useUIStore.getState().setOmnibarOpen(true)}
         aria-label={localize("Search or open anything")}
+        data-tour="omnibar-button"
       >
         {sidebarOpen ? (
           <span className="ovm-title__text">

@@ -345,7 +345,13 @@ export function DesktopTabStrip({
 
   return (
     <>
-      <nav className="ov-tabs" aria-label={localize("Open tabs")} ref={stripRef} onDragLeave={() => setDrop(null)}>
+      <nav
+        className="ov-tabs"
+        data-tour="tab-strip"
+        aria-label={localize("Open tabs")}
+        ref={stripRef}
+        onDragLeave={() => setDrop(null)}
+      >
         <button
           type="button"
           className={cn("ov-tab ov-tab--home", current === null && "is-on")}

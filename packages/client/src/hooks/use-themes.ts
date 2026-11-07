@@ -1,11 +1,12 @@
 // ──────────────────────────────────────────────
 // Hooks: Synced Custom Themes
 // ──────────────────────────────────────────────
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, ApiError } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
+import { useDeviceLookStore } from "../stores/device-look.store";
 import type { CreateThemeInput, Theme, UpdateThemeInput } from "@marinara-engine/shared";
 
 export const themeKeys = {
@@ -55,11 +56,22 @@ async function postThemeWithBackoff(input: CreateThemeInput): Promise<Theme> {
 }
 
 export function useThemes() {
+  // A device with its own look marks its own pick as the active theme (see device-look.store).
+  const deviceLook = useDeviceLookStore((s) => s.enabled);
+  const deviceThemeId = useDeviceLookStore((s) => s.customThemeId);
+  const select = useCallback(
+    (themes: Theme[]) =>
+      deviceLook && deviceThemeId !== undefined
+        ? themes.map((theme) => ({ ...theme, isActive: theme.id === deviceThemeId }))
+        : themes,
+    [deviceLook, deviceThemeId],
+  );
   return useQuery({
     queryKey: themeKeys.list(),
     queryFn: () => api.get<Theme[]>("/themes"),
     staleTime: 5 * 60_000,
     refetchOnReconnect: true,
+    select,
   });
 }
 
@@ -96,7 +108,14 @@ export function useDeleteTheme() {
 export function useSetActiveTheme() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string | null) => api.put<Theme | null>("/themes/active", { id }),
+    mutationFn: async (id: string | null) => {
+      // This device has its own look: pick the theme here only, and leave every other device alone.
+      if (useDeviceLookStore.getState().enabled) {
+        useDeviceLookStore.getState().setCustomThemeId(id);
+        return null;
+      }
+      return api.put<Theme | null>("/themes/active", { id });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: themeKeys.all });
     },

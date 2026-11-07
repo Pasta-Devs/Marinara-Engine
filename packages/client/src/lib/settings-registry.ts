@@ -863,6 +863,18 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Select",
   },
   {
+    id: "device-look",
+    sectionId: "app-style",
+    labelKey: "settings.deviceLook.label",
+    label: "Look on this device",
+    description:
+      'Normally your theme, Visual Style, colors, font and CSS theme are the same on every device. Pick "Only this device" to give this one its own look, for example light on your phone and dark on your PC.',
+    descriptionKey: "settings.deviceLook.help",
+    aliases: ["per device", "different theme", "phone theme", "mobile theme", "sync theme"],
+    keywords: ["device", "phone", "desktop", "sync"],
+    kind: "Select",
+  },
+  {
     id: "desktop-sidebar-width",
     sectionId: "layout",
     labelKey: "settings.appearance.sidebarWidth",

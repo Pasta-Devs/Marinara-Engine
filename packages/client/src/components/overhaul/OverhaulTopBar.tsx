@@ -559,6 +559,7 @@ export function OverhaulTopBar() {
           type="button"
           className="ov-icon-btn ov-icon-btn--sm"
           onClick={() => setOmnibarOpen(true)}
+          data-tour="omnibar-button"
           title={localize("Search or open anything")}
           aria-label={localize("Search or open anything")}
         >
@@ -588,6 +589,7 @@ export function OverhaulTopBar() {
             className="ov-text-btn"
             onClick={() => useUIStore.getState().openModal("docs-viewer")}
             title={localize("Docs")}
+            data-tour="docs-button"
           >
             <span aria-hidden="true">📖</span>
             <span>{localize("Docs")}</span>

@@ -1688,9 +1688,7 @@ export function pickSyncedSettings(state: UIState) {
   return {
     libraryManualOrders: state.libraryManualOrders,
     showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
-    sidebarOpen: state.sidebarOpen,
-    sidebarWidth: state.sidebarWidth,
-    rightPanelWidth: state.rightPanelWidth,
+    // sidebarOpen and the pane widths stay on each device (see LOCAL_ONLY_SETTING_KEYS in use-settings-sync).
     trackerPanelEnabled: state.trackerPanelEnabled,
     trackerPanelSide: state.trackerPanelSide,
     trackerPanelHideHudWidgets: state.trackerPanelHideHudWidgets,
