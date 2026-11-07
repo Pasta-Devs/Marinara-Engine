@@ -25,6 +25,7 @@ import { JobPickerWindow, useConnectionDefaults, type DefaultsTile } from "../co
 import { openAddConnection, openAddModels } from "../../lib/add-connection";
 import type { ConnectionRowData } from "../connections/ConnectionRow";
 import { useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
+import { useDecisionEngine } from "./decision-engine";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 
 type KindFilter = "all" | "chat" | "image" | "video" | "voice";
@@ -153,8 +154,9 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
   const setup = useDeviceSetup();
   const engines = useDeviceEngines();
   const usedBy = useLocalModelUsedBy();
+  const decision = useDecisionEngine();
   const builtInAvailable = setup["local-model"].available && !setup["local-model"].setUp;
-  if (engines.length === 0 && !builtInAvailable) return null;
+  if (engines.length === 0 && !builtInAvailable && !decision) return null;
   const rows = [
     ...engines.map((engine) => ({
       item: engine.item,
@@ -180,6 +182,19 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
               run: () => openAddConnection({ category: "device", item: "local-model" }),
             },
             open: () => openAddConnection({ category: "device", item: "local-model" }),
+          },
+        ]
+      : []),
+    ...(decision
+      ? [
+          {
+            item: "decision" as DeviceItem,
+            name: decision.name,
+            detail: "",
+            tone: decision.tone,
+            state: decision.state,
+            fix: undefined as { label: string; run: () => void } | undefined,
+            open: () => onOpen("decision" as DeviceItem),
           },
         ]
       : []),

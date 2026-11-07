@@ -19,11 +19,17 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { Toggle, flag, parseList, useRegexImport } from "./LibraryTables";
 import { DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
+import { ConnectionAccountEditor } from "../connections/ConnectionAccountEditor";
 import { ProviderIcon } from "../connections/ProviderIcon";
 import type { DeviceItem } from "../../hooks/use-device-setup";
+import { DecisionModelModal } from "../modals/DecisionModelModal";
+import { DECISION_DEVICE_ID, useDecisionEngine } from "./decision-engine";
 
 /** Built-in model and local voice engines share the Model viewer: their id is `device:<item>`. */
 export const DEVICE_PREFIX = "device:";
+/** Viewer id of an account's own page (`account-key:` opens it on Replace key). */
+export const ACCOUNT_PREFIX = "account:";
+export const ACCOUNT_KEY_PREFIX = "account-key:";
 
 export type OvViewerRow = {
   id: string;
@@ -35,7 +41,8 @@ export type OvViewerRow = {
   monoSub?: boolean;
 };
 
-export type OvViewerGroup = { id: string; label: string; rows: OvViewerRow[] };
+/** `openId`: the group itself has a page (a Connections account); its name opens it, the chevron folds it. */
+export type OvViewerGroup = { id: string; label: string; rows: OvViewerRow[]; openId?: string };
 
 export type OvViewerTool = { label: string; icon: typeof Plus; onClick: () => void };
 
@@ -115,7 +122,23 @@ function OvViewer({
             const isClosed = closed[group.id] && !search;
             return (
               <section key={group.id} className="ov-vw__group">
-                {group.label ? (
+                {group.label && group.openId ? (
+                  <div className={cn("ov-vw__ghead is-split", group.openId === selectedId && "is-on")}>
+                    <button
+                      type="button"
+                      className="ov-vw__gfold"
+                      aria-expanded={!isClosed}
+                      aria-label={group.label}
+                      onClick={() => setClosed((current) => ({ ...current, [group.id]: !current[group.id] }))}
+                    >
+                      <ChevronDown size={13} className={cn(isClosed && "-rotate-90")} aria-hidden="true" />
+                    </button>
+                    <button type="button" className="ov-vw__gopen" onClick={() => onSelect(group.openId!)}>
+                      <span>{group.label}</span>
+                      <small>{group.rows.length}</small>
+                    </button>
+                  </div>
+                ) : group.label ? (
                   <button
                     type="button"
                     className="ov-vw__ghead"
@@ -279,6 +302,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
   const engines = useDeviceEngines();
+  const decisionEngine = useDecisionEngine();
   const [search, setSearch] = useState("");
 
   // Same shape as the landing table: each account with its models, then models with no account.
@@ -307,6 +331,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       .map((group) => ({
         id: group.account.id,
         label: group.account.name,
+        openId: `${ACCOUNT_PREFIX}${group.account.id}`,
         rows: group.rows
           .filter((row) => hit(row, group.account.name))
           .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
@@ -325,9 +350,21 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
         sub: [engine.state, engine.detail].filter(Boolean).join(" · "),
         lead: <ProviderIcon provider={engine.item} size="sm" dim={engine.tone !== "ok"} />,
       }));
+    if (decisionEngine && (!needle || decisionEngine.name.toLowerCase().includes(needle)))
+      devices.push({
+        id: DECISION_DEVICE_ID,
+        name: decisionEngine.name,
+        sub: decisionEngine.state,
+        lead: <ProviderIcon provider="decision" size="sm" dim={decisionEngine.tone !== "ok"} />,
+      });
     if (devices.length) list.push({ id: "__device", label: localize("On this device"), rows: devices });
     return list;
-  }, [engines, grouped, localize, search]);
+  }, [decisionEngine, engines, grouped, localize, search]);
+  const accountPage = selectedId?.startsWith(ACCOUNT_PREFIX)
+    ? { id: selectedId.slice(ACCOUNT_PREFIX.length), replaceKey: false }
+    : selectedId?.startsWith(ACCOUNT_KEY_PREFIX)
+      ? { id: selectedId.slice(ACCOUNT_KEY_PREFIX.length), replaceKey: true }
+      : null;
   const device = selectedId?.startsWith(DEVICE_PREFIX) ? (selectedId.slice(DEVICE_PREFIX.length) as DeviceItem) : null;
 
   const firstId = groups.find((group) => group.rows.length)?.rows[0]?.id;
@@ -352,7 +389,24 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       emptyList={localize("No accounts yet.")}
       emptyDetail={localize("Pick a model on the left, or add an account.")}
     >
-      {device ? (
+      {accountPage ? (
+        <ConnectionAccountEditor
+          key={selectedId}
+          embedded
+          accountId={accountPage.id}
+          replaceKey={accountPage.replaceKey}
+          onClose={closeConnectionDetail}
+        />
+      ) : selectedId === DECISION_DEVICE_ID ? (
+        <div className="ov-devpage">
+          <header className="ov-devpage__head">
+            <ProviderIcon provider="decision" size="sm" />
+            <h3>{decisionEngine?.name ?? localize("Built-in model (decisions)")}</h3>
+            {decisionEngine ? <span className="ov-conn__dim">{decisionEngine.state}</span> : null}
+          </header>
+          <DecisionModelModal embedded open onClose={closeConnectionDetail} />
+        </div>
+      ) : device ? (
         <div className="ov-devpage">
           <DeviceDetail key={device} item={device} onOpenDefaults={closeConnectionDetail} />
         </div>

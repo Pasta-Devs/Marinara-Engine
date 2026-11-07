@@ -39,10 +39,13 @@ import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store";
+import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
+import { ModelDownloadModal } from "../modals/ModelDownloadModal";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
 import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
@@ -257,6 +260,9 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
   const { t: localizeUi } = useTranslation();
   /** The managed decision model installer, opened from inside this page. */
   const [decisionModalOpen, setDecisionModalOpen] = useState(false);
+  const ovDesktop = useOverhaulActive();
+  /** In the new layout, Runtime settings open as a section of this page instead of a pop-up. */
+  const [inlineSettings, setInlineSettings] = useState(false);
   const { data: agentConfigs } = useAgentConfigs();
   const { data: capabilityAgents } = useCapabilityAgentRegistry();
   const createAgent = useCreateAgent();
@@ -372,7 +378,8 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
 
   const openLocalModelSettings = () => {
     void fetchStatus();
-    setShowDownloadModal(true);
+    if (ovDesktop) setInlineSettings((v) => !v);
+    else setShowDownloadModal(true);
   };
 
   const handleDownloadNow = async () => {
@@ -439,7 +446,12 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
           <RefreshCw size="0.75rem" className={cn(retrying && "animate-spin")} />
           {localizeUi("connections.device.retry")}
         </button>
-        <button type="button" onClick={openLocalModelSettings} className={SMALL_ACTION}>
+        <button
+          type="button"
+          onClick={openLocalModelSettings}
+          className={cn(SMALL_ACTION, inlineSettings && "mari-device-active")}
+          aria-expanded={ovDesktop ? inlineSettings : undefined}
+        >
           <Settings2 size="0.75rem" />
           {localizeUi("connections.device.runtimeSettings")}
         </button>
@@ -565,12 +577,21 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
       {/* The decision sidecar is its own model and its own process, so it does not wait for a chat model. */}
       <button
         type="button"
-        onClick={() => setDecisionModalOpen(true)}
+        // The new layout lists the decision model as its own entry beside this one, so it opens there.
+        onClick={() =>
+          ovDesktop ? useUIStore.getState().openConnectionDetail("device:decision") : setDecisionModalOpen(true)
+        }
         className={cn(SMALL_ACTION, "mari-device-decisions w-full")}
       >
         {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
       </button>
       <DecisionModelModal open={decisionModalOpen} onClose={() => setDecisionModalOpen(false)} />
+      {ovDesktop && inlineSettings ? (
+        <section className="mari-device-runtime">
+          <h4>{localizeUi("connections.device.runtimeSettings")}</h4>
+          <ModelDownloadModal embedded open onClose={() => setInlineSettings(false)} />
+        </section>
+      ) : null}
     </div>
   );
 }
