@@ -571,6 +571,7 @@ export function AppShell({
   }, [chatUiInsetLeft, chatUiInsetRight]);
   useLayoutEffect(
     () => () => {
+      chatUiInsetPublishedRef.current = false;
       document.documentElement.style.removeProperty("--mari-chat-ui-inset-left");
       document.documentElement.style.removeProperty("--mari-chat-ui-inset-right");
     },

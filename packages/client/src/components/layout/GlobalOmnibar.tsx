@@ -214,6 +214,15 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const [overDialog] = useState(() => document.querySelector('[aria-modal="true"]') !== null);
   // Published as an attribute for the sheet CSS: a `:has(:focus)` rule there restyled the whole app on every DOM insertion.
   const [composerFocused, setComposerFocused] = useState(false);
+  // A focused composer that unmounts sends no blur, so let the next focus anywhere clear the flag.
+  useEffect(() => {
+    if (!composerFocused) return;
+    const clear = (event: FocusEvent) => {
+      if (!(event.target as Element).classList?.contains("mari-workspace-composer__input")) setComposerFocused(false);
+    };
+    document.addEventListener("focusin", clear);
+    return () => document.removeEventListener("focusin", clear);
+  }, [composerFocused]);
   useLayoutEffect(() => takePullHandoff()?.(dialogRef.current), []);
   // R33: how far the search field has to fall to land where Mari's composer sits.
   // Measured while the list is still up, because by the time it leaves the field
