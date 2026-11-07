@@ -63,6 +63,7 @@ import {
   useRef,
   useCallback,
   useMemo,
+  use,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -70,6 +71,8 @@ import {
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useOverhaulStore } from "../../stores/overhaul.store";
+import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../../lib/overhaul-styles";
+import { preloadChatSurface } from "../chat/chat-surface-preload";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
 import { LIBRARY_SECTIONS, openLibrarySection } from "../overhaul/library-navigation";
 import { OverhaulMobileTopBar } from "../overhaul/MobileTopBar";
@@ -565,6 +568,20 @@ export function AppShell({
   const overhaulMobile = overhaulEnabled && shellOverlayMode;
   // Pages the overhaul adds (Library landing pages, Settings tabs, Docs, Mari, Schedules) show on both.
   const overhaulPages = overhaulActive || overhaulMobile;
+  // The new layout's stylesheets load on demand (lib/overhaul-styles.ts). Wait for this shell's before
+  // drawing it, so it never shows unstyled; App starts the download before this chunk arrives.
+  const overhaulShell: OverhaulShell | null = overhaulActive ? "desktop" : overhaulMobile ? "mobile" : null;
+  if (overhaulShell && !overhaulStylesReady(overhaulShell)) use(loadOverhaulStyles(overhaulShell));
+  // Classic layout: a few shared dialogs (Add account, Peek Prompt...) use the new layout's classes, so
+  // its stylesheet still arrives, just after startup instead of in the way of it.
+  useEffect(() => {
+    if (overhaulEnabled) return;
+    const load = () => void loadOverhaulStyles("desktop").catch(() => undefined);
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number })
+      .requestIdleCallback;
+    if (idle) idle(load, { timeout: 4000 });
+    else window.setTimeout(load, 2000);
+  }, [overhaulEnabled]);
   useEffect(() => {
     useOverhaulStore.getState().setDesktop(!isMobile);
   }, [isMobile]);
@@ -572,7 +589,12 @@ export function AppShell({
   // from the Stack or a tab shows it straight away instead of "Loading…".
   useEffect(() => {
     if (!overhaulEnabled) return;
-    const preload = () => void import("../overhaul/LibraryLandingPage").catch(() => undefined);
+    const preload = () => {
+      void import("../overhaul/LibraryLandingPage").catch(() => undefined);
+      // Opening a chat is the next step almost every time: fetch the chat surfaces now, not on the click.
+      preloadChatSurface("roleplay");
+      preloadChatSurface("conversation");
+    };
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
     if (idle) idle(preload);
     else window.setTimeout(preload, 1500);

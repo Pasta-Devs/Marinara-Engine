@@ -5511,10 +5511,16 @@ function ActionBtn({
   );
 }
 
+// One formatter for every message: toLocaleTimeString builds a new one per call, which made it a
+// noticeable part of opening a chat.
+let messageTimeFormat: Intl.DateTimeFormat | null = null;
+
 function formatTime(dateStr: string): string {
   try {
     const date = new Date(dateStr);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (Number.isNaN(date.getTime())) return date.toLocaleTimeString();
+    messageTimeFormat ??= new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+    return messageTimeFormat.format(date);
   } catch {
     return "";
   }

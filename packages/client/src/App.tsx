@@ -41,7 +41,8 @@ import {
   MOBILE_SHELL_MEDIA_QUERY,
   useUIStore,
 } from "./stores/ui.store";
-import { useOverhaulLook } from "./stores/overhaul.store";
+import { useOverhaulLook, useOverhaulStore } from "./stores/overhaul.store";
+import { loadOverhaulStyles } from "./lib/overhaul-styles";
 import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
 import { api, requestTimeoutSignal } from "./lib/api-client";
@@ -85,6 +86,10 @@ const CLIENT_BUILD = formatRuntimeBuild(APP_VERSION, __MARINARA_BUILD_COMMIT__);
 const LazyModalRenderer = lazy(() =>
   import("./components/layout/ModalRenderer").then((module) => ({ default: module.ModalRenderer })),
 );
+// The new layout's stylesheet downloads alongside the AppShell chunk instead of after it.
+if (typeof window !== "undefined" && useOverhaulStore.getState().enabled) {
+  void loadOverhaulStyles(isMobileShellViewport() ? "mobile" : "desktop").catch(() => undefined);
+}
 const LazyAppShell = lazy(() =>
   import("./components/layout/AppShell").then((module) => ({ default: module.AppShell })),
 );

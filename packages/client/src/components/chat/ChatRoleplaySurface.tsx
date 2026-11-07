@@ -161,6 +161,16 @@ const ActiveLorebookEntriesContent = lazy(async () => {
   return { default: module.ActiveLorebookEntriesContent };
 });
 
+/** Warms the parts a roleplay chat shows when it opens, so the first open needs no second round of downloads. */
+export function preloadRoleplaySurfaceParts() {
+  return Promise.all([
+    import("./RoleplayTrackerWindow"),
+    import("./RoleplayHUD"),
+    import("./WeatherEffects"),
+    import("./EchoChamberPanel"),
+  ]);
+}
+
 const roleplayNotificationSeenKeys = new Set<string>();
 const MAX_ROLEPLAY_NOTIFICATION_SEEN_KEYS = 5_000;
 const BACKGROUND_CROSSFADE_MS = 700;

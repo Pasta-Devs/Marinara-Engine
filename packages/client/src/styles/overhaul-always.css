@@ -1,0 +1,63 @@
+/* ═══════════════════════════════════════════════
+   UI OVERHAUL: rules every layout needs
+   Most overhaul styling lives in overhaul.css and overhaul-mobile.css,
+   which load on demand (lib/overhaul-styles.ts) so the classic layout and
+   startup do not pay for them. These few rules style features the classic
+   layout uses too (Faded Side Panel avatars, Stretch Messages, the Home
+   Widgets dialog), so they stay in the main stylesheet.
+   ═══════════════════════════════════════════════ */
+
+/* Home Widgets dialog: a dense list, eye toggles as small icon buttons. */
+[data-component="HomeBrowserHub.WidgetManager"] section.grid,
+[data-component="HomeBrowserHub.WidgetManager"] > .grid {
+  gap: 0.0625rem;
+}
+[data-component="HomeBrowserHub.WidgetManager"] h3 {
+  margin-bottom: 0.125rem;
+  font-size: 0.6875rem;
+}
+/* ─── Faded Side Panel avatar style ───
+   Like the Glued Side Panel, but a wider portrait that fills the bubble's height and finishes fading
+   inside its own strip, before the text starts. */
+/* The min height goes on the bubble's inner row, so the portrait strip stretches to the bubble's
+   bottom edge instead of stopping at the last line of text. */
+.mari-rp-bubble--faded > div.items-stretch {
+  min-height: calc(7rem * var(--roleplay-avatar-scale, 1));
+}
+.mari-rp-bubble--faded .mari-roleplay-avatar-panel-rail {
+  width: calc(12rem * var(--roleplay-avatar-scale, 1)) !important;
+  border: 0 !important;
+  background: none !important;
+}
+.mari-rp-bubble--faded .rpg-avatar-panel-stack {
+  position: absolute !important;
+  inset: 0 !important;
+  height: auto !important;
+  -webkit-mask-image:
+    linear-gradient(to right, #000 30%, transparent 96%), linear-gradient(to bottom, #000 70%, transparent 100%);
+  mask-image:
+    linear-gradient(to right, #000 30%, transparent 96%), linear-gradient(to bottom, #000 70%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+.mari-rp-bubble--faded.mari-rp-bubble--user .rpg-avatar-panel-stack {
+  -webkit-mask-image:
+    linear-gradient(to left, #000 30%, transparent 96%), linear-gradient(to bottom, #000 70%, transparent 100%);
+  mask-image:
+    linear-gradient(to left, #000 30%, transparent 96%), linear-gradient(to bottom, #000 70%, transparent 100%);
+}
+/* The glued panel's own bottom fades and tail copy are not needed; the mask does the fading. */
+.mari-rp-bubble--faded .rpg-avatar-panel-stack > .pointer-events-none,
+.mari-rp-bubble--faded .rpg-avatar-panel-tail {
+  display: none;
+}
+/* Stretch Messages: every roleplay message fills the full row, however short. */
+.mari-roleplay-message-row--stretch > .mari-roleplay-message-body {
+  flex: 1 1 auto;
+  width: 100%;
+}
+.mari-roleplay-message-row--stretch .mari-rp-bubble {
+  align-self: stretch;
+  width: 100%;
+}
+
