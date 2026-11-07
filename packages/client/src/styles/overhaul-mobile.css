@@ -1333,6 +1333,48 @@
   margin: 0 !important;
   padding: 0 !important;
 }
+/* Phone/tablet sheet: label left, the model on the right like Persona's "Rook" (no help or
+   collapse arrow, no box, no "Follows your Main" note; the chooser opens below on tap). */
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] {
+  display: grid;
+  column-gap: 0.75rem;
+}
+.ov-cs.ov-cs
+  [data-ovm-cs-view]
+  .mari-drawer[data-chat-settings-section="connection"]
+  > .mari-drawer__header
+  > svg:last-child,
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] .mari-drawer__help,
+.ov-cs.ov-cs [data-ovm-cs-view] [data-chat-settings-model-field] > button > .flex-col > span:last-child {
+  display: none;
+}
+.ov-cs.ov-cs.ov-cs
+  [data-ovm-cs-view]
+  .mari-drawer[data-chat-settings-section="connection"]
+  .mari-drawer__body
+  [data-chat-settings-model-field]
+  > button[type="button"][aria-expanded] {
+  min-height: 2.5rem !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ov-muted);
+  justify-content: flex-end !important;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] [data-chat-settings-model-field] > button > .flex-col {
+  flex: 0 1 auto;
+}
+.ov-cs.ov-cs [data-ovm-cs-view] [data-chat-settings-model-field] > button > .flex-col > span:first-child {
+  font-size: 1rem;
+}
+/* The chooser opens under the whole row, not squeezed into the value column. */
+.ov-cs.ov-cs
+  [data-ovm-cs-view]
+  .mari-drawer[data-chat-settings-section="connection"]:has(
+    [data-chat-settings-model-field] > button[aria-expanded="true"]
+  ) {
+  grid-template-columns: minmax(0, 1fr);
+}
 .ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] select {
   height: 2.5rem;
   padding: 0 0.75rem;
