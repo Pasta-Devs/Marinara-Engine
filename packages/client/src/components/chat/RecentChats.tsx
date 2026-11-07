@@ -193,7 +193,7 @@ export function RecentChats() {
   if (recentChats.length === 0) {
     return (
       <div className="flex h-full min-h-36 flex-col justify-end rounded-2xl border border-dashed border-[var(--border)]/70 p-4">
-        <MessageSquare className="mb-3 text-[oklch(0.79_0.16_205)]" size="1.25rem" aria-hidden="true" />
+        <MessageSquare className="mb-3 text-[var(--mari-mode-conversation)]" size="1.25rem" aria-hidden="true" />
         <p className="text-sm font-semibold text-[var(--foreground)]">{t("home.recentChats.emptyTitle")}</p>
         <p className="mt-1 text-xs leading-relaxed text-[var(--muted-foreground)]">
           {t("home.recentChats.emptyDescription")}

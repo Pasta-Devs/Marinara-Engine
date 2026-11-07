@@ -1853,7 +1853,7 @@ export const ChatInput = memo(function ChatInput({
   }, []);
 
   return (
-    <div className="mari-chat-input chat-input-container px-3 pb-3">
+    <div className="mari-chat-input chat-input-container px-3 pb-3" data-mari-part="composer" data-composer="roleplay">
       {/* Slash command autocomplete popup */}
       {completions.length > 0 && (
         <div

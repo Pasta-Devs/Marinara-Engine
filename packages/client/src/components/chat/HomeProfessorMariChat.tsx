@@ -3742,7 +3742,7 @@ export function HomeProfessorMariChat({
                         omnibarMode
                           ? "rounded-none border-0 bg-transparent shadow-none"
                           : embeddedTab
-                            ? "rounded-2xl border-[color-mix(in_srgb,oklch(0.73_0.21_345)_28%,var(--border))] shadow-[0_24px_70px_-42px_oklch(0.73_0.21_345/0.8)]"
+                            ? "rounded-2xl border-[color-mix(in_srgb,var(--mari-home-pink)_28%,var(--border))] shadow-[0_24px_70px_-42px_color-mix(in_srgb,var(--mari-home-pink)_80%,transparent)]"
                             : "rounded-none border-0 sm:rounded-xl sm:border sm:border-[var(--border)]/70 sm:shadow-2xl",
                       )}
                     >

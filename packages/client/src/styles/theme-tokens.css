@@ -1,0 +1,118 @@
+/* ═══════════════════════════════════════════════
+   THEME TOKENS (contract version 1)
+   The colours, fonts and effects a custom theme can set without hunting for selectors.
+   Every token defaults to the look the app had before it existed, so the default UI doesn't
+   change. The full list, with the part hooks, is in styles/README-theming.md. Bump
+   --mari-tokens-version and note it there when a token is renamed or removed.
+   ═══════════════════════════════════════════════ */
+
+:root {
+  --mari-tokens-version: 1;
+
+  /* Fonts. UI is everything; heading is page titles (--ov-serif follows it); chat is message text. */
+  --mari-font-ui: var(--font-y2k);
+  --mari-font-heading: var(--mari-font-ui);
+  --mari-font-chat: var(--mari-font-ui);
+
+  /* Chat modes, on Home chips, recent rows, widget eyebrows and the new-chat launcher. */
+  --mari-mode-conversation: oklch(0.79 0.16 205);
+  --mari-mode-roleplay: oklch(0.76 0.19 52);
+  --mari-mode-game: var(--marinara-mode-game-accent);
+  --mari-home-pink: oklch(0.73 0.21 345);
+  --mari-home-violet: oklch(0.72 0.17 303);
+
+  /* Presence dots and labels. */
+  --mari-status-online: oklch(0.723 0.219 149.579);
+  --mari-status-idle: oklch(0.795 0.184 86.047);
+  --mari-status-dnd: oklch(0.637 0.237 25.331);
+  --mari-status-offline: oklch(0.707 0.022 261.325);
+
+  /* Game gauges and HP bars (a widget's own colour still wins for the normal state). */
+  --mari-gauge-ok: #22c55e;
+  --mari-gauge-warn: #f59e0b;
+  --mari-gauge-danger: #ef4444;
+  --mari-game-combat: #f59e0b;
+  --mari-game-combat-text: rgb(254 243 199 / 0.9);
+
+  /* Surfaces. */
+  --mari-stage-empty-bg: #000;
+  --mari-scrim: rgb(0 0 0 / 0.55);
+  --mari-user-avatar-placeholder: linear-gradient(to bottom right in oklab, oklch(0.556 0 0), oklch(0.439 0 0));
+  /* --mari-art-saturation-1/-2 and --mari-art-lightness-1/-2 tune the placeholder gradients on
+     cards without a picture. They have no value here on purpose (see lib/placeholder-art.ts). */
+
+  /* Accent effects: "none" unless Accent Pulse or RGB Mode is on in the new layout. */
+  --mari-accent-fx-animation: none;
+}
+
+/* Light mode: the same roles, dark enough to read on a light background (4.5:1 or better). */
+[data-theme="light"] {
+  --mari-mode-conversation: oklch(0.5 0.11 215);
+  --mari-mode-roleplay: oklch(0.53 0.15 48);
+  --mari-mode-game: color-mix(in oklab, var(--marinara-mode-game-accent) 72%, black);
+  --mari-home-pink: oklch(0.52 0.19 350);
+  --mari-home-violet: oklch(0.5 0.17 300);
+  --mari-status-online: oklch(0.53 0.15 150);
+  --mari-status-idle: oklch(0.6 0.14 75);
+  --mari-status-dnd: oklch(0.55 0.21 27);
+  --mari-status-offline: oklch(0.55 0.02 260);
+  --mari-game-combat: #d97706;
+  --mari-game-combat-text: #92400e;
+  --mari-stage-empty-bg: color-mix(in srgb, var(--foreground) 12%, var(--background));
+}
+
+.mari-messages-scroll {
+  font-family: var(--mari-font-chat);
+}
+
+/* ─── App backdrop ───
+   A theme that sets --mari-app-backdrop (an image or gradient) gets it painted once, behind the
+   whole app, instead of once per nested surface. CustomThemeInjector sets the attribute. */
+:root[data-mari-app-backdrop] .mari-app {
+  background:
+    var(--mari-app-backdrop) center / cover no-repeat fixed,
+    var(--marinara-app-background-paint);
+}
+:root[data-mari-app-backdrop] .mari-app :is(.mari-app-background-paint, [data-mari-part="home"]) {
+  background: transparent;
+}
+
+/* ─── Accent effects (Accent Pulse and RGB Mode in the new layout) ───
+   The old layout rewrote root colour tokens on a timer, which restyles every element; on big
+   pages that froze the app. Here a filter animates on a handful of accent spots instead, which
+   the browser can run on the compositor. Themes join in with `animation: var(--mari-accent-fx-animation)`. */
+@keyframes mari-accent-fx-pulse {
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: brightness(1.22) saturate(1.25);
+  }
+}
+@keyframes mari-accent-fx-rgb {
+  from {
+    filter: hue-rotate(0deg);
+  }
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-mari-accent-fx="pulse"] {
+    --mari-accent-fx-animation: mari-accent-fx-pulse 3.2s ease-in-out infinite;
+  }
+  :root[data-mari-accent-fx="rgb"] {
+    --mari-accent-fx-animation: mari-accent-fx-rgb 9s linear infinite;
+  }
+  :root[data-mari-accent-fx]:not([data-marinara-effects-paused])
+    :is(
+      .ov-new-pill,
+      .ov-btn--primary,
+      .mari-chrome-control--primary,
+      .mari-chrome-accent-tile,
+      [data-overhaul-topbar] .mari-topbar-button[aria-pressed="true"]
+    ) {
+    animation: var(--mari-accent-fx-animation);
+  }
+}

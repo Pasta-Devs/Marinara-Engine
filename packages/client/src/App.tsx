@@ -250,11 +250,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
                   {t("ui.app.recovery.reload")}
                 </button>
                 {useUIStore.getState().fontSize !== 17 ? (
-                  <button
-                    type="button"
-                    onClick={this.resetTextSize}
-                    className="mari-chrome-control px-3 py-2 text-sm"
-                  >
+                  <button type="button" onClick={this.resetTextSize} className="mari-chrome-control px-3 py-2 text-sm">
                     {t("theming.recovery.resetTextSize", "Reset text size")}
                   </button>
                 ) : null}
@@ -859,6 +855,17 @@ export function App() {
       !overhaulLook &&
       (appAccentRgbMode || (appAccentPulseMode && !stageDefaultAccent) || themeAccentPulseConfig.enabled);
     const usesTimerDrivenAccentAnimation = accentAnimationEnabled;
+    // The new layout's version: a CSS filter animation on a few accent spots (overhaul.css,
+    // "Accent effects"). Nothing is rewritten per frame, so the rest of the page stays idle.
+    const accentFx = !overhaulLook
+      ? null
+      : appAccentRgbMode
+        ? "rgb"
+        : (appAccentPulseMode && !stageDefaultAccent) || themeAccentPulseConfig.enabled
+          ? "pulse"
+          : null;
+    if (accentFx && !reduceAmbientEffects) root.dataset.mariAccentFx = accentFx;
+    else delete root.dataset.mariAccentFx;
 
     setRootVar("--marinara-app-accent-static", solidAccent);
     setRootVar(

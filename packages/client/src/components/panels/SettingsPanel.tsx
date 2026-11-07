@@ -3678,12 +3678,12 @@ function ThemeColorNotes({
     return () => cancelAnimationFrame(frame);
   }, [theme, themeCss, value]);
   const target = kind === "background" ? 4.5 : 3;
-  const ratio = kind === "background" ? (foreground ? cssContrast(foreground, value) : null) : cssContrast(value, background);
+  const ratio =
+    kind === "background" ? (foreground ? cssContrast(foreground, value) : null) : cssContrast(value, background);
   const low = ratio !== null && ratio < target;
   const fix = () => {
     // A background is fixed past the minimum, to comfortable reading (7:1); an accent to the minimum.
-    const fixed =
-      kind === "background" ? fixContrast(value, foreground, 7) : fixContrast(value, background, target);
+    const fixed = kind === "background" ? fixContrast(value, foreground, 7) : fixContrast(value, background, target);
     if (fixed) onFix(fixed);
   };
   if (!low && !themeOverrides) return null;
@@ -3692,10 +3692,13 @@ function ThemeColorNotes({
       {low ? (
         <p role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[var(--destructive)]">
           <span>
-            {localizeUi(kind === "background" ? "theming.pickers.lowContrastBackground" : "theming.pickers.lowContrastAccent", {
-              ratio: ratio!.toFixed(1),
-              target: target.toFixed(1).replace(/\.0$/, ""),
-            })}
+            {localizeUi(
+              kind === "background" ? "theming.pickers.lowContrastBackground" : "theming.pickers.lowContrastAccent",
+              {
+                ratio: ratio!.toFixed(1),
+                target: target.toFixed(1).replace(/\.0$/, ""),
+              },
+            )}
           </span>
           <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={fix}>
             {localizeUi("theming.pickers.fixForMe")}
@@ -3720,7 +3723,9 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const rightPanelWidth = useUIStore((state) => state.rightPanelWidth);
   const setRightPanelWidth = useUIStore((state) => state.setRightPanelWidth);
   // Background and accent pickers edit the scheme on screen; each scheme keeps its own (batch 2).
-  const appBackgroundColor = useUIStore((s) => (s.theme === "light" ? s.appBackgroundColorLight : s.appBackgroundColor));
+  const appBackgroundColor = useUIStore((s) =>
+    s.theme === "light" ? s.appBackgroundColorLight : s.appBackgroundColor,
+  );
   const setAppBackgroundColor = useUIStore((s) =>
     s.theme === "light" ? s.setAppBackgroundColorLight : s.setAppBackgroundColor,
   );
@@ -4263,12 +4268,11 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("accent-pulse")}
                 label={localizeUi("settings.controls.accentPulse.label")}
-                checked={appAccentPulseMode && !overhaulLayoutEnabled}
+                checked={appAccentPulseMode}
                 onChange={handleAppAccentPulseModeChange}
-                disabled={overhaulLayoutEnabled}
                 help={
                   overhaulLayoutEnabled
-                    ? localizeUi("ui.panels.appearancesettings.offInTheNewLayoutAnimatingTheAccentRestyles")
+                    ? localizeUi("theming.pickers.accentFxNewLayout")
                     : localizeUi("settings.controls.accentPulse.help")
                 }
               />
@@ -4276,23 +4280,16 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("rgb-mode")}
                 label={
-                  <span
-                    className={cn(
-                      appAccentRgbMode &&
-                        !overhaulLayoutEnabled &&
-                        "mari-logo-gradient-text mari-logo-gradient-text--active",
-                    )}
-                  >
+                  <span className={cn(appAccentRgbMode && "mari-logo-gradient-text mari-logo-gradient-text--active")}>
                     {localizeUi("ui.panels.appearancesettings.rgbMode")}
                   </span>
                 }
-                checked={appAccentRgbMode && !overhaulLayoutEnabled}
+                checked={appAccentRgbMode}
                 onChange={handleAppAccentRgbModeChange}
-                disabled={overhaulLayoutEnabled}
-                switchClassName={appAccentRgbMode && !overhaulLayoutEnabled ? "mari-rgb-toggle-track" : undefined}
+                switchClassName={appAccentRgbMode ? "mari-rgb-toggle-track" : undefined}
                 help={
                   overhaulLayoutEnabled
-                    ? localizeUi("ui.panels.appearancesettings.offInTheNewLayoutAnimatingTheAccentRestyles")
+                    ? localizeUi("theming.pickers.accentFxNewLayout")
                     : localizeUi("settings.controls.rainbowAccent.help")
                 }
               />
@@ -6048,117 +6045,120 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
         icon={<Palette size="0.875rem" />}
         {...getSettingsSectionAnchorProps("theme-library")}
       >
-      <div className="flex flex-col gap-3" data-theme-editor="true">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setEditorOpen(false)}
-              aria-label={localizeUi("settings.actions.closeThemeEditor")}
-              title={localizeUi("settings.actions.closeThemeEditor")}
-              className={SETTINGS_ICON_BUTTON_CLASS}
-            >
-              <X size="0.75rem" />
-            </button>
-            <span className="text-xs font-semibold">
-              {editingId
-                ? localizeUi("ui.panels.themessettings.editTheme")
-                : localizeUi("ui.panels.themessettings.newTheme")}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setLivePreview(!livePreview)}
-              aria-pressed={livePreview}
-              className={SETTINGS_BUTTON_CLASS}
-              title={
-                livePreview
-                  ? localizeUi("ui.panels.themessettings.disableLivePreview")
-                  : localizeUi("ui.panels.themessettings.enableLivePreview")
-              }
-            >
-              {livePreview ? <Eye size="0.75rem" /> : <EyeOff size="0.75rem" />}
-              {localizeUi("settings.notifications.customSound.actions.preview")}
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSavingTheme}
-              className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}
-            >
-              {isSavingTheme ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
-              {isSavingTheme
-                ? localizeUi("ui.noodle.stageprofileform.saving")
-                : localizeUi("ui.noodle.noodlehome.save")}
-            </button>
-          </div>
-        </div>
-
-        {/* Theme name */}
-        <input
-          type="text"
-          value={themeName}
-          onChange={(e) => setThemeName(e.target.value)}
-          placeholder={localizeUi("settings.placeholders.themeName")}
-          className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-        />
-
-        {previewProblems.length > 0 && (
-          <p role="alert" className="rounded-lg bg-[var(--destructive)]/10 px-3 py-2 text-[0.6875rem] text-[var(--destructive)] ring-1 ring-[var(--destructive)]/30">
-            {localizeUi("theming.editor.previewPaused")}
-          </p>
-        )}
-
-        {/* CSS textarea */}
-        <textarea
-          value={themeCss}
-          onChange={(e) => setThemeCss(e.target.value)}
-          spellCheck={false}
-          className="min-h-[22.5rem] resize-y rounded-lg border border-[var(--border)] bg-[#0d1117] p-3 font-mono text-[0.6875rem] leading-relaxed text-emerald-300 outline-none transition-colors focus:border-[var(--primary)]/50 placeholder:text-white/20"
-          placeholder={localizeUi("settings.placeholders.themeCss")}
-        />
-
-        {/* Quick reference */}
-        <details className="group rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
-          <summary className="cursor-pointer px-3 py-2 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]">
-            {localizeUi("ui.panels.themessettings.cssVariableReference")}
-          </summary>
-          <div className="border-t border-[var(--border)] px-3 py-2 font-mono text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-              <span>{localizeUi("ui.panels.themessettings.background")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.pageBackground")}</span>
-              <span>{localizeUi("ui.panels.themessettings.foreground")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.mainText")}</span>
-              <span>{localizeUi("ui.panels.themessettings.primary")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.accentButtons")}</span>
-              <span>{localizeUi("ui.panels.themessettings.primaryForeground")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.textOnPrimary")}</span>
-              <span>{localizeUi("ui.panels.themessettings.secondary")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.cardsInputs")}</span>
-              <span>{localizeUi("ui.panels.themessettings.card")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.cardBackground")}</span>
-              <span>{localizeUi("ui.panels.themessettings.border")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.borders")}</span>
-              <span>{localizeUi("ui.panels.themessettings.mutedForeground")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.dimmedText")}</span>
-              <span>{localizeUi("ui.panels.themessettings.sidebar")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.sidebarBg")}</span>
-              <span>{localizeUi("ui.panels.themessettings.sidebarBorder")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.sidebarBorder_26eaad1")}</span>
-              <span>{localizeUi("ui.panels.themessettings.marinaraShellEdgeBorder")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.leftRightShellEdge")}</span>
-              <span>{localizeUi("ui.panels.themessettings.destructive")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.errorDelete")}</span>
-              <span>{localizeUi("ui.panels.themessettings.popover")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.dropdownBg")}</span>
-              <span>{localizeUi("ui.panels.themessettings.accent")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.hoverHighlights")}</span>
+        <div className="flex flex-col gap-3" data-theme-editor="true">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEditorOpen(false)}
+                aria-label={localizeUi("settings.actions.closeThemeEditor")}
+                title={localizeUi("settings.actions.closeThemeEditor")}
+                className={SETTINGS_ICON_BUTTON_CLASS}
+              >
+                <X size="0.75rem" />
+              </button>
+              <span className="text-xs font-semibold">
+                {editingId
+                  ? localizeUi("ui.panels.themessettings.editTheme")
+                  : localizeUi("ui.panels.themessettings.newTheme")}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setLivePreview(!livePreview)}
+                aria-pressed={livePreview}
+                className={SETTINGS_BUTTON_CLASS}
+                title={
+                  livePreview
+                    ? localizeUi("ui.panels.themessettings.disableLivePreview")
+                    : localizeUi("ui.panels.themessettings.enableLivePreview")
+                }
+              >
+                {livePreview ? <Eye size="0.75rem" /> : <EyeOff size="0.75rem" />}
+                {localizeUi("settings.notifications.customSound.actions.preview")}
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSavingTheme}
+                className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}
+              >
+                {isSavingTheme ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
+                {isSavingTheme
+                  ? localizeUi("ui.noodle.stageprofileform.saving")
+                  : localizeUi("ui.noodle.noodlehome.save")}
+              </button>
             </div>
           </div>
-        </details>
-      </div>
+
+          {/* Theme name */}
+          <input
+            type="text"
+            value={themeName}
+            onChange={(e) => setThemeName(e.target.value)}
+            placeholder={localizeUi("settings.placeholders.themeName")}
+            className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
+          />
+
+          {previewProblems.length > 0 && (
+            <p
+              role="alert"
+              className="rounded-lg bg-[var(--destructive)]/10 px-3 py-2 text-[0.6875rem] text-[var(--destructive)] ring-1 ring-[var(--destructive)]/30"
+            >
+              {localizeUi("theming.editor.previewPaused")}
+            </p>
+          )}
+
+          {/* CSS textarea */}
+          <textarea
+            value={themeCss}
+            onChange={(e) => setThemeCss(e.target.value)}
+            spellCheck={false}
+            className="min-h-[22.5rem] resize-y rounded-lg border border-[var(--border)] bg-[#0d1117] p-3 font-mono text-[0.6875rem] leading-relaxed text-emerald-300 outline-none transition-colors focus:border-[var(--primary)]/50 placeholder:text-white/20"
+            placeholder={localizeUi("settings.placeholders.themeCss")}
+          />
+
+          {/* Quick reference */}
+          <details className="group rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
+            <summary className="cursor-pointer px-3 py-2 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]">
+              {localizeUi("ui.panels.themessettings.cssVariableReference")}
+            </summary>
+            <div className="border-t border-[var(--border)] px-3 py-2 font-mono text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                <span>{localizeUi("ui.panels.themessettings.background")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.pageBackground")}</span>
+                <span>{localizeUi("ui.panels.themessettings.foreground")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.mainText")}</span>
+                <span>{localizeUi("ui.panels.themessettings.primary")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.accentButtons")}</span>
+                <span>{localizeUi("ui.panels.themessettings.primaryForeground")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.textOnPrimary")}</span>
+                <span>{localizeUi("ui.panels.themessettings.secondary")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.cardsInputs")}</span>
+                <span>{localizeUi("ui.panels.themessettings.card")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.cardBackground")}</span>
+                <span>{localizeUi("ui.panels.themessettings.border")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.borders")}</span>
+                <span>{localizeUi("ui.panels.themessettings.mutedForeground")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.dimmedText")}</span>
+                <span>{localizeUi("ui.panels.themessettings.sidebar")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.sidebarBg")}</span>
+                <span>{localizeUi("ui.panels.themessettings.sidebarBorder")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.sidebarBorder_26eaad1")}</span>
+                <span>{localizeUi("ui.panels.themessettings.marinaraShellEdgeBorder")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.leftRightShellEdge")}</span>
+                <span>{localizeUi("ui.panels.themessettings.destructive")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.errorDelete")}</span>
+                <span>{localizeUi("ui.panels.themessettings.popover")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.dropdownBg")}</span>
+                <span>{localizeUi("ui.panels.themessettings.accent")}</span>
+                <span className="text-white/40">{localizeUi("ui.panels.themessettings.hoverHighlights")}</span>
+              </div>
+            </div>
+          </details>
+        </div>
       </SettingsSection>
     );
   }

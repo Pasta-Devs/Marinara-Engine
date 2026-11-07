@@ -68,7 +68,7 @@ function CrossfadeBackground({ url, blurPx = 0 }: { url?: string; blurPx?: numbe
           }}
         />
       )}
-      {isBlack && <div className="absolute inset-0 bg-black" />}
+      {isBlack && <div className="absolute inset-0 bg-[var(--mari-stage-empty-bg)]" data-mari-part="stage-empty" />}
     </>
   );
 }

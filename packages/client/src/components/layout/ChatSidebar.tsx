@@ -142,10 +142,10 @@ const CONVERSATION_STATUS_PRIORITY: Record<ConversationPresenceStatus, number> =
 };
 
 const CONVERSATION_STATUS_DOT_CLASS: Record<ConversationPresenceStatus, string> = {
-  online: "bg-green-500",
-  idle: "bg-yellow-500",
-  offline: "bg-gray-400",
-  dnd: "bg-red-500",
+  online: "bg-[var(--mari-status-online)]",
+  idle: "bg-[var(--mari-status-idle)]",
+  offline: "bg-[var(--mari-status-offline)]",
+  dnd: "bg-[var(--mari-status-dnd)]",
 };
 
 function asConversationStatus(value: unknown): ConversationPresenceStatus | undefined {
@@ -2699,29 +2699,29 @@ const STATUS_OPTIONS: Array<{
     value: "active",
     label: "Active",
     description: "You're online and available",
-    color: "bg-green-500",
-    icon: <Circle size="0.625rem" className="fill-green-500 text-green-500" />,
+    color: "bg-[var(--mari-status-online)]",
+    icon: <Circle size="0.625rem" className="fill-[var(--mari-status-online)] text-[var(--mari-status-online)]" />,
   },
   {
     value: "idle",
     label: "Idle",
     description: "Automatic when you're away",
-    color: "bg-yellow-500",
-    icon: <Moon size="0.625rem" className="text-yellow-500" />,
+    color: "bg-[var(--mari-status-idle)]",
+    icon: <Moon size="0.625rem" className="text-[var(--mari-status-idle)]" />,
   },
   {
     value: "dnd",
     label: "Do Not Disturb",
     description: "Suppress auto messages",
-    color: "bg-red-500",
-    icon: <MinusCircle size="0.625rem" className="text-red-500" />,
+    color: "bg-[var(--mari-status-dnd)]",
+    icon: <MinusCircle size="0.625rem" className="text-[var(--mari-status-dnd)]" />,
   },
   {
     value: "invisible",
     label: "Invisible",
     description: "Hide your status from models",
-    color: "bg-gray-400",
-    icon: <Circle size="0.625rem" className="fill-gray-400 text-gray-400" />,
+    color: "bg-[var(--mari-status-offline)]",
+    icon: <Circle size="0.625rem" className="fill-[var(--mari-status-offline)] text-[var(--mari-status-offline)]" />,
   },
 ];
 

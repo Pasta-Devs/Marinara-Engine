@@ -9,7 +9,7 @@
 // ──────────────────────────────────────────────
 import { useEffect } from "react";
 import { useThemes } from "../../hooks/use-themes";
-import { extractImportantThemeCss, sanitizeAppCss } from "../../lib/theme-css";
+import { extractImportantThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
 import { installSafeModeShortcut, useThemeSafetyStore } from "../../lib/theme-safety";
 import { checkProtectedChrome } from "../../lib/theme-guard";
 import { useUIStore } from "../../stores/ui.store";
@@ -62,11 +62,15 @@ export function CustomThemeInjector() {
     if (importantCss) ensureStyle(IMPORTANT_ID).textContent = importantCss;
     else document.getElementById(IMPORTANT_ID)?.remove();
     document.documentElement.dataset.customTheme = activeTheme.id;
+    // A backdrop is painted once behind the whole app (theme-tokens.css), not on every surface.
+    if (themeSetsVariable(css, "--mari-app-backdrop")) document.documentElement.dataset.mariAppBackdrop = "";
+    else delete document.documentElement.dataset.mariAppBackdrop;
 
     return () => {
       document.getElementById(NORMAL_ID)?.remove();
       document.getElementById(IMPORTANT_ID)?.remove();
       delete document.documentElement.dataset.customTheme;
+      delete document.documentElement.dataset.mariAppBackdrop;
     };
   }, [activeTheme, allowed]);
 

@@ -11,7 +11,7 @@
 
 :root {
   /* Titles use the app's own font (Inter by default, or the user's font choice). */
-  --ov-serif: var(--font-y2k);
+  --ov-serif: var(--mari-font-heading);
   --ov-topbar-height: 2.625rem;
   --ov-mode-conversation: #4fb8c9;
   --ov-mode-roleplay: #e0566f;
@@ -4343,7 +4343,7 @@ input.ov-edhead__title:focus {
   align-items: center;
   gap: 0.25rem;
   flex: none;
-  color: #5fc48a;
+  color: var(--mari-status-online);
   font-size: 0.6875rem;
 }
 .ov-tab__presence i {
@@ -4420,7 +4420,7 @@ input.ov-edhead__title:focus {
   color: var(--ov-muted);
 }
 .ov-gsw__steps button.is-done svg {
-  color: #5fc48a;
+  color: var(--mari-status-online);
 }
 .ov-gsw__steps button.is-on {
   background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
