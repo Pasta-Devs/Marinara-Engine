@@ -9,7 +9,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { OvmDrill } from "../overhaul/MobileDrill";
-import { OvEditorHead, OvSaveState } from "../overhaul/EditorChrome";
+import { OvEditorHead } from "../overhaul/EditorChrome";
+import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { useUIStore } from "../../stores/ui.store";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
 import { rebaseUntouchedKeys } from "../../lib/mari-editor-fields";
@@ -1741,12 +1742,12 @@ export function AgentEditor() {
   }, [loadTick]);
 
   const handleSave = useCallback(async () => {
-    if (!agentDetailId) return;
+    if (!agentDetailId) return false;
     setSaveError(null);
     const payload = buildSavePayload();
     if (typeof payload === "string") {
       setSaveError(payload);
-      return;
+      return false;
     }
 
     try {
@@ -1819,6 +1820,12 @@ export function AgentEditor() {
     createAgent,
     openAgentDetail,
   ]);
+  useEditorLeaveSave(
+    `agentDetailId:${agentDetailId}`,
+    dirty,
+    handleSave,
+    updateAgent.isPending || createAgent.isPending,
+  );
 
   const handleExportAgent = () => {
     if (!agentDetailId) return;
@@ -2472,23 +2479,12 @@ export function AgentEditor() {
               markDirty();
             }}
             meta={builtIn ? "Built-in agent" : "Custom agent"}
-            status={<OvSaveState dirty={dirty} saving={isPending} error={!!saveError} />}
+            save={{ dirty, saving: isPending, error: !!saveError, onSave: handleSave }}
             actions={
               <>
                 <button type="button" className="ov-edbtn" onClick={handleExportAgent}>
                   <Upload size={13} aria-hidden="true" />
                   {localizeUi("chat.advancedMemory.export")}
-                </button>
-                <button
-                  type="button"
-                  className="ov-edbtn ov-edbtn--primary"
-                  onClick={handleSave}
-                  disabled={!dirty || isPending}
-                >
-                  <Save size={13} aria-hidden="true" />
-                  {savedFlash && !dirty
-                    ? localizeUi("chat.settings.inlineEditor.saved")
-                    : localizeUi("chat.settingsProfile.builder.save")}
                 </button>
               </>
             }

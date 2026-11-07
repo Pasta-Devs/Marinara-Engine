@@ -26,6 +26,7 @@ import type { DeviceItem } from "../../hooks/use-device-setup";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { DECISION_DEVICE_ID, useDecisionEngine } from "./decision-engine";
 import { EditorCrumbs, type RailCrumb } from "./EditorRail";
+import { OvEditorHeadSlot } from "./EditorChrome";
 
 /** Built-in model and local voice engines share the Model viewer: their id is `device:<item>`. */
 export const DEVICE_PREFIX = "device:";
@@ -90,6 +91,7 @@ function OvViewer({
   children: ReactNode;
 }) {
   const [closed, setClosed] = useState<Record<string, boolean>>({});
+  const [headSlot, setHeadSlot] = useState<HTMLDivElement | null>(null);
   const visible = groups.filter((group) => group.rows.length || !search);
   const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
   // Library > Section > item, like the Lorebook, Preset and Character pages.
@@ -101,29 +103,34 @@ function OvViewer({
   if (typeof selectedName === "string" && selectedName) crumbs.push({ label: selectedName });
   return (
     <div className="ov-vw">
-      <header className="ov-vw__top has-crumbs">
-        <EditorCrumbs items={crumbs} />
-        <h1>{title}</h1>
-        <small>{meta}</small>
-        <div className="ov-vw__actions">
-          {tools.map(({ label, icon: Icon, onClick }) => (
-            <button key={label} type="button" className="ov-btn" onClick={onClick}>
-              {Icon ? <Icon size={14} aria-hidden="true" /> : null}
-              {label}
-            </button>
-          ))}
-          <button type="button" className="ov-btn ov-btn--primary" data-ov-anchor={newAnchor} onClick={onNew}>
-            <Plus size={14} aria-hidden="true" />
-            {newLabel}
-          </button>
-        </div>
-      </header>
+      {/* The open item's editor puts its own header here (OvEditorHead), so Regex, Connections and
+          Agents read like every other editor: Library › Section › Item, the item's name, Save. */}
+      <div className="ov-vw__head">
+        <div className="ov-vw__slot" ref={setHeadSlot} />
+        <header className="ov-vw__top has-crumbs">
+          <EditorCrumbs items={crumbs} />
+          <h1>{title}</h1>
+          <small>{meta}</small>
+        </header>
+      </div>
       <aside className="ov-vw__left" aria-label={title}>
         <div className="ov-vw__find">
           <label className="ov-vw__search">
             <Search size={13} aria-hidden="true" />
             <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder={searchPlaceholder} />
           </label>
+        </div>
+        <div className="ov-vw__tools ov-vw__tools--list">
+          {tools.map(({ label, icon: Icon, onClick }) => (
+            <button key={label} type="button" onClick={onClick}>
+              {Icon ? <Icon size={13} aria-hidden="true" /> : null}
+              {label}
+            </button>
+          ))}
+          <button type="button" className="is-new" data-ov-anchor={newAnchor} onClick={onNew}>
+            <Plus size={13} aria-hidden="true" />
+            {newLabel}
+          </button>
         </div>
         <p className="ov-vw__label">
           {listLabel}
@@ -193,7 +200,11 @@ function OvViewer({
           })}
         </div>
       </aside>
-      <div className="ov-vw__main">{children ?? <p className="ov-vw__pick">{emptyDetail}</p>}</div>
+      <div className="ov-vw__main">
+        <OvEditorHeadSlot.Provider value={headSlot}>
+          {children ?? <p className="ov-vw__pick">{emptyDetail}</p>}
+        </OvEditorHeadSlot.Provider>
+      </div>
     </div>
   );
 }
@@ -461,7 +472,8 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
       : (decisionEngine?.name ?? localize("Built-in model (decisions)"));
   return (
     <section className="ov-ed ovm-connpage" data-component="OverhaulConnectionPage">
-      <div className="ovm-drill-page__head">
+      {/* An account page brings the shared editor header (‹ back, name, Save). */}
+      <div className="ovm-drill-page__head" hidden={!!accountPage}>
         <button
           type="button"
           className="ovm-drill-page__back"

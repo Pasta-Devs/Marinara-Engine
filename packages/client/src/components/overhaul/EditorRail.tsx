@@ -104,9 +104,10 @@ export function EditorRail({
   onReplaceAvatar: () => void;
   /** Extra buttons over the portrait (Crop, Generate…). */
   avatarActions?: ReactNode;
-  name: string;
-  onNameChange: (value: string) => void;
-  namePlaceholder: string;
+  /** Without onNameChange the name is edited in the editor's header instead. */
+  name?: string;
+  onNameChange?: (value: string) => void;
+  namePlaceholder?: string;
   subtitle?: string;
   onSubtitleChange?: (value: string) => void;
   subtitlePlaceholder?: string;
@@ -165,15 +166,17 @@ export function EditorRail({
       </div>
 
       {/* Single-line values that wrap: textareas sized to their content, Enter does not add a line. */}
-      <textarea
-        className="ov-rail__name ov-rail__wrap"
-        rows={1}
-        value={name}
-        onChange={(event) => onNameChange(event.target.value.replace(/\n/g, " "))}
-        onKeyDown={blockNewline}
-        placeholder={namePlaceholder}
-        aria-label={namePlaceholder}
-      />
+      {onNameChange ? (
+        <textarea
+          className="ov-rail__name ov-rail__wrap"
+          rows={1}
+          value={name}
+          onChange={(event) => onNameChange(event.target.value.replace(/\n/g, " "))}
+          onKeyDown={blockNewline}
+          placeholder={namePlaceholder}
+          aria-label={namePlaceholder}
+        />
+      ) : null}
       {onSubtitleChange ? (
         <textarea
           className="ov-rail__subtitle ov-rail__wrap"
