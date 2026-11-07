@@ -20,6 +20,7 @@ import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-f
 // ──────────────────────────────────────────────
 import { useState, useCallback, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import {
   useConnection,
   useConnections,
@@ -368,6 +369,7 @@ export function ConnectionEditor({
   const connectionDetailId = connectionId ?? storedConnectionDetailId;
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
   const closeEditor = closeConnectionDetail;
+  const ovDesktop = useOverhaulActive();
 
   const { data: conn, isLoading } = useConnection(connectionDetailId);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -2218,13 +2220,16 @@ export function ConnectionEditor({
       {/* ── Header ── */}
       <div className={"mari-editor-header"}>
         <div className="mari-editor-header-main">
-          <button
-            onClick={handleClose}
-            className="mari-editor-action inline-flex shrink-0"
-            aria-label={localizeUi("connections.editor.back")}
-          >
-            <ArrowLeft size="1.125rem" />
-          </button>
+          {/* On desktop the new layout's Library > Connections crumb goes back instead. */}
+          {!ovDesktop && (
+            <button
+              onClick={handleClose}
+              className="mari-editor-action inline-flex shrink-0"
+              aria-label={localizeUi("connections.editor.back")}
+            >
+              <ArrowLeft size="1.125rem" />
+            </button>
+          )}
 
           <ProviderIcon
             provider={localProvider}

@@ -355,6 +355,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
   const onInstalled = tab === "installed";
 
   const crumbs = [
+    { label: localize("Library") },
     { label: localize("Agents"), onClick: () => go({ kind: "home" }) },
     { label: agentEntry?.manifest.name ?? "" },
   ];
