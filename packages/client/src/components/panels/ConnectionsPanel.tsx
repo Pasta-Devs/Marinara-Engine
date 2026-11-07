@@ -45,7 +45,7 @@ import {
 } from "../../hooks/use-connections";
 import { useConnectionAccounts, useFeatureModels } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
-import type { DeviceItem } from "../../hooks/use-device-setup";
+import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -240,6 +240,7 @@ export function ConnectionsPanel() {
     [connections, hiddenIds],
   );
   const engines = useDeviceEngines();
+  const deviceSetup = useDeviceSetup();
   const localModelUsedBy = useLocalModelUsedBy();
   const grouped = useMemo(() => {
     const { groups, standalone } = groupModelsByAccount(connectionsList, accounts ?? []);
@@ -501,6 +502,9 @@ export function ConnectionsPanel() {
   const validKey = (key: string | null) => {
     if (!key) return false;
     if (key === "other") return grouped.standalone.length > 0;
+    // Text to speech stays open while it is on: its page saves the Base URL as it is typed, and a half-typed
+    // address can read as a cloud voice for a moment, which takes its row off On this device (#8921).
+    if (key === "device:tts" && deviceSetup.tts.setUp) return true;
     if (key.startsWith("device:")) return engines.some((engine) => `device:${engine.item}` === key);
     return false;
   };
