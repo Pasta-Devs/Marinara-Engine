@@ -7,6 +7,7 @@
 // swipe list you can read before picking; More opens every other action
 // (the upstream action buttons, shown as a labelled menu).
 // ──────────────────────────────────────────────
+import { useArmedAfterPaint } from "../../lib/idle-batch";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -166,6 +167,14 @@ function SwipeList({
   );
 }
 
+let coarsePointerQuery: MediaQueryList | null = null;
+/** Touch screens show the bars without hover (overhaul.css, pointer: coarse). */
+function touchFootersVisible() {
+  if (typeof window === "undefined") return true;
+  coarsePointerQuery ??= window.matchMedia("(pointer: coarse)");
+  return coarsePointerQuery.matches;
+}
+
 export function OvRpMessageFooter({
   chatId,
   messageId,
@@ -221,20 +230,22 @@ export function OvRpMessageFooter({
       anchor: { left: kind === "more" ? r.right - 240 : r.left, top: r.top, bottom: r.bottom, right: r.right },
     });
   };
+  // Hidden until hover on a mouse: a chat opens without building these buttons for every message, and
+  // they arrive right after the first paint. Always-visible bars (the newest reply, touch screens) build at once.
+  const armed = useArmedAfterPaint(pinned || open !== null || touchFootersVisible());
   const count = Math.max(1, swipeCount);
   const hasSwipes = swipeCount > 1;
   if (part === "generate" && !onRegenerate && !hasSwipes && !onCreateSwipe) return null;
+  const footerClassName = cn(
+    "ov-rpf",
+    placement === "below" && "ov-rpf--below",
+    part !== "all" && `ov-rpf--${part}`,
+    pinned && "is-pinned",
+    open && "is-open",
+  );
+  if (!armed) return <div className={footerClassName} data-ov-rp-footer />;
   return (
-    <div
-      className={cn(
-        "ov-rpf",
-        placement === "below" && "ov-rpf--below",
-        part !== "all" && `ov-rpf--${part}`,
-        pinned && "is-pinned",
-        open && "is-open",
-      )}
-      data-ov-rp-footer
-    >
+    <div className={footerClassName} data-ov-rp-footer>
       {part === "generate" && onRegenerate ? (
         <button
           type="button"

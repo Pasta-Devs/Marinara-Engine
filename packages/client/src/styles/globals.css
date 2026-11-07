@@ -9,6 +9,26 @@
 @import "./themes/seasonal-newyearseve.css";
 @import "./themes/seasonal-newyearsday.css";
 
+/* The roleplay transcript's insets are measured when a chat opens and read only by the scroll box that
+   carries them (its padding and scroll padding). Not inheriting keeps that one write from restyling
+   every message below it. */
+@property --mari-roleplay-content-padding-top {
+  syntax: "*";
+  inherits: false;
+}
+@property --mari-roleplay-content-padding-bottom {
+  syntax: "*";
+  inherits: false;
+}
+@property --mari-roleplay-scroll-padding-top {
+  syntax: "*";
+  inherits: false;
+}
+@property --mari-roleplay-scroll-padding-bottom {
+  syntax: "*";
+  inherits: false;
+}
+
 /* World state & tracker widgets: equal flex sizing on mobile */
 @media (max-width: 767px) {
   .world-widget {
