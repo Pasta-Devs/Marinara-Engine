@@ -9791,3 +9791,12 @@ input.ov-edhead__title:focus {
   font: inherit;
   font-size: 0.8125rem;
 }
+
+/* Desktop tabs show the picture of what they hold (icon as the fallback); a chat's ring is its mode colour. */
+.ov-tab__pic {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+  border-radius: 0.3125rem;
+  object-fit: cover;
+}
