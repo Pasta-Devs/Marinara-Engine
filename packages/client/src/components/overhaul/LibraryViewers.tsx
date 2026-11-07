@@ -7,7 +7,8 @@
 // right in its usual editor. One Library tab per section, not one per item.
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Download, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronLeft, Download, Plus, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PROVIDERS, type APIConnection, type APIProvider } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulStore } from "../../stores/overhaul.store";
@@ -418,3 +419,64 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
 }
 
 // ── Agents ──
+
+/**
+ * Phones and tablets: an account, the built-in model, the decision model and the voice engines open
+ * as their own page (a ‹ back and a title, like other editors) instead of a pop-up. Model ids fall
+ * through to `children` (the Connection editor).
+ */
+export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
+  const localize = useLocalizedUiText();
+  const { t } = useTranslation();
+  const selectedId = useUIStore((s) => s.connectionDetailId);
+  const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
+  const decisionEngine = useDecisionEngine();
+  const accountPage = selectedId?.startsWith(ACCOUNT_PREFIX)
+    ? { id: selectedId.slice(ACCOUNT_PREFIX.length), replaceKey: false }
+    : selectedId?.startsWith(ACCOUNT_KEY_PREFIX)
+      ? { id: selectedId.slice(ACCOUNT_KEY_PREFIX.length), replaceKey: true }
+      : null;
+  const device =
+    selectedId?.startsWith(DEVICE_PREFIX) && selectedId !== DECISION_DEVICE_ID
+      ? (selectedId.slice(DEVICE_PREFIX.length) as DeviceItem)
+      : null;
+  if (!accountPage && !device && selectedId !== DECISION_DEVICE_ID) return <>{children}</>;
+  const title = accountPage
+    ? localize("Account")
+    : device
+      ? t(`connections.add.device.${device === "local-model" ? "local_model" : device}`)
+      : (decisionEngine?.name ?? localize("Built-in model (decisions)"));
+  return (
+    <section className="ov-ed ovm-connpage" data-component="OverhaulConnectionPage">
+      <div className="ovm-drill-page__head">
+        <button
+          type="button"
+          className="ovm-drill-page__back"
+          aria-label={localize("Back")}
+          onClick={closeConnectionDetail}
+        >
+          <ChevronLeft size={26} aria-hidden="true" />
+        </button>
+        <span className="ovm-drill-page__title">{title}</span>
+        <span aria-hidden="true" />
+      </div>
+      {accountPage ? (
+        <ConnectionAccountEditor
+          key={selectedId}
+          embedded
+          accountId={accountPage.id}
+          replaceKey={accountPage.replaceKey}
+          onClose={closeConnectionDetail}
+        />
+      ) : device ? (
+        <div className="ov-devpage">
+          <DeviceDetail key={device} item={device} onOpenDefaults={closeConnectionDetail} />
+        </div>
+      ) : (
+        <div className="ov-devpage">
+          <DecisionModelModal embedded open onClose={closeConnectionDetail} />
+        </div>
+      )}
+    </section>
+  );
+}

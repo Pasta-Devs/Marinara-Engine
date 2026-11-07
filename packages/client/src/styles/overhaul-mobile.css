@@ -4204,3 +4204,19 @@
   font-size: 1.0625rem !important;
   font-weight: 700;
 }
+
+/* Connections pages on phones (account, built-in model, decision model, voice engines). */
+:root[data-overhaul="mobile"] .ovm-connpage:not(#ovm-x) {
+  overflow-y: auto;
+  padding: 0 1rem 2rem;
+}
+.ovm-connpage > .ovm-drill-page__head {
+  margin: 0 -1rem 0.75rem;
+}
+/* The decision model's own window padding goes; the page already has its gutter. */
+.ovm-connpage .ov-devpage > div:has(> .mari-dm-body) {
+  padding: 0 !important;
+}
+:root[data-overhaul="mobile"] .ovm-connpage .ov-acctpage__head:not(#ovm-x) {
+  position: static;
+}
