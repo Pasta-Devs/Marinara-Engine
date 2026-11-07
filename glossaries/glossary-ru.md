@@ -812,3 +812,15 @@ Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against 
 - **прокси** is masculine and indeclinable (`прокси проверяет`, `прокси отклонил`, `прокси нужны`), as in `REMOTE_ACCESS.md`; "in front of ComfyUI" is **перед ComfyUI**. "ComfyUI itself has no login" is **Собственного входа у ComfyUI нет**, after the pack's **вход** for login (`REMOTE_ACCESS.md:197`, `:205`). A proxy auth token is **токен**, credentials **учетные данные** (§3), an auth scheme **схема**; a 401/403 is **ответ с кодом 401 или 403** and the row title **ComfyUI отвечает кодом 401 или 403**. "Account exports leave the key out" follows `connections/organizing-connections.md:103`: **Ключ в экспорт аккаунтов не попадает**.
 
 These are documented translation choices from this sync, not an independent native-reader review.
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+- New glosses: **Apply to** (применить к), which matches `ui/ru.json` `spriteLayoutApplyTo` lowercased; **This chat** (этот чат); **All chats (default)** (все чаты, по умолчанию); **Use default** (использовать по умолчанию); **Unlink from** (отвязать от); **Default music folder on this device** (папка с музыкой по умолчанию на этом устройстве); **Reinstall** (переустановить). `ui/ru.json` has no values for the new keys, so these are coined; recheck them when the keys ship. **Chat Settings** (настройки чата), **Choose Folder** (выбрать папку), **Music folder on this device** (папка с музыкой на этом устройстве) and **Export Profile** (экспортировать профиль) reuse pack glosses.
+- Left bare (§5 Pattern B): **In use:**, **From**, **Default**, **Needs reinstall**, **Not set up**. **In use:** sits behind the carrier **Надпись**, as **Map position:** sits behind **плашка** in `game/map-time-weather.md`.
+- The heading is `### Отдельная папка для чата или персонажа`, a noun phrase like `### Выбор источника музыки`, with `<a id="use-a-different-folder-for-a-chat-or-character"></a>` and a blank line above it; the `game/game-assets.md` link uses it as link text.
+- Terms: **ветка**, **групповой чат**, **саундтрек**, **профиль настроек**, **экспорт агентов**, **среда выполнения** for the runtime. "The folder plays" and "the chat plays" are calques: write **папка используется**, **чат использует папку** or **из какой папки играет музыка в этом чате**; the new row is **В чате играет музыка не из той папки**. The remote-access row opens with **При удаленном доступе** so it covers both failures.
+- **Export Profile drift.** `integrations/message-translation.md:91` glosses (экспорт профиля); the other three files, including `media/music.md`, use (экспортировать профиль). Align it in a consistency pass.
+
+These are documented translation choices from this sync, not an independent native-reader review.

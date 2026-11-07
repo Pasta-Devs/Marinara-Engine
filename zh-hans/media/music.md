@@ -22,7 +22,7 @@ Music DJ 的设置集中在一个地方。打开右侧的 **Agents** 面板，�
 
 ### 选择音乐来源
 
-在 **Music DJ** 编辑器里，**Music Player** 设置项有三个按钮：**Spotify**、**YouTube** 和 **Custom**。按钮下面有一行字显示当前生效的来源，例如“Visible player: Spotify. Saved provider: Spotify.”这个选择对整个应用生效，不是按聊天保存的。
+在 **Music DJ** 编辑器里，**Music Player** 设置项有三个按钮：**Spotify**、**YouTube** 和 **Custom**。按钮下面有一行字显示当前生效的来源，例如“Visible player: Spotify. Saved provider: Spotify.”这个选择对整个应用生效，不是按聊天保存的。**Custom** 从哪个文件夹播放，可以按聊天或角色分别设置：见[为聊天或角色使用不同的文件夹](#use-a-different-folder-for-a-chat-or-character)。
 
 ## 设置 Spotify
 
@@ -91,11 +91,34 @@ Custom 模式播放运行 Marinara 的那台机器上的音频文件，支持 `.
 在 **Music DJ** 编辑器里找到 **Custom Music Library**。里面只有一个开关：**Use Game Assets music folder**。
 
 - **On**(开启)：Custom 模式读取你上传到 Game Assets 的音频。Game Assets 是 Marinara 为 Game Mode 准备的素材库。用 **Game Assets music folder** 指定文件夹。填 `music` 表示整个音乐库，也可以填 `music/combat` 这样的子文件夹。**Open Folder** 会在服务器那台机器上打开它。
-- **Off**(关闭)：Custom 模式读取服务器设备上的一个文件夹。用 **Select Folder** 在服务器那台机器上打开文件夹选择窗口，或者把路径粘贴到 **Music folder on this device**。
+- **Off**(关闭)：Custom 模式读取服务器设备上的一个文件夹。用 **Select Folder** 在服务器那台机器上打开文件夹选择窗口，或者把路径粘贴到 **Default music folder on this device**。所有没有单独设置文件夹的聊天都使用这个文件夹。
 
-Roleplay 和 Game 的设置显示的是同一个来源。如果你选的是服务器设备上的文件夹，聊天的 Music DJ 设置会显示这个路径和一个 **Choose Folder** 按钮。
+播放 Game Assets 之外的文件夹需要服务器本机权限。保存手动输入的文件夹路径，也需要和文件夹选择窗口相同的权限。从另一台设备访问、又没有登录或管理密钥时，这两者都可能会被拦下。见[远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)。
 
-播放 Game Assets 之外的文件夹需要服务器本机权限。从另一台设备访问、又没有登录或管理密钥时，这个功能可能会被拦下。见[远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)。
+<a id="use-a-different-folder-for-a-chat-or-character"></a>
+
+### 为聊天或角色使用不同的文件夹
+
+聊天或角色可以有自己的音乐文件夹，这样每个故事都能播放各自的配乐。角色的文件夹会在所有只有这一个角色的聊天里播放。
+
+1. 打开聊天，再打开它的 **Chat Settings**(聊天设置)。
+2. 在 **Music DJ** 设置里选中 **Custom** 播放器，打开 **Apply to**(应用到)，选择文件夹保存在哪一级。
+3. 点击 **Choose Folder**，或者把路径粘贴到 **Music folder on this device**。
+
+| Apply to | 哪些聊天使用这个文件夹 |
+| --- | --- |
+| **This chat**(此聊天) | 只有这个聊天。分支一开始沿用同一个文件夹，之后可以改。 |
+| 角色名 | 所有只有这一个角色的聊天。只在单角色聊天里显示。 |
+| **All chats (default)**(所有聊天，默认) | 所有没有单独设置文件夹的聊天。这就是 **Music DJ** 编辑器里的默认文件夹。 |
+
+Music DJ 使用它找到的第一个文件夹：先是这个聊天的文件夹，然后是角色的文件夹，最后是默认文件夹。群聊从不使用角色的文件夹。即使默认来源是 Game Assets，聊天或角色的文件夹也照样播放。
+
+**In use:**(当前使用) 显示这个聊天正在播放的文件夹及其来源：**This chat**、**From** 加角色名，或者 **Default**。
+
+- **Use default**(使用默认) 会移除这个聊天的文件夹。之后聊天会播放角色的文件夹，没有的话就播放默认文件夹。
+- **Unlink from**(取消关联) 加角色名，会从所有聊天里移除这个角色的文件夹。
+
+把 Music DJ 添加到聊天时，也会出现同样的 **Apply to** 选项。聊天自己的文件夹不会写进聊天导出、设置方案和 **Export Profile**(导出档案) 文件。智能体导出则不包含默认文件夹和角色的文件夹。每个路径指向的都是这台服务器上的文件，换到另一台服务器上就没有意义了。
 
 ## 使用音乐播放器
 
@@ -145,7 +168,8 @@ Game Mode 有自己来自 Game Assets 的背景音乐。想改用 Music DJ，就
 - **Spotify 什么都不播放**：播放需要 Spotify Premium 和一个活动中的 Spotify 设备。在某台设备上打开 Spotify 客户端，或者在电脑上点击 **Enable Marinara player**。
 - **在另一台机器上 Spotify 登录窗口失败**：用“Browser couldn't reach the callback?”粘贴框，或者在服务器上设置 `SPOTIFY_REDIRECT_URI`。
 - **YouTube 搜索失败**：确认项目已启用 **YouTube Data API v3**，并且密钥没有按 HTTP referrer 限制。如果用满了每日配额，第二天再试，或者换一个密钥。
-- **远程访问时 Custom 音乐无法播放设备文件夹里的歌**：那个文件夹需要服务器本机权限。见[远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)。
+- **远程访问时 Custom 音乐无法播放设备文件夹里的歌，或者手动输入的文件夹路径保存不了**：这两者都需要服务器本机权限。见[远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)。
+- **聊天播放的文件夹不对**：在聊天的 **Music DJ** 设置里看看 **In use:** 显示的是什么。**This chat** 优先于角色的文件夹，所以要点击 **Use default**，聊天才会重新跟随角色的文件夹。
 - **Conversation 里角色的点歌命令没反应**：连上 Spotify 或保存 YouTube 密钥，并确认 **Commands** 和 **Music** 开关都已打开。
 
 ## 相关指南

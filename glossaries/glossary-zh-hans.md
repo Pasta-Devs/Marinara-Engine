@@ -784,3 +784,19 @@ Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against 
 | token checked by the proxy | Token | The §3 auth-credential row; never 令牌. |
 
 **API key**(API 密钥), **Video defaults**(视频默认值) and **Test video**(测试视频) take their first gloss in this file in the new section, copied from the 2026-11-01 entry and `media/scene-video.md`. These are translation choices, not a new native-reader review.
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| Apply to (Music DJ setup field) | **Apply to**(应用到) | Equals `ui.agents.regexscripteditor.applyTo`; the sprite-layout string is 应用于. Glossed at its first mention in `media/music.md` and in `game/game-assets.md`. |
+| This chat (Apply to option) | **This chat**(此聊天) | Matches **This chat only**(仅此聊天) and `generationParameters.source.chat`; running prose keeps 这个聊天. |
+| All chats (default) / In use: / Use default / Unlink from / Reinstall | (所有聊天，默认) / (当前使用) / (使用默认) / (取消关联) / (重新安装) | Coined: `ui/zh-Hans.json` has none of the new `musicdjsetupfields`, `agenteditor` or `decisionmodelmodal` keys. Recheck when they ship. |
+| Default music folder on this device | **Default music folder on this device**(本设备上的默认音乐文件夹) | `game/game-assets.md` only, which glosses nearly every label. `media/music.md` leaves its folder fields and **Choose Folder** bare. |
+| Use a different folder for a chat or character (heading) | `### 为聊天或角色使用不同的文件夹` | Sits under `<a id="use-a-different-folder-for-a-chat-or-character"></a>`; the `game/game-assets.md` link reads 为聊天或角色使用不同的文件夹. |
+| branch / group chat / soundtrack / runtime | 分支 / 群聊 / 配乐 / 运行时 | 配乐 follows **Soundtrack**(配乐) in `roleplay/getting-started.md`; settings profiles stay 设置方案 (§3). |
+| a chat plays a folder | 聊天播放的文件夹 | The new row is 聊天播放的文件夹不对; the scope choice is 选择文件夹保存在哪一级. |
+
+**From**, **Default**, **Needs reinstall** and **Not set up** stay bare as statuses. The Troubleshooting row says 看看 **In use:** 显示的是什么, so the label's colon does not run into 。. These are translation choices, not a new native-reader review.

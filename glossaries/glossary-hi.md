@@ -886,3 +886,14 @@ Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against 
 - A proxy is **प्रॉक्सी**, feminine as elsewhere in the pack (`प्रॉक्सी … माँगती है`, `प्रॉक्सी ने रिक्वेस्ट ठुकरा दी`). "A proxy in front of ComfyUI" is `ComfyUI के आगे लगी प्रॉक्सी`, the counterpart of `REMOTE_ACCESS.md`'s `प्रॉक्सी के पीछे`. A rejected request is **ठुकराना** (`media/image-providers.md`), and "a 401 means" follows `conversation/calls.md` (`401 का मतलब …`). "Sent as-is" is `जैसी है वैसी ही भेजी जाती है`. "Non-secret headers" is `ऐसे अतिरिक्त हेडर जिनमें कोई सीक्रेट नहीं है`. Secrets are **सीक्रेट**, credentials **क्रेडेंशियल** (masculine, as in `अपना निजी localhost क्रेडेंशियल`, `installation/android-termux.md:28`, so `प्रॉक्सी ने क्रेडेंशियल ठुकरा दिए`), an auth scheme **स्कीम** and model listing **मॉडल लिस्ट**.
 
 These are translation choices, not a new native-reader review.
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+- New glosses (§5 Pattern A): **Chat Settings** (चैट सेटिंग्स); **Apply to** (कहाँ लागू करें) at its first mention in both `media/music.md` and `game/game-assets.md`; **Export Profile** (प्रोफ़ाइल एक्सपोर्ट), as in the `integrations/` guides; **Reinstall** (दोबारा इंस्टॉल करें). `ui/hi.json` has no values for the new keys, so **Apply to** and **Reinstall** are coined; recheck them when the keys ship. **Apply to** also differs from the shipped sprite-layout string `इस पर लागू करें`.
+- Left bare, in line with the pack's sparse glossing: the options **This chat** and **All chats (default)**; the buttons **Use default** and **Unlink from**; the folder controls **Choose Folder**, **Music folder on this device** and **Default music folder on this device**; and the statuses **In use:**, **From**, **Default**, **Needs reinstall** and **Not set up** (Pattern B).
+- The heading is `### चैट या कैरेक्टर के लिए अलग फ़ोल्डर इस्तेमाल करना`, the `-ना` form of `## अपनी म्यूज़िक फ़ाइलें इस्तेमाल करना`, under `<a id="use-a-different-folder-for-a-chat-or-character"></a>`; the `game/game-assets.md` link uses it as link text.
+- Terms: **चैट** (feminine, `ग्रुप चैट कभी … इस्तेमाल नहीं करती`), **कैरेक्टर**, **ब्रांच**, **ग्रुप चैट**, **डिफ़ॉल्ट**, **पथ**, **साउंडट्रैक**, **रनटाइम**, **सेटिंग्स प्रोफ़ाइल**, **चैट एक्सपोर्ट** and **एजेंट एक्सपोर्ट**. A chat plays a folder with **बजाना** (`कोई चैट गलत फ़ोल्डर बजाती है`); playing from a folder is **फ़ोल्डर से म्यूज़िक चलाना**. **Unlink from** is `… वाला बटन`, as `AgentAddSetupFields.tsx` confirms.
+
+These are translation choices, not a new native-reader review.

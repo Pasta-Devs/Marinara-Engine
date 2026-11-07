@@ -179,12 +179,12 @@ Les sons et pistes générés sont enregistrés avec tes ressources de jeu : le 
 
 ## Dossier de musique personnalisé pour Music DJ
 
-**Music DJ** est un agent d'appoint capable de jouer de la musique pendant une partie. Dans son mode Custom, il joue les pistes d'un dossier de ton choix. Quand tu actives **Music DJ** pour un chat, le formulaire de configuration suit la source enregistrée sur l'agent. L'option **Game Assets** affiche un chemin situé dans tes ressources de jeu, par exemple `music` ou `music/combat`. L'option **Folder on this device** (dossier sur cet appareil) affiche le chemin enregistré sur l'appareil du serveur et un bouton **Choose Folder** (choisir un dossier).
+**Music DJ** est un agent d'appoint capable de jouer de la musique pendant une partie. Dans son mode Custom, il joue les pistes d'un dossier de ton choix. Quand tu actives **Music DJ** pour un chat, ses réglages affichent **Apply to** (appliquer à). Ce choix enregistre le dossier pour ce chat, pour l'unique personnage du chat ou pour tous les chats. **In use:** (en cours d'utilisation) affiche le dossier que lit le chat. Avec **All chats (default)** (tous les chats, par défaut), la source **Game Assets** accepte un chemin situé dans tes ressources de jeu, par exemple `music` ou `music/combat`. Pour donner à un chat ou à un personnage son propre dossier, voir [Utiliser un autre dossier pour un chat ou un personnage](../media/music.md#use-a-different-folder-for-a-chat-or-character).
 
 L'éditeur complet de **Music DJ** comporte une section **Custom Music Library** (bibliothèque musicale personnalisée). **Use Game Assets music folder** (utiliser le dossier de musique des ressources de jeu) bascule entre deux modes :
 
 - Activé : le champ **Game Assets music folder** lit un dossier situé dans tes ressources de jeu. **Open Folder** (ouvrir le dossier) l'ouvre sur l'ordinateur du serveur.
-- Désactivé : **Music folder on this device** joue la musique de n'importe quel dossier de l'ordinateur qui fait tourner le serveur. Clique sur **Select Folder** (sélectionner un dossier), ou colle le chemin.
+- Désactivé : **Default music folder on this device** (dossier de musique par défaut sur cet appareil) joue la musique de n'importe quel dossier de l'ordinateur qui fait tourner le serveur. Clique sur **Select Folder** (sélectionner un dossier), ou colle le chemin.
 
 Choisir un dossier hors de l'application demande un accès privilégié. Sur le même ordinateur que le serveur, cela fonctionne sans réglage supplémentaire. Depuis un autre appareil ou en accès à distance, mets d'abord en place l'accès administrateur. Consulte [Accès à distance](../REMOTE_ACCESS.md). Pour le reste du lecteur de musique, voir [Music DJ](../media/music.md).
 

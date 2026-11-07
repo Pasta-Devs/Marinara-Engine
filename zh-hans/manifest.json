@@ -1,6 +1,6 @@
 {
   "language": "zh-hans",
-  "sourceCommit": "68dbe348881c5ebe017fa1159eb21348661dfbe4",
+  "sourceCommit": "d055e94915d656616e4e65653ad9044cfd615b03",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -229,8 +229,8 @@
     },
     {
       "path": "connections/decision-models.md",
-      "sha256": "2397f85fbcf89e632fdf206b535bb60e07d296d3687ac99fd3a98878d129427e",
-      "bytes": 26453
+      "sha256": "eccf82af232cd7538b88b1cd4a04d4ebabfb06fcdb721efa80461ca73bbfce25",
+      "bytes": 26801
     },
     {
       "path": "connections/local-model.md",
@@ -499,8 +499,8 @@
     },
     {
       "path": "game/game-assets.md",
-      "sha256": "70dba29d2030e081f9f3cc821bf2546d90b3f8f74ed230fb0ba2e91419b84033",
-      "bytes": 14332
+      "sha256": "dfe5db30d70ae9410d4b87146510c95934f41e919ebbc6bde930121cdbc18c2a",
+      "bytes": 14574
     },
     {
       "path": "game/getting-started.md",
@@ -659,8 +659,8 @@
     },
     {
       "path": "media/music.md",
-      "sha256": "300f5940de8105fd4a377d1a9aa2ad8a979b05d6fde5f49707b73d5e33a136e5",
-      "bytes": 12527
+      "sha256": "6899f7750e9277f7521b26b1a7e0fd98fc4e2f42be2e6c94f456ed23e44bc59f",
+      "bytes": 14974
     },
     {
       "path": "media/scene-backgrounds.md",

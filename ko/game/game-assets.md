@@ -179,12 +179,12 @@ Game Mode는 **Music & Sound Effects**(음악 및 효과음) 계정으로 효과
 
 ## Music DJ용 사용자 지정 음악 폴더
 
-**Music DJ**는 게임 중에 음악을 틀 수 있는 보조 에이전트입니다. Custom 모드에서는 직접 고른 폴더의 트랙을 재생합니다. 채팅에서 **Music DJ**를 활성화하면 설정 양식이 에이전트에 저장된 소스를 따릅니다. **Game Assets**에는 `music`이나 `music/combat`처럼 게임 에셋 안의 경로가 표시됩니다. **Folder on this device**(이 기기의 폴더)에는 저장된 서버 기기 경로와 **Choose Folder**(폴더 선택) 버튼이 표시됩니다.
+**Music DJ**는 게임 중에 음악을 틀 수 있는 보조 에이전트입니다. Custom 모드에서는 직접 고른 폴더의 트랙을 재생합니다. 채팅에서 **Music DJ**를 활성화하면 설정에 **Apply to**(적용 대상)가 표시됩니다. 여기서 폴더를 이 채팅, 채팅에 하나뿐인 캐릭터, 모든 채팅 중 어디에 저장할지 정합니다. **In use:**(사용 중)에는 채팅에서 재생하는 폴더가 표시됩니다. **All chats (default)**(모든 채팅, 기본값)에서는 **Game Assets** 소스에 `music`이나 `music/combat`처럼 게임 에셋 안의 경로를 지정합니다. 채팅이나 캐릭터에 따로 폴더를 지정하려면 [채팅이나 캐릭터마다 다른 폴더 쓰기](../media/music.md#use-a-different-folder-for-a-chat-or-character)를 참고하세요.
 
 **Music DJ** 전체 편집기에는 **Custom Music Library**(사용자 지정 음악 라이브러리) 섹션이 있습니다. **Use Game Assets music folder**(게임 에셋 음악 폴더 사용)로 두 방식 중 하나를 고릅니다.
 
 - 켜짐: **Game Assets music folder**(게임 에셋 음악 폴더) 입력란이 게임 에셋 안의 폴더를 읽습니다. **Open Folder**(폴더 열기)는 서버 컴퓨터에서 그 폴더를 엽니다.
-- 꺼짐: **Music folder on this device**(이 기기의 음악 폴더)는 서버를 실행하는 컴퓨터의 어느 폴더에서든 음악을 재생합니다. **Select Folder**(폴더 선택)를 클릭하거나 경로를 붙여넣으세요.
+- 꺼짐: **Default music folder on this device**(이 기기의 기본 음악 폴더)는 서버를 실행하는 컴퓨터의 어느 폴더에서든 음악을 재생합니다. **Select Folder**(폴더 선택)를 클릭하거나 경로를 붙여넣으세요.
 
 앱 밖의 폴더를 고르려면 관리자 권한이 필요합니다. 서버와 같은 컴퓨터에서는 추가 설정 없이 바로 됩니다. 다른 기기에서나 원격 접근으로 쓸 때는 먼저 관리자 접근을 설정하세요. [원격 접근](../REMOTE_ACCESS.md)을 참고하세요. 음악 플레이어의 나머지 내용은 [Music DJ](../media/music.md)를 참고하세요.
 

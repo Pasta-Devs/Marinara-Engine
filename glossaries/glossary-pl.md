@@ -1344,3 +1344,29 @@ Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against 
   zmian**. *Account exports leave the key out* is "Eksport konta nie zawiera klucza API", after
   `connections/organizing-connections.md:105`. *ComfyUI answers 401 or 403* is "ComfyUI zwraca
   błąd 401 lub 403", after `TROUBLESHOOTING.md` "zwraca błąd 403".
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+- **Apply to** is glossed *(zastosowanie do)*, the verbal noun already at `characters/sprites.md:94`
+  (R-112, R-127), not `ui/pl.json`'s "Zastosuj do" (R-119). Other new glosses: **In use:**
+  *(w użyciu)*, as for **Map position:** (pozycja na mapie); **This chat** *(ten czat)*;
+  **All chats (default)** *(wszystkie czaty, domyślnie)*; **From** *(od)*;
+  **Default** *(domyślny)*; **Use default** *(użycie domyślnego folderu)*;
+  **Unlink from** *(odłączenie od)*; **Choose Folder** *(wybór folderu)*;
+  **Music folder on this device** *(folder muzyki na tym urządzeniu)*;
+  **Default music folder on this device** *(domyślny folder muzyki na tym urządzeniu)*;
+  **Reinstall** *(ponowna instalacja)*. `ui/pl.json` has no values for the new keys, so these
+  are coined; recheck them when the keys ship. The statuses **Needs reinstall** and
+  **Not set up** stay bare.
+- The heading is `### Osobny folder dla czatu lub postaci`, a noun phrase like
+  `### Wybór źródła muzyki`, with `<a id="use-a-different-folder-for-a-chat-or-character"></a>`
+  above it; the `game/game-assets.md` link uses it as link text.
+- Terms: **czat grupowy**, **gałąź**, **imię postaci**, **profile ustawień**, **eksporty
+  czatów** and **agentów**, **środowisko uruchomieniowe** (runtime), **pakiety Python**. A chat
+  **odtwarza muzykę z folderu** and a character's folder **obowiązuje** in a chat; a folder
+  never "gra". *Missing or out of date* is "brakuje jego plików lub środowiska
+  uruchomieniowego albo są one nieaktualne", so each verb gets its own case. In
+  `game/game-assets.md` *its settings* is "ustawienia Music DJ w tym czacie", because "jego"
+  could mean the chat.

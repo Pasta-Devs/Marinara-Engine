@@ -225,6 +225,7 @@ Weitere Bedienelemente im Fenster:
 - **GPU** wählt auf einem Rechner mit mehreren NVIDIA-GPUs die Karte. Ein Wechsel stoppt das Modell, das dann auf der neuen Karte neu startet.
 - **Start this model when Marinara starts** (dieses Modell beim Start von Marinara starten) ist optional. Ist es aus, startet das Modell, sobald ein Agent es zum ersten Mal braucht.
 - **Remove files** (Dateien entfernen) löscht das Modell und seine Laufzeit. Schaltest du das Modell aus, wird der Prozess beendet, und die Dateien bleiben erhalten.
+- **Reinstall** (neu installieren) erscheint, wenn das installierte Modell nicht starten kann, weil seine Dateien oder seine Laufzeit fehlen oder veraltet sind, meist nach einem Update. Das Modell ist dann mit **Needs reinstall** markiert, und die Zeile **Decision** zeigt **Not set up**. Bei der Neuinstallation bleiben die Dateien erhalten, die schon vollständig heruntergeladen sind. Meist werden also nur die Python-Pakete der Laufzeit erneut heruntergeladen.
 
 Die erste Antwort eines Modells nach dem Start ist langsamer. Marinara stellt deshalb beim Laden eine Frage zum Aufwärmen. Schlägt sie fehl, startet das Modell trotzdem, und die Verzögerung fällt bei der ersten echten Frage an. Ein Zug mit vielen Aussagen dauert bei einem langen Chat länger. Open-Jev 2B braucht bei einem langen Chat etwa eine Viertelsekunde pro Aussage.
 

@@ -22,7 +22,7 @@ Music DJ se configura en un único lugar compartido. Abre el panel lateral **Age
 
 ### Elegir una fuente de música
 
-En el editor de **Music DJ**, el campo **Music Player** tiene tres botones: **Spotify**, **YouTube** y **Custom**. Una línea debajo muestra qué está activo, por ejemplo "Visible player: Spotify. Saved provider: Spotify." Esta elección se comparte en toda la app; no se guarda por chat.
+En el editor de **Music DJ**, el campo **Music Player** tiene tres botones: **Spotify**, **YouTube** y **Custom**. Una línea debajo muestra qué está activo, por ejemplo "Visible player: Spotify. Saved provider: Spotify." Esta elección se comparte en toda la app; no se guarda por chat. La carpeta desde la que reproduce **Custom** puede ser distinta para cada chat o personaje: consulta [Usar una carpeta distinta para un chat o personaje](#use-a-different-folder-for-a-chat-or-character).
 
 ## Configurar Spotify
 
@@ -91,11 +91,34 @@ El modo Custom reproduce archivos de audio desde la máquina que ejecuta Marinar
 En el editor de **Music DJ**, busca **Custom Music Library** (Biblioteca de música personalizada). Tiene un interruptor, **Use Game Assets music folder**.
 
 - **Activado**: el modo Custom lee el audio que subiste a Game Assets, la biblioteca de recursos de Marinara para Game Mode. Usa **Game Assets music folder** para elegir una carpeta. Escribe `music` para toda la biblioteca o una subcarpeta como `music/combat`. **Open Folder** (Abrir carpeta) la abre en la máquina del servidor.
-- **Desactivado**: el modo Custom lee una carpeta en el dispositivo del servidor. Usa **Select Folder** (Seleccionar carpeta) para abrir un selector en la máquina del servidor, o pega la ruta en **Music folder on this device** (Carpeta de música en este dispositivo).
+- **Desactivado**: el modo Custom lee una carpeta en el dispositivo del servidor. Usa **Select Folder** (Seleccionar carpeta) para abrir un selector en la máquina del servidor, o pega la ruta en **Default music folder on this device** (Carpeta de música predeterminada en este dispositivo). Todos los chats sin carpeta propia usan esta carpeta.
 
-La configuración de Roleplay y de Game muestra la misma fuente. Si elegiste una carpeta en el dispositivo del servidor, los ajustes de Music DJ del chat muestran esa ruta y un botón **Choose Folder** (Elegir carpeta).
+Reproducir desde una carpeta fuera de Game Assets requiere acceso local en el servidor. Guardar una ruta de carpeta escrita a mano requiere el mismo acceso que el selector de carpetas. Desde otro dispositivo sin inicio de sesión ni secreto de administrador, ambas cosas pueden quedar bloqueadas. Consulta [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md).
 
-Reproducir desde una carpeta fuera de Game Assets requiere acceso local en el servidor. Desde otro dispositivo sin inicio de sesión ni secreto de administrador, esta función puede quedar bloqueada. Consulta [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md).
+<a id="use-a-different-folder-for-a-chat-or-character"></a>
+
+### Usar una carpeta distinta para un chat o personaje
+
+Un chat o un personaje puede tener su propia carpeta de música, para que cada historia suene con su propia banda sonora. La música de la carpeta de un personaje suena en todos los chats donde ese personaje es el único personaje.
+
+1. Abre el chat y luego **Chat Settings** (Ajustes del chat).
+2. En los ajustes de **Music DJ**, con el reproductor **Custom** seleccionado, abre **Apply to** (Aplicar a) y elige dónde se guarda la carpeta.
+3. Haz clic en **Choose Folder** (Elegir carpeta), o pega la ruta en **Music folder on this device** (Carpeta de música en este dispositivo).
+
+| Apply to | Qué chats usan la carpeta |
+| --- | --- |
+| **This chat** (Este chat) | Solo este chat. Una rama empieza con la misma carpeta y puede cambiarla. |
+| El nombre del personaje | Todos los chats donde ese personaje es el único personaje. Solo aparece en un chat con un único personaje. |
+| **All chats (default)** (Todos los chats: predeterminado) | Todos los chats sin carpeta propia. Es la carpeta predeterminada del editor de **Music DJ**. |
+
+Music DJ usa la primera carpeta que encuentra: la de este chat, luego la del personaje y luego la predeterminada. Un chat grupal nunca usa la carpeta de un personaje. La carpeta de un chat o de un personaje se usa incluso cuando la fuente predeterminada es Game Assets.
+
+**In use:** muestra la carpeta de la que este chat reproduce música y de dónde viene: **This chat**, **From** y el nombre del personaje, o **Default**.
+
+- **Use default** (Usar la predeterminada) quita la carpeta de este chat. El chat pasa entonces a usar la carpeta del personaje o la predeterminada.
+- **Unlink from** (Desvincular de) seguido del nombre del personaje quita la carpeta del personaje de todos los chats.
+
+La misma opción **Apply to** aparece cuando agregas Music DJ a un chat. La carpeta propia de un chat queda fuera de las exportaciones de chats, los perfiles de ajustes y los archivos de **Export Profile** (Exportar perfil). Las exportaciones de agentes dejan fuera la carpeta predeterminada y las de los personajes. Cada ruta apunta a archivos de este servidor, así que no significa nada en otro.
 
 ## Usar el reproductor de música
 
@@ -145,7 +168,8 @@ Entonces un personaje puede nombrar una canción para Spotify, o describir una p
 - **Spotify no reproduce nada**: la reproducción necesita Spotify Premium y un dispositivo de Spotify activo. Abre la app de escritorio en un dispositivo, o haz clic en **Enable Marinara player** en escritorio.
 - **La ventana de inicio de sesión de Spotify falla en otra máquina**: usa el cuadro para pegar "Browser couldn't reach the callback?", o define `SPOTIFY_REDIRECT_URI` en el servidor.
 - **La búsqueda de YouTube falla**: confirma que **YouTube Data API v3** está activada para tu proyecto y que la clave no está restringida por HTTP referrer. Si alcanzas la cuota diaria, inténtalo al día siguiente o usa otra clave.
-- **La música Custom no se reproduce desde una carpeta de un dispositivo por acceso remoto**: esa carpeta necesita acceso local en el servidor. Consulta [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md).
+- **La música Custom no se reproduce desde una carpeta de un dispositivo, o una ruta de carpeta escrita a mano no se guarda, por acceso remoto**: ambas cosas necesitan acceso local en el servidor. Consulta [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md).
+- **Un chat reproduce música de la carpeta equivocada**: revisa **In use:** en los ajustes de **Music DJ** del chat. **This chat** tiene prioridad sobre la carpeta del personaje, así que haz clic en **Use default** para volver a seguir al personaje.
 - **El comando de canción de un personaje no hace nada en Conversation**: conecta Spotify o guarda una clave de YouTube, y comprueba que los interruptores **Commands** y **Music** estén activados.
 
 ## Guías relacionadas
