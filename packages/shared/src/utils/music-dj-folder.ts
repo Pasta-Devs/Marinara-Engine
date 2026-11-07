@@ -73,6 +73,22 @@ export function resolveMusicDjExternalFolder(args: {
 }
 
 /**
+ * Every folder the Music DJ can play from in any chat: the default, each character's, and each chat's own.
+ * `chatMetadata` holds each chat's metadata, as stored (JSON text) or parsed.
+ */
+export function listMusicDjFolders(settings: unknown, chatMetadata: Iterable<unknown>): string[] {
+  const parsed = parseAgentSettingsRecord(settings);
+  const folders = new Set([readDefaultFolder(parsed), ...Object.values(readMusicDjCharacterFolders(parsed))]);
+  for (const metadata of chatMetadata) {
+    // Most chats have no folder of their own, so their stored metadata is not parsed.
+    if (typeof metadata === "string" && !metadata.includes("customMusicExternalFolder")) continue;
+    folders.add(readFolder(parseAgentSettingsRecord(metadata).customMusicExternalFolder));
+  }
+  folders.delete("");
+  return [...folders];
+}
+
+/**
  * The Music DJ settings one chat runs with. A chat or character folder replaces the default folder and
  * selects folder mode, even when the default source is Game Assets.
  */
