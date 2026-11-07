@@ -34,8 +34,8 @@ export function findLangSelectorLists(css) {
 
 /**
  * Fails a build whose CSS has such a selector, naming the rules Chromium would drop.
- * ponytail: reads emitted .css files only; CSS a build inlines into JS (?inline imports, a library build with
- * cssCodeSplit) is not checked. The client has none; scan chunk code too if that changes.
+ * Reads emitted .css files, and the JS chunks that carry `?inline` CSS (the new layout's stylesheets, which
+ * lib/overhaul-styles.ts loads on demand), since those go through the same Lightning CSS lowering.
  */
 export function cssLangSelectorGuard() {
   return {
@@ -44,8 +44,15 @@ export function cssLangSelectorGuard() {
     enforce: "post",
     generateBundle(_options, bundle) {
       for (const file of Object.values(bundle)) {
-        if (file.type !== "asset" || !file.fileName.endsWith(".css")) continue;
-        const css = typeof file.source === "string" ? file.source : new TextDecoder().decode(file.source);
+        const inlineCssChunk =
+          file.type === "chunk" && file.moduleIds.some((id) => /\.css\?(?:.*&)?inline\b/u.test(id));
+        if (!inlineCssChunk && (file.type !== "asset" || !file.fileName.endsWith(".css"))) continue;
+        const css =
+          file.type === "chunk"
+            ? file.code
+            : typeof file.source === "string"
+              ? file.source
+              : new TextDecoder().decode(file.source);
         const rules = findLangSelectorLists(css);
         if (rules.length === 0) continue;
         this.error(

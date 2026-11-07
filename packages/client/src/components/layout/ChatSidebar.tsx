@@ -1,4 +1,5 @@
 import { insertLibraryItems } from "../../lib/library-order";
+import { preloadChatSurface } from "../chat/chat-surface-preload";
 import {
   isOverhaulLook,
   isOverhaulMobile,
@@ -1232,6 +1233,7 @@ export function ChatSidebar() {
             });
           }}
           onMouseDown={(event) => startMouseDrag(event, chat.id)}
+          onPointerEnter={() => preloadChatSurface(chat.mode)}
           draggable={renamingChatId !== chat.id}
           onDragStart={(event) => {
             const chatIds = getDragChatIds(chat.id);

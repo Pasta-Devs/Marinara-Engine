@@ -2,8 +2,7 @@
 @source "./capability-package-safelist.html";
 @import "./themes/sillytavern.css";
 @import "./themes/stage.css";
-@import "./overhaul.css";
-@import "./overhaul-mobile.css";
+@import "./overhaul-always.css";
 @import "./themes/chat-widgets.css";
 @import "./themes/chat-widget-surfaces.css";
 @import "./themes/seasonal-halloween.css";
@@ -5509,16 +5508,16 @@ strong {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
+/* Opacity and scale only: both run on the compositor. A filter step here (it was a 0.5px blur, invisible on
+   a 2-4px dot) made the browser restyle the page on every frame, the biggest idle cost on Home. */
 @keyframes twinkle-glow {
   0%,
   100% {
     opacity: 0.6;
-    filter: blur(0);
     transform: scale(1);
   }
   50% {
     opacity: 0.2;
-    filter: blur(0.5px);
     transform: scale(0.9);
   }
 }
