@@ -19,7 +19,7 @@
   --ov-line: var(--border);
   --ov-text: var(--foreground);
   --ov-muted: var(--muted-foreground);
-  --ov-dim: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+  --ov-dim: color-mix(in srgb, var(--muted-foreground) 85%, transparent);
   --ov-accent: var(--primary);
   --ov-hover: color-mix(in srgb, var(--foreground) 7%, transparent);
   --ov-active-bg: color-mix(in srgb, var(--foreground) 9%, var(--background));
@@ -596,11 +596,11 @@
 }
 .ov-btn--accent {
   border-color: transparent;
-  background: var(--ov-mode-roleplay);
-  color: #fff;
+  background: var(--ov-accent);
+  color: var(--primary-foreground);
 }
 .ov-btn--accent:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ov-mode-roleplay) 88%, #fff);
+  background: color-mix(in srgb, var(--ov-accent) 88%, #fff);
 }
 .ov-btn--primary {
   border-color: transparent;
@@ -1224,7 +1224,7 @@
   transition: transform 0.15s ease;
 }
 .ov-switch.is-on {
-  background: var(--ov-mode-roleplay);
+  background: var(--ov-accent);
 }
 .ov-switch.is-on span {
   transform: translateX(0.875rem);
@@ -8678,7 +8678,8 @@ input.ov-edhead__title:focus {
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  background: var(--background);
+  /* The page surface behind it, like every other Library page (its token scope repaints --background darker). */
+  background: transparent;
 }
 .ov-org .ov-crumbs {
   margin-bottom: 0.5rem;
@@ -10054,4 +10055,31 @@ input.ov-edhead__title:not(#ov-x) {
 }
 .ov-menu button:disabled:hover {
   background: none;
+}
+
+/* Message names and times follow the theme (panel M9): readable on light bubbles, AA in dark. */
+:root[data-overhaul][data-theme="light"] .mari-message-name.text-neutral-300 {
+  color: var(--foreground);
+}
+:root[data-overhaul] .ov-rpmsg__head :is(.text-white\/30, .text-white\/25) {
+  color: var(--ov-dim);
+}
+
+/* Native dropdowns in the game wizard and Chat settings look like the custom pickers beside them (panel M10). */
+:root[data-overhaul="on"] :is(.ov-gsw, .ov-cs) select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 0.625rem center;
+  background-repeat: no-repeat;
+  background-size: 0.875rem;
+  cursor: pointer;
+}
+
+/* Dice tray chips use the UI font like the rest of the game controls (panel M10). */
+:root[data-overhaul] .mari-chat-dice-control,
+:root[data-overhaul] .mari-chat-dice-control input {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
 }
