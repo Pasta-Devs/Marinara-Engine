@@ -87,6 +87,10 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
     get: (state) => state.intuitiveSwipeRerollLatest,
     set: (value) => useUIStore.getState().setIntuitiveSwipeRerollLatest(value),
   },
+  "phone-swipe-gestures": {
+    get: (state) => state.swipeGestures,
+    set: (value) => useUIStore.getState().setSwipeGestures(value),
+  },
   "up-arrow-edits-last-message": {
     get: (state) => state.editLastMessageOnArrowUp,
     set: (value) => useUIStore.getState().setEditLastMessageOnArrowUp(value),

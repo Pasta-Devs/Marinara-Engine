@@ -32,6 +32,7 @@ import {
   useTabBookkeeping,
 } from "./OverhaulTopBar";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
+import { useHorizontalSwipe, type SwipeDirection } from "./use-horizontal-swipe";
 
 /** Leave the Chats list or a mobile side panel before showing something else in the main area. */
 function closeMobilePanels() {
@@ -328,6 +329,27 @@ export function OverhaulMobileTopBar() {
   const [stackOpen, setStackOpen] = useState(false);
   const stackRef = useRef<HTMLButtonElement | null>(null);
   const wide = useWideEnoughForLabel();
+  const swipeGestures = useUIStore((s) => s.swipeGestures);
+  // Swiping the title moves through the open tabs in strip order (Home sits before the first).
+  const tabSteps = (direction: SwipeDirection) => {
+    const tabs = useOverhaulStore.getState().tabs;
+    const index = currentKey ? tabs.findIndex((tab) => overhaulTabKey(tab) === currentKey) : -1;
+    return { tabs, next: direction === "left" ? index + 1 : index - 1 };
+  };
+  const titleSwipe = useHorizontalSwipe({
+    enabled: swipeGestures && !sidebarOpen && tabCount > 0,
+    maxFollow: 48,
+    canSwipe: (direction) => {
+      const { tabs, next } = tabSteps(direction);
+      return next >= -1 && next < tabs.length;
+    },
+    onSwipe: (direction) => {
+      const { tabs, next } = tabSteps(direction);
+      closeMobilePanels();
+      if (next < 0) goHome();
+      else if (tabs[next]) activateTab(tabs[next]);
+    },
+  });
 
   const activeChat = activeChatId ? chats.find((chat) => chat.id === activeChatId) : undefined;
   const chatOnScreen = current?.kind === "chat" && activeChat && !sidebarOpen && !rightPanelOpen;
@@ -378,6 +400,7 @@ export function OverhaulMobileTopBar() {
       <button
         type="button"
         className="ovm-title"
+        {...titleSwipe}
         onClick={() => useUIStore.getState().setOmnibarOpen(true)}
         aria-label={localize("Search or open anything")}
         data-tour="omnibar-button"

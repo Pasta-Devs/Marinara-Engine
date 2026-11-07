@@ -4515,3 +4515,57 @@
   padding: 0 0.75rem;
   white-space: nowrap;
 }
+
+/* Swipe gestures (phones). A swipe target keeps native vertical scrolling and hands sideways drags to us. */
+:root[data-overhaul="mobile"] [data-ovm-swipe],
+:root[data-overhaul="mobile"] [data-chat-scroll] [data-message-id] {
+  touch-action: pan-y;
+}
+
+/* A chat row slides left over its actions: Pin, Rename, Delete. */
+:root[data-overhaul="mobile"] .ovm-swiperow {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+:root[data-overhaul="mobile"] .ovm-swiperow__tray {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  width: var(--ovm-swiperow-tray);
+  /* Hidden at rest, so its colour never bleeds round the row's rounded corners; it stays until the row has slid back. */
+  visibility: hidden;
+  transition: visibility 0s 180ms;
+}
+:root[data-overhaul="mobile"] .ovm-swiperow:is([data-open], [data-dragging]) .ovm-swiperow__tray {
+  visibility: visible;
+  transition: none;
+}
+:root[data-overhaul="mobile"] .ovm-swiperow__action {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  background: color-mix(in srgb, var(--foreground) 12%, var(--sidebar, var(--background)));
+  color: var(--foreground);
+  font-size: 0.6875rem;
+}
+:root[data-overhaul="mobile"] .ovm-swiperow__action.is-danger {
+  background: var(--destructive);
+  color: #fff;
+}
+:root[data-overhaul="mobile"] .ovm-swiperow__slide {
+  position: relative;
+  background: var(--sidebar, var(--background));
+  transition: transform 180ms ease;
+}
+:root[data-overhaul="mobile"] .ovm-swiperow[data-open] .ovm-swiperow__slide {
+  transform: translateX(calc(-1 * var(--ovm-swiperow-tray)));
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-overhaul="mobile"] .ovm-swiperow__slide {
+    transition: none;
+  }
+}

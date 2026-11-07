@@ -572,6 +572,16 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "phone-swipe-gestures",
+    sectionId: "editing-swipes",
+    labelKey: "settings.controls.phoneSwipeGestures.label",
+    label: "Swipe gestures on phones",
+    description: "In the new layout on a phone, swipe the latest reply, the top-bar title and chat rows.",
+    descriptionKey: "settings.search.phoneSwipeGestures.description",
+    aliases: ["swipe", "gestures", "touch"],
+    kind: "Toggle",
+  },
+  {
     id: "up-arrow-edits-last-message",
     sectionId: "editing-swipes",
     labelKey: "settings.controls.upArrowEdit.label",
