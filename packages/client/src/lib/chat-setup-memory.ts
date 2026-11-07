@@ -46,7 +46,9 @@ export function pickSetupSource(
 }
 
 /** Pull the setup fields out of a chat. Absent metadata keys become null so a reset can clear them. */
-export function readSetupFields(chat: Pick<Chat, "personaId" | "connectionId" | "promptPresetId" | "metadata">): SetupFields {
+export function readSetupFields(
+  chat: Pick<Chat, "personaId" | "connectionId" | "promptPresetId" | "metadata">,
+): SetupFields {
   const meta = parseChatMetadata(chat.metadata);
   return {
     personaId: chat.personaId ?? null,
@@ -72,7 +74,8 @@ export interface KnownSetupIds {
 
 /** Drop anything that no longer exists: single ids fall back to the fresh chat's value, lists are filtered. */
 export function keepExistingSetup(memory: SetupFields, defaults: SetupFields, known: KnownSetupIds): SetupFields {
-  const pick = (id: string | null, set: ReadonlySet<string>, fallback: string | null) => (id && set.has(id) ? id : fallback);
+  const pick = (id: string | null, set: ReadonlySet<string>, fallback: string | null) =>
+    id && set.has(id) ? id : fallback;
   const list = (value: unknown, set: ReadonlySet<string>) =>
     Array.isArray(value) ? value.filter((id) => typeof id === "string" && set.has(id)) : value;
   const { metadata } = memory;

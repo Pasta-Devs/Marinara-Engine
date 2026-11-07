@@ -47,7 +47,12 @@ function OrderItem({
   const drag = useDraggable({ id });
   const drop = useDroppable({ id });
   const key = (event: React.KeyboardEvent) => {
-    const step = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : 0;
+    const step =
+      event.key === "ArrowLeft" || event.key === "ArrowUp"
+        ? -1
+        : event.key === "ArrowRight" || event.key === "ArrowDown"
+          ? 1
+          : 0;
     if (!step) return;
     event.preventDefault();
     onMove(id, index + step);
@@ -55,7 +60,11 @@ function OrderItem({
   return (
     <li
       ref={drop.setNodeRef}
-      className={cn("flex items-center gap-1", drag.isDragging && "relative z-20", drop.isOver && !drag.isDragging && "opacity-70")}
+      className={cn(
+        "flex items-center gap-1",
+        drag.isDragging && "relative z-20",
+        drop.isOver && !drag.isDragging && "opacity-70",
+      )}
     >
       <button
         ref={drag.setNodeRef}
@@ -63,9 +72,9 @@ function OrderItem({
         data-order-id={id}
         {...drag.listeners}
         {...drag.attributes}
-      // Arrow keys reorder; dnd-kit's drag instructions would mislead screen readers.
-      aria-describedby={undefined}
-      aria-roledescription={undefined}
+        // Arrow keys reorder; dnd-kit's drag instructions would mislead screen readers.
+        aria-describedby={undefined}
+        aria-roledescription={undefined}
         onKeyDown={key}
         aria-label={t("chat.setupStage.order.item", { name, position: index + 1, total })}
         style={{

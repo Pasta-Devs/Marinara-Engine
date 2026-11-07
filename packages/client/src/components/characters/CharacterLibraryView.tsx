@@ -12,7 +12,19 @@ import {
   useState,
   type UIEvent,
 } from "react";
-import { ArrowLeft, ArrowUpDown, Download, Hash, MessageCircle, Pencil, Play, Plus, Search, Star, User } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpDown,
+  Download,
+  Hash,
+  MessageCircle,
+  Pencil,
+  Play,
+  Plus,
+  Search,
+  Star,
+  User,
+} from "lucide-react";
 import { estimateTextTokens, type CharacterData, type Persona } from "@marinara-engine/shared";
 import type { CharacterCatalogEntry } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -778,7 +790,7 @@ export function CharacterLibraryView() {
                           kind={kind}
                           onEdit={openDetailFromLibrary}
                           onChat={isPersonaLibrary ? undefined : openCharacterChat}
-            onStart={isPersonaLibrary ? undefined : startCharacterChat}
+                          onStart={isPersonaLibrary ? undefined : startCharacterChat}
                         />
                       </div>
                     )}
@@ -818,7 +830,7 @@ export function CharacterLibraryView() {
                 kind={kind}
                 onEdit={openDetailFromLibrary}
                 onChat={isPersonaLibrary ? undefined : openCharacterChat}
-            onStart={isPersonaLibrary ? undefined : startCharacterChat}
+                onStart={isPersonaLibrary ? undefined : startCharacterChat}
               />
             ) : (
               <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)]/65 p-6 text-center">
