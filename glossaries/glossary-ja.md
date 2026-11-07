@@ -688,3 +688,15 @@ Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.
 - Left for a later pass: in `game/game-assets.md`, チャットにいる1人だけのキャラクター用 would be more precise as チャットの唯一のキャラクター用.
 
 These are translation choices, not a new native-reader review.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `media/music.md`, `media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+- **Shipped gloss**, byte-exact `ui/ja.json`: **Game Assets Music Folder**(ゲームアセットの音楽フォルダー) (`ui.chat.musicdjsetupfields.gameAssetsMusicFolder`), glossed once in the new `media/music.md` paragraph like the section's other field labels. **This chat** stays bare there; the section glosses it in the **Apply to** table.
+- **Left bare** in the `chats/group-chats.md` Characters table, as that table leaves **Add Character**, **Remove from chat** and **Drag to reorder** bare: **Open character card** (shipped `ui.chat.chatsettingsdrawer.openCharacterCard` is キャラクターカードを開く, for a later gloss pass) and **Chat Settings**, glossed at the top of the section.
+- **On this device** keeps the pack's coined (このデバイス上) in `media/tts-setup.md`; `ui/ja.json` still has no value for `connections.accounts.section.device` or `connections.add.tag.device` (recheck when they ship). `media/music.md` keeps この端末 for "this device", after **Music folder on this device**(この端末の音楽フォルダー).
+- Terms: members already in the chat にチェックが入っています, as in `conversation/table-games.md`; add or remove = 追加したり外したりできます, with the table's 外す; a member's full card = メンバーのカード全体; サブフォルダー and `music/combat`, as in the `media/music.md` **On** bullet; a voice server on your computer or private network = 自分のコンピューターやプライベートネットワーク上にある…音声サーバー, with プライベートネットワーク from `REMOTE_ACCESS.md` and `TROUBLESHOOTING.md`. "**This chat** also shows" is **This chat**を選ぶと…も表示されます, because the field appears when **Apply to** is **This chat** (`AgentAddSetupFields.tsx`).
+- The field's hint (`gameAssetsMusicFolderForThisChatOnly`) has no `ui/ja.json` value yet; the guide paraphrases it, so it takes no gloss.
+
+These are translation choices, not a new native-reader review.

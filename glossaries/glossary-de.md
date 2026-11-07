@@ -1056,3 +1056,26 @@ Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.
   Laufzeit**; exports are **Chat-Exporte**, **Einstellungsprofile**, **Agenten-Exporte**. Music
   plays „aus dem Ordner“, not „den Ordner“, and a story „bekommt“ its soundtrack rather than
   „spielt“ it (R1). The Troubleshooting lead-in opens „Über Fernzugriff …“ to cover both cases.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 sync (`chats/group-chats.md`, `media/music.md`,
+`media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+- **Open character card** stays bare in its parentheses, like the table's other tooltips
+  (**Remove from chat**, **Drag to reorder**, **Disable in chat**). The `ui/de.json` value
+  „Charakterkarte öffnen“ of `ui.chat.chatsettingsdrawer.openCharacterCard` is not copied (§8).
+  **Add Character** and **Chat Settings** keep their first-mention glosses earlier in the file
+  and are bare in the new rows. A member's *full card* is „die vollständige Karte eines
+  Mitglieds“; members already in the chat are „Die Mitglieder des Chats sind schon angehakt“,
+  „angehakt“ being the pack's word for a checked box (not „Mitglieder, die schon im Chat sind,
+  sind …“, whose doubled „sind“ reads clumsily).
+- **Game Assets Music Folder** stays bare like **Game Assets music folder** in the same file and
+  the field labels of 2026-11-07 (#8913); the `ui/de.json` „Musikordner der Spielressourcen“
+  is not copied, and Game Assets stays English in prose. The label takes the carrier noun
+  „das Feld“. A chat „spielt aus Game Assets“ (R1); *use the default* is „den Standardordner
+  nutzen“, as in the file's precedence sentence.
+- **On this device** keeps its existing gloss (auf diesem Gerät). *A voice server on your
+  computer or private network* is „ein Sprachserver auf deinem Rechner oder in deinem privaten
+  Netzwerk“: **Sprachserver** and **Rechner** as elsewhere in `media/tts-setup.md`. The feature
+  is the subject: „Nutzt Text to Speech schon PocketTTS …“.

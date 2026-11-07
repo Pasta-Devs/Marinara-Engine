@@ -1,6 +1,6 @@
 {
   "language": "hi",
-  "sourceCommit": "d055e94915d656616e4e65653ad9044cfd615b03",
+  "sourceCommit": "9650a8e6f0ee56e9f2ededce609fa36ad36e8027",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -179,8 +179,8 @@
     },
     {
       "path": "chats/group-chats.md",
-      "sha256": "e0876e0ce578e826805594d1515b644eae45292c0deb97ef31b3adf3069d48f2",
-      "bytes": 25352
+      "sha256": "ce71dfd0b3872f215e72e3171332f8a35a96f588bd358a6a2db463fda48b20b8",
+      "bytes": 25834
     },
     {
       "path": "chats/guided-and-impersonate.md",
@@ -659,8 +659,8 @@
     },
     {
       "path": "media/music.md",
-      "sha256": "de730dbf6bc1f02de84565be30daaee076db2abf673bab8eb792b125495b3d0b",
-      "bytes": 30750
+      "sha256": "98d4f0dfa3ad45c760a1a92bc96088574d13388eb01d5475db1cff30c819bb7e",
+      "bytes": 31388
     },
     {
       "path": "media/scene-backgrounds.md",
@@ -679,8 +679,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "142d7d4c2cbe1c0a2b2ad4d4899d9e76f934fb4510d9bc877ae1a201272ded0f",
-      "bytes": 45757
+      "sha256": "ff32170472ebb6a8a2c17e11efe5e747c3fdfb39211a097a307336e2af1cbed1",
+      "bytes": 45929
     },
     {
       "path": "prompts/conditional-prompts.md",

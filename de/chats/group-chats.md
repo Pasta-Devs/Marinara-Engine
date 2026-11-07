@@ -25,7 +25,8 @@ Um einen ganzen Ordner auf einmal hinzuzufügen, öffne im selben Schritt **Add 
 | --- | --- |
 | Einen Charakter hinzufügen | Klick auf **Add Character** (Charakter hinzufügen) und such ihn. |
 | Einen Ordner hinzufügen | Klick auf **Add Character** und dann in der Ordnerzeile auf **Add all** (alle hinzufügen). |
-| Mehrere auf einmal ändern | Klick auf den Namen eines Mitglieds. Es öffnet sich dieselbe Auswahl. |
+| Mehrere auf einmal ändern | Klick auf **Add Character**. Die Mitglieder des Chats sind schon angehakt. Klick auf einen Namen, um ihn hinzuzufügen oder zu entfernen. |
+| Die vollständige Karte eines Mitglieds öffnen | Klick auf den Namen des Mitglieds (**Open character card**). **Chat Settings** schließt sich, und die Karte öffnet sich. |
 | Einen Charakter entfernen | Klick auf das Papierkorbsymbol (**Remove from chat**). |
 | Umsortieren | Zieh den Ziehpunkt (**Drag to reorder**). Bei der Reihenfolge **Sequential** antworten die Charaktere in dieser Reihenfolge. |
 | Vorübergehend ausschalten | Klick auf das Auge (**Disable in chat**). Ein erneuter Klick schaltet ihn wieder ein (**Enable in chat**). |

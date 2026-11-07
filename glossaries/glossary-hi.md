@@ -897,3 +897,14 @@ Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.
 - Terms: **चैट** (feminine, `ग्रुप चैट कभी … इस्तेमाल नहीं करती`), **कैरेक्टर**, **ब्रांच**, **ग्रुप चैट**, **डिफ़ॉल्ट**, **पथ**, **साउंडट्रैक**, **रनटाइम**, **सेटिंग्स प्रोफ़ाइल**, **चैट एक्सपोर्ट** and **एजेंट एक्सपोर्ट**. A chat plays a folder with **बजाना** (`कोई चैट गलत फ़ोल्डर बजाती है`); playing from a folder is **फ़ोल्डर से म्यूज़िक चलाना**. **Unlink from** is `… वाला बटन`, as `AgentAddSetupFields.tsx` confirms.
 
 These are translation choices, not a new native-reader review.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `media/music.md`, `media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+- Left bare, in line with the pack's sparse glossing and the same files' other tooltips and folder fields: **Add Character**, as in the rows above it; **Open character card** (`ui/hi.json`: `कैरेक्टर कार्ड खोलें`), placed in parentheses after the noun like **Remove from chat** (`सदस्य के नाम (**Open character card**) पर क्लिक करें`); and the per-chat field **Game Assets Music Folder** (`ui/hi.json`: `Game Assets म्यूज़िक फ़ोल्डर`), in the English guide's casing, which is the add-to-chat label; Chat Settings shows the same field under the editor key **Game Assets music folder**, which has the same `ui/hi.json` value. No gloss is coined. **On this device** keeps its existing gloss (इसी डिवाइस पर).
+- **Chat Settings** is masculine, as elsewhere in the pack (`**Chat Settings** … खुलता है`), so `**Chat Settings** बंद हो जाता है`. Checked members are `सदस्यों पर टिक लगा होता है`, after `टिक लगाएँ` (`lorebooks/import-export.md`, `game/game-assets.md`). A member's full card is `पूरा कार्ड`.
+- "**This chat** also shows" is `**This chat** चुनने पर … भी दिखता है`, because the field appears only when **This chat** is the **Apply to** choice (`ChatSettingsDrawer.tsx`, `AgentAddSetupFields.tsx`). A subfolder is **सबफ़ोल्डर**, as in the file's **On** bullet; it plays in the chat with intransitive **बजना** (`ताकि वह सिर्फ़ इसी चैट में बजे`).
+- A private network is **प्राइवेट नेटवर्क**, as in `REMOTE_ACCESS.md`; a voice server is **वॉइस सर्वर**, as in the file's PocketTTS bullet. The prose subject is **TTS**, the file's running term for text to speech.
+
+These are translation choices, not a new native-reader review.
