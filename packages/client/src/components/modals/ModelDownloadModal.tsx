@@ -1073,55 +1073,58 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
   } else if (view === "ready") {
     body = (
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3.5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.625rem] bg-foreground/[0.06] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--foreground)_10%,transparent)]">
-            <Cpu size="1.25rem" aria-hidden />
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-sm font-semibold text-[var(--foreground)] [overflow-wrap:anywhere]">
-              {activeModelName ?? localizeUi("connections.device.setup.modelInstalled")}
+        {/* Embedded on the built-in model's page, which already shows the model, its state and what uses it. */}
+        {!embedded && (
+          <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.625rem] bg-foreground/[0.06] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--foreground)_10%,transparent)]">
+              <Cpu size="1.25rem" aria-hidden />
             </span>
-            <span
-              className={cn(
-                "flex items-center gap-1.5 text-xs",
-                canFinish
-                  ? "text-emerald-400"
-                  : status === "server_error"
-                    ? "text-amber-300"
-                    : "text-[var(--muted-foreground)]",
-              )}
-            >
-              {canFinish && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />}
-              {[runtimeStatusLabel, formatRuntimeVariantLabel(runtime.variant)].filter(Boolean).join(" · ")}
-            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm font-semibold text-[var(--foreground)] [overflow-wrap:anywhere]">
+                {activeModelName ?? localizeUi("connections.device.setup.modelInstalled")}
+              </span>
+              <span
+                className={cn(
+                  "flex items-center gap-1.5 text-xs",
+                  canFinish
+                    ? "text-emerald-400"
+                    : status === "server_error"
+                      ? "text-amber-300"
+                      : "text-[var(--muted-foreground)]",
+                )}
+              >
+                {canFinish && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />}
+                {[runtimeStatusLabel, formatRuntimeVariantLabel(runtime.variant)].filter(Boolean).join(" · ")}
+              </span>
+            </div>
+            {inferenceReady ? (
+              <button
+                type="button"
+                onClick={() => void sendTestMessage()}
+                disabled={testMessagePending}
+                className={SECONDARY}
+              >
+                {testMessagePending ? (
+                  <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
+                ) : (
+                  <MessageSquare size="0.875rem" aria-hidden />
+                )}
+                {localizeUi("connections.builtin.test")}
+              </button>
+            ) : runtime.installed && status !== "server_error" ? (
+              <button type="button" onClick={() => void restartRuntime()} className={SECONDARY}>
+                {localizeUi("ui.modals.modeldownloadmodal.startRuntime")}
+              </button>
+            ) : !runtime.installed ? (
+              <button type="button" onClick={() => void installRuntime()} className={SECONDARY}>
+                <Download size="0.875rem" aria-hidden />
+                {localizeUi("ui.modals.modeldownloadmodal.installRuntime")}
+              </button>
+            ) : null}
           </div>
-          {inferenceReady ? (
-            <button
-              type="button"
-              onClick={() => void sendTestMessage()}
-              disabled={testMessagePending}
-              className={SECONDARY}
-            >
-              {testMessagePending ? (
-                <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
-              ) : (
-                <MessageSquare size="0.875rem" aria-hidden />
-              )}
-              {localizeUi("connections.builtin.test")}
-            </button>
-          ) : runtime.installed && status !== "server_error" ? (
-            <button type="button" onClick={() => void restartRuntime()} className={SECONDARY}>
-              {localizeUi("ui.modals.modeldownloadmodal.startRuntime")}
-            </button>
-          ) : !runtime.installed ? (
-            <button type="button" onClick={() => void installRuntime()} className={SECONDARY}>
-              <Download size="0.875rem" aria-hidden />
-              {localizeUi("ui.modals.modeldownloadmodal.installRuntime")}
-            </button>
-          ) : null}
-        </div>
+        )}
 
-        {status === "server_error" && (
+        {!embedded && status === "server_error" && (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3.5">
             <div className="flex items-center gap-2 text-sm font-medium text-amber-200">
               <AlertTriangle size="0.9375rem" aria-hidden />
@@ -1174,38 +1177,40 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
 
         {testMessageResult && <TestResult result={testMessageResult} />}
 
-        <div className="flex flex-col gap-2">
-          <h3 className={LABEL}>{localizeUi("connections.builtin.usedFor")}</h3>
-          <div className={LIST}>
-            {(
-              [
+        {!embedded && (
+          <div className="flex flex-col gap-2">
+            <h3 className={LABEL}>{localizeUi("connections.builtin.usedFor")}</h3>
+            <div className={LIST}>
+              {(
                 [
-                  "useForTrackers",
-                  "connections.builtin.card.trackers",
-                  "ui.modals.modeldownloadmodal.trackerAgentsInRoleplayMode",
-                ],
-                [
-                  "useForGameScene",
-                  "connections.builtin.sceneEffects",
-                  "ui.modals.modeldownloadmodal.sceneEffectsInGameModeBackgroundsMusicSfxAmbient",
-                ],
-              ] as const
-            ).map(([field, title, hint]) => (
-              <SettingsSwitch
-                key={field}
-                label={localizeUi(title)}
-                description={localizeUi(hint)}
-                checked={config[field]}
-                onChange={(value) => void updateConfig({ [field]: value })}
-                labelPosition="start"
-                className="justify-between px-3.5 py-2.5"
-              />
-            ))}
+                  [
+                    "useForTrackers",
+                    "connections.builtin.card.trackers",
+                    "ui.modals.modeldownloadmodal.trackerAgentsInRoleplayMode",
+                  ],
+                  [
+                    "useForGameScene",
+                    "connections.builtin.sceneEffects",
+                    "ui.modals.modeldownloadmodal.sceneEffectsInGameModeBackgroundsMusicSfxAmbient",
+                  ],
+                ] as const
+              ).map(([field, title, hint]) => (
+                <SettingsSwitch
+                  key={field}
+                  label={localizeUi(title)}
+                  description={localizeUi(hint)}
+                  checked={config[field]}
+                  onChange={(value) => void updateConfig({ [field]: value })}
+                  labelPosition="start"
+                  className="justify-between px-3.5 py-2.5"
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex flex-col gap-2">
-          <h3 className={LABEL}>{localizeUi("connections.builtin.settings")}</h3>
+          {!embedded && <h3 className={LABEL}>{localizeUi("connections.builtin.settings")}</h3>}
           {settingsList}
         </div>
       </div>
@@ -1215,7 +1220,7 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
         {localizeUi("connections.builtin.changeModel")}
       </button>
     );
-    footerRight = (
+    footerRight = embedded ? null : (
       <button type="button" onClick={close} className={PRIMARY}>
         {localizeUi("connections.add.done")}
       </button>

@@ -9593,3 +9593,143 @@ input.ov-edhead__title:focus {
   height: 2rem;
   font-size: 0.8125rem;
 }
+.ov-devpage__head {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0 1rem;
+}
+.ov-devpage__head h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.ov-devpage .mari-dm-body {
+  max-width: 44rem;
+}
+
+/* Built-in model page: Runtime settings open as a section of the page, not a pop-up window.
+   Flat divider rows like the rest of the page; no card slab, no sticky window footer. */
+:root[data-overhaul] .mari-device-runtime {
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+}
+:root[data-overhaul] .mari-device-runtime > h4 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  margin: 0 0 0.25rem;
+}
+:root[data-overhaul] .mari-device-runtime .mari-connection-scope > div:first-child {
+  padding: 0;
+  gap: 0.75rem;
+}
+:root[data-overhaul] .mari-device-runtime .rounded-xl {
+  border-radius: 0.375rem;
+  background: none;
+}
+:root[data-overhaul] .mari-device-runtime .divide-y > button {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.625rem;
+}
+:root[data-overhaul] .mari-device-runtime .mari-connection-scope > div.sticky {
+  position: static;
+  background: none;
+  border-top: 0;
+  padding: 0.5rem 0 0;
+}
+:root[data-overhaul] .mari-device-runtime select,
+:root[data-overhaul] .mari-device-runtime input:not([type="checkbox"]):not([type="range"]) {
+  height: 2rem;
+  min-height: 2rem;
+  font-size: 0.8125rem;
+  padding-block: 0;
+}
+:root[data-overhaul] .mari-device-runtime .text-sm {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .mari-device-runtime .text-base {
+  font-size: 0.875rem;
+}
+:root[data-overhaul] .mari-device-runtime [role="radiogroup"] button,
+:root[data-overhaul] .mari-device-runtime [role="tablist"] button {
+  min-height: 1.75rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+}
+
+/* Connections viewer: an account's name opens its page; the chevron only folds its models. */
+.ov-vw__ghead.is-split {
+  padding: 0;
+  gap: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0.375rem;
+}
+.ov-vw__ghead.is-split.is-on {
+  border-left-color: var(--ov-accent);
+  background: color-mix(in srgb, var(--ov-text) 7%, transparent);
+}
+.ov-vw__gfold {
+  display: flex;
+  flex: none;
+  padding: 0.375rem 0.25rem 0.25rem 0.375rem;
+}
+.ov-vw__gopen {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.375rem 0.25rem 0.125rem;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.ov-vw__gopen > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-vw__gopen:hover > span {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* An account's page in the Connections viewer: the editor that used to be a window, at page density. */
+.ov-vw__main > .ov-acctpage {
+  padding: 1rem 1.5rem 2rem;
+  max-width: 44rem;
+  font-size: 0.8125rem;
+}
+.ov-acctpage__head {
+  display: flex;
+  align-items: center;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.ov-acctpage > .flex > .sticky {
+  position: static;
+  margin: 0.5rem 0 0;
+  padding: 0.75rem 0 0;
+  background: none;
+}
+.ov-acctpage .mari-connection-model-choice {
+  min-height: 2.5rem;
+  padding-block: 0.25rem;
+}
+.ov-acctpage .mari-connection-browse {
+  min-height: 2rem;
+  background: none;
+  font-size: 0.8125rem;
+  color: var(--ov-accent, var(--marinara-app-accent-static));
+}
+.ov-acctpage .mari-connection-browse > :first-child {
+  width: 1.75rem;
+  height: 1.75rem;
+  background: none;
+}
+.ov-acctpage .mari-connection-model-choice > :first-child {
+  transform: scale(0.8);
+}

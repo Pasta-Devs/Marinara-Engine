@@ -2616,6 +2616,16 @@ export const useUIStore = create<UIState>()(
             useOverhaulStore.getState().openDocs(initialDoc, { newTab: Boolean(props?.newTab) });
             return;
           }
+          // UI overhaul (desktop): an account is a page in the Connections viewer, beside its models.
+          if (type === "connection-account" && typeof props?.accountId === "string") {
+            const overhaul = useOverhaulStore.getState();
+            if (overhaul.enabled && overhaul.desktop) {
+              get().openConnectionDetail(
+                `${props.replaceKey === true ? "account-key:" : "account:"}${props.accountId}`,
+              );
+              return;
+            }
+          }
           set({ modal: { type, props } });
         },
         closeModal: () => set({ modal: null }),

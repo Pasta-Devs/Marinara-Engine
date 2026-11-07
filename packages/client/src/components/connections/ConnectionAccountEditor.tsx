@@ -140,11 +140,14 @@ export function ConnectionAccountEditor({
   accountId,
   replaceKey = false,
   onClose,
+  embedded = false,
 }: {
   accountId: string;
   /** Opened from "Replace key": the key field starts empty and focused. */
   replaceKey?: boolean;
   onClose: () => void;
+  /** Render as a page (the Connections viewer) instead of a window. */
+  embedded?: boolean;
 }) {
   const { t } = useTranslation();
   const voiceRowId = useVoiceRowId();
@@ -260,7 +263,11 @@ export function ConnectionAccountEditor({
           toast.success(t("connections.accounts.editor.sameKeyUpdated", { count: others.length }));
         }
       }
-      if (close) onClose();
+      if (close) {
+        // As a page it stays open after saving; the saved values become the new starting point.
+        if (embedded) setApiKey(null);
+        else onClose();
+      }
       return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("connections.accounts.editor.saveFailed"));
@@ -355,75 +362,63 @@ export function ConnectionAccountEditor({
     />
   );
 
-  return (
-    <Modal
-      open
-      onClose={() => void leaveFor(() => {})}
-      // While the picture menu is open, Escape and the backdrop close only the menu.
-      closeDisabled={update.isPending || remove.isPending || test.isPending || !!pictureAt}
-      focusScopePortalSelector={PICTURE_MENU_SELECTOR}
-      title={t("connections.accounts.editor.editTitle")}
-      titleSlot={
-        account && draft ? (
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <button
-              type="button"
-              data-account-picture
-              onClick={(event) => setPictureAt(menuAt(event))}
-              aria-label={t("connections.picture.change", { name: account.name })}
-              title={t("connections.picture.change", { name: account.name })}
-              className="relative shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
-            >
-              {tile}
-              <span
-                aria-hidden
-                className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--card)] text-[var(--foreground)] shadow ring-1 ring-[var(--border)]"
-              >
-                <Camera size="0.75rem" />
-              </span>
-            </button>
-            {pictureAt && (
-              <PictureMenu
-                target={{ kind: "account", id: account.id }}
-                name={account.name}
-                icon={account.icon}
-                imagePath={account.imagePath}
-                at={pictureAt}
-                onClose={closePicture}
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <input
-                value={draft.name}
-                onChange={(event) => set("name", event.target.value)}
-                aria-label={t("connections.accounts.editor.name")}
-                data-account-name
-                className="mari-chrome-field h-10 w-full px-3 text-[0.9375rem] font-semibold"
-              />
-              <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-                <span className="min-w-0 truncate">
-                  {serviceName(getConnectionIdentity(account, models).service, account.provider)} ·{" "}
-                  {t("connections.list.models", { count: models.length })}
-                </span>
-                {state !== "ok" && (
-                  <StateWord tone={STATE_TONE[state]} label={t(`connections.accounts.state.${state}`)} />
-                )}
-              </p>
-            </div>
-            <div className="shrink-0">
-              <ToggleSetting
-                label={<span className="sr-only">{t("connections.accounts.editor.enabled")}</span>}
-                checked={draft.enabled}
-                onChange={(checked) => set("enabled", checked)}
-              />
-            </div>
-          </div>
-        ) : undefined
-      }
-      opaque
-      width="max-w-lg"
-      panelClassName="mari-connection-scope"
-    >
+  const titleSlot =
+    account && draft ? (
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <button
+          type="button"
+          data-account-picture
+          onClick={(event) => setPictureAt(menuAt(event))}
+          aria-label={t("connections.picture.change", { name: account.name })}
+          title={t("connections.picture.change", { name: account.name })}
+          className="relative shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+        >
+          {tile}
+          <span
+            aria-hidden
+            className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--card)] text-[var(--foreground)] shadow ring-1 ring-[var(--border)]"
+          >
+            <Camera size="0.75rem" />
+          </span>
+        </button>
+        {pictureAt && (
+          <PictureMenu
+            target={{ kind: "account", id: account.id }}
+            name={account.name}
+            icon={account.icon}
+            imagePath={account.imagePath}
+            at={pictureAt}
+            onClose={closePicture}
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <input
+            value={draft.name}
+            onChange={(event) => set("name", event.target.value)}
+            aria-label={t("connections.accounts.editor.name")}
+            data-account-name
+            className="mari-chrome-field h-10 w-full px-3 text-[0.9375rem] font-semibold"
+          />
+          <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+            <span className="min-w-0 truncate">
+              {serviceName(getConnectionIdentity(account, models).service, account.provider)} ·{" "}
+              {t("connections.list.models", { count: models.length })}
+            </span>
+            {state !== "ok" && <StateWord tone={STATE_TONE[state]} label={t(`connections.accounts.state.${state}`)} />}
+          </p>
+        </div>
+        <div className="shrink-0">
+          <ToggleSetting
+            label={<span className="sr-only">{t("connections.accounts.editor.enabled")}</span>}
+            checked={draft.enabled}
+            onChange={(checked) => set("enabled", checked)}
+          />
+        </div>
+      </div>
+    ) : undefined;
+
+  const body = (
+    <>
       {!account || !draft ? (
         <p className="text-xs text-[var(--muted-foreground)]">
           {isLoading ? <Loader2 size="0.875rem" className="animate-spin" /> : t("connections.accounts.editor.notFound")}
@@ -643,8 +638,15 @@ export function ConnectionAccountEditor({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => void leaveFor(() => {})}
-                disabled={update.isPending || remove.isPending || test.isPending}
+                onClick={() => {
+                  // As a page, Cancel puts the saved values back instead of leaving.
+                  if (embedded) {
+                    setDraft(null);
+                    setApiKey(null);
+                    test.reset();
+                  } else void leaveFor(() => {});
+                }}
+                disabled={update.isPending || remove.isPending || test.isPending || (embedded && !dirty)}
                 className="mari-chrome-control px-3"
               >
                 {t("connections.accounts.editor.cancel")}
@@ -662,6 +664,33 @@ export function ConnectionAccountEditor({
           </div>
         </div>
       )}
+    </>
+  );
+
+  if (embedded) {
+    // The new layout shows the account as a page in the Connections viewer, beside its models.
+    return (
+      <div className="ov-acctpage mari-connection-scope">
+        <header className="ov-acctpage__head">{titleSlot}</header>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Modal
+      open
+      onClose={() => void leaveFor(() => {})}
+      // While the picture menu is open, Escape and the backdrop close only the menu.
+      closeDisabled={update.isPending || remove.isPending || test.isPending || !!pictureAt}
+      focusScopePortalSelector={PICTURE_MENU_SELECTOR}
+      title={t("connections.accounts.editor.editTitle")}
+      titleSlot={titleSlot}
+      opaque
+      width="max-w-lg"
+      panelClassName="mari-connection-scope"
+    >
+      {body}
     </Modal>
   );
 }

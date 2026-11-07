@@ -8,12 +8,7 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Plus, Search, Download, List, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
-import {
-  BUILT_IN_AGENTS,
-  isAgentConfigDeleted,
-  isRetiredBuiltInAgentId,
-  type Lorebook,
-} from "@marinara-engine/shared";
+import { BUILT_IN_AGENTS, isAgentConfigDeleted, isRetiredBuiltInAgentId, type Lorebook } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { useLorebooks, useUpdateLorebook } from "../../hooks/use-lorebooks";
