@@ -59,12 +59,13 @@ function isOtherBuild(health, checkoutCommit) {
 
 function printOtherBuildMessage(health, checkoutCommit) {
   console.error("");
-  console.error(`  [ERROR] An older or different Marinara Engine is still running at ${browserUrl}.`);
+  console.error(`  [ERROR] A different version of Marinara Engine is still running at ${browserUrl}.`);
   console.error(`          Running build: ${health.build || health.commit}`);
   console.error(`          This folder:   ${checkoutCommit.slice(0, 12)}`);
   console.error("");
-  console.error("  Opening it would show the old version. Close the Marinara console window that is");
-  console.error("  still open (or press Ctrl+C in it), then start Marinara again.");
+  console.error("  Opening it would show that version instead of this folder's.");
+  console.error("  Close the Marinara console window that is still open (or press Ctrl+C in it),");
+  console.error("  then start Marinara again.");
   console.error("");
 }
 

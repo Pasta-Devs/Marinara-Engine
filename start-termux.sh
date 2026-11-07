@@ -433,13 +433,19 @@ elif [ -d ".git" ]; then
     TARGET_REF="origin/${TARGET_BRANCH}"
     if ! git fetch origin "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}" --quiet 2>/dev/null; then
         if [ "$FEATURE_BRANCH" = "1" ]; then
-            echo "  [OK] Branch ${CURRENT_BRANCH} could not be fetched from GitHub (not pushed there, or offline). Starting the current version."
+            echo "  [WARN] Could not check GitHub for updates to ${CURRENT_BRANCH} (offline?). Starting the current version."
         else
             echo "  [WARN] Could not check for updates (no internet?). Continuing with current version."
         fi
     elif [ "$OLD_HEAD" = "$(git rev-parse "$TARGET_REF" 2>/dev/null || true)" ] \
         || { [ "$FEATURE_BRANCH" = "1" ] && git merge-base --is-ancestor "$TARGET_REF" HEAD 2>/dev/null; }; then
         echo "  [OK] Already up to date"
+    elif [ "$FEATURE_BRANCH" = "1" ] && ! git merge-base --is-ancestor HEAD "$TARGET_REF" 2>/dev/null; then
+        # The test branch was rebased or force-pushed (or has local commits), so it can't
+        # fast-forward. Skip before the snapshot instead of failing and re-copying the data
+        # on every launch, and say how to get back on track in plain words.
+        echo "  [WARN] Your copy of ${CURRENT_BRANCH} has changes that are not on GitHub, so it was not updated."
+        echo "         To get the latest test version, paste step 3 of the playtester guide again."
     else
         TARGET_HEAD=$(git rev-parse "$TARGET_REF" 2>/dev/null || true)
         # Stash local changes, including untracked non-ignored files, so the update doesn't fail

@@ -167,7 +167,7 @@ set "TARGET_REF=origin/!TARGET_BRANCH!"
 git fetch origin "+refs/heads/!TARGET_BRANCH!:refs/remotes/origin/!TARGET_BRANCH!" --quiet >nul 2>&1
 if errorlevel 1 (
     if defined FEATURE_BRANCH (
-        echo  [OK] Branch !CURRENT_BRANCH! could not be fetched from GitHub ^(not pushed there, or offline^). Starting the current version.
+        echo  [WARN] Could not check GitHub for updates to !CURRENT_BRANCH! ^(offline?^). Starting the current version.
     ) else (
         echo  [WARN] Could not check for updates. Continuing with current version.
     )
@@ -178,6 +178,15 @@ if defined FEATURE_BRANCH (
     git merge-base --is-ancestor "!TARGET_REF!" HEAD >nul 2>&1
     if not errorlevel 1 (
         echo  [OK] Already up to date
+        goto :skip_update
+    )
+    rem The test branch was rebased or force-pushed ^(or has local commits^), so it can't
+    rem fast-forward. Skip before the snapshot instead of failing and re-copying the data
+    rem on every launch.
+    git merge-base --is-ancestor HEAD "!TARGET_REF!" >nul 2>&1
+    if errorlevel 1 (
+        echo  [WARN] Your copy of !CURRENT_BRANCH! has changes that are not on GitHub, so it was not updated.
+        echo         To get the latest test version, paste step 3 of the playtester guide again.
         goto :skip_update
     )
 )
