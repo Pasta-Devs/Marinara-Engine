@@ -124,6 +124,7 @@ import { isFeatureEnabled } from "../services/features/feature-settings.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createConnectionAccountsStorage, pickLimits } from "../services/storage/connection-accounts.storage.js";
 import { applyChatModelOverride, readChatModelOverride } from "../services/generation/connection-resolution.js";
+import { notifyLongTermMemoryChatBranched } from "../services/generation/long-term-memory-runtime.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import {
@@ -6046,6 +6047,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       }
       throw err;
     }
+
+    await notifyLongTermMemoryChatBranched({ chatId: newChat.id, parentChatId: sourceChat.id });
 
     // Return the fully-updated chat (including copied metadata)
     const branchedChat = await storage.getById(newChat.id);
