@@ -113,6 +113,8 @@ Un chat o un personaje puede tener su propia carpeta de música, para que cada h
 
 Music DJ usa la primera carpeta que encuentra: la de este chat, luego la del personaje y luego la predeterminada. Un chat grupal nunca usa la carpeta de un personaje. La carpeta de un chat o de un personaje se usa incluso cuando la fuente predeterminada es Game Assets.
 
+Mientras un chat reproduce música de Game Assets (no tiene una carpeta propia en este dispositivo), **This chat** también muestra el campo **Game Assets Music Folder**. Escribe una subcarpeta de Game Assets, como `music/combat`, para reproducirla solo en este chat. Deja el campo vacío para usar la predeterminada.
+
 **In use:** muestra la carpeta de la que este chat reproduce música y de dónde viene: **This chat**, **From** y el nombre del personaje, o **Default**.
 
 - **Use default** (Usar la predeterminada) quita la carpeta de este chat. El chat pasa entonces a usar la carpeta del personaje o la predeterminada.

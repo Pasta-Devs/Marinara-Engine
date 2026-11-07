@@ -824,3 +824,14 @@ Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.
 - **Export Profile drift.** `integrations/message-translation.md:91` glosses (экспорт профиля); the other three files, including `media/music.md`, use (экспортировать профиль). Align it in a consistency pass.
 
 These are documented translation choices from this sync, not an independent native-reader review.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `media/music.md`, `media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+- New gloss: **Open character card** (открыть карточку персонажа), placed after a comma inside the locator parenthetical like **Remove from chat** (…, убрать из чата) in the same table. It is the pack's own **карточка персонажа** and happens to match `ui.chat.chatsettingsdrawer.openCharacterCard`. **Game Assets Music Folder** reuses (папка музыки Game Assets), the pack gloss of the same field label **Game Assets music folder** at `game/game-assets.md:186`; it is not taken from `ui/ru.json` `ui.chat.musicdjsetupfields.gameAssetsMusicFolder` ("Музыкальная папка игровых ресурсов"), per §5. **Add Character** (добавить персонажа) and **Chat Settings** (настройки чата) keep their earlier glosses in `chats/group-chats.md` and run bare in the new rows; **On this device** keeps (на этом устройстве) in `media/tts-setup.md`. The sibling **Game Assets music folder** at `media/music.md:93` stays bare.
+- The new row is **Открыть полную карточку участника**; "already in the chat are checked" is **отмечены**. "**Chat Settings** closes" takes the carrier: **Панель Chat Settings закроется, и откроется карточка**, as `chats/chat-settings.md:11` says **Чтобы закрыть панель**.
+- Per the #8913/#8931 calque note, "while a chat plays from Game Assets" is **Пока чат берет музыку из Game Assets**, and "to play it in this chat only" is **чтобы музыка из нее играла только в этом чате**. "**This chat** also shows" is **при выборе This chat также появляется поле**, because the field appears only while **This chat** is selected in **Apply to** (`ChatSettingsDrawer.tsx` at `9650a8e6f0`).
+- "Another voice server on your computer or private network" is **другой голосовой сервер на вашем компьютере или в частной сети**, after **голосовой сервер** (`TROUBLESHOOTING.md:324`) and **частная сеть** (`REMOTE_ACCESS.md:161`). The step's subject is **синтез речи**, the guide's term.
+
+These are documented translation choices from this sync, not an independent native-reader review.

@@ -14,7 +14,7 @@ Le Text to Speech (TTS), ou synthèse vocale, lit à voix haute les messages du 
 Presque tous les réglages TTS se trouvent dans une seule carte. Activer le TTS ne fait rien lire à lui seul. Cela fait apparaître le bouton **Speak** sur chaque message et les options **Auto-play** (lecture automatique). C'est toujours toi qui choisis ce qui est lu, et quand.
 
 1. Clique sur **Connections** (Connexions) dans la barre du haut, puis sur **Add** (ajouter). La fenêtre **Add account** (ajouter un compte) s'ouvre.
-2. Sous **Voice** (voix), choisis **Text to speech** (synthèse vocale). La carte s'ouvre. Si tu utilises déjà PocketTTS, la même carte se trouve aussi sous **On this device** (sur cet appareil).
+2. Sous **Voice** (voix), choisis **Text to speech** (synthèse vocale). La carte s'ouvre. Si la synthèse vocale utilise déjà PocketTTS ou un autre serveur vocal sur ton ordinateur ou ton réseau privé, la même carte se trouve aussi sous **On this device** (sur cet appareil).
 3. Active **Use text to speech**. Tant que ce réglage est désactivé, rien n'est lu à voix haute.
 4. Ouvre la liste **Source** et choisis un service.
 

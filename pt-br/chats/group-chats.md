@@ -25,7 +25,8 @@ Abra **Chat Settings** (configurações do chat) e procure a seção **Character
 |---|---|
 | Adicionar um personagem | Clique em **Add Character** (adicionar personagem) e faça a busca. |
 | Adicionar uma pasta | Clique em **Add Character** e depois em **Add all** (adicionar todos) na linha da pasta. |
-| Mudar vários de uma vez | Clique no nome de um membro. O mesmo seletor se abre. |
+| Mudar vários de uma vez | Clique em **Add Character**. Os membros que já estão no chat aparecem marcados. Clique em um nome para adicionar ou remover o personagem. |
+| Abrir o card completo de um membro | Clique no nome do membro (**Open character card**). **Chat Settings** fecha e o card se abre. |
 | Remover um personagem | Clique no ícone de lixeira (**Remove from chat**). |
 | Reordenar | Arraste a alça (**Drag to reorder**). Na ordem **Sequential**, os personagens respondem nesta ordem. |
 | Desativar por um tempo | Clique no olho (**Disable in chat**). Clique de novo para ativar (**Enable in chat**). |

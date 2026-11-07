@@ -800,3 +800,17 @@ Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.
 | a chat plays a folder | 聊天播放的文件夹 | The new row is 聊天播放的文件夹不对; the scope choice is 选择文件夹保存在哪一级. |
 
 **From**, **Default**, **Needs reinstall** and **Not set up** stay bare as statuses. The Troubleshooting row says 看看 **In use:** 显示的是什么, so the label's colon does not run into 。. These are translation choices, not a new native-reader review.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `media/music.md`, `media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| Open character card (member-name tooltip under **Characters**) | **Open character card**(打开角色卡) | Equals `ui.chat.chatsettingsdrawer.openCharacterCard` in `ui/zh-Hans.json`. Sits in the row's full-width parentheses like the other tooltips: （**Open character card**(打开角色卡)）. |
+| Game Assets Music Folder (per-chat field) | **Game Assets Music Folder** | Bare, like the other folder fields in `media/music.md`. `ui/zh-Hans.json` has 游戏资源音乐文件夹 (`ui.chat.musicdjsetupfields.gameAssetsMusicFolder`); no gloss coined. The English casing is the add-to-chat label; Chat Settings shows the same field under the editor key **Game Assets music folder**, which has the same `ui/zh-Hans.json` value. |
+| members already in the chat are checked | 聊天里已有的成员都处于勾选状态 | 勾选 as in `chats/settings-profiles.md` and `characters/bot-browser.md`. A member's full card is 完整角色卡. |
+| This chat also shows … | 选中 **This chat** 时还会出现 … | The field appears only when **This chat** is the **Apply to** choice (`ChatSettingsDrawer.tsx`, `AgentAddSetupFields.tsx`). Subfolder is 子文件夹, as in the file's **On** bullet; the default is 默认文件夹. |
+| a voice server on your computer or private network | 你的电脑或私有网络上的 PocketTTS 或其他语音服务器 | The place covers both servers. 私有网络 as in `REMOTE_ACCESS.md`; voice server is 语音服务器, as in the PocketTTS bullet. **On this device** keeps its existing gloss (在你的电脑上). |
+
+**Add Character** and **Chat Settings** stay bare in the new rows; both are glossed earlier in `chats/group-chats.md`. These are translation choices, not a new native-reader review.

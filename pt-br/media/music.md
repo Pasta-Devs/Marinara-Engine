@@ -113,6 +113,8 @@ Um chat ou um personagem pode ter uma pasta de música própria, para que cada h
 
 O Music DJ usa a primeira pasta que encontra: a pasta deste chat, depois a pasta do personagem, depois a padrão. Um chat em grupo nunca usa a pasta de um personagem. A pasta de um chat ou de um personagem toca mesmo quando a fonte padrão é o Game Assets.
 
+Enquanto um chat toca a partir do Game Assets (ele não tem uma pasta própria neste dispositivo), a opção **This chat** também mostra o campo **Game Assets Music Folder** (pasta de música do Game Assets). Digite uma subpasta do Game Assets, como `music/combat`, para tocá-la só neste chat. Deixe o campo vazio para usar a pasta padrão.
+
 **In use:** (em uso) mostra a pasta que este chat toca e de onde ela vem: **This chat**, **From** seguido do nome do personagem, ou **Default** (padrão).
 
 - **Use default** (usar padrão) remove a pasta deste chat. O chat passa a tocar a pasta do personagem, ou a padrão.

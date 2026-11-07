@@ -14,7 +14,7 @@ O Text to Speech (TTS), a conversão de texto em voz, lê em voz alta as mensage
 Quase toda configuração de TTS fica em um card só. Ativar o TTS não faz nada falar sozinho. Isso revela o botão **Speak** em cada mensagem e as opções de **Auto-play** (leitura automática). A escolha do que é lido e de quando isso acontece continua sendo sua.
 
 1. Clique em **Connections** (Conexões) na barra superior e depois em **Add** (adicionar). A janela **Add account** (adicionar conta) abre.
-2. Em **Voice** (voz), escolha **Text to speech**. O card abre. Se você já usa o PocketTTS, o mesmo card também fica em **On this device** (neste dispositivo).
+2. Em **Voice** (voz), escolha **Text to speech**. O card abre. Se o Text to Speech já usa o PocketTTS ou outro servidor de voz no seu computador ou na sua rede privada, o mesmo card também fica em **On this device** (neste dispositivo).
 3. Ative **Use text to speech**. Enquanto essa opção estiver desligada, nada é lido em voz alta.
 4. Abra a lista **Source** e escolha um serviço.
 

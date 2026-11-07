@@ -113,6 +113,8 @@ Un chat ou un personnage peut avoir son propre dossier de musique, pour que chaq
 
 Music DJ utilise le premier dossier qu'il trouve : le dossier de ce chat, puis celui du personnage, puis le dossier par défaut. Un chat de groupe n'utilise jamais le dossier d'un personnage. Le dossier d'un chat ou d'un personnage est lu même quand la source par défaut est Game Assets.
 
+Quand un chat lit la musique de Game Assets (il n'a pas son propre dossier sur cet appareil), l'option **This chat** affiche aussi le champ **Game Assets Music Folder** (dossier de musique des ressources de jeu). Saisis un sous-dossier de Game Assets, comme `music/combat`, pour le lire dans ce chat uniquement. Laisse le champ vide pour utiliser le dossier par défaut.
+
 **In use:** (en cours d'utilisation) affiche le dossier que lit ce chat et sa provenance : **This chat**, **From** (depuis) suivi du nom du personnage, ou **Default** (par défaut).
 
 - **Use default** (utiliser le dossier par défaut) retire le dossier propre à ce chat. Le chat lit alors le dossier du personnage, ou le dossier par défaut.

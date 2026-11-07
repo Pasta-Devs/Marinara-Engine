@@ -1370,3 +1370,27 @@ Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.
   uruchomieniowego albo są one nieaktualne", so each verb gets its own case. In
   `game/game-assets.md` *its settings* is "ustawienia Music DJ w tym czacie", because "jego"
   could mean the chat.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `media/music.md`, `media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+- The tooltip **Open character card** stays bare behind **podpowiedź** (R-75), like the other
+  tooltips in the same table ("(podpowiedź **Enable in chat**)"), so it takes no gloss.
+  **Game Assets Music Folder** is glossed *(folder muzyki z Game Assets)*, after **Use Game
+  Assets music folder** *(użycie folderu muzyki z Game Assets)* in `media/music.md:91`, not
+  `ui/pl.json`'s "Folder muzyki Zasobów gry" (R-119); the gloss is coined, so recheck it if
+  the pack ever adopts the shipped string. The English capitalises it like the add-agent setup
+  string (`ui.chat.musicdjsetupfields.gameAssetsMusicFolder`), while Chat Settings shows the
+  field as **Game Assets music folder**, the bare label at `:93`; keep the English casing of
+  each.
+- **Add Character** *(dodanie postaci)* and **On this device** *(na tym urządzeniu)* keep their
+  earlier first-use glosses (`chats/group-chats.md:26`, `media/tts-setup.md:17`); the new uses
+  are later mentions or unchanged.
+- Terms: the Chat Settings drawer is **panel Chat Settings** as a subject ("Panel **Chat
+  Settings** zamyka się"); a character card is **karta postaci** (R-30); members already in
+  the chat are "Obecni uczestnicy czatu są zaznaczeni", which avoids a doubled "są"; a group
+  member is **uczestnik**. The **This chat** choice is **opcja This chat**, which "pokazuje też
+  pole"; a chat still **odtwarza muzykę z** Game Assets or a subfolder. A local voice server is
+  **serwer głosu** (`media/tts-setup.md:72`), "na twoim komputerze lub w twojej sieci
+  prywatnej".

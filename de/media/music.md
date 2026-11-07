@@ -113,6 +113,8 @@ Ein Chat oder ein Charakter kann einen eigenen Musikordner haben, sodass jede Ge
 
 Music DJ nimmt den ersten Ordner, den er findet: den Ordner dieses Chats, dann den Ordner des Charakters, dann den Standardordner. Ein Gruppenchat nutzt nie den Ordner eines Charakters. Der Ordner eines Chats oder Charakters wird auch dann genutzt, wenn die Standardquelle Game Assets ist.
 
+Solange ein Chat aus Game Assets spielt (er hat keinen eigenen Ordner auf diesem Gerät), zeigt **This chat** zusätzlich das Feld **Game Assets Music Folder**. Trag einen Unterordner von Game Assets wie `music/combat` ein, um ihn nur in diesem Chat abzuspielen. Lass das Feld leer, um den Standardordner zu nutzen.
+
 **In use:** zeigt den Ordner, aus dem dieser Chat spielt, und woher er kommt: **This chat**, **From** mit dem Namen des Charakters oder **Default**.
 
 - **Use default** (Standard verwenden) entfernt den Ordner dieses Chats. Der Chat spielt dann aus dem Ordner des Charakters oder aus dem Standardordner.

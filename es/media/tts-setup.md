@@ -14,7 +14,7 @@ Text to Speech (TTS, texto a voz) lee en voz alta los mensajes del chat y la nar
 Casi todos los ajustes de TTS están en una sola tarjeta. Activar TTS no hace que nada hable por sí solo. Revela el botón **Speak** en cada mensaje y las opciones de **Auto-play** (Reproducción automática). Tú sigues eligiendo qué se lee y cuándo.
 
 1. Haz clic en **Connections** (Conexiones) en la barra superior y luego en **Add** (Añadir). Se abre la ventana **Add account** (Añadir cuenta).
-2. En **Voice** (Voz), elige **Text to speech** (Texto a voz). Se abre la tarjeta. Si ya usas PocketTTS, la misma tarjeta también está en **On this device** (En este dispositivo).
+2. En **Voice** (Voz), elige **Text to speech** (Texto a voz). Se abre la tarjeta. Si Text to Speech ya usa PocketTTS u otro servidor de voz en tu computadora o en tu red privada, la misma tarjeta también está en **On this device** (En este dispositivo).
 3. Activa **Use text to speech**. Mientras está desactivado, no se lee nada en voz alta.
 4. Abre la lista **Source** y elige un servicio.
 

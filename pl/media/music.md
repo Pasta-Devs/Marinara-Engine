@@ -113,6 +113,8 @@ Czat albo postać może mieć własny folder muzyki, więc każda historia ma w�
 
 Music DJ używa pierwszego folderu, jaki znajdzie: folderu tego czatu, potem folderu postaci, a na końcu domyślnego. Czat grupowy nigdy nie używa folderu postaci. Folder czatu lub postaci obowiązuje nawet wtedy, gdy domyślnym źródłem jest Game Assets.
 
+Gdy czat odtwarza muzykę z Game Assets (nie ma własnego folderu na tym urządzeniu), opcja **This chat** pokazuje też pole **Game Assets Music Folder** (folder muzyki z Game Assets). Wpisz podfolder Game Assets, na przykład `music/combat`, żeby odtwarzać z niego muzykę tylko w tym czacie. Zostaw pole puste, żeby używać folderu domyślnego.
+
 **In use:** (w użyciu) pokazuje folder, z którego ten czat odtwarza muzykę, i skąd ten folder pochodzi: **This chat**, **From** (od) razem z imieniem postaci albo **Default** (domyślny).
 
 - **Use default** (użycie domyślnego folderu) usuwa folder tego czatu. Czat odtwarza wtedy muzykę z folderu postaci albo z domyślnego.
