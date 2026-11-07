@@ -1572,7 +1572,10 @@ const capabilityPackageManifestBaseSchema = z
 //        runtime host's `capabilityApi`. A soft seam: older Engines ignore `animation` and paint a still,
 //        so a package checks `__MARINARA_HOST__.capabilityApi` (client) or `api.runtime.capabilityApi`
 //        (server, absent on older Engines) before asking. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 816 } as const);
+// 1.817: the `long-term-memory:runtime` service's optional `chatBranched({ chatId, parentChatId })`, awaited once
+//        after a chat branch is fully copied and before the branch is returned (errors and a slow call are
+//        ignored). A soft seam: older Engines never call it. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 817 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

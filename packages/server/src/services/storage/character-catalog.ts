@@ -2,16 +2,22 @@ import {
   cardHasInteractiveOnboarding,
   estimateCharacterCardTokens,
   matchesAllCardSearchTags,
+  normalizeTextForMatch,
   parseCardTagSearchTerms,
   PROFESSOR_MARI_ID,
   type CharacterData,
   type CharacterCatalogEntry,
   type CharacterCatalogPage,
+  type CharacterCatalogSummaryEntry,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { characterGroups, characters } from "../../db/schema/index.js";
 
-type CachedCharacterCatalogEntry = CharacterCatalogEntry & { searchText: string };
+type CachedCharacterCatalogEntry = CharacterCatalogEntry & {
+  searchText: string;
+  cardSpec: string;
+  cardSpecVersion: string;
+};
 
 type CatalogOptions = {
   includeBuiltIn?: boolean;
@@ -76,6 +82,7 @@ function strings(data: CharacterData, comment: string) {
     ]
       .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
       .join("\n")
+      .normalize("NFKC")
       .toLocaleLowerCase(),
   };
 }
@@ -85,6 +92,14 @@ function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry
   const { tags, searchText } = strings(data, row.comment ?? "");
   const extensions =
     data.extensions && typeof data.extensions === "object" ? (data.extensions as Record<string, unknown>) : {};
+  const importMetadata =
+    extensions.importMetadata && typeof extensions.importMetadata === "object"
+      ? (extensions.importMetadata as Record<string, unknown>)
+      : {};
+  const cardMetadata =
+    importMetadata.card && typeof importMetadata.card === "object"
+      ? (importMetadata.card as Record<string, unknown>)
+      : {};
   const summary =
     [data.summary, data.creator_notes, data.description, data.personality].find(
       (value): value is string => typeof value === "string" && value.trim().length > 0,
@@ -112,7 +127,24 @@ function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     searchText,
+    cardSpec: typeof cardMetadata.spec === "string" ? cardMetadata.spec : "",
+    cardSpecVersion: typeof cardMetadata.specVersion === "string" ? cardMetadata.specVersion : "",
   };
+}
+
+/** Preserve list metadata while excluding the large prose fields from the all-rows response. */
+export function toCharacterCatalogSummary(item: CachedCharacterCatalogEntry): CharacterCatalogSummaryEntry {
+  const {
+    searchText: _searchText,
+    explicitSummary: _explicitSummary,
+    description: _description,
+    personality: _personality,
+    scenario: _scenario,
+    firstMessage: _firstMessage,
+    creatorNotes: _creatorNotes,
+    ...summary
+  } = item;
+  return { ...summary, summary: (summary.summary.trim() || "No creator notes yet.").slice(0, 200) };
 }
 
 function sortEntries(entries: CachedCharacterCatalogEntry[], sort: string) {
@@ -147,11 +179,15 @@ export function createCharacterCatalog(db: DB) {
   }
 
   return {
-    async list(options: CatalogOptions): Promise<CharacterCatalogPage> {
+    async list(
+      options: CatalogOptions & { view?: "summary" },
+    ): Promise<
+      Omit<CharacterCatalogPage, "items"> & { items: CharacterCatalogEntry[] | CharacterCatalogSummaryEntry[] }
+    > {
       const catalog = await getEntries();
       let entries = catalog.entries;
       if (!options.includeBuiltIn) entries = entries.filter((item) => item.id !== PROFESSOR_MARI_ID);
-      const query = options.search?.trim().toLocaleLowerCase();
+      const query = normalizeTextForMatch(options.search);
       if (query) {
         const tagTerms = parseCardTagSearchTerms(query);
         entries = entries.filter(
@@ -160,10 +196,10 @@ export function createCharacterCatalog(db: DB) {
       }
       if (options.favoriteFilter === "favorites") entries = entries.filter((item) => item.favorite);
       if (options.favoriteFilter === "non-favorites") entries = entries.filter((item) => !item.favorite);
-      const lowerTags = (item: CachedCharacterCatalogEntry) => item.tags.map((tag) => tag.toLowerCase());
-      const excluded = new Set((options.excludeTags ?? []).map((tag) => tag.toLowerCase()));
+      const lowerTags = (item: CachedCharacterCatalogEntry) => item.tags.map(normalizeTextForMatch);
+      const excluded = new Set((options.excludeTags ?? []).map(normalizeTextForMatch));
       if (excluded.size > 0) entries = entries.filter((item) => !lowerTags(item).some((tag) => excluded.has(tag)));
-      const included = new Set((options.tags ?? []).map((tag) => tag.toLowerCase()));
+      const included = new Set((options.tags ?? []).map(normalizeTextForMatch));
       const matchCount = new Map<string, number>();
       if (included.size > 0) {
         for (const item of entries) matchCount.set(item.id, lowerTags(item).filter((tag) => included.has(tag)).length);
@@ -190,12 +226,22 @@ export function createCharacterCatalog(db: DB) {
       else if (options.folder === "any") entries = entries.filter((item) => folderOf.has(item.id));
       else if (options.folder) entries = entries.filter((item) => folderOf.get(item.id)?.includes(options.folder!));
 
-      const page = entries.slice(options.offset, options.offset + options.limit + 1);
+      const limit = options.view === "summary" ? entries.length : options.limit;
+      const offset = options.view === "summary" ? 0 : options.offset;
+      const page = entries.slice(offset, offset + limit + 1);
+      const items: CharacterCatalogEntry[] | CharacterCatalogSummaryEntry[] =
+        options.view === "summary"
+          ? page.slice(0, limit).map(toCharacterCatalogSummary)
+          : page
+              .slice(0, limit)
+              .map(
+                ({ searchText: _searchText, cardSpec: _cardSpec, cardSpecVersion: _cardSpecVersion, ...full }) => full,
+              );
       return {
-        items: page.slice(0, options.limit).map(({ searchText: _searchText, ...item }) => item),
-        limit: options.limit,
-        offset: options.offset,
-        hasMore: page.length > options.limit,
+        items,
+        limit,
+        offset,
+        hasMore: page.length > limit,
         catalogGeneration: catalog.generation,
         total: entries.length,
         favoriteFolderIds: [...favoriteFolderIds],

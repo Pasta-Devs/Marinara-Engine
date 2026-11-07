@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { createFileNativeDB } from "../../../packages/server/src/db/file-backed-store.js";
 import { eq } from "../../../packages/server/src/db/file-query.js";
 import {
+  agentConfigs,
   apiConnections,
   appSettings,
   chatPresets,
@@ -523,6 +524,22 @@ try {
     });
     const translatorDefaults = JSON.stringify({ translationProvider: "deeplx" });
     await db.insert(appSettings).values({ key: "translator-defaults", value: translatorDefaults, updatedAt: stamp });
+    // The Music DJ's default and character folders name a folder on the server device, like a chat's own folder.
+    const musicDjSettings = {
+      musicProvider: "custom",
+      customMusicExternalFolder: "/music/default",
+      customMusicCharacterFolders: { nazuna: "/music/nazuna" },
+    };
+    const storedMusicDj = JSON.stringify(musicDjSettings);
+    await db.insert(agentConfigs).values({
+      id: "stored-music-dj",
+      type: "spotify",
+      name: "Music DJ",
+      phase: "post_processing",
+      settings: storedMusicDj,
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
     const destinationWrites = [
       [
         "db",
@@ -576,6 +593,39 @@ try {
         }),
         "--apply",
       ],
+      [
+        "db",
+        "patch",
+        "agent_configs",
+        "stored-music-dj",
+        "--json",
+        JSON.stringify({
+          settings: { ...musicDjSettings, customMusicCharacterFolders: { nazuna: "/home/user/Private" } },
+        }),
+        "--apply",
+      ],
+      [
+        "db",
+        "patch",
+        "agent_configs",
+        "stored-music-dj",
+        "--json",
+        JSON.stringify({ settings: { ...musicDjSettings, customMusicExternalFolder: "/home/user/Private" } }),
+        "--apply",
+      ],
+      [
+        "db",
+        "insert",
+        "agent_configs",
+        "--json",
+        JSON.stringify({
+          type: "spotify",
+          name: "Copy",
+          phase: "post_processing",
+          settings: { customMusicCharacterFolders: { keyleth: "/home/user/Private" } },
+        }),
+        "--apply",
+      ],
     ];
     for (const argv of destinationWrites) {
       const result = await mari.executeCli({ argv });
@@ -597,6 +647,27 @@ try {
       ],
     });
     assert.equal(otherSetting.ok, true, `another chat setting still applies: ${JSON.stringify(otherSetting)}`);
+    assert.deepEqual(
+      (await db.select().from(agentConfigs)).map((row) => [row.id, row.settings]),
+      [["stored-music-dj", storedMusicDj]],
+      "the Music DJ keeps its folders and no copy is made",
+    );
+    const keptFolders = await mari.executeCli({
+      argv: [
+        "db",
+        "patch",
+        "agent_configs",
+        "stored-music-dj",
+        "--json",
+        JSON.stringify({ settings: { ...musicDjSettings, contextSize: 9, customMusicCharacterFolders: {} } }),
+        "--apply",
+      ],
+    });
+    assert.equal(
+      keptFolders.ok,
+      true,
+      `a Music DJ edit that keeps or clears its folders still applies: ${JSON.stringify(keptFolders)}`,
+    );
     const storedChats = await db.select().from(chats);
     assert.deepEqual(
       storedChats.map((row) => [

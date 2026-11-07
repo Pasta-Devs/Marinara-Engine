@@ -5,11 +5,56 @@ import { crc32, createDeflateRaw } from "node:zlib";
 
 /** A key written at a JSON slot: one lazily read value, or items read one at a time. Absent or empty parts are omitted. */
 export type JsonSlotPart =
-  { key: string; value: () => Promise<string | null> } | { key: string; items: AsyncIterable<unknown> };
+  { key: string; value: () => Promise<string | DataUrl | null> } | { key: string; items: AsyncIterable<unknown> };
 
 /** A unique object key marking where streamed parts go; place it directly before another key. */
 export function createJsonSlot(): string {
   return `\u0000slot-${randomUUID()}`;
+}
+
+// A multiple of 3, so the base64 of consecutive slices joins into the base64 of the whole file.
+const DATA_URL_SLICE_BYTES = 48 * 1024;
+
+/**
+ * Image bytes that streamJsonWithSlot writes as a base64 data URL string one small slice at a time, so a
+ * multi-megabyte picture never becomes a heap string, or JSON text, of its own size (#8917).
+ */
+export class DataUrl {
+  constructor(
+    readonly mimeType: string,
+    readonly bytes: Buffer,
+  ) {}
+
+  /** The whole URL as one string, for documents that are built in memory anyway. */
+  toString() {
+    return `data:${this.mimeType};base64,${this.bytes.toString("base64")}`;
+  }
+}
+
+/** Yield `JSON.stringify(value, null, space)` in pieces, with every DataUrl in it written as its URL string. */
+function* jsonPieces(value: unknown, space: number): Generator<string> {
+  const urls: DataUrl[] = [];
+  const mark = createJsonSlot();
+  const text = JSON.stringify(
+    value,
+    (_key, item: unknown) => {
+      if (!(item instanceof DataUrl)) return item;
+      urls.push(item);
+      return mark;
+    },
+    space || undefined,
+  );
+  for (const [index, piece] of text.split(JSON.stringify(mark)).entries()) {
+    yield piece;
+    const url = urls[index];
+    if (!url) continue;
+    // The quoted prefix without its closing quote; base64 never needs JSON escaping.
+    yield JSON.stringify(`data:${url.mimeType};base64,`).slice(0, -1);
+    for (let start = 0; start < url.bytes.length; start += DATA_URL_SLICE_BYTES) {
+      yield url.bytes.toString("base64", start, start + DATA_URL_SLICE_BYTES);
+    }
+    yield '"';
+  }
 }
 
 /**
@@ -37,13 +82,16 @@ export async function* streamJsonWithSlot(
   for (const part of parts) {
     if ("value" in part) {
       const partValue = await part.value();
-      if (partValue) yield `${JSON.stringify(part.key)}${colon}${JSON.stringify(partValue)}${separator}`;
+      if (!partValue) continue;
+      yield `${JSON.stringify(part.key)}${colon}`;
+      yield* jsonPieces(partValue, 0);
+      yield separator;
       continue;
     }
     let open = false;
     for await (const item of part.items) {
-      const json = JSON.stringify(item, null, space || undefined);
-      yield `${open ? "," : `${JSON.stringify(part.key)}${colon}[`}${itemBreak}${space ? json.replaceAll("\n", itemBreak) : json}`;
+      yield `${open ? "," : `${JSON.stringify(part.key)}${colon}[`}${itemBreak}`;
+      for (const piece of jsonPieces(item, space)) yield space ? piece.replaceAll("\n", itemBreak) : piece;
       open = true;
     }
     if (open) yield `${space ? `\n${indent}` : ""}]${separator}`;

@@ -32,7 +32,7 @@ import { useFollowVoiceJob, useTTSConfig, useUpdateTTSConfig } from "../../hooks
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
-import { openAddConnection } from "../../lib/add-connection";
+import { openAddConnection, type SetupItem } from "../../lib/add-connection";
 import { createLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
 import { ToggleSetting } from "../panels/settings/SettingControls";
@@ -91,7 +91,7 @@ export type DefaultsTile = {
   /** The job this one follows ("Follows Main"): `value` and `source` are the Model it really runs. */
   follows?: string;
   /** The engine this job needs is not set up: the tile leads to its set-up screen. */
-  setup?: { item: DeviceItem; text: string };
+  setup?: { item: SetupItem; text: string };
   /** A device job opens its engine's page instead of pickers. */
   device?: DeviceItem;
 };
@@ -251,7 +251,9 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     // With no Audio connection, text to speech reads with the TTS card's own source settings.
     if (role.key === "voice" && tts?.enabled) {
       const value = t(`connections.device.ttsSource.${tts.source}`);
-      return { ...tile, value, hint: t("connections.add.device.tts"), muted: true };
+      // A local voice server lives On this device: the row opens its page (turn off, server, voice), not an empty picker.
+      const device = tts.local ? ("tts" as const) : undefined;
+      return { ...tile, value, hint: t("connections.add.device.tts"), muted: true, device };
     }
     // Agents follow the chat's model; a new chat uses Main.
     if (isAgents)
@@ -306,6 +308,11 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const decisionNeedsLocal =
     decisionSelected?.slot === "primary" &&
     (decisionSelected.unavailable === "no_model" || decisionSelected.unavailable === "not_installed");
+  // The built-in decision model turned off, not installed, or with a runtime an update made stale: its own
+  // window turns it on, installs it, or reinstalls the runtime.
+  const decisionNeedsBuiltIn =
+    decisionSelected?.slot === "decision_sidecar" &&
+    (decisionSelected.unavailable === "not_installed" || decisionSelected.unavailable === "not_enabled");
   const decisionRow =
     decisionSelected?.group === "connection"
       ? connectionsList.find((row) => row.id === decisionSelected.id)
@@ -329,15 +336,26 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
             run: () => openAddConnection({ category: "device", item: "local-model" }),
           },
         }
-      : decisionSelected?.unavailable
+      : decisionNeedsBuiltIn
         ? {
-            text: t("connections.defaults.warning.unavailable"),
-            short: t("connections.defaults.warning.unavailableShort"),
+            text: t("connections.defaults.warning.decisionBuiltInNotReady"),
+            short: t("connections.defaults.notSetUp"),
+            fix: {
+              label: t("connections.defaults.setUp"),
+              run: () => openAddConnection({ category: "device", item: "decision-builtin" }),
+            },
           }
-        : null,
+        : decisionSelected?.unavailable
+          ? {
+              text: t("connections.defaults.warning.unavailable"),
+              short: t("connections.defaults.warning.unavailableShort"),
+            }
+          : null,
     ...(decisionNeedsLocal
       ? { setup: { item: "local-model" as const, text: t("connections.defaults.notDownloadedShort") } }
-      : {}),
+      : decisionNeedsBuiltIn
+        ? { setup: { item: "decision-builtin" as const, text: t("connections.defaults.notSetUp") } }
+        : {}),
   };
 
   // Speech to text chooses a service; the engine row manages the engine.

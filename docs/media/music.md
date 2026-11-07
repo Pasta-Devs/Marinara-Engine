@@ -22,7 +22,7 @@ You set up Music DJ in one shared place. Open the right-side **Agents** panel, t
 
 ### Choose a music source
 
-In the **Music DJ** editor, the **Music Player** field has three buttons: **Spotify**, **YouTube** and **Custom**. A line under them shows what is live, for example "Visible player: Spotify. Saved provider: Spotify." This choice is shared across the whole app, not saved per chat.
+In the **Music DJ** editor, the **Music Player** field has three buttons: **Spotify**, **YouTube** and **Custom**. A line under them shows what is live, for example "Visible player: Spotify. Saved provider: Spotify." This choice is shared across the whole app, not saved per chat. The folder that **Custom** plays from can differ for each chat or character: see [Use a different folder for a chat or character](#use-a-different-folder-for-a-chat-or-character).
 
 ## Set up Spotify
 
@@ -91,11 +91,34 @@ Custom mode plays audio files from the machine that runs Marinara. Supported typ
 In the **Music DJ** editor, find **Custom Music Library**. It has one switch, **Use Game Assets music folder**.
 
 - **On**: Custom mode reads audio you uploaded to Game Assets, Marinara's asset library for Game Mode. Use **Game Assets music folder** to pick a folder. Type `music` for the whole library or a subfolder such as `music/combat`. **Open Folder** opens it on the server machine.
-- **Off**: Custom mode reads a folder on the server device. Use **Select Folder** to open a picker on the server machine, or paste the path into **Music folder on this device**.
+- **Off**: Custom mode reads a folder on the server device. Use **Select Folder** to open a picker on the server machine, or paste the path into **Default music folder on this device**. Every chat without a folder of its own uses this one.
 
-Roleplay and Game setup show the same source. If you chose a folder on the server device, the chat's Music DJ settings show that path and a **Choose Folder** button.
+Playing from a folder outside Game Assets needs local access on the server. Saving a typed folder path needs the same access as the folder picker. From another device without a login or admin secret, both can be blocked. See [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md).
 
-Playing from a folder outside Game Assets needs local access on the server. From another device without a login or admin secret, this feature can be blocked. See [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md).
+### Use a different folder for a chat or character
+
+A chat or a character can have its own music folder, so each story plays its own soundtrack. A character's folder plays in every chat where that character is the only character.
+
+1. Open the chat and its **Chat Settings**.
+2. In the **Music DJ** settings, with the **Custom** player selected, open **Apply to** and choose where the folder is saved.
+3. Click **Choose Folder**, or paste the path into **Music folder on this device**.
+
+| Apply to | Which chats use the folder |
+| --- | --- |
+| **This chat** | Only this chat. A branch starts with the same folder and can change it. |
+| The character's name | Every chat where that character is the only character. Shown only in a chat with one character. |
+| **All chats (default)** | Every chat without a folder of its own. This is the default folder from the **Music DJ** editor. |
+
+Music DJ uses the first folder it finds: this chat's folder, then the character's folder, then the default. A group chat never uses a character's folder. A chat or character folder plays even when the default source is Game Assets.
+
+While a chat plays from Game Assets (it has no folder on this device of its own), **This chat** also shows **Game Assets Music Folder**. Type a subfolder of Game Assets, such as `music/combat`, to play it in this chat only. Leave it empty to use the default.
+
+**In use:** shows the folder this chat plays and where it comes from: **This chat**, **From** and the character's name, or **Default**.
+
+- **Use default** removes this chat's folder. The chat then plays the character's folder, or the default.
+- **Unlink from** and the character's name removes the character's folder from every chat.
+
+The same **Apply to** choice appears when you add Music DJ to a chat. A chat's own folder is left out of chat exports, settings profiles and **Export Profile** files. Agent exports leave out the default and character folders. Each path points to files on this server, so it means nothing on another one.
 
 ## Use the music player
 
@@ -141,7 +164,8 @@ A character can then name a song for Spotify, or describe a track for YouTube, a
 - **Spotify plays nothing**: playback needs Spotify Premium and an active Spotify device. Open the desktop app on a device, or click **Enable Marinara player** on desktop.
 - **The Spotify login window fails on another machine**: use the "Browser couldn't reach the callback?" paste box, or set `SPOTIFY_REDIRECT_URI` on the server.
 - **YouTube search fails**: confirm **YouTube Data API v3** is enabled for your project and the key is not restricted by HTTP referrer. If you hit the daily quota, try the next day or use another key.
-- **Custom music will not play from a device folder over remote access**: that folder needs local access on the server. See [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md).
+- **Custom music will not play from a device folder, or a typed folder path will not save, over remote access**: both need local access on the server. See [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md).
+- **A chat plays the wrong folder**: check **In use:** in the chat's **Music DJ** settings. **This chat** wins over the character's folder, so click **Use default** to follow the character again.
 - **A character's song command does nothing in Conversation**: connect Spotify or save a YouTube key, and check that the **Commands** and **Music** toggles are on.
 
 ## Related guides

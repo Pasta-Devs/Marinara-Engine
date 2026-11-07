@@ -34,3 +34,16 @@ export type CharacterCatalogPage = {
   /** Folders that hold a matching favourite, before the folder filter. */
   favoriteFolderIds: string[];
 };
+
+/** List-only rows; full card text remains available through the default catalog view. */
+export type CharacterCatalogSummaryEntry = Omit<
+  CharacterCatalogEntry,
+  "explicitSummary" | "description" | "personality" | "scenario" | "firstMessage" | "creatorNotes"
+> & {
+  cardSpec: string;
+  cardSpecVersion: string;
+};
+
+export type CharacterCatalogSummaryPage = Omit<CharacterCatalogPage, "items"> & {
+  items: CharacterCatalogSummaryEntry[];
+};

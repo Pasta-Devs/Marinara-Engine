@@ -83,6 +83,7 @@ import { join, resolve, sep } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import {
   createJsonSlot,
+  DataUrl,
   singleChunk,
   streamExportZip,
   streamJsonWithSlot,
@@ -583,12 +584,12 @@ async function resolveAvatarGenerationConnection(app: FastifyInstance, body: Ava
 
 type ExportFormat = "native" | "compatible";
 
-// Read an image file and return it as a base64 data URL, or null if the file
-// is missing, outside the expected dir, or not a recognized image type. Used
-// by native exports to embed binary data (avatars, sprites, gallery shots)
-// directly into the JSON envelope so personas/characters round-trip with
-// every image intact.
-async function readImageAsDataUrl(rootDir: string, filename: string): Promise<string | null> {
+// Read an image file as a data URL, or null if the file is missing, outside
+// the expected dir, or not a recognized image type. Used by native exports to
+// embed binary data (avatars, sprites, gallery shots) directly into the JSON
+// envelope so personas/characters round-trip with every image intact; the
+// export writes the bytes as base64 a slice at a time (#8917).
+async function readImageAsDataUrl(rootDir: string, filename: string): Promise<DataUrl | null> {
   if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) return null;
   let filepath: string;
   try {
@@ -601,7 +602,7 @@ async function readImageAsDataUrl(rootDir: string, filename: string): Promise<st
     const buf = await readFile(filepath);
     const info = isAllowedImageBuffer(buf, extname(filename));
     if (!info) return null;
-    return `data:${info.mimeType};base64,${buf.toString("base64")}`;
+    return new DataUrl(info.mimeType, buf);
   } catch {
     return null;
   }
@@ -609,7 +610,7 @@ async function readImageAsDataUrl(rootDir: string, filename: string): Promise<st
 
 // Pull the avatar off disk for the persona/character row's avatarPath
 // (format: /api/avatars/file/<filename>). Returns null if missing/invalid.
-async function readAvatarDataUrl(avatarPath: string | null | undefined): Promise<string | null> {
+async function readAvatarDataUrl(avatarPath: string | null | undefined): Promise<DataUrl | null> {
   if (!avatarPath || typeof avatarPath !== "string") return null;
   const filename = avatarPath.split("?")[0]!.split("/").pop();
   if (!filename) return null;
@@ -687,7 +688,7 @@ async function readSpritesForId(
         continue;
       }
     }
-    const dataUrl = await readImageAsDataUrl(dir, entry);
+    const dataUrl = (await readImageAsDataUrl(dir, entry))?.toString();
     if (dataUrl) {
       if (enforcePortableLimits) {
         if (sprites.length >= MAX_EMBEDDED_SPRITE_COUNT) return null;
@@ -734,7 +735,7 @@ async function* galleryExportEntries(
 
 // Read each sprite in data/sprites/<id>/ as it is written; import restores the
 // same expression set under a new id.
-async function* spriteExportEntries(id: string): AsyncGenerator<{ filename: string; data: string }> {
+async function* spriteExportEntries(id: string): AsyncGenerator<{ filename: string; data: DataUrl }> {
   if (!id) return;
   const dir = spriteDirectory(id);
   if (!existsSync(dir)) return;
@@ -1080,11 +1081,13 @@ export async function charactersRoutes(app: FastifyInstance) {
       tag?: string | string[];
       excludeTag?: string | string[];
       folder?: string;
+      view?: string;
     };
   }>("/catalog", async (req) => {
     const page = parseLibraryPageQuery(req.query);
     const list = (value: string | string[] | undefined) => (value === undefined ? [] : [value].flat());
     return catalog.list({
+      view: req.query.view === "summary" ? "summary" : undefined,
       includeBuiltIn: req.query.includeBuiltIn === "true",
       limit: page.limit,
       offset: page.offset,
