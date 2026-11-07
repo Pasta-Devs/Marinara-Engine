@@ -356,7 +356,7 @@ export function UiStyleEditorCard({
           ? "max-h-[80vh] w-[20rem] max-w-[calc(100vw-1.5rem)] rounded-xl"
           : dockTop
             ? "inset-x-0 top-0 max-h-[55vh] rounded-b-2xl pt-[env(safe-area-inset-top)]"
-            : "inset-x-0 bottom-0 max-h-[55vh] rounded-t-2xl pb-[env(safe-area-inset-bottom)]",
+            : "inset-x-0 bottom-0 max-h-[55vh] rounded-t-2xl pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]",
       )}
       // One layer under the pick overlay, which must stay on top for "Pick on screen".
       style={{
