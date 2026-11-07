@@ -124,6 +124,9 @@ const OvRegexViewer = lazy(() =>
 const OvConnectionsViewer = lazy(() =>
   import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvConnectionsViewer })),
 );
+const OvConnectionPageMobile = lazy(() =>
+  import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvConnectionPageMobile })),
+);
 const LibraryLandingPage = lazy(() =>
   import("../overhaul/LibraryLandingPage").then((module) => ({ default: module.LibraryLandingPage })),
 );
@@ -1050,7 +1053,14 @@ export function AppShell({
         <AgentEditor />
       )
     ) : connectionDetailId ? (
-      <ConnectionEditor />
+      overhaulMobile ? (
+        // Accounts, the built-in model and the decision model are pages on phones too.
+        <OvConnectionPageMobile>
+          <ConnectionEditor />
+        </OvConnectionPageMobile>
+      ) : (
+        <ConnectionEditor />
+      )
     ) : presetDetailId ? (
       <PresetEditor />
     ) : characterDetailId ? (

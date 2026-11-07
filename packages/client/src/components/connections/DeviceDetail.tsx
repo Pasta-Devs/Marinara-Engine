@@ -40,7 +40,7 @@ import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
@@ -260,7 +260,8 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
   const { t: localizeUi } = useTranslation();
   /** The managed decision model installer, opened from inside this page. */
   const [decisionModalOpen, setDecisionModalOpen] = useState(false);
-  const ovDesktop = useOverhaulActive();
+  // The new layout on any screen size (phones get the same pages).
+  const ovDesktop = useOverhaulLook();
   /** In the new layout, Runtime settings open as a section of this page instead of a pop-up. */
   const [inlineSettings, setInlineSettings] = useState(false);
   const { data: agentConfigs } = useAgentConfigs();
