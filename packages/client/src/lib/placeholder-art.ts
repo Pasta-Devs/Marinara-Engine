@@ -2,7 +2,7 @@
 // Placeholder art for cards without a picture.
 //
 // The hue comes from the id, so every card keeps its own colour. Saturation and lightness are
-// theme tokens (--mari-art-*, see styles/README-theming.md), so a theme can calm the gradients
+// theme tokens (--mari-art-*, see docs/appearance/theme-author-guide.md), so a theme can calm the gradients
 // down or match them to its palette without touching the hue.
 // ──────────────────────────────────────────────
 type Stops = [saturation1: number, lightness1: number, saturation2: number, lightness2: number];
