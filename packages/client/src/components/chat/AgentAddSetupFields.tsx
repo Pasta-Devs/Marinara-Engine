@@ -74,7 +74,10 @@ export type AgentAddSetupState = {
   spotifyArtist: string;
   musicProvider: MusicProvider;
   customMusicSource: CustomMusicSource;
+  /** The default Game Assets music subfolder for all chats. */
   customMusicFolder: string;
+  /** This chat's own Game Assets music subfolder (#8916); empty uses the default. */
+  customMusicChatGameAssetsFolder: string;
   /** The default device folder for all chats. */
   customMusicExternalFolder: string;
   /** Which device folder the fields edit (#8901): this chat's, its one character's, or the default. */
@@ -138,7 +141,7 @@ function normalizeMusicProvider(value: unknown, fallback: MusicProvider): MusicP
   return value === "spotify" || value === "youtube" || value === "custom" ? value : fallback;
 }
 
-function normalizeCustomMusicFolder(value: unknown): string {
+export function normalizeCustomMusicFolder(value: unknown): string {
   const raw = typeof value === "string" ? value.trim().replace(/\\/g, "/") : "";
   let start = 0;
   let end = raw.length;
@@ -147,6 +150,11 @@ function normalizeCustomMusicFolder(value: unknown): string {
   const normalized = raw.slice(start, end);
   if (!normalized || normalized.includes("..")) return "music";
   return normalized.startsWith("music") ? normalized : `music/${normalized}`;
+}
+
+/** A chat's own Game Assets music subfolder (#8916). Empty means the chat uses the default for all chats. */
+export function normalizeChatCustomMusicFolder(value: unknown): string {
+  return typeof value === "string" && value.trim() ? normalizeCustomMusicFolder(value) : "";
 }
 
 export function normalizeCustomMusicSource(settings: Record<string, unknown>): CustomMusicSource {
@@ -271,6 +279,8 @@ export function buildInitialAgentAddSetupState({
   const chatCharacterIds = chatCharacters.map((character) => character.id);
   const musicCharacterId = musicDjFolderCharacterId(chatCharacterIds);
   const musicCharacter = chatCharacters.find((character) => character.id === musicCharacterId) ?? null;
+  const customMusicSource = normalizeCustomMusicSource(settings);
+  const customMusicChatGameAssetsFolder = normalizeChatCustomMusicFolder(metadata.customMusicGameAssetsFolder);
 
   return {
     secretPlotEnabled:
@@ -345,13 +355,17 @@ export function buildInitialAgentAddSetupState({
     spotifyPlaylistName: readString(metadata.spotifyPlaylistName) || null,
     spotifyArtist: readString(metadata.spotifyArtist),
     musicProvider,
-    customMusicSource: normalizeCustomMusicSource(settings),
-    customMusicFolder: normalizeCustomMusicFolder(settings.customMusicFolder ?? metadata.customMusicFolder),
+    customMusicSource,
+    customMusicFolder: normalizeCustomMusicFolder(settings.customMusicFolder),
+    customMusicChatGameAssetsFolder,
     customMusicExternalFolder: normalizeCustomMusicExternalFolder(
       settings.customMusicExternalFolder ?? settings.localMusicExternalFolder,
     ),
-    customMusicFolderTarget: resolveMusicDjExternalFolder({ settings, chatMetadata: metadata, chatCharacterIds })
-      .source,
+    customMusicFolderTarget: initialMusicFolderTarget(
+      resolveMusicDjExternalFolder({ settings, chatMetadata: metadata, chatCharacterIds }),
+      customMusicSource,
+      customMusicChatGameAssetsFolder,
+    ),
     customMusicChatFolder: normalizeCustomMusicExternalFolder(metadata.customMusicExternalFolder),
     customMusicCharacterFolder: musicCharacter ? (readMusicDjCharacterFolders(settings)[musicCharacter.id] ?? "") : "",
     customMusicCharacter: musicCharacter,
@@ -397,7 +411,7 @@ export function applyAgentAddSetupToAgentSettings(
     next.customMusicFolder = normalizeCustomMusicFolder(setup.customMusicFolder);
     // Every folder edited here is saved to its own place, whichever "Apply to" is showing on Add, so the save
     // matches "In use" (#8901). The default and source start from these settings, so unedited they stay as they are.
-    // This chat's folder goes to the chat (buildAgentAddMetadataPatch).
+    // This chat's folders, on the device and in Game Assets, go to the chat (buildAgentAddMetadataPatch).
     next.customMusicSource = setup.customMusicSource;
     next.customMusicExternalFolder = normalizeCustomMusicExternalFolder(setup.customMusicExternalFolder);
     const character = setup.customMusicCharacter;
@@ -474,7 +488,10 @@ export function buildAgentAddMetadataPatch(
     patch.lorebookKeeperReadBehindMessages = setup.lorebookKeeperReadBehindMessages;
   }
   if (agentId === "spotify") {
-    patch.customMusicFolder = normalizeCustomMusicFolder(setup.customMusicFolder);
+    const gameAssetsFolder = normalizeChatCustomMusicFolder(setup.customMusicChatGameAssetsFolder);
+    if (gameAssetsFolder !== normalizeChatCustomMusicFolder(metadata.customMusicGameAssetsFolder)) {
+      patch.customMusicGameAssetsFolder = gameAssetsFolder || null;
+    }
     const chatFolder = normalizeCustomMusicExternalFolder(setup.customMusicChatFolder);
     if (chatFolder !== normalizeCustomMusicExternalFolder(metadata.customMusicExternalFolder)) {
       patch.customMusicExternalFolder = chatFolder || null;
@@ -622,6 +639,18 @@ function musicFolderPatch(target: MusicDjFolderSource, folder: string): Partial<
   if (target === "chat") return { customMusicChatFolder: folder };
   if (target === "character") return { customMusicCharacterFolder: folder };
   return { customMusicExternalFolder: folder };
+}
+
+/**
+ * Which "Apply to" a chat opens on: where its device folder comes from (#8901), or this chat when it plays its own
+ * Game Assets subfolder (#8916), so the fields show the subfolder the chat uses.
+ */
+export function initialMusicFolderTarget(
+  inUse: MusicDjFolderResolution,
+  source: CustomMusicSource,
+  chatGameAssetsFolder: string,
+): MusicDjFolderSource {
+  return inUse.source === "default" && source === "game-assets" && chatGameAssetsFolder ? "chat" : inUse.source;
 }
 
 /** The "In use" folder from every folder edited in the add window, which is what Add saves. */
@@ -1445,6 +1474,29 @@ function MusicDjSetupFields({
               <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.chat.musicdjsetupfields.readsLocalAudioFromGameAssetsForExample")} <code>music</code>{" "}
                 {localizeUi("ui.noodle.noodlehome.or")} <code>music/combat</code>.
+              </span>
+            </label>
+          )}
+          {/* This chat's own Game Assets subfolder (#8916), while the chat plays Game Assets. */}
+          {folderTarget === "chat" && folderInUse.source === "default" && value.customMusicSource === "game-assets" && (
+            <label className="flex flex-col gap-1">
+              <SetupLabel>{localizeUi("ui.chat.musicdjsetupfields.gameAssetsMusicFolder")}</SetupLabel>
+              <input
+                value={value.customMusicChatGameAssetsFolder}
+                disabled={disabled}
+                onChange={(event) => onChange({ customMusicChatGameAssetsFolder: event.target.value })}
+                onBlur={() =>
+                  onChange({
+                    customMusicChatGameAssetsFolder: normalizeChatCustomMusicFolder(
+                      value.customMusicChatGameAssetsFolder,
+                    ),
+                  })
+                }
+                placeholder={normalizeCustomMusicFolder(value.customMusicFolder)}
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+              <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.chat.musicdjsetupfields.gameAssetsMusicFolderForThisChatOnly")}
               </span>
             </label>
           )}

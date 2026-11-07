@@ -10885,6 +10885,7 @@
   "ui.chat.musicdjsetupfields.folderInUse": "In use:",
   "ui.chat.musicdjsetupfields.folderOnThisDevice": "Folder on this device",
   "ui.chat.musicdjsetupfields.gameAssetsMusicFolder": "Game Assets Music Folder",
+  "ui.chat.musicdjsetupfields.gameAssetsMusicFolderForThisChatOnly": "Saved for this chat only. Leave it empty to use the default.",
   "ui.chat.musicdjsetupfields.hoyoMix": "HOYO-MiX",
   "ui.chat.musicdjsetupfields.loadingPlaylists": "Loading playlists...",
   "ui.chat.musicdjsetupfields.musicDjWillChooseFromAudioFilesInThis": "Music DJ will choose from audio files in this folder and its subfolders.",

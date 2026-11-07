@@ -14,7 +14,7 @@ Text to speech (TTS) reads chat messages and game narration out loud. This guide
 Almost every TTS setting is in one card. Turning TTS on does not make anything speak by itself. It reveals the **Speak** button on each message and the **Auto-play** options. You still choose what is read and when.
 
 1. Click **Connections** in the top bar, then **Add**. The **Add account** window opens.
-2. Under **Voice**, choose **Text to speech**. The card opens. If you already use PocketTTS, the same card is also under **On this device**.
+2. Under **Voice**, choose **Text to speech**. The card opens. If text to speech already uses PocketTTS or another voice server on your computer or private network, the same card is also under **On this device**.
 3. Turn on **Use text to speech**. While it is off, nothing is read aloud.
 4. Open the **Source** list and pick a service.
 

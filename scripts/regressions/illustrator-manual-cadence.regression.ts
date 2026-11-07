@@ -334,6 +334,68 @@ assert.deepEqual(
   },
   "Use default and then Unlink clear both folders",
 );
+// The add window's Game Assets subfolders (#8916): "All chats" edits the default, "This chat" edits this chat's own,
+// and each is saved only to its own place. A `customMusicFolder` older chats hold only copied the default.
+const gameAssetsDefault = { customMusicSource: "game-assets", customMusicFolder: "music/exploration" };
+const addGameAssetsFolder = (metadata: Record<string, unknown>, edit: Partial<AgentAddSetupState> = {}) => {
+  const initial = buildInitialAgentAddSetupState({
+    agentId: "spotify",
+    settings: gameAssetsDefault,
+    metadata,
+    musicPlayerSource: "custom",
+    roleplaySpriteScale: 1,
+  });
+  const setup = { ...initial, ...edit };
+  const patch = buildAgentAddMetadataPatch("spotify", setup, metadata);
+  return {
+    target: initial.customMusicFolderTarget,
+    shown: initial.customMusicChatGameAssetsFolder,
+    defaultFolder: applyAgentAddSetupToAgentSettings("spotify", setup, gameAssetsDefault).customMusicFolder,
+    chatFolder: patch.customMusicGameAssetsFolder,
+    writesLegacyKey: "customMusicFolder" in patch,
+  };
+};
+const untouched = {
+  target: "default",
+  shown: "",
+  defaultFolder: "music/exploration",
+  chatFolder: undefined,
+  writesLegacyKey: false,
+};
+assert.deepEqual(addGameAssetsFolder({}), untouched, "an untouched window leaves the chat on the default subfolder");
+assert.deepEqual(
+  addGameAssetsFolder({ customMusicFolder: "music" }),
+  untouched,
+  "an older chat's copied customMusicFolder is not taken for the chat's own subfolder",
+);
+assert.deepEqual(
+  addGameAssetsFolder({}, { customMusicFolderTarget: "chat", customMusicChatGameAssetsFolder: " combat " }),
+  { ...untouched, chatFolder: "music/combat" },
+  "This chat saves the typed subfolder to this chat and never to the default",
+);
+assert.deepEqual(
+  addGameAssetsFolder({}, { customMusicFolder: "combat" }),
+  { ...untouched, defaultFolder: "music/combat" },
+  "All chats saves the typed subfolder to the default and never to this chat",
+);
+assert.deepEqual(
+  addGameAssetsFolder({ customMusicGameAssetsFolder: "music/combat" }),
+  { ...untouched, target: "chat", shown: "music/combat" },
+  "a chat with its own subfolder opens on This chat, showing and keeping it",
+);
+assert.equal(
+  addGameAssetsFolder({ customMusicGameAssetsFolder: "music/combat" }, { customMusicChatGameAssetsFolder: "" })
+    .chatFolder,
+  null,
+  "clearing This chat's subfolder sends the chat back to the default",
+);
+
+// The drawer keeps This chat selected when its Game Assets subfolder is saved or cleared (Dottore on #8939).
+assert.match(
+  readFileSync(new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url), "utf8"),
+  /const saveCustomMusicFolder = \(target: "chat" \| "default", value: string\) => \{\s*if \(target === "chat"\) \{[\s\S]{0,200}setMusicFolderTargetChoice\(\{ chatId: chat\.id, target: "chat" \}\);/u,
+  "clearing This chat's Game Assets subfolder keeps Apply to on This chat",
+);
 
 // Run the production formatter without booting browser hooks in Node.
 const hookSource = readFileSync(new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url), "utf8");
