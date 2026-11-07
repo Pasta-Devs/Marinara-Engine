@@ -26,6 +26,7 @@ import type { DeviceItem } from "../../hooks/use-device-setup";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { DECISION_DEVICE_ID, useDecisionEngine } from "./decision-engine";
 import { EditorCrumbs, type RailCrumb } from "./EditorRail";
+import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { OvEditorHeadSlot } from "./EditorChrome";
 
 /** Built-in model and local voice engines share the Model viewer: their id is `device:<item>`. */
@@ -99,7 +100,10 @@ function OvViewer({
     ? (groups.find((group) => group.openId === selectedId)?.label ??
       groups.flatMap((group) => group.rows).find((row) => row.id === selectedId)?.name)
     : undefined;
-  const crumbs: RailCrumb[] = [{ label: "Library" }, { label: title, onClick: onSection }];
+  const crumbs: RailCrumb[] = [
+    { label: "Library", onClick: openLibraryPane },
+    { label: title, onClick: onSection },
+  ];
   if (typeof selectedName === "string" && selectedName) crumbs.push({ label: selectedName });
   return (
     <div className="ov-vw">
@@ -412,7 +416,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       onSelect={(id) => openConnectionDetail(id)}
       emptyList={localize("No accounts yet.")}
       emptyDetail={localize("Pick a model on the left, or add an account.")}
-      onSection={closeConnectionDetail}
+      onSection={() => openLibrarySection("connections")}
     >
       {accountPage ? (
         <ConnectionAccountEditor

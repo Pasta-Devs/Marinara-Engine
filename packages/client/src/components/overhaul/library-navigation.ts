@@ -5,6 +5,7 @@ import { BookOpen, FileText, Link, Puzzle, Regex, Settings, Sparkles, Users, Ven
 import type { LucideIcon } from "lucide-react";
 import { useUIStore, type Panel } from "../../stores/ui.store";
 import { isOverhaulLook, useOverhaulStore, type LibrarySection } from "../../stores/overhaul.store";
+import { deferEditorLeave, leaveWithoutSaving } from "../../lib/editor-leave";
 
 export type LibrarySectionEntry = {
   id: LibrarySection;
@@ -31,6 +32,24 @@ export const LIBRARY_SECTIONS: readonly LibrarySectionEntry[] = [
  * Library pane. Characters and Personas use the existing card gallery.
  */
 export function openLibrarySection(section: LibrarySection) {
+  // An open editor with unsaved edits asks first (Save / Don't save / Keep editing). Nothing here runs
+  // until it says go, so Keep editing leaves the editor, the Library pane highlight and the page as they were.
+  const proceed = () => leaveWithoutSaving(() => showLibrarySection(section));
+  if (!deferEditorLeave(useUIStore.getState(), CLOSED_EDITORS, proceed)) proceed();
+}
+
+const CLOSED_EDITORS = {
+  characterDetailId: null,
+  personaDetailId: null,
+  lorebookDetailId: null,
+  presetDetailId: null,
+  connectionDetailId: null,
+  agentDetailId: null,
+  toolDetailId: null,
+  regexDetailId: null,
+};
+
+function showLibrarySection(section: LibrarySection) {
   const ui = useUIStore.getState();
   const overhaul = useOverhaulStore.getState();
   if (section === "characters") {
@@ -45,6 +64,12 @@ export function openLibrarySection(section: LibrarySection) {
   }
   // Keep the pane's highlight in step without reopening a closed pane.
   if (section !== "regex") useUIStore.setState({ rightPanel: section as Panel });
+}
+
+/** The "Library" crumb: shows the Library pane beside whatever is open (nothing is closed). */
+export function openLibraryPane() {
+  const ui = useUIStore.getState();
+  ui.openRightPanel(ui.rightPanel === "chat" ? "characters" : ui.rightPanel);
 }
 
 /**

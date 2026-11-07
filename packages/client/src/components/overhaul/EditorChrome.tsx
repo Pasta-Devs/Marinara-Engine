@@ -9,7 +9,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { createPortal } from "react-dom";
 import { ChevronLeft, MoreHorizontal, Save } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { openLibrarySection } from "./library-navigation";
+import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { useOverhaulMobile, type LibrarySection } from "../../stores/overhaul.store";
 import { EditorCrumbs, type RailCrumb } from "./EditorRail";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -105,9 +105,11 @@ export function OvEditorHead({
   }, [menuOpen]);
   const goBack = onBack ?? (() => section && openLibrarySection(section));
   const label = sectionLabel ? localize(sectionLabel) : "";
+  // Desktop crumbs go where they say: Library opens the Library pane, the section opens its landing
+  // page (not whatever was on screen before the editor). The phone ‹ keeps the editor's own way back.
   const trail: RailCrumb[] = crumbs ?? [
-    { label: localizeUi("ui.overhaul.oveditorhead.library") },
-    { label, onClick: goBack },
+    { label: localizeUi("ui.overhaul.oveditorhead.library"), onClick: openLibraryPane },
+    { label, onClick: section ? () => openLibrarySection(section) : goBack },
     { label: title || titlePlaceholder || "" },
   ];
   const hasMenu = Boolean(menu?.length || menuContent);
