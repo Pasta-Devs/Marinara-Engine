@@ -89,7 +89,7 @@ class StreamProgress(unittest.TestCase):
                 ))
         def stream(**request):
             captured.update(request)
-            return MessageStream()
+            return MessageStream([NS(type="message_start")])
         ctx = NS(clients={"large": NS(messages=NS(stream=stream))})
         settings = {"slot": "large", "model": "claude-opus-5-5", "effort": "xhigh", "max_tokens": 32000}
         modules = {
@@ -97,7 +97,7 @@ class StreamProgress(unittest.TestCase):
             "httpx2": NS(TimeoutException=TimeoutError, TransportError=OSError),
         }
         with patch.dict(sys.modules, modules):
-            message, _ = reviewer.claude_reply(ctx, settings, [{"role": "user", "content": "Review."}], [], "auto", 600, 0, {}, "")
+            message, _ = reviewer.claude_reply(ctx, settings, [{"role": "user", "content": "Review."}], [], "auto", 600, reviewer.time.monotonic(), {}, "")
         self.assertEqual(captured["thinking"], {"type": "adaptive", "display": "summarized"})
         self.assertEqual(message.stop_reason, "end_turn")
         self.assertEqual(captured["output_config"], {"effort": "xhigh"})
@@ -130,7 +130,7 @@ class StreamProgress(unittest.TestCase):
                     return reply
             def stream(**request):
                 seen.efforts.append(request["output_config"]["effort"])
-                return MessageStream()
+                return MessageStream([NS(type="message_start")])
             settings = {"slot": "large", "model": "claude-sonnet-5-5", "api": "anthropic", "effort": "xhigh",
                         "max_tokens": 64000, "reads": 0, "chars": 0, "minutes": 10, **limits}
             seen.ctx = NS(clients={"large": NS(messages=NS(stream=stream))}, models={role: settings}, failures={},
@@ -248,7 +248,7 @@ class StreamProgress(unittest.TestCase):
                        "httpx2": NS(TimeoutException=TimeoutError, TransportError=OSError)}
             settings = {"slot": "large", "model": "gpt-5.6-sol", "effort": "xhigh", "max_tokens": 0}
             with patch.dict(sys.modules, modules):
-                return reviewer.responses_reply(NS(clients={"large": client}), settings, [{"role": "user", "content": "Review."}], [], "auto", 600, 0, {}, "")
+                return reviewer.responses_reply(NS(clients={"large": client}), settings, [{"role": "user", "content": "Review."}], [], "auto", 600, reviewer.time.monotonic(), {}, "")
         # A response cut short before any output is resent like a failure without a code; a filter stops every resend.
         for reason, code in (("max_output_tokens", ""), (None, ""), ("content_filter", "content_filter")):
             with self.subTest(reason=reason):
@@ -288,6 +288,62 @@ class StreamProgress(unittest.TestCase):
                     with self.assertRaises(expected) as stopped:
                         reply(ctx, settings, [{"role": "user", "content": "Review."}], [], "auto", 600, 0, {}, "")
                     self.assertIs(type(stopped.exception), expected)
+
+    def test_a_claude_stream_that_ends_before_message_start_is_resent(self):
+        # Runs 42243084375 and 42254621875 (#8918): packet 1's finder got a 200 stream that ended before message_start,
+        # on which the SDK's get_final_message fails a bare assert, and the review failed as "AssertionError: ".
+        usage = NS(input_tokens=10, output_tokens=5, cache_read_input_tokens=0, cache_creation_input_tokens=0)
+        done = NS(stop_reason="tool_use", content=[NS(type="tool_use", id="t", name="submit", input={"findings": []})], usage=usage)
+        class MessageStream(list):
+            response = NS(headers={"content-type": "text/event-stream", "request-id": "req_1"})
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def get_final_message(self):
+                assert any(event.type == "message_start" for event in self)  # the SDK's check, which has no message
+                return done
+        def stream(**request):
+            return MessageStream(streams.pop(0))
+        settings = {"slot": "large", "model": "claude-sonnet-5-5", "api": "anthropic", "effort": "xhigh",
+                    "max_tokens": 64000, "reads": 0, "chars": 0, "minutes": 10}
+        modules = {"anthropic": NS(Timeout=lambda *args, **kwargs: None), "httpx2": NS(TimeoutException=TimeoutError, TransportError=OSError)}
+        # The SDK drops pings and nameless events; any other event before message_start reaches claude_reply unparsed,
+        # its error as a dict, so the error names what came instead and the headers that say who sent it.
+        stalled = "the reply stream ended before Claude started (content-type text/event-stream, request-id req_1, events before message_start: "
+        early = (NS(type="error", error={"type": "overloaded_error", "message": "Overloaded"}), NS(type="proxy_note"))
+        for events, seen in (([], "none"), (early, "error (Overloaded), proxy_note")):
+            streams = [list(events)]
+            with self.subTest(seen=seen), patch.dict(sys.modules, modules):
+                with self.assertRaises(reviewer.StreamStalled) as stalled_error:
+                    reviewer.claude_reply(NS(clients={"large": NS(messages=NS(stream=stream))}), settings, [{"role": "user", "content": "Review."}], [], "auto", 600, reviewer.time.monotonic(), {}, "")
+                self.assertEqual(str(stalled_error.exception), f"{stalled}{seen})")
+        # The finder resends it at once, like a stall, and goes on to its submission.
+        streams, out = [[], [NS(type="message_start")]], io.StringIO()
+        ctx = NS(clients={"large": NS(messages=NS(stream=stream))}, models={"finder": settings}, failures={}, lock=threading.Lock(),
+                 cost_limit=0, spent_usd=0.0, deadline=996, stats={"roles": {"finder": defaultdict(int)}})
+        submit = {"type": "function", "function": {"name": "submit", "description": "Submit.", "parameters": {"type": "object"}}}
+        with patch.dict(sys.modules, modules), patch.object(reviewer.time, "monotonic", lambda: 0), \
+                patch.object(reviewer.time, "sleep", lambda wait: None), contextlib.redirect_stdout(out):
+            result = reviewer.run_agent(ctx, "finder", [{"role": "user", "content": "Review."}], submit)
+        self.assertEqual((result, streams, ctx.failures), ({"findings": []}, [], {"finder": 0}))
+        self.assertIn(f"wait_s=0; StreamStalled: {stalled}none)", out.getvalue())
+
+    def test_a_failed_review_names_a_silent_error_and_logs_its_traceback(self):
+        # The SDK's bare assert, compiled as its installed file so the summary names it the way a run would.
+        sdk = {}
+        exec(compile("def get_final_message():\n    assert None is not None\n", "/opt/python/lib/python3.12/site-packages/anthropic/lib/streaming/_messages.py", "exec"), sdk)
+        try:
+            sdk["get_final_message"]()
+        except AssertionError as error:
+            log = io.StringIO()
+            with contextlib.redirect_stdout(log):
+                summary = reviewer.model_failure_detail(error)
+        self.assertEqual(summary, "Dottore Review could not complete: AssertionError: raised at anthropic/lib/streaming/_messages.py:2 in get_final_message")
+        self.assertTrue(log.getvalue().startswith("Traceback (most recent call last):"), log.getvalue())
+        self.assertIn('site-packages/anthropic/lib/streaming/_messages.py", line 2, in get_final_message', log.getvalue())
+        self.assertEqual(log.getvalue().splitlines()[-1], "AssertionError")
+        # An error with a message, or one never raised, reads as before.
+        self.assertEqual(reviewer.error_text(ValueError("bad  value")), "ValueError: bad value")
+        self.assertEqual(reviewer.error_text(AssertionError()), "AssertionError: ")
 
     def test_chat_completions_reply_keeps_its_stop_reason(self):
         chunks = [
