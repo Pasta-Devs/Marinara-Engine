@@ -93,6 +93,14 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { api } from "../../lib/api-client";
+import {
+  applyPresetDraftOps,
+  flushPresetDraftOps,
+  newDraftId,
+  pushPresetDraftOp,
+  remapPresetDraftOps,
+  type PresetDraftOp,
+} from "../../lib/preset-draft-ops";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import {
@@ -250,7 +258,19 @@ export function PresetEditor() {
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
   const activeChatId = useChatStore((s) => s.activeChatId);
 
-  const { data, isLoading, refetch: refetchPreset } = usePresetFull(presetDetailId);
+  const { data: savedData, isLoading, refetch: refetchPreset } = usePresetFull(presetDetailId);
+  // New layout: nothing here saves until Save. Section, group and variable changes wait as ops,
+  // and the editor shows the saved preset with them applied.
+  const [draftOps, setDraftOps] = useState<PresetDraftOp[]>([]);
+  const draftOpsRef = useRef(draftOps);
+  draftOpsRef.current = draftOps;
+  useEffect(() => {
+    setDraftOps([]);
+  }, [presetDetailId]);
+  const data = useMemo(
+    () => (savedData && draftOps.length ? applyPresetDraftOps(savedData, draftOps) : savedData),
+    [savedData, draftOps],
+  );
   const { data: activeChat } = useChat(activeChatId);
   const updatePreset = useUpdatePreset();
   const deletePreset = useDeletePreset();
@@ -278,18 +298,8 @@ export function PresetEditor() {
     setActiveTab(presetDetailInitialTab ?? "overview");
   }, [presetDetailId, presetDetailInitialTab]);
   const [formDirty, setDirty] = useState(false);
-  // New layout: prompt section edits wait for Save like the rest of the preset, keyed by section id.
-  const [sectionDrafts, setSectionDrafts] = useState<Record<string, Record<string, unknown>>>({});
-  const sectionDraftsRef = useRef(sectionDrafts);
-  sectionDraftsRef.current = sectionDrafts;
-  useEffect(() => {
-    setSectionDrafts({});
-  }, [presetDetailId]);
-  const pendingSectionDraftIds = useMemo(() => {
-    const live = new Set(((data?.sections ?? []) as Array<{ id: string }>).map((section) => section.id));
-    return Object.keys(sectionDrafts).filter((id) => live.has(id));
-  }, [data?.sections, sectionDrafts]);
-  const dirty = formDirty || pendingSectionDraftIds.length > 0;
+  const [flushingOps, setFlushingOps] = useState(false);
+  const dirty = formDirty || draftOps.length > 0;
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   useEffect(() => {
     setEditorDirty(dirty);
@@ -387,21 +397,19 @@ export function PresetEditor() {
       await updatePreset.mutateAsync({ id: presetDetailId, ...presetSavePatch(form, loadedFormRef.current) });
       loadedFormRef.current = form;
     }
-    for (const sectionId of pendingSectionDraftIds) {
-      const patch = sectionDraftsRef.current[sectionId];
-      if (!patch) continue;
-      await updateSection.mutateAsync({ presetId: presetDetailId, sectionId, ...patch });
-      // Keep anything typed while this section was saving.
-      setSectionDrafts((current) => {
-        if (current[sectionId] !== patch) return current;
-        const { [sectionId]: _saved, ...rest } = current;
-        return rest;
-      });
+    const ops = draftOpsRef.current;
+    if (ops.length) {
+      setFlushingOps(true);
+      try {
+        const result = await flushPresetDraftOps(presetDetailId, ops);
+        await refetchPreset();
+        // Drop what was sent; anything added meanwhile (or left by a failure) now points at real ids.
+        setDraftOps((current) => remapPresetDraftOps(current.slice(result.sent), result.ids));
+        if (result.error) throw result.error;
+      } finally {
+        setFlushingOps(false);
+      }
     }
-    setSectionDrafts((current) => {
-      const live = new Set(pendingSectionDraftIds);
-      return Object.fromEntries(Object.entries(current).filter(([id]) => live.has(id)));
-    });
     if (editRevisionRef.current !== revision) return false;
     setDirty(false);
     setShowSaved(true);
@@ -419,8 +427,7 @@ export function PresetEditor() {
     localScopedRegexMode,
     updatePreset,
     formDirty,
-    pendingSectionDraftIds,
-    updateSection,
+    refetchPreset,
   ]);
 
   const handleExportPreset = useCallback(async () => {
@@ -460,7 +467,7 @@ export function PresetEditor() {
     deletePreset.mutate(presetDetailId, { onSuccess: () => leaveWithoutSaving(closePresetDetail) });
   }, [closePresetDetail, data?.preset, deletePreset, localizeUi, presetDetailId]);
 
-  const savingPreset = updatePreset.isPending || updateSection.isPending;
+  const savingPreset = updatePreset.isPending || flushingOps;
   useEditorLeaveSave(`presetDetailId:${presetDetailId}`, dirty, handleSave, savingPreset);
   const markDirty = useCallback(() => {
     editRevisionRef.current += 1;
@@ -563,42 +570,51 @@ export function PresetEditor() {
   const orderedSections = useMemo(() => {
     if (!data?.sections) return [];
     const map = new Map((data.sections as any[]).map((s) => [s.id, s]));
-    return sectionOrder
-      .map((id: string) => {
-        const section = map.get(id);
-        return section && sectionDrafts[id] ? { ...section, ...sectionDrafts[id] } : section;
-      })
-      .filter(Boolean) as any[];
-  }, [data?.sections, sectionOrder, sectionDrafts]);
-  // In the new layout a section edit goes into the drafts; Save (or Ctrl+S) sends them.
-  const sectionUpdater = useMemo(() => {
-    if (!overhaulActive) return updateSection;
-    return {
-      isPending: updateSection.isPending,
-      mutate: ({
-        sectionId,
-        presetId: _presetId,
-        ...patch
-      }: { presetId: string; sectionId: string } & Record<string, unknown>) => {
-        const saved = ((data?.sections ?? []) as unknown as Array<Record<string, unknown>>).find(
-          (section) => section.id === sectionId,
-        );
-        editRevisionRef.current += 1;
-        setSectionDrafts((current) => {
-          const next = { ...current[sectionId], ...patch };
-          // A change put back to the saved value is no change.
-          for (const key of Object.keys(next)) {
-            if (saved && String(saved[key] ?? "") === String(next[key] ?? "")) delete next[key];
-          }
-          if (Object.keys(next).length === 0) {
-            const { [sectionId]: _dropped, ...rest } = current;
-            return rest;
-          }
-          return { ...current, [sectionId]: next };
-        });
-      },
+    return sectionOrder.map((id: string) => map.get(id)).filter(Boolean) as any[];
+  }, [data?.sections, sectionOrder]);
+  // In the new layout every change to sections, groups and variables waits for Save (or Ctrl+S).
+  const draftMutations = useMemo(() => {
+    if (!overhaulActive) return null;
+    const push = (op: PresetDraftOp) => {
+      editRevisionRef.current += 1;
+      setDraftOps((current) => pushPresetDraftOp(current, op));
     };
-  }, [overhaulActive, updateSection, data?.sections]);
+    const idle = { isPending: false };
+    type Vars = { presetId: string } & Record<string, unknown>;
+    const create = (kind: "createSection" | "createGroup" | "createVariable") => {
+      const run = ({ presetId: _presetId, ...data }: Vars) => {
+        const tempId = newDraftId();
+        push({ kind, tempId, data });
+        return { id: tempId };
+      };
+      return { ...idle, mutate: run, mutateAsync: async (vars: Vars) => run(vars) };
+    };
+    const update = (kind: "updateSection" | "updateGroup" | "updateVariable", key: string) => {
+      const run = ({ presetId: _presetId, [key]: id, ...patch }: Vars) => push({ kind, id: String(id), patch });
+      return { ...idle, mutate: run, mutateAsync: async (vars: Vars) => run(vars) };
+    };
+    const remove = (kind: "deleteSection" | "deleteGroup" | "deleteVariable", key: string) => {
+      const run = (vars: Vars) => push({ kind, id: String(vars[key]) });
+      return { ...idle, mutate: run, mutateAsync: async (vars: Vars) => run(vars) };
+    };
+    const reorder = (kind: "reorderSections" | "reorderVariables", key: string) => {
+      const run = (vars: Vars) => push({ kind, ids: [...(vars[key] as string[])] });
+      return { ...idle, mutate: run, mutateAsync: async (vars: Vars) => run(vars) };
+    };
+    return {
+      onCreateSection: create("createSection"),
+      onUpdateSection: update("updateSection", "sectionId"),
+      onDeleteSection: remove("deleteSection", "sectionId"),
+      onReorderSections: reorder("reorderSections", "sectionIds"),
+      onCreateGroup: create("createGroup"),
+      onUpdateGroup: update("updateGroup", "groupId"),
+      onDeleteGroup: remove("deleteGroup", "groupId"),
+      onCreateVariable: create("createVariable"),
+      onUpdateVariable: update("updateVariable", "variableId"),
+      onDeleteVariable: remove("deleteVariable", "variableId"),
+      onReorderVariables: reorder("reorderVariables", "variableIds"),
+    };
+  }, [overhaulActive]);
 
   const sectionHasLorebookMarker = useMemo(() => {
     return orderedSections.some((section: any) => {
@@ -816,7 +832,7 @@ export function PresetEditor() {
       choiceBlocks={choiceBlocks}
       wrapFormat={localWrapFormat}
       onCreateSection={createSection}
-      onUpdateSection={sectionUpdater}
+      onUpdateSection={updateSection}
       onDeleteSection={deleteSection}
       onReorderSections={reorderSections}
       onCreateGroup={createGroup}
@@ -828,6 +844,7 @@ export function PresetEditor() {
       onReorderVariables={reorderVariables}
       hasLorebookMarker={sectionHasLorebookMarker}
       parentChatHasLorebook={parentChatHasLorebook}
+      {...(draftMutations ?? {})}
       {...extra}
     />
   );
