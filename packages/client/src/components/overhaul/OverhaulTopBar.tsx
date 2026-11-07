@@ -324,8 +324,16 @@ export function TabPresence({ tab, chats }: { tab: OverhaulTab; chats: Chat[] })
 /** Game chats: show or hide the right game pane (Party, Inventory, Journal, Map, Sessions). */
 function GamePaneToggle() {
   const { t: localizeUi } = useUiTranslation();
-  const open = useOverhaulStore((state) => state.gamePaneOpen);
-  const setOpen = useOverhaulStore((state) => state.setGamePaneOpen);
+  const paneOpen = useOverhaulStore((state) => state.gamePaneOpen);
+  const madeRoom = useOverhaulStore((state) => state.gamePaneMadeRoom);
+  const setPaneOpen = useOverhaulStore((state) => state.setGamePaneOpen);
+  const setForced = useOverhaulStore((state) => state.setGamePaneForced);
+  // Folded away to give the scene room, the pane counts as hidden here: pressing shows it over the scene.
+  const open = paneOpen && !madeRoom;
+  const setOpen = (next: boolean) => {
+    if (next && paneOpen && madeRoom) setForced(true);
+    else setPaneOpen(next);
+  };
   return (
     <button
       type="button"

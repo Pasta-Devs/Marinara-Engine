@@ -50,6 +50,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { openAddConnection } from "../../lib/add-connection";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useChatStore } from "../../stores/chat.store";
+import { useDialogStore } from "../../stores/dialog.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { api } from "../../lib/api-client";
 import { appendLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../lib/connection-filters";
@@ -832,11 +833,26 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   dismissRef.current = dismiss;
   // Leaving by another route (Home, a tab, Ctrl+K) keeps a draft the player typed or picked in.
   const isGameChat = (chat as unknown as { mode?: string }).mode === "game";
+  // What the chat looked like when its setup opened (the launcher's own copy when there is one), so leaving
+  // can tell a draft the player typed or picked in from an untouched one.
+  const startRef = useRef<{
+    name: string;
+    connectionId: string | null;
+    promptPresetId: string | null;
+    cast: string;
+  } | null>(null);
+  if (!startRef.current) {
+    const baseline = useChatStore.getState().pendingNewChatSetups[chat.id];
+    startRef.current = {
+      name: baseline?.name ?? chat.name,
+      connectionId: baseline ? baseline.connectionId : (chat.connectionId ?? null),
+      promptPresetId: baseline ? baseline.promptPresetId : (chat.promptPresetId ?? null),
+      cast: JSON.stringify((chat as { characterIds?: unknown }).characterIds ?? []),
+    };
+  }
   useEffect(() => {
     if (isGameChat) return;
     return registerSetupInputProbe(chat.id, () => {
-      const baseline = useChatStore.getState().pendingNewChatSetups[chat.id];
-      if (!baseline) return false;
       // A name still being saved counts: leaving blurs the field just as the janitor asks.
       const saving = queryClient
         .getMutationCache()
@@ -847,11 +863,13 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         });
       if (saving) return true;
       const current = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id));
-      if (!current) return false;
+      const start = startRef.current;
+      if (!current || !start) return false;
       return (
-        current.name !== baseline.name ||
-        (current.connectionId ?? null) !== baseline.connectionId ||
-        (current.promptPresetId ?? null) !== baseline.promptPresetId
+        current.name !== start.name ||
+        (current.connectionId ?? null) !== start.connectionId ||
+        (current.promptPresetId ?? null) !== start.promptPresetId ||
+        JSON.stringify((current as { characterIds?: unknown }).characterIds ?? []) !== start.cast
       );
     });
   }, [chat.id, isGameChat, queryClient]);
@@ -860,6 +878,7 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     if (isGameChat) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (useDialogStore.getState().dialog) return;
       if (document.querySelector('[role="dialog"][aria-modal="true"], [role="menu"], [role="listbox"]')) return;
       const target = event.target as Element | null;
       const inWizard = target?.closest?.('[data-component="ChatSetupWizard"]');

@@ -141,6 +141,12 @@ interface OverhaulState {
   /** Game Mode's right pane (Party, Inventory, Journal, Map, Sessions). */
   gamePaneOpen: boolean;
   setGamePaneOpen: (open: boolean) => void;
+  /** Not kept: the pane is open but folded away because the scene has no room beside it. */
+  gamePaneMadeRoom: boolean;
+  setGamePaneMadeRoom: (madeRoom: boolean) => void;
+  /** Not kept: the player opened the pane again while there is no room, so it floats over the scene. */
+  gamePaneForced: boolean;
+  setGamePaneForced: (forced: boolean) => void;
   gamePaneTab: OverhaulGamePaneTab;
   setGamePaneTab: (tab: OverhaulGamePaneTab) => void;
   /** Where Chat settings shows the game's own tools (the game portals them in). */
@@ -357,7 +363,11 @@ export const useOverhaulStore = create<OverhaulState>()(
       chatSettingsEditing: false,
       setChatSettingsEditing: (chatSettingsEditing) => set({ chatSettingsEditing }),
       gamePaneOpen: true,
-      setGamePaneOpen: (gamePaneOpen) => set({ gamePaneOpen }),
+      setGamePaneOpen: (gamePaneOpen) => set({ gamePaneOpen, ...(gamePaneOpen ? {} : { gamePaneForced: false }) }),
+      gamePaneMadeRoom: false,
+      setGamePaneMadeRoom: (gamePaneMadeRoom) => set({ gamePaneMadeRoom }),
+      gamePaneForced: false,
+      setGamePaneForced: (gamePaneForced) => set({ gamePaneForced }),
       gamePaneTab: "party",
       setGamePaneTab: (gamePaneTab) => set({ gamePaneTab }),
       gameSettingsSlot: null,

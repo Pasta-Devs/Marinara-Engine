@@ -1,4 +1,5 @@
 import { askLeaveSetup, gameSetupDraftKey, registerSetupInputProbe } from "../../hooks/use-setup-drafts";
+import { useDialogStore } from "../../stores/dialog.store";
 import {
   audioConnectionSupportsGeneration,
   compileGameWorld,
@@ -1001,6 +1002,18 @@ export function GameSetupWizard({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented || isLoading) return;
+      // A question already open over the wizard (the leave question itself) answers its own Esc.
+      if (useDialogStore.getState().dialog) return;
+      // The same Esc may have just closed that question (its own listener runs first): only a key pressed
+      // in the wizard, or with nothing focused, leaves it.
+      const target = event.target as Element | null;
+      if (
+        target &&
+        target !== document.body &&
+        target !== document.documentElement &&
+        !target.closest?.('[data-component="GameSetupWizard"]')
+      )
+        return;
       const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"], [role="menu"], [role="listbox"]');
       if (dialogs.length > 1 || (dialogs.length === 1 && !dialogs[0]?.matches('[data-component="GameSetupWizard"]')))
         return;
