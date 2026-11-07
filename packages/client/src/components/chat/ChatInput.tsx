@@ -2,6 +2,7 @@
 // Chat: Input — mode-aware styling
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect, useMemo, memo, type FormEvent } from "react";
+import { avatarInitial } from "../../lib/avatar-initial";
 import {
   Send,
   Paperclip,
@@ -2301,7 +2302,7 @@ export const ChatInput = memo(function ChatInput({
                       </span>
                     ) : (
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[0.6875rem] font-semibold text-foreground/45">
-                        {(char.name || "?")[0].toUpperCase()}
+                        {avatarInitial(char.name)}
                       </div>
                     )}
                     <span className="min-w-0 flex-1 truncate text-xs">{char.name}</span>

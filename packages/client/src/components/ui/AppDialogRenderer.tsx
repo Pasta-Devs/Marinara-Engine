@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { avatarInitial } from "../../lib/avatar-initial";
+import { createPortal } from "react-dom";
 import { Modal } from "./Modal";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { dismissActiveDialog, resolveActiveDialog } from "../../lib/app-dialogs";
 import { useDialogStore } from "../../stores/dialog.store";
 import { getAvatarCropStyle } from "../../lib/utils";
@@ -17,6 +20,9 @@ export function AppDialogRenderer() {
   const dialog = useDialogStore((state) => state.dialog);
   const [promptValue, setPromptValue] = useState("");
   const promptInputRef = useRef<HTMLInputElement>(null);
+  const sheetCancelRef = useRef<HTMLButtonElement>(null);
+  // New layout on phones: every confirm is the same action sheet as Delete message (panel 3, PP10).
+  const phoneSheet = useOverhaulMobile();
 
   useEffect(() => {
     if (dialog?.kind !== "prompt") {
@@ -38,12 +44,119 @@ export function AppDialogRenderer() {
     return () => window.clearTimeout(timer);
   }, [dialog]);
 
+  useEffect(() => {
+    if (!phoneSheet || !dialog || dialog.kind === "prompt") return;
+    const timer = window.setTimeout(() => sheetCancelRef.current?.focus({ preventScroll: true }), 0);
+    return () => window.clearTimeout(timer);
+  }, [dialog, phoneSheet]);
+
+  useEffect(() => {
+    if (!phoneSheet || !dialog) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") dismissActiveDialog();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [dialog, phoneSheet]);
+
   if (!dialog) return null;
 
+  const sheetKind =
+    dialog.kind === "confirm" ||
+    dialog.kind === "alert" ||
+    dialog.kind === "prompt" ||
+    (dialog.kind === "choice" && !dialog.choices.some((choice) => choice.avatar));
+  if (phoneSheet && sheetKind) {
+    const toneClass = (tone?: string) => (tone === "destructive" ? "is-danger" : "is-primary");
+    const title = getDialogTitle(dialog.kind, dialog.title);
+    return createPortal(
+      <>
+        <div
+          className="ovm-action-sheet-scrim"
+          aria-hidden="true"
+          data-chat-floating-panel
+          onClick={dismissActiveDialog}
+        />
+        <form
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          className="ovm-action-sheet"
+          data-chat-floating-panel
+          data-app-dialog-sheet={dialog.kind}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (dialog.kind === "prompt") resolveActiveDialog(promptValue);
+            else if (dialog.kind === "alert") resolveActiveDialog(undefined);
+            else if (dialog.kind === "confirm") resolveActiveDialog(true);
+          }}
+        >
+          <div className="ovm-action-sheet__group">
+            <div className="ovm-action-sheet__head">
+              <strong>{title}</strong>
+              {dialog.message ? <span>{dialog.message}</span> : null}
+              {dialog.kind === "prompt" ? (
+                <input
+                  ref={promptInputRef}
+                  className="ovm-action-sheet__field"
+                  value={promptValue}
+                  onChange={(event) => setPromptValue(event.target.value)}
+                  placeholder={dialog.placeholder}
+                  enterKeyHint="done"
+                />
+              ) : null}
+            </div>
+            {dialog.kind === "choice" ? (
+              dialog.choices.map((choice, index) => (
+                <button
+                  key={choice.key}
+                  type="button"
+                  data-dialog-action={index === 0 ? "confirm" : "choice"}
+                  data-tone={choice.tone}
+                  className={choice.tone === "destructive" ? "is-danger" : index === 0 ? "is-primary" : undefined}
+                  onClick={() => resolveActiveDialog(choice.key)}
+                >
+                  {choice.label}
+                </button>
+              ))
+            ) : (
+              <button
+                type="submit"
+                data-dialog-action="confirm"
+                data-tone={dialog.tone}
+                className={toneClass(dialog.tone)}
+              >
+                {dialog.confirmLabel ?? (dialog.kind === "alert" ? "OK" : "Confirm")}
+              </button>
+            )}
+          </div>
+          {dialog.kind !== "alert" ? (
+            <div className="ovm-action-sheet__group">
+              <button
+                ref={sheetCancelRef}
+                type="button"
+                className="is-cancel"
+                data-dialog-action="cancel"
+                onClick={dismissActiveDialog}
+              >
+                {dialog.cancelLabel ?? "Cancel"}
+              </button>
+            </div>
+          ) : null}
+        </form>
+      </>,
+      document.body,
+    );
+  }
+
+  // Destructive confirms carry the danger class: the gradient-accent skins restyle every other chrome
+  // control with a selector that outranks the overhaul's red (panel 3, PV5).
   const confirmToneClass =
-    dialog.tone === "destructive" || dialog.tone === "accent"
-      ? "mari-chrome-control mari-chrome-control--primary"
-      : "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85";
+    dialog.tone === "destructive"
+      ? "mari-chrome-control mari-chrome-control--danger"
+      : dialog.tone === "accent"
+        ? "mari-chrome-control mari-chrome-control--primary"
+        : "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85";
   const chatControlClass = dialog.chatStyle ? "mari-chat-style-control" : "";
 
   return (
@@ -117,6 +230,8 @@ export function AppDialogRenderer() {
                 type="button"
                 onClick={dismissActiveDialog}
                 data-dialog-action="cancel"
+                // The safe choice has focus, not the window's ×: Enter or a stray tap never confirms.
+                data-autofocus
                 className={`rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] ${chatControlClass}`}
               >
                 {dialog.cancelLabel ?? "Cancel"}
@@ -212,7 +327,7 @@ export function AppDialogRenderer() {
                         aria-hidden="true"
                         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-bold"
                       >
-                        {choice.label[0]}
+                        {avatarInitial(choice.label)}
                       </span>
                     )}
                     <span className="min-w-0 flex-1">

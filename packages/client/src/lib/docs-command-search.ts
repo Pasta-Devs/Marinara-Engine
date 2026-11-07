@@ -144,7 +144,8 @@ export function toDocsCommandPassages(search: DocsSearchResponse | undefined): D
         id: `docs:${result.path}`,
         title: result.title,
         source: result.path,
-        snippet: snippet.text,
+        // Search shows plain text: "**Functions**" read as a typo (panel Low #30).
+        snippet: stripInlineMarkdown(snippet.text),
         path: result.path,
         line: snippet.line,
         command: {
@@ -156,4 +157,14 @@ export function toDocsCommandPassages(search: DocsSearchResponse | undefined): D
         score: 100 + result.matches,
       };
     });
+}
+
+/** Drops inline Markdown marks (bold, italics, code, links) from a one-line excerpt. */
+export function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__)(.+?)\1/g, "$2")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/(^|[\s(])[*_]([^*_\s][^*_]*?)[*_](?=[\s).,;:!?]|$)/g, "$1$2")
+    .replace(/^#{1,6}\s+/, "");
 }

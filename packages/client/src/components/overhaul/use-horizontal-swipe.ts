@@ -43,6 +43,8 @@ export function useHorizontalSwipe({
   maxFollow = 96,
   restOffset = 0,
   onDragChange,
+  onDrag,
+  moveTarget,
 }: {
   enabled: boolean;
   onSwipe: (direction: SwipeDirection) => void;
@@ -55,13 +57,19 @@ export function useHorizontalSwipe({
   restOffset?: number;
   /** Told when a sideways drag starts and ends (e.g. to show what sits under a sliding row). */
   onDragChange?: (dragging: boolean) => void;
+  /** Told the shown offset while dragging (null once it settles), for visuals the element itself can't carry. */
+  onDrag?: (offset: number | null) => void;
+  /** Moves this element instead of the one holding the handlers (e.g. a title inside a clipping box). */
+  moveTarget?: (el: HTMLElement) => HTMLElement | null;
 }) {
   const drag = useRef<Drag | null>(null);
   const swallowClick = useRef(false);
   if (!enabled) return {};
 
-  const place = (el: HTMLElement, x: number, animate: boolean) => {
+  const place = (holder: HTMLElement, x: number, animate: boolean) => {
+    onDrag?.(animate ? null : x);
     if (!follow) return;
+    const el = moveTarget?.(holder) ?? holder;
     el.style.transition = animate && !prefersReducedMotion() ? "transform 180ms ease" : "none";
     el.style.transform = x ? `translateX(${x}px)` : "";
   };

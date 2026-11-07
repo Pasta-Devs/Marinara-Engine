@@ -66,6 +66,12 @@ type TouchFolderDragOptions = {
   onActivate: (id: string) => void;
   onDrop: (id: string, x: number, y: number, ids: string[]) => void;
   onCancel?: (id: string, active: boolean) => void;
+  /**
+   * A finger held still until the drag picked the item up, then lifted without moving: a long-press,
+   * not a drag. The drag is cancelled (nothing moves) and this is called instead, e.g. to open an
+   * action sheet. Without it, the lift drops the item where it was.
+   */
+  onHoldRelease?: (id: string) => void;
 };
 
 type StartTouchDragOptions = {
@@ -334,6 +340,7 @@ export function useTouchFolderDrag({
   onActivate,
   onDrop,
   onCancel,
+  onHoldRelease,
 }: TouchFolderDragOptions) {
   const { t } = useTranslation();
   const resolvedMoveActivateThresholdPx = moveActivateThresholdPx ?? DEFAULT_TOUCH_DRAG_ACTIVATE_THRESHOLD_PX;
@@ -349,6 +356,7 @@ export function useTouchFolderDrag({
     onActivate,
     onDrop,
     onCancel,
+    onHoldRelease,
   });
   const removeListenersRef = useRef<(() => void) | null>(null);
   const releaseClickCleanupRef = useRef<(() => void) | null>(null);
@@ -364,6 +372,7 @@ export function useTouchFolderDrag({
     onActivate,
     onDrop,
     onCancel,
+    onHoldRelease,
   };
 
   const clearDragTimer = useCallback((drag: TouchFolderDragState) => {
@@ -666,6 +675,18 @@ export function useTouchFolderDrag({
       }
       drag.lastX = touch.clientX;
       drag.lastY = touch.clientY;
+      const onHoldRelease = optionsRef.current.onHoldRelease;
+      if (
+        onHoldRelease &&
+        drag.active &&
+        drag.ids.length === 1 &&
+        Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY) <=
+          optionsRef.current.moveActivateThresholdPx
+      ) {
+        cancelTouchDrag(false);
+        onHoldRelease(drag.id);
+        return;
+      }
       cancelTouchDrag(true);
     },
     [cancelTouchDrag, scheduleAutoScroll, t],

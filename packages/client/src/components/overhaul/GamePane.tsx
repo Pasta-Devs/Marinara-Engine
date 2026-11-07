@@ -7,6 +7,7 @@
 // moved into Chat settings > Game.
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { avatarInitial } from "../../lib/avatar-initial";
 import { BookOpen, Backpack, Map as MapIcon, ScrollText, Users, X } from "lucide-react";
 import type { AvatarCrop, GameInventoryStack } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -74,7 +75,7 @@ function Avatar({ member }: { member: OvGamePaneMember }) {
       <img src={member.avatarUrl} alt="" style={getAvatarCropStyle(member.avatarCrop)} />
     </span>
   ) : (
-    <span className="ov-gpane__av">{member.name.slice(0, 1).toUpperCase()}</span>
+    <span className="ov-gpane__av">{avatarInitial(member.name)}</span>
   );
 }
 

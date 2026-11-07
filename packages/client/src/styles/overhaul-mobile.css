@@ -69,22 +69,30 @@
 .ovm-topbar__side--end {
   justify-content: flex-end;
 }
+/* The title box fills the middle of the bar (it is the tab-swipe area); its content sits centred inside
+   and slides within it, clipped, during a swipe. */
 .ovm-title {
   display: flex;
-  justify-self: center;
+  justify-self: stretch;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
   height: 2.75rem;
   align-items: center;
   justify-content: safe center;
-  gap: 0.5rem;
   padding: 0 0.25rem;
   border: 0;
   border-radius: 0.75rem;
   background: none;
   color: var(--ov-text);
   text-align: left;
+}
+.ovm-title__inner {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.5rem;
 }
 .ovm-title .ov-tab__dot {
   width: 0.5rem;
@@ -2669,6 +2677,13 @@
   justify-content: center;
   padding: 0;
 }
+/* "+ New" beside the search field, the height of the field (panel 3, PV7). */
+.ovm-chats-new:not(#ovm-x) {
+  flex: none;
+  height: 2.5rem;
+  padding: 0 0.875rem;
+  font-size: 0.875rem;
+}
 .ovm-chats-menu {
   max-height: 80dvh;
   overflow-y: auto;
@@ -2761,63 +2776,6 @@
   min-height: 2.75rem;
   padding: 0 1rem;
   font-size: 1rem;
-}
-
-/* Action sheets on phones (Delete message): grouped rows along the bottom, Cancel on its own. */
-.ovm-action-sheet-scrim {
-  z-index: 10000;
-}
-.ovm-action-sheet {
-  position: fixed;
-  z-index: 10001;
-  right: 0.5rem;
-  bottom: calc(0.5rem + env(safe-area-inset-bottom));
-  left: 0.5rem;
-  display: grid;
-  gap: 0.5rem;
-  animation: ovm-sheet-up 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-@media (min-width: 600px) {
-  .ovm-action-sheet {
-    left: 50%;
-    width: 26rem;
-    transform: translateX(-50%);
-  }
-}
-.ovm-action-sheet__group {
-  display: grid;
-  overflow: hidden;
-  border-radius: 0.875rem;
-  background: var(--ovm-raised);
-}
-.ovm-action-sheet__head {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.875rem 1rem;
-  text-align: center;
-  color: var(--ov-muted, var(--muted-foreground));
-  font-size: 0.875rem;
-}
-.ovm-action-sheet__head strong {
-  color: var(--ov-text, var(--foreground));
-  font-size: 1rem;
-  font-weight: 600;
-}
-.ovm-action-sheet__group > button {
-  min-height: 3.375rem;
-  border-top: 1px solid var(--ovm-line);
-  color: var(--ov-text, var(--foreground));
-  font-size: 1.0625rem;
-}
-.ovm-action-sheet__group > button:first-child {
-  border-top: 0;
-}
-.ovm-action-sheet__group > button.is-danger {
-  color: var(--destructive);
-  font-weight: 600;
-}
-.ovm-action-sheet__group > button.is-cancel {
-  font-weight: 600;
 }
 
 /* Quick Switcher on phones: a bottom sheet (grabber, rounded top) with big segmented tabs over the
@@ -4543,54 +4501,6 @@
   touch-action: pan-y;
 }
 
-/* A chat row slides left over its actions: Pin, Rename, Delete. */
-:root[data-overhaul="mobile"] .ovm-swiperow {
-  position: relative;
-  overflow: hidden;
-  border-radius: 0.75rem;
-}
-:root[data-overhaul="mobile"] .ovm-swiperow__tray {
-  position: absolute;
-  inset: 0 0 0 auto;
-  display: flex;
-  width: var(--ovm-swiperow-tray);
-  /* Hidden at rest, so its colour never bleeds round the row's rounded corners; it stays until the row has slid back. */
-  visibility: hidden;
-  transition: visibility 0s 180ms;
-}
-:root[data-overhaul="mobile"] .ovm-swiperow:is([data-open], [data-dragging]) .ovm-swiperow__tray {
-  visibility: visible;
-  transition: none;
-}
-:root[data-overhaul="mobile"] .ovm-swiperow__action {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  background: color-mix(in srgb, var(--foreground) 12%, var(--sidebar, var(--background)));
-  color: var(--foreground);
-  font-size: 0.6875rem;
-}
-:root[data-overhaul="mobile"] .ovm-swiperow__action.is-danger {
-  background: var(--destructive);
-  color: #fff;
-}
-:root[data-overhaul="mobile"] .ovm-swiperow__slide {
-  position: relative;
-  background: var(--sidebar, var(--background));
-  transition: transform 180ms ease;
-}
-:root[data-overhaul="mobile"] .ovm-swiperow[data-open] .ovm-swiperow__slide {
-  transform: translateX(calc(-1 * var(--ovm-swiperow-tray)));
-}
-@media (prefers-reduced-motion: reduce) {
-  :root[data-overhaul="mobile"] .ovm-swiperow__slide {
-    transition: none;
-  }
-}
-
 /* Phones always show two cards per row, so the card-size control has nothing to change; it only squeezed search. */
 @media (max-width: 34rem) {
   :root[data-overhaul="mobile"] .ov-gallery__tools > .ov-gallery__size:not(#ovm-x) {
@@ -4599,4 +4509,24 @@
   :root[data-overhaul="mobile"] .ov-gallery__tools > .ov-search:not(#ovm-x) {
     min-width: 8rem;
   }
+}
+
+/* One Save button on phones (panel 3, PV9): the editor header, the sticky lorebook entry header and the
+   preset pages had three sizes, with and without the icon. */
+:root[data-overhaul="mobile"] .ov-savebtn:not(#ovm-x):not(#ovm-y) {
+  display: inline-flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  margin-block: 0;
+  padding: 0 1rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+:root[data-overhaul="mobile"] .ov-savebtn:not(#ovm-x):not(#ovm-y) > svg {
+  display: block !important;
+  flex: none;
 }

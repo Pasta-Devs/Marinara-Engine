@@ -1,4 +1,5 @@
 import { useMemo, type CSSProperties } from "react";
+import { avatarInitial } from "../../lib/avatar-initial";
 import { MessageCircleQuestion, MessageSquare, RefreshCw } from "lucide-react";
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useCharacterSpritePreviews, useCharacterSummaries, type SpriteInfo } from "../../hooks/use-characters";
@@ -224,7 +225,7 @@ export function RecentChats() {
                       loading="lazy"
                     />
                   ) : (
-                    (chat.name || "?").slice(0, 1).toUpperCase()
+                    avatarInitial(chat.name)
                   )}
                 </span>
                 <span className="ov-recent__text">

@@ -5,6 +5,7 @@
 // a phone opens a bottom sheet. Multiple picks apply on each tap; Done only closes.
 // ──────────────────────────────────────────────
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { avatarInitial } from "../../lib/avatar-initial";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -138,7 +139,7 @@ function TriggerAvatars({
               index > 0 && "-ml-2",
             )}
           >
-            {(item.name || "?")[0]?.toUpperCase()}
+            {avatarInitial(item.name)}
           </span>
         ),
       )}

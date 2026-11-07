@@ -12,6 +12,8 @@ function OvChatSettingsTip({ onDismiss }: { onDismiss: () => void }) {
   const { t } = useTranslation();
   const [pos, setPos] = useState<{ top: number; right: number; arrow: number } | null>(null);
   useLayoutEffect(() => {
+    // The tip points into the top bar, so an auto-hidden bar stays in view while it shows (panel 3, PG6/PR8).
+    document.documentElement.setAttribute("data-ov-topbar-pinned", "");
     const place = () => {
       const target = document.querySelector<HTMLElement>(
         `:is(.ov-topbar, .ovm-topbar) [data-window-opener="${CHAT_SETTINGS_WINDOW_ID}"]`,
@@ -28,7 +30,10 @@ function OvChatSettingsTip({ onDismiss }: { onDismiss: () => void }) {
     };
     place();
     window.addEventListener("resize", place);
-    return () => window.removeEventListener("resize", place);
+    return () => {
+      window.removeEventListener("resize", place);
+      document.documentElement.removeAttribute("data-ov-topbar-pinned");
+    };
   }, []);
   if (!pos) return null;
   return createPortal(

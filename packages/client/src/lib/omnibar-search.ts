@@ -122,6 +122,8 @@ export type OmnibarResult = {
    * parent control is not in the ranked list.
    */
   chooseValue?: () => void;
+  /** Puts back the value a `chooseValue` row replaced (the Undo on its toast). */
+  undoChooseValue?: () => void;
   kind?: CommandKind;
   icon?: CommandIcon;
   /** Promoted to the empty list's single "Now" row, and why. */
