@@ -6,7 +6,7 @@ Conversation Mode is the messenger-style chat mode: one or more characters, an i
 
 Before you start: add an account in **Connections** (see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)) and have at least one character. A persona, the character card that stands for you, is optional (see [User Personas](../characters/personas.md)).
 
-1. In the chat sidebar, open the **CONVO** tab and click **New Conversation**. A setup wizard with four pages opens.
+1. In the chat list on the left, open the **Convo** tab and click **+ New**. A setup wizard with four pages opens.
 2. On the first page, **Name & Connection**, name the chat and pick the account that writes the replies.
 3. On the second page, **Prompt Preset**, pick the preset for the Conversation prompt, or keep the default.
 4. On the third page, **Persona & Characters**, pick your persona and one or more characters.
@@ -60,7 +60,7 @@ For **Influence** and **Notes**, see [Connected Chats](../chats/connected-chats.
 
 ## Your presence status
 
-Your presence is a colored pill in the sidebar footer. It is the same in every chat. Click it to choose:
+Your presence is a colored pill at the bottom of the chat list. It is the same in every chat. Click it to choose:
 
 | Status | Meaning |
 | --- | --- |

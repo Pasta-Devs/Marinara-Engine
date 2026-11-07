@@ -305,14 +305,18 @@ export function prepareDocMarkdown(raw: string, docPath: string): string {
     if (/^<img\b[^>]*>$/i.test(trimmed)) continue;
     out.push(line);
   }
-  return out
-    .join("\n")
-    .replace(/\[([^\]]+)\]\(#[^)]*\)/g, "$1")
-    .replace(
-      /\[([^\]]+)\]\((?!(?:https?|card):\/\/|\/api\/|#|mailto:)([^()\s#]+\.md)(?:#[^)]*)?\)/gi,
-      (_match, text: string, target: string) =>
-        `[${text}](/api/docs/content?path=${encodeURIComponent(resolveDocPath(docPath, target))})`,
-    );
+  return (
+    out
+      .join("\n")
+      // Keys (<kbd>Enter</kbd>) show as small code chips; the renderer has no raw HTML.
+      .replace(/<kbd>([^<]{1,40})<\/kbd>/gi, "`$1`")
+      .replace(/\[([^\]]+)\]\(#[^)]*\)/g, "$1")
+      .replace(
+        /\[([^\]]+)\]\((?!(?:https?|card):\/\/|\/api\/|#|mailto:)([^()\s#]+\.md)(?:#[^)]*)?\)/gi,
+        (_match, text: string, target: string) =>
+          `[${text}](/api/docs/content?path=${encodeURIComponent(resolveDocPath(docPath, target))})`,
+      )
+  );
 }
 
 // Upper bound on injected search marks per doc: a 2-char needle ("in", "to")

@@ -8,6 +8,7 @@
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronLeft, ChevronRight, Copy, GitBranch, List, Pencil, RefreshCw } from "lucide-react";
 import type { MessageSwipe } from "@marinara-engine/shared";
@@ -249,7 +250,14 @@ export function OvMobileMessageSheet({
             <Pencil size={22} />
             {localize("Edit")}
           </button>
-          <button type="button" onClick={run(onCopy)}>
+          <button
+            type="button"
+            onClick={run(() => {
+              onCopy();
+              // The sheet closes at once, so say it worked.
+              toast.success(localize("Copied"), { duration: 1500 });
+            })}
+          >
             {copied ? <Check size={22} /> : <Copy size={22} />}
             {localize("Copy")}
           </button>

@@ -10,7 +10,7 @@ Before you start: you need an API key (a secret code, like a password) from an A
 2. Add an account. An account is one API key for one AI service. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 3. Pick the models the account should use. The same guide shows how.
 4. Make or import a character. Open the **Characters** panel, then click **New** to open the **Create Character** window, or click **Import** to bring in a card from a file. See [Creating and Editing Characters](../characters/creating-and-editing-characters.md).
-5. Open the chat sidebar with the sidebar button. Its tabs read **CONVO**, **RP** and **GM**. Pick one, then click the **+** button. It is named **New Conversation**, **New Roleplay** or **New Game**, to match the tab.
+5. Open the chat list on the left with the chat button in the top bar. Its tabs read **Convo**, **Roleplay** and **Game**. Pick one, then click **+ New**.
 6. Follow the setup window that opens, then click **Create Chat**.
 
 What you see: the new chat opens, and you can write your first message.

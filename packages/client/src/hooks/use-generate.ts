@@ -112,9 +112,20 @@ function withIllustratorFailureTargets(
   return Object.keys(baseOptions).length > 0 ? baseOptions : undefined;
 }
 
+/** Network failures in plain words ("getaddrinfo ENOTFOUND openrouter.ai" means the address couldn't be reached). */
+function plainNetworkError(msg: string): string | null {
+  const lookup = msg.match(/getaddrinfo\s+(?:ENOTFOUND|EAI_AGAIN)\s+([^\s,'")]+)/i);
+  if (lookup) return translate("generation.errors.cantReachHost", { host: lookup[1] });
+  const refused = msg.match(/ECONNREFUSED\s+([^\s,'")]+)/i);
+  if (refused) return translate("generation.errors.connectionRefused", { host: refused[1] });
+  if (/\b(?:ETIMEDOUT|ECONNRESET|UND_ERR_CONNECT_TIMEOUT)\b/.test(msg))
+    return translate("generation.errors.connectionDropped");
+  return null;
+}
+
 /** Show a persistent, copyable error toast and log to console */
 function showError(msg: string, options?: Pick<ExternalToast, "action" | "id" | "duration">) {
-  const formatted = formatGenerationParameterError(msg);
+  const formatted = plainNetworkError(msg) ?? formatGenerationParameterError(msg);
   console.error("[Generation]", msg);
   toast.error(formatted, { duration: 15000, ...options });
   return formatted;
