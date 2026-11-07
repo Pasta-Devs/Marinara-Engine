@@ -13,6 +13,7 @@ import { extractImportantThemeCss, sanitizeAppCss, themeSetsVariable } from "../
 import { themeFontFaceCss } from "../../lib/theme-package";
 import { installSafeModeShortcut, useThemeSafetyStore } from "../../lib/theme-safety";
 import { checkProtectedChrome } from "../../lib/theme-guard";
+import { themeHasHtml, useThemeTemplates } from "../../lib/theme-template";
 import { useUIStore } from "../../stores/ui.store";
 import {
   detectThemeChatHooks,
@@ -53,6 +54,13 @@ export function CustomThemeInjector() {
   const allowed = !!activeTheme && !safeMode && blockedThemeId !== activeTheme.id;
 
   useEffect(() => installSafeModeShortcut(), []);
+
+  // The theme's message templates, only when the user allows themes with HTML (lib/theme-template.ts).
+  const allowThemeHtml = useUIStore((s) => s.allowThemeHtml);
+  const templates = allowed && allowThemeHtml && themeHasHtml(activeTheme?.meta) ? activeTheme!.meta!.templates! : null;
+  useEffect(() => {
+    useThemeTemplates.setState({ templates });
+  }, [templates]);
   useChatRootHooks();
   useChatArtBehindPanels();
 

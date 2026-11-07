@@ -68,6 +68,7 @@ import {
   type ReactionSegmentTarget,
 } from "../../lib/reactions";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { MessageTemplateSlot } from "./MessageTemplateSlot";
 
 const EMPTY_CUSTOM_EMOJI_MAP = new Map<string, string>();
 const EMPTY_CUSTOM_STICKER_MAP = new Map<string, string>();
@@ -1309,6 +1310,7 @@ export const ConversationMessage = memo(function ConversationMessage({
             />
           )}
         </div>
+        <MessageTemplateSlot hook={messageHookProps.input} createdAt={message.createdAt} />
       </div>
       {modals}
     </>

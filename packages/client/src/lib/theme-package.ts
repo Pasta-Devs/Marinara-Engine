@@ -20,6 +20,7 @@ import {
 } from "@marinara-engine/shared";
 import { useUIStore, type VisualTheme } from "../stores/ui.store";
 import { normalizeThemeCss } from "./theme-css";
+import { themeHasHtml } from "./theme-template";
 
 export const THEME_FILE_KIND = "marinara.theme";
 export const THEME_FORMAT_VERSION = 2;
@@ -40,7 +41,8 @@ export type ThemeIssue =
   | { kind: "adds-text"; texts: string[] }
   | { kind: "asks-secrets"; text: string }
   | { kind: "a11y"; what: string[] }
-  | { kind: "bad-meta"; message: string };
+  | { kind: "bad-meta"; message: string }
+  | { kind: "has-html" };
 
 function parseJsonLenient(text: string): unknown {
   try {
@@ -74,6 +76,7 @@ function readMeta(record: Record<string, unknown>): { meta: ThemeMeta; problems:
     settings: record.settings,
     fonts: record.fonts,
     backgrounds: record.backgrounds,
+    templates: record.templates,
   };
   const meta: Record<string, unknown> = {};
   const problems: string[] = [];
@@ -194,6 +197,7 @@ export function validateThemePackage(pkg: ThemePackage & { metaProblems?: string
   const a11y = accessibilityChanges(pkg.css);
   if (a11y.length) issues.push({ kind: "a11y", what: a11y });
   for (const message of pkg.metaProblems ?? []) issues.push({ kind: "bad-meta", message });
+  if (themeHasHtml(pkg.meta)) issues.push({ kind: "has-html" });
   return issues;
 }
 

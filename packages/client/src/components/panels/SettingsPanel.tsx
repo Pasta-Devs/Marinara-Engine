@@ -263,6 +263,7 @@ import {
   isHostDeviceBrowser,
 } from "../../lib/host-device";
 import { DeviceLookSetting } from "./DeviceLookSetting";
+import { themeHasHtml } from "../../lib/theme-template";
 
 type CustomFontFace = {
   filename: string;
@@ -5940,6 +5941,8 @@ function AddonsSettings() {
 const THEME_PREVIEW_DEBOUNCE_MS = 300;
 
 function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
+  const allowThemeHtml = useUIStore((s) => s.allowThemeHtml);
+  const setAllowThemeHtml = useUIStore((s) => s.setAllowThemeHtml);
   const { t: localizeUi } = useUiTranslation();
   const { data: syncedThemes = [], isLoading } = useThemes();
   const createTheme = useCreateTheme();
@@ -6144,6 +6147,14 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   // so "Go back" (or no answer) puts them back too, and a failure part-way restores them.
   const handleInstallTheme = async (choice: ThemeInstallChoice) => {
     const { pkg } = choice;
+    if (themeHasHtml(pkg.meta) && !useUIStore.getState().allowThemeHtml) {
+      toast.error(
+        localizeUi("theming.html.blocked", {
+          defaultValue: "This theme has HTML. Turn on Allow themes with HTML in CSS Themes to install it.",
+        }),
+      );
+      return;
+    }
     setImportBusy(true);
     let created: Theme | null = null;
     let restore: ReturnType<typeof snapshotThemeSettings> | null = null;
@@ -6426,6 +6437,17 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
               {localizeUi("ui.panels.themessettings.importFile")}
             </button>
           </div>
+
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("allow-theme-html")}
+            label={localizeUi("theming.html.allow", { defaultValue: "Allow themes with HTML (I accept the risk)" })}
+            checked={allowThemeHtml}
+            onChange={setAllowThemeHtml}
+            help={localizeUi("theming.html.allowHelp", {
+              defaultValue:
+                "Some themes add HTML to every message (a message template). Marinara removes scripts, links, images, forms and inline styles, but HTML written by someone else can still mislead you. Off: themes with HTML can't be installed, and installed ones show without their HTML.",
+            })}
+          />
 
           {importQueue[0] ? (
             <ThemeImportPreview

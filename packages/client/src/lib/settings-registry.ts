@@ -1470,6 +1470,16 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "allow-theme-html",
+    sectionId: "theme-library",
+    labelKey: "theming.html.allow",
+    label: "Allow themes with HTML (I accept the risk)",
+    description: "Let themes add a sanitised HTML template to every message.",
+    descriptionKey: "theming.html.allowSearch",
+    aliases: ["html", "template", "message template", "theme", "risk"],
+    kind: "Toggle",
+  },
+  {
     id: "hide-name-line",
     sectionId: "roleplay-messages",
     labelKey: "settings.controls.hideNameLine.label",

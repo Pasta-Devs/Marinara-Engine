@@ -7,6 +7,9 @@ import { cssByteLimit, cssByteMessage, utf8ByteLength } from "./css-size.js";
 /** Thumbnail, fonts and backgrounds ride along with a theme package; together they stay under this. */
 export const MAX_THEME_META_BYTES = 6 * 1024 * 1024; // 6 MiB
 
+/** One message template (per role) stays under this many characters. */
+export const MAX_THEME_TEMPLATE_CHARS = 4000;
+
 const dataUrl = (prefix: RegExp, message = "Must be a data: URL") =>
   z
     .string()
@@ -53,6 +56,17 @@ export const themeMetaSchema = z
       )
       .max(12)
       .optional(),
+    /** Message template slot (theming round 2, batch 7): sanitised HTML shown in every message's
+     *  `data-mari-part="message-extra"` box. Only rendered when the user allows themes with HTML. */
+    templates: z
+      .object({
+        message: z.string().max(MAX_THEME_TEMPLATE_CHARS).optional(),
+        assistant: z.string().max(MAX_THEME_TEMPLATE_CHARS).optional(),
+        user: z.string().max(MAX_THEME_TEMPLATE_CHARS).optional(),
+        narrator: z.string().max(MAX_THEME_TEMPLATE_CHARS).optional(),
+      })
+      .strip()
+      .optional(),
     backgrounds: z
       .array(
         z.object({
@@ -94,6 +108,7 @@ export const setActiveThemeSchema = z.object({
 
 export type ThemeSettings = z.infer<typeof themeSettingsSchema>;
 export type ThemeMeta = z.infer<typeof themeMetaSchema>;
+export type ThemeTemplates = NonNullable<ThemeMeta["templates"]>;
 export type CreateThemeInput = z.infer<typeof createThemeSchema>;
 export type UpdateThemeInput = z.infer<typeof updateThemeSchema>;
 export type SetActiveThemeInput = z.infer<typeof setActiveThemeSchema>;

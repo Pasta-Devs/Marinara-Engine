@@ -22,6 +22,7 @@ import {
   type ThemeSettingKey,
 } from "../../../lib/theme-package";
 import { SETTINGS_BUTTON_CLASS, SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS } from "./SettingControls";
+import { useUIStore } from "../../../stores/ui.store";
 
 /** Variable names wrap at the comma, not at their own hyphens. */
 const keepTogether = (text: string) => text.replace(/-/g, "\u2011");
@@ -81,7 +82,10 @@ export function ThemeImportPreview({
   const settingKeys = themeSettingKeys(pkg.meta.settings);
   const [chosenSettings, setChosenSettings] = useState<ThemeSettingKey[]>([]);
   const [addBackgrounds, setAddBackgrounds] = useState(false);
-  const blocking = issues.some((issue) => issue.kind === "css-too-big" || issue.kind === "meta-too-big");
+  const allowThemeHtml = useUIStore((s) => s.allowThemeHtml);
+  // A theme with HTML installs only after the user turned on "Allow themes with HTML".
+  const htmlBlocked = !allowThemeHtml && issues.some((issue) => issue.kind === "has-html");
+  const blocking = htmlBlocked || issues.some((issue) => issue.kind === "css-too-big" || issue.kind === "meta-too-big");
   const meta = pkg.meta;
   const scheme = meta.colorScheme;
 
@@ -158,6 +162,16 @@ export function ThemeImportPreview({
           "It tries to change your accessibility settings ({{what}}). Your choices in Appearance > Accessibility still win.",
           { what: issue.what.join(", ") },
         );
+      case "has-html":
+        return allowThemeHtml
+          ? t(
+              "theming.import.issue.hasHtml",
+              "This theme adds HTML to every message (a message template). Marinara strips scripts, links, images and forms, but HTML from someone else is still a risk you accepted in CSS Themes.",
+            )
+          : t(
+              "theming.import.issue.hasHtmlBlocked",
+              "This theme adds HTML to every message, so it can't be installed. To accept the risk, turn on Allow themes with HTML in CSS Themes, then import it again.",
+            );
       case "bad-meta":
         return t("theming.import.issue.badMeta", "Part of the file was left out: {{message}}", {
           message: issue.message,
@@ -232,7 +246,10 @@ export function ThemeImportPreview({
               key={`${issue.kind}-${index}`}
               className={cn(
                 "flex flex-wrap items-start gap-1.5",
-                issue.kind === "css-too-big" || issue.kind === "meta-too-big" || issue.kind === "asks-secrets"
+                issue.kind === "css-too-big" ||
+                  issue.kind === "meta-too-big" ||
+                  issue.kind === "asks-secrets" ||
+                  issue.kind === "has-html"
                   ? "text-[var(--destructive)]"
                   : "text-[var(--foreground)]",
               )}
