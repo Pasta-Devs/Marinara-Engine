@@ -11,6 +11,9 @@ import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "../..");
 const serverRequire = createRequire(join(root, "packages/server/package.json"));
+// #8947: a pending notices lookup of raw.githubusercontent.com holds process.exit() until the resolver answers
+// (~30 s on a stalled CI resolver). Every server below (spawn, PTY and Windows fixtures) inherits this.
+process.env.MARINARA_NOTICES_ENABLED = "false";
 const dir = mkdtempSync(join(tmpdir(), "marinara-signal-shutdown-"));
 const probe = createServer();
 await new Promise<void>((done) => probe.listen(0, "127.0.0.1", done));
