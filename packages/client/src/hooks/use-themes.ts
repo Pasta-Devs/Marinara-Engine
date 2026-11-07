@@ -132,7 +132,10 @@ export function useActivateTheme() {
   const setActiveTheme = useSetActiveTheme();
   const qc = useQueryClient();
   return useCallback(
-    async (theme: Pick<Theme, "id" | "name"> | null) => {
+    async (
+      theme: Pick<Theme, "id" | "name"> | null,
+      restoreSettings?: { settings: Record<string, unknown>; keys: string[] } | null,
+    ) => {
       const themes = qc.getQueryData<Theme[]>(themeKeys.list()) ?? [];
       const device = useDeviceLookStore.getState();
       const previousId =
@@ -144,7 +147,7 @@ export function useActivateTheme() {
       const safety = useThemeSafetyStore.getState();
       if (theme && safety.blockedThemeId === theme.id) safety.clearBlockedTheme();
       if (theme && safety.safeMode) safety.leaveSafeMode();
-      if (theme) safety.askToKeep({ themeId: theme.id, themeName: theme.name, previousId });
+      if (theme) safety.askToKeep({ themeId: theme.id, themeName: theme.name, previousId, restoreSettings });
       else safety.settleKeep();
     },
     [qc, setActiveTheme],
