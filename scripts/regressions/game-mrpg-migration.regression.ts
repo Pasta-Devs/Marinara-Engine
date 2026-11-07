@@ -271,3 +271,17 @@ assert.deepEqual(joinTags.mrpgJoins, [
 assert.ok(!joinTags.cleanContent.includes("mrpg_join"), "the tag is stripped from the narration");
 
 console.log("game-mrpg-migration: ok");
+
+// The tag's stat amounts parse with spaces anywhere, and a long run of tabs is read at once (CodeQL, PR 8964).
+{
+  const { readMarinaraStatAmounts: read } = await import("../../packages/shared/src/index.js");
+  assert.deepEqual(read("strength + 30, speed 20 %, Lck: -5; def=4"), {
+    strength: 30,
+    speed: 20,
+    luck: -5,
+    defense: 4,
+  });
+  const started = Date.now();
+  assert.equal(read("a" + "\t".repeat(50_000) + "!"), undefined);
+  assert.ok(Date.now() - started < 500, "no backtracking on a long run of tabs");
+}

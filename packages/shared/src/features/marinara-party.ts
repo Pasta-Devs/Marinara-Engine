@@ -391,13 +391,14 @@ export function readMarinaraStatAmounts(text: unknown): Partial<Record<MarinaraS
     lk: "luck",
   };
   const out: Partial<Record<MarinaraStat, number>> = {};
-  for (const part of text.split(/[,;]/)) {
-    const match = /^\s*([a-z]+)\s*[:=]?\s*([+-]?\s*\d+)\s*%?\s*$/i.exec(part);
+  for (const part of text.slice(0, 2000).split(/[,;]/)) {
+    // Spaces dropped first, so the pattern has one way to match (no backtracking on long runs of them).
+    const match = /^([a-z]+)[:=]?([+-]?\d+)%?$/i.exec(part.replace(/\s/g, ""));
     if (!match) continue;
     const word = match[1]!.toLowerCase();
     const stat = (MARINARA_STATS as readonly string[]).includes(word) ? (word as MarinaraStat) : aliases[word];
     if (!stat) continue;
-    out[stat] = Number(match[2]!.replace(/\s+/g, ""));
+    out[stat] = Number(match[2]);
   }
   return Object.keys(out).length ? out : undefined;
 }
