@@ -79,10 +79,12 @@ function PartyTab({
   members,
   cards,
   inventory,
+  onEditSheet,
 }: {
   members: OvGamePaneMember[];
   cards: Record<string, OvGamePaneCard>;
   inventory: GameInventoryStack[];
+  onEditSheet?: (memberId: string) => (() => void) | undefined;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [picked, setPicked] = useState<string | null>(null);
@@ -93,6 +95,7 @@ function PartyTab({
     ? inventory.filter((stack) => (stack.holder ?? "").toLowerCase() === selected.name.toLowerCase())
     : [];
   const otherStats = (card?.stats ?? []).filter((stat) => !HP.test(stat.name.trim()) && !MP.test(stat.name.trim()));
+  const editSheet = selected ? onEditSheet?.(selected.id) : undefined;
   return (
     <>
       <table className="ov-gpane__table">
@@ -140,7 +143,15 @@ function PartyTab({
       </table>
       {selected ? (
         <div className="ov-gpane__detail">
-          <p className="ov-gpane__label">{selected.name}</p>
+          <div className="ov-gpane__detail-head">
+            <p className="ov-gpane__label">{selected.name}</p>
+            {editSheet ? (
+              <button type="button" className="ov-gpane__link" onClick={editSheet}>
+                {localizeUi("ui.overhaul.partytab.editSheet")} ›
+              </button>
+            ) : null}
+          </div>
+          {!card?.stats?.length ? <p className="ov-gpane__none">{localizeUi("ui.overhaul.partytab.noStats")}</p> : null}
           {otherStats.length ? (
             <div className="ov-gpane__stats">
               {otherStats.map((stat) => (
@@ -269,6 +280,7 @@ export function OvGamePane({
   inventory,
   playerName,
   onOpenInventory,
+  onEditSheet,
   heading,
   journal,
   map,
@@ -279,6 +291,8 @@ export function OvGamePane({
   inventory: GameInventoryStack[];
   playerName: string;
   onOpenInventory?: () => void;
+  /** Opens a member's Game Mode sheet; returns nothing for members without one (NPCs). */
+  onEditSheet?: (memberId: string) => (() => void) | undefined;
   /** Day, place and session, shown over the tabs. */
   heading: ReactNode;
   journal: ReactNode;
@@ -321,7 +335,9 @@ export function OvGamePane({
         ))}
       </div>
       <div className={cn("ov-gpane__body", `is-${tab}`)} role="tabpanel">
-        {tab === "party" ? <PartyTab members={members} cards={cards} inventory={inventory} /> : null}
+        {tab === "party" ? (
+          <PartyTab members={members} cards={cards} inventory={inventory} onEditSheet={onEditSheet} />
+        ) : null}
         {tab === "inventory" ? (
           <InventoryTab inventory={inventory} playerName={playerName} onOpenInventory={onOpenInventory} />
         ) : null}

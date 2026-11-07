@@ -329,6 +329,7 @@ import { GameStoryboardBackgroundVisual, GameStoryboardInlineViewer } from "./Ga
 import { GameVolumeMixer } from "./GameVolumeMixer";
 import { createPortal } from "react-dom";
 import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import { openLibrarySection } from "../overhaul/library-navigation";
 import { OvGamePane } from "../overhaul/GamePane";
 import { ChatSettingsSection } from "../../features/chat-settings/ChatSettingsSection";
 import {
@@ -2190,6 +2191,7 @@ import {
   VolumeX,
   X,
   Gamepad2,
+  SlidersHorizontal,
 } from "lucide-react";
 
 /** Randomly sample up to `max` items from an array (Fisher-Yates shuffle). */
@@ -2355,6 +2357,7 @@ interface GameSurfaceProps {
     combatIcon?: CombatIconChoice | null;
     nameColor?: string;
     dialogueColor?: string;
+    rpgStats?: import("@marinara-engine/shared").RPGStatsConfig;
   }>;
   personaInfo?: PersonaInfo;
   chatBackground?: string | null;
@@ -2393,6 +2396,28 @@ function readHostedRoomHumans(value: unknown): {
     host: own ? { name: own.name, description: own.description } : null,
     guests: humans.filter((human) => !human.isHost).map(({ id, name }) => ({ id, name })),
   };
+}
+
+/** A Game Mode sheet as party-pane stats: HP and pools as bars, then the attributes. */
+function rpgSheetStats(
+  sheet:
+    | {
+        attributes?: Array<{ name: string; value: number }>;
+        hp?: { value: number; max: number };
+        pools?: Array<{ name: string; value: number; max: number; color?: string }>;
+      }
+    | null
+    | undefined,
+) {
+  if (!sheet) return [];
+  const stats: Array<{ name: string; value: number; max?: number; color?: string }> = [];
+  const pools = sheet.pools ?? [];
+  if (sheet.hp && !pools.some((pool) => /^(hp|health|hit points?)$/i.test(pool.name.trim()))) {
+    stats.push({ name: "HP", value: sheet.hp.value, max: sheet.hp.max });
+  }
+  for (const pool of pools) stats.push({ name: pool.name, value: pool.value, max: pool.max, color: pool.color });
+  for (const attribute of sheet.attributes ?? []) stats.push({ name: attribute.name, value: attribute.value });
+  return stats;
 }
 
 function GameSurfaceComponent({
@@ -11016,6 +11041,15 @@ function GameSurfaceComponent({
       };
     }
 
+    // Members the game hasn't given stats yet show their sheet: the one copied at setup, else the card's own.
+    for (const charId of partyIds) {
+      const card = cards[charId];
+      if (!card || (card.stats?.length ?? 0) > 0) continue;
+      const sheet = card.gameCard?.rpgStats ?? characters.find((ch) => ch.id === charId)?.rpgStats;
+      const sheetStats = rpgSheetStats(sheet);
+      if (sheetStats.length) card.stats = sheetStats;
+    }
+
     // Player persona card
     if (personaInfo?.name) {
       const configPersonaId = (config?.personaId as string | undefined) ?? null;
@@ -13911,6 +13945,17 @@ function GameSurfaceComponent({
             <Braces size={13} />
             {t("game.toolbar.editGameData")}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              // Narration speed, auto-play and dialogue display live in Settings > Game.
+              useOverhaulStore.getState().setSettingsTab("game");
+              openLibrarySection("settings");
+            }}
+          >
+            <SlidersHorizontal size={13} />
+            {localizeUi("ui.game.gamesurfacecomponent.playbackSettings")}
+          </button>
           {renderRetryItems()}
         </div>
       </ChatSettingsSection>
@@ -13940,6 +13985,11 @@ function GameSurfaceComponent({
         inventory={inventoryItems}
         playerName={personaInfo?.name ?? "You"}
         onOpenInventory={activeExperienceChrome?.providesInventory ? undefined : () => setInventoryOpen(true)}
+        onEditSheet={(memberId) =>
+          characters.some((character) => character.id === memberId)
+            ? () => useUIStore.getState().openCharacterDetail(memberId, { initialTab: "stats" })
+            : undefined
+        }
         heading={ovHeading}
         journal={
           <Suspense fallback={null}>

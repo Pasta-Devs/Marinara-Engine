@@ -22,6 +22,7 @@ import { useGameAssetStore } from "../stores/game-asset.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useChatStore } from "../stores/chat.store";
 import { useUIStore } from "../stores/ui.store";
+import { isOverhaulLook } from "../stores/overhaul.store";
 import type {
   GameActiveState,
   GameMap,
@@ -56,6 +57,24 @@ import type {
   WorldWalk,
 } from "@marinara-engine/shared";
 import { isJsonRecord } from "@marinara-engine/shared";
+
+const GAME_LIST_AUTOHIDE_KEY = "marinara-game-list-autohidden";
+
+/**
+ * Collapses the chat list to give a game room. In the new layout this happens only the
+ * first time a game opens on this device; after that the list keeps whatever the player chose.
+ */
+function collapseChatListForGame() {
+  if (isOverhaulLook()) {
+    try {
+      if (localStorage.getItem(GAME_LIST_AUTOHIDE_KEY)) return;
+      localStorage.setItem(GAME_LIST_AUTOHIDE_KEY, "1");
+    } catch {
+      return;
+    }
+  }
+  useUIStore.getState().setSidebarOpen(false);
+}
 
 // ── Query Keys ──
 
@@ -234,7 +253,7 @@ export function useCreateGame() {
       store.getState().setActiveGame(res.gameId, res.sessionChat.id, null);
       store.getState().setSetupActive(true);
       // Collapse sidebar when starting a new game to maximize game area
-      useUIStore.getState().setSidebarOpen(false);
+      collapseChatListForGame();
       qc.invalidateQueries({ queryKey: chatKeys.list() });
     },
     onError: (err) => {
@@ -848,7 +867,7 @@ export function useSyncGameState(activeChatId: string, chatMeta: Record<string, 
         .getState()
         .setActiveGame(chatMeta.gameId as string, activeChatId, chatMeta.gamePartyChatId as string | undefined);
       // Auto-collapse the chat sidebar when entering a game to maximize game area
-      useUIStore.getState().setSidebarOpen(false);
+      collapseChatListForGame();
     }
     if (chatMeta.gameActiveState && chatMeta.gameActiveState !== state.gameState) {
       useGameModeStore.getState().setGameState(chatMeta.gameActiveState as GameActiveState);
