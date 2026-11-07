@@ -924,11 +924,13 @@ export function App() {
           return;
         }
         // A tick restyles the whole app; skip it while a sidebar slides so the slide does not stall.
-        const sidebarSliding = document
-          .getAnimations?.()
-          ?.some((animation) =>
+        const sidebarSliding = document.getAnimations?.()?.some(
+          (animation) =>
+            // Only the slot's own width slide; a theme animation on the slot must not freeze the accent.
+            animation instanceof CSSTransition &&
+            animation.transitionProperty === "width" &&
             (animation.effect as KeyframeEffect | null)?.target?.classList.contains("mari-shell-panel-slot"),
-          );
+        );
         if (!sidebarSliding) applyLiveAccent();
         queueAccentAnimationTick();
       }, ACCENT_RGB_TICK_MS);

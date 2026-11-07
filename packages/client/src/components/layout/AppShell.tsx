@@ -563,7 +563,10 @@ export function AppShell({
       root.style.setProperty("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
       root.style.setProperty("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
     };
-    if (!chatUiInsetPublishedRef.current) return publish();
+    // Matches the globals.css rules that turn the slide off (reduced motion, desktop Firefox): nothing to wait for.
+    const noSlide =
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches || CSS.supports("-moz-appearance", "none");
+    if (!chatUiInsetPublishedRef.current || noSlide) return publish();
     // A root style write restyles the whole app. Publish once a sidebar has slid or a resize drag has
     // paused, not in the frame that starts the slide or on every drag move. Only floating chat UI reads it.
     const timer = window.setTimeout(publish, SHELL_PANEL_SLIDE_MS);
