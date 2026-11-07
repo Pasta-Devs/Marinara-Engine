@@ -481,6 +481,12 @@ function formatCharacterExtensionValue(key: string, value: unknown, formatQuotes
   return value;
 }
 
+/** A link that opens a section (the game's "Edit sheet") shows it even before it's in use. */
+function initialOverhaulSections(): string[] {
+  const tab = useUIStore.getState().characterDetailInitialTab;
+  return tab && tab !== "card" && tab !== "metadata" ? [tab] : [];
+}
+
 export function CharacterEditor() {
   const { t: localizeUi } = useUiTranslation();
   const characterId = useUIStore((s) => s.characterDetailId);
@@ -571,10 +577,10 @@ export function CharacterEditor() {
   const { data: characterSheetSprites } = useCharacterSprites(characterSheetGeneratorOpen ? characterId : null);
   const [newTag, setNewTag] = useState("");
   const overhaulActive = useOverhaulLook();
-  const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
+  const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>(initialOverhaulSections);
   const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
   useEffect(() => {
-    setOverhaulAddedSections([]);
+    setOverhaulAddedSections(initialOverhaulSections());
     setOverhaulAddedFields([]);
   }, [characterId]);
   const { data: overhaulSprites } = useCharacterSprites(overhaulActive ? characterId : null);

@@ -10073,3 +10073,25 @@ input.ov-edhead__title:not(#ov-x) {
   padding-left: 0.25rem;
   background: var(--background);
 }
+
+/* Party pane: the member's name with an "Edit sheet" link, and a plain line when there are no stats. */
+.ov-gpane__detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.ov-gpane__link {
+  color: var(--ov-accent);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.ov-gpane__link:hover {
+  text-decoration: underline;
+}
+.ov-gpane__none {
+  margin: 0 0 0.5rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}

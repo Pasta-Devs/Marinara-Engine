@@ -1360,6 +1360,8 @@ const LocalChatArea = memo(function LocalChatArea({
             backstory: parsed.extensions?.backstory ?? "",
             appearance: parsed.extensions?.appearance ?? "",
             tags: parsed.tags ?? [],
+            // The card's own Game Mode sheet, shown in the party pane until the game tracks stats itself.
+            rpgStats: parsed.extensions?.rpgStats?.enabled ? parsed.extensions.rpgStats : undefined,
           },
         ];
       } catch {
