@@ -10131,3 +10131,34 @@ input.ov-edhead__title:not(#ov-x) {
     will-change: auto;
   }
 }
+
+/* Delete-message choices read as buttons in every skin (Stage drew them as bare text), deletes in red.
+   Outranks the widget-skin control rules so the frame shows in Stage, Marinara and Dottore alike. */
+:root[data-overhaul] [data-component="MessageDeleteActions"] > button {
+  display: flex;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+:root[data-overhaul] [data-component="MessageDeleteActions"] > button[data-tone="destructive"] {
+  color: var(--destructive);
+}
+:root[data-overhaul]
+  .mari-chat-action-panel.mari-chat-style-surface
+  [data-component="MessageDeleteActions"]
+  > button.mari-chat-style-control.mari-chrome-control {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+:root[data-overhaul]
+  .mari-chat-action-panel.mari-chat-style-surface
+  [data-component="MessageDeleteActions"]
+  > button.mari-chat-style-control.mari-chrome-control:hover {
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+}
+:root[data-overhaul]
+  .mari-chat-action-panel.mari-chat-style-surface
+  [data-component="MessageDeleteActions"]
+  > button.mari-chat-style-control.mari-chrome-control[data-tone="destructive"] {
+  border-color: color-mix(in srgb, var(--destructive) 40%, var(--border));
+}

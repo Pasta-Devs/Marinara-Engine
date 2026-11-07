@@ -165,7 +165,7 @@ function DeleteConfirmationDialog({
       </p>
       <div className="grid gap-2" data-component="MessageDeleteActions">
         {canDeleteSwipe && (
-          <button type="button" onClick={onDeleteSwipe} className={DELETE_DIALOG_ACTION_CLASS}>
+          <button type="button" onClick={onDeleteSwipe} className={DELETE_DIALOG_ACTION_CLASS} data-tone="destructive">
             <Layers size="0.8rem" />
             <span>
               {t("chat.delete.dialog.swipe", {
@@ -176,12 +176,17 @@ function DeleteConfirmationDialog({
           </button>
         )}
         {canDeleteOtherSwipes && (
-          <button type="button" onClick={onDeleteOtherSwipes} className={DELETE_DIALOG_ACTION_CLASS}>
+          <button
+            type="button"
+            onClick={onDeleteOtherSwipes}
+            className={DELETE_DIALOG_ACTION_CLASS}
+            data-tone="destructive"
+          >
             <Layers size="0.8rem" />
             <span>{t("chat.delete.dialog.otherSwipes")}</span>
           </button>
         )}
-        <button type="button" onClick={onConfirm} className={DELETE_DIALOG_ACTION_CLASS}>
+        <button type="button" onClick={onConfirm} className={DELETE_DIALOG_ACTION_CLASS} data-tone="destructive">
           <Trash2 size="0.8rem" />
           <span>{t("chat.delete.dialog.message")}</span>
         </button>
