@@ -1016,7 +1016,7 @@ export function ConnectionSwitcherBody({
     const sameTitle = rawEntry.group?.rows.some((row) => row.model !== entry.model && rowLabel(row) === entry.title);
     if (entry.subtitle === entry.model && !sameTitle) entry.subtitle = "";
     const via = viaName(rawEntry.group?.account?.provider, entry.model);
-    const routeId = via && entry.model !== entry.title ? entry.model : undefined;
+    let routeId = via && entry.model !== entry.title ? entry.model : undefined;
     if (rawEntry.group?.account) {
       entry.subtitle = [
         away ? rawEntry.group.name : entry.subtitle,
@@ -1024,6 +1024,7 @@ export function ConnectionSwitcherBody({
       ]
         .filter(Boolean)
         .join(" · ");
+      if (routeId && entry.subtitle.includes(entry.model)) routeId = undefined;
     }
     const isCurrent = now || isNow(entry) || sameChoice(entry.choice, current);
     const highlighted = index !== undefined && index === highlight;
