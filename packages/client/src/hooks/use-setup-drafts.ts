@@ -67,6 +67,18 @@ function storedGameDraftHasInput(chatId: string): boolean {
   }
 }
 
+/** The game name typed in a game wizard's kept choices, if any. */
+function storedGameDraftName(chatId: string): string {
+  try {
+    const stored = JSON.parse(localStorage.getItem(gameSetupDraftKey(chatId)) ?? "null") as {
+      gameName?: unknown;
+    } | null;
+    return typeof stored?.gameName === "string" ? stored.gameName.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
 /** Whether leaving this draft would throw away choices the player made. */
 export function setupDraftHasInput(chat: Pick<Chat, "id" | "mode" | "metadata"> | null | undefined): boolean {
   if (!chat) return false;
@@ -93,6 +105,14 @@ export async function keepSetupForLater(queryClient: QueryClient, chatId: string
     await api.patch(`/chats/${chatId}/metadata`, { setupPending: null, setupUnfinished: true });
   } catch {
     return false;
+  }
+  // A kept game goes by the name typed in its setup, so "Setup not finished" rows can be told apart.
+  const chat =
+    queryClient.getQueryData<Chat>(chatKeys.detail(chatId)) ??
+    queryClient.getQueryData<Chat[]>(chatKeys.list())?.find((entry) => entry.id === chatId);
+  const typedName = chat?.mode === "game" ? storedGameDraftName(chatId) : "";
+  if (typedName && typedName !== chat?.name) {
+    await api.patch(`/chats/${chatId}`, { name: typedName }).catch(() => undefined);
   }
   useChatStore.getState().clearPendingNewChatSetup(chatId);
   await Promise.all([

@@ -4571,7 +4571,27 @@ input.ov-edhead__title:focus {
   right: 0;
   bottom: 0;
   z-index: 25;
-  box-shadow: -12px 0 32px rgb(0 0 0 / 0.35);
+  border-left-color: color-mix(in srgb, var(--primary) 45%, var(--ov-line));
+  box-shadow:
+    -1px 0 0 color-mix(in srgb, var(--primary) 25%, transparent),
+    -16px 0 36px rgb(0 0 0 / 0.5);
+}
+/* The pane floats over the scene: the narration keeps to the uncovered part (but never under 18rem). */
+.ov-gwrap.is-pane-over :has(> .mari-game-narration-surface) {
+  max-width: max(18rem, calc(100% - var(--ov-gpane-cover, 23.5rem) - 1rem)) !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+.ov-gwrap.is-pane-over .mari-game-narration-surface > .mt-2.flex,
+.ov-gwrap.is-pane-over .mari-game-narration-surface > .mt-2.flex > div {
+  flex-wrap: wrap;
+  row-gap: 0.375rem;
+}
+.ov-gwrap.is-pane-over .mari-game-narration-surface > .mt-2.flex > :last-child {
+  margin-left: auto;
+}
+.ov-gpane-probe {
+  display: none;
 }
 .ov-gpane__head {
   display: flex;
@@ -7596,7 +7616,9 @@ input.ov-edhead__title:focus {
 }
 .ov-topbar.is-autohide {
   position: fixed;
-  z-index: 60;
+  /* Above the Chat settings drawer and the game slide-over (z 71), so revealing the bar shows all of it,
+     with Docs, Library and the game-pane toggle in reach (user panel 3, PV2). */
+  z-index: 80;
   top: 0;
   left: 0;
   right: 0;
@@ -7610,7 +7632,7 @@ input.ov-edhead__title:focus {
 }
 .ov-topbar-hotzone {
   position: fixed;
-  z-index: 61;
+  z-index: 81;
   top: 0;
   left: 0;
   right: 0;
@@ -10089,6 +10111,10 @@ input.ov-edhead__title:focus {
   margin-right: var(--ov-cs-reflow, 0px);
   transition: margin-right 160ms ease;
 }
+/* Floating over the chat: the composer keeps clear of the pane, so Send stays in reach (panel 3, PR2). */
+:root[data-overhaul="on"] [data-cs-docked="overlay"] .mari-chat-input {
+  padding-right: calc(var(--ov-cs-cover, 0px) + 0.75rem);
+}
 /* Below this the chat (its padding takes ~80px) reads as a strip: Chat settings floats over it instead
    (user panel 2: a 320px column at 1366 with the chat list open). */
 :root[data-overhaul="on"] {
@@ -10199,16 +10225,40 @@ input.ov-edhead__title:not(#ov-x) {
 
 /* Desktop: the header is one line while it fits. A long name shrinks to about 18rem, then the
    buttons wrap to a second line instead of the name being cut to a few letters (panel 2, N16). */
+/* Save, its state and ⋯ never leave the title row; when the row would cut the title short, only the
+   editor's own buttons move to a second line under it (OvEditorHead measures, panel 3 PV3). */
 :root[data-overhaul="on"] .ov-edhead__row {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 :root[data-overhaul="on"] .ov-edhead__title {
   flex: 0 1 auto;
-  min-width: min(100%, 18rem);
+  min-width: 6rem;
 }
 :root[data-overhaul="on"] .ov-edhead__actions {
   flex: none;
   flex-wrap: nowrap;
+}
+:root[data-overhaul="on"] .ov-edhead__secondary + .ov-edhead__primary {
+  margin-left: 0;
+}
+:root[data-overhaul="on"] .ov-edhead__row:not(:has(.ov-edhead__secondary)) .ov-edhead__primary {
+  margin-left: auto;
+}
+:root[data-overhaul="on"] .ov-edhead__row.is-split {
+  flex-wrap: wrap;
+}
+:root[data-overhaul="on"] .ov-edhead__row.is-split .ov-edhead__title {
+  flex: 0 1 auto;
+}
+:root[data-overhaul="on"] .ov-edhead__row.is-split .ov-edhead__primary {
+  order: 1;
+  margin-left: auto;
+}
+:root[data-overhaul="on"] .ov-edhead__row.is-split .ov-edhead__secondary {
+  order: 2;
+  flex: 1 0 100%;
+  justify-content: flex-end;
+  margin-left: 0;
 }
 
 /* Preset parameters: compact number fields instead of half-width bars (panel M13/Med 5). */

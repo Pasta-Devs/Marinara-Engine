@@ -5,7 +5,7 @@
 // eyebrow section headings with a rule, and label-left form rows. The
 // Connection, Regex and Agent editors are built from these.
 // ──────────────────────────────────────────────
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, MoreHorizontal, Save } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -15,6 +15,13 @@ import { EditorCrumbs, type RailCrumb } from "./EditorRail";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useEditorDraftOfferStore } from "../../hooks/use-editor-leave-save";
+
+/** A flex box's own content width (its children and gaps), even while it is stretched to a full line. */
+function contentWidth(box: HTMLElement) {
+  const items = Array.from(box.children) as HTMLElement[];
+  const gap = parseFloat(getComputedStyle(box).columnGap) || 0;
+  return items.reduce((sum, item) => sum + item.getBoundingClientRect().width, 0) + gap * Math.max(0, items.length - 1);
+}
 
 /** "just now", "3 min ago", "2 h ago" for a kept draft (user panel 3, PR4: a few seconds read "1 min ago"). */
 function useDraftAge(savedAt: number) {
@@ -155,6 +162,42 @@ export function OvEditorHead({
       document.removeEventListener("keydown", onKey);
     };
   }, [menuOpen]);
+  // Save (with the state and ⋯) always stays on the title row. Only the editor's own buttons move to a
+  // second line, and only when the whole row would cut the title short (user panel 3, PV3).
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [split, setSplit] = useState(false);
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row || mobile) return;
+    const measure = () => {
+      const secondary = row.querySelector<HTMLElement>(".ov-edhead__secondary");
+      if (!secondary) {
+        setSplit(false);
+        return;
+      }
+      const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+      let needed = 0;
+      let count = 0;
+      for (const child of Array.from(row.children) as HTMLElement[]) {
+        // Natural widths: the title and meta report their full text even while cut short.
+        const width = child.matches(".ov-edhead__title, .ov-edhead__meta")
+          ? Math.max(child.scrollWidth, child.getBoundingClientRect().width)
+          : child.classList.contains("ov-edhead__secondary")
+            ? contentWidth(child)
+            : child.getBoundingClientRect().width;
+        needed += width;
+        count += 1;
+      }
+      needed += gap * Math.max(0, count - 1);
+      // A few pixels of slack, so a row right at the edge doesn't flip back and forth.
+      setSplit((was) => (was ? needed > row.clientWidth - 8 : needed > row.clientWidth + 1));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    for (const child of Array.from(row.children)) observer.observe(child);
+    return () => observer.disconnect();
+  }, [mobile, title, meta, actions, status]);
   const goBack = onBack ?? (() => section && openLibrarySection(section));
   const label = sectionLabel ? localize(sectionLabel) : "";
   // Desktop crumbs go where they say: Library opens the Library pane, the section opens its landing
@@ -259,12 +302,12 @@ export function OvEditorHead({
   ) : (
     <header className={cn("ov-edhead", className)} data-component="OverhaulEditorHead">
       <EditorCrumbs items={trail} />
-      <div className="ov-edhead__row">
+      <div ref={rowRef} className={cn("ov-edhead__row", split && "is-split")}>
         {lead ? <span className="ov-edhead__lead">{lead}</span> : null}
         {titleNode}
         {meta ? <span className="ov-edhead__meta">{meta}</span> : null}
-        <div className="ov-edhead__actions">
-          {actions}
+        {actions ? <div className="ov-edhead__actions ov-edhead__secondary">{actions}</div> : null}
+        <div className="ov-edhead__actions ov-edhead__primary">
           {status}
           {saveNode}
           {menuNode}
