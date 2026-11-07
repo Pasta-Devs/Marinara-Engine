@@ -1349,6 +1349,8 @@ export function ChatSidebar() {
               const row = event.currentTarget;
               activateRowFromKey(event, () => row.click());
             }}
+            data-chat-row="true"
+            data-selected={isActive && !(multiSelectMode && isSelected) ? "true" : undefined}
             className={cn(
               "group relative isolate flex w-full touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 overflow-hidden rounded-lg px-3 text-left transition-all duration-150",
               overhaulActive ? "py-1.5" : "py-2.5",

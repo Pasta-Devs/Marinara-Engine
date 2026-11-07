@@ -79,3 +79,10 @@ export function extractImportantThemeCss(css: string): string {
     return "";
   }
 }
+
+/** Whether a theme's CSS sets a custom property anywhere (outside comments). */
+export function themeSetsVariable(css: string, name: string): boolean {
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[\\s;{])${escaped}\\s*:`, "m").test(clean);
+}

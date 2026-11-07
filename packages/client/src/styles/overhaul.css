@@ -23,6 +23,11 @@
   --ov-accent: var(--primary);
   --ov-hover: color-mix(in srgb, var(--foreground) 7%, transparent);
   --ov-active-bg: color-mix(in srgb, var(--foreground) 9%, var(--background));
+  /* Selected rows, pills and toggles take this neutral tint, not the accent (theming panel batch 2).
+     A theme that wants the old accent-tinted selection sets --mari-selected-tint: var(--primary). */
+  --mari-selected-tint: var(--foreground);
+  --mari-selected-bg: color-mix(in srgb, var(--mari-selected-tint) 10%, transparent);
+  --mari-selected-ring: color-mix(in srgb, var(--mari-selected-tint) 18%, transparent);
 }
 
 /* ─── Top bar ─── */
@@ -71,7 +76,7 @@
 }
 .ov-icon-btn.is-on {
   color: var(--ov-accent);
-  background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
+  background: var(--mari-selected-bg);
 }
 .ov-tabs {
   display: flex;
@@ -315,7 +320,7 @@
 }
 .ov-libnav__tag.is-on {
   color: var(--ov-text);
-  background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
+  background: var(--mari-selected-bg);
 }
 .ov-libnav__tag svg {
   opacity: 0.6;
@@ -6482,10 +6487,11 @@ input.ov-edhead__title:focus {
       var(--marinara-chat-chrome-surface-bg-hover) 90%,
       var(--marinara-chat-chrome-accent) 10%
     );
+    /* Selected, not accented: the selected state takes a neutral tint (theming panel batch 2). */
     --marinara-chat-chrome-button-bg-active: color-mix(
       in srgb,
       var(--marinara-chat-chrome-surface-bg-active) 84%,
-      var(--marinara-chat-chrome-accent) 16%
+      var(--mari-selected-tint) 16%
     );
     --marinara-chat-chrome-panel-bg: var(--marinara-chat-chrome-button-bg);
     --marinara-chat-chrome-input-bg: var(--marinara-chat-chrome-surface-bg);
@@ -10967,7 +10973,7 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-overhaul] [data-tour="chat-modes"] .mari-chrome-segmented__button {
   min-width: 0;
 }
-@container (max-width: 17rem) {
+@container (max-width: 16rem) {
   :root[data-overhaul] [data-tour="chat-modes"] .ov-mode-count {
     display: none;
   }
@@ -10976,4 +10982,10 @@ input.ov-edhead__title:not(#ov-x) {
   :root[data-overhaul] [data-tour="chat-modes"] .mari-chrome-segmented__button > span:first-child {
     display: none;
   }
+}
+
+/* The open chat in the chats sidebar: neutral selected tint; the accent stays on the small indicator. */
+:root[data-overhaul] [data-chat-row][data-selected="true"] {
+  background: var(--mari-selected-bg);
+  box-shadow: inset 0 0 0 1px var(--mari-selected-ring);
 }
