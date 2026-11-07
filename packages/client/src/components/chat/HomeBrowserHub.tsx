@@ -304,12 +304,12 @@ const HOME_WIDGET_MIN_ROW_HEIGHT = 208;
 const HOME_WIDGET_MAX_ROW_HEIGHT = 640;
 const ENGINE_RELEASE_URL = `https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v${encodeURIComponent(APP_VERSION)}`;
 const HOME_MODULE_ACCENTS = {
-  cyan: "oklch(0.79 0.16 205)",
-  orange: "oklch(0.76 0.19 52)",
+  cyan: "var(--mari-mode-conversation)",
+  orange: "var(--mari-mode-roleplay)",
   // Explicit custom-widget palette choice; built-in interface accents follow the theme.
-  pink: "oklch(0.73 0.21 345)",
+  pink: "var(--mari-home-pink)",
   accent: "var(--marinara-chat-chrome-accent)",
-  violet: "oklch(0.72 0.17 303)",
+  violet: "var(--mari-home-violet)",
 } as const;
 
 // The folded tab menu's dots and rows wear the three chat-mode colors in turn.
@@ -793,6 +793,7 @@ function FeedModule({
   return (
     <section
       style={style}
+      data-mari-part="home-widget"
       className={cn(
         "relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--home-module-accent)_30%,var(--border))] bg-[color-mix(in_srgb,var(--home-module-accent)_6%,var(--card))] p-[clamp(0.8rem,0.9vw,1.1rem)] shadow-[0_20px_50px_-38px_color-mix(in_srgb,var(--home-module-accent)_70%,transparent)]",
         className,
@@ -1664,9 +1665,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
           style={{ "--widget-tone": tone } as CSSProperties}
           aria-hidden="true"
         >
-          <i className="rounded-[0.12rem] bg-[oklch(0.79_0.16_205)]" />
-          <i className="rounded-[0.12rem] bg-[oklch(0.76_0.19_52)]" />
-          <i className="rounded-[0.12rem] bg-[oklch(0.73_0.21_345)]" />
+          <i className="rounded-[0.12rem] bg-[var(--mari-mode-conversation)]" />
+          <i className="rounded-[0.12rem] bg-[var(--mari-mode-roleplay)]" />
+          <i className="rounded-[0.12rem] bg-[var(--mari-home-pink)]" />
           <i className="rounded-[0.12rem] bg-[var(--widget-tone)]" />
         </span>
         <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-[var(--foreground)]">{label}</span>
@@ -1720,6 +1721,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   };
   return (
     <div
+      data-mari-part="home"
       className="mari-chrome-token-scope relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--background)]"
       data-component="HomeBrowserHub"
       data-home-tab={activeTab}
@@ -1805,7 +1807,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     aria-selected={activeTab === "home"}
                     onClick={() => selectTab("home")}
                     className={cn(
-                      "flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.79_0.16_205)]",
+                      "flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--mari-mode-conversation)]",
                       !mobileShell && "sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
                       activeTab === "home" ? "min-w-[6.5rem] flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
                       activeTab === "home"
@@ -2007,7 +2009,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     type="button"
                     onClick={() => selectTab("home")}
                     disabled={activeTab === "home"}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.79_0.16_205)] disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mari-mode-conversation)] disabled:opacity-30"
                     aria-label={t("home.browser.back")}
                   >
                     <ArrowLeft size="0.9rem" />
@@ -2324,7 +2326,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
             </div>
           ) : (
             <div
-              className="relative min-h-full overflow-hidden bg-[radial-gradient(circle_at_12%_8%,oklch(0.79_0.16_205/0.14),transparent_27%),radial-gradient(circle_at_87%_12%,oklch(0.73_0.21_345/0.14),transparent_29%),radial-gradient(circle_at_72%_76%,oklch(0.76_0.19_52/0.08),transparent_28%),var(--background)]"
+              className="relative min-h-full overflow-hidden bg-[radial-gradient(circle_at_12%_8%,color-mix(in_srgb,var(--mari-mode-conversation)_14%,transparent),transparent_27%),radial-gradient(circle_at_87%_12%,color-mix(in_srgb,var(--mari-home-pink)_14%,transparent),transparent_29%),radial-gradient(circle_at_72%_76%,color-mix(in_srgb,var(--mari-mode-roleplay)_8%,transparent),transparent_28%),var(--background)]"
               data-component="HomeBrowserHub.HomePage"
             >
               <HomeStarfield />

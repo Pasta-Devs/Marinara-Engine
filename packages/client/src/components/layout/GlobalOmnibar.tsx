@@ -2078,7 +2078,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       className={
         companion
           ? "pointer-events-none fixed inset-0 z-(--mari-layer-omnibar)"
-          : "fixed inset-0 z-(--mari-layer-omnibar) flex items-start justify-center bg-black/55 backdrop-blur-sm motion-safe:transition-[padding] motion-safe:duration-300 sm:pt-[var(--omnibar-top)] sm:pr-[max(1.5rem,var(--mari-safe-area-inset-right))] sm:pl-[max(1.5rem,var(--mari-safe-area-inset-left))]"
+          : "fixed inset-0 z-(--mari-layer-omnibar) flex items-start justify-center bg-[var(--mari-scrim)] backdrop-blur-sm motion-safe:transition-[padding] motion-safe:duration-300 sm:pt-[var(--omnibar-top)] sm:pr-[max(1.5rem,var(--mari-safe-area-inset-right))] sm:pl-[max(1.5rem,var(--mari-safe-area-inset-left))]"
       }
       // An empty bar sits lower, near the middle, so the hint field below it has
       // room; it rides back up as soon as results need the space.
@@ -2129,7 +2129,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       >
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-44 bg-[radial-gradient(120%_100%_at_12%_0%,oklch(0.72_0.16_255/0.12),transparent_60%),radial-gradient(120%_100%_at_88%_0%,oklch(0.73_0.21_345/0.11),transparent_60%)]"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-44 bg-[radial-gradient(120%_100%_at_12%_0%,oklch(0.72_0.16_255/0.12),transparent_60%),radial-gradient(120%_100%_at_88%_0%,color-mix(in_srgb,var(--mari-home-pink)_11%,transparent),transparent_60%)]"
         />
         {companionShape === "panel" ? <MariCompanionResizeHandle panelRef={dialogRef} {...companionSize} /> : null}
         {companionShape === "sheet" ? (

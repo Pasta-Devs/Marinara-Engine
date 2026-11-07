@@ -4143,6 +4143,10 @@ export const ChatMessage = memo(function ChatMessage({
               multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
             )}
             data-message-id={message.id}
+            data-mari-part="message"
+            data-message-role={message.role}
+            data-latest={isLastAssistantMessage && !isUser ? "true" : undefined}
+            data-streaming={isStreaming ? "true" : undefined}
             data-card-css={message.characterId ?? undefined}
             onClick={handleMobileTap}
             onDoubleClick={handleRoleplayDoubleClick}
@@ -4439,6 +4443,9 @@ export const ChatMessage = memo(function ChatMessage({
             multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
           )}
           data-message-id={message.id}
+          data-mari-part="message"
+          data-latest={isLastAssistantMessage && !isUser ? "true" : undefined}
+          data-streaming={isStreaming ? "true" : undefined}
           data-message-role={message.role}
           data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
@@ -4539,7 +4546,7 @@ export const ChatMessage = memo(function ChatMessage({
                     "flex items-center justify-center ring-2 shadow-lg",
                     compactAvatarFrameClass,
                     isUser
-                      ? "bg-gradient-to-br from-neutral-500 to-neutral-600 ring-white/15"
+                      ? "bg-[image:var(--mari-user-avatar-placeholder)] ring-white/15"
                       : "mari-chrome-accent-tile mari-accent-animated ring-[var(--marinara-chat-chrome-button-border-active)]",
                   )}
                 >
@@ -4852,6 +4859,9 @@ export const ChatMessage = memo(function ChatMessage({
         multiSelectMode && isSelected && MESSAGE_SELECTION_SURFACE_CLASS,
       )}
       data-message-id={message.id}
+      data-mari-part="message"
+      data-latest={isLastAssistantMessage && !isUser ? "true" : undefined}
+      data-streaming={isStreaming ? "true" : undefined}
       data-message-role={message.role}
       onClick={handleMobileTap}
     >

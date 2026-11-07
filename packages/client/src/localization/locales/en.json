@@ -7471,6 +7471,7 @@
   "theming.command.turnOff": "Turn off custom theme",
   "theming.editor.previewPaused": "Preview paused: this CSS hides, moves or covers the top bar or a sidebar. Themes can restyle them, but not remove them.",
   "theming.pickers.accentFollowsDark": "Light mode uses your Dark mode accent until you pick one here.",
+  "theming.pickers.accentFxNewLayout": "In the new layout this animates a few accent spots (New, primary buttons, avatars) with a light GPU filter, so the rest of the app stays still. Themes can join in with var(--mari-accent-fx-animation).",
   "theming.pickers.fixForMe": "Fix for me",
   "theming.pickers.lowContrastAccent": "Buttons and headings in this accent are hard to see ({{ratio}}:1, needs {{target}}:1).",
   "theming.pickers.lowContrastBackground": "Text is hard to read on this background ({{ratio}}:1, needs {{target}}:1).",

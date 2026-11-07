@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Chat: Conversation View — Discord-style composite
 // ──────────────────────────────────────────────
+import { isDefaultChatBackground } from "../../lib/chat-background";
 import { useStagedTranscriptCap } from "../../hooks/use-staged-transcript";
 import { useOverhaulActive } from "../../stores/overhaul.store";
 import {
@@ -314,6 +315,8 @@ function ConversationBackground({
       src={url}
       alt=""
       draggable={false}
+      data-mari-part="backdrop"
+      data-default-background={isDefaultChatBackground(url) ? "true" : undefined}
       className="mari-background pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-center"
       style={{
         opacity,

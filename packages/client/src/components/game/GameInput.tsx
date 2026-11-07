@@ -454,6 +454,8 @@ export function GameInput({
     <div
       data-chat-resource-drop-exclude
       data-chat-input-container
+      data-mari-part="composer"
+      data-composer="game"
       className={cn(inline ? "" : "px-3 pt-2 pb-3")}
       style={inline ? undefined : { minHeight: 61 }}
     >

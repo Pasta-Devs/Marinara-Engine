@@ -2043,7 +2043,11 @@ export function ConversationInput({
   }
 
   return (
-    <div className="mari-chat-input chat-input-container relative px-2 sm:px-3 pb-3">
+    <div
+      className="mari-chat-input chat-input-container relative px-2 sm:px-3 pb-3"
+      data-mari-part="composer"
+      data-composer="conversation"
+    >
       {/* Slash command autocomplete */}
       {completions.length > 0 && (
         <div

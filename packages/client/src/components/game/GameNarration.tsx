@@ -4111,7 +4111,7 @@ export function GameNarration({
         "relative",
         combatGenerationFailed
           ? "border-[var(--destructive)]/30 bg-[var(--destructive)]/15 text-[var(--destructive)] hover:bg-[var(--destructive)]/25"
-          : "border-amber-300/20 bg-amber-500/10 text-amber-100/90 hover:bg-amber-500/20",
+          : "border-[color-mix(in_srgb,var(--mari-game-combat)_25%,transparent)] bg-[color-mix(in_srgb,var(--mari-game-combat)_12%,transparent)] text-[var(--mari-game-combat-text)] hover:bg-[color-mix(in_srgb,var(--mari-game-combat)_22%,transparent)] dark:border-[color-mix(in_srgb,var(--mari-game-combat)_25%,transparent)] dark:bg-[color-mix(in_srgb,var(--mari-game-combat)_12%,transparent)] dark:text-[var(--mari-game-combat-text)]",
         combatStarting && "cursor-wait opacity-80",
       )}
       title={

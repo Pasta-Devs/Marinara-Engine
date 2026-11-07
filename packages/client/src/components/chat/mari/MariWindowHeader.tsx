@@ -81,7 +81,7 @@ export function MariWindowHeader({
         <div />
       ) : (
         <div className="flex min-w-0 items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[oklch(0.73_0.21_345/0.4)] bg-[oklch(0.73_0.21_345/0.1)] text-[var(--primary)] shadow-[0_0_18px_oklch(0.73_0.21_345/0.18)]">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--mari-home-pink)_40%,transparent)] bg-[color-mix(in_srgb,var(--mari-home-pink)_10%,transparent)] text-[var(--primary)] shadow-[0_0_18px_color-mix(in_srgb,var(--mari-home-pink)_18%,transparent)]">
             {workspaceTimelineActive ? (
               <Sparkles size="0.9rem" aria-hidden="true" />
             ) : (

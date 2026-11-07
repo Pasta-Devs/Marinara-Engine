@@ -5,6 +5,7 @@
 // with Import / New, one toolbar row (search, filter chips, List/Gallery where
 // items have pictures, sort) and a dense table. Clicking a row opens its editor.
 // ──────────────────────────────────────────────
+import { placeholderArt } from "../../lib/placeholder-art";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Plus, Search, Download, List, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
@@ -50,10 +51,7 @@ function orderCount(order: unknown): number {
   }
 }
 export function swatch(id: string) {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  const hue = Math.abs(hash) % 360;
-  return `linear-gradient(160deg, hsl(${hue} 55% 55%), hsl(${(hue + 35) % 360} 45% 30%))`;
+  return placeholderArt(id, 35, 160, [55, 55, 45, 30]);
 }
 
 export function Thumb({ id, src }: { id: string; src?: string | null }) {
