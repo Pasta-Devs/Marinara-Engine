@@ -6120,11 +6120,15 @@ export function ChatSettingsDrawer({
                       return (
                         <Fragment key={c.id}>
                           <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
+                            {/* The name opens the full card, as in Roleplay; Add Character below opens the picker (#8933). */}
                             <button
                               type="button"
-                              onClick={() => setShowCharPicker(true)}
+                              onClick={() => {
+                                onClose();
+                                useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                              }}
                               className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
-                              title={localizeUi("ui.chat.chatsettingsdrawer.changeCharacters")}
+                              title={localizeUi("ui.chat.chatsettingsdrawer.openCharacterCard")}
                             >
                               {c.avatarPath ? (
                                 <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full">
@@ -6443,12 +6447,17 @@ export function ChatSettingsDrawer({
                               "bg-[var(--secondary)] opacity-70 ring-[var(--border)]",
                           )}
                         >
+                          {/* The name opens the full card editor (Depth Prompt, embedded lorebooks and more); the
+                              pencil edits a few fields inline. Add Character below opens the multi-picker (#8933). */}
                           <button
                             type="button"
                             data-drag-surface
-                            onClick={() => setShowCharPicker(true)}
+                            onClick={() => {
+                              onClose();
+                              useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                            }}
                             className="flex items-center gap-2.5 min-w-0 flex-1 text-left transition-colors hover:opacity-80"
-                            title={localizeUi("ui.chat.chatsettingsdrawer.changeCharacters")}
+                            title={localizeUi("ui.chat.chatsettingsdrawer.openCharacterCard")}
                           >
                             {c.avatarPath ? (
                               <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full">
