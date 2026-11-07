@@ -14,7 +14,7 @@ Keyword matching works with any model and needs no setup. To match by meaning in
 
 ## Create a lorebook and add an entry
 
-1. Open the **Lorebooks** panel from the sidebar.
+1. Open **Library** > **Lorebooks**. The Library is on the right.
 2. Click **New** (the plus icon). The **Create Lorebook** window opens.
 3. Type a **Name**. This field is required.
 4. Add a **Description** if you want.

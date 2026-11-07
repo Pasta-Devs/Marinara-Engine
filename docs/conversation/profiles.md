@@ -8,7 +8,7 @@ This is not a settings profile (a saved set of chat options, see [Settings Profi
 
 The fields are on a tab named **Convo**.
 
-1. Open the character in the **Character Editor**, or the persona in the **Persona Editor**. To get there, open the **Characters** panel from the sidebar, or the **Personas** panel from the person icon in the right sidebar top bar, then click the card (see [Creating and Editing Characters](../characters/creating-and-editing-characters.md) and [User Personas](../characters/personas.md)).
+1. Open the character in the **Character Editor**, or the persona in the **Persona Editor**. To get there, open **Library** > **Characters** or **Library** > **Personas**, then click the card (see [Creating and Editing Characters](../characters/creating-and-editing-characters.md) and [User Personas](../characters/personas.md)).
 2. Click the **Convo** tab.
 
 The tab holds **Convo Display Name**, **About Me** and **Convo Behavior**. On a character it also has **Weekly schedule** (with **Edit schedule** or **Create schedule**, see [schedules](schedules.md)) and **Image generation instructions**, optional directions for that character's selfies (see [Selfies](selfies.md)).

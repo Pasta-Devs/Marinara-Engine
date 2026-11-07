@@ -93,12 +93,15 @@ export function AppDialogRenderer() {
               <button
                 type="button"
                 onClick={dismissActiveDialog}
+                data-dialog-action="cancel"
                 className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
               >
                 {dialog.cancelLabel ?? "Cancel"}
               </button>
               <button
                 type="submit"
+                data-dialog-action="confirm"
+                data-tone={dialog.tone}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${confirmToneClass}`}
               >
                 {dialog.confirmLabel ?? "Confirm"}
@@ -113,6 +116,7 @@ export function AppDialogRenderer() {
               <button
                 type="button"
                 onClick={dismissActiveDialog}
+                data-dialog-action="cancel"
                 className={`rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] ${chatControlClass}`}
               >
                 {dialog.cancelLabel ?? "Cancel"}
@@ -120,6 +124,8 @@ export function AppDialogRenderer() {
               <button
                 type="button"
                 onClick={() => resolveActiveDialog(true)}
+                data-dialog-action="confirm"
+                data-tone={dialog.tone}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${confirmToneClass} ${chatControlClass}`}
               >
                 {dialog.confirmLabel ?? "Confirm"}
@@ -133,6 +139,8 @@ export function AppDialogRenderer() {
             <button
               type="button"
               onClick={() => resolveActiveDialog(undefined)}
+              data-dialog-action="confirm"
+              data-tone={dialog.tone}
               className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${confirmToneClass}`}
             >
               {dialog.confirmLabel ?? "OK"}

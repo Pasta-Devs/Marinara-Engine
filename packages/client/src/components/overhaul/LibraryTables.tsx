@@ -116,25 +116,28 @@ function ListPage<T extends { id: string }>({
   // New layout on phones: the filter chips become one dropdown beside + New, the view switch
   // sits at the end of that line, and the sort shares the search bar's line.
   const mobile = useOverhaulMobile();
+  // Many filters read as one dropdown on desktop too (like Connections' "All kinds"), so the toolbar stays on one line.
+  const chipsAsSelect = !!chips?.length && (mobile || chips.length > 3);
+  const chipSelect = chips?.length ? (
+    <select
+      className={cn("ov-select", mobile && "ovm-lp-filter")}
+      value={chip}
+      onChange={(event) => onChip?.(event.target.value)}
+      aria-label={localize("Filter")}
+    >
+      {chips.map((item) => (
+        <option key={item.id} value={item.id}>
+          {item.id === "all" ? localize("All kinds") : localize(item.label)}
+        </option>
+      ))}
+    </select>
+  ) : null;
   return (
     <section className="ov-list" data-component="OverhaulLibraryList">
       <header className="ov-gallery__head">
         <h1>{title}</h1>
         {actions}
-        {mobile && chips?.length ? (
-          <select
-            className="ov-select ovm-lp-filter"
-            value={chip}
-            onChange={(event) => onChip?.(event.target.value)}
-            aria-label={localize("Filter")}
-          >
-            {chips.map((item) => (
-              <option key={item.id} value={item.id}>
-                {localize(item.label)}
-              </option>
-            ))}
-          </select>
-        ) : null}
+        {mobile ? chipSelect : null}
         {mobile ? view : null}
       </header>
       <div className="ov-gallery__tools">
@@ -142,7 +145,8 @@ function ListPage<T extends { id: string }>({
           <Search size={14} aria-hidden="true" />
           <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder={searchPlaceholder} />
         </label>
-        {(mobile ? [] : (chips ?? [])).map((item) => (
+        {!mobile && chipsAsSelect ? chipSelect : null}
+        {(chipsAsSelect ? [] : (chips ?? [])).map((item) => (
           <button
             key={item.id}
             type="button"

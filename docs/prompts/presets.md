@@ -23,7 +23,7 @@ If the preset has variables, the **Configure Preset Variables** window opens. Se
 
 ## Create a preset
 
-1. Open the **Presets** panel from the sidebar.
+1. Open **Library** > **Presets**. The Library is on the right.
 2. Click **New** (the plus icon). The **Create Preset** window opens.
 3. Type a **Name**. It is required. Add a **Description** if you want.
 4. Click **Create**. The preset opens in the **Preset Editor**.

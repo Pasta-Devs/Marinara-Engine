@@ -543,7 +543,11 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
         <div className="ov-org__updates-page">{props.updatesPage}</div>
       ) : visible.length === 0 && visibleOwn.length === 0 ? (
         <p className="ov-list__empty">
-          {needle ? localizeUi("ui.agents.agentcatalogview.noMatchingAgents") : localize("Nothing here yet.")}
+          {needle
+            ? localizeUi("ui.agents.agentcatalogview.noMatchingAgents")
+            : tab === "installed"
+              ? localizeUi("ui.overhaul.text.noAgentsInstalled")
+              : localize("Nothing here yet.")}
         </p>
       ) : gallery ? (
         <div className="ov-org-gallery">

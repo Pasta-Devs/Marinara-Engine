@@ -49,7 +49,7 @@ Before you start: turn on **Autonomous Messages**.
 
 A schedule belongs to the character and is reused in every Conversation chat. Turning **Schedules** off in a chat keeps it off there and keeps the schedule.
 
-Automatic weekly renewal is off unless you turn on **Renew weekly** for that character in the **Character Schedule Manager**. Open it with the calendar button in the sidebar footer, next to the status box.
+Automatic weekly renewal is off unless you turn on **Renew weekly** for that character in the **Character Schedule Manager**. Open it with the calendar button at the bottom of the chat list, next to the status box.
 
 Marinara tries a renewal once for each chat each time the app page loads. If it fails, it does not try again until you reload the page. Click **Generate** to try again.
 

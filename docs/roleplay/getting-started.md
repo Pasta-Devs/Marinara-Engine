@@ -8,8 +8,8 @@ Pick Roleplay for a story scene. Pick [Conversation](../conversation/getting-sta
 
 Before you start: add an account in the **Connections** panel on the right side of the app. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-1. In the chat sidebar, click the **RP** tab.
-2. Click the **+** button near the top of the sidebar. Its tooltip reads **New Roleplay**.
+1. In the chat list on the left, click the **Roleplay** tab.
+2. Click **+ New** at the top of the chat list.
 
 The chat opens with **Chat Settings** and a setup wizard of five steps. Only the account is required. You can change everything later.
 

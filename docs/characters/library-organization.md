@@ -1,6 +1,6 @@
 # Organizing Your Character Library
 
-The **Characters** panel is the sidebar list of every character you have created or imported. Use it to search, sort, group characters into folders, mark favorites, filter by tags, and export or delete many at once.
+The **Characters** page in the Library (on the right) lists every character you have created or imported. Use it to search, sort, group characters into folders, mark favorites, filter by tags, and export or delete many at once.
 
 ## The Characters panel
 

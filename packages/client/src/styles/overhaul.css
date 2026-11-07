@@ -1071,10 +1071,19 @@
   overflow-y: auto;
   padding: 1.5rem 2rem 2.5rem;
 }
+/* Empty Library lists: the same dashed panel as the gallery's "+ New" tile, so empty pages match. */
 .ov-list__empty {
-  padding: 2rem 0;
+  display: flex;
+  min-height: 9rem;
+  align-items: center;
+  justify-content: center;
+  margin: 0.75rem 0 0;
+  padding: 1.5rem;
+  border: 1px dashed color-mix(in srgb, var(--ov-accent) 35%, var(--ov-line));
+  border-radius: 0.75rem;
   color: var(--ov-muted);
   font-size: 0.875rem;
+  text-align: center;
 }
 .ov-pill {
   height: 2rem;
@@ -10082,4 +10091,43 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-overhaul] .mari-chat-dice-control input {
   font-family: inherit;
   font-variant-numeric: tabular-nums;
+}
+
+/* The swipe/regenerate row hangs under an AI message; leave room so it never sits on the next one. */
+:root[data-overhaul] [data-message-id]:has(.ov-rpf--below) {
+  padding-bottom: 0.875rem;
+}
+
+/* Dialog buttons: one height and baseline, and a destructive action reads as one (panel Low). */
+:root[data-overhaul] [data-dialog-action] {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.875rem;
+  border-radius: 0.5rem;
+  line-height: 1;
+}
+:root[data-overhaul] [data-dialog-action="confirm"][data-tone="destructive"] {
+  border: 1px solid transparent;
+  background: var(--destructive);
+  box-shadow: none;
+  color: #fff;
+}
+:root[data-overhaul] [data-dialog-action="confirm"][data-tone="destructive"]:hover {
+  background: color-mix(in srgb, var(--destructive) 88%, #fff);
+}
+
+/* Home starfield, cheaper (panel Low): one star in three twinkles; the rest hold still without their own layers. */
+:root[data-overhaul] .mari-home-browser-star:not(:nth-child(3n)) {
+  opacity: 0.3;
+  animation: none;
+  will-change: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-overhaul] .mari-home-browser-star {
+    opacity: 0.3;
+    animation: none;
+    will-change: auto;
+  }
 }

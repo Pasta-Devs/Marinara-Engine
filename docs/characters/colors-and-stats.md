@@ -40,7 +40,7 @@ Custom-theme background hooks and card CSS can still override the app's bubble s
 
 ### Where your colors show
 
-- The name color colors the display name in chat messages. For a character it also colors the name in the sidebar tabs. For a persona it also colors the name in the persona pickers.
+- The name color colors the display name in chat messages. For a character it also colors the name in the chat list. For a persona it also colors the name in the persona pickers.
 - The dialogue color colors text inside dialogue quotation marks, in straight quotes and other quote styles. You can also make this text bold in **Settings**. Conversation chats do not use it.
 - The message box color sets the background of that character's or persona's message bubbles in Roleplay chats. Conversation and Game chats do not use it.
 
