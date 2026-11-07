@@ -97,6 +97,10 @@ for (const theme of ["dark", "light"] as const) {
       const bounds = await attachment.boundingBox();
       expect(bounds!.x).toBeGreaterThanOrEqual(0);
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+      // A custom agent's switch sits on its card like Prose Guardian's, not in a box of its own (#8932).
+      const customBounds = await page.locator(`[data-agent-lorebook-attachment="${custom.type}"]`).boundingBox();
+      expect(customBounds!.x).toBeCloseTo(bounds!.x, 0);
+      expect(customBounds!.width).toBeCloseTo(bounds!.width, 0);
       await testInfo.attach(`agent-lorebook-${theme}`, {
         body: await page.screenshot({ path: testInfo.outputPath(`agent-lorebook-${theme}.png`) }),
         contentType: "image/png",
