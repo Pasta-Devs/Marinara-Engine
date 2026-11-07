@@ -452,6 +452,7 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: isComfyUiVideo ? videoDefaults.comfyui.loras : [],
     comfyFps: isComfyUiVideo ? videoDefaults.comfyui.fps : undefined,
+    customHeaders: videoDefaults.customHeaders,
     atlasModelOptions: isAtlasVideo
       ? videoDefaults.atlas.modelOptions[connection.model?.trim() || "google/veo3.1/text-to-video"]
       : undefined,
@@ -2374,6 +2375,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                   resolution: resolved.resolution,
                   comfyWorkflow: resolved.comfyWorkflow,
                   comfyLoras: resolved.comfyLoras,
+                  customHeaders: resolved.customHeaders,
                   fps: resolved.comfyFps,
                   atlasModelOptions: resolved.atlasModelOptions,
                   referenceImage,
