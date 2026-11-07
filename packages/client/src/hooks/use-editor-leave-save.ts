@@ -97,6 +97,7 @@ export function useEditorLeaveSave(
             { key: "discard", label: current.t("editor.leave.discard"), tone: "destructive" },
           ],
           cancelLabel: current.t("connections.accounts.editor.keepEditing"),
+          layout: "row",
         })
           .then(async (choice) => {
             if (!active || !choice) return;

@@ -293,6 +293,7 @@ export function ConnectionAccountEditor({
           { key: "discard", label: t("connections.accounts.editor.discardAndContinue"), tone: "destructive" },
         ],
         cancelLabel: t("connections.accounts.editor.keepEditing"),
+        layout: "row",
       });
       if (!choice) return;
       if (choice === "save" && !(await save(false))) return;
