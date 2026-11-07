@@ -19,6 +19,7 @@ import {
 } from "react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { useReadOnlySubtree } from "../../hooks/use-read-only-subtree";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -286,6 +287,8 @@ export function PresetEditor() {
   const [showSaved, setShowSaved] = useState(false);
   const [stockCopyError, setStockCopyError] = useState<string | null>(null);
   const [stockCopyPending, setStockCopyPending] = useState(false);
+  const stockReadOnlyRef = useRef<HTMLDivElement>(null);
+  useReadOnlySubtree(stockReadOnlyRef, isStockMarinaraUniversalPreset(data?.preset ?? {}));
 
   // Local editable state
   const [localName, setLocalName] = useState("");
@@ -589,7 +592,9 @@ export function PresetEditor() {
     );
   }
 
-  if (isStockMarinaraUniversalPreset(data.preset)) {
+  // The new layout shows the built-in preset itself, read-only, under a "Make editable copy" bar.
+  const stockPreset = isStockMarinaraUniversalPreset(data.preset);
+  if (stockPreset && !overhaulActive) {
     return (
       <div className="mari-editor-shell flex flex-1 items-center justify-center p-6">
         <div className="mari-editor-panel flex max-w-md flex-col items-center gap-3 p-5 text-center">
@@ -752,6 +757,32 @@ export function PresetEditor() {
     />
   );
 
+  const withStockBar = (editor: ReactNode) =>
+    stockPreset ? (
+      <div ref={stockReadOnlyRef} className="ov-stock-preset flex min-h-0 flex-1 flex-col" data-ov-readonly="true">
+        <div className="ov-stock-bar" role="status">
+          <span className="ov-stock-bar__text">{localizeUi("ui.presets.preseteditor.stockPresetReadOnlyBar")}</span>
+          {stockCopyError ? <span className="ov-stock-bar__error">{stockCopyError}</span> : null}
+          <button
+            type="button"
+            className="ov-btn ov-btn--primary"
+            onClick={() => void handleCreateStockCopy()}
+            disabled={stockCopyPending}
+          >
+            {stockCopyPending ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />}
+            {localizeUi(
+              stockCopyPending
+                ? "ui.presets.preseteditor.creatingEditableCopy"
+                : "ui.presets.preseteditor.makeEditableCopy",
+            )}
+          </button>
+        </div>
+        {editor}
+      </div>
+    ) : (
+      editor
+    );
+
   if (overhaulActive) {
     const pages = [
       { id: "overview", label: "Overview" },
@@ -794,7 +825,7 @@ export function PresetEditor() {
       ) : (
         <span aria-hidden="true" />
       );
-      return (
+      return withStockBar(
         <div
           className="mari-editor-shell ov-preset ovm-preset flex flex-1 flex-col"
           data-component="OverhaulPresetEditor"
@@ -881,10 +912,10 @@ export function PresetEditor() {
             {ovmPage === "parameters" ? <div className="space-y-3">{ov_parameters}</div> : null}
             {ovmPage === "regex" ? ov_regex : null}
           </div>
-        </div>
+        </div>,
       );
     }
-    return (
+    return withStockBar(
       <div
         className="mari-editor-shell ov-preset flex flex-1 flex-col overflow-hidden"
         data-component="OverhaulPresetEditor"
@@ -1006,7 +1037,7 @@ export function PresetEditor() {
             <div ref={setOvVarsEl} hidden={Boolean(ovSelected) || ovPage !== "variables"} />
           </main>
         </div>
-      </div>
+      </div>,
     );
   }
 

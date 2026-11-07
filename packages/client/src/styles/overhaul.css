@@ -9758,3 +9758,56 @@ input.ov-edhead__title:focus {
   min-width: 0;
   flex: 1;
 }
+
+/* Built-in preset: shown read-only under one bar that offers an editable copy. */
+.ov-stock-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.4375rem 0.875rem;
+  border-bottom: 1px solid var(--ov-line);
+  background: color-mix(in srgb, var(--primary) 9%, var(--card));
+  font-size: 0.8125rem;
+  color: var(--ov-text);
+}
+.ov-stock-bar__text {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.ov-stock-bar__error {
+  color: var(--destructive);
+}
+.ov-stock-bar .ov-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+[data-ov-readonly] textarea,
+[data-ov-readonly] input {
+  cursor: default;
+}
+/* Read-only built-in preset: hide the controls that would change it; browsing stays. */
+[data-ov-readonly] .ov-bk-head__row > .ov-btn--primary,
+[data-ov-readonly] .ov-po-tools,
+[data-ov-readonly] .ov-povw__pic .ov-ed__link,
+[data-ov-readonly] input[type="file"] {
+  display: none !important;
+}
+[data-ov-readonly] .ov-seg button {
+  pointer-events: none;
+}
+[data-ov-readonly] .ov-preset__state,
+[data-ov-readonly] .ovm-preset__name > small {
+  display: none !important;
+}
+:root[data-overhaul="mobile"] .ov-stock-bar {
+  flex-wrap: nowrap;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+:root[data-overhaul="mobile"] .ov-stock-bar .ov-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
