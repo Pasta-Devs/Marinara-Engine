@@ -1300,8 +1300,14 @@ export async function sceneRoutes(app: FastifyInstance) {
         sections: sections.filter((section) => section.isMarker !== "true"),
         chatChoices: {
           ...(parsePromptPresetChoices(writingPreset.defaultChoices) ?? {}),
+          // As /scene/create stores them: the request's own choices, else the starred profile's when it saved them
+          // for this same preset (#8957).
           ...(preset
-            ? (presetChoices ?? {})
+            ? (presetChoices ??
+              (starredRoleplayProfile && !starredRoleplayProfile.isDefault
+                ? chatPresetVariablesFor(starredRoleplayProfile.settings, preset.id)
+                : undefined) ??
+              {})
             : (chatPresetVariablesFor(starredRoleplayProfile?.settings, profilePresetId) ?? {})),
         },
         chatId: origin.chat?.id ?? "",

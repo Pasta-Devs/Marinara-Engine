@@ -401,6 +401,51 @@ try {
     /<scene_writing_instructions>[\s\S]*HOUSE-STYLE: write dialogue in double quotes\./u,
     "the starred profile's writing rules reach the planner",
   );
+  const plannedWith = async (promptPreferences: Record<string, unknown>) => {
+    await api("POST", "/api/scene/plan", {
+      chatId: origin.id,
+      connectionId: conn.id,
+      prompt: "Visit the library",
+      promptPreferences: { ...selected, ...promptPreferences },
+    });
+    return requests
+      .at(-1)!
+      .messages.map((m) => m.content)
+      .join("\n");
+  };
+  // The scene picks the profile's own preset without choices: the planner uses the profile's saved choice, as
+  // /scene/create will store it on the scene chat.
+  assert.match(
+    await plannedWith({ promptPresetId: writingPreset.id }),
+    /HOUSE-STYLE: write dialogue in double quotes\./u,
+    "the same preset, no choices: the profile's saved choice",
+  );
+  assert.match(
+    await plannedWith({ promptPresetId: writingPreset.id, presetChoices: { quotes: "single" } }),
+    /HOUSE-STYLE: write dialogue in single quotes\./u,
+    "the scene's own choice still wins",
+  );
+  const otherPreset = await api("POST", "/api/prompts", { name: "Other style" });
+  await api("POST", `/api/prompts/${otherPreset.id}/sections`, {
+    presetId: otherPreset.id,
+    identifier: "other-style",
+    name: "Other style",
+    content: "OTHER-STYLE: write dialogue in {{quotes}} quotes.",
+  });
+  await createPromptsStorage(app.db).createChoiceBlock({
+    presetId: otherPreset.id,
+    variableName: "quotes",
+    question: "Quotes?",
+    options: [
+      { id: "single", label: "Single", value: "single" },
+      { id: "double", label: "Double", value: "double" },
+    ],
+  });
+  assert.doesNotMatch(
+    await plannedWith({ promptPresetId: otherPreset.id }),
+    /OTHER-STYLE: write dialogue in double quotes\./u,
+    "another preset never gets the profile's choice",
+  );
   const payload = {
     originChatId: origin.id,
     connectionId: conn.id,

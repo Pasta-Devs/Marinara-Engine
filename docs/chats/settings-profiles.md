@@ -71,7 +71,7 @@ The star beside the dropdown marks the profile used automatically for new chats 
 
 **Export settings profile (.json)** downloads a `.marinara-settings-profile.json` file you can keep as a backup or share. **Import settings profile (.json)** makes a new profile from a compatible file and never overwrites an existing one. Older exports still import. A failed import shows **Import failed**.
 
-Profiles store settings, not provider secrets. An exported or imported profile also leaves out the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. Profiles you save on this install keep them. Exported files leave out the persona and lorebooks, because they exist only on this install.
+Profiles store settings, not provider secrets. An exported or imported profile also leaves out the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. Profiles you save on this install keep them. Exported files leave out the persona, lorebooks and preset variable choices, because they belong to this install.
 
 ## The Default profile
 
