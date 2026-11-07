@@ -2913,7 +2913,12 @@ export function BotBrowserView() {
                 </div>
               ) : error ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12">
-                  <span className="text-sm font-medium text-[var(--marinara-chat-chrome-panel-title)]">{error}</span>
+                  <span className="text-sm font-medium text-[var(--marinara-chat-chrome-panel-title)]">
+                    {/* Say why: a bare "Search failed" is almost always the site being unreachable. */}
+                    {error === "Search failed" || /fetch|network/i.test(error)
+                      ? localizeUi("ui.botbrowser.cantReachSource", { source: provider.name })
+                      : error}
+                  </span>
                   <button
                     onClick={doSearch}
                     className="mari-chrome-control mari-chrome-control--selected px-4 py-2 text-xs"

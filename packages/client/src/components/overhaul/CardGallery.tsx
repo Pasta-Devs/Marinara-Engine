@@ -6,7 +6,18 @@
 // portrait opens its editor; the Library pane's tags filter the list.
 // ──────────────────────────────────────────────
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { MessageCircle, Plus, Search, User, VenetianMask, Download, Grid2x2, Grid3x3, Square } from "lucide-react";
+import {
+  MessageCircle,
+  Plus,
+  Search,
+  User,
+  VenetianMask,
+  Download,
+  Globe,
+  Grid2x2,
+  Grid3x3,
+  Square,
+} from "lucide-react";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { useOverhaulMobile, useOverhaulStore, type GalleryCardSize } from "../../stores/overhaul.store";
@@ -54,6 +65,7 @@ export function CardGallery({
   onChat,
   onNew,
   onImport,
+  onBrowse,
   extraHeader,
 }: {
   kind: "characters" | "personas";
@@ -66,6 +78,8 @@ export function CardGallery({
   onChat?: (id: string) => void;
   onNew: () => void;
   onImport: () => void;
+  /** Characters: open the online card browser (ChubAI and others). */
+  onBrowse?: () => void;
   extraHeader?: ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
@@ -118,6 +132,18 @@ export function CardGallery({
       <header className="ov-gallery__head">
         <h1>{title}</h1>
         {extraHeader}
+        {onBrowse ? (
+          <button
+            type="button"
+            className="ov-btn"
+            onClick={onBrowse}
+            aria-label={localizeUi("ui.overhaul.text.browseOnline")}
+            title={localizeUi("ui.overhaul.text.browseOnline")}
+          >
+            <Globe size={14} aria-hidden="true" />
+            {mobile ? null : localizeUi("ui.overhaul.text.browseOnline")}
+          </button>
+        ) : null}
         <button type="button" className="ov-btn" onClick={onImport}>
           <Download size={14} aria-hidden="true" />
           {localize("Import")}

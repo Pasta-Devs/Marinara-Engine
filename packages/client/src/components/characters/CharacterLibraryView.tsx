@@ -625,6 +625,7 @@ export function CharacterLibraryView() {
         }
         onNew={() => openModal(isPersonaLibrary ? "create-persona" : "create-character")}
         onImport={() => openModal(isPersonaLibrary ? "import-persona" : "import-character")}
+        onBrowse={isPersonaLibrary ? undefined : () => useUIStore.getState().openBotBrowser()}
       />
     );
   }

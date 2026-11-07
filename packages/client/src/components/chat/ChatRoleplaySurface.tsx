@@ -60,7 +60,13 @@ import {
   resolveTranscriptRenderWindowSize,
   TRANSCRIPT_RENDER_WINDOW_STEP,
 } from "../../lib/transcript-render-window";
-import { DEFAULT_ROLEPLAY_BACKGROUND_URL, selectSidebarShown, useUIStore } from "../../stores/ui.store";
+import {
+  DEFAULT_ROLEPLAY_BACKGROUND_URL,
+  ROLEPLAY_AVATAR_STYLES,
+  selectRoleplayAvatarStyle,
+  selectSidebarShown,
+  useUIStore,
+} from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useChatComposerFocused, useChatKeyboardOpen } from "../../hooks/use-visual-viewport-chat-bottom";
@@ -1053,7 +1059,13 @@ export function ChatRoleplaySurface({
   // Undefined until the chat sets it; ChatMessage then falls back to the retired global switch.
   const colorInlineNames = typeof chatMeta.colorInlineNames === "boolean" ? chatMeta.colorInlineNames : undefined;
   const chatPosition = useUIStore((s) => s.roleplayChatPosition);
-  const roleplayAvatarStyle = useUIStore((s) => s.roleplayAvatarStyle);
+  const roleplayAvatarStyle = useUIStore(selectRoleplayAvatarStyle);
+  // This chat's own avatar display (Chat settings > Characters), in effect while it's open.
+  const chatAvatarStyle = ROLEPLAY_AVATAR_STYLES.find((style) => style === chatMeta.roleplayAvatarStyle) ?? null;
+  useEffect(() => {
+    useUIStore.getState().setChatAvatarStyleOverride(chatAvatarStyle);
+    return () => useUIStore.getState().setChatAvatarStyleOverride(null);
+  }, [chatAvatarStyle]);
   const roleplayAvatarScale = useUIStore((s) => s.roleplayAvatarScale);
   const roleplayChatWidthPercent = useUIStore((s) => s.roleplayChatWidthPercent);
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
