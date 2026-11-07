@@ -1269,6 +1269,19 @@ const isGif = result.mimeType === "image/gif";
 
 En un Engine 1.816, captura `code === "animation-unsupported"` para pintar una imagen fija en su lugar. Declara 1.816 solo cuando el paquete no pueda funcionar sin GIFs. No se necesita ningún permiso.
 
+<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>
+
+### Capability API 1.817: avisar a un paquete de que se creó una rama de un chat
+
+El servicio `long-term-memory:runtime` puede añadir un método opcional `chatBranched({ chatId, parentChatId })`.
+Cuando se crea una rama de un chat, el Engine lo llama una vez y espera a que termine, después de que la ruta que crea la rama acabe de copiar (mensajes,
+metadatos e instantáneas) y antes de devolver el chat nuevo, así que los mensajes de la rama y los metadatos `branchParentChatId`
+ya se pueden leer dentro de la llamada. Un paquete puede usarlo para corregir la copia antes de que nadie la lea.
+
+Los errores y las llamadas que tardan más de unos segundos se registran y se ignoran; la rama se devuelve de todos modos. Sin
+el método, nada cambia. Es una interfaz flexible: los Engines anteriores nunca lo llaman, así que el paquete debe seguir funcionando
+cuando falta la llamada. No se necesita ningún permiso.
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: resúmenes de escena de Advanced Memory y el bloque de memoria

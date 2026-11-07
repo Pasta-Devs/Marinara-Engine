@@ -1079,3 +1079,38 @@ Precedents from the #8938, #8940 and #8942 sync (`chats/group-chats.md`, `media/
   computer or private network* is „ein Sprachserver auf deinem Rechner oder in deinem privaten
   Netzwerk“: **Sprachserver** and **Rechner** as elsewhere in `media/tts-setup.md`. The feature
   is the subject: „Nutzt Text to Speech schon PocketTTS …“.
+
+## Notices DNS and Capability API 1.817 (2026-11-07, #8954)
+
+Precedents from the #8954 sync (`CONFIGURATION.md`) and the #8951 developer-docs sync
+(`development/optional-agent-packages.md`), against Engine `dd85f7b40d`:
+
+- The *hosts file* is **die Hosts-Datei** and a *DNS server* **der DNS-Server** (plural
+  **die DNS-Server**); *in the hosts file or DNS* is „in der Hosts-Datei oder im DNS“. Both
+  are coined: the pack had neither term before. *Asks the DNS servers directly* is „fragt die
+  DNS-Server direkt ab“. The *notices server* is „der Server der Hinweise“, not a compound
+  „Hinweisserver“. *The hosts file and DNS servers* stay prose; only `$PREFIX/etc/resolv.conf`,
+  `8.8.8.8` and `8.8.4.4` are code spans, byte-for-byte as in English.
+- *Names that only your local network knows* is „Namen, die nur dein lokales Netzwerk kennt“
+  („lokales Netzwerk“ as in `installation/macos-linux.md`); *short names without a domain
+  other than `localhost`* is „kurze Namen ohne Domain außer `localhost`“, kept closer to the
+  English than the `TRUSTED_HOSTS` row's „einteilige LAN-Namen“. *On Termux* is „In Termux“,
+  the pack's existing form; *the DNS servers are the ones in* a file is „stehen die DNS-Server
+  in“ (not „die aus“, which reads as a relative clause); *Google's* is „von Google“
+  after the addresses. *When an outbound proxy is on* is „wenn ein [ausgehender Proxy]
+  eingeschaltet ist“, link text in the nominative so it needs no declension.
+- In the `MARINARA_NOTICES_URL` row, *its host* is „Der Hostname der URL“: a bare „Host“
+  would read as the multiplayer host, and „Hostname“ follows the `TRUSTED_HOSTS` row. The
+  trailing link repeats the row above's `Siehe [Marinara-Hinweise](#marinara-notices).`
+- The developer heading „### Capability API 1.817: einem Paket mitteilen, dass ein Chat
+  verzweigt wurde“ ends in the infinitive like 1.814 and 1.815 and carries
+  `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>` like every
+  sibling Capability API heading in the file. A *branched* chat is „verzweigt“, the *branch*
+  „die Verzweigung“ and the *branch route* „die Verzweigungsroute“ (coined), per the branch
+  row above; the older „Branch“ wording of the file's 1.7 section („Chat-Branches“) is not
+  copied.
+- *Awaits it once* is „ruft sie einmal auf und wartet auf sie“; *logged and ignored* is
+  „protokolliert und verworfen“ and *either way* „so oder so“, both from the file's scene
+  `release` bullet. *Soft seam* stays „weiche Schnittstelle“; *must still cope when it is
+  missing* is „muss also auch ohne den Aufruf auskommen“, naming the call so „sie“ is not
+  ambiguous. The section keeps the English hard line breaks, like 1.391 below it.

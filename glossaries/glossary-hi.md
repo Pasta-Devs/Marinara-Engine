@@ -908,3 +908,14 @@ Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `medi
 - A private network is **प्राइवेट नेटवर्क**, as in `REMOTE_ACCESS.md`; a voice server is **वॉइस सर्वर**, as in the file's PocketTTS bullet. The prose subject is **TTS**, the file's running term for text to speech.
 
 These are translation choices, not a new native-reader review.
+
+## Notices DNS and Capability API 1.817 (2026-11-07, #8954)
+
+Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section in `development/optional-agent-packages.md`, against Engine `dd85f7b40d`:
+
+- Coined prose terms (not UI labels, so not §5 Pattern A; no `ui/hi.json` string): the **hosts file** is `hosts फ़ाइल`, the word kept Latin and unquoted as in English (`TROUBLESHOOTING.md` writes the path as `/etc/hosts`); a **DNS server** is `DNS सर्वर`, and "asks the DNS servers directly" is `सीधे DNS सर्वर से पूछता है`. The table row's "its host" is `इसका होस्ट`, as in the `MARINARA_SHARED_GPU_HOSTS` row (`लिस्ट वाले होस्ट पर`).
+- Short names without a domain are `एक-शब्द वाले नाम जिनमें डोमेन नहीं होता`, after the `TRUSTED_HOSTS` row's `एक-शब्द वाले LAN नाम`; the local network is **लोकल नेटवर्क**. The Termux sentence keeps `$PREFIX/etc/resolv.conf`, `8.8.8.8` and `8.8.4.4` byte-exact; "unless you edit that file" is `जब तक आप वह फ़ाइल एडिट न करें`.
+- The inline link to `#outbound-http-proxy` reads `बाहर जाने वाली रिक्वेस्ट के लिए प्रॉक्सी`, the section heading without `HTTP`; the proxy is **प्रॉक्सी**, as in the ComfyUI authenticated proxy entry (no new phrase shows its gender). The new table sentence ends with `देखें [Marinara नोटिस](#marinara-notices)।`, as the `MARINARA_NOTICES_ENABLED` row does.
+- The heading is `### Capability API 1.817: पैकेज को बताना कि चैट की ब्रांच बनाई गई`, under `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`, like the file's 1.814 to 1.816 sections (Latin `Capability API`, `-ना` heading). A branched chat is `चैट की ब्रांच बनाना`, the pack's `ब्रांच बनाना`; ब्रांच is feminine (`ब्रांच लौटाई जाती है`). "Awaits it" is `कॉल करता है और इसके पूरा होने का इंतज़ार करता है`, after the file's `ensureMarinaraHost()` sentence; "logged and ignored" is `लॉग करके अनदेखी कर दी जाती हैं`; "soft seam" is **सॉफ़्ट इंटरफ़ेस**, as in the file's 1.12, 1.13 and 1.816 sections; the service is **सर्विस**, as in the 1.391 section it mirrors; snapshots are **स्नैपशॉट** and metadata **मेटाडेटा**.
+
+These are translation choices, not a new native-reader review.

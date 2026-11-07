@@ -1140,6 +1140,19 @@ const isGif = result.mimeType === "image/gif";
 
 Fang auf einer Engine mit 1.816 `code === "animation-unsupported"` ab, um stattdessen ein Standbild zu zeichnen. Deklariere 1.816 nur, wenn das Paket ohne GIFs nicht funktioniert. Eine Berechtigung ist nicht nötig.
 
+<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>
+
+### Capability API 1.817: einem Paket mitteilen, dass ein Chat verzweigt wurde
+
+Der Dienst `long-term-memory:runtime` kann eine optionale Methode `chatBranched({ chatId, parentChatId })` hinzufügen.
+Die Engine ruft sie einmal auf und wartet auf sie, wenn ein Chat verzweigt wird: nachdem die Verzweigungsroute fertig kopiert hat (Nachrichten,
+Metadaten und Snapshots) und bevor sie den neuen Chat zurückgibt. Die Nachrichten der Verzweigung und die Metadaten `branchParentChatId`
+sind innerhalb des Aufrufs also schon lesbar. Ein Paket kann damit die Kopie korrigieren, bevor jemand sie liest.
+
+Fehler und Aufrufe, die länger als einige Sekunden dauern, werden protokolliert und verworfen; die Verzweigung wird so oder so zurückgegeben. Ohne
+die Methode ändert sich nichts. Dies ist eine weiche Schnittstelle: Ältere Engines rufen sie nie auf, das Paket muss also auch ohne den Aufruf
+auskommen. Eine Berechtigung ist nicht nötig.
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: Szenenzusammenfassungen von Advanced Memory und der Erinnerungsblock

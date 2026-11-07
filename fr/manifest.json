@@ -1,11 +1,11 @@
 {
   "language": "fr",
-  "sourceCommit": "9650a8e6f0ee56e9f2ededce609fa36ad36e8027",
+  "sourceCommit": "dd85f7b40dae5a246bc236a5e11246af9a1378e1",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "9a9e169d375161765f7d557e82653e7033163b8551621efa273b75ef8c9c4655",
-      "bytes": 51262
+      "sha256": "086bb337c114621342b3e367056b2c5705bc5e9ecd7ab1f14b2fb7e108f11314",
+      "bytes": 51844
     },
     {
       "path": "FAQ.md",
@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "70d0953d96de2b3c0afef9899c2b3d810cfeba79eafa378fa10e398d7fae5e29",
-      "bytes": 204443
+      "sha256": "aaf8b573997250aa51427e1f1bdd3727c8840b13aa77800c414eb66e88ff6c78",
+      "bytes": 205491
     },
     {
       "path": "development/personal-extensions.md",

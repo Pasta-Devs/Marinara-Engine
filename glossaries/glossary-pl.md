@@ -1394,3 +1394,33 @@ Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `medi
   pole"; a chat still **odtwarza muzykę z** Game Assets or a subfolder. A local voice server is
   **serwer głosu** (`media/tts-setup.md:72`), "na twoim komputerze lub w twojej sieci
   prywatnej".
+
+## Notices DNS and Capability API 1.817 (2026-11-07, #8954)
+
+Precedents from the #8954 mirror (`CONFIGURATION.md`, #8954; `development/optional-agent-packages.md`,
+#8951), against Engine `dd85f7b40d`:
+
+- New terms, coined because the pack had no earlier use: the **hosts file** is **plik hosts**
+  (the system file's name left bare, not a code span, as in the English); **DNS servers** are
+  **serwery DNS**, to which Marinara "wysyła zapytania bezpośrednio"; "in the hosts file or
+  DNS" is "w pliku hosts albo w DNS". "Names that only your local network knows" is "nazwy
+  znane tylko twojej sieci lokalnej", and "short names without a domain other than
+  `localhost`" is "krótkie nazwy bez domeny inne niż `localhost`". This is not the
+  `TRUSTED_HOSTS` row's "jednoczłonowe nazwy w sieci lokalnej" (`CONFIGURATION.md:85`),
+  because the English wording differs there too.
+- `$PREFIX/etc/resolv.conf` stays a code span: "serwery DNS to te zapisane w pliku
+  `$PREFIX/etc/resolv.conf`: serwery Google `8.8.8.8` i `8.8.4.4`, chyba że zmienisz ten plik"
+  (`CONFIGURATION.md:220`); Termux keeps "w środowisku Termux". The outbound proxy link text
+  is "wychodzącym proxy", the indeclinable neuter loanword after `### Wychodzące proxy HTTP`
+  (`:408`), and the link keeps `#outbound-http-proxy`, which already has an `<a id>`. In the
+  `MARINARA_NOTICES_URL` row (`:324`), "Its host" is "Host tego adresu", because the row's
+  subject is the notices file.
+- The heading is `### Capability API 1.817: powiadamianie pakietu o utworzeniu gałęzi czatu`
+  (`development/optional-agent-packages.md:1133`), a verbal noun like its 1.814 and 1.815
+  siblings, with `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`
+  above it; no guide links it yet. A branched chat is **gałąź czatu** (R-67), and "when a chat
+  is branched" is "gdy powstaje gałąź czatu". The branch route is **trasa tworzenia gałęzi**,
+  after "trasa generowania"; snapshots are **migawki** (R-54); "awaits it once" is "wywołuje ją
+  raz i czeka na jej zakończenie"; "logged and ignored" is "zapisywane w logach i ignorowane",
+  after "jest zapisywany w logach" (`:344`); "soft seam" keeps **miękki interfejs**; "must
+  still cope when it is missing" is "musi sobie radzić także bez tego wywołania".
