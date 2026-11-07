@@ -9809,6 +9809,8 @@ input.ov-edhead__title:focus {
 }
 :root[data-overhaul="on"] {
   --ov-chat-min: 400px;
+}
+
 /* Chats drawer: the rename pencil is a hover affordance, so touch screens don't get an invisible button. */
 @media (hover: none) {
   .ov-chat-rename-btn {
