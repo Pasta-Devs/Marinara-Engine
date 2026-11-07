@@ -1024,7 +1024,7 @@ export function ConnectionSwitcherBody({
       ]
         .filter(Boolean)
         .join(" · ");
-      if (routeId && entry.subtitle.includes(entry.model)) routeId = undefined;
+      if (routeId && entry.subtitle.includes(routeId)) routeId = undefined;
     }
     const isCurrent = now || isNow(entry) || sameChoice(entry.choice, current);
     const highlighted = index !== undefined && index === highlight;
