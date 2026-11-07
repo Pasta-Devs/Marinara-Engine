@@ -6,6 +6,7 @@
 // fonts and backgrounds. Older files still import: a bare .css file, { name, css }, and the
 // "marinara.theme-folder" envelope that export used to write.
 // ──────────────────────────────────────────────
+import { looksLikeSecretRequest } from "./theme-guard";
 import {
   MAX_THEME_META_BYTES,
   MAX_USER_CSS_BYTES,
@@ -36,6 +37,9 @@ export type ThemeIssue =
   | { kind: "bad-colors"; names: string[] }
   | { kind: "unknown-hook"; selector: string; suggestion: string }
   | { kind: "hides-protected"; selector: string }
+  | { kind: "adds-text"; texts: string[] }
+  | { kind: "asks-secrets"; text: string }
+  | { kind: "a11y"; what: string[] }
   | { kind: "bad-meta"; message: string };
 
 function parseJsonLenient(text: string): unknown {
@@ -183,25 +187,80 @@ export function validateThemePackage(pkg: ThemePackage & { metaProblems?: string
     if (pattern.test(pkg.css)) issues.push({ kind: "unknown-hook", selector, suggestion });
   }
   for (const selector of protectedHideAttempts(pkg.css)) issues.push({ kind: "hides-protected", selector });
+  const texts = addedTexts(pkg.css);
+  const secret = texts.find(looksLikeSecretRequest);
+  if (secret) issues.push({ kind: "asks-secrets", text: secret });
+  else if (texts.length) issues.push({ kind: "adds-text", texts: texts.slice(0, 3) });
+  const a11y = accessibilityChanges(pkg.css);
+  if (a11y.length) issues.push({ kind: "a11y", what: a11y });
   for (const message of pkg.metaProblems ?? []) issues.push({ kind: "bad-meta", message });
   return issues;
 }
 
-const PROTECTED_HINT =
-  /TopBar|ChatSidebar|RightPanel|GlobalOmnibar|ov-topbar|ov-libnav|mari-sidebar|data-overhaul-topbar|\baside\b|\bheader\b/;
-const HIDING =
-  /display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?![.\d])|transform\s*:|translate\s*:|clip-path\s*:|width\s*:\s*0(?![.\d])/i;
+/** The top bar, the sidebars and Ctrl+K themselves (not things inside them). */
+const PROTECTED_ROOT =
+  /(\[data-component=["']?(TopBar|ChatSidebarPanel|ChatSidebar|ChatSidebarSlot|RightPanelDesktop|RightPanelDesktopSlot|RightPanelMobile|GlobalOmnibar|GlobalOmnibar\.Panel)["']?\]|\.ov-topbar|\.ov-libnav|header\[data-overhaul-topbar[^\]]*\])$/;
+/** Values that hide or move something (not restyle it). */
+const HIDING: RegExp[] = [
+  /(?:^|;)\s*display\s*:\s*none/i,
+  /(?:^|;)\s*visibility\s*:\s*(hidden|collapse)/i,
+  /(?:^|;)\s*opacity\s*:\s*(0(\.[0-2]\d*)?|\.[0-2]\d*|[0-2]?\d%)\s*(!important)?\s*(;|$)/i,
+  /(?:^|;)\s*transform\s*:\s*(?!none)[^;]*(translate|scale\(\s*0)/i,
+  /(?:^|;)\s*translate\s*:\s*(?!none|0(?:px)?\s*(?:0(?:px)?)?\s*(?:;|$|!))/i,
+  /(?:^|;)\s*clip-path\s*:\s*(?!none)/i,
+  /(?:^|;)\s*(width|height)\s*:\s*0(?![.\d])/i,
+  /(?:^|;)\s*filter\s*:[^;]*opacity\(\s*(0(\.[0-2]\d*)?|\.[0-2]\d*|[0-2]?\d%)\s*\)/i,
+];
+
+/** The element a selector styles: its last compound, without pseudo-classes like :hover. */
+function selectorSubject(selector: string) {
+  const parts = selector.trim().split(/\s*[\s>+~]\s*(?![^[]*\])/);
+  return parts[parts.length - 1] ?? "";
+}
 
 /** Rules that try to hide or move the top bar, sidebars or Ctrl+K. The protected layer undoes them. */
 function protectedHideAttempts(css: string) {
   const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
   const found = new Set<string>();
   for (const match of clean.matchAll(/([^{}@;]+)\{([^{}]*)\}/g)) {
-    const selector = match[1]!.trim();
-    if (PROTECTED_HINT.test(selector) && HIDING.test(match[2]!)) found.add(selector.slice(0, 80));
+    const body = match[2]!;
+    if (!HIDING.some((pattern) => pattern.test(body))) continue;
+    for (const selector of match[1]!.split(",")) {
+      const subject = selectorSubject(selector);
+      // A hover lift or a pressed state is a restyle, not a hide.
+      if (/:(hover|active|focus|focus-visible|focus-within)\b|::?(before|after)/.test(subject)) continue;
+      if (PROTECTED_ROOT.test(subject.replace(/:not\([^)]*\)/g, ""))) found.add(selector.trim().slice(0, 80));
+    }
     if (found.size >= 3) break;
   }
   return [...found];
+}
+
+/** Text a theme writes into the page with `content: "…"` (icons and single symbols left out). */
+export function addedTexts(css: string) {
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const texts = new Set<string>();
+  for (const match of clean.matchAll(/content\s*:\s*([^;{}]+)/gi)) {
+    const text = Array.from(match[1]!.matchAll(/"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g), (m) => m[1] ?? m[2] ?? "")
+      .join("")
+      .replace(/\\[0-9a-f]{1,6}\s?/gi, "")
+      .replace(/\\(.)/g, "$1")
+      .trim();
+    if (text.replace(/[^\p{L}\p{N}]/gu, "").length >= 3) texts.add(text.slice(0, 80));
+  }
+  return [...texts];
+}
+
+/** What a theme's CSS tries to change about the Accessibility settings. */
+function accessibilityChanges(css: string) {
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const what = new Set<string>();
+  if (/--mari-a11y-line-height\s*:|line-height\s*:\s*(0?\.\d|1(\.[0-2]\d*)?)\s*!important/i.test(clean))
+    what.add("line spacing");
+  if (/--mari-a11y-letter-spacing\s*:|letter-spacing\s*:\s*-/i.test(clean)) what.add("letter spacing");
+  if (/--mari-cvd-[\w-]+\s*:/i.test(clean)) what.add("colour-blind-safe colours");
+  if (/--mari-focus-ring-[\w-]+\s*:/i.test(clean)) what.add("focus rings");
+  return [...what];
 }
 
 /** `--x: 270 25% 8%` → `--x: hsl(270 25% 8%)` (the shadcn convention, which isn't a colour on its own). */

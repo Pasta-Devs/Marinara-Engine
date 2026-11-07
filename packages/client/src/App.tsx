@@ -23,6 +23,7 @@ import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
 import { ThemeSafetyHost } from "./components/layout/ThemeSafetyHost";
 import { useThemeSafetyStore } from "./lib/theme-safety";
+import { applyAccessibilityCss } from "./lib/accessibility-css";
 import { removeRootVar, setRootVar } from "./lib/root-vars";
 import { useThemeChatHooks } from "./hooks/use-chat-theme";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
@@ -609,6 +610,7 @@ export function App() {
   const a11yStrongFocus = useUIStore((s) => s.a11yStrongFocus);
   const a11yContrast = useUIStore((s) => s.a11yContrast);
   const a11yColorBlindSafe = useUIStore((s) => s.a11yColorBlindSafe);
+  const a11yScheme = useUIStore((s) => s.theme);
   useEffect(() => {
     const root = document.documentElement;
     if (a11yLineHeight > 1) {
@@ -635,12 +637,21 @@ export function App() {
       const more = a11yContrast === "on" || (a11yContrast === "system" && !!query?.matches);
       if (more) root.dataset.mariContrast = "more";
       else delete root.dataset.mariContrast;
+      // The values themselves go into the protected layer as literals (lib/accessibility-css.ts).
+      applyAccessibilityCss({
+        lineHeight: a11yLineHeight,
+        letterSpacing: a11yLetterSpacing,
+        strongFocus: a11yStrongFocus,
+        highContrast: more,
+        colorBlindSafe: a11yColorBlindSafe,
+        scheme: a11yScheme === "light" ? "light" : "dark",
+      });
     };
     applyContrast();
     if (a11yContrast !== "system" || !query) return;
     query.addEventListener("change", applyContrast);
     return () => query.removeEventListener("change", applyContrast);
-  }, [a11yLineHeight, a11yLetterSpacing, a11yStrongFocus, a11yContrast, a11yColorBlindSafe]);
+  }, [a11yLineHeight, a11yLetterSpacing, a11yStrongFocus, a11yContrast, a11yColorBlindSafe, a11yScheme]);
 
   // [#3104 diagnostic] warn on long main-thread tasks (see lib/perf-diagnostics.ts)
   useEffect(() => {

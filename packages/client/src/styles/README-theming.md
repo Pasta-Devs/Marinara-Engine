@@ -201,18 +201,33 @@ backgrounds together get 6 MiB. Plain `.css` files, `{ "name", "css" }` and the 
 ## Accessibility
 
 Settings > Appearance > Accessibility applies the user's line and letter spacing, focus rings,
-high contrast and colour-blind-safe colours from the `mari-protected` layer, so a theme can't undo
-them. A theme can still pick the colours they use by setting these on `:root`:
+high contrast, colour-blind-safe colours and a 12 px minimum for message text. The values are
+written into the `mari-protected` layer as literals on every element (lib/accessibility-css.ts), so
+a theme can't undo them, not even by redefining variables. While an option is off, a theme can set:
 
-| Token                                                  | Used for                                                                        |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| `--mari-focus-ring-color`                              | Strong focus rings (defaults to `--primary`; high contrast uses `--foreground`) |
-| `--mari-focus-ring-contrast`                           | The halo around a strong focus ring (defaults to `--background`)                |
-| `--mari-cvd-good`, `--mari-cvd-warn`, `--mari-cvd-bad` | Colour-blind-safe status, gauges and Delete buttons (blue, yellow, orange)      |
+| Token                                                  | Used for                                                         |
+| ------------------------------------------------------ | ---------------------------------------------------------------- |
+| `--mari-focus-ring-color`                              | The app's normal focus ring (defaults to `--primary`)            |
+| `--mari-cvd-good`, `--mari-cvd-warn`, `--mari-cvd-bad` | Status and gauge colours when you want your own blue/orange pair |
 
 Use the status and gauge tokens above rather than fixed greens and reds, and the colour-blind-safe
 switch reaches your theme too. Skip links (`.mari-skip-link`) stay reachable whatever a theme does.
+The import preview tells the user when a theme tries to change any of these.
+
+## Safety
+
+- The top bar (including its fullscreen auto-hide state), the chats sidebar and its chat rows, the
+  Library sidebar, Ctrl+K and the message box can be restyled, not hidden, moved, covered, faded,
+  filtered away or made unclickable. The guard measures them with and without the theme after the
+  theme loads, at 2.5 s and 10 s, when a chat opens, when a panel opens, when the colour scheme
+  changes and on resize, and switches a theme off in that tab when it breaks one.
+- Text a theme adds with `content:` is shown in the import preview. Added text in the chat or the
+  message box that asks for keys, passwords or sign-ins switches the theme off.
+- "Keep this theme?" survives a reload or a closed tab: unanswered means going back. Hovering or
+  focusing the bar pauses the countdown. Escape three times turns custom themes off in the tab;
+  an Escape that closes Ctrl+K, a menu or a dialog doesn't count.
 
 ## Changes
 
+- **v1.0.1**: guard v2, protected Accessibility values, added-text checks.
 - **v1** (first published contract): theme tokens, part hooks, backdrop and accent effects above.

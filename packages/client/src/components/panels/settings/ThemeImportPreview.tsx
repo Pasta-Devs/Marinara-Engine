@@ -13,6 +13,7 @@ import { cn } from "../../../lib/utils";
 import { extractImportantThemeCss, sanitizeAppCss } from "../../../lib/theme-css";
 import { checkProtectedChrome } from "../../../lib/theme-guard";
 import type { ThemeGuardProblem } from "../../../lib/theme-safety";
+import { problemText } from "../../layout/ThemeSafetyHost";
 import {
   convertHslTriplets,
   formatKiB,
@@ -89,7 +90,10 @@ export function ThemeImportPreview({
 
   const settingLabel = (key: ThemeSettingKey) => {
     const value = meta.settings?.[key];
-    const shown = typeof value === "boolean" ? "" : `: ${String(value)}`;
+    const shown =
+      typeof value === "boolean"
+        ? `: ${value ? t("theming.import.on", "on") : t("theming.import.off", "off")}`
+        : `: ${String(value)}`;
     const label = {
       colorScheme: t("theming.import.setting.colorScheme", "Color scheme"),
       visualStyle: t("theming.import.setting.visualStyle", "Visual style"),
@@ -98,7 +102,7 @@ export function ThemeImportPreview({
       background: t("theming.import.setting.background", "Background (Dark)"),
       backgroundLight: t("theming.import.setting.backgroundLight", "Background (Light)"),
       fontFamily: t("theming.import.setting.fontFamily", "Font"),
-      accentPulse: t("theming.import.setting.accentPulse", "Accent Pulse on"),
+      accentPulse: t("theming.import.setting.accentPulseName", "Accent Pulse"),
     }[key];
     return `${label}${shown}`;
   };
@@ -140,6 +144,22 @@ export function ThemeImportPreview({
           "theming.import.issue.hidesProtected",
           "{{selector}} tries to hide or move the top bar, a sidebar or Ctrl+K. Marinara keeps those in place, so that part won't work.",
           { selector: issue.selector },
+        );
+      case "adds-text":
+        return t("theming.import.issue.addsText", "It adds this text to the page: {{texts}}", {
+          texts: issue.texts.map((text) => `“${text}”`).join(", "),
+        });
+      case "asks-secrets":
+        return t(
+          "theming.import.issue.asksSecrets",
+          "It writes text that asks for private details: “{{text}}”. Marinara switches it off when that text shows in a chat. Never paste keys or passwords because a theme asks.",
+          { text: issue.text },
+        );
+      case "a11y":
+        return t(
+          "theming.import.issue.a11y",
+          "It tries to change your accessibility settings ({{what}}). Your choices in Appearance > Accessibility still win.",
+          { what: issue.what.join(", ") },
         );
       case "bad-meta":
         return t("theming.import.issue.badMeta", "Part of the file was left out: {{message}}", {
@@ -204,10 +224,10 @@ export function ThemeImportPreview({
           {chromeProblems.length > 0 ? (
             <li className="flex items-start gap-1.5 text-[var(--destructive)]">
               <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0" />
-              {t(
-                "theming.import.issue.hidesChrome",
-                "It hides, moves or covers the top bar or a sidebar. It will be switched off as soon as it does.",
-              )}
+              <span className="min-w-0 flex-1">
+                {chromeProblems.map((problem) => problemText(t, problem)).join(" ")}{" "}
+                {t("theming.import.issue.switchedOff", "It will be switched off as soon as it does.")}
+              </span>
             </li>
           ) : null}
           {issues.map((issue, index) => (
@@ -215,7 +235,7 @@ export function ThemeImportPreview({
               key={`${issue.kind}-${index}`}
               className={cn(
                 "flex flex-wrap items-start gap-1.5",
-                issue.kind === "css-too-big" || issue.kind === "meta-too-big"
+                issue.kind === "css-too-big" || issue.kind === "meta-too-big" || issue.kind === "asks-secrets"
                   ? "text-[var(--destructive)]"
                   : "text-[var(--foreground)]",
               )}
