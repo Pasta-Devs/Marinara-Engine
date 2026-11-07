@@ -42,6 +42,13 @@ import { readChatMetadata } from "../../lib/chat-wizard-defaults";
 import { useChatWindowLayout } from "../../hooks/use-chat-window-layout";
 import { ChatSettingsBubble } from "./ChatSettingsBubble";
 import { useOverhaulActive, useOverhaulMobile } from "../../stores/overhaul.store";
+import {
+  prefersReducedMotion,
+  SWIPE_AXIS_RATIO,
+  SWIPE_COMMIT_PX,
+  SWIPE_EDGE_PX,
+  SWIPE_START_PX,
+} from "../overhaul/use-horizontal-swipe";
 import { ChatWindowWelcomeModal } from "../modals/ChatWindowWelcomeModal";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { useGenerate } from "../../hooks/use-generate";
@@ -699,6 +706,10 @@ const LocalChatArea = memo(function LocalChatArea({
   const showHistoryTrimNotice = useUIStore((s) => s.showHistoryTrimNotice);
   const intuitiveSwipeNavigation = useUIStore((s) => s.intuitiveSwipeNavigation);
   const intuitiveSwipeRerollLatest = useUIStore((s) => s.intuitiveSwipeRerollLatest);
+  // New layout on phones: touch swipes on the latest reply follow their own per-device switch.
+  const overhaulMobile = useOverhaulMobile();
+  const phoneSwipeGestures = useUIStore((s) => s.swipeGestures);
+  const touchSwipesOn = overhaulMobile ? phoneSwipeGestures : intuitiveSwipeNavigation;
   const editLastMessageOnArrowUp = useUIStore((s) => s.editLastMessageOnArrowUp);
   const ttsLineVolume = useUIStore((s) => s.ttsLineVolume);
   const lastAppError = useUIStore((s) => s.lastAppError);
@@ -3210,9 +3221,10 @@ const LocalChatArea = memo(function LocalChatArea({
     encounterActive;
 
   const navigateLatestSwipe = useCallback(
-    (direction: -1 | 1) => {
+    (direction: -1 | 1, fromTouch = false) => {
       const supportsMode = chatMode === "conversation" || isRoleplay;
-      if (!supportsMode || !intuitiveSwipeNavigation || intuitiveSwipeBlocked) return false;
+      if (!supportsMode || !(fromTouch ? touchSwipesOn : intuitiveSwipeNavigation) || intuitiveSwipeBlocked)
+        return false;
       if (!activeChatId || isStreaming || !latestAssistantMessageForSwipes) return false;
 
       const swipeCount = latestAssistantMessageForSwipes.swipeCount ?? 1;
@@ -3229,11 +3241,19 @@ const LocalChatArea = memo(function LocalChatArea({
         return true;
       }
 
+      // Phones in the new layout: swiping past the last reply makes a new one, but a new reply costs
+      // money, so it always asks first; an accidental swipe never spends anything.
+      if (fromTouch && overhaulMobile) {
+        void handleRegenerate(latestAssistantMessageForSwipes.id);
+        return true;
+      }
       if (!intuitiveSwipeRerollLatest) return false;
       void handleRegenerate(latestAssistantMessageForSwipes.id, { skipTouchConfirm: true });
       return true;
     },
     [
+      overhaulMobile,
+      touchSwipesOn,
       activeChatId,
       chatMode,
       handleRegenerate,
@@ -3324,17 +3344,40 @@ const LocalChatArea = memo(function LocalChatArea({
   ]);
 
   useEffect(() => {
-    if (!intuitiveSwipeNavigation || intuitiveSwipeBlocked) return;
+    if (!touchSwipesOn || intuitiveSwipeBlocked) return;
+    // Phones in the new layout: only the latest reply reacts, and it follows the finger, so scrolling
+    // back through history can never change a reply by accident.
+    const latestOnly = overhaulMobile;
+    let followed: HTMLElement | null = null;
+    let axisLocked = false;
+    const release = (snap: boolean) => {
+      if (!followed) return;
+      const element = followed;
+      followed = null;
+      element.style.transition = snap && !prefersReducedMotion() ? "transform 180ms ease" : "none";
+      element.style.transform = "";
+    };
 
     const handleTouchStart = (event: TouchEvent) => {
       const target = event.target;
       const surface = closestChatScrollSurface(target);
+      axisLocked = false;
       if (event.touches.length !== 1 || !surface || shouldIgnoreIntuitiveSwipeTarget(target)) {
         intuitiveTouchStartRef.current = null;
         return;
       }
       const touch = event.touches.item(0);
       if (!touch) return;
+      if (latestOnly) {
+        const latestId = latestAssistantMessageForSwipes?.id;
+        const message = target instanceof Element ? target.closest<HTMLElement>("[data-message-id]") : null;
+        const nearEdge = touch.clientX < SWIPE_EDGE_PX || touch.clientX > window.innerWidth - SWIPE_EDGE_PX;
+        if (!latestId || message?.dataset.messageId !== latestId || nearEdge) {
+          intuitiveTouchStartRef.current = null;
+          return;
+        }
+        followed = message;
+      }
       intuitiveTouchStartRef.current = {
         x: touch.clientX,
         y: touch.clientY,
@@ -3342,9 +3385,31 @@ const LocalChatArea = memo(function LocalChatArea({
       };
     };
 
+    const handleTouchMove = (event: TouchEvent) => {
+      const start = intuitiveTouchStartRef.current;
+      const touch = event.touches.item(0);
+      if (!latestOnly || !start || !touch || !followed) return;
+      const deltaX = touch.clientX - start.x;
+      const deltaY = touch.clientY - start.y;
+      if (!axisLocked) {
+        if (Math.abs(deltaX) > SWIPE_START_PX && Math.abs(deltaX) > SWIPE_AXIS_RATIO * Math.abs(deltaY)) {
+          axisLocked = true;
+        } else if (Math.abs(deltaY) > SWIPE_START_PX) {
+          intuitiveTouchStartRef.current = null;
+          release(false);
+          return;
+        } else return;
+      }
+      if (prefersReducedMotion()) return;
+      const shown = Math.max(-96, Math.min(96, deltaX * 0.6));
+      followed.style.transition = "none";
+      followed.style.transform = `translateX(${shown}px)`;
+    };
+
     const handleTouchEnd = (event: TouchEvent) => {
       const start = intuitiveTouchStartRef.current;
       intuitiveTouchStartRef.current = null;
+      release(true);
       const touch = event.changedTouches.item(0);
       if (!start || !touch || shouldIgnoreIntuitiveSwipeTarget(start.target)) return;
 
@@ -3352,21 +3417,39 @@ const LocalChatArea = memo(function LocalChatArea({
       const deltaY = touch.clientY - start.y;
       const absX = Math.abs(deltaX);
       const absY = Math.abs(deltaY);
-      if (absX < INTUITIVE_SWIPE_MIN_DISTANCE || absY > INTUITIVE_SWIPE_MAX_VERTICAL_DRIFT || absX < absY * 1.35) {
+      if (latestOnly) {
+        if (!axisLocked || absX < SWIPE_COMMIT_PX) return;
+      } else if (
+        absX < INTUITIVE_SWIPE_MIN_DISTANCE ||
+        absY > INTUITIVE_SWIPE_MAX_VERTICAL_DRIFT ||
+        absX < absY * 1.35
+      ) {
         return;
       }
 
-      const handled = navigateLatestSwipe(deltaX < 0 ? 1 : -1);
-      if (handled) event.preventDefault();
+      const handled = navigateLatestSwipe(deltaX < 0 ? 1 : -1, true);
+      if (handled) {
+        event.preventDefault();
+        if (latestOnly) navigator.vibrate?.(10);
+      }
+    };
+    const handleTouchCancel = () => {
+      intuitiveTouchStartRef.current = null;
+      release(true);
     };
 
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
     window.addEventListener("touchend", handleTouchEnd, { passive: false });
+    window.addEventListener("touchcancel", handleTouchCancel);
     return () => {
+      release(false);
       window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
+      window.removeEventListener("touchcancel", handleTouchCancel);
     };
-  }, [intuitiveSwipeBlocked, intuitiveSwipeNavigation, navigateLatestSwipe]);
+  }, [intuitiveSwipeBlocked, latestAssistantMessageForSwipes, navigateLatestSwipe, overhaulMobile, touchSwipesOn]);
 
   useEffect(() => {
     if (chat) useChatStore.getState().setActiveChat(chat);

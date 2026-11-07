@@ -2340,6 +2340,8 @@ function GeneralSettings() {
   const setIntuitiveSwipeNavigation = useUIStore((s) => s.setIntuitiveSwipeNavigation);
   const intuitiveSwipeRerollLatest = useUIStore((s) => s.intuitiveSwipeRerollLatest);
   const setIntuitiveSwipeRerollLatest = useUIStore((s) => s.setIntuitiveSwipeRerollLatest);
+  const swipeGestures = useUIStore((s) => s.swipeGestures);
+  const setSwipeGestures = useUIStore((s) => s.setSwipeGestures);
   const editLastMessageOnArrowUp = useUIStore((s) => s.editLastMessageOnArrowUp);
   const setEditLastMessageOnArrowUp = useUIStore((s) => s.setEditLastMessageOnArrowUp);
   const editMessageOnDoubleClick = useUIStore((s) => s.editMessageOnDoubleClick);
@@ -2681,6 +2683,13 @@ function GeneralSettings() {
             onChange={setIntuitiveSwipeRerollLatest}
             disabled={!intuitiveSwipeNavigation}
             help={localizeUi("settings.controls.rerollLatest.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("phone-swipe-gestures")}
+            label={localizeUi("settings.controls.phoneSwipeGestures.label")}
+            checked={swipeGestures}
+            onChange={setSwipeGestures}
+            help={localizeUi("settings.controls.phoneSwipeGestures.help")}
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("guide-generations")}

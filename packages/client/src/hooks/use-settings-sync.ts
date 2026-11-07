@@ -82,6 +82,8 @@ const LOCAL_ONLY_SETTING_KEYS = [
   "sidebarOpen",
   "sidebarWidth",
   "rightPanelWidth",
+  // Phone swipe gestures are a habit of the hand holding that phone.
+  "swipeGestures",
 ] as const;
 
 export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings {
