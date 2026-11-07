@@ -34,7 +34,7 @@ The installer makes a Git copy of the latest stable release, so Marinara can upd
 - **Start:** double-click the desktop shortcut or the Start Menu entry. From a source install, run `start.bat` in the Marinara folder.
 - **Stop:** the shortcut opens a console window. Press <kbd>Ctrl</kbd>+<kbd>C</kbd> in it.
 
-If Marinara is already running, the shortcut reopens it in your browser. If the running copy is an older version than the one in the folder (for example after you switched versions), the launcher asks you to close the old console window first, so you never land on the old version by mistake.
+If Marinara is already running, the shortcut reopens it in your browser. If the running copy is a different version from the one in the folder (for example after you switched versions), the launcher says *"A different version of Marinara Engine is still running"* and asks you to close the old console window first, so you never land on the wrong version by mistake. A test branch such as `staging` or `ui/...` updates from its own copy on GitHub.
 
 ## Install from source
 

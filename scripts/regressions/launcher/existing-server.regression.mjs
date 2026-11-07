@@ -72,7 +72,7 @@ const oldBuildServer = serveBuild(otherCommit);
 await listen(oldBuildServer);
 const oldBuildResult = await runChecker(oldBuildServer.address().port);
 assert.equal(oldBuildResult.status, 1, oldBuildResult.stdout);
-assert.match(oldBuildResult.stderr, /older or different Marinara Engine is still running/u);
+assert.match(oldBuildResult.stderr, /different version of Marinara Engine is still running/u);
 assert.match(oldBuildResult.stderr, /Close the Marinara console window/u);
 await close(oldBuildServer);
 
