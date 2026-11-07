@@ -4,8 +4,9 @@
 // Tabs that don't fit stay open in the overflow menu at the end of the strip
 // (nothing is closed for lack of room). Tabs can be grouped Vivaldi-style:
 // a group shows as one tab with a count, and when you're on one of its tabs
-// a second row lists the group's tabs. Drag a tab onto the middle of another
-// to group them; drag to either side to reorder. Right-click for group options.
+// a second row lists the group's tabs. Dragging a tab reorders it (a caret marks
+// the spot); hold Shift while dropping onto another tab to group them, or use
+// the right-click menu.
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -14,7 +15,15 @@ import type { Chat } from "@marinara-engine/shared";
 import { overhaulTabKey, useOverhaulStore, type OverhaulTab } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
-import { TabIcon, TabLabel, TabPresence, activateTab, closeTabAndMove, goHome } from "./OverhaulTopBar";
+import {
+  TabIcon,
+  TabLabel,
+  TabPresence,
+  activateTab,
+  closeTabAndMove,
+  goHome,
+  reopenClosedTab,
+} from "./OverhaulTopBar";
 
 type Placed = { tab: OverhaulTab; key: string; index: number };
 type StripItem =
@@ -150,6 +159,25 @@ export function DesktopTabStrip({
   };
 
   const closeTab = (tab: OverhaulTab) => closeTabAndMove(tab, store().tabs, currentKey);
+  const closedCount = useOverhaulStore((s) => s.closedTabs.length);
+  // Ctrl+Shift+T reopens the last closed tab where the browser lets the page have it (installed app, Firefox).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey || event.key.toLowerCase() !== "t")
+        return;
+      if (reopenClosedTab()) event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const closeOtherTabs = (keep: Placed) => {
+    for (const tab of store().tabs) {
+      if (overhaulTabKey(tab) === keep.key) continue;
+      store().rememberClosedTab(tab);
+      store().closeTab(tab);
+    }
+    if (currentKey !== keep.key) activateTab(keep.tab);
+  };
   const closeGroup = (id: string) => {
     const all = store().tabs;
     const members = all.filter((tab) => tab.group === id);
@@ -205,7 +233,7 @@ export function DesktopTabStrip({
     setDrag(null);
     setDrop(null);
   };
-  /** Over a strip item: the outer thirds reorder, the middle groups (tabs only). */
+  /** Over a strip item: before/after by the pointer's half; with Shift, the middle groups (tabs only). */
   const overStripItem = (event: DragEvent, item: StripItem) => {
     if (!drag) return;
     event.preventDefault();
@@ -213,8 +241,9 @@ export function DesktopTabStrip({
     const self = drag.kind === "tab" ? drag.key === item.itemKey : item.itemKey === `group:${drag.id}`;
     const box = event.currentTarget.getBoundingClientRect();
     const x = (event.clientX - box.left) / box.width;
+    // Plain drops reorder; Shift over the middle of a tab or group stacks (groups) instead.
     const where =
-      x < 0.3 ? "before" : x > 0.7 ? "after" : drag.kind === "tab" && !self ? "stack" : x < 0.5 ? "before" : "after";
+      event.shiftKey && drag.kind === "tab" && !self && x >= 0.25 && x <= 0.75 ? "stack" : x < 0.5 ? "before" : "after";
     setDrop({ itemKey: item.itemKey, where });
   };
   /** Over a group-row tab or an overflow row: before/after along `axis`. */
@@ -547,6 +576,15 @@ export function DesktopTabStrip({
                   {menu.entry.tab.group ? (
                     <button type="button" role="menuitem" onClick={() => store().setTabGroup(menu.entry.key, null)}>
                       {localize("Remove from group")}
+                    </button>
+                  ) : null}
+                  <div className="ov-menu__sep" role="separator" />
+                  <button type="button" role="menuitem" disabled={!closedCount} onClick={() => reopenClosedTab()}>
+                    {localize("Reopen closed tab")}
+                  </button>
+                  {tabs.length > 1 ? (
+                    <button type="button" role="menuitem" onClick={() => closeOtherTabs(menu.entry)}>
+                      {localize("Close other tabs")}
                     </button>
                   ) : null}
                   <button type="button" role="menuitem" className="is-danger" onClick={() => closeTab(menu.entry.tab)}>

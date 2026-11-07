@@ -273,6 +273,9 @@ export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   if (tab.kind === "chat") {
     const chat = chats.find((entry) => entry.id === tab.id);
     label = chat ? getChatDisplayName(chat) || null : null;
+    // A shared "[game] " style prefix would make every such tab read "[game…"; the tab's icon shows the mode.
+    const unprefixed = label?.replace(/^\[[^\]]{1,24}\]\s*/, "");
+    if (unprefixed) label = unprefixed;
   } else if (tab.kind === "character") label = parseCharacterName(character.data);
   else if (tab.kind === "persona") label = nameOf(persona.data);
   else if (tab.kind === "lorebook") label = nameOf(lorebook.data);
@@ -294,7 +297,7 @@ export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   const text = label ?? localize("Untitled");
   // Short names keep their natural width; only long names give way when the strip is full.
   return (
-    <span className="ov-tab__label" data-short={text.length <= 10 ? "true" : undefined}>
+    <span className="ov-tab__label" data-short={text.length <= 10 ? "true" : undefined} title={text}>
       {text}
     </span>
   );
@@ -436,12 +439,22 @@ export function useTabBookkeeping(current: OverhaulTab | null, chats: Chat[]) {
 export function closeTabAndMove(tab: OverhaulTab, tabs: OverhaulTab[], currentKey: string | null) {
   const key = overhaulTabKey(tab);
   const index = tabs.findIndex((entry) => overhaulTabKey(entry) === key);
+  useOverhaulStore.getState().rememberClosedTab(tab);
   useOverhaulStore.getState().closeTab(tab);
   if (key !== currentKey) return;
   const remaining = tabs.filter((entry) => overhaulTabKey(entry) !== key);
   const next = remaining[Math.min(index, remaining.length - 1)];
   if (next) activateTab(next);
   else goHome();
+}
+
+/** Brings back the tab closed most recently (tab menu, Ctrl+Shift+T where the browser allows it). */
+export function reopenClosedTab() {
+  const tab = useOverhaulStore.getState().takeClosedTab();
+  if (!tab) return false;
+  useOverhaulStore.getState().touchTab(tab);
+  activateTab(tab);
+  return true;
 }
 
 /**

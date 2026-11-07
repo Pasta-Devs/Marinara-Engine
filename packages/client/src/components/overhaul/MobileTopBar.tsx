@@ -324,6 +324,7 @@ export function OverhaulMobileTopBar() {
   const activeChatId = useChatStore((s) => s.activeChatId);
   const chatSettingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
   const allTabsOpen = useOverhaulStore((s) => s.allTabsOpen);
+  const tabCount = useOverhaulStore((s) => s.tabs.length);
   const [stackOpen, setStackOpen] = useState(false);
   const stackRef = useRef<HTMLButtonElement | null>(null);
   const wide = useWideEnoughForLabel();
@@ -423,6 +424,18 @@ export function OverhaulMobileTopBar() {
             <Settings2 size={22} />
           </button>
         ) : null}
+        {/* Safari's tabs button: the open-tab count, one tap to All Tabs. */}
+        <button
+          type="button"
+          className={cn("ovm-icon-btn", allTabsOpen && "is-on")}
+          aria-label={localize("All Tabs")}
+          title={localize("All Tabs")}
+          onClick={() => useOverhaulStore.getState().setAllTabsOpen(!allTabsOpen)}
+        >
+          <span className="ovm-tabs-icon" aria-hidden="true">
+            {tabCount + 1}
+          </span>
+        </button>
         <button
           ref={stackRef}
           type="button"
