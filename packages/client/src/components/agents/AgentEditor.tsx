@@ -1820,11 +1820,186 @@ export function AgentEditor() {
     createAgent,
     openAgentDetail,
   ]);
+  // Unsaved edits survive a reload, as in the Character editor (user panel 3, PV6). Keys are never written
+  // to browser storage, and a new agent has no saved copy to come back to.
   useEditorLeaveSave(
     `agentDetailId:${agentDetailId}`,
     dirty,
     handleSave,
     updateAgent.isPending || createAgent.isPending,
+    {
+      ready: Boolean(dbConfig || builtIn) && !isNewCustomAgent,
+      name: localName,
+      get: () => ({
+        localName,
+        localDescription,
+        localPhase,
+        localConnectionId,
+        localImageConnectionId,
+        localContextSize,
+        localMaxTokens,
+        localRunInterval,
+        localVideoRunInterval,
+        localEchoMessageDelaySeconds,
+        localActivationQuestion,
+        localActivationThreshold,
+        localActivationMaxSkip,
+        localActivationKeywordsText,
+        localActivationScanDepth,
+        localPrompt,
+        localAuthor,
+        localPromptTemplates,
+        localResultType,
+        localOutputOptions,
+        localCustomCapabilities,
+        localContextSources,
+        localInjectAsSection,
+        localIncludePreGenInjections,
+        localIncludeParallelResults,
+        localEnabledTools,
+        localLorebookWriteEnabled,
+        localWritableLorebookId,
+        localLorebookReadBehindMessages,
+        localLorebookBackfillEnabled,
+        localLorebookBackfillChunkSize,
+        localMusicProvider,
+        localCustomMusicSource,
+        localCustomMusicFolder,
+        localCustomMusicExternalFolder,
+        localSourceLorebookIds,
+        localUseChatActiveLorebooks,
+        localTriggerLorebooksForAgentCalls,
+        localBatchWithOtherAgents,
+        localSourceFileIds,
+        localAutoGenerateAvatars,
+        localIncludeOutfitInAvatars,
+        localUseAvatarReferences,
+        localIncludeCharacterAppearance,
+        localImagePositivePrompt,
+        localImageNegativePrompt,
+        localStoryboardSettings,
+        localHomeWidgets,
+        localProseGuardianBanned,
+        localProseGuardianAvoid,
+        localProseGuardianPrefer,
+        localProseGuardianHoldForRewrite,
+        localSecretPlotEnabled,
+        localSecretPlotRunInterval,
+        localSecretPlotPrompt,
+      }),
+      restore: (value) => {
+        if (!value || typeof value !== "object") return;
+        const kept = value as Record<string, unknown>;
+        if ("localName" in kept) setLocalName(kept.localName as typeof localName);
+        if ("localDescription" in kept) setLocalDescription(kept.localDescription as typeof localDescription);
+        if ("localPhase" in kept) setLocalPhase(kept.localPhase as typeof localPhase);
+        if ("localConnectionId" in kept) setLocalConnectionId(kept.localConnectionId as typeof localConnectionId);
+        if ("localImageConnectionId" in kept)
+          setLocalImageConnectionId(kept.localImageConnectionId as typeof localImageConnectionId);
+        if ("localContextSize" in kept) setLocalContextSize(kept.localContextSize as typeof localContextSize);
+        if ("localMaxTokens" in kept) setLocalMaxTokens(kept.localMaxTokens as typeof localMaxTokens);
+        if ("localRunInterval" in kept) setLocalRunInterval(kept.localRunInterval as typeof localRunInterval);
+        if ("localVideoRunInterval" in kept)
+          setLocalVideoRunInterval(kept.localVideoRunInterval as typeof localVideoRunInterval);
+        if ("localEchoMessageDelaySeconds" in kept)
+          setLocalEchoMessageDelaySeconds(kept.localEchoMessageDelaySeconds as typeof localEchoMessageDelaySeconds);
+        if ("localActivationQuestion" in kept)
+          setLocalActivationQuestion(kept.localActivationQuestion as typeof localActivationQuestion);
+        if ("localActivationThreshold" in kept)
+          setLocalActivationThreshold(kept.localActivationThreshold as typeof localActivationThreshold);
+        if ("localActivationMaxSkip" in kept)
+          setLocalActivationMaxSkip(kept.localActivationMaxSkip as typeof localActivationMaxSkip);
+        if ("localActivationKeywordsText" in kept)
+          setLocalActivationKeywordsText(kept.localActivationKeywordsText as typeof localActivationKeywordsText);
+        if ("localActivationScanDepth" in kept)
+          setLocalActivationScanDepth(kept.localActivationScanDepth as typeof localActivationScanDepth);
+        if ("localPrompt" in kept) setLocalPrompt(kept.localPrompt as typeof localPrompt);
+        if ("localAuthor" in kept) setLocalAuthor(kept.localAuthor as typeof localAuthor);
+        if ("localPromptTemplates" in kept)
+          setLocalPromptTemplates(kept.localPromptTemplates as typeof localPromptTemplates);
+        if ("localResultType" in kept) setLocalResultType(kept.localResultType as typeof localResultType);
+        if ("localOutputOptions" in kept) setLocalOutputOptions(kept.localOutputOptions as typeof localOutputOptions);
+        if ("localCustomCapabilities" in kept)
+          setLocalCustomCapabilities(kept.localCustomCapabilities as typeof localCustomCapabilities);
+        if ("localContextSources" in kept)
+          setLocalContextSources(kept.localContextSources as typeof localContextSources);
+        if ("localInjectAsSection" in kept)
+          setLocalInjectAsSection(kept.localInjectAsSection as typeof localInjectAsSection);
+        if ("localIncludePreGenInjections" in kept)
+          setLocalIncludePreGenInjections(kept.localIncludePreGenInjections as typeof localIncludePreGenInjections);
+        if ("localIncludeParallelResults" in kept)
+          setLocalIncludeParallelResults(kept.localIncludeParallelResults as typeof localIncludeParallelResults);
+        if ("localEnabledTools" in kept) setLocalEnabledTools(kept.localEnabledTools as typeof localEnabledTools);
+        if ("localLorebookWriteEnabled" in kept)
+          setLocalLorebookWriteEnabled(kept.localLorebookWriteEnabled as typeof localLorebookWriteEnabled);
+        if ("localWritableLorebookId" in kept)
+          setLocalWritableLorebookId(kept.localWritableLorebookId as typeof localWritableLorebookId);
+        if ("localLorebookReadBehindMessages" in kept)
+          setLocalLorebookReadBehindMessages(
+            kept.localLorebookReadBehindMessages as typeof localLorebookReadBehindMessages,
+          );
+        if ("localLorebookBackfillEnabled" in kept)
+          setLocalLorebookBackfillEnabled(kept.localLorebookBackfillEnabled as typeof localLorebookBackfillEnabled);
+        if ("localLorebookBackfillChunkSize" in kept)
+          setLocalLorebookBackfillChunkSize(
+            kept.localLorebookBackfillChunkSize as typeof localLorebookBackfillChunkSize,
+          );
+        if ("localMusicProvider" in kept) setLocalMusicProvider(kept.localMusicProvider as typeof localMusicProvider);
+        if ("localCustomMusicSource" in kept)
+          setLocalCustomMusicSource(kept.localCustomMusicSource as typeof localCustomMusicSource);
+        if ("localCustomMusicFolder" in kept)
+          setLocalCustomMusicFolder(kept.localCustomMusicFolder as typeof localCustomMusicFolder);
+        if ("localCustomMusicExternalFolder" in kept)
+          setLocalCustomMusicExternalFolder(
+            kept.localCustomMusicExternalFolder as typeof localCustomMusicExternalFolder,
+          );
+        if ("localSourceLorebookIds" in kept)
+          setLocalSourceLorebookIds(kept.localSourceLorebookIds as typeof localSourceLorebookIds);
+        if ("localUseChatActiveLorebooks" in kept)
+          setLocalUseChatActiveLorebooks(kept.localUseChatActiveLorebooks as typeof localUseChatActiveLorebooks);
+        if ("localTriggerLorebooksForAgentCalls" in kept)
+          setLocalTriggerLorebooksForAgentCalls(
+            kept.localTriggerLorebooksForAgentCalls as typeof localTriggerLorebooksForAgentCalls,
+          );
+        if ("localBatchWithOtherAgents" in kept)
+          setLocalBatchWithOtherAgents(kept.localBatchWithOtherAgents as typeof localBatchWithOtherAgents);
+        if ("localSourceFileIds" in kept) setLocalSourceFileIds(kept.localSourceFileIds as typeof localSourceFileIds);
+        if ("localAutoGenerateAvatars" in kept)
+          setLocalAutoGenerateAvatars(kept.localAutoGenerateAvatars as typeof localAutoGenerateAvatars);
+        if ("localIncludeOutfitInAvatars" in kept)
+          setLocalIncludeOutfitInAvatars(kept.localIncludeOutfitInAvatars as typeof localIncludeOutfitInAvatars);
+        if ("localUseAvatarReferences" in kept)
+          setLocalUseAvatarReferences(kept.localUseAvatarReferences as typeof localUseAvatarReferences);
+        if ("localIncludeCharacterAppearance" in kept)
+          setLocalIncludeCharacterAppearance(
+            kept.localIncludeCharacterAppearance as typeof localIncludeCharacterAppearance,
+          );
+        if ("localImagePositivePrompt" in kept)
+          setLocalImagePositivePrompt(kept.localImagePositivePrompt as typeof localImagePositivePrompt);
+        if ("localImageNegativePrompt" in kept)
+          setLocalImageNegativePrompt(kept.localImageNegativePrompt as typeof localImageNegativePrompt);
+        if ("localStoryboardSettings" in kept)
+          setLocalStoryboardSettings(kept.localStoryboardSettings as typeof localStoryboardSettings);
+        if ("localHomeWidgets" in kept) setLocalHomeWidgets(kept.localHomeWidgets as typeof localHomeWidgets);
+        if ("localProseGuardianBanned" in kept)
+          setLocalProseGuardianBanned(kept.localProseGuardianBanned as typeof localProseGuardianBanned);
+        if ("localProseGuardianAvoid" in kept)
+          setLocalProseGuardianAvoid(kept.localProseGuardianAvoid as typeof localProseGuardianAvoid);
+        if ("localProseGuardianPrefer" in kept)
+          setLocalProseGuardianPrefer(kept.localProseGuardianPrefer as typeof localProseGuardianPrefer);
+        if ("localProseGuardianHoldForRewrite" in kept)
+          setLocalProseGuardianHoldForRewrite(
+            kept.localProseGuardianHoldForRewrite as typeof localProseGuardianHoldForRewrite,
+          );
+        if ("localSecretPlotEnabled" in kept)
+          setLocalSecretPlotEnabled(kept.localSecretPlotEnabled as typeof localSecretPlotEnabled);
+        if ("localSecretPlotRunInterval" in kept)
+          setLocalSecretPlotRunInterval(kept.localSecretPlotRunInterval as typeof localSecretPlotRunInterval);
+        if ("localSecretPlotPrompt" in kept)
+          setLocalSecretPlotPrompt(kept.localSecretPlotPrompt as typeof localSecretPlotPrompt);
+        setDirty(true);
+      },
+    },
   );
 
   const handleExportAgent = () => {

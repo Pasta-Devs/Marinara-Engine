@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { create } from "zustand";
 import { registerEditorLeaveHandler } from "../lib/editor-leave";
 import { showChoiceDialog } from "../lib/app-dialogs";
 import { useUIStore } from "../stores/ui.store";
@@ -25,6 +26,35 @@ export interface EditorUnsavedDraft {
   ready: boolean;
   get: () => unknown;
   restore: (value: unknown) => void;
+  /** The item's name, so the offer says whose changes they are (user panel 3, PN3). */
+  name?: string;
+}
+
+/**
+ * The open editor's offer of kept edits, shown as a banner under its header (OvEditorHead) rather than a
+ * global toast that outlives the editor (user panel 3, PV6/PN3). It stays until Restore or Discard.
+ */
+export interface EditorDraftOffer {
+  key: string;
+  name: string;
+  savedAt: number;
+  /** "found": kept edits to restore; "restored": they are back in the editor, not saved yet. */
+  state: "found" | "restored";
+  restore: () => void;
+  discard: () => void;
+}
+
+export const useEditorDraftOfferStore = create<{
+  offer: EditorDraftOffer | null;
+  setOffer: (offer: EditorDraftOffer | null) => void;
+}>((set) => ({
+  offer: null,
+  setOffer: (offer) => set({ offer }),
+}));
+
+function clearOffer(key: string) {
+  const store = useEditorDraftOfferStore.getState();
+  if (store.offer?.key === key) store.setOffer(null);
 }
 
 const DRAFT_PREFIX = "marinara-editor-draft:";
@@ -109,6 +139,11 @@ export function useEditorLeaveSave(
                 saving = false;
               }
             }
+            // "Don't save" throws the edits away, kept copy included, so it is never offered again (PR3).
+            if (choice === "discard") {
+              dropDraft(key);
+              clearOffer(key);
+            }
             // The editor is about to unmount; its edits go with it.
             latest.current = { ...latest.current, dirty: false };
             const navigate = latestNavigation;
@@ -157,7 +192,11 @@ export function useEditorLeaveSave(
   const wasDirty = useRef(false);
   useEffect(() => {
     // Saved, or left with "Don't save": the kept copy is no longer wanted.
-    if (wasDirty.current && !dirty && key) dropDraft(key);
+    if (wasDirty.current && !dirty && key) {
+      dropDraft(key);
+      const offer = useEditorDraftOfferStore.getState().offer;
+      if (offer?.key === key && offer.state === "restored") clearOffer(key);
+    }
     wasDirty.current = dirty;
   }, [dirty, key]);
   const offeredFor = useRef<string | null>(null);
@@ -167,30 +206,33 @@ export function useEditorLeaveSave(
     offeredFor.current = key;
     const stored = readDraft(key);
     if (!stored) return;
-    const minutes = Math.max(1, Math.round((Date.now() - stored.savedAt) / 60_000));
-    let restored = false;
-    toast(latest.current.t("editor.draft.found", { defaultValue: "Unsaved changes from before the page reloaded" }), {
-      id: `editor-draft-${key}`,
-      duration: 30_000,
-      description: latest.current.t("editor.draft.age", {
-        count: minutes,
-        defaultValue: "From {{count}} min ago. Restore them, then Save to keep them.",
-      }),
-      action: {
-        label: latest.current.t("editor.draft.restore", { defaultValue: "Restore" }),
-        onClick: () => {
-          restored = true;
-          draftRef.current?.restore(stored.value);
-        },
+    const offer: EditorDraftOffer = {
+      key,
+      name: draftRef.current?.name?.trim() || "",
+      savedAt: stored.savedAt,
+      state: "found",
+      restore: () => {
+        draftRef.current?.restore(stored.value);
+        // Back in the editor now (and kept again if the page goes away while unsaved): the stored copy
+        // must not come back after a later Save or "Don't save" (user panel 3, PR3).
+        dropDraft(key);
+        useEditorDraftOfferStore.getState().setOffer({ ...offer, state: "restored" });
       },
-      onDismiss: () => {
-        if (!restored) dropDraft(key);
+      discard: () => {
+        dropDraft(key);
+        clearOffer(key);
       },
-      onAutoClose: () => {
-        if (!restored) dropDraft(key);
-      },
-    });
+    };
+    useEditorDraftOfferStore.getState().setOffer(offer);
   }, [draftReady, key]);
+  // The offer belongs to this editor: it goes when the editor does, and comes back when it opens again.
+  useEffect(() => {
+    if (!key) return;
+    return () => {
+      offeredFor.current = null;
+      clearOffer(key);
+    };
+  }, [key]);
   useEffect(() => {
     if (!dirty || !key) return;
     const warn = (event: BeforeUnloadEvent) => {

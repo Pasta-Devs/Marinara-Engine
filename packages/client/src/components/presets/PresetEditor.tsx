@@ -468,7 +468,43 @@ export function PresetEditor() {
   }, [closePresetDetail, data?.preset, deletePreset, localizeUi, presetDetailId]);
 
   const savingPreset = updatePreset.isPending || flushingOps;
-  useEditorLeaveSave(`presetDetailId:${presetDetailId}`, dirty, handleSave, savingPreset);
+  // Unsaved edits survive a reload, as in the Character editor (user panel 3, PV6).
+  useEditorLeaveSave(`presetDetailId:${presetDetailId}`, dirty, handleSave, savingPreset, {
+    ready: Boolean(data) && hydratedPresetIdRef.current === presetDetailId,
+    name: localName || (data?.preset as { name?: string } | undefined)?.name,
+    get: () => ({
+      form: formDirty
+        ? {
+            name: localName,
+            description: localDescription,
+            wrapFormat: localWrapFormat,
+            author: localAuthor,
+            conversationPrompt: localConversationPrompt,
+            gamePrompt: localGamePrompt,
+            parameters: localParameters,
+            scopedRegexMode: localScopedRegexMode,
+          }
+        : null,
+      ops: draftOps,
+    }),
+    restore: (value) => {
+      const kept = value as { form?: PresetFormFields | null; ops?: typeof draftOps } | null;
+      if (!kept) return;
+      if (kept.form && typeof kept.form === "object") {
+        const form = kept.form;
+        setLocalName(form.name ?? "");
+        setLocalDescription(form.description ?? "");
+        if (form.wrapFormat) setLocalWrapFormat(form.wrapFormat);
+        setLocalAuthor(form.author ?? "");
+        setLocalConversationPrompt(form.conversationPrompt ?? "");
+        setLocalGamePrompt(form.gamePrompt ?? "");
+        if (form.parameters && typeof form.parameters === "object") setLocalParameters(form.parameters);
+        if (form.scopedRegexMode) setLocalScopedRegexMode(form.scopedRegexMode);
+        markDirty();
+      }
+      if (Array.isArray(kept.ops) && kept.ops.length) setDraftOps(kept.ops);
+    },
+  });
   const markDirty = useCallback(() => {
     editRevisionRef.current += 1;
     setDirty(true);

@@ -1805,16 +1805,21 @@ export function LorebookEditor() {
   useEditorLeaveSave(`lorebookDetailId:${lorebookId}`, editorDirty, handleSaveAll, saving || savingEntries, {
     // Entry edits are what a writer loses on a reload; the book's own settings are quick to redo.
     ready: overhaulActive && Boolean(lorebook) && entries.length > 0,
+    name: lorebook?.name,
     get: () => Object.fromEntries(entryDraftsRef.current),
     restore: (value) => {
       if (!value || typeof value !== "object") return;
       const known = new Set(entries.map((entry) => entry.id));
+      let firstRestored: string | null = null;
       for (const [id, changes] of Object.entries(value as Record<string, Partial<LorebookEntry>>)) {
         if (!known.has(id) || !changes || typeof changes !== "object") continue;
         entryDraftsRef.current.set(id, { ...entryDraftsRef.current.get(id), ...changes });
+        firstRestored ??= id;
       }
       setEntryDraftCount(entryDraftsRef.current.size);
       setEntryDraftsRestored((count) => count + 1);
+      // Open the entry that got its changes back, not whichever entry was first (user panel 3, PR4).
+      if (firstRestored) jumpToEntry(firstRestored);
     },
   });
 

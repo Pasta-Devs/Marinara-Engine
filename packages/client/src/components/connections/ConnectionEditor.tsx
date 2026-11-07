@@ -1252,11 +1252,174 @@ export function ConnectionEditor({
     conn,
   ]);
 
+  // Unsaved edits survive a reload, as in the Character editor (user panel 3, PV6). Keys and tokens are
+  // never written to browser storage: those are typed again.
   useEditorLeaveSave(
     connectionId ? "" : `connectionDetailId:${connectionDetailId}`,
     dirty,
     handleSave,
     updateConnection.isPending || saveConnectionDefaults.isPending,
+    {
+      ready: Boolean(conn) && !isLoading,
+      name: localName || (conn?.name as string | undefined),
+      get: () => ({
+        localName,
+        localProvider,
+        localBaseUrl,
+        localShowUsageWidget,
+        localShowUsageFiveHour,
+        localShowUsageWeekly,
+        localModel,
+        localMaxContext,
+        localMaxParallelJobs,
+        localMaxRequestsPerMinute,
+        localEnableCaching,
+        localAnthropicExtendedCacheTtl,
+        localCachingAtDepth,
+        localDefaultForAgents,
+        localEmbeddingModel,
+        localEmbeddingBaseUrl,
+        localEmbeddingConnectionId,
+        localPromptPresetId,
+        localOpenrouterProvider,
+        localImageGenerationSource,
+        localComfyuiWorkflow,
+        localImageService,
+        localImageEndpointId,
+        localImagePromptInstructions,
+        localImageGenerationQuality,
+        localVideoGenerationSource,
+        localVideoService,
+        localVideoPromptInstructions,
+        localDecisionSource,
+        localCredentialsFrom,
+        localMaxStateTokens,
+        localDecisionTimeoutMs,
+        localAudioSource,
+        localAudioGenerationSource,
+        localAudioGenerationCallbackUrl,
+        localAudioSoundEffectsModel,
+        localAudioVoice,
+        localAudioTimeoutMs,
+        localAudioSoundEffects,
+        localAudioMusic,
+        localAudioMusicEndpoint,
+        localAudioSoundEffectsEndpoint,
+        localAudioGenerationFormat,
+        localMaxTokensOverride,
+        localImageInput,
+        localClaudeFastMode,
+        localTreatAsLocalEndpoint,
+        localDefaultParametersEnabled,
+        localImageCaptioningEnabled,
+        localImageCaptioningConnectionId,
+        localImageDefaults,
+        localVideoDefaults,
+      }),
+      restore: (value) => {
+        if (!value || typeof value !== "object") return;
+        const kept = value as Record<string, unknown>;
+        if ("localName" in kept) setLocalName(kept.localName as typeof localName);
+        if ("localProvider" in kept) setLocalProvider(kept.localProvider as typeof localProvider);
+        if ("localBaseUrl" in kept) setLocalBaseUrl(kept.localBaseUrl as typeof localBaseUrl);
+        if ("localShowUsageWidget" in kept)
+          setLocalShowUsageWidget(kept.localShowUsageWidget as typeof localShowUsageWidget);
+        if ("localShowUsageFiveHour" in kept)
+          setLocalShowUsageFiveHour(kept.localShowUsageFiveHour as typeof localShowUsageFiveHour);
+        if ("localShowUsageWeekly" in kept)
+          setLocalShowUsageWeekly(kept.localShowUsageWeekly as typeof localShowUsageWeekly);
+        if ("localModel" in kept) setLocalModel(kept.localModel as typeof localModel);
+        if ("localMaxContext" in kept) setLocalMaxContext(kept.localMaxContext as typeof localMaxContext);
+        if ("localMaxParallelJobs" in kept)
+          setLocalMaxParallelJobs(kept.localMaxParallelJobs as typeof localMaxParallelJobs);
+        if ("localMaxRequestsPerMinute" in kept)
+          setLocalMaxRequestsPerMinute(kept.localMaxRequestsPerMinute as typeof localMaxRequestsPerMinute);
+        if ("localEnableCaching" in kept) setLocalEnableCaching(kept.localEnableCaching as typeof localEnableCaching);
+        if ("localAnthropicExtendedCacheTtl" in kept)
+          setLocalAnthropicExtendedCacheTtl(
+            kept.localAnthropicExtendedCacheTtl as typeof localAnthropicExtendedCacheTtl,
+          );
+        if ("localCachingAtDepth" in kept)
+          setLocalCachingAtDepth(kept.localCachingAtDepth as typeof localCachingAtDepth);
+        if ("localDefaultForAgents" in kept)
+          setLocalDefaultForAgents(kept.localDefaultForAgents as typeof localDefaultForAgents);
+        if ("localEmbeddingModel" in kept)
+          setLocalEmbeddingModel(kept.localEmbeddingModel as typeof localEmbeddingModel);
+        if ("localEmbeddingBaseUrl" in kept)
+          setLocalEmbeddingBaseUrl(kept.localEmbeddingBaseUrl as typeof localEmbeddingBaseUrl);
+        if ("localEmbeddingConnectionId" in kept)
+          setLocalEmbeddingConnectionId(kept.localEmbeddingConnectionId as typeof localEmbeddingConnectionId);
+        if ("localPromptPresetId" in kept)
+          setLocalPromptPresetId(kept.localPromptPresetId as typeof localPromptPresetId);
+        if ("localOpenrouterProvider" in kept)
+          setLocalOpenrouterProvider(kept.localOpenrouterProvider as typeof localOpenrouterProvider);
+        if ("localImageGenerationSource" in kept)
+          setLocalImageGenerationSource(kept.localImageGenerationSource as typeof localImageGenerationSource);
+        if ("localComfyuiWorkflow" in kept)
+          setLocalComfyuiWorkflow(kept.localComfyuiWorkflow as typeof localComfyuiWorkflow);
+        if ("localImageService" in kept) setLocalImageService(kept.localImageService as typeof localImageService);
+        if ("localImageEndpointId" in kept)
+          setLocalImageEndpointId(kept.localImageEndpointId as typeof localImageEndpointId);
+        if ("localImagePromptInstructions" in kept)
+          setLocalImagePromptInstructions(kept.localImagePromptInstructions as typeof localImagePromptInstructions);
+        if ("localImageGenerationQuality" in kept)
+          setLocalImageGenerationQuality(kept.localImageGenerationQuality as typeof localImageGenerationQuality);
+        if ("localVideoGenerationSource" in kept)
+          setLocalVideoGenerationSource(kept.localVideoGenerationSource as typeof localVideoGenerationSource);
+        if ("localVideoService" in kept) setLocalVideoService(kept.localVideoService as typeof localVideoService);
+        if ("localVideoPromptInstructions" in kept)
+          setLocalVideoPromptInstructions(kept.localVideoPromptInstructions as typeof localVideoPromptInstructions);
+        if ("localDecisionSource" in kept)
+          setLocalDecisionSource(kept.localDecisionSource as typeof localDecisionSource);
+        if ("localCredentialsFrom" in kept)
+          setLocalCredentialsFrom(kept.localCredentialsFrom as typeof localCredentialsFrom);
+        if ("localMaxStateTokens" in kept)
+          setLocalMaxStateTokens(kept.localMaxStateTokens as typeof localMaxStateTokens);
+        if ("localDecisionTimeoutMs" in kept)
+          setLocalDecisionTimeoutMs(kept.localDecisionTimeoutMs as typeof localDecisionTimeoutMs);
+        if ("localAudioSource" in kept) setLocalAudioSource(kept.localAudioSource as typeof localAudioSource);
+        if ("localAudioGenerationSource" in kept)
+          setLocalAudioGenerationSource(kept.localAudioGenerationSource as typeof localAudioGenerationSource);
+        if ("localAudioGenerationCallbackUrl" in kept)
+          setLocalAudioGenerationCallbackUrl(
+            kept.localAudioGenerationCallbackUrl as typeof localAudioGenerationCallbackUrl,
+          );
+        if ("localAudioSoundEffectsModel" in kept)
+          setLocalAudioSoundEffectsModel(kept.localAudioSoundEffectsModel as typeof localAudioSoundEffectsModel);
+        if ("localAudioVoice" in kept) setLocalAudioVoice(kept.localAudioVoice as typeof localAudioVoice);
+        if ("localAudioTimeoutMs" in kept)
+          setLocalAudioTimeoutMs(kept.localAudioTimeoutMs as typeof localAudioTimeoutMs);
+        if ("localAudioSoundEffects" in kept)
+          setLocalAudioSoundEffects(kept.localAudioSoundEffects as typeof localAudioSoundEffects);
+        if ("localAudioMusic" in kept) setLocalAudioMusic(kept.localAudioMusic as typeof localAudioMusic);
+        if ("localAudioMusicEndpoint" in kept)
+          setLocalAudioMusicEndpoint(kept.localAudioMusicEndpoint as typeof localAudioMusicEndpoint);
+        if ("localAudioSoundEffectsEndpoint" in kept)
+          setLocalAudioSoundEffectsEndpoint(
+            kept.localAudioSoundEffectsEndpoint as typeof localAudioSoundEffectsEndpoint,
+          );
+        if ("localAudioGenerationFormat" in kept)
+          setLocalAudioGenerationFormat(kept.localAudioGenerationFormat as typeof localAudioGenerationFormat);
+        if ("localMaxTokensOverride" in kept)
+          setLocalMaxTokensOverride(kept.localMaxTokensOverride as typeof localMaxTokensOverride);
+        if ("localImageInput" in kept) setLocalImageInput(kept.localImageInput as typeof localImageInput);
+        if ("localClaudeFastMode" in kept)
+          setLocalClaudeFastMode(kept.localClaudeFastMode as typeof localClaudeFastMode);
+        if ("localTreatAsLocalEndpoint" in kept)
+          setLocalTreatAsLocalEndpoint(kept.localTreatAsLocalEndpoint as typeof localTreatAsLocalEndpoint);
+        if ("localDefaultParametersEnabled" in kept)
+          setLocalDefaultParametersEnabled(kept.localDefaultParametersEnabled as typeof localDefaultParametersEnabled);
+        if ("localImageCaptioningEnabled" in kept)
+          setLocalImageCaptioningEnabled(kept.localImageCaptioningEnabled as typeof localImageCaptioningEnabled);
+        if ("localImageCaptioningConnectionId" in kept)
+          setLocalImageCaptioningConnectionId(
+            kept.localImageCaptioningConnectionId as typeof localImageCaptioningConnectionId,
+          );
+        if ("localImageDefaults" in kept) setLocalImageDefaults(kept.localImageDefaults as typeof localImageDefaults);
+        if ("localVideoDefaults" in kept) setLocalVideoDefaults(kept.localVideoDefaults as typeof localVideoDefaults);
+        setDirty(true);
+      },
+    },
   );
 
   const handleDelete = useCallback(async () => {

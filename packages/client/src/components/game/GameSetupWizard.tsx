@@ -1,4 +1,4 @@
-import { showConfirmDialog } from "../../lib/app-dialogs";
+import { askLeaveSetup, gameSetupDraftKey, registerSetupInputProbe } from "../../hooks/use-setup-drafts";
 import {
   audioConnectionSupportsGeneration,
   compileGameWorld,
@@ -213,7 +213,8 @@ export interface GameSetupWizardProps {
         },
   ) => void;
   /** `confirmed`: the player already agreed to discard what they chose, so closing doesn't ask again. */
-  onCancel: (confirmed?: boolean) => void;
+  /** true: discard confirmed; "later": keep the draft as "Setup not finished". */
+  onCancel: (confirmed?: boolean | "later") => void;
   /** The last Create world failed: the wizard returns to its last step, where Create world is, with the choices kept. */
   setupFailed?: boolean;
   /** Stops the world being generated, while it is. Absent when nothing can be stopped. */
@@ -966,22 +967,28 @@ export function GameSetupWizard({
   // every time (user panel 2, N5: Esc dropped a typed name without asking while Cancel asked).
   const gameNameRef = useRef(gameName);
   gameNameRef.current = gameName;
+  /** Set once the draft is discarded, so leaving doesn't write it back. */
+  const skipDraftSaveRef = useRef(false);
   const stepRef = useRef(step);
   stepRef.current = step;
+  const draftHasInput = () => isNewGame && (gameNameRef.current.trim().length > 0 || stepRef.current > 0);
+  const draftHasInputRef = useRef(draftHasInput);
+  draftHasInputRef.current = draftHasInput;
+  // Leaving by any other route (Ctrl+K, a tab, Home) asks this wizard whether there is work to keep.
+  useEffect(() => registerSetupInputProbe(activeChatId, () => draftHasInputRef.current()), [activeChatId]);
   const cancelSetup = useCallback(async () => {
-    if (isNewGame && (gameNameRef.current.trim() || stepRef.current > 0)) {
-      const discard = await showConfirmDialog({
-        title: localizeUi("game.setupDraft.discardTitle", { defaultValue: "Discard this game?" }),
-        message: localizeUi("game.setupDraft.discardMessage", {
-          defaultValue: "Its world hasn't been built yet, so closing setup deletes it. Your choices here will be lost.",
-        }),
-        confirmLabel: localizeUi("game.setupDraft.discard", { defaultValue: "Discard game" }),
-        cancelLabel: localizeUi("game.setupDraft.keepSettingUp", { defaultValue: "Keep setting up" }),
-        tone: "destructive",
-      });
-      if (!discard) return;
+    if (draftHasInputRef.current()) {
+      // One question for every way out (user panel 3, PG4/PN1): dismissing it keeps setting up.
+      const choice = await askLeaveSetup("game");
+      if (choice === "continue") return;
+      if (choice === "later") {
+        saveSetupDraftRef.current();
+        onCancel("later");
+        return;
+      }
+      skipDraftSaveRef.current = true;
       try {
-        localStorage.removeItem(`marinara-game-setup-draft:${activeChatId}`);
+        localStorage.removeItem(gameSetupDraftKey(activeChatId));
       } catch {
         /* nothing kept */
       }
@@ -989,7 +996,7 @@ export function GameSetupWizard({
       return;
     }
     onCancel();
-  }, [activeChatId, isNewGame, localizeUi, onCancel]);
+  }, [activeChatId, onCancel]);
   // Esc leaves like Cancel. A picker, menu or dialog open on top handles Esc itself.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1571,10 +1578,10 @@ export function GameSetupWizard({
 
   // A new game's choices survive a reload or a closed tab (user panel 2, N7): they are kept per chat in
   // this browser while setup is open and offered back when the same draft opens again.
-  const setupDraftKey = `marinara-game-setup-draft:${activeChatId}`;
+  const setupDraftKey = gameSetupDraftKey(activeChatId);
   const saveSetupDraftRef = useRef<() => void>(() => undefined);
   saveSetupDraftRef.current = () => {
-    if (!isNewGame || !setupImportResourcesReady) return;
+    if (!isNewGame || !setupImportResourcesReady || skipDraftSaveRef.current) return;
     try {
       const config = buildSetupConfig();
       const file = buildGameSetupShareFile({
@@ -1604,6 +1611,8 @@ export function GameSetupWizard({
       window.removeEventListener("pagehide", save);
       document.removeEventListener("visibilitychange", onVisibility);
       window.clearInterval(timer);
+      // Leaving the wizard keeps its latest choices, so a draft kept for later opens where it was left.
+      save();
     };
   }, [isNewGame]);
   const setupDraftRestoredRef = useRef(false);

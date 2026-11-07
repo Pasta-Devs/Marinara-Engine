@@ -504,11 +504,58 @@ export function RegexScriptEditor() {
   ]);
 
   const markDirty = useCallback(() => setDirty(true), []);
+  // Unsaved edits survive a reload, as in the Character editor (user panel 3, PV6). A new script has no
+  // saved copy to come back to, so only existing scripts keep them.
   useEditorLeaveSave(
     `regexDetailId:${regexDetailId}`,
     dirty,
     handleSave,
     updateScript.isPending || createScript.isPending,
+    {
+      ready: Boolean(dbRow) && !isNew,
+      name: localName || dbRow?.name,
+      get: () => ({
+        name: localName,
+        enabled: localEnabled,
+        findRegex: localFindRegex,
+        replaceString: localReplaceString,
+        trimStrings: localTrimStrings,
+        placement: localPlacement,
+        flags: localFlags,
+        applyMode: localApplyMode,
+        characterScopeEnabled: localCharacterScopeEnabled,
+        targetCharacterIds: localTargetCharacterIds,
+        promptPresetScopeEnabled: localPromptPresetScopeEnabled,
+        targetPromptPresetIds: localTargetPromptPresetIds,
+        order: localOrder,
+        minDepth: localMinDepth,
+        maxDepth: localMaxDepth,
+      }),
+      restore: (value) => {
+        if (!value || typeof value !== "object") return;
+        const kept = value as Record<string, unknown>;
+        if ("name" in kept) setLocalName(kept.name as typeof localName);
+        if ("enabled" in kept) setLocalEnabled(kept.enabled as typeof localEnabled);
+        if ("findRegex" in kept) setLocalFindRegex(kept.findRegex as typeof localFindRegex);
+        if ("replaceString" in kept) setLocalReplaceString(kept.replaceString as typeof localReplaceString);
+        if ("trimStrings" in kept) setLocalTrimStrings(kept.trimStrings as typeof localTrimStrings);
+        if ("placement" in kept) setLocalPlacement(kept.placement as typeof localPlacement);
+        if ("flags" in kept) setLocalFlags(kept.flags as typeof localFlags);
+        if ("applyMode" in kept) setLocalApplyMode(kept.applyMode as typeof localApplyMode);
+        if ("characterScopeEnabled" in kept)
+          setLocalCharacterScopeEnabled(kept.characterScopeEnabled as typeof localCharacterScopeEnabled);
+        if ("targetCharacterIds" in kept)
+          setLocalTargetCharacterIds(kept.targetCharacterIds as typeof localTargetCharacterIds);
+        if ("promptPresetScopeEnabled" in kept)
+          setLocalPromptPresetScopeEnabled(kept.promptPresetScopeEnabled as typeof localPromptPresetScopeEnabled);
+        if ("targetPromptPresetIds" in kept)
+          setLocalTargetPromptPresetIds(kept.targetPromptPresetIds as typeof localTargetPromptPresetIds);
+        if ("order" in kept) setLocalOrder(kept.order as typeof localOrder);
+        if ("minDepth" in kept) setLocalMinDepth(kept.minDepth as typeof localMinDepth);
+        if ("maxDepth" in kept) setLocalMaxDepth(kept.maxDepth as typeof localMaxDepth);
+        setDirty(true);
+      },
+    },
   );
 
   const handleDelete = async () => {

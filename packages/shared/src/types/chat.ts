@@ -321,6 +321,9 @@ export type GameStoryboardViewerDisplayMode = "floating" | "background";
 export interface ChatMetadata {
   /** Made by a New chat launcher and its setup wizard has not finished yet: a draft the app may remove. */
   setupPending?: boolean | null;
+  /** The player left a draft they had made choices in: it is kept, listed as "Setup not finished", and its
+   *  setup opens again when the chat is opened. Cleared when setup finishes. */
+  setupUnfinished?: boolean | null;
   /** Fresh, explicitly reviewed setup for an optional shared session. */
   multiplayerSetup?: boolean;
   multiplayerSetupComplete?: boolean;

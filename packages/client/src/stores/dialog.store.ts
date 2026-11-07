@@ -33,6 +33,8 @@ export type ChoiceDialogState = AppDialogCommon & {
   /** "row": a short decision (Save / Don't save / Keep editing) laid out like a confirm dialog,
    *  one right-aligned row with Cancel on the left and the first choice as the primary button. */
   layout?: "stack" | "row";
+  /** No Cancel button: every answer is a choice, and closing the dialog (×, Esc, backdrop) resolves null. */
+  hideCancel?: boolean;
   /** Buttons shown stacked; resolves the chosen key. The first is styled as the primary action,
    *  unless the choices carry an avatar: those are equal picks, shown as rows. */
   choices: Array<{

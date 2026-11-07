@@ -15,7 +15,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useQueries, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { finishSetupDraft, isUnfinishedSetup } from "../../hooks/use-setup-drafts";
+import { finishSetupDraft, isSetupKeptForLater, isUnfinishedSetup } from "../../hooks/use-setup-drafts";
 import {
   useChatMessages,
   useChatMessageCount,
@@ -3500,7 +3500,7 @@ const LocalChatArea = memo(function LocalChatArea({
     [activeChatId, handleOpenSettingsPanel, queryClient, setWizardOpen],
   );
   // A draft opened again (after a reload, or from its tab) goes straight back to its setup, once per visit.
-  const chatIsDraft = chat?.mode !== "game" && isUnfinishedSetup(chat);
+  const chatIsDraft = chat?.mode !== "game" && (isUnfinishedSetup(chat) || isSetupKeptForLater(chat));
   const draftWizardShownFor = useRef<string | null>(null);
   useEffect(() => {
     if (!chat?.id || !chatIsDraft || chat.id !== activeChatId) return;
