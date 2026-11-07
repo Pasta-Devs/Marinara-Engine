@@ -28,6 +28,8 @@ export function AccessibilitySettings({ anchorId }: { anchorId: string }) {
   const setContrast = useUIStore((s) => s.setA11yContrast);
   const colorBlindSafe = useUIStore((s) => s.a11yColorBlindSafe);
   const setColorBlindSafe = useUIStore((s) => s.setA11yColorBlindSafe);
+  const reduceMotion = useUIStore((s) => s.reduceAmbientEffects);
+  const setReduceMotion = useUIStore((s) => s.setReduceAmbientEffects);
 
   const lineLabel = (value: number) =>
     value === 1
@@ -127,6 +129,16 @@ export function AccessibilitySettings({ anchorId }: { anchorId: string }) {
           help={t(
             "theming.a11y.focusHelp",
             "A thick, high-contrast outline on whatever the keyboard is on. Tab also offers Skip to content links.",
+          )}
+        />
+        <ToggleSetting
+          anchorId="settings-control-a11y-reduce-motion"
+          label={t("theming.a11y.reduceMotion", "Reduce motion")}
+          checked={reduceMotion}
+          onChange={setReduceMotion}
+          help={t(
+            "theming.a11y.reduceMotionHelp",
+            "Stops animations, transitions, Accent Pulse and theme effects. Turns on by itself when your system asks for less motion.",
           )}
         />
         <ToggleSetting

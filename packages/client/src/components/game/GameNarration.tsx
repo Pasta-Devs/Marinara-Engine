@@ -66,7 +66,12 @@ import {
 } from "../../hooks/use-visual-viewport-chat-bottom";
 import { useGameAssetManifest } from "../../hooks/use-game-assets";
 import { useGameModeStore } from "../../stores/game-mode.store";
-import { getDefaultChatTextColor, useUIStore } from "../../stores/ui.store";
+import {
+  getDefaultChatTextColor,
+  useUIStore,
+  selectChatFontColor,
+  selectDefaultDialogueColor,
+} from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { CHARACTER_COLOR_CLASS, GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
@@ -1211,7 +1216,7 @@ export function GameNarration({
   const setGameNarrationCollapsed = useUIStore((s) => s.setGameNarrationCollapsed);
   const gameTextEffectsEnabled = useUIStore((s) => s.gameTextEffectsEnabled);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
-  const defaultDialogueColor = useUIStore((s) => s.defaultDialogueColor);
+  const defaultDialogueColor = useUIStore(selectDefaultDialogueColor);
   const theme = useUIStore((s) => s.theme);
   const fallbackDialogueColor = defaultDialogueColor || getDefaultChatTextColor(theme);
   const personaDialogueColor =
@@ -3365,7 +3370,7 @@ export function GameNarration({
   const revealTextInstantly = gameInstantTextReveal || reduceAmbientEffects;
   const gameTextSpeed = useUIStore((s) => s.gameTextSpeed);
   const gameAutoPlayDelay = useUIStore((s) => s.gameAutoPlayDelay);
-  const chatFontColor = useUIStore((s) => s.chatFontColor);
+  const chatFontColor = useUIStore(selectChatFontColor);
   const chatFontSize = useUIStore((s) => s.chatFontSize);
   const gameAvatarScale = useUIStore((s) => s.gameAvatarScale);
   const narrationFontStyle = useMemo<CSSProperties>(() => ({ fontSize: `${chatFontSize}px` }), [chatFontSize]);

@@ -28,6 +28,9 @@ import {
   type TrackerStatDisplayMode,
   type TrackerThoughtBubbleDisplay,
   type VisualTheme,
+  selectChatChromeTextColor,
+  selectChatFontColor,
+  selectDefaultDialogueColor,
 } from "../../stores/ui.store";
 import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
@@ -3669,7 +3672,7 @@ function ThemeColorNotes({
   themeName,
   onFix,
 }: {
-  kind: "background" | "accent";
+  kind: "background" | "accent" | "text";
   value: string;
   background: string;
   themeCss: string | null;
@@ -3679,25 +3682,37 @@ function ThemeColorNotes({
   const { t: localizeUi } = useUiTranslation();
   const theme = useUIStore((s) => s.theme);
   const themeOverrides =
+    kind !== "text" &&
     !!themeCss &&
     (kind === "background"
       ? themeSetsVariable(themeCss, "--background")
       : themeSetsVariable(themeCss, "--primary") || themeSetsVariable(themeCss, "--marinara-app-accent-solid"));
   // Text colour of the scheme on screen; the background check compares against it.
   const [foreground, setForeground] = useState("");
+  // A text colour is checked against the background on screen.
+  const [pageBackground, setPageBackground] = useState("");
   useEffect(() => {
-    const frame = requestAnimationFrame(() =>
-      setForeground(getComputedStyle(document.documentElement).getPropertyValue("--foreground").trim()),
-    );
+    const frame = requestAnimationFrame(() => {
+      const root = getComputedStyle(document.documentElement);
+      setForeground(root.getPropertyValue("--foreground").trim());
+      setPageBackground(root.getPropertyValue("--background").trim());
+    });
     return () => cancelAnimationFrame(frame);
   }, [theme, themeCss, value]);
-  const target = kind === "background" ? 4.5 : 3;
+  const against = kind === "text" ? pageBackground : background;
+  const target = kind === "accent" ? 3 : 4.5;
   const ratio =
-    kind === "background" ? (foreground ? cssContrast(foreground, value) : null) : cssContrast(value, background);
+    kind === "background"
+      ? foreground
+        ? cssContrast(foreground, value)
+        : null
+      : against
+        ? cssContrast(value, against)
+        : null;
   const low = ratio !== null && ratio < target;
   const fix = () => {
-    // A background is fixed past the minimum, to comfortable reading (7:1); an accent to the minimum.
-    const fixed = kind === "background" ? fixContrast(value, foreground, 7) : fixContrast(value, background, target);
+    // A background is fixed past the minimum, to comfortable reading (7:1); accents and text to the minimum.
+    const fixed = kind === "background" ? fixContrast(value, foreground, 7) : fixContrast(value, against, target);
     if (fixed) onFix(fixed);
   };
   if (!low && !themeOverrides) return null;
@@ -3707,7 +3722,11 @@ function ThemeColorNotes({
         <p role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[var(--destructive)]">
           <span>
             {localizeUi(
-              kind === "background" ? "theming.pickers.lowContrastBackground" : "theming.pickers.lowContrastAccent",
+              kind === "background"
+                ? "theming.pickers.lowContrastBackground"
+                : kind === "text"
+                  ? "theming.pickers.lowContrastText"
+                  : "theming.pickers.lowContrastAccent",
               {
                 ratio: ratio!.toFixed(1),
                 target: target.toFixed(1).replace(/\.0$/, ""),
@@ -3973,12 +3992,26 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const weatherEffects = useUIStore((s) => s.weatherEffects);
   const setWeatherEffects = useUIStore((s) => s.setWeatherEffects);
   // Text appearance
-  const chatFontColor = useUIStore((s) => s.chatFontColor);
-  const setChatFontColor = useUIStore((s) => s.setChatFontColor);
-  const defaultDialogueColor = useUIStore((s) => s.defaultDialogueColor);
-  const setDefaultDialogueColor = useUIStore((s) => s.setDefaultDialogueColor);
-  const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
-  const setChatChromeTextColor = useUIStore((s) => s.setChatChromeTextColor);
+  // Text pickers edit the scheme on screen; Light mode follows Dark until it has its own value.
+  const lightTextScheme = theme === "light";
+  const chatFontColor = useUIStore(selectChatFontColor);
+  const setChatFontColor = useUIStore((s) => (lightTextScheme ? s.setChatFontColorLight : s.setChatFontColor));
+  const defaultDialogueColor = useUIStore(selectDefaultDialogueColor);
+  const setDefaultDialogueColor = useUIStore((s) =>
+    lightTextScheme ? s.setDefaultDialogueColorLight : s.setDefaultDialogueColor,
+  );
+  const chatChromeTextColor = useUIStore(selectChatChromeTextColor);
+  const setChatChromeTextColor = useUIStore((s) =>
+    lightTextScheme ? s.setChatChromeTextColorLight : s.setChatChromeTextColor,
+  );
+  const textFollowsDark = useUIStore(
+    (s) =>
+      s.theme === "light" &&
+      ((!s.chatFontColorLight && !!s.chatFontColor) ||
+        (!s.defaultDialogueColorLight && !!s.defaultDialogueColor) ||
+        (!s.chatChromeTextColorLight && !!s.chatChromeTextColor)),
+  );
+  const schemeSuffix = ` (${localizeUi(lightTextScheme ? "ui.panels.appearancesettings.light" : "ui.panels.appearancesettings.dark")})`;
   const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
   const setChatFontOpacity = useUIStore((s) => s.setChatFontOpacity);
   const roleplayReducedPaintEffects = useUIStore((s) => s.roleplayReducedPaintEffects);
@@ -3988,6 +4021,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const roleplayAvatarScale = useUIStore((s) => s.roleplayAvatarScale);
   const setRoleplayAvatarScale = useUIStore((s) => s.setRoleplayAvatarScale);
   const roleplayStretchMessages = useUIStore((s) => s.roleplayStretchMessages);
+  const hideMessageNameRule = useUIStore((s) => s.hideMessageNameRule);
+  const setHideMessageNameRule = useUIStore((s) => s.setHideMessageNameRule);
   const setRoleplayStretchMessages = useUIStore((s) => s.setRoleplayStretchMessages);
   const roleplayAvatarsScrollable = useUIStore((s) => s.roleplayAvatarsScrollable);
   const setRoleplayAvatarsScrollable = useUIStore((s) => s.setRoleplayAvatarsScrollable);
@@ -4503,13 +4538,21 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   onChange={setChatFontColor}
                   gradient
                   compact
-                  label={localizeUi("settings.colors.chatText")}
+                  label={localizeUi("settings.colors.chatText") + schemeSuffix}
                   helpText="Controls the main chat message text color. Leave it on the scheme default to keep dark and light mode readable. Gradients are accepted for layouts that support them."
                   emptyText={localizeUi("ui.panels.appearancesettings.schemeDefaultValue1", {
                     value1: getDefaultChatTextColor(theme),
                   })}
                   emptyPreviewValue={getDefaultChatTextColor(theme)}
                   clearLabel="Reset to default"
+                />
+                <ThemeColorNotes
+                  kind="text"
+                  value={chatFontColor || getDefaultChatTextColor(theme)}
+                  background=""
+                  themeCss={null}
+                  themeName={null}
+                  onFix={setChatFontColor}
                 />
               </SearchableSettingTarget>
 
@@ -4518,13 +4561,21 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   value={defaultDialogueColor}
                   onChange={setDefaultDialogueColor}
                   compact
-                  label={localizeUi("settings.colors.defaultDialogue")}
+                  label={localizeUi("settings.colors.defaultDialogue") + schemeSuffix}
                   helpText="Colors dialogue for character and persona cards that do not have their own Dialogue Highlight Color. A card's own dialogue color always overrides it."
                   emptyText={localizeUi("ui.panels.appearancesettings.schemeDefaultValue1", {
                     value1: getDefaultChatTextColor(theme),
                   })}
                   emptyPreviewValue={getDefaultChatTextColor(theme)}
                   clearLabel="Reset to scheme default"
+                />
+                <ThemeColorNotes
+                  kind="text"
+                  value={defaultDialogueColor || getDefaultChatTextColor(theme)}
+                  background=""
+                  themeCss={null}
+                  themeName={null}
+                  onFix={setDefaultDialogueColor}
                 />
               </SearchableSettingTarget>
 
@@ -4534,7 +4585,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   onChange={setChatChromeTextColor}
                   gradient
                   compact
-                  label={localizeUi("settings.colors.chatChrome")}
+                  label={localizeUi("settings.colors.chatChrome") + schemeSuffix}
                   helpText="Controls ordinary chrome copy in tracker widgets, folder labels, settings descriptors, and windows opened from chat buttons. Accent-colored button text and active icons follow Accent Color instead. Gradients use a compatible fallback where plain CSS color is required."
                   emptyText={localizeUi("ui.panels.appearancesettings.schemeDefaultValue1", {
                     value1: getDefaultChatChromeTextColor(theme),
@@ -4542,7 +4593,24 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   emptyPreviewValue={getDefaultChatChromeTextColor(theme)}
                   clearLabel="Reset to default"
                 />
+                <ThemeColorNotes
+                  kind="text"
+                  value={chatChromeTextColor || getDefaultChatChromeTextColor(theme)}
+                  background=""
+                  themeCss={null}
+                  themeName={null}
+                  onFix={setChatChromeTextColor}
+                />
               </SearchableSettingTarget>
+
+              {textFollowsDark ? (
+                <p className="text-[0.625rem] text-[var(--muted-foreground)]" data-text-follows-dark>
+                  {localizeUi(
+                    "theming.pickers.textFollowsDark",
+                    "Light mode uses your Dark text colours until you pick its own.",
+                  )}
+                </p>
+              ) : null}
 
               <div id={getSettingsControlAnchorId("text-outline-width")} className="flex scroll-mt-3 flex-col gap-1.5">
                 <span className="text-[0.6875rem] font-medium inline-flex items-center gap-1">
@@ -5387,6 +5455,17 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 checked={roleplayStretchMessages}
                 onChange={setRoleplayStretchMessages}
                 help={localizeUi("settings.controls.stretchRoleplayMessages.help")}
+              />
+              <ToggleSetting
+                anchorId={getSettingsControlAnchorId("hide-name-line")}
+                label={localizeUi("settings.controls.hideNameLine.label", {
+                  defaultValue: "Hide line under names",
+                })}
+                checked={hideMessageNameRule}
+                onChange={setHideMessageNameRule}
+                help={localizeUi("settings.controls.hideNameLine.help", {
+                  defaultValue: "Removes the thin line under character and persona names in roleplay messages.",
+                })}
               />
             </div>
           </SettingsSection>

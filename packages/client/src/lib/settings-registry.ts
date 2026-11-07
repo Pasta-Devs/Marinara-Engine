@@ -1470,6 +1470,16 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "hide-name-line",
+    sectionId: "roleplay-messages",
+    labelKey: "settings.controls.hideNameLine.label",
+    label: "Hide line under names",
+    description: "Remove the thin line under character and persona names in roleplay messages.",
+    descriptionKey: "settings.search.hideNameLine.description",
+    aliases: ["underline", "divider", "rule", "name", "header", "border"],
+    kind: "Toggle",
+  },
+  {
     id: "scrollable-avatars",
     sectionId: "roleplay-avatars",
     labelKey: "settings.controls.scrollableAvatars.label",

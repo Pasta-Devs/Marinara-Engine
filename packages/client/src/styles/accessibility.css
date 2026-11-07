@@ -69,6 +69,64 @@
 
   /* The user's spacing, focus, contrast and colour-blind choices are added to this layer by
      lib/accessibility-css.ts with their values written in, so a theme can't redefine them. */
+
+  /* Windows High Contrast and other forced-colour modes: the browser drops background colours, so
+     switches, sliders and selected states lost their on/off look. These redraw them in system
+     colours (Highlight for "on" and "selected", CanvasText for outlines). */
+  @media (forced-colors: active) {
+    :is([data-settings-switch-track], .ov-switch) {
+      forced-color-adjust: none !important;
+      background: Canvas !important;
+      border: 1px solid CanvasText !important;
+    }
+    :is([data-settings-switch-thumb], .ov-switch span) {
+      forced-color-adjust: none !important;
+      background: CanvasText !important;
+      box-shadow: none !important;
+    }
+    :is([data-settings-switch-track][data-checked], .ov-switch.is-on, .ov-switch[aria-checked="true"]) {
+      background: Highlight !important;
+      border-color: Highlight !important;
+    }
+    :is([data-settings-switch-track][data-checked], .ov-switch.is-on, .ov-switch[aria-checked="true"])
+      :is([data-settings-switch-thumb], span) {
+      background: HighlightText !important;
+    }
+    input[type="range"] {
+      forced-color-adjust: none !important;
+      background: transparent !important;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      background: CanvasText !important;
+      border: 1px solid CanvasText !important;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      background: Highlight !important;
+      border: 2px solid CanvasText !important;
+    }
+    input[type="range"]::-moz-range-track {
+      background: CanvasText !important;
+    }
+    input[type="range"]::-moz-range-progress {
+      background: Highlight !important;
+    }
+    input[type="range"]::-moz-range-thumb {
+      background: Highlight !important;
+      border: 2px solid CanvasText !important;
+    }
+    :is(
+      [role="tab"][aria-selected="true"],
+      [role="option"][aria-selected="true"],
+      [role="menuitemradio"][aria-checked="true"],
+      [aria-pressed="true"],
+      [aria-current="page"],
+      [aria-current="true"],
+      .is-active
+    ):not(svg, svg *) {
+      outline: 2px solid Highlight !important;
+      outline-offset: -2px !important;
+    }
+  }
 }
 
 #mari-main:focus {

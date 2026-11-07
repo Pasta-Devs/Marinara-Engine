@@ -108,7 +108,13 @@ import { createMessageMacroResolver } from "../../lib/chat-macros";
 import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-source";
 import { HIGHLIGHT_CLASS, highlightAnswerValues } from "../../lib/onboarding-preview-highlight";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
-import { getDefaultChatTextColor, selectRoleplayAvatarStyle, useUIStore } from "../../stores/ui.store";
+import {
+  getDefaultChatTextColor,
+  selectRoleplayAvatarStyle,
+  useUIStore,
+  selectChatFontColor,
+  selectDefaultDialogueColor,
+} from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
 import { parseChatMetadata } from "../../lib/chat-display";
@@ -1991,8 +1997,8 @@ export function RoleplayMessagePreview({
   const { chatFontColor, defaultDialogueColor, theme, textStrokeWidth, textStrokeColor, boldDialogue, quoteFormat } =
     useUIStore(
       useShallow((state) => ({
-        chatFontColor: state.chatFontColor,
-        defaultDialogueColor: state.defaultDialogueColor,
+        chatFontColor: selectChatFontColor(state),
+        defaultDialogueColor: selectDefaultDialogueColor(state),
         theme: state.theme,
         textStrokeWidth: state.textStrokeWidth,
         textStrokeColor: state.textStrokeColor,
@@ -2174,8 +2180,8 @@ export const ChatMessage = memo(function ChatMessage({
   } = useUIStore(
     useShallow((s) => ({
       chatFontSize: s.chatFontSize,
-      chatFontColor: s.chatFontColor,
-      defaultDialogueColor: s.defaultDialogueColor,
+      chatFontColor: selectChatFontColor(s),
+      defaultDialogueColor: selectDefaultDialogueColor(s),
       theme: s.theme,
       chatFontOpacity: s.chatFontOpacity,
       roleplayAvatarStyle: selectRoleplayAvatarStyle(s),
