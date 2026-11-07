@@ -1,9 +1,10 @@
 // ──────────────────────────────────────────────
-// UI overhaul: the lorebook's picture, set from Book settings. Lorebooks always had one (shown in
-// the Library list and gallery) but the new layout had no way to set it.
+// UI overhaul: the lorebook's picture, set from Book settings (beside Enabled). Lorebooks always had
+// one (shown in the Library list and gallery) but the new layout had no way to set it. Same control
+// as the Preset page's Picture: a small thumbnail and an Upload / Replace link.
 // ──────────────────────────────────────────────
 import { useRef } from "react";
-import { Camera } from "lucide-react";
+import { BookOpen, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useUploadLorebookImage } from "../../hooks/use-lorebooks";
@@ -16,6 +17,11 @@ export function LorebookPictureField({ id, src }: { id: string; src: string | nu
   const inputRef = useRef<HTMLInputElement>(null);
   const label = t(src ? "ui.panels.lorebookrow.replaceLorebookPicture" : "ui.panels.lorebookrow.uploadLorebookPicture");
 
+  const choose = () => {
+    if (!inputRef.current) return;
+    inputRef.current.value = "";
+    inputRef.current.click();
+  };
   const pick = (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -35,32 +41,31 @@ export function LorebookPictureField({ id, src }: { id: string; src: string | nu
   };
 
   return (
-    <div className="ov-bk__pic">
-      <button
-        type="button"
-        className="ov-bk__pic-thumb"
-        aria-label={label}
-        disabled={upload.isPending}
-        onClick={() => inputRef.current?.click()}
-      >
-        {src ? <img src={src} alt="" /> : <Camera size={18} aria-hidden="true" />}
-      </button>
-      <div className="ov-bk__pic-text">
-        <span>{localize("Picture")}</span>
-        <button type="button" className="ov-bk__pic-btn" onClick={() => inputRef.current?.click()}>
-          {upload.isPending ? localize("Uploading…") : label}
+    <div className="ov-bk__field">
+      <span>{t("ui.presets.overviewtab.picture")}</span>
+      <div className="ov-povw__pic">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => pick(event.target.files?.[0])}
+        />
+        <button
+          type="button"
+          className="mari-panel-gradient-surface mari-panel-gradient--lorebooks ov-povw__thumb"
+          onClick={choose}
+          disabled={upload.isPending}
+          title={label}
+          aria-label={label}
+        >
+          {src ? <img src={src} alt="" draggable={false} /> : <BookOpen size={14} />}
+        </button>
+        <button type="button" className="ov-ed__link" onClick={choose} disabled={upload.isPending}>
+          <Upload size={12} aria-hidden="true" />
+          {src ? t("connections.accounts.editor.replace") : t("ui.characters.characterclipcard.upload")}
         </button>
       </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(event) => {
-          pick(event.target.files?.[0]);
-          event.target.value = "";
-        }}
-      />
     </div>
   );
 }

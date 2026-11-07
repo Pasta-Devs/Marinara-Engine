@@ -2294,12 +2294,6 @@ export function LorebookEditor() {
       </button>
       {ovBookOpen || overhaulMobile ? (
         <div className="ov-bk__body">
-          {lorebookId ? (
-            <LorebookPictureField
-              id={lorebookId}
-              src={(rawLorebook as { imagePath?: string | null } | undefined)?.imagePath ?? null}
-            />
-          ) : null}
           <div className="ov-bk__grid ov-bk__grid--top">
             <label className="ov-bk__field">
               <span>{localizeUi("ui.lorebooks.lorebookeditor.name")}</span>
@@ -2327,7 +2321,20 @@ export function LorebookEditor() {
                 ))}
               </select>
             </label>
-            {ovSwitch(localizeUi("ui.noodle.noodlehome.enabled"), "Entries can activate", formEnabled, setFormEnabled)}
+            <div className="ov-bk__pair">
+              {ovSwitch(
+                localizeUi("ui.noodle.noodlehome.enabled"),
+                "Entries can activate",
+                formEnabled,
+                setFormEnabled,
+              )}
+              {lorebookId ? (
+                <LorebookPictureField
+                  id={lorebookId}
+                  src={(rawLorebook as { imagePath?: string | null } | undefined)?.imagePath ?? null}
+                />
+              ) : null}
+            </div>
           </div>
           <div className="ov-bk__field">
             <span>{localizeUi("chat.settings.inlineEditor.fields.description")}</span>
