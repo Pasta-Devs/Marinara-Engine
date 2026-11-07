@@ -626,14 +626,22 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     } catch {
       return reply.status(404).send({ error: "Music file not found" });
     }
+    let sameFile = false;
     try {
-      const [opened, recheck] = await Promise.all([handle.stat(), musicDjFolderFile(app.db, canonicalPath)]);
-      const current = recheck ? await stat(recheck) : null;
-      if (!opened.isFile() || !current || current.dev !== opened.dev || current.ino !== opened.ino) {
-        await handle.close();
-        return reply.status(404).send({ error: "Music file not found" });
+      // A failure reading the folders is a server error, as at the first check; only the filesystem answers 404.
+      const recheck = await musicDjFolderFile(app.db, canonicalPath);
+      try {
+        const [opened, current] = await Promise.all([handle.stat(), recheck ? stat(recheck) : null]);
+        sameFile = !!current && opened.isFile() && current.dev === opened.dev && current.ino === opened.ino;
+      } catch {
+        sameFile = false;
       }
-    } catch {
+    } catch (err) {
+      await handle.close().catch(() => undefined);
+      logger.error(err, "Music file recheck failed");
+      throw err;
+    }
+    if (!sameFile) {
       await handle.close().catch(() => undefined);
       return reply.status(404).send({ error: "Music file not found" });
     }
