@@ -4662,6 +4662,8 @@ export function ChatSettingsDrawer({
   // The Game Assets subfolder of "All chats" or of this chat (#8916), each saved only to its own place.
   const saveCustomMusicFolder = (target: "chat" | "default", value: string) => {
     if (target === "chat") {
+      // Stay on This chat: once its subfolder is cleared, the derived target would fall back to All chats.
+      setMusicFolderTargetChoice({ chatId: chat.id, target: "chat" });
       const folder = normalizeChatCustomMusicFolder(value);
       if (folder !== chatCustomMusicFolder) {
         void updateCustomMusicLibrary({ customMusicGameAssetsFolder: folder || null }, "chat");

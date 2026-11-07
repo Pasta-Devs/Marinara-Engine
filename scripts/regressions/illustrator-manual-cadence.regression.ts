@@ -390,6 +390,13 @@ assert.equal(
   "clearing This chat's subfolder sends the chat back to the default",
 );
 
+// The drawer keeps This chat selected when its Game Assets subfolder is saved or cleared (Dottore on #8939).
+assert.match(
+  readFileSync(new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url), "utf8"),
+  /const saveCustomMusicFolder = \(target: "chat" \| "default", value: string\) => \{\s*if \(target === "chat"\) \{[\s\S]{0,200}setMusicFolderTargetChoice\(\{ chatId: chat\.id, target: "chat" \}\);/u,
+  "clearing This chat's Game Assets subfolder keeps Apply to on This chat",
+);
+
 // Run the production formatter without booting browser hooks in Node.
 const hookSource = readFileSync(new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url), "utf8");
 const sourceFile = ts.createSourceFile("use-generate.ts", hookSource, ts.ScriptTarget.Latest, true);
