@@ -49,8 +49,12 @@
           content-visibility: visible !important;
           pointer-events: auto !important;
         }
-        html { display: block !important; }
-        body { display: block !important; }
+        html {
+          display: block !important;
+        }
+        body {
+          display: block !important;
+        }
         #root {
           display: block !important;
           visibility: visible !important;
@@ -83,6 +87,7 @@
         [data-component="TopBar"],
         [data-component="ChatSidebarSlot"]:not([aria-hidden="true"]),
         [data-component="ChatSidebarPanel"]:not([aria-hidden="true"]),
+        [data-component="ChatSidebarPanel"]:not([aria-hidden="true"]) [data-component="ChatSidebar"],
         [data-component="RightPanelDesktopSlot"]:not([aria-hidden="true"]),
         [data-component="RightPanelDesktop"]:not([aria-hidden="true"]),
         [data-component="RightPanelMobile"],
@@ -138,8 +143,45 @@
           transform: translate3d(0, 0, 0) !important;
           margin: 0 !important;
         }
-        [data-component="ChatSidebarPanel"].mari-shell-panel-enter-left { left: 0 !important; right: auto !important; }
-        [data-component="RightPanelDesktop"].mari-shell-panel-enter-right { right: 0 !important; left: auto !important; }
+        [data-component="ChatSidebarPanel"].mari-shell-panel-enter-left {
+          left: 0 !important;
+          right: auto !important;
+        }
+        [data-component="RightPanelDesktop"].mari-shell-panel-enter-right {
+          right: 0 !important;
+          left: auto !important;
+        }
+        /* Chat rows stay visible: a theme can restyle them, not fade the list away. */
+        [data-component="ChatSidebarPanel"] [data-chat-row] {
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        /* Fullscreen hides the top bar until the pointer reaches the top edge. A theme may restyle
+           it, but the bar must stay in the page and come back on hover, focus and when pinned. */
+        [data-component="TopBar"].is-autohide {
+          display: flex !important;
+          pointer-events: auto !important;
+          zoom: 1 !important;
+        }
+        .ov-topbar-hotzone {
+          display: block !important;
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          height: 6px !important;
+          visibility: visible !important;
+          pointer-events: auto !important;
+        }
+        :root[data-ov-topbar-pinned] [data-component="TopBar"].is-autohide,
+        .ov-topbar-hotzone:hover + [data-component="TopBar"].is-autohide,
+        [data-component="TopBar"].is-autohide:hover,
+        [data-component="TopBar"].is-autohide:focus-within,
+        html[data-mari-guard-measure] [data-component="TopBar"].is-autohide {
+          transform: none !important;
+          top: 0 !important;
+          margin: 0 !important;
+        }
         /* Pseudo-element decorations (scanlines, grain, vignettes) never take clicks. */
         :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::before,
         :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::after {

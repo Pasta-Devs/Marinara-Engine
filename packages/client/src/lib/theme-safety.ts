@@ -13,15 +13,20 @@
 import { create } from "zustand";
 
 const SAFE_MODE_SESSION_KEY = "marinara-safe-mode";
+/** "Keep this theme?" survives a reload or a closed tab: unanswered means go back. */
+const PENDING_KEEP_KEY = "marinara-theme-pending-keep";
 export const KEEP_THEME_SECONDS = 15;
 
 export type ThemeSafetyReason = "url" | "keyboard" | "command" | "guard";
 
 export interface ThemeGuardProblem {
-  /** Which protected area broke: top bar, chats sidebar, Library sidebar, Ctrl+K. */
-  area: "topbar" | "chats" | "library" | "omnibar";
+  /** Which protected area broke: top bar, chats sidebar, Library sidebar, Ctrl+K, the message box,
+   *  the whole app (an overlay) or the chat (added text). */
+  area: "topbar" | "chats" | "library" | "omnibar" | "composer" | "app" | "chat";
   /** What the theme did to it. */
-  kind: "hidden" | "moved" | "covered" | "unreadable" | "too-small";
+  kind: "hidden" | "moved" | "covered" | "unreadable" | "too-small" | "overlay" | "fake-text";
+  /** The text a theme added, for "fake-text". */
+  text?: string;
 }
 
 interface PendingKeep {
@@ -31,6 +36,8 @@ interface PendingKeep {
   /** The theme to go back to (null = Default). */
   previousId: string | null;
   deadline: number;
+  /** Set while the person hovers or focuses the bar: the countdown waits with this much left. */
+  pausedRemaining?: number | null;
 }
 
 interface ThemeSafetyState {
@@ -49,6 +56,34 @@ interface ThemeSafetyState {
   clearBlockedTheme: () => void;
   askToKeep: (pending: Omit<PendingKeep, "deadline">) => void;
   settleKeep: () => void;
+  pauseKeep: (paused: boolean) => void;
+}
+
+function readPendingKeep(): PendingKeep | null {
+  try {
+    const raw = window.localStorage.getItem(PENDING_KEEP_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<PendingKeep>;
+    if (typeof value.themeId !== "string" || typeof value.deadline !== "number") return null;
+    return {
+      themeId: value.themeId,
+      themeName: typeof value.themeName === "string" ? value.themeName : "",
+      previousId: typeof value.previousId === "string" ? value.previousId : null,
+      deadline: value.deadline,
+      pausedRemaining: null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writePendingKeep(pending: PendingKeep | null) {
+  try {
+    if (pending) window.localStorage.setItem(PENDING_KEEP_KEY, JSON.stringify(pending));
+    else window.localStorage.removeItem(PENDING_KEEP_KEY);
+  } catch {
+    /* storage can be blocked; the countdown then only lives in this tab */
+  }
 }
 
 function readInitialSafeMode(): { safeMode: boolean; safeReason: ThemeSafetyReason | null } {
@@ -83,7 +118,7 @@ export const useThemeSafetyStore = create<ThemeSafetyState>()((set) => ({
   blockedThemeId: null,
   blockedThemeName: null,
   blockedProblems: [],
-  pendingKeep: null,
+  pendingKeep: typeof window === "undefined" ? null : readPendingKeep(),
   enterSafeMode: (reason) => {
     try {
       window.sessionStorage.setItem(SAFE_MODE_SESSION_KEY, reason);
@@ -105,8 +140,31 @@ export const useThemeSafetyStore = create<ThemeSafetyState>()((set) => ({
   blockTheme: (blockedThemeId, blockedThemeName, blockedProblems) =>
     set({ blockedThemeId, blockedThemeName, blockedProblems }),
   clearBlockedTheme: () => set({ blockedThemeId: null, blockedThemeName: null, blockedProblems: [] }),
-  askToKeep: (pending) => set({ pendingKeep: { ...pending, deadline: Date.now() + KEEP_THEME_SECONDS * 1000 } }),
-  settleKeep: () => set({ pendingKeep: null }),
+  askToKeep: (pending) => {
+    const next = { ...pending, deadline: Date.now() + KEEP_THEME_SECONDS * 1000, pausedRemaining: null };
+    writePendingKeep(next);
+    set({ pendingKeep: next });
+  },
+  settleKeep: () => {
+    writePendingKeep(null);
+    set({ pendingKeep: null });
+  },
+  pauseKeep: (paused) =>
+    set((state) => {
+      const pending = state.pendingKeep;
+      if (!pending) return {};
+      const isPaused = pending.pausedRemaining != null;
+      if (paused === isPaused) return {};
+      const next = paused
+        ? { ...pending, pausedRemaining: Math.max(1000, pending.deadline - Date.now()) }
+        : { ...pending, deadline: Date.now() + (pending.pausedRemaining ?? 0), pausedRemaining: null };
+      writePendingKeep({
+        ...next,
+        pausedRemaining: null,
+        deadline: paused ? Date.now() + KEEP_THEME_SECONDS * 1000 : next.deadline,
+      });
+      return { pendingKeep: next };
+    }),
 }));
 
 /** Whether custom theme CSS may be applied right now for this theme id. */
@@ -115,14 +173,23 @@ export function themeCssAllowed(themeId: string | null | undefined) {
   return !state.safeMode && (!themeId || state.blockedThemeId !== themeId);
 }
 
+/** Something an Escape would close: a dialog, a menu, a popover, Ctrl+K. */
+const ESCAPE_CLOSES =
+  '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], [data-component="GlobalOmnibar.Panel"]';
+
 /**
  * Escape three times within 1.2 s turns custom themes off for this tab. A theme can hide every
- * button, but it cannot take the keyboard away.
+ * button, but it cannot take the keyboard away. An Escape that closes something (Ctrl+K, a menu,
+ * a dialog) doesn't count, so closing things quickly never switches a good theme off.
  */
 export function installSafeModeShortcut(): () => void {
   let presses: number[] = [];
   const onKey = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || event.repeat) return;
+    if (document.querySelector(ESCAPE_CLOSES)) {
+      presses = [];
+      return;
+    }
     const now = performance.now();
     presses = [...presses.filter((time) => now - time < 1200), now];
     if (presses.length < 3) return;

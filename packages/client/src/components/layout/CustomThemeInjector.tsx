@@ -85,30 +85,56 @@ export function CustomThemeInjector() {
     };
   }, [activeTheme, allowed]);
 
-  // The chrome guard: check after the theme lands, when a side panel or Ctrl+K opens, and on resize.
+  // The chrome guard: check after the theme lands, again at 2.5 s and 10 s (rules that wait), when a
+  // side panel or Ctrl+K opens, when a chat opens or the colour scheme changes, and on resize.
+  // "Covered" or "unreadable" is only acted on when a second look 700 ms later sees it too, so a
+  // transition that is mid-way never switches a theme off.
   useEffect(() => {
     if (!activeTheme || !allowed) return;
     const themeId = activeTheme.id;
     const themeName = activeTheme.name;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let retries = 0;
-    const run = () => {
-      timer = null;
-      const sheets = [NORMAL_ID, IMPORTANT_ID]
+    let confirming = false;
+    const sheets = () =>
+      [NORMAL_ID, IMPORTANT_ID]
         .map((id) => document.getElementById(id) as HTMLStyleElement | null)
         .filter((sheet): sheet is HTMLStyleElement => !!sheet);
+    const run = () => {
+      timer = null;
       // A panel still sliding in is measured once it settles.
-      const animating = document.querySelector(
-        '[data-component="ChatSidebarPanel"], [data-component="RightPanelDesktop"], [data-component="TopBar"]',
+      const sliding = document.querySelectorAll(
+        '[data-component="ChatSidebarPanel"], [data-component="RightPanelDesktop"]',
       );
-      if (animating?.getAnimations?.().some((animation) => animation.playState === "running") && retries < 5) {
+      const moving = Array.from(sliding).some((element) =>
+        element
+          .getAnimations?.()
+          .some(
+            (animation) =>
+              animation.playState === "running" &&
+              Number.isFinite(animation.effect?.getComputedTiming().endTime ?? Infinity),
+          ),
+      );
+      if (moving && retries < 5) {
         retries += 1;
         schedule(400);
         return;
       }
       retries = 0;
-      const problems = checkProtectedChrome(sheets);
-      if (problems.length > 0) useThemeSafetyStore.getState().blockTheme(themeId, themeName, problems);
+      const problems = checkProtectedChrome(sheets());
+      if (problems.length === 0) {
+        confirming = false;
+        return;
+      }
+      // "Covered" and "unreadable" can be a transition caught half-way: look again before acting.
+      const certain = problems.some((problem) => problem.kind !== "covered" && problem.kind !== "unreadable");
+      if (!certain && !confirming) {
+        confirming = true;
+        schedule(700);
+        return;
+      }
+      confirming = false;
+      useThemeSafetyStore.getState().blockTheme(themeId, themeName, problems);
     };
     const schedule = (delay: number) => {
       if (timer) clearTimeout(timer);
@@ -116,6 +142,7 @@ export function CustomThemeInjector() {
     };
     schedule(700);
     const late = setTimeout(() => schedule(0), 2500);
+    const later = setTimeout(() => schedule(0), 10_000);
     const unsubscribe = useUIStore.subscribe((state, previous) => {
       if (
         state.sidebarOpen !== previous.sidebarOpen ||
@@ -124,12 +151,25 @@ export function CustomThemeInjector() {
       )
         schedule(650);
     });
+    const observer = new MutationObserver(() => schedule(800));
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: [
+        "data-chat-id",
+        "data-chat-open-mode",
+        "data-theme",
+        "data-ov-topbar-autohide",
+        "data-visual-theme",
+      ],
+    });
     const onResize = () => schedule(500);
     window.addEventListener("resize", onResize);
     return () => {
       if (timer) clearTimeout(timer);
       clearTimeout(late);
+      clearTimeout(later);
       unsubscribe();
+      observer.disconnect();
       window.removeEventListener("resize", onResize);
     };
   }, [activeTheme, allowed]);

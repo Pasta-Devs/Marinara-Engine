@@ -85,14 +85,27 @@ function useCountdown(deadline: number | null) {
   return deadline === null ? 0 : Math.max(0, Math.ceil((deadline - now) / 1000));
 }
 
-function problemText(t: ReturnType<typeof useTranslation>["t"], problem: ThemeGuardProblem) {
+export function problemText(t: ReturnType<typeof useTranslation>["t"], problem: ThemeGuardProblem) {
   const area = {
     topbar: t("theming.safety.area.topbar", "the top bar"),
     chats: t("theming.safety.area.chats", "the chats sidebar"),
     library: t("theming.safety.area.library", "the Library sidebar"),
     omnibar: t("theming.safety.area.omnibar", "Ctrl+K"),
+    composer: t("theming.safety.area.composer", "the message box"),
+    app: t("theming.safety.area.app", "the app"),
+    chat: t("theming.safety.area.chat", "the chat"),
   }[problem.area];
   switch (problem.kind) {
+    case "overlay":
+      return t("theming.safety.problem.overlay", "It laid something over the whole app.");
+    case "fake-text":
+      return t(
+        "theming.safety.problem.fakeText",
+        "It added text to the chat that asks for private details: “{{text}}”.",
+        {
+          text: problem.text ?? "",
+        },
+      );
     case "hidden":
       return t("theming.safety.problem.hidden", "It hid {{area}}.", { area });
     case "moved":
@@ -117,7 +130,9 @@ export function ThemeSafetyHost() {
   const blockedThemeName = useThemeSafetyStore((s) => s.blockedThemeName);
   const blockedProblems = useThemeSafetyStore((s) => s.blockedProblems);
   const pendingKeep = useThemeSafetyStore((s) => s.pendingKeep);
-  const secondsLeft = useCountdown(pendingKeep?.deadline ?? null);
+  const paused = pendingKeep?.pausedRemaining != null;
+  const countdown = useCountdown(paused ? null : (pendingKeep?.deadline ?? null));
+  const secondsLeft = paused ? Math.ceil((pendingKeep?.pausedRemaining ?? 0) / 1000) : countdown;
   const [blockedDismissed, setBlockedDismissed] = useState<string | null>(null);
   const activeTheme = themes.find((theme) => theme.isActive) ?? null;
 
@@ -126,17 +141,23 @@ export function ThemeSafetyHost() {
       const pending = useThemeSafetyStore.getState().pendingKeep;
       if (!pending) return;
       useThemeSafetyStore.getState().settleKeep();
+      // Picked something else meanwhile (here or on another device): nothing to go back from.
+      const current = themes.find((theme) => theme.isActive)?.id ?? null;
+      if (themes.length > 0 && current !== pending.themeId) return;
       setActiveTheme.mutate(pending.previousId, {
         onError: () => toast.error(t("theming.safety.revertFailed", "Couldn't switch the theme back.")),
       });
     },
-    [setActiveTheme, t],
+    [setActiveTheme, t, themes],
   );
 
   // Nobody answered, or the guard caught the new theme breaking the chrome: go back to the one from before.
   useEffect(() => {
-    if (pendingKeep && (secondsLeft === 0 || blockedThemeId === pendingKeep.themeId)) revert();
-  }, [blockedThemeId, pendingKeep, revert, secondsLeft]);
+    if (!pendingKeep || paused) return;
+    // After a reload, wait for the theme list so the check above knows what's active.
+    if (themes.length === 0 && pendingKeep.deadline <= Date.now()) return;
+    if (secondsLeft === 0 || blockedThemeId === pendingKeep.themeId) revert();
+  }, [blockedThemeId, pendingKeep, paused, revert, secondsLeft, themes.length]);
 
   const turnOffEverywhere = () => {
     setActiveTheme.mutate(null, {
@@ -160,27 +181,38 @@ export function ThemeSafetyHost() {
   let bar: React.ReactNode = null;
   if (pendingKeep && blockedThemeId !== pendingKeep.themeId) {
     bar = (
-      <div className="bar" role="alertdialog" aria-live="assertive" aria-label={t("theming.safety.keepTitle", "Keep this theme?")}>
+      <div
+        className="bar"
+        role="alertdialog"
+        aria-labelledby="mari-keep-title"
+        onMouseEnter={() => useThemeSafetyStore.getState().pauseKeep(true)}
+        onMouseLeave={() => useThemeSafetyStore.getState().pauseKeep(false)}
+        onFocus={() => useThemeSafetyStore.getState().pauseKeep(true)}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+            useThemeSafetyStore.getState().pauseKeep(false);
+        }}
+      >
         <div className="text">
-          <div className="title">
+          <div className="title" id="mari-keep-title" aria-live="polite">
             {t("theming.safety.keepQuestion", "Keep “{{name}}”?", { name: pendingKeep.themeName })}
           </div>
           <div className="sub">
-            {t("theming.safety.keepCountdown", "Going back in {{seconds}} s unless you keep it.", {
-              seconds: secondsLeft,
-            })}
+            {paused
+              ? t("theming.safety.keepPaused", "Waiting while you decide ({{seconds}} s left).", {
+                  seconds: secondsLeft,
+                })
+              : t("theming.safety.keepCountdown", "Going back in {{seconds}} s unless you keep it.", {
+                  seconds: secondsLeft,
+                })}{" "}
+            {t("theming.safety.escHint", "Press Esc three times any time to switch themes off in this tab.")}
           </div>
         </div>
         <div className="actions">
           <button type="button" onClick={revert}>
             {t("theming.safety.goBack", "Go back")}
           </button>
-          <button
-            type="button"
-            className="primary"
-            autoFocus
-            onClick={() => useThemeSafetyStore.getState().settleKeep()}
-          >
+          <button type="button" className="primary" onClick={() => useThemeSafetyStore.getState().settleKeep()}>
             {t("theming.safety.keep", "Keep theme")}
           </button>
         </div>
