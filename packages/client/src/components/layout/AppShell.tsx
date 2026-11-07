@@ -1434,9 +1434,11 @@ export function AppShell({
           </div>
         </aside>
       )}
-      {!shellOverlayMode && sidebarOpen && (
+      {/* Stay mounted and hide: adding a sibling to the shell row restyles the whole chat column. */}
+      {!shellOverlayMode && (
         <div
           role="separator"
+          hidden={!sidebarOpen}
           aria-orientation="vertical"
           aria-label={localizeUi("ui.layout.appshell.resizeLeftSidebar")}
           aria-valuemin={SHARED_SIDEBAR_WIDTH_MIN}
@@ -1679,9 +1681,10 @@ export function AppShell({
         </aside>
       )}
 
-      {!shellOverlayMode && rightPanelOpen && (
+      {!shellOverlayMode && (
         <div
           role="separator"
+          hidden={!rightPanelOpen}
           aria-orientation="vertical"
           aria-label={localizeUi("ui.layout.appshell.resizeRightSidebar")}
           aria-valuemin={SHARED_SIDEBAR_WIDTH_MIN}
