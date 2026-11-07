@@ -697,6 +697,9 @@ const LocalChatArea = memo(function LocalChatArea({
   const chatBackground = useUIStore((s) => s.chatBackground);
   const pendingNewChatSetupId = useChatStore((s) => s.pendingNewChatSetups[activeChatId ?? ""]?.id ?? null);
   const chatWindowIntroDismissed = useUIStore((s) => s.chatWindowIntroDismissed);
+  // On a phone, one first-run popup per visit: when the intro tip shows, the help overlay waits for a later visit.
+  const [introShownThisVisit] = useState(() => !useUIStore.getState().chatWindowIntroDismissed);
+  const overhaulMobileShell = useOverhaulMobile();
   const gameSetupActive = useGameModeStore((state) => state.isSetupActive);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
@@ -4229,6 +4232,7 @@ const LocalChatArea = memo(function LocalChatArea({
         isFirstChat={(allChats ?? []).filter((candidate) => candidate.mode === chatMode).length === 1}
         autoOpenBlocked={
           !chatWindowIntroDismissed ||
+          (overhaulMobileShell && introShownThisVisit) ||
           wizardOpen ||
           settingsOpen ||
           !!pendingNewChatMode ||

@@ -670,6 +670,7 @@ function OnboardingTutorialInner() {
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
+  const tourSettingsTabRef = useRef<ReturnType<typeof useOverhaulStore.getState>["settingsTab"] | null>(null);
   const setSettingsTab = useUIStore((s) => s.setSettingsTab);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const requestChatModeShortcut = useUIStore((s) => s.requestChatModeShortcut);
@@ -791,6 +792,8 @@ function OnboardingTutorialInner() {
         setSettingsTab(currentStep.settingsTab);
       }
       if (currentStep.overhaulSettingsTab) {
+        // Remember the tab the user had, so finishing the tour doesn't leave Settings on the tour's tab.
+        tourSettingsTabRef.current ??= useOverhaulStore.getState().settingsTab;
         useOverhaulStore.getState().setSettingsTab(currentStep.overhaulSettingsTab);
       }
     }
@@ -831,6 +834,10 @@ function OnboardingTutorialInner() {
   }, [updateRect]);
 
   const finish = useCallback(() => {
+    if (tourSettingsTabRef.current) {
+      useOverhaulStore.getState().setSettingsTab(tourSettingsTabRef.current);
+      tourSettingsTabRef.current = null;
+    }
     // A new user has just met this release in the tour, so What's New must not open right after it.
     try {
       window.localStorage.setItem(WHATS_NEW_SEEN_VERSION_KEY, APP_VERSION);

@@ -711,10 +711,12 @@ export function ChatHelpOverlay({
     if (!root || root.getBoundingClientRect().width <= 1) return;
     const timer = window.setTimeout(() => {
       autoOpenedChatRef.current = activeChatId;
+      // It opens by itself only once: leaving without its own exit must not bring it back on every visit.
+      markChatHelpSeen(mode);
       requestChatHelp(mode);
     }, 600);
     return () => window.clearTimeout(timer);
-  }, [activeChatId, autoOpenBlocked, chatHelpButtonHidden, isFirstChat, mode, seenModes]);
+  }, [activeChatId, autoOpenBlocked, chatHelpButtonHidden, isFirstChat, markChatHelpSeen, mode, seenModes]);
 
   useEffect(() => {
     if (!open) return;

@@ -584,7 +584,28 @@ export function AppShell({
   }, [overhaulEnabled]);
   useEffect(() => {
     useOverhaulStore.getState().setDesktop(!isMobile);
-  }, [isMobile]);
+    // The chat list is a sidebar in the desktop shell but a full-screen sheet in the phone shell: a tablet
+    // turned upright (now, or since it was last open) starts on its chat, not under the list it left open
+    // sideways (user panel 2, N18).
+    let lastShell: string | null = null;
+    try {
+      lastShell = localStorage.getItem("marinara-last-shell");
+      localStorage.setItem("marinara-last-shell", isMobile ? "mobile" : "desktop");
+    } catch {
+      /* storage blocked */
+    }
+    if (isMobile && lastShell === "desktop" && useUIStore.getState().sidebarOpen) {
+      useUIStore.setState({ sidebarOpen: false });
+    }
+    // A touch screen can turn into the other shell at any moment: have the phone stylesheet ready, so the
+    // first rotation doesn't show a blank frame while it downloads.
+    if (!isMobile && overhaulEnabled && window.matchMedia?.("(hover: none) and (pointer: coarse)").matches) {
+      const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+      const load = () => void loadOverhaulStyles("mobile").catch(() => undefined);
+      if (idle) idle(load);
+      else window.setTimeout(load, 2000);
+    }
+  }, [isMobile, overhaulEnabled]);
   // New layout: fetch the Library pages in the background once the app is idle, so opening one
   // from the Stack or a tab shows it straight away instead of "Loading…".
   useEffect(() => {

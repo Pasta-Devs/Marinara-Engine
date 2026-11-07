@@ -418,6 +418,14 @@ export function RegexScriptEditor() {
       setSaveError(localizeUi("ui.agents.regexscripteditor.chooseAtLeastOnePromptPreset"));
       return false;
     }
+    if (!localFindRegex.trim()) {
+      setSaveError(
+        localizeUi("ui.agents.regexscripteditor.findPatternRequired", {
+          defaultValue: "Add a Find pattern before saving.",
+        }),
+      );
+      return false;
+    }
     if (blockingRegexError) {
       setSaveError(blockingRegexError);
       return false;

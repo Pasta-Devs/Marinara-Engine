@@ -30,7 +30,8 @@
   position: relative;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* Sides take what their buttons need and the title gets the rest, so a long title can't run under an icon. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   flex: none;
   align-items: center;
   gap: 0.125rem;
@@ -70,7 +71,8 @@
 }
 .ovm-title {
   display: flex;
-  max-width: calc(100vw - 12rem);
+  justify-self: center;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   height: 2.75rem;
@@ -1710,6 +1712,14 @@
 }
 .ovm-lv-head {
   margin: 0 -0.75rem 0.5rem;
+  grid-template-columns: 2.75rem minmax(0, 1fr) minmax(2.75rem, auto);
+}
+.ovm-lv-head__save {
+  justify-self: end;
+  height: 2rem;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.875rem;
 }
 /* Tools (Find, Bulk edit, Import...) as tappable rows. */
 :root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-vw__tools {
@@ -4361,38 +4371,6 @@
   margin-right: env(safe-area-inset-right);
 }
 
-/* ─── Tablet held sideways (desktop layout on a touch screen) ─── */
-/* Long-press on a message: the action sheet becomes a menu beside the finger. */
-.ovm-sheet.is-popover:not(#ovm-x) {
-  --ovm-raised: var(--ov-panel-raised, color-mix(in srgb, var(--foreground) 6%, var(--background)));
-  --ov-line: color-mix(in srgb, var(--foreground) 12%, transparent);
-  right: auto;
-  bottom: auto;
-  width: 21rem;
-  max-height: min(36rem, calc(100dvh - 1.5rem));
-  padding: 0.5rem;
-  border: 1px solid var(--ov-line);
-  border-radius: 1rem;
-  box-shadow: 0 1.125rem 2.5rem rgb(0 0 0 / 0.45);
-  transform: none;
-  animation: none;
-  zoom: 0.86;
-}
-.ovm-sheet-scrim:has(+ .ovm-sheet.is-popover) {
-  background: rgb(0 0 0 / 0.25);
-  backdrop-filter: none;
-}
-:root[data-overhaul="on"] [data-ovm-longpress] {
-  -webkit-touch-callout: none;
-}
-@media (hover: none) {
-  /* Holding a tab opens its menu, so iOS should not show its own link callout. */
-  :root[data-overhaul="on"] :is(.ov-tab, .ov-tabgroup) {
-    -webkit-touch-callout: none;
-    user-select: none;
-  }
-}
-
 /* An account page on phones brings the shared editor header; the drill head stays out. */
 :root[data-overhaul="mobile"] .ovm-drill-page__head[hidden] {
   display: none !important;
@@ -4567,5 +4545,15 @@
 @media (prefers-reduced-motion: reduce) {
   :root[data-overhaul="mobile"] .ovm-swiperow__slide {
     transition: none;
+  }
+}
+
+/* Phones always show two cards per row, so the card-size control has nothing to change; it only squeezed search. */
+@media (max-width: 34rem) {
+  :root[data-overhaul="mobile"] .ov-gallery__tools > .ov-gallery__size {
+    display: none;
+  }
+  :root[data-overhaul="mobile"] .ov-gallery__tools > .ov-search:not(#ovm-x) {
+    min-width: 8rem;
   }
 }

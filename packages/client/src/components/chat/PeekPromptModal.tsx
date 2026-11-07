@@ -824,6 +824,12 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
   };
 
   const handlePanelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape" && !event.defaultPrevented) {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+      return;
+    }
     if (
       (event.ctrlKey || event.metaKey) &&
       !event.altKey &&

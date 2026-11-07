@@ -38,6 +38,17 @@ type Column<T> = {
 
 type Chip = { id: string; label: string };
 
+/** Section and group orders can arrive as stored JSON text: count the ids, not the characters. */
+function orderCount(order: unknown): number {
+  if (Array.isArray(order)) return order.length;
+  if (typeof order !== "string") return 0;
+  try {
+    const parsed: unknown = JSON.parse(order);
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
+}
 export function swatch(id: string) {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
@@ -532,7 +543,7 @@ export function PresetsLanding() {
           key: "sections",
           label: "Sections",
           className: "ov-table__num",
-          render: (preset) => preset.sectionOrder?.length ?? 0,
+          render: (preset) => orderCount(preset.sectionOrder),
         },
         { key: "author", label: "Author", render: (preset) => preset.author || "—" },
         {
@@ -549,7 +560,7 @@ export function PresetsLanding() {
             key={preset.id}
             id={preset.id}
             name={preset.name}
-            sub={`${preset.sectionOrder?.length ?? 0} ${localize("sections")}`}
+            sub={`${orderCount(preset.sectionOrder)} ${localize("sections")}`}
             src={resolvePresetArtwork(preset)}
             onOpen={() => openPresetDetail(preset.id)}
           />

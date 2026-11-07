@@ -381,6 +381,20 @@ export type OmnibarPresetRowsInput = {
   onSetDefaultPreset: (id: string) => void;
 };
 
+/** Section and group orders can arrive as stored JSON text: count the ids, not the characters. */
+function orderCount(order: unknown): number {
+  if (Array.isArray(order)) return order.length;
+  if (typeof order === "string") {
+    try {
+      const parsed: unknown = JSON.parse(order);
+      return Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+      return 0;
+    }
+  }
+  return 0;
+}
+
 export function buildOmnibarPresetRows({ presets, categoryLabels, t, onSetDefaultPreset }: OmnibarPresetRowsInput) {
   return presets.map((item) => {
     const artwork = resolvePresetArtwork(item);
@@ -401,8 +415,8 @@ export function buildOmnibarPresetRows({ presets, categoryLabels, t, onSetDefaul
         facts: [
           { label: t("commandCenter.preview.author", "Author"), value: item.author },
           { label: t("commandCenter.preview.wrapFormat", "Wrap format"), value: item.wrapFormat },
-          { label: t("commandCenter.preview.sections", "Sections"), value: item.sectionOrder.length },
-          { label: t("commandCenter.preview.groups", "Groups"), value: item.groupOrder.length },
+          { label: t("commandCenter.preview.sections", "Sections"), value: orderCount(item.sectionOrder) },
+          { label: t("commandCenter.preview.groups", "Groups"), value: orderCount(item.groupOrder) },
         ],
       }),
       control: {
