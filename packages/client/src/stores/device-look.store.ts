@@ -21,6 +21,12 @@ export const DEVICE_LOOK_KEYS = [
   "appAccentColor",
   "appBackgroundColor",
   "appAccentColorLight",
+  "chatArtBehindPanels",
+  "a11yLineHeight",
+  "a11yLetterSpacing",
+  "a11yStrongFocus",
+  "a11yContrast",
+  "a11yColorBlindSafe",
   "appBackgroundColorLight",
   "fontFamily",
 ] as const;

@@ -770,6 +770,20 @@ interface UIState {
   appBackgroundColorLight: string;
   /** Light mode's own accent ("" = use appAccentColor). */
   appAccentColorLight: string;
+  /** A character's default custom theme for its chats (character id → theme id, "" = Default). */
+  characterThemeDefaults: Record<string, string>;
+  /** Show a chat's background behind the side panels too (they turn translucent). */
+  chatArtBehindPanels: boolean;
+  /** Accessibility: line height multiplier for reading text (1 = the app's own). */
+  a11yLineHeight: number;
+  /** Accessibility: extra letter spacing in em (0 = none). */
+  a11yLetterSpacing: number;
+  /** Accessibility: thick, high-contrast focus rings on every control. */
+  a11yStrongFocus: boolean;
+  /** Accessibility: high-contrast colours. "system" follows the OS (prefers-contrast: more). */
+  a11yContrast: "system" | "on" | "off";
+  /** Accessibility: blue/orange instead of green/red for status, gauges and danger. */
+  a11yColorBlindSafe: boolean;
   appAccentPulseMode: boolean;
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
@@ -1359,6 +1373,13 @@ interface UIState {
   setAppAccentColor: (color: string) => void;
   setAppBackgroundColorLight: (color: string) => void;
   setAppAccentColorLight: (color: string) => void;
+  setCharacterThemeDefault: (characterId: string, themeId: string | null) => void;
+  setChatArtBehindPanels: (enabled: boolean) => void;
+  setA11yLineHeight: (value: number) => void;
+  setA11yLetterSpacing: (value: number) => void;
+  setA11yStrongFocus: (enabled: boolean) => void;
+  setA11yContrast: (value: "system" | "on" | "off") => void;
+  setA11yColorBlindSafe: (enabled: boolean) => void;
   setAppAccentPulseMode: (enabled: boolean) => void;
   setAppAccentRgbMode: (enabled: boolean) => void;
   setCustomCursorEnabled: (enabled: boolean) => void;
@@ -1707,6 +1728,10 @@ export function shownMariAppearancePack(state: UIState, playHours: number | null
   );
 }
 
+function clampA11y(value: unknown, min: number, max: number, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+}
+
 /**
  * Returns the subset of UI state that is synced to the server so it persists
  * across devices and browsers. Excludes device-local sizing preferences,
@@ -1735,6 +1760,13 @@ export function pickSyncedSettings(state: UIState) {
     appAccentColor: state.appAccentColor,
     appBackgroundColorLight: state.appBackgroundColorLight,
     appAccentColorLight: state.appAccentColorLight,
+    characterThemeDefaults: state.characterThemeDefaults,
+    chatArtBehindPanels: state.chatArtBehindPanels,
+    a11yLineHeight: state.a11yLineHeight,
+    a11yLetterSpacing: state.a11yLetterSpacing,
+    a11yStrongFocus: state.a11yStrongFocus,
+    a11yContrast: state.a11yContrast,
+    a11yColorBlindSafe: state.a11yColorBlindSafe,
     reduceAmbientEffects: state.reduceAmbientEffects,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
@@ -1987,6 +2019,13 @@ export function pickPersistedUIState(state: UIState) {
     appAccentColor: state.appAccentColor,
     appBackgroundColorLight: state.appBackgroundColorLight,
     appAccentColorLight: state.appAccentColorLight,
+    characterThemeDefaults: state.characterThemeDefaults,
+    chatArtBehindPanels: state.chatArtBehindPanels,
+    a11yLineHeight: state.a11yLineHeight,
+    a11yLetterSpacing: state.a11yLetterSpacing,
+    a11yStrongFocus: state.a11yStrongFocus,
+    a11yContrast: state.a11yContrast,
+    a11yColorBlindSafe: state.a11yColorBlindSafe,
     appAccentPulseMode: state.appAccentPulseMode,
     appAccentRgbMode: state.appAccentRgbMode,
     customCursorEnabled: state.customCursorEnabled,
@@ -2265,6 +2304,13 @@ export const useUIStore = create<UIState>()(
         appAccentColor: "",
         appBackgroundColorLight: "",
         appAccentColorLight: "",
+        characterThemeDefaults: {},
+        chatArtBehindPanels: false,
+        a11yLineHeight: 1,
+        a11yLetterSpacing: 0,
+        a11yStrongFocus: false,
+        a11yContrast: "system" as const,
+        a11yColorBlindSafe: false,
         appAccentPulseMode: getDefaultAppAccentPulseMode(),
         appAccentRgbMode: false,
         customCursorEnabled: true,
@@ -2690,6 +2736,19 @@ export const useUIStore = create<UIState>()(
         setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
         setAppBackgroundColorLight: (color) => set({ appBackgroundColorLight: normalizeAppBackgroundColor(color) }),
         setAppAccentColorLight: (color) => set({ appAccentColorLight: normalizeAppAccentColor(color) }),
+        setCharacterThemeDefault: (characterId, themeId) =>
+          set((state) => {
+            const next = { ...state.characterThemeDefaults };
+            if (themeId === null) delete next[characterId];
+            else next[characterId] = themeId;
+            return { characterThemeDefaults: next };
+          }),
+        setChatArtBehindPanels: (enabled) => set({ chatArtBehindPanels: enabled }),
+        setA11yLineHeight: (value) => set({ a11yLineHeight: clampA11y(value, 1, 2, 1) }),
+        setA11yLetterSpacing: (value) => set({ a11yLetterSpacing: clampA11y(value, 0, 0.2, 0) }),
+        setA11yStrongFocus: (enabled) => set({ a11yStrongFocus: enabled }),
+        setA11yContrast: (value) => set({ a11yContrast: value }),
+        setA11yColorBlindSafe: (enabled) => set({ a11yColorBlindSafe: enabled }),
         setAppAccentPulseMode: (enabled) => set({ appAccentPulseMode: enabled }),
         setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
         setCustomCursorEnabled: (enabled) => set({ customCursorEnabled: enabled }),
@@ -3518,6 +3577,12 @@ export const useUIStore = create<UIState>()(
             appAccentColor: "",
             appBackgroundColorLight: "",
             appAccentColorLight: "",
+            chatArtBehindPanels: false,
+            a11yLineHeight: 1,
+            a11yLetterSpacing: 0,
+            a11yStrongFocus: false,
+            a11yContrast: "system" as const,
+            a11yColorBlindSafe: false,
             appAccentPulseMode: getDefaultAppAccentPulseMode(),
             appAccentRgbMode: false,
             customCursorEnabled: true,
@@ -4392,6 +4457,17 @@ export const useUIStore = create<UIState>()(
         }
         persisted.appBackgroundColorLight = normalizeAppBackgroundColor(persisted.appBackgroundColorLight);
         persisted.appAccentColorLight = normalizeAppAccentColor(persisted.appAccentColorLight);
+        persisted.characterThemeDefaults =
+          persisted.characterThemeDefaults && typeof persisted.characterThemeDefaults === "object"
+            ? Object.fromEntries(
+                Object.entries(persisted.characterThemeDefaults as Record<string, unknown>).filter(
+                  (entry): entry is [string, string] => typeof entry[1] === "string",
+                ),
+              )
+            : {};
+        persisted.a11yLineHeight = clampA11y(persisted.a11yLineHeight, 1, 2, 1);
+        persisted.a11yLetterSpacing = clampA11y(persisted.a11yLetterSpacing, 0, 0.2, 0);
+        if (!["system", "on", "off"].includes(persisted.a11yContrast as string)) persisted.a11yContrast = "system";
         return persisted;
       },
       merge: (persistedState: unknown, currentState) => {

@@ -393,6 +393,8 @@ export interface ChatMetadata {
   hideSummarisedMessages?: boolean;
   /** Custom tags for organisation */
   tags: string[];
+  /** This chat's own custom theme: a theme id, "" for the default look, or unset to follow the app. */
+  themeId?: string | null;
   /** Whether agents are enabled for this chat */
   enableAgents: boolean;
   /** Attach shared chat-summary context to Roleplay agents only when true. Missing/false excludes summaries. */

@@ -8,6 +8,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, type CSSProperties } from "react";
 import type { DirectionCommand } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useReportChatArt } from "../../hooks/use-chat-theme";
 
 /** Cross-fading background layer — renders two stacked layers and transitions between them. */
 function getBackgroundBlurStyle(blurPx: number): Pick<CSSProperties, "filter" | "transform"> {
@@ -41,6 +42,7 @@ function CrossfadeBackground({ url, blurPx = 0 }: { url?: string; blurPx?: numbe
   }, [url]);
 
   const isBlack = !layers.front || layers.front === "black";
+  useReportChatArt(layers.front);
 
   return (
     <>

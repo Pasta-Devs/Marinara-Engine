@@ -24,6 +24,7 @@ import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
 import { ThemeSafetyHost } from "./components/layout/ThemeSafetyHost";
 import { useThemeSafetyStore } from "./lib/theme-safety";
 import { removeRootVar, setRootVar } from "./lib/root-vars";
+import { useThemeChatHooks } from "./hooks/use-chat-theme";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { WhatsNewModal } from "./components/modals/WhatsNewModal";
@@ -1257,17 +1258,19 @@ export function App() {
     }
   }, [chatWidgetBorderColor, chatWidgetBackgroundColor, chatWidgetTextColor, chatFontOpacity]);
 
+  // A theme that sets --mari-chat-* hooks turns the matching part on by itself (theming batch 5).
+  const themeChatHooks = useThemeChatHooks();
   useEffect(() => {
     const root = document.documentElement;
     for (const [attribute, enabled] of [
-      ["data-chat-widget-apply-font", chatWidgetApplyFont],
-      ["data-chat-widget-apply-shape", chatWidgetApplyShape],
-      ["data-chat-widget-apply-colors", chatWidgetApplyColors],
+      ["data-chat-widget-apply-font", chatWidgetApplyFont || themeChatHooks.font],
+      ["data-chat-widget-apply-shape", chatWidgetApplyShape || themeChatHooks.shape],
+      ["data-chat-widget-apply-colors", chatWidgetApplyColors || themeChatHooks.colors],
     ] as const) {
       if (enabled) root.setAttribute(attribute, "true");
       else root.removeAttribute(attribute);
     }
-  }, [chatWidgetApplyFont, chatWidgetApplyShape, chatWidgetApplyColors]);
+  }, [chatWidgetApplyFont, chatWidgetApplyShape, chatWidgetApplyColors, themeChatHooks]);
 
   // Register custom font faces without forcing every shard to load at startup.
   const { data: customFonts } = useQuery<CustomFontFace[]>({

@@ -14,7 +14,12 @@ import { themeFontFaceCss } from "../../lib/theme-package";
 import { installSafeModeShortcut, useThemeSafetyStore } from "../../lib/theme-safety";
 import { checkProtectedChrome } from "../../lib/theme-guard";
 import { useUIStore } from "../../stores/ui.store";
-import { useActiveThemeOverride } from "../../hooks/use-chat-theme";
+import {
+  detectThemeChatHooks,
+  useActiveThemeOverride,
+  useChatArtBehindPanels,
+  useChatRootHooks,
+} from "../../hooks/use-chat-theme";
 
 const NORMAL_ID = "marinara-custom-theme";
 const IMPORTANT_ID = "marinara-custom-theme-important";
@@ -48,6 +53,8 @@ export function CustomThemeInjector() {
   const allowed = !!activeTheme && !safeMode && blockedThemeId !== activeTheme.id;
 
   useEffect(() => installSafeModeShortcut(), []);
+  useChatRootHooks();
+  useChatArtBehindPanels();
 
   // Inject active custom theme CSS
   useEffect(() => {
@@ -67,12 +74,14 @@ export function CustomThemeInjector() {
     // A backdrop is painted once behind the whole app (theme-tokens.css), not on every surface.
     if (themeSetsVariable(css, "--mari-app-backdrop")) document.documentElement.dataset.mariAppBackdrop = "";
     else delete document.documentElement.dataset.mariAppBackdrop;
+    detectThemeChatHooks(css, themeSetsVariable);
 
     return () => {
       document.getElementById(NORMAL_ID)?.remove();
       document.getElementById(IMPORTANT_ID)?.remove();
       delete document.documentElement.dataset.customTheme;
       delete document.documentElement.dataset.mariAppBackdrop;
+      detectThemeChatHooks(null, themeSetsVariable);
     };
   }, [activeTheme, allowed]);
 

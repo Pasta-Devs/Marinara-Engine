@@ -116,3 +116,28 @@
     animation: var(--mari-accent-fx-animation);
   }
 }
+
+/* ─── Chat background behind the side panels (Appearance > Chat background behind panels) ───
+   The open chat's picture fills the window, softened, and the side panels turn translucent over it.
+   --mari-chat-art-blur and --mari-chat-art-dim tune it; --mari-chat-art is the picture. */
+:root[data-mari-chat-art-behind] .mari-app {
+  isolation: isolate;
+}
+:root[data-mari-chat-art-behind] .mari-app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--mari-chat-art) center / cover no-repeat;
+  filter: blur(var(--mari-chat-art-blur, 14px)) brightness(var(--mari-chat-art-dim, 0.72));
+  transform: scale(1.06);
+}
+:root[data-mari-chat-art-behind] .mari-app .mari-app-background-paint {
+  background: transparent;
+}
+:root[data-mari-chat-art-behind]
+  :is([data-component="ChatSidebarPanel"], [data-component="RightPanelDesktop"], [data-component="TopBar"]) {
+  background-color: color-mix(in srgb, var(--sidebar, var(--background)) 72%, transparent);
+  backdrop-filter: blur(12px) saturate(1.1);
+}
