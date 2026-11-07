@@ -10095,3 +10095,17 @@ input.ov-edhead__title:not(#ov-x) {
   font-size: 0.75rem;
   line-height: 1.45;
 }
+
+/* Menu separators and unavailable items (tab right-click menu). */
+.ov-menu__sep {
+  height: 1px;
+  margin: 0.25rem 0.375rem;
+  background: var(--ov-line);
+}
+.ov-menu button:disabled {
+  color: var(--ov-dim);
+  cursor: default;
+}
+.ov-menu button:disabled:hover {
+  background: none;
+}

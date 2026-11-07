@@ -86,6 +86,11 @@ interface OverhaulState {
   setDesktop: (desktop: boolean) => void;
   touchTab: (tab: OverhaulTab) => void;
   closeTab: (tab: OverhaulTab) => void;
+  /** Tabs the person closed this session, newest last, for "Reopen closed tab" (Ctrl+Shift+T). */
+  closedTabs: OverhaulTab[];
+  rememberClosedTab: (tab: OverhaulTab) => void;
+  /** Takes the most recently closed tab off the list. */
+  takeClosedTab: () => OverhaulTab | null;
   /** Drag-to-reorder: put the tab with `key` at `index` in the strip. */
   moveTab: (key: string, index: number) => void;
   /** Tab groups by id. A group's tabs always sit next to each other in `tabs`. */
@@ -170,7 +175,7 @@ function withoutEmptyGroups(state: { tabs: OverhaulTab[]; tabGroups: Record<stri
 
 export const useOverhaulStore = create<OverhaulState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       enabled: true,
       desktop: true,
       tabs: [],
@@ -192,6 +197,20 @@ export const useOverhaulStore = create<OverhaulState>()(
           // No limit: tabs that don't fit the strip go to its overflow menu instead of being closed.
           return { tabs: [...state.tabs, { kind: tab.kind, id: tab.id }] };
         }),
+      closedTabs: [],
+      rememberClosedTab: (tab) =>
+        set((state) => ({
+          closedTabs: [
+            ...state.closedTabs.filter((existing) => overhaulTabKey(existing) !== overhaulTabKey(tab)),
+            { kind: tab.kind, id: tab.id },
+          ].slice(-20),
+        })),
+      takeClosedTab: () => {
+        const closed = get().closedTabs;
+        const tab = closed[closed.length - 1] ?? null;
+        if (tab) set({ closedTabs: closed.slice(0, -1) });
+        return tab;
+      },
       closeTab: (tab) =>
         set((state) =>
           withoutEmptyGroups({
