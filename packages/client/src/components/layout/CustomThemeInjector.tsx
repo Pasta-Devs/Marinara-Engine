@@ -72,8 +72,14 @@ export function CustomThemeInjector() {
     else document.getElementById(IMPORTANT_ID)?.remove();
     document.documentElement.dataset.customTheme = activeTheme.id;
     // A backdrop is painted once behind the whole app (theme-tokens.css), not on every surface.
-    if (themeSetsVariable(css, "--mari-app-backdrop")) document.documentElement.dataset.mariAppBackdrop = "";
+    const backdropLayers = themeSetsVariable(css, "--mari-app-backdrop-layers");
+    if (backdropLayers || themeSetsVariable(css, "--mari-app-backdrop"))
+      document.documentElement.dataset.mariAppBackdrop = "";
     else delete document.documentElement.dataset.mariAppBackdrop;
+    if (backdropLayers) document.documentElement.dataset.mariAppBackdropLayers = "";
+    else delete document.documentElement.dataset.mariAppBackdropLayers;
+    if (themeSetsVariable(css, "--mari-top-bar-bg")) document.documentElement.dataset.mariTopBarArt = "";
+    else delete document.documentElement.dataset.mariTopBarArt;
     detectThemeChatHooks(css, themeSetsVariable);
 
     return () => {
@@ -81,6 +87,8 @@ export function CustomThemeInjector() {
       document.getElementById(IMPORTANT_ID)?.remove();
       delete document.documentElement.dataset.customTheme;
       delete document.documentElement.dataset.mariAppBackdrop;
+      delete document.documentElement.dataset.mariAppBackdropLayers;
+      delete document.documentElement.dataset.mariTopBarArt;
       detectThemeChatHooks(null, themeSetsVariable);
     };
   }, [activeTheme, allowed]);

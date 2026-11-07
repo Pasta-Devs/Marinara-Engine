@@ -182,6 +182,20 @@
           top: 0 !important;
           margin: 0 !important;
         }
+        /* The top bar can carry art (--mari-top-bar-bg, or its own ::before/::after), but the art
+           stays under the tabs and icons and never takes their clicks. */
+        [data-component="TopBar"]::before,
+        [data-component="TopBar"]::after {
+          z-index: -1 !important;
+          pointer-events: none !important;
+        }
+        [data-component="TopBar"] > *,
+        [data-component="TopBar"] [role="tablist"],
+        [data-component="TopBar"] [role="tab"]:not(.is-clipped) {
+          visibility: visible !important;
+          clip-path: none !important;
+          mask: none !important;
+        }
         /* Pseudo-element decorations (scanlines, grain, vignettes) never take clicks. */
         :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::before,
         :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::after {

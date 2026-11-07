@@ -26,6 +26,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useConversationGamesStore } from "../../stores/conversation-games.store";
 import { useGenerate } from "../../hooks/use-generate";
+import { useThemedPlaceholder } from "../../hooks/use-themed-placeholder";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, useChat, chatKeys } from "../../hooks/use-chats";
 import { useConnections } from "../../hooks/use-connections";
@@ -492,6 +493,8 @@ export function ConversationInput({
     }
     return t("chat.input.message");
   }, [activeCharacterNames, chatName, isMobileComposerViewport, t]);
+  // A theme can set its own text with --mari-composer-placeholder (hooks/use-themed-placeholder.ts).
+  const themedPlaceholder = useThemedPlaceholder("conversation", inputPlaceholder);
 
   // Read from the existing infinite-message cache so an empty Send can retry
   // after a failed generation without adding a second user message.
@@ -2292,7 +2295,7 @@ export function ConversationInput({
           ref={textareaRef}
           data-chat-composer="true"
           data-chat-id={activeChatId}
-          placeholder={inputPlaceholder}
+          placeholder={themedPlaceholder}
           rows={1}
           onInput={handleInput}
           onKeyDown={handleKeyDown}

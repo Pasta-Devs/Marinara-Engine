@@ -93,12 +93,28 @@ Each one defaults to the app's own look. Light mode has its own readable values.
 | `--mari-status-online`, `--mari-status-idle`, `--mari-status-dnd`, `--mari-status-offline`               | Presence dots and labels                                                                                                    |
 | `--mari-gauge-ok`, `--mari-gauge-warn`, `--mari-gauge-danger`                                            | Game gauges and HP bars. A widget's own colour still wins in its normal state; danger always uses the token                 |
 | `--mari-game-combat`, `--mari-game-combat-text`                                                          | The game's Combat button                                                                                                    |
-| `--mari-stage-empty-bg`                                                                                  | The game stage before a scene image loads                                                                                   |
+| `--mari-stage-empty-bg`                                                                                  | The game stage before a scene image loads (any `background`, gradients included)                                            |
 | `--mari-scrim`                                                                                           | The dimmed backdrop behind Ctrl+K                                                                                           |
 | `--mari-user-avatar-placeholder`                                                                         | Your avatar when you have no picture (a gradient)                                                                           |
 | `--mari-art-saturation-1`, `--mari-art-lightness-1`, `--mari-art-saturation-2`, `--mari-art-lightness-2` | The gradient on cards without a picture. Each card keeps its own hue; set these (as percentages) to calm the gradients down |
 | `--mari-app-backdrop`                                                                                    | An image or gradient behind the whole app, painted once (see below)                                                         |
 | `--mari-accent-fx-animation`                                                                             | The Accent Pulse or RGB Mode animation while one is on, otherwise `none`                                                    |
+
+### Theme tokens added in v1.1
+
+These have no value until a theme sets one, so the user's own setting applies until then.
+
+| Token                                                                                                                                                                                                                        | Used for                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mari-text-outline`                                                                                                                                                                                                        | The outline on message text, for example `0` to turn it off or `1px #3b2a1a`. Otherwise it's the user's Text Outline setting                                                                              |
+| `--mari-dialogue-color`                                                                                                                                                                                                      | Dialogue colour when the character or persona has none of its own (their own colour still wins)                                                                                                           |
+| `--mari-chat-font-size`                                                                                                                                                                                                      | Message text size. The Accessibility minimum still applies                                                                                                                                                |
+| `--mari-composer-placeholder`                                                                                                                                                                                                | The message box placeholder, as a quoted string: `"> waiting for user input..."`. Set it on `:root` or on one composer, such as `[data-composer="game"]`. Text that asks for keys or passwords is ignored |
+| `--mari-page-veil`                                                                                                                                                                                                           | A colour laid over Settings, the Library, editors and Docs, so long text stays readable over a backdrop. `transparent` by default                                                                         |
+| `--mari-top-bar-bg`                                                                                                                                                                                                          | A whole `background` value for the top bar: an image, a gradient or several layers. `--mari-top-bar-rendering: pixelated` keeps pixel art crisp. The tabs and icons always stay on top and visible        |
+| `--mari-msg-head-rule`                                                                                                                                                                                                       | The line under the name in roleplay messages (a `border-bottom` value, such as `none` or `2px dashed currentColor`)                                                                                       |
+| `--mari-home-widget-border`, `--mari-home-widget-border-width`, `--mari-home-widget-radius`, `--mari-home-widget-bg`                                                                                                         | Every Home widget's frame and surface, Professor Mari included                                                                                                                                            |
+| `--mari-home-widget-font`, `--mari-home-widget-title-font`, `--mari-home-widget-title-size`, `--mari-home-widget-title-color`, `--mari-home-widget-eyebrow-size`, `--mari-home-widget-text-size`, `--mari-home-widget-muted` | Home widget type. Widgets grow taller when the text needs more room instead of clipping it                                                                                                                |
 
 ## Backdrops
 
@@ -107,12 +123,30 @@ Set `--mari-app-backdrop` on `:root` to paint art behind the app:
 ```css
 :root {
   --mari-app-backdrop: url("data:image/webp;base64,…");
+  --mari-app-backdrop-position: bottom center;
+  --mari-app-backdrop-rendering: pixelated;
 }
 ```
 
-It is drawn once on the app root, and the nested surfaces that used to repaint the background go
-transparent so the art shows through. Panels keep `--card` and `--sidebar`, so make those
-translucent if you want the art to show behind them.
+It is drawn once, on a fixed layer under the whole app, and it shows behind chats too: the roleplay,
+conversation and game surfaces go transparent and the stock chat background steps aside. A
+background the user picked for a chat still shows on top of it. Panels keep `--card` and
+`--sidebar`, so make those translucent if you want the art to show behind them, and use
+`--mari-page-veil` to tint full pages.
+
+| Token                            | Default                                                                                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mari-app-backdrop`            | One image or gradient                                                                                                                                                                                             |
+| `--mari-app-backdrop-size`       | `cover` (try `auto` or `64px` for tiles)                                                                                                                                                                          |
+| `--mari-app-backdrop-position`   | `center`                                                                                                                                                                                                          |
+| `--mari-app-backdrop-repeat`     | `no-repeat`                                                                                                                                                                                                       |
+| `--mari-app-backdrop-attachment` | `fixed`                                                                                                                                                                                                           |
+| `--mari-app-backdrop-rendering`  | `auto` (`pixelated` for pixel art)                                                                                                                                                                                |
+| `--mari-app-backdrop-layers`     | A whole `background` value with several layers, such as `url(city.webp) bottom / 100% auto no-repeat, radial-gradient(#fff3 1px, transparent 1px) 0 0 / 12px 12px, #fbe3ef`. It wins over the single-image tokens |
+
+Custom images are the most flexible part of a theme: backdrops, a top bar strip, Home widget
+frames and message frames (`border-image`, or a `background` on any part hook), tiled patterns
+and bundled pixel fonts all ship inside the theme file, and the import preview lists them.
 
 A chat's own background is an `<img data-mari-part="backdrop">`. The stock one (no background picked)
 also has `data-default-background="true"`, so a theme can replace only that one:
@@ -165,20 +199,42 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 
 ### Parts
 
-| Selector                                                              | What it is                                                                                                           |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `[data-mari-part="message"]`                                          | One message. Also has `data-message-id` and `data-message-role` (`user`, `assistant`, `system`, …)                   |
-| `[data-mari-part="message"][data-latest]`                             | The newest reply from the character                                                                                  |
-| `[data-mari-part="message"][data-streaming]`                          | A reply that is still being written                                                                                  |
-| `[data-mari-part="composer"]`                                         | The message box. `data-composer` is `roleplay`, `conversation` or `game`                                             |
-| `[data-mari-part="home-widget"]`                                      | A Home widget card. Its frame has `data-home-widget-id` (`recent`, `professor`, `whats-new`, `character-library`, …) |
-| `[data-mari-part="backdrop"]`                                         | A chat's background image (see Backdrops)                                                                            |
-| `[data-mari-part="stage-empty"]`                                      | The game stage with no scene image                                                                                   |
-| `[data-chat-row]`                                                     | A row in the chats sidebar; `data-selected="true"` on the open chat                                                  |
-| `[data-chat-mode]`                                                    | The chat surface, by mode                                                                                            |
-| `.mari-messages-scroll`                                               | The scrolling message list                                                                                           |
-| `.mari-rp-bubble`, `.mari-rp-bubble--user`, `.mari-message-assistant` | Roleplay and conversation bubbles                                                                                    |
-| `.mari-window`, `.mari-drawer`                                        | Pop-out windows and drawers                                                                                          |
+| Selector                                                                               | What it is                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[data-mari-part="message"]`                                                           | One message, in every chat mode. Also has `data-message-id` and `data-message-role` (`user`, `assistant`, `system`, …) and the message data below                                                                     |
+| `[data-mari-part="message"][data-latest]`                                              | The newest reply from the character                                                                                                                                                                                   |
+| `[data-mari-part="message"][data-streaming]`                                           | A reply that is still being written                                                                                                                                                                                   |
+| `[data-mari-part="avatar"]`, `[data-mari-part="header"]`, `[data-mari-part="actions"]` | Inside a message: the avatar, the name line and the message tools                                                                                                                                                     |
+| `[data-mari-part="reasoning"]`, `[data-mari-part="reasoning-text"]`                    | The reasoning toggle (or box) and its text, the same hook on desktop and on phones                                                                                                                                    |
+| `[data-mari-part="composer"]`                                                          | The message box. `data-composer` is `roleplay`, `conversation` or `game`                                                                                                                                              |
+| `[data-mari-part="home-widget"]`                                                       | A Home widget card, Professor Mari included. Its frame has `data-home-widget-id` (`recent`, `professor`, `whats-new`, `character-library`, …). Inside: `home-widget-eyebrow`, `home-widget-title`, `home-widget-text` |
+| `[data-mari-part="backdrop"]`                                                          | A chat's background image (see Backdrops)                                                                                                                                                                             |
+| `[data-mari-part="stage-empty"]`                                                       | The game stage with no scene image                                                                                                                                                                                    |
+| `[data-chat-row]`                                                                      | A row in the chats sidebar; `data-selected="true"` on the open chat                                                                                                                                                   |
+| `[data-chat-mode]`                                                                     | The chat surface, by mode                                                                                                                                                                                             |
+| `.mari-messages-scroll`                                                                | The scrolling message list                                                                                                                                                                                            |
+| `.mari-rp-bubble`, `.mari-rp-bubble--user`, `.mari-message-assistant`                  | Roleplay and conversation bubbles                                                                                                                                                                                     |
+| `.mari-window`, `.mari-drawer`                                                         | Pop-out windows and drawers                                                                                                                                                                                           |
+
+### Message data
+
+Every message carries who wrote it, its number and how long it took, as attributes for selectors
+and `attr()`, and as CSS variables for `content:` and `counter()`:
+
+| Attribute             | Variable           | Value                                                                                      |
+| --------------------- | ------------------ | ------------------------------------------------------------------------------------------ |
+| `data-character-id`   |                    | The character's id (absent on your own messages)                                           |
+| `data-character-name` | `--mari-msg-char`  | The display name (`--mari-msg-char` is a quoted string)                                    |
+| `data-character`      |                    | The name in lowercase with spaces as `-`, for selectors: `[data-character="captain-faye"]` |
+| `data-message-index`  | `--mari-msg-index` | The message number shown by "Message numbers"                                              |
+| `data-gen-ms`         | `--mari-msg-gen`   | Generation time in ms (`--mari-msg-gen` is a string such as `"3.2s"`)                      |
+
+```css
+[data-mari-part="message"] [data-mari-part="header"]::after {
+  counter-reset: msg var(--mari-msg-index);
+  content: "#" counter(msg) " · " var(--mari-msg-gen, "");
+}
+```
 
 ## Per-chat looks
 
@@ -249,6 +305,13 @@ The import preview tells the user when a theme tries to change any of these.
   an Escape that closes Ctrl+K, a menu or a dialog doesn't count.
 
 ## Changes
+
+- **v1.1**: message hooks in every chat mode with character, index and generation time; avatar,
+  header, actions and reasoning parts; `--mari-composer-placeholder`; backdrop v2 (size, position,
+  repeat, pixelated, layers) that also shows behind chats; `--mari-page-veil`; `--mari-top-bar-bg`;
+  `--mari-text-outline`, `--mari-dialogue-color`, `--mari-chat-font-size`, `--mari-msg-head-rule`;
+  Home widget tokens, with Professor Mari as a `home-widget`. `--mari-stage-empty-bg` is now a
+  `background` (gradients work).
 
 - **v1.0.1**: guard v2, protected Accessibility values, added-text checks. Install is all-or-nothing,
   bundled backgrounds install, Go back also restores the settings a theme applied, theme fonts show
