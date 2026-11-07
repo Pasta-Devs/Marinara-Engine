@@ -1514,6 +1514,7 @@ export function ChatSidebar() {
                   await confirmDeleteChat(chat.id, displayName);
                 }
               }}
+              data-chat-row-delete
               className="shrink-0 rounded-md p-1 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 max-md:opacity-100"
             >
               <Trash2 size="0.75rem" />
@@ -2316,6 +2317,7 @@ function BranchRow({
             event.stopPropagation();
             onDelete();
           }}
+          data-chat-row-delete
           className="shrink-0 rounded-md p-1 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
         >
           <Trash2 size="0.75rem" />
