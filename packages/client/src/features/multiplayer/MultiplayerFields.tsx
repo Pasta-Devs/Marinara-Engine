@@ -1,7 +1,8 @@
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MULTIPLAYER_LIMITS, type MultiplayerPersona } from "@marinara-engine/shared";
+import { MULTIPLAYER_LIMITS, readMarinaraCardClassic, type MultiplayerPersona } from "@marinara-engine/shared";
 import { CharacterSelect } from "../../components/characters/CharacterSelect";
+import { ClassicCardSection } from "../../components/overhaul/ClassicCardSection";
 import { usePersonas } from "../../hooks/use-characters";
 
 export const MULTIPLAYER_INPUT_CLASS =
@@ -9,12 +10,29 @@ export const MULTIPLAYER_INPUT_CLASS =
 export const MULTIPLAYER_BUTTON_CLASS =
   "mari-chrome-control !min-h-10 rounded-lg px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50";
 
+/** A library persona's MRPG picks (its Game Mode section), kept in personaStats.classic. */
+function personaClassic(stats: unknown): MultiplayerPersona["classic"] {
+  let parsed = stats;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return undefined;
+    }
+  }
+  return readMarinaraCardClassic((parsed as { classic?: unknown } | null)?.classic);
+}
+
 export function MultiplayerPersonaFields({
   value,
   onChange,
+  game = false,
 }: {
   value: MultiplayerPersona;
   onChange: (value: MultiplayerPersona) => void;
+  /** A Game Mode room: the player builds their character's MRPG picks and writes their concept for the
+   *  Game Master too (owner 2026-11-06), as a host does on their own persona. */
+  game?: boolean;
 }) {
   const { t } = useTranslation();
   const { data: personas = [] } = usePersonas();
@@ -37,9 +55,12 @@ export function MultiplayerPersonaFields({
           const persona = personas.find((item) => item.id === personaId);
           if (!persona) return;
           setPicked(persona.id);
+          const classic = personaClassic((persona as { personaStats?: unknown }).personaStats);
           onChange({
+            ...value,
             name: persona.name.slice(0, 80),
             description: persona.description.slice(0, MULTIPLAYER_LIMITS.description),
+            classic,
           });
         }}
       />
@@ -64,6 +85,34 @@ export function MultiplayerPersonaFields({
         className={MULTIPLAYER_INPUT_CLASS}
         onChange={(event) => onChange({ ...value, description: event.target.value })}
       />
+      {game && (
+        <>
+          <label htmlFor={`${id}-concept`} className="block text-xs font-medium">
+            {t("multiplayer.persona.concept")}
+          </label>
+          <textarea
+            id={`${id}-concept`}
+            value={value.concept ?? ""}
+            maxLength={MULTIPLAYER_LIMITS.description}
+            rows={3}
+            placeholder={t("multiplayer.persona.conceptHint")}
+            className={MULTIPLAYER_INPUT_CLASS}
+            onChange={(event) => {
+              const { concept: _old, ...rest } = value;
+              onChange(event.target.value ? { ...rest, concept: event.target.value } : rest);
+            }}
+          />
+          <ClassicCardSection
+            value={value.classic}
+            onChange={(classic) => {
+              const { classic: _old, ...rest } = value;
+              onChange(classic ? { ...rest, classic } : rest);
+            }}
+            description={value.description}
+          />
+          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{t("multiplayer.persona.gmDecides")}</p>
+        </>
+      )}
       <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{t("multiplayer.persona.disclosure")}</p>
     </div>
   );

@@ -1,5 +1,6 @@
 import { gamePartyRoster, rulesetAdvancementTurnStart } from "./ruleset-sheet-turn.service.js";
 import { currentRoomGeneration, roomHostIdentity } from "../multiplayer/generation-policy.js";
+import { marinaraCardClassicByName } from "./marinara-card-classic.service.js";
 // ──────────────────────────────────────────────
 // Service: Skill Check Resolution (chat-scoped)
 //
@@ -79,6 +80,13 @@ import {
   type RulesetSheetItem,
   rulesetCheckStance,
   rulesetSheetDead,
+  readMarinaraCardProgression,
+  createMarinaraCardProgression,
+  gameCardTemperament,
+  partyTemperamentFallback,
+  type MarinaraCardClassic,
+  type MarinaraPartyTemperament,
+  type MarinaraStats,
 } from "@marinara-engine/shared";
 import { loadGameInventoryItemBook } from "./game-inventory.service.js";
 import type { DB } from "../../db/connection.js";
@@ -97,6 +105,8 @@ import {
   attributeModifier,
   getGoverningAttribute,
   mapSheetAttributesToRPG,
+  mrpgCheckModifier,
+  mrpgStatForSkill,
   readContextAttributeScore,
   resolveSkillCheck,
 } from "./skill-check.service.js";
@@ -152,8 +162,17 @@ export interface SkillCheckModifierContext {
    * Absent is `engine-legacy`: the arithmetic this service has always done.
    */
   ruleset?: SkillCheckRulesetContext;
+  /**
+   * In a game on MRPG classes, the character's MRPG stats (their active class's body), which a check
+   * then reads instead of any Legacy attributes (owner 2026-11-06). Absent for a card with no MRPG
+   * progression yet, which reads its sheet as before.
+   */
+  mrpgStats?: MarinaraStats;
   /** Shared Game legacy checks resolve the explicitly named room card, never another player. */
-  roomCharacters?: Map<string, Pick<SkillCheckModifierContext, "skills" | "attributes" | "sheetAttributes">>;
+  roomCharacters?: Map<
+    string,
+    Pick<SkillCheckModifierContext, "skills" | "attributes" | "sheetAttributes" | "mrpgStats">
+  >;
 }
 
 export interface SkillCheckRulesetContext {
@@ -527,6 +546,10 @@ export async function loadSkillCheckModifierContext(
     );
   }
 
+  const mrpgGame =
+    (meta.gameSetupConfig as { marinaraClasses?: unknown } | null | undefined)?.marinaraClasses === true &&
+    meta.gameRuleset == null;
+  const mrpgPreview = mrpgGame ? { gameId: chatId, classic: await marinaraCardClassicByName(db, chat) } : undefined;
   let roomCharacters: SkillCheckModifierContext["roomCharacters"];
   const room = currentRoomGeneration();
   if (room) {
@@ -542,21 +565,26 @@ export async function loadSkillCheckModifierContext(
       if (matches.length > 1) continue;
       const stats = matches[0]?.rpgStats as { attributes?: Array<{ name: string; value: number }> } | undefined;
       const isHost = key === normalizeCharacterLookupName(roomHostIdentity()?.name ?? "");
+      const mrpg = mrpgStatsOf(meta, matches[0], mrpgPreview);
       roomCharacters.set(key, {
         skills: isHost ? skills : null,
         attributes: isHost ? attributes : null,
         sheetAttributes: mapSheetAttributesToRPG(stats?.attributes),
+        ...(mrpg ? { mrpgStats: mrpg } : {}),
       });
     }
   }
-  if (attributes) return { skills, attributes, sheetAttributes: {}, ...(roomCharacters ? { roomCharacters } : {}) };
   const playerCard = await findPlayerCharacterCard(db, cards, chat?.personaId, meta, chatId);
+  const playerMrpg = mrpgStatsOf(meta, playerCard, mrpgPreview);
+  if (attributes && !playerMrpg)
+    return { skills, attributes, sheetAttributes: {}, ...(roomCharacters ? { roomCharacters } : {}) };
   const rpgStats = playerCard?.rpgStats as { attributes?: Array<{ name: string; value: number }> } | undefined;
 
   return {
     skills,
     attributes: null,
     sheetAttributes: mapSheetAttributesToRPG(rpgStats?.attributes),
+    ...(playerMrpg ? { mrpgStats: playerMrpg } : {}),
     ...(roomCharacters ? { roomCharacters } : {}),
   };
 }
@@ -1898,6 +1926,30 @@ function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag
   return result.success === (autoSuccess ? true : autoFailure ? false : result.total >= result.dc);
 }
 
+/** A card's MRPG stats, in a game on MRPG classes without a ruleset; undefined otherwise. A card with no
+ *  progression yet (no fight so far) gets the stats its first fight will give it: the same seed, tree
+ *  picks and temperament, so a check before any fight never falls back to a Legacy sheet's numbers
+ *  (owner 2026-11-06). */
+function mrpgStatsOf(
+  meta: Record<string, unknown>,
+  card: Record<string, unknown> | null | undefined,
+  preview?: { gameId: string; classic: ReadonlyMap<string, MarinaraCardClassic> },
+) {
+  const setup = (meta.gameSetupConfig ?? null) as { marinaraClasses?: unknown } | null;
+  if (setup?.marinaraClasses !== true || meta.gameRuleset != null || !card) return undefined;
+  const progression = readMarinaraCardProgression(card.marinara);
+  if (progression) return progression.fallen ? undefined : progression.stats;
+  const name = typeof card.name === "string" ? card.name.trim() : "";
+  if (!preview || !name) return undefined;
+  return createMarinaraCardProgression({
+    gameId: preview.gameId,
+    card: card as unknown as Parameters<typeof createMarinaraCardProgression>[0]["card"],
+    temperament: (gameCardTemperament(card)?.initial ??
+      partyTemperamentFallback(preview.gameId, name)) as MarinaraPartyTemperament,
+    classic: preview.classic.get(normalizeCharacterLookupName(name)),
+  }).stats;
+}
+
 /** Roll one check against an already-loaded chat context. */
 export function resolveSkillCheckWithContext(
   context: SkillCheckModifierContext,
@@ -1910,7 +1962,8 @@ export function resolveSkillCheckWithContext(
   if (namedRoomCheck) {
     const named = context.roomCharacters!.get(normalizeCharacterLookupName(request.who!));
     if (!named) throw new Error("The shared Game check has no unambiguous participant card.");
-    context = { ...context, ...named };
+    // The named card's own MRPG stats, never the host's.
+    context = { ...context, mrpgStats: undefined, ...named };
   }
   const skills = context.skills;
   const rawSkillMod = skills ? (skills[request.skill] ?? skills[request.skill.toLowerCase()]) : undefined;
@@ -1921,12 +1974,17 @@ export function resolveSkillCheckWithContext(
   if (request.dc === undefined) throw new SkillCheckDifficultyError(request.skill);
   const attr = getGoverningAttribute(request.skill);
   const attrScore = readContextAttributeScore(context, attr);
+  const attrMod = context.mrpgStats
+    ? mrpgCheckModifier(context.mrpgStats[mrpgStatForSkill(request.skill)])
+    : attrScore != null
+      ? attributeModifier(attrScore)
+      : 0;
 
   const result = resolveSkillCheck({
     skill: request.skill,
     dc: request.dc,
     skillModifier: skillMod,
-    attributeModifier: attrScore != null ? attributeModifier(attrScore) : 0,
+    attributeModifier: attrMod,
     advantage: request.advantage,
     disadvantage: request.disadvantage,
     preRolledD20: request.preRolledD20,

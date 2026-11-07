@@ -123,6 +123,15 @@ try {
   assert.deepEqual(inlineMeta.gameSetupConfig.experienceConfig, { worldSeed: 42, generate: true });
   assert.deepEqual(inlineMeta.gameSetupConfig.activeLorebookEntryIds, ["selected-entry"]);
   assert.equal(inlineMeta.gameSetupConfig.playerGoals, "Find my lost friend");
+  // Every new game plays MRPG (owner 2026-11-06), Experiences too: a client asking for Legacy gets MRPG.
+  assert.equal(inlineMeta.gameSetupConfig.marinaraClasses, true);
+  const legacyAsked = await app.inject({
+    method: "POST",
+    url: "/api/game/create",
+    payload: { name: "Legacy asked", setupConfig: { ...setupConfig, marinaraClasses: false } },
+  });
+  assert.equal(legacyAsked.statusCode, 200, legacyAsked.body);
+  assert.equal(JSON.parse(legacyAsked.json().sessionChat.metadata).gameSetupConfig.marinaraClasses, true);
 
   for (const experienceConfig of [{ world: "Detailed map. ".repeat(4000) }, setupConfig]) {
     const response = await app.inject({

@@ -1797,6 +1797,12 @@ export function buildGmFormatReminder(
     /** An Overworld RPG game (`gameStyleFromMetadata`): only it opens dungeon, cave and station maps
      *  with `[map:]`. Absent or false is Classic Game Mode, which never teaches the tag. */
     overworld?: boolean;
+    /** A game on MRPG classes without a ruleset: a joiner's party_change may carry their level, growths
+     *  and stats (owner 2026-11-06). */
+    mrpg?: boolean;
+    /** An MRPG game shared in a room: room players' characters who are away, and newly seated players
+     *  the GM brings in with `[mrpg_join]` (owner 2026-11-06). */
+    mrpgRoom?: { away: string[]; newcomers: string[]; partyLevel: number; underWay: boolean };
     /** Special non-scene-advancing address mode inferred from the current player turn prefix. */
     addressMode?: "party" | "gm";
     /** Whether the current player turn already includes a resolved [dice: ...] roll. */
@@ -2302,6 +2308,21 @@ export function buildGmFormatReminder(
       `- [state: exploration|dialogue|combat|travel_rest] - only on actual mode transitions. If you're planning to use [state: combat], this one ALWAYS has to be at the end of the turn, as it initiates a new combat generation and UI.`,
       `- [reputation: npc="Name" action="helped"] - when an NPC's tracked stance changes because of what happened. When two tracked people share a name, add the one you mean: id="..." as listed.`,
       `- [party_change: character="Exact Character Name" change="add|remove"] - only when someone truly joins or leaves the party. Use remove when a party member dies, permanently departs, or is no longer traveling with the player.`,
+      ...(ctx.mrpg
+        ? [
+            `  A newcomer joining a party already on its way comes in at the level you give with level="N" (1 to 30; level 1 when you give none). Most come in low; a seasoned fighter may come in near the party's level, or above. A raw talent who will grow fast gets growths="strength+30, speed+20" (points of growth per stat, -30 to +50), and one decent from the start gets stats="defense+3, luck+5" (-5 to +10). Stats: strength, magic, skill, speed, defense, resistance, luck, hp. Leave both out for an ordinary recruit.`,
+            ...(ctx.mrpgRoom?.newcomers.length
+              ? [
+                  `- [mrpg_join: character="Exact Name" sister="tree"${ctx.mrpgRoom.underWay ? ` level="N"` : ""} growths="..." stats="..."] - a guest who sat down at the table plays ${ctx.mrpgRoom.newcomers.map((name) => `"${name}"`).join(", ")}, with no MRPG class yet. They built their character themselves (their description, their concept for you and their own starting tree); you decide how they fit into the story and their sister tree, from who they are: sister= one of blade, guard, scout, marksman, channeler, hexer, mender, herald (their own tree again keeps them pure, in one tree). ${ctx.mrpgRoom.underWay ? `The game is already under way (the party is level ${ctx.mrpgRoom.partyLevel}): level, growths and stats work as for a newcomer above.` : `The game is new, so they start at level 1 like everyone; growths and stats work as for a newcomer above.`} Welcome them into the story, then write this tag once for each, before their first fight. Never a party_change for a player's own character.`,
+                ]
+              : []),
+          ]
+        : []),
+      ...(ctx.mrpgRoom?.away.length
+        ? [
+            `- Away: ${ctx.mrpgRoom.away.map((name) => `"${name}"`).join(", ")}. Their player isn't at the table: leave them out of scenes and fights, and never speak or act for them. They come back as they were when their player returns.`,
+          ]
+        : []),
       `- [party_change: character="New Name" change="add" copy_of="Party Member" condition="Condition"] - a copy of that party member joins under the new name, with their sheet, holding the ruleset's condition from the start (a Simulacrum). copy_of may instead name a creature of the ruleset's bestiary (a beast or a stranger copied), who joins and fights as that creature. condition is optional.`,
       `- [session_end: reason="goal achieved|good place to pause"] - only when the current session truly ends.`,
     );

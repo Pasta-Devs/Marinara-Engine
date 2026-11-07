@@ -58,7 +58,7 @@ export function MultiplayerParticipantControls({
           {t(multiplayerGuestErrorLabelKey("identity-conflict"))}
         </p>
       )}
-      <MultiplayerPersonaFields value={persona} onChange={setPersona} />
+      <MultiplayerPersonaFields value={persona} onChange={setPersona} game={snapshot.mode === "game"} />
       <button
         type="button"
         className={MULTIPLAYER_BUTTON_CLASS}

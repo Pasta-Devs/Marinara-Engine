@@ -332,7 +332,7 @@ for (const theme of ["dark", "light"] as const) {
     const custom = wizard.getByRole("button", { name: customLabel, exact: true });
     await expect(custom).toBeVisible();
     await expect(custom).toHaveAttribute("aria-pressed", "true");
-    await expect(wizard.getByRole("button", { name: /^Classic/ })).toHaveCount(0);
+    await expect(wizard.getByRole("button", { name: /^Turn-Based/ })).toHaveCount(0);
     await expect(wizard.getByRole("button", { name: "duel", exact: true })).toHaveCount(0);
     await wizard
       .getByRole("button", { name: /^Tactical Grid battles/ })
@@ -357,7 +357,7 @@ for (const theme of ["dark", "light"] as const) {
     );
     await wizard.getByRole("button", { name: /^Unregistered battles/ }).click();
     await expect(wizard.getByRole("button", { name: "missing-board", exact: true })).toHaveCount(0);
-    await expect(wizard.getByRole("button", { name: /^Classic/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(wizard.getByRole("button", { name: /^Turn-Based/ })).toHaveAttribute("aria-pressed", "true");
     await wizard.getByRole("button", { name: /^Registered battles/ }).click();
     await expect(custom).toHaveAttribute("aria-pressed", "true");
     for (let step = 1; step < 6; step++) await next();
@@ -814,7 +814,7 @@ test("Tactical setup leaves the board size to the Game Master and retires battle
     await expect(wizard.getByLabel(field, { exact: true })).toHaveCount(0);
   }
   await expect(wizard.getByText(/Fire Emblem|current style/)).toHaveCount(0);
-  await wizard.getByRole("button", { name: /^Classic/ }).click();
+  await wizard.getByRole("button", { name: /^Turn-Based/ }).click();
   await expect(wizard.getByText("Cinematic menu battles", { exact: true })).toBeVisible();
   await wizard.getByRole("button", { name: /^Tactical/ }).click();
   await expect(wizard.getByLabel("Battlefield size", { exact: true })).toHaveCount(0);
@@ -1036,7 +1036,7 @@ test("The wizard suggests settings from across settings, and a picked kit brings
   await chooseConnection(page, wizard.locator("[data-connection-value]").first(), "wizard-connection");
   // A Classic game has no kit, so its ideas come from across the settings.
   const styles = wizard.getByTestId("game-style-chooser");
-  await styles.getByRole("radio", { name: /Classic/ }).click();
+  await styles.getByRole("radio", { name: /^VN/ }).click();
   const { next, back } = stepNavigation(wizard);
   await next();
 
@@ -1047,7 +1047,7 @@ test("The wizard suggests settings from across settings, and a picked kit brings
   await expect(wizard.getByRole("button", { name: "Surprise me!", exact: true }).first()).toBeVisible();
   await expect(wizard.getByRole("button", { name: "Fantasy", exact: true })).toHaveAttribute("aria-pressed", "true");
   await back();
-  await styles.getByRole("radio", { name: /Overworld RPG/ }).click();
+  await styles.getByRole("radio", { name: /^Overworld/ }).click();
   await next();
 
   // A picked cyberpunk kit brings its own two ideas first, and its genre while none was chosen.

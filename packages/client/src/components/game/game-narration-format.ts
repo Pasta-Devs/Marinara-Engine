@@ -172,6 +172,14 @@ export function formatNarration(content: string, boldDialogue = true): string {
         [attrs.change, attrs.character].filter(Boolean).join(": "),
       );
     })
+    .replace(/\[mrpg_join:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      return commandBadge(
+        "bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-400/20",
+        "👥 Joins",
+        [attrs.character, attrs.level ? `Lv ${attrs.level}` : ""].filter(Boolean).join(": "),
+      );
+    })
     .replace(/\[party_add:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
       const attrs = parseCommandAttributes(rawAttrs);
       return commandBadge(

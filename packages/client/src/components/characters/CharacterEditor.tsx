@@ -238,6 +238,7 @@ import {
 } from "../../lib/stat-icon-assignments";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
+import { ClassicCardSection } from "../overhaul/ClassicCardSection";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 
 // ── Tabs ──
@@ -6380,6 +6381,12 @@ function StatsTab({
 
   return (
     <div className="space-y-6">
+      {/* MRPG: the card's starting tree and strong and weak stats for MRPG games. */}
+      <ClassicCardSection
+        value={formData.extensions.classic}
+        onChange={(classic) => updateExtension("classic", classic)}
+        description={[formData.description, formData.personality].filter(Boolean).join(" ")}
+      />
       <SectionHeader
         title={localizeUi("ui.characters.statstab.rpgStats")}
         subtitle={localizeUi("ui.characters.statstab.toggleStatTrackingForThisCharacterWhenEnabledThe")}

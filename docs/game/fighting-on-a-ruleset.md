@@ -92,7 +92,7 @@ Opponents can answer too, with a parry of their own. A counter can stop an oppon
 
 ## On a battlefield
 
-A ruleset may say what one square of a battlefield is worth in its own distance, in feet, paces or its own unit. When it does, and your game's **Combat Preference** is **Tactical**, the fight is fought on a battlefield: the same boards (generated or hand-made for the place), terrain and deployment as Marinara's own [Tactical battles](combat.md#tactical-battles-and-terrain). A ruleset with no distance, or a game set to **Classic**, fights without positions, and anyone can be pointed at anyone.
+A ruleset may say what one square of a battlefield is worth in its own distance, in feet, paces or its own unit. When it does, and your game's **Combat Preference** is **Tactical**, the fight is fought on a battlefield: the same boards (generated or hand-made for the place), terrain and deployment as Marinara's own [Tactical battles](combat.md#tactical-battles-and-terrain). A ruleset with no distance, or a game set to **Turn-Based**, fights without positions, and anyone can be pointed at anyone.
 
 On the battlefield, the ruleset's own numbers decide everything:
 

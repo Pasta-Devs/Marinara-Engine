@@ -30,7 +30,7 @@ import {
 } from "../services/game/game-inventory.service.js";
 import { resolveCombatWeather } from "../services/game/weather.service.js";
 import { gameClockMinutes } from "../services/game/time.service.js";
-import { addGameLoot, planGameVictoryLoot } from "../services/game/game-loot.service.js";
+import { addGameLoot, planGameVictoryLoot, planMarinaraVictoryLoot } from "../services/game/game-loot.service.js";
 import { rollDieSecurely } from "../services/game/dice-rng.js";
 import { rollGameFightItemGate } from "../services/game/game-item-use.service.js";
 import type { FastifyInstance } from "fastify";
@@ -45,6 +45,34 @@ import {
   combatOrdersSchema,
   type CombatOrders,
   normalizeCharacterLookupName,
+  marinaraLearnedSkills,
+  MARINARA_DAMAGE_TYPES,
+  marinaraLearnAffinities,
+  marinaraOwnedAmmo,
+  marinaraRecallAffinities,
+  marinaraOwnsWoundingAmmo,
+  marinaraReleaseCompanion,
+  marinaraSetActiveCompanion,
+  marinaraKeptTraits,
+  marinaraCarryRedundant,
+  marinaraClass,
+  marinaraUsableSkills,
+  marinaraBestiarySetting,
+  readMarinaraCardProgression,
+  marinaraEquipmentForClass,
+  marinaraEquipRefusal,
+  marinaraGameItemPlace,
+  marinaraOwnedGear,
+  setMarinaraCarried,
+  setMarinaraClass,
+  createMarinaraCardProgression,
+  gameCardTemperament,
+  partyTemperamentFallback,
+  MARINARA_ARCHETYPES,
+  type MarinaraArchetype,
+  type MarinaraCardClassic,
+  type MarinaraCardProgression,
+  type MarinaraPartyTemperament,
   combatTacticsSchema,
   combatAiHintsSchema,
   rulesetBestiarySheetCatalogIds,
@@ -66,8 +94,14 @@ import {
   type RulesetLiveStates,
 } from "@marinara-engine/shared";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { marinaraCardClassicByName } from "../services/game/marinara-card-classic.service.js";
 import { createChatsStorage, withChatMetadataPatchQueue } from "../services/storage/chats.storage.js";
 import { createGameEngineStateStorage } from "../services/storage/game-engine-state.storage.js";
+import {
+  marinaraFightEnd,
+  marinaraFightStart,
+  type MarinaraFightStart,
+} from "../services/game/marinara-fight-start.service.js";
 import {
   createCombatDirector,
   combatDirectorView,
@@ -121,6 +155,7 @@ import { buildPartyNpcId } from "../services/generation/game-party-utils.js";
 import { gamePartyRoster } from "../services/game/ruleset-sheet-turn.service.js";
 import {
   ROOM_GUEST_FIGHT_CONTROLLER,
+  roomAwayCharacters,
   roomFightPlayers,
   roomPlayersByName,
 } from "../services/multiplayer/fight-players.js";
@@ -250,6 +285,23 @@ const directedCombatantFields = z.object({
   requiresSight: z.boolean().optional(),
   combatClass: z.string().max(100).optional(),
   movementMode: z.enum(["walk", "fly", "teleport"]).optional().catch(undefined),
+  // Classic Marinara (combat overhaul): what the fight's setup said of a foe (a bestiary family, a
+  // tier), or on a saved unit what its screen shows. Read only by a game with Classic Marinara classes.
+  marinara: z
+    .object({
+      family: z
+        .object({
+          familyId: z.string().min(1).max(80),
+          tier: z.enum(["minion", "standard", "elite", "boss"]).optional().catch(undefined),
+          level: z.number().int().min(1).max(30).optional().catch(undefined),
+        })
+        .optional()
+        .catch(undefined),
+      tier: z.enum(["minion", "standard", "elite", "boss"]).optional().catch(undefined),
+    })
+    .passthrough()
+    .optional()
+    .catch(undefined),
   element: z.string().max(100).optional(),
   sprite: z.string().max(3000).optional(),
 });
@@ -375,6 +427,9 @@ const command = z.discriminatedUnion("type", [
   z.object({ type: z.literal("continue") }),
   z.object({ type: z.literal("fallback") }),
   z.object({ type: z.literal("flee") }),
+  z.object({ type: z.literal("mercy"), choice: z.enum(["spare", "finish"]) }),
+  z.object({ type: z.literal("loadAmmo"), unitId: key, ammo: z.enum(MARINARA_DAMAGE_TYPES) }),
+  z.object({ type: z.literal("channelElement"), unitId: key, element: z.enum(MARINARA_DAMAGE_TYPES) }),
   z.object({ type: z.literal("yield") }),
   z.object({ type: z.literal("control"), unitId: key, controller: z.enum(["manual", "ai"]) }),
   z.object({ type: z.literal("controlCompanions"), controller: z.enum(["manual", "ai"]) }),
@@ -587,7 +642,11 @@ export async function combatDirectorRoutes(
       elements: worldElementSetSchema.optional(),
       round: z.number().int().min(1),
       party: z.array(directedCombatantSchema).min(1).max(20),
-      enemies: z.array(directedCombatantSchema).min(1).max(20),
+      // A won fight can end with every foe gone (surrendered or fled): nobody left is fine once it's over.
+      enemies: z
+        .array(directedCombatantSchema)
+        .min(state.outcome ? 0 : 1)
+        .max(20),
       budgets: z.record(
         key,
         z.object({ legendary: z.number().int().min(0).max(6), reaction: z.number().int().min(0).max(1) }),
@@ -895,7 +954,15 @@ export async function combatDirectorRoutes(
         : undefined;
     // The step that wins drops the fight's loot, rolled before the queue is held and added with the
     // step: each defeated bestiary opponent's table, or the native tables by how many fell.
-    const won = s.outcome === "victory" && s.loot === undefined;
+    // A Classic Marinara party that got away keeps what it stole (Steal), from foes still there or gone.
+    const won =
+      (s.outcome === "victory" ||
+        (s.outcome === "flee" &&
+          !!s.marinara &&
+          [...s.marinara.fighters, ...(s.marinara.left ?? [])].some(
+            (fighter) => fighter.side === "enemy" && fighter.stolenBy,
+          ))) &&
+      s.loot === undefined;
     const encounter = s.style === "ruleset" ? s.rulesetFight?.encounter : undefined;
     const fallen = encounter
       ? encounter.combatants.filter((combatant) => combatant.side === "enemy" && combatant.defeated)
@@ -904,25 +971,34 @@ export async function combatDirectorRoutes(
           // One that gave up hands over what it carried (combat AI E1); one that ran takes it along.
           ...(s.gone ?? []).filter((enemy) => enemy.left === "surrendered"),
         ];
-    const loot = won
-      ? await planGameVictoryLoot(
-          app.db,
-          chatId,
-          {
-            tables: fallen.flatMap((enemy) => s.rulesetFight?.lootTables?.[enemy.id] ?? []),
-            defeated: fallen.length,
-            difficulty: s.difficulty,
-            // What the beaten still had on them (1.795); one that ran took its along.
-            // Its coins too (laptop playtest 2026-10-25: a thief's stolen 9 gp never came back).
-            carried: (encounter?.combatants ?? []).flatMap((combatant) =>
-              combatant.side === "enemy" && combatant.defeated && !combatant.away?.left
-                ? [...rulesetCarriedLeft(combatant), ...(s.rulesetFight?.purses?.[combatant.id] ?? [])]
-                : [],
-            ),
-          },
-          rollDieSecurely,
-        )
-      : null;
+    // A Classic Marinara fight drops from the item tables instead (marinara-items.ts), by the foes beaten.
+    const loot =
+      won && s.marinara
+        ? await planMarinaraVictoryLoot(app.db, chatId, s.marinara.fighters, `${s.id}:${s.seed}:loot`, {
+            // Out of the fight alive: one that surrendered hands everything over, one that fled drops coin.
+            // A tamed beast drops nothing: it follows its keeper now.
+            left: s.marinara.left?.filter((one) => !one.tamedBy),
+            fled: (s.gone ?? []).filter((one) => one.left === "fled").map((one) => one.id),
+          })
+        : won
+          ? await planGameVictoryLoot(
+              app.db,
+              chatId,
+              {
+                tables: fallen.flatMap((enemy) => s.rulesetFight?.lootTables?.[enemy.id] ?? []),
+                defeated: fallen.length,
+                difficulty: s.difficulty,
+                // What the beaten still had on them (1.795); one that ran took its along.
+                // Its coins too (laptop playtest 2026-10-25: a thief's stolen 9 gp never came back).
+                carried: (encounter?.combatants ?? []).flatMap((combatant) =>
+                  combatant.side === "enemy" && combatant.defeated && !combatant.away?.left
+                    ? [...rulesetCarriedLeft(combatant), ...(s.rulesetFight?.purses?.[combatant.id] ?? [])]
+                    : [],
+                ),
+              },
+              rollDieSecurely,
+            )
+          : null;
     await withChatMetadataPatchQueue(chatId, () =>
       app.db.transaction(async () => {
         const previous = await load(chatId, s.anchor);
@@ -1066,6 +1142,33 @@ export async function combatDirectorRoutes(
               { metadataQueueHeld: true, touchUpdatedAt: false },
             );
         }
+        // A Classic Marinara fight just ended: its XP, level-ups and (under permadeath) the fallen go
+        // onto the party's cards, once.
+        if (s.marinara && s.outcome && !previous.state.outcome && !s.marinara.growth) {
+          const marinara = s.marinara;
+          await chats.patchMetadata(
+            chatId,
+            (current) => {
+              const end = marinaraFightEnd({
+                state: marinara,
+                outcome: s.outcome!,
+                cards: Array.isArray(current.gameCharacterCards) ? current.gameCharacterCards : [],
+                seed: s.seed,
+                permadeath: (current.gameSetupConfig as { permadeath?: boolean } | undefined)?.permadeath === true,
+              });
+              marinara.growth = end.growth;
+              // What landed hits showed of each foe's kind is kept for the game's later fights.
+              const known = marinaraLearnAffinities(
+                current.gameMarinaraKnown && typeof current.gameMarinaraKnown === "object"
+                  ? (current.gameMarinaraKnown as Record<string, never>)
+                  : undefined,
+                [...marinara.fighters, ...(marinara.left ?? [])],
+              );
+              return { ...(end.cards ? { gameCharacterCards: end.cards } : {}), gameMarinaraKnown: known };
+            },
+            { metadataQueueHeld: true, touchUpdatedAt: false },
+          );
+        }
         // A win already saved has dropped its loot: this one keeps what that one dropped.
         if (won) {
           const dropped = previous.state.loot
@@ -1082,6 +1185,27 @@ export async function combatDirectorRoutes(
       }),
     );
     return { session: sessionView(s, session), ...(live ? { rulesetLive: live } : {}) };
+  };
+  /** A Classic Marinara fight's own difficulty: the request's, else what the setup wrote on its foes. */
+  const marinaraEncounter = (input: {
+    encounterDifficulty?: "easy" | "normal" | "hard" | "deadly";
+    enemies: ReadonlyArray<{ marinara?: unknown }>;
+  }) => {
+    if (input.encounterDifficulty) return input.encounterDifficulty;
+    const written = input.enemies
+      .map((one) => (one.marinara as { encounter?: unknown } | undefined)?.encounter)
+      .find(Boolean);
+    return written === "easy" || written === "normal" || written === "hard" || written === "deadly"
+      ? written
+      : undefined;
+  };
+  /** What the setup wrote about a rare treasure foe: a chance encounter may roll one, the story may find one. */
+  const marinaraRare = (input: { enemies: ReadonlyArray<{ marinara?: unknown }> }) => {
+    const written = input.enemies.map((one) => one.marinara as { chance?: unknown; treasure?: unknown } | undefined);
+    return {
+      ...(written.some((one) => one?.chance === true) ? { chance: true } : {}),
+      ...(written.some((one) => one?.treasure === true) ? { treasure: true } : {}),
+    };
   };
   app.post("/start", async (req, reply) => {
     const parsed = z
@@ -1125,6 +1249,8 @@ export async function combatDirectorRoutes(
           .max(32)
           .default([]),
         itemEffects: z.array(itemEffect).max(200).default([]),
+        /** A Classic Marinara fight's own difficulty for bestiary foes (easy to deadly). */
+        encounterDifficulty: z.enum(["easy", "normal", "hard", "deadly"]).optional(),
         inventory: z
           .array(
             z.object({
@@ -1269,19 +1395,80 @@ export async function combatDirectorRoutes(
           here?.scene ??
           worldSceneLike(gameWorldBattlefields(meta) ?? WORLD_DEFAULT_BATTLEFIELDS, input.environment) ??
           input.environment;
+        // Classic Marinara classes (combat overhaul): the party fights with the progressions kept on their
+        // cards and the opponents by tier, in a Classic fight of a game without a ruleset.
+        let marinara: MarinaraFightStart | null = null;
+        if (setup.marinaraClasses === true && input.style !== "ruleset" && !meta.gameRuleset) {
+          marinara = marinaraFightStart({
+            gameId: input.chatId,
+            classic: await marinaraCardClassicByName(
+              app.db,
+              chat,
+              (setup as { personaId?: string | null }).personaId ?? null,
+            ),
+            cards: Array.isArray(meta.gameCharacterCards) ? meta.gameCharacterCards : [],
+            party: input.party as Combatant[],
+            enemies: input.enemies.map(({ creature: _c, tier: _t, proposed: _p, ...unit }) => unit) as Combatant[],
+            difficulty: normalizeGameDifficulty(setup.difficulty),
+            storyFight: !!(await latestStoryFight(app.db, input.chatId, meta)),
+            setting: marinaraBestiarySetting(
+              typeof meta.gameWorldKit?.id === "string" ? meta.gameWorldKit.id : null,
+              typeof setup.genre === "string" ? setup.genre : null,
+            ),
+            ...(marinaraEncounter(input) ? { encounter: marinaraEncounter(input)! } : {}),
+            ...marinaraRare(input),
+            seed: randomUUID(),
+            away: roomAwayCharacters(meta),
+            ammo: marinaraOwnedAmmo(fightItems.lines.flatMap((line) => [line.name, line.ownName ?? line.name])),
+            woundingAmmo: marinaraOwnsWoundingAmmo(
+              fightItems.lines.flatMap((line) => [line.name, line.ownName ?? line.name]),
+            ),
+          });
+          if (!marinara.party.length) return reply.code(400).send({ error: "Nobody in the party can fight." });
+          if (marinara.cards) {
+            const made = new Map(
+              marinara.cards.flatMap((card) =>
+                typeof card.name === "string" && card.marinara ? [[card.name, card.marinara] as const] : [],
+              ),
+            );
+            await chats.patchMetadata(
+              input.chatId,
+              (current) => ({
+                gameCharacterCards: (Array.isArray(current.gameCharacterCards) ? current.gameCharacterCards : []).map(
+                  (card: Record<string, unknown>) =>
+                    typeof card.name === "string" && made.has(card.name) && !card.marinara
+                      ? { ...card, marinara: made.get(card.name) }
+                      : card,
+                ),
+              }),
+              { touchUpdatedAt: false },
+            );
+          }
+          // What the party already learned of these foes' kinds shows from the first turn (owner 2026-11-06).
+          marinaraRecallAffinities(marinara.fighters, meta.gameMarinaraKnown);
+          for (const note of marinara.notes) logger.info("[combat-director/start] %s", note);
+        }
         const state = createCombatDirector({
           ...input,
           ...(environment ? { environment } : {}),
-          inventory: fightItems.lines.map(({ name, quantity, ownName, item }) => ({
+          // Ammunition is no item to use in a Classic fight: it is what its Marksmen load.
+          inventory: (marinara
+            ? fightItems.lines.filter((line) => !marinaraOwnedAmmo([line.name, line.ownName ?? line.name]).length)
+            : fightItems.lines
+          ).map(({ name, quantity, ownName, item }) => ({
             name,
             quantity,
             ...(ownName ? { ownName } : {}),
             ...(item ? { item } : {}),
           })),
           itemEffects: fightItems.effects,
-          party: input.party as Combatant[],
+          party: marinara?.party ?? (input.party as Combatant[]),
           // What the fight is RESOLVED by is read below and never stored on the Engine's own units.
-          enemies: input.enemies.map(({ creature: _c, tier: _t, proposed: _p, ...unit }) => unit) as Combatant[],
+          enemies:
+            marinara?.enemies ??
+            (input.enemies.map(({ creature: _c, tier: _t, proposed: _p, ...unit }) => unit) as Combatant[]),
+          ...(marinara ? { marinara: marinara.fighters } : {}),
+          ...(marinara ? { marinaraPlace: marinaraGameItemPlace(meta) } : {}),
           id: randomUUID(),
           // Who the scene caught unaware: an opponent among them checks its morale first (combat AI E1).
           surprised: input.enemies.flatMap((one) => (one.surprised ? [one.id] : [])),
@@ -1623,6 +1810,26 @@ export async function combatDirectorRoutes(
           state.stage = rulesetDirectorStage(state);
           session = { definition, packageId: resolved.packageId };
         }
+        // A Classic Marinara fight the Engine's side finished before the player's first turn still pays out.
+        if (state.marinara && state.outcome && !state.marinara.growth) {
+          const fought = state.marinara;
+          await chats.patchMetadata(
+            input.chatId,
+            (current) => {
+              const end = marinaraFightEnd({
+                state: fought,
+                outcome: state.outcome!,
+                cards: Array.isArray(current.gameCharacterCards) ? current.gameCharacterCards : [],
+                seed: state.seed,
+                permadeath: (current.gameSetupConfig as { permadeath?: boolean } | undefined)?.permadeath === true,
+              });
+              fought.growth = end.growth;
+              return end.cards ? { gameCharacterCards: end.cards } : {};
+            },
+            { touchUpdatedAt: false },
+          );
+          combatDirectorView(state);
+        }
         const rowId = await store.create({
           chatId: input.chatId,
           messageId: input.anchor,
@@ -1641,6 +1848,183 @@ export async function combatDirectorRoutes(
       logger.warn(err, "Unable to start directed combat");
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Invalid combat request." });
     }
+  });
+  /**
+   * A party member's Classic Marinara class and carried skills, changed between fights (combat
+   * overhaul). A fight already going keeps the fighter it started with; the change shows from the next.
+   */
+  app.post("/marinara/progression", async (req, reply) => {
+    const parsed = z
+      .object({
+        chatId: key,
+        name: z.string().min(1).max(200),
+        classId: z.string().max(80).optional(),
+        /** Their primary tree: picked before their first fight, or changed while they have not grown yet. */
+        primary: z.enum(MARINARA_ARCHETYPES as unknown as [MarinaraArchetype, ...MarinaraArchetype[]]).optional(),
+        /** Their Classic row; null goes back to their class's own row. */
+        row: z.enum(["front", "back"]).nullable().optional(),
+        carried: z.array(z.string().max(80)).max(8).optional(),
+        /** Tracker companions (Alyssa 23:31): the one made active, or the one let go; outside fights only. */
+        activeCompanion: z.string().min(1).max(200).optional(),
+        releaseCompanion: z.string().min(1).max(200).optional(),
+        /** What they wear (marinara-items.ts ids), from what the party's bags hold. */
+        equipment: z
+          .object({
+            weapon: z.string().max(80).optional(),
+            armor: z.string().max(80).optional(),
+            accessories: z.array(z.string().max(80)).max(4).optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message });
+    const input = parsed.data;
+    let refusal: string | null = null;
+    let progression: unknown = null;
+    let dropped: string[] = [];
+    // The library cards' Classic picks, for a progression made here (a primary tree picked before any fight).
+    const classicPicks = input.primary
+      ? await marinaraCardClassicByName(app.db, await chats.getById(input.chatId))
+      : new Map<string, MarinaraCardClassic>();
+    const patched = await chats.patchMetadata(
+      input.chatId,
+      (current) => {
+        const cards = Array.isArray(current.gameCharacterCards)
+          ? (current.gameCharacterCards as Record<string, unknown>[])
+          : [];
+        const index = cards.findIndex(
+          (card) =>
+            typeof card.name === "string" &&
+            normalizeCharacterLookupName(card.name) === normalizeCharacterLookupName(input.name),
+        );
+        let next: MarinaraCardProgression | undefined =
+          index >= 0 ? readMarinaraCardProgression(cards[index]!.marinara) : undefined;
+        if (input.primary && index >= 0) {
+          // The player picks the primary tree (Alyssa 2026-10-31). Once they have grown in it, it stays.
+          const fresh = !next || (next.level === 1 && next.xp === 0 && Object.keys(next.classLevels).length === 1);
+          if (!fresh) {
+            refusal = "Their main tree is set once they have gained experience in it.";
+            return {};
+          }
+          if (!next || next.primary !== input.primary) {
+            const card = cards[index]!;
+            const name = typeof card.name === "string" ? card.name : input.name;
+            const temperament = (gameCardTemperament(card)?.initial ??
+              partyTemperamentFallback(input.chatId, name)) as MarinaraPartyTemperament;
+            const made = createMarinaraCardProgression({
+              gameId: input.chatId,
+              card: card as unknown as Parameters<typeof createMarinaraCardProgression>[0]["card"],
+              temperament: next?.temperament ?? temperament,
+              primary: input.primary,
+              classic: classicPicks.get(normalizeCharacterLookupName(name)),
+            });
+            next = {
+              ...made,
+              ...(next?.row ? { row: next.row } : {}),
+              ...(next?.equipment ? { equipment: next.equipment } : {}),
+            };
+          }
+        }
+        if (!next) {
+          refusal =
+            "This party member has no MRPG class yet. Pick their main tree, or they get one on their first fight.";
+          return {};
+        }
+        if (input.row !== undefined) {
+          const { row: _row, ...rest } = next;
+          next = input.row ? { ...rest, row: input.row } : rest;
+        }
+        if (next.fallen) {
+          refusal = "This party member has fallen.";
+          return {};
+        }
+        if (input.activeCompanion || input.releaseCompanion) {
+          if (current.gameActiveState === "combat") {
+            refusal = "Companions are swapped outside battle.";
+            return {};
+          }
+          try {
+            if (input.releaseCompanion) next = marinaraReleaseCompanion(next, input.releaseCompanion);
+            if (input.activeCompanion) next = marinaraSetActiveCompanion(next, input.activeCompanion);
+          } catch (err) {
+            refusal = err instanceof Error ? err.message : "No such companion.";
+            return {};
+          }
+        }
+        try {
+          const before = marinaraUsableSkills(next);
+          if (input.classId && input.classId !== next.activeClass)
+            next = { ...next, ...setMarinaraClass(next, input.classId) };
+          // A class switched to sets its own skills apart from the carried ones: one carried from it is
+          // dropped, as is one its tree keeps anyway (a trait).
+          const kept = marinaraKeptTraits(next);
+          const archetype = marinaraClass(next.activeClass)?.archetype;
+          const carried: string[] = [];
+          for (const id of input.carried ?? next.carried) {
+            const keep = marinaraLearnedSkills(next!).some(
+              (skill) =>
+                skill.id === id &&
+                skill.classId !== next!.activeClass &&
+                !(kept.includes(id) && marinaraClass(skill.classId)?.archetype === archetype) &&
+                !marinaraCarryRedundant({ ...next!, carried }, id),
+            );
+            if (keep && !carried.includes(id)) carried.push(id);
+          }
+          const afterIds = () => new Set(marinaraUsableSkills(next!).map((skill) => skill.id));
+          next = { ...next, ...setMarinaraCarried(next, input.carried && !input.classId ? input.carried : carried) };
+          // Say what the change took away (playtest 2026-11-01: a promotion dropped the Witch's Rot unseen).
+          const now = afterIds();
+          dropped = [...new Set(before.filter((skill) => !now.has(skill.id)).map((skill) => skill.label))];
+          // Gear the new class can't use comes off; gear asked for must fit the class and be in a bag,
+          // one for everyone wearing it.
+          let equipment = marinaraEquipmentForClass(next.activeClass, next.equipment);
+          if (input.equipment) {
+            const why = marinaraEquipRefusal({
+              classId: next.activeClass,
+              equipment: input.equipment,
+              owned: marinaraOwnedGear(
+                normalizeGameInventoryStacks(current.gameInventory),
+                marinaraGameItemPlace(current),
+              ),
+              others: cards.flatMap((card, i) =>
+                i === index ? [] : [readMarinaraCardProgression(card.marinara)?.equipment],
+              ),
+            });
+            if (why) {
+              refusal = why;
+              return {};
+            }
+            equipment = input.equipment;
+          }
+          const { equipment: _was, ...rest } = next;
+          next = { ...rest, ...(equipment && Object.keys(equipment).length ? { equipment } : {}) };
+        } catch (err) {
+          refusal = err instanceof Error ? err.message : "That class change is not allowed.";
+          return {};
+        }
+        progression = next;
+        // A card whose class text names its MRPG class (an upgraded Legacy card) follows a class change.
+        const was = readMarinaraCardProgression(cards[index]!.marinara);
+        const wasLabel = was ? marinaraClass(was.activeClass)?.label : undefined;
+        const nowLabel = marinaraClass(next.activeClass)?.label;
+        return {
+          gameCharacterCards: cards.map((card, i) =>
+            i !== index
+              ? card
+              : {
+                  ...card,
+                  ...(wasLabel && nowLabel && card.class === wasLabel ? { class: nowLabel } : {}),
+                  marinara: next,
+                },
+          ),
+        };
+      },
+      { touchUpdatedAt: false },
+    );
+    if (!patched) return reply.code(404).send({ error: "Chat not found." });
+    if (refusal) return reply.code(400).send({ error: refusal });
+    return { progression, dropped };
   });
   app.get("/state", async (req, reply) => {
     const parsed = z.object({ chatId: key, anchor: key }).safeParse(req.query);

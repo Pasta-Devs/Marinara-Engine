@@ -641,7 +641,7 @@ function MultiplayerHostReview({
             className={MULTIPLAYER_INPUT_CLASS}
           />
         </label>
-        <MultiplayerPersonaFields value={persona} onChange={setPersona} />
+        <MultiplayerPersonaFields value={persona} onChange={setPersona} game={chat.mode === "game"} />
         <label className="flex items-start gap-2 text-xs leading-relaxed">
           <input
             type="checkbox"

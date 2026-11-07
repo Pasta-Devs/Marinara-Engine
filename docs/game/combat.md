@@ -1,6 +1,6 @@
 # Game Mode: Combat
 
-Combat in Game Mode comes in two kinds: **Classic** menu battles and **Tactical** grid battles. You choose between them with **Combat Preference** on the setup wizard's **World** step. To change it later, open **Chat Settings**, expand **Combat Style** and pick a **Battle system**. A ruleset that runs its own fights can limit the choices. The Game Master (GM, the AI that runs the game) sets up the encounter and narrates the result. Marinara resolves the battle actions with fixed dice math, so the AI never decides who hits.
+Combat in Game Mode comes in two kinds: **Turn-Based** menu battles and **Tactical** grid battles. You choose between them with **Combat Preference** on the setup wizard's **World** step. To change it later, open **Chat Settings**, expand **Combat Style** and pick a **Battle system**. A ruleset that runs its own fights can limit the choices. The Game Master (GM, the AI that runs the game) sets up the encounter and narrates the result. Marinara resolves the battle actions with fixed dice math, so the AI never decides who hits.
 
 ## Starting an encounter
 
@@ -8,11 +8,13 @@ You do not start combat yourself. The GM starts a fight when the story calls for
 
 The screen shows your party on one side and the enemies on the other. Each fighter has a health bar (HP, hit points) and, if they use skills, a magic bar (MP, magic points). The top shows **Next:** and the name of whoever acts next, and **Round** with the round number.
 
+How a fight is decided depends on the game's character system. Every new game plays on **MRPG** classes: each fighter fights with their class's stats, skills and gear (see [Battles in an MRPG game](#battles-in-an-mrpg-game)). A **Legacy** game, made before MRPG classes, uses the older Attack and Defense rules in [How combat math works](#how-combat-math-works). The screens and buttons below are the same for both.
+
 > **Note:** In a game on a ruleset that resolves its own fights, such as 5e (SRD 5.1), the fight follows the ruleset, not this page. See [Fights on a Ruleset](fighting-on-a-ruleset.md). A ruleset that only lends its sheet to battles keeps the combat here. See [What happens in battles](rulesets.md#what-happens-in-battles).
 
-## Play a Classic battle
+## Play a Turn-Based battle
 
-A Classic battle has no board. All party members take part. You choose the action for one character, the first living party member. The other companions act on their own.
+A Turn-Based battle has no board. All party members take part. You choose the action for one character, the first living party member. The other companions act on their own.
 
 On your turn, pick one action:
 
@@ -43,6 +45,40 @@ If the board shows **Resolving…**, wait a moment. **Restart** restarts the bat
 
 Who acts when depends on **Turn order**. See [Turn order](#turn-order). Hand-made boards and terrain rules are in [Tactical battles and terrain](#tactical-battles-and-terrain).
 
+## Battles in an MRPG game
+
+In a game on MRPG classes, each party member fights with their active class: its stats, its skills and the gear on their sheet (see [MRPG Classes](mrpg-classes.md)). Opponents fight by tier: minion, standard, elite or boss. A panel beside the fight shows who acts next, each fighter's class, level, row and resources, and at the end what the party gained.
+
+### Turns, skills and resources
+
+- **Turn order.** There are no initiative rolls. Fighters act on a timeline, and each action pushes a fighter's next turn back by less the higher their Speed, so fast fighters act more often.
+- **Skills.** **Skills** lists the active class's skills and the carried ones, each with its cost and an estimate of what it would do. Magic skills cost **MP**, which does not come back during the fight. The rest cost **Stamina**, which comes back a little every turn.
+- **Defend.** Raises Defense by half until the fighter's next turn, and brings back more Stamina.
+- **Ammunition and elements.** A Marksman loads a type of ammunition, and a Channeler channels an element, from the panel beside the fight. Changing either is free. Left alone, the AI picks the best one for the target.
+
+### Hitting and damage
+
+- **Chance to hit** grows with the attacker's Skill and Luck and shrinks with the target's Speed and Luck. It never drops below 25%.
+- **Critical hits** come from the attacker's Skill against the target's Luck, and deal double damage.
+- **Damage.** A weapon attack deals Strength plus the attack's power, less the target's Defense. A spell, or a hit with a staff, wand or focus, uses Magic against Resistance instead. Power grows a little with level, as better gear would.
+- **Damage types.** Every hit has a type: slash, pierce or blunt for weapons, an element (fire, ice, lightning, wind, wood, earth, water or metal), or light or dark. A foe can be weak to a type (half as much again), resist it (half), be immune to it or absorb it. A weakness or resistance shows on the foe once a hit has found it, and the party remembers it for every foe of that kind. Foes' elemental weaknesses follow the five-phase cycle, where each element overcomes the next: wood parts earth, earth dams water, water quenches fire, fire melts metal and metal cuts wood.
+
+### Rows
+
+A Turn-Based battle has a front row and a back row on each side. A melee hit on the back row deals half damage, both ways, while ranged attacks and spells deal full damage to either row. When nobody stands in a side's front row, its back row becomes the front. Each class has a default row, and you can change a character's row on the **Status** tab of their sheet. Tactical battles have no rows: positions on the board decide who can reach whom.
+
+### Taunts, yielding and taming
+
+- **Provoke.** A Sentinel's Provoke makes every foe target the Sentinel for 2 turns. On a board, a foe that cannot reach them closes in as far as it can and readies itself instead.
+- **Yielding.** An intelligent foe that is losing may surrender or flee. When the only foes left have yielded, the fight asks **Spare them** or **Finish them**. Either way the party gets their loot and experience. A treasure-carrying foe that flees gets away with its prize.
+- **Taming.** A Tracker can tame a wild beast that is below 30% HP. It leaves the fight and becomes a companion, kept even if the fight is then lost.
+
+### After the fight
+
+A won fight pays experience to everyone who fought (see [Levels and experience](mrpg-classes.md#levels-and-experience)), and the end panel shows each level gained, the stats that rose and any promotion now open. A lost or fled fight pays nothing. With **Permadeath** on, a party member who is down when the fight ends is gone for good.
+
+In an MRPG game, **Difficulty** decides how many and how tough the foes are, rather than multiplying their damage. On **Brutal**, foes can stand several levels above the party.
+
 ## Interrupt the GM
 
 While the GM is writing, you can cut in with the **Interrupt** button. Nothing you type is committed until you send it.
@@ -68,7 +104,9 @@ On a phone, the action buttons stick to the bottom of the screen. Panels that do
 
 ## How combat math works
 
-Each round is decided by fixed dice math, not by the AI. This keeps combat fair and consistent. A d20 is a twenty-sided die (1 to 20). The initiative, attack and damage rules below are how Classic battles play. They are Marinara's own rules, not those of a ruleset. For Tactical battles, see [Turn order](#turn-order) and [Sight, cover and height](#sight-cover-and-height).
+The rules in this section are for **Legacy** games, and for games whose ruleset lends its sheet to Marinara's battles. A game on **MRPG** classes, which is every new game, fights by the rules in [Battles in an MRPG game](#battles-in-an-mrpg-game) instead.
+
+Each round is decided by fixed dice math, not by the AI. This keeps combat fair and consistent. A d20 is a twenty-sided die (1 to 20). For Tactical battles, see also [Turn order](#turn-order) and [Sight, cover and height](#sight-cover-and-height).
 
 **Initiative.** At the start of each round, every fighter rolls a d20 and adds a bonus from their Speed (Speed divided by 5, rounded down). Higher totals act first. A fighter skips the round if frozen, stunned or imprisoned, or if their Speed has dropped to 0.
 
@@ -83,7 +121,7 @@ Each round is decided by fixed dice math, not by the AI. This keeps combat fair 
 
 ### Difficulty scaling
 
-Next, damage is scaled by the **Difficulty** you set in the setup wizard. Weather and status-effect modifiers then apply after it. The multiplier applies only to attacks by enemies, so a harder game makes enemies hit harder while your party's damage stays the same.
+In a Legacy game, damage is next scaled by the **Difficulty** you set in the setup wizard. Weather and status-effect modifiers then apply after it. The multiplier applies only to attacks by enemies, so a harder game makes enemies hit harder while your party's damage stays the same.
 
 | Difficulty | Enemy damage multiplier |
 | --- | --- |
@@ -95,6 +133,8 @@ Next, damage is scaled by the **Difficulty** you set in the setup wizard. Weathe
 These multipliers belong to Marinara's own rules. A ruleset supplies its own difficulty policy.
 
 ## Status effects and elemental reactions
+
+This section describes Legacy battles. An MRPG game has its own damage types (see [Hitting and damage](#hitting-and-damage)), and its skills' effects, such as Poisoned, Asleep or Slowed, are described on each skill.
 
 A status effect is a temporary change to a fighter's Attack, Defense, Speed or HP. Buffs help and debuffs hurt. A status lasts a set number of rounds, then wears off. Poison-style effects drain HP each round and regeneration-style effects restore it. Frozen, stunned and imprisoned make the fighter skip their turn.
 
@@ -156,8 +196,8 @@ Both special modes use the current movement allowance and straight (not diagonal
 
 A Tactical battle takes turns in one of two ways:
 
-- **One at a time, by initiative**: every unit gets a place in a rolled order and only the unit whose turn it is can act. The board shows the order. New Overworld RPG games use this.
-- **Your whole party, then the enemies**: each party unit can act, then the enemy phase plays. Classic games use this.
+- **One at a time, by initiative**: every unit gets a place in a rolled order and only the unit whose turn it is can act. The board shows the order. New Overworld games use this.
+- **Your whole party, then the enemies**: each party unit can act, then the enemy phase plays. VN games use this.
 
 To change it, open **Chat Settings**, expand **Combat Style** and pick a **Turn order**. It appears while the **Battle system** is Tactical, unless the game's ruleset runs its own fights. The change applies from the next battle. A battle in progress keeps its order.
 

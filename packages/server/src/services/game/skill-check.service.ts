@@ -6,7 +6,7 @@
 // and attribute-linked modifiers.
 // ──────────────────────────────────────────────
 
-import { rollDieSecurely, type RPGAttributes } from "@marinara-engine/shared";
+import { rollDieSecurely, type MarinaraStat, type RPGAttributes } from "@marinara-engine/shared";
 
 export interface SkillCheckInput {
   /** Skill name (e.g. "Perception", "Stealth"). */
@@ -266,4 +266,88 @@ export function resolveSkillCheck(input: SkillCheckInput): SkillCheckResult {
     // "2d20" rather than claiming a single die.
     dice: `${rolls.length}d20`,
   };
+}
+
+// ── MRPG (Marinara RPG classes) checks ──
+// Owner 2026-11-06: in a game on MRPG classes, a check outside battle reads the character's MRPG stats
+// (their active class's body), not the Legacy attributes a card may still carry. The stats run 0 to
+// about 30 over thirty levels, so a check adds a fifth of the stat, at most +5 (see mrpgCheckModifier).
+
+/** The MRPG stat a check leans on, by the skill or attribute it names. */
+const MRPG_SKILL_STAT: Record<string, MarinaraStat> = {
+  // The stats by their own names.
+  strength: "strength",
+  str: "strength",
+  magic: "magic",
+  mag: "magic",
+  skill: "skill",
+  skl: "skill",
+  speed: "speed",
+  spd: "speed",
+  defense: "defense",
+  defence: "defense",
+  def: "defense",
+  resistance: "resistance",
+  res: "resistance",
+  luck: "luck",
+  lck: "luck",
+  // The usual six read as the nearest stat.
+  dex: "skill",
+  dexterity: "skill",
+  con: "defense",
+  constitution: "defense",
+  int: "magic",
+  intelligence: "magic",
+  wis: "resistance",
+  wisdom: "resistance",
+  cha: "luck",
+  charisma: "luck",
+  // Brawn.
+  athletics: "strength",
+  intimidation: "strength",
+  // Quickness.
+  acrobatics: "speed",
+  stealth: "speed",
+  // Hands and eyes.
+  sleight_of_hand: "skill",
+  investigation: "skill",
+  perception: "skill",
+  medicine: "skill",
+  survival: "skill",
+  animal_handling: "skill",
+  // Toughness.
+  endurance: "defense",
+  // Lore and the arcane.
+  arcana: "magic",
+  history: "magic",
+  nature: "magic",
+  // Will and faith.
+  insight: "resistance",
+  religion: "resistance",
+  // Charm and fortune.
+  deception: "luck",
+  performance: "luck",
+  persuasion: "luck",
+};
+
+/** The MRPG stat a check reads; a skill nobody listed is know-how, read off Skill. */
+export function mrpgStatForSkill(skill: string): MarinaraStat {
+  const key = skill
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_(?:ability_)?check$/, "")
+    .replace(/_saving_throw$/, "")
+    .replace(/_save$/, "");
+  return MRPG_SKILL_STAT[key] ?? "skill";
+}
+
+/** What an MRPG stat adds to a check (owner 2026-11-06/07): a fifth of it past 3, from -1 to +5. A weak
+ *  stat (0-2) takes 1 off, 3-7 adds nothing, a level-1 specialty reads +1, a level-10 one +2, and a
+ *  level-30 one +5. */
+export const MRPG_CHECK_MODIFIER_MAX = 5;
+export function mrpgCheckModifier(stat: number): number {
+  if (!Number.isFinite(stat)) return 0;
+  return Math.max(-1, Math.min(MRPG_CHECK_MODIFIER_MAX, Math.floor((Math.max(0, stat) - 3) / 5)));
 }
