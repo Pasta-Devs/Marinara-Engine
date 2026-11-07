@@ -392,13 +392,15 @@ export function readMarinaraStatAmounts(text: unknown): Partial<Record<MarinaraS
   };
   const out: Partial<Record<MarinaraStat, number>> = {};
   for (const part of text.slice(0, 2000).split(/[,;]/)) {
-    // Spaces dropped first, so the pattern has one way to match (no backtracking on long runs of them).
-    const match = /^([a-z]+)[:=]?([+-]?\d+)%?$/i.exec(part.replace(/\s/g, ""));
+    // Each run of spaces sits between two fixed marks (the word, a separator, a sign, the digits), so the
+    // pattern has one way to match it and doesn't backtrack on long runs. Spaces inside the word or the
+    // digits leave the term unread.
+    const match = /^([a-z]+)\s*(?:[:=]\s*)?(?:([+-])\s*)?(\d+)\s*%?$/i.exec(part.trim());
     if (!match) continue;
     const word = match[1]!.toLowerCase();
     const stat = (MARINARA_STATS as readonly string[]).includes(word) ? (word as MarinaraStat) : aliases[word];
     if (!stat) continue;
-    out[stat] = Number(match[2]);
+    out[stat] = Number(`${match[2] ?? ""}${match[3]}`);
   }
   return Object.keys(out).length ? out : undefined;
 }

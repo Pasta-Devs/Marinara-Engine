@@ -281,7 +281,11 @@ console.log("game-mrpg-migration: ok");
     luck: -5,
     defense: 4,
   });
+  assert.deepEqual(read("str + 30, strength+ 12"), { strength: 12 });
+  assert.equal(read("strength 2 5, spe ed 10"), undefined, "spaces inside a word or a number leave it unread");
   const started = Date.now();
   assert.equal(read("a" + "\t".repeat(50_000) + "!"), undefined);
+  assert.equal(read("a0" + "\t".repeat(50_000) + "!"), undefined);
+  assert.equal(read("str:" + "\t".repeat(50_000) + "+" + "\t".repeat(50_000) + "!"), undefined);
   assert.ok(Date.now() - started < 500, "no backtracking on a long run of tabs");
 }
