@@ -4,6 +4,7 @@
 @import "./themes/stage.css";
 @import "./overhaul-always.css";
 @import "./theme-tokens.css";
+@import "./accessibility.css";
 @import "./themes/chat-widgets.css";
 @import "./themes/chat-widget-surfaces.css";
 @import "./themes/seasonal-halloween.css";
