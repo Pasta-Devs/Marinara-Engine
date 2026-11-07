@@ -1716,6 +1716,7 @@
 }
 .ovm-lv-head__save {
   justify-self: end;
+  margin-right: 0.25rem;
   height: 2rem;
   text-transform: none;
   letter-spacing: 0;
@@ -4550,7 +4551,7 @@
 
 /* Phones always show two cards per row, so the card-size control has nothing to change; it only squeezed search. */
 @media (max-width: 34rem) {
-  :root[data-overhaul="mobile"] .ov-gallery__tools > .ov-gallery__size {
+  :root[data-overhaul="mobile"] .ov-gallery__tools > .ov-gallery__size:not(#ovm-x) {
     display: none;
   }
   :root[data-overhaul="mobile"] .ov-gallery__tools > .ov-search:not(#ovm-x) {

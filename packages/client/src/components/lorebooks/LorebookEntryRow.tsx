@@ -2595,8 +2595,10 @@ function ExpandedDrawer({
               : saving
                 ? localizeUi("chat.settings.inlineEditor.saving")
                 : dirty
-                  ? localizeUi("ui.lorebooks.expandeddrawer.autosaving")
-                  : localizeUi("ui.lorebooks.expandeddrawer.savedAutomatically")}
+                  ? localizeUi(drafts ? "editor.save.unsaved" : "ui.lorebooks.expandeddrawer.autosaving")
+                  : localizeUi(
+                      drafts ? "chat.settings.inlineEditor.saved" : "ui.lorebooks.expandeddrawer.savedAutomatically",
+                    )}
           </span>
           <button type="button" disabled={ov.duplicateDisabled} onClick={ov.onDuplicate}>
             <Copy size={12} aria-hidden="true" />
@@ -3035,8 +3037,10 @@ function ExpandedDrawer({
             : saving
               ? localizeUi("chat.settings.inlineEditor.saving")
               : dirty
-                ? localizeUi("ui.lorebooks.expandeddrawer.autosaving")
-                : localizeUi("ui.lorebooks.expandeddrawer.savedAutomatically")}
+                ? localizeUi(drafts ? "editor.save.unsaved" : "ui.lorebooks.expandeddrawer.autosaving")
+                : localizeUi(
+                    drafts ? "chat.settings.inlineEditor.saved" : "ui.lorebooks.expandeddrawer.savedAutomatically",
+                  )}
         </span>
       </div>
     </div>

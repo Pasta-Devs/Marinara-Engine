@@ -1543,7 +1543,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     }
     autoSelectionRef.current = false;
     setActiveResultId(result.id);
-    if (result.control?.type === "toggle") flipToggleControl(result, result.control.value !== true);
+    // A preset row opens the preset; its "Set default preset" button is the toggle (user panel 2, N8).
+    if (result.category === "preset" && result.control?.type === "toggle") choose(result);
+    else if (result.control?.type === "toggle") flipToggleControl(result, result.control.value !== true);
     else if (result.control?.type === "choice")
       setExpandedChoiceId((current) => (current === result.id ? null : result.id));
     else choose(result);
