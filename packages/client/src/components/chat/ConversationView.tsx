@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Chat: Conversation View — Discord-style composite
 // ──────────────────────────────────────────────
+import { useStagedTranscriptCap } from "../../hooks/use-staged-transcript";
 import { useOverhaulActive } from "../../stores/overhaul.store";
 import {
   Fragment,
@@ -738,9 +739,21 @@ export function ConversationView({
   useLayoutEffect(() => {
     setTranscriptWindowStart(null);
   }, [maxMountedMessages]);
+  // Opening a chat mounts its newest rows first, then the older loaded ones (use-staged-transcript.ts).
+  const stagedCap = useStagedTranscriptCap(
+    chatId,
+    messages?.length ?? 0,
+    transcriptWindowStart !== null || gotoRequest?.chatId === chatId || Boolean(multiSelectMode),
+  );
+  const staging = stagedCap !== null;
   const transcriptWindow = useMemo(
-    () => getTranscriptRenderWindow(messages, { maxMountedMessages, startIndex: transcriptWindowStart }),
-    [maxMountedMessages, messages, transcriptWindowStart],
+    () =>
+      getTranscriptRenderWindow(messages, {
+        maxMountedMessages:
+          stagedCap === null ? maxMountedMessages : Math.min(stagedCap, maxMountedMessages ?? stagedCap),
+        startIndex: transcriptWindowStart,
+      }),
+    [maxMountedMessages, messages, stagedCap, transcriptWindowStart],
   );
   // ChatArea clears the request after scrolling; only reveal its transcript window once.
   const handledTranscriptGotoRef = useRef<typeof gotoRequest>(null);
@@ -1305,7 +1318,7 @@ export function ConversationView({
         {renderHeader()}
 
         {/* Load More */}
-        {hasNextPage && (
+        {hasNextPage && !staging && (
           <div className="mari-chat-load-more flex justify-center py-3">
             <button onClick={handleLoadMore} disabled={isFetchingNextPage} className={HISTORY_PAGER_BUTTON_CLASS}>
               {isFetchingNextPage ? <Loader2 size="0.75rem" className="animate-spin" /> : <ChevronUp size="0.75rem" />}
@@ -1315,9 +1328,9 @@ export function ConversationView({
         )}
 
         <TranscriptWindowControls
-          hiddenBeforeCount={transcriptWindow.hiddenBeforeCount}
+          hiddenBeforeCount={staging ? 0 : transcriptWindow.hiddenBeforeCount}
           hiddenAfterCount={transcriptWindow.hiddenAfterCount}
-          onShowOlder={transcriptWindow.hiddenBeforeCount > 0 ? showOlderTranscriptMessages : undefined}
+          onShowOlder={!staging && transcriptWindow.hiddenBeforeCount > 0 ? showOlderTranscriptMessages : undefined}
         />
 
         {isLoading && (

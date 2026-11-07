@@ -1,4 +1,5 @@
 import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useStagedTranscriptCap } from "../../hooks/use-staged-transcript";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { normalizeSemanticSummaryRetrievalSettings } from "@marinara-engine/shared";
 import { toast } from "sonner";
@@ -1309,12 +1310,11 @@ export function ChatRoleplaySurface({
       }
       const scrollElement = scrollRef.current;
       if (!scrollElement) return;
-      scrollElement
-        .closest<HTMLElement>('[data-chat-mode="roleplay"]')
-        ?.style.setProperty(
-          "--mari-roleplay-scrollbar-width",
-          `${scrollElement.offsetWidth - scrollElement.clientWidth}px`,
-        );
+      // Inherited by every row: write it only when it changes, so a re-measure restyles nothing.
+      const roleplayRoot = scrollElement.closest<HTMLElement>('[data-chat-mode="roleplay"]');
+      const scrollbarWidth = `${scrollElement.offsetWidth - scrollElement.clientWidth}px`;
+      if (roleplayRoot && roleplayRoot.style.getPropertyValue("--mari-roleplay-scrollbar-width") !== scrollbarWidth)
+        roleplayRoot.style.setProperty("--mari-roleplay-scrollbar-width", scrollbarWidth);
       const historyBox = scrollElement.parentElement;
       if (historyBox) {
         historyBox.style.top = visualNovel && vnHistoryOpen ? `${top + 8}px` : "";
@@ -1390,11 +1390,23 @@ export function ChatRoleplaySurface({
     setTranscriptWindowStart(null);
     pendingLoadMoreRevealRef.current = null;
   }, [maxMountedMessages]);
-  const transcriptWindow = useMemo(
-    () => getTranscriptRenderWindow(messages, { maxMountedMessages, startIndex: transcriptWindowStart }),
-    [maxMountedMessages, messages, transcriptWindowStart],
-  );
   const gotoRequest = useChatStore((state) => state.gotoRequest);
+  // Opening a chat mounts its newest rows first, then the older loaded ones (use-staged-transcript.ts).
+  const stagedCap = useStagedTranscriptCap(
+    activeChatId,
+    messagesLength,
+    transcriptWindowStart !== null || gotoRequest?.chatId === activeChatId || multiSelectMode || visualNovel,
+  );
+  const staging = stagedCap !== null;
+  const transcriptWindow = useMemo(
+    () =>
+      getTranscriptRenderWindow(messages, {
+        maxMountedMessages:
+          stagedCap === null ? maxMountedMessages : Math.min(stagedCap, maxMountedMessages ?? stagedCap),
+        startIndex: transcriptWindowStart,
+      }),
+    [maxMountedMessages, messages, stagedCap, transcriptWindowStart],
+  );
   useLayoutEffect(() => {
     if (!vnHistoryOpen || !pendingVnHistoryScroll.current) return;
     pendingVnHistoryScroll.current = false;
@@ -2019,7 +2031,7 @@ export function ChatRoleplaySurface({
                     "calc(var(--mari-roleplay-scroll-padding-bottom, 16px) + var(--mari-message-editor-scroll-space, 0px))",
                 }}
               >
-                {hasNextPage && (
+                {hasNextPage && !staging && (
                   <div className="mari-chat-load-more mb-3 flex justify-center">
                     <button
                       onClick={handleLoadMoreClick}
@@ -2037,9 +2049,11 @@ export function ChatRoleplaySurface({
                 )}
 
                 <TranscriptWindowControls
-                  hiddenBeforeCount={transcriptWindow.hiddenBeforeCount}
+                  hiddenBeforeCount={staging ? 0 : transcriptWindow.hiddenBeforeCount}
                   hiddenAfterCount={transcriptWindow.hiddenAfterCount}
-                  onShowOlder={transcriptWindow.hiddenBeforeCount > 0 ? showOlderTranscriptMessages : undefined}
+                  onShowOlder={
+                    !staging && transcriptWindow.hiddenBeforeCount > 0 ? showOlderTranscriptMessages : undefined
+                  }
                   className="pt-0"
                 />
 
