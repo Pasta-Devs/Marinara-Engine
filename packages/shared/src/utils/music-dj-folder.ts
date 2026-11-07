@@ -6,6 +6,11 @@
 // 2. the folder linked to the chat's character, only when the chat has exactly one
 //    (Music DJ settings `customMusicCharacterFolders`, keyed by character id),
 // 3. the default folder for all chats (Music DJ settings `customMusicExternalFolder`).
+//
+// The Game Assets music subfolder works the same way without the character step (#8916): the chat's own
+// (chat metadata `customMusicGameAssetsFolder`), else the default (Music DJ settings `customMusicFolder`).
+// Older chats hold a `customMusicFolder` in their metadata that only copied the default and was never
+// used, so it is not read: those chats keep following the default.
 // ──────────────────────────────────────────────
 
 import { parseAgentSettingsRecord } from "../types/agent.js";
@@ -74,7 +79,8 @@ export function resolveMusicDjExternalFolder(args: {
 
 /**
  * The Music DJ settings one chat runs with. A chat or character folder replaces the default folder and
- * selects folder mode, even when the default source is Game Assets.
+ * selects folder mode, even when the default source is Game Assets. The chat's own Game Assets subfolder
+ * replaces the default one and changes no source.
  */
 export function applyMusicDjChatFolder(
   agentType: string,
@@ -83,9 +89,11 @@ export function applyMusicDjChatFolder(
   chatCharacterIds: readonly string[] | null | undefined,
 ): Record<string, unknown> {
   if (agentType !== "spotify") return settings;
+  const gameAssetsFolder = readFolder(chatMetadata?.customMusicGameAssetsFolder);
+  const chatSettings = gameAssetsFolder ? { ...settings, customMusicFolder: gameAssetsFolder } : settings;
   const resolved = resolveMusicDjExternalFolder({ settings, chatMetadata, chatCharacterIds });
-  if (resolved.source === "default") return settings;
-  return { ...settings, customMusicSource: "folder", customMusicExternalFolder: resolved.folder };
+  if (resolved.source === "default") return chatSettings;
+  return { ...chatSettings, customMusicSource: "folder", customMusicExternalFolder: resolved.folder };
 }
 
 /**

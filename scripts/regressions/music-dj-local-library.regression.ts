@@ -1,10 +1,12 @@
 // The Music DJ's Game Assets library lists the user's tracks, including generated context music, but never the
 // sample a Music & Sound Effects connection test leaves under music/contexts/connection-test/. A folder on the
 // device chosen for a chat or its character replaces the default folder, and only its tracks are offered (#8901).
+// A Game Assets subfolder chosen for a chat replaces the default subfolder in that chat only (#8916).
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentContext } from "../../packages/shared/src/types/agent.js";
+import { CHAT_PRESET_EXCLUDED_METADATA_KEYS } from "../../packages/shared/src/types/chat-preset.js";
 
 const dataDir = process.env.DATA_DIR;
 assert.ok(dataDir, "the regression runner provides a throwaway DATA_DIR");
@@ -107,4 +109,70 @@ assert.deepEqual(
   "a chat folder plays only that folder",
 );
 assert.deepEqual(await offered({}, ["nazuna", "keyleth"]), ["forest-walk"], "a group chat keeps the default source");
+
+// Two chats share one default Game Assets subfolder; one of them has its own (#8916).
+const gameAssetsSettings = {
+  musicProvider: "custom",
+  customMusicSource: "game-assets",
+  customMusicFolder: "exploration",
+};
+const gameAssetsFolderOffered = async (
+  chatMetadata: Record<string, unknown>,
+  settings: Record<string, unknown> = gameAssetsSettings,
+) => {
+  const text = await promptFor(resolveEffectiveAgentSettings({ agentType: "spotify", settings, chatMetadata }));
+  return {
+    folder: /<available_local_music folder="([^"]*)">/.exec(text)?.[1],
+    tracks: ["forest walk", "generated 0123456789abcdef"].filter((track) => text.includes(`name="${track}"`)),
+  };
+};
+assert.deepEqual(
+  await gameAssetsFolderOffered({}),
+  { folder: "music/exploration", tracks: ["forest walk"] },
+  "a chat without its own subfolder plays the default one",
+);
+assert.deepEqual(
+  await gameAssetsFolderOffered({ customMusicGameAssetsFolder: "music/contexts" }),
+  { folder: "music/contexts", tracks: ["generated 0123456789abcdef"] },
+  "a chat with its own subfolder plays only that one",
+);
+for (const inherit of [null, "", "  "]) {
+  assert.equal(
+    (await gameAssetsFolderOffered({ customMusicGameAssetsFolder: inherit })).folder,
+    "music/exploration",
+    `a cleared subfolder (${JSON.stringify(inherit)}) goes back to the default`,
+  );
+}
+assert.equal(
+  (await gameAssetsFolderOffered({ customMusicGameAssetsFolder: "../outside" })).folder,
+  "music",
+  "a chat's subfolder cannot leave the Game Assets music library",
+);
+assert.equal(gameAssetsSettings.customMusicFolder, "exploration", "a chat's subfolder never changes the default");
+// Older chats hold a customMusicFolder that Music DJ setup copied from the default; it was never used, so those
+// chats keep following the default when it changes.
+for (const [defaultFolder, expected] of [
+  ["exploration", "music/exploration"],
+  ["music/contexts", "music/contexts"],
+]) {
+  assert.equal(
+    (
+      await gameAssetsFolderOffered(
+        { customMusicFolder: "music" },
+        { ...gameAssetsSettings, customMusicFolder: defaultFolder },
+      )
+    ).folder,
+    expected,
+    `an older chat's copied subfolder follows the default (${defaultFolder})`,
+  );
+}
+assert.ok(
+  CHAT_PRESET_EXCLUDED_METADATA_KEYS.includes("customMusicGameAssetsFolder"),
+  "settings profiles and wizard defaults never copy a chat's own subfolder",
+);
+assert.deepEqual(
+  await offered({ customMusicGameAssetsFolder: "music/contexts" }, ["nazuna"]),
+  ["nazuna-theme"],
+  "a device folder still wins over a chat's Game Assets subfolder",
+);
 console.info("Music DJ local library regression passed");
