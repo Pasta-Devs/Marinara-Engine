@@ -29,7 +29,10 @@
          the Library sidebar and Ctrl+K but never hide, move or blank them. mari-theme-important holds
          a custom theme's !important rules, so they beat the app's own !important ones. The app's
          CSS sits in mari-app, the Appearance pickers in mari-pickers, and the custom theme's normal
-         rules stay unlayered, so they win over both without !important. */
+         rules stay unlayered, so they win over both without !important.
+         translate/rotate/scale are written as var(--mari-none, none): the Safari 14 build target
+         otherwise folds them into transform: translate(0,0) rotate(0) scale(1), and a transform on
+         html, body or #root makes them the box for the fixed app shell, which collapses to 0px. */
       @layer mari-protected, mari-theme-important, theme, base, components, utilities, mari-app, mari-pickers;
       @layer mari-protected {
         html,
@@ -37,9 +40,9 @@
           visibility: visible !important;
           opacity: 1 !important;
           transform: none !important;
-          translate: none !important;
-          rotate: none !important;
-          scale: none !important;
+          translate: var(--mari-none, none) !important;
+          rotate: var(--mari-none, none) !important;
+          scale: var(--mari-none, none) !important;
           filter: none !important;
           clip-path: none !important;
           mask: none !important;
@@ -53,9 +56,9 @@
           visibility: visible !important;
           opacity: 1 !important;
           transform: none !important;
-          translate: none !important;
-          rotate: none !important;
-          scale: none !important;
+          translate: var(--mari-none, none) !important;
+          rotate: var(--mari-none, none) !important;
+          scale: var(--mari-none, none) !important;
           filter: none !important;
           clip-path: none !important;
           mask: none !important;
@@ -68,9 +71,9 @@
           visibility: visible !important;
           opacity: 1 !important;
           transform: none !important;
-          translate: none !important;
-          rotate: none !important;
-          scale: none !important;
+          translate: var(--mari-none, none) !important;
+          rotate: var(--mari-none, none) !important;
+          scale: var(--mari-none, none) !important;
           filter: none !important;
           clip-path: none !important;
           mask: none !important;
@@ -90,9 +93,9 @@
           clip-path: none !important;
           mask: none !important;
           content-visibility: visible !important;
-          translate: none !important;
-          rotate: none !important;
-          scale: none !important;
+          translate: var(--mari-none, none) !important;
+          rotate: var(--mari-none, none) !important;
+          scale: var(--mari-none, none) !important;
         }
         [data-component="TopBar"]:not(.is-autohide),
         [data-component="ChatSidebarPanel"]:not([aria-hidden="true"]),
