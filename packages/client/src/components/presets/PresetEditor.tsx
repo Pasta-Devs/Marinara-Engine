@@ -85,7 +85,7 @@ import {
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
 import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
-import { OvEditorHead } from "../overhaul/EditorChrome";
+import { OvEditorHead, OvSaveButton } from "../overhaul/EditorChrome";
 import { openConnectionsPage } from "../overhaul/library-navigation";
 import { OvSeg } from "../overhaul/LoreEntryParts";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -277,7 +277,19 @@ export function PresetEditor() {
   useEffect(() => {
     setActiveTab(presetDetailInitialTab ?? "overview");
   }, [presetDetailId, presetDetailInitialTab]);
-  const [dirty, setDirty] = useState(false);
+  const [formDirty, setDirty] = useState(false);
+  // New layout: prompt section edits wait for Save like the rest of the preset, keyed by section id.
+  const [sectionDrafts, setSectionDrafts] = useState<Record<string, Record<string, unknown>>>({});
+  const sectionDraftsRef = useRef(sectionDrafts);
+  sectionDraftsRef.current = sectionDrafts;
+  useEffect(() => {
+    setSectionDrafts({});
+  }, [presetDetailId]);
+  const pendingSectionDraftIds = useMemo(() => {
+    const live = new Set(((data?.sections ?? []) as Array<{ id: string }>).map((section) => section.id));
+    return Object.keys(sectionDrafts).filter((id) => live.has(id));
+  }, [data?.sections, sectionDrafts]);
+  const dirty = formDirty || pendingSectionDraftIds.length > 0;
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   useEffect(() => {
     setEditorDirty(dirty);
@@ -371,8 +383,25 @@ export function PresetEditor() {
       parameters: localParameters,
       scopedRegexMode: localScopedRegexMode,
     };
-    await updatePreset.mutateAsync({ id: presetDetailId, ...presetSavePatch(form, loadedFormRef.current) });
-    loadedFormRef.current = form;
+    if (formDirty) {
+      await updatePreset.mutateAsync({ id: presetDetailId, ...presetSavePatch(form, loadedFormRef.current) });
+      loadedFormRef.current = form;
+    }
+    for (const sectionId of pendingSectionDraftIds) {
+      const patch = sectionDraftsRef.current[sectionId];
+      if (!patch) continue;
+      await updateSection.mutateAsync({ presetId: presetDetailId, sectionId, ...patch });
+      // Keep anything typed while this section was saving.
+      setSectionDrafts((current) => {
+        if (current[sectionId] !== patch) return current;
+        const { [sectionId]: _saved, ...rest } = current;
+        return rest;
+      });
+    }
+    setSectionDrafts((current) => {
+      const live = new Set(pendingSectionDraftIds);
+      return Object.fromEntries(Object.entries(current).filter(([id]) => live.has(id)));
+    });
     if (editRevisionRef.current !== revision) return false;
     setDirty(false);
     setShowSaved(true);
@@ -389,6 +418,9 @@ export function PresetEditor() {
     localParameters,
     localScopedRegexMode,
     updatePreset,
+    formDirty,
+    pendingSectionDraftIds,
+    updateSection,
   ]);
 
   const handleExportPreset = useCallback(async () => {
@@ -428,7 +460,8 @@ export function PresetEditor() {
     deletePreset.mutate(presetDetailId, { onSuccess: () => leaveWithoutSaving(closePresetDetail) });
   }, [closePresetDetail, data?.preset, deletePreset, localizeUi, presetDetailId]);
 
-  useEditorLeaveSave(`presetDetailId:${presetDetailId}`, dirty, handleSave, updatePreset.isPending);
+  const savingPreset = updatePreset.isPending || updateSection.isPending;
+  useEditorLeaveSave(`presetDetailId:${presetDetailId}`, dirty, handleSave, savingPreset);
   const markDirty = useCallback(() => {
     editRevisionRef.current += 1;
     setDirty(true);
@@ -530,8 +563,42 @@ export function PresetEditor() {
   const orderedSections = useMemo(() => {
     if (!data?.sections) return [];
     const map = new Map((data.sections as any[]).map((s) => [s.id, s]));
-    return sectionOrder.map((id: string) => map.get(id)).filter(Boolean) as any[];
-  }, [data?.sections, sectionOrder]);
+    return sectionOrder
+      .map((id: string) => {
+        const section = map.get(id);
+        return section && sectionDrafts[id] ? { ...section, ...sectionDrafts[id] } : section;
+      })
+      .filter(Boolean) as any[];
+  }, [data?.sections, sectionOrder, sectionDrafts]);
+  // In the new layout a section edit goes into the drafts; Save (or Ctrl+S) sends them.
+  const sectionUpdater = useMemo(() => {
+    if (!overhaulActive) return updateSection;
+    return {
+      isPending: updateSection.isPending,
+      mutate: ({
+        sectionId,
+        presetId: _presetId,
+        ...patch
+      }: { presetId: string; sectionId: string } & Record<string, unknown>) => {
+        const saved = ((data?.sections ?? []) as unknown as Array<Record<string, unknown>>).find(
+          (section) => section.id === sectionId,
+        );
+        editRevisionRef.current += 1;
+        setSectionDrafts((current) => {
+          const next = { ...current[sectionId], ...patch };
+          // A change put back to the saved value is no change.
+          for (const key of Object.keys(next)) {
+            if (saved && String(saved[key] ?? "") === String(next[key] ?? "")) delete next[key];
+          }
+          if (Object.keys(next).length === 0) {
+            const { [sectionId]: _dropped, ...rest } = current;
+            return rest;
+          }
+          return { ...current, [sectionId]: next };
+        });
+      },
+    };
+  }, [overhaulActive, updateSection, data?.sections]);
 
   const sectionHasLorebookMarker = useMemo(() => {
     return orderedSections.some((section: any) => {
@@ -749,7 +816,7 @@ export function PresetEditor() {
       choiceBlocks={choiceBlocks}
       wrapFormat={localWrapFormat}
       onCreateSection={createSection}
-      onUpdateSection={updateSection}
+      onUpdateSection={sectionUpdater}
       onDeleteSection={deleteSection}
       onReorderSections={reorderSections}
       onCreateGroup={createGroup}
@@ -826,12 +893,11 @@ export function PresetEditor() {
           <span className="ovm-drill-row__title">{label}</span>
         </button>
       );
-      const saveButton = dirty ? (
-        <button type="button" className="ovm-preset__save" onClick={handleSave} disabled={updatePreset.isPending}>
-          {localizeUi("ui.noodle.noodlehome.save")}
-        </button>
-      ) : (
-        <span aria-hidden="true" />
+      // Every drilled page keeps Save in reach, so a prompt section edit is never stranded.
+      const saveButton = (
+        <span className="ovm-preset__save-slot">
+          <OvSaveButton dirty={dirty} saving={savingPreset} onSave={handleSave} quiet />
+        </span>
       );
       return withStockBar(
         <div
@@ -867,7 +933,7 @@ export function PresetEditor() {
                 </span>
               }
               title={localName || data.preset.name}
-              save={{ dirty, saving: updatePreset.isPending, onSave: handleSave }}
+              save={{ dirty, saving: savingPreset, onSave: handleSave }}
             />
           )}
           <div className="ovm-preset__body">
@@ -924,7 +990,7 @@ export function PresetEditor() {
           sectionLabel="Presets"
           onBack={handleClose}
           title={localName || data.preset.name}
-          save={{ dirty, saving: updatePreset.isPending, onSave: handleSave }}
+          save={{ dirty, saving: savingPreset, onSave: handleSave }}
           actions={
             <>
               <button
