@@ -30,6 +30,9 @@ export type PromptDialogState = AppDialogCommon & {
 
 export type ChoiceDialogState = AppDialogCommon & {
   kind: "choice";
+  /** "row": a short decision (Save / Don't save / Keep editing) laid out like a confirm dialog,
+   *  one right-aligned row with Cancel on the left and the first choice as the primary button. */
+  layout?: "stack" | "row";
   /** Buttons shown stacked; resolves the chosen key. The first is styled as the primary action,
    *  unless the choices carry an avatar: those are equal picks, shown as rows. */
   choices: Array<{

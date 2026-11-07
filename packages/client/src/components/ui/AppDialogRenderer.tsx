@@ -55,7 +55,7 @@ export function AppDialogRenderer() {
       open
       onClose={dismissActiveDialog}
       title={getDialogTitle(dialog.kind, dialog.title)}
-      width="max-w-sm"
+      width={dialog.kind === "choice" && dialog.layout === "row" ? "max-w-md" : "max-w-sm"}
       chatFloatingPanel
       topLayer
       panelClassName={dialog.chatStyle ? "mari-chat-style-surface mari-chat-action-panel" : undefined}
@@ -148,7 +148,45 @@ export function AppDialogRenderer() {
           </div>
         )}
 
-        {dialog.kind === "choice" && (
+        {dialog.kind === "choice" && dialog.layout === "row" && (
+          // Phones stack them full width, primary on top; wider screens get one row like a confirm dialog.
+          <div
+            className="flex flex-col-reverse gap-2 whitespace-nowrap sm:flex-row sm:items-center sm:justify-end"
+            data-dialog-layout="row"
+          >
+            <button
+              type="button"
+              onClick={dismissActiveDialog}
+              data-dialog-action="cancel"
+              className="w-full rounded-lg px-3 py-2 sm:mr-auto sm:w-auto text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            >
+              {dialog.cancelLabel ?? "Cancel"}
+            </button>
+            {[...dialog.choices].reverse().map((choice) => {
+              const primary = choice.key === dialog.choices[0]?.key;
+              return (
+                <button
+                  key={choice.key}
+                  type="button"
+                  onClick={() => resolveActiveDialog(choice.key)}
+                  data-dialog-action={primary ? "confirm" : "choice"}
+                  data-tone={choice.tone}
+                  className={`w-full rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:w-auto ${
+                    primary
+                      ? "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85"
+                      : choice.tone === "destructive"
+                        ? "text-[var(--destructive)] ring-1 ring-[var(--border)] hover:bg-[var(--destructive)]/10"
+                        : "text-[var(--foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]"
+                  }`}
+                >
+                  {choice.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {dialog.kind === "choice" && dialog.layout !== "row" && (
           <div className="space-y-2">
             <div className="max-h-[50vh] space-y-2 overflow-y-auto">
               {dialog.choices.map((choice, i) =>
