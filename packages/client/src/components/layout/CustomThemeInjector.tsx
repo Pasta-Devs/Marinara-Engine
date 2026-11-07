@@ -10,6 +10,7 @@
 import { useEffect } from "react";
 import { useThemes } from "../../hooks/use-themes";
 import { extractImportantThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
+import { themeFontFaceCss } from "../../lib/theme-package";
 import { installSafeModeShortcut, useThemeSafetyStore } from "../../lib/theme-safety";
 import { checkProtectedChrome } from "../../lib/theme-guard";
 import { useUIStore } from "../../stores/ui.store";
@@ -55,7 +56,8 @@ export function CustomThemeInjector() {
       document.getElementById(IMPORTANT_ID)?.remove();
       return;
     }
-    const css = sanitizeAppCss(activeTheme.css);
+    // A v2 theme's own fonts load with it, as @font-face rules ahead of its CSS.
+    const css = sanitizeAppCss(`${themeFontFaceCss(activeTheme.meta)}\n${activeTheme.css}`);
     const normal = ensureStyle(NORMAL_ID);
     normal.textContent = css;
     const importantCss = extractImportantThemeCss(css);

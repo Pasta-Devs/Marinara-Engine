@@ -64,6 +64,17 @@ import { cssContrast, fixContrast } from "../../lib/color-contrast";
 import { checkProtectedChrome } from "../../lib/theme-guard";
 import { useThemeSafetyStore, type ThemeGuardProblem } from "../../lib/theme-safety";
 import { takeThemeEditRequest, useThemeEditRequest } from "../../lib/theme-edit-request";
+import {
+  applyThemeSettings,
+  buildThemeFile,
+  currentThemeSettings,
+  dataUrlToFile,
+  fileToDataUrl,
+  readThemeFile,
+  themeFontFaceCss,
+  type ThemePackage,
+} from "../../lib/theme-package";
+import { ThemeImportPreview, type ThemeInstallChoice } from "./settings/ThemeImportPreview";
 import { getChatWidgetFontFamily } from "../../lib/font-family";
 import { forceRefreshSpa } from "@/lib/browser-runtime";
 import {
@@ -94,9 +105,6 @@ import {
   createImageStyleProfileId,
   normalizeImageStyleProfileSettings,
   normalizeVideoGenerationUserSettings,
-  createFolderEntry,
-  getFolderImportEntries,
-  getFolderManifestConfig,
   type AppSettingsResponse,
   type APIConnection,
   type ConversationCallCharacterVideoClipKind,
@@ -107,6 +115,7 @@ import {
   type QuoteFormat,
   type SidecarHealthSection,
   type Theme,
+  type ThemeMeta,
   type VideoGenerationUserSettings,
 } from "@marinara-engine/shared";
 import {
@@ -5808,6 +5817,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const deleteTheme = useDeleteTheme();
   const setActiveTheme = useSetActiveTheme();
   const activateTheme = useActivateTheme();
+  const queryClient = useQueryClient();
   const activeCustomTheme = syncedThemes.find((theme) => theme.isActive) ?? null;
   const isSavingTheme = createTheme.isPending || updateTheme.isPending || setActiveTheme.isPending;
 
@@ -5816,7 +5826,10 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const [editingId, setEditingId] = useState<string | null>(null); // null = creating new
   const [themeName, setThemeName] = useState("");
   const [themeCss, setThemeCss] = useState("");
+  const [themeMeta, setThemeMeta] = useState<ThemeMeta>({});
   const [livePreview, setLivePreview] = useState(true);
+  const [importQueue, setImportQueue] = useState<Array<ThemePackage & { metaProblems: string[] }>>([]);
+  const [importBusy, setImportBusy] = useState(false);
   const [previewProblems, setPreviewProblems] = useState<ThemeGuardProblem[]>([]);
 
   // Replacing a dense app-level stylesheet invalidates styles across the full
@@ -5842,7 +5855,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     style.dataset.mariCustomCss = "preview";
     let guardTimeout: number | undefined;
     const previewTimeout = window.setTimeout(() => {
-      const css = sanitizeAppCss(themeCss);
+      const css = sanitizeAppCss(`${themeFontFaceCss(themeMeta)}\n${themeCss}`);
       style.media = "";
       style.textContent = css;
       // Keep the preview after the active-theme injector's saved CSS.
@@ -5871,7 +5884,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
       window.clearTimeout(previewTimeout);
       window.clearTimeout(guardTimeout);
     };
-  }, [editorOpen, livePreview, themeCss]);
+  }, [editorOpen, livePreview, themeCss, themeMeta]);
 
   useEffect(
     () => () => {
@@ -5885,6 +5898,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     setEditingId(null);
     setThemeName("");
     setThemeCss(CSS_TEMPLATE);
+    setThemeMeta({});
     setEditorOpen(true);
   }, []);
 
@@ -5892,6 +5906,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     setEditingId(theme.id);
     setThemeName(theme.name);
     setThemeCss(normalizeThemeCss(theme.css));
+    setThemeMeta(theme.meta ?? {});
     setEditorOpen(true);
   }, []);
 
@@ -5910,7 +5925,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
       const name = themeName.trim() || "Untitled Theme";
       const css = normalizeThemeCss(themeCss);
       if (editingId) {
-        await updateTheme.mutateAsync({ id: editingId, name, css });
+        await updateTheme.mutateAsync({ id: editingId, name, css, meta: themeMeta });
         // Edited CSS gets a fresh check from the chrome guard.
         if (useThemeSafetyStore.getState().blockedThemeId === editingId) {
           useThemeSafetyStore.getState().clearBlockedTheme();
@@ -5920,6 +5935,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
         const theme = await createTheme.mutateAsync({
           name,
           css,
+          meta: themeMeta,
           installedAt: new Date().toISOString(),
         });
         await activateTheme(theme);
@@ -5930,110 +5946,96 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
       console.error("[ThemesSettings] Failed to save theme:", err);
       toast.error(localizeUi("ui.panels.themessettings.failedToSaveThemeCheckTheBrowserConsoleFor"));
     }
-  }, [activateTheme, createTheme, editingId, themeCss, themeName, updateTheme, localizeUi]);
+  }, [activateTheme, createTheme, editingId, themeCss, themeMeta, themeName, updateTheme, localizeUi]);
 
+  // Importing reads the file, then shows a preview per theme before anything is installed.
   const handleImportThemeFile = async (file: File) => {
     try {
-      const text = await file.text();
+      const packages = await readThemeFile(file);
       const latestThemes = await api.get<Theme[]>("/themes");
-      let workingThemes = [...latestThemes];
-      let imported = 0;
-      let skipped = 0;
-      let failed = 0;
-      const skipMessages: string[] = [];
-      const failureMessages: string[] = [];
-
-      const recordSkippedTheme = (message: string) => {
-        skipped++;
-        skipMessages.push(message);
-      };
-
-      if (file.name.endsWith(".json")) {
-        const parsed = parseThemeJsonWithControlCharFallback(text);
-        const entries = getFolderImportEntries(parsed, ["themes"]);
-        for (const [index, entry] of entries.entries()) {
-          const source = getFolderManifestConfig(entry);
-          if (!source || typeof source !== "object" || Array.isArray(source)) {
-            recordSkippedTheme(`Entry ${index + 1} is not a theme object.`);
-            continue;
-          }
-          const record = source as Record<string, unknown>;
-          const importedThemeName =
-            typeof record.name === "string" && record.name.trim()
-              ? record.name.trim()
-              : file.name.replace(/\.json$/i, "");
-          if (typeof record.css !== "string") {
-            recordSkippedTheme(`"${importedThemeName}" is missing a css field.`);
-            continue;
-          }
-          const importedThemeCss = normalizeThemeCss(record.css);
-          if (!importedThemeCss.trim()) {
-            recordSkippedTheme(`"${importedThemeName}" has empty css.`);
-            continue;
-          }
-          const duplicate = findDuplicateTheme(workingThemes, importedThemeName, importedThemeCss);
-          if (duplicate) {
-            recordSkippedTheme(`"${importedThemeName}" is already synced.`);
-            continue;
-          }
-          try {
-            const created = await createTheme.mutateAsync({
-              name: importedThemeName,
-              css: importedThemeCss,
-              installedAt: new Date().toISOString(),
-            });
-            workingThemes = [created, ...workingThemes];
-            imported++;
-          } catch (err) {
-            failed++;
-            failureMessages.push(
-              err instanceof Error ? `"${importedThemeName}" failed: ${err.message}` : `"${importedThemeName}" failed.`,
-            );
-            console.warn("[ThemesSettings] Failed to import theme entry:", importedThemeName, err);
-          }
-        }
-      } else {
-        const importedThemeName = file.name.replace(/\.css$/, "");
-        const importedThemeCss = normalizeThemeCss(text);
-        const duplicate = findDuplicateTheme(workingThemes, importedThemeName, importedThemeCss);
-        if (duplicate) {
-          recordSkippedTheme(`"${importedThemeName}" is already synced.`);
-        } else {
-          await createTheme.mutateAsync({
-            name: importedThemeName,
-            css: importedThemeCss,
-            installedAt: new Date().toISOString(),
-          });
-          imported++;
-        }
-      }
-
-      if (imported > 0 || skipped > 0 || failed > 0) {
-        const summary = [
-          imported > 0 ? `${imported} imported` : null,
-          skipped > 0 ? `${skipped} skipped` : null,
-          failed > 0 ? `${failed} failed` : null,
-        ].filter(Boolean);
-        const message = `Theme import: ${summary.join(", ")}`;
-        const description = [...failureMessages, ...skipMessages].slice(0, 3).join(" ");
-        if (failed > 0) toast.warning(message, { description, duration: 12_000 });
-        else if (skipped > 0) toast.warning(message, { description, duration: 12_000 });
-        else toast.success(message);
-      } else {
+      const fresh = packages.filter((pkg) => !findDuplicateTheme(latestThemes, pkg.name, pkg.css));
+      const alreadySynced = packages.length - fresh.length;
+      if (packages.length === 0) {
         toast.error(localizeUi("ui.panels.themessettings.noValidThemesFoundInFile"));
+        return;
       }
+      if (alreadySynced > 0) {
+        toast.message(localizeUi("theming.import.alreadyInstalled", { count: alreadySynced }));
+      }
+      setImportQueue(fresh);
     } catch (err) {
       console.error("[ThemesSettings] Failed to import theme:", err);
       toast.error(
         err instanceof SyntaxError
           ? localizeUi("ui.panels.themessettings.failedToImportThemeTheJsonCouldNotBe")
-          : getPrivilegedActionErrorMessage(
-              err,
-              localizeUi("ui.panels.themessettings.failedToImportThemeEnsureValidFile"),
-            ),
+          : localizeUi("ui.panels.themessettings.failedToImportThemeEnsureValidFile"),
       );
     }
   };
+
+  const handleInstallTheme = async (choice: ThemeInstallChoice) => {
+    const { pkg } = choice;
+    setImportBusy(true);
+    try {
+      let theme: Theme;
+      if (choice.replaceId) {
+        theme = await updateTheme.mutateAsync({ id: choice.replaceId, name: pkg.name, css: pkg.css, meta: pkg.meta });
+        if (useThemeSafetyStore.getState().blockedThemeId === choice.replaceId) {
+          useThemeSafetyStore.getState().clearBlockedTheme();
+        }
+      } else {
+        const taken = new Set(syncedThemes.map((item) => item.name));
+        let name = pkg.name;
+        for (let n = 2; taken.has(name); n += 1) name = `${pkg.name} (${n})`;
+        theme = await createTheme.mutateAsync({
+          name,
+          css: pkg.css,
+          meta: pkg.meta,
+          installedAt: new Date().toISOString(),
+        });
+      }
+      if (pkg.meta.settings && choice.settingsKeys.length > 0) {
+        applyThemeSettings(pkg.meta.settings, choice.settingsKeys);
+      }
+      if (choice.addBackgrounds && pkg.meta.backgrounds?.length) {
+        for (const background of pkg.meta.backgrounds) {
+          const formData = new FormData();
+          formData.append("file", await dataUrlToFile(background.src, background.name));
+          await api.upload("/backgrounds/upload", formData).catch((err: unknown) => {
+            console.warn("[ThemesSettings] Couldn't add a theme background:", background.name, err);
+          });
+        }
+        void queryClient.invalidateQueries({ queryKey: ["backgrounds"] });
+      }
+      if (choice.activate && !choice.replaceId) await activateTheme(theme);
+      toast.success(
+        choice.replaceId
+          ? localizeUi("ui.panels.themessettings.themeValue1Updated", { value1: theme.name })
+          : localizeUi("theming.import.installed", { name: theme.name }),
+      );
+      setImportQueue((queue) => queue.slice(1));
+    } catch (err) {
+      console.error("[ThemesSettings] Failed to install theme:", err);
+      toast.error(
+        getPrivilegedActionErrorMessage(err, localizeUi("ui.panels.themessettings.failedToImportThemeEnsureValidFile")),
+      );
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const pickThemeAsset = (accept: string, onFile: (dataUrl: string, file: File) => void) =>
+    triggerFilePicker({
+      accept,
+      onSelect: (files) => {
+        const file = files[0];
+        if (!file) return;
+        fileToDataUrl(file)
+          .then((dataUrl) => onFile(dataUrl, file))
+          .catch(() => toast.error(localizeUi("theming.editor.assetFailed")));
+      },
+    });
+
   // ── CSS Editor View ──
   // Inside the same section as the list, so the new layout's Settings page (which shows only
   // settings sections) shows the editor too.
@@ -6100,6 +6102,35 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             onChange={(e) => setThemeName(e.target.value)}
             placeholder={localizeUi("settings.placeholders.themeName")}
             className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
+          />
+
+          <ThemePackageDetails
+            meta={themeMeta}
+            onChange={setThemeMeta}
+            onPickThumbnail={() =>
+              pickThemeAsset("image/png,image/jpeg,image/webp", (dataUrl) =>
+                setThemeMeta((meta) => ({ ...meta, thumbnail: dataUrl })),
+              )
+            }
+            onAddFont={() =>
+              pickThemeAsset(".woff2,.woff,.ttf,.otf", (dataUrl, file) =>
+                setThemeMeta((meta) => ({
+                  ...meta,
+                  fonts: [
+                    ...(meta.fonts ?? []),
+                    { family: file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " "), src: dataUrl },
+                  ],
+                })),
+              )
+            }
+            onAddBackground={() =>
+              pickThemeAsset("image/png,image/jpeg,image/webp", (dataUrl, file) =>
+                setThemeMeta((meta) => ({
+                  ...meta,
+                  backgrounds: [...(meta.backgrounds ?? []), { name: file.name, src: dataUrl }],
+                })),
+              )
+            }
           />
 
           {previewProblems.length > 0 && (
@@ -6203,6 +6234,19 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             </button>
           </div>
 
+          {importQueue[0] ? (
+            <ThemeImportPreview
+              key={`${importQueue.length}-${importQueue[0].name}`}
+              pkg={importQueue[0]}
+              metaProblems={importQueue[0].metaProblems}
+              installed={syncedThemes}
+              remaining={importQueue.length - 1}
+              busy={importBusy}
+              onInstall={(choice) => void handleInstallTheme(choice)}
+              onSkip={() => setImportQueue((queue) => queue.slice(1))}
+            />
+          ) : null}
+
           {/* Active theme: None option */}
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium">{localizeUi("ui.panels.themessettings.installedThemes")}</span>
@@ -6263,24 +6307,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                 <button
                   type="button"
                   onClick={() => {
-                    downloadJsonFile(
-                      {
-                        kind: "marinara.theme-folder",
-                        version: 1,
-                        exportedAt: new Date().toISOString(),
-                        folderName: "Themes",
-                        themes: [
-                          createFolderEntry({
-                            folderName: "Themes",
-                            itemName: t.name,
-                            itemKind: "marinara.theme",
-                            config: { name: t.name, css: t.css },
-                            fallbackName: "theme",
-                          }),
-                        ],
-                      },
-                      `${sanitizeExportFilenamePart(t.name, "theme")}.json`,
-                    );
+                    downloadJsonFile(buildThemeFile(t), `${sanitizeExportFilenamePart(t.name, "theme")}.json`);
                   }}
                   className={SETTINGS_ICON_BUTTON_CLASS}
                   title={localizeUi("settings.actions.exportTheme")}
@@ -6351,6 +6378,150 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
         </div>
       </SettingsSection>
     </div>
+  );
+}
+
+/** Author, version, schemes, thumbnail, bundled settings, fonts and backgrounds: what a theme file carries. */
+function ThemePackageDetails({
+  meta,
+  onChange,
+  onPickThumbnail,
+  onAddFont,
+  onAddBackground,
+}: {
+  meta: ThemeMeta;
+  onChange: (update: (meta: ThemeMeta) => ThemeMeta) => void;
+  onPickThumbnail: () => void;
+  onAddFont: () => void;
+  onAddBackground: () => void;
+}) {
+  const { t } = useUiTranslation();
+  const field =
+    "min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[0.6875rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]/50";
+  const set = (patch: Partial<ThemeMeta>) => onChange((current) => ({ ...current, ...patch }));
+  const settingsCount = Object.keys(meta.settings ?? {}).length;
+  return (
+    <details className="rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]" data-theme-package-details>
+      <summary className="cursor-pointer px-3 py-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+        {t("theming.editor.packageDetails", "Sharing details (author, version, thumbnail, fonts)")}
+      </summary>
+      <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 border-t border-[var(--border)] px-3 py-2.5 text-[0.6875rem]">
+        <span>{t("theming.editor.author", "Author")}</span>
+        <input
+          className={field}
+          value={meta.author ?? ""}
+          onChange={(e) => set({ author: e.target.value || undefined })}
+        />
+        <span>{t("theming.editor.version", "Version")}</span>
+        <input
+          className={field}
+          value={meta.version ?? ""}
+          placeholder="1.0"
+          onChange={(e) => set({ version: e.target.value || undefined })}
+        />
+        <span>{t("theming.editor.madeFor", "Made for")}</span>
+        <select
+          className={field}
+          value={meta.colorScheme ?? ""}
+          onChange={(e) => set({ colorScheme: (e.target.value || undefined) as ThemeMeta["colorScheme"] })}
+        >
+          <option value="">{t("theming.editor.madeForUnset", "Not set")}</option>
+          <option value="dark">{t("theming.editor.madeForDark", "Dark")}</option>
+          <option value="light">{t("theming.editor.madeForLight", "Light")}</option>
+          <option value="both">{t("theming.editor.madeForBoth", "Dark and Light")}</option>
+        </select>
+        <span className="self-start pt-1">{t("theming.editor.description", "Description")}</span>
+        <textarea
+          className={cn(field, "min-h-12 resize-y")}
+          value={meta.description ?? ""}
+          onChange={(e) => set({ description: e.target.value || undefined })}
+        />
+        <span>{t("theming.editor.thumbnail", "Thumbnail")}</span>
+        <div className="flex items-center gap-2">
+          {meta.thumbnail ? (
+            <img src={meta.thumbnail} alt="" className="h-8 w-12 rounded object-cover ring-1 ring-[var(--border)]" />
+          ) : null}
+          <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={onPickThumbnail}>
+            {meta.thumbnail ? t("theming.editor.change", "Change") : t("theming.editor.choose", "Choose image")}
+          </button>
+          {meta.thumbnail ? (
+            <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={() => set({ thumbnail: undefined })}>
+              {t("theming.editor.remove", "Remove")}
+            </button>
+          ) : null}
+        </div>
+        <span>{t("theming.editor.settings", "Settings")}</span>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="basis-full text-[var(--muted-foreground)]">
+            {settingsCount
+              ? t("theming.editor.settingsCount", "{{count}} Appearance settings included", { count: settingsCount })
+              : t("theming.editor.settingsNone", "None")}
+          </span>
+          <button
+            type="button"
+            className={SETTINGS_BUTTON_CLASS}
+            onClick={() => set({ settings: currentThemeSettings() })}
+          >
+            {t("theming.editor.useMySettings", "Use my current Appearance")}
+          </button>
+          {settingsCount ? (
+            <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={() => set({ settings: undefined })}>
+              {t("theming.editor.remove", "Remove")}
+            </button>
+          ) : null}
+        </div>
+        <span className="self-start pt-1">{t("theming.editor.fonts", "Fonts")}</span>
+        <div className="flex flex-col gap-1">
+          {(meta.fonts ?? []).map((font, index) => (
+            <div key={`${font.family}-${index}`} className="flex items-center gap-2">
+              <input
+                className={cn(field, "flex-1")}
+                value={font.family}
+                aria-label={t("theming.editor.fontFamily", "Font family name")}
+                onChange={(e) =>
+                  set({
+                    fonts: (meta.fonts ?? []).map((item, i) =>
+                      i === index ? { ...item, family: e.target.value } : item,
+                    ),
+                  })
+                }
+              />
+              <button
+                type="button"
+                className={SETTINGS_BUTTON_CLASS}
+                onClick={() => set({ fonts: (meta.fonts ?? []).filter((_, i) => i !== index) })}
+              >
+                {t("theming.editor.remove", "Remove")}
+              </button>
+            </div>
+          ))}
+          <button type="button" className={cn(SETTINGS_BUTTON_CLASS, "self-start")} onClick={onAddFont}>
+            <Plus size="0.75rem" />
+            {t("theming.editor.addFont", "Add font file")}
+          </button>
+        </div>
+        <span className="self-start pt-1">{t("theming.editor.backgrounds", "Backgrounds")}</span>
+        <div className="flex flex-col gap-1">
+          {(meta.backgrounds ?? []).map((background, index) => (
+            <div key={`${background.name}-${index}`} className="flex items-center gap-2">
+              <img src={background.src} alt="" className="h-6 w-10 rounded object-cover ring-1 ring-[var(--border)]" />
+              <span className="min-w-0 flex-1 truncate">{background.name}</span>
+              <button
+                type="button"
+                className={SETTINGS_BUTTON_CLASS}
+                onClick={() => set({ backgrounds: (meta.backgrounds ?? []).filter((_, i) => i !== index) })}
+              >
+                {t("theming.editor.remove", "Remove")}
+              </button>
+            </div>
+          ))}
+          <button type="button" className={cn(SETTINGS_BUTTON_CLASS, "self-start")} onClick={onAddBackground}>
+            <Plus size="0.75rem" />
+            {t("theming.editor.addBackground", "Add background")}
+          </button>
+        </div>
+      </div>
+    </details>
   );
 }
 
@@ -6433,21 +6604,6 @@ const CSS_TEMPLATE = `/* ══════════════════�
 
    You can also add any custom CSS below: */
 `;
-
-function parseThemeJsonWithControlCharFallback(text: string) {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch (parseErr) {
-    try {
-      const sanitized = text.replace(/"([^"\\]|\\.)*"/g, (match) =>
-        match.replace(/\r/g, "").replace(/\n/g, "\\n").replace(/\t/g, "\\t"),
-      );
-      return JSON.parse(sanitized) as unknown;
-    } catch {
-      throw parseErr;
-    }
-  }
-}
 
 function triggerFilePicker(options: {
   accept?: string;

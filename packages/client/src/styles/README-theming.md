@@ -146,6 +146,35 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 | `.mari-rp-bubble`, `.mari-rp-bubble--user`, `.mari-message-assistant` | Roleplay and conversation bubbles |
 | `.mari-window`, `.mari-drawer` | Pop-out windows and drawers |
 
+## Theme files
+
+Export writes one theme as one JSON file:
+
+```json
+{
+  "kind": "marinara.theme",
+  "formatVersion": 2,
+  "name": "Forest Glass",
+  "author": "You",
+  "version": "1.2",
+  "description": "Deep greens with frosted panels.",
+  "colorScheme": "dark",
+  "thumbnail": "data:image/webp;base64,…",
+  "settings": { "colorScheme": "dark", "visualStyle": "stage", "accent": "#3fae7a", "fontFamily": "Georgia" },
+  "fonts": [{ "family": "My Display", "src": "data:font/woff2;base64,…" }],
+  "backgrounds": [{ "name": "forest.webp", "src": "data:image/webp;base64,…" }],
+  "css": ":root { --primary: #3fae7a; }"
+}
+```
+
+Only `kind`, `name` and `css` are required. `settings` keys: `colorScheme`, `visualStyle`, `accent`,
+`accentLight`, `background`, `backgroundLight`, `fontFamily`, `accentPulse`. Importing shows a preview
+first, and the user picks which settings to apply and whether to add the backgrounds to their gallery.
+Fonts load with the theme (as `@font-face` rules) and go away with it. Importing a theme with the same
+name as an installed one offers to update it. The CSS limit is 256 KiB; thumbnail, fonts and
+backgrounds together get 6 MiB. Plain `.css` files, `{ "name", "css" }` and the older
+`marinara.theme-folder` export still import.
+
 ## Changes
 
 - **v1** (first published contract): theme tokens, part hooks, backdrop and accent effects above.
