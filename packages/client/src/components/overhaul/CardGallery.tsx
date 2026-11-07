@@ -6,10 +6,10 @@
 // portrait opens its editor; the Library pane's tags filter the list.
 // ──────────────────────────────────────────────
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { MessageCircle, Plus, Search, User, VenetianMask, Download } from "lucide-react";
+import { MessageCircle, Plus, Search, User, VenetianMask, Download, Grid2x2, Grid3x3, Square } from "lucide-react";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
-import { useOverhaulMobile } from "../../stores/overhaul.store";
+import { useOverhaulMobile, useOverhaulStore, type GalleryCardSize } from "../../stores/overhaul.store";
 import { AvatarImage } from "../characters/AvatarImage";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -35,6 +35,13 @@ function placeholderGradient(id: string) {
   const hue = Math.abs(hash) % 360;
   return `linear-gradient(170deg, hsl(${hue} 55% 58%), hsl(${(hue + 40) % 360} 45% 24%))`;
 }
+
+/** The card-size switch: pictures matter for telling characters apart, so the grid scales instead of becoming a list. */
+const GALLERY_SIZES: { id: GalleryCardSize; title: string; icon: typeof Square; iconSize: number }[] = [
+  { id: "small", title: "Small cards", icon: Grid3x3, iconSize: 14 },
+  { id: "medium", title: "Medium cards", icon: Grid2x2, iconSize: 14 },
+  { id: "large", title: "Large cards", icon: Square, iconSize: 13 },
+];
 
 export function CardGallery({
   kind,
@@ -63,6 +70,8 @@ export function CardGallery({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
+  const cardSize = useOverhaulStore((state) => state.galleryCardSize);
+  const setCardSize = useOverhaulStore((state) => state.setGalleryCardSize);
   const [search, setSearch] = useState("");
   const [quick, setQuick] = useState<QuickFilter>(null);
   // Phones: Favourites, Recently edited and the tags are one dropdown beside + New.
@@ -194,9 +203,24 @@ export function CardGallery({
           <option value="newest">{localize("Newest")}</option>
           <option value="oldest">{localize("Oldest")}</option>
         </select>
+        <div className="ov-seg ov-gallery__size" role="group" aria-label={localize("Card size")}>
+          {GALLERY_SIZES.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className={cn(cardSize === option.id && "is-on")}
+              aria-pressed={cardSize === option.id}
+              title={localize(option.title)}
+              aria-label={localize(option.title)}
+              onClick={() => setCardSize(option.id)}
+            >
+              <option.icon size={option.iconSize} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="ov-gallery__grid">
+      <div className="ov-gallery__grid" data-size={cardSize}>
         {visible.map((card) => (
           <div key={card.id} className="ov-card" data-card-library-card={card.id}>
             <button

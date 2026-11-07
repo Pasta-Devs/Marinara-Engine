@@ -51,6 +51,9 @@ export type OverhaulSettingsTab =
 /** Chat settings drawer arrangement for one chat mode: section ids in order, and hidden ones. */
 export type OverhaulChatSettingsLayout = { order: string[]; hidden: string[] };
 
+/** How big the Characters / Personas gallery cards are. */
+export type GalleryCardSize = "small" | "medium" | "large";
+
 export type OverhaulGamePaneTab = "party" | "inventory" | "journal" | "map" | "sessions";
 
 export function overhaulTabKey(tab: OverhaulTab) {
@@ -58,6 +61,9 @@ export function overhaulTabKey(tab: OverhaulTab) {
 }
 
 interface OverhaulState {
+  /** Card size in the Characters / Personas galleries (this device). */
+  galleryCardSize: GalleryCardSize;
+  setGalleryCardSize: (size: GalleryCardSize) => void;
   /** The person's choice; on by default on this branch. */
   enabled: boolean;
   /** Set by AppShell: the desktop shell is showing (not the phone overlay shell). */
@@ -339,6 +345,8 @@ export const useOverhaulStore = create<OverhaulState>()(
       setGameSettingsSlot: (gameSettingsSlot) => set({ gameSettingsSlot }),
       allTabsOpen: false,
       setAllTabsOpen: (allTabsOpen) => set({ allTabsOpen }),
+      galleryCardSize: "medium",
+      setGalleryCardSize: (galleryCardSize) => set({ galleryCardSize }),
     }),
     {
       name: "marinara-overhaul-layout",
@@ -364,6 +372,7 @@ export const useOverhaulStore = create<OverhaulState>()(
         chatSettingsFloating: state.chatSettingsFloating,
         gamePaneOpen: state.gamePaneOpen,
         gamePaneTab: state.gamePaneTab,
+        galleryCardSize: state.galleryCardSize,
       }),
     },
   ),
