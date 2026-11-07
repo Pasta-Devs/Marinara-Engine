@@ -207,6 +207,7 @@ Other controls in the window:
 - **GPU** picks the card on a computer with several NVIDIA GPUs. Changing it stops the model, which starts again on the new card.
 - **Start this model when Marinara starts** is optional. Off means it starts the first time an agent needs it.
 - **Remove files** deletes the model and its runtime. Turning the model off stops the process and keeps the files.
+- **Reinstall** appears when an update changed the runtime the installed model runs on. The model is then marked **Needs reinstall**, and the **Decision** row shows **Not set up**. Reinstalling downloads the runtime's Python packages again and keeps the model files you already have.
 
 A model's first answer after it starts is slower, so Marinara asks one warm-up question while it loads. If that fails, the model still starts and the first real question pays the delay. A turn with many statements on a long chat takes longer. Open-Jev 2B takes about a quarter of a second per statement on a long chat.
 

@@ -85,6 +85,12 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
   // The runtime alone is several gigabytes, so an install that stopped before any
   // model landed still needs a way to be removed.
   const hasInstall = !!installedId || !!data?.settings.customModel || data?.runtimeInstalled === true;
+  // An update can pin a different runtime (a new uv or Open-Jev revision) than the one on disk, which leaves the
+  // installed model unable to start. Installing it again rebuilds the runtime; weights that are already here and
+  // whole are kept, not downloaded again.
+  const needsReinstall = enabled && !!installedId && data?.runtimeInstalled === false;
+  /** The installed model is the one chosen, so the button repairs it instead of installing another. */
+  const reinstalling = needsReinstall && selected?.id === installedId;
   // Fetching as well as pending: on reopen the cached verdict is on screen while the
   // fresh one loads, and consent must not be recorded against a stale one.
   const busy =
@@ -174,6 +180,23 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
     if (!confirmed) return;
     try {
       await install.mutateAsync(selected.id);
+      toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
+    } catch (error) {
+      report(error);
+    }
+  };
+
+  const handleReinstall = async () => {
+    if (!installedId) return;
+    const label = models.find((model) => model.id === installedId)?.label ?? installedId;
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.modals.decisionmodelmodal.reinstallTitle"),
+      message: localizeUi("ui.modals.decisionmodelmodal.reinstallBody", { label }),
+      confirmLabel: localizeUi("ui.modals.decisionmodelmodal.reinstall"),
+    });
+    if (!confirmed) return;
+    try {
+      await install.mutateAsync(installedId);
       toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
     } catch (error) {
       report(error);
@@ -278,12 +301,17 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
             </div>
           )}
         </div>
-        {model.id === installedId && (
-          <span className="mari-chrome-accent-surface flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] max-sm:text-[13px] font-medium">
-            <Check size="0.625rem" />
-            {localizeUi("ui.modals.decisionmodelmodal.installedBadge")}
-          </span>
-        )}
+        {model.id === installedId &&
+          (needsReinstall ? (
+            <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--warning)] ring-1 ring-[var(--warning)]">
+              {localizeUi("ui.modals.decisionmodelmodal.needsReinstallBadge")}
+            </span>
+          ) : (
+            <span className="mari-chrome-accent-surface flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] max-sm:text-[13px] font-medium">
+              <Check size="0.625rem" />
+              {localizeUi("ui.modals.decisionmodelmodal.installedBadge")}
+            </span>
+          ))}
       </label>
     );
   };
@@ -372,9 +400,16 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
                 {localizeUi("ui.modals.decisionmodelmodal.curated")}
               </span>
               {models.map(row)}
+              {needsReinstall && (
+                <p className="text-[0.6875rem] max-sm:text-[13px] text-[var(--warning)]">
+                  {localizeUi("ui.modals.decisionmodelmodal.needsReinstall")}
+                </p>
+              )}
               <button
-                onClick={() => void handleInstall()}
-                disabled={!selected || busy || !selected.preflight.installable || selected.id === installedId}
+                onClick={() => void (reinstalling ? handleReinstall() : handleInstall())}
+                disabled={
+                  !selected || busy || !selected.preflight.installable || (selected.id === installedId && !reinstalling)
+                }
                 className="mari-chrome-accent-surface mt-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {install.isPending ? (
@@ -385,7 +420,9 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
                 {localizeUi(
                   install.isPending
                     ? "ui.modals.decisionmodelmodal.installing"
-                    : "ui.modals.decisionmodelmodal.installSelected",
+                    : reinstalling
+                      ? "ui.modals.decisionmodelmodal.reinstall"
+                      : "ui.modals.decisionmodelmodal.installSelected",
                 )}
               </button>
               {/* Pasting a repository, in the same block shape the chat installer

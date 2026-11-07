@@ -4,7 +4,9 @@ import type { DeviceItem } from "../hooks/use-device-setup";
 import { useUIStore } from "../stores/ui.store";
 import type { JobKey } from "./connection-jobs";
 
-export type AddConnectionTarget = { category: "device"; item: DeviceItem } | { provider: APIProvider } | AddFor;
+/** A set-up screen in the Add window: an on-device engine, or the built-in decision model's own window. */
+export type SetupItem = DeviceItem | "decision-builtin";
+export type AddConnectionTarget = { category: "device"; item: SetupItem } | { provider: APIProvider } | AddFor;
 
 /** A job the Add window can start from ("For a job..."); the jobs live in `connection-jobs.ts`. */
 export type AddJob = JobKey;
@@ -35,7 +37,13 @@ export type ModelsFor = {
   chat?: { currentModel: string | null; onChoose: (choice: ChatModelChoice) => Promise<void> };
 };
 
-const DEVICE_SERVICES = { "local-model": "local_model", tts: "tts", stt: "stt" } as const;
+/** `decision_builtin` is the Add window's id for the built-in decision model (DECISION_BUILTIN). */
+const DEVICE_SERVICES = {
+  "local-model": "local_model",
+  tts: "tts",
+  stt: "stt",
+  "decision-builtin": "decision_builtin",
+} as const;
 
 /** Opens the Add window, on one service's set-up screen when a target is given. */
 export function openAddConnection(target?: AddConnectionTarget) {
