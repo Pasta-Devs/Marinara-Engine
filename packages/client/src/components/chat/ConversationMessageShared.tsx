@@ -540,12 +540,12 @@ export function ConversationMessageEditForm({
           }
         }}
       />
-      <div className="flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+      <div className="mari-edit-actions flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
         <button onClick={onCancel} className="text-foreground/70 hover:underline hover:text-foreground">
           {localizeUi("ui.chat.conversationmessageeditform.cancel")}
         </button>
         <span>·</span>
-        <button onClick={onSave} className="text-foreground/70 hover:underline hover:text-foreground">
+        <button onClick={onSave} data-edit-save className="text-foreground/70 hover:underline hover:text-foreground">
           {localizeUi("ui.chat.conversationmessageeditform.save")}
         </button>
       </div>
