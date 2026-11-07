@@ -171,6 +171,7 @@ import {
   type MessageNoteSharing,
 } from "./MessageMarks";
 import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia";
+import { MessageTemplateSlot } from "./MessageTemplateSlot";
 
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
@@ -4249,6 +4250,7 @@ export const ChatMessage = memo(function ChatMessage({
                 />
               </div>
             ) : null}
+            <MessageTemplateSlot hook={messageHookProps.input} createdAt={message.createdAt} />
           </div>
           {imageLightbox && (
             <ChatImageLightbox
@@ -4817,6 +4819,7 @@ export const ChatMessage = memo(function ChatMessage({
             ) : null}
 
             <MessageMarkIndicators message={message} className="px-1" />
+            <MessageTemplateSlot hook={messageHookProps.input} createdAt={message.createdAt} />
 
             {!isUser && replyCheckup && <div className="px-1">{replyCheckup}</div>}
 
@@ -5390,6 +5393,7 @@ export const ChatMessage = memo(function ChatMessage({
           onClose={closeImageLightbox}
         />
       )}
+      <MessageTemplateSlot hook={messageHookProps.input} createdAt={message.createdAt} />
     </div>
   );
 });

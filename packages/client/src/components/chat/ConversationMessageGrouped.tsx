@@ -26,6 +26,7 @@ import {
 } from "./message-selection-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { messageHooks } from "../../lib/message-hooks";
+import { MessageTemplateSlot } from "./MessageTemplateSlot";
 
 export function ConversationMessageGrouped({
   ctx,
@@ -482,6 +483,7 @@ export function ConversationMessageGrouped({
           onPickReaction={undefined}
         />
       )}
+      {hooks ? <MessageTemplateSlot hook={hooks.input} createdAt={ctx.message.createdAt} /> : null}
     </div>
   );
 }

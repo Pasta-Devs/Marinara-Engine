@@ -167,6 +167,15 @@
   padding-bottom: 0 !important;
 }
 
+/* Message template slot (lib/theme-template.ts): in a message laid out as a row, the box takes its
+   own line under it. Only present when a theme with HTML is active, so the stock look is unchanged. */
+[data-mari-part="message"]:has(> [data-mari-part="message-extra"]) {
+  flex-wrap: wrap;
+}
+[data-mari-part="message"] > [data-mari-part="message-extra"] {
+  flex-basis: 100%;
+}
+
 /* ─── Page veil ───
    With a backdrop, Settings, the Library, editors, Docs and other full pages sit straight on the
    art. --mari-page-veil (a colour, transparent by default) lays a tint over the page so long text

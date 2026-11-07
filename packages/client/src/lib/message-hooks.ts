@@ -53,5 +53,5 @@ export function messageHooks(input: MessageHookInput) {
   if (input.index != null) style["--mari-msg-index"] = input.index;
   if (name) style["--mari-msg-char"] = cssString(name);
   if (genMs != null) style["--mari-msg-gen"] = cssString(`${(genMs / 1000).toFixed(1)}s`);
-  return { attrs, style: style as CSSProperties };
+  return { attrs, style: style as CSSProperties, input };
 }

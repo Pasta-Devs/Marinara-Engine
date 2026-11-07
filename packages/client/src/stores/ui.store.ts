@@ -1163,6 +1163,8 @@ interface UIState {
   chatChromeTextColorLight: string;
   /** Hide the line under character and persona names in messages. */
   hideMessageNameRule: boolean;
+  /** Themes may carry HTML (message templates). Off by default: the user accepts the risk. */
+  allowThemeHtml: boolean;
   /** Opacity for roleplay message backgrounds (0–100) */
   chatFontOpacity: number;
   /** When true, flatten expensive Roleplay paint effects for smoother navigation. */
@@ -1587,6 +1589,7 @@ interface UIState {
   setDefaultDialogueColorLight: (v: string) => void;
   setChatChromeTextColorLight: (v: string) => void;
   setHideMessageNameRule: (v: boolean) => void;
+  setAllowThemeHtml: (v: boolean) => void;
   setChatFontOpacity: (v: number) => void;
   setRoleplayReducedPaintEffects: (v: boolean) => void;
   setShowRoleplayThinkingInMessages: (v: boolean) => void;
@@ -1902,6 +1905,7 @@ export function pickSyncedSettings(state: UIState) {
     defaultDialogueColorLight: state.defaultDialogueColorLight,
     chatChromeTextColorLight: state.chatChromeTextColorLight,
     hideMessageNameRule: state.hideMessageNameRule,
+    allowThemeHtml: state.allowThemeHtml,
     chatFontOpacity: state.chatFontOpacity,
     showRoleplayThinkingInMessages: state.showRoleplayThinkingInMessages,
     keepRoleplayThinkingExpanded: state.keepRoleplayThinkingExpanded,
@@ -2172,6 +2176,7 @@ export function pickPersistedUIState(state: UIState) {
     defaultDialogueColorLight: state.defaultDialogueColorLight,
     chatChromeTextColorLight: state.chatChromeTextColorLight,
     hideMessageNameRule: state.hideMessageNameRule,
+    allowThemeHtml: state.allowThemeHtml,
     chatFontOpacity: state.chatFontOpacity,
     roleplayReducedPaintEffects: state.roleplayReducedPaintEffects,
     showRoleplayThinkingInMessages: state.showRoleplayThinkingInMessages,
@@ -2521,6 +2526,7 @@ export const useUIStore = create<UIState>()(
         defaultDialogueColorLight: "",
         chatChromeTextColorLight: "",
         hideMessageNameRule: false,
+        allowThemeHtml: false,
         chatFontOpacity: 90,
         roleplayReducedPaintEffects: false,
         showRoleplayThinkingInMessages: false,
@@ -3540,6 +3546,7 @@ export const useUIStore = create<UIState>()(
         setDefaultDialogueColorLight: (v) => set({ defaultDialogueColorLight: v }),
         setChatChromeTextColorLight: (v) => set({ chatChromeTextColorLight: normalizeChatChromeTextColor(v) }),
         setHideMessageNameRule: (v) => set({ hideMessageNameRule: v }),
+        setAllowThemeHtml: (v) => set({ allowThemeHtml: v }),
         setChatFontOpacity: (v) => set({ chatFontOpacity: Math.max(0, Math.min(100, v)) }),
         setRoleplayReducedPaintEffects: (v) => set({ roleplayReducedPaintEffects: v }),
         setShowRoleplayThinkingInMessages: (v) =>
@@ -3649,6 +3656,7 @@ export const useUIStore = create<UIState>()(
             defaultDialogueColorLight: "",
             chatChromeTextColorLight: "",
             hideMessageNameRule: false,
+            allowThemeHtml: false,
             chatFontOpacity: 90,
             roleplayReducedPaintEffects: false,
             showRoleplayThinkingInMessages: false,
@@ -4480,6 +4488,7 @@ export const useUIStore = create<UIState>()(
           typeof persisted.defaultDialogueColorLight === "string" ? persisted.defaultDialogueColorLight : "";
         persisted.chatChromeTextColorLight = normalizeChatChromeTextColor(persisted.chatChromeTextColorLight);
         persisted.hideMessageNameRule = persisted.hideMessageNameRule === true;
+        persisted.allowThemeHtml = persisted.allowThemeHtml === true;
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
         // v103 -> v104: the three feature Model picks moved to the server; stage them for useMigrateFeatureModels.

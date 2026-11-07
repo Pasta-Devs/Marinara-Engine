@@ -236,6 +236,32 @@ and `attr()`, and as CSS variables for `content:` and `counter()`:
 }
 ```
 
+### Message template (HTML)
+
+When CSS isn't enough, for example a status box with the speaker's name and the message number, a
+theme file can carry a small HTML template per role. It is filled in for every message and shown
+in a box at the end of the message, `[data-mari-part="message-extra"]`, which your CSS styles and
+places:
+
+```json
+"templates": {
+  "assistant": "<div class=\"status\"><b>{{char}}</b> · entry #{{index}} · {{gen}}</div>",
+  "user": "<div class=\"status\">> {{char}} @ {{time}}</div>"
+}
+```
+
+Keys: `message` (every role), `assistant`, `user`, `narrator` (a role's own template wins over
+`message`). Fields: `{{char}}`, `{{role}}`, `{{index}}`, `{{gen}}`, `{{time}}`, `{{date}}`; unknown
+fields are left empty. Each template is at most 4,000 characters. Marinara keeps text and layout
+tags (`div`, `span`, `p`, `b`, `i`, `ul`, `table`, `details`, `progress`, …) with `class`, `title`,
+`role` and `data-*` attributes, and strips scripts, styles, inline `style`, links, images, forms and
+event attributes. A template whose text asks for keys or passwords is dropped.
+
+HTML is opt-in for users: a theme with a template can only be installed while Settings > Appearance
+
+> CSS Themes > **Allow themes with HTML** is on (off by default), the import preview warns about it,
+> and with the switch off an installed theme shows without its HTML.
+
 ## Per-chat looks
 
 Chat settings > Theme gives one chat its own theme ("Default look" turns custom themes off for
@@ -275,7 +301,7 @@ Export writes one theme as one JSON file:
 }
 ```
 
-Only `kind`, `name` and `css` are required. `settings` keys: `colorScheme`, `visualStyle`, `accent`,
+Only `kind`, `name` and `css` are required. `templates` is described under Message template. `settings` keys: `colorScheme`, `visualStyle`, `accent`,
 `accentLight`, `background`, `backgroundLight`, `fontFamily`, `accentPulse`. Importing shows a preview
 first, and the user picks which settings to apply and whether to add the backgrounds to their gallery.
 Fonts load with the theme (as `@font-face` rules) and go away with it. Importing a theme with the same
@@ -320,6 +346,8 @@ The import preview tells the user when a theme tries to change any of these.
   `--mari-text-outline`, `--mari-dialogue-color`, `--mari-chat-font-size`, `--mari-msg-head-rule`;
   Home widget tokens, with Professor Mari as a `home-widget`. `--mari-stage-empty-bg` is now a
   `background` (gradients work).
+- **v1.2**: message template slot (`templates` in the theme file, `[data-mari-part="message-extra"]`),
+  opt-in for users with "Allow themes with HTML".
 
 - **v1.0.1**: guard v2, protected Accessibility values, added-text checks. Install is all-or-nothing,
   bundled backgrounds install, Go back also restores the settings a theme applied, theme fonts show
