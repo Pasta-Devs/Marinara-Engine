@@ -1,4 +1,4 @@
-# Charakterfarben und RPG-Werte
+# Charakterfarben und Story-Werte
 
 Die Tabs **Colors** (Farben) und **Stats** (Werte) gibt es sowohl im Charakter-Editor als auch im Persona-Editor. Über die Farben legst du fest, wie ein Charakter oder eine Persona im Chat aussieht. Über die Werte richtest du Größen ein, die du mitverfolgen kannst, etwa Gesundheit oder Hunger.
 
@@ -54,7 +54,7 @@ Der Tab **Stats** ist bei Charakteren und Personas unterschiedlich aufgebaut.
 
 ### Charakterwerte
 
-Ein Charakter hat einen einzigen Schalter, **Enable RPG Stats** (RPG-Werte aktivieren). Ist er aus, wird darunter nichts angezeigt und nichts gesendet. Ist er an, erscheinen zwei Bereiche:
+Ein Charakter hat einen einzigen Schalter, **Enable story stats** (Story-Werte aktivieren). Ist er aus, wird darunter nichts angezeigt und nichts gesendet. Ist er an, erscheinen zwei Bereiche:
 
 - **Pools** sind benannte Balken mit aktuellem Wert, Maximum und Farbe. Neue Charaktere starten mit HP und MP, jeweils bei 100 von 100.
 - **Attributes** sind benannte Zahlen. Neue Charaktere starten mit STR, DEX, CON, INT, WIS und CHA, jeweils bei 10.
@@ -66,7 +66,7 @@ Klick auf **Add** (Hinzufügen), um einen Pool oder ein Attribut anzulegen, und 
 Der Tab **Stats** einer Persona hat zwei getrennte Blöcke mit jeweils eigenem Schalter.
 
 - **Persona Status Bars** (Statusleisten der Persona), eingeschaltet über **Enable Persona Stats** (Persona-Werte aktivieren), führen körperliche und seelische Bedürfnisse mit. Die Startleisten sind Satiety, Energy, Hygiene und Mood, jeweils bei 100 von 100. Unter **Status Bars** hat jede Leiste einen Namen, einen aktuellen Wert, ein Maximum und eine Farbe. Klick auf **Add**, um eine anzulegen, und auf das X, um eine zu entfernen.
-- **Enable RPG Attributes** (RPG-Attribute aktivieren) funktioniert wie bei einer Charakterkarte. Die Persona bekommt **Pools** (Start: HP und MP mit 100 von 100) und **Attributes** (Start: STR, DEX, CON, INT, WIS und CHA mit 10).
+- **Enable story stats** (Story-Werte aktivieren) funktioniert wie bei einer Charakterkarte. Die Persona bekommt **Pools** (Start: HP und MP mit 100 von 100) und **Attributes** (Start: STR, DEX, CON, INT, WIS und CHA mit 10).
 
 <a id="mrpg-picks-on-a-card"></a>
 
@@ -80,7 +80,7 @@ Beide **Stats**-Tabs haben einen Abschnitt **Game Mode** mit einem Block **MRPG*
 
 Der Block zeigt eine Vorschau auf die Klasse, mit der der Charakter in einem neuen Spiel auf Stufe 1 beginnt, einschließlich Reihe sowie anfänglichen HP, MP und Stamina. Die Auswahl der starken und schwachen Werte beeinflusst das verborgene Wachstum des Charakters in jedem Spiel. Sein Schwesterbaum ergibt sich im Spiel aus seinem Temperament, nicht aus der Karte. Siehe [Game Mode: MRPG-Klassen](../game/mrpg-classes.md#choose-a-characters-trees).
 
-Auf einer Charakterkarte fasst **Story stats for Legacy games** (Story-Werte für Legacy-Spiele) darunter die oben beschriebenen RPG-Attribute in einem einklappbaren Bereich zusammen. Nur Legacy-Spiele verwenden sie.
+Auf einer Charakterkarte fasst **Story stats** (Story-Werte) darunter die oben beschriebenen Pools und Attribute in einem einklappbaren Bereich zusammen. Roleplay-Chats und Legacy-Spiele verwenden sie. Ein MRPG-Spiel verwendet stattdessen den Klassenblock und erstellt daraus nie einen Bogen.
 
 <a id="game-mode-icon"></a>
 
@@ -115,7 +115,7 @@ Manche Regelsätze bringen fertige Zauber, Angriffe und Merkmale mit. Listen, di
 
 Ein Bogen für einen Regelsatz, den du nicht installiert hast, bleibt erhalten. Er erscheint als eine Zeile mit der Schaltfläche **Remove** (Entfernen), wird nie an die KI geschickt, lässt sich wieder bearbeiten, sobald du den Regelsatz installierst, und reist beim Export mit der Karte mit. Ein Bogen für einen installierten Regelsatz, den diese Version nicht lesen kann, etwa einer, den eine neuere Version gespeichert hat, bleibt ebenfalls unverändert erhalten. Sein Eintrag bietet nur **Remove this sheet** (diesen Bogen entfernen) an, damit ein neuer Bogen ihn nie versehentlich überschreibt. Jeder Bogen darf höchstens 64 KB groß sein.
 
-Regelsatzbögen sind unabhängig von **Enable RPG Stats** und **Enable RPG Attributes**. Ein Spiel mit den eigenen Regeln von Marinara ignoriert sie. Ein Spiel mit Regelsatz nutzt für seine Proben den Bogen statt der Attribute oben.
+Regelsatzbögen sind unabhängig von **Enable story stats**. Ein Spiel mit den eigenen Regeln von Marinara ignoriert sie. Ein Spiel mit Regelsatz nutzt für seine Proben den Bogen statt der Attribute oben.
 
 <a id="how-agents-update-your-stats"></a>
 
@@ -127,7 +127,7 @@ Der Tab **Stats** legt den Startzustand des Chats fest. Agenten aktualisieren nu
 | --- | --- |
 | **Pools** eines Charakters wie HP | Der Agent **Character Tracker**, abhängig von Kämpfen, Heilung und Ereignissen der Geschichte. Die Persona des Spielers verfolgt er nicht. |
 | **Persona Status Bars** | Der Agent **Persona Stats**, nach jeder Nachricht. |
-| **RPG Attributes** wie STR und DEX | Kein Agent. Sie werden mit der Karte für Kampf und Game Mode mitgeschickt sowie für optionale Würfe in Roleplay oder Game Mode. |
+| **Story stats** wie STR und DEX | Kein Agent. Sie werden mit der Karte für Kampf und Game Mode mitgeschickt sowie für optionale Würfe in Roleplay oder Game Mode. |
 
 Schaltest du den passenden Agenten nicht ein, bleiben die Tracker-Werte auf den Standardwerten, die du gesetzt hast. Der Tab **Stats** allein aktualisiert während des Spiels nichts. Wie du diese Agenten einschaltest, steht unter [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md).
 

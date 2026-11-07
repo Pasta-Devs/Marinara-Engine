@@ -179,4 +179,4 @@ Legacy 게임은 원하는 동안 계속 Legacy 시트를 유지합니다. 전�
 - [Game Mode: 전투](combat.md)
 - [Game Mode: 파티와 NPC](party-and-npcs.md)
 - [Game Mode: 주사위와 스킬 판정](dice-and-skill-checks.md)
-- [캐릭터 색상과 RPG 스탯](../characters/colors-and-stats.md)
+- [캐릭터 색상과 스토리 스탯](../characters/colors-and-stats.md)

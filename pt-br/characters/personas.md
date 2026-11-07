@@ -64,8 +64,8 @@ O editor de persona funciona como o [Character Editor](creating-and-editing-char
 | **Lorebook** | Anexe entradas de lorebook que são ativadas quando esta persona está no chat. Veja [Visão geral dos lorebooks](../lorebooks/overview.md). |
 | **Sprites** | Imagens da persona em pé no palco, para Game e Roleplay. Tem **Facial Expressions**, **Full-body** e **Clips**, além de **Upload Folder**. Veja [Sprites de personagem](sprites.md). |
 | **Gallery** | Imagens e vídeos de referência, com **Upload Persona Images** e **Upload Persona Videos**. Veja [Galerias de personagem e de persona](galleries.md). |
-| **Colors** | Cores do nome, do diálogo e da caixa de mensagem. Veja [Cores do personagem e status de RPG](colors-and-stats.md). |
-| **Stats** | Barras de status e atributos de RPG. Veja [Aba Stats](#stats-tab) abaixo. |
+| **Colors** | Cores do nome, do diálogo e da caixa de mensagem. Veja [Cores do personagem e status da história](colors-and-stats.md). |
+| **Stats** | Barras de status e status da história. Veja [Aba Stats](#stats-tab) abaixo. |
 
 A aba **Metadata** mostra:
 
@@ -109,7 +109,7 @@ Estes recursos funcionam como nos personagens, com a persona como assunto:
 A aba **Stats** tem dois blocos separados. Os dois alimentam o HUD, o painel de status mostrado na tela durante um chat.
 
 - **Enable Persona Stats** liga as barras de status, medidores de necessidades como fome e humor. Ao ativar do zero, você recebe Satiety, Energy, Hygiene e Mood, cada uma em 100 de 100. O agente **Persona Stats** ajusta esses valores conforme a história avança.
-- **Enable RPG Attributes** liga os Pools (barras como HP e MP) e os Attributes (números como força). Os dois são explicados em [Cores do personagem e status de RPG](colors-and-stats.md). Ao ativar do zero, você recebe HP e MP em 100 de 100 e STR, DEX, CON, INT, WIS e CHA em 10. Esses valores são enviados com a persona para o combate e o Game Mode, e para as rolagens opcionais. Os agentes não os atualizam.
+- **Enable story stats** (ativar status da história) liga os Pools (barras como HP e MP) e os Attributes (números como força). Os dois são explicados em [Cores do personagem e status da história](colors-and-stats.md). Ao ativar do zero, você recebe HP e MP em 100 de 100 e STR, DEX, CON, INT, WIS e CHA em 10. Esses valores são enviados com a persona para o combate e o Game Mode, e para as rolagens opcionais. Os agentes não os atualizam.
 
 Um bloco **Game Mode Icon** (ícone de Game Mode) define a imagem do seu token em um combate de Game Mode. Veja [Ícone de Game Mode](colors-and-stats.md#game-mode-icon). Quando há um conjunto de regras de Game Mode (as regras de um jogo no estilo RPG de mesa) instalado, um bloco **Ruleset sheets** (fichas de conjuntos de regras) guarda a sua configuração inicial para ele. Veja [Fichas de conjuntos de regras](colors-and-stats.md#ruleset-sheets). Os valores que você define são o ponto de partida padrão dos chats novos.
 
@@ -139,7 +139,7 @@ Para excluir, clique em **Delete** em uma linha ou em **Delete persona** no edit
 ## Guias relacionados
 
 - [Escolhendo a persona de um chat](choosing-your-persona.md)
-- [Cores do personagem e status de RPG](colors-and-stats.md)
+- [Cores do personagem e status da história](colors-and-stats.md)
 - [Criando e editando personagens](creating-and-editing-characters.md)
 - [Perfis do Conversation Mode](../conversation/profiles.md)
 - [Macros](../prompts/macros.md)

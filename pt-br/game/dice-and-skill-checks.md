@@ -82,7 +82,7 @@ Numa partida com classes **MRPG**, o que inclui toda partida nova, o modificador
 | Resistência | Insight, Religion, Wisdom |
 | Sorte | Persuasion, Deception, Performance, Charisma |
 
-O teste soma um quinto desse status, arredondado para baixo, até +5. Isso equivale a cerca de +1 para o melhor status de um personagem novo, +2 ou +3 no nível 10 e +5 no nível máximo. Um status baixo não soma nada. Como os status seguem a classe ativa, trocar de classe também muda esses bônus.
+O teste soma um quinto da parte desse status acima de 3, arredondado para baixo, de -1 a +5. Um status baixo (2 ou menos) tira 1 do resultado, um comum não soma nada, o melhor status de um personagem novo soma cerca de +1, um de nível 10 soma +2 e o melhor no nível máximo soma +5. Como os status seguem a classe ativa, trocar de classe também muda esses bônus.
 
 <a id="legacy-games"></a>
 

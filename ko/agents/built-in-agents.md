@@ -187,7 +187,7 @@ Tracker 에이전트는 장면, 캐릭터, 내 스탯을 계속 기록합니다.
 
 - **단계**: Post-Processing.
 - **사용 가능한 곳**: Roleplay.
-- **주요 설정**: **Add as Prompt Section**(기본 켜짐). [캐릭터 색상과 RPG 스탯](../characters/colors-and-stats.md)을 참고하세요.
+- **주요 설정**: **Add as Prompt Section**(기본 켜짐). [캐릭터 색상과 스탯](../characters/colors-and-stats.md)을 참고하세요.
 
 ### Custom Tracker
 

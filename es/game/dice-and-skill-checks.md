@@ -82,7 +82,7 @@ En una partida con clases **MRPG**, como todas las partidas nuevas, el modificad
 | Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-La prueba suma la quinta parte de esa estadística, redondeada hacia abajo, hasta un máximo de +5. Esto equivale aproximadamente a +1 para la mejor estadística de un personaje nuevo, +2 o +3 en el nivel 10 y +5 en el nivel máximo. Una estadística baja no suma nada. Como las estadísticas dependen de la clase activa, cambiar de clase también cambia estos bonos.
+La prueba suma la quinta parte de lo que esa estadística supere 3, redondeada hacia abajo, de -1 a +5. Una estadística baja (2 o menos) resta 1, una normal no suma nada, la mejor estadística de un personaje nuevo suma aproximadamente +1, una de nivel 10 suma +2 y la mejor en el nivel máximo suma +5. Como las estadísticas dependen de la clase activa, cambiar de clase también cambia estos bonos.
 
 <a id="legacy-games"></a>
 

@@ -1,4 +1,4 @@
-# 캐릭터 색상과 RPG 스탯
+# 캐릭터 색상과 스토리 스탯
 
 **Colors**(색상) 탭과 **Stats**(스탯) 탭은 Character Editor(캐릭터 편집기)와 Persona Editor(페르소나 편집기)에 모두 있습니다. 색상은 캐릭터나 페르소나가 채팅에서 보이는 모습을 바꿉니다. 스탯은 체력이나 허기처럼 값의 변화를 따라갈 수 있는 항목을 설정합니다.
 
@@ -54,7 +54,7 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 
 ### 캐릭터 스탯
 
-캐릭터에는 **Enable RPG Stats**(RPG 스탯 활성화) 스위치 하나가 있습니다. 꺼 두면 아래 항목이 표시되지도, 전송되지도 않습니다. 켜면 두 구역이 나타납니다.
+캐릭터에는 **Enable story stats**(스토리 스탯 활성화) 스위치 하나가 있습니다. 꺼 두면 아래 항목이 표시되지도, 전송되지도 않습니다. 켜면 두 구역이 나타납니다.
 
 - **Pools**(풀)는 현재 값, 최댓값, 색상을 가진 이름 붙은 막대입니다. 새 캐릭터는 HP와 MP를 각각 100 중 100으로 가지고 시작합니다.
 - **Attributes**(속성)는 이름 붙은 숫자입니다. 새 캐릭터는 STR, DEX, CON, INT, WIS, CHA를 각각 10으로 가지고 시작합니다.
@@ -66,7 +66,7 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 페르소나의 **Stats** 탭에는 각자 스위치를 가진 두 블록이 따로 있습니다.
 
 - **Enable Persona Stats**(페르소나 능력치 활성화)로 켜는 **Persona Status Bars**(페르소나 상태바)는 신체적, 정신적 욕구를 추적합니다. 기본 막대는 Satiety, Energy, Hygiene, Mood이며 각각 100 중 100입니다. **Status Bars**(상태바) 아래에서 막대마다 이름, 현재 값, 최댓값, 색상을 정합니다. **Add**를 클릭하면 막대를 만들고 X를 클릭하면 삭제합니다.
-- **Enable RPG Attributes**(RPG 속성 활성화)는 캐릭터 카드와 같은 방식으로 동작합니다. 페르소나에 **Pools**(HP와 MP가 100 중 100으로 시작)와 **Attributes**(STR, DEX, CON, INT, WIS, CHA가 10으로 시작)가 생깁니다.
+- **Enable story stats**(스토리 스탯 활성화)는 캐릭터 카드와 같은 방식으로 동작합니다. 페르소나에 **Pools**(HP와 MP가 100 중 100으로 시작)와 **Attributes**(STR, DEX, CON, INT, WIS, CHA가 10으로 시작)가 생깁니다.
 
 <a id="mrpg-picks-on-a-card"></a>
 
@@ -80,7 +80,7 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 
 이 블록은 새 게임에서 캐릭터가 레벨 1로 시작할 클래스와 그 열, 시작 HP, MP, Stamina를 미리 보여 줍니다. 강점과 약점 선택은 게임마다 숨겨진 캐릭터 성장률에 영향을 줍니다. 자매 트리는 카드가 아니라 게임 속 성향에서 정해집니다. [Game Mode: MRPG 클래스](../game/mrpg-classes.md#choose-a-characters-trees)를 참고하세요.
 
-캐릭터 카드에서는 그 아래의 **Story stats for Legacy games**(Legacy 게임용 스토리 스탯)가 위에서 설명한 RPG 속성을 접어 둡니다. 이 속성은 Legacy 게임에서만 사용합니다.
+캐릭터 카드에서는 그 아래의 **Story stats**(스토리 스탯)가 위에서 설명한 풀과 속성을 접어 둡니다. Roleplay 채팅과 Legacy 게임에서 이 값을 사용합니다. MRPG 게임은 대신 클래스 블록을 사용하며 이 값으로 시트를 만들지 않습니다.
 
 <a id="game-mode-icon"></a>
 
@@ -115,7 +115,7 @@ Professor Mari에게 시트를 채우거나 바꿔 달라고 요청할 수도 �
 
 설치되어 있지 않은 규칙 집합의 시트는 보관됩니다. 이 시트는 **Remove**(삭제) 버튼이 있는 한 줄로 표시되고, AI에는 전송되지 않으며, 그 규칙 집합을 설치하면 다시 편집할 수 있고, 카드를 내보낼 때 함께 들어갑니다. 설치된 규칙 집합의 시트라도 더 새로운 버전에서 저장한 시트처럼 이 버전이 읽을 수 없는 시트는 있는 그대로 보관합니다. 이런 항목에는 **Remove this sheet**(이 시트 삭제)만 표시되므로 새 시트가 실수로 덮어쓸 일이 없습니다. 시트 하나의 크기는 64 KB로 제한됩니다.
 
-규칙 집합 시트는 **Enable RPG Stats**, **Enable RPG Attributes**와 별개입니다. Marinara 자체 규칙으로 진행하는 게임은 시트를 무시합니다. 규칙 집합으로 진행하는 게임은 판정에 위의 Attributes 대신 시트를 사용합니다.
+규칙 집합 시트는 **Enable story stats**(스토리 스탯 활성화)와 별개입니다. Marinara 자체 규칙으로 진행하는 게임은 시트를 무시합니다. 규칙 집합으로 진행하는 게임은 판정에 위의 Attributes 대신 시트를 사용합니다.
 
 <a id="how-agents-update-your-stats"></a>
 
@@ -127,7 +127,7 @@ Professor Mari에게 시트를 채우거나 바꿔 달라고 요청할 수도 �
 | --- | --- |
 | HP 같은 캐릭터 **Pools** | **Character Tracker** 에이전트가 전투, 치료, 이야기 속 사건에 따라 바꿉니다. 플레이어의 페르소나는 추적하지 않습니다. |
 | **Persona Status Bars** | **Persona Stats**(페르소나 스탯) 에이전트가 매 메시지 후에 바꿉니다. |
-| STR, DEX 같은 **RPG Attributes**(RPG 속성) | 어떤 에이전트도 바꾸지 않습니다. 전투와 Game Mode에서, 그리고 Roleplay나 Game Mode의 선택적 굴림에서 카드와 함께 전송됩니다. |
+| STR, DEX 같은 **Story stats**(스토리 스탯) | 어떤 에이전트도 바꾸지 않습니다. 전투와 Game Mode에서, 그리고 Roleplay나 Game Mode의 선택적 굴림에서 카드와 함께 전송됩니다. |
 
 짝이 되는 에이전트를 켜지 않으면 트래커 소유 값은 지정한 기본값 그대로 머무릅니다. **Stats** 탭만으로는 플레이 중에 아무것도 갱신되지 않습니다. 이 에이전트를 켜는 방법은 [다운로드 가능한 에이전트 레퍼런스](../agents/built-in-agents.md)를 참고하세요.
 

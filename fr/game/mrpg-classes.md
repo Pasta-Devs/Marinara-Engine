@@ -179,4 +179,4 @@ La mise à niveau n'est pas proposée pendant un combat. Termine d'abord le comb
 - [Game Mode : le combat](combat.md)
 - [Game Mode : l'équipe et les PNJ](party-and-npcs.md)
 - [Game Mode : jets de dés et jets de compétence](dice-and-skill-checks.md)
-- [Couleurs des personnages et caractéristiques RPG](../characters/colors-and-stats.md)
+- [Couleurs des personnages et caractéristiques narratives](../characters/colors-and-stats.md)

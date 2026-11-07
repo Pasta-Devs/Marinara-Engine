@@ -47,7 +47,7 @@ Bei einem neuen Charakter steht womöglich „Character data will populate as th
 1. Öffne den Charakterbogen und klick auf **Edit card**.
 2. Ändere, was du brauchst:
    - **Class** (Klasse) und eine kurze Beschreibung unter **Sheet Details** (Details zum Bogen).
-   - **RPG Attributes** (RPG-Attribute, Legacy-Spiele): Schalte **Enable** (Aktivieren) ein, um Pools und Attribute mitzuführen. **Add Pool** (Pool hinzufügen) fügt einen Balken hinzu (Name, aktueller Wert, Maximalwert, Farbe). **Add Attribute** (Attribut hinzufügen) fügt einen Wert wie STR hinzu. Ein Spiel mit MRPG-Klassen nutzt sie weder für Proben noch für Kämpfe.
+   - **Story stats** (Story-Werte, Legacy-Spiele): Schalte **Enable** (Aktivieren) ein, um Pools und Attribute mitzuführen. **Add Pool** (Pool hinzufügen) fügt einen Balken hinzu (Name, aktueller Wert, Maximalwert, Farbe). **Add Attribute** (Attribut hinzufügen) fügt einen Wert wie STR hinzu. Ein Spiel mit MRPG-Klassen nutzt sie weder für Proben noch für Kämpfe.
    - **Abilities**, **Strengths** und **Weaknesses**: **Add** (Hinzufügen) hängt eine Zeile an.
    - **Details**: **Add Detail** (Detail hinzufügen) fügt eine beschriftete Angabe hinzu.
 3. Klick auf **Save Sheet**. Mit **Cancel** verwirfst du deine Änderungen.

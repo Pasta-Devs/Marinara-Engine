@@ -165,7 +165,7 @@ Knowledge Retrieval 的省钱替代方案。它读取世界书条目的简短描
 
 一张描述多个人物的角色卡，例如带一组登场人物的场景卡，可以按人分别追踪。在卡片文本里，用 `[CHARACTER: Name]` 标题或 `Name:` 字段标记每个人物。每个成员都保留自己的名字、情绪、服装、心理活动和肖像。他们不会共用卡片的肖像。以卡片名称命名的旧条目会一直保留，直到追踪器报告了一个具体成员来替换它。手动添加的角色会保留手动设定的身份。
 
-角色离开场景后再次出现时，追踪器会复用他们最近保存的数值和自定义字段。有角色卡的角色还会获得已配置的 RPG 资源池和属性。在 Merged 模式的 Roleplay 群聊里，在场角色还能决定下一条回复启用哪些角色卡。见[自动管理活跃角色](../chats/group-chats.md#automate-active-characters-merged-only)。
+角色离开场景后再次出现时，追踪器会复用他们最近保存的数值和自定义字段。有角色卡的角色还会获得卡片上配置的剧情属性，包括资源池和属性值。在 Merged 模式的 Roleplay 群聊里，在场角色还能决定下一条回复启用哪些角色卡。见[自动管理活跃角色](../chats/group-chats.md#automate-active-characters-merged-only)。
 
 - **阶段**：Post-Processing。
 - **适用范围**：Roleplay。
@@ -189,7 +189,7 @@ Knowledge Retrieval 的省钱替代方案。它读取世界书条目的简短描
 
 - **阶段**：Post-Processing。
 - **适用范围**：Roleplay。
-- **主要设置**：**Add as Prompt Section**(默认开启)。见[角色颜色与 RPG 属性](../characters/colors-and-stats.md)。
+- **主要设置**：**Add as Prompt Section**(默认开启)。见[角色颜色与剧情属性](../characters/colors-and-stats.md)。
 
 ### Custom Tracker
 

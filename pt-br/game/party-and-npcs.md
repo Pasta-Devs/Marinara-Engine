@@ -47,7 +47,7 @@ Um personagem novo pode mostrar "Character data will populate as the story progr
 1. Abra a ficha do personagem e clique em **Edit card**.
 2. Mude o que precisar:
    - **Class** (classe) e uma descrição curta, em **Sheet Details**.
-   - **RPG Attributes** (partidas Legacy): ative **Enable** para acompanhar reservas e atributos. **Add Pool** cria uma barra (nome, valor atual, valor máximo, cor). **Add Attribute** cria um valor como STR. Uma partida com classes MRPG não os usa para testes nem lutas.
+   - **Story stats** (status da história, em partidas Legacy): ative **Enable** para acompanhar reservas e atributos. **Add Pool** cria uma barra (nome, valor atual, valor máximo, cor). **Add Attribute** cria um valor como STR. Uma partida com classes MRPG não os usa para testes nem lutas.
    - **Abilities**, **Strengths** e **Weaknesses**: **Add** (adicionar) acrescenta uma linha.
    - **Details**: **Add Detail** acrescenta um fato com rótulo.
 3. Clique em **Save Sheet** (salvar a ficha). Clique em **Cancel** (cancelar) para descartar as alterações.

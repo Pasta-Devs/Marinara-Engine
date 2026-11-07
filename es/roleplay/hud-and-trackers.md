@@ -187,6 +187,6 @@ Si no funcionó: si la historia avanzó mientras editabas, el editor no la sobre
 
 - [Referencia de agentes descargables](../agents/built-in-agents.md)
 - [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md)
-- [Colores de personaje y estadísticas de RPG](../characters/colors-and-stats.md): la pestaña **Stats** fija las barras y los atributos con los que empieza una persona o un personaje.
+- [Colores del personaje y estadísticas de historia](../characters/colors-and-stats.md): la pestaña **Stats** fija las barras y los atributos con los que empieza una persona o un personaje.
 - [Modo Roleplay: primeros pasos](getting-started.md)
 - [Game Mode: widgets del HUD](../game/hud-widgets.md)

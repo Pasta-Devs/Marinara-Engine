@@ -1,4 +1,4 @@
-# 角色颜色与 RPG 属性
+# 角色颜色与剧情属性
 
 **Colors**(颜色) 和 **Stats**(属性) 选项卡在 Character Editor(角色编辑器) 和 Persona Editor(用户角色编辑器) 里都有。Colors 决定角色或用户角色在聊天里的外观，Stats 用来设置可以追踪的数值，例如生命值或饥饿度。
 
@@ -54,7 +54,7 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 
 ### 角色属性
 
-角色只有一个开关：**Enable RPG Stats**(启用 RPG 属性)。关闭时，下面的内容既不显示也不发送。开启后会出现两个区块：
+角色只有一个开关：**Enable story stats**(启用剧情属性)。关闭时，下面的内容既不显示也不发送。开启后会出现两个区块：
 
 - **Pools**(资源条) 是带名字的条，包含当前值、最大值和颜色。新角色默认带 HP 和 MP，数值都是 100，满值 100。
 - **Attributes**(属性值) 是带名字的数值。新角色默认带 STR、DEX、CON、INT、WIS 和 CHA，全部为 10。
@@ -66,7 +66,7 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 用户角色的 **Stats** 选项卡有两个独立区块，各有各的开关。
 
 - **Persona Status Bars**(用户角色状态条) 用 **Enable Persona Stats**(启用用户角色属性) 开启，用来追踪生理和心理需求。初始的状态条是 Satiety、Energy、Hygiene 和 Mood，数值都是 100，满值 100。在 **Status Bars**(状态条) 下，每条都有名字、当前值、最大值和颜色。点击 **Add** 新增一条，点击 X 删除一条。
-- **Enable RPG Attributes**(启用 RPG 属性值) 的机制和角色卡一样，给你的用户角色提供 **Pools**(初始为 HP 和 MP，数值都是 100，满值 100) 和 **Attributes**(初始为 STR、DEX、CON、INT、WIS 和 CHA，全部为 10)。
+- **Enable story stats**(启用剧情属性) 的机制和角色卡一样，给你的用户角色提供 **Pools**(初始为 HP 和 MP，数值都是 100，满值 100) 和 **Attributes**(初始为 STR、DEX、CON、INT、WIS 和 CHA，全部为 10)。
 
 <a id="mrpg-picks-on-a-card"></a>
 
@@ -80,7 +80,7 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 
 这个区块会预览角色在新游戏里从 1 级开始时的职业，包括所在排位以及初始 HP、MP 和 Stamina。强项和弱项会影响角色在每局游戏中隐藏的成长倾向。姐妹树由角色在游戏中的性格决定，而不是来自卡片。见 [Game Mode：MRPG 职业](../game/mrpg-classes.md#choose-a-characters-trees)。
 
-角色卡上，这个区块下方的 **Story stats for Legacy games**(Legacy 游戏的剧情属性) 会收起上文介绍的 RPG 属性。只有 Legacy 游戏会使用这些属性。
+角色卡上，这个区块下方的 **Story stats**(剧情属性) 会收起上文介绍的资源池和属性。Roleplay 聊天和 Legacy 游戏会使用它们。MRPG 游戏则使用职业区块，绝不会根据它们生成人物卡。
 
 <a id="game-mode-icon"></a>
 
@@ -115,7 +115,7 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 
 未安装的规则集的人物卡会保留下来。它显示为一行，带一个 **Remove**(移除) 按钮，永远不会发送给 AI，安装那个规则集之后就能再次编辑，导出角色卡时也会一起带走。已安装规则集的人物卡如果当前版本读不了，例如由更新的版本保存的，也会原样保留。它的条目只提供 **Remove this sheet**(移除这张人物卡)，所以新人物卡绝不会意外覆盖它。每张人物卡上限为 64 KB。
 
-规则集人物卡与 **Enable RPG Stats** 和 **Enable RPG Attributes** 互不相干。使用 Marinara 自身规则的游戏会忽略人物卡；使用规则集的游戏则用人物卡代替上面的 Attributes 进行检定。
+规则集人物卡与 **Enable story stats**(启用剧情属性) 互不相干。使用 Marinara 自身规则的游戏会忽略人物卡；使用规则集的游戏则用人物卡代替上面的 Attributes 进行检定。
 
 <a id="how-agents-update-your-stats"></a>
 
@@ -127,7 +127,7 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 | --- | --- |
 | 角色的 **Pools**，例如 HP | **Character Tracker** 智能体，根据战斗、治疗和剧情事件修改。它不追踪玩家的用户角色。 |
 | **Persona Status Bars** | **Persona Stats** 智能体，在每条消息之后修改。 |
-| **RPG Attributes**(RPG 属性值)，例如 STR 和 DEX | 没有智能体修改。它们会随卡片一起发送，用于战斗和 Game Mode，以及 Roleplay 或 Game Mode 中的可选掷骰。 |
+| **Story stats**(剧情属性)，例如 STR 和 DEX | 没有智能体修改。它们会随卡片一起发送，用于战斗和 Game Mode，以及 Roleplay 或 Game Mode 中的可选掷骰。 |
 
 如果不开启对应的智能体，由追踪器管理的数值就一直停在你设定的默认值上。单靠 **Stats** 选项卡，游玩时不会更新任何东西。要开启这些智能体，见[可下载智能体参考](../agents/built-in-agents.md)。
 

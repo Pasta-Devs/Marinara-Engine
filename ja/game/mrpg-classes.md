@@ -179,4 +179,4 @@ Legacyゲームは、好きなだけLegacyシートを使い続けられます�
 - [Game Mode: 戦闘](combat.md)
 - [Game Mode: パーティーとNPC](party-and-npcs.md)
 - [Game Mode: ダイスとスキル判定](dice-and-skill-checks.md)
-- [キャラクターの色とRPGステータス](../characters/colors-and-stats.md)
+- [キャラクターの色と物語用ステータス](../characters/colors-and-stats.md)

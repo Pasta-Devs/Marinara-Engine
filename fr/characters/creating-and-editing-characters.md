@@ -46,7 +46,7 @@ Onglets qui ont leur propre guide :
 | **Lorebook** | [Lier des lorebooks à des personnages](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [Sprites de personnage](sprites.md) |
 | **Gallery** | [Galeries de personnages et de personas](galleries.md) |
-| **Colors** et **Stats** | [Couleurs et caractéristiques RPG des personnages](colors-and-stats.md) |
+| **Colors** et **Stats** | [Couleurs et caractéristiques narratives des personnages](colors-and-stats.md) |
 
 Les sections ci-dessous traitent des onglets **Metadata**, **Card**, **Voice** et **Advanced**, ainsi que des avatars et de l'historique des versions.
 

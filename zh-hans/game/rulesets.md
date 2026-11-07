@@ -183,5 +183,5 @@ GM 在叙述时会同步更新人物卡。角色花费资源、受到伤害、�
 - [Game Mode：按规则集战斗](fighting-on-a-ruleset.md)
 - [Game Mode：骰子与技能检定](dice-and-skill-checks.md)
 - [Game Mode：队伍与 NPC](party-and-npcs.md)
-- [角色颜色与 RPG 数值：规则集人物卡](../characters/colors-and-stats.md#ruleset-sheets)
+- [角色颜色与剧情属性：规则集人物卡](../characters/colors-and-stats.md#ruleset-sheets)
 - [编写 Game Mode 规则集](../extending/writing-rulesets.md)

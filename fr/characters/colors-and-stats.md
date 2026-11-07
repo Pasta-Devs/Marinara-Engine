@@ -1,4 +1,4 @@
-# Couleurs des personnages et caractéristiques RPG
+# Couleurs des personnages et caractéristiques narratives
 
 Les onglets **Colors** (couleurs) et **Stats** (caractéristiques) se trouvent à la fois dans le Character Editor (éditeur de personnage) et dans le Persona Editor (éditeur de persona). Les couleurs changent l'apparence d'un personnage ou d'un persona dans le chat. Les caractéristiques permettent de suivre des valeurs comme la santé ou la faim.
 
@@ -54,7 +54,7 @@ Les onglets **Stats** d'un personnage et d'un persona sont organisés différemm
 
 ### Caractéristiques d'un personnage
 
-Un personnage a un seul interrupteur, **Enable RPG Stats** (activer les caractéristiques RPG). Désactivé, rien de ce qui suit n'est affiché ni envoyé. Activé, deux sections apparaissent :
+Un personnage a un seul interrupteur, **Enable story stats** (activer les caractéristiques narratives). Désactivé, rien de ce qui suit n'est affiché ni envoyé. Activé, deux sections apparaissent :
 
 - Les **Pools** sont des barres nommées avec une valeur actuelle, un maximum et une couleur. Les nouveaux personnages démarrent avec HP et MP, chacune à 100 sur 100.
 - Les **Attributes** sont des nombres nommés. Les nouveaux personnages démarrent avec STR, DEX, CON, INT, WIS et CHA, chacun à 10.
@@ -66,7 +66,7 @@ Clique sur **Add** (ajouter) pour créer une réserve ou un attribut, et sur le 
 L'onglet **Stats** d'un persona contient deux blocs distincts, chacun avec son propre interrupteur.
 
 - Les **Persona Status Bars** (barres d'état du persona), activées avec **Enable Persona Stats** (activer les caractéristiques du persona), suivent les besoins physiques et mentaux. Les barres de départ sont Satiety, Energy, Hygiene et Mood, chacune à 100 sur 100. Sous **Status Bars** (barres d'état), chaque barre a un nom, une valeur actuelle, un maximum et une couleur. Clique sur **Add** pour en créer une et sur le X pour en supprimer une.
-- **Enable RPG Attributes** (activer les attributs RPG) fonctionne comme sur une fiche de personnage. Il donne à ton persona des **Pools** (au départ HP et MP à 100 sur 100) et des **Attributes** (au départ STR, DEX, CON, INT, WIS et CHA à 10).
+- **Enable story stats** (activer les caractéristiques narratives) fonctionne comme sur une fiche de personnage. Il donne à ton persona des **Pools** (au départ HP et MP à 100 sur 100) et des **Attributes** (au départ STR, DEX, CON, INT, WIS et CHA à 10).
 
 <a id="mrpg-picks-on-a-card"></a>
 
@@ -80,7 +80,7 @@ Les deux onglets **Stats** ont une section **Game Mode** avec un bloc **MRPG**, 
 
 Le bloc donne un aperçu de la classe avec laquelle une nouvelle partie le fait commencer, au niveau 1, ainsi que de sa ligne et de ses HP, MP et Stamina de départ. Les choix forts et faibles orientent la progression cachée du personnage dans chaque partie. Son arbre frère vient de son tempérament dans la partie, pas de la fiche. Voir [Game Mode : classes MRPG](../game/mrpg-classes.md#choose-a-characters-trees).
 
-Sur une fiche de personnage, **Story stats for Legacy games** (caractéristiques narratives des parties Legacy), juste en dessous, replie les attributs RPG décrits plus haut. Seules les parties Legacy les utilisent.
+Sur une fiche de personnage, **Story stats** (caractéristiques narratives), juste en dessous, replie les réserves et les attributs décrits plus haut. Les chats Roleplay et les parties Legacy les utilisent. Une partie MRPG utilise plutôt le bloc de classe et ne crée jamais de fiche à partir d'eux.
 
 <a id="game-mode-icon"></a>
 
@@ -115,7 +115,7 @@ Certains ensembles de règles fournissent des sorts, des attaques et des capacit
 
 Une fiche pour un ensemble de règles que tu n'as pas installé est conservée. Elle s'affiche sur une seule ligne avec un bouton **Remove** (retirer), n'est jamais envoyée à l'IA, redevient modifiable quand tu installes cet ensemble de règles et accompagne la fiche de personnage quand tu l'exportes. Une fiche pour un ensemble de règles installé que cette version ne sait pas lire, par exemple une fiche enregistrée par une version plus récente, est elle aussi conservée telle quelle. Son entrée ne propose que **Remove this sheet** (retirer cette fiche) : une nouvelle fiche ne peut donc jamais l'écraser par accident. Chaque fiche est limitée à 64 Ko.
 
-Les fiches d'ensembles de règles sont indépendantes de **Enable RPG Stats** et de **Enable RPG Attributes**. Une partie sur les règles propres à Marinara les ignore. Une partie sur un ensemble de règles utilise la fiche à la place des Attributes ci-dessus pour ses tests.
+Les fiches d'ensembles de règles sont indépendantes de **Enable story stats** (activer les caractéristiques narratives). Une partie sur les règles propres à Marinara les ignore. Une partie sur un ensemble de règles utilise la fiche à la place des Attributes ci-dessus pour ses tests.
 
 <a id="how-agents-update-your-stats"></a>
 
@@ -127,7 +127,7 @@ L'onglet **Stats** définit l'état de départ du chat. Les agents ne mettent à
 | --- | --- |
 | Les **Pools** des personnages, comme les HP | L'agent **Character Tracker**, selon les combats, les soins et les événements de l'histoire. Il ne suit pas le persona du joueur. |
 | **Persona Status Bars** | L'agent **Persona Stats**, après chaque message. |
-| Les **RPG Attributes**, comme STR et DEX | Aucun agent. Ils sont envoyés avec la fiche pour le combat et le Game Mode, ainsi que pour les jets facultatifs en Roleplay ou en Game Mode. |
+| Les **Story stats** (caractéristiques narratives), comme STR et DEX | Aucun agent. Elles sont envoyées avec la fiche pour le combat et le Game Mode, ainsi que pour les jets facultatifs en Roleplay ou en Game Mode. |
 
 Si tu n'actives pas l'agent correspondant, les valeurs gérées par les trackers restent aux valeurs par défaut que tu as définies. À lui seul, l'onglet **Stats** ne met rien à jour en cours de partie. Pour activer ces agents, voir [Référence des agents téléchargeables](../agents/built-in-agents.md).
 

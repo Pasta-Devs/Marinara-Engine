@@ -189,7 +189,7 @@ Knowledge Retrievalより費用を抑えられる代替手段です。ロアブ�
 
 - **フェーズ**: Post-Processing。
 - **使える場所**: Roleplay。
-- **主な設定**: **Add as Prompt Section**(デフォルトでオン)。[キャラクターの色とRPGステータス](../characters/colors-and-stats.md)を参照してください。
+- **主な設定**: **Add as Prompt Section**(デフォルトでオン)。[キャラクターの色と物語用ステータス](../characters/colors-and-stats.md)を参照してください。
 
 ### Custom Tracker
 

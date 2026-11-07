@@ -187,6 +187,6 @@ Jeśli to nie zadziałało: gdy historia posunęła się naprzód podczas edycji
 
 - [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md)
 - [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md)
-- [Kolory postaci i statystyki RPG](../characters/colors-and-stats.md): zakładka **Stats** (statystyki) ustawia paski i atrybuty, z którymi startuje persona lub postać.
+- [Kolory postaci i statystyki fabularne](../characters/colors-and-stats.md): zakładka **Stats** (statystyki) ustawia paski i atrybuty, z którymi startuje persona lub postać.
 - [Tryb Roleplay: pierwsze kroki](getting-started.md)
 - [Game Mode: widgety HUD](../game/hud-widgets.md)

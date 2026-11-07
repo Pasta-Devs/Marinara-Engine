@@ -183,5 +183,5 @@ Un conjunto de reglas también puede usar **Progress clocks** (Relojes de progre
 - [Game Mode: peleas con un conjunto de reglas](fighting-on-a-ruleset.md)
 - [Game Mode: dados y pruebas de habilidad](dice-and-skill-checks.md)
 - [Game Mode: grupo y NPC](party-and-npcs.md)
-- [Colores de personaje y estadísticas RPG: fichas de conjuntos de reglas](../characters/colors-and-stats.md#ruleset-sheets)
+- [Colores del personaje y estadísticas de historia: fichas de conjuntos de reglas](../characters/colors-and-stats.md#ruleset-sheets)
 - [Escribir conjuntos de reglas de Game Mode](../extending/writing-rulesets.md)

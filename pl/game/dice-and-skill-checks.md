@@ -82,7 +82,7 @@ W grze z klasami **MRPG**, czyli każdej nowej grze, modyfikator statystyki poch
 | Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-Test dodaje jedną piątą tej statystyki, zaokrągloną w dół, maksymalnie +5. Oznacza to około +1 dla najlepszej statystyki nowej postaci, +2 lub +3 na poziomie 10 oraz +5 na najwyższym poziomie. Słaba statystyka nie dodaje nic. Ponieważ statystyki wynikają z aktywnej klasy, zmiana klasy zmienia również te premie.
+Test dodaje jedną piątą części tej statystyki powyżej 3, zaokrągloną w dół, od -1 do +5. Słaba statystyka (2 lub mniej) odejmuje 1, zwykła nie dodaje nic, najlepsza statystyka nowej postaci dodaje około +1, statystyka na poziomie 10 dodaje +2, a najlepsza na najwyższym poziomie +5. Ponieważ statystyki wynikają z aktywnej klasy, zmiana klasy zmienia również te premie.
 
 <a id="legacy-games"></a>
 

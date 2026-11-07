@@ -46,7 +46,7 @@ Character Editor는 채팅 영역을 전체 화면 작업 공간으로 바꿉니
 | **Lorebook** | [로어북을 캐릭터와 페르소나에 연결하기](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [캐릭터 스프라이트](sprites.md) |
 | **Gallery** | [캐릭터와 페르소나 갤러리](galleries.md) |
-| **Colors**와 **Stats** | [캐릭터 색상과 RPG 스탯](colors-and-stats.md) |
+| **Colors**와 **Stats** | [캐릭터 색상과 스토리 스탯](colors-and-stats.md) |
 
 아래 절에서는 **Metadata**, **Card**, **Voice**, **Advanced** 탭과 아바타, 버전 히스토리를 설명합니다.
 

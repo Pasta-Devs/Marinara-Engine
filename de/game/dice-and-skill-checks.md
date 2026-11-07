@@ -82,7 +82,7 @@ In einem Spiel mit **MRPG**-Klassen – also jedem neuen Spiel – stammt der We
 | Resistance | Insight, Religion, Wisdom |
 | Luck | Persuasion, Deception, Performance, Charisma |
 
-Die Probe addiert ein Fünftel dieses Werts, abgerundet, bis zu +5. Das entspricht ungefähr +1 beim besten Wert eines neuen Charakters, +2 oder +3 auf Stufe 10 und +5 auf der höchsten Stufe. Ein schwacher Wert addiert nichts. Weil die Werte der aktiven Klasse folgen, ändern sich diese Boni ebenfalls, wenn der Charakter die Klasse wechselt.
+Die Probe addiert ein Fünftel des Anteils dieses Werts über 3, abgerundet, von -1 bis +5. Ein schwacher Wert (2 oder weniger) zieht 1 ab, ein gewöhnlicher addiert nichts, der beste Wert eines neuen Charakters etwa +1, einer auf Stufe 10 +2 und der beste auf der höchsten Stufe +5. Weil die Werte der aktiven Klasse folgen, ändern sich diese Boni ebenfalls, wenn der Charakter die Klasse wechselt.
 
 <a id="legacy-games"></a>
 

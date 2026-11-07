@@ -179,4 +179,4 @@ Ulepszenie nie jest dostępne podczas walki. Najpierw zakończ walkę. Gry rozgr
 - [Game Mode: walka](combat.md)
 - [Game Mode: drużyna i postacie NPC](party-and-npcs.md)
 - [Game Mode: rzuty kośćmi i testy umiejętności](dice-and-skill-checks.md)
-- [Kolory postaci i statystyki RPG](../characters/colors-and-stats.md)
+- [Kolory postaci i statystyki fabularne](../characters/colors-and-stats.md)

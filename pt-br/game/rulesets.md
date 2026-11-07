@@ -183,5 +183,5 @@ Um conjunto também pode usar **Progress clocks** (relógios de progresso): cír
 - [Game Mode: lutas com um conjunto de regras](fighting-on-a-ruleset.md)
 - [Game Mode: dados e testes de perícia](dice-and-skill-checks.md)
 - [Game Mode: equipe e NPCs](party-and-npcs.md)
-- [Cores do personagem e status de RPG: fichas de conjuntos de regras](../characters/colors-and-stats.md#ruleset-sheets)
+- [Cores do personagem e status da história: fichas de conjuntos de regras](../characters/colors-and-stats.md#ruleset-sheets)
 - [Escrever conjuntos de regras de Game Mode](../extending/writing-rulesets.md)

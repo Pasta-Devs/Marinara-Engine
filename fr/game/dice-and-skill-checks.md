@@ -82,7 +82,7 @@ Dans une partie utilisant les classes **MRPG**, c'est-à-dire toute nouvelle par
 | Résistance | Insight, Religion, Wisdom |
 | Chance | Persuasion, Deception, Performance, Charisma |
 
-Le jet ajoute un cinquième de cette caractéristique, arrondi à l'inférieur, jusqu'à +5. Cela représente environ +1 pour la meilleure caractéristique d'un nouveau personnage, +2 ou +3 au niveau 10 et +5 au maximum. Une caractéristique faible n'ajoute rien. Comme les caractéristiques suivent la classe active, changer de classe modifie aussi ces bonus.
+Le jet ajoute un cinquième de la part de cette caractéristique qui dépasse 3, arrondi à l'inférieur, de -1 à +5. Une caractéristique faible (2 ou moins) retire 1, une caractéristique ordinaire n'ajoute rien, la meilleure caractéristique d'un nouveau personnage ajoute environ +1, une caractéristique de niveau 10 ajoute +2 et la meilleure au niveau maximum ajoute +5. Comme les caractéristiques suivent la classe active, changer de classe modifie aussi ces bonus.
 
 <a id="legacy-games"></a>
 

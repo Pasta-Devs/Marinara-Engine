@@ -179,4 +179,4 @@
 - [Game Mode: бой](combat.md)
 - [Game Mode: отряд и персонажи NPC](party-and-npcs.md)
 - [Game Mode: броски кубиков и проверки навыков](dice-and-skill-checks.md)
-- [Цвета персонажа и характеристики RPG](../characters/colors-and-stats.md)
+- [Цвета персонажа и сюжетные характеристики](../characters/colors-and-stats.md)

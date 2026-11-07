@@ -64,7 +64,7 @@ Marinaraは毎回のプロンプトで、ペルソナをAIに送ります。ペ�
 | **Lorebook** | このペルソナがチャットにいるときに発動するロアブックのエントリーを紐付けます。[ロアブックの概要](../lorebooks/overview.md)を参照してください。 |
 | **Sprites** | GameとRoleplayで使う立ち絵です。**Facial Expressions**、**Full-body**、**Clips**と、**Upload Folder**(フォルダーをアップロード)があります。[キャラクターのスプライト](sprites.md)を参照してください。 |
 | **Gallery** | 資料用の画像と動画です。**Upload Persona Images**(ペルソナ画像のアップロード)と**Upload Persona Videos**(ペルソナ動画のアップロード)があります。[キャラクターとペルソナのギャラリー](galleries.md)を参照してください。 |
-| **Colors** | 名前、セリフ、メッセージボックスの色です。[キャラクターの色とRPGステータス](colors-and-stats.md)を参照してください。 |
+| **Colors** | 名前、セリフ、メッセージボックスの色です。[キャラクターの色と物語用ステータス](colors-and-stats.md)を参照してください。 |
 | **Stats** | ステータスバーとRPGの能力値です。下の[Statsタブ](#stats-tab)を参照してください。 |
 
 **Metadata**タブには次の項目があります。
@@ -109,7 +109,7 @@ Marinaraは毎回のプロンプトで、ペルソナをAIに送ります。ペ�
 **Stats**タブは、独立した2つのブロックに分かれています。どちらもHUDに反映されます。HUDとは、チャット中に画面に表示されるステータスのパネルです。
 
 - **Enable Persona Stats**(ペルソナのステータスを有効化)は、ステータスバーをオンにします。ステータスバーとは、空腹や気分などの状態を示すメーターです。新しく有効にすると、Satiety、Energy、Hygiene、Moodが、いずれも最大100のうち100の状態で用意されます。値は物語の進行に合わせて**Persona Stats**エージェントが調整します。
-- **Enable RPG Attributes**(RPG能力値を有効化)は、Pools(HPやMPなどのバー)とAttributes(筋力などの数値)をオンにします。どちらも[キャラクターの色とRPGステータス](colors-and-stats.md)で説明しています。新しく有効にすると、HPとMPが最大100のうち100、STR、DEX、CON、INT、WIS、CHAが10で用意されます。これらは、戦闘とGame Modeのため、また任意のダイスロールのために、ペルソナといっしょに送られます。エージェントがこれらを更新することはありません。
+- **Enable story stats**(物語用ステータスを有効化)は、Pools(HPやMPなどのバー)とAttributes(筋力などの数値)をオンにします。どちらも[キャラクターの色と物語用ステータス](colors-and-stats.md)で説明しています。新しく有効にすると、HPとMPが最大100のうち100、STR、DEX、CON、INT、WIS、CHAが10で用意されます。これらは、戦闘とGame Modeのため、また任意のダイスロールのために、ペルソナといっしょに送られます。エージェントがこれらを更新することはありません。
 
 **Game Mode Icon**(Game Modeのアイコン)ブロックでは、Game Modeの戦闘で自分のトークンに表示する画像を設定します。[Game Modeのアイコン](colors-and-stats.md#game-mode-icon)を参照してください。Game Modeのルールセット(卓上ゲーム風のゲームのためのルール一式)がインストールされていると、**Ruleset sheets**(ルールセットのシート)ブロックに、そのルールセットでの自分の開始時の構成が入ります。[ルールセットのシート](colors-and-stats.md#ruleset-sheets)を参照してください。ここで設定した値は、新しいチャットの開始時のデフォルトです。
 
@@ -139,7 +139,7 @@ Marinaraは毎回のプロンプトで、ペルソナをAIに送ります。ペ�
 ## 関連ガイド
 
 - [チャットで使うペルソナの選択](choosing-your-persona.md)
-- [キャラクターの色とRPGステータス](colors-and-stats.md)
+- [キャラクターの色と物語用ステータス](colors-and-stats.md)
 - [キャラクターの作成と編集](creating-and-editing-characters.md)
 - [Conversationモードのプロフィール](../conversation/profiles.md)
 - [マクロ](../prompts/macros.md)

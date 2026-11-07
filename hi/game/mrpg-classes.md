@@ -179,4 +179,4 @@ Legacy गेम जब तक चाहें अपनी Legacy शीट र
 - [Game Mode: कॉम्बैट](combat.md)
 - [Game Mode: पार्टी और NPC](party-and-npcs.md)
 - [Game Mode: डाइस और स्किल चेक](dice-and-skill-checks.md)
-- [कैरेक्टर के रंग और RPG स्टैट](../characters/colors-and-stats.md)
+- [कैरेक्टर के रंग और कहानी के स्टैट](../characters/colors-and-stats.md)
