@@ -5190,7 +5190,7 @@ export function ChatSettingsDrawer({
         description={localizeUi("ui.chat.chatsettingsdrawer.configureCustomAgentsCurrentlyAttachedToThisChat")}
         order={customAgentSettingsOrder}
       >
-        <div className="space-y-1.5">
+        <div className="space-y-3">
           {activeCustomAgents.map((agent) => {
             const agentConfig = agentConfigsByType.get(agent.id);
             const agentSettings = parseAgentSettingsRecord(agentConfig?.settings);
@@ -5206,9 +5206,10 @@ export function ChatSettingsDrawer({
               agentImageStyleProfileId.length > 0 &&
               !imageStyleProfiles.profiles.some((profile) => profile.id === agentImageStyleProfileId);
             return (
+              // No box per agent: its toggles sit on the card like every other agent menu's; a rule separates agents.
               <div
                 key={agent.id}
-                className="rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]"
+                className="space-y-2 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
               >
                 <div className="flex items-start gap-2.5">
                   <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
@@ -5289,7 +5290,7 @@ export function ChatSettingsDrawer({
                 />
                 {renderAgentLorebookAttachment(agent.id)}
                 {backfillAvailable && agentConfig && (
-                  <div className="mt-2 space-y-2">
+                  <div className="space-y-2">
                     <AgentSettingsToggle
                       label={localizeUi("ui.agents.agenteditor.enableChunkedBackfill")}
                       description={localizeUi("ui.agents.agenteditor.enableChunkedBackfillDescription")}
@@ -5338,7 +5339,7 @@ export function ChatSettingsDrawer({
                   </div>
                 )}
                 {imageCapable && (
-                  <div className="mt-1.5 flex flex-col gap-1">
+                  <div className="flex flex-col gap-1">
                     <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                       {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
                     </span>
