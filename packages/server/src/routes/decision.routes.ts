@@ -50,6 +50,7 @@ import { configuredCudaIndex, preflightDecisionModel } from "../services/sidecar
 import { awaitGpuProbe } from "../services/sidecar/sidecar-footprint.js";
 import {
   decisionRuntimeInstalled,
+  decisionRuntimeNeedsUpdate,
   decisionRuntimeService,
   isDecisionRuntimeSupported,
 } from "../services/sidecar/decision-runtime.service.js";
@@ -205,6 +206,7 @@ export async function decisionRoutes(app: FastifyInstance) {
       unsupportedReason: isDecisionRuntimeSupported() ? null : "Requires Linux with an NVIDIA GPU",
       settings: sidecarSettings,
       runtimeInstalled: decisionRuntimeInstalled(),
+      runtimeNeedsUpdate: decisionRuntimeNeedsUpdate(),
       process: decisionProcessService.getStatus(),
       logPath: decisionProcessService.getLogPath(),
       models,
@@ -280,6 +282,26 @@ export async function decisionRoutes(app: FastifyInstance) {
    * Refuses an entry this machine cannot run rather than letting a download start and
    * fail at load, which is the whole point of having a preflight.
    */
+  /**
+   * Rebuild a runtime an engine update left behind (new uv, Python or lock) without
+   * touching the downloaded model. The running process is stopped first: it still runs
+   * from the environment being replaced.
+   */
+  app.post("/sidecar/update-runtime", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
+    if (!decisionRuntimeNeedsUpdate()) return { updated: false };
+    try {
+      await decisionProcessService.stop();
+      await decisionRuntimeService.ensureInstalled((progress) =>
+        logger.debug("[decision-sidecar] %s %s", progress.phase, progress.label ?? ""),
+      );
+    } catch (error) {
+      logger.warn(error, "[decision-sidecar] Runtime update failed");
+      return reply.status(400).send({ error: error instanceof Error ? error.message : "Update failed" });
+    }
+    return { updated: true };
+  });
+
   app.post("/sidecar/install", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
     const body = z

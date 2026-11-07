@@ -29,6 +29,7 @@ import {
   useRemoveDecisionSidecar,
   useSetDecisionDevice,
   useSetDecisionStartPolicy,
+  useUpdateDecisionRuntime,
   type DecisionSidecarModel,
 } from "../../hooks/use-decision-sidecar";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -53,6 +54,7 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
   const enable = useEnableDecisionSidecar();
   const install = useInstallDecisionModel();
   const remove = useRemoveDecisionSidecar();
+  const updateRuntime = useUpdateDecisionRuntime();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [repoInput, setRepoInput] = useState("");
   /** Which repository the inspection on screen actually describes. */
@@ -87,7 +89,10 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
   const hasInstall = !!installedId || !!data?.settings.customModel || data?.runtimeInstalled === true;
   // Fetching as well as pending: on reopen the cached verdict is on screen while the
   // fresh one loads, and consent must not be recorded against a stale one.
+  // Installed and working before an engine update changed the runtime: it needs an update, not a reinstall.
+  const needsUpdate = data?.runtimeNeedsUpdate === true;
   const busy =
+    updateRuntime.isPending ||
     enable.isPending ||
     install.isPending ||
     remove.isPending ||
@@ -224,7 +229,7 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
     return (
       <label
         key={model.id}
-        className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+        className={`mari-dm-row flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
           blocked
             ? "cursor-not-allowed border-[var(--border)] opacity-60"
             : chosen
@@ -276,19 +281,25 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
             <div className="mt-1 text-[0.6875rem] text-[var(--warning)]">{model.preflight.reason}</div>
           )}
         </div>
-        {model.id === installedId && (
-          <span className="mari-chrome-accent-surface flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-medium">
-            <Check size="0.625rem" />
-            {localizeUi("ui.modals.decisionmodelmodal.installedBadge")}
-          </span>
-        )}
+        {model.id === installedId &&
+          (needsUpdate ? (
+            <span className="flex items-center gap-1 rounded-full bg-[var(--warning)]/15 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--warning)]">
+              <AlertTriangle size="0.625rem" />
+              {localizeUi("ui.modals.decisionmodelmodal.needsUpdateBadge")}
+            </span>
+          ) : (
+            <span className="mari-chrome-accent-surface flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-medium">
+              <Check size="0.625rem" />
+              {localizeUi("ui.modals.decisionmodelmodal.installedBadge")}
+            </span>
+          ))}
       </label>
     );
   };
 
   const body = (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-start gap-3">
+    <div className="mari-dm-body flex flex-col gap-5">
+      <div className="mari-dm-hero flex items-start gap-3">
         <div className="mari-chrome-accent-soft-tile flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
           <Zap size="1.25rem" />
         </div>
@@ -302,7 +313,7 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
 
       {/* Always visible above the toggle, in the same shape the chat installer uses
             for its own "this is for helpers" warning. */}
-      <div className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
+      <div className="mari-dm-warn rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-[var(--warning)]">
           <AlertTriangle size="0.95rem" className="shrink-0" />
           {localizeUi("ui.modals.decisionmodelmodal.warningTitle")}
@@ -349,7 +360,7 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
             type="button"
             disabled={busy}
             onClick={() => void handleEnable(!enabled)}
-            className="flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--sidebar-accent)] disabled:opacity-50"
+            className="mari-dm-toggle flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--sidebar-accent)] disabled:opacity-50"
           >
             <div className="min-w-0 flex-1">
               <div className="text-xs font-medium">{localizeUi("ui.modals.decisionmodelmodal.enableToggle")}</div>
@@ -369,6 +380,35 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
               <span className="text-xs font-medium text-[var(--muted-foreground)]/60">
                 {localizeUi("ui.modals.decisionmodelmodal.curated")}
               </span>
+              {needsUpdate && (
+                <div className="flex items-center gap-3 rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
+                  <p className="flex-1 text-xs text-[var(--muted-foreground)]">
+                    {localizeUi("ui.modals.decisionmodelmodal.needsUpdateBody")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateRuntime.mutate(undefined, {
+                        onSuccess: () => toast.success(localizeUi("ui.modals.decisionmodelmodal.updated")),
+                        onError: report,
+                      })
+                    }
+                    disabled={busy}
+                    className="mari-chrome-accent-surface flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                  >
+                    {updateRuntime.isPending ? (
+                      <Loader2 size="0.75rem" className="animate-spin" />
+                    ) : (
+                      <Download size="0.75rem" />
+                    )}
+                    {localizeUi(
+                      updateRuntime.isPending
+                        ? "ui.modals.decisionmodelmodal.updating"
+                        : "ui.modals.decisionmodelmodal.update",
+                    )}
+                  </button>
+                </div>
+              )}
               {models.map(row)}
               <button
                 onClick={() => void handleInstall()}

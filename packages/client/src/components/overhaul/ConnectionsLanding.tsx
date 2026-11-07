@@ -24,6 +24,9 @@ import { hostOf } from "../connections/ConnectionGroup";
 import { JobPickerWindow, useConnectionDefaults, type DefaultsTile } from "../connections/ConnectionDefaults";
 import { openAddConnection, openAddModels } from "../../lib/add-connection";
 import type { ConnectionRowData } from "../connections/ConnectionRow";
+import { DeviceDetail, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
+import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
+import { EditorCrumbs } from "./EditorRail";
 
 type KindFilter = "all" | "chat" | "image" | "video" | "voice";
 type SortKey = "name" | "models" | "recent";
@@ -94,10 +97,10 @@ function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[
         {problems > 0 ? (
           <span className="ov-conn-defaults__warn">
             {problems === 1
-              ? localize("1 needs a model")
+              ? localize("1 needs attention")
               : localizeUi("ui.chat.scheduletimeline.value1Value2", {
                   value1: problems,
-                  value2: localize("need a model"),
+                  value2: localize("need attention"),
                 })}
           </span>
         ) : null}
@@ -141,6 +144,107 @@ function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[
   );
 }
 
+/**
+ * On this device: the built-in model and the local voice engines. They are not accounts, so they get their
+ * own group under the accounts; a row opens the engine's page, or its set-up window before it is set up.
+ */
+function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
+  const { t } = useTranslation();
+  const localize = useLocalizedUiText();
+  const setup = useDeviceSetup();
+  const engines = useDeviceEngines();
+  const usedBy = useLocalModelUsedBy();
+  const builtInAvailable = setup["local-model"].available && !setup["local-model"].setUp;
+  if (engines.length === 0 && !builtInAvailable) return null;
+  const rows = [
+    ...engines.map((engine) => ({
+      item: engine.item,
+      name: engine.name,
+      detail: [engine.detail, engine.item === "local-model" && usedBy.length ? usedBy.join(", ") : null]
+        .filter(Boolean)
+        .join(" · "),
+      tone: engine.tone,
+      state: engine.state,
+      fix: engine.fix,
+      open: () => onOpen(engine.item),
+    })),
+    ...(builtInAvailable
+      ? [
+          {
+            item: "local-model" as DeviceItem,
+            name: t("connections.add.device.local_model"),
+            detail: localize("No account needed"),
+            tone: "off" as const,
+            state: t("connections.builtin.card.notDownloaded"),
+            fix: {
+              label: t("connections.defaults.setUp"),
+              run: () => openAddConnection({ category: "device", item: "local-model" }),
+            },
+            open: () => openAddConnection({ category: "device", item: "local-model" }),
+          },
+        ]
+      : []),
+  ];
+  return (
+    <>
+      <tr className="ov-conn__account is-open ov-conn__account--other">
+        <td className="ov-conn__lead" />
+        <td colSpan={6}>
+          <b>{t("connections.accounts.section.device")}</b>
+        </td>
+      </tr>
+      {rows.map((row) => (
+        <tr
+          key={row.item}
+          className="ov-conn__account ov-conn__device"
+          tabIndex={0}
+          onClick={row.open}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") row.open();
+          }}
+        >
+          <td className="ov-conn__lead" />
+          <td colSpan={3}>
+            <span className="ov-conn__acct">
+              <ProviderIcon provider={row.item} size="sm" dim={row.tone !== "ok"} />
+              <b>{row.name}</b>
+              {row.detail ? <span className="ov-conn__dim">{row.detail}</span> : null}
+            </span>
+          </td>
+          <td colSpan={2}>
+            <span className="ov-conn__devstate">
+              <span
+                className={cn(
+                  "ov-conn__status",
+                  row.tone === "ok" ? "is-ok" : row.tone === "warn" ? "is-needs_key" : "is-off",
+                )}
+              >
+                <span className="ov-conn__dot" aria-hidden="true" />
+                {row.state}
+              </span>
+              {row.fix ? (
+                <button
+                  type="button"
+                  className="ov-conn__link"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    row.fix!.run();
+                  }}
+                >
+                  {row.fix.label}
+                </button>
+              ) : null}
+            </span>
+          </td>
+          <td className="ov-conn__act">
+            <ChevronRight size={14} className="ov-conn__dim" aria-hidden="true" />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
 export function ConnectionsLanding() {
   const localize = useLocalizedUiText();
   const { t } = useTranslation();
@@ -156,6 +260,8 @@ export function ConnectionsLanding() {
   const [sort, setSort] = useState<SortKey>("name");
   const [openIds, setOpenIds] = useState<string[] | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [device, setDevice] = useState<DeviceItem | null>(null);
+  const deviceName = device ? t(`connections.add.device.${device === "local-model" ? "local_model" : device}`) : "";
 
   const rows = useMemo(
     () => ((connections as ConnectionRowData[] | undefined) ?? []).filter((row) => !hiddenIds.has(row.id)),
@@ -303,6 +409,18 @@ export function ConnectionsLanding() {
     </select>
   );
 
+  if (device)
+    return (
+      <section className="ov-list ov-conn ov-conn-device" data-component="OverhaulConnectionsDevice">
+        <EditorCrumbs
+          items={[{ label: localize("Connections"), onClick: () => setDevice(null) }, { label: deviceName }]}
+        />
+        <div className="ov-conn-device__body">
+          <DeviceDetail item={device} onOpenDefaults={() => setDevice(null)} />
+        </div>
+      </section>
+    );
+
   return (
     <section className="ov-list ov-conn" data-component="OverhaulConnections">
       <header className="ov-gallery__head">
@@ -358,7 +476,7 @@ export function ConnectionsLanding() {
         </select>
       </div>
       <DefaultsGrid connectionsList={rows} />
-      {visible.groups.length === 0 && visible.standalone.length === 0 ? (
+      {visible.groups.length === 0 && visible.standalone.length === 0 && (needle || kind !== "all") ? (
         <p className="ov-list__empty">
           {rows.length || accounts?.length ? localize("Nothing matches.") : localize("No accounts yet.")}
         </p>
@@ -471,6 +589,7 @@ export function ConnectionsLanding() {
                   {visible.standalone.map((row) => renderModel(row, [row]))}
                 </>
               ) : null}
+              {!needle && kind === "all" ? <DeviceRows onOpen={setDevice} /> : null}
             </tbody>
           </table>
         </div>

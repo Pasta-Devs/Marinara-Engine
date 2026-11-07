@@ -11,6 +11,7 @@ import {
   LOCAL_SIDECAR_CONNECTION_ID,
   isAgentConfigDeleted,
   isRetiredBuiltInAgentId,
+  type APIProvider,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
 import {
@@ -95,6 +96,12 @@ export type DefaultsTile = {
   /** A device job opens its engine's page instead of pickers. */
   device?: DeviceItem;
 };
+
+/** The set-up window for a local decision slot: the decision model's own, else the built-in model's. */
+export function openDecisionSlotSetup(slot: string) {
+  if (slot === "decision_sidecar") openAddConnection({ provider: "decision_builtin" as APIProvider });
+  else openAddConnection({ category: "device", item: "local-model" });
+}
 
 /** Every job's tile, the Main summary for the list row, and the problems. */
 export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
@@ -331,8 +338,28 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
         }
       : decisionSelected?.unavailable
         ? {
-            text: t("connections.defaults.warning.unavailable"),
-            short: t("connections.defaults.warning.unavailableShort"),
+            text: t(`connections.decision.unavailable.${decisionSelected.unavailable}`, {
+              detail: decisionSelected.detail ?? "",
+              defaultValue: t("connections.defaults.warning.unavailable"),
+            }),
+            short: t(
+              decisionSelected.unavailable === "needs_update"
+                ? "connections.decision.unavailable.needs_update"
+                : "connections.defaults.warning.unavailableShort",
+            ),
+            // A local slot that broke opens its own set-up window, as the main built-in model does.
+            ...(decisionSelected.slot
+              ? {
+                  fix: {
+                    label: t(
+                      decisionSelected.unavailable === "needs_update"
+                        ? "connections.defaults.update"
+                        : "connections.defaults.fix",
+                    ),
+                    run: () => openDecisionSlotSetup(decisionSelected.slot!),
+                  },
+                }
+              : {}),
           }
         : null,
     ...(decisionNeedsLocal
@@ -667,6 +694,10 @@ export function JobPickerWindow({ job, onClose }: { job: Job; onClose: () => voi
   const { t } = useTranslation();
   const connectionsList = (useConnections().data ?? []) as ConnectionRowData[];
   const model = useJobModels(connectionsList)(job);
+  const close = (open: boolean) => !open && onClose();
+  // These two choose through their own controls (local slots, the embedding default), not a Model list.
+  if (job.key === "embeddings") return <EmbeddingDefaultControl open onOpenChange={close} />;
+  if (job.key === "decision") return <DecisionDefaultControl open onOpenChange={close} />;
   if (!model) return null;
   return (
     <ConnectionSelect

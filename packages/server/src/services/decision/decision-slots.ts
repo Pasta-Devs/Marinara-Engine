@@ -30,6 +30,7 @@ import { resolveSidecarRequestModel } from "../sidecar/sidecar-request-model.js"
 import { decisionProcessService } from "../sidecar/decision-process.service.js";
 import {
   decisionRuntimeInstalled,
+  decisionRuntimeNeedsUpdate,
   decisionRuntimeService,
   isDecisionRuntimeSupported,
 } from "../sidecar/decision-runtime.service.js";
@@ -127,6 +128,8 @@ export function describeDecisionSlot(
   const settings = decisionSidecarSettings();
   if (!settings.enabled) return { available: false, reason: "not_enabled" };
   const model = installedDecisionModel(settings);
+  if (model && decisionRuntimeNeedsUpdate() && decisionRuntimeService.modelDownloaded(model))
+    return { available: false, reason: "needs_update" };
   if (!model || !decisionRuntimeInstalled() || !decisionRuntimeService.modelDownloaded(model))
     return { available: false, reason: "not_installed" };
   return { available: true, label: model.label };

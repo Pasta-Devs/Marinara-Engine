@@ -81,7 +81,7 @@ function TtsNotice({ children }: { children: React.ReactNode }) {
 
 function FieldRow({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
+    <div className="mari-tts-field space-y-1.5">
       <div className="flex items-center gap-1">
         <span className="text-xs font-medium text-[var(--foreground)]">{label}</span>
         {help && <HelpTooltip text={help} />}
