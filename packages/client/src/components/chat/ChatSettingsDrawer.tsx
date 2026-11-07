@@ -2983,6 +2983,7 @@ export function ChatSettingsDrawer({
           entityId={id}
           displayName={displayName}
           onClose={() => setInlineResourceEditor(null)}
+          onFlushChange={handleInlineCardFlushChange}
         />
       </Suspense>
     );
@@ -4030,22 +4031,33 @@ export function ChatSettingsDrawer({
   const handleAgentSuiteCloseGuardChange = useCallback((guard: (() => Promise<boolean>) | null) => {
     agentSuiteCloseGuardRef.current = guard;
   }, []);
-  const requestClose = useCallback(async () => {
-    if (drawerClosingRef.current) return false;
-    blurActiveChatFloatingUiControl();
-    drawerClosingRef.current = true;
-    try {
-      const canCloseAgentSuite =
-        !showAgentSuiteModal || (await (agentSuiteCloseGuardRef.current?.() ?? Promise.resolve(true)));
-      if (!canCloseAgentSuite) return false;
-      if (!(await flushProseGuardianDrafts())) return false;
-      setShowAgentSuiteModal(false);
-      onClose({ force: true });
-      return true;
-    } finally {
-      drawerClosingRef.current = false;
-    }
-  }, [flushProseGuardianDrafts, onClose, showAgentSuiteModal]);
+  // The open inline card editor's saves, finished before the drawer closes (#8933): a card opened next must not load
+  // the text an inline save is still writing, then overwrite it.
+  const inlineCardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
+  const handleInlineCardFlushChange = useCallback((flush: (() => Promise<boolean>) | null) => {
+    inlineCardFlushRef.current = flush;
+  }, []);
+  /** Closes after the drawer's guards pass; `force: false` keeps a pinned drawer open (opening a card from it). */
+  const requestClose = useCallback(
+    async (force = true) => {
+      if (drawerClosingRef.current) return false;
+      blurActiveChatFloatingUiControl();
+      drawerClosingRef.current = true;
+      try {
+        const canCloseAgentSuite =
+          !showAgentSuiteModal || (await (agentSuiteCloseGuardRef.current?.() ?? Promise.resolve(true)));
+        if (!canCloseAgentSuite) return false;
+        if (!(await flushProseGuardianDrafts())) return false;
+        if (!(await (inlineCardFlushRef.current?.() ?? Promise.resolve(true)))) return false;
+        setShowAgentSuiteModal(false);
+        onClose({ force });
+        return true;
+      } finally {
+        drawerClosingRef.current = false;
+      }
+    },
+    [flushProseGuardianDrafts, onClose, showAgentSuiteModal],
+  );
   // Session-ephemeral: did the user change Day Rollover Hour in this drawer mount?
   // Used to gate the "transitional duplication" warning so it only appears
   // immediately after a change (when the warning is operationally useful) and
@@ -6124,8 +6136,9 @@ export function ChatSettingsDrawer({
                             <button
                               type="button"
                               onClick={() => {
-                                onClose();
-                                useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                                void requestClose(false).then((closed) => {
+                                  if (closed) useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                                });
                               }}
                               className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
                               title={localizeUi("ui.chat.chatsettingsdrawer.openCharacterCard")}
@@ -6453,8 +6466,9 @@ export function ChatSettingsDrawer({
                             type="button"
                             data-drag-surface
                             onClick={() => {
-                              onClose();
-                              useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                              void requestClose(false).then((closed) => {
+                                if (closed) useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                              });
                             }}
                             className="flex items-center gap-2.5 min-w-0 flex-1 text-left transition-colors hover:opacity-80"
                             title={localizeUi("ui.chat.chatsettingsdrawer.openCharacterCard")}
