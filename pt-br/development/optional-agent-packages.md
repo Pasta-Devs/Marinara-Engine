@@ -1138,6 +1138,14 @@ const isGif = result.mimeType === "image/gif";
 
 Em um Engine 1.816, capture `code === "animation-unsupported"` para desenhar uma imagem estática no lugar. Declare 1.816 só quando o pacote não puder funcionar sem GIFs. Não exige nenhuma permissão.
 
+<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>
+
+### Capability API 1.817: avisar um pacote de que um chat foi ramificado
+
+O serviço `long-term-memory:runtime` pode adicionar um método opcional `chatBranched({ chatId, parentChatId })`. O Engine aguarda esse método uma vez quando um chat é ramificado, depois que a rota de ramificação termina de copiar (mensagens, metadados e snapshots) e antes de retornar o novo chat, então as mensagens da ramificação e os metadados `branchParentChatId` já podem ser lidos dentro da chamada. Um pacote pode usá-lo para corrigir a cópia antes que alguém a leia.
+
+Erros e chamadas que levam mais de alguns segundos são registrados e ignorados; a ramificação é retornada de qualquer forma. Sem o método, nada muda. É uma integração opcional: Engines mais antigos nunca o chamam, então o pacote ainda precisa lidar com a ausência dessa chamada. Não exige nenhuma permissão.
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: resumos de cena do Advanced Memory e o bloco de memória

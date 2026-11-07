@@ -1129,6 +1129,14 @@ const isGif = result.mimeType === "image/gif";
 
 1.816のEngineでは、`code === "animation-unsupported"`を捕捉し、代わりに静止画を生成してください。1.816を宣言するのは、GIFなしではパッケージが動作しない場合だけにしてください。権限は不要です。
 
+<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>
+
+### Capability API 1.817: チャットの分岐が作られたことをパッケージに伝える
+
+`long-term-memory:runtime`サービスには、省略可能な`chatBranched({ chatId, parentChatId })`メソッドを追加できます。チャットの分岐が作られると、Engineはこのメソッドを1回呼び出して完了を待ちます。呼び出すのは、分岐のルートがコピー(メッセージ、メタデータ、スナップショット)を終えた後で、新しいチャットを返す前です。そのため、呼び出しの中では、分岐のメッセージと`branchParentChatId`のメタデータをすでに読み取れます。パッケージはこれを使って、誰かが読む前にコピーを修正できます。
+
+エラーになった呼び出しと、数秒を超えてかかる呼び出しはログに記録して無視します。どちらの場合も分岐は返されます。このメソッドがなければ、何も変わりません。これはソフトなインターフェースです。古いEngineはこのメソッドを呼び出さないため、呼び出しがない場合にもパッケージが対応できるようにしておく必要があります。権限は不要です。
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: Advanced Memoryのシーン要約と記憶ブロック

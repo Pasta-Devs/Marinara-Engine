@@ -700,3 +700,13 @@ Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `medi
 - The field's hint (`gameAssetsMusicFolderForThisChatOnly`) has no `ui/ja.json` value yet; the guide paraphrases it, so it takes no gloss.
 
 These are translation choices, not a new native-reader review.
+
+## Notices DNS and Capability API 1.817 (2026-11-07, #8954)
+
+Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 developer-doc catch-up (`development/optional-agent-packages.md`), against Engine `dd85f7b40d`:
+
+- **Name lookup**, coined here (no `ui/ja.json` string covers it): hosts file = hostsファイル, Latin without a code span as in English (`TROUBLESHOOTING.md` keeps `/etc/hosts` as code); DNS server = DNSサーバー (trailing ー, §3); "asks the DNS servers directly" = DNSサーバーに直接問い合わせます. "Names that only your local network knows" = 自分のローカルネットワークの中でしか通じない名前, with ローカルネットワーク from `installation/macos-linux.md` and `media/image-providers.md`; "short names without a domain other than `localhost`" = ドメインを含まない短い名前(`localhost`を除く), a parenthetical as in `development/localization.md`, because `localhost`以外のドメインを含まない reads as "containing no domain other than `localhost`".
+- **resolv.conf.** The Termux colon is split into two sentences: `$PREFIX/etc/resolv.conf`に書かれたDNSサーバーを使います。このファイルを編集しないかぎり、Googleの`8.8.8.8`と`8.8.4.4`です。 The `#outbound-http-proxy` link text is 外向きのプロキシ, after the heading 外向きのHTTPプロキシ. The `MARINARA_NOTICES_URL` row adds このURLのホストは、hostsファイルかDNSに登録されている必要があります ("its host" made explicit as the URL's host).
+- **Capability API 1.817.** Heading `### Capability API 1.817: チャットの分岐が作られたことをパッケージに伝える`, a plain-form verb like the 1.814 and 1.815 siblings, under `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`, since every Capability API heading in the file has one (nothing links to it yet). A branched chat is チャットの分岐が作られる, chat-sense 分岐 (never ブランチ) after `chats/branches.md` 分岐の作成; the copy is コピー, as there. "awaits it once" = 1回呼び出して完了を待ちます, after the file's `ensureMarinaraHost()`の完了を待ちます; branch route = 分岐のルート, after 生成ルート; "logged and ignored" = ログに記録して無視します; soft seam = ソフトなインターフェース and optional method = 省略可能な…メソッド, as in 1.391.
+
+These are translation choices, not a new native-reader review.

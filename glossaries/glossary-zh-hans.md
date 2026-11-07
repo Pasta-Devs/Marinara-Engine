@@ -814,3 +814,21 @@ Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `medi
 | a voice server on your computer or private network | 你的电脑或私有网络上的 PocketTTS 或其他语音服务器 | The place covers both servers. 私有网络 as in `REMOTE_ACCESS.md`; voice server is 语音服务器, as in the PocketTTS bullet. **On this device** keeps its existing gloss (在你的电脑上). |
 
 **Add Character** and **Chat Settings** stay bare in the new rows; both are glossed earlier in `chats/group-chats.md`. These are translation choices, not a new native-reader review.
+
+## Notices DNS and Capability API 1.817 (2026-11-07, #8954)
+
+Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section in `development/optional-agent-packages.md`, against Engine `dd85f7b40d`:
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| hosts file | hosts 文件 | Coined. `hosts` stays Latin with §4.4 spaces; `TROUBLESHOOTING.md` writes the path as `/etc/hosts`. |
+| DNS servers / asks the DNS servers directly | DNS 服务器 / 直接向 DNS 服务器查询 | Coined. The table row's "Its host must be in the hosts file or DNS" is 该 URL 的主机必须能在 hosts 文件或 DNS 中找到 (主机 as in the `MARINARA_SHARED_GPU_HOSTS` row). |
+| short names without a domain other than `localhost` | 除 `localhost` 外不带域名的单段名称 | 单段 follows the `TRUSTED_HOSTS` row (单段局域网名称) and `REMOTE_ACCESS.md` (单段机器名). Local network is 本地网络. |
+| the DNS servers are the ones in `$PREFIX/etc/resolv.conf` … unless you edit that file | DNS 服务器就是 `$PREFIX/etc/resolv.conf` 里列出的那些：除非你修改这个文件，否则就是 Google 的 … | Path and addresses byte-exact (§2.5). |
+| outbound proxy (inline link to `#outbound-http-proxy`) | 出站代理 | The heading 出站 HTTP 代理 without HTTP; 代理 is the §3 network-proxy term. |
+| Capability API 1.817 (heading) | `### Capability API 1.817：告诉包某个聊天已创建分支` | Sits under `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`, like the 1.814 to 1.816 headings (full-width ：, §4.8.2). |
+| a chat is branched / branch route | 聊天创建分支 / 分支路由 | 分支 as in the file's 1.7 section. Snapshots are 快照, metadata 元数据. |
+| awaits it once | 调用它一次并等待它完成 | After 等待 `ensureMarinaraHost()` 完成 in the same file. |
+| logged and ignored / soft seam | 记录日志后忽略 / 软接口 | After the file's 记录日志后丢弃 and the 软接口 of its 1.12, 1.13 and 1.816 sections. |
+
+These are translation choices, not a new native-reader review.
