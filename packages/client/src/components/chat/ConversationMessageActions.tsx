@@ -15,7 +15,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useOverhaulActive, useOverhaulMobile } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvMobileMessageSheet } from "../overhaul/MobileMessageSheet";
 import { FooterPopover, closeAfterAction } from "../overhaul/RpMessageFooter";
 import { ReplyToMessageButton } from "./MessageReplyPreview";
@@ -142,7 +142,7 @@ export function ConversationMessageActions({
   });
   const visible = showActions || forceShowActions || messageFocused;
   const overhaulActive = useOverhaulActive();
-  const overhaulMobile = useOverhaulMobile();
+  const overhaulMobile = useOverhaulTouchMessages();
   const [marksOpen, setMarksOpen] = useState(false);
   const [moreAnchor, setMoreAnchor] = useState<null | { left: number; top: number; bottom: number; right: number }>(
     null,

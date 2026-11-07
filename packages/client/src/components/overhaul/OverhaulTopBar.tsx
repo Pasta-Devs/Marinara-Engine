@@ -452,23 +452,28 @@ function useWindowFullscreen() {
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
     const media = window.matchMedia("(display-mode: fullscreen)");
+    // Touch screens (tablets in landscape) have no pointer to bring the bar back, so it never hides there.
+    const touch = window.matchMedia("(hover: none)");
     const check = () =>
       setFullscreen(
-        Boolean(document.fullscreenElement) ||
-          media.matches ||
-          // Browser fullscreen (F11): no toolbars, so the page is the whole window and the whole screen.
-          (Math.abs(window.outerHeight - window.innerHeight) <= 1 &&
-            Math.abs(window.outerWidth - window.innerWidth) <= 1 &&
-            window.innerHeight >= window.screen.height - 1),
+        !touch.matches &&
+          (Boolean(document.fullscreenElement) ||
+            media.matches ||
+            // Browser fullscreen (F11): no toolbars, so the page is the whole window and the whole screen.
+            (Math.abs(window.outerHeight - window.innerHeight) <= 1 &&
+              Math.abs(window.outerWidth - window.innerWidth) <= 1 &&
+              window.innerHeight >= window.screen.height - 1)),
       );
     check();
     window.addEventListener("resize", check);
     document.addEventListener("fullscreenchange", check);
     media.addEventListener("change", check);
+    touch.addEventListener("change", check);
     return () => {
       window.removeEventListener("resize", check);
       document.removeEventListener("fullscreenchange", check);
       media.removeEventListener("change", check);
+      touch.removeEventListener("change", check);
     };
   }, []);
   return fullscreen;
