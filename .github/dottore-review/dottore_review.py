@@ -15,6 +15,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -1658,8 +1659,23 @@ def claude_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
         request["output_config"] = {"effort": settings["effort"]}
     try:
         with ctx.clients[settings["slot"]].messages.stream(**request) as stream:
-            for _ in watched(stream, started, timing, stream_limit, getattr(ctx, "readiness", None)):
-                pass
+            opened, early = False, []
+            for event in watched(stream, started, timing, stream_limit, getattr(ctx, "readiness", None)):
+                opened = opened or getattr(event, "type", None) == "message_start"
+                if not opened:
+                    # The SDK passes on, unparsed, any event before message_start, such as an error under another name.
+                    kind, error = getattr(event, "type", None), getattr(event, "error", None)
+                    error = error.get("message") if isinstance(error, dict) else getattr(error, "message", None)
+                    early.append(f"{kind} ({error})" if error else str(kind))
+            if not opened:
+                # A gateway's 200 stream can end before message_start, on which the SDK's get_final_message fails a
+                # bare assert: #8844's review failed as "AssertionError: " (#8918). It is resent like a stall, and the
+                # error keeps what the gateway sent instead, since a JSON error body streams no events at all.
+                headers = stream.response.headers
+                raise StreamStalled(
+                    f"the reply stream ended before Claude started (content-type {headers.get('content-type')}, "
+                    f"request-id {headers.get('request-id')}, events before message_start: {', '.join(early) or 'none'})"
+                )
             reply = stream.get_final_message()
     except (httpx2.TimeoutException, httpx2.TransportError) as exc:
         raise StreamStalled(error_text(exc)) from exc
@@ -4046,12 +4062,20 @@ def write_skipped_review(title, body, *, status="unknown", metadata=None):
 
 def error_text(exc):
     message = " ".join(str(exc).split())
+    if not message and exc.__traceback__:
+        # A bare assert in a dependency says nothing (#8918), so name where it was raised: an installed package's file
+        # from its package directory, any other by its name.
+        frame = traceback.extract_tb(exc.__traceback__)[-1]
+        where = re.sub(r"^.*-packages/|^.*/", "", frame.filename.replace("\\", "/"))
+        message = f"raised at {where}:{frame.lineno} in {frame.name}"
     if len(message) > 500:
         message = message[:497] + "..."
     return f"{type(exc).__name__}: {message}"
 
 
 def model_failure_detail(exc):
+    """The failed review's one-line summary. The run log gets the whole traceback, which the summary has no room for."""
+    traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stdout)
     # Provider errors, a bad DOTTORE_<SLOT>_API value and an agent that never submits all land here.
     return f"Dottore Review could not complete: {error_text(exc)}"
 
