@@ -3,7 +3,12 @@
 // ──────────────────────────────────────────────
 // GET /api/notices — notices that match this version, for the owner only.
 // The file is remote content: validate it strictly and keep it plain text.
+import { Resolver } from "node:dns/promises";
+import { readFileSync } from "node:fs";
+import { isIP } from "node:net";
+import { join } from "node:path";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { Dispatcher1Wrapper } from "undici";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import { isMarinaraNoticesEnabled } from "../config/runtime-config.js";
@@ -12,6 +17,7 @@ import { getRequestAccess } from "../middleware/ip-allowlist.js";
 import { isBasicAuthSatisfied } from "../middleware/basic-auth.js";
 import { compareVersions } from "./updates.routes.js";
 import { MARINARA_NOTICES_RATE_LIMIT } from "../middleware/rate-limit.js";
+import { createDispatcher } from "../utils/security.js";
 
 const DEFAULT_NOTICES_URL = "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/notices/notices.json";
 const REFRESH_MS = 60 * 60_000;
@@ -19,6 +25,10 @@ const FETCH_TIMEOUT_MS = 10_000;
 const MAX_FILE_CHARS = 64_000;
 const MAX_NOTICES = 20;
 const DAY_MS = 86_400_000;
+const HOSTS_FILE =
+  process.platform === "win32"
+    ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "drivers", "etc", "hosts")
+    : "/etc/hosts";
 
 export interface MarinaraNotice {
   id: string;
@@ -89,6 +99,57 @@ async function readCapped(res: Response) {
   return body + decoder.decode();
 }
 
+/** The hosts file's addresses for a lowercase `hostname`, which getaddrinfo answers before DNS. */
+export function hostsFileAddresses(hostsFile: string, hostname: string) {
+  return hostsFile.split("\n").flatMap((line) => {
+    const [address = "", ...names] = line.replace(/#.*/, "").trim().split(/\s+/);
+    const family = isIP(address);
+    return family && names.some((name) => name.toLowerCase() === hostname) ? [{ address, family }] : [];
+  });
+}
+
+/**
+ * Looks the notices host up without getaddrinfo (#8948). getaddrinfo runs on the libuv threadpool and process.exit()
+ * waits for it, so a stalled system resolver held Restart Server and shutdown for up to ~30 s. c-ares (dns.resolve*)
+ * queries run on the event loop, and exit drops them. They skip the hosts file, so it is read first, as getaddrinfo
+ * does: a hosts entry for raw.githubusercontent.com (a common workaround where its DNS is blocked) or Docker's
+ * extra_hosts still applies.
+ *
+ * ponytail: c-ares asks only the DNS servers in the resolver config (on Termux, $PREFIX/etc/resolv.conf: 8.8.8.8 by
+ * default) and knows no mDNS `.local` names, search domains or NetBIOS. When it cannot answer, that refresh fails with
+ * a warning and the last notices stay; it never falls back to getaddrinfo. Upgrade path: retry with getaddrinfo in a
+ * child process, which process.exit() does not wait for.
+ */
+async function resolveNoticesHost(resolver: Resolver, hostname: string, family: number) {
+  const name = hostname.replace(/\.$/, "").toLowerCase();
+  const wanted = (record: { family: number }) => !family || record.family === family;
+  // `localhost` is this machine (RFC 6761); Windows answers it without a hosts entry.
+  if (name === "localhost") {
+    return [
+      { address: "127.0.0.1", family: 4 },
+      { address: "::1", family: 6 },
+    ].filter(wanted);
+  }
+  let hostsFile = "";
+  try {
+    hostsFile = readFileSync(HOSTS_FILE, "utf8");
+  } catch {
+    // No readable hosts file: DNS only.
+  }
+  const listed = hostsFileAddresses(hostsFile, name).filter(wanted);
+  if (listed.length) return listed;
+  // Both families, IPv4 first: Node's connect tries the other family too, so IPv6-only (NAT64) networks still connect.
+  const answers = await Promise.allSettled([
+    family === 6 ? [] : resolver.resolve4(name),
+    family === 4 ? [] : resolver.resolve6(name),
+  ]);
+  const addresses = answers.flatMap((answer, index) =>
+    answer.status === "fulfilled" ? answer.value.map((address) => ({ address, family: index ? 6 : 4 })) : [],
+  );
+  if (addresses.length) return addresses;
+  throw answers.find((answer) => answer.status === "rejected")?.reason ?? new Error(`${name} has no addresses`);
+}
+
 /** Drops every notice that is malformed, expired, or for another version. */
 export function parseMarinaraNotices(raw: unknown, version: string, now = Date.now()): MarinaraNotice[] {
   if (!Array.isArray(raw) || raw.length > MAX_NOTICES) return [];
@@ -125,8 +186,27 @@ export async function noticesRoutes(app: FastifyInstance) {
   const refresh = async () => {
     if (!isMarinaraNoticesEnabled()) return;
     const url = process.env.MARINARA_NOTICES_URL?.trim() || DEFAULT_NOTICES_URL;
+    const resolver = new Resolver();
+    // An env proxy looks the notices host up itself; only NO_PROXY and direct requests use this lookup.
+    const dispatcher = createDispatcher(URL.parse(url)?.hostname ?? "", {
+      connect: {
+        lookup(hostname, options, callback) {
+          const family = options.family === 4 || options.family === 6 ? options.family : 0;
+          resolveNoticesHost(resolver, hostname, family).then(
+            (addresses) =>
+              options.all ? callback(null, addresses) : callback(null, addresses[0]!.address, addresses[0]!.family),
+            (err: NodeJS.ErrnoException) => callback(err, "", 4),
+          );
+        },
+      },
+    });
     try {
-      const res = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      const res = await fetch(url, {
+        redirect: "error",
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        // Node's bundled fetch still uses legacy handlers (see safeFetch).
+        dispatcher: new Dispatcher1Wrapper(dispatcher),
+      } as unknown as RequestInit);
       if (res.status === 404) {
         cached = [];
         logger.debug("[notices] No notices file at %s", url);
@@ -137,6 +217,9 @@ export async function noticesRoutes(app: FastifyInstance) {
     } catch (err) {
       // Keep the last good file; a failed fetch never blocks startup.
       logger.warn(err, "[notices] Could not fetch Marinara notices");
+    } finally {
+      resolver.cancel();
+      void dispatcher.destroy().catch(() => undefined);
     }
   };
 
