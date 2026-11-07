@@ -84,6 +84,7 @@ export function ModelRow({
   tooltip,
   wrapTitle = false,
   subtitle,
+  routeId,
   kind,
   roles = [],
   roleSlots = 2,
@@ -116,6 +117,8 @@ export function ModelRow({
     /** Wraps a long name onto a second line instead of cutting it off (job names). */
     wrapTitle?: boolean;
     subtitle?: string | null;
+    /** Full proxy route, below the connection details; wraps so variants stay readable on phones. */
+    routeId?: string | null;
     /** Chat shows no pill. */
     kind?: ModelKind | null;
     /** Localized role labels; the first shows, the rest fold into "+N". */
@@ -276,6 +279,14 @@ export function ModelRow({
                   <RetiringHint deprecated={retiring.deprecated} retiresAt={retiring.retiresAt} />
                 </span>
               )}
+            </span>
+          )}
+          {routeId && (
+            <span
+              data-model-route
+              className="mt-0.5 block text-xs leading-[1.125rem] text-muted-foreground [overflow-wrap:anywhere]"
+            >
+              {routeId}
             </span>
           )}
           {badgesBelow && (badge || costShown) && (

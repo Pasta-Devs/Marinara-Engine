@@ -301,6 +301,29 @@ test("quick picker lists scroll in chat and Professor Mari", async ({ page, requ
   }
 });
 
+test("provider model rows retain upstream routing details", async ({ page, request }, testInfo) => {
+  const { provider, main, cleanup } = await setup(page, request, testInfo, "dark");
+  provider.state.catalog.push({ id: "nanogpt/vendor/routed", name: "Routed model" });
+  try {
+    const account = (await connectionRow(request, main.id))!.accountId as string;
+    await page.goto("/");
+    await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
+    const picker = await openModels(page, testInfo, account);
+    const routed = modelRow(picker, "all", "nanogpt/vendor/routed");
+    await expect(routed).toContainText("via NanoGPT");
+    await expect(routed).toHaveAccessibleName(/via NanoGPT/);
+    await expect(routed.locator("[data-model-route]")).toHaveText("nanogpt/vendor/routed");
+    await expect(routed).toHaveAccessibleName(/nanogpt\/vendor\/routed/);
+    await expect(modelRow(picker, "all", "vendor/alpha").locator("[data-model-route]")).toHaveCount(0);
+    await expect(modelRow(picker, "all", "vendor/alpha")).not.toContainText("via ");
+    await routed.scrollIntoViewIfNeeded();
+    await expectNoHorizontalScroll(page);
+    await capture(page, testInfo, "provider-upstream-details");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("the Connections menu lists, stars, picks, refreshes and types models without refetching (#7098)", async ({
   page,
   request,
