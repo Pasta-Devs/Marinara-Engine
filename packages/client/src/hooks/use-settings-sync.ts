@@ -48,6 +48,13 @@ import {
   pickSyncedSettings,
   useUIStore,
 } from "../stores/ui.store";
+import {
+  DEVICE_LOOK_KEYS,
+  SETTINGS_PUSH_NOW_EVENT,
+  pickLook,
+  useDeviceLookStore,
+  withSharedLook,
+} from "../stores/device-look.store";
 
 const SETTINGS_KEY = "ui";
 const SETTINGS_PATH = `/app-settings/${SETTINGS_KEY}`;
@@ -70,6 +77,11 @@ const LOCAL_ONLY_SETTING_KEYS = [
   "activeImpersonatePromptTemplateId",
   // The New Game wizard's goals and preferences belong to the browser they were typed in.
   "rememberedGameSetupText",
+  // Whether the chat list is open, and the side panes' widths, belong to the screen they were set on:
+  // closing the chat list on a phone must not close it on the PC.
+  "sidebarOpen",
+  "sidebarWidth",
+  "rightPanelWidth",
 ] as const;
 
 export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings {
@@ -133,6 +145,11 @@ function hasLocalPersistedUiState(): boolean {
   return window.localStorage.getItem(LOCAL_SETTINGS_KEY) !== null;
 }
 
+/** What this device sends: the synced settings, with the shared look kept in place while the device has its own. */
+function syncedPayload(state = useUIStore.getState()): SyncedSettingsObject {
+  return withSharedLook(pickSyncedSettings(state));
+}
+
 function serializeSettings(settings: SyncedSettingsObject): string {
   return JSON.stringify(settings);
 }
@@ -176,12 +193,12 @@ export function useSettingsSync() {
     let lastPushed = "";
     let pendingUpdatedAt: number | null = null;
 
-    const serialize = () => serializeSettings(pickSyncedSettings(useUIStore.getState()));
+    const serialize = () => serializeSettings(syncedPayload());
 
     const pushNow = () => {
       pushTimer = null;
       if (disposed) return;
-      const settings = pickSyncedSettings(useUIStore.getState());
+      const settings = syncedPayload();
       const settingsFingerprint = serializeSettings(settings);
       if (settingsFingerprint === lastPushed) return;
       const updatedAt = pendingUpdatedAt ?? readLocalUpdatedAt() ?? Date.now();
@@ -210,8 +227,8 @@ export function useSettingsSync() {
 
     const unsubscribe = useUIStore.subscribe((state, prev) => {
       if (!ready || disposed) return;
-      const current = serializeSettings(pickSyncedSettings(state));
-      const previous = serializeSettings(pickSyncedSettings(prev));
+      const current = serializeSettings(syncedPayload(state));
+      const previous = serializeSettings(syncedPayload(prev));
       if (current !== previous) {
         pendingUpdatedAt = Date.now();
         writeLocalUpdatedAt(pendingUpdatedAt);
@@ -224,8 +241,16 @@ export function useSettingsSync() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") flushNow();
     };
+    // "Use this look on every device": send now, with a fresh timestamp so other devices take it.
+    const handlePushNow = () => {
+      if (!ready || disposed) return;
+      pendingUpdatedAt = Date.now();
+      lastPushed = "";
+      pushNow();
+    };
     window.addEventListener("beforeunload", handleBeforeUnload);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener(SETTINGS_PUSH_NOW_EVENT, handlePushNow);
 
     void (async () => {
       try {
@@ -245,6 +270,11 @@ export function useSettingsSync() {
               const hadLocalOnlySettings = LOCAL_ONLY_SETTING_KEYS.some((key) => key in parsed.settings);
               const hadMissingSyncedSettings = hasMissingSyncedSettings(parsed.settings, Object.keys(localSettings));
               parsed.settings = omitLocalOnlySettings(parsed.settings);
+              // A device with its own look remembers the shared one and keeps its own values.
+              if (useDeviceLookStore.getState().enabled) {
+                useDeviceLookStore.getState().setSharedLook(pickLook(parsed.settings));
+                for (const key of DEVICE_LOOK_KEYS) delete parsed.settings[key];
+              }
 
               // Migrate old flat gradient fields → per-scheme nested (v10 → v11).
               if ("convoGradientFrom" in parsed.settings || "convoGradientTo" in parsed.settings) {
@@ -401,9 +431,7 @@ export function useSettingsSync() {
                 lastPushed = serialize();
                 const rewriteUpdatedAt = Date.now();
                 try {
-                  await putServerSettingsValue(
-                    buildServerSettingsValue(pickSyncedSettings(useUIStore.getState()), rewriteUpdatedAt),
-                  );
+                  await putServerSettingsValue(buildServerSettingsValue(syncedPayload(), rewriteUpdatedAt));
                   writeLocalUpdatedAt(rewriteUpdatedAt);
                 } catch {
                   // Best-effort recovery. The in-memory merge still protects
@@ -425,9 +453,7 @@ export function useSettingsSync() {
                   try {
                     const rewriteUpdatedAt =
                       hadMissingSyncedSettings || staleSyncedShape ? Date.now() : (serverUpdatedAt ?? Date.now());
-                    await putServerSettingsValue(
-                      buildServerSettingsValue(pickSyncedSettings(useUIStore.getState()), rewriteUpdatedAt),
-                    );
+                    await putServerSettingsValue(buildServerSettingsValue(syncedPayload(), rewriteUpdatedAt));
                     writeLocalUpdatedAt(rewriteUpdatedAt);
                   } catch {
                     // Rewriting legacy/incomplete blobs is best-effort. This
@@ -444,7 +470,7 @@ export function useSettingsSync() {
         } else {
           // Server has no settings yet — seed it with whatever is in the local
           // store (either defaults or previously-localStorage-persisted values).
-          const settings = pickSyncedSettings(useUIStore.getState());
+          const settings = syncedPayload();
           const updatedAt = localUpdatedAt ?? Date.now();
           writeLocalUpdatedAt(updatedAt);
           const payload = serializeSettings(settings);
@@ -472,6 +498,7 @@ export function useSettingsSync() {
       unsubscribe();
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener(SETTINGS_PUSH_NOW_EVENT, handlePushNow);
     };
   }, []);
 }
