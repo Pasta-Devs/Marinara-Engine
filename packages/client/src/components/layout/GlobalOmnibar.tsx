@@ -787,12 +787,18 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
               ...lorebookEntryResults,
               ...mariChatResults,
               // UX-13: the Chat Settings rows for Max output tokens and Memory Recall, when the typed text names them.
-              ...contextResults.filter(
-                (result) =>
-                  result.action?.kind === "open-chat-tool" &&
-                  (result.action.tool === "advanced-parameters" || result.action.tool === "memory-recall") &&
-                  result.title.toLowerCase().includes(deferredQuery.trim().toLowerCase()),
-              ),
+              // Their other names count too ("temperature", "peek"), so a typed sampler name lands on the
+              // chat's own parameters before a lookalike setting elsewhere (user panel 2).
+              ...contextResults.filter((result) => {
+                if (result.action?.kind !== "open-chat-tool") return false;
+                const tool = result.action.tool;
+                if (tool !== "advanced-parameters" && tool !== "memory-recall" && tool !== "peek-prompt") return false;
+                const typed = deferredQuery.trim().toLowerCase();
+                return [result.title, ...(result.aliases ?? [])].some(
+                  (name) =>
+                    name.toLowerCase().includes(typed) || (typed.length >= 4 && typed.includes(name.toLowerCase())),
+                );
+              }),
               // An explicit "Add X to this chat" row replaces the plain entity row
               // for the same thing: showing both lists every character twice, and
               // the plain one reads like "open" while doing the same attach.
@@ -1371,6 +1377,18 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         onClose();
       }
       return;
+    }
+    // A preset row's switch makes it the default; picking the row itself opens it, like a character
+    // or a lorebook (user panel 2, N8: Enter and click did nothing).
+    if (result.category === "preset") {
+      const presetId = getOmnibarResourceId(result);
+      if (presetId) {
+        if (!confirmLeaveEditor()) return;
+        ui().openPresetDetail(presetId);
+        recordUse(result.id);
+        onClose();
+        return;
+      }
     }
     if (result.control) return;
     if (runDirectChatAction(result)) return;

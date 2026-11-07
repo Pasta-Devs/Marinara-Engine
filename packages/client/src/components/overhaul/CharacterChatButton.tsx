@@ -6,8 +6,8 @@
 // chats, with "New chat…" (the mode picker) underneath; with no chats yet it
 // goes straight to the mode picker. Either way you land in the chat.
 // ──────────────────────────────────────────────
-import { useMemo, useState } from "react";
-import { MessageCircle, Plus } from "lucide-react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { BookOpen, Gamepad2, MessageCircle, Plus } from "lucide-react";
 import { useChats } from "../../hooks/use-chats";
 import { isUnfinishedSetup } from "../../hooks/use-setup-drafts";
 import { getChatDisplayName } from "../../lib/chat-display";
@@ -45,8 +45,30 @@ export function CharacterChatButton({ characterId, characterName }: { characterI
     if (isOverhaulMobile()) ui.closeRightPanel();
   };
 
+  // The menu hangs under the button, right-aligned, and flips above it when there's no room below
+  // (user panel 2, N5: it opened 600px away on desktop and below the screen on a tablet held upright).
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const menu = wrapRef.current?.querySelector<HTMLElement>(".ov-rail__chats");
+    if (!menu) return;
+    menu.style.top = "";
+    menu.style.bottom = "";
+    menu.style.left = "";
+    menu.style.right = "0";
+    const rect = menu.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight - 8) {
+      menu.style.top = "auto";
+      menu.style.bottom = "calc(100% + 0.25rem)";
+    }
+    if (rect.left < 8) {
+      menu.style.right = "auto";
+      menu.style.left = "0";
+    }
+  }, [open]);
+
   return (
-    <>
+    <span ref={wrapRef} className="ov-chatbtn-wrap">
       <button
         type="button"
         className="ov-btn ov-btn--accent"
@@ -67,9 +89,22 @@ export function CharacterChatButton({ characterId, characterName }: { characterI
       >
         {recent.map((chat) => {
           const name = getChatDisplayName(chat);
+          // Each chat shows its mode, so a game doesn't look like a roleplay.
+          const ModeIcon = chat.mode === "game" ? Gamepad2 : chat.mode === "conversation" ? MessageCircle : BookOpen;
+          const modeLabel = localize(
+            chat.mode === "game" ? "Game" : chat.mode === "conversation" ? "Conversation" : "Roleplay",
+          );
           return (
-            <button key={chat.id} type="button" role="menuitem" title={name} onClick={() => openChat(chat.id)}>
-              <MessageCircle size="1rem" />
+            <button
+              key={chat.id}
+              type="button"
+              role="menuitem"
+              title={name}
+              aria-label={name}
+              aria-description={modeLabel}
+              onClick={() => openChat(chat.id)}
+            >
+              <ModeIcon size="1rem" />
             </button>
           );
         })}
@@ -77,6 +112,6 @@ export function CharacterChatButton({ characterId, characterName }: { characterI
           <Plus size="1rem" />
         </button>
       </RailMoreMenu>
-    </>
+    </span>
   );
 }

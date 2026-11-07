@@ -1521,7 +1521,14 @@ export function buildOmnibarContextResults({
     // UX-13: settings that live inside Chat Settings are findable by their own names.
     if (activeChat.mode !== "game") {
       push(
-        chatTool("advanced-parameters", t("commandCenter.chatTools.maxOutputTokens", "Max output tokens"), "command"),
+        chatTool("advanced-parameters", t("commandCenter.chatTools.maxOutputTokens", "Max output tokens"), "command", [
+          "max tokens",
+          "temperature",
+          "top p",
+          "top k",
+          "sampler",
+          "generation parameters",
+        ]),
       );
       push(chatTool("memory-recall", t("commandCenter.chatTools.memoryRecall", "Memory Recall"), "command"));
     }

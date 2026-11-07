@@ -3490,7 +3490,23 @@ export function LorebookEditor() {
                                       ? localizeUi("ui.lorebooks.lorebookeditor.keywordTest")
                                       : (entries.find((entry) => entry.id === expandedEntryId)?.name ?? "")}
                               </span>
-                              <span aria-hidden="true" />
+                              {/* The book header (with Save) scrolls away; this header stays, so Save comes along. */}
+                              {editorDirty ? (
+                                <button
+                                  type="button"
+                                  className="ov-savebtn is-dirty ovm-lv-head__save"
+                                  disabled={saving || savingEntries}
+                                  onClick={() =>
+                                    void Promise.resolve()
+                                      .then(handleSaveAll)
+                                      .catch(() => undefined)
+                                  }
+                                >
+                                  {localizeUi("ui.noodle.noodlehome.save")}
+                                </button>
+                              ) : (
+                                <span aria-hidden="true" />
+                              )}
                             </div>
                           ) : null}
                           {ovPanel === "book" ? overhaulBookSettings : null}

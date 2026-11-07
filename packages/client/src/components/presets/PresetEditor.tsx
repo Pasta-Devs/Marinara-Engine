@@ -84,7 +84,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
-import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulMobile, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvEditorHead, OvSaveButton } from "../overhaul/EditorChrome";
 import { openConnectionsPage } from "../overhaul/library-navigation";
 import { OvSeg } from "../overhaul/LoreEntryParts";
@@ -2062,7 +2062,10 @@ function SectionsTab({
   const masterDetail = detailTarget !== undefined;
   // New layout on phones and tablets: reordering, Duplicate and Delete wait behind Edit, so a stray tap
   // never moves or copies a section. Drag a row from anywhere while editing.
-  const touchLayout = useOverhaulMobile() && !masterDetail;
+  // A tablet held sideways (desktop layout, touch screen) gets the same guard in the list-and-detail view
+  // (user panel 2, N17: its eye toggles sat flush against every row, and nothing reordered by touch).
+  const touchScreenLayout = useOverhaulTouchMessages();
+  const touchLayout = (useOverhaulMobile() && !masterDetail) || (touchScreenLayout && masterDetail);
   const [touchEditing, setTouchEditing] = useState(false);
   const showRowTools = !touchLayout || touchEditing;
   const toggleExpanded = (id: string) => {
@@ -2716,7 +2719,7 @@ function SectionsTab({
                         <ChevronRight size="0.875rem" className="text-[var(--muted-foreground)]" />
                       )}
                     </button>
-                    {masterDetail ? enableButton : null}
+                    {masterDetail && (!touchLayout || touchEditing) ? enableButton : null}
                     {/* Every entry is System unless said otherwise, so the master-detail list only marks the others. */}
                     {!masterDetail || role !== "system" ? (
                       <RoleIcon size="0.875rem" className={cn("shrink-0", ROLE_COLORS[role])} />

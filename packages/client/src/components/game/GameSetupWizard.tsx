@@ -1610,7 +1610,7 @@ export function GameSetupWizard({
   useEffect(() => {
     if (!isNewGame || setupDraftRestoredRef.current || !setupImportResourcesReady) return;
     setupDraftRestoredRef.current = true;
-    let stored: { step?: number; gameName?: string; file?: unknown } | null = null;
+    let stored: { step?: number; gameName?: string; file?: unknown } | null;
     try {
       stored = JSON.parse(localStorage.getItem(setupDraftKey) ?? "null");
     } catch {

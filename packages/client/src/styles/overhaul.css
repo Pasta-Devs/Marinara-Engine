@@ -9944,13 +9944,14 @@ input.ov-edhead__title:not(#ov-x) {
   box-shadow: none;
 }
 
-/* Desktop: the header is one line; a long name gives way (ellipsis) before the buttons wrap. */
+/* Desktop: the header is one line while it fits. A long name shrinks to about 18rem, then the
+   buttons wrap to a second line instead of the name being cut to a few letters (panel 2, N16). */
 :root[data-overhaul="on"] .ov-edhead__row {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 :root[data-overhaul="on"] .ov-edhead__title {
   flex: 0 1 auto;
-  min-width: 4rem;
+  min-width: min(100%, 18rem);
 }
 :root[data-overhaul="on"] .ov-edhead__actions {
   flex: none;
@@ -10082,7 +10083,8 @@ input.ov-edhead__title:not(#ov-x) {
   color: var(--foreground);
 }
 :root[data-overhaul] .ov-rpmsg__head :is(.text-white\/30, .text-white\/25) {
-  color: var(--ov-dim);
+  /* --ov-dim measured about 4.1:1 on light skins; the muted tone clears 4.5:1 (panel 2). */
+  color: var(--ov-muted);
 }
 
 /* Native dropdowns in the game wizard and Chat settings look like the custom pickers beside them (panel M10). */
@@ -10172,4 +10174,126 @@ input.ov-edhead__title:not(#ov-x) {
   [data-component="MessageDeleteActions"]
   > button.mari-chat-style-control.mari-chrome-control[data-tone="destructive"] {
   border-color: color-mix(in srgb, var(--destructive) 40%, var(--border));
+}
+
+/* ─── Touch screens in the desktop layout (tablets held sideways), user panel 2 ───
+   overhaul-mobile.css only loads for the phone shell, so a tablet that starts sideways never got the
+   touch pass: hidden hover buttons took taps and small controls had no hit area. Same rules, keyed on
+   the input instead of the shell. */
+@media (hover: none) and (pointer: coarse) {
+  :root[data-overhaul="on"] .ov-card__chat,
+  :root[data-overhaul="on"] [data-chat-row-delete] {
+    display: none !important;
+  }
+  :root[data-overhaul="on"]
+    .opacity-0:is([class*="group-hover:opacity-100"], [class*="hover:opacity-100"]):not(
+      [class*="max-md:opacity-100"],
+      [class*="coarse)]:opacity-100"]
+    ) {
+    pointer-events: none;
+  }
+  :root[data-overhaul="on"] .ov-switch {
+    position: relative;
+  }
+  :root[data-overhaul="on"] .ov-switch::after {
+    content: "";
+    position: absolute;
+    inset: -0.75rem -0.5rem;
+  }
+  :root[data-overhaul="on"] :is(.ov-lv, .ov-ed, .ov-gallery, .ov-edpage) span > button:has(> svg:only-child) {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+  }
+  :root[data-overhaul="on"] :is(.ov-lv, .ov-ed, .ov-gallery, .ov-edpage) span > button:has(> svg:only-child)::after {
+    content: "";
+    position: absolute;
+    inset: -0.625rem;
+  }
+  :root[data-overhaul="on"]
+    :is(
+      button[aria-label="Preview Markdown"],
+      button[aria-label="Expand editor"],
+      button[aria-label="Macro reference"]
+    ) {
+    position: relative;
+  }
+  :root[data-overhaul="on"]
+    :is(
+      button[aria-label="Preview Markdown"],
+      button[aria-label="Expand editor"],
+      button[aria-label="Macro reference"]
+    )::after {
+    content: "";
+    position: absolute;
+    inset: -0.4375rem -0.125rem;
+  }
+  :root[data-overhaul="on"] .mari-chat-input-box button:has(> svg) {
+    position: relative;
+  }
+  :root[data-overhaul="on"] .mari-chat-input-box button:has(> svg)::after {
+    content: "";
+    position: absolute;
+    inset: -0.25rem;
+  }
+  /* Tab close buttons and help icons: same size, a finger-sized hit area. */
+  :root[data-overhaul="on"] :is(.ov-tab__close, .ov-help) {
+    position: relative;
+  }
+  :root[data-overhaul="on"] :is(.ov-tab__close, .ov-help)::after {
+    content: "";
+    position: absolute;
+    inset: -0.5rem;
+  }
+}
+
+/* ─── Tablet held sideways (desktop layout on a touch screen) ─── */
+/* Long-press on a message: the action sheet becomes a menu beside the finger. */
+.ovm-sheet.is-popover:not(#ovm-x) {
+  --ovm-raised: var(--ov-panel-raised, color-mix(in srgb, var(--foreground) 6%, var(--background)));
+  --ov-line: color-mix(in srgb, var(--foreground) 12%, transparent);
+  right: auto;
+  bottom: auto;
+  width: 21rem;
+  max-height: min(36rem, calc(100dvh - 1.5rem));
+  padding: 0.5rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 1rem;
+  box-shadow: 0 1.125rem 2.5rem rgb(0 0 0 / 0.45);
+  transform: none;
+  animation: none;
+  zoom: 0.86;
+}
+.ovm-sheet-scrim:has(+ .ovm-sheet.is-popover) {
+  background: rgb(0 0 0 / 0.25);
+  backdrop-filter: none;
+}
+:root[data-overhaul="on"] [data-ovm-longpress] {
+  -webkit-touch-callout: none;
+}
+@media (hover: none) {
+  /* Holding a tab opens its menu, so iOS should not show its own link callout. */
+  :root[data-overhaul="on"] :is(.ov-tab, .ov-tabgroup) {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+}
+
+/* The character page's Chat menu hangs under its own button (CharacterChatButton places it). */
+.ov-chatbtn-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.ov-chatbtn-wrap > .ov-rail__chats {
+  left: auto;
+  right: 0;
+  max-width: min(20rem, calc(100vw - 1rem));
+}
+
+/* Settings action buttons ("Open", "Manage"...) read as buttons: full text colour, not the dimmed pink link tint
+   that measured 2.85:1 (panel 2). */
+:root[data-overhaul="on"]
+  [data-ov-settings-sections]
+  .mari-chrome-control:not(.mari-chrome-control--primary):not(.mari-chrome-control--selected):not([role="switch"]) {
+  color: var(--ov-text);
 }
