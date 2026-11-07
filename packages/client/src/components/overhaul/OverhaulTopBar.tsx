@@ -354,6 +354,51 @@ function AppTabIcon({ id }: { id: string }) {
   );
 }
 
+/** The picture of what a tab shows (avatar, lorebook or preset image); null falls back to its icon. */
+function pictureOf(value: unknown): string | null {
+  const item = value as { avatarPath?: unknown; imagePath?: unknown; preset?: { imagePath?: unknown } } | undefined;
+  const src = item?.avatarPath ?? item?.imagePath ?? item?.preset?.imagePath;
+  return typeof src === "string" && src ? src : null;
+}
+
+export function useTabPicture(tab: OverhaulTab | null, chats: Chat[]): string | null {
+  const chat = tab?.kind === "chat" ? chats.find((entry) => entry.id === tab.id) : undefined;
+  // A chat shows its (first) character.
+  const characterId = tab?.kind === "character" ? tab.id : (chat?.characterIds?.[0] ?? null);
+  const character = useCharacter(characterId);
+  const persona = usePersona(tab?.kind === "persona" ? tab.id : null);
+  const lorebook = useLorebook(tab?.kind === "lorebook" ? tab.id : null);
+  const preset = usePresetFull(tab?.kind === "preset" ? tab.id : null);
+  if (!tab) return null;
+  if (tab.kind === "character" || tab.kind === "chat") return pictureOf(character.data);
+  if (tab.kind === "persona") return pictureOf(persona.data);
+  if (tab.kind === "lorebook") return pictureOf(lorebook.data);
+  if (tab.kind === "preset") return pictureOf(preset.data);
+  return null;
+}
+
+/**
+ * A tab's picture (character, persona, lorebook or preset image; a chat shows its character, ringed in its
+ * mode's colour), falling back to its icon. Used by the desktop tab strip and the phone's All Tabs cards.
+ */
+export function TabPicture({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
+  const picture = useTabPicture(tab, chats);
+  const [failed, setFailed] = useState<string | null>(null);
+  if (!picture || failed === picture) return <TabIcon tab={tab} chats={chats} />;
+  const mode = tab.kind === "chat" ? (chats.find((chat) => chat.id === tab.id)?.mode ?? "roleplay") : null;
+  return (
+    <img
+      className="ov-tab__pic"
+      src={picture}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      style={mode ? { boxShadow: `0 0 0 1.5px ${MODE_DOT[mode] ?? MODE_DOT.roleplay}` } : undefined}
+      onError={() => setFailed(picture)}
+    />
+  );
+}
+
 export function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   if (tab.kind === "chat") {
     const mode = chats.find((chat) => chat.id === tab.id)?.mode ?? "roleplay";
