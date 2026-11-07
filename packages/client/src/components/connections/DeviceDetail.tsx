@@ -39,7 +39,6 @@ import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store";
-import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
@@ -287,6 +286,7 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
     restartRuntime,
     updateConfig,
     fetchStatus,
+    deleteModel,
   } = useSidecarStore();
   const isDownloaded = modelDownloaded;
   const [assigningTrackers, setAssigningTrackers] = useState(false);
@@ -374,6 +374,26 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
       toast.error(error instanceof Error ? error.message : localizeUi("connections.device.retryFailed"));
     } finally {
       setRetrying(false);
+    }
+  };
+
+  const [removing, setRemoving] = useState(false);
+  const removeFiles = async () => {
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("connections.device.removeFilesTitle"),
+      message: localizeUi("connections.device.removeFilesBody"),
+      confirmLabel: localizeUi("connections.device.removeFiles"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    setRemoving(true);
+    try {
+      await deleteModel();
+      setInlineSettings(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : localizeUi("connections.device.removeFilesFailed"));
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -575,17 +595,17 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
           {isDownloading ? localizeUi("connections.device.downloading") : localizeUi("connections.device.downloadNow")}
         </button>
       )}
-      {/* The decision sidecar is its own model and its own process, so it does not wait for a chat model. */}
-      <button
-        type="button"
-        // The new layout lists the decision model as its own entry beside this one, so it opens there.
-        onClick={() =>
-          ovDesktop ? useUIStore.getState().openConnectionDetail("device:decision") : setDecisionModalOpen(true)
-        }
-        className={cn(SMALL_ACTION, "mari-device-decisions w-full")}
-      >
-        {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
-      </button>
+      {/* The decision sidecar is its own model and its own process, so it does not wait for a chat model.
+          The new layout lists it as its own entry beside this one, so it needs no button here. */}
+      {!ovDesktop && (
+        <button
+          type="button"
+          onClick={() => setDecisionModalOpen(true)}
+          className={cn(SMALL_ACTION, "mari-device-decisions w-full")}
+        >
+          {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
+        </button>
+      )}
       <DecisionModelModal open={decisionModalOpen} onClose={() => setDecisionModalOpen(false)} />
       {ovDesktop && inlineSettings ? (
         <section className="mari-device-runtime">
@@ -593,6 +613,18 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
           <ModelDownloadModal embedded open onClose={() => setInlineSettings(false)} />
         </section>
       ) : null}
+      {/* Same as the decision model's page: the downloaded files can be removed from here. */}
+      {isDownloaded && !isDownloading && (
+        <button
+          type="button"
+          disabled={removing}
+          onClick={() => void removeFiles()}
+          className={cn(SMALL_ACTION, "mari-device-remove self-start")}
+        >
+          <Trash2 size="0.75rem" />
+          {localizeUi("connections.device.removeFiles")}
+        </button>
+      )}
     </div>
   );
 }
