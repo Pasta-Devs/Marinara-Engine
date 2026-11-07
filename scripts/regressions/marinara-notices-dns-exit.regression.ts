@@ -2,7 +2,8 @@
 // process.exit() waits for it, so a stalled system resolver held the restart for up to ~30 s. The notices fetch now
 // resolves its host with c-ares, on the event loop. Each child server asks for Restart Server (exit 75) while its
 // notices lookup is in flight and getaddrinfo is stalled (fixtures/stalled-resolver.mjs); the control child makes the
-// old call and must be held, which proves the stall is real.
+// old call and must be held, which proves the stall is real. Its DNS server drops AAAA queries, as some routers do, so the
+// notice must load from the A answer alone. Through Node's env proxy, the proxy's own name is looked up with c-ares too.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
@@ -19,6 +20,7 @@ import { hostsFileAddresses, noticesRoutes } from "../../packages/server/src/rou
 import { APP_VERSION } from "../../packages/shared/src/constants/defaults.js";
 
 const HOST = "notices.marinara.test";
+const PROXY_HOST = "proxy.marinara.test";
 const STALL_MS = 4_000;
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -83,14 +85,15 @@ if (process.argv[2] === "child") {
     expires: "2999-12-31",
   };
   const fileServer = createServer((_req, res) => res.end(JSON.stringify([notice])));
-  // A DNS server that answers A queries with 127.0.0.1 and every other query with no records.
+  // A DNS server that answers A queries with 127.0.0.1 and drops every other query. c-ares retries a dropped AAAA query
+  // for ~28 s, so the notice loads only if the lookup does not wait for it.
   const dnsServer = createSocket("udp4");
   dnsServer.on("message", (query, peer) => {
     let end = 12;
     while (query[end]) end += query[end]! + 1;
-    const isA = query.readUInt16BE(end + 1) === 1;
-    const header = Buffer.from([query[0]!, query[1]!, 0x81, 0x80, 0, 1, 0, isA ? 1 : 0, 0, 0, 0, 0]);
-    const answer = Buffer.from(isA ? [0xc0, 0x0c, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 127, 0, 0, 1] : []);
+    if (query.readUInt16BE(end + 1) !== 1) return;
+    const header = Buffer.from([query[0]!, query[1]!, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0]);
+    const answer = Buffer.from([0xc0, 0x0c, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 127, 0, 0, 1]);
     dnsServer.send(Buffer.concat([header, query.subarray(12, end + 5), answer]), peer.port, peer.address);
   });
   // A DNS server that never answers, as a stalled resolver does.
@@ -160,13 +163,19 @@ if (process.argv[2] === "child") {
   };
 
   try {
-    const [control, silent, answered] = await Promise.all([
+    const answeringDns = `127.0.0.1:${(dnsServer.address() as AddressInfo).port}`;
+    const [control, silent, answered, proxied] = await Promise.all([
       restartDuringLookup("control", { NOTICES_MODE: "control" }),
       restartDuringLookup("silent", {
         STALL_DNS_SERVER: `127.0.0.1:${(silentDnsServer.address() as AddressInfo).port}`,
       }),
-      restartDuringLookup("answered", {
-        STALL_DNS_SERVER: `127.0.0.1:${(dnsServer.address() as AddressInfo).port}`,
+      restartDuringLookup("answered", { STALL_DNS_SERVER: answeringDns, EXPECT_NOTICE: "1" }),
+      // The notices host is never looked up here (the proxy tunnels to it); the proxy's own name is, and it stalls.
+      restartDuringLookup("proxied", {
+        STALL_HOST: PROXY_HOST,
+        STALL_DNS_SERVER: answeringDns,
+        NODE_USE_ENV_PROXY: "1",
+        HTTP_PROXY: `http://${PROXY_HOST}:${(proxy.address() as AddressInfo).port}`,
         EXPECT_NOTICE: "1",
       }),
     ]);
@@ -179,6 +188,7 @@ if (process.argv[2] === "child") {
     for (const [name, run] of [
       ["silent", silent],
       ["answered", answered],
+      ["proxied", proxied],
     ] as const) {
       assert.ok(!run.events.has("getaddrinfo-stalled"), `${name}: the notices fetch never calls getaddrinfo`);
       assert.ok(run.events.has("c-ares-resolve4"), `${name}: the notices host is resolved with c-ares`);
@@ -188,11 +198,22 @@ if (process.argv[2] === "child") {
       ![...silent.events.keys()].some((event) => event.startsWith("c-ares-resolve4-")),
       "silent: the c-ares lookup was still pending at exit",
     );
-    assert.ok(answered.events.has("notice-loaded"), "answered: the notice loads through the c-ares lookup");
-    assert.ok(
-      answered.events.get("c-ares-resolve4-answered")! < answered.events.get("notice-loaded")!,
-      "answered: the c-ares answer came before the notice loaded",
-    );
+    for (const [name, run] of [
+      ["answered", answered],
+      ["proxied", proxied],
+    ] as const) {
+      const loadMs = run.events.get("notice-loaded")! - run.events.get("c-ares-resolve4")!;
+      assert.ok(
+        run.events.get("c-ares-resolve4-answered")! < run.events.get("notice-loaded")!,
+        `${name}: c-ares answered`,
+      );
+      assert.ok(!run.events.has("c-ares-resolve6-answered"), `${name}: the AAAA query was dropped`);
+      assert.ok(
+        loadMs < 4_000,
+        `${name}: the notice loaded ${loadMs} ms after the lookup, without the dropped AAAA query`,
+      );
+    }
+    assert.deepEqual(tunnels, [`${HOST}:${filePort}`], "proxied: the notices fetch tunnels through the env proxy");
 
     // The hosts file still applies, as it does for getaddrinfo.
     const hostsFile = [
@@ -208,23 +229,30 @@ if (process.argv[2] === "child") {
     ]);
     assert.deepEqual(hostsFileAddresses(hostsFile, "github.com"), []);
 
-    // Through Node's env proxy the target name is never looked up here: the proxy tunnels to it.
+    // A malformed env proxy URL (no scheme, as copied from a proxy app) makes that refresh fail with a warning. It must
+    // not reject: the server exits on an unhandled rejection.
     const savedEnv = Object.fromEntries(
       [...proxyEnv, "MARINARA_NOTICES_URL", "MARINARA_NOTICES_ENABLED"].map((key) => [key, process.env[key]]),
     );
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", onRejection);
     for (const key of proxyEnv) delete process.env[key];
     delete process.env.MARINARA_NOTICES_ENABLED;
     process.env.NODE_USE_ENV_PROXY = "1";
-    process.env.HTTP_PROXY = `http://127.0.0.1:${(proxy.address() as AddressInfo).port}`;
     process.env.MARINARA_NOTICES_URL = noticesUrl;
-    const app = Fastify();
     try {
-      await app.register(noticesRoutes, { prefix: "/api/notices" });
-      await app.ready();
-      await until(async () => (await noticeCount(app)) === 1, "the proxied notice");
-      assert.deepEqual(tunnels, [`${HOST}:${filePort}`], "the notices fetch goes through the env proxy");
+      for (const malformed of ["127.0.0.1:10809", "proxy.corp:3128"]) {
+        process.env.HTTP_PROXY = malformed;
+        const app = Fastify();
+        await app.register(noticesRoutes, { prefix: "/api/notices" });
+        await app.ready();
+        await sleep(100);
+        await app.close();
+      }
+      assert.deepEqual(rejections, [], "a malformed env proxy never rejects the notices refresh");
     } finally {
-      await app.close();
+      process.off("unhandledRejection", onRejection);
       for (const [key, value] of Object.entries(savedEnv)) {
         if (value === undefined) delete process.env[key];
         else process.env[key] = value;
@@ -233,7 +261,9 @@ if (process.argv[2] === "child") {
 
     console.info(
       `Notices DNS exit regressions passed: with getaddrinfo stalled, the old fetch held process.exit() for ${control.exitMs} ms; ` +
-        `the notices fetch exited in ${silent.exitMs} ms (c-ares pending) and ${answered.exitMs} ms (notice loaded).`,
+        `the notices fetch exited in ${silent.exitMs} ms (c-ares pending), ${answered.exitMs} ms (notice loaded) and ` +
+        `${proxied.exitMs} ms (through a proxy named by host). With AAAA dropped, the notice loaded ` +
+        `${answered.events.get("notice-loaded")! - answered.events.get("c-ares-resolve4")!} ms after the lookup began.`,
     );
   } finally {
     fileServer.closeAllConnections();

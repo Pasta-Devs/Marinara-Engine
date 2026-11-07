@@ -5,10 +5,10 @@
 // The file is remote content: validate it strictly and keep it plain text.
 import { Resolver } from "node:dns/promises";
 import { readFileSync } from "node:fs";
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
 import { join } from "node:path";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { Dispatcher1Wrapper } from "undici";
+import { Dispatcher1Wrapper, type Dispatcher } from "undici";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import { isMarinaraNoticesEnabled } from "../config/runtime-config.js";
@@ -22,6 +22,7 @@ import { createDispatcher } from "../utils/security.js";
 const DEFAULT_NOTICES_URL = "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Engine/notices/notices.json";
 const REFRESH_MS = 60 * 60_000;
 const FETCH_TIMEOUT_MS = 10_000;
+const RESOLVE_GRACE_MS = 1_000;
 const MAX_FILE_CHARS = 64_000;
 const MAX_NOTICES = 20;
 const DAY_MS = 86_400_000;
@@ -116,8 +117,9 @@ export function hostsFileAddresses(hostsFile: string, hostname: string) {
  * extra_hosts still applies.
  *
  * ponytail: c-ares asks only the DNS servers in the resolver config (on Termux, $PREFIX/etc/resolv.conf: 8.8.8.8 by
- * default) and knows no mDNS `.local` names, search domains or NetBIOS. When it cannot answer, that refresh fails with
- * a warning and the last notices stay; it never falls back to getaddrinfo. Upgrade path: retry with getaddrinfo in a
+ * default) and knows no mDNS `.local` names, search domains or NetBIOS. That also applies to an env proxy's own name.
+ * When it cannot answer, that refresh fails with a warning and the last notices stay; it never falls back to
+ * getaddrinfo. Upgrade path: retry with getaddrinfo in a
  * child process, which process.exit() does not wait for.
  */
 async function resolveNoticesHost(resolver: Resolver, hostname: string, family: number) {
@@ -139,15 +141,21 @@ async function resolveNoticesHost(resolver: Resolver, hostname: string, family: 
   const listed = hostsFileAddresses(hostsFile, name).filter(wanted);
   if (listed.length) return listed;
   // Both families, IPv4 first: Node's connect tries the other family too, so IPv6-only (NAT64) networks still connect.
-  const answers = await Promise.allSettled([
-    family === 6 ? [] : resolver.resolve4(name),
-    family === 4 ? [] : resolver.resolve6(name),
-  ]);
-  const addresses = answers.flatMap((answer, index) =>
-    answer.status === "fulfilled" ? answer.value.map((address) => ({ address, family: index ? 6 : 4 })) : [],
-  );
-  if (addresses.length) return addresses;
-  throw answers.find((answer) => answer.status === "rejected")?.reason ?? new Error(`${name} has no addresses`);
+  const addresses: Array<{ address: string; family: number }> = [];
+  const queries = (family ? [family] : [4, 6]).map(async (queryFamily) => {
+    const answer = await (queryFamily === 4 ? resolver.resolve4(name) : resolver.resolve6(name));
+    addresses.push(...answer.map((address) => ({ address, family: queryFamily })));
+  });
+  try {
+    await Promise.any(queries);
+  } catch (err) {
+    throw (err as AggregateError).errors[0];
+  }
+  // Some routers drop AAAA queries, and c-ares retries a dropped query for up to ~30 s, past the fetch timeout. Once
+  // one family has answered, the other gets a short grace, as in Happy Eyeballs (RFC 8305).
+  await Promise.race([Promise.allSettled(queries), new Promise((done) => setTimeout(done, RESOLVE_GRACE_MS))]);
+  if (!addresses.length) throw new Error(`${name} has no addresses`);
+  return [...addresses].sort((a, b) => a.family - b.family);
 }
 
 /** Drops every notice that is malformed, expired, or for another version. */
@@ -186,21 +194,21 @@ export async function noticesRoutes(app: FastifyInstance) {
   const refresh = async () => {
     if (!isMarinaraNoticesEnabled()) return;
     const url = process.env.MARINARA_NOTICES_URL?.trim() || DEFAULT_NOTICES_URL;
-    const resolver = new Resolver();
-    // An env proxy looks the notices host up itself; only NO_PROXY and direct requests use this lookup.
-    const dispatcher = createDispatcher(URL.parse(url)?.hostname ?? "", {
-      connect: {
-        lookup(hostname, options, callback) {
-          const family = options.family === 4 || options.family === 6 ? options.family : 0;
-          resolveNoticesHost(resolver, hostname, family).then(
-            (addresses) =>
-              options.all ? callback(null, addresses) : callback(null, addresses[0]!.address, addresses[0]!.family),
-            (err: NodeJS.ErrnoException) => callback(err, "", 4),
-          );
-        },
-      },
-    });
+    let resolver: Resolver | undefined;
+    let dispatcher: Dispatcher | undefined;
     try {
+      resolver = new Resolver();
+      const lookup: LookupFunction = (hostname, options, callback) => {
+        const family = options.family === 4 || options.family === 6 ? options.family : 0;
+        resolveNoticesHost(resolver!, hostname, family).then(
+          (addresses) =>
+            options.all ? callback(null, addresses) : callback(null, addresses[0]!.address, addresses[0]!.family),
+          (err: NodeJS.ErrnoException) => callback(err, "", 4),
+        );
+      };
+      // An env proxy looks the notices host up itself, so `connect` only reaches NO_PROXY and direct requests. The
+      // proxy's own name is looked up here too (`proxyTls`). A malformed proxy URL throws, and is caught below.
+      dispatcher = createDispatcher(URL.parse(url)?.hostname ?? "", { connect: { lookup }, proxyTls: { lookup } });
       const res = await fetch(url, {
         redirect: "error",
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -218,8 +226,8 @@ export async function noticesRoutes(app: FastifyInstance) {
       // Keep the last good file; a failed fetch never blocks startup.
       logger.warn(err, "[notices] Could not fetch Marinara notices");
     } finally {
-      resolver.cancel();
-      void dispatcher.destroy().catch(() => undefined);
+      resolver?.cancel();
+      void dispatcher?.destroy().catch(() => undefined);
     }
   };
 

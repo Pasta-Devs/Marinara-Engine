@@ -444,8 +444,14 @@ function usesEnvProxy(): boolean {
   );
 }
 
-/** An Agent for `hostname`, or an EnvHttpProxyAgent when Node's env proxy is on (see usesEnvProxy). */
-export function createDispatcher(hostname: string, options: AgentOptions): Dispatcher {
+/**
+ * An Agent for `hostname`, or an EnvHttpProxyAgent when Node's env proxy is on (see usesEnvProxy). `proxyTls` is used
+ * only for the connection to the proxy. Throws when the env proxy URL is malformed.
+ */
+export function createDispatcher(
+  hostname: string,
+  options: AgentOptions & Pick<EnvHttpProxyAgent.Options, "proxyTls">,
+): Dispatcher {
   if (!usesEnvProxy() || isLoopbackHostname(hostname)) return new Agent(options);
   // A proxied request tunnels through the proxy, which looks up the name itself, so `connect` only reaches NO_PROXY
   // hosts. The address check still runs first, but cannot pin what the proxy connects to (the same as Node's own
@@ -456,7 +462,7 @@ export function createDispatcher(hostname: string, options: AgentOptions): Dispa
     ...options,
     // Preserve CONNECT tunnels for HTTP providers rather than Undici 8's forward-proxy default.
     proxyTunnel: true,
-    ...(keepAliveInitialDelay ? { proxyTls: { keepAliveInitialDelay } } : {}),
+    ...(keepAliveInitialDelay ? { proxyTls: { ...options.proxyTls, keepAliveInitialDelay } } : {}),
   });
 }
 
