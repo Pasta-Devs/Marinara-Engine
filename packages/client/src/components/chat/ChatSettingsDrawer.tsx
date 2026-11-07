@@ -112,6 +112,7 @@ import {
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
 import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameSection";
+import { ChatThemeSection } from "../../features/chat-settings/sections/ChatThemeSection";
 import { ChatVariablesSection } from "../../features/chat-settings/sections/ChatVariablesSection";
 import { CombatStyleSection } from "../../features/chat-settings/sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
@@ -771,6 +772,7 @@ const CHAT_SETTINGS_ORDER = {
   agentActivity: -497,
   authorNotes: -495,
   background: -490,
+  theme: -485,
   gallery: -480,
   widgets: -450,
   impersonate: -400,
@@ -10137,6 +10139,8 @@ export function ChatSettingsDrawer({
               <ActiveChatBackgroundPicker game={isGame} />
             </Section>
           )}
+
+          <ChatThemeSection chat={chat} style={{ order: CHAT_SETTINGS_ORDER.theme }} />
 
           {isGame && (
             <Section

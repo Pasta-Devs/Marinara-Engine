@@ -120,6 +120,10 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 | `data-custom-theme` | The active theme's id |
 | `data-seasonal-theme` | The seasonal look, when one is on |
 | `data-mari-accent-fx` | `pulse` or `rgb` while an accent effect runs |
+| `data-chat-id` | The open chat's id |
+| `data-chat-open-mode` | The open chat's mode: `roleplay`, `conversation`, `game` |
+| `data-chat-tags` | The open chat's tags, lowercase with spaces as `-`: style a story with `:root[data-chat-tags~="horror"]` |
+| `data-mari-chat-art-behind` | Present while the chat's background is shown behind the side panels (`--mari-chat-art` is the picture) |
 | `data-marinara-reduced-effects` | Present when ambient animation is reduced |
 
 ### Areas
@@ -145,6 +149,16 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 | `.mari-messages-scroll` | The scrolling message list |
 | `.mari-rp-bubble`, `.mari-rp-bubble--user`, `.mari-message-assistant` | Roleplay and conversation bubbles |
 | `.mari-window`, `.mari-drawer` | Pop-out windows and drawers |
+
+## Per-chat looks
+
+Chat settings > Theme gives one chat its own theme ("Default look" turns custom themes off for that
+chat), and a chat with one character can make that the character's default. Inside a theme, tags
+are the portable way to style particular stories: `:root[data-chat-tags~="noir"] { --primary: #c9a227; }`.
+
+Setting any `--mari-chat-*` variable (for example `--mari-chat-bg`, `--mari-chat-text`,
+`--mari-chat-radius`, `--mari-chat-font-family`) switches on the matching chat-surface styling by
+itself; users no longer need the "Apply preset …" switches for a theme's chat colours to show.
 
 ## Theme files
 

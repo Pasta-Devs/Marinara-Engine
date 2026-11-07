@@ -2,6 +2,7 @@
 // Chat: Conversation View — Discord-style composite
 // ──────────────────────────────────────────────
 import { isDefaultChatBackground } from "../../lib/chat-background";
+import { useReportChatArt } from "../../hooks/use-chat-theme";
 import { useStagedTranscriptCap } from "../../hooks/use-staged-transcript";
 import { useOverhaulActive } from "../../stores/overhaul.store";
 import {
@@ -310,6 +311,7 @@ function ConversationBackground({
   reduceMotion: boolean;
 }) {
   const backgroundBlurStyle = getBackgroundBlurStyle(blurPx);
+  useReportChatArt(url);
   return url ? (
     <img
       src={url}

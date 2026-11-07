@@ -1,5 +1,6 @@
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { isDefaultChatBackground } from "../../lib/chat-background";
+import { useReportChatArt } from "../../hooks/use-chat-theme";
 import { useStagedTranscriptCap } from "../../hooks/use-staged-transcript";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { normalizeSemanticSummaryRetrievalSettings } from "@marinara-engine/shared";
@@ -230,6 +231,7 @@ function CrossfadeBackground({
   const [bgA, setBgA] = useState<string | null>(url);
   const [bgB, setBgB] = useState<string | null>(null);
   const [aActive, setAActive] = useState(true);
+  useReportChatArt(aActive ? bgA : bgB);
   const activeSlot = useRef<"a" | "b">("a");
   const cleanupTimerRef = useRef<number | null>(null);
   const backgroundBlurStyle = getBackgroundBlurStyle(blurPx);

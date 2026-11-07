@@ -3790,6 +3790,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const defaultRoleplayBackground = useUIStore((s) => s.defaultRoleplayBackground);
   const setDefaultRoleplayBackground = useUIStore((s) => s.setDefaultRoleplayBackground);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
+  const chatArtBehindPanels = useUIStore((s) => s.chatArtBehindPanels);
+  const setChatArtBehindPanels = useUIStore((s) => s.setChatArtBehindPanels);
   const setChatBackgroundBlur = useUIStore((s) => s.setChatBackgroundBlur);
   const conversationBackgroundImageOpacity = useUIStore((s) => s.conversationBackgroundImageOpacity);
   const setConversationBackgroundImageOpacity = useUIStore((s) => s.setConversationBackgroundImageOpacity);
@@ -4699,6 +4701,13 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     </span>
                   </div>
                 </label>
+                <ToggleSetting
+                  anchorId={getSettingsControlAnchorId("chat-art-behind-panels")}
+                  label={localizeUi("theming.chat.artBehindPanels")}
+                  checked={chatArtBehindPanels}
+                  onChange={setChatArtBehindPanels}
+                  help={localizeUi("theming.chat.artBehindPanelsHelp")}
+                />
                 <label className="flex items-center gap-2">
                   <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] font-medium">
                     {localizeUi("ui.panels.appearancesettings.chatListBackgrounds")}
