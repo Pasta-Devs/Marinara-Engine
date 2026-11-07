@@ -9811,3 +9811,12 @@ input.ov-edhead__title:focus {
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+/* Docked Chat settings makes room: the chat beside it narrows and reflows (use-chat-settings-reflow). */
+:root[data-overhaul="on"] [data-cs-docked="reflow"] > :first-child:not(.mari-window) {
+  margin-right: var(--ov-cs-reflow, 0px);
+  transition: margin-right 160ms ease;
+}
+:root[data-overhaul="on"] {
+  --ov-chat-min: 400px;
+}
