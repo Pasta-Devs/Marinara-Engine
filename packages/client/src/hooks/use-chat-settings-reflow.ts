@@ -13,6 +13,7 @@
 // The minimum is the CSS custom property --ov-chat-min on the host (or :root), else OV_CHAT_MIN_WIDTH.
 // ──────────────────────────────────────────────
 import { useEffect, type RefObject } from "react";
+import { useUIStore } from "../stores/ui.store";
 
 /** The narrowest a chat column may get before Chat settings floats over it instead. */
 export const OV_CHAT_MIN_WIDTH = 400;
@@ -45,6 +46,8 @@ export function useChatSettingsReflow(bodyRef: RefObject<HTMLElement | null>, ac
           const covered = Math.max(0, Math.round(hostRect.right - paneRect.left));
           const fits = hostRect.width - covered >= chatMinWidth(host);
           host.dataset.csDocked = fits ? "reflow" : "overlay";
+          // A right-side Tracker panel sits behind the docked pane, so the chat stops leaving room for it.
+          host.dataset.csTracker = useUIStore.getState().trackerPanelSide;
           host.style.setProperty("--ov-cs-reflow", `${fits ? covered : 0}px`);
         });
       };
@@ -57,6 +60,7 @@ export function useChatSettingsReflow(bodyRef: RefObject<HTMLElement | null>, ac
         observer.disconnect();
         window.removeEventListener("resize", measure);
         delete host.dataset.csDocked;
+        delete host.dataset.csTracker;
         host.style.removeProperty("--ov-cs-reflow");
       };
     };

@@ -7486,7 +7486,8 @@ function GameSurfaceComponent({
 
   // Game mutations
   const createGame = useCreateGame();
-  const gameSetup = useGameSetup();
+  // The wizard shows a failed setup in its own banner, so the hook doesn't toast it a second time.
+  const gameSetup = useGameSetup({ quietFailure: true });
   const generateSetupMapDraft = useGenerateSpatialMapDraft();
   const startGame = useStartGame();
   const rollDice = useRollDice();
@@ -13029,6 +13030,7 @@ function GameSurfaceComponent({
               }
             }}
             onCancel={dismissSetupWizard}
+            setupFailed={setupFailure?.chatId === activeChatId && !setupFailure.running}
             onStopGeneration={gameSetup.isPending ? gameSetup.cancel : undefined}
             isLoading={
               createGame.isPending ||

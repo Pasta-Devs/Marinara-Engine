@@ -212,6 +212,8 @@ export interface GameSetupWizardProps {
         },
   ) => void;
   onCancel: () => void;
+  /** The last Create world failed: the wizard returns to its last step, where Create world is, with the choices kept. */
+  setupFailed?: boolean;
   /** Stops the world being generated, while it is. Absent when nothing can be stopped. */
   onStopGeneration?: () => void;
   isLoading: boolean;
@@ -524,6 +526,7 @@ export function GameSetupWizard({
   onSetupError,
   onComplete,
   onCancel,
+  setupFailed = false,
   onStopGeneration,
   isLoading,
   isDraftingMap,
@@ -957,6 +960,24 @@ export function GameSetupWizard({
 
   const steps = GAME_SETUP_STEPS;
   const currentStep = steps[step] ?? steps[0]!;
+  // Esc leaves like Cancel (the setup is kept). A picker, menu or dialog open on top handles Esc itself.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || isLoading) return;
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"], [role="menu"], [role="listbox"]');
+      if (dialogs.length > 1 || (dialogs.length === 1 && !dialogs[0]?.matches('[data-component="GameSetupWizard"]')))
+        return;
+      event.preventDefault();
+      onCancel();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isLoading, onCancel]);
+
+  // A failed Create world brings the player back to the GM step with their choices, not to step 1.
+  useEffect(() => {
+    if (setupFailed) setStep(steps.length - 1);
+  }, [setupFailed, steps.length]);
   const learnedGenres = useMemo(
     () => filterLearnedOptions(learnedGameSetupOptions?.genres, [...GENRES, ...genres]),
     [genres, learnedGameSetupOptions?.genres],

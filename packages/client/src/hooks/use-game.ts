@@ -263,7 +263,7 @@ export function isRequestCancelled(error: unknown): boolean {
  * World setup. `cancel` stops a setup in flight: the request is dropped, and the server stops the model call when
  * it sees the connection close (playtest 2026-10-26: a setup at maximum reasoning ran 33 minutes with no way out).
  */
-export function useGameSetup() {
+export function useGameSetup({ quietFailure = false }: { quietFailure?: boolean } = {}) {
   const qc = useQueryClient();
   const store = useGameModeStore;
   const { t } = useTranslation();
@@ -317,6 +317,7 @@ export function useGameSetup() {
         toast.info("The model response needs a quick JSON repair before it can be applied.", { duration: 8000 });
         return;
       }
+      if (quietFailure) return;
       toast.error(err.message || "Game setup failed. Try again or use a different model.", { duration: 10000 });
     },
   });
