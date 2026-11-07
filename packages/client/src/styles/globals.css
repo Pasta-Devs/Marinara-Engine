@@ -9127,3 +9127,10 @@ html[data-marinara-reduced-effects="true"] .mari-window {
 [data-drag-source="true"] {
   opacity: 0.5;
 }
+/* Rows keep their resting colour while a sprite folder drags. Plain CSS on purpose: Tailwind's group-has-*
+   puts :has() inside :is(), and Chromium then restyled the whole app on every DOM insertion. */
+@media (hover: hover) {
+  .group\/sprite-library:has([data-sprite-folder][data-drag-source="true"]) .mari-sprite-folder-row:hover {
+    background-color: var(--sidebar);
+  }
+}

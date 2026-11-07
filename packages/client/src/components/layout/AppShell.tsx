@@ -126,6 +126,8 @@ const TRACKER_PANEL_HUD_GAP = 6;
 const TRACKER_PANEL_CHAT_GAP = 8;
 // The narrowest docked Tracker Panel: its close, settings and help buttons still fit side by side (#7188).
 const TRACKER_PANEL_MIN_DOCKED_WIDTH = 96;
+// Matches the .mari-shell-panel-slot width transition in globals.css.
+const SHELL_PANEL_SLIDE_MS = 220;
 const TRACKER_PANEL_DESKTOP_MOTION_MS = 260;
 const TRACKER_PANEL_DESKTOP_EXIT_MS = 240;
 const TRACKER_PANEL_DESKTOP_EASE = [0.16, 1, 0.3, 1] as const;
@@ -553,15 +555,31 @@ export function AppShell({
   const chatUiInsetLeft = !shellOverlayMode && layoutSidebarOpen ? Math.round(liveSidebarWidth) : 0;
   const chatUiInsetRight = !shellOverlayMode && layoutRightPanelOpen ? Math.round(liveRightPanelWidth) : 0;
 
+  const chatUiInsetPublishedRef = useRef(false);
   useLayoutEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
-    root.style.setProperty("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
-    return () => {
-      root.style.removeProperty("--mari-chat-ui-inset-left");
-      root.style.removeProperty("--mari-chat-ui-inset-right");
+    const publish = () => {
+      chatUiInsetPublishedRef.current = true;
+      root.style.setProperty("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
+      root.style.setProperty("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
     };
+    // Matches the globals.css rules that turn the slide off (reduced motion, desktop Firefox): nothing to wait for.
+    const noSlide =
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches || CSS.supports("-moz-appearance", "none");
+    if (!chatUiInsetPublishedRef.current || noSlide) return publish();
+    // A root style write restyles the whole app. Publish once a sidebar has slid or a resize drag has
+    // paused, not in the frame that starts the slide or on every drag move. Only floating chat UI reads it.
+    const timer = window.setTimeout(publish, SHELL_PANEL_SLIDE_MS);
+    return () => window.clearTimeout(timer);
   }, [chatUiInsetLeft, chatUiInsetRight]);
+  useLayoutEffect(
+    () => () => {
+      chatUiInsetPublishedRef.current = false;
+      document.documentElement.style.removeProperty("--mari-chat-ui-inset-left");
+      document.documentElement.style.removeProperty("--mari-chat-ui-inset-right");
+    },
+    [],
+  );
 
   // ── Center-area compact detection ──
   // Side panels can shrink the center pane below the chat chrome's usable desktop
@@ -1420,9 +1438,11 @@ export function AppShell({
           </div>
         </aside>
       )}
-      {!shellOverlayMode && sidebarOpen && (
+      {/* Stay mounted and hide: adding a sibling to the shell row restyles the whole chat column. */}
+      {!shellOverlayMode && (
         <div
           role="separator"
+          hidden={!sidebarOpen}
           aria-orientation="vertical"
           aria-label={localizeUi("ui.layout.appshell.resizeLeftSidebar")}
           aria-valuemin={SHARED_SIDEBAR_WIDTH_MIN}
@@ -1665,9 +1685,10 @@ export function AppShell({
         </aside>
       )}
 
-      {!shellOverlayMode && rightPanelOpen && (
+      {!shellOverlayMode && (
         <div
           role="separator"
+          hidden={!rightPanelOpen}
           aria-orientation="vertical"
           aria-label={localizeUi("ui.layout.appshell.resizeRightSidebar")}
           aria-valuemin={SHARED_SIDEBAR_WIDTH_MIN}
