@@ -43,6 +43,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
+import { hostOf } from "../modals/create-connection/shared";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
 import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
@@ -208,14 +209,15 @@ export function useDeviceEngines(): DeviceEngine[] {
       });
     }
   }
-  // Only PocketTTS runs here; a cloud voice (ElevenLabs, OpenAI, xAI) shows on the Voice job row instead.
-  if (setup.tts.setUp && tts?.source === "pockettts") {
+  // Only a voice server the user hosts runs here; a cloud voice (ElevenLabs, OpenAI, xAI) shows on the Voice job row.
+  if (setup.tts.setUp && tts?.local) {
     engines.push({
       item: "tts",
       name: t("connections.add.device.tts"),
       tone: "ok",
       state: t("connections.accounts.state.ok"),
-      detail: tts ? t(`connections.device.ttsSource.${tts.source}`) : "",
+      // A server the user runs on another source (a Kokoro at localhost:8880) shows its address, not a cloud name.
+      detail: (tts.source !== "pockettts" && hostOf(tts.baseUrl)) || t(`connections.device.ttsSource.${tts.source}`),
     });
   }
   if (setup.stt.setUp) {

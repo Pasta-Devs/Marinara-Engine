@@ -385,8 +385,11 @@ import {
   applyAgentAddSetupToAgentSettings,
   buildAgentAddMetadataPatch,
   buildInitialAgentAddSetupState,
+  initialMusicFolderTarget,
   MusicFolderScope,
+  normalizeChatCustomMusicFolder,
   normalizeCustomMusicExternalFolder,
+  normalizeCustomMusicFolder,
   normalizeCustomMusicSource,
   type AgentAddSetupState,
   type AgentAddSpriteSubject,
@@ -490,17 +493,6 @@ const SPOTIFY_SOURCE_OPTIONS: Array<{ id: SpotifySourceType; label: string; desc
 
 function getMusicProviderLabel(provider: MusicProvider): string {
   return provider === "spotify" ? "Spotify" : provider === "youtube" ? "YouTube" : "Custom";
-}
-
-function normalizeCustomMusicFolder(value: unknown): string {
-  const raw = typeof value === "string" ? value.trim().replace(/\\/g, "/") : "";
-  let start = 0;
-  let end = raw.length;
-  while (raw[start] === "/") start++;
-  while (end > start && raw[end - 1] === "/") end--;
-  const normalized = raw.slice(start, end);
-  if (!normalized || normalized.includes("..")) return "music";
-  return normalized.startsWith("music") ? normalized : `music/${normalized}`;
 }
 
 const DEFAULT_PROSE_GUARDIAN_BANNED_WORDS = "ozone";
@@ -1670,7 +1662,9 @@ export function ChatSettingsDrawer({
   // The default source and folder for all chats. A chat or character folder can take over (#8901), but only
   // these defaults are ever written back to the Music DJ settings.
   const customMusicSource = normalizeCustomMusicSource(musicDjSettings);
-  const customMusicFolder = normalizeCustomMusicFolder(metadata.customMusicFolder ?? musicDjSettings.customMusicFolder);
+  const customMusicFolder = normalizeCustomMusicFolder(musicDjSettings.customMusicFolder);
+  // This chat's own Game Assets subfolder (#8916); empty uses the default above.
+  const chatCustomMusicFolder = normalizeChatCustomMusicFolder(metadata.customMusicGameAssetsFolder);
   const defaultCustomMusicExternalFolder = normalizeCustomMusicExternalFolder(
     musicDjSettings.customMusicExternalFolder ?? musicDjSettings.localMusicExternalFolder,
   );
@@ -1690,7 +1684,9 @@ export function ChatSettingsDrawer({
     target: MusicDjFolderSource;
   } | null>(null);
   const requestedMusicFolderTarget =
-    musicFolderTargetChoice?.chatId === chat.id ? musicFolderTargetChoice.target : musicFolderInUse.source;
+    musicFolderTargetChoice?.chatId === chat.id
+      ? musicFolderTargetChoice.target
+      : initialMusicFolderTarget(musicFolderInUse, customMusicSource, chatCustomMusicFolder);
   const musicFolderTarget: MusicDjFolderSource =
     requestedMusicFolderTarget === "character" && !musicFolderInUse.characterId ? "chat" : requestedMusicFolderTarget;
   const targetMusicFolder =
@@ -2983,6 +2979,7 @@ export function ChatSettingsDrawer({
           entityId={id}
           displayName={displayName}
           onClose={() => setInlineResourceEditor(null)}
+          onFlushChange={handleInlineCardFlushChange}
         />
       </Suspense>
     );
@@ -4030,22 +4027,33 @@ export function ChatSettingsDrawer({
   const handleAgentSuiteCloseGuardChange = useCallback((guard: (() => Promise<boolean>) | null) => {
     agentSuiteCloseGuardRef.current = guard;
   }, []);
-  const requestClose = useCallback(async () => {
-    if (drawerClosingRef.current) return false;
-    blurActiveChatFloatingUiControl();
-    drawerClosingRef.current = true;
-    try {
-      const canCloseAgentSuite =
-        !showAgentSuiteModal || (await (agentSuiteCloseGuardRef.current?.() ?? Promise.resolve(true)));
-      if (!canCloseAgentSuite) return false;
-      if (!(await flushProseGuardianDrafts())) return false;
-      setShowAgentSuiteModal(false);
-      onClose({ force: true });
-      return true;
-    } finally {
-      drawerClosingRef.current = false;
-    }
-  }, [flushProseGuardianDrafts, onClose, showAgentSuiteModal]);
+  // The open inline card editor's saves, finished before the drawer closes (#8933): a card opened next must not load
+  // the text an inline save is still writing, then overwrite it.
+  const inlineCardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
+  const handleInlineCardFlushChange = useCallback((flush: (() => Promise<boolean>) | null) => {
+    inlineCardFlushRef.current = flush;
+  }, []);
+  /** Closes after the drawer's guards pass; `force: false` keeps a pinned drawer open (opening a card from it). */
+  const requestClose = useCallback(
+    async (force = true) => {
+      if (drawerClosingRef.current) return false;
+      blurActiveChatFloatingUiControl();
+      drawerClosingRef.current = true;
+      try {
+        const canCloseAgentSuite =
+          !showAgentSuiteModal || (await (agentSuiteCloseGuardRef.current?.() ?? Promise.resolve(true)));
+        if (!canCloseAgentSuite) return false;
+        if (!(await flushProseGuardianDrafts())) return false;
+        if (!(await (inlineCardFlushRef.current?.() ?? Promise.resolve(true)))) return false;
+        setShowAgentSuiteModal(false);
+        onClose({ force });
+        return true;
+      } finally {
+        drawerClosingRef.current = false;
+      }
+    },
+    [flushProseGuardianDrafts, onClose, showAgentSuiteModal],
+  );
   // Session-ephemeral: did the user change Day Rollover Hour in this drawer mount?
   // Used to gate the "transitional duplication" warning so it only appears
   // immediately after a change (when the warning is operationally useful) and
@@ -4639,21 +4647,6 @@ export function ChatSettingsDrawer({
     [activeAgentIds, chat.id, ensureMusicDjAgent, gameMusicDjEnabled, isGame, setMusicPlayerSource, updateMeta],
   );
 
-  const saveCustomMusicFolder = useCallback(
-    async (value: string) => {
-      const folder = normalizeCustomMusicFolder(value);
-      updateMeta.mutate({ id: chat.id, customMusicFolder: folder });
-      const config = agentConfigsByType.get("spotify") ?? null;
-      if (!config) return;
-      const nextSettings = {
-        ...mergeBuiltInAgentSettings("spotify", config.settings),
-        customMusicFolder: folder,
-      };
-      await updateAgentConfig.mutateAsync({ id: config.id, settings: nextSettings });
-    },
-    [agentConfigsByType, chat.id, updateAgentConfig, updateMeta],
-  );
-
   const updateCustomMusicLibrary = useCallback(
     async (patch: Record<string, unknown>, where: "agent" | "chat" = "agent") => {
       try {
@@ -4677,6 +4670,21 @@ export function ChatSettingsDrawer({
     },
     [agentConfigsByType, chat.id, updateAgentConfig, updateMeta],
   );
+
+  // The Game Assets subfolder of "All chats" or of this chat (#8916), each saved only to its own place.
+  const saveCustomMusicFolder = (target: "chat" | "default", value: string) => {
+    if (target === "chat") {
+      // Stay on This chat: once its subfolder is cleared, the derived target would fall back to All chats.
+      setMusicFolderTargetChoice({ chatId: chat.id, target: "chat" });
+      const folder = normalizeChatCustomMusicFolder(value);
+      if (folder !== chatCustomMusicFolder) {
+        void updateCustomMusicLibrary({ customMusicGameAssetsFolder: folder || null }, "chat");
+      }
+      return;
+    }
+    const folder = normalizeCustomMusicFolder(value);
+    if (folder !== customMusicFolder) void updateCustomMusicLibrary({ customMusicFolder: folder });
+  };
 
   // Each "Apply to" choice writes only its own folder (#8901).
   const saveCustomMusicExternalFolder = (target: MusicDjFolderSource, folder: string) => {
@@ -4777,13 +4785,31 @@ export function ChatSettingsDrawer({
           <input
             key={`${chat.id}-${surface}-custom-music-${customMusicFolder}`}
             defaultValue={customMusicFolder}
-            onBlur={(event) => void saveCustomMusicFolder(event.target.value)}
+            onBlur={(event) => saveCustomMusicFolder("default", event.target.value)}
             placeholder={localizeUi("ui.agents.agenteditor.music")}
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
           />
           <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.musicdjsetupfields.readsLocalAudioFromGameAssetsForExample")} <code>music</code>{" "}
             {localizeUi("ui.noodle.noodlehome.or")} <code>music/combat</code>.
+          </span>
+        </label>
+      )}
+      {/* This chat's own Game Assets subfolder (#8916), while the chat plays Game Assets. */}
+      {musicFolderTarget === "chat" && effectiveCustomMusicSource === "game-assets" && (
+        <label className="flex flex-col gap-1">
+          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.agents.agenteditor.gameAssetsMusicFolder")}
+          </span>
+          <input
+            key={`${chat.id}-${surface}-chat-custom-music-${chatCustomMusicFolder}`}
+            defaultValue={chatCustomMusicFolder}
+            onBlur={(event) => saveCustomMusicFolder("chat", event.target.value)}
+            placeholder={customMusicFolder}
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
+          />
+          <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.musicdjsetupfields.gameAssetsMusicFolderForThisChatOnly")}
           </span>
         </label>
       )}
@@ -5190,7 +5216,7 @@ export function ChatSettingsDrawer({
         description={localizeUi("ui.chat.chatsettingsdrawer.configureCustomAgentsCurrentlyAttachedToThisChat")}
         order={customAgentSettingsOrder}
       >
-        <div className="space-y-1.5">
+        <div className="space-y-3">
           {activeCustomAgents.map((agent) => {
             const agentConfig = agentConfigsByType.get(agent.id);
             const agentSettings = parseAgentSettingsRecord(agentConfig?.settings);
@@ -5206,9 +5232,10 @@ export function ChatSettingsDrawer({
               agentImageStyleProfileId.length > 0 &&
               !imageStyleProfiles.profiles.some((profile) => profile.id === agentImageStyleProfileId);
             return (
+              // No box per agent: its toggles sit on the card like every other agent menu's; a rule separates agents.
               <div
                 key={agent.id}
-                className="rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]"
+                className="space-y-2 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
               >
                 <div className="flex items-start gap-2.5">
                   <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
@@ -5289,7 +5316,7 @@ export function ChatSettingsDrawer({
                 />
                 {renderAgentLorebookAttachment(agent.id)}
                 {backfillAvailable && agentConfig && (
-                  <div className="mt-2 space-y-2">
+                  <div className="space-y-2">
                     <AgentSettingsToggle
                       label={localizeUi("ui.agents.agenteditor.enableChunkedBackfill")}
                       description={localizeUi("ui.agents.agenteditor.enableChunkedBackfillDescription")}
@@ -5338,7 +5365,7 @@ export function ChatSettingsDrawer({
                   </div>
                 )}
                 {imageCapable && (
-                  <div className="mt-1.5 flex flex-col gap-1">
+                  <div className="flex flex-col gap-1">
                     <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                       {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
                     </span>
@@ -6120,11 +6147,16 @@ export function ChatSettingsDrawer({
                       return (
                         <Fragment key={c.id}>
                           <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
+                            {/* The name opens the full card, as in Roleplay; Add Character below opens the picker (#8933). */}
                             <button
                               type="button"
-                              onClick={() => setShowCharPicker(true)}
+                              onClick={() => {
+                                void requestClose(false).then((closed) => {
+                                  if (closed) useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                                });
+                              }}
                               className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
-                              title={localizeUi("ui.chat.chatsettingsdrawer.changeCharacters")}
+                              title={localizeUi("ui.chat.chatsettingsdrawer.openCharacterCard")}
                             >
                               {c.avatarPath ? (
                                 <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full">
@@ -6443,12 +6475,18 @@ export function ChatSettingsDrawer({
                               "bg-[var(--secondary)] opacity-70 ring-[var(--border)]",
                           )}
                         >
+                          {/* The name opens the full card editor (Depth Prompt, embedded lorebooks and more); the
+                              pencil edits a few fields inline. Add Character below opens the multi-picker (#8933). */}
                           <button
                             type="button"
                             data-drag-surface
-                            onClick={() => setShowCharPicker(true)}
+                            onClick={() => {
+                              void requestClose(false).then((closed) => {
+                                if (closed) useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                              });
+                            }}
                             className="flex items-center gap-2.5 min-w-0 flex-1 text-left transition-colors hover:opacity-80"
-                            title={localizeUi("ui.chat.chatsettingsdrawer.changeCharacters")}
+                            title={localizeUi("ui.chat.chatsettingsdrawer.openCharacterCard")}
                           >
                             {c.avatarPath ? (
                               <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full">

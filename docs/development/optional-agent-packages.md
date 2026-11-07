@@ -1889,6 +1889,17 @@ const isGif = result.mimeType === "image/gif";
 
 On a 1.816 Engine, catch `code === "animation-unsupported"` to paint a still instead. Declare 1.816 only when the package can't work without GIFs. No permission is needed.
 
+### Capability API 1.817: telling a package that a chat was branched
+
+The `long-term-memory:runtime` service can add an optional `chatBranched({ chatId, parentChatId })` method.
+The Engine awaits it once when a chat is branched, after the branch route has finished copying (messages,
+metadata and snapshots) and before it returns the new chat, so the branch's messages and `branchParentChatId`
+metadata are already readable inside the call. A package can use it to fix up the copy before anyone reads it.
+
+Errors and calls slower than a few seconds are logged and ignored; the branch is returned either way. Without
+the method nothing changes. It is a soft seam: older Engines never call it, so the package must still cope when
+it is missing. No permission is needed.
+
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 
 `persistence.listChatSummaries(chatId)` also returns `advancedMemory`: the chat's enabled, completed

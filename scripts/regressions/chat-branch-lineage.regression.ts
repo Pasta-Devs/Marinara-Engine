@@ -104,6 +104,71 @@ try {
   assert.equal(emptyBranch.metadata.branchParentMessageId, null);
   assert.equal(emptyBranch.metadata.branchMessageId, null);
 
+  // Long-term memory's optional chatBranched notice: sees the finished copy, and never fails the branch.
+  const { registerCapabilityService } =
+    await import("../../packages/server/src/services/capability-packages/capability-service-registry.service.js");
+  const branchNotices: Array<{ chatId: string; parentChatId: string; copied: string[]; parent: unknown }> = [];
+  let noticeMode: "record" | "throw" | "hang" = "record";
+  const releaseNotice = registerCapabilityService(
+    "long-term-memory:runtime",
+    {
+      async chatBranched(input: { chatId: string; parentChatId: string }) {
+        if (noticeMode === "throw") throw new Error("chatBranched fixture failed");
+        if (noticeMode === "hang") return new Promise<void>(() => undefined);
+        const copied = await app!.inject({ method: "GET", url: `/api/chats/${input.chatId}/messages` });
+        const chat = await app!.inject({ method: "GET", url: `/api/chats/${input.chatId}` });
+        branchNotices.push({
+          ...input,
+          copied: copied.json().map((message: { content: string }) => message.content),
+          parent: chat.json().metadata.branchParentChatId,
+        });
+      },
+    },
+    { hostOnly: true },
+  );
+  try {
+    const noticed = await app.inject({
+      method: "POST",
+      url: `/api/chats/${root.id}/branch`,
+      payload: { upToMessageId: middle.id },
+    });
+    assert.equal(noticed.statusCode, 200);
+    assert.deepEqual(branchNotices, [
+      {
+        chatId: noticed.json().id,
+        parentChatId: root.id,
+        copied: ["before fork", "fork here"],
+        parent: root.id,
+      },
+    ]);
+    noticeMode = "throw";
+    assert.equal(
+      (await app.inject({ method: "POST", url: `/api/chats/${root.id}/branch`, payload: {} })).statusCode,
+      200,
+      "a throwing chatBranched must not fail the branch",
+    );
+    noticeMode = "hang";
+    const hangStarted = Date.now();
+    assert.equal(
+      (await app.inject({ method: "POST", url: `/api/chats/${root.id}/branch`, payload: {} })).statusCode,
+      200,
+      "a chatBranched that never resolves must not hold the branch past the cap",
+    );
+    assert.ok(Date.now() - hangStarted < 8_000);
+  } finally {
+    releaseNotice();
+  }
+  const withoutMethod = registerCapabilityService("long-term-memory:runtime", {}, { hostOnly: true });
+  try {
+    assert.equal(
+      (await app.inject({ method: "POST", url: `/api/chats/${root.id}/branch`, payload: {} })).statusCode,
+      200,
+      "a service without chatBranched branches as before",
+    );
+  } finally {
+    withoutMethod();
+  }
+
   const chatStorage = (await import("../../packages/server/src/services/storage/chats.storage.js")).createChatsStorage(
     db,
   );

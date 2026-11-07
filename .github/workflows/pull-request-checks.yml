@@ -152,6 +152,6 @@ jobs:
         with:
           context: .
           platforms: linux/amd64
+          # PRs read the cache that build-container.yml writes on staging pushes and never write it (Actions cache budget).
           cache-from: type=gha
-          cache-to: type=gha,mode=max
           push: false
