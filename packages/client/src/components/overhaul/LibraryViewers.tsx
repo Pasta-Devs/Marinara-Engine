@@ -25,6 +25,7 @@ import { ProviderIcon } from "../connections/ProviderIcon";
 import type { DeviceItem } from "../../hooks/use-device-setup";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { DECISION_DEVICE_ID, useDecisionEngine } from "./decision-engine";
+import { EditorCrumbs, type RailCrumb } from "./EditorRail";
 
 /** Built-in model and local voice engines share the Model viewer: their id is `device:<item>`. */
 export const DEVICE_PREFIX = "device:";
@@ -65,8 +66,11 @@ function OvViewer({
   emptyList,
   emptyDetail,
   children,
+  onSection,
 }: {
   title: string;
+  /** The section's landing page (Library > Connections). Without it the crumb only names the section. */
+  onSection?: () => void;
   meta: string;
   tools: OvViewerTool[];
   listLabel: string;
@@ -88,9 +92,17 @@ function OvViewer({
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const visible = groups.filter((group) => group.rows.length || !search);
   const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  // Library > Section > item, like the Lorebook, Preset and Character pages.
+  const selectedName = selectedId
+    ? (groups.find((group) => group.openId === selectedId)?.label ??
+      groups.flatMap((group) => group.rows).find((row) => row.id === selectedId)?.name)
+    : undefined;
+  const crumbs: RailCrumb[] = [{ label: "Library" }, { label: title, onClick: onSection }];
+  if (typeof selectedName === "string" && selectedName) crumbs.push({ label: selectedName });
   return (
     <div className="ov-vw">
-      <header className="ov-vw__top">
+      <header className="ov-vw__top has-crumbs">
+        <EditorCrumbs items={crumbs} />
         <h1>{title}</h1>
         <small>{meta}</small>
         <div className="ov-vw__actions">
@@ -389,6 +401,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       onSelect={(id) => openConnectionDetail(id)}
       emptyList={localize("No accounts yet.")}
       emptyDetail={localize("Pick a model on the left, or add an account.")}
+      onSection={closeConnectionDetail}
     >
       {accountPage ? (
         <ConnectionAccountEditor

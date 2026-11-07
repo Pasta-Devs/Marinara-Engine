@@ -9733,3 +9733,15 @@ input.ov-edhead__title:focus {
 .ov-acctpage .mari-connection-model-choice > :first-child {
   transform: scale(0.8);
 }
+
+/* Connections / Regex viewers: Library > Section > item above the title, like the Lorebook page. */
+.ov-vw__top.has-crumbs {
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+  padding-top: 0.75rem;
+}
+.ov-vw__top.has-crumbs > .ov-crumbs {
+  flex-basis: 100%;
+  margin-bottom: 0;
+  font-size: 0.8125rem;
+}
