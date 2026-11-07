@@ -28,25 +28,50 @@ function readChatThemeId(metadata: unknown): string | undefined {
 }
 
 /**
+ * Whether a full page (Settings, the Library, an editor, Docs…) covers the chat. AppShell keeps it
+ * up to date. While one is open, the chat's own look steps aside and the app's theme shows.
+ */
+export const useCenterPageOpen = create<{ open: boolean }>(() => ({ open: false }));
+
+export type ChatThemeSource = "chat" | "character" | "app";
+
+/**
+ * Where a chat's theme comes from: its own pick, its character's default (only in a chat with
+ * exactly one character, so a group or game party never borrows one member's look), or the app.
+ */
+export function resolveChatTheme(
+  chat: { metadata?: unknown; characterIds?: string[] | null } | null,
+  defaults: Record<string, string>,
+): { themeId: string | undefined; source: ChatThemeSource } {
+  if (!chat) return { themeId: undefined, source: "app" };
+  const own = readChatThemeId(chat.metadata);
+  if (own !== undefined) return { themeId: own, source: "chat" };
+  const ids = chat.characterIds ?? [];
+  if (ids.length === 1) {
+    const fallback = defaults[ids[0]!];
+    if (fallback !== undefined) return { themeId: fallback, source: "character" };
+  }
+  return { themeId: undefined, source: "app" };
+}
+
+/**
  * The theme the open chat asks for: a theme id, "" for the default look, or undefined to follow
- * the app's theme. The chat's own pick wins over its character's default.
+ * the app's theme. Nothing while a full page covers the chat.
  */
 export function useActiveThemeOverride(): string | undefined {
   const chat = useChatStore((s) => s.activeChat);
   const defaults = useUIStore((s) => s.characterThemeDefaults);
-  if (!chat) return undefined;
-  const own = readChatThemeId(chat.metadata);
-  if (own !== undefined) return own;
-  for (const characterId of chat.characterIds ?? []) {
-    const fallback = defaults[characterId];
-    if (fallback !== undefined) return fallback;
-  }
-  return undefined;
+  const pageOpen = useCenterPageOpen((s) => s.open);
+  if (pageOpen) return undefined;
+  return resolveChatTheme(chat, defaults).themeId;
 }
 
 /** Puts the open chat's id, mode and tags on <html> for theme authors. */
 export function useChatRootHooks() {
-  const chat = useChatStore((s) => s.activeChat);
+  const activeChat = useChatStore((s) => s.activeChat);
+  // A full page over the chat is not "in" that chat: tag and id rules don't follow you there.
+  const pageOpen = useCenterPageOpen((s) => s.open);
+  const chat = pageOpen ? null : activeChat;
   const id = chat?.id ?? null;
   const mode = chat?.mode ?? null;
   const rawTags =

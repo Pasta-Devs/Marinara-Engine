@@ -47,6 +47,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { openActivityOverview, openGlobalSearch } from "../../lib/chat-insights";
+import { normalizeChatTags } from "../../lib/chat-tags";
 import {
   useBulkExportChats,
   useChats,
@@ -1179,6 +1180,26 @@ export function ChatSidebar() {
     );
   };
 
+  // "Tags…": comma-separated, used by the tag filter and by themes (data-chat-tags).
+  const editChatTagsWithSheet = async (chat: Chat) => {
+    const current = getChatTags(chat);
+    const next = await showPromptDialog({
+      title: localizeUi("theming.tags.editTitle", { defaultValue: "Chat tags" }),
+      message: localizeUi("theming.tags.editHelp", {
+        defaultValue: "Separate tags with commas. Themes can style a chat by its tags.",
+      }),
+      defaultValue: current.join(", "),
+      confirmLabel: localizeUi("theming.tags.save", { defaultValue: "Save tags" }),
+    });
+    if (next == null) return;
+    updateChatMetadata.mutate(
+      { id: chat.id, tags: normalizeChatTags(next.split(",")) },
+      {
+        onError: () => toast.error(localizeUi("theming.tags.saveFailed", { defaultValue: "Couldn't save the tags." })),
+      },
+    );
+  };
+
   const renderChatRow = (entry: ChatListEntry) => {
     const { chat, branchCount, branchRows } = entry;
     const cfg = MODE_CONFIG[chat.mode] ?? MODE_CONFIG.conversation;
@@ -1277,6 +1298,12 @@ export function ChatSidebar() {
         icon: <Pencil size="1rem" />,
         // A sheet with a proper field, not the small inline box (panel 3, PP10).
         onSelect: () => void renameChatWithSheet(chat.id, chat.name),
+      },
+      {
+        key: "tags",
+        label: localizeUi("theming.tags.short", { defaultValue: "Tags" }),
+        icon: <Tag size="1rem" />,
+        onSelect: () => void editChatTagsWithSheet(chat),
       },
       {
         key: "delete",
@@ -1593,6 +1620,22 @@ export function ChatSidebar() {
                       className="ov-chat-rename-btn shrink-0 rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-opacity hover:text-[var(--foreground)] focus-visible:opacity-100 group-hover:opacity-100"
                     >
                       <Pencil size="0.6875rem" />
+                    </button>
+                  ) : null}
+                  {overhaulDesktop && !multiSelectMode ? (
+                    <button
+                      type="button"
+                      data-chat-tags-button=""
+                      aria-label={localizeUi("theming.tags.editTitle", { defaultValue: "Chat tags" })}
+                      title={localizeUi("theming.tags.editTitle", { defaultValue: "Chat tags" })}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void editChatTagsWithSheet(chat);
+                      }}
+                      className="ov-chat-rename-btn shrink-0 rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-opacity hover:text-[var(--foreground)] focus-visible:opacity-100 group-hover:opacity-100"
+                    >
+                      <Tag size="0.6875rem" />
                     </button>
                   ) : null}
                 </span>
