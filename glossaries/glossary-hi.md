@@ -876,3 +876,46 @@ Precedents from the #8872 sync (`media/image-providers.md`, `development/optiona
 - **Custom Parameters** (कस्टम पैरामीटर) is now glossed in the new GPT Image 2.6 section, its first mention in `media/image-providers.md`; the fal.ai and SpicyAPI mentions run bare.
 
 These are translation choices, not a new native-reader review.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers** is glossed (कस्टम रिक्वेस्ट हेडर) at its first mention, step 3 of the new section, and runs bare in the Warning and the Troubleshooting row. Every word is pack register (कस्टम, रिक्वेस्ट, हेडर). It happens to match `ui/hi.json`, but it rests on pack usage, not on the locale (§5). **Video defaults** (वीडियो डिफ़ॉल्ट) and **Test video** (वीडियो टेस्ट करें) reuse `media/scene-video.md`. **API key** (API कुंजी) is glossed at its first bold use in the file.
+- The heading is `## पहचान-जाँच वाली प्रॉक्सी इस्तेमाल करें`, under `<a id="use-an-authenticated-proxy"></a>`; both links use it as link text. "Authenticated" follows the same file's `बिना पहचान-जाँच वाले ComfyUI सर्वर` (Troubleshooting LAN row). `लॉगिन प्रॉक्सी` is avoided because `REMOTE_ACCESS.md` uses it for forward-auth proxies.
+- A proxy is **प्रॉक्सी**, feminine as elsewhere in the pack (`प्रॉक्सी … माँगती है`, `प्रॉक्सी ने रिक्वेस्ट ठुकरा दी`). "A proxy in front of ComfyUI" is `ComfyUI के आगे लगी प्रॉक्सी`, the counterpart of `REMOTE_ACCESS.md`'s `प्रॉक्सी के पीछे`. A rejected request is **ठुकराना** (`media/image-providers.md`), and "a 401 means" follows `conversation/calls.md` (`401 का मतलब …`). "Sent as-is" is `जैसी है वैसी ही भेजी जाती है`. "Non-secret headers" is `ऐसे अतिरिक्त हेडर जिनमें कोई सीक्रेट नहीं है`. Secrets are **सीक्रेट**, credentials **क्रेडेंशियल** (masculine, as in `अपना निजी localhost क्रेडेंशियल`, `installation/android-termux.md:28`, so `प्रॉक्सी ने क्रेडेंशियल ठुकरा दिए`), an auth scheme **स्कीम** and model listing **मॉडल लिस्ट**.
+
+These are translation choices, not a new native-reader review.
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+- New glosses (§5 Pattern A): **Chat Settings** (चैट सेटिंग्स); **Apply to** (कहाँ लागू करें) at its first mention in both `media/music.md` and `game/game-assets.md`; **Export Profile** (प्रोफ़ाइल एक्सपोर्ट), as in the `integrations/` guides; **Reinstall** (दोबारा इंस्टॉल करें). `ui/hi.json` has no values for the new keys, so **Apply to** and **Reinstall** are coined; recheck them when the keys ship. **Apply to** also differs from the shipped sprite-layout string `इस पर लागू करें`.
+- Left bare, in line with the pack's sparse glossing: the options **This chat** and **All chats (default)**; the buttons **Use default** and **Unlink from**; the folder controls **Choose Folder**, **Music folder on this device** and **Default music folder on this device**; and the statuses **In use:**, **From**, **Default**, **Needs reinstall** and **Not set up** (Pattern B).
+- The heading is `### चैट या कैरेक्टर के लिए अलग फ़ोल्डर इस्तेमाल करना`, the `-ना` form of `## अपनी म्यूज़िक फ़ाइलें इस्तेमाल करना`, under `<a id="use-a-different-folder-for-a-chat-or-character"></a>`; the `game/game-assets.md` link uses it as link text.
+- Terms: **चैट** (feminine, `ग्रुप चैट कभी … इस्तेमाल नहीं करती`), **कैरेक्टर**, **ब्रांच**, **ग्रुप चैट**, **डिफ़ॉल्ट**, **पथ**, **साउंडट्रैक**, **रनटाइम**, **सेटिंग्स प्रोफ़ाइल**, **चैट एक्सपोर्ट** and **एजेंट एक्सपोर्ट**. A chat plays a folder with **बजाना** (`कोई चैट गलत फ़ोल्डर बजाती है`); playing from a folder is **फ़ोल्डर से म्यूज़िक चलाना**. **Unlink from** is `… वाला बटन`, as `AgentAddSetupFields.tsx` confirms.
+
+These are translation choices, not a new native-reader review.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `media/music.md`, `media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+- Left bare, in line with the pack's sparse glossing and the same files' other tooltips and folder fields: **Add Character**, as in the rows above it; **Open character card** (`ui/hi.json`: `कैरेक्टर कार्ड खोलें`), placed in parentheses after the noun like **Remove from chat** (`सदस्य के नाम (**Open character card**) पर क्लिक करें`); and the per-chat field **Game Assets Music Folder** (`ui/hi.json`: `Game Assets म्यूज़िक फ़ोल्डर`), in the English guide's casing, which is the add-to-chat label; Chat Settings shows the same field under the editor key **Game Assets music folder**, which has the same `ui/hi.json` value. No gloss is coined. **On this device** keeps its existing gloss (इसी डिवाइस पर).
+- **Chat Settings** is masculine, as elsewhere in the pack (`**Chat Settings** … खुलता है`), so `**Chat Settings** बंद हो जाता है`. Checked members are `सदस्यों पर टिक लगा होता है`, after `टिक लगाएँ` (`lorebooks/import-export.md`, `game/game-assets.md`). A member's full card is `पूरा कार्ड`.
+- "**This chat** also shows" is `**This chat** चुनने पर … भी दिखता है`, because the field appears only when **This chat** is the **Apply to** choice (`ChatSettingsDrawer.tsx`, `AgentAddSetupFields.tsx`). A subfolder is **सबफ़ोल्डर**, as in the file's **On** bullet; it plays in the chat with intransitive **बजना** (`ताकि वह सिर्फ़ इसी चैट में बजे`).
+- A private network is **प्राइवेट नेटवर्क**, as in `REMOTE_ACCESS.md`; a voice server is **वॉइस सर्वर**, as in the file's PocketTTS bullet. The prose subject is **TTS**, the file's running term for text to speech.
+
+These are translation choices, not a new native-reader review.
+
+## Notices DNS and Capability API 1.817 (2026-11-07, #8954)
+
+Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section in `development/optional-agent-packages.md`, against Engine `dd85f7b40d`:
+
+- Coined prose terms (not UI labels, so not §5 Pattern A; no `ui/hi.json` string): the **hosts file** is `hosts फ़ाइल`, the word kept Latin and unquoted as in English (`TROUBLESHOOTING.md` writes the path as `/etc/hosts`); a **DNS server** is `DNS सर्वर`, and "asks the DNS servers directly" is `सीधे DNS सर्वर से पूछता है`. The table row's "its host" is `इसका होस्ट`, as in the `MARINARA_SHARED_GPU_HOSTS` row (`लिस्ट वाले होस्ट पर`).
+- Short names without a domain are `एक-शब्द वाले नाम जिनमें डोमेन नहीं होता`, after the `TRUSTED_HOSTS` row's `एक-शब्द वाले LAN नाम`; the local network is **लोकल नेटवर्क**. The Termux sentence keeps `$PREFIX/etc/resolv.conf`, `8.8.8.8` and `8.8.4.4` byte-exact; "unless you edit that file" is `जब तक आप वह फ़ाइल एडिट न करें`.
+- The inline link to `#outbound-http-proxy` reads `बाहर जाने वाली रिक्वेस्ट के लिए प्रॉक्सी`, the section heading without `HTTP`; the proxy is **प्रॉक्सी**, as in the ComfyUI authenticated proxy entry (no new phrase shows its gender). The new table sentence ends with `देखें [Marinara नोटिस](#marinara-notices)।`, as the `MARINARA_NOTICES_ENABLED` row does.
+- The heading is `### Capability API 1.817: पैकेज को बताना कि चैट की ब्रांच बनाई गई`, under `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`, like the file's 1.814 to 1.816 sections (Latin `Capability API`, `-ना` heading). A branched chat is `चैट की ब्रांच बनाना`, the pack's `ब्रांच बनाना`; ब्रांच is feminine (`ब्रांच लौटाई जाती है`). "Awaits it" is `कॉल करता है और इसके पूरा होने का इंतज़ार करता है`, after the file's `ensureMarinaraHost()` sentence; "logged and ignored" is `लॉग करके अनदेखी कर दी जाती हैं`; "soft seam" is **सॉफ़्ट इंटरफ़ेस**, as in the file's 1.12, 1.13 and 1.816 sections; the service is **सर्विस**, as in the 1.391 section it mirrors; snapshots are **स्नैपशॉट** and metadata **मेटाडेटा**.
+
+These are translation choices, not a new native-reader review.

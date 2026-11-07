@@ -22,7 +22,7 @@ La configuration de Music DJ se fait à un seul endroit, partagé par toute l'ap
 
 ### Choisir une source de musique
 
-Dans l'éditeur de **Music DJ**, le champ **Music Player** propose trois boutons : **Spotify**, **YouTube** et **Custom**. Une ligne en dessous indique ce qui est actif, par exemple "Visible player: Spotify. Saved provider: Spotify." Ce choix vaut pour toute l'application ; il n'est pas enregistré chat par chat.
+Dans l'éditeur de **Music DJ**, le champ **Music Player** propose trois boutons : **Spotify**, **YouTube** et **Custom**. Une ligne en dessous indique ce qui est actif, par exemple "Visible player: Spotify. Saved provider: Spotify." Ce choix vaut pour toute l'application ; il n'est pas enregistré chat par chat. Le dossier depuis lequel **Custom** joue peut être différent pour chaque chat ou personnage : voir [Utiliser un autre dossier pour un chat ou un personnage](#use-a-different-folder-for-a-chat-or-character).
 
 ## Configurer Spotify
 
@@ -91,11 +91,36 @@ Le mode Custom lit des fichiers audio depuis la machine qui fait tourner Marinar
 Dans l'éditeur de **Music DJ**, repère **Custom Music Library** (bibliothèque musicale personnalisée). Elle contient un seul interrupteur, **Use Game Assets music folder** (utiliser le dossier de musique des ressources de jeu).
 
 - **On** : le mode Custom lit l'audio que tu as téléversé dans Game Assets, la bibliothèque de ressources de Marinara pour Game Mode. Utilise **Game Assets music folder** pour choisir un dossier. Saisis `music` pour toute la bibliothèque, ou un sous-dossier comme `music/combat`. **Open Folder** (ouvrir le dossier) l'ouvre sur la machine du serveur.
-- **Off** : le mode Custom lit un dossier de l'appareil serveur. Utilise **Select Folder** (sélectionner un dossier) pour ouvrir un sélecteur sur la machine du serveur, ou colle le chemin dans **Music folder on this device** (dossier de musique sur cet appareil).
+- **Off** : le mode Custom lit un dossier de l'appareil serveur. Utilise **Select Folder** (sélectionner un dossier) pour ouvrir un sélecteur sur la machine du serveur, ou colle le chemin dans **Default music folder on this device** (dossier de musique par défaut sur cet appareil). Tout chat qui n'a pas son propre dossier utilise celui-ci.
 
-Les configurations Roleplay et Game Mode affichent la même source. Si tu as choisi un dossier sur l'appareil serveur, les réglages Music DJ du chat affichent ce chemin et un bouton **Choose Folder** (choisir un dossier).
+La lecture depuis un dossier hors de Game Assets demande un accès local au serveur. L'enregistrement d'un chemin de dossier saisi à la main demande le même accès que le sélecteur de dossier. Depuis un autre appareil, sans identifiants de connexion ni secret d'administration, les deux peuvent être bloqués. Voir [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
 
-La lecture depuis un dossier hors de Game Assets demande un accès local au serveur. Depuis un autre appareil, sans identifiants de connexion ni secret d'administration, cette fonction peut être bloquée. Voir [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
+<a id="use-a-different-folder-for-a-chat-or-character"></a>
+
+### Utiliser un autre dossier pour un chat ou un personnage
+
+Un chat ou un personnage peut avoir son propre dossier de musique, pour que chaque histoire ait sa propre bande-son. Le dossier d'un personnage est lu dans tous les chats où ce personnage est le seul personnage.
+
+1. Ouvre le chat et ses **Chat Settings** (réglages du chat).
+2. Dans les réglages **Music DJ**, avec le lecteur **Custom** sélectionné, ouvre **Apply to** (appliquer à) et choisis où enregistrer le dossier.
+3. Clique sur **Choose Folder** (choisir un dossier), ou colle le chemin dans **Music folder on this device** (dossier de musique sur cet appareil).
+
+| Apply to | Chats qui utilisent le dossier |
+| --- | --- |
+| **This chat** (ce chat) | Uniquement ce chat. Une branche démarre avec le même dossier et peut le changer. |
+| Le nom du personnage | Tous les chats où ce personnage est le seul personnage. N'apparaît que dans un chat avec un seul personnage. |
+| **All chats (default)** (tous les chats, par défaut) | Tous les chats qui n'ont pas leur propre dossier. C'est le dossier par défaut défini dans l'éditeur de **Music DJ**. |
+
+Music DJ utilise le premier dossier qu'il trouve : le dossier de ce chat, puis celui du personnage, puis le dossier par défaut. Un chat de groupe n'utilise jamais le dossier d'un personnage. Le dossier d'un chat ou d'un personnage est lu même quand la source par défaut est Game Assets.
+
+Quand un chat lit la musique de Game Assets (il n'a pas son propre dossier sur cet appareil), l'option **This chat** affiche aussi le champ **Game Assets Music Folder** (dossier de musique des ressources de jeu). Saisis un sous-dossier de Game Assets, comme `music/combat`, pour le lire dans ce chat uniquement. Laisse le champ vide pour utiliser le dossier par défaut.
+
+**In use:** (en cours d'utilisation) affiche le dossier que lit ce chat et sa provenance : **This chat**, **From** (depuis) suivi du nom du personnage, ou **Default** (par défaut).
+
+- **Use default** (utiliser le dossier par défaut) retire le dossier propre à ce chat. Le chat lit alors le dossier du personnage, ou le dossier par défaut.
+- **Unlink from** (dissocier de) suivi du nom du personnage retire le dossier du personnage de tous les chats.
+
+Le même choix **Apply to** apparaît quand tu ajoutes Music DJ à un chat. Les exports de chat, les profils de réglages et les fichiers **Export Profile** (exporter le profil) laissent de côté le dossier propre à un chat. Les exports d'agent laissent de côté le dossier par défaut et les dossiers de personnage. Chaque chemin pointe vers des fichiers de ce serveur : il n'a donc aucun sens sur un autre.
 
 ## Utiliser le lecteur de musique
 
@@ -145,7 +170,8 @@ Un personnage peut alors nommer un morceau pour Spotify, ou décrire un titre po
 - **Spotify ne joue rien** : la lecture exige Spotify Premium et un appareil Spotify actif. Ouvre l'application de bureau sur un appareil, ou clique sur **Enable Marinara player** sur ordinateur.
 - **La fenêtre de connexion Spotify échoue sur une autre machine** : utilise le champ de collage "Browser couldn't reach the callback?", ou définis `SPOTIFY_REDIRECT_URI` sur le serveur.
 - **La recherche YouTube échoue** : vérifie que **YouTube Data API v3** est activé pour ton projet et que la clé n'est pas restreinte par référent HTTP. Si tu atteins le quota quotidien, réessaie le lendemain ou utilise une autre clé.
-- **La musique Custom ne se lance pas depuis un dossier de l'appareil en accès à distance** : ce dossier demande un accès local au serveur. Voir [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
+- **La musique Custom ne se lance pas depuis un dossier de l'appareil, ou un chemin de dossier saisi ne s'enregistre pas, en accès à distance** : les deux demandent un accès local au serveur. Voir [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
+- **Un chat lit le mauvais dossier** : vérifie **In use:** dans les réglages **Music DJ** du chat. **This chat** l'emporte sur le dossier du personnage : clique donc sur **Use default** pour revenir au dossier du personnage.
 - **La commande de morceau d'un personnage ne fait rien en Conversation** : connecte Spotify ou enregistre une clé YouTube, et vérifie que les interrupteurs **Commands** et **Music** sont activés.
 
 ## Guides associés

@@ -1130,6 +1130,14 @@ const isGif = result.mimeType === "image/gif";
 
 1.816 Engine에서는 `code === "animation-unsupported"`인 오류를 잡아 대신 정지 이미지를 그리세요. 패키지가 GIF 없이 작동할 수 없을 때만 1.816을 선언하세요. 권한은 필요 없습니다.
 
+<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>
+
+### Capability API 1.817: 채팅 분기가 만들어졌음을 패키지에 알리기
+
+`long-term-memory:runtime` 서비스에는 선택적 메서드 `chatBranched({ chatId, parentChatId })`를 추가할 수 있습니다. 채팅 분기가 만들어지면 Engine은 이 메서드를 한 번 호출하고 끝날 때까지 기다립니다. 호출 시점은 분기 라우트가 복사(메시지, 메타데이터, 스냅샷)를 마친 뒤, 새 채팅을 반환하기 전입니다. 따라서 호출 안에서 분기의 메시지와 `branchParentChatId` 메타데이터를 이미 읽을 수 있습니다. 패키지는 이를 이용해 누군가 읽기 전에 사본을 고칠 수 있습니다.
+
+오류가 난 호출과 몇 초보다 오래 걸리는 호출은 로그에 기록하고 무시하며, 어느 경우든 분기는 반환됩니다. 이 메서드가 없으면 아무것도 바뀌지 않습니다. 소프트 인터페이스입니다. 이전 Engine은 이 메서드를 호출하지 않으므로, 패키지는 호출이 없을 때도 대처할 수 있어야 합니다. 권한은 필요 없습니다.
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: Advanced Memory 장면 요약과 기억 블록

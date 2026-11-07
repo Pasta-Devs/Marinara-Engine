@@ -14,7 +14,7 @@ Text to Speech (TTS) liest Chat-Nachrichten und Spielerzählungen laut vor. In d
 Fast alle TTS-Einstellungen liegen in einer einzigen Karte. TTS einzuschalten bringt noch nichts zum Sprechen. Es blendet die Schaltfläche **Speak** an jeder Nachricht und die Optionen unter **Auto-play** (automatische Wiedergabe) ein. Was wann vorgelesen wird, entscheidest weiterhin du.
 
 1. Klick in der oberen Leiste auf **Connections** (Verbindungen) und dann auf **Add** (Hinzufügen). Das Fenster **Add account** (Konto hinzufügen) öffnet sich.
-2. Wähle unter **Voice** (Stimme) den Eintrag **Text to speech**. Die Karte öffnet sich. Nutzt du PocketTTS schon, findest du dieselbe Karte auch unter **On this device** (auf diesem Gerät).
+2. Wähle unter **Voice** (Stimme) den Eintrag **Text to speech**. Die Karte öffnet sich. Nutzt Text to Speech schon PocketTTS oder einen anderen Sprachserver auf deinem Rechner oder in deinem privaten Netzwerk, findest du dieselbe Karte auch unter **On this device** (auf diesem Gerät).
 3. Schalte **Use text to speech** ein. Solange es aus ist, wird nichts vorgelesen.
 4. Öffne die Liste **Source** und wähle einen Dienst.
 

@@ -179,12 +179,12 @@ Os sons e as trilhas gerados ficam salvos com os seus recursos do jogo, então o
 
 ## Pasta de música personalizada do Music DJ
 
-O **Music DJ** é um agente auxiliar que pode tocar música durante um jogo. No modo Custom, ele toca trilhas de uma pasta que você escolhe. Quando você ativa o **Music DJ** em um chat, o formulário de configuração segue a origem salva no agente. **Game Assets** mostra um caminho dentro dos seus recursos do jogo, como `music` ou `music/combat`. **Folder on this device** (pasta neste dispositivo) mostra o caminho salvo no dispositivo do servidor e um botão **Choose Folder** (escolher pasta).
+O **Music DJ** é um agente auxiliar que pode tocar música durante um jogo. No modo Custom, ele toca trilhas de uma pasta que você escolhe. Quando você ativa o **Music DJ** em um chat, as configurações dele mostram **Apply to** (aplicar a). Essa opção salva a pasta para este chat, para o único personagem do chat ou para todos os chats. **In use:** (em uso) mostra a pasta que o chat toca. Com **All chats (default)** (todos os chats, padrão), a fonte **Game Assets** recebe um caminho dentro dos seus recursos do jogo, como `music` ou `music/combat`. Para dar a um chat ou personagem uma pasta própria, veja [Use uma pasta diferente para um chat ou personagem](../media/music.md#use-a-different-folder-for-a-chat-or-character).
 
 O editor completo do **Music DJ** tem uma seção **Custom Music Library** (biblioteca de música personalizada). **Use Game Assets music folder** (usar a pasta de música dos recursos do jogo) alterna entre dois modos:
 
 - Ligado: o campo **Game Assets music folder** lê uma pasta dentro dos seus recursos do jogo. **Open Folder** (abrir pasta) abre essa pasta no computador do servidor.
-- Desligado: **Music folder on this device** (pasta de música neste dispositivo) toca música de qualquer pasta do computador que roda o servidor. Clique em **Select Folder** (selecionar pasta), ou cole o caminho.
+- Desligado: **Default music folder on this device** (pasta de música padrão neste dispositivo) toca música de qualquer pasta do computador que roda o servidor. Clique em **Select Folder** (selecionar pasta), ou cole o caminho.
 
 Escolher uma pasta fora do aplicativo exige acesso privilegiado. No mesmo computador do servidor, funciona sem configuração extra. De outro dispositivo ou por acesso remoto, configure primeiro o acesso de administrador. Veja [Acesso remoto](../REMOTE_ACCESS.md). Para o resto do tocador de música, veja [Music DJ](../media/music.md).
 

@@ -25,7 +25,8 @@ Ouvre **Chat Settings** (réglages du chat) et repère la section **Characters**
 | --- | --- |
 | Ajouter un personnage | Clique sur **Add Character** (ajouter un personnage) et lance une recherche. |
 | Ajouter un dossier | Clique sur **Add Character**, puis sur **Add all** (tout ajouter) sur la ligne du dossier. |
-| En modifier plusieurs d'un coup | Clique sur le nom d'un membre. Le même sélecteur s'ouvre. |
+| En modifier plusieurs d'un coup | Clique sur **Add Character**. Les membres déjà présents dans le chat sont cochés. Clique sur un nom pour l'ajouter ou le retirer. |
+| Ouvrir la fiche complète d'un membre | Clique sur le nom du membre (**Open character card**, ouvrir la fiche de personnage). Le panneau **Chat Settings** se ferme et la fiche s'ouvre. |
 | Retirer un personnage | Clique sur l'icône de corbeille (**Remove from chat**, retirer du chat). |
 | Réordonner | Fais glisser la poignée (**Drag to reorder**, glisser pour réordonner). Avec l'ordre **Sequential** (séquentiel), les personnages répondent dans cet ordre. |
 | Mettre en pause un moment | Clique sur l'œil (**Disable in chat**, désactiver dans le chat). Clique à nouveau pour le réactiver (**Enable in chat**, activer dans le chat). |

@@ -217,6 +217,8 @@ Zum Abschalten der Hinweise setze `MARINARA_NOTICES_ENABLED=false`.
 
 Forks können `MARINARA_NOTICES_URL` auf ihre eigene Datei zeigen lassen.
 
+Um den Server der Hinweise zu finden, und ebenso den Proxy, wenn ein [ausgehender Proxy](#outbound-http-proxy) eingeschaltet ist, liest Marinara die Hosts-Datei und fragt die DNS-Server direkt ab. Namen, die nur dein lokales Netzwerk kennt, etwa `.local`-Namen oder kurze Namen ohne Domain außer `localhost`, funktionieren nicht. In Termux stehen die DNS-Server in `$PREFIX/etc/resolv.conf`: `8.8.8.8` und `8.8.4.4` von Google, sofern du diese Datei nicht änderst.
+
 <a id="optional-multiplayer"></a>
 
 ## Optionaler Mehrspielermodus
@@ -317,7 +319,7 @@ Die Tabellen weiter oben decken Zugriffskontrolle, Speicherung, Logging, Zeitlim
 | `AUTO_OPEN_BROWSER` | `true` | Ob die Launcher die App-URL öffnen. `false` schaltet das ab. Die APK-verwaltete Einrichtung schaltet es aus. |
 | `AUTO_UPDATE_ENABLED` | `true` | Ob Git-basierte Launcher vor dem Start Updates holen und einspielen. `false` schaltet das ab dem nächsten Start ab. Der Launcher prüft weiterhin nur lesend auf neuere Releases und gibt eine Erinnerung aus. `--skip-update` überspringt beide Prüfungen für einen Start. |
 | `MARINARA_NOTICES_ENABLED` | `true` | Ob der Server Hinweise der Maintainer abruft. Siehe [Marinara-Hinweise](#marinara-notices). |
-| `MARINARA_NOTICES_URL` | `notices.json` im Branch `notices` | Überschreibt die Hinweisdatei, für Forks und Spiegel. Sie wird genauso geprüft, und Links außerhalb von `https://github.com/Pasta-Devs/` werden verworfen. |
+| `MARINARA_NOTICES_URL` | `notices.json` im Branch `notices` | Überschreibt die Hinweisdatei, für Forks und Spiegel. Sie wird genauso geprüft, und Links außerhalb von `https://github.com/Pasta-Devs/` werden verworfen. Der Hostname der URL muss in der Hosts-Datei oder im DNS stehen. Siehe [Marinara-Hinweise](#marinara-notices). |
 | `MARINARA_ENV_FILE` | `.env` im Projekt-Wurzelordner | Abweichender Pfad zur Datei `.env`. Vor dem Start setzen. |
 | `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | Höchstzahl gleichzeitiger Bild- oder Videoanfragen auf dem ganzen Server. Senke sie auf 1–2, wenn einem lokalen ComfyUI oder SwarmUI der VRAM ausgeht. `0` hebt die Obergrenze auf. Ungültige Werte werden mit einer Warnung ignoriert. Stapelaufträge belegen nie den letzten Platz. Gilt zusätzlich zu **Queue media generation requests** (Anfragen zur Mediengenerierung in die Warteschlange stellen; **Settings → Generations → Overall Generations**, standardmäßig an), das Bild- und Videoaufträge pro Konto in die Warteschlange stellt. |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000` (10 Minuten) | Wie lange eine Anfrage auf einen freien Platz wartet, bevor sie fehlschlägt. `0` wartet unbegrenzt. |

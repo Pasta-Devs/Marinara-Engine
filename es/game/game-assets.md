@@ -179,12 +179,12 @@ Los sonidos y las pistas generados se guardan con tus recursos del juego, así q
 
 ## Carpeta de música personalizada para Music DJ
 
-**Music DJ** es un agente ayudante que puede reproducir música durante un juego. En su modo Custom, reproduce pistas de una carpeta que tú eliges. Cuando activas **Music DJ** para un chat, el formulario de configuración sigue la fuente guardada en el agente. **Game Assets** muestra una ruta dentro de tus recursos del juego, como `music` o `music/combat`. **Folder on this device** (Carpeta en este dispositivo) muestra la ruta guardada en el dispositivo del servidor y un botón **Choose Folder** (Elegir carpeta).
+**Music DJ** es un agente ayudante que puede reproducir música durante un juego. En su modo Custom, reproduce pistas de una carpeta que tú eliges. Cuando activas **Music DJ** para un chat, sus ajustes muestran **Apply to** (Aplicar a). Ahí se guarda la carpeta para este chat, para el único personaje del chat o para todos los chats. **In use:** muestra la carpeta de la que el chat reproduce música. Con **All chats (default)** (Todos los chats: predeterminado), la fuente **Game Assets** acepta una ruta dentro de tus recursos del juego, como `music` o `music/combat`. Para dar a un chat o a un personaje su propia carpeta, consulta [Usar una carpeta distinta para un chat o personaje](../media/music.md#use-a-different-folder-for-a-chat-or-character).
 
 El editor completo de **Music DJ** tiene una sección **Custom Music Library** (Biblioteca de música personalizada). **Use Game Assets music folder** (Usar la carpeta de música de Game Assets) elige entre dos modos:
 
 - Activado: el campo **Game Assets music folder** lee una carpeta dentro de tus recursos del juego. **Open Folder** (Abrir carpeta) la abre en la computadora del servidor.
-- Desactivado: **Music folder on this device** (Carpeta de música en este dispositivo) reproduce música desde cualquier carpeta de la computadora que ejecuta el servidor. Haz clic en **Select Folder** (Seleccionar carpeta), o pega la ruta.
+- Desactivado: **Default music folder on this device** (Carpeta de música predeterminada en este dispositivo) reproduce música desde cualquier carpeta de la computadora que ejecuta el servidor. Haz clic en **Select Folder** (Seleccionar carpeta), o pega la ruta.
 
 Elegir una carpeta fuera de la app necesita acceso privilegiado. En la misma computadora que el servidor funciona sin configuración extra. Desde otro dispositivo o mediante acceso remoto, configura primero el acceso de administrador. Consulta [Acceso remoto](../REMOTE_ACCESS.md). Para el resto del reproductor de música, consulta [Music DJ](../media/music.md).
 

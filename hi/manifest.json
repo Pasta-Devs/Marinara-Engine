@@ -1,11 +1,11 @@
 {
   "language": "hi",
-  "sourceCommit": "8af820fa729ac95f908addb6602fc112bdff8f72",
+  "sourceCommit": "7b0f12be357a21375ccb801f2bcd5d1710b1cbbd",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "e3152cc2a1a1106a54daa693464bf37951d799e2bb865f3faf7396e13b632f07",
-      "bytes": 94055
+      "sha256": "53aca13004159125911f1041fa9ba2ed9486be8029fbad54dfb506a94d677753",
+      "bytes": 95280
     },
     {
       "path": "FAQ.md",
@@ -179,8 +179,8 @@
     },
     {
       "path": "chats/group-chats.md",
-      "sha256": "e0876e0ce578e826805594d1515b644eae45292c0deb97ef31b3adf3069d48f2",
-      "bytes": 25352
+      "sha256": "ce71dfd0b3872f215e72e3171332f8a35a96f588bd358a6a2db463fda48b20b8",
+      "bytes": 25834
     },
     {
       "path": "chats/guided-and-impersonate.md",
@@ -229,8 +229,8 @@
     },
     {
       "path": "connections/decision-models.md",
-      "sha256": "e61b7e54716a9d2a1b9c702dfbadbd8cb26c86a03145a421ae93c69d92762fe8",
-      "bytes": 58470
+      "sha256": "77968439af38c061d7557fc3636819a342f16b19cf952f9c6c178b9dcf9703b9",
+      "bytes": 59572
     },
     {
       "path": "connections/local-model.md",
@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "807c5a453ddf8ca0b3cfef77e4df1ae1b466200cb5fa166db72d85f706510a34",
-      "bytes": 345597
+      "sha256": "4f398b2f8d40fefdd5335108dd135082160f4241315b96cd67f8660f2d27f709",
+      "bytes": 347652
     },
     {
       "path": "development/personal-extensions.md",
@@ -499,8 +499,8 @@
     },
     {
       "path": "game/game-assets.md",
-      "sha256": "40d1ba4d42db43c32aa5e7732b9a4bfd28827cce07db1079e73a9a634a4ee277",
-      "bytes": 30048
+      "sha256": "478d4d768196fb245f5b3575b8341d77ae5db09598ec946a3527e1fb8abd28ad",
+      "bytes": 30611
     },
     {
       "path": "game/getting-started.md",
@@ -649,8 +649,8 @@
     },
     {
       "path": "media/comfyui.md",
-      "sha256": "752285fd78b165100afbe15d9afab18a2f1d5a6955882381c6ab00b2f4190452",
-      "bytes": 29543
+      "sha256": "8551f3b0fb569914cd8739f3a3ef88d192fe538079b65df9860872ab2b245977",
+      "bytes": 33001
     },
     {
       "path": "media/illustrator-agent.md",
@@ -664,8 +664,8 @@
     },
     {
       "path": "media/music.md",
-      "sha256": "d7060cd1fe07d6304af5242cdb89fe6e5e161103f7e64e086ce9934c49c08861",
-      "bytes": 25385
+      "sha256": "98d4f0dfa3ad45c760a1a92bc96088574d13388eb01d5475db1cff30c819bb7e",
+      "bytes": 31388
     },
     {
       "path": "media/scene-backgrounds.md",
@@ -684,8 +684,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "142d7d4c2cbe1c0a2b2ad4d4899d9e76f934fb4510d9bc877ae1a201272ded0f",
-      "bytes": 45757
+      "sha256": "ff32170472ebb6a8a2c17e11efe5e747c3fdfb39211a097a307336e2af1cbed1",
+      "bytes": 45929
     },
     {
       "path": "prompts/conditional-prompts.md",

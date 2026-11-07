@@ -217,6 +217,8 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 
 Fork 可以让 `MARINARA_NOTICES_URL` 指向自己的文件。
 
+为了找到通知服务器，以及开启[出站代理](#outbound-http-proxy)时的那个代理，Marinara 会读取 hosts 文件，并直接向 DNS 服务器查询。只有你的本地网络才能识别的名称都不能用，例如 `.local` 名称，以及除 `localhost` 外不带域名的单段名称。在 Termux 上，DNS 服务器就是 `$PREFIX/etc/resolv.conf` 里列出的那些：除非你修改这个文件，否则就是 Google 的 `8.8.8.8` 和 `8.8.4.4`。
+
 <a id="optional-multiplayer"></a>
 
 ## 可选多人模式
@@ -319,7 +321,7 @@ Fork 可以让 `MARINARA_NOTICES_URL` 指向自己的文件。
 | `AUTO_OPEN_BROWSER` | `true` | 启动脚本是否打开应用 URL。设为 `false` 即可关闭。APK 管理的安装会关闭它。 |
 | `AUTO_UPDATE_ENABLED` | `true` | 基于 Git 的启动脚本是否在启动前拉取并应用更新。设为 `false` 从下次启动起不再自动更新。启动脚本仍会只读地检查有没有更新的正式版本，并打印一条提醒。`--skip-update` 让本次启动跳过这两项检查。 |
 | `MARINARA_NOTICES_ENABLED` | `true` | 服务器是否获取维护者通知。见 [Marinara 通知](#marinara-notices)。 |
-| `MARINARA_NOTICES_URL` | `notices` 分支上的 `notices.json` | 覆盖通知文件，用于 fork 和镜像。该文件的验证方式相同，指向 `https://github.com/Pasta-Devs/` 之外的链接会被丢弃。 |
+| `MARINARA_NOTICES_URL` | `notices` 分支上的 `notices.json` | 覆盖通知文件，用于 fork 和镜像。该文件的验证方式相同，指向 `https://github.com/Pasta-Devs/` 之外的链接会被丢弃。该 URL 的主机必须能在 hosts 文件或 DNS 中找到。见 [Marinara 通知](#marinara-notices)。 |
 | `MARINARA_ENV_FILE` | 项目根目录的 `.env` | 覆盖 `.env` 文件的路径。要在启动前设置。 |
 | `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | 整个服务器同时进行的图像或视频请求上限。本地 ComfyUI 或 SwarmUI 显存不足时，降到 1-2。`0` 取消这个上限。无效值会被忽略，并记录一条警告。批量任务永远不会占用最后一个名额。这个上限叠加在 **Queue media generation requests**(媒体生成请求排队) 之上（位于 **Settings → Generations → Overall Generations**(设置 → 生成 → 总体生成)，默认开启），后者会按账号排队图像和视频任务。 |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000`(10 分钟) | 请求在失败之前等待空闲名额的最长时间。`0` 表示一直等待。 |

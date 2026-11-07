@@ -22,7 +22,7 @@ Eingerichtet wird Music DJ an einer einzigen gemeinsamen Stelle. Öffne rechts d
 
 ### Musikquelle auswählen
 
-Im Editor von **Music DJ** hat das Feld **Music Player** drei Schaltflächen: **Spotify**, **YouTube** und **Custom**. Eine Zeile darunter zeigt, was gerade aktiv ist, zum Beispiel „Visible player: Spotify. Saved provider: Spotify.“ Diese Auswahl gilt app-weit und wird nicht pro Chat gespeichert.
+Im Editor von **Music DJ** hat das Feld **Music Player** drei Schaltflächen: **Spotify**, **YouTube** und **Custom**. Eine Zeile darunter zeigt, was gerade aktiv ist, zum Beispiel „Visible player: Spotify. Saved provider: Spotify.“ Diese Auswahl gilt app-weit und wird nicht pro Chat gespeichert. Der Ordner, aus dem **Custom** spielt, kann sich aber je nach Chat oder Charakter unterscheiden. Siehe [Einen anderen Ordner für einen Chat oder Charakter nutzen](#use-a-different-folder-for-a-chat-or-character).
 
 ## Spotify einrichten
 
@@ -91,11 +91,36 @@ Der Custom-Modus spielt Audiodateien von dem Rechner ab, auf dem Marinara läuft
 Such im Editor von **Music DJ** den Bereich **Custom Music Library**. Er hat genau einen Schalter: **Use Game Assets music folder**.
 
 - **On**: Der Custom-Modus liest Audiodateien, die du in Game Assets hochgeladen hast, Marinaras Asset-Bibliothek für den Game Mode. Über **Game Assets music folder** wählst du einen Ordner. Trag `music` für die ganze Bibliothek ein oder einen Unterordner wie `music/combat`. **Open Folder** öffnet ihn auf dem Server-Rechner.
-- **Off**: Der Custom-Modus liest einen Ordner auf dem Server-Gerät. Mit **Select Folder** öffnest du eine Ordnerauswahl auf dem Server-Rechner, oder du fügst den Pfad in **Music folder on this device** ein.
+- **Off**: Der Custom-Modus liest einen Ordner auf dem Server-Gerät. Mit **Select Folder** öffnest du eine Ordnerauswahl auf dem Server-Rechner, oder du fügst den Pfad in **Default music folder on this device** ein. Jeder Chat ohne eigenen Ordner nutzt diesen Ordner.
 
-Die Einrichtung in Roleplay und Game zeigt dieselbe Quelle. Hast du einen Ordner auf dem Server-Gerät gewählt, zeigen die Music-DJ-Einstellungen des Chats diesen Pfad und eine Schaltfläche **Choose Folder**.
+Für die Wiedergabe aus einem Ordner außerhalb von Game Assets ist lokaler Zugriff auf dem Server nötig. Um einen eingetippten Ordnerpfad zu speichern, brauchst du denselben Zugriff wie für die Ordnerauswahl. Von einem anderen Gerät ohne Login oder Admin-Secret kann beides blockiert sein. Siehe [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md).
 
-Für die Wiedergabe aus einem Ordner außerhalb von Game Assets ist lokaler Zugriff auf dem Server nötig. Von einem anderen Gerät ohne Login oder Admin-Secret kann diese Funktion blockiert sein. Siehe [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md).
+<a id="use-a-different-folder-for-a-chat-or-character"></a>
+
+### Einen anderen Ordner für einen Chat oder Charakter nutzen
+
+Ein Chat oder ein Charakter kann einen eigenen Musikordner haben, sodass jede Geschichte ihren eigenen Soundtrack bekommt. Aus dem Ordner eines Charakters spielt Music DJ in jedem Chat, in dem dieser Charakter der einzige Charakter ist.
+
+1. Öffne den Chat und seine **Chat Settings** (Chat-Einstellungen).
+2. Ist in den **Music DJ**-Einstellungen der Player **Custom** ausgewählt, öffne **Apply to** (Anwenden auf) und wähle, wo der Ordner gespeichert wird.
+3. Klick auf **Choose Folder** (Ordner wählen) oder füge den Pfad in **Music folder on this device** ein.
+
+| Apply to | Welche Chats den Ordner nutzen |
+| --- | --- |
+| **This chat** | Nur dieser Chat. Eine Verzweigung startet mit demselben Ordner und kann ihn ändern. |
+| Der Name des Charakters | Jeder Chat, in dem dieser Charakter der einzige Charakter ist. Erscheint nur in einem Chat mit einem einzigen Charakter. |
+| **All chats (default)** | Jeder Chat ohne eigenen Ordner. Das ist der Standardordner aus dem Editor von **Music DJ**. |
+
+Music DJ nimmt den ersten Ordner, den er findet: den Ordner dieses Chats, dann den Ordner des Charakters, dann den Standardordner. Ein Gruppenchat nutzt nie den Ordner eines Charakters. Der Ordner eines Chats oder Charakters wird auch dann genutzt, wenn die Standardquelle Game Assets ist.
+
+Solange ein Chat aus Game Assets spielt (er hat keinen eigenen Ordner auf diesem Gerät), zeigt **This chat** zusätzlich das Feld **Game Assets Music Folder**. Trag einen Unterordner von Game Assets wie `music/combat` ein, um ihn nur in diesem Chat abzuspielen. Lass das Feld leer, um den Standardordner zu nutzen.
+
+**In use:** zeigt den Ordner, aus dem dieser Chat spielt, und woher er kommt: **This chat**, **From** mit dem Namen des Charakters oder **Default**.
+
+- **Use default** (Standard verwenden) entfernt den Ordner dieses Chats. Der Chat spielt dann aus dem Ordner des Charakters oder aus dem Standardordner.
+- **Unlink from** (Trennen von) mit dem Namen des Charakters entfernt den Ordner des Charakters aus allen Chats.
+
+Dieselbe Auswahl **Apply to** erscheint, wenn du Music DJ zu einem Chat hinzufügst. Der eigene Ordner eines Chats fehlt in Chat-Exporten, Einstellungsprofilen und Dateien aus **Export Profile** (Profil exportieren). Agenten-Exporte lassen den Standardordner und die Charakterordner weg. Jeder Pfad zeigt auf Dateien auf diesem Server und hat auf einem anderen keine Bedeutung.
 
 ## Den Musikplayer bedienen
 
@@ -145,7 +170,8 @@ Dann kann ein Charakter einen Song für Spotify nennen oder einen Titel für You
 - **Spotify spielt nichts ab**: Die Wiedergabe braucht Spotify Premium und ein aktives Spotify-Gerät. Öffne die Desktop-App auf einem Gerät oder klick am Desktop auf **Enable Marinara player**.
 - **Das Spotify-Login-Fenster schlägt auf einem anderen Rechner fehl**: Nutze das Einfügefeld unter „Browser couldn't reach the callback?“ oder setze `SPOTIFY_REDIRECT_URI` auf dem Server.
 - **Die YouTube-Suche schlägt fehl**: Prüf, ob die **YouTube Data API v3** für dein Projekt aktiviert und der Key nicht nach HTTP-Referrer beschränkt ist. Ist das Tageskontingent erreicht, versuch es am nächsten Tag oder nimm einen anderen Key.
-- **Eigene Musik aus einem Geräteordner spielt über Fernzugriff nicht ab**: Dieser Ordner braucht lokalen Zugriff auf dem Server. Siehe [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md).
+- **Über Fernzugriff spielt eigene Musik aus einem Geräteordner nicht ab, oder ein eingetippter Ordnerpfad lässt sich nicht speichern**: Beides braucht lokalen Zugriff auf dem Server. Siehe [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md).
+- **Ein Chat spielt Musik aus dem falschen Ordner**: Prüf **In use:** in den **Music DJ**-Einstellungen des Chats. **This chat** hat Vorrang vor dem Ordner des Charakters. Klick also auf **Use default**, damit der Chat wieder dem Charakter folgt.
 - **Der Song-Befehl eines Charakters bewirkt in Conversation nichts**: Verbinde Spotify oder speichere einen YouTube-Key, und prüf, ob die Schalter **Commands** und **Music** an sind.
 
 ## Verwandte Anleitungen

@@ -1128,6 +1128,20 @@ const isGif = result.mimeType === "image/gif";
 
 W Engine w wersji 1.816 przechwyć błąd z `code === "animation-unsupported"`, żeby zamiast tego utworzyć nieruchomy obraz. Zadeklaruj wersję 1.816 tylko wtedy, gdy pakiet nie może działać bez GIF-ów. Uprawnienia nie są potrzebne.
 
+<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>
+
+### Capability API 1.817: powiadamianie pakietu o utworzeniu gałęzi czatu
+
+Usługa `long-term-memory:runtime` może dodać opcjonalną metodę `chatBranched({ chatId, parentChatId })`.
+Engine wywołuje ją raz i czeka na jej zakończenie, gdy powstaje gałąź czatu: po tym, jak trasa tworzenia gałęzi skończy
+kopiowanie (wiadomości, metadanych i migawek), a przed zwróceniem nowego czatu, więc wiadomości gałęzi i metadane
+`branchParentChatId` są już w trakcie wywołania dostępne do odczytu. Pakiet może jej użyć, żeby poprawić kopię, zanim
+ktokolwiek ją odczyta.
+
+Błędy i wywołania trwające dłużej niż kilka sekund są zapisywane w logach i ignorowane; gałąź jest zwracana w każdym
+przypadku. Bez tej metody nic się nie zmienia. To miękki interfejs: starsze wersje Engine nigdy jej nie wywołują, więc
+pakiet musi sobie radzić także bez tego wywołania. Uprawnienia nie są potrzebne.
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391: podsumowania scen funkcji Advanced Memory i blok pamięci

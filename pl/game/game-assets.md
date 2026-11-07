@@ -179,12 +179,12 @@ Wygenerowane dźwięki i utwory zapisują się razem z zasobami gry, więc ten s
 
 ## Własny folder muzyki dla agenta Music DJ
 
-**Music DJ** to pomocniczy agent, który potrafi odtwarzać muzykę w trakcie gry. W trybie Custom odtwarza ścieżki z wybranego folderu. Po włączeniu agenta **Music DJ** dla czatu formularz konfiguracji trzyma się źródła zapisanego w agencie. Opcja **Game Assets** pokazuje ścieżkę wewnątrz zasobów gry, na przykład `music` albo `music/combat`. Opcja **Folder on this device** pokazuje zapisaną ścieżkę na urządzeniu serwera oraz przycisk **Choose Folder**.
+**Music DJ** to pomocniczy agent, który potrafi odtwarzać muzykę w trakcie gry. W trybie Custom odtwarza ścieżki z wybranego folderu. Po włączeniu agenta **Music DJ** dla czatu ustawienia Music DJ w tym czacie pokazują **Apply to** (zastosowanie do). Ten wybór zapisuje folder dla tego czatu, dla jedynej postaci w czacie albo dla wszystkich czatów. **In use:** (w użyciu) pokazuje folder, z którego czat odtwarza muzykę. Przy **All chats (default)** (wszystkie czaty, domyślnie) źródło **Game Assets** przyjmuje ścieżkę wewnątrz zasobów gry, na przykład `music` albo `music/combat`. Żeby dać czatowi albo postaci własny folder, zobacz [Osobny folder dla czatu lub postaci](../media/music.md#use-a-different-folder-for-a-chat-or-character).
 
 Pełny edytor agenta **Music DJ** ma sekcję **Custom Music Library**. Przełącznik **Use Game Assets music folder** wybiera jeden z dwóch trybów:
 
 - Włączony: pole **Game Assets music folder** wskazuje folder wewnątrz zasobów gry. **Open Folder** otwiera go na komputerze z serwerem.
-- Wyłączony: **Music folder on this device** odtwarza muzykę z dowolnego folderu na komputerze, na którym działa serwer. Kliknij **Select Folder** albo wklej ścieżkę.
+- Wyłączony: **Default music folder on this device** (domyślny folder muzyki na tym urządzeniu) odtwarza muzykę z dowolnego folderu na komputerze, na którym działa serwer. Kliknij **Select Folder** albo wklej ścieżkę.
 
 Wybór folderu spoza aplikacji wymaga podwyższonych uprawnień. Na tym samym komputerze co serwer działa bez dodatkowej konfiguracji. Z innego urządzenia lub przez zdalny dostęp najpierw skonfiguruj dostęp administracyjny. Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md). Resztę informacji o odtwarzaczu muzyki znajdziesz w przewodniku [Music DJ](../media/music.md).
 

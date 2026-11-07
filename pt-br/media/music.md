@@ -22,7 +22,7 @@ A configuração do Music DJ fica em um único lugar compartilhado. Abra o paine
 
 ### Escolha uma fonte de música
 
-No editor do **Music DJ**, o campo **Music Player** tem três botões: **Spotify**, **YouTube** e **Custom**. Uma linha abaixo deles mostra o que está ativo, por exemplo "Visible player: Spotify. Saved provider: Spotify." Essa escolha vale para o aplicativo inteiro e não é salva por chat.
+No editor do **Music DJ**, o campo **Music Player** tem três botões: **Spotify**, **YouTube** e **Custom**. Uma linha abaixo deles mostra o que está ativo, por exemplo "Visible player: Spotify. Saved provider: Spotify." Essa escolha vale para o aplicativo inteiro e não é salva por chat. A pasta de onde o **Custom** toca pode ser diferente para cada chat ou personagem: veja [Use uma pasta diferente para um chat ou personagem](#use-a-different-folder-for-a-chat-or-character).
 
 ## Configure o Spotify
 
@@ -91,11 +91,36 @@ O modo Custom toca arquivos de áudio da máquina que roda Marinara. Os tipos co
 No editor do **Music DJ**, localize **Custom Music Library**. Ele tem um único botão liga/desliga, **Use Game Assets music folder**.
 
 - **Ativado**: o modo Custom lê os áudios que você enviou para o Game Assets, a biblioteca de recursos do Marinara para o Game Mode. Use **Game Assets music folder** para escolher uma pasta. Digite `music` para a biblioteca inteira ou uma subpasta como `music/combat`. **Open Folder** abre a pasta na máquina do servidor.
-- **Desativado**: o modo Custom lê uma pasta do dispositivo do servidor. Use **Select Folder** para abrir um seletor na máquina do servidor, ou cole o caminho em **Music folder on this device**.
+- **Desativado**: o modo Custom lê uma pasta do dispositivo do servidor. Use **Select Folder** para abrir um seletor na máquina do servidor, ou cole o caminho em **Default music folder on this device** (pasta de música padrão neste dispositivo). Todo chat sem uma pasta própria usa essa pasta.
 
-As configurações de Roleplay e de Game mostram a mesma fonte. Se você escolheu uma pasta no dispositivo do servidor, as configurações do Music DJ do chat mostram esse caminho e um botão **Choose Folder**.
+Tocar a partir de uma pasta fora do Game Assets exige acesso local no servidor. Salvar um caminho de pasta digitado exige o mesmo acesso que o seletor de pastas. De outro dispositivo, sem login nem segredo de administrador, os dois podem ficar bloqueados. Veja [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md).
 
-Tocar a partir de uma pasta fora do Game Assets exige acesso local no servidor. De outro dispositivo, sem login nem admin secret, esse recurso pode ficar bloqueado. Veja [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md).
+<a id="use-a-different-folder-for-a-chat-or-character"></a>
+
+### Use uma pasta diferente para um chat ou personagem
+
+Um chat ou um personagem pode ter uma pasta de música própria, para que cada história toque a sua própria trilha sonora. A pasta de um personagem toca em todos os chats em que ele é o único personagem.
+
+1. Abra o chat e depois **Chat Settings** (configurações do chat).
+2. Nas configurações do **Music DJ**, com o player **Custom** selecionado, abra **Apply to** (aplicar a) e escolha onde a pasta fica salva.
+3. Clique em **Choose Folder** (escolher pasta), ou cole o caminho em **Music folder on this device** (pasta de música neste dispositivo).
+
+| Apply to | Quais chats usam a pasta |
+| --- | --- |
+| **This chat** (este chat) | Só este chat. Uma ramificação começa com a mesma pasta e pode trocá-la. |
+| O nome do personagem | Todos os chats em que esse personagem é o único personagem. Só aparece em um chat com apenas um personagem. |
+| **All chats (default)** (todos os chats, padrão) | Todos os chats sem uma pasta própria. É a pasta padrão do editor do **Music DJ**. |
+
+O Music DJ usa a primeira pasta que encontra: a pasta deste chat, depois a pasta do personagem, depois a padrão. Um chat em grupo nunca usa a pasta de um personagem. A pasta de um chat ou de um personagem toca mesmo quando a fonte padrão é o Game Assets.
+
+Enquanto um chat toca a partir do Game Assets (ele não tem uma pasta própria neste dispositivo), a opção **This chat** também mostra o campo **Game Assets Music Folder** (pasta de música do Game Assets). Digite uma subpasta do Game Assets, como `music/combat`, para tocá-la só neste chat. Deixe o campo vazio para usar a pasta padrão.
+
+**In use:** (em uso) mostra a pasta que este chat toca e de onde ela vem: **This chat**, **From** seguido do nome do personagem, ou **Default** (padrão).
+
+- **Use default** (usar padrão) remove a pasta deste chat. O chat passa a tocar a pasta do personagem, ou a padrão.
+- **Unlink from** (desvincular de) seguido do nome do personagem remove a pasta do personagem de todos os chats.
+
+A mesma opção **Apply to** aparece quando você adiciona o Music DJ a um chat. A pasta própria de um chat fica fora das exportações de chat, dos perfis de configurações e dos arquivos do **Export Profile** (exportar perfil). As exportações de agentes deixam de fora a pasta padrão e as pastas de personagem. Cada caminho aponta para arquivos neste servidor, então não significa nada em outro.
 
 ## Use o player de música
 
@@ -145,7 +170,8 @@ A partir daí, um personagem pode citar uma música para o Spotify, ou descrever
 - **O Spotify não toca nada**: a reprodução exige o Spotify Premium e um dispositivo do Spotify ativo. Abra o aplicativo do Spotify para computador em um dispositivo, ou clique em **Enable Marinara player** no computador.
 - **A janela de login do Spotify falha em outra máquina**: use a caixa de colar de "Browser couldn't reach the callback?", ou defina `SPOTIFY_REDIRECT_URI` no servidor.
 - **A busca do YouTube falha**: confirme que a **YouTube Data API v3** está ativada no seu projeto e que a chave não está restrita por referenciador HTTP. Se você atingiu a cota diária, tente no dia seguinte ou use outra chave.
-- **A música em Custom não toca a partir de uma pasta do dispositivo com acesso remoto**: essa pasta exige acesso local no servidor. Veja [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md).
+- **Com acesso remoto, a música em Custom não toca a partir de uma pasta do dispositivo, ou um caminho de pasta digitado não é salvo**: os dois exigem acesso local no servidor. Veja [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md).
+- **Um chat toca a pasta errada**: confira **In use:** nas configurações do **Music DJ** do chat. **This chat** tem prioridade sobre a pasta do personagem, então clique em **Use default** para voltar a seguir o personagem.
 - **O comando de música de um personagem não faz nada no Conversation**: conecte o Spotify ou salve uma chave do YouTube, e confira se os botões **Commands** e **Music** estão ativados.
 
 ## Guias relacionados

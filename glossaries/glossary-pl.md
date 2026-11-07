@@ -1322,3 +1322,105 @@ Precedents from the #8872 mirror against Engine `21da93b590` (`media/image-provi
   bare.
 - Numbers follow the English grouping: `8,294,400` is **8 294 400** (R-103), while an
   ungrouped English `2000` stays `2000`, as at `development/optional-agent-packages.md:647`.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers** is glossed once as *(własne nagłówki żądań)*: *własny* is the
+  pack's word for *custom* (`media/comfyui.md:19` "Własny workflow"), *żądanie* its word for
+  request ("żądani-" ×276 before this change), lowercase per R-112. `ui/pl.json` has no value for it,
+  so the gloss is coined; recheck it when the key ships. **API key** *(klucz API)*, **Video
+  defaults** *(domyślne ustawienia wideo)* and **Test video** *(test wideo)* reuse the existing
+  glosses (`media/scene-video.md`), not `pl.json`'s "Testuj wideo".
+- The heading is `## Korzystanie z proxy wymagającego uwierzytelniania`, a verbal noun like
+  `## Korzystanie z obrazów referencyjnych`, with `<a id="use-an-authenticated-proxy"></a>`
+  above it (2026-10-14 pattern). Both same-file links use that heading as link text.
+- *Proxy* stays the indeclinable neuter loanword of `REMOTE_ACCESS.md` ("proxy odrzuciło");
+  *in front of ComfyUI* is **przed ComfyUI**. *Headers* are **nagłówki HTTP** in prose, so they
+  do not read as UI headers. *Credentials* are **dane uwierzytelniające**
+  (`connections/providers-reference.md:107`); *secrets* are **sekrety** (`REMOTE_ACCESS.md`);
+  *a scheme* (`Basic ...`) is **schemat uwierzytelniania**; *sent as-is* is **wysyłana bez
+  zmian**. *Account exports leave the key out* is "Eksport konta nie zawiera klucza API", after
+  `connections/organizing-connections.md:105`. *ComfyUI answers 401 or 403* is "ComfyUI zwraca
+  błąd 401 lub 403", after `TROUBLESHOOTING.md` "zwraca błąd 403".
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+- **Apply to** is glossed *(zastosowanie do)*, the verbal noun already at `characters/sprites.md:94`
+  (R-112, R-127), not `ui/pl.json`'s "Zastosuj do" (R-119). Other new glosses: **In use:**
+  *(w użyciu)*, as for **Map position:** (pozycja na mapie); **This chat** *(ten czat)*;
+  **All chats (default)** *(wszystkie czaty, domyślnie)*; **From** *(od)*;
+  **Default** *(domyślny)*; **Use default** *(użycie domyślnego folderu)*;
+  **Unlink from** *(odłączenie od)*; **Choose Folder** *(wybór folderu)*;
+  **Music folder on this device** *(folder muzyki na tym urządzeniu)*;
+  **Default music folder on this device** *(domyślny folder muzyki na tym urządzeniu)*;
+  **Reinstall** *(ponowna instalacja)*. `ui/pl.json` has no values for the new keys, so these
+  are coined; recheck them when the keys ship. The statuses **Needs reinstall** and
+  **Not set up** stay bare.
+- The heading is `### Osobny folder dla czatu lub postaci`, a noun phrase like
+  `### Wybór źródła muzyki`, with `<a id="use-a-different-folder-for-a-chat-or-character"></a>`
+  above it; the `game/game-assets.md` link uses it as link text.
+- Terms: **czat grupowy**, **gałąź**, **imię postaci**, **profile ustawień**, **eksporty
+  czatów** and **agentów**, **środowisko uruchomieniowe** (runtime), **pakiety Python**. A chat
+  **odtwarza muzykę z folderu** and a character's folder **obowiązuje** in a chat; a folder
+  never "gra". *Missing or out of date* is "brakuje jego plików lub środowiska
+  uruchomieniowego albo są one nieaktualne", so each verb gets its own case. In
+  `game/game-assets.md` *its settings* is "ustawienia Music DJ w tym czacie", because "jego"
+  could mean the chat.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `media/music.md`, `media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+- The tooltip **Open character card** stays bare behind **podpowiedź** (R-75), like the other
+  tooltips in the same table ("(podpowiedź **Enable in chat**)"), so it takes no gloss.
+  **Game Assets Music Folder** is glossed *(folder muzyki z Game Assets)*, after **Use Game
+  Assets music folder** *(użycie folderu muzyki z Game Assets)* in `media/music.md:91`, not
+  `ui/pl.json`'s "Folder muzyki Zasobów gry" (R-119); the gloss is coined, so recheck it if
+  the pack ever adopts the shipped string. The English capitalises it like the add-agent setup
+  string (`ui.chat.musicdjsetupfields.gameAssetsMusicFolder`), while Chat Settings shows the
+  field as **Game Assets music folder**, the bare label at `:93`; keep the English casing of
+  each.
+- **Add Character** *(dodanie postaci)* and **On this device** *(na tym urządzeniu)* keep their
+  earlier first-use glosses (`chats/group-chats.md:26`, `media/tts-setup.md:17`); the new uses
+  are later mentions or unchanged.
+- Terms: the Chat Settings drawer is **panel Chat Settings** as a subject ("Panel **Chat
+  Settings** zamyka się"); a character card is **karta postaci** (R-30); members already in
+  the chat are "Obecni uczestnicy czatu są zaznaczeni", which avoids a doubled "są"; a group
+  member is **uczestnik**. The **This chat** choice is **opcja This chat**, which "pokazuje też
+  pole"; a chat still **odtwarza muzykę z** Game Assets or a subfolder. A local voice server is
+  **serwer głosu** (`media/tts-setup.md:72`), "na twoim komputerze lub w twojej sieci
+  prywatnej".
+
+## Notices DNS and Capability API 1.817 (2026-11-07, #8954)
+
+Precedents from the #8954 mirror (`CONFIGURATION.md`, #8954; `development/optional-agent-packages.md`,
+#8951), against Engine `dd85f7b40d`:
+
+- New terms, coined because the pack had no earlier use: the **hosts file** is **plik hosts**
+  (the system file's name left bare, not a code span, as in the English); **DNS servers** are
+  **serwery DNS**, to which Marinara "wysyła zapytania bezpośrednio"; "in the hosts file or
+  DNS" is "w pliku hosts albo w DNS". "Names that only your local network knows" is "nazwy
+  znane tylko twojej sieci lokalnej", and "short names without a domain other than
+  `localhost`" is "krótkie nazwy bez domeny inne niż `localhost`". This is not the
+  `TRUSTED_HOSTS` row's "jednoczłonowe nazwy w sieci lokalnej" (`CONFIGURATION.md:85`),
+  because the English wording differs there too.
+- `$PREFIX/etc/resolv.conf` stays a code span: "serwery DNS to te zapisane w pliku
+  `$PREFIX/etc/resolv.conf`: serwery Google `8.8.8.8` i `8.8.4.4`, chyba że zmienisz ten plik"
+  (`CONFIGURATION.md:220`); Termux keeps "w środowisku Termux". The outbound proxy link text
+  is "wychodzącym proxy", the indeclinable neuter loanword after `### Wychodzące proxy HTTP`
+  (`:408`), and the link keeps `#outbound-http-proxy`, which already has an `<a id>`. In the
+  `MARINARA_NOTICES_URL` row (`:324`), "Its host" is "Host tego adresu", because the row's
+  subject is the notices file.
+- The heading is `### Capability API 1.817: powiadamianie pakietu o utworzeniu gałęzi czatu`
+  (`development/optional-agent-packages.md:1133`), a verbal noun like its 1.814 and 1.815
+  siblings, with `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`
+  above it; no guide links it yet. A branched chat is **gałąź czatu** (R-67), and "when a chat
+  is branched" is "gdy powstaje gałąź czatu". The branch route is **trasa tworzenia gałęzi**,
+  after "trasa generowania"; snapshots are **migawki** (R-54); "awaits it once" is "wywołuje ją
+  raz i czeka na jej zakończenie"; "logged and ignored" is "zapisywane w logach i ignorowane",
+  after "jest zapisywany w logach" (`:344`); "soft seam" keeps **miękki interfejs**; "must
+  still cope when it is missing" is "musi sobie radzić także bez tego wywołania".

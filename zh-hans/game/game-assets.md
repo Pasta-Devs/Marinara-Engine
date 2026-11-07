@@ -179,12 +179,12 @@ Game Mode 可以通过 **Music & Sound Effects**(音乐与音效) 账号生成�
 
 ## Music DJ 的自定义音乐文件夹
 
-**Music DJ** 是一个辅助智能体，可以在游戏过程中播放音乐。在 Custom 模式下，它会播放你选定的文件夹里的曲目。为某个聊天启用 **Music DJ** 时，设置表单会沿用智能体上保存的音乐来源。**Game Assets** 显示游戏素材内部的一个路径，比如 `music` 或 `music/combat`。**Folder on this device**(本设备上的文件夹) 显示保存下来的服务器设备路径，以及一个 **Choose Folder**(选择文件夹) 按钮。
+**Music DJ** 是一个辅助智能体，可以在游戏过程中播放音乐。在 Custom 模式下，它会播放你选定的文件夹里的曲目。为某个聊天启用 **Music DJ** 时，它的设置里会显示 **Apply to**(应用到)。它可以为这个聊天、聊天里唯一的角色或所有聊天保存文件夹。**In use:**(当前使用) 显示聊天正在播放的文件夹。选择 **All chats (default)**(所有聊天，默认) 时，**Game Assets** 来源填写的是游戏素材内部的一个路径，比如 `music` 或 `music/combat`。要给某个聊天或角色单独设置文件夹，见[为聊天或角色使用不同的文件夹](../media/music.md#use-a-different-folder-for-a-chat-or-character)。
 
 完整的 **Music DJ** 编辑器里有一个 **Custom Music Library**(自定义音乐库) 部分。**Use Game Assets music folder**(使用游戏素材音乐文件夹) 在两种模式之间切换：
 
 - 打开：**Game Assets music folder**(游戏素材音乐文件夹) 字段读取游戏素材内部的某个文件夹。**Open Folder**(打开文件夹) 会在服务器所在的电脑上打开它。
-- 关闭：**Music folder on this device**(本设备上的音乐文件夹) 会播放运行服务器那台电脑上任意文件夹里的音乐。点击 **Select Folder**(选择文件夹)，或者直接粘贴路径。
+- 关闭：**Default music folder on this device**(本设备上的默认音乐文件夹) 会播放运行服务器那台电脑上任意文件夹里的音乐。点击 **Select Folder**(选择文件夹)，或者直接粘贴路径。
 
 选择应用之外的文件夹需要更高的权限。在服务器所在的那台电脑上操作，不用额外配置就能用。从别的设备或通过远程访问操作时，要先配置管理员访问权限。见[远程访问](../REMOTE_ACCESS.md)。音乐播放器的其他内容见 [Music DJ](../media/music.md)。
 

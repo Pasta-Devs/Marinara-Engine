@@ -179,12 +179,12 @@ Generierte Sounds und Titel werden bei deinen Game-Assets gespeichert, damit der
 
 ## Eigener Musikordner für den Music DJ
 
-**Music DJ** ist ein Hilfs-Agent, der während eines Spiels Musik abspielen kann. Im Modus Custom spielt er Titel aus einem Ordner deiner Wahl. Aktivierst du **Music DJ** für einen Chat, richtet sich das Einrichtungsformular nach der Quelle, die im Agenten gespeichert ist. **Game Assets** zeigt einen Pfad innerhalb deiner Game-Assets, etwa `music` oder `music/combat`. **Folder on this device** (Ordner auf diesem Gerät) zeigt den gespeicherten Pfad auf dem Server-Gerät und eine Schaltfläche **Choose Folder** (Ordner wählen).
+**Music DJ** ist ein Hilfs-Agent, der während eines Spiels Musik abspielen kann. Im Modus Custom spielt er Titel aus einem Ordner deiner Wahl. Aktivierst du **Music DJ** für einen Chat, zeigen seine Einstellungen **Apply to** (Anwenden auf). Darüber speicherst du den Ordner für diesen Chat, für den einzigen Charakter des Chats oder für alle Chats. **In use:** zeigt den Ordner, aus dem der Chat spielt. Mit **All chats (default)** nimmt die Quelle **Game Assets** einen Pfad innerhalb deiner Game-Assets an, etwa `music` oder `music/combat`. Wie ein Chat oder Charakter einen eigenen Ordner bekommt, erfährst du unter [Einen anderen Ordner für einen Chat oder Charakter nutzen](../media/music.md#use-a-different-folder-for-a-chat-or-character).
 
 Der vollständige Editor von **Music DJ** hat einen Bereich **Custom Music Library** (Eigene Musikbibliothek). **Use Game Assets music folder** (Musikordner aus den Game-Assets verwenden) wechselt zwischen zwei Modi:
 
 - An: Das Feld **Game Assets music folder** liest einen Ordner innerhalb deiner Game-Assets. **Open Folder** (Ordner öffnen) öffnet ihn auf dem Server-Rechner.
-- Aus: **Music folder on this device** spielt Musik aus jedem Ordner auf dem Rechner, auf dem der Server läuft. Klick auf **Select Folder** (Ordner auswählen) oder füge den Pfad ein.
+- Aus: **Default music folder on this device** spielt Musik aus jedem Ordner auf dem Rechner, auf dem der Server läuft. Klick auf **Select Folder** (Ordner auswählen) oder füge den Pfad ein.
 
 Für einen Ordner außerhalb der App braucht es erweiterte Rechte. Auf demselben Rechner wie der Server klappt das ohne zusätzliche Einrichtung. Von einem anderen Gerät oder per Fernzugriff musst du zuerst den Admin-Zugang einrichten. Siehe [Fernzugriff](../REMOTE_ACCESS.md). Alles Weitere zum Musikplayer findest du unter [Music DJ](../media/music.md).
 

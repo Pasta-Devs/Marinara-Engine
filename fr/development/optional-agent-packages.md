@@ -1328,6 +1328,20 @@ const isGif = result.mimeType === "image/gif";
 
 Sur un moteur 1.816, intercepte `code === "animation-unsupported"` pour dessiner une image fixe à la place. Ne déclare 1.816 que si le package ne peut pas fonctionner sans GIF. Aucune permission n'est nécessaire.
 
+<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>
+
+### Capability API 1.817 : signaler à un package qu'une branche de chat a été créée
+
+Le service `long-term-memory:runtime` peut ajouter une méthode facultative `chatBranched({ chatId, parentChatId })`.
+Le moteur l'appelle une fois et attend son résultat quand une branche de chat est créée, après que la route des branches a fini
+de copier (messages, métadonnées et instantanés) et avant de renvoyer le nouveau chat : les messages de la branche et les
+métadonnées `branchParentChatId` sont donc déjà lisibles pendant l'appel. Un package peut s'en servir pour corriger la copie
+avant que quiconque la lise.
+
+Les erreurs et les appels qui durent plus de quelques secondes sont journalisés et ignorés ; la branche est renvoyée dans
+tous les cas. Sans cette méthode, rien ne change. Il s'agit d'une interface souple : les anciens moteurs ne l'appellent
+jamais, le package doit donc aussi fonctionner sans cet appel. Aucune permission n'est nécessaire.
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391 : résumés de scène d'Advanced Memory et bloc de mémoire

@@ -664,3 +664,49 @@ Choices from the #8872 sync (`media/image-providers.md`, `development/optional-a
 | queue slot / paid call | キューの枠 / 料金のかかる呼び出し |
 
 The three GIF refusal and failure messages are app strings and stay byte-exact English in 「」. These are translation choices, not a new native-reader review.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers**(カスタムリクエストヘッダー) matches the shipped `ui/ja.json` `settings.connection.customHeaders.label` and the pack's カスタム, リクエスト and ヘッダー. **Video defaults** keeps the pack's (動画のデフォルト設定) from `media/scene-video.md`, not `ja.json`'s 動画のデフォルト.
+- The heading is `## 認証付きプロキシを使う`, a plain-form verb like `## 参照画像を使う`, with `<a id="use-an-authenticated-proxy">` above it. The link text in step 2 and in the Troubleshooting row is 認証付きプロキシを使う.
+- a proxy in front of ComfyUI: ComfyUIの手前にあるプロキシ. non-secret headers: 秘密情報を含まない追加のヘッダー; secrets: 秘密情報, after `home/professor-mari.md`. An auth scheme such as `Basic ...` is 認証スキーム, to keep it apart from the URL スキーム in `connections/decision-models.md`.
+- The new section and the Troubleshooting row gloss their labels again, per the once-per-section rule; the **Warning:** callout uses them bare.
+
+These are translation choices, not a new native-reader review.
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+- **Shipped glosses**, byte-exact `ui/ja.json`: **Chat Settings**(チャット設定), **Choose Folder**(フォルダーを選択), **Music folder on this device**(この端末の音楽フォルダー), **Apply to**(適用対象) (`spriteLayoutApplyTo`) and **This chat**(このチャット) (`generationParameters.source.chat`).
+- **Coined**, because `ui/ja.json` has no value for these keys yet (recheck when they ship): **All chats (default)**(すべてのチャット、デフォルト), **Use default**(デフォルトを使用), **Unlink from**(リンクを解除), **Reinstall**(再インストール) and, in `game/game-assets.md` only, **Default music folder on this device**(この端末のデフォルトの音楽フォルダー). The `media/music.md` Off bullet keeps that file's bare field labels.
+- Left bare: the statuses **In use:**, **From**, **Default**, **Needs reinstall** and **Not set up**, and **Export Profile**, as in `integrations/*.md`. The Troubleshooting row glosses **This chat** and **Use default** again, per the once-per-section rule.
+- The heading is `### チャットやキャラクターごとに別のフォルダーを使う`, a plain-form verb like `## 自分の音楽ファイルを使う`, with `<a id="use-a-different-folder-for-a-chat-or-character"></a>` above it; the `game/game-assets.md` link uses it as link text.
+- Terms: 分岐, グループチャット, 設定プロファイル, ランタイム, Pythonパッケージ, サウンドトラック. A chat's folder is このチャットで再生するフォルダー, and the new row is チャットで違うフォルダーが再生される. **Use default** and **Unlink from** 指定を外します, so no one reads them as deleting files; the **Unlink from** item says ボタン, as `AgentAddSetupFields.tsx` confirms.
+- Left for a later pass: in `game/game-assets.md`, チャットにいる1人だけのキャラクター用 would be more precise as チャットの唯一のキャラクター用.
+
+These are translation choices, not a new native-reader review.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `media/music.md`, `media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+- **Shipped gloss**, byte-exact `ui/ja.json`: **Game Assets Music Folder**(ゲームアセットの音楽フォルダー) (`ui.chat.musicdjsetupfields.gameAssetsMusicFolder`), glossed once in the new `media/music.md` paragraph like the section's other field labels. **This chat** stays bare there; the section glosses it in the **Apply to** table.
+- **Left bare** in the `chats/group-chats.md` Characters table, as that table leaves **Add Character**, **Remove from chat** and **Drag to reorder** bare: **Open character card** (shipped `ui.chat.chatsettingsdrawer.openCharacterCard` is キャラクターカードを開く, for a later gloss pass) and **Chat Settings**, glossed at the top of the section.
+- **On this device** keeps the pack's coined (このデバイス上) in `media/tts-setup.md`; `ui/ja.json` still has no value for `connections.accounts.section.device` or `connections.add.tag.device` (recheck when they ship). `media/music.md` keeps この端末 for "this device", after **Music folder on this device**(この端末の音楽フォルダー).
+- Terms: members already in the chat にチェックが入っています, as in `conversation/table-games.md`; add or remove = 追加したり外したりできます, with the table's 外す; a member's full card = メンバーのカード全体; サブフォルダー and `music/combat`, as in the `media/music.md` **On** bullet; a voice server on your computer or private network = 自分のコンピューターやプライベートネットワーク上にある…音声サーバー, with プライベートネットワーク from `REMOTE_ACCESS.md` and `TROUBLESHOOTING.md`. "**This chat** also shows" is **This chat**を選ぶと…も表示されます, because the field appears when **Apply to** is **This chat** (`AgentAddSetupFields.tsx`).
+- The field's hint (`gameAssetsMusicFolderForThisChatOnly`) has no `ui/ja.json` value yet; the guide paraphrases it, so it takes no gloss.
+
+These are translation choices, not a new native-reader review.
+
+## Notices DNS and Capability API 1.817 (2026-11-07, #8954)
+
+Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 developer-doc catch-up (`development/optional-agent-packages.md`), against Engine `dd85f7b40d`:
+
+- **Name lookup**, coined here (no `ui/ja.json` string covers it): hosts file = hostsファイル, Latin without a code span as in English (`TROUBLESHOOTING.md` keeps `/etc/hosts` as code); DNS server = DNSサーバー (trailing ー, §3); "asks the DNS servers directly" = DNSサーバーに直接問い合わせます. "Names that only your local network knows" = 自分のローカルネットワークの中でしか通じない名前, with ローカルネットワーク from `installation/macos-linux.md` and `media/image-providers.md`; "short names without a domain other than `localhost`" = ドメインを含まない短い名前(`localhost`を除く), a parenthetical as in `development/localization.md`, because `localhost`以外のドメインを含まない reads as "containing no domain other than `localhost`".
+- **resolv.conf.** The Termux colon is split into two sentences: `$PREFIX/etc/resolv.conf`に書かれたDNSサーバーを使います。このファイルを編集しないかぎり、Googleの`8.8.8.8`と`8.8.4.4`です。 The `#outbound-http-proxy` link text is 外向きのプロキシ, after the heading 外向きのHTTPプロキシ. The `MARINARA_NOTICES_URL` row adds このURLのホストは、hostsファイルかDNSに登録されている必要があります ("its host" made explicit as the URL's host).
+- **Capability API 1.817.** Heading `### Capability API 1.817: チャットの分岐が作られたことをパッケージに伝える`, a plain-form verb like the 1.814 and 1.815 siblings, under `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`, since every Capability API heading in the file has one (nothing links to it yet). A branched chat is チャットの分岐が作られる, chat-sense 分岐 (never ブランチ) after `chats/branches.md` 分岐の作成; the copy is コピー, as there. "awaits it once" = 1回呼び出して完了を待ちます, after the file's `ensureMarinaraHost()`の完了を待ちます; branch route = 分岐のルート, after 生成ルート; "logged and ignored" = ログに記録して無視します; soft seam = ソフトなインターフェース and optional method = 省略可能な…メソッド, as in 1.391.
+
+These are translation choices, not a new native-reader review.

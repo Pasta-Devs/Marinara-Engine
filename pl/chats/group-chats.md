@@ -25,7 +25,8 @@ Otwórz **Chat Settings** (ustawienia czatu) i znajdź sekcję **Characters**. N
 | --- | --- |
 | Dodanie postaci | Kliknij **Add Character** (dodanie postaci) i wyszukaj postać. |
 | Dodanie folderu | Kliknij **Add Character**, a potem **Add all** (dodanie wszystkich) w wierszu folderu. |
-| Zmiana kilku postaci naraz | Kliknij imię uczestnika. Otworzy się ta sama lista wyboru. |
+| Zmiana kilku postaci naraz | Kliknij **Add Character**. Obecni uczestnicy czatu są zaznaczeni. Kliknij imię, żeby dodać lub usunąć postać. |
+| Otwarcie pełnej karty uczestnika | Kliknij imię uczestnika (podpowiedź **Open character card**). Panel **Chat Settings** zamyka się i otwiera się karta postaci. |
 | Usunięcie postaci | Kliknij ikonę kosza z podpowiedzią **Remove from chat**. |
 | Zmiana kolejności | Przeciągnij uchwyt z podpowiedzią **Drag to reorder**. Przy kolejności **Sequential** postacie odpowiadają w tej kolejności. |
 | Czasowe wyłączenie | Kliknij oko z podpowiedzią **Disable in chat**. Kliknij ponownie, aby włączyć postać (podpowiedź **Enable in chat**). |

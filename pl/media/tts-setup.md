@@ -14,7 +14,7 @@ Synteza mowy (TTS) czyta na głos wiadomości czatu i narrację gry. Z tego prze
 Prawie wszystkie ustawienia TTS mieszczą się w jednej sekcji. Samo włączenie TTS niczego jeszcze nie odczyta. Odsłania tylko przycisk **Speak** przy każdej wiadomości oraz opcje **Auto-play** (automatyczne odtwarzanie). O tym, co i kiedy zostanie przeczytane, nadal decydujesz ty.
 
 1. Kliknij **Connections** (Połączenia) na górnym pasku, a potem **Add** (dodaj). Otwiera się okno **Add account** (dodanie konta).
-2. W grupie **Voice** (głos) wybierz **Text to speech** (synteza mowy). Otwiera się sekcja. Jeśli już korzystasz z PocketTTS, ta sama sekcja jest też w grupie **On this device** (na tym urządzeniu).
+2. W grupie **Voice** (głos) wybierz **Text to speech** (synteza mowy). Otwiera się sekcja. Jeśli synteza mowy korzysta już z PocketTTS albo z innego serwera głosu na twoim komputerze lub w twojej sieci prywatnej, ta sama sekcja jest też w grupie **On this device** (na tym urządzeniu).
 3. Włącz **Use text to speech**. Dopóki jest wyłączone, nic nie jest czytane na głos.
 4. Otwórz listę **Source** i wybierz usługę.
 

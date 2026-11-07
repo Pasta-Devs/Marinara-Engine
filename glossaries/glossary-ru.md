@@ -802,3 +802,47 @@ Precedent from the #8872 mirror (`media/image-providers.md`, `development/option
 - The **Custom Parameters** (свои параметры) gloss moves to the new GPT Image 2.6 section; the fal.ai mention now runs bare. The quoted Engine errors stay English (§5 Pattern C).
 
 These are documented translation choices from this sync, not an independent native-reader review.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers** is glossed (собственные заголовки запросов), coined from pack vocabulary: **собственный** for custom (`media/comfyui.md:19`) and **запрос** for an HTTP request. Bare **заголовки** also means a heading in this pack, so prose qualifies it as **HTTP-заголовки** or **заголовки запросов**; bare **заголовки** appears only after a code span (в заголовке `Authorization: Bearer`) or in the sentence right after a qualified mention. Not taken from `ui/ru.json` (§5). **API key** takes (ключ API) at its first bold use (`media/comfyui.md:31`); **Video defaults** (параметры видео по умолчанию) and **Test video** (проверить видео) reuse the `media/scene-video.md` glosses.
+- The heading is `## Использование прокси с проверкой доступа` (`media/comfyui.md:27`), a verbal noun like `## Использование референсных изображений`. **с проверкой доступа** is the positive of the Troubleshooting row's **без проверки доступа**. `<a id="use-an-authenticated-proxy"></a>` and a blank line sit above it; the line-18 link and the new Troubleshooting row both target it.
+- **прокси** is masculine and indeclinable (`прокси проверяет`, `прокси отклонил`, `прокси нужны`), as in `REMOTE_ACCESS.md`; "in front of ComfyUI" is **перед ComfyUI**. "ComfyUI itself has no login" is **Собственного входа у ComfyUI нет**, after the pack's **вход** for login (`REMOTE_ACCESS.md:197`, `:205`). A proxy auth token is **токен**, credentials **учетные данные** (§3), an auth scheme **схема**; a 401/403 is **ответ с кодом 401 или 403** and the row title **ComfyUI отвечает кодом 401 или 403**. "Account exports leave the key out" follows `connections/organizing-connections.md:103`: **Ключ в экспорт аккаунтов не попадает**.
+
+These are documented translation choices from this sync, not an independent native-reader review.
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+- New glosses: **Apply to** (применить к), which matches `ui/ru.json` `spriteLayoutApplyTo` lowercased; **This chat** (этот чат); **All chats (default)** (все чаты, по умолчанию); **Use default** (использовать по умолчанию); **Unlink from** (отвязать от); **Default music folder on this device** (папка с музыкой по умолчанию на этом устройстве); **Reinstall** (переустановить). `ui/ru.json` has no values for the new keys, so these are coined; recheck them when the keys ship. **Chat Settings** (настройки чата), **Choose Folder** (выбрать папку), **Music folder on this device** (папка с музыкой на этом устройстве) and **Export Profile** (экспортировать профиль) reuse pack glosses.
+- Left bare (§5 Pattern B): **In use:**, **From**, **Default**, **Needs reinstall**, **Not set up**. **In use:** sits behind the carrier **Надпись**, as **Map position:** sits behind **плашка** in `game/map-time-weather.md`.
+- The heading is `### Отдельная папка для чата или персонажа`, a noun phrase like `### Выбор источника музыки`, with `<a id="use-a-different-folder-for-a-chat-or-character"></a>` and a blank line above it; the `game/game-assets.md` link uses it as link text.
+- Terms: **ветка**, **групповой чат**, **саундтрек**, **профиль настроек**, **экспорт агентов**, **среда выполнения** for the runtime. "The folder plays" and "the chat plays" are calques: write **папка используется**, **чат использует папку** or **из какой папки играет музыка в этом чате**; the new row is **В чате играет музыка не из той папки**. The remote-access row opens with **При удаленном доступе** so it covers both failures.
+- **Export Profile drift.** `integrations/message-translation.md:91` glosses (экспорт профиля); the other three files, including `media/music.md`, use (экспортировать профиль). Align it in a consistency pass.
+
+These are documented translation choices from this sync, not an independent native-reader review.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 mirror (`chats/group-chats.md`, `media/music.md`, `media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+- New gloss: **Open character card** (открыть карточку персонажа), placed after a comma inside the locator parenthetical like **Remove from chat** (…, убрать из чата) in the same table. It is the pack's own **карточка персонажа** and happens to match `ui.chat.chatsettingsdrawer.openCharacterCard`. **Game Assets Music Folder** reuses (папка музыки Game Assets), the pack gloss of the same field label **Game Assets music folder** at `game/game-assets.md:186`; it is not taken from `ui/ru.json` `ui.chat.musicdjsetupfields.gameAssetsMusicFolder` ("Музыкальная папка игровых ресурсов"), per §5. **Add Character** (добавить персонажа) and **Chat Settings** (настройки чата) keep their earlier glosses in `chats/group-chats.md` and run bare in the new rows; **On this device** keeps (на этом устройстве) in `media/tts-setup.md`. The sibling **Game Assets music folder** at `media/music.md:93` stays bare.
+- The new row is **Открыть полную карточку участника**; "already in the chat are checked" is **отмечены**. "**Chat Settings** closes" takes the carrier: **Панель Chat Settings закроется, и откроется карточка**, as `chats/chat-settings.md:11` says **Чтобы закрыть панель**.
+- Per the #8913/#8931 calque note, "while a chat plays from Game Assets" is **Пока чат берет музыку из Game Assets**, and "to play it in this chat only" is **чтобы музыка из нее играла только в этом чате**. "**This chat** also shows" is **при выборе This chat также появляется поле**, because the field appears only while **This chat** is selected in **Apply to** (`ChatSettingsDrawer.tsx` at `9650a8e6f0`).
+- "Another voice server on your computer or private network" is **другой голосовой сервер на вашем компьютере или в частной сети**, after **голосовой сервер** (`TROUBLESHOOTING.md:324`) and **частная сеть** (`REMOTE_ACCESS.md:161`). The step's subject is **синтез речи**, the guide's term.
+
+These are documented translation choices from this sync, not an independent native-reader review.
+
+## Notices DNS and Capability API 1.817 (2026-11-07, #8954)
+
+Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section of `development/optional-agent-packages.md`, against Engine `dd85f7b40d`:
+
+- **Hosts file** is **файл hosts**, with `hosts` as plain text because English writes "the hosts file" without a code span; `TROUBLESHOOTING.md:38` keeps `/etc/hosts` as code where English does. A DNS server is **DNS-сервер**, a hyphenated compound like **HTTP-прокси**, and "asks the DNS servers directly" is **обращается к DNS-серверам напрямую**. "Its host must be in the hosts file or DNS" is **Хост из этого URL должен быть указан в файле hosts или в DNS** (`CONFIGURATION.md:324`); it names the URL because the cell's previous sentence already uses **Он** for the file. Coined: the pack had no hosts-file or DNS prose before.
+- "Short names without a domain other than `localhost`" is **короткие имена без домена, кроме `localhost`**. `CONFIGURATION.md:85` and `REMOTE_ACCESS.md:332` say **однословные имена** for single-label names in the `TRUSTED_HOSTS` context; this paragraph follows English's plainer "short names". "The DNS servers are the ones in `$PREFIX/etc/resolv.conf`" is **используются DNS-серверы из `$PREFIX/etc/resolv.conf`**, and "Google's" is **серверы Google**. "When an outbound proxy is on" is **при включенном исходящем прокси**, followed by an en dash: **– и сам прокси**.
+- The heading is `### Capability API 1.817: сообщение пакету о создании ветки чата`, a noun phrase like its 1.814–1.816 siblings, with `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>` and a blank line above it, as the neighbouring 1.814, 1.815, 1.816 and 1.391 headings have. No guide links to it yet. The section keeps English's hard wraps (four lines, then three), like the 1.391 and 1.388 sections.
+- A branched chat is a **ветка** and branching it **создание ветки чата** (§3 `branch (chat)`); the branch route is **маршрут ветвления**. "Awaits it once" is **один раз вызывает его и дожидается завершения**, because bare **ожидает** reads as "expects". "Logged and ignored" is **записываются в журнал и игнорируются**: the file renders "ignored" as **игнорируются** (`development/optional-agent-packages.md:319`, `:1379`) and keeps **записывается в журнал и пропускается** (`:173`, `:228`) for English "logged and skipped". Snapshots are **снимки** (§3). A soft seam keeps **мягкий интерфейс**, "No permission is needed" keeps the 1.816 wording **Разрешений не нужно**, and "must still cope when it is missing" is **должен работать и без этого вызова**.
+
+These are documented translation choices from this sync, not an independent native-reader review.

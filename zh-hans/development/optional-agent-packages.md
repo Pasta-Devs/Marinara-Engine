@@ -1100,6 +1100,14 @@ const isGif = result.mimeType === "image/gif";
 
 在 1.816 Engine 上，捕获 `code === "animation-unsupported"` 后改画一张静态图。只有包离开 GIF 就无法工作时才声明 1.816。无需权限。
 
+<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>
+
+### Capability API 1.817：告诉包某个聊天已创建分支
+
+`long-term-memory:runtime` 服务可以添加可选的 `chatBranched({ chatId, parentChatId })` 方法。聊天创建分支时，Engine 会调用它一次并等待它完成：时间点在分支路由完成复制（消息、元数据和快照）之后、返回新聊天之前，因此在调用内部已经可以读取分支的消息和 `branchParentChatId` 元数据。包可以借此在任何人读取之前修正这份副本。
+
+出错的调用和耗时超过几秒的调用会记录日志后忽略；无论哪种情况，分支都会照常返回。没有这个方法时，一切照旧。这是软接口：旧版 Engine 从不调用它，因此包在收不到这次调用时也必须能正常工作。无需权限。
+
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
 ### Capability API 1.391：Advanced Memory(高级记忆) 场景摘要与记忆块

@@ -25,7 +25,8 @@ Abre **Chat Settings** (Ajustes del chat) y busca la sección **Characters** (Pe
 | --- | --- |
 | Agregar un personaje | Haz clic en **Add Character** (Añadir personaje) y búscalo. |
 | Agregar una Folder | Haz clic en **Add Character** y luego en **Add all** (Añadir todos) en la fila de la carpeta. |
-| Cambiar varios a la vez | Haz clic en el nombre de un miembro. Se abre el mismo selector. |
+| Cambiar varios a la vez | Haz clic en **Add Character**. Los miembros que ya están en el chat aparecen marcados. Haz clic en un nombre para agregarlo o quitarlo. |
+| Abrir la tarjeta completa de un miembro | Haz clic en el nombre del miembro (**Open character card**, Abrir la tarjeta de personaje). **Chat Settings** se cierra y se abre la tarjeta. |
 | Quitar un personaje | Haz clic en el icono de papelera (**Remove from chat**, Quitar del chat). |
 | Reordenar | Arrastra el tirador (**Drag to reorder**, Arrastrar para reordenar). En el orden **Sequential**, los personajes responden en este orden. |
 | Desactivar un rato | Haz clic en el ojo (**Disable in chat**, Desactivar en el chat). Vuelve a hacer clic para activarlo (**Enable in chat**, Activar en el chat). |

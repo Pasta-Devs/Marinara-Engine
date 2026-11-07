@@ -1015,3 +1015,102 @@ Precedents from the #8872 sync against Engine `21da93b590` (`media/image-provide
   options in `prompts/generation-parameters.md`; the `ui/de.json` „Max.“ is not copied.
 - **Custom Parameters** *(eigene Parameter)* now first appears in „### GPT Image 2.6“, so the gloss
   moved there and the fal.ai mention is bare (rule of 2026-10-11).
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Custom Request Headers** is glossed *(eigene Anfrage-Header)*: *custom* is „eigen“ as in
+  „Ein eigener Workflow“ in the same file, *request* is **die Anfrage** (the pack's word), and
+  *header* is **der Header**, pl. **Header**, as in `REMOTE_ACCESS.md`. It happens to equal
+  `ui/de.json`, which is not a wording source (§8). **API key** stays bare as everywhere in the
+  pack.
+- The heading „## Proxy mit Authentifizierung nutzen“ carries
+  `<a id="use-an-authenticated-proxy"></a>`; the link text in step 2 and in the Troubleshooting
+  row repeats the heading. „mit Authentifizierung“ pairs with the file's „ohne
+  Authentifizierung“.
+- *A proxy in front of ComfyUI* is „ein Proxy vor ComfyUI“ or „ein vorgeschalteter Proxy“. A
+  *secret* in a header is **der Geheimwert**, as in `TROUBLESHOOTING.md`; *credentials* are
+  **Zugangsdaten**. An auth *scheme* such as `Basic ...` is **das Schema**; a code span takes
+  the hyphenated carrier noun „`Authorization: Bearer`-Header“ (§6).
+
+## Music DJ folders per chat and character (2026-11-07, #8913, #8931)
+
+Precedents from the #8913 and #8931 mirror (`media/music.md`, `game/game-assets.md`, `connections/decision-models.md`), against Engine `d055e94915`:
+
+- New glosses: **Apply to** *(Anwenden auf)*, **Use default** *(Standard verwenden)* and
+  **Unlink from** *(Trennen von)*, capitalised like **Disconnect** (Trennen) in the same file;
+  **Reinstall** *(neu installieren)* is lowercase like the other multi-word glosses in its file.
+  `ui/de.json` has no values for these keys, so they are coined; recheck them when the UI
+  translations ship. „Anwenden auf“ and **Choose Folder** (Ordner wählen) happen to equal
+  `ui/de.json` strings for other keys, which is not a wording source (§8).
+- Left bare: the option **This chat**, like **Liked Songs**; **All chats (default)**, whose own
+  parentheses would collide with a gloss; the statuses **In use:**, **From**, **Default**,
+  **Needs reinstall** and **Not set up** (§3.3); and the field labels
+  **Music folder on this device** and **Default music folder on this device**.
+- The heading „### Einen anderen Ordner für einen Chat oder Charakter nutzen“, an infinitive
+  like „## Eigene Musikdateien nutzen“, carries
+  `<a id="use-a-different-folder-for-a-chat-or-character"></a>`; the `game/game-assets.md`
+  link repeats it as link text.
+- A branch is **die Verzweigung**, a group chat **der Gruppenchat**, the runtime **die
+  Laufzeit**; exports are **Chat-Exporte**, **Einstellungsprofile**, **Agenten-Exporte**. Music
+  plays „aus dem Ordner“, not „den Ordner“, and a story „bekommt“ its soundtrack rather than
+  „spielt“ it (R1). The Troubleshooting lead-in opens „Über Fernzugriff …“ to cover both cases.
+
+## Chat Settings card link, per-chat Game Assets folder, local voice servers (2026-11-07, #8938, #8940, #8942)
+
+Precedents from the #8938, #8940 and #8942 sync (`chats/group-chats.md`, `media/music.md`,
+`media/tts-setup.md`), against Engine `9650a8e6f0`:
+
+- **Open character card** stays bare in its parentheses, like the table's other tooltips
+  (**Remove from chat**, **Drag to reorder**, **Disable in chat**). The `ui/de.json` value
+  „Charakterkarte öffnen“ of `ui.chat.chatsettingsdrawer.openCharacterCard` is not copied (§8).
+  **Add Character** and **Chat Settings** keep their first-mention glosses earlier in the file
+  and are bare in the new rows. A member's *full card* is „die vollständige Karte eines
+  Mitglieds“; members already in the chat are „Die Mitglieder des Chats sind schon angehakt“,
+  „angehakt“ being the pack's word for a checked box (not „Mitglieder, die schon im Chat sind,
+  sind …“, whose doubled „sind“ reads clumsily).
+- **Game Assets Music Folder** stays bare like **Game Assets music folder** in the same file and
+  the field labels of 2026-11-07 (#8913); the `ui/de.json` „Musikordner der Spielressourcen“
+  is not copied, and Game Assets stays English in prose. The label takes the carrier noun
+  „das Feld“. A chat „spielt aus Game Assets“ (R1); *use the default* is „den Standardordner
+  nutzen“, as in the file's precedence sentence.
+- **On this device** keeps its existing gloss (auf diesem Gerät). *A voice server on your
+  computer or private network* is „ein Sprachserver auf deinem Rechner oder in deinem privaten
+  Netzwerk“: **Sprachserver** and **Rechner** as elsewhere in `media/tts-setup.md`. The feature
+  is the subject: „Nutzt Text to Speech schon PocketTTS …“.
+
+## Notices DNS and Capability API 1.817 (2026-11-07, #8954)
+
+Precedents from the #8954 sync (`CONFIGURATION.md`) and the #8951 developer-docs sync
+(`development/optional-agent-packages.md`), against Engine `dd85f7b40d`:
+
+- The *hosts file* is **die Hosts-Datei** and a *DNS server* **der DNS-Server** (plural
+  **die DNS-Server**); *in the hosts file or DNS* is „in der Hosts-Datei oder im DNS“. Both
+  are coined: the pack had neither term before. *Asks the DNS servers directly* is „fragt die
+  DNS-Server direkt ab“. The *notices server* is „der Server der Hinweise“, not a compound
+  „Hinweisserver“. *The hosts file and DNS servers* stay prose; only `$PREFIX/etc/resolv.conf`,
+  `8.8.8.8` and `8.8.4.4` are code spans, byte-for-byte as in English.
+- *Names that only your local network knows* is „Namen, die nur dein lokales Netzwerk kennt“
+  („lokales Netzwerk“ as in `installation/macos-linux.md`); *short names without a domain
+  other than `localhost`* is „kurze Namen ohne Domain außer `localhost`“, kept closer to the
+  English than the `TRUSTED_HOSTS` row's „einteilige LAN-Namen“. *On Termux* is „In Termux“,
+  the pack's existing form; *the DNS servers are the ones in* a file is „stehen die DNS-Server
+  in“ (not „die aus“, which reads as a relative clause); *Google's* is „von Google“
+  after the addresses. *When an outbound proxy is on* is „wenn ein [ausgehender Proxy]
+  eingeschaltet ist“, link text in the nominative so it needs no declension.
+- In the `MARINARA_NOTICES_URL` row, *its host* is „Der Hostname der URL“: a bare „Host“
+  would read as the multiplayer host, and „Hostname“ follows the `TRUSTED_HOSTS` row. The
+  trailing link repeats the row above's `Siehe [Marinara-Hinweise](#marinara-notices).`
+- The developer heading „### Capability API 1.817: einem Paket mitteilen, dass ein Chat
+  verzweigt wurde“ ends in the infinitive like 1.814 and 1.815 and carries
+  `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>` like every
+  sibling Capability API heading in the file. A *branched* chat is „verzweigt“, the *branch*
+  „die Verzweigung“ and the *branch route* „die Verzweigungsroute“ (coined), per the branch
+  row above; the older „Branch“ wording of the file's 1.7 section („Chat-Branches“) is not
+  copied.
+- *Awaits it once* is „ruft sie einmal auf und wartet auf sie“; *logged and ignored* is
+  „protokolliert und verworfen“ and *either way* „so oder so“, both from the file's scene
+  `release` bullet. *Soft seam* stays „weiche Schnittstelle“; *must still cope when it is
+  missing* is „muss also auch ohne den Aufruf auskommen“, naming the call so „sie“ is not
+  ambiguous. The section keeps the English hard line breaks, like 1.391 below it.

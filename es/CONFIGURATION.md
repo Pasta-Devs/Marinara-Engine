@@ -217,6 +217,8 @@ Para desactivar los avisos, establece `MARINARA_NOTICES_ENABLED=false`.
 
 Las bifurcaciones pueden apuntar `MARINARA_NOTICES_URL` a su propio archivo.
 
+Para encontrar el servidor de avisos, y también el proxy cuando hay un [proxy saliente](#outbound-http-proxy) activado, Marinara lee el archivo hosts y consulta directamente a los servidores DNS. Los nombres que solo conoce tu red local, como los nombres `.local` o los nombres cortos sin dominio distintos de `localhost`, no funcionan. En Termux, los servidores DNS son los de `$PREFIX/etc/resolv.conf`: `8.8.8.8` y `8.8.4.4` de Google, salvo que edites ese archivo.
+
 <a id="optional-multiplayer"></a>
 
 ## Multijugador opcional
@@ -317,7 +319,7 @@ Las tablas de arriba cubren el control de acceso, el almacenamiento, el registro
 | `AUTO_OPEN_BROWSER` | `true` | Si los lanzadores abren la URL de la app. `false` lo impide. La configuración gestionada por el APK lo desactiva. |
 | `AUTO_UPDATE_ENABLED` | `true` | Si los lanzadores basados en Git obtienen y aplican actualizaciones antes de arrancar. `false` lo desactiva a partir del próximo arranque. El lanzador aún comprueba en modo de solo lectura si hay versiones nuevas e imprime un recordatorio. `--skip-update` salta ambas comprobaciones en un arranque. |
 | `MARINARA_NOTICES_ENABLED` | `true` | Si el servidor descarga los avisos de los mantenedores. Consulta [Avisos de Marinara](#marinara-notices). |
-| `MARINARA_NOTICES_URL` | `notices.json` en la rama `notices` | Sustituye el archivo de avisos, para bifurcaciones y réplicas. Se valida igual, y los enlaces que no apuntan a `https://github.com/Pasta-Devs/` se quitan. |
+| `MARINARA_NOTICES_URL` | `notices.json` en la rama `notices` | Sustituye el archivo de avisos, para bifurcaciones y réplicas. Se valida igual, y los enlaces que no apuntan a `https://github.com/Pasta-Devs/` se quitan. El nombre de host de la URL debe estar en el archivo hosts o en el DNS. Consulta [Avisos de Marinara](#marinara-notices). |
 | `MARINARA_ENV_FILE` | `.env` en la raíz del proyecto | Anula la ruta del archivo `.env`. Establécela antes del arranque. |
 | `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | Máximo de solicitudes de imagen o video a la vez, en todo el servidor. Bájalo a 1-2 si un ComfyUI o SwarmUI local se queda sin VRAM. `0` quita el límite. Los valores no válidos se ignoran con una advertencia. El trabajo por lotes nunca ocupa el último hueco. Se aplica además de **Queue media generation requests** (Poner en cola las solicitudes de generación de medios), en **Settings → Generations → Overall Generations** (Configuración → Generaciones → Generaciones generales) y activado de forma predeterminada, que pone en cola los trabajos de imagen y video por cuenta. |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000` (10 min) | Cuánto espera una solicitud a que quede libre un hueco antes de fallar. `0` espera indefinidamente. |
