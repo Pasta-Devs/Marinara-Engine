@@ -14,7 +14,7 @@ import type { Chat } from "@marinara-engine/shared";
 import { overhaulTabKey, useOverhaulStore, type OverhaulTab } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
-import { TabLabel, TabPicture, TabPresence, activateTab, closeTabAndMove, goHome } from "./OverhaulTopBar";
+import { TabIcon, TabLabel, TabPresence, activateTab, closeTabAndMove, goHome } from "./OverhaulTopBar";
 
 type Placed = { tab: OverhaulTab; key: string; index: number };
 type StripItem =
@@ -250,7 +250,7 @@ export function DesktopTabStrip({
           if (event.button === 1) closeTab(entry.tab);
         }}
       >
-        <TabPicture tab={entry.tab} chats={chats} />
+        <TabIcon tab={entry.tab} chats={chats} />
         <TabLabel tab={entry.tab} chats={chats} />
         {extra?.compact ? null : <TabPresence tab={entry.tab} chats={chats} />}
       </button>

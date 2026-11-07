@@ -377,28 +377,6 @@ export function useTabPicture(tab: OverhaulTab | null, chats: Chat[]): string | 
   return null;
 }
 
-/**
- * A tab's picture (character, persona, lorebook or preset image; a chat shows its character, ringed in its
- * mode's colour), falling back to its icon. Used by the desktop tab strip and the phone's All Tabs cards.
- */
-export function TabPicture({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
-  const picture = useTabPicture(tab, chats);
-  const [failed, setFailed] = useState<string | null>(null);
-  if (!picture || failed === picture) return <TabIcon tab={tab} chats={chats} />;
-  const mode = tab.kind === "chat" ? (chats.find((chat) => chat.id === tab.id)?.mode ?? "roleplay") : null;
-  return (
-    <img
-      className="ov-tab__pic"
-      src={picture}
-      alt=""
-      aria-hidden="true"
-      draggable={false}
-      style={mode ? { boxShadow: `0 0 0 1.5px ${MODE_DOT[mode] ?? MODE_DOT.roleplay}` } : undefined}
-      onError={() => setFailed(picture)}
-    />
-  );
-}
-
 export function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   if (tab.kind === "chat") {
     const mode = chats.find((chat) => chat.id === tab.id)?.mode ?? "roleplay";
