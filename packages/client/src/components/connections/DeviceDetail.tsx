@@ -511,7 +511,7 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
         </FactRow>
       </section>
 
-      <div className="rounded-lg border border-[var(--marinara-app-accent-static)]/30 bg-[var(--marinara-app-accent-static)]/10 p-2.5">
+      <div className="mari-device-warn rounded-lg border border-[var(--marinara-app-accent-static)]/30 bg-[var(--marinara-app-accent-static)]/10 p-2.5">
         <div className="flex items-center gap-2 text-xs font-semibold text-[var(--marinara-app-accent-static)]">
           <AlertTriangle size="0.875rem" className="shrink-0" />
           {localizeUi("connections.device.notForRoleplay")}
@@ -524,7 +524,7 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
             type="button"
             onClick={() => void handleAssignTrackersToLocal()}
             disabled={assigningTrackers}
-            className="flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 text-left transition-colors hover:bg-[var(--sidebar-accent)] disabled:opacity-50"
+            className="mari-device-link flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 text-left transition-colors hover:bg-[var(--sidebar-accent)] disabled:opacity-50"
           >
             <div className="min-w-0 flex-1">
               <div className="text-xs font-medium">{localizeUi("connections.device.useForAllTrackers")}</div>
@@ -563,7 +563,11 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
         </button>
       )}
       {/* The decision sidecar is its own model and its own process, so it does not wait for a chat model. */}
-      <button type="button" onClick={() => setDecisionModalOpen(true)} className={cn(SMALL_ACTION, "w-full")}>
+      <button
+        type="button"
+        onClick={() => setDecisionModalOpen(true)}
+        className={cn(SMALL_ACTION, "mari-device-decisions w-full")}
+      >
         {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
       </button>
       <DecisionModelModal open={decisionModalOpen} onClose={() => setDecisionModalOpen(false)} />

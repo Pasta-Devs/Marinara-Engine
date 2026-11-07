@@ -24,9 +24,8 @@ import { hostOf } from "../connections/ConnectionGroup";
 import { JobPickerWindow, useConnectionDefaults, type DefaultsTile } from "../connections/ConnectionDefaults";
 import { openAddConnection, openAddModels } from "../../lib/add-connection";
 import type { ConnectionRowData } from "../connections/ConnectionRow";
-import { DeviceDetail, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
+import { useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
-import { EditorCrumbs } from "./EditorRail";
 
 type KindFilter = "all" | "chat" | "image" | "video" | "voice";
 type SortKey = "name" | "models" | "recent";
@@ -260,8 +259,6 @@ export function ConnectionsLanding() {
   const [sort, setSort] = useState<SortKey>("name");
   const [openIds, setOpenIds] = useState<string[] | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
-  const [device, setDevice] = useState<DeviceItem | null>(null);
-  const deviceName = device ? t(`connections.add.device.${device === "local-model" ? "local_model" : device}`) : "";
 
   const rows = useMemo(
     () => ((connections as ConnectionRowData[] | undefined) ?? []).filter((row) => !hiddenIds.has(row.id)),
@@ -408,18 +405,6 @@ export function ConnectionsLanding() {
       <option value="voice">{localize("Voice")}</option>
     </select>
   );
-
-  if (device)
-    return (
-      <section className="ov-list ov-conn ov-conn-device" data-component="OverhaulConnectionsDevice">
-        <EditorCrumbs
-          items={[{ label: localize("Connections"), onClick: () => setDevice(null) }, { label: deviceName }]}
-        />
-        <div className="ov-conn-device__body">
-          <DeviceDetail item={device} onOpenDefaults={() => setDevice(null)} />
-        </div>
-      </section>
-    );
 
   return (
     <section className="ov-list ov-conn" data-component="OverhaulConnections">
@@ -589,7 +574,9 @@ export function ConnectionsLanding() {
                   {visible.standalone.map((row) => renderModel(row, [row]))}
                 </>
               ) : null}
-              {!needle && kind === "all" ? <DeviceRows onOpen={setDevice} /> : null}
+              {!needle && kind === "all" ? (
+                <DeviceRows onOpen={(item) => openConnectionDetail(`device:${item}`)} />
+              ) : null}
             </tbody>
           </table>
         </div>
