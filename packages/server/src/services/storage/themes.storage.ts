@@ -6,9 +6,29 @@ import type { DB } from "../../db/connection.js";
 import { customThemes } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { normalizeThemeCss } from "../../utils/theme-css.js";
-import type { CreateThemeInput, Theme, UpdateThemeInput } from "@marinara-engine/shared";
+import {
+  themeMetaSchema,
+  type CreateThemeInput,
+  type Theme,
+  type ThemeMeta,
+  type UpdateThemeInput,
+} from "@marinara-engine/shared";
 
 type ThemeRow = typeof customThemes.$inferSelect;
+
+function parseMeta(raw: string | null | undefined): ThemeMeta | null {
+  if (!raw) return null;
+  try {
+    const parsed = themeMetaSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function serializeMeta(meta: ThemeMeta | null | undefined) {
+  return meta ? JSON.stringify(meta) : "";
+}
 
 function mapTheme(row: ThemeRow): Theme {
   return {
@@ -19,6 +39,7 @@ function mapTheme(row: ThemeRow): Theme {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     isActive: row.isActive === "true",
+    meta: parseMeta(row.meta),
   };
 }
 
@@ -58,6 +79,7 @@ export function createThemesStorage(db: DB) {
         createdAt: timestamp,
         updatedAt: timestamp,
         isActive: "false",
+        meta: serializeMeta(input.meta),
       });
       return this.getById(id);
     },
@@ -68,6 +90,7 @@ export function createThemesStorage(db: DB) {
       };
       if (data.name !== undefined) updateFields.name = data.name;
       if (data.css !== undefined) updateFields.css = normalizeThemeCss(data.css);
+      if (data.meta !== undefined) updateFields.meta = serializeMeta(data.meta);
       await db.update(customThemes).set(updateFields).where(eq(customThemes.id, id));
       return this.getById(id);
     },
