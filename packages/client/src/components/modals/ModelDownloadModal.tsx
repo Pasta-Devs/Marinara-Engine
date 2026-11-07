@@ -163,7 +163,7 @@ const LIST =
 const ROW =
   "flex min-h-12 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-foreground/[0.04]";
 const OPTION =
-  "flex min-h-14 w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3.5 py-3 text-left transition-colors hover:border-foreground/20";
+  "mari-builtin-option flex min-h-14 w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3.5 py-3 text-left transition-colors hover:border-foreground/20";
 const OPTION_ON =
   "border-[var(--mari-panel-gradient-start)] bg-[var(--mari-connection-tint)] hover:border-[var(--mari-panel-gradient-start)]";
 const RADIO =

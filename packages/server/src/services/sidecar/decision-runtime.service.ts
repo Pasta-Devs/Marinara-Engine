@@ -100,6 +100,16 @@ export function decisionRuntimeInstalled(): boolean {
   return existsSync(VENV_PYTHON) && existsSync(join(SOURCE_DIR, "jev", "server.py")) && readStamp() === expectedStamp();
 }
 
+/**
+ * A runtime that is on disk and was working, but was built for an older manifest (an engine
+ * update moved the pinned uv, Python or dependency lock). It needs an update, not a fresh install.
+ */
+export function decisionRuntimeNeedsUpdate(): boolean {
+  if (!existsSync(VENV_PYTHON) || !existsSync(join(SOURCE_DIR, "jev", "server.py"))) return false;
+  const stamp = readStamp();
+  return stamp !== null && stamp !== expectedStamp();
+}
+
 function readStamp(): string | null {
   try {
     return existsSync(STAMP_PATH) ? readFileSync(STAMP_PATH, "utf-8").trim() || null : null;

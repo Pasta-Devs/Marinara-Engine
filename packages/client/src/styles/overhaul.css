@@ -4282,7 +4282,7 @@ input.ov-edhead__title:focus {
 /* Label-left rows: the field label sits in a 8.5rem column, everything else in the second column. */
 .ov-gsw .space-y-4 > div:has(> :is(label, span).mb-1\.5:first-child) {
   display: grid;
-  grid-template-columns: 8.5rem minmax(0, 1fr);
+  grid-template-columns: 7rem minmax(0, 1fr);
   column-gap: 0.75rem;
   align-items: start;
 }
@@ -9352,4 +9352,180 @@ input.ov-edhead__title:focus {
   height: 2rem;
   flex: none;
   border-radius: 0.5rem;
+}
+
+/* Connections: On this device rows (built-in model, local voice engines). */
+.ov-conn__device .ov-conn__acct b {
+  flex: none;
+}
+.ov-conn__devstate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  white-space: nowrap;
+}
+.ov-conn-device__body {
+  max-width: 46rem;
+  padding-top: 0.5rem;
+}
+
+/* ── Connections set-up screens in the new layout (Built-in model, decision model, voice) ──
+   The upstream installers draw tall bordered cards; here they read as dense rows like the rest. */
+:root[data-overhaul] .mari-connection-scope [role="radiogroup"]:has(.mari-builtin-option) {
+  gap: 2px;
+}
+:root[data-overhaul] .mari-connection-scope .mari-builtin-option {
+  min-height: 0;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  border-color: transparent;
+  background: transparent;
+}
+:root[data-overhaul] .mari-connection-scope .mari-builtin-option:hover {
+  background: var(--marinara-chat-chrome-highlight-bg-hover, color-mix(in srgb, var(--foreground) 5%, transparent));
+}
+:root[data-overhaul] .mari-connection-scope .mari-builtin-option[aria-checked="true"] {
+  background: var(--mari-connection-tint);
+  border-color: color-mix(in srgb, var(--mari-panel-gradient-start) 55%, transparent);
+}
+:root[data-overhaul] .mari-connection-scope .mari-builtin-option > span.flex-col {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.5rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-builtin-option > span.flex-col > span:first-child {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-builtin-option > span:last-child:not(.flex-col) {
+  font-size: 0.625rem;
+  padding: 0.0625rem 0.375rem;
+}
+
+:root[data-overhaul] .mari-connection-scope .mari-dm-body {
+  gap: 0.875rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-dm-hero > .mari-chrome-accent-soft-tile {
+  display: none;
+}
+:root[data-overhaul] .mari-connection-scope .mari-dm-hero p:first-child {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-dm-warn {
+  border: 0;
+  border-left: 2px solid var(--warning);
+  border-radius: 0;
+  background: transparent;
+  padding: 0.125rem 0 0.125rem 0.75rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-dm-warn > div:first-child {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-dm-toggle {
+  border-width: 1px 0;
+  border-radius: 0;
+  padding: 0.5rem 0.125rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-dm-row {
+  border-color: transparent;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.625rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-dm-body .rounded-xl.border:not(.mari-dm-warn):not(.mari-dm-row) {
+  border-radius: 0.5rem;
+  background: transparent;
+}
+:root[data-overhaul] .mari-connection-scope .mari-dm-body > * > .mari-chrome-accent-surface.rounded-xl,
+:root[data-overhaul] .mari-connection-scope .mari-dm-body .flex-col > .mari-chrome-accent-surface.rounded-xl {
+  align-self: flex-end;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  font-size: 0.75rem;
+}
+
+/* Voice: label-left rows, like Settings, instead of a label over every tall field. */
+:root[data-overhaul] .mari-connection-scope .mari-tts-field {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-tts-field > * {
+  margin-top: 0 !important;
+}
+:root[data-overhaul] .mari-connection-scope .mari-tts-field > :not(:first-child) {
+  grid-column: 2;
+}
+:root[data-overhaul] .mari-connection-scope .mari-tts-field .mari-chrome-field {
+  padding-block: 0.375rem;
+  font-size: 0.8125rem;
+}
+/* Device cards (speech model, built-in model page): flat sections split by a rule, not tinted bubbles. */
+:root[data-overhaul] .mari-device-card {
+  background: none;
+  border-radius: 0;
+  padding: 0.25rem 0 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+:root[data-overhaul] .mari-device-card:last-child {
+  border-bottom: 0;
+}
+/* "Set up a Decision provider instead" and Remove read as quiet actions, not full-width slabs. */
+:root[data-overhaul] .mari-connection-scope .mari-dm-body > .mari-chrome-control,
+:root[data-overhaul] .mari-connection-scope .mari-dm-body > * > .mari-chrome-control {
+  align-self: flex-start;
+  width: auto;
+}
+
+/* Job model picker ("Model for Main"): a slim Model / If it fails switch and a one-line "Now", no tinted slabs.
+   With no models to list, the window fits its content instead of keeping a tall empty frame. */
+:root[data-overhaul] .connection-picker-dialog:not(:has([data-switcher-panes])) {
+  height: auto !important;
+}
+:root[data-overhaul] .connection-picker-dialog [role="tablist"].grid {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+}
+:root[data-overhaul] .connection-picker-dialog [role="tablist"].grid > button {
+  min-height: 0;
+  width: auto;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+:root[data-overhaul] .connection-picker-dialog [role="tablist"].grid > button[aria-selected="true"] {
+  border-color: color-mix(in srgb, var(--mari-panel-gradient-start) 60%, transparent);
+}
+:root[data-overhaul] .connection-picker-dialog [role="tablist"].grid > button > span:last-child {
+  width: auto;
+  max-width: 14rem;
+}
+:root[data-overhaul] .connection-picker-dialog [data-switcher-section="now"] {
+  background: transparent;
+  margin-top: 0;
+  border-radius: 0;
+}
+:root[data-overhaul] .connection-picker-dialog [data-switcher-section="now"] > div > .min-w-0 {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+:root[data-overhaul] .connection-picker-dialog [data-switcher-section="now"] > div > .min-w-0 > p {
+  padding-block: 0.375rem;
+}
+:root[data-overhaul] .connection-picker-dialog [data-switcher-section="now"] [data-switcher-default] {
+  height: 2rem;
+}
+:root[data-overhaul] .connection-picker-dialog [data-switcher-accounts] strong {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .connection-picker-dialog [data-switcher-accounts] .mari-chrome-control {
+  min-height: 0;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6875rem;
 }

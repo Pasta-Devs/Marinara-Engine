@@ -29,6 +29,8 @@ export interface DecisionSidecarStatus {
   unsupportedReason: string | null;
   settings: DecisionSidecarSettings;
   runtimeInstalled: boolean;
+  /** On disk and was working, but an engine update changed its uv, Python or lock. */
+  runtimeNeedsUpdate?: boolean;
   process: { running: boolean; baseUrl: string | null; modelId: string | null; error: string | null };
   logPath: string;
   models: DecisionSidecarModel[];
@@ -75,6 +77,15 @@ export function useInstallDecisionModel() {
   return useMutation({
     mutationFn: (modelId: string) =>
       api.post<{ settings: DecisionSidecarSettings }>("/decision/sidecar/install", { modelId }),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+/** Rebuild a runtime an engine update left behind; the downloaded model stays. */
+export function useUpdateDecisionRuntime() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ updated: boolean }>("/decision/sidecar/update-runtime", {}),
     onSuccess: () => invalidate(qc),
   });
 }
