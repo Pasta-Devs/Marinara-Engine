@@ -173,6 +173,29 @@ try {
     await chats.patchMetadata(pickChat.id, { gameCharacterCards: meta.gameCharacterCards });
     const late = await pick({ primary: "blade" });
     assert.equal(late.statusCode, 400, "the tree is set once they have experience");
+    // A new main tree for one who hasn't grown keeps their tamed beasts, and one who fell stays fallen
+    // (Dottore review, PR 8964).
+    const pickBrom = (body: Record<string, unknown>) =>
+      post("/combat/marinara/progression", { chatId: pickChat.id, name: "Brom", ...body });
+    const hound = { id: "c1", name: "Hound", stat: "spd" };
+    const bromCards = JSON.parse((await chats.getById(pickChat.id))!.metadata || "{}").gameCharacterCards;
+    const bromBefore = bromCards[1].marinara;
+    assert.equal(bromBefore.xp, 0, "Brom hasn't grown yet");
+    bromCards[1].marinara = { ...bromBefore, companions: [hound], activeCompanion: "c1" };
+    await chats.patchMetadata(pickChat.id, { gameCharacterCards: bromCards });
+    const retreed = await pickBrom({ primary: "scout" });
+    assert.equal(retreed.statusCode, 200, retreed.body);
+    assert.equal(retreed.json().progression.primary, "scout");
+    assert.deepEqual(retreed.json().progression.companions, [hound], "a new main tree keeps their tamed beasts");
+    assert.equal(retreed.json().progression.activeCompanion, "c1");
+    const fallenCards = JSON.parse((await chats.getById(pickChat.id))!.metadata || "{}").gameCharacterCards;
+    fallenCards[1].marinara = { ...fallenCards[1].marinara, fallen: true };
+    await chats.patchMetadata(pickChat.id, { gameCharacterCards: fallenCards });
+    const revived = await pickBrom({ primary: "guard" });
+    assert.equal(revived.statusCode, 400, "a fallen member's tree can't be changed");
+    const afterFall = JSON.parse((await chats.getById(pickChat.id))!.metadata || "{}").gameCharacterCards[1].marinara;
+    assert.equal(afterFall.fallen, true, "and they stay fallen");
+    assert.equal(afterFall.primary, "scout");
   }
 
   // The setup's bestiary families reach the fight through the start route, fitted to the fight's difficulty.

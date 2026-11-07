@@ -67,7 +67,7 @@ export interface MarinaraLootLine {
  * alive (`left`, as the director keeps them): one that surrendered hands over everything, one that fled
  * (`fled` ids) only half its gold, dropped as it ran. Gold comes in the game's coins (largest first)
  * when it has money, else as "Coins". `equipment` is the party's, for the best gold charm. Seeded, so a
- * step saved twice drops the same thing.
+ * step saved twice drops the same thing. `stealOnly` (a party that fled) drops only what was stolen.
  */
 export function marinaraVictoryLoot(input: {
   fighters: readonly MarinaraFighter[];
@@ -77,15 +77,16 @@ export function marinaraVictoryLoot(input: {
   seed: string;
   coins?: readonly MarinaraLootCoin[];
   equipment?: ReadonlyArray<MarinaraEquipment | null | undefined>;
+  stealOnly?: boolean;
 }): { lines: MarinaraLootLine[]; gold: number; items: string[] } {
   const party = input.fighters.filter((fighter) => fighter.side === "party");
   // A treasure foe that got away takes its windfall with it.
   const away = (input.left ?? []).filter((fighter) => fighter.side === "enemy" && !fighter.dummy && !fighter.windfall);
   const fled = new Set(input.fled ?? []);
-  const beaten = [
-    ...input.fighters.filter((fighter) => fighter.side === "enemy" && fighter.hp <= 0 && !fighter.dummy),
-    ...away,
-  ];
+  // A party that ran beat no one: it keeps only what it stole.
+  const beaten = input.stealOnly
+    ? []
+    : [...input.fighters.filter((fighter) => fighter.side === "enemy" && fighter.hp <= 0 && !fighter.dummy), ...away];
   const robbed = [...input.fighters, ...away].filter(
     (fighter) => fighter.side === "enemy" && fighter.stolenBy && !fighter.dummy,
   );

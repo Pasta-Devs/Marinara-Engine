@@ -979,6 +979,8 @@ export async function combatDirectorRoutes(
             // A tamed beast drops nothing: it follows its keeper now.
             left: s.marinara.left?.filter((one) => !one.tamedBy),
             fled: (s.gone ?? []).filter((one) => one.left === "fled").map((one) => one.id),
+            // A party that got away keeps only what it stole.
+            stealOnly: s.outcome === "flee",
           })
         : won
           ? await planGameVictoryLoot(
@@ -1900,6 +1902,10 @@ export async function combatDirectorRoutes(
         );
         let next: MarinaraCardProgression | undefined =
           index >= 0 ? readMarinaraCardProgression(cards[index]!.marinara) : undefined;
+        if (next?.fallen) {
+          refusal = "This party member has fallen.";
+          return {};
+        }
         if (input.primary && index >= 0) {
           // The player picks the primary tree (Alyssa 2026-10-31). Once they have grown in it, it stays.
           const fresh = !next || (next.level === 1 && next.xp === 0 && Object.keys(next.classLevels).length === 1);
@@ -1923,6 +1929,10 @@ export async function combatDirectorRoutes(
               ...made,
               ...(next?.row ? { row: next.row } : {}),
               ...(next?.equipment ? { equipment: next.equipment } : {}),
+              // Their tamed beasts aren't the class's: they stay with them through a new main tree.
+              ...(next?.companions ? { companions: next.companions } : {}),
+              ...(next?.activeCompanion ? { activeCompanion: next.activeCompanion } : {}),
+              ...(next?.pendingCompanion ? { pendingCompanion: next.pendingCompanion } : {}),
             };
           }
         }

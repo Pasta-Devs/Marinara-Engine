@@ -297,6 +297,34 @@ console.log("game-marinara-items regression passed");
   const ran = marinaraVictoryLoot({ ...input, fighters: [ally], left: [standing], fled: ["a"] });
   assert.deepEqual(ran.items, [], "one that fled drops no items");
   assert.ok(ran.gold > 0 && ran.gold < down.gold, `one that fled drops some coin (${ran.gold} vs ${down.gold})`);
+  // A party that ran after a Steal keeps only what it stole: no drops for the foes it left standing or
+  // the ones it had felled (Dottore review, PR 8964). A win still drops for them all.
+  const robbedFoe = {
+    ...foe("r", "standard", "sellsword"),
+    hp: 30,
+    stolenBy: "p",
+    stolen: { item: "steal-only-proof" },
+  };
+  const fledParty = marinaraVictoryLoot({
+    ...input,
+    fighters: [ally, foe("a", "boss", "sellsword"), robbedFoe],
+    left: [{ ...standing, id: "s" }],
+    fled: ["s"],
+    stealOnly: true,
+  });
+  assert.deepEqual(fledParty.items, ["steal-only-proof"], "a party that fled keeps only the stolen thing");
+  assert.equal(fledParty.gold, 0);
+  const wonWithSteal = marinaraVictoryLoot({
+    ...input,
+    fighters: [ally, foe("a", "boss", "sellsword"), { ...robbedFoe, hp: 0 }],
+    left: [{ ...standing, id: "s" }],
+    fled: ["s"],
+  });
+  assert.ok(wonWithSteal.items.includes("steal-only-proof"), "a win keeps the stolen thing");
+  assert.ok(
+    wonWithSteal.items.length > 1 && wonWithSteal.gold > 0,
+    "and drops for the beaten, the fled and the given-up",
+  );
 }
 console.log("game-marinara-items (in a game) passed");
 
