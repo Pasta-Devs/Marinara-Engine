@@ -991,8 +991,10 @@ export function WhatsNewModal({
       width="max-w-3xl"
       mobileFullscreen
       panelClassName="overflow-hidden"
+      // No scroll padding, so the Got it bar sits flush on the window's bottom edge with nothing under it.
+      contentClassName="!p-0"
     >
-      <div data-component="WhatsNewModal" className="-mx-5 -my-4">
+      <div data-component="WhatsNewModal" className="flex min-h-full flex-col">
         <div className="relative overflow-hidden border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-5 pt-3">
           <div
             aria-hidden="true"
@@ -1133,26 +1135,25 @@ export function WhatsNewModal({
               {releaseCopy(announcement.outro)}
             </p>
           ) : null}
-
-          <footer className="sticky bottom-0 z-10 -mx-5 -mb-6 flex flex-col-reverse gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-panel-bg)] px-5 py-3 shadow-[0_-10px_24px_rgba(0,0,0,0.12)] sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
-            <a
-              href={releaseUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mari-chrome-control min-h-10 justify-center px-4 py-2 text-sm"
-            >
-              {localizeUi("ui.modals.whatsnewmodal.viewRelease")}
-              <ExternalLink size="0.875rem" aria-hidden="true" />
-            </a>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="mari-chrome-control mari-chrome-control--primary min-h-10 justify-center px-5 py-2 text-sm"
-            >
-              {localizeUi("ui.modals.whatsnewmodal.gotIt")}
-            </button>
-          </footer>
         </div>
+        <footer className="sticky bottom-0 z-10 mt-auto flex flex-col-reverse gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--mari-modal-opaque-bg)] [background-image:linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] px-5 py-3 shadow-[0_-10px_24px_rgba(0,0,0,0.12)] sm:flex-row sm:justify-end sm:px-6">
+          <a
+            href={releaseUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mari-chrome-control min-h-10 justify-center px-4 py-2 text-sm"
+          >
+            {localizeUi("ui.modals.whatsnewmodal.viewRelease")}
+            <ExternalLink size="0.875rem" aria-hidden="true" />
+          </a>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="mari-chrome-control mari-chrome-control--primary min-h-10 justify-center px-5 py-2 text-sm"
+          >
+            {localizeUi("ui.modals.whatsnewmodal.gotIt")}
+          </button>
+        </footer>
       </div>
     </Modal>
   );
