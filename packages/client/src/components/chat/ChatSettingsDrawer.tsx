@@ -3,6 +3,7 @@ import { ChatButtonLayoutSettings } from "../../features/chat-settings/ChatButto
 // Chat: Settings Drawer — per-chat configuration
 // ──────────────────────────────────────────────
 import { createPortal } from "react-dom";
+import { useChatSettingsReflow } from "../../hooks/use-chat-settings-reflow";
 import {
   Fragment,
   lazy,
@@ -1106,6 +1107,8 @@ export function ChatSettingsDrawer({
     else if (windowOpen) nav.showQuick();
   }, [overhaulMobile, ovEditing, windowOpen]);
   const ovDocked = overhaulDesktop && !ovFloating;
+  // Docked Chat settings narrows the chat beside it instead of covering it.
+  useChatSettingsReflow(panelRef, ovDocked && windowOpen);
   const [ovScrollEl, setOvScrollEl] = useState<HTMLDivElement | null>(null);
   const setOvGameSettingsSlot = useOverhaulStore((state) => state.setGameSettingsSlot);
   const [ovProfileSlot, setOvProfileSlot] = useState<HTMLDivElement | null>(null);
