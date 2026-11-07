@@ -139,7 +139,12 @@ export function LibraryNav() {
   };
 
   return (
-    <nav data-component="OverhaulLibraryNav" className="ov-libnav" aria-label={localize("Library")}>
+    <nav
+      data-component="OverhaulLibraryNav"
+      data-tour="library-nav"
+      className="ov-libnav"
+      aria-label={localize("Library")}
+    >
       <h2 className="ov-libnav__title">{localize("Library")}</h2>
       {(["library", "app"] as const).map((group) => (
         <div key={group} className="ov-libnav__group">
