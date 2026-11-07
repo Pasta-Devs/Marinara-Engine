@@ -12,6 +12,7 @@ import {
   getTrackerPanelWidthForProfile,
   isMobileShellViewport,
   MOBILE_SHELL_MEDIA_QUERY,
+  OVERHAUL_MOBILE_SHELL_MEDIA_QUERY,
   RIGHT_PANEL_WIDTH_MAX,
   RIGHT_PANEL_WIDTH_MIN,
   selectSidebarShown,
@@ -517,14 +518,19 @@ export function AppShell({
   // Use the same available-width decision as navigation and back dismissal.
   const [isMobile, setIsMobile] = useState(isMobileShellViewport);
   useEffect(() => {
-    const mq = window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
+    // Both queries: the overhaul's (touch tablets in landscape get the desktop shell) and the classic one.
+    const queries = [window.matchMedia(MOBILE_SHELL_MEDIA_QUERY), window.matchMedia(OVERHAUL_MOBILE_SHELL_MEDIA_QUERY)];
     const handler = () => setIsMobile(isMobileShellViewport());
     handler();
-    mq.addEventListener("change", handler);
+    queries.forEach((mq) => mq.addEventListener("change", handler));
     window.addEventListener("resize", handler);
+    const unsubscribeOverhaul = useOverhaulStore.subscribe((state, prev) => {
+      if (state.enabled !== prev.enabled) handler();
+    });
     return () => {
-      mq.removeEventListener("change", handler);
+      queries.forEach((mq) => mq.removeEventListener("change", handler));
       window.removeEventListener("resize", handler);
+      unsubscribeOverhaul();
     };
   }, [sharedSidebarWidth]);
 

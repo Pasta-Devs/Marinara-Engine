@@ -6,7 +6,7 @@
 // other action as labelled rows (the same buttons the desktop More menu lists).
 // Pulling the sheet down, tapping outside or Escape closes it.
 // ──────────────────────────────────────────────
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronLeft, ChevronRight, Copy, GitBranch, List, Pencil, RefreshCw } from "lucide-react";
@@ -19,6 +19,9 @@ import { closeAfterAction } from "./RpMessageFooter";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 const LONG_PRESS_MS = 450;
+
+/** Where the last long-press happened; the desktop layout on a touch tablet opens the menu there. */
+let lastPressPoint: { x: number; y: number } | null = null;
 const MOVE_TOLERANCE_PX = 10;
 
 /**
@@ -52,6 +55,7 @@ export function useLongPress(onLongPress: () => void, enabled: boolean) {
       const target = event.target as HTMLElement;
       if (target.closest("button, a, input, textarea, select, [contenteditable='true']")) return;
       start.current = { x: event.clientX, y: event.clientY };
+      lastPressPoint = start.current;
       timer.current = setTimeout(fire, LONG_PRESS_MS);
     },
     onPointerMove: (event: React.PointerEvent) => {
@@ -160,6 +164,18 @@ export function OvMobileMessageSheet({
 }) {
   const localize = useLocalizedUiText();
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  // Desktop layout (a tablet in landscape): a menu beside the finger instead of a bottom sheet.
+  const [popover] = useState(() => document.documentElement.dataset.overhaul === "on" && lastPressPoint !== null);
+  const [anchor] = useState(() => lastPressPoint);
+  const [popoverPos, setPopoverPos] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!popover || !anchor || !sheetRef.current) return;
+    const { offsetWidth: w, offsetHeight: h } = sheetRef.current;
+    const margin = 12;
+    const left = anchor.x + 16 + w <= window.innerWidth - margin ? anchor.x + 16 : Math.max(margin, anchor.x - 16 - w);
+    const top = Math.min(Math.max(margin, anchor.y - 24), window.innerHeight - h - margin);
+    setPopoverPos({ left, top: Math.max(margin, top) });
+  }, [popover, anchor]);
   const [swipeListOpen, setSwipeListOpen] = useState(false);
   const [dragY, setDragY] = useState(0);
   const drag = useRef<{ y: number; startScroll: number } | null>(null);
@@ -184,13 +200,21 @@ export function OvMobileMessageSheet({
       <div className="ovm-sheet-scrim" aria-hidden="true" onClick={onClose} />
       <div
         ref={sheetRef}
-        className="ovm-sheet"
+        className={cn("ovm-sheet", popover && "is-popover")}
         role="dialog"
         aria-modal="true"
         aria-label={localize("Message actions")}
-        style={dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : undefined}
+        style={
+          popover
+            ? popoverPos
+              ? { left: popoverPos.left, top: popoverPos.top }
+              : { visibility: "hidden" }
+            : dragY
+              ? { transform: `translateY(${dragY}px)`, transition: "none" }
+              : undefined
+        }
         onPointerDown={(event) => {
-          if (event.pointerType === "mouse") return;
+          if (event.pointerType === "mouse" || popover) return;
           if ((sheetRef.current?.scrollTop ?? 0) > 0) return;
           drag.current = { y: event.clientY, startScroll: sheetRef.current?.scrollTop ?? 0 };
         }}
@@ -210,7 +234,7 @@ export function OvMobileMessageSheet({
           setDragY(0);
         }}
       >
-        <div className="ovm-sheet__handle" aria-hidden="true" />
+        {popover ? null : <div className="ovm-sheet__handle" aria-hidden="true" />}
         {top ? (
           <div className="ovm-sheet__top" onClickCapture={closeAfterAction(onClose)}>
             {top}

@@ -83,7 +83,7 @@ import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { executeStateNavigation } from "../../lib/state-navigation";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { MOBILE_SHELL_MEDIA_QUERY, useUIStore } from "../../stores/ui.store";
+import { useMobileShellMediaQuery, useUIStore } from "../../stores/ui.store";
 import { startSceneWithPromptPreferences } from "../../lib/scene-generation";
 import { useChatStore } from "../../stores/chat.store";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
@@ -974,7 +974,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const showHomeBrowserAddressBar = useUIStore((state) => state.showHomeBrowserAddressBar);
   // The phone shell's own signal, not a width breakpoint: a landscape phone is wider than `sm`
   // but still gets compact tabs, with the URL bar and bookmark strip kept desktop-only.
-  const mobileShell = useMatchMedia(MOBILE_SHELL_MEDIA_QUERY);
+  const mobileShell = useMatchMedia(useMobileShellMediaQuery());
   const browserPackages = useMemo(() => selectHomeBrowserPackages(installed.data), [installed.data]);
   const agentWidgetGroups = useMemo(() => {
     const packageGroups = selectHomeWidgetPackages(installed.data).map((pkg) => {

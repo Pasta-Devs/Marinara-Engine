@@ -7,6 +7,7 @@
 // phones and tablets get the mobile overhaul (top bar with the Library Stack,
 // All Tabs viewer, long-press message sheet). Everything here is per device.
 // ──────────────────────────────────────────────
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -374,6 +375,30 @@ export function useOverhaulActive() {
 }
 
 /** True when the overhaul layout is on and the phone/tablet shell is showing (the mobile overhaul). */
+/**
+ * Messages use the long-press action menu: phones and tablets, and the desktop layout on a touch
+ * screen (a tablet held sideways), where there is no hover to show the action row.
+ */
+const TOUCH_QUERY = "(hover: none) and (any-pointer: coarse)";
+
+export function useOverhaulTouchMessages() {
+  const enabled = useOverhaulStore((state) => state.enabled);
+  const desktop = useOverhaulStore((state) => state.desktop);
+  const touch = useSyncExternalStore(subscribeTouch, getTouch, () => false);
+  return enabled && (!desktop || touch);
+}
+function subscribeTouch(onChange: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
+  const media = window.matchMedia(TOUCH_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+function getTouch() {
+  return (
+    typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(TOUCH_QUERY).matches
+  );
+}
+
 export function useOverhaulMobile() {
   return useOverhaulStore((state) => state.enabled && !state.desktop);
 }

@@ -42,7 +42,7 @@ import {
 } from "./ConversationMessageShared";
 import { MessageReplyPreview } from "./MessageReplyPreview";
 import { ConversationMessageActions } from "./ConversationMessageActions";
-import { useOverhaulMobile } from "../../stores/overhaul.store";
+import { useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { useLongPress } from "../overhaul/MobileMessageSheet";
 import { SystemMessage } from "./SystemMessage";
 import { RoleplayMessagePreview } from "./ChatMessage";
@@ -186,7 +186,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(message.content);
   const [showActions, setShowActions] = useState(false);
-  const overhaulMobile = useOverhaulMobile();
+  const overhaulMobile = useOverhaulTouchMessages();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const openMobileSheet = useCallback(() => setMobileSheetOpen(true), []);
   const closeMobileSheet = useCallback(() => setMobileSheetOpen(false), []);

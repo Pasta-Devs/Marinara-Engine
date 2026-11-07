@@ -66,6 +66,18 @@ export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[numbe
 export type CardLibraryKind = "characters" | "personas";
 export const MOBILE_SHELL_MEDIA_QUERY =
   "(max-width: 767px), (max-width: 1440px) and (hover: none) and (any-pointer: coarse)";
+/** UI overhaul: touch tablets held sideways (1024px+ wide) get the desktop shell; portrait keeps the phone shell. */
+export const OVERHAUL_MOBILE_SHELL_MEDIA_QUERY =
+  "(max-width: 767px), (max-width: 1023px) and (hover: none) and (any-pointer: coarse), (max-width: 1440px) and (hover: none) and (any-pointer: coarse) and (orientation: portrait)";
+
+/** The phone-shell media query in effect (the overhaul lets touch tablets in landscape use the desktop shell). */
+export function mobileShellMediaQuery(): string {
+  return isOverhaulLook() ? OVERHAUL_MOBILE_SHELL_MEDIA_QUERY : MOBILE_SHELL_MEDIA_QUERY;
+}
+
+export function useMobileShellMediaQuery(): string {
+  return useOverhaulStore((state) => (state.enabled ? OVERHAUL_MOBILE_SHELL_MEDIA_QUERY : MOBILE_SHELL_MEDIA_QUERY));
+}
 export const CHARACTER_PANEL_FAVORITE_FILTER_OPTIONS = ["all", "favorites", "non-favorites"] as const;
 export type CharacterPanelFavoriteFilter = (typeof CHARACTER_PANEL_FAVORITE_FILTER_OPTIONS)[number];
 export const LOREBOOK_PANEL_CATEGORY_OPTIONS = [
@@ -473,11 +485,16 @@ function normalizeScrollTop(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 }
 
-let mobileShellQuery: MediaQueryList | null = null;
+const mobileShellQueries = new Map<string, MediaQueryList>();
 
 export function isMobileShellViewport(): boolean {
   if (typeof window === "undefined") return false;
-  mobileShellQuery ??= window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
+  const query = mobileShellMediaQuery();
+  let mobileShellQuery = mobileShellQueries.get(query);
+  if (!mobileShellQuery) {
+    mobileShellQuery = window.matchMedia(query);
+    mobileShellQueries.set(query, mobileShellQuery);
+  }
   if (mobileShellQuery.matches) return true;
   const { sidebarWidth, rightPanelWidth } = useUIStore.getState();
   // Reserve both docked widths plus room for the topbar controls. Checking

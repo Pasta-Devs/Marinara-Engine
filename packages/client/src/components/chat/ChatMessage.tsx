@@ -148,7 +148,7 @@ import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./Gene
 import { GenerationFallbackMarker } from "./GenerationFallbackMarker";
 import type { ChatImage } from "../../hooks/use-gallery";
 import { ChatImageLightbox } from "./ChatImageLightbox";
-import { useOverhaulActive, useOverhaulMobile } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvMobileMessageSheet, useLongPress } from "../overhaul/MobileMessageSheet";
 import { OvRpMessageFooter } from "../overhaul/RpMessageFooter";
 import { SwipeJumpControl } from "./SwipeJumpControl";
@@ -2130,7 +2130,7 @@ export const ChatMessage = memo(function ChatMessage({
   const vnPortraitScale = useUIStore((state) => (visualNovel ? state.roleplayVnPortraitScale : 1));
   const overhaulActive = useOverhaulActive();
   // Phones and tablets with the overhaul: no action row on messages; long-press opens the action sheet.
-  const overhaulMobile = useOverhaulMobile();
+  const overhaulMobile = useOverhaulTouchMessages();
   const alwaysDisplaySwipeMenu = useUIStore((state) =>
     isRoleplay
       ? state.alwaysDisplayRoleplaySwipeMenu
@@ -4412,12 +4412,15 @@ export const ChatMessage = memo(function ChatMessage({
     /** New layout: name, time and the message tools inside the bubble, above a divider line. */
     const ovRpHead = overhaulActive ? (
       isGrouped ? (
-        <div className="ov-rpmsg__tools-float">{rpActions("tools")}</div>
+        overhaulMobile ? null : (
+          <div className="ov-rpmsg__tools-float">{rpActions("tools")}</div>
+        )
       ) : (
         <div className="ov-rpmsg__head">
           {rpNameMeta}
           <span className="ov-rpmsg__grow" />
-          {rpActions("tools")}
+          {/* Touch screens: the tools live in the long-press menu. */}
+          {overhaulMobile ? null : rpActions("tools")}
         </div>
       )
     ) : null;

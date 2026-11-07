@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { APP_VERSION } from "@marinara-engine/shared";
-import { MOBILE_SHELL_MEDIA_QUERY, useUIStore, type ChatModeShortcut } from "../../stores/ui.store";
+import { useMobileShellMediaQuery, useUIStore, type ChatModeShortcut } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useTrackAchievement } from "../../hooks/use-achievements";
 import { docsLanguageKeys, useDocsLanguage, type DocsLanguageStatus } from "../../hooks/use-docs-language";
@@ -465,7 +465,7 @@ function TourCardContent({
   const localize = useLocalizedUiText();
   const { poses } = useMariAppearancePack();
   // UX-06: the phone shell (landscape too) has no search field to point at; the same step tells the user about the pull-down.
-  const mobileShell = useMatchMedia(MOBILE_SHELL_MEDIA_QUERY);
+  const mobileShell = useMatchMedia(useMobileShellMediaQuery());
   const bodyKey = currentStep.phoneBodyKey && mobileShell ? currentStep.phoneBodyKey : currentStep.bodyKey;
   const localizedBody = bodyKey
     ? localizeUi(bodyKey, { mod: formatShortcutKey("Mod") })

@@ -164,7 +164,38 @@ export function DesktopTabStrip({
   };
 
   // ── Drag and drop ──
+  // Touch screens (a tablet held sideways): holding a tab or group opens its menu, like a right-click.
+  const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  const clearPress = () => {
+    if (press.current) clearTimeout(press.current.timer);
+    press.current = null;
+  };
+  useEffect(() => clearPress, []);
+  const touchMenu = (value: MenuTarget) => ({
+    onPointerDown: (event: React.PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      clearPress();
+      const { clientX: x, clientY: y } = event;
+      press.current = {
+        x,
+        y,
+        timer: setTimeout(() => {
+          press.current = null;
+          setOverflowOpen(false);
+          setMenu({ ...value, x, y });
+        }, 500),
+      };
+    },
+    onPointerMove: (event: React.PointerEvent) => {
+      if (press.current && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 10)
+        clearPress();
+    },
+    onPointerUp: clearPress,
+    onPointerCancel: clearPress,
+  });
+
   const startDrag = (event: DragEvent, value: Drag) => {
+    clearPress();
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData(DRAG_MIME, "1");
     event.dataTransfer.setData("text/plain", value.kind === "tab" ? value.key : value.id);
@@ -297,6 +328,7 @@ export function DesktopTabStrip({
           onDrop={(event) => dropOnEntry(event, entry)}
           onDragEnd={endDrag}
           onContextMenu={(event) => openMenu(event, { kind: "tab", entry })}
+          {...touchMenu({ kind: "tab", entry })}
         >
           {tabButton(entry)}
         </div>
@@ -345,6 +377,7 @@ export function DesktopTabStrip({
                 onDrop={(event) => dropOnStripItem(event, item)}
                 onDragEnd={endDrag}
                 onContextMenu={(event) => openMenu(event, { kind: "tab", entry })}
+                {...touchMenu({ kind: "tab", entry })}
               >
                 {tabButton(entry)}
               </div>
@@ -368,6 +401,7 @@ export function DesktopTabStrip({
               onDrop={(event) => dropOnStripItem(event, item)}
               onDragEnd={endDrag}
               onContextMenu={(event) => openMenu(event, { kind: "group", id: item.id })}
+              {...touchMenu({ kind: "group", id: item.id })}
             >
               {renaming === item.id ? (
                 <input
