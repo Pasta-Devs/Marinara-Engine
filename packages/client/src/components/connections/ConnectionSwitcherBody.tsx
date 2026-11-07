@@ -1015,11 +1015,16 @@ export function ConnectionSwitcherBody({
     const entry: Entry = { ...rawEntry, ...(niceName ? { title: niceName } : {}) };
     const sameTitle = rawEntry.group?.rows.some((row) => row.model !== entry.model && rowLabel(row) === entry.title);
     if (entry.subtitle === entry.model && !sameTitle) entry.subtitle = "";
-    if (away && rawEntry.group?.account) {
-      const via = viaName(rawEntry.group.account.provider, entry.model);
-      entry.subtitle = [rawEntry.group.name, via && t("connections.accounts.section.via", { service: via })]
+    const via = viaName(rawEntry.group?.account?.provider, entry.model);
+    let routeId = via && entry.model !== entry.title ? entry.model : undefined;
+    if (rawEntry.group?.account) {
+      entry.subtitle = [
+        away ? rawEntry.group.name : entry.subtitle,
+        via && t("connections.accounts.section.via", { service: via }),
+      ]
         .filter(Boolean)
         .join(" · ");
+      if (routeId && entry.subtitle.includes(routeId)) routeId = undefined;
     }
     const isCurrent = now || isNow(entry) || sameChoice(entry.choice, current);
     const highlighted = index !== undefined && index === highlight;
@@ -1054,6 +1059,7 @@ export function ConnectionSwitcherBody({
         aria-label={[
           entry.title,
           entry.subtitle,
+          routeId,
           stateLabel ?? roleLabels.join(", "),
           custom && t("connections.row.customSettings"),
         ]
@@ -1093,6 +1099,7 @@ export function ConnectionSwitcherBody({
           </span>
         }
         title={entry.title}
+        routeId={routeId}
         // The Now strip folds its heading into line 2 to stay one compact row.
         subtitle={now ? [nowLabel, entry.subtitle].filter(Boolean).join(" · ") : entry.subtitle}
         roles={roleLabels}
