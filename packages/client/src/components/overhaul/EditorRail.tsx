@@ -3,7 +3,7 @@
 //
 // Portrait, name, byline, tags and the main actions sit on the left; under
 // them is the jump list of the sections this item actually uses, with
-// "+ Add a section" for the rest. The editor's sections scroll on the right.
+// a "+ Name" row for each section not in use yet. The editor's sections scroll on the right.
 // ──────────────────────────────────────────────
 import {
   useEffect,
@@ -128,7 +128,6 @@ export function EditorRail({
   const mobile = useOverhaulMobile();
   const [tagDraft, setTagDraft] = useState("");
   const [tagOpen, setTagOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
 
   const commitTag = () => {
     const value = tagDraft.trim();
@@ -267,30 +266,17 @@ export function EditorRail({
         ))}
       </ul>
       {addable.length > 0 ? (
-        <div className="ov-rail__add">
-          <button type="button" className="ov-rail__add-btn" onClick={() => setAddOpen((open) => !open)}>
-            <Plus size={14} aria-hidden="true" />
-            {localize("Add a section")}
-          </button>
-          {addOpen ? (
-            <div className="ov-rail__add-menu" role="menu">
-              {addable.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setAddOpen(false);
-                    onAdd(item.id);
-                  }}
-                >
-                  <Plus size={12} aria-hidden="true" />
-                  {localize(item.label)}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
+        // Every section not in use yet gets its own "+ Name" row, so nothing hides behind a menu.
+        <ul className="ov-rail__addlist" aria-label={localize("Add a section")}>
+          {addable.map((item) => (
+            <li key={item.id}>
+              <button type="button" className="ov-rail__add-item" onClick={() => onAdd(item.id)}>
+                <Plus size={12} aria-hidden="true" />
+                {localize(item.label)}
+              </button>
+            </li>
+          ))}
+        </ul>
       ) : null}
     </aside>
   );
