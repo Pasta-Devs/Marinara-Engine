@@ -162,7 +162,10 @@ export function createOmnibarKeyHandlers({
     } else if (pane === "results" && event.key === "Enter" && activeResult) {
       event.preventDefault();
       if (chooseChoiceOption(activeResult)) return;
-      if (activeResult.control?.type === "toggle") flipToggleControl(activeResult, activeResult.control.value !== true);
+      // A preset row opens the preset; its "Set default preset" button is the toggle (user panel 2, N8).
+      if (activeResult.category === "preset" && activeResult.control?.type === "toggle") choose(activeResult);
+      else if (activeResult.control?.type === "toggle")
+        flipToggleControl(activeResult, activeResult.control.value !== true);
       else if (activeResult.control?.type === "choice")
         setExpandedChoiceId((current) => (current === activeResult.id ? null : activeResult.id));
       else if (activeResult.id === "ask-professor-mari") {

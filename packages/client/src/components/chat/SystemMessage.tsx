@@ -53,7 +53,7 @@ export function SystemMessage({
   const [sheetOpen, setSheetOpen] = useState(false);
   const longPress = useLongPress(() => setSheetOpen(true), overhaulMobile && !multiSelectMode && !editing);
   const sheetActions = (
-    <>
+    <div className="mari-message-actions">
       <MessageMarksAction message={message} stopPropagation />
       {onToggleHiddenFromAI && (
         <MessageActionButton
@@ -75,7 +75,7 @@ export function SystemMessage({
           stopPropagation
         />
       )}
-    </>
+    </div>
   );
   return (
     <div
