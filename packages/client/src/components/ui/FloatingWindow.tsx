@@ -377,16 +377,19 @@ function useLiveBounds(read: () => WindowBounds, active: boolean): WindowBounds 
   );
   const readRef = useRef(read);
   readRef.current = read;
-  useEffect(() => {
+  // Layout effect: bounds stop updating while inactive, so catch up before the window paints again.
+  useLayoutEffect(() => {
     if (!active) return;
     let frame = 0;
+    const apply = () => {
+      const next = readRef.current();
+      setBounds((current) => (sameBounds(current, next) ? current : next));
+    };
     const update = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const next = readRef.current();
-        setBounds((current) => (sameBounds(current, next) ? current : next));
-      });
+      frame = requestAnimationFrame(apply);
     };
+    apply();
     const viewport = window.visualViewport;
     window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
@@ -461,7 +464,8 @@ export function FloatingWindow({
   const bringToFront = useFloatingWindowStore((state) => state.bringToFront);
   const bounds = useLiveBounds(
     () => (window.innerWidth < 768 ? readPhoneBubbleBounds() : readFloatingWindowBounds()),
-    !sheet,
+    // A hidden window kept mounted must not re-measure the page on every sidebar slide frame.
+    !sheet && !hidden,
   );
   const [liveGeometry, setLiveGeometry] = useState<WindowGeometry | null>(null);
   const pointerSessionRef = useRef<PointerSession | null>(null);

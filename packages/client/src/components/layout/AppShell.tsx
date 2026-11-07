@@ -126,6 +126,8 @@ const TRACKER_PANEL_HUD_GAP = 6;
 const TRACKER_PANEL_CHAT_GAP = 8;
 // The narrowest docked Tracker Panel: its close, settings and help buttons still fit side by side (#7188).
 const TRACKER_PANEL_MIN_DOCKED_WIDTH = 96;
+// Matches the .mari-shell-panel-slot width transition in globals.css.
+const SHELL_PANEL_SLIDE_MS = 220;
 const TRACKER_PANEL_DESKTOP_MOTION_MS = 260;
 const TRACKER_PANEL_DESKTOP_EXIT_MS = 240;
 const TRACKER_PANEL_DESKTOP_EASE = [0.16, 1, 0.3, 1] as const;
@@ -553,15 +555,27 @@ export function AppShell({
   const chatUiInsetLeft = !shellOverlayMode && layoutSidebarOpen ? Math.round(liveSidebarWidth) : 0;
   const chatUiInsetRight = !shellOverlayMode && layoutRightPanelOpen ? Math.round(liveRightPanelWidth) : 0;
 
+  const chatUiInsetPublishedRef = useRef(false);
   useLayoutEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
-    root.style.setProperty("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
-    return () => {
-      root.style.removeProperty("--mari-chat-ui-inset-left");
-      root.style.removeProperty("--mari-chat-ui-inset-right");
+    const publish = () => {
+      chatUiInsetPublishedRef.current = true;
+      root.style.setProperty("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
+      root.style.setProperty("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
     };
+    if (!chatUiInsetPublishedRef.current) return publish();
+    // A root style write restyles the whole app. Publish once a sidebar has slid or a resize drag has
+    // paused, not in the frame that starts the slide or on every drag move. Only floating chat UI reads it.
+    const timer = window.setTimeout(publish, SHELL_PANEL_SLIDE_MS);
+    return () => window.clearTimeout(timer);
   }, [chatUiInsetLeft, chatUiInsetRight]);
+  useLayoutEffect(
+    () => () => {
+      document.documentElement.style.removeProperty("--mari-chat-ui-inset-left");
+      document.documentElement.style.removeProperty("--mari-chat-ui-inset-right");
+    },
+    [],
+  );
 
   // ── Center-area compact detection ──
   // Side panels can shrink the center pane below the chat chrome's usable desktop

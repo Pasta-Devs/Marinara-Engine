@@ -923,8 +923,13 @@ export function App() {
           stopAccentAnimation();
           return;
         }
-
-        applyLiveAccent();
+        // A tick restyles the whole app; skip it while a sidebar slides so the slide does not stall.
+        const sidebarSliding = document
+          .getAnimations?.()
+          ?.some((animation) =>
+            (animation.effect as KeyframeEffect | null)?.target?.classList.contains("mari-shell-panel-slot"),
+          );
+        if (!sidebarSliding) applyLiveAccent();
         queueAccentAnimationTick();
       }, ACCENT_RGB_TICK_MS);
     };
