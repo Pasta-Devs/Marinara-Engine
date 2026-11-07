@@ -21,6 +21,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Translation } from "react-i18next";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
+import { ThemeSafetyHost } from "./components/layout/ThemeSafetyHost";
+import { useThemeSafetyStore } from "./lib/theme-safety";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { WhatsNewModal } from "./components/modals/WhatsNewModal";
@@ -192,6 +194,17 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
     reloadBrowser("reset-ui");
   };
 
+  /** Display Size is kept on this device only, so this reset never comes back from the server. */
+  private resetTextSize = () => {
+    useUIStore.getState().setFontSize(17 as Parameters<ReturnType<typeof useUIStore.getState>["setFontSize"]>[0]);
+    reloadBrowser("render-recovery");
+  };
+
+  private safeModeReload = () => {
+    useThemeSafetyStore.getState().enterSafeMode("url");
+    reloadBrowser("render-recovery");
+  };
+
   render() {
     if (!this.state.hasError) return this.props.children;
     const errorMessage = formatRecoveryError(this.state.error);
@@ -221,6 +234,18 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
                   className="mari-chrome-control mari-chrome-control--selected px-3 py-2 text-sm"
                 >
                   {t("ui.app.recovery.reload")}
+                </button>
+                {useUIStore.getState().fontSize !== 17 ? (
+                  <button
+                    type="button"
+                    onClick={this.resetTextSize}
+                    className="mari-chrome-control px-3 py-2 text-sm"
+                  >
+                    {t("theming.recovery.resetTextSize", "Reset text size")}
+                  </button>
+                ) : null}
+                <button type="button" onClick={this.safeModeReload} className="mari-chrome-control px-3 py-2 text-sm">
+                  {t("theming.recovery.safeMode", "Reload without custom theme")}
                 </button>
                 <button
                   type="button"
@@ -1066,6 +1091,9 @@ export function App() {
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
+    // Pixel-sized parts of the new layout (icons, the top bar's buttons) scale by this, so they grow
+    // with the text instead of staying put (theming panel H4). 1 at the default size.
+    document.documentElement.style.setProperty("--ov-ui-scale", String(Math.round((fontSize / 17) * 1000) / 1000));
   }, [fontSize]);
 
   useEffect(() => {
@@ -1259,6 +1287,7 @@ export function App() {
   return (
     <>
       <CustomThemeInjector />
+      <ThemeSafetyHost />
       <PersonalExtensionInjector />
       <ChibiProfessorMariEasterEgg />
       <Suspense fallback={null}>

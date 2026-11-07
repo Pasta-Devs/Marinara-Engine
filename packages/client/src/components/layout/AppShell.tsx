@@ -498,8 +498,20 @@ export function AppShell({
     SHARED_SIDEBAR_WIDTH_MIN,
     SHARED_SIDEBAR_WIDTH_MAX,
   );
-  const liveSidebarWidth = sidebarDragWidth ?? rightPanelDragWidth ?? sharedSidebarWidth;
-  const liveRightPanelWidth = rightPanelDragWidth ?? sidebarDragWidth ?? sharedSidebarWidth;
+  // The side panes grow with Display Size, so their text keeps fitting (theming panel H4). The stored
+  // width is the one at the default size; what's on screen is that times the text scale, up to 38%
+  // of the window each.
+  const uiFontSize = useUIStore((s) => s.fontSize);
+  const sidebarScale = Math.max(0.7, uiFontSize / 17);
+  const sidebarDisplayMax = Math.max(
+    SHARED_SIDEBAR_WIDTH_MIN,
+    Math.min(SHARED_SIDEBAR_WIDTH_MAX * sidebarScale, typeof window === "undefined" ? Infinity : window.innerWidth * 0.38),
+  );
+  const scaledSidebarWidth = clampWidth(sharedSidebarWidth * sidebarScale, SHARED_SIDEBAR_WIDTH_MIN, sidebarDisplayMax);
+  const storedSidebarWidth = (displayWidth: number) =>
+    clampWidth(Math.round(displayWidth / sidebarScale), SHARED_SIDEBAR_WIDTH_MIN, SHARED_SIDEBAR_WIDTH_MAX);
+  const liveSidebarWidth = sidebarDragWidth ?? rightPanelDragWidth ?? scaledSidebarWidth;
+  const liveRightPanelWidth = rightPanelDragWidth ?? sidebarDragWidth ?? scaledSidebarWidth;
   const trackerPanelWidth = getTrackerPanelWidthForProfile(trackerPanelSizeProfile);
   const [trackerPanelResolvedWidth, setTrackerPanelResolvedWidth] = useState(trackerPanelWidth);
   const [trackerPanelWidthMeasured, setTrackerPanelWidthMeasured] = useState(false);
@@ -884,11 +896,11 @@ export function AppShell({
       // The drag leaves the thin handle; the page keeps the resize cursor until it ends (globals.css, #8621).
       document.documentElement.dataset.marinaraResizing = "col";
       document.body.style.userSelect = "none";
-      sidebarDragWidthRef.current = sharedSidebarWidth;
-      setSidebarDragWidth(sharedSidebarWidth);
+      sidebarDragWidthRef.current = scaledSidebarWidth;
+      setSidebarDragWidth(scaledSidebarWidth);
 
       const onMove = (moveEvent: MouseEvent) => {
-        const nextWidth = clampWidth(moveEvent.clientX, SHARED_SIDEBAR_WIDTH_MIN, SHARED_SIDEBAR_WIDTH_MAX);
+        const nextWidth = clampWidth(moveEvent.clientX, SHARED_SIDEBAR_WIDTH_MIN, sidebarDisplayMax);
         sidebarDragWidthRef.current = nextWidth;
         setSidebarDragWidth(nextWidth);
       };
@@ -896,7 +908,7 @@ export function AppShell({
       const finishResize = () => {
         if (finished) return;
         finished = true;
-        const nextWidth = sidebarDragWidthRef.current ?? sharedSidebarWidth;
+        const nextWidth = storedSidebarWidth(sidebarDragWidthRef.current ?? scaledSidebarWidth);
         setSidebarWidth(nextWidth);
         setRightPanelWidth(nextWidth);
         sidebarDragWidthRef.current = null;
@@ -912,7 +924,8 @@ export function AppShell({
       window.addEventListener("mouseup", finishResize);
       window.addEventListener("blur", finishResize);
     },
-    [setRightPanelWidth, setSidebarWidth, sharedSidebarWidth, shellOverlayMode],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- storedSidebarWidth follows sidebarScale
+    [setRightPanelWidth, setSidebarWidth, scaledSidebarWidth, sidebarDisplayMax, sidebarScale, shellOverlayMode],
   );
 
   const startRightPanelResize = useCallback(
@@ -923,15 +936,11 @@ export function AppShell({
       // The drag leaves the thin handle; the page keeps the resize cursor until it ends (globals.css, #8621).
       document.documentElement.dataset.marinaraResizing = "col";
       document.body.style.userSelect = "none";
-      rightPanelDragWidthRef.current = sharedSidebarWidth;
-      setRightPanelDragWidth(sharedSidebarWidth);
+      rightPanelDragWidthRef.current = scaledSidebarWidth;
+      setRightPanelDragWidth(scaledSidebarWidth);
 
       const onMove = (moveEvent: MouseEvent) => {
-        const nextWidth = clampWidth(
-          window.innerWidth - moveEvent.clientX,
-          SHARED_SIDEBAR_WIDTH_MIN,
-          SHARED_SIDEBAR_WIDTH_MAX,
-        );
+        const nextWidth = clampWidth(window.innerWidth - moveEvent.clientX, SHARED_SIDEBAR_WIDTH_MIN, sidebarDisplayMax);
         rightPanelDragWidthRef.current = nextWidth;
         setRightPanelDragWidth(nextWidth);
       };
@@ -939,7 +948,7 @@ export function AppShell({
       const finishResize = () => {
         if (finished) return;
         finished = true;
-        const nextWidth = rightPanelDragWidthRef.current ?? sharedSidebarWidth;
+        const nextWidth = storedSidebarWidth(rightPanelDragWidthRef.current ?? scaledSidebarWidth);
         setSidebarWidth(nextWidth);
         setRightPanelWidth(nextWidth);
         rightPanelDragWidthRef.current = null;
@@ -955,7 +964,8 @@ export function AppShell({
       window.addEventListener("mouseup", finishResize);
       window.addEventListener("blur", finishResize);
     },
-    [setRightPanelWidth, setSidebarWidth, sharedSidebarWidth, shellOverlayMode],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- storedSidebarWidth follows sidebarScale
+    [setRightPanelWidth, setSidebarWidth, scaledSidebarWidth, sidebarDisplayMax, sidebarScale, shellOverlayMode],
   );
 
   const adjustSidebarWidth = useCallback(
