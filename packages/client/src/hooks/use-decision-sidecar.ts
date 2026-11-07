@@ -29,6 +29,8 @@ export interface DecisionSidecarStatus {
   unsupportedReason: string | null;
   settings: DecisionSidecarSettings;
   runtimeInstalled: boolean;
+  /** Whether the installed model's weights are on disk and whole; null with no model installed. */
+  installedModelDownloaded: boolean | null;
   process: { running: boolean; baseUrl: string | null; modelId: string | null; error: string | null };
   logPath: string;
   models: DecisionSidecarModel[];
