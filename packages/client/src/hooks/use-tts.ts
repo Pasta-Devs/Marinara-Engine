@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tansta
 import { api } from "../lib/api-client";
 import type {
   TTSConfig,
+  TTSConfigResponse,
   TTSModelsResponse,
   TTSVoiceAssignmentInput,
   TTSVoiceModeInput,
@@ -30,7 +31,7 @@ const KEYS = {
 export function useTTSConfig() {
   return useQuery({
     queryKey: KEYS.config,
-    queryFn: () => api.get<TTSConfig>("/tts/config"),
+    queryFn: () => api.get<TTSConfigResponse>("/tts/config"),
     staleTime: 60_000,
   });
 }
