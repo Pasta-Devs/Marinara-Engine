@@ -16764,6 +16764,8 @@
   "ui.presets.preseteditor.stockPresetReadOnly": "This built-in preset is read-only. Create a copy only when you want to edit it.",
   "ui.presets.preseteditor.stockPresetReadOnlyBar": "Built-in preset, read-only. Make a copy to change it.",
   "ui.presets.preseteditor.tk": "tk",
+  "ui.presets.preseteditor.tokenLimits": "Max output tokens and context size",
+  "ui.presets.preseteditor.tokenLimitsWhere": "Set on each Connection, not in the preset.",
   "ui.presets.preseteditor.youHaveUnsavedChanges": "You have unsaved changes.",
   "ui.presets.preseteditor.youHaveUnsavedPresetEditsSaveThemBeforeExporting": "You have unsaved preset edits. Save them before exporting so the file includes the latest changes?",
   "ui.presets.presetvariableseditor.addVariable": "Add Variable",

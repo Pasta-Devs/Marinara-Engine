@@ -43,12 +43,16 @@ export function SystemMessage({
   onDelete?: () => void;
 }) {
   const { t } = useTranslation();
+  // A one-line notice ("You are now playing as Rook.") can show as a slim divider in the new layout.
+  const content = typeof message.content === "string" ? message.content.trim() : "";
+  const isShortNotice = !editing && content.length > 0 && content.length <= 160 && !content.includes("\n");
   return (
     <div
       ref={messageRef}
       tabIndex={0}
       data-message-id={message.id}
       data-message-role="system"
+      data-notice={isShortNotice ? "line" : undefined}
       className={cn(
         "mari-system-message group min-w-0 max-w-full px-4 py-2",
         multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
