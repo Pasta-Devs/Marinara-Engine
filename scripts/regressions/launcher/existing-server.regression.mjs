@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, join, resolve } from "node:path";
@@ -51,6 +51,30 @@ const healthyResult = await runChecker(healthyAddress.port);
 assert.equal(healthyResult.status, 2, healthyResult.stderr);
 assert.match(healthyResult.stdout, /Marinara Engine v2\.4\.4 regression is already running/u);
 await close(healthyServer);
+
+// A server left running from before a branch switch or update must not be reopened: it would
+// keep showing the old build. The same commit as this checkout is still reused.
+const checkoutCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repositoryRoot, encoding: "utf8" }).trim();
+function serveBuild(commit) {
+  return createServer((request, response) => {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ status: "ok", version: "2.4.4", build: `2.4.4+${commit}`, commit }));
+  });
+}
+const sameBuildServer = serveBuild(checkoutCommit.slice(0, 12));
+await listen(sameBuildServer);
+const sameBuildResult = await runChecker(sameBuildServer.address().port);
+assert.equal(sameBuildResult.status, 2, sameBuildResult.stderr);
+await close(sameBuildServer);
+
+const otherCommit = checkoutCommit.startsWith("0") ? "1".repeat(12) : "0".repeat(12);
+const oldBuildServer = serveBuild(otherCommit);
+await listen(oldBuildServer);
+const oldBuildResult = await runChecker(oldBuildServer.address().port);
+assert.equal(oldBuildResult.status, 1, oldBuildResult.stdout);
+assert.match(oldBuildResult.stderr, /older or different Marinara Engine is still running/u);
+assert.match(oldBuildResult.stderr, /Close the Marinara console window/u);
+await close(oldBuildServer);
 
 // A Marinara that requires sign-in tells the unauthenticated probe only `{ status: "ok" }`.
 const protectedServer = createServer((_request, response) => {

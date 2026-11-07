@@ -34,7 +34,7 @@ The installer makes a Git copy of the latest stable release, so Marinara can upd
 - **Start:** double-click the desktop shortcut or the Start Menu entry. From a source install, run `start.bat` in the Marinara folder.
 - **Stop:** the shortcut opens a console window. Press <kbd>Ctrl</kbd>+<kbd>C</kbd> in it.
 
-If Marinara is already running, the shortcut reopens it in your browser.
+If Marinara is already running, the shortcut reopens it in your browser. If the running copy is an older version than the one in the folder (for example after you switched versions), the launcher asks you to close the old console window first, so you never land on the old version by mistake.
 
 ## Install from source
 
@@ -84,6 +84,9 @@ If it did not work: `[ERROR] Node.js 24 LTS or newer is required` means your Nod
 ### Manual setup without the launcher
 
 This path needs the `pnpm` command. Run these from inside the `Marinara-Engine` folder.
+
+> [!TIP]
+> In PowerShell, type `npm.cmd` and `pnpm.cmd` instead of `npm` and `pnpm` (for example `pnpm.cmd install --force`). On many PCs PowerShell blocks their shortcuts with "running scripts is disabled on this system". Command Prompt is not affected. You can also skip this section and run `.\start.bat`, which installs and builds everything for you.
 
 1. Install pnpm once.
 
