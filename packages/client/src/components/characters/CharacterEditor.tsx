@@ -241,7 +241,7 @@ import { GameModeSheet } from "../overhaul/GameModeSheet";
 import { AddFieldChips, EditorCrumbs, EditorRail, RailMoreMenu } from "../overhaul/EditorRail";
 import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { openLibrarySection } from "../overhaul/library-navigation";
-import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
+import { CharacterChatButton } from "../overhaul/CharacterChatButton";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 
 // ── Tabs ──
@@ -572,7 +572,6 @@ export function CharacterEditor() {
   const { data: characterSheetSprites } = useCharacterSprites(characterSheetGeneratorOpen ? characterId : null);
   const [newTag, setNewTag] = useState("");
   const overhaulActive = useOverhaulLook();
-  const { startChatFromCharacter } = useStartChatFromCharacter();
   const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
   const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
   const [overhaulMoreOpen, setOverhaulMoreOpen] = useState(false);
@@ -1570,23 +1569,7 @@ export function CharacterEditor() {
       }
       actions={
         <>
-          <button
-            type="button"
-            className="ov-btn ov-btn--accent"
-            onClick={() => {
-              if (!characterId) return;
-              startChatFromCharacter({
-                characterId,
-                characterName: formData.name,
-                mode: "roleplay",
-                firstMessage: formData.first_mes,
-                alternateGreetings: formData.alternate_greetings,
-              });
-            }}
-          >
-            <MessageCircle size="0.875rem" />
-            {localizeUi("ui.overhaul.chat", { defaultValue: "Chat" })}
-          </button>
+          {characterId ? <CharacterChatButton characterId={characterId} characterName={formData.name} /> : null}
           <button
             type="button"
             onClick={handleSave}

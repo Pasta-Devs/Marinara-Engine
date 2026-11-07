@@ -31,7 +31,8 @@ export type CommandIcon =
   | "updates"
   | "diagnostics"
   | "backups"
-  | "speech";
+  | "speech"
+  | "calendar";
 
 export type CommandCenterCategoryFilter =
   | "all"

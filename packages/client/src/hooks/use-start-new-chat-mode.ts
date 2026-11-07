@@ -54,6 +54,7 @@ export function useStartNewChatMode() {
         characterIds: [],
         connectionId: starred?.settings.connectionId ?? undefined,
         promptPresetId: starred?.settings.promptPresetId ?? undefined,
+        setupPending: true,
       });
       // On the phone shell the sidebar is the full-screen Chats sheet, so
       // opening it here would cover the wizard about to open (O4 item 5); on

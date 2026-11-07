@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   BookOpen,
   BookOpenText,
   Boxes,
@@ -111,6 +112,7 @@ export const COMMAND_ICONS = {
   diagnostics: Activity,
   backups: ArchiveRestore,
   speech: Volume2,
+  calendar: CalendarDays,
 } satisfies Record<CommandIcon, LucideIcon>;
 
 export const DEFAULT_COMMAND_ICON_BY_KIND = {

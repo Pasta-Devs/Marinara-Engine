@@ -326,14 +326,30 @@ export function AddFieldChips({
 }
 
 /** The rail's "⋯" overflow: the editor's header actions as a labelled menu list, like Message actions. */
-export function RailMoreMenu({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+export function RailMoreMenu({
+  open,
+  onClose,
+  children,
+  label = "More actions",
+  className,
+  trigger = "[data-ov-more-trigger]",
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  /** English source text for the menu's small heading. */
+  label?: string;
+  className?: string;
+  /** Selector of the button that toggles this menu (a press on it is not an outside click). */
+  trigger?: string;
+}) {
   const localize = useLocalizedUiText();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Element | null;
-      if (!target || ref.current?.contains(target) || target.closest("[data-ov-more-trigger]")) return;
+      if (!target || ref.current?.contains(target) || target.closest(trigger)) return;
       onClose();
     };
     const onKey = (event: KeyboardEvent) => {
@@ -345,11 +361,16 @@ export function RailMoreMenu({ open, onClose, children }: { open: boolean; onClo
       document.removeEventListener("pointerdown", onPointer, true);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, trigger]);
   if (!open) return null;
   return (
-    <div ref={ref} className="ov-rail__more" role="menu" onClick={() => window.setTimeout(onClose, 0)}>
-      <p className="ov-rail__more-label">{localize("More actions")}</p>
+    <div
+      ref={ref}
+      className={className ? `ov-rail__more ${className}` : "ov-rail__more"}
+      role="menu"
+      onClick={() => window.setTimeout(onClose, 0)}
+    >
+      <p className="ov-rail__more-label">{localize(label)}</p>
       <div className="mari-editor-actions">{children}</div>
     </div>
   );

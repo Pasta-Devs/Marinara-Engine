@@ -15,97 +15,14 @@ import { useOverhaulMobile, useOverhaulStore, type OverhaulSettingsTab } from ".
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { openLibrarySection } from "./library-navigation";
+import { OVERHAUL_SETTINGS_TABS, overhaulSettingsTabFor } from "./settings-tabs";
+import { SETTINGS_SEARCHABLE_CONTROLS } from "../../lib/settings-registry";
+
+export { OVERHAUL_SETTINGS_TABS };
 
 const OverhaulSettingsSections = lazy(() =>
   import("../panels/SettingsPanel").then((m) => ({ default: m.OverhaulSettingsSections })),
 );
-
-export const OVERHAUL_SETTINGS_TABS: {
-  id: OverhaulSettingsTab;
-  label: string;
-  blurb: string;
-  sections: SettingsSectionId[];
-}[] = [
-  {
-    id: "general",
-    label: "General",
-    blurb: "Language, confirmations, extras, Professor Mari and notifications",
-    sections: ["application", "confirmations-help", "extras", "omnibar", "notifications"],
-  },
-  {
-    id: "chatting",
-    label: "Chatting",
-    blurb: "Replies, the message box, editing and swipes, thinking, formatting and message info",
-    sections: ["responses", "input-editing", "editing-swipes", "thinking", "text-rules", "message-tools"],
-  },
-  {
-    id: "appearance",
-    label: "Appearance",
-    blurb: "Theme, fonts, text colors, layout, effects, backgrounds and CSS themes",
-    sections: [
-      "app-style",
-      "text-scale",
-      "text-colors",
-      "layout",
-      "motion-backgrounds",
-      "chat-backgrounds",
-      "chat-widgets",
-      "theme-library",
-    ],
-  },
-  {
-    id: "conversation",
-    label: "Conversation",
-    blurb: "How Conversation chats look",
-    sections: ["chat-display", "conversation-theme"],
-  },
-  {
-    id: "roleplay",
-    label: "Roleplay",
-    blurb: "The Tracker Panel, Roleplay messages, avatars and Visual Novel",
-    sections: ["roleplay-tracker", "roleplay-messages", "roleplay-avatars", "visual-novel"],
-  },
-  {
-    id: "game",
-    label: "Game",
-    blurb: "Game Mode text, art and assets",
-    sections: ["game-playback", "game-presentation", "game-assets"],
-  },
-  {
-    id: "media",
-    label: "Media",
-    blurb: "Image and video generation",
-    sections: ["overall-generations", "image-generation", "video-generation", "prompt-overrides"],
-  },
-  {
-    id: "data",
-    label: "Data",
-    blurb: "Imports, backups, chat exports, storage and deleting data",
-    sections: [
-      "sillytavern-import",
-      "backup-export",
-      "profile-marinara",
-      "chat-exports",
-      "storage-optimization",
-      "danger-zone",
-    ],
-  },
-  {
-    id: "advanced",
-    label: "Advanced",
-    blurb: "Updates, server, requests, lorebooks, security, multiplayer and troubleshooting",
-    sections: [
-      "updates",
-      "server",
-      "request-timeouts",
-      "parameters",
-      "features",
-      "admin-access",
-      "multiplayer",
-      "support-diagnostics",
-    ],
-  },
-];
 
 const SECTION_LABELS: Partial<Record<SettingsSectionId, string>> = {};
 
@@ -117,13 +34,15 @@ function sectionLabel(id: SettingsSectionId) {
  * Scrolls the settings list (only the list, never the page around it) to a section and flashes
  * it, so you can see which block the chip meant.
  */
-function scrollToSection(id: SettingsSectionId, attempt = 0) {
+function scrollToSection(id: SettingsSectionId, attempt = 0, controlId?: string | null) {
   window.requestAnimationFrame(() => {
-    const target = document.getElementById(`settings-section-${id}`);
+    const target =
+      (controlId ? document.getElementById(`settings-control-${controlId}`) : null) ??
+      document.getElementById(`settings-section-${id}`);
     const scroller = target?.closest<HTMLElement>(".ov-settings__scroll");
     if (!target || !scroller || target.offsetParent === null) {
       // The tab's sections load lazily; try again for a moment after a tab switch.
-      if (attempt < 20) window.setTimeout(() => scrollToSection(id, attempt + 1), 100);
+      if (attempt < 20) window.setTimeout(() => scrollToSection(id, attempt + 1, controlId), 100);
       return;
     }
     const top = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
@@ -133,6 +52,30 @@ function scrollToSection(id: SettingsSectionId, attempt = 0) {
     target.classList.add("ov-flash");
     window.setTimeout(() => target.classList.remove("ov-flash"), 1800);
   });
+}
+
+/**
+ * A setting picked somewhere else (omnibar, Professor Mari, a link): the navigation already chose
+ * this page's tab; here the page goes to the section or row and flashes it, then forgets the request.
+ */
+function useSettingsJumpTarget(onJump: (sectionId: SettingsSectionId, controlId: string | null) => void) {
+  const controlId = useUIStore((s) => s.settingsTargetControlId);
+  const targetSectionId = useUIStore((s) => s.settingsTargetSectionId);
+  const jump = useRef(onJump);
+  jump.current = onJump;
+  useEffect(() => {
+    if (!controlId && !targetSectionId) return;
+    const sectionId = (targetSectionId ??
+      SETTINGS_SEARCHABLE_CONTROLS.find((control) => control.id === controlId)?.sectionId ??
+      null) as SettingsSectionId | null;
+    const ui = useUIStore.getState();
+    ui.setSettingsTargetControlId(null);
+    ui.setSettingsTargetSectionId(null);
+    if (!sectionId) return;
+    const tab = overhaulSettingsTabFor(sectionId);
+    if (tab && useOverhaulStore.getState().settingsTab !== tab) useOverhaulStore.getState().setSettingsTab(tab);
+    jump.current(sectionId, controlId);
+  }, [controlId, targetSectionId]);
 }
 
 type Chip = { id: SettingsSectionId; label: string };
@@ -360,6 +303,17 @@ function OverhaulSettingsPhone() {
     setEditing(false);
     setLevel(next);
   };
+  // Phone: a picked setting opens its section's page (a small tab is one page: open the tab there).
+  useSettingsJumpTarget((target, controlId) => {
+    const tabEntry = OVERHAUL_SETTINGS_TABS.find((item) => item.sections.includes(target));
+    const small = tabEntry ? MOBILE_TABS[tabEntry.id]?.onePage : false;
+    setQuery("");
+    scrolls.current.tab = 0;
+    setSectionId(target);
+    go(small ? "tab" : "section");
+    if (small) scrollToSectionIn(target, rootRef.current);
+    else if (controlId) scrollToSection(target, 0, controlId);
+  });
   useLayoutEffect(() => {
     if (restore.current === null) return;
     const top = restore.current;
@@ -522,6 +476,7 @@ function OverhaulSettingsSplit() {
   const tab = OVERHAUL_SETTINGS_TABS.find((item) => item.id === tabId) ?? OVERHAUL_SETTINGS_TABS[0]!;
   const sections = tab.sections.filter((id) => !HIDDEN_ON_DEVICE.has(id));
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  useSettingsJumpTarget((sectionId, controlId) => scrollToSection(sectionId, 0, controlId));
   // Edit shows only when the tab has a risky button on screen (Media has none before its Agent is installed).
   const [hasEdit, setHasEdit] = useState(false);
   useEffect(() => {
@@ -616,6 +571,7 @@ function OverhaulSettingsDesktop() {
   useEffect(() => {
     scrollEl?.scrollTo({ top: 0 });
   }, [scrollEl, tab.id]);
+  useSettingsJumpTarget((sectionId, controlId) => scrollToSection(sectionId, 0, controlId));
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();

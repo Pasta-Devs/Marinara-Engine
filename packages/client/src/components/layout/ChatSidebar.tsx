@@ -17,6 +17,7 @@ import {
   MessageSquareText,
   Search,
   Trash2,
+  Pencil,
   Plus,
   Check,
   Download,
@@ -42,7 +43,14 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { openActivityOverview, openGlobalSearch } from "../../lib/chat-insights";
-import { useBulkExportChats, useChats, useCreateChat, useDeleteChat, useDeleteChatGroup } from "../../hooks/use-chats";
+import {
+  useBulkExportChats,
+  useChats,
+  useCreateChat,
+  useDeleteChat,
+  useDeleteChatGroup,
+  useUpdateChat,
+} from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
 import { useConnections } from "../../hooks/use-connections";
 import {
@@ -266,6 +274,7 @@ export function ChatSidebar() {
   const { data: chatPresetsData } = useChatPresets();
   const applyChatPreset = useApplyChatPreset();
   const deleteChat = useDeleteChat();
+  const renameChat = useUpdateChat();
   const deleteChatGroup = useDeleteChatGroup();
   const bulkExportChats = useBulkExportChats();
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -788,6 +797,7 @@ export function ChatSidebar() {
           characterIds: [],
           connectionId: starred?.settings.connectionId ?? undefined,
           promptPresetId: starred?.settings.promptPresetId ?? undefined,
+          setupPending: true,
         },
         {
           onSuccess: (chat) => {
@@ -1106,6 +1116,23 @@ export function ChatSidebar() {
     return nodes;
   };
 
+  // ── Renaming a chat in place (desktop new layout: the hover pencil beside the name) ──
+  const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const commitRename = (chatId: string, currentName: string) => {
+    if (renamingChatId !== chatId) return;
+    setRenamingChatId(null);
+    const next = renameDraft.trim();
+    if (!next || next === currentName) return;
+    renameChat.mutate(
+      { id: chatId, name: next.slice(0, 200) },
+      {
+        onError: () =>
+          toast.error(localizeUi("ui.layout.chatsidebar.renameFailed", { defaultValue: "Couldn't rename the chat." })),
+      },
+    );
+  };
+
   const renderChatRow = (entry: ChatListEntry) => {
     const { chat, branchCount, branchRows } = entry;
     const cfg = MODE_CONFIG[chat.mode] ?? MODE_CONFIG.conversation;
@@ -1205,7 +1232,7 @@ export function ChatSidebar() {
             });
           }}
           onMouseDown={(event) => startMouseDrag(event, chat.id)}
-          draggable
+          draggable={renamingChatId !== chat.id}
           onDragStart={(event) => {
             const chatIds = getDragChatIds(chat.id);
             setDraggedChatId(chat.id);
@@ -1419,16 +1446,61 @@ export function ChatSidebar() {
             })()}
           </div>
 
-          {/* Name */}
+          {/* Name (desktop: a pencil beside it on hover renames in place) */}
           <div className="min-w-0 flex-1">
-            <span
-              className={cn(
-                "block truncate text-sm",
-                isActive ? "mari-chrome-text-strong font-medium" : "mari-chrome-text",
-              )}
-            >
-              {displayName}
-            </span>
+            {renamingChatId === chat.id ? (
+              <input
+                autoFocus
+                value={renameDraft}
+                aria-label={localizeUi("ui.layout.chatsidebar.renameChat", { defaultValue: "Rename chat" })}
+                onChange={(event) => setRenameDraft(event.target.value)}
+                onClick={(event) => event.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    commitRename(chat.id, chat.name);
+                  } else if (event.key === "Escape") {
+                    event.preventDefault();
+                    setRenamingChatId(null);
+                  }
+                }}
+                onBlur={() => commitRename(chat.id, chat.name)}
+                onFocus={(event) => event.currentTarget.select()}
+                // Same height as the name it replaces, so the row doesn't grow while you type.
+                style={{ height: "1.25rem", minHeight: 0, paddingTop: 0, paddingBottom: 0 }}
+                className="mari-chrome-field ov-chat-rename block w-full rounded px-1 text-sm"
+              />
+            ) : (
+              <span className="flex min-w-0 items-center gap-1">
+                <span
+                  className={cn(
+                    "block min-w-0 truncate text-sm",
+                    isActive ? "mari-chrome-text-strong font-medium" : "mari-chrome-text",
+                  )}
+                >
+                  {displayName}
+                </span>
+                {overhaulDesktop && !multiSelectMode ? (
+                  <button
+                    type="button"
+                    data-chat-rename=""
+                    aria-label={localizeUi("ui.layout.chatsidebar.renameChat", { defaultValue: "Rename chat" })}
+                    title={localizeUi("ui.layout.chatsidebar.renameChat", { defaultValue: "Rename chat" })}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setRenameDraft(chat.name);
+                      setRenamingChatId(chat.id);
+                    }}
+                    className="ov-chat-rename-btn shrink-0 rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-opacity hover:text-[var(--foreground)] focus-visible:opacity-100 group-hover:opacity-100"
+                  >
+                    <Pencil size="0.6875rem" />
+                  </button>
+                ) : null}
+              </span>
+            )}
             {chat.metadata?.multiplayer && (
               <span className="mari-chrome-accent-text-muted block truncate text-[0.6875rem]">
                 {localizeUi(

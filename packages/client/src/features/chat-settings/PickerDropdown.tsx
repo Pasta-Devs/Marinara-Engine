@@ -71,7 +71,7 @@ export function PickerDropdown({
                   onChange={(e) => onSearchChange(e.target.value)}
                   placeholder={placeholder}
                   autoFocus
-                  className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
+                  className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
                 />
               </>
             )}

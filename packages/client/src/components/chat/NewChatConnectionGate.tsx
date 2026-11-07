@@ -73,6 +73,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
         characterIds: [],
         connectionId,
         promptPresetId: starred?.settings.promptPresetId ?? undefined,
+        setupPending: true,
       },
       {
         onSuccess: (chat) => {

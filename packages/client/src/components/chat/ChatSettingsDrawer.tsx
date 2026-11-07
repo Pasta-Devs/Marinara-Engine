@@ -5865,7 +5865,8 @@ export function ChatSettingsDrawer({
           {overhaulMobile && mobileNavView !== "off" && (
             <>
               <MobileChatSettingsQuick
-                order={CHAT_SETTINGS_ORDER.persona + 10}
+                // After Lorebooks, the last row on the quick page (its switches and All settings follow).
+                order={CHAT_SETTINGS_ORDER.lorebooks + 5}
                 sectionCount={0}
                 switches={[
                   {
@@ -7996,7 +7997,8 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          <div style={{ order: CHAT_SETTINGS_ORDER.lorebooks }}>
+          {/* On the phone's quick page too: a lorebook is something a chat turns on and off often. */}
+          <div data-ovm-quick="true" style={{ order: CHAT_SETTINGS_ORDER.lorebooks }}>
             <LorebooksSection
               forceOpen={initialSection === "lorebooks"}
               chatId={chat.id}

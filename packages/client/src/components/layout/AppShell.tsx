@@ -25,7 +25,8 @@ import { useDiscardNewChatSetup } from "../../hooks/use-discard-new-chat-setup";
 import { useChatStore } from "../../stores/chat.store";
 import { useDialogStore } from "../../stores/dialog.store";
 import { useBackgroundAutonomousPolling } from "../../hooks/use-background-autonomous";
-import { useClearAutonomousUnread, useUpdateChatMetadata } from "../../hooks/use-chats";
+import { useChats, useClearAutonomousUnread, useUpdateChatMetadata } from "../../hooks/use-chats";
+import { useSetupDraftJanitor } from "../../hooks/use-setup-drafts";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { useIdleDetection } from "../../hooks/use-idle-detection";
 import { dispatchChatVisualViewportChange } from "../../hooks/use-visual-viewport-chat-bottom";
@@ -742,6 +743,9 @@ export function AppShell({
     },
     [activeChatId, discardNewChatSetup, localizeUi],
   );
+  // New chats whose setup never finished are drafts: leaving one removes it (H1).
+  const { data: chatList } = useChats({ refetchOnMount: false });
+  useSetupDraftJanitor(chatList);
   const activeChat = useChatStore((s) => s.activeChat);
   const clearUnread = useChatStore((s) => s.clearUnread);
   const { mutate: clearAutonomousUnread, isPending: isClearingAutonomousUnread } = useClearAutonomousUnread();

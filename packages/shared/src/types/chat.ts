@@ -319,6 +319,8 @@ export type GameStoryboardViewerDisplayMode = "floating" | "background";
 
 /** Extra metadata stored on a chat. */
 export interface ChatMetadata {
+  /** Made by a New chat launcher and its setup wizard has not finished yet: a draft the app may remove. */
+  setupPending?: boolean | null;
   /** Fresh, explicitly reviewed setup for an optional shared session. */
   multiplayerSetup?: boolean;
   multiplayerSetupComplete?: boolean;

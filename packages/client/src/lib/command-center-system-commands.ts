@@ -202,6 +202,16 @@ export function createResourceCommandDefinitions(source: CommandCenterTitleSourc
       action: { kind: "navigate", target: { kind: "surface", surface: "persona-library" } },
     }),
     defineCommand({
+      id: "schedules",
+      title: title.schedules,
+      kind: "navigation",
+      icon: "calendar",
+      aliases: ["schedule", "character schedules", "schedule manager", "calendar"],
+      keywords: ["routines", "weekly plans", "conversation schedules"],
+      availability: AVAILABLE,
+      action: { kind: "navigate", target: { kind: "surface", surface: "schedules" } },
+    }),
+    defineCommand({
       id: "agent-library",
       title: title.agentLibrary,
       kind: "resource",

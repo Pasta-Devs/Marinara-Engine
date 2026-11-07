@@ -189,6 +189,7 @@ import {
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
+import { discardUnfinishedSetup, isUnfinishedSetup } from "../../hooks/use-setup-drafts";
 import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import { cn, generateClientId } from "../../lib/utils";
 import { GAME_DIALOG_CLASS, GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
@@ -12889,6 +12890,25 @@ function GameSurfaceComponent({
       } catch {
         toast.error(localizeUi("chat.wizard.cancelFailed"));
         return;
+      }
+      // A new game whose world was never built (never made, or Create world failed) is only a draft:
+      // closing setup removes it rather than leaving a half-made campaign behind.
+      if (isUnfinishedSetup(chat)) {
+        const discard = await showConfirmDialog({
+          title: localizeUi("game.setupDraft.discardTitle", { defaultValue: "Discard this game?" }),
+          message: localizeUi("game.setupDraft.discardMessage", {
+            defaultValue:
+              "Its world hasn't been built yet, so closing setup deletes it. Your choices here will be lost.",
+          }),
+          confirmLabel: localizeUi("game.setupDraft.discard", { defaultValue: "Discard game" }),
+          cancelLabel: localizeUi("game.setupDraft.keepSettingUp", { defaultValue: "Keep setting up" }),
+          tone: "destructive",
+        });
+        if (!discard) {
+          useGameModeStore.getState().setSetupActive(true);
+          return;
+        }
+        if (await discardUnfinishedSetup(queryClient, activeChatId)) return;
       }
       setDismissedSetupWizardChatId(activeChatId);
       writeSetupDismissed(activeChatId, true);

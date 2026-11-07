@@ -1643,6 +1643,8 @@ export function createChatsStorage(db: DB) {
         if (scheduleWeekStart) metadata.scheduleWeekStart = scheduleWeekStart;
       }
       if (conversationTimeZone) metadata.conversationTimeZone = conversationTimeZone;
+      // A chat from a New chat launcher is a draft until its setup finishes (see discard-unfinished-setup).
+      if (input.setupPending) metadata.setupPending = true;
       await db.insert(chats).values({
         id,
         name: input.name,
