@@ -9989,3 +9989,87 @@ input.ov-edhead__title:not(#ov-x) {
   flex: none;
   flex-wrap: nowrap;
 }
+
+/* Preset parameters: compact number fields instead of half-width bars (panel M13/Med 5). */
+.ov-params {
+  display: grid;
+  gap: 0.75rem;
+}
+/* The number fields share one flowing grid; everything else spans the full row. */
+.ov-params > .space-y-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: 0.75rem;
+}
+.ov-params > .space-y-3 > * {
+  grid-column: 1 / -1;
+  margin: 0 !important;
+}
+.ov-params > .space-y-3 > .grid:is(.grid-cols-2, .grid-cols-1) {
+  display: contents;
+}
+.ov-params__limits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+}
+.ov-params__limits-label {
+  font-weight: 600;
+}
+.ov-params__limits-value {
+  color: var(--muted-foreground);
+}
+
+/* One-line system notices ("You are now playing as Rook.") read as a slim centred divider, not a tall card. */
+:root[data-overhaul="on"] .mari-system-message[data-notice="line"] {
+  padding-block: 0.25rem;
+}
+:root[data-overhaul="on"] .mari-system-message[data-notice="line"] .mari-system-message-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted-foreground);
+  font-size: 0.75rem !important;
+  line-height: 1.4;
+  text-align: center;
+}
+:root[data-overhaul="on"] .mari-system-message[data-notice="line"] .mari-system-message-content::before,
+:root[data-overhaul="on"] .mari-system-message[data-notice="line"] .mari-system-message-content::after {
+  content: "";
+  flex: 1 1 1.5rem;
+  height: 1px;
+  background: var(--border);
+}
+:root[data-overhaul="on"] .mari-system-message[data-notice="line"] .mari-system-message-content > :first-child {
+  display: none; /* the "System" label */
+}
+:root[data-overhaul="on"] .mari-system-message[data-notice="line"] .mari-system-message-content > :nth-child(2) {
+  flex: 0 1 auto;
+  max-width: 75%;
+}
+:root[data-overhaul="on"] .mari-system-message[data-notice="line"] .mari-system-message-content > :nth-child(2) * {
+  margin: 0;
+  font-size: inherit;
+}
+/* Its actions float at the right end of the line instead of adding a row. */
+:root[data-overhaul="on"]
+  .mari-system-message[data-notice="line"]
+  .mari-system-message-content
+  > :last-child:not(:nth-child(2)) {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  margin: 0;
+  transform: translateY(-50%);
+  padding-left: 0.25rem;
+  background: var(--background);
+}

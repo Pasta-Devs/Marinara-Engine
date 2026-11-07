@@ -86,6 +86,7 @@ import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
 import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { OvEditorHead } from "../overhaul/EditorChrome";
+import { openConnectionsPage } from "../overhaul/library-navigation";
 import { OvSeg } from "../overhaul/LoreEntryParts";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
@@ -710,15 +711,24 @@ export function PresetEditor() {
     <>
       <h3 className="text-sm font-semibold">{localizeUi("generationParameters.preset.title")}</h3>
       <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("generationParameters.preset.hint")}</p>
-      <GenerationParametersFields
-        value={getEditableGenerationParameters(DEFAULT_GENERATION_PARAMS, localParameters)}
-        showServiceTier
-        showTokenLimits={false}
-        onChange={(next) => {
-          setLocalParameters((previous) => ({ ...previous, ...next }));
-          markDirty();
-        }}
-      />
+      <div className="ov-params">
+        <div className="ov-params__limits">
+          <span className="ov-params__limits-label">{localizeUi("ui.presets.preseteditor.tokenLimits")}</span>
+          <span className="ov-params__limits-value">{localizeUi("ui.presets.preseteditor.tokenLimitsWhere")}</span>
+          <button type="button" className="ov-ed__link" onClick={() => openConnectionsPage()}>
+            {localizeUi("agents.activation.openConnections")} ›
+          </button>
+        </div>
+        <GenerationParametersFields
+          value={getEditableGenerationParameters(DEFAULT_GENERATION_PARAMS, localParameters)}
+          showServiceTier
+          showTokenLimits={false}
+          onChange={(next) => {
+            setLocalParameters((previous) => ({ ...previous, ...next }));
+            markDirty();
+          }}
+        />
+      </div>
     </>
   );
   const ov_regex = (
