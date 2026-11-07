@@ -244,10 +244,22 @@ elif [ -d ".git" ]; then
             TARGET_BRANCH="staging"
         fi
     fi
+    # Any other branch (a tester or feature branch such as ui/...) follows its own copy on
+    # GitHub instead of main. The fetch names the branch, so single-branch clones work too.
+    FEATURE_BRANCH=0
+    case "$CURRENT_BRANCH" in
+        ""|main|master|staging) ;;
+        *) FEATURE_BRANCH=1; TARGET_BRANCH="$CURRENT_BRANCH" ;;
+    esac
     TARGET_REF="origin/${TARGET_BRANCH}"
     if ! git fetch origin "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}" --quiet 2>/dev/null; then
-        echo "  [WARN] Could not check for updates (no internet?). Continuing with current version."
-    elif [ "$OLD_HEAD" = "$(git rev-parse "$TARGET_REF" 2>/dev/null || true)" ]; then
+        if [ "$FEATURE_BRANCH" = "1" ]; then
+            echo "  [OK] Branch ${CURRENT_BRANCH} could not be fetched from GitHub (not pushed there, or offline). Starting the current version."
+        else
+            echo "  [WARN] Could not check for updates (no internet?). Continuing with current version."
+        fi
+    elif [ "$OLD_HEAD" = "$(git rev-parse "$TARGET_REF" 2>/dev/null || true)" ] \
+        || { [ "$FEATURE_BRANCH" = "1" ] && git merge-base --is-ancestor "$TARGET_REF" HEAD 2>/dev/null; }; then
         echo "  [OK] Already up to date"
     else
         TARGET_HEAD=$(git rev-parse "$TARGET_REF" 2>/dev/null || true)

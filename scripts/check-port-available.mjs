@@ -1,4 +1,7 @@
+import { execFileSync } from "node:child_process";
 import { createServer } from "node:net";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const rawPort = process.env.PORT ?? "7860";
 const port = Number.parseInt(rawPort, 10);
@@ -25,6 +28,46 @@ async function findRunningMarinara() {
   }
 }
 
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+/** The commit this folder holds now, or null when it is not a Git checkout. */
+function readCheckoutCommit() {
+  try {
+    const head = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 5_000,
+    }).trim();
+    return /^[0-9a-f]{7,64}$/iu.test(head) ? head.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A Marinara left running from before a branch switch or a manual update keeps serving its
+ * old build. Reopening it would show the old version with no hint why, so a running server
+ * whose commit is not this folder's commit is reported instead of reused.
+ */
+function isOtherBuild(health, checkoutCommit) {
+  if (!checkoutCommit || typeof health.commit !== "string") return false;
+  const runningCommit = health.commit.trim().toLowerCase();
+  if (!/^[0-9a-f]{7,64}$/u.test(runningCommit)) return false;
+  return !checkoutCommit.startsWith(runningCommit);
+}
+
+function printOtherBuildMessage(health, checkoutCommit) {
+  console.error("");
+  console.error(`  [ERROR] An older or different Marinara Engine is still running at ${browserUrl}.`);
+  console.error(`          Running build: ${health.build || health.commit}`);
+  console.error(`          This folder:   ${checkoutCommit.slice(0, 12)}`);
+  console.error("");
+  console.error("  Opening it would show the old version. Close the Marinara console window that is");
+  console.error("  still open (or press Ctrl+C in it), then start Marinara again.");
+  console.error("");
+}
+
 function printPortBusyMessage() {
   console.error("");
   console.error(`  [ERROR] Port ${rawPort} is already in use.`);
@@ -48,6 +91,11 @@ if (!Number.isFinite(port) || port <= 0 || port > 65_535) {
 
 const runningMarinara = await findRunningMarinara();
 if (runningMarinara) {
+  const checkoutCommit = readCheckoutCommit();
+  if (isOtherBuild(runningMarinara, checkoutCommit)) {
+    printOtherBuildMessage(runningMarinara, checkoutCommit);
+    process.exit(1);
+  }
   console.log(
     runningMarinara.build
       ? `  [OK] Marinara Engine ${runningMarinara.build} is already running at ${browserUrl}`

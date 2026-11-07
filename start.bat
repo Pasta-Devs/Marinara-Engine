@@ -155,13 +155,32 @@ if "!CURRENT_BRANCH!"=="" (
         if errorlevel 1 set "TARGET_BRANCH=staging"
     )
 )
+:: Any other branch (a tester or feature branch such as ui/...) follows its own copy on
+:: GitHub instead of main, so testers get that branch's updates on launch. The fetch names
+:: the branch explicitly, which also works in the installer's single-branch clone.
+set "FEATURE_BRANCH="
+if not "!CURRENT_BRANCH!"=="" if /I not "!CURRENT_BRANCH!"=="main" if /I not "!CURRENT_BRANCH!"=="master" if /I not "!CURRENT_BRANCH!"=="staging" (
+    set "FEATURE_BRANCH=1"
+    set "TARGET_BRANCH=!CURRENT_BRANCH!"
+)
 set "TARGET_REF=origin/!TARGET_BRANCH!"
 git fetch origin "+refs/heads/!TARGET_BRANCH!:refs/remotes/origin/!TARGET_BRANCH!" --quiet >nul 2>&1
 if errorlevel 1 (
-    echo  [WARN] Could not check for updates. Continuing with current version.
+    if defined FEATURE_BRANCH (
+        echo  [OK] Branch !CURRENT_BRANCH! could not be fetched from GitHub ^(not pushed there, or offline^). Starting the current version.
+    ) else (
+        echo  [WARN] Could not check for updates. Continuing with current version.
+    )
     goto :skip_update
 )
 for /f "tokens=*" %%i in ('git rev-parse !TARGET_REF! 2^>nul') do set "TARGET_HEAD=%%i"
+if defined FEATURE_BRANCH (
+    git merge-base --is-ancestor "!TARGET_REF!" HEAD >nul 2>&1
+    if not errorlevel 1 (
+        echo  [OK] Already up to date
+        goto :skip_update
+    )
+)
 if /I "!OLD_HEAD!"=="!TARGET_HEAD!" (
     echo  [OK] Already up to date
     goto :skip_update
