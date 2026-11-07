@@ -35,7 +35,7 @@ export interface ChatPresetSettings {
   personaId?: string | null;
   /** Starting pick: lorebooks switched on in the chat when the profile is applied by hand. */
   lorebookIds?: string[];
-  /** The chat's preset variable choices, kept only while they belong to `promptPresetId`. */
+  /** The chat's preset variable choices, kept only while they belong to `promptPresetId`. Never in exported files. */
   presetVariables?: ChatPresetVariables;
   /** Subset of ChatMetadata — chat-specific keys (sprites, summary, tags, etc.) are stripped before saving. */
   metadata?: Partial<ChatMetadata>;

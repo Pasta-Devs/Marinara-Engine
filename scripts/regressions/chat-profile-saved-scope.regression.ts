@@ -145,11 +145,14 @@ try {
   assert.equal(applied.promptPresetId, "preset-a");
   assert.deepEqual(applied.meta.presetChoices, darkChoices, "the choices come back with the preset");
 
-  // Export and import keep them, beside the prompt preset the file names.
+  // Exported files leave them out: prompt preset ids are per install, and released versions refuse unknown keys.
   const envelope = await inject("GET", `/api/chat-presets/${variablesProfile.id}/export`);
-  assert.deepEqual(envelope.data.settings.presetVariables, { presetId: "preset-a", choices: darkChoices });
-  const imported = await inject("POST", "/api/chat-presets/import", envelope);
-  assert.deepEqual(imported.settings.presetVariables, { presetId: "preset-a", choices: darkChoices });
+  assert.equal(envelope.data.settings.promptPresetId, "preset-a");
+  assert.equal("presetVariables" in envelope.data.settings, false, "an exported file holds no preset choices");
+  const withChoices = structuredClone(envelope);
+  withChoices.data.settings.presetVariables = { presetId: "preset-a", choices: darkChoices };
+  const imported = await inject("POST", "/api/chat-presets/import", withChoices);
+  assert.equal("presetVariables" in imported.settings, false, "and an imported file brings none");
 
   // Choices made for another preset are never stored or applied: the profile builder switched the preset.
   const switched = await inject("POST", "/api/chat-presets", {
