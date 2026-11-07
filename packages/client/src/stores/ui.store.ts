@@ -136,6 +136,21 @@ export interface EchoChamberSize {
 }
 export type UserStatus = "active" | "idle" | "dnd" | "invisible";
 export type RoleplayAvatarStyle = "none" | "circles" | "rectangles" | "panel" | "faded";
+export const ROLEPLAY_AVATAR_STYLES: readonly RoleplayAvatarStyle[] = [
+  "none",
+  "circles",
+  "rectangles",
+  "panel",
+  "faded",
+];
+
+/** The avatar display in effect: the open chat's own choice, else the global one. */
+export function selectRoleplayAvatarStyle(state: {
+  chatAvatarStyleOverride: RoleplayAvatarStyle | null;
+  roleplayAvatarStyle: RoleplayAvatarStyle;
+}) {
+  return state.chatAvatarStyleOverride ?? state.roleplayAvatarStyle;
+}
 export type RoleplayChatPosition = "left" | "center" | "right";
 
 /** Stale or unknown synced values fall back to the centred layout. */
@@ -1130,6 +1145,8 @@ interface UIState {
   gameTextEffectsEnabled: boolean;
   /** Layout style for roleplay message avatars */
   roleplayAvatarStyle: RoleplayAvatarStyle;
+  /** The open chat's own avatar display (Chat settings > Characters); null follows `roleplayAvatarStyle`. Not saved here. */
+  chatAvatarStyleOverride: RoleplayAvatarStyle | null;
   /** Scale multiplier for Roleplay message avatars. */
   roleplayAvatarScale: number;
   /** When true, Roleplay message avatars stay visible while scrolling through long messages. */
@@ -1532,6 +1549,7 @@ interface UIState {
   setKeepRoleplayThinkingExpanded: (v: boolean) => void;
   setGameTextEffectsEnabled: (v: boolean) => void;
   setRoleplayAvatarStyle: (v: RoleplayAvatarStyle) => void;
+  setChatAvatarStyleOverride: (v: RoleplayAvatarStyle | null) => void;
   setRoleplayAvatarScale: (v: number) => void;
   setRoleplayAvatarsScrollable: (v: boolean) => void;
   setRoleplayStretchMessages: (v: boolean) => void;
@@ -2418,6 +2436,7 @@ export const useUIStore = create<UIState>()(
         keepRoleplayThinkingExpanded: false,
         gameTextEffectsEnabled: true,
         roleplayAvatarStyle: "circles" as RoleplayAvatarStyle,
+        chatAvatarStyleOverride: null,
         roleplayAvatarScale: 1,
         roleplayAvatarsScrollable: false,
         roleplayStretchMessages: false,
@@ -3421,6 +3440,7 @@ export const useUIStore = create<UIState>()(
           set((state) => ({ keepRoleplayThinkingExpanded: state.showRoleplayThinkingInMessages && v })),
         setGameTextEffectsEnabled: (v) => set({ gameTextEffectsEnabled: v }),
         setRoleplayAvatarStyle: (v) => set({ roleplayAvatarStyle: v }),
+        setChatAvatarStyleOverride: (v) => set({ chatAvatarStyleOverride: v }),
         setRoleplayAvatarScale: (v) =>
           set({ roleplayAvatarScale: Math.max(ROLEPLAY_AVATAR_SCALE_MIN, Math.min(ROLEPLAY_AVATAR_SCALE_MAX, v)) }),
         setRoleplayAvatarsScrollable: (v) => set({ roleplayAvatarsScrollable: v }),

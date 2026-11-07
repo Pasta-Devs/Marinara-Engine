@@ -106,7 +106,7 @@ import { createMessageMacroResolver } from "../../lib/chat-macros";
 import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-source";
 import { HIGHLIGHT_CLASS, highlightAnswerValues } from "../../lib/onboarding-preview-highlight";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
-import { getDefaultChatTextColor, useUIStore } from "../../stores/ui.store";
+import { getDefaultChatTextColor, selectRoleplayAvatarStyle, useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
 import { parseChatMetadata } from "../../lib/chat-display";
@@ -2169,7 +2169,7 @@ export const ChatMessage = memo(function ChatMessage({
       defaultDialogueColor: s.defaultDialogueColor,
       theme: s.theme,
       chatFontOpacity: s.chatFontOpacity,
-      roleplayAvatarStyle: s.roleplayAvatarStyle,
+      roleplayAvatarStyle: selectRoleplayAvatarStyle(s),
       roleplayAvatarScale: s.roleplayAvatarScale,
       roleplayAvatarsScrollable: s.roleplayAvatarsScrollable,
       roleplayStretchMessages: s.roleplayStretchMessages,
