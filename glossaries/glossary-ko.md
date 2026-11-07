@@ -729,3 +729,14 @@ Cycle precedent for #8681 (`lorebooks/semantic-search.md`, `chats/chat-settings.
 - **Reset View drift.** `chats/chat-settings.md`, `chats/settings-profiles.md` and `roleplay/hud-and-trackers.md` still gloss **Reset View**(화면 배치 초기화), against the shipped 보기 초기화 used in `extending/regex-scripts.md`. Align them in a consistency pass, not in a mirror commit.
 
 §A-2 applies to the new labels: **Advanced**(고급)를 (어드밴스드), **More**(더보기)를 (모어), **Test embedding**(임베딩 테스트)을 (임베딩), **Embedding provider**(임베딩 연결)를 and **Embedding provider**가 (프로바이더), **Use preset default**(프리셋 기본값 사용)는 / 로 (디폴트), **Scoped regex default**(범위 정규식 기본값)를, **Install / Start Marinara**(Marinara 설치/시작)를 (마리나라). `TROUBLESHOOTING.md` glosses **Install / Start Marinara** at the new section, its first mention in the file; the later Android localhost mention stays bare. These are translation choices, not a new native-reader review.
+
+## ComfyUI authenticated proxy (2026-11-06, #8854)
+
+Precedents from the #8854 mirror of #8844 (`media/comfyui.md`), drafted against #8844 head `fbd9ca8821`:
+
+- **Shipped glosses**, byte-exact `ui/ko.json`: **Custom Request Headers**(사용자 지정 요청 헤더) (`settings.connection.customHeaders.label`), **Video defaults**(동영상 기본값) and **Test video**(영상 테스트), as in `media/scene-video.md`, and **API key**(API 키). `media/comfyui.md` glosses each once at its first mention in the new section; **Connections**, **Local image defaults** and **Test image** stay bare there because the file already glosses them in `## Marinara 연결 만들기`.
+- **Test video drift.** The 2026-11-02 entry above cites **Test Video**(동영상 테스트). The pack (`media/scene-video.md:17`) and `ko.json` `ui.connections.connectioneditor.testVideo` both say 영상 테스트, so new glosses use (영상 테스트). Correct that entry in a consistency pass.
+- **Heading** `## 인증 프록시 사용하기`, under `<a id="use-an-authenticated-proxy"></a>`. The step 2 link and the Troubleshooting row reuse it as link text: `([인증 프록시 사용하기](#use-an-authenticated-proxy) 참고)` and `…를 참고하세요`.
+- **New terms.** A proxy in front of ComfyUI is ComfyUI 앞에 있는 프록시; credentials are 인증 정보; an auth scheme such as `Basic ...` is 인증 방식, kept apart from the URL 스킴 in `connections/decision-models.md`; "secrets" are 비밀 값 (`FAQ.md`, `TROUBLESHOOTING.md`), not 시크릿, which stays the admin secret. "Account exports leave the key out" follows `FAQ.md`'s 내보낼 때는 비밀 값이 빠지므로: 계정을 내보낼 때는 키가 빠집니다. The request list is 대기열 등록, 기록 조회, 이미지 다운로드, 참조 이미지 업로드, 모델 목록 조회.
+
+§A-2 applies to the new labels: **Connections**를 (커넥션스), **Local image defaults**나 and **Video defaults**(동영상 기본값)를 (디폴츠), **Test image**나 / 를 (이미지) and **Test video**(영상 테스트)를 (비디오). 401이나 and 403으로 follow the Korean readings 사백일 and 사백삼. These are translation choices, not a new native-reader review.

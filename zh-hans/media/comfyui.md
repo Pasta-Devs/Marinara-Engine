@@ -15,12 +15,25 @@ Marinara Engine 可以把图像和视频请求发给本地的 ComfyUI 服务器�
 ## 创建 Marinara 连接
 
 1. 点击 **Connections**(连接)，再点击 **Add**(添加)。在 **Add account**(添加账号) 窗口的 **Images & video**(图像与视频) 下，本地服务器选 **ComfyUI**，RunPod 端点选 **RunPod Serverless (ComfyUI)**。
-2. 本地 ComfyUI 填它的地址（`http://127.0.0.1:8188`），不需要 API 密钥。**ComfyUI workflow (optional)**(ComfyUI 工作流，可选) 输入框留空时，Marinara 会使用内置的基础文生图工作流。
+2. 本地 ComfyUI 填它的地址（`http://127.0.0.1:8188`），不需要 API 密钥，除非 ComfyUI 前面的代理要求提供密钥（见[使用需要认证的代理](#use-an-authenticated-proxy)）。**ComfyUI workflow (optional)**(ComfyUI 工作流，可选) 输入框留空时，Marinara 会使用内置的基础文生图工作流。
 3. RunPod 则填 API 密钥和 **RunPod endpoint ID**(RunPod 端点 ID)，必须提供自定义工作流。
 4. 在图像模型上设置 **Local image defaults**(本地图像默认值)。这些值会替换掉工作流里对应的占位符。
 5. 粘贴工作流，保存，然后点击 **Test image**(测试图像)。
 
 如果没有成功，见[故障排查](#troubleshooting)。
+
+<a id="use-an-authenticated-proxy"></a>
+
+## 使用需要认证的代理
+
+ComfyUI 本身没有登录功能。如果它前面的代理要求 Token 或额外的请求头，Marinara 会在每个 ComfyUI 请求里带上它们：加入队列、读取历史记录、下载图像、上传参考图和获取模型列表。Token 保存在账号上，请求头保存在图像模型或视频模型上。
+
+1. 如果代理会校验 Token，打开 **Connections**，编辑 ComfyUI 账号，在 **API key**(API 密钥) 里填入 Token。Marinara 会把它作为 `Authorization: Bearer` 请求头发送。如果值已经带有认证类型，例如 `Basic ...`，就会原样发送。
+2. 保存账号。
+3. 如果代理还需要非机密的额外请求头，打开图像模型或视频模型，展开 **Local image defaults** 或 **Video defaults**(视频默认值)。在 **Custom Request Headers**(自定义请求头) 里填入一个 JSON 对象。
+4. 保存模型，然后点击 **Test image** 或 **Test video**(测试视频)。如果返回 401 或 403，说明代理拒绝了凭据。
+
+> **警告：** 绝不要把机密粘贴到 **Custom Request Headers** 里。机密要填在 **API key** 里。导出的账号文件不包含密钥。
 
 ## 构建并导出工作流
 
@@ -169,6 +182,7 @@ RunPod 工作流支持原始 base64 占位符。文件名上传类的占位符�
 | 任务跑完了，Marinara 却没收到图 | 加一个接好线的 **SaveImage** 输出节点，然后直接在 ComfyUI 里再测一遍工作流。 |
 | 参考图节点报错 | 普通的本地 **LoadImage** 节点要用 `%reference_image_name...%` 这类占位符。原始 base64 只能配合专门为它设计的节点使用，另外确认 Marinara 那边的功能确实提供了参考图。 |
 | 远程或局域网的 ComfyUI 地址被拦截 | 图像连接要启用 `IMAGE_LOCAL_URLS_ENABLED`。让 ComfyUI 监听网络接口，并检查主机的防火墙。不要把没有认证的 ComfyUI 服务器暴露到公网上。 |
+| ComfyUI 返回 401 或 403 | ComfyUI 前面的代理拒绝了请求。把代理的凭据填进 **API key**，额外的请求头填进 **Custom Request Headers**，然后再运行一次 **Test image**。见[使用需要认证的代理](#use-an-authenticated-proxy)。 |
 | 报错 `Outbound response exceeded N bytes` | 响应超过了配置的上限，默认是 30 MiB。嵌入的工作流或参考图元数据可能导致这种情况。在 ComfyUI 里关闭元数据，或者调高 Marinara `.env` 里的 `IMAGE_GEN_MAX_RESPONSE_BYTES` 并重启 Marinara。 |
 | 耗时较长的图像生成超时 | 调高 Marinara `.env` 里的 `COMFYUI_GEN_TIMEOUT`。这个值以秒为单位，默认是 `2400`。 |
 | 耗时较长的视频生成超时 | 调高 Marinara `.env` 里的 `VIDEO_GEN_TIMEOUT_MS`。这个值以毫秒为单位，默认是 `1800000`(30 分钟)。 |

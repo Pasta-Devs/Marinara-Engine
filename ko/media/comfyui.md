@@ -15,12 +15,25 @@ ComfyUI를 설치하고, 워크플로에 필요한 체크포인트와 사용자 
 ## Marinara 연결 만들기
 
 1. **Connections**(연결)를 클릭한 다음 **Add**(추가)를 클릭하세요. **Add account**(계정 추가) 창의 **Images & video**(이미지 및 동영상) 아래에서 로컬 서버라면 **ComfyUI**를, RunPod 엔드포인트라면 **RunPod Serverless (ComfyUI)**를 고르세요.
-2. 로컬 ComfyUI라면 주소(`http://127.0.0.1:8188`)를 입력하세요. API 키는 필요 없습니다. **ComfyUI workflow (optional)**(ComfyUI 워크플로, 선택 사항) 입력란을 비워 두면 Marinara가 내장된 기본 텍스트-이미지 워크플로를 씁니다.
+2. 로컬 ComfyUI라면 주소(`http://127.0.0.1:8188`)를 입력하세요. ComfyUI 앞에 있는 프록시가 요구하지 않는 한 API 키는 필요 없습니다([인증 프록시 사용하기](#use-an-authenticated-proxy) 참고). **ComfyUI workflow (optional)**(ComfyUI 워크플로, 선택 사항) 입력란을 비워 두면 Marinara가 내장된 기본 텍스트-이미지 워크플로를 씁니다.
 3. RunPod이라면 API 키와 **RunPod endpoint ID**(RunPod 엔드포인트 ID)를 입력하세요. 이때는 사용자 지정 워크플로가 반드시 필요합니다.
 4. 이미지 모델에서 **Local image defaults**(로컬 이미지 기본값)를 설정하세요. 여기서 정한 값이 워크플로 안의 대응되는 플레이스홀더를 대신합니다.
 5. 워크플로를 붙여넣고 저장한 다음 **Test image**(이미지 테스트)를 클릭하세요.
 
 작동하지 않으면 [문제 해결](#troubleshooting)을 참고하세요.
+
+<a id="use-an-authenticated-proxy"></a>
+
+## 인증 프록시 사용하기
+
+ComfyUI 자체에는 로그인 기능이 없습니다. ComfyUI 앞에 있는 프록시가 토큰이나 추가 헤더를 요구하면 Marinara는 모든 ComfyUI 요청에 그 토큰과 헤더를 함께 보냅니다. 대기열 등록, 기록 조회, 이미지 다운로드, 참조 이미지 업로드, 모델 목록 조회가 모두 여기에 해당합니다. 토큰은 계정에 저장되고, 헤더는 이미지 모델이나 동영상 모델에 저장됩니다.
+
+1. 프록시가 토큰을 확인한다면 **Connections**를 열고 ComfyUI 계정을 편집한 다음 **API key**(API 키)에 토큰을 입력하세요. Marinara는 이 토큰을 `Authorization: Bearer` 헤더로 보냅니다. `Basic ...`처럼 이미 인증 방식이 붙어 있는 값은 그대로 보냅니다.
+2. 계정을 저장하세요.
+3. 프록시에 비밀 값이 아닌 추가 헤더가 필요하다면 이미지 모델이나 동영상 모델을 열고 **Local image defaults**나 **Video defaults**(동영상 기본값)를 펼치세요. **Custom Request Headers**(사용자 지정 요청 헤더)에 JSON 객체를 입력하세요.
+4. 모델을 저장하고 **Test image**나 **Test video**(영상 테스트)를 클릭하세요. 401이나 403 응답은 프록시가 인증 정보를 거부했다는 뜻입니다.
+
+> **경고:** **Custom Request Headers**에는 비밀 값을 절대 붙여넣지 마세요. 비밀 값은 **API key**에 넣으세요. 계정을 내보낼 때는 키가 빠집니다.
 
 ## 워크플로 만들고 내보내기
 
@@ -169,6 +182,7 @@ RunPod 워크플로는 base64 원본 플레이스홀더를 지원합니다. 파�
 | 작업은 끝났는데 Marinara가 이미지를 받지 못합니다 | 연결된 **SaveImage** 출력을 추가하고, ComfyUI에서 워크플로를 직접 다시 테스트하세요.                                                                                                                                          |
 | 참조 이미지 노드가 실패합니다                    | 일반적인 로컬 **LoadImage** 노드라면 `%reference_image_name...%` 플레이스홀더를 쓰세요. base64 원본은 그 형식을 위해 만들어진 노드에서만 쓰고, Marinara 기능이 참조 이미지를 실제로 넘겼는지 확인하세요.                      |
 | 원격이나 LAN의 ComfyUI 주소가 차단됩니다         | 이미지 연결이라면 `IMAGE_LOCAL_URLS_ENABLED`를 켜세요. ComfyUI가 네트워크 인터페이스에서 대기하도록 하고 호스트 방화벽을 확인하세요. 인증 없는 ComfyUI 서버를 공개 인터넷에 노출하지 마세요.                                   |
+| ComfyUI가 401이나 403으로 응답합니다             | ComfyUI 앞에 있는 프록시가 요청을 거부했습니다. 프록시용 인증 정보는 **API key**에, 추가 헤더는 **Custom Request Headers**에 넣은 다음 **Test image**를 다시 실행하세요. [인증 프록시 사용하기](#use-an-authenticated-proxy)를 참고하세요. |
 | 오류: `Outbound response exceeded N bytes`      | 응답이 설정된 한도를 넘었습니다. 한도의 기본값은 30 MiB입니다. 워크플로나 참조 이미지 메타데이터가 파일에 포함되면 이런 일이 생길 수 있습니다. ComfyUI에서 메타데이터를 끄거나, Marinara의 `.env`에서 `IMAGE_GEN_MAX_RESPONSE_BYTES`를 늘리고 Marinara를 다시 시작하세요. |
 | 오래 걸리는 이미지 생성이 시간 초과로 끊깁니다   | Marinara의 `.env`에서 `COMFYUI_GEN_TIMEOUT`을 늘리세요. 단위는 초이고 기본값은 `2400`입니다.                                                                                                                                  |
 | 오래 걸리는 동영상 생성이 시간 초과로 끊깁니다   | Marinara의 `.env`에서 `VIDEO_GEN_TIMEOUT_MS`를 늘리세요. 단위는 밀리초이고 기본값은 `1800000`(30분)입니다.                                                                                                                    |

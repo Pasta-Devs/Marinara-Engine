@@ -15,12 +15,25 @@ Um modelo de linguagem local e um modelo de imagem podem não caber juntos na me
 ## Crie a conexão no Marinara
 
 1. Clique em **Connections** (Conexões) e depois em **Add** (adicionar). Na janela **Add account** (adicionar conta), escolha **ComfyUI** para um servidor local ou **RunPod Serverless (ComfyUI)** para um endpoint do RunPod, em **Images & video** (imagens e vídeo).
-2. No caso do ComfyUI local, informe o endereço dele (`http://127.0.0.1:8188`). Nenhuma chave de API é necessária. Com o campo **ComfyUI workflow (optional)** (workflow do ComfyUI, opcional) vazio, Marinara usa um workflow básico embutido de texto para imagem.
+2. No caso do ComfyUI local, informe o endereço dele (`http://127.0.0.1:8188`). Nenhuma chave de API é necessária, a menos que um proxy na frente do ComfyUI peça uma (veja [Use um proxy com autenticação](#use-an-authenticated-proxy)). Com o campo **ComfyUI workflow (optional)** (workflow do ComfyUI, opcional) vazio, Marinara usa um workflow básico embutido de texto para imagem.
 3. No caso do RunPod, informe a sua chave de API e o **RunPod endpoint ID** (ID do endpoint do RunPod). Um workflow personalizado é obrigatório.
 4. Ajuste **Local image defaults** (padrões de imagem local) no modelo de imagem. Esses valores substituem os marcadores correspondentes no seu workflow.
 5. Cole o workflow, salve e clique em **Test image** (testar imagem).
 
 Se não funcionou, veja [Solução de problemas](#troubleshooting).
+
+<a id="use-an-authenticated-proxy"></a>
+
+## Use um proxy com autenticação
+
+O ComfyUI em si não tem login. Quando um proxy na frente dele pede um token ou cabeçalhos extras, Marinara os envia em toda requisição ao ComfyUI: fila, histórico, download de imagens, upload de referências e lista de modelos. O token fica salvo na conta, e os cabeçalhos ficam no modelo de imagem ou de vídeo.
+
+1. Se o proxy verificar um token, abra **Connections**, edite a conta do ComfyUI e informe o token em **API key** (chave de API). Marinara o envia como um cabeçalho `Authorization: Bearer`. Um valor que já traz um esquema, como `Basic ...`, é enviado como está.
+2. Salve a conta.
+3. Se o proxy precisar de cabeçalhos extras não secretos, abra o modelo de imagem ou de vídeo e expanda **Local image defaults** ou **Video defaults** (padrões de vídeo). Informe um objeto JSON em **Custom Request Headers** (cabeçalhos de requisição personalizados).
+4. Salve o modelo e escolha **Test image** ou **Test video** (testar vídeo). Um erro 401 ou 403 indica que o proxy recusou as credenciais.
+
+> **Aviso:** nunca cole segredos em **Custom Request Headers**. Use **API key** para os segredos. A exportação das contas não inclui a chave.
 
 ## Monte e exporte um workflow
 
@@ -169,6 +182,7 @@ Isso pode dar resultados mais consistentes do que um workflow genérico único, 
 | O trabalho termina, mas Marinara não recebe imagem | Adicione uma saída **SaveImage** conectada e teste o workflow direto no ComfyUI de novo.                                                                                                                                      |
 | Um nó de imagem de referência falha               | Em um nó **LoadImage** local comum, use um marcador `%reference_image_name...%`. Só use base64 puro com um nó feito para isso e confirme que o recurso do Marinara realmente enviou uma referência.                            |
 | Uma URL de ComfyUI remota ou na rede local é bloqueada | Nas conexões de imagem, ative `IMAGE_LOCAL_URLS_ENABLED`. Faça o ComfyUI escutar na interface de rede e confira o firewall do computador. Nunca exponha um servidor ComfyUI sem autenticação à internet pública.          |
+| O ComfyUI retorna 401 ou 403 | O proxy na frente do ComfyUI recusou a requisição. Informe a credencial dele em **API key** e os cabeçalhos extras, se houver, em **Custom Request Headers**, depois clique de novo em **Test image**. Veja [Use um proxy com autenticação](#use-an-authenticated-proxy). |
 | Erro: `Outbound response exceeded N bytes` | A resposta passou do limite configurado, que por padrão é de 30 MiB. Metadados de workflow ou de imagem de referência embutidos podem causar isso. Desligue os metadados no ComfyUI ou aumente `IMAGE_GEN_MAX_RESPONSE_BYTES` no arquivo `.env` do Marinara e reinicie Marinara. |
 | Uma geração de imagem longa estoura o tempo limite | Aumente `COMFYUI_GEN_TIMEOUT` no arquivo `.env` do Marinara. O valor é medido em segundos e o padrão é `2400`.                                                                                                                |
 | Uma geração de vídeo longa estoura o tempo limite  | Aumente `VIDEO_GEN_TIMEOUT_MS` no arquivo `.env` do Marinara. O valor é medido em milissegundos e o padrão é `1800000` (30 minutos).                                                                                          |
