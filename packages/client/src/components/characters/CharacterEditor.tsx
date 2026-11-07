@@ -996,6 +996,17 @@ export function CharacterEditor() {
     dirty,
     handleSave,
     saving || updateSheet.isPending || avatarUploading || lorebookEmbedding,
+    {
+      ready: formData !== null && loadedCharacterIdRef.current === characterId,
+      get: () => ({ formData, comment: characterComment }),
+      restore: (value) => {
+        const kept = value as { formData?: CharacterData; comment?: string } | null;
+        if (!kept?.formData || typeof kept.formData !== "object") return;
+        setFormData(kept.formData);
+        if (typeof kept.comment === "string") setCharacterComment(kept.comment);
+        markDirty();
+      },
+    },
   );
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1504,7 +1515,7 @@ export function CharacterEditor() {
     <OvEditorHead
       section="characters"
       sectionLabel="Characters"
-      onBack={() => leaveWithoutSaving(() => openLibrarySection("characters"))}
+      onBack={() => openLibrarySection("characters")}
       title={formData.name}
       onTitleChange={(value) => updateField("name", value)}
       titlePlaceholder={localizeUi("ui.characters.charactereditor.characterName")}

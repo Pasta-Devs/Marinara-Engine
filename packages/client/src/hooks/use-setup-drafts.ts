@@ -10,6 +10,8 @@
 import { useEffect } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { Chat } from "@marinara-engine/shared";
+import { toast } from "sonner";
+import { i18n } from "../localization/i18n";
 import { api } from "../lib/api-client";
 import { useChatStore } from "../stores/chat.store";
 import { chatKeys } from "./use-chats";
@@ -90,7 +92,13 @@ export function useSetupDraftJanitor(chats: Chat[] | undefined) {
       const list = queryClient.getQueryData<Chat[]>(chatKeys.list());
       const chat =
         queryClient.getQueryData<Chat>(chatKeys.detail(left)) ?? list?.find((entry) => entry.id === left) ?? null;
-      if (isUnfinishedSetup(chat)) void discardUnfinishedSetup(queryClient, left);
+      if (!isUnfinishedSetup(chat)) return;
+      void discardUnfinishedSetup(queryClient, left).then((deleted) => {
+        // A game draft may hold a lot of choices (or a failed Create world): say it went, so leaving never
+        // looks like the game was kept (user panel 2, N1).
+        if (deleted && chat?.mode === "game")
+          toast.info(i18n.t("game.setupDraft.discardedOnLeave", { defaultValue: "Unfinished game discarded." }));
+      });
     });
   }, [queryClient]);
 

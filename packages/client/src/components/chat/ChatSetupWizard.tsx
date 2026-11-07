@@ -29,6 +29,8 @@ import {
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { advanceChatSetupDraft } from "../../lib/chat-setup-draft";
 import { useDiscardNewChatSetup } from "../../hooks/use-discard-new-chat-setup";
+import { discardUnfinishedSetup, isUnfinishedSetup } from "../../hooks/use-setup-drafts";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
 import { usePresets, usePresetFull, useDefaultPreset } from "../../hooks/use-presets";
 import { useCharacterGroups, useCharacters, usePersonas } from "../../hooks/use-characters";
@@ -786,12 +788,32 @@ function SetupGenerationParametersPanel({
 export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const { t } = useUiTranslation();
   const discard = useDiscardNewChatSetup();
+  const queryClient = useQueryClient();
   const [closing, setClosing] = useState(false);
   const dismiss = async () => {
     if (closing) return;
     setClosing(true);
     try {
-      const discarded = await discard(chat.id);
+      let discarded = await discard(chat.id);
+      // After a reload this page no longer knows how the draft started, so it can't tell untouched from
+      // chosen: ask, the way Game does, instead of quietly keeping an empty chat (user panel 2, N7).
+      if (
+        !discarded &&
+        isUnfinishedSetup(chat) &&
+        useChatStore.getState().pendingNewChatSetups[chat.id]?.id !== chat.id
+      ) {
+        const drop = await showConfirmDialog({
+          title: t("chat.wizard.discardDraftTitle", { defaultValue: "Discard this chat?" }),
+          message: t("chat.wizard.discardDraftMessage", {
+            defaultValue:
+              "Its setup isn't finished. Discard it, or keep it and finish setting it up later in Chat settings.",
+          }),
+          confirmLabel: t("chat.wizard.discardDraft", { defaultValue: "Discard chat" }),
+          cancelLabel: t("chat.wizard.keepDraft", { defaultValue: "Keep chat" }),
+          tone: "destructive",
+        });
+        if (drop) discarded = await discardUnfinishedSetup(queryClient, chat.id);
+      }
       const activeId = useChatStore.getState().activeChatId;
       if (activeId === chat.id || (discarded && activeId === null)) onFinish(discarded);
     } catch {

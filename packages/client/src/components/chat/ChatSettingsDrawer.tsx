@@ -1108,8 +1108,9 @@ export function ChatSettingsDrawer({
     else if (windowOpen) nav.showQuick();
   }, [overhaulMobile, ovEditing, windowOpen]);
   const ovDocked = overhaulDesktop && !ovFloating;
-  // Docked Chat settings narrows the chat beside it instead of covering it.
-  useChatSettingsReflow(panelRef, ovDocked && windowOpen);
+  // Docked Chat settings narrows the chat beside it instead of covering it. In Game Mode it slides over
+  // the game instead: squeezing the scene and the game pane left the narration unreadable (user panel 2, N2).
+  useChatSettingsReflow(panelRef, ovDocked && windowOpen && (chat as unknown as { mode?: unknown }).mode !== "game");
   const [ovScrollEl, setOvScrollEl] = useState<HTMLDivElement | null>(null);
   const setOvGameSettingsSlot = useOverhaulStore((state) => state.setGameSettingsSlot);
   const [ovProfileSlot, setOvProfileSlot] = useState<HTMLDivElement | null>(null);

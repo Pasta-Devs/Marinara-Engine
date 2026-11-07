@@ -6,13 +6,16 @@
 // tools (volume, assets, game data, checkpoints, retries, ending the session)
 // moved into Chat settings > Game.
 // ──────────────────────────────────────────────
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Backpack, Map as MapIcon, ScrollText, Users, X } from "lucide-react";
 import type { AvatarCrop, GameInventoryStack } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useOverhaulStore, type OverhaulGamePaneTab } from "../../stores/overhaul.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+
+/** The narrowest the game scene (narration, composer) may get beside the game pane before the pane floats. */
+const GAME_SCENE_MIN_WIDTH = 520;
 
 export interface OvGamePaneMember {
   id: string;
@@ -305,9 +308,28 @@ export function OvGamePane({
   const tab = useOverhaulStore((state) => state.gamePaneTab);
   const setTab = useOverhaulStore((state) => state.setGamePaneTab);
   const setOpen = useOverhaulStore((state) => state.setGamePaneOpen);
+  // When the Library (or a narrow window) leaves the scene under GAME_SCENE_MIN_WIDTH beside the pane, the
+  // pane slides over the scene instead of squeezing the narration to a sliver (user panel 2, N2).
+  const paneRef = useRef<HTMLElement | null>(null);
+  const [overlay, setOverlay] = useState(false);
+  useEffect(() => {
+    const pane = paneRef.current;
+    const host = pane?.parentElement;
+    if (!open || !pane || !host) return;
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    const measure = () => setOverlay(host.clientWidth - pane.offsetWidth < GAME_SCENE_MIN_WIDTH);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [open]);
   if (!open) return null;
   return (
-    <aside className="ov-gpane" aria-label={localizeUi("ui.overhaul.ovgamepane.gamePane")}>
+    <aside
+      ref={paneRef}
+      className={cn("ov-gpane", overlay && "is-overlay")}
+      aria-label={localizeUi("ui.overhaul.ovgamepane.gamePane")}
+    >
       <div className="ov-gpane__head">
         <div className="ov-gpane__where">{heading}</div>
         <button

@@ -4462,6 +4462,15 @@ input.ov-edhead__title:focus {
   color: var(--ov-text);
   font-size: 0.8125rem;
 }
+/* No room beside the scene: the pane floats over its right edge instead of squeezing the narration. */
+.ov-gpane.is-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  box-shadow: -12px 0 32px rgb(0 0 0 / 0.35);
+}
 .ov-gpane__head {
   display: flex;
   align-items: flex-start;
@@ -9827,8 +9836,10 @@ input.ov-edhead__title:focus {
   margin-right: var(--ov-cs-reflow, 0px);
   transition: margin-right 160ms ease;
 }
+/* Below this the chat (its padding takes ~80px) reads as a strip: Chat settings floats over it instead
+   (user panel 2: a 320px column at 1366 with the chat list open). */
 :root[data-overhaul="on"] {
-  --ov-chat-min: 400px;
+  --ov-chat-min: 560px;
 }
 
 /* Chats drawer: the rename pencil is a hover affordance, so touch screens don't get an invisible button. */
