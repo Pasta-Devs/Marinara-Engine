@@ -441,6 +441,32 @@ export function getDefaultAppAccentColor() {
   return MARINARA_GRADIENT_PRESET;
 }
 
+export type ThemeAutoMode = "off" | "system" | "time";
+
+/** "H:MM" or "HH:MM" (24 h) to "HH:MM"; anything else is the fallback. */
+export function normalizeClock(value: unknown, fallback: string): string {
+  const match = typeof value === "string" ? /^(\d{1,2}):(\d{2})$/.exec(value.trim()) : null;
+  if (!match) return fallback;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return fallback;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/** The scheme "Follow time of day" wants at `now`: Light between the day and night starts. */
+export function schemeForTime(now: Date, dayStart: string, nightStart: string): "dark" | "light" {
+  const toMinutes = (clock: string) => {
+    const [hours, minutes] = clock.split(":").map(Number);
+    return (hours ?? 0) * 60 + (minutes ?? 0);
+  };
+  const minute = now.getHours() * 60 + now.getMinutes();
+  const day = toMinutes(dayStart);
+  const night = toMinutes(nightStart);
+  if (day === night) return "dark";
+  const isDay = day < night ? minute >= day && minute < night : minute >= day || minute < night;
+  return isDay ? "light" : "dark";
+}
+
 export function getDefaultAppAccentPulseMode() {
   // Off everywhere (theming round 2, batch 6): motion is opt-in. Appearance > Accent Pulse turns it on.
   return false;
@@ -762,6 +788,12 @@ interface UIState {
   /** Not saved: an Advanced Memory scene to open, or a Fix to start, once its Chat Settings section shows. */
   advancedMemoryRequest: { chatId: string; sceneId?: string; fix?: boolean } | null;
   theme: "dark" | "light";
+  /** Switch the colour scheme by itself: "system" follows the OS, "time" uses the day hours below. */
+  themeAuto: ThemeAutoMode;
+  /** "HH:MM" when Light mode starts while themeAuto is "time". */
+  themeDayStart: string;
+  /** "HH:MM" when Dark mode starts while themeAuto is "time". */
+  themeNightStart: string;
   /** Background for Dark mode (and, from before the split, for both schemes). */
   appBackgroundColor: string;
   /** Accent for Dark mode, and Light mode's too while appAccentColorLight is empty. */
@@ -1379,6 +1411,8 @@ interface UIState {
   closeModal: () => void;
   setAdvancedMemoryRequest: (request: UIState["advancedMemoryRequest"]) => void;
   setTheme: (theme: "dark" | "light") => void;
+  setThemeAuto: (mode: ThemeAutoMode) => void;
+  setThemeDayHours: (dayStart: string, nightStart: string) => void;
   setAppBackgroundColor: (color: string) => void;
   setAppAccentColor: (color: string) => void;
   setAppBackgroundColorLight: (color: string) => void;
@@ -1771,6 +1805,9 @@ export function pickSyncedSettings(state: UIState) {
     trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
     trackerPanelSectionOrder: state.trackerPanelSectionOrder,
     theme: state.theme,
+    themeAuto: state.themeAuto,
+    themeDayStart: state.themeDayStart,
+    themeNightStart: state.themeNightStart,
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
     appBackgroundColorLight: state.appBackgroundColorLight,
@@ -2035,6 +2072,9 @@ export function pickPersistedUIState(state: UIState) {
     trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
     trackerPanelSectionOrder: state.trackerPanelSectionOrder,
     theme: state.theme,
+    themeAuto: state.themeAuto,
+    themeDayStart: state.themeDayStart,
+    themeNightStart: state.themeNightStart,
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
     appBackgroundColorLight: state.appBackgroundColorLight,
@@ -2325,6 +2365,9 @@ export const useUIStore = create<UIState>()(
         modal: null,
         advancedMemoryRequest: null,
         theme: "dark" as const,
+        themeAuto: "off" as ThemeAutoMode,
+        themeDayStart: "07:00",
+        themeNightStart: "19:00",
         appBackgroundColor: "",
         appAccentColor: "",
         appBackgroundColorLight: "",
@@ -2761,7 +2804,14 @@ export const useUIStore = create<UIState>()(
         },
         closeModal: () => set({ modal: null }),
         setAdvancedMemoryRequest: (advancedMemoryRequest) => set({ advancedMemoryRequest }),
-        setTheme: (theme) => set({ theme }),
+        // Picking Dark or Light by hand stops the automatic switch.
+        setTheme: (theme) => set({ theme, themeAuto: "off" }),
+        setThemeAuto: (mode) => set({ themeAuto: mode }),
+        setThemeDayHours: (dayStart, nightStart) =>
+          set({
+            themeDayStart: normalizeClock(dayStart, "07:00"),
+            themeNightStart: normalizeClock(nightStart, "19:00"),
+          }),
         setAppBackgroundColor: (color) => set({ appBackgroundColor: normalizeAppBackgroundColor(color) }),
         setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
         setAppBackgroundColorLight: (color) => set({ appBackgroundColorLight: normalizeAppBackgroundColor(color) }),
@@ -3608,6 +3658,9 @@ export const useUIStore = create<UIState>()(
             trackerPanelCollapsedSections: {},
             trackerPanelSectionOrder: [...TRACKER_DATA_PANEL_SECTIONS],
             theme: "dark" as const,
+            themeAuto: "off" as ThemeAutoMode,
+            themeDayStart: "07:00",
+            themeNightStart: "19:00",
             appBackgroundColor: "",
             appAccentColor: "",
             appBackgroundColorLight: "",
@@ -4489,6 +4542,10 @@ export const useUIStore = create<UIState>()(
         persisted.chatChromeTextColorLight = normalizeChatChromeTextColor(persisted.chatChromeTextColorLight);
         persisted.hideMessageNameRule = persisted.hideMessageNameRule === true;
         persisted.allowThemeHtml = persisted.allowThemeHtml === true;
+        persisted.themeAuto =
+          persisted.themeAuto === "system" || persisted.themeAuto === "time" ? persisted.themeAuto : "off";
+        persisted.themeDayStart = normalizeClock(persisted.themeDayStart, "07:00");
+        persisted.themeNightStart = normalizeClock(persisted.themeNightStart, "19:00");
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
         // v103 -> v104: the three feature Model picks moved to the server; stage them for useMigrateFeatureModels.

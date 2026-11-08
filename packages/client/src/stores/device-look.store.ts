@@ -17,6 +17,9 @@ import { persist } from "zustand/middleware";
 /** The synced settings that make up "the look". */
 export const DEVICE_LOOK_KEYS = [
   "theme",
+  "themeAuto",
+  "themeDayStart",
+  "themeNightStart",
   "visualTheme",
   "appAccentColor",
   "appBackgroundColor",
