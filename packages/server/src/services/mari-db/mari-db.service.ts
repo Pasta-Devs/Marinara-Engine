@@ -111,6 +111,10 @@ import {
   diagnoseReply,
   GENERATION_PARAMETER_SEND_KEYS,
   type CharacterData,
+  MARINARA_ARCHETYPES,
+  MARINARA_CLASSIC_STRONG_PICKS,
+  MARINARA_STATS,
+  readMarinaraCardClassic,
   type ReplyCheckupCode,
   type ReplyCheckupInput,
 } from "@marinara-engine/shared";
@@ -3554,6 +3558,9 @@ export class MariDbService {
       case "rulesetsheet.get":
       case "rulesetsheet.update":
         return this.executeRulesetSheetAction("character", sub, args, context);
+      case "mrpg.get":
+      case "mrpg.update":
+        return this.executeMrpgPicksAction("character", sub, args, context);
       default:
         return {
           ok: false,
@@ -3746,6 +3753,9 @@ export class MariDbService {
       case "rulesetsheet.get":
       case "rulesetsheet.update":
         return this.executeRulesetSheetAction("persona", sub, args, context);
+      case "mrpg.get":
+      case "mrpg.update":
+        return this.executeMrpgPicksAction("persona", sub, args, context);
       default:
         return {
           ok: false,
@@ -3853,6 +3863,110 @@ export class MariDbService {
         { ...holder, extensions: { ...extensions, rulesetSheets: next.sheets } },
         new Map(),
       ),
+      comment: typeof existing.comment === "string" ? existing.comment : "",
+      avatarPath: existing.avatarPath ?? null,
+      spriteFolderPath: existing.spriteFolderPath ?? null,
+      createdAt: existing.createdAt,
+      updatedAt: now(),
+    };
+    return this.executeMutation({ kind: "replace", table, id, row, ...mutation }, context.command, context.sessionId);
+  }
+
+  /**
+   * `character.mrpg.get|update` and `persona.mrpg.get|update`: the MRPG picks of a card's or persona's
+   * Game Mode section (`data.extensions.classic`, `personaStats.classic`): the starting tree, up to two
+   * stats it is strong in and one it is weak in. The update replaces only the fields it sends (`null`
+   * clears one back to Auto), refuses anything the card's builder would refuse, and marks the builder
+   * finished so the card shows the picks. Everything else on the card or in personaStats is kept.
+   */
+  private async executeMrpgPicksAction(
+    owner: "character" | "persona",
+    sub: string,
+    args: Row,
+    context: { command: string; sessionId: string; cwd?: string },
+  ): Promise<MariDbCommandResult> {
+    const table = owner === "character" ? "characters" : "personas";
+    const id =
+      owner === "character"
+        ? requiredString(args, ["characterId", "id"], "character id")
+        : requiredString(args, ["personaId", "id"], "persona id");
+    const existing = await this.getRawById(getMeta(table), id);
+    if (!existing) throw new Error(`${owner === "character" ? "Character" : "Persona"} ${id} not found`);
+    const column = owner === "character" ? "data" : "personaStats";
+    const rawColumn = existing[column];
+    const parsedColumn = tryParseJsonColumn(existing, column);
+    if (parsedColumn === undefined && typeof rawColumn === "string" && rawColumn.trim() !== "") {
+      throw new Error(`The ${owner}'s ${column} cannot be read, so its MRPG picks are left as they are.`);
+    }
+    const holder = isRecord(parsedColumn) ? parsedColumn : {};
+    const extensions = owner === "character" && isRecord(holder.extensions) ? holder.extensions : {};
+    const stored = readMarinaraCardClassic(owner === "character" ? extensions.classic : holder.classic) ?? {};
+    const ownerKey = owner === "character" ? "characterId" : "personaId";
+    const describe = (picks: Row) => ({
+      [ownerKey]: id,
+      tree: picks.tree ?? "auto",
+      strong: picks.strong ?? [],
+      weak: picks.weak ?? null,
+      trees: MARINARA_ARCHETYPES,
+      stats: MARINARA_STATS,
+    });
+    if (sub === "mrpg.get")
+      return { ok: true, mode: "read", command: context.command, output: describe({ ...stored }) };
+
+    const patch = isRecord(args.patch) ? args.patch : isRecord(args.data) ? args.data : {};
+    const issues: string[] = [];
+    const next: Row = { ...stored };
+    const isStat = (value: unknown) =>
+      typeof value === "string" && (MARINARA_STATS as readonly string[]).includes(value);
+    if ("tree" in patch) {
+      const tree = typeof patch.tree === "string" ? patch.tree.trim().toLowerCase() : patch.tree;
+      if (tree === null || tree === "" || tree === "auto") delete next.tree;
+      else if (typeof tree === "string" && (MARINARA_ARCHETYPES as readonly string[]).includes(tree)) next.tree = tree;
+      else issues.push(`tree must be one of ${MARINARA_ARCHETYPES.join(", ")}, or null for Auto`);
+    }
+    if ("strong" in patch) {
+      const strong = patch.strong === null ? [] : patch.strong;
+      if (!Array.isArray(strong) || !strong.every(isStat) || new Set(strong).size !== strong.length) {
+        issues.push(`strong must be a list of different stats from ${MARINARA_STATS.join(", ")}`);
+      } else if (strong.length > MARINARA_CLASSIC_STRONG_PICKS) {
+        issues.push(`strong takes at most ${MARINARA_CLASSIC_STRONG_PICKS} stats`);
+      } else if (strong.length) next.strong = strong;
+      else delete next.strong;
+    }
+    if ("weak" in patch) {
+      if (patch.weak === null || patch.weak === "") delete next.weak;
+      else if (isStat(patch.weak)) next.weak = patch.weak;
+      else issues.push(`weak must be one stat from ${MARINARA_STATS.join(", ")}, or null`);
+    }
+    if (!("tree" in patch) && !("strong" in patch) && !("weak" in patch)) {
+      issues.push("send at least one of tree, strong or weak in patch");
+    }
+    if (typeof next.weak === "string" && Array.isArray(next.strong) && next.strong.includes(next.weak)) {
+      issues.push(`${next.weak} can't be both strong and weak`);
+    }
+    if (issues.length) {
+      return {
+        ok: false,
+        mode: "read",
+        command: context.command,
+        error: `The MRPG picks were not changed. Fix these and resend:\n- ${issues.join("\n- ")}`,
+      };
+    }
+    const classic = readMarinaraCardClassic({ ...next, built: true })!;
+    const mutation = {
+      apply: firstBoolean(args, ["apply"]) === true,
+      cascade: false,
+      reason: firstString(args, ["reason"]) ?? null,
+      cwd: context.cwd,
+    };
+    if (owner === "persona") {
+      const row: Row = { ...parseRow("personas", existing), personaStats: { ...holder, classic }, updatedAt: now() };
+      return this.executeMutation({ kind: "replace", table, id, row, ...mutation }, context.command, context.sessionId);
+    }
+    const name = typeof holder.name === "string" ? holder.name : "";
+    const row: Row = {
+      id,
+      data: buildMinimalCharacterData(name, { ...holder, extensions: { ...extensions, classic } }, new Map()),
       comment: typeof existing.comment === "string" ? existing.comment : "",
       avatarPath: existing.avatarPath ?? null,
       spriteFolderPath: existing.spriteFolderPath ?? null,
