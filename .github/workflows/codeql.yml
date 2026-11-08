@@ -45,13 +45,11 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: none
           # The Node regression harness is about 30% of the TypeScript lines and never ships.
-          # js/prototype-polluting-assignment took 22 of the 48 scan minutes; its three alerts were false positives.
+          # Keep the default query suite: query-filters or custom queries turn off overlay analysis
+          # (codeql-action v4.39.1), which doubles PR scans and stops staging saving a base.
           config: |
             paths-ignore:
               - scripts/regressions
-            query-filters:
-              - exclude:
-                  id: js/prototype-polluting-assignment
 
       - name: Analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
