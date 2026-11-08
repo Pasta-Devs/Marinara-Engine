@@ -125,3 +125,81 @@ for (const kind of ["character", "persona"] as const) {
     }
   });
 }
+
+test("the close button leaves every open surface for the chat without covering a header control", async ({
+  page,
+  request,
+}, info) => {
+  const resources: string[] = [];
+  const create = async (path: string, data: unknown) => {
+    const resource = await (await request.post(`/api/${path}`, { data, failOnStatusCode: true })).json();
+    resources.push(`/api/${path}/${resource.id}`);
+    return resource;
+  };
+  try {
+    const character = await create("characters", { data: { name: `Close character ${info.project.name}` } });
+    const lorebook = await create("lorebooks", { name: `Close lorebook ${info.project.name}` });
+    const chat = await create("chats", {
+      name: `Close chat ${info.project.name}`,
+      mode: "conversation",
+      characterIds: [character.id],
+    });
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+    await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
+    await page.goto("/");
+    const drive = (action: "chat" | "lorebook" | "character" | "depth") =>
+      page.evaluate(
+        async ({ action, chatId, lorebookId, characterId }) => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+          if (action === "chat") useChatStore.getState().setActiveChatId(chatId);
+          if (action === "lorebook") useUIStore.getState().openLorebookDetail(lorebookId);
+          if (action === "character") useUIStore.getState().openCharacterDetail(characterId);
+          return useUIStore.getState().mainSurfaceHistory.length;
+        },
+        { action, chatId: chat.id, lorebookId: lorebook.id, characterId: character.id },
+      );
+    await drive("chat");
+    const close = page.getByRole("button", { name: "Close to the chat", exact: true });
+
+    // One surface open: Back already reaches the chat, so there is no ✕.
+    await drive("lorebook");
+    await expect(page.getByRole("heading", { name: lorebook.name, exact: true })).toBeVisible();
+    await expect(close).toHaveCount(0);
+
+    // Two surfaces deep: the ✕ appears and sits clear of every other control in the header, at this viewport.
+    await drive("character");
+    await expect(close).toBeVisible();
+    const header = page.locator(".mari-editor-header").filter({ has: close });
+    const closeBox = await close.boundingBox();
+    const viewport = page.viewportSize();
+    expect(closeBox).not.toBeNull();
+    expect(closeBox!.x + closeBox!.width).toBeLessThanOrEqual(viewport!.width);
+    for (const button of await header.getByRole("button").all()) {
+      if (
+        !(await button.isVisible()) ||
+        (await button.evaluate((node, target) => node === target, await close.elementHandle()))
+      )
+        continue;
+      const box = await button.boundingBox();
+      if (!box) continue;
+      const overlaps =
+        box.x < closeBox!.x + closeBox!.width &&
+        closeBox!.x < box.x + box.width &&
+        box.y < closeBox!.y + closeBox!.height &&
+        closeBox!.y < box.y + box.height;
+      expect(overlaps, `the close button overlaps "${await button.getAttribute("aria-label")}"`).toBe(false);
+    }
+    await page.screenshot({ path: info.outputPath("surface-close.png"), animations: "disabled" });
+
+    // Clicking it closes both surfaces at once and lands on the chat.
+    await close.click();
+    await expect(close).toHaveCount(0);
+    await expect(page.locator(".mari-editor-shell")).toHaveCount(0);
+    expect(await drive("chat")).toBe(0);
+  } finally {
+    await page.close();
+    for (const path of resources.reverse()) await request.delete(path).catch(() => undefined);
+  }
+});

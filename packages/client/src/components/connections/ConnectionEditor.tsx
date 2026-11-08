@@ -150,6 +150,7 @@ import {
   type VideoResolution,
 } from "@marinara-engine/shared";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 
 /** Links where users can obtain API keys for each provider */
 const DEFAULT_CACHING_AT_DEPTH = 5;
@@ -2217,7 +2218,7 @@ export function ConnectionEditor({
     <div className={cn("mari-editor-shell mari-connection-scope flex flex-1 flex-col overflow-hidden")}>
       {/* ── Header ── */}
       <div className={"mari-editor-header"}>
-        <div className="mari-editor-header-main">
+        <div className="mari-editor-header-main max-md:basis-0!">
           <SurfaceBackButton onClick={handleClose} className="mari-editor-action inline-flex shrink-0" />
 
           <ProviderIcon
@@ -2247,7 +2248,7 @@ export function ConnectionEditor({
             aria-label={localizeUi("connections.editor.modelName")}
           />
         </div>
-        <div className="mari-editor-actions flex shrink-0">
+        <div className="mari-editor-actions flex shrink-0 max-md:order-2">
           {saveError && (
             <span className="mari-editor-status mr-2 text-[var(--destructive)]">
               <AlertCircle size="0.6875rem" />{" "}
@@ -2301,6 +2302,7 @@ export function ConnectionEditor({
             </button>
           </>
         </div>
+        <SurfaceCloseButton dividerClassName="max-md:hidden" />
       </div>
 
       {/* Unsaved warning */}

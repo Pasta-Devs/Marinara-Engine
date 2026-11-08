@@ -6312,6 +6312,8 @@
   "navigation.chatSidebar.search.conversation": "Search conversations",
   "navigation.chatSidebar.search.game": "Search games",
   "navigation.chatSidebar.search.roleplay": "Search roleplays",
+  "navigation.close.toChat": "Close to the chat",
+  "navigation.close.toHome": "Close to Home",
   "navigation.common.back": "Back",
   "navigation.common.chatNavigation": "Chat navigation",
   "navigation.common.chats": "Chats",

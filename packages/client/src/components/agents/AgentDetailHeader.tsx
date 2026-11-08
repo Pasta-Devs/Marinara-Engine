@@ -5,6 +5,7 @@ import { cn } from "../../lib/utils";
 import { AgentArtwork } from "./AgentArtwork";
 import { StoreBanner } from "./organizer/OrganizerParts";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 
 /**
  * The one header of every agent settings page: Back, store banner and logo, name, an optional
@@ -92,13 +93,17 @@ export function AgentDetailHeader({
         <div
           className={cn(
             "mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t border-[var(--marinara-editor-divider)] max-md:pt-2",
-            tall && "order-2",
+            tall ? "order-2" : !hasBanner && "max-md:order-2",
             hasBanner && "ml-auto max-md:w-auto! max-md:border-t-0! max-md:pt-0!",
           )}
         >
           {actions}
         </div>
       )}
+      <SurfaceCloseButton
+        className={tall ? "order-2" : undefined}
+        dividerClassName={tall ? undefined : "max-md:hidden"}
+      />
       {/* Breaks the banner header into a top row (Back, actions) and a bottom row (logo, name). */}
       {tall && <span className="order-2 basis-full" />}
     </div>

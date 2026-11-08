@@ -4,6 +4,7 @@ import { cn } from "../../lib/utils";
 import { EditorTabNavigation, type EditorTabItem } from "../ui/EditorTabNavigation";
 import { useTranslation } from "react-i18next";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 
 interface CardEditorProps<T extends string> {
   variant: "character" | "persona";
@@ -204,6 +205,7 @@ export function CardEditor<T extends string>({
           </button>
           {actionsSlot}
         </div>
+        <SurfaceCloseButton disabled={busy} dividerClassName="" />
       </div>
 
       {/* Body */}

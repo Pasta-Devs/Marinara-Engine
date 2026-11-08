@@ -3716,6 +3716,25 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   .mari-editor-header--with-nav .mari-editor-save-label {
     display: none;
   }
+
+  /* The ✕ that closes every open surface stays top-right on Back's row; the identity leaves room for it. */
+  .mari-editor-header--with-nav {
+    position: relative;
+  }
+
+  .mari-editor-header--with-nav > .mari-surface-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .mari-editor-header--with-nav:has(> .mari-surface-close) .mari-editor-header-main {
+    padding-right: 3.5rem;
+  }
+
+  .mari-editor-header--with-nav .mari-surface-close-divider {
+    display: none;
+  }
 }
 
 /* The character editor carries eleven sections and seven actions, so its header

@@ -47,11 +47,11 @@ assert.match(
   homeBrowserHub,
   /openConnection: \(connectionId: string\) => \{\s*if \(typeof connectionId !== "string" \|\| !connectionId\) return;[\s\S]*?\.openConnectionDetail\(connectionId, \{ returnToHomeTab: activeTab \}\);/u,
 );
-// Back (browser or hardware) closes a package-opened connection editor the same way, so it returns to the tab too;
-// every other editor keeps closing through closeAllDetails.
+// Back (browser or hardware) closes through closeTopMainSurface, which returns a package-opened connection editor to its
+// Home tab (the stack holds the return) and leaves every other editor on the surface it came from.
 assert.match(
   read("packages/client/src/lib/back-layers.ts"),
-  /else if \(current\.connectionDetailId && current\.connectionDetailReturnTab\) current\.closeConnectionDetail\(\);\s*else current\.closeAllDetails\(\);/u,
+  /function requestCloseDetails\(\) \{\s*return requestSurfaceClose\(\(\) => useUIStore\.getState\(\)\.closeTopMainSurface\(\)\);/u,
 );
 const storage = new Map<string, string>();
 Object.defineProperty(globalThis, "localStorage", {
@@ -77,7 +77,19 @@ assert.equal(ui().homeRequest, null, "leaving through closeAllDetails queues no 
 ui().openConnectionDetail("connection-1", { returnToHomeTab: "story-writer" });
 ui().openCharacterDetail("character-1");
 ui().closeCharacterDetail();
+assert.equal(
+  ui().connectionDetailId,
+  "connection-1",
+  "closing the editor opened on top goes back to the connection editor",
+);
 assert.equal(ui().homeRequest, null, "another editor in between queues no return");
+ui().closeConnectionDetail();
+assert.deepEqual(
+  ui().homeRequest,
+  { kind: "tab", tab: "story-writer" },
+  "the connection editor still returns to its tab",
+);
+ui().consumeHomeRequest();
 ui().closeConnectionDetail();
 assert.equal(ui().homeRequest, null, "a stale close with no editor open queues nothing");
 // An editor opened the ordinary way never returns to a tab.
@@ -90,10 +102,10 @@ ui().openConnectionDetail("connection-2");
 ui().closeConnectionDetail();
 assert.deepEqual(ui().homeRequest, { kind: "tab", tab: "story-writer" }, "a switch inside the editor keeps the tab");
 ui().consumeHomeRequest();
-// A tab left behind by an editor another editor replaced never reaches a later editor.
+// A tab left behind by editors closed all at once never reaches a later editor.
 ui().openConnectionDetail("connection-1", { returnToHomeTab: "story-writer" });
 ui().openCharacterDetail("character-1");
-ui().closeCharacterDetail();
+ui().closeAllDetails();
 ui().openConnectionDetail("connection-2");
 ui().closeConnectionDetail();
 assert.equal(ui().homeRequest, null, "an editor opened afresh starts without a return tab");

@@ -43,6 +43,7 @@ import {
   type ResourcePanelSort,
 } from "../../stores/ui.store";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
 
 const libraryToolbarButtonClass =
   "mari-chrome-control mari-chrome-control--primary h-10 min-h-10 min-w-0 px-3 text-[0.75rem]";
@@ -384,6 +385,7 @@ export function CharacterLibraryView() {
   const { t } = useTranslation();
   const localize = useLocalizedUiText();
   const kind = useUIStore((s) => s.cardLibraryKind);
+  const showsClose = useUIStore(selectShowsSurfaceClose);
   const copy = LIBRARY_COPY[kind];
   const isPersonaLibrary = kind === "personas";
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
@@ -604,8 +606,8 @@ export function CharacterLibraryView() {
       className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_14%,transparent),_transparent_30%),radial-gradient(circle_at_top_right,_color-mix(in_srgb,var(--marinara-chat-chrome-text)_10%,transparent),_transparent_26%),var(--background)] text-[var(--marinara-chat-chrome-panel-text)] lg:overflow-hidden"
     >
       <div className="sticky top-0 z-10 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--card)]/85 backdrop-blur-xl">
-        <div className="flex flex-col gap-2 px-3 py-2 md:px-6 md:py-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="relative flex flex-col gap-2 px-3 py-2 md:px-6 md:py-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className={cn("flex min-w-0 items-center gap-3", showsClose && "max-lg:pr-12")}>
             <SurfaceBackButton
               className="mari-chrome-control h-9 w-9 rounded-2xl p-0 md:h-10 md:w-10"
               iconSize="0.95rem"
@@ -686,6 +688,12 @@ export function CharacterLibraryView() {
               />
             </div>
           </div>
+          <SurfaceCloseButton
+            className="absolute right-3 top-2 md:right-6 md:top-3 lg:static"
+            buttonClassName="mari-chrome-control h-9 w-9 rounded-2xl p-0 md:h-10 md:w-10"
+            iconSize="0.95rem"
+            dividerClassName="max-lg:hidden"
+          />
         </div>
       </div>
 

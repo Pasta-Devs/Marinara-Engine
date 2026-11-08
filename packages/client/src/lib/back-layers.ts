@@ -29,10 +29,11 @@ function isShellOverlayMode() {
 let detailCloseInFlight = false;
 
 /**
- * Closes the front-most surface the way the on-screen Back button does (one step back through the surfaces
- * opened before it), including the unsaved-changes confirm, so back can never discard an edit silently.
+ * Runs `close` for the open full-page surfaces behind the unsaved-changes confirm, so neither hardware back nor the
+ * on-screen buttons can discard an edit silently. An editor with a leave handler saves itself on the way out
+ * (the store's `set` routes the leave through it), so only an editor without one is asked.
  */
-async function requestCloseDetails() {
+async function requestSurfaceClose(close: () => void) {
   if (detailCloseInFlight) return;
   const ui = useUIStore.getState();
   if (!ui.hasAnyDetailOpen()) return;
@@ -52,7 +53,17 @@ async function requestCloseDetails() {
     }
   }
 
-  useUIStore.getState().closeTopMainSurface();
+  close();
+}
+
+/** Closes the front-most surface the way the on-screen Back button does: one step back through the surfaces opened before it. */
+function requestCloseDetails() {
+  return requestSurfaceClose(() => useUIStore.getState().closeTopMainSurface());
+}
+
+/** Closes every open full-page surface at once, straight to the chat (or Home), through the same unsaved-changes guard. */
+export function requestCloseAllSurfaces() {
+  return requestSurfaceClose(() => useUIStore.getState().closeAllDetails());
 }
 
 export function getStoreBackLayers(): BackLayer[] {

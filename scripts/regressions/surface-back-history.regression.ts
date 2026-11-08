@@ -278,5 +278,91 @@ Object.defineProperty(globalThis, "localStorage", { configurable: true, value: s
   ui().openConnectionDetail("X", { returnToHomeTab: "connections" });
   assert.deepEqual(selectBackDestination(ui()), { home: true });
 
+  // 16. The ✕ shows exactly when Back would not already reach the base (a surface is the destination).
+  const { selectShowsSurfaceClose } = await import("../../packages/client/src/components/ui/SurfaceCloseButton.js");
+  reset();
+  assert.equal(selectShowsSurfaceClose(ui()), false, "no surface open");
+  ui().openLorebookDetail("L");
+  assert.equal(selectShowsSurfaceClose(ui()), false, "one surface open: Back already reaches the chat");
+  ui().openCharacterDetail("C");
+  assert.equal(selectShowsSurfaceClose(ui()), true, "two deep: Back lands on a surface");
+  ui().closeCharacterDetail();
+  assert.equal(selectShowsSurfaceClose(ui()), false);
+  reset(true);
+  ui().openRightPanel("lorebooks");
+  ui().openLorebookDetail("L");
+  assert.equal(selectShowsSurfaceClose(ui()), false, "a panel destination is a single Back");
+  reset();
+  ui().openConnectionDetail("X", { returnToHomeTab: "connections" });
+  assert.equal(selectShowsSurfaceClose(ui()), false, "a Home destination is a single Back");
+  reset();
+  ui().openCharacterDetail("C");
+  ui().openRegexDetail("R", { returnTo: { characterId: "C", tab: "advanced" } });
+  assert.equal(selectShowsSurfaceClose(ui()), true, "the regex editor's return is a surface");
+
+  // 17. `requestCloseAllSurfaces` closes the whole stack through the same unsaved-changes guard as hardware back.
+  const { requestCloseAllSurfaces } = await import("../../packages/client/src/lib/back-layers.js");
+  const { useDialogStore } = await import("../../packages/client/src/stores/dialog.store.js");
+  const { resolveActiveDialog } = await import("../../packages/client/src/lib/app-dialogs.js");
+  const openThree = () => {
+    reset();
+    ui().openLorebookDetail("L");
+    ui().openCharacterDetail("C");
+    ui().openPersonaLibrary();
+    assert.equal(ui().mainSurfaceHistory.length, 2);
+  };
+  const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+  // 17a. From three surfaces deep it empties the stack and lands on the base.
+  openThree();
+  await requestCloseAllSurfaces();
+  assert.equal(ui().hasAnyDetailOpen(), false);
+  assert.equal(ui().mainSurfaceHistory.length, 0);
+  assert.equal(selectBackDestination(ui()), null);
+
+  // 17b. Nothing open: it does nothing.
+  await requestCloseAllSurfaces();
+  assert.equal(ui().hasAnyDetailOpen(), false);
+
+  // 17c. An editor with a leave handler saves itself first: the close waits until `proceed` runs.
+  openThree();
+  ui().openCharacterDetail("C2", { preserveCharacterLibrary: true });
+  let heldAll: (() => void) | null = null;
+  const unregisterAll = registerEditorLeaveHandler({
+    key: "characterDetailId:C2",
+    request: (proceed) => {
+      heldAll = proceed;
+      return true;
+    },
+  });
+  ui().setEditorDirty(true);
+  const closing = requestCloseAllSurfaces();
+  await settle();
+  assert.ok(heldAll, "the editor was asked to save");
+  assert.equal(ui().characterDetailId, "C2", "the close waits for the editor");
+  assert.equal(useDialogStore.getState().dialog, null, "no discard prompt for an editor that saves itself");
+  (heldAll as () => void)();
+  await closing;
+  assert.equal(ui().hasAnyDetailOpen(), false, "closed once the editor proceeded");
+  assert.equal(ui().mainSurfaceHistory.length, 0);
+  unregisterAll();
+
+  // 17d. A dirty editor with no handler asks first: declined closes nothing, accepted closes everything.
+  openThree();
+  ui().setEditorDirty(true);
+  const declined = requestCloseAllSurfaces();
+  await settle();
+  assert.ok(useDialogStore.getState().dialog, "the discard prompt is up");
+  resolveActiveDialog(false);
+  await declined;
+  assert.equal(ui().hasAnyDetailOpen(), true, "declining closes nothing");
+  assert.equal(ui().mainSurfaceHistory.length, 2);
+  const accepted = requestCloseAllSurfaces();
+  await settle();
+  resolveActiveDialog(true);
+  await accepted;
+  assert.equal(ui().hasAnyDetailOpen(), false, "discarding closes every surface");
+  assert.equal(ui().mainSurfaceHistory.length, 0);
+
   console.info("Surface back history regression passed.");
 }

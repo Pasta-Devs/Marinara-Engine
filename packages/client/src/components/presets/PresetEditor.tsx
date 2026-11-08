@@ -106,6 +106,7 @@ import { PresetVariablesEditor, reorderIdsByOffset, reorderIdsToGap } from "./Pr
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 
 // ── Tab definitions ──
 const TABS = [
@@ -690,6 +691,7 @@ export function PresetEditor() {
             <Trash2 size="0.9375rem" />
           </button>
         </div>
+        <SurfaceCloseButton dividerClassName="" />
       </div>
 
       {/* Saved toast */}

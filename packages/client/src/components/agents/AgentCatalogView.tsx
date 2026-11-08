@@ -64,6 +64,7 @@ import {
 import type { AgentUpdateResult } from "./AgentUpdateDialog";
 import { AgentPage } from "./organizer/AgentPage";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 
 type BulkActionProgress = {
   action: "install" | "uninstall";
@@ -691,6 +692,11 @@ export function AgentCatalogView() {
               <MoreHorizontal size="0.95rem" aria-hidden="true" />
             )}
           </button>
+          <SurfaceCloseButton
+            buttonClassName="mari-chrome-control h-9 w-9 shrink-0 rounded-xl p-0 md:h-10 md:w-10"
+            iconSize="1rem"
+            dividerClassName=""
+          />
         </header>
 
         {bulkProgress && (
