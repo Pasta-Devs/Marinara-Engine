@@ -28,6 +28,9 @@ import {
   type TrackerStatDisplayMode,
   type TrackerThoughtBubbleDisplay,
   type VisualTheme,
+  selectChatChromeTextColor,
+  selectChatFontColor,
+  selectDefaultDialogueColor,
 } from "../../stores/ui.store";
 import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
@@ -59,7 +62,27 @@ import {
 } from "../../lib/api-client";
 import { ANDROID_BRIDGE_READY_EVENT, getAndroidBridgeToken } from "../../lib/android-bridge";
 import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
-import { normalizeThemeCss, sanitizeAppCss } from "../../lib/theme-css";
+import { extractImportantThemeCss, normalizeThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
+import { cssContrast, fixContrast } from "../../lib/color-contrast";
+import { checkProtectedChrome, checkThemeCss } from "../../lib/theme-guard";
+import { ThemeEditorChecks } from "./settings/ThemeEditorChecks";
+import { useThemeSafetyStore, type ThemeGuardProblem } from "../../lib/theme-safety";
+import { takeThemeEditRequest, useThemeEditRequest } from "../../lib/theme-edit-request";
+import {
+  applyThemeSettings,
+  buildThemeFile,
+  currentThemeSettings,
+  dataUrlToFile,
+  snapshotThemeSettings,
+  readFontFamily,
+  shrinkImageDataUrl,
+  fileToDataUrl,
+  readThemeFile,
+  themeFontFaceCss,
+  type ThemePackage,
+} from "../../lib/theme-package";
+import { ThemeImportPreview, type ThemeInstallChoice } from "./settings/ThemeImportPreview";
+import { AccessibilitySettings } from "./settings/AccessibilitySettings";
 import { getChatWidgetFontFamily } from "../../lib/font-family";
 import { forceRefreshSpa } from "@/lib/browser-runtime";
 import {
@@ -90,9 +113,6 @@ import {
   createImageStyleProfileId,
   normalizeImageStyleProfileSettings,
   normalizeVideoGenerationUserSettings,
-  createFolderEntry,
-  getFolderImportEntries,
-  getFolderManifestConfig,
   type AppSettingsResponse,
   type APIConnection,
   type ConversationCallCharacterVideoClipKind,
@@ -103,10 +123,12 @@ import {
   type QuoteFormat,
   type SidecarHealthSection,
   type Theme,
+  type ThemeMeta,
   type VideoGenerationUserSettings,
 } from "@marinara-engine/shared";
 import {
   findDuplicateTheme,
+  useActivateTheme,
   useCreateTheme,
   useDeleteTheme,
   useSetActiveTheme,
@@ -241,6 +263,7 @@ import {
   isHostDeviceBrowser,
 } from "../../lib/host-device";
 import { DeviceLookSetting } from "./DeviceLookSetting";
+import { themeHasHtml } from "../../lib/theme-template";
 
 type CustomFontFace = {
   filename: string;
@@ -3638,18 +3661,120 @@ function ChatWidgetStylePreview({
   );
 }
 
+/**
+ * Under the Background and Accent pickers: a live contrast check with "Fix for me", and a note when
+ * the active custom theme sets the same colour (the theme wins over the picker).
+ */
+function ThemeColorNotes({
+  kind,
+  value,
+  background,
+  themeCss,
+  themeName,
+  onFix,
+}: {
+  kind: "background" | "accent" | "text";
+  value: string;
+  background: string;
+  themeCss: string | null;
+  themeName: string | null;
+  onFix: (color: string) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const theme = useUIStore((s) => s.theme);
+  const themeOverrides =
+    kind !== "text" &&
+    !!themeCss &&
+    (kind === "background"
+      ? themeSetsVariable(themeCss, "--background")
+      : themeSetsVariable(themeCss, "--primary") || themeSetsVariable(themeCss, "--marinara-app-accent-solid"));
+  // Text colour of the scheme on screen; the background check compares against it.
+  const [foreground, setForeground] = useState("");
+  // A text colour is checked against the background on screen.
+  const [pageBackground, setPageBackground] = useState("");
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const root = getComputedStyle(document.documentElement);
+      setForeground(root.getPropertyValue("--foreground").trim());
+      setPageBackground(root.getPropertyValue("--background").trim());
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [theme, themeCss, value]);
+  const against = kind === "text" ? pageBackground : background;
+  const target = kind === "accent" ? 3 : 4.5;
+  const ratio =
+    kind === "background"
+      ? foreground
+        ? cssContrast(foreground, value)
+        : null
+      : against
+        ? cssContrast(value, against)
+        : null;
+  const low = ratio !== null && ratio < target;
+  const fix = () => {
+    // A background is fixed past the minimum, to comfortable reading (7:1); accents and text to the minimum.
+    const fixed = kind === "background" ? fixContrast(value, foreground, 7) : fixContrast(value, against, target);
+    if (fixed) onFix(fixed);
+  };
+  if (!low && !themeOverrides) return null;
+  return (
+    <div className="mt-1 flex flex-col gap-1 text-[0.625rem]">
+      {low ? (
+        <p role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[var(--destructive)]">
+          <span>
+            {localizeUi(
+              kind === "background"
+                ? "theming.pickers.lowContrastBackground"
+                : kind === "text"
+                  ? "theming.pickers.lowContrastText"
+                  : "theming.pickers.lowContrastAccent",
+              {
+                ratio: ratio!.toFixed(1),
+                target: target.toFixed(1).replace(/\.0$/, ""),
+              },
+            )}
+          </span>
+          <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={fix}>
+            {localizeUi("theming.pickers.fixForMe")}
+          </button>
+        </p>
+      ) : null}
+      {themeOverrides ? (
+        <p className="text-[var(--muted-foreground)]">
+          {localizeUi("theming.pickers.themeOverrides", { name: themeName ?? "" })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const { t: localizeUi } = useUiTranslation();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
+  const themeAuto = useUIStore((s) => s.themeAuto);
+  const setThemeAuto = useUIStore((s) => s.setThemeAuto);
+  const themeDayStart = useUIStore((s) => s.themeDayStart);
+  const themeNightStart = useUIStore((s) => s.themeNightStart);
+  const setThemeDayHours = useUIStore((s) => s.setThemeDayHours);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
   const rightPanelWidth = useUIStore((state) => state.rightPanelWidth);
   const setRightPanelWidth = useUIStore((state) => state.setRightPanelWidth);
-  const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
-  const setAppBackgroundColor = useUIStore((s) => s.setAppBackgroundColor);
-  const appAccentColor = useUIStore((s) => s.appAccentColor);
-  const setAppAccentColor = useUIStore((s) => s.setAppAccentColor);
+  // Background and accent pickers edit the scheme on screen; each scheme keeps its own (batch 2).
+  const appBackgroundColor = useUIStore((s) =>
+    s.theme === "light" ? s.appBackgroundColorLight : s.appBackgroundColor,
+  );
+  const setAppBackgroundColor = useUIStore((s) =>
+    s.theme === "light" ? s.setAppBackgroundColorLight : s.setAppBackgroundColor,
+  );
+  const darkAccentColor = useUIStore((s) => s.appAccentColor);
+  const appAccentColor = useUIStore((s) =>
+    s.theme === "light" && s.appAccentColorLight.trim() ? s.appAccentColorLight : s.appAccentColor,
+  );
+  const setAppAccentColor = useUIStore((s) => (s.theme === "light" ? s.setAppAccentColorLight : s.setAppAccentColor));
+  const { data: appearanceThemes = [] } = useThemes();
+  const appearanceCustomTheme = appearanceThemes.find((item) => item.isActive) ?? null;
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
   const setAppAccentPulseMode = useUIStore((s) => s.setAppAccentPulseMode);
   const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
@@ -3695,6 +3820,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const defaultRoleplayBackground = useUIStore((s) => s.defaultRoleplayBackground);
   const setDefaultRoleplayBackground = useUIStore((s) => s.setDefaultRoleplayBackground);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
+  const chatArtBehindPanels = useUIStore((s) => s.chatArtBehindPanels);
+  const setChatArtBehindPanels = useUIStore((s) => s.setChatArtBehindPanels);
   const setChatBackgroundBlur = useUIStore((s) => s.setChatBackgroundBlur);
   const conversationBackgroundImageOpacity = useUIStore((s) => s.conversationBackgroundImageOpacity);
   const setConversationBackgroundImageOpacity = useUIStore((s) => s.setConversationBackgroundImageOpacity);
@@ -3871,12 +3998,26 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const weatherEffects = useUIStore((s) => s.weatherEffects);
   const setWeatherEffects = useUIStore((s) => s.setWeatherEffects);
   // Text appearance
-  const chatFontColor = useUIStore((s) => s.chatFontColor);
-  const setChatFontColor = useUIStore((s) => s.setChatFontColor);
-  const defaultDialogueColor = useUIStore((s) => s.defaultDialogueColor);
-  const setDefaultDialogueColor = useUIStore((s) => s.setDefaultDialogueColor);
-  const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
-  const setChatChromeTextColor = useUIStore((s) => s.setChatChromeTextColor);
+  // Text pickers edit the scheme on screen; Light mode follows Dark until it has its own value.
+  const lightTextScheme = theme === "light";
+  const chatFontColor = useUIStore(selectChatFontColor);
+  const setChatFontColor = useUIStore((s) => (lightTextScheme ? s.setChatFontColorLight : s.setChatFontColor));
+  const defaultDialogueColor = useUIStore(selectDefaultDialogueColor);
+  const setDefaultDialogueColor = useUIStore((s) =>
+    lightTextScheme ? s.setDefaultDialogueColorLight : s.setDefaultDialogueColor,
+  );
+  const chatChromeTextColor = useUIStore(selectChatChromeTextColor);
+  const setChatChromeTextColor = useUIStore((s) =>
+    lightTextScheme ? s.setChatChromeTextColorLight : s.setChatChromeTextColor,
+  );
+  const textFollowsDark = useUIStore(
+    (s) =>
+      s.theme === "light" &&
+      ((!s.chatFontColorLight && !!s.chatFontColor) ||
+        (!s.defaultDialogueColorLight && !!s.defaultDialogueColor) ||
+        (!s.chatChromeTextColorLight && !!s.chatChromeTextColor)),
+  );
+  const schemeSuffix = ` (${localizeUi(lightTextScheme ? "ui.panels.appearancesettings.light" : "ui.panels.appearancesettings.dark")})`;
   const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
   const setChatFontOpacity = useUIStore((s) => s.setChatFontOpacity);
   const roleplayReducedPaintEffects = useUIStore((s) => s.roleplayReducedPaintEffects);
@@ -3886,6 +4027,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const roleplayAvatarScale = useUIStore((s) => s.roleplayAvatarScale);
   const setRoleplayAvatarScale = useUIStore((s) => s.setRoleplayAvatarScale);
   const roleplayStretchMessages = useUIStore((s) => s.roleplayStretchMessages);
+  const hideMessageNameRule = useUIStore((s) => s.hideMessageNameRule);
+  const setHideMessageNameRule = useUIStore((s) => s.setHideMessageNameRule);
   const setRoleplayStretchMessages = useUIStore((s) => s.setRoleplayStretchMessages);
   const roleplayAvatarsScrollable = useUIStore((s) => s.roleplayAvatarsScrollable);
   const setRoleplayAvatarsScrollable = useUIStore((s) => s.setRoleplayAvatarsScrollable);
@@ -3939,6 +4082,24 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
       return true;
     });
   }, [customFonts]);
+  // Fonts the active custom theme brings, so a font a theme picked can be seen and changed here.
+  const themeFontOptions = React.useMemo(() => {
+    const active = appearanceThemes.find((theme) => theme.isActive);
+    const seen = new Set(customFontOptions.map((font) => font.family));
+    const fonts: Array<{ family: string; theme: string }> = [];
+    for (const font of active?.meta?.fonts ?? []) {
+      if (!font.family || seen.has(font.family)) continue;
+      seen.add(font.family);
+      fonts.push({ family: font.family, theme: active!.name });
+    }
+    return fonts;
+  }, [appearanceThemes, customFontOptions]);
+  const missingFontFamily =
+    fontFamily &&
+    !customFontOptions.some((font) => font.family === fontFamily) &&
+    !themeFontOptions.some((font) => font.family === fontFamily)
+      ? fontFamily
+      : null;
   const unavailableWidgetFont =
     chatWidgetFont.startsWith("custom:") &&
     !customFontOptions.some((font) => `custom:${font.family}` === chatWidgetFont)
@@ -4105,14 +4266,52 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   />
                 </span>
                 <select
-                  value={theme}
-                  onChange={(e) => setTheme(e.target.value as "dark" | "light")}
+                  value={themeAuto === "off" ? theme : themeAuto}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "system" || value === "time") setThemeAuto(value);
+                    else setTheme(value as "dark" | "light");
+                  }}
                   className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
                 >
                   <option value="dark">{localizeUi("ui.panels.appearancesettings.dark")}</option>
                   <option value="light">{localizeUi("ui.panels.appearancesettings.light")}</option>
+                  <option value="system">
+                    {localizeUi("theming.scheme.system", { defaultValue: "Follow system" })}
+                  </option>
+                  <option value="time">
+                    {localizeUi("theming.scheme.time", { defaultValue: "Follow time of day" })}
+                  </option>
                 </select>
               </label>
+              {themeAuto === "time" ? (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs" data-theme-day-hours>
+                  <label className="inline-flex items-center gap-1.5">
+                    {localizeUi("theming.scheme.lightFrom", { defaultValue: "Light from" })}
+                    <input
+                      type="time"
+                      value={themeDayStart}
+                      onChange={(e) => e.target.value && setThemeDayHours(e.target.value, themeNightStart)}
+                      className="rounded-md bg-[var(--secondary)] px-2 py-1 text-xs outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
+                    />
+                  </label>
+                  <label className="inline-flex items-center gap-1.5">
+                    {localizeUi("theming.scheme.darkFrom", { defaultValue: "Dark from" })}
+                    <input
+                      type="time"
+                      value={themeNightStart}
+                      onChange={(e) => e.target.value && setThemeDayHours(themeDayStart, e.target.value)}
+                      className="rounded-md bg-[var(--secondary)] px-2 py-1 text-xs outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
+                    />
+                  </label>
+                  <span className="basis-full text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("theming.scheme.timeHelp", {
+                      defaultValue:
+                        "Switches by this device's clock. Themes that style Dark and Light switch with it. Picking Dark or Light stops it.",
+                    })}
+                  </span>
+                </div>
+              ) : null}
 
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("custom-cursor")}
@@ -4128,13 +4327,23 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   onChange={handleAppBackgroundColorChange}
                   gradient
                   compact
-                  label={localizeUi("settings.controls.backgroundColor.label")}
+                  label={`${localizeUi("settings.controls.backgroundColor.label")} (${localizeUi(
+                    theme === "light" ? "ui.panels.appearancesettings.light" : "ui.panels.appearancesettings.dark",
+                  )})`}
                   helpText="Colors the main app shell background. Leave it on the scheme default to follow Dark and Light mode automatically. Gradients are supported for the shell paint."
                   emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
                     value1: defaultAppBackgroundColor,
                   })}
                   emptyPreviewValue={defaultAppBackgroundColor}
                   clearLabel="Reset to default"
+                />
+                <ThemeColorNotes
+                  kind="background"
+                  value={displayedAppBackgroundColor || defaultAppBackgroundColor}
+                  background={displayedAppBackgroundColor || defaultAppBackgroundColor}
+                  themeCss={appearanceCustomTheme?.css ?? null}
+                  themeName={appearanceCustomTheme?.name ?? null}
+                  onFix={handleAppBackgroundColorChange}
                 />
               </SearchableSettingTarget>
 
@@ -4144,7 +4353,9 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   onChange={handleAppAccentColorChange}
                   gradient
                   compact
-                  label={localizeUi("settings.controls.accentColor.label")}
+                  label={`${localizeUi("settings.controls.accentColor.label")} (${localizeUi(
+                    theme === "light" ? "ui.panels.appearancesettings.light" : "ui.panels.appearancesettings.dark",
+                  )})`}
                   helpText={localizeUi("settings.controls.accentColor.help")}
                   emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
                     value1: localizeUi("ui.ui.colorpicker.marinaraGradient"),
@@ -4152,17 +4363,29 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   emptyPreviewValue={defaultAppAccentColor}
                   clearLabel="Reset to default"
                 />
+                {theme === "light" && !useUIStore.getState().appAccentColorLight.trim() && darkAccentColor.trim() ? (
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("theming.pickers.accentFollowsDark")}
+                  </p>
+                ) : null}
+                <ThemeColorNotes
+                  kind="accent"
+                  value={displayedAppAccentColor || defaultAppAccentColor}
+                  background={displayedAppBackgroundColor || defaultAppBackgroundColor}
+                  themeCss={appearanceCustomTheme?.css ?? null}
+                  themeName={appearanceCustomTheme?.name ?? null}
+                  onFix={handleAppAccentColorChange}
+                />
               </SearchableSettingTarget>
 
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("accent-pulse")}
                 label={localizeUi("settings.controls.accentPulse.label")}
-                checked={appAccentPulseMode && !overhaulLayoutEnabled}
+                checked={appAccentPulseMode}
                 onChange={handleAppAccentPulseModeChange}
-                disabled={overhaulLayoutEnabled}
                 help={
                   overhaulLayoutEnabled
-                    ? localizeUi("ui.panels.appearancesettings.offInTheNewLayoutAnimatingTheAccentRestyles")
+                    ? localizeUi("theming.pickers.accentFxNewLayout")
                     : localizeUi("settings.controls.accentPulse.help")
                 }
               />
@@ -4170,23 +4393,16 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("rgb-mode")}
                 label={
-                  <span
-                    className={cn(
-                      appAccentRgbMode &&
-                        !overhaulLayoutEnabled &&
-                        "mari-logo-gradient-text mari-logo-gradient-text--active",
-                    )}
-                  >
+                  <span className={cn(appAccentRgbMode && "mari-logo-gradient-text mari-logo-gradient-text--active")}>
                     {localizeUi("ui.panels.appearancesettings.rgbMode")}
                   </span>
                 }
-                checked={appAccentRgbMode && !overhaulLayoutEnabled}
+                checked={appAccentRgbMode}
                 onChange={handleAppAccentRgbModeChange}
-                disabled={overhaulLayoutEnabled}
-                switchClassName={appAccentRgbMode && !overhaulLayoutEnabled ? "mari-rgb-toggle-track" : undefined}
+                switchClassName={appAccentRgbMode ? "mari-rgb-toggle-track" : undefined}
                 help={
                   overhaulLayoutEnabled
-                    ? localizeUi("ui.panels.appearancesettings.offInTheNewLayoutAnimatingTheAccentRestyles")
+                    ? localizeUi("theming.pickers.accentFxNewLayout")
                     : localizeUi("settings.controls.rainbowAccent.help")
                 }
               />
@@ -4218,6 +4434,23 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                       {f.family}
                     </option>
                   ))}
+                  {themeFontOptions.map((font) => (
+                    <option key={`theme:${font.family}`} value={font.family}>
+                      {localizeUi("theming.fonts.fromTheme", {
+                        family: font.family,
+                        theme: font.theme,
+                        defaultValue: "{{family}} · from {{theme}}",
+                      })}
+                    </option>
+                  ))}
+                  {missingFontFamily ? (
+                    <option value={missingFontFamily}>
+                      {localizeUi("theming.fonts.missing", {
+                        family: missingFontFamily,
+                        defaultValue: "{{family}} (not installed)",
+                      })}
+                    </option>
+                  ) : null}
                 </select>
                 {(!customFonts || customFonts.length === 0) && (
                   <p className="text-[0.625rem] text-[var(--muted-foreground)]">
@@ -4334,6 +4567,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
             </div>
           </SettingsSection>
 
+          <AccessibilitySettings anchorId={getSettingsSectionAnchorId("accessibility")} />
+
           <SettingsSection
             title={localizeUi("ui.panels.appearancesettings.textColors")}
             description={localizeUi("ui.panels.appearancesettings.chatTextDialogueAndChromeTextColorsAndText")}
@@ -4347,13 +4582,21 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   onChange={setChatFontColor}
                   gradient
                   compact
-                  label={localizeUi("settings.colors.chatText")}
+                  label={localizeUi("settings.colors.chatText") + schemeSuffix}
                   helpText="Controls the main chat message text color. Leave it on the scheme default to keep dark and light mode readable. Gradients are accepted for layouts that support them."
                   emptyText={localizeUi("ui.panels.appearancesettings.schemeDefaultValue1", {
                     value1: getDefaultChatTextColor(theme),
                   })}
                   emptyPreviewValue={getDefaultChatTextColor(theme)}
                   clearLabel="Reset to default"
+                />
+                <ThemeColorNotes
+                  kind="text"
+                  value={chatFontColor || getDefaultChatTextColor(theme)}
+                  background=""
+                  themeCss={null}
+                  themeName={null}
+                  onFix={setChatFontColor}
                 />
               </SearchableSettingTarget>
 
@@ -4362,13 +4605,21 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   value={defaultDialogueColor}
                   onChange={setDefaultDialogueColor}
                   compact
-                  label={localizeUi("settings.colors.defaultDialogue")}
+                  label={localizeUi("settings.colors.defaultDialogue") + schemeSuffix}
                   helpText="Colors dialogue for character and persona cards that do not have their own Dialogue Highlight Color. A card's own dialogue color always overrides it."
                   emptyText={localizeUi("ui.panels.appearancesettings.schemeDefaultValue1", {
                     value1: getDefaultChatTextColor(theme),
                   })}
                   emptyPreviewValue={getDefaultChatTextColor(theme)}
                   clearLabel="Reset to scheme default"
+                />
+                <ThemeColorNotes
+                  kind="text"
+                  value={defaultDialogueColor || getDefaultChatTextColor(theme)}
+                  background=""
+                  themeCss={null}
+                  themeName={null}
+                  onFix={setDefaultDialogueColor}
                 />
               </SearchableSettingTarget>
 
@@ -4378,7 +4629,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   onChange={setChatChromeTextColor}
                   gradient
                   compact
-                  label={localizeUi("settings.colors.chatChrome")}
+                  label={localizeUi("settings.colors.chatChrome") + schemeSuffix}
                   helpText="Controls ordinary chrome copy in tracker widgets, folder labels, settings descriptors, and windows opened from chat buttons. Accent-colored button text and active icons follow Accent Color instead. Gradients use a compatible fallback where plain CSS color is required."
                   emptyText={localizeUi("ui.panels.appearancesettings.schemeDefaultValue1", {
                     value1: getDefaultChatChromeTextColor(theme),
@@ -4386,7 +4637,24 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   emptyPreviewValue={getDefaultChatChromeTextColor(theme)}
                   clearLabel="Reset to default"
                 />
+                <ThemeColorNotes
+                  kind="text"
+                  value={chatChromeTextColor || getDefaultChatChromeTextColor(theme)}
+                  background=""
+                  themeCss={null}
+                  themeName={null}
+                  onFix={setChatChromeTextColor}
+                />
               </SearchableSettingTarget>
+
+              {textFollowsDark ? (
+                <p className="text-[0.625rem] text-[var(--muted-foreground)]" data-text-follows-dark>
+                  {localizeUi(
+                    "theming.pickers.textFollowsDark",
+                    "Light mode uses your Dark text colours until you pick its own.",
+                  )}
+                </p>
+              ) : null}
 
               <div id={getSettingsControlAnchorId("text-outline-width")} className="flex scroll-mt-3 flex-col gap-1.5">
                 <span className="text-[0.6875rem] font-medium inline-flex items-center gap-1">
@@ -4587,6 +4855,13 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     </span>
                   </div>
                 </label>
+                <ToggleSetting
+                  anchorId={getSettingsControlAnchorId("chat-art-behind-panels")}
+                  label={localizeUi("theming.chat.artBehindPanels")}
+                  checked={chatArtBehindPanels}
+                  onChange={setChatArtBehindPanels}
+                  help={localizeUi("theming.chat.artBehindPanelsHelp")}
+                />
                 <label className="flex items-center gap-2">
                   <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] font-medium">
                     {localizeUi("ui.panels.appearancesettings.chatListBackgrounds")}
@@ -5225,6 +5500,17 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 onChange={setRoleplayStretchMessages}
                 help={localizeUi("settings.controls.stretchRoleplayMessages.help")}
               />
+              <ToggleSetting
+                anchorId={getSettingsControlAnchorId("hide-name-line")}
+                label={localizeUi("settings.controls.hideNameLine.label", {
+                  defaultValue: "Hide line under names",
+                })}
+                checked={hideMessageNameRule}
+                onChange={setHideMessageNameRule}
+                help={localizeUi("settings.controls.hideNameLine.help", {
+                  defaultValue: "Removes the thin line under character and persona names in roleplay messages.",
+                })}
+              />
             </div>
           </SettingsSection>
 
@@ -5698,12 +5984,16 @@ function AddonsSettings() {
 const THEME_PREVIEW_DEBOUNCE_MS = 300;
 
 function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
+  const allowThemeHtml = useUIStore((s) => s.allowThemeHtml);
+  const setAllowThemeHtml = useUIStore((s) => s.setAllowThemeHtml);
   const { t: localizeUi } = useUiTranslation();
   const { data: syncedThemes = [], isLoading } = useThemes();
   const createTheme = useCreateTheme();
   const updateTheme = useUpdateTheme();
   const deleteTheme = useDeleteTheme();
   const setActiveTheme = useSetActiveTheme();
+  const activateTheme = useActivateTheme();
+  const queryClient = useQueryClient();
   const activeCustomTheme = syncedThemes.find((theme) => theme.isActive) ?? null;
   const isSavingTheme = createTheme.isPending || updateTheme.isPending || setActiveTheme.isPending;
 
@@ -5712,7 +6002,15 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const [editingId, setEditingId] = useState<string | null>(null); // null = creating new
   const [themeName, setThemeName] = useState("");
   const [themeCss, setThemeCss] = useState("");
+  const [themeMeta, setThemeMeta] = useState<ThemeMeta>({});
   const [livePreview, setLivePreview] = useState(true);
+  const [importQueue, setImportQueue] = useState<Array<ThemePackage & { metaProblems: string[] }>>([]);
+  const [importBusy, setImportBusy] = useState(false);
+  const [previewProblems, setPreviewProblems] = useState<ThemeGuardProblem[]>([]);
+  // What the chrome guard found when Save was pressed; cleared by the next edit.
+  const [saveProblems, setSaveProblems] = useState<ThemeGuardProblem[]>([]);
+  const cssBoxRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => setSaveProblems([]), [themeCss, themeMeta]);
 
   // Replacing a dense app-level stylesheet invalidates styles across the full
   // document. Keep typing immediate and apply only the settled preview instead
@@ -5723,6 +6021,8 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
 
     if (!editorOpen || !livePreview) {
       existingStyle?.remove();
+      document.getElementById(`${previewStyleId}-important`)?.remove();
+      setPreviewProblems([]);
       return;
     }
 
@@ -5732,18 +6032,44 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
       document.head.appendChild(style);
     }
 
+    style.dataset.mariCustomCss = "preview";
+    let guardTimeout: number | undefined;
     const previewTimeout = window.setTimeout(() => {
-      style.textContent = sanitizeAppCss(themeCss);
+      const css = sanitizeAppCss(`${themeFontFaceCss(themeMeta)}\n${themeCss}`);
+      style.media = "";
+      style.textContent = css;
       // Keep the preview after the active-theme injector's saved CSS.
       document.head.appendChild(style);
+      let important = document.getElementById(`${previewStyleId}-important`) as HTMLStyleElement | null;
+      const importantCss = extractImportantThemeCss(css);
+      if (importantCss) {
+        important ??= document.createElement("style");
+        important.id = `${previewStyleId}-important`;
+        important.dataset.mariCustomCss = "preview";
+        important.media = "";
+        important.textContent = importantCss;
+        document.head.appendChild(important);
+      } else important?.remove();
+      // The preview obeys the same rule as a saved theme: it may restyle the top bar and the
+      // sidebars, never hide, move or cover them. A preview that does is paused, with the reason.
+      guardTimeout = window.setTimeout(() => {
+        const sheets = [style, important].filter((sheet): sheet is HTMLStyleElement => !!sheet?.isConnected);
+        const problems = checkProtectedChrome(sheets);
+        if (problems.length > 0) sheets.forEach((sheet) => (sheet.media = "not all"));
+        setPreviewProblems(problems);
+      }, 450);
     }, THEME_PREVIEW_DEBOUNCE_MS);
 
-    return () => window.clearTimeout(previewTimeout);
-  }, [editorOpen, livePreview, themeCss]);
+    return () => {
+      window.clearTimeout(previewTimeout);
+      window.clearTimeout(guardTimeout);
+    };
+  }, [editorOpen, livePreview, themeCss, themeMeta]);
 
   useEffect(
     () => () => {
       document.getElementById("marinara-css-editor-preview")?.remove();
+      document.getElementById("marinara-css-editor-preview-important")?.remove();
     },
     [],
   );
@@ -5752,6 +6078,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     setEditingId(null);
     setThemeName("");
     setThemeCss(CSS_TEMPLATE);
+    setThemeMeta({});
     setEditorOpen(true);
   }, []);
 
@@ -5759,242 +6086,358 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     setEditingId(theme.id);
     setThemeName(theme.name);
     setThemeCss(normalizeThemeCss(theme.css));
+    setThemeMeta(theme.meta ?? {});
     setEditorOpen(true);
   }, []);
 
-  const handleSave = useCallback(async () => {
-    try {
-      const name = themeName.trim() || "Untitled Theme";
-      const css = normalizeThemeCss(themeCss);
-      if (editingId) {
-        await updateTheme.mutateAsync({ id: editingId, name, css });
-        toast.success(localizeUi("ui.panels.themessettings.themeValue1Updated", { value1: name }));
-      } else {
-        const theme = await createTheme.mutateAsync({
-          name,
-          css,
-          installedAt: new Date().toISOString(),
-        });
-        await setActiveTheme.mutateAsync(theme.id);
-        toast.success(localizeUi("ui.panels.themessettings.themeValue1SavedAndActivated", { value1: name }));
-      }
-      setEditorOpen(false);
-    } catch (err) {
-      console.error("[ThemesSettings] Failed to save theme:", err);
-      toast.error(localizeUi("ui.panels.themessettings.failedToSaveThemeCheckTheBrowserConsoleFor"));
-    }
-  }, [createTheme, editingId, setActiveTheme, themeCss, themeName, updateTheme, localizeUi]);
+  // "Edit theme" from the safety bar or a theme preview opens the editor on that theme.
+  const editRequestId = useThemeEditRequest((state) => state.themeId);
+  useEffect(() => {
+    if (!editRequestId) return;
+    const theme = syncedThemes.find((item) => item.id === editRequestId);
+    if (!theme) return;
+    takeThemeEditRequest();
+    openEditTheme(theme);
+  }, [editRequestId, openEditTheme, syncedThemes]);
 
-  const handleImportThemeFile = async (file: File) => {
-    try {
-      const text = await file.text();
-      const latestThemes = await api.get<Theme[]>("/themes");
-      let workingThemes = [...latestThemes];
-      let imported = 0;
-      let skipped = 0;
-      let failed = 0;
-      const skipMessages: string[] = [];
-      const failureMessages: string[] = [];
-
-      const recordSkippedTheme = (message: string) => {
-        skipped++;
-        skipMessages.push(message);
-      };
-
-      if (file.name.endsWith(".json")) {
-        const parsed = parseThemeJsonWithControlCharFallback(text);
-        const entries = getFolderImportEntries(parsed, ["themes"]);
-        for (const [index, entry] of entries.entries()) {
-          const source = getFolderManifestConfig(entry);
-          if (!source || typeof source !== "object" || Array.isArray(source)) {
-            recordSkippedTheme(`Entry ${index + 1} is not a theme object.`);
-            continue;
-          }
-          const record = source as Record<string, unknown>;
-          const importedThemeName =
-            typeof record.name === "string" && record.name.trim()
-              ? record.name.trim()
-              : file.name.replace(/\.json$/i, "");
-          if (typeof record.css !== "string") {
-            recordSkippedTheme(`"${importedThemeName}" is missing a css field.`);
-            continue;
-          }
-          const importedThemeCss = normalizeThemeCss(record.css);
-          if (!importedThemeCss.trim()) {
-            recordSkippedTheme(`"${importedThemeName}" has empty css.`);
-            continue;
-          }
-          const duplicate = findDuplicateTheme(workingThemes, importedThemeName, importedThemeCss);
-          if (duplicate) {
-            recordSkippedTheme(`"${importedThemeName}" is already synced.`);
-            continue;
-          }
-          try {
-            const created = await createTheme.mutateAsync({
-              name: importedThemeName,
-              css: importedThemeCss,
-              installedAt: new Date().toISOString(),
-            });
-            workingThemes = [created, ...workingThemes];
-            imported++;
-          } catch (err) {
-            failed++;
-            failureMessages.push(
-              err instanceof Error ? `"${importedThemeName}" failed: ${err.message}` : `"${importedThemeName}" failed.`,
-            );
-            console.warn("[ThemesSettings] Failed to import theme entry:", importedThemeName, err);
-          }
+  const handleSave = useCallback(
+    async (force = false) => {
+      try {
+        const name = themeName.trim() || "Untitled Theme";
+        const css = normalizeThemeCss(themeCss);
+        // Save runs the same guard as a live theme first, whether or not Preview is on, so a theme
+        // that hides or covers the protected chrome is caught here and not on someone else's screen.
+        if (!force) {
+          const problems = checkThemeCss(`${themeFontFaceCss(themeMeta)}\n${css}`);
+          setSaveProblems(problems);
+          if (problems.length > 0) return;
         }
-      } else {
-        const importedThemeName = file.name.replace(/\.css$/, "");
-        const importedThemeCss = normalizeThemeCss(text);
-        const duplicate = findDuplicateTheme(workingThemes, importedThemeName, importedThemeCss);
-        if (duplicate) {
-          recordSkippedTheme(`"${importedThemeName}" is already synced.`);
+        setSaveProblems([]);
+        if (editingId) {
+          await updateTheme.mutateAsync({ id: editingId, name, css, meta: themeMeta });
+          // Edited CSS gets a fresh check from the chrome guard.
+          if (useThemeSafetyStore.getState().blockedThemeId === editingId) {
+            useThemeSafetyStore.getState().clearBlockedTheme();
+          }
+          toast.success(localizeUi("ui.panels.themessettings.themeValue1Updated", { value1: name }));
         } else {
-          await createTheme.mutateAsync({
-            name: importedThemeName,
-            css: importedThemeCss,
+          const theme = await createTheme.mutateAsync({
+            name,
+            css,
+            meta: themeMeta,
             installedAt: new Date().toISOString(),
           });
-          imported++;
+          await activateTheme(theme);
+          toast.success(localizeUi("ui.panels.themessettings.themeValue1SavedAndActivated", { value1: name }));
         }
+        setEditorOpen(false);
+      } catch (err) {
+        console.error("[ThemesSettings] Failed to save theme:", err);
+        toast.error(localizeUi("ui.panels.themessettings.failedToSaveThemeCheckTheBrowserConsoleFor"));
       }
+    },
+    [activateTheme, createTheme, editingId, themeCss, themeMeta, themeName, updateTheme, localizeUi],
+  );
 
-      if (imported > 0 || skipped > 0 || failed > 0) {
-        const summary = [
-          imported > 0 ? `${imported} imported` : null,
-          skipped > 0 ? `${skipped} skipped` : null,
-          failed > 0 ? `${failed} failed` : null,
-        ].filter(Boolean);
-        const message = `Theme import: ${summary.join(", ")}`;
-        const description = [...failureMessages, ...skipMessages].slice(0, 3).join(" ");
-        if (failed > 0) toast.warning(message, { description, duration: 12_000 });
-        else if (skipped > 0) toast.warning(message, { description, duration: 12_000 });
-        else toast.success(message);
-      } else {
+  const openThemeGuide = useCallback(() => {
+    useUIStore.getState().openModal("docs-viewer", { initialDoc: "appearance/theme-author-guide.md", newTab: true });
+  }, []);
+
+  const jumpToCssLine = useCallback((line: number) => {
+    const box = cssBoxRef.current;
+    if (!box) return;
+    const lines = box.value.split("\n");
+    const start = lines.slice(0, Math.max(0, line - 1)).reduce((total, text) => total + text.length + 1, 0);
+    const end = start + (lines[line - 1]?.length ?? 0);
+    box.focus();
+    box.setSelectionRange(start, end);
+    const lineHeight = Number.parseFloat(getComputedStyle(box).lineHeight) || 16;
+    box.scrollTop = Math.max(0, (line - 3) * lineHeight);
+  }, []);
+
+  // Importing reads the file, then shows a preview per theme before anything is installed.
+  const handleImportThemeFile = async (file: File) => {
+    try {
+      const packages = await readThemeFile(file);
+      const latestThemes = await api.get<Theme[]>("/themes");
+      // Same CSS counts as already installed only when the details (version, thumbnail, fonts, …)
+      // match too; a file that only bumps its version is offered as an update.
+      const fresh = packages.filter((pkg) => {
+        const twin = findDuplicateTheme(latestThemes, pkg.name, pkg.css);
+        return !twin || JSON.stringify(twin.meta ?? {}) !== JSON.stringify(pkg.meta ?? {});
+      });
+      const alreadySynced = packages.length - fresh.length;
+      if (packages.length === 0) {
         toast.error(localizeUi("ui.panels.themessettings.noValidThemesFoundInFile"));
+        return;
       }
+      if (alreadySynced > 0) {
+        toast.message(localizeUi("theming.import.alreadyInstalled", { count: alreadySynced }));
+      }
+      setImportQueue(fresh);
     } catch (err) {
       console.error("[ThemesSettings] Failed to import theme:", err);
       toast.error(
         err instanceof SyntaxError
           ? localizeUi("ui.panels.themessettings.failedToImportThemeTheJsonCouldNotBe")
-          : getPrivilegedActionErrorMessage(
-              err,
-              localizeUi("ui.panels.themessettings.failedToImportThemeEnsureValidFile"),
-            ),
+          : localizeUi("ui.panels.themessettings.failedToImportThemeEnsureValidFile"),
       );
     }
   };
+
+  // All or nothing: the theme is saved first, then its backgrounds (each one may be skipped), and
+  // only then are its settings applied and the theme switched on. Settings are snapshotted first,
+  // so "Go back" (or no answer) puts them back too, and a failure part-way restores them.
+  const handleInstallTheme = async (choice: ThemeInstallChoice) => {
+    const { pkg } = choice;
+    if (themeHasHtml(pkg.meta) && !useUIStore.getState().allowThemeHtml) {
+      toast.error(
+        localizeUi("theming.html.blocked", {
+          defaultValue: "This theme has HTML. Turn on Allow themes with HTML in CSS Themes to install it.",
+        }),
+      );
+      return;
+    }
+    setImportBusy(true);
+    let created: Theme | null = null;
+    let restore: ReturnType<typeof snapshotThemeSettings> | null = null;
+    try {
+      let theme: Theme;
+      if (choice.replaceId) {
+        theme = await updateTheme.mutateAsync({ id: choice.replaceId, name: pkg.name, css: pkg.css, meta: pkg.meta });
+        if (useThemeSafetyStore.getState().blockedThemeId === choice.replaceId) {
+          useThemeSafetyStore.getState().clearBlockedTheme();
+        }
+      } else {
+        const taken = new Set(syncedThemes.map((item) => item.name));
+        let name = pkg.name;
+        for (let n = 2; taken.has(name); n += 1) name = `${pkg.name} (${n})`;
+        theme = await createTheme.mutateAsync({
+          name,
+          css: pkg.css,
+          meta: pkg.meta,
+          installedAt: new Date().toISOString(),
+        });
+        created = theme;
+      }
+      let skipped = 0;
+      if (choice.addBackgrounds && pkg.meta.backgrounds?.length) {
+        for (const background of pkg.meta.backgrounds) {
+          try {
+            const formData = new FormData();
+            formData.append("file", dataUrlToFile(background.src, background.name));
+            await api.upload("/backgrounds/upload", formData);
+          } catch (err) {
+            skipped += 1;
+            console.warn("[ThemesSettings] Couldn't add a theme background:", background.name, err);
+          }
+        }
+        void queryClient.invalidateQueries({ queryKey: ["backgrounds"] });
+      }
+      const keys = pkg.meta.settings ? choice.settingsKeys : [];
+      if (keys.length > 0) restore = snapshotThemeSettings(keys);
+      if (pkg.meta.settings && keys.length > 0) applyThemeSettings(pkg.meta.settings, keys);
+      if (choice.activate && !choice.replaceId) {
+        await activateTheme(theme, restore as { settings: Record<string, unknown>; keys: string[] } | null);
+      }
+      created = null;
+      const done = choice.replaceId
+        ? localizeUi("ui.panels.themessettings.themeValue1Updated", { value1: theme.name })
+        : localizeUi("theming.import.installed", { name: theme.name });
+      if (skipped > 0) {
+        toast.warning(
+          `${done} ${localizeUi("theming.import.backgroundsSkipped", {
+            count: skipped,
+            defaultValue: "{{count}} background(s) couldn't be added.",
+          })}`,
+        );
+      } else toast.success(done);
+      setImportQueue((queue) => queue.slice(1));
+    } catch (err) {
+      console.error("[ThemesSettings] Failed to install theme:", err);
+      // Undo what got done: settings back as they were, and a theme created by this install removed.
+      if (restore) applyThemeSettings(restore.settings, restore.keys);
+      if (created) await deleteTheme.mutateAsync(created.id).catch(() => undefined);
+      toast.error(
+        getPrivilegedActionErrorMessage(err, localizeUi("ui.panels.themessettings.failedToImportThemeEnsureValidFile")),
+      );
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const pickThemeAsset = (accept: string, onFile: (dataUrl: string, file: File) => void) =>
+    triggerFilePicker({
+      accept,
+      onSelect: (files) => {
+        const file = files[0];
+        if (!file) return;
+        fileToDataUrl(file)
+          .then((dataUrl) => onFile(dataUrl, file))
+          .catch(() => toast.error(localizeUi("theming.editor.assetFailed")));
+      },
+    });
+
   // ── CSS Editor View ──
+  // Inside the same section as the list, so the new layout's Settings page (which shows only
+  // settings sections) shows the editor too.
   if (editorOpen) {
     return (
-      <div className="flex flex-col gap-3">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setEditorOpen(false)}
-              aria-label={localizeUi("settings.actions.closeThemeEditor")}
-              title={localizeUi("settings.actions.closeThemeEditor")}
-              className={SETTINGS_ICON_BUTTON_CLASS}
-            >
-              <X size="0.75rem" />
-            </button>
-            <span className="text-xs font-semibold">
-              {editingId
-                ? localizeUi("ui.panels.themessettings.editTheme")
-                : localizeUi("ui.panels.themessettings.newTheme")}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setLivePreview(!livePreview)}
-              aria-pressed={livePreview}
-              className={SETTINGS_BUTTON_CLASS}
-              title={
-                livePreview
-                  ? localizeUi("ui.panels.themessettings.disableLivePreview")
-                  : localizeUi("ui.panels.themessettings.enableLivePreview")
-              }
-            >
-              {livePreview ? <Eye size="0.75rem" /> : <EyeOff size="0.75rem" />}
-              {localizeUi("settings.notifications.customSound.actions.preview")}
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSavingTheme}
-              className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}
-            >
-              {isSavingTheme ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
-              {isSavingTheme
-                ? localizeUi("ui.noodle.stageprofileform.saving")
-                : localizeUi("ui.noodle.noodlehome.save")}
-            </button>
-          </div>
-        </div>
-
-        {/* Theme name */}
-        <input
-          type="text"
-          value={themeName}
-          onChange={(e) => setThemeName(e.target.value)}
-          placeholder={localizeUi("settings.placeholders.themeName")}
-          className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-        />
-
-        {/* CSS textarea */}
-        <textarea
-          value={themeCss}
-          onChange={(e) => setThemeCss(e.target.value)}
-          spellCheck={false}
-          className="min-h-[22.5rem] resize-y rounded-lg border border-[var(--border)] bg-[#0d1117] p-3 font-mono text-[0.6875rem] leading-relaxed text-emerald-300 outline-none transition-colors focus:border-[var(--primary)]/50 placeholder:text-white/20"
-          placeholder={localizeUi("settings.placeholders.themeCss")}
-        />
-
-        {/* Quick reference */}
-        <details className="group rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
-          <summary className="cursor-pointer px-3 py-2 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]">
-            {localizeUi("ui.panels.themessettings.cssVariableReference")}
-          </summary>
-          <div className="border-t border-[var(--border)] px-3 py-2 font-mono text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-              <span>{localizeUi("ui.panels.themessettings.background")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.pageBackground")}</span>
-              <span>{localizeUi("ui.panels.themessettings.foreground")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.mainText")}</span>
-              <span>{localizeUi("ui.panels.themessettings.primary")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.accentButtons")}</span>
-              <span>{localizeUi("ui.panels.themessettings.primaryForeground")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.textOnPrimary")}</span>
-              <span>{localizeUi("ui.panels.themessettings.secondary")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.cardsInputs")}</span>
-              <span>{localizeUi("ui.panels.themessettings.card")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.cardBackground")}</span>
-              <span>{localizeUi("ui.panels.themessettings.border")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.borders")}</span>
-              <span>{localizeUi("ui.panels.themessettings.mutedForeground")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.dimmedText")}</span>
-              <span>{localizeUi("ui.panels.themessettings.sidebar")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.sidebarBg")}</span>
-              <span>{localizeUi("ui.panels.themessettings.sidebarBorder")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.sidebarBorder_26eaad1")}</span>
-              <span>{localizeUi("ui.panels.themessettings.marinaraShellEdgeBorder")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.leftRightShellEdge")}</span>
-              <span>{localizeUi("ui.panels.themessettings.destructive")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.errorDelete")}</span>
-              <span>{localizeUi("ui.panels.themessettings.popover")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.dropdownBg")}</span>
-              <span>{localizeUi("ui.panels.themessettings.accent")}</span>
-              <span className="text-white/40">{localizeUi("ui.panels.themessettings.hoverHighlights")}</span>
+      <SettingsSection
+        title={localizeUi("ui.panels.themessettings.cssThemes")}
+        description={localizeUi("settings.sections.themeLibrary.componentDescription")}
+        icon={<Palette size="0.875rem" />}
+        {...getSettingsSectionAnchorProps("theme-library")}
+      >
+        <div className="flex flex-col gap-3" data-theme-editor="true">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEditorOpen(false)}
+                aria-label={localizeUi("settings.actions.closeThemeEditor")}
+                title={localizeUi("settings.actions.closeThemeEditor")}
+                className={SETTINGS_ICON_BUTTON_CLASS}
+              >
+                <X size="0.75rem" />
+              </button>
+              <span className="text-xs font-semibold">
+                {editingId
+                  ? localizeUi("ui.panels.themessettings.editTheme")
+                  : localizeUi("ui.panels.themessettings.newTheme")}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={openThemeGuide}
+                className={SETTINGS_ICON_BUTTON_CLASS}
+                aria-label={localizeUi("theming.guide.open", { defaultValue: "Theme author guide" })}
+                title={localizeUi("theming.guide.open", { defaultValue: "Theme author guide" })}
+              >
+                <BookOpen size="0.75rem" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLivePreview(!livePreview)}
+                aria-pressed={livePreview}
+                className={SETTINGS_BUTTON_CLASS}
+                title={
+                  livePreview
+                    ? localizeUi("ui.panels.themessettings.disableLivePreview")
+                    : localizeUi("ui.panels.themessettings.enableLivePreview")
+                }
+              >
+                {livePreview ? <Eye size="0.75rem" /> : <EyeOff size="0.75rem" />}
+                {localizeUi("settings.notifications.customSound.actions.preview")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={isSavingTheme}
+                className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}
+              >
+                {isSavingTheme ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
+                {isSavingTheme
+                  ? localizeUi("ui.noodle.stageprofileform.saving")
+                  : localizeUi("ui.noodle.noodlehome.save")}
+              </button>
             </div>
           </div>
-        </details>
-      </div>
+
+          {/* Theme name */}
+          <input
+            type="text"
+            value={themeName}
+            onChange={(e) => setThemeName(e.target.value)}
+            placeholder={localizeUi("settings.placeholders.themeName")}
+            className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
+          />
+
+          <ThemePackageDetails
+            meta={themeMeta}
+            onChange={setThemeMeta}
+            onPickThumbnail={() =>
+              pickThemeAsset("image/png,image/jpeg,image/webp", (dataUrl) => {
+                void shrinkImageDataUrl(dataUrl).then((thumbnail) => setThemeMeta((meta) => ({ ...meta, thumbnail })));
+              })
+            }
+            onAddFont={() =>
+              pickThemeAsset(".woff2,.woff,.ttf,.otf", (dataUrl, file) => {
+                // The family name comes from the font itself when it can be read, so it matches the
+                // name the theme's CSS uses; otherwise from the file name.
+                void readFontFamily(dataUrl).then((name) =>
+                  setThemeMeta((meta) => ({
+                    ...meta,
+                    fonts: [
+                      ...(meta.fonts ?? []),
+                      {
+                        family: name ?? file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " "),
+                        src: dataUrl,
+                      },
+                    ],
+                  })),
+                );
+              })
+            }
+            onAddBackground={() =>
+              pickThemeAsset("image/png,image/jpeg,image/webp", (dataUrl, file) =>
+                setThemeMeta((meta) => ({
+                  ...meta,
+                  backgrounds: [...(meta.backgrounds ?? []), { name: file.name, src: dataUrl }],
+                })),
+              )
+            }
+          />
+
+          {/* CSS textarea */}
+          <textarea
+            ref={cssBoxRef}
+            value={themeCss}
+            onChange={(e) => setThemeCss(e.target.value)}
+            spellCheck={false}
+            aria-label={localizeUi("theming.editor.cssLabel", { defaultValue: "Theme CSS" })}
+            className="min-h-[22.5rem] resize-y rounded-lg border border-[var(--border)] bg-[#0d1117] p-3 font-mono text-[0.6875rem] leading-relaxed text-emerald-300 outline-none transition-colors focus:border-[var(--primary)]/50 placeholder:text-white/20"
+            placeholder={localizeUi("settings.placeholders.themeCss")}
+          />
+
+          <ThemeEditorChecks
+            css={themeCss}
+            previewProblems={previewProblems}
+            saveProblems={saveProblems}
+            onSaveAnyway={() => void handleSave(true)}
+            onJumpToLine={jumpToCssLine}
+          />
+
+          {/* Quick reference: the stable v1.1 tokens and hooks; the full list is in the guide. */}
+          <details className="group rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
+            <summary className="cursor-pointer px-3 py-2 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]">
+              {localizeUi("ui.panels.themessettings.cssVariableReference")}
+            </summary>
+            <div className="border-t border-[var(--border)] px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-0.5">
+                {THEME_REFERENCE.map(([token, key, fallback]) => (
+                  <Fragment key={token}>
+                    <dt className="font-mono text-[var(--foreground)]">{token}</dt>
+                    <dd>{localizeUi(key, { defaultValue: fallback })}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+              <button
+                type="button"
+                onClick={openThemeGuide}
+                className="mt-2 inline-flex items-center gap-1 font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+              >
+                <BookOpen size="0.6875rem" />
+                {localizeUi("theming.guide.link", {
+                  defaultValue: "Theme author guide: every token, part hook and safety rule",
+                })}
+              </button>
+            </div>
+          </details>
+        </div>
+      </SettingsSection>
     );
   }
 
@@ -6038,16 +6481,38 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             </button>
           </div>
 
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("allow-theme-html")}
+            label={localizeUi("theming.html.allow", { defaultValue: "Allow themes with HTML (I accept the risk)" })}
+            checked={allowThemeHtml}
+            onChange={setAllowThemeHtml}
+            help={localizeUi("theming.html.allowHelp", {
+              defaultValue:
+                "Some themes add HTML to every message (a message template). Marinara removes scripts, links, images, forms and inline styles, but HTML written by someone else can still mislead you. Off: themes with HTML can't be installed, and installed ones show without their HTML.",
+            })}
+          />
+
+          {importQueue[0] ? (
+            <ThemeImportPreview
+              key={`${importQueue.length}-${importQueue[0].name}`}
+              pkg={importQueue[0]}
+              metaProblems={importQueue[0].metaProblems}
+              installed={syncedThemes}
+              remaining={importQueue.length - 1}
+              busy={importBusy}
+              onInstall={(choice) => void handleInstallTheme(choice)}
+              onSkip={() => setImportQueue((queue) => queue.slice(1))}
+            />
+          ) : null}
+
           {/* Active theme: None option */}
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium">{localizeUi("ui.panels.themessettings.installedThemes")}</span>
             <button
               onClick={() =>
-                setActiveTheme.mutate(null, {
-                  onError: (err) => {
-                    console.error("[ThemesSettings] Failed to reset active theme:", err);
-                    toast.error(localizeUi("ui.panels.themessettings.failedToResetTheActiveTheme"));
-                  },
+                activateTheme(null).catch((err: unknown) => {
+                  console.error("[ThemesSettings] Failed to reset active theme:", err);
+                  toast.error(localizeUi("ui.panels.themessettings.failedToResetTheActiveTheme"));
                 })
               }
               className={cn(
@@ -6075,19 +6540,40 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
               >
                 <button
                   onClick={() =>
-                    setActiveTheme.mutate(t.id, {
-                      onError: (err) => {
-                        console.error("[ThemesSettings] Failed to activate theme:", err);
-                        toast.error(localizeUi("ui.panels.themessettings.failedToActivateTheme"));
-                      },
+                    activateTheme(t).catch((err: unknown) => {
+                      console.error("[ThemesSettings] Failed to activate theme:", err);
+                      toast.error(localizeUi("ui.panels.themessettings.failedToActivateTheme"));
                     })
                   }
-                  className="flex flex-1 items-center gap-2 min-w-0"
+                  className="flex flex-1 items-center gap-2 min-w-0 text-left"
+                  data-theme-card={t.id}
                 >
-                  <FileCode2 size="0.75rem" className="mari-chrome-accent-icon shrink-0" />
-                  <span className="mari-chrome-text truncate">{t.name}</span>
+                  {t.meta?.thumbnail ? (
+                    <img
+                      src={t.meta.thumbnail}
+                      alt=""
+                      className="h-7 w-11 shrink-0 rounded object-cover ring-1 ring-[var(--border)]"
+                    />
+                  ) : (
+                    <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded bg-[var(--muted)]/60 ring-1 ring-[var(--border)]">
+                      <FileCode2 size="0.75rem" className="mari-chrome-accent-icon" />
+                    </span>
+                  )}
+                  <span className="flex min-w-0 flex-col">
+                    <span className="mari-chrome-text truncate">{t.name}</span>
+                    {t.meta?.author || t.meta?.version ? (
+                      <span className="mari-chrome-text-muted truncate text-[0.625rem]">
+                        {[
+                          t.meta?.author ? localizeUi("theming.import.by", { author: t.meta.author }) : null,
+                          t.meta?.version ? `v${t.meta.version}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    ) : null}
+                  </span>
                   {activeCustomTheme?.id === t.id && (
-                    <Check size="0.75rem" className="mari-chrome-accent-icon shrink-0" />
+                    <Check size="0.75rem" className="mari-chrome-accent-icon ml-auto shrink-0" />
                   )}
                 </button>
                 <button
@@ -6095,35 +6581,18 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                   onClick={() => openEditTheme(t)}
                   className={SETTINGS_ICON_BUTTON_CLASS}
                   title={localizeUi("settings.actions.editThemeCss")}
-                  aria-label={localizeUi("settings.actions.editThemeCss")}
+                  aria-label={`${localizeUi("settings.actions.editThemeCss")}: ${t.name}`}
                 >
                   <Code size="0.75rem" />
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    downloadJsonFile(
-                      {
-                        kind: "marinara.theme-folder",
-                        version: 1,
-                        exportedAt: new Date().toISOString(),
-                        folderName: "Themes",
-                        themes: [
-                          createFolderEntry({
-                            folderName: "Themes",
-                            itemName: t.name,
-                            itemKind: "marinara.theme",
-                            config: { name: t.name, css: t.css },
-                            fallbackName: "theme",
-                          }),
-                        ],
-                      },
-                      `${sanitizeExportFilenamePart(t.name, "theme")}.json`,
-                    );
+                    downloadJsonFile(buildThemeFile(t), `${sanitizeExportFilenamePart(t.name, "theme")}.json`);
                   }}
                   className={SETTINGS_ICON_BUTTON_CLASS}
                   title={localizeUi("settings.actions.exportTheme")}
-                  aria-label={localizeUi("settings.actions.exportTheme")}
+                  aria-label={`${localizeUi("settings.actions.exportTheme")}: ${t.name}`}
                 >
                   <Upload size="0.75rem" />
                 </button>
@@ -6152,7 +6621,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                   }}
                   className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger")}
                   title={localizeUi("settings.actions.removeTheme")}
-                  aria-label={localizeUi("settings.actions.removeTheme")}
+                  aria-label={`${localizeUi("settings.actions.removeTheme")}: ${t.name}`}
                 >
                   <Trash2 size="0.75rem" />
                 </button>
@@ -6173,19 +6642,27 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
           </div>
 
           {/* Info box */}
-          <div className="rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-            <strong>{localizeUi("ui.panels.themessettings.tip")}</strong>{" "}
-            {localizeUi("ui.panels.themessettings.cssThemesCanOverrideAnyCssVariableEG")}{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--background"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--primary"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--marinara-app-accent-solid"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--marinara-theme-accent-pulse"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--marinara-chat-chrome-accent"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--marinara-chat-chrome-accent-gradient"}</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{"--marinara-chat-chrome-surface-bg"}</code>
-            {localizeUi("ui.panels.themessettings.orAddCustomStylesJsonThemesShouldHave")}{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">{'{ "name": "...", "css": "..." }'}</code>{" "}
-            {localizeUi("ui.panels.themessettings.formatImportedThemeFilesSyncToThisMarinaraServer")}
+          <div className="flex flex-col gap-1.5 rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            <p>
+              <strong>{localizeUi("ui.panels.themessettings.tip")}</strong>{" "}
+              {localizeUi("theming.tip.body", {
+                defaultValue:
+                  "Create Theme starts from a template built on the stable theme tokens, such as {{a}}, {{b}} and {{c}}. They keep their names between updates, so your theme keeps working. Themes sync to every device on this server.",
+                a: "--primary",
+                b: "--mari-font-ui",
+                c: "--mari-app-backdrop",
+              })}
+            </p>
+            <button
+              type="button"
+              onClick={openThemeGuide}
+              className="inline-flex items-center gap-1 self-start font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+            >
+              <BookOpen size="0.6875rem" />
+              {localizeUi("theming.guide.link", {
+                defaultValue: "Theme author guide: every token, part hook and safety rule",
+              })}
+            </button>
           </div>
         </div>
       </SettingsSection>
@@ -6193,100 +6670,230 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   );
 }
 
+/** Author, version, schemes, thumbnail, bundled settings, fonts and backgrounds: what a theme file carries. */
+function ThemePackageDetails({
+  meta,
+  onChange,
+  onPickThumbnail,
+  onAddFont,
+  onAddBackground,
+}: {
+  meta: ThemeMeta;
+  onChange: (update: (meta: ThemeMeta) => ThemeMeta) => void;
+  onPickThumbnail: () => void;
+  onAddFont: () => void;
+  onAddBackground: () => void;
+}) {
+  const { t } = useUiTranslation();
+  const field =
+    "min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[0.6875rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]/50";
+  const set = (patch: Partial<ThemeMeta>) => onChange((current) => ({ ...current, ...patch }));
+  const settingsCount = Object.keys(meta.settings ?? {}).length;
+  return (
+    <details className="rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]" data-theme-package-details>
+      <summary className="cursor-pointer px-3 py-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+        {t("theming.editor.packageDetails", "Sharing details (author, version, thumbnail, fonts)")}
+      </summary>
+      <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 border-t border-[var(--border)] px-3 py-2.5 text-[0.6875rem]">
+        <span>{t("theming.editor.author", "Author")}</span>
+        <input
+          className={field}
+          value={meta.author ?? ""}
+          onChange={(e) => set({ author: e.target.value || undefined })}
+        />
+        <span>{t("theming.editor.version", "Version")}</span>
+        <input
+          className={field}
+          value={meta.version ?? ""}
+          placeholder="1.0"
+          onChange={(e) => set({ version: e.target.value || undefined })}
+        />
+        <span>{t("theming.editor.madeFor", "Made for")}</span>
+        <select
+          className={field}
+          value={meta.colorScheme ?? ""}
+          onChange={(e) => set({ colorScheme: (e.target.value || undefined) as ThemeMeta["colorScheme"] })}
+        >
+          <option value="">{t("theming.editor.madeForUnset", "Not set")}</option>
+          <option value="dark">{t("theming.editor.madeForDark", "Dark")}</option>
+          <option value="light">{t("theming.editor.madeForLight", "Light")}</option>
+          <option value="both">{t("theming.editor.madeForBoth", "Dark and Light")}</option>
+        </select>
+        <span className="self-start pt-1">{t("theming.editor.description", "Description")}</span>
+        <textarea
+          className={cn(field, "min-h-12 resize-y")}
+          value={meta.description ?? ""}
+          onChange={(e) => set({ description: e.target.value || undefined })}
+        />
+        <span>{t("theming.editor.thumbnail", "Thumbnail")}</span>
+        <div className="flex items-center gap-2">
+          {meta.thumbnail ? (
+            <img src={meta.thumbnail} alt="" className="h-8 w-12 rounded object-cover ring-1 ring-[var(--border)]" />
+          ) : null}
+          <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={onPickThumbnail}>
+            {meta.thumbnail ? t("theming.editor.change", "Change") : t("theming.editor.choose", "Choose image")}
+          </button>
+          {meta.thumbnail ? (
+            <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={() => set({ thumbnail: undefined })}>
+              {t("theming.editor.remove", "Remove")}
+            </button>
+          ) : null}
+        </div>
+        <span>{t("theming.editor.settings", "Settings")}</span>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="basis-full text-[var(--muted-foreground)]">
+            {settingsCount
+              ? t("theming.editor.settingsCount", "{{count}} Appearance settings included", { count: settingsCount })
+              : t("theming.editor.settingsNone", "None")}
+          </span>
+          <button
+            type="button"
+            className={SETTINGS_BUTTON_CLASS}
+            onClick={() => set({ settings: currentThemeSettings() })}
+          >
+            {t("theming.editor.useMySettings", "Use my current Appearance")}
+          </button>
+          {settingsCount ? (
+            <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={() => set({ settings: undefined })}>
+              {t("theming.editor.remove", "Remove")}
+            </button>
+          ) : null}
+        </div>
+        <span className="self-start pt-1">{t("theming.editor.fonts", "Fonts")}</span>
+        <div className="flex flex-col gap-1">
+          {(meta.fonts ?? []).map((font, index) => (
+            <div key={`${font.family}-${index}`} className="flex items-center gap-2">
+              <input
+                className={cn(field, "flex-1")}
+                value={font.family}
+                aria-label={t("theming.editor.fontFamily", "Font family name")}
+                onChange={(e) =>
+                  set({
+                    fonts: (meta.fonts ?? []).map((item, i) =>
+                      i === index ? { ...item, family: e.target.value } : item,
+                    ),
+                  })
+                }
+              />
+              <button
+                type="button"
+                className={SETTINGS_BUTTON_CLASS}
+                onClick={() => set({ fonts: (meta.fonts ?? []).filter((_, i) => i !== index) })}
+              >
+                {t("theming.editor.remove", "Remove")}
+              </button>
+            </div>
+          ))}
+          <button type="button" className={cn(SETTINGS_BUTTON_CLASS, "self-start")} onClick={onAddFont}>
+            <Plus size="0.75rem" />
+            {t("theming.editor.addFont", "Add font file")}
+          </button>
+        </div>
+        <span className="self-start pt-1">{t("theming.editor.backgrounds", "Backgrounds")}</span>
+        <div className="flex flex-col gap-1">
+          {(meta.backgrounds ?? []).map((background, index) => (
+            <div key={`${background.name}-${index}`} className="flex items-center gap-2">
+              <img src={background.src} alt="" className="h-6 w-10 rounded object-cover ring-1 ring-[var(--border)]" />
+              <span className="min-w-0 flex-1 truncate">{background.name}</span>
+              <button
+                type="button"
+                className={SETTINGS_BUTTON_CLASS}
+                onClick={() => set({ backgrounds: (meta.backgrounds ?? []).filter((_, i) => i !== index) })}
+              >
+                {t("theming.editor.remove", "Remove")}
+              </button>
+            </div>
+          ))}
+          <button type="button" className={cn(SETTINGS_BUTTON_CLASS, "self-start")} onClick={onAddBackground}>
+            <Plus size="0.75rem" />
+            {t("theming.editor.addBackground", "Add background")}
+          </button>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+/** The editor's quick reference: [token or hook, i18n key, English]. The guide has the rest. */
+const THEME_REFERENCE: Array<[string, string, string]> = [
+  ["--background / --foreground", "theming.ref.base", "Page background and text"],
+  ["--primary", "theming.ref.primary", "Accent: buttons, links, focus"],
+  ["--card / --sidebar / --border", "theming.ref.surfaces", "Panels, sidebars and lines"],
+  ["--mari-font-ui / -heading / -chat", "theming.ref.fonts", "App, title and message fonts"],
+  ["--mari-selected-tint", "theming.ref.selected", "Selected rows, tabs and pills"],
+  ["--mari-app-backdrop", "theming.ref.backdrop", "Art behind the whole app, chats included"],
+  ["--mari-page-veil", "theming.ref.veil", "Tint over Settings, Library and editors"],
+  ["--mari-top-bar-bg", "theming.ref.topBar", "Top bar background (tabs and icons stay on top)"],
+  ["--mari-home-widget-*", "theming.ref.homeWidgets", "Home widget borders, fonts, sizes and colours"],
+  ["--mari-text-outline / --mari-dialogue-color", "theming.ref.chatText", "Message outline and dialogue colour"],
+  ["--mari-composer-placeholder", "theming.ref.placeholder", "Message box placeholder, as a quoted string"],
+  ['[data-mari-part="message"]', "theming.ref.message", "One message: avatar, header, actions, reasoning parts inside"],
+  ["data-character / data-message-index", "theming.ref.messageData", "Who wrote it and its number (also --mari-msg-*)"],
+  [':root[data-chat-tags~="tag"]', "theming.ref.tags", "Style chats by their tags"],
+];
+
 const CSS_TEMPLATE = `/* ═══════════════════════════════════════
-   My Custom Theme
+   My Custom Theme  ·  theme tokens v1
+   Remove the comment marks around a line and set your own value.
+   Every token is listed in the Theme Author Guide (book icon above).
    ═══════════════════════════════════════ */
 
 :root {
-  /* ── Core Colors ── */
+  --mari-tokens-version: 1;
+
+  /* ── Fonts ── */
+  /* --mari-font-ui: "Inter", system-ui, sans-serif; */
+  /* --mari-font-heading: Georgia, serif; */
+  /* --mari-font-chat: Georgia, serif; */
+
+  /* ── Accent and selection ── */
+  /* --primary: #a78bfa; */
+  /* --primary-foreground: #ffffff; */
+  /* --mari-selected-tint: var(--primary); */
+  /* --ring: var(--primary); */
+
+  /* ── Chat modes ── */
+  /* --mari-mode-conversation: #60a5fa; */
+  /* --mari-mode-roleplay: #f472b6; */
+  /* --mari-mode-game: #34d399; */
+
+  /* ── Status and gauges (the colour-blind-safe setting still wins) ── */
+  /* --mari-status-online: #22c55e; */
+  /* --mari-gauge-ok: #22c55e; */
+  /* --mari-gauge-warn: #eab308; */
+  /* --mari-gauge-danger: #ef4444; */
+
+  /* ── Art behind the whole app (make --card and --sidebar translucent to see it) ── */
+  /* --mari-app-backdrop: url("data:image/webp;base64,…"); */
+}
+
+/* Dark and light can differ. Colours are full CSS colours, never a bare "270 25% 8%". */
+[data-theme="dark"] {
   /* --background: #0a0a0f; */
   /* --foreground: #e4e4e7; */
-  /* --primary: #a78bfa; */
-  /* --primary-foreground: #fff; */
-  /* --marinara-app-accent-solid: var(--primary); */
-  /* --marinara-app-accent-gradient: linear-gradient(90deg, var(--marinara-app-accent-solid), color-mix(in srgb, var(--marinara-app-accent-solid) 76%, var(--foreground) 24%), var(--marinara-app-accent-solid)); */
-  /* --marinara-theme-accent-pulse: enabled; */
-  /* --marinara-theme-accent-pulse-source: #a78bfa; */
-
-  /* ── Surface Colors ── */
   /* --card: #111118; */
-  /* --secondary: #1a1a24; */
-  /* --accent: #252534; */
   /* --popover: #111118; */
-
-  /* ── Borders ── */
+  /* --secondary: #1a1a24; */
+  /* --muted-foreground: #a1a1aa; */
   /* --border: #27272a; */
-  /* --sidebar-border: #27272a; */
-  /* --marinara-shell-edge-border: color-mix(in srgb, var(--primary) 14%, var(--background) 86%); */
-
-  /* ── Text ── */
-  /* --muted-foreground: #71717a; */
-
-  /* ── Sidebar ── */
   /* --sidebar: #0c0c12; */
-
-  /* ── Shared Chat / Roleplay / Game Chrome ── */
-  /* --marinara-chat-chrome-accent: var(--marinara-app-accent-solid); */
-  /* --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient); */
-  /* --marinara-chat-chrome-text: var(--foreground); Non-action chrome copy. */
-  /* --marinara-chat-chrome-button-text-base: var(--marinara-chat-chrome-accent); */
-  /* --marinara-chat-chrome-highlight-text-base: var(--marinara-chat-chrome-accent); */
-  /* --marinara-chat-chrome-surface-bg: var(--card); */
-  /* --marinara-chat-chrome-surface-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-surface-bg) 92%, var(--foreground) 8%); */
-  /* --marinara-chat-chrome-surface-bg-active: color-mix(in srgb, var(--marinara-chat-chrome-surface-bg) 88%, var(--foreground) 12%); */
-  /* --marinara-chat-chrome-button-bg: var(--marinara-chat-chrome-surface-bg); */
-  /* --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-surface-bg-hover) 90%, var(--marinara-chat-chrome-accent) 10%); */
-  /* --marinara-chat-chrome-button-bg-active: color-mix(in srgb, var(--marinara-chat-chrome-surface-bg-active) 84%, var(--marinara-chat-chrome-accent) 16%); */
-  /* --marinara-chat-chrome-button-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 12%, transparent); */
-  /* --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 20%, transparent); */
-  /* --marinara-chat-chrome-button-border-active: color-mix(in srgb, var(--marinara-chat-chrome-accent) 24%, transparent); */
-  /* --marinara-chat-chrome-button-text: color-mix(in srgb, var(--marinara-chat-chrome-button-text-base) 64%, transparent); */
-  /* --marinara-chat-chrome-button-text-hover: color-mix(in srgb, var(--marinara-chat-chrome-button-text-base) 92%, transparent); */
-  /* --marinara-chat-chrome-button-text-active: color-mix(in srgb, var(--marinara-chat-chrome-button-text-base) 96%, transparent); */
-  /* --marinara-chat-chrome-panel-bg: var(--marinara-chat-chrome-button-bg); */
-  /* --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 16%, transparent); */
-  /* --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent); */
-  /* --marinara-chat-chrome-panel-text: color-mix(in srgb, var(--marinara-chat-chrome-text) 90%, transparent); */
-  /* --marinara-chat-chrome-panel-title: color-mix(in srgb, var(--marinara-chat-chrome-text) 96%, transparent); */
-  /* --marinara-chat-chrome-panel-muted: color-mix(in srgb, var(--marinara-chat-chrome-text) 58%, transparent); */
-  /* --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--marinara-chat-chrome-accent) 9%, transparent); */
-  /* --marinara-chat-chrome-highlight-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent); */
-  /* --marinara-chat-chrome-highlight-text: color-mix(in srgb, var(--marinara-chat-chrome-highlight-text-base) 94%, transparent); */
-  /* --marinara-chat-chrome-input-bg: var(--marinara-chat-chrome-surface-bg); */
-
-  /* ── Chat windows and drawers (Chat Settings and its sections) ── */
-  /* --mari-window-bg: var(--marinara-chat-chrome-panel-bg); */
-  /* --mari-window-border: var(--marinara-chat-chrome-panel-border); */
-  /* --mari-window-radius: calc(var(--radius) + 0.25rem); */
-  /* --mari-window-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4); */
-  /* --mari-window-header-bg: transparent; */
-  /* --mari-drawer-border: var(--border); */
-  /* --mari-drawer-header-bg-hover: color-mix(in oklab, var(--accent) 50%, transparent); */
+  /* --ov-line: color-mix(in srgb, var(--foreground) 10%, transparent); */
 }
 
-/* Uncomment and edit the variables above.
-   You can also target shared chrome directly:
-   .marinara-chat-toolbar-button { border-radius: 0.5rem; }
-   .marinara-chat-popover { box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.4); }
-   [data-window="chat-settings"] .mari-window__header { background: rgb(0 0 0 / 0.2); }
+[data-theme="light"] {
+  /* --background: #fafaf9; */
+  /* --foreground: #1c1917; */
+  /* --card: #ffffff; */
+  /* --border: #e7e5e4; */
+}
 
-   You can also add any custom CSS below: */
+/* Part hooks, for example:
+   [data-mari-part="message"][data-message-role="assistant"] { border-radius: 1rem; }
+   [data-mari-part="composer"] { border: 1px solid var(--primary); }
+   :root[data-chat-tags~="horror"] { --primary: #b91c1c; }
+
+   Add your own CSS below: */
 `;
-
-function parseThemeJsonWithControlCharFallback(text: string) {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch (parseErr) {
-    try {
-      const sanitized = text.replace(/"([^"\\]|\\.)*"/g, (match) =>
-        match.replace(/\r/g, "").replace(/\n/g, "\\n").replace(/\t/g, "\\t"),
-      );
-      return JSON.parse(sanitized) as unknown;
-    } catch {
-      throw parseErr;
-    }
-  }
-}
 
 function triggerFilePicker(options: {
   accept?: string;

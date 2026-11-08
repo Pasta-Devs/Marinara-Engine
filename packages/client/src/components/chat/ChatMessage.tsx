@@ -1,5 +1,6 @@
 import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
 import { avatarInitial } from "../../lib/avatar-initial";
+import { messageHooks } from "../../lib/message-hooks";
 // ──────────────────────────────────────────────
 // Chat: Message — mode-aware rendering
 // ──────────────────────────────────────────────
@@ -107,7 +108,13 @@ import { createMessageMacroResolver } from "../../lib/chat-macros";
 import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-source";
 import { HIGHLIGHT_CLASS, highlightAnswerValues } from "../../lib/onboarding-preview-highlight";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
-import { getDefaultChatTextColor, selectRoleplayAvatarStyle, useUIStore } from "../../stores/ui.store";
+import {
+  getDefaultChatTextColor,
+  selectRoleplayAvatarStyle,
+  useUIStore,
+  selectChatFontColor,
+  selectDefaultDialogueColor,
+} from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
 import { parseChatMetadata } from "../../lib/chat-display";
@@ -164,6 +171,7 @@ import {
   type MessageNoteSharing,
 } from "./MessageMarks";
 import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia";
+import { MessageTemplateSlot } from "./MessageTemplateSlot";
 
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
@@ -1137,6 +1145,7 @@ function OvThinkingToggle({
     <button
       type="button"
       className={cn("ov-thought-btn", expanded && "is-on", pulsing && "is-live")}
+      data-mari-part="reasoning"
       aria-expanded={expanded}
       aria-controls={expanded ? controls : undefined}
       title={t(expanded ? "chat.message.thoughts.collapse" : "chat.message.thoughts.expand")}
@@ -1164,7 +1173,7 @@ function OvThinkingText({
 }) {
   const { t } = useTranslation();
   return (
-    <div id={id} data-message-thinking-inline className="ov-thought-text">
+    <div id={id} data-message-thinking-inline data-mari-part="reasoning-text" className="ov-thought-text">
       {summaryUnavailable ? (
         <>
           <p>{t("chat.message.thoughts.unavailable.title")}</p>
@@ -1205,6 +1214,7 @@ function RoleplayThinkingDisclosure({
   return (
     <div
       data-message-thinking-inline
+      data-mari-part="reasoning"
       className="mb-2 overflow-hidden rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)]"
     >
       <div className="flex items-center">
@@ -1405,7 +1415,12 @@ function highlightDialogue(
     result.push(
       <DialogueTag
         key={`d${key++}`}
-        style={dialogueColor ? { color: dialogueColor } : undefined}
+        // A character's or persona's own colour is kept; the default one follows --mari-dialogue-color.
+        style={
+          dialogueColor
+            ? { color: ownDialogueColor ? dialogueColor : `var(--mari-dialogue-color, ${dialogueColor})` }
+            : undefined
+        }
         className={!dialogueColor ? "text-black dark:text-white" : ownDialogueColor ? CHARACTER_COLOR_CLASS : undefined}
       >
         {openQuote}
@@ -1983,8 +1998,8 @@ export function RoleplayMessagePreview({
   const { chatFontColor, defaultDialogueColor, theme, textStrokeWidth, textStrokeColor, boldDialogue, quoteFormat } =
     useUIStore(
       useShallow((state) => ({
-        chatFontColor: state.chatFontColor,
-        defaultDialogueColor: state.defaultDialogueColor,
+        chatFontColor: selectChatFontColor(state),
+        defaultDialogueColor: selectDefaultDialogueColor(state),
         theme: state.theme,
         textStrokeWidth: state.textStrokeWidth,
         textStrokeColor: state.textStrokeColor,
@@ -1999,9 +2014,8 @@ export function RoleplayMessagePreview({
   const previewStyle = useMemo<React.CSSProperties>(
     () => ({
       ...(chatFontColor ? { color: chatFontColor } : {}),
-      ...(textStrokeWidth > 0
-        ? { WebkitTextStroke: `${textStrokeWidth}px ${textStrokeColor}`, paintOrder: "stroke fill" }
-        : {}),
+      WebkitTextStroke: `var(--mari-text-outline, ${textStrokeWidth > 0 ? `${textStrokeWidth}px ${textStrokeColor}` : "0px transparent"})`,
+      paintOrder: "stroke fill",
     }),
     [chatFontColor, textStrokeColor, textStrokeWidth],
   );
@@ -2167,8 +2181,8 @@ export const ChatMessage = memo(function ChatMessage({
   } = useUIStore(
     useShallow((s) => ({
       chatFontSize: s.chatFontSize,
-      chatFontColor: s.chatFontColor,
-      defaultDialogueColor: s.defaultDialogueColor,
+      chatFontColor: selectChatFontColor(s),
+      defaultDialogueColor: selectDefaultDialogueColor(s),
       theme: s.theme,
       chatFontOpacity: s.chatFontOpacity,
       roleplayAvatarStyle: selectRoleplayAvatarStyle(s),
@@ -2196,17 +2210,19 @@ export const ChatMessage = memo(function ChatMessage({
   const colorInlineNames = chatColorInlineNames ?? legacyColorInlineNames;
   const remoteImages = useRemoteImagePolicy();
   // Build reusable text style objects (memoized to avoid unnecessary DOM updates)
+  // The outline is the user's Text Outline setting unless a theme sets --mari-text-outline (for
+  // example `0` to turn it off, or `1px #3b2a1a`), so themes don't need !important against it.
   const textStrokeStyle = useMemo<React.CSSProperties>(
-    () =>
-      textStrokeWidth > 0
-        ? { WebkitTextStroke: `${textStrokeWidth}px ${textStrokeColor}`, paintOrder: "stroke fill" }
-        : {},
+    () => ({
+      WebkitTextStroke: `var(--mari-text-outline, ${textStrokeWidth > 0 ? `${textStrokeWidth}px ${textStrokeColor}` : "0px transparent"})`,
+      paintOrder: "stroke fill",
+    }),
     [textStrokeWidth, textStrokeColor],
   );
   const textShadowStr = textStrokeWidth > 0 ? `0px 0px ${textStrokeWidth}px ${textStrokeColor}` : "";
   const messageTextStyle = useMemo<React.CSSProperties>(
     () => ({
-      fontSize: chatFontSize,
+      fontSize: `var(--mari-chat-font-size, ${chatFontSize}px)`,
       lineHeight: 1.5,
       ...(chatFontColor ? { color: `var(--mari-chat-resolved-text, ${chatFontColor})` } : {}),
       ...textStrokeStyle,
@@ -3041,6 +3057,16 @@ export const ChatMessage = memo(function ChatMessage({
   }, [displayContent, message.id, onVisualNovelSpeechParagraph, ttsConfig, visualNovel, visualNovelSpeech]);
 
   const displayName = isUser ? userName : charName;
+  // Theme hooks: who wrote it, its number and how long it took, as attributes and CSS variables.
+  const messageHookProps = messageHooks({
+    role: message.role,
+    characterId: isUser ? null : message.characterId,
+    characterName: displayName,
+    index: messageIndex,
+    generationMs: extra.generationInfo?.durationMs,
+    latest: isLastAssistantMessage && !isUser,
+    streaming: isStreaming,
+  });
   const avatarUrl = isUser
     ? msgPersona
       ? (msgPersona.avatarUrl ?? null)
@@ -4143,6 +4169,8 @@ export const ChatMessage = memo(function ChatMessage({
               multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
             )}
             data-message-id={message.id}
+            {...messageHookProps.attrs}
+            style={messageHookProps.style}
             data-card-css={message.characterId ?? undefined}
             onClick={handleMobileTap}
             onDoubleClick={handleRoleplayDoubleClick}
@@ -4222,6 +4250,7 @@ export const ChatMessage = memo(function ChatMessage({
                 />
               </div>
             ) : null}
+            <MessageTemplateSlot hook={messageHookProps.input} createdAt={message.createdAt} />
           </div>
           {imageLightbox && (
             <ChatImageLightbox
@@ -4239,6 +4268,7 @@ export const ChatMessage = memo(function ChatMessage({
 
     const rpActionsRow = (
       <div
+        data-mari-part="actions"
         onClickCapture={() => {
           if (matchMedia("(pointer: coarse)").matches) setShowActions(true);
         }}
@@ -4418,7 +4448,7 @@ export const ChatMessage = memo(function ChatMessage({
           <div className="ov-rpmsg__tools-float">{rpActions("tools")}</div>
         )
       ) : (
-        <div className="ov-rpmsg__head">
+        <div className="ov-rpmsg__head" data-mari-part="header">
           {rpNameMeta}
           <span className="ov-rpmsg__grow" />
           {/* Touch screens: the tools live in the long-press menu. */}
@@ -4439,11 +4469,11 @@ export const ChatMessage = memo(function ChatMessage({
             multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
           )}
           data-message-id={message.id}
-          data-message-role={message.role}
+          {...messageHookProps.attrs}
           data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
           onDoubleClick={handleRoleplayDoubleClick}
-          style={roleplayAvatarScaleStyle}
+          style={{ ...roleplayAvatarScaleStyle, ...messageHookProps.style }}
           {...longPress}
         >
           {/* Multi-select checkbox */}
@@ -4471,6 +4501,7 @@ export const ChatMessage = memo(function ChatMessage({
           {/* Avatar Column */}
           {showCompactRoleplayAvatar && (
             <div
+              data-mari-part="avatar"
               className={cn(
                 "mari-message-avatar flex flex-col items-center flex-shrink-0 pt-1",
                 roleplayAvatarsScrollable && "mari-scrollable-roleplay-avatar",
@@ -4539,7 +4570,7 @@ export const ChatMessage = memo(function ChatMessage({
                     "flex items-center justify-center ring-2 shadow-lg",
                     compactAvatarFrameClass,
                     isUser
-                      ? "bg-gradient-to-br from-neutral-500 to-neutral-600 ring-white/15"
+                      ? "bg-[image:var(--mari-user-avatar-placeholder)] ring-white/15"
                       : "mari-chrome-accent-tile mari-accent-animated ring-[var(--marinara-chat-chrome-button-border-active)]",
                   )}
                 >
@@ -4575,7 +4606,12 @@ export const ChatMessage = memo(function ChatMessage({
           >
             {/* Name + time (only if not grouped). The new layout puts them inside the bubble instead. */}
             {!isGrouped && !overhaulActive && (
-              <div className={cn("flex items-baseline gap-2 px-1", isUser && "flex-row-reverse")}>{rpNameMeta}</div>
+              <div
+                className={cn("flex items-baseline gap-2 px-1", isUser && "flex-row-reverse")}
+                data-mari-part="header"
+              >
+                {rpNameMeta}
+              </div>
             )}
 
             {/* New layout: Regenerate and swipes (anything that costs an API call) hang under the message's
@@ -4783,6 +4819,7 @@ export const ChatMessage = memo(function ChatMessage({
             ) : null}
 
             <MessageMarkIndicators message={message} className="px-1" />
+            <MessageTemplateSlot hook={messageHookProps.input} createdAt={message.createdAt} />
 
             {!isUser && replyCheckup && <div className="px-1">{replyCheckup}</div>}
 
@@ -4852,7 +4889,8 @@ export const ChatMessage = memo(function ChatMessage({
         multiSelectMode && isSelected && MESSAGE_SELECTION_SURFACE_CLASS,
       )}
       data-message-id={message.id}
-      data-message-role={message.role}
+      {...messageHookProps.attrs}
+      style={messageHookProps.style}
       onClick={handleMobileTap}
     >
       <div
@@ -4861,6 +4899,7 @@ export const ChatMessage = memo(function ChatMessage({
         {/* Avatar — only show for first in group */}
         {(!isUser || displayAvatarUrl) && (
           <div
+            data-mari-part="avatar"
             className={cn(
               "mari-message-avatar flex flex-col items-center flex-shrink-0 self-end",
               isGrouped && "invisible",
@@ -4929,7 +4968,7 @@ export const ChatMessage = memo(function ChatMessage({
         >
           {/* Name — only for first in group */}
           {!isGrouped && !isUser && (
-            <div className="flex items-center gap-2 px-3">
+            <div className="flex items-center gap-2 px-3" data-mari-part="header">
               {hiddenFromAIHeader}
               <span
                 className={cn(
@@ -5141,6 +5180,7 @@ export const ChatMessage = memo(function ChatMessage({
 
           {/* Hover actions (tap to toggle on mobile) */}
           <div
+            data-mari-part="actions"
             onClickCapture={() => {
               if (matchMedia("(pointer: coarse)").matches) setShowActions(true);
             }}
@@ -5353,6 +5393,7 @@ export const ChatMessage = memo(function ChatMessage({
           onClose={closeImageLightbox}
         />
       )}
+      <MessageTemplateSlot hook={messageHookProps.input} createdAt={message.createdAt} />
     </div>
   );
 });

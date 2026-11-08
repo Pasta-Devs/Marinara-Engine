@@ -22,6 +22,7 @@ export type SettingsSectionId =
   | "game-assets"
   | "app-style"
   | "text-scale"
+  | "accessibility"
   | "chat-display"
   | "roleplay-tracker"
   | "roleplay-messages"
@@ -231,6 +232,29 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
       "outline",
       "chrome text",
       "legibility",
+    ],
+  },
+  {
+    id: "accessibility",
+    tab: "appearance",
+    label: "Accessibility",
+    description: "Line and letter spacing, focus rings, high contrast and a colour-blind-safe palette.",
+    aliases: [
+      "a11y",
+      "accessibility",
+      "dyslexia",
+      "spacing",
+      "line height",
+      "letter spacing",
+      "focus",
+      "keyboard",
+      "high contrast",
+      "contrast",
+      "colour blind",
+      "color blind",
+      "deuteranopia",
+      "protanopia",
+      "low vision",
     ],
   },
   {

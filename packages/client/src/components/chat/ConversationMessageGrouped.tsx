@@ -25,15 +25,20 @@ import {
   MESSAGE_SELECTION_SURFACE_CLASS,
 } from "./message-selection-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import type { messageHooks } from "../../lib/message-hooks";
+import { MessageTemplateSlot } from "./MessageTemplateSlot";
 
 export function ConversationMessageGrouped({
   ctx,
   msgRef,
   reactionRow,
+  hooks,
 }: {
   ctx: MessageRenderContext;
   msgRef: RefObject<HTMLDivElement | null>;
   reactionRow?: ReactNode;
+  /** Theme hooks from lib/message-hooks.ts. */
+  hooks?: ReturnType<typeof messageHooks>;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const {
@@ -128,6 +133,8 @@ export function ConversationMessageGrouped({
       tabIndex={0}
       data-message-id={message.id}
       data-message-role={message.role}
+      {...hooks?.attrs}
+      style={hooks?.style}
       className={cn(
         "relative px-4 py-0.5 transition-colors hover:bg-[var(--secondary)]/30",
         isBubbleStyle && "hover:bg-transparent",
@@ -476,6 +483,7 @@ export function ConversationMessageGrouped({
           onPickReaction={undefined}
         />
       )}
+      {hooks ? <MessageTemplateSlot hook={hooks.input} createdAt={ctx.message.createdAt} /> : null}
     </div>
   );
 }

@@ -254,6 +254,7 @@ export function ConversationMessageActions({
         ref={barRef}
         className={cn("ov-cvh", (visible || moreAnchor) && "is-on")}
         data-component="ConversationMessage.Actions"
+        data-mari-part="actions"
       >
         {onPickReaction ? (
           <span className="ov-cvh__quick">
@@ -410,6 +411,7 @@ export function ConversationMessageActions({
         thinkingOnly && "max-sm:[&>*:not(.mari-message-thinking-action)]:hidden",
       )}
       data-component="ConversationMessage.Actions"
+      data-mari-part="actions"
     >
       <MsgAction
         icon={copied ? "✓" : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}

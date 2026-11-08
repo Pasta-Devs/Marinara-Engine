@@ -69,17 +69,17 @@ type RoutineSummaryResponse = { summary: string; generatedAt: string };
 type WeekDraftMode = "rewrite" | "adjust" | "vary" | "repair";
 
 const STATUS_OPTIONS: Array<{ value: ConversationPresenceStatus; label: string; className: string }> = [
-  { value: "online", label: "Online", className: "bg-green-500" },
-  { value: "idle", label: "Away", className: "bg-yellow-500" },
-  { value: "dnd", label: "Busy", className: "bg-red-500" },
-  { value: "offline", label: "Offline", className: "bg-gray-400" },
+  { value: "online", label: "Online", className: "bg-[var(--mari-status-online)]" },
+  { value: "idle", label: "Away", className: "bg-[var(--mari-status-idle)]" },
+  { value: "dnd", label: "Busy", className: "bg-[var(--mari-status-dnd)]" },
+  { value: "offline", label: "Offline", className: "bg-[var(--mari-status-offline)]" },
 ];
 
 const STATUS_COLORS: Record<ConversationPresenceStatus, string> = {
-  online: "bg-green-500",
-  idle: "bg-yellow-500",
-  dnd: "bg-red-500",
-  offline: "bg-gray-400",
+  online: "bg-[var(--mari-status-online)]",
+  idle: "bg-[var(--mari-status-idle)]",
+  dnd: "bg-[var(--mari-status-dnd)]",
+  offline: "bg-[var(--mari-status-offline)]",
 };
 
 const STATUS_LABELS: Record<ConversationPresenceStatus, string> = {

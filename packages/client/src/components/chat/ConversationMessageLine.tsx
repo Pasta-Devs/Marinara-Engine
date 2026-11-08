@@ -98,7 +98,10 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
       )}
 
       {/* Avatar column */}
-      <div className={cn("mari-message-avatar w-10 flex-shrink-0", shouldHideUserAvatar && "hidden")}>
+      <div
+        data-mari-part="avatar"
+        className={cn("mari-message-avatar w-10 flex-shrink-0", shouldHideUserAvatar && "hidden")}
+      >
         {!isGrouped && (
           <>
             {ctx.onOpenAboutMe ? (
@@ -159,7 +162,7 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
       <div className="mari-message-body min-w-0 flex-1">
         {/* Header */}
         {!isGrouped && (
-          <div className="mari-message-meta mb-0.5 flex items-baseline gap-2">
+          <div data-mari-part="header" className="mari-message-meta mb-0.5 flex items-baseline gap-2">
             {hiddenFromAIHeader}
             <ConversationMessageName
               displayName={displayName}

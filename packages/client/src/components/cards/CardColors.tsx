@@ -54,7 +54,7 @@ const VARIANTS = {
     boxFallback: "rgba(255, 255, 255, 0.12)",
     layout: "flex gap-3 flex-row-reverse",
     avatar:
-      "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-neutral-500 to-neutral-600 ring-2 ring-white/15",
+      "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[image:var(--mari-user-avatar-placeholder)] ring-2 ring-white/15",
     details: "flex min-w-0 flex-1 flex-col items-end space-y-1",
     box: "rounded-2xl rounded-tr-sm px-4 py-3 text-[0.8125rem] leading-[1.8] backdrop-blur-md ring-1 ring-white/10",
     body: "text-neutral-100",

@@ -3,6 +3,8 @@
 @import "./themes/sillytavern.css";
 @import "./themes/stage.css";
 @import "./overhaul-always.css";
+@import "./theme-tokens.css";
+@import "./accessibility.css";
 @import "./themes/chat-widgets.css";
 @import "./themes/chat-widget-surfaces.css";
 @import "./themes/seasonal-halloween.css";
@@ -4068,7 +4070,7 @@ body {
   background: var(--marinara-app-background-paint);
   color: var(--foreground);
   overflow: hidden;
-  font-family: var(--font-y2k);
+  font-family: var(--mari-font-ui);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

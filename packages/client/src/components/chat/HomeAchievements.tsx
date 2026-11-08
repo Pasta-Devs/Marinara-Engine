@@ -148,8 +148,8 @@ function CompactAchievementHighlight({
   const tone = achievement
     ? achievementTone(achievement)
     : kind === "latest"
-      ? "oklch(0.76 0.19 52)"
-      : "oklch(0.79 0.16 205)";
+      ? "var(--mari-mode-roleplay)"
+      : "var(--mari-mode-conversation)";
 
   return (
     <span data-achievement-highlight={kind} className="flex min-w-0 items-center gap-1.5 py-0 sm:gap-2 sm:py-0.5">

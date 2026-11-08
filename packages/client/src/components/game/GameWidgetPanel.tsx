@@ -66,6 +66,11 @@ const GAME_WIDGET_TRACK_CLASS = "bg-[var(--marinara-chat-chrome-panel-divider)]"
 const GAME_WIDGET_TILE_CLASS =
   "border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-highlight-bg)]";
 
+/** A colour at a given opacity; works for hex, named colours and var() alike. */
+function withAlpha(color: string, percent: number) {
+  return `color-mix(in srgb, ${color} ${percent}%, transparent)`;
+}
+
 /** Widget values keep the game's accent when Apply preset colors recolors the widget's text. */
 function accentTextStyle(accent: string): CSSProperties {
   return { color: accent, WebkitTextFillColor: accent };
@@ -1025,8 +1030,8 @@ function ProgressBarWidget({ widget }: { widget: HudWidget }) {
           style={{
             width: `${pct}%`,
             background: isDanger
-              ? "linear-gradient(90deg, #ef4444, #f87171)"
-              : `linear-gradient(90deg, ${accent}cc, ${accent})`,
+              ? "linear-gradient(90deg, var(--mari-gauge-danger), color-mix(in srgb, var(--mari-gauge-danger) 75%, white))"
+              : `linear-gradient(90deg, ${withAlpha(accent, 80)}, ${accent})`,
           }}
         />
       </div>
@@ -1038,7 +1043,7 @@ function GaugeWidget({ widget }: { widget: HudWidget }) {
   const { max = 100, dangerBelow } = widget.config;
   const value = getNumericWidgetValue(widget);
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
-  const accent = widget.accent ?? "#22c55e";
+  const accent = widget.accent ?? "var(--mari-gauge-ok)";
   const isDanger = dangerBelow != null && value < dangerBelow;
 
   // Semicircle gauge
@@ -1050,22 +1055,22 @@ function GaugeWidget({ widget }: { widget: HudWidget }) {
         {/* Track */}
         <div
           className="absolute inset-0 rounded-t-full border-4 border-b-0 border-[var(--marinara-chat-chrome-panel-divider)]"
-          style={{ borderTopColor: `${accent}20` }}
+          style={{ borderTopColor: withAlpha(accent, 12) }}
         />
         {/* Fill */}
         <div
           className="absolute bottom-0 left-1/2 h-full w-1 origin-bottom -translate-x-1/2 transition-transform duration-700"
           style={{
             transform: `translateX(-50%) rotate(${angle - 90}deg)`,
-            background: isDanger ? "#ef4444" : accent,
-            boxShadow: `0 0 6px ${isDanger ? "#ef444480" : accent + "60"}`,
+            background: isDanger ? "var(--mari-gauge-danger)" : accent,
+            boxShadow: `0 0 6px ${withAlpha(isDanger ? "var(--mari-gauge-danger)" : accent, isDanger ? 50 : 38)}`,
           }}
         />
       </div>
       <span
         className={cn(
           "mt-0.5 text-sm font-bold",
-          isDanger ? "text-red-400" : "text-[var(--marinara-chat-chrome-panel-title)]",
+          isDanger ? "text-[var(--mari-gauge-danger)]" : "text-[var(--marinara-chat-chrome-panel-title)]",
         )}
       >
         {value}

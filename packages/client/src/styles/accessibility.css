@@ -1,0 +1,134 @@
+/* ──────────────────────────────────────────────
+   Settings > Appearance > Accessibility (theming panel, batch 6)
+
+   App.tsx puts the user's choices on <html>:
+     data-mari-a11y-line-height    + --mari-a11y-line-height     line spacing in messages and long text
+     data-mari-a11y-letter-spacing + --mari-a11y-letter-spacing  letter spacing everywhere
+     data-mari-a11y-focus          strong focus rings
+     data-mari-contrast="more"     high contrast (the user's "On", or "Follow system" + prefers-contrast)
+     data-mari-cvd-safe            colour-blind-safe status, gauge and danger colours
+
+   These are the user's own needs, so they sit in mari-protected with !important: a custom theme
+   can't undo them. Themes can still tune the colours used here through the tokens below
+   (--mari-focus-ring-color, --mari-cvd-*), set on :root.
+   ────────────────────────────────────────────── */
+
+:root {
+  --mari-focus-ring-color: var(--primary);
+  --mari-focus-ring-contrast: var(--background);
+  --mari-cvd-good: #3b82f6;
+  --mari-cvd-warn: #eab308;
+  --mari-cvd-bad: #f97316;
+}
+
+[data-theme="light"] {
+  --mari-cvd-good: #1d4ed8;
+  --mari-cvd-warn: #a16207;
+  --mari-cvd-bad: #c2410c;
+}
+
+/* Skip links: out of sight until the keyboard lands on them. */
+.mari-skip-links {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2147483000;
+  display: flex;
+  gap: 0.375rem;
+  pointer-events: none;
+}
+.mari-skip-link {
+  position: absolute;
+  left: -9999px;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  pointer-events: auto;
+}
+.mari-skip-link:focus,
+.mari-skip-link:focus-visible {
+  position: static;
+  outline: 2px solid var(--mari-focus-ring-color);
+  outline-offset: 2px;
+}
+
+@layer mari-protected {
+  /* Skip links must stay reachable whatever a theme does. */
+  .mari-skip-link:focus,
+  .mari-skip-link:focus-visible {
+    position: static !important;
+    left: auto !important;
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* The user's spacing, focus, contrast and colour-blind choices are added to this layer by
+     lib/accessibility-css.ts with their values written in, so a theme can't redefine them. */
+
+  /* Windows High Contrast and other forced-colour modes: the browser drops background colours, so
+     switches, sliders and selected states lost their on/off look. These redraw them in system
+     colours (Highlight for "on" and "selected", CanvasText for outlines). */
+  @media (forced-colors: active) {
+    :is([data-settings-switch-track], .ov-switch) {
+      forced-color-adjust: none !important;
+      background: Canvas !important;
+      border: 1px solid CanvasText !important;
+    }
+    :is([data-settings-switch-thumb], .ov-switch span) {
+      forced-color-adjust: none !important;
+      background: CanvasText !important;
+      box-shadow: none !important;
+    }
+    :is([data-settings-switch-track][data-checked], .ov-switch.is-on, .ov-switch[aria-checked="true"]) {
+      background: Highlight !important;
+      border-color: Highlight !important;
+    }
+    :is([data-settings-switch-track][data-checked], .ov-switch.is-on, .ov-switch[aria-checked="true"])
+      :is([data-settings-switch-thumb], span) {
+      background: HighlightText !important;
+    }
+    input[type="range"] {
+      forced-color-adjust: none !important;
+      background: transparent !important;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      background: CanvasText !important;
+      border: 1px solid CanvasText !important;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      background: Highlight !important;
+      border: 2px solid CanvasText !important;
+    }
+    input[type="range"]::-moz-range-track {
+      background: CanvasText !important;
+    }
+    input[type="range"]::-moz-range-progress {
+      background: Highlight !important;
+    }
+    input[type="range"]::-moz-range-thumb {
+      background: Highlight !important;
+      border: 2px solid CanvasText !important;
+    }
+    :is(
+      [role="tab"][aria-selected="true"],
+      [role="option"][aria-selected="true"],
+      [role="menuitemradio"][aria-checked="true"],
+      [aria-pressed="true"],
+      [aria-current="page"],
+      [aria-current="true"],
+      .is-active
+    ):not(svg, svg *) {
+      outline: 2px solid Highlight !important;
+      outline-offset: -2px !important;
+    }
+  }
+}
+
+#mari-main:focus {
+  outline: none;
+}

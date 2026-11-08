@@ -98,12 +98,12 @@ function scheduleState(schedule: WeekSchedule | undefined, timeZone?: string, no
 
 function statusDotClass(status: ConversationPresenceStatus) {
   return status === "offline"
-    ? "bg-gray-400"
+    ? "bg-[var(--mari-status-offline)]"
     : status === "dnd"
-      ? "bg-red-500"
+      ? "bg-[var(--mari-status-dnd)]"
       : status === "idle"
-        ? "bg-yellow-500"
-        : "bg-green-500";
+        ? "bg-[var(--mari-status-idle)]"
+        : "bg-[var(--mari-status-online)]";
 }
 
 interface Props {

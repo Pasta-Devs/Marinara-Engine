@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { api, ApiError } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import { useDeviceLookStore } from "../stores/device-look.store";
+import { useThemeSafetyStore } from "../lib/theme-safety";
 import type { CreateThemeInput, Theme, UpdateThemeInput } from "@marinara-engine/shared";
 
 export const themeKeys = {
@@ -120,6 +121,37 @@ export function useSetActiveTheme() {
       qc.invalidateQueries({ queryKey: themeKeys.all });
     },
   });
+}
+
+/**
+ * Switch to a theme the way the Theme Library does: on success, ask "Keep this theme?" and go back
+ * to the previous one after 15 seconds unless the person keeps it (lib/theme-safety.ts).
+ * Switching to Default (null) never asks.
+ */
+export function useActivateTheme() {
+  const setActiveTheme = useSetActiveTheme();
+  const qc = useQueryClient();
+  return useCallback(
+    async (
+      theme: Pick<Theme, "id" | "name"> | null,
+      restoreSettings?: { settings: Record<string, unknown>; keys: string[] } | null,
+    ) => {
+      const themes = qc.getQueryData<Theme[]>(themeKeys.list()) ?? [];
+      const device = useDeviceLookStore.getState();
+      const previousId =
+        device.enabled && device.customThemeId !== undefined
+          ? device.customThemeId
+          : (themes.find((item) => item.isActive)?.id ?? null);
+      if ((theme?.id ?? null) === previousId) return;
+      await setActiveTheme.mutateAsync(theme?.id ?? null);
+      const safety = useThemeSafetyStore.getState();
+      if (theme && safety.blockedThemeId === theme.id) safety.clearBlockedTheme();
+      if (theme && safety.safeMode) safety.leaveSafeMode();
+      if (theme) safety.askToKeep({ themeId: theme.id, themeName: theme.name, previousId, restoreSettings });
+      else safety.settleKeep();
+    },
+    [qc, setActiveTheme],
+  );
 }
 
 export function useLegacyThemeMigration() {

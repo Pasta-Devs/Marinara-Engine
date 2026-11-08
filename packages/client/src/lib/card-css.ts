@@ -388,11 +388,12 @@ export function stripDangerousCss(css: string): string {
   out = canonicalizeKeywordEscapes(out);
 
   // ── Network exfiltration prevention ──
-  // Strip ALL url() except data: URIs for images and fonts (no external network requests).
+  // Strip ALL url() except data: URIs for images and fonts (no external network requests), and
+  // same-document fragment references like url(#grad) that SVG paints and filters use.
   // Allowed MIME prefixes are intentionally narrow: image/*, font/*, and the font-specific
   // application/font* and application/x-font* (no generic application/octet-stream).
   out = out.replace(
-    /url\s*\(\s*(['"]?)\s*(?!['"]?\s*data:(?:image\/|font\/|application\/(?:font|x-font)))[^)]*\)/gi,
+    /url\s*\(\s*(['"]?)\s*(?!['"]?\s*(?:data:(?:image\/|font\/|application\/(?:font|x-font))|#[\w-]+\s*['"]?\s*\)))[^)]*\)/gi,
     "url(about:invalid)",
   );
   // CSS Images also accepts a bare quoted URL inside image-set(). Normalize

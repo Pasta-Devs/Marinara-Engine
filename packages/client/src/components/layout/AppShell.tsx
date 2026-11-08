@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Layout: Main App Shell (Discord-like three-column)
 // ──────────────────────────────────────────────
+import { useCenterPageOpen } from "../../hooks/use-chat-theme";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
@@ -69,6 +70,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { SkipLinks } from "./SkipLinks";
 import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../../lib/overhaul-styles";
@@ -498,8 +500,23 @@ export function AppShell({
     SHARED_SIDEBAR_WIDTH_MIN,
     SHARED_SIDEBAR_WIDTH_MAX,
   );
-  const liveSidebarWidth = sidebarDragWidth ?? rightPanelDragWidth ?? sharedSidebarWidth;
-  const liveRightPanelWidth = rightPanelDragWidth ?? sidebarDragWidth ?? sharedSidebarWidth;
+  // The side panes grow with Display Size, so their text keeps fitting (theming panel H4). The stored
+  // width is the one at the default size; what's on screen is that times the text scale, up to 38%
+  // of the window each.
+  const uiFontSize = useUIStore((s) => s.fontSize);
+  const sidebarScale = Math.max(0.7, uiFontSize / 17);
+  const sidebarDisplayMax = Math.max(
+    SHARED_SIDEBAR_WIDTH_MIN,
+    Math.min(
+      SHARED_SIDEBAR_WIDTH_MAX * sidebarScale,
+      typeof window === "undefined" ? Infinity : window.innerWidth * 0.38,
+    ),
+  );
+  const scaledSidebarWidth = clampWidth(sharedSidebarWidth * sidebarScale, SHARED_SIDEBAR_WIDTH_MIN, sidebarDisplayMax);
+  const storedSidebarWidth = (displayWidth: number) =>
+    clampWidth(Math.round(displayWidth / sidebarScale), SHARED_SIDEBAR_WIDTH_MIN, SHARED_SIDEBAR_WIDTH_MAX);
+  const liveSidebarWidth = sidebarDragWidth ?? rightPanelDragWidth ?? scaledSidebarWidth;
+  const liveRightPanelWidth = rightPanelDragWidth ?? sidebarDragWidth ?? scaledSidebarWidth;
   const trackerPanelWidth = getTrackerPanelWidthForProfile(trackerPanelSizeProfile);
   const [trackerPanelResolvedWidth, setTrackerPanelResolvedWidth] = useState(trackerPanelWidth);
   const [trackerPanelWidthMeasured, setTrackerPanelWidthMeasured] = useState(false);
@@ -884,11 +901,11 @@ export function AppShell({
       // The drag leaves the thin handle; the page keeps the resize cursor until it ends (globals.css, #8621).
       document.documentElement.dataset.marinaraResizing = "col";
       document.body.style.userSelect = "none";
-      sidebarDragWidthRef.current = sharedSidebarWidth;
-      setSidebarDragWidth(sharedSidebarWidth);
+      sidebarDragWidthRef.current = scaledSidebarWidth;
+      setSidebarDragWidth(scaledSidebarWidth);
 
       const onMove = (moveEvent: MouseEvent) => {
-        const nextWidth = clampWidth(moveEvent.clientX, SHARED_SIDEBAR_WIDTH_MIN, SHARED_SIDEBAR_WIDTH_MAX);
+        const nextWidth = clampWidth(moveEvent.clientX, SHARED_SIDEBAR_WIDTH_MIN, sidebarDisplayMax);
         sidebarDragWidthRef.current = nextWidth;
         setSidebarDragWidth(nextWidth);
       };
@@ -896,7 +913,7 @@ export function AppShell({
       const finishResize = () => {
         if (finished) return;
         finished = true;
-        const nextWidth = sidebarDragWidthRef.current ?? sharedSidebarWidth;
+        const nextWidth = storedSidebarWidth(sidebarDragWidthRef.current ?? scaledSidebarWidth);
         setSidebarWidth(nextWidth);
         setRightPanelWidth(nextWidth);
         sidebarDragWidthRef.current = null;
@@ -912,7 +929,8 @@ export function AppShell({
       window.addEventListener("mouseup", finishResize);
       window.addEventListener("blur", finishResize);
     },
-    [setRightPanelWidth, setSidebarWidth, sharedSidebarWidth, shellOverlayMode],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- storedSidebarWidth follows sidebarScale
+    [setRightPanelWidth, setSidebarWidth, scaledSidebarWidth, sidebarDisplayMax, sidebarScale, shellOverlayMode],
   );
 
   const startRightPanelResize = useCallback(
@@ -923,14 +941,14 @@ export function AppShell({
       // The drag leaves the thin handle; the page keeps the resize cursor until it ends (globals.css, #8621).
       document.documentElement.dataset.marinaraResizing = "col";
       document.body.style.userSelect = "none";
-      rightPanelDragWidthRef.current = sharedSidebarWidth;
-      setRightPanelDragWidth(sharedSidebarWidth);
+      rightPanelDragWidthRef.current = scaledSidebarWidth;
+      setRightPanelDragWidth(scaledSidebarWidth);
 
       const onMove = (moveEvent: MouseEvent) => {
         const nextWidth = clampWidth(
           window.innerWidth - moveEvent.clientX,
           SHARED_SIDEBAR_WIDTH_MIN,
-          SHARED_SIDEBAR_WIDTH_MAX,
+          sidebarDisplayMax,
         );
         rightPanelDragWidthRef.current = nextWidth;
         setRightPanelDragWidth(nextWidth);
@@ -939,7 +957,7 @@ export function AppShell({
       const finishResize = () => {
         if (finished) return;
         finished = true;
-        const nextWidth = rightPanelDragWidthRef.current ?? sharedSidebarWidth;
+        const nextWidth = storedSidebarWidth(rightPanelDragWidthRef.current ?? scaledSidebarWidth);
         setSidebarWidth(nextWidth);
         setRightPanelWidth(nextWidth);
         rightPanelDragWidthRef.current = null;
@@ -955,7 +973,8 @@ export function AppShell({
       window.addEventListener("mouseup", finishResize);
       window.addEventListener("blur", finishResize);
     },
-    [setRightPanelWidth, setSidebarWidth, sharedSidebarWidth, shellOverlayMode],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- storedSidebarWidth follows sidebarScale
+    [setRightPanelWidth, setSidebarWidth, scaledSidebarWidth, sidebarDisplayMax, sidebarScale, shellOverlayMode],
   );
 
   const adjustSidebarWidth = useCallback(
@@ -1130,6 +1149,10 @@ export function AppShell({
 
   const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
   const hasDetailView = detailView != null;
+  // Per-chat themes and the chat's root hooks step aside while a full page covers the chat.
+  useEffect(() => {
+    useCenterPageOpen.setState({ open: hasDetailView });
+  }, [hasDetailView]);
   const trackerPanelModeAvailable = activeChat?.mode === "roleplay";
   const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen && trackerPanelSurfaceOpen;
   const trackerPanelDetached = trackerPanelWindowTarget !== null;
@@ -1585,6 +1608,7 @@ export function AppShell({
         showAmbientDecor && "retro-scanlines noise-bg geometric-grid",
       )}
     >
+      <SkipLinks />
       {overhaulActive && <OverhaulTopBar />}
       <div
         data-component="OverhaulShellRow"
@@ -1664,10 +1688,13 @@ export function AppShell({
         {/* Center content */}
         <main
           ref={mainRef}
+          id="mari-main"
+          tabIndex={-1}
           data-tour="chat-area"
           data-component="CenterContent"
           data-center-compact={centerCompact ? "true" : undefined}
           data-shell-overlay-mode={shellOverlayMode ? "true" : undefined}
+          data-center-page={hasDetailView ? "true" : undefined}
           aria-label={localizeUi("ui.layout.appshell.mainContent")}
           className={cn(
             "@container mari-main mari-app-background-paint relative flex min-w-0 flex-1 flex-col overflow-hidden",

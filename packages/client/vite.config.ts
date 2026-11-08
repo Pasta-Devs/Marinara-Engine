@@ -8,6 +8,7 @@ import { parseEnv } from "node:util";
 import path from "path";
 import { delegateDirectAndroidBuild } from "./scripts/build-heap.mjs";
 import { cssLangSelectorGuard } from "./scripts/css-lang-selectors.mjs";
+import { appCssLayer } from "./scripts/app-css-layer.mjs";
 
 const ENABLE_SOURCE_MAPS = process.env.VITE_ENABLE_SOURCEMAP === "true";
 const PWA_DISABLED = Boolean(process.env.SKIP_PWA);
@@ -255,6 +256,7 @@ export default defineConfig({
     androidBuildHeap(),
     react(),
     tailwindcss(),
+    appCssLayer(),
     bundleBudget(),
     cssLangSelectorGuard(),
     !PWA_DISABLED
