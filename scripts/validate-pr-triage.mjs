@@ -184,11 +184,27 @@ export function validatePullRequestTriage() {
   assert.match(verdict, /SHARDS_RESULT: \$\{\{ needs\.node-shards\.result \}\}/u);
 
   const prChecks = readFileSync(new URL("../.github/workflows/pull-request-checks.yml", import.meta.url), "utf8");
-  const requiredSmoke = extractNamedStep(extractJob(prChecks, "pnpm-validate"), "Run required Chromium smoke suite");
+  const requiredSmoke = extractNamedStep(extractJob(prChecks, "validate-smoke"), "Run required Chromium smoke suite");
   assert.match(requiredSmoke, /if: github\.base_ref == 'staging'/u);
   assert.match(requiredSmoke, /run: pnpm smoke:ui/u);
   assert.match(requiredSmoke, /PLAYWRIGHT_ONLY_PROJECT: desktop/u);
-  assert.doesNotMatch(extractJob(prChecks, "pnpm-validate"), /continue-on-error/u);
+  // pnpm-validate is the required check, so it must judge every worker, even after one fails or is skipped.
+  const workers = ["validate-check", "validate-guards", "validate-smoke"];
+  const prVerdict = extractJob(prChecks, "pnpm-validate");
+  assert.match(prVerdict, /^ {4}if: always\(\)$/mu, "pnpm-validate must run after a failed worker");
+  assert.match(
+    prVerdict,
+    /RESULTS: \$\{\{ join\(needs\.\*\.result, ' '\) \}\}/u,
+    "pnpm-validate must read every result",
+  );
+  assert.match(prVerdict, /if \[\[ "\$result" != "success" \]\]; then\s+exit 1/u, "pnpm-validate must fail a worker");
+  const verdictNeeds = prVerdict.match(/^\s+needs: \[([^\]]*)\]$/mu);
+  assert.ok(verdictNeeds, "pnpm-validate must declare needs");
+  const neededJobs = verdictNeeds[1].split(",").map((jobId) => jobId.trim());
+  for (const jobId of workers) assert.ok(neededJobs.includes(jobId), `pnpm-validate must need ${jobId}`);
+  for (const jobId of ["pnpm-validate", ...workers]) {
+    assert.doesNotMatch(extractJob(prChecks, jobId), /continue-on-error/u, `${jobId} must not continue on error`);
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
