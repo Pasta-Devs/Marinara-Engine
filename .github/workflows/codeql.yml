@@ -81,7 +81,14 @@ jobs:
           ids=$(gh api -X GET "repos/$GH_REPO/actions/caches" \
             -f ref="$CACHE_REF" -f key=codeql-overlay-base-database- -F per_page=100 \
             --jq '.actions_caches | group_by(.key | sub("-[0-9a-f]{40}-.*$"; "")) | .[] | sort_by(.created_at) | reverse | .[1:][] | .id')
+          failed=0
           for id in $ids; do
             echo "Deleting cache $id"
-            gh api -X DELETE "repos/$GH_REPO/actions/caches/$id"
+            if ! err=$(gh api -X DELETE "repos/$GH_REPO/actions/caches/$id" 2>&1); then
+              case "$err" in
+                *"HTTP 404"*) echo "Cache $id is already gone" ;;
+                *) echo "::warning::Could not delete cache $id: $err"; failed=1 ;;
+              esac
+            fi
           done
+          exit $failed
