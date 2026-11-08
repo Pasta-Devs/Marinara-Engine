@@ -46,12 +46,12 @@ jobs:
       - name: Run project checks
         run: pnpm check
 
-      # pnpm check has already built the server and client this step opens.
       - name: Install Chromium for smoke tests
         if: github.base_ref == 'staging'
         timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
 
+      # pnpm check has already built the server and client this step opens.
       - name: Open the production frontend in Chromium
         if: github.base_ref == 'staging'
         timeout-minutes: 5
