@@ -98,6 +98,7 @@ import React, { Activity, Fragment, useRef, useState, useCallback, useEffect, us
 import type { TFunction } from "i18next";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { resetDeviceWalkthrough, resetModeWalkthroughs, useWalkthroughDevice } from "../../lib/walkthroughs";
 import {
   APP_VERSION,
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
@@ -2153,6 +2154,57 @@ function CustomQuickRepliesManager() {
  * the in-app guides are served from. The choice is server-authoritative (a
  * data-dir app-setting), so it survives updates and applies to every device.
  */
+/**
+ * Replay the walkthroughs. The welcome tour is synced; the device walkthrough and each mode's chat help are
+ * remembered per kind of device (computer, tablet, phone), so these buttons act on this device only.
+ */
+function WalkthroughSettings() {
+  const { t: localizeUi } = useUiTranslation();
+  const device = useWalkthroughDevice();
+  const overhaulEnabled = useOverhaulStore((s) => s.enabled);
+  const deviceLabel = localizeUi(`settings.walkthroughs.device.${device}`);
+  return (
+    <div id={getSettingsControlAnchorId("replay-walkthroughs")} className="flex scroll-mt-3 flex-col gap-1.5">
+      <div className="text-xs font-medium">{localizeUi("settings.controls.replayWalkthroughs.label")}</div>
+      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+        {localizeUi("settings.controls.replayWalkthroughs.help", { device: deviceLabel })}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          className={SETTINGS_BUTTON_CLASS}
+          data-walkthrough-replay="welcome"
+          onClick={() => useUIStore.getState().setHasCompletedOnboarding(false)}
+        >
+          {localizeUi("settings.walkthroughs.replayWelcome")}
+        </button>
+        {overhaulEnabled ? (
+          <button
+            type="button"
+            className={SETTINGS_BUTTON_CLASS}
+            data-walkthrough-replay="device"
+            onClick={() => resetDeviceWalkthrough(device)}
+          >
+            {localizeUi("settings.walkthroughs.replayDevice", { device: deviceLabel })}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className={SETTINGS_BUTTON_CLASS}
+          data-walkthrough-replay="modes"
+          onClick={() => {
+            resetModeWalkthroughs(device);
+            useUIStore.setState({ chatHelpSeenModes: [], chatHelpButtonHidden: false });
+            toast.success(localizeUi("settings.walkthroughs.modesReset"));
+          }}
+        >
+          {localizeUi("settings.walkthroughs.replayModes")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DocsLanguageSetting() {
   const { t: localizeUi } = useUiTranslation();
   const { data: status, isLoading: statusLoading } = useDocsLanguage();
@@ -2428,6 +2480,7 @@ function GeneralSettings() {
             onChange={setChatHelpButtonHidden}
             help={localizeUi("settings.controls.hideChatHelpButton.help")}
           />
+          <WalkthroughSettings />
         </div>
       </SettingsSection>
 

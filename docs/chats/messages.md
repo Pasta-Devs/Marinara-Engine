@@ -74,6 +74,20 @@ A swipe is one version of an AI reply. One message can hold several, so you can 
 
 You cannot delete the last swipe. The app says "Cannot delete the last remaining swipe". Use **Delete this message** instead.
 
+## Touch gestures
+
+In the new layout on a phone or tablet, swipes and long-presses replace the buttons that show on hover on a computer.
+
+- **Swipe the newest reply** left or right to move between its swipes. Swiping left past the last one asks "Generate a new reply?" before it makes one, because a new reply costs a request.
+- **Swipe the title** in the top bar left or right to move between your open tabs. Home counts as the tab before the first one.
+- **Swipe a chat** in the chat list to the left to show **Pin**, **Rename** and **Delete**.
+- **Long-press a message** for its actions: Regenerate, Edit, Copy, Branch and the rest.
+- **Long-press a chat** in the chat list for its actions, including Pin, Rename and Delete.
+
+Turn the swipes off with **Swipe gestures on touch screens** in Settings > Chatting > Editing & Swipes. Long-press keeps working either way.
+
+The first time Marinara opens on a phone, tablet or computer, a short walkthrough shows where things are on that kind of device, including these gestures on touch screens. Each chat mode also shows its tips the first time it opens there. Replay any of them from Settings > General > Walkthroughs.
+
 ## Regenerate, continue and retry
 
 These three look alike and do different things.

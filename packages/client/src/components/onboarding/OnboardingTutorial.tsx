@@ -22,6 +22,8 @@ import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { WHATS_NEW_SEEN_VERSION_KEY } from "../modals/WhatsNewModal";
 import { LanguagePicker } from "../ui/LanguagePicker";
 import { useOverhaulStore, type OverhaulSettingsTab } from "../../stores/overhaul.store";
+import { markDeviceWalkthroughSeen, useWalkthroughDevice, type WalkthroughDevice } from "../../lib/walkthroughs";
+import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due";
 
 // ─── Step definitions ─────────────────────────
 
@@ -57,6 +59,8 @@ interface TourStep {
   sprite?: { pose: MariPose; flip?: boolean };
   /** Body used instead of bodyKey on a phone-width screen, where this step's control is not on screen */
   phoneBodyKey?: string;
+  /** Body used on a phone or tablet (a touch screen), whichever shell it shows; wins over phoneBodyKey */
+  touchBodyKey?: string;
   /** New layout: Settings tab to show while the Library's Settings page is open */
   overhaulSettingsTab?: OverhaulSettingsTab;
   /** New layout: place the card beside its target by `side` alone, never on top of the pane it describes */
@@ -226,6 +230,7 @@ const OVERHAUL_STEPS: TourStep[] = [
     target: null,
     titleKey: "onboarding.overhaul.welcome.title",
     bodyKey: "onboarding.overhaul.welcome.body",
+    touchBodyKey: "onboarding.overhaul.welcome.touchBody",
     sprite: { pose: "wave" },
   },
   {
@@ -310,6 +315,56 @@ const OVERHAUL_STEPS: TourStep[] = [
     sprite: { pose: "greet" },
   },
 ];
+
+/** Phones and tablets: the swipes and long-presses that replace hover buttons there. */
+const GESTURES_STEP: TourStep = {
+  target: null,
+  titleKey: "onboarding.device.gestures.title",
+  // A tablet held sideways shows the computer layout, whose tab strip has no title to swipe.
+  bodyKey: "onboarding.device.gestures.wideBody",
+  phoneBodyKey: "onboarding.device.gestures.body",
+  sprite: { pose: "explaining" },
+};
+
+/** The new-layout tour for a first-time user: on a touch screen it also teaches the gestures. */
+function overhaulTourSteps(device: WalkthroughDevice): TourStep[] {
+  if (device === "desktop") return OVERHAUL_STEPS;
+  const docsIndex = OVERHAUL_STEPS.length - 1;
+  return [...OVERHAUL_STEPS.slice(0, docsIndex), GESTURES_STEP, ...OVERHAUL_STEPS.slice(docsIndex)];
+}
+
+function overhaulStep(target: string): TourStep {
+  const step = OVERHAUL_STEPS.find((candidate) => candidate.target === target);
+  if (!step) throw new Error(`Missing tour step ${target}`);
+  return step;
+}
+
+/**
+ * The first time a computer, tablet or phone opens Marinara after the user already finished the tour
+ * somewhere else: where things live on this kind of device, plus its gestures on touch screens.
+ */
+function deviceTourSteps(device: WalkthroughDevice): TourStep[] {
+  const welcome: TourStep = {
+    target: null,
+    titleKey: `onboarding.device.${device}.title`,
+    bodyKey: `onboarding.device.${device}.body`,
+    sprite: { pose: "wave" },
+  };
+  const done: TourStep = {
+    target: "docs-button",
+    titleKey: "onboarding.device.done.title",
+    bodyKey: "onboarding.device.done.body",
+    phoneBodyKey: "onboarding.device.done.phoneBody",
+    side: "bottom",
+    besideTarget: true,
+    openHome: true,
+    sprite: { pose: "greet" },
+  };
+  const places = [overhaulStep("sidebar"), overhaulStep("library-nav"), overhaulStep("omnibar-button")];
+  return device === "desktop" ? [welcome, ...places, done] : [welcome, ...places, GESTURES_STEP, done];
+}
+
+export type TourKind = "full" | "device";
 
 // ─── Spotlight overlay helpers ────────────────
 
@@ -563,7 +618,9 @@ function TourCardContent({
   onNext,
   onSkip,
   pickerSlot,
+  device,
 }: {
+  device: WalkthroughDevice;
   step: number;
   stepCount: number;
   currentStep: TourStep;
@@ -578,7 +635,12 @@ function TourCardContent({
   const { poses } = useMariAppearancePack();
   // UX-06: the phone shell (landscape too) has no search field to point at; the same step tells the user about the pull-down.
   const mobileShell = useMatchMedia(useMobileShellMediaQuery());
-  const bodyKey = currentStep.phoneBodyKey && mobileShell ? currentStep.phoneBodyKey : currentStep.bodyKey;
+  const bodyKey =
+    currentStep.touchBodyKey && device !== "desktop"
+      ? currentStep.touchBodyKey
+      : currentStep.phoneBodyKey && mobileShell
+        ? currentStep.phoneBodyKey
+        : currentStep.bodyKey;
   const localizedBody = bodyKey
     ? localizeUi(bodyKey, { mod: formatShortcutKey("Mod") })
     : localize(currentStep.body ?? "");
@@ -607,7 +669,8 @@ function TourCardContent({
       {/* Body */}
       <p className="mb-4 break-words text-xs leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
         {localizedBody.split("\n").map((line, i, arr) => (
-          <span key={i}>
+          // Lists (one point per line) get a little air between points so they scan.
+          <span key={i} className={arr.length > 2 && i > 0 ? "mt-1.5 block" : undefined}>
             {line.split(/(\*\*[^*]+\*\*)/).map((part, j) =>
               part.startsWith("**") && part.endsWith("**") ? (
                 <strong key={j} className="font-semibold text-[var(--marinara-chat-chrome-panel-text)]">
@@ -617,7 +680,7 @@ function TourCardContent({
                 <span key={j}>{part}</span>
               ),
             )}
-            {i < arr.length - 1 && <br />}
+            {arr.length <= 2 && i < arr.length - 1 && <br />}
           </span>
         ))}
       </p>
@@ -661,11 +724,14 @@ function TourCardContent({
 
 export function OnboardingTutorial() {
   const hasCompleted = useUIStore((s) => s.hasCompletedOnboarding);
-  if (hasCompleted) return null;
-  return <OnboardingTutorialInner />;
+  const deviceTourDue = useDeviceWalkthroughDue();
+  const device = useWalkthroughDevice();
+  if (!hasCompleted) return <OnboardingTutorialInner kind="full" device={device} />;
+  if (deviceTourDue) return <OnboardingTutorialInner key={device} kind="device" device={device} />;
+  return null;
 }
 
-function OnboardingTutorialInner() {
+function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: WalkthroughDevice }) {
   const setCompleted = useUIStore((s) => s.setHasCompletedOnboarding);
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
@@ -689,7 +755,10 @@ function OnboardingTutorialInner() {
 
   // The new layout gets its own tour; the classic layout keeps the original one.
   const overhaulEnabled = useOverhaulStore((s) => s.enabled);
-  const steps = overhaulEnabled ? OVERHAUL_STEPS : STEPS;
+  const steps = useMemo(
+    () => (kind === "device" ? deviceTourSteps(device) : overhaulEnabled ? overhaulTourSteps(device) : STEPS),
+    [device, kind, overhaulEnabled],
+  );
   const currentStep = steps[Math.min(step, steps.length - 1)];
   const isLast = step >= steps.length - 1;
   const targetRect = spotlightRects.find((rect) => rect.target === currentStep.target) ?? null;
@@ -844,9 +913,12 @@ function OnboardingTutorialInner() {
     } catch {
       // Storage may be unavailable in private or restricted browser contexts.
     }
+    // Either tour shows where things live on this kind of device, so its own walkthrough is done too.
+    if (useOverhaulStore.getState().enabled) markDeviceWalkthroughSeen(device);
+    if (kind === "device") return;
     setCompleted(true);
     trackAchievement.mutate("tutorial_completed");
-  }, [setCompleted, trackAchievement]);
+  }, [device, kind, setCompleted, trackAchievement]);
 
   const handleTutorialKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
@@ -962,6 +1034,7 @@ function OnboardingTutorialInner() {
                 onNext={next}
                 onSkip={finish}
                 pickerSlot={pickerSlot}
+                device={device}
               />
             </motion.div>
           </AnimatePresence>
@@ -990,6 +1063,7 @@ function OnboardingTutorialInner() {
               onNext={next}
               onSkip={finish}
               pickerSlot={pickerSlot}
+              device={device}
             />
           </motion.div>
         </AnimatePresence>
