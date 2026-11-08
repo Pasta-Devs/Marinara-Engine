@@ -278,7 +278,7 @@ Object.defineProperty(globalThis, "localStorage", { configurable: true, value: s
   ui().openConnectionDetail("X", { returnToHomeTab: "connections" });
   assert.deepEqual(selectBackDestination(ui()), { home: true });
 
-  // 16. The ✕ shows exactly when Back would not already reach the base (a surface is the destination).
+  // 16. The ✕ shows exactly when Back would not already reach the base (a surface or the opening panel is the destination).
   const { selectShowsSurfaceClose } = await import("../../packages/client/src/components/ui/SurfaceCloseButton.js");
   reset();
   assert.equal(selectShowsSurfaceClose(ui()), false, "no surface open");
@@ -291,7 +291,10 @@ Object.defineProperty(globalThis, "localStorage", { configurable: true, value: s
   reset(true);
   ui().openRightPanel("lorebooks");
   ui().openLorebookDetail("L");
-  assert.equal(selectShowsSurfaceClose(ui()), false, "a panel destination is a single Back");
+  assert.equal(selectShowsSurfaceClose(ui()), true, "Back reopens the panel; the ✕ goes straight to the chat");
+  await (await import("../../packages/client/src/lib/back-layers.js")).requestCloseAllSurfaces();
+  assert.equal(ui().rightPanelOpen, false, "closing to the chat does not reopen the panel");
+  assert.equal(selectShowsSurfaceClose(ui()), false);
   reset();
   ui().openConnectionDetail("X", { returnToHomeTab: "connections" });
   assert.equal(selectShowsSurfaceClose(ui()), false, "a Home destination is a single Back");

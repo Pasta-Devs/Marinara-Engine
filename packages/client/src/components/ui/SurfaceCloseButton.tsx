@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Close (✕) for full-page surfaces: leaves every open surface at once, straight to the chat or Home.
-// Shown only when Back would not already land there, so a single open surface keeps just the Back button.
+// Shown when Back leads somewhere else first (another surface or the panel it was opened from), so a single surface
+// opened from the chat or Home keeps just the Back button.
 // ──────────────────────────────────────────────
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -9,10 +10,13 @@ import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chat.store";
 import { selectBackDestination, useUIStore } from "../../stores/ui.store";
 
-/** True while Back leads to another surface (a stack entry or the regex editor's return), not to the base. */
+/**
+ * True while Back leads to another surface (a stack entry or the regex editor's return) or reopens the panel the
+ * surface came from (a drawer over the chat on mobile), not straight to the base.
+ */
 export function selectShowsSurfaceClose(state: Parameters<typeof selectBackDestination>[0]): boolean {
   const destination = selectBackDestination(state);
-  return !!destination && "surface" in destination;
+  return !!destination && ("surface" in destination || "panel" in destination);
 }
 
 interface Props {
