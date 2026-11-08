@@ -816,6 +816,8 @@ interface UIState {
   a11yContrast: "system" | "on" | "off";
   /** Accessibility: blue/orange instead of green/red for status, gauges and danger. */
   a11yColorBlindSafe: boolean;
+  /** Appearance > Accessibility > Backdrop strength: how strongly a theme's art shows, 0-100. */
+  a11yBackdropStrength: number;
   appAccentPulseMode: boolean;
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
@@ -1424,6 +1426,7 @@ interface UIState {
   setA11yStrongFocus: (enabled: boolean) => void;
   setA11yContrast: (value: "system" | "on" | "off") => void;
   setA11yColorBlindSafe: (enabled: boolean) => void;
+  setA11yBackdropStrength: (strength: number) => void;
   setAppAccentPulseMode: (enabled: boolean) => void;
   setAppAccentRgbMode: (enabled: boolean) => void;
   setCustomCursorEnabled: (enabled: boolean) => void;
@@ -1819,6 +1822,7 @@ export function pickSyncedSettings(state: UIState) {
     a11yStrongFocus: state.a11yStrongFocus,
     a11yContrast: state.a11yContrast,
     a11yColorBlindSafe: state.a11yColorBlindSafe,
+    a11yBackdropStrength: state.a11yBackdropStrength,
     reduceAmbientEffects: state.reduceAmbientEffects,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
@@ -2086,6 +2090,7 @@ export function pickPersistedUIState(state: UIState) {
     a11yStrongFocus: state.a11yStrongFocus,
     a11yContrast: state.a11yContrast,
     a11yColorBlindSafe: state.a11yColorBlindSafe,
+    a11yBackdropStrength: state.a11yBackdropStrength,
     appAccentPulseMode: state.appAccentPulseMode,
     appAccentRgbMode: state.appAccentRgbMode,
     customCursorEnabled: state.customCursorEnabled,
@@ -2379,6 +2384,7 @@ export const useUIStore = create<UIState>()(
         a11yStrongFocus: false,
         a11yContrast: "system" as const,
         a11yColorBlindSafe: false,
+        a11yBackdropStrength: 100,
         appAccentPulseMode: getDefaultAppAccentPulseMode(),
         appAccentRgbMode: false,
         customCursorEnabled: true,
@@ -2829,6 +2835,8 @@ export const useUIStore = create<UIState>()(
         setA11yStrongFocus: (enabled) => set({ a11yStrongFocus: enabled }),
         setA11yContrast: (value) => set({ a11yContrast: value }),
         setA11yColorBlindSafe: (enabled) => set({ a11yColorBlindSafe: enabled }),
+        setA11yBackdropStrength: (strength) =>
+          set({ a11yBackdropStrength: Math.max(0, Math.min(100, Math.round(Number(strength) || 0))) }),
         setAppAccentPulseMode: (enabled) => set({ appAccentPulseMode: enabled }),
         setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
         setCustomCursorEnabled: (enabled) => set({ customCursorEnabled: enabled }),
@@ -3671,6 +3679,7 @@ export const useUIStore = create<UIState>()(
             a11yStrongFocus: false,
             a11yContrast: "system" as const,
             a11yColorBlindSafe: false,
+            a11yBackdropStrength: 100,
             appAccentPulseMode: getDefaultAppAccentPulseMode(),
             appAccentRgbMode: false,
             customCursorEnabled: true,

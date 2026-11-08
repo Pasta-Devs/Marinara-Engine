@@ -1608,12 +1608,16 @@ export function AppShell({
         showAmbientDecor && "retro-scanlines noise-bg geometric-grid",
       )}
     >
+      {/* A theme's backdrop art (styles/theme-tokens.css): its own layer, under everything. */}
+      <div data-mari-part="app-backdrop" aria-hidden="true" />
       <SkipLinks />
       {overhaulActive && <OverhaulTopBar />}
       <div
         data-component="OverhaulShellRow"
         className={overhaulActive ? "relative flex min-h-0 flex-1 overflow-hidden" : "contents"}
       >
+        {/* A theme's ambient overlay (rain, leaves, scanlines): over the chat, under the bars. */}
+        <div data-mari-part="ambient" aria-hidden="true" />
         {/* Y2K decorative stars */}
         {showAmbientDecor && (
           <>

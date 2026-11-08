@@ -91,6 +91,9 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
   for (const key of LOCAL_ONLY_SETTING_KEYS) {
     delete sanitized[key];
   }
+  // While Dark/Light follows the clock or the system, each device works out its own scheme.
+  const auto = sanitized.themeAuto ?? useUIStore.getState().themeAuto;
+  if (auto && auto !== "off") delete sanitized.theme;
   if ("conversationBackgroundImageOpacity" in sanitized) {
     sanitized.conversationBackgroundImageOpacity = normalizeConversationBackgroundImageOpacity(
       sanitized.conversationBackgroundImageOpacity,
@@ -149,7 +152,12 @@ function hasLocalPersistedUiState(): boolean {
 
 /** What this device sends: the synced settings, with the shared look kept in place while the device has its own. */
 function syncedPayload(state = useUIStore.getState()): SyncedSettingsObject {
-  return withSharedLook(pickSyncedSettings(state));
+  const payload = withSharedLook(pickSyncedSettings(state));
+  // Follow time of day / Follow system decide Dark or Light on each device by its own clock and
+  // system setting, so the scheme they pick isn't sent (one device's night would overwrite
+  // another's day). A fixed value keeps the payload from changing at every switch.
+  if (payload.themeAuto && payload.themeAuto !== "off") return { ...payload, theme: "dark" };
+  return payload;
 }
 
 function serializeSettings(settings: SyncedSettingsObject): string {

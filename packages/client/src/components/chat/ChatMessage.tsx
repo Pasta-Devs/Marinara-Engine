@@ -4035,8 +4035,12 @@ export const ChatMessage = memo(function ChatMessage({
         <div
           className="mari-roleplay-vn-dialogue flex min-w-0 gap-3 p-3 sm:gap-4 sm:p-4"
           data-vn-message-id={message.id}
+          {...messageHookProps.attrs}
+          data-vn="true"
+          style={messageHookProps.style}
         >
           <div
+            data-mari-part="avatar"
             className="relative shrink-0 self-start overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)]"
             style={{ width: `min(${5 * vnPortraitScale}rem, 26vw)`, height: `min(${5 * vnPortraitScale}rem, 26vw)` }}
           >
@@ -4064,7 +4068,10 @@ export const ChatMessage = memo(function ChatMessage({
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="mb-2 truncate text-sm font-semibold text-[var(--marinara-chat-chrome-highlight-text)]">
+            <div
+              className="mb-2 truncate text-sm font-semibold text-[var(--marinara-chat-chrome-highlight-text)]"
+              data-mari-part="header"
+            >
               {isMergedGroup ? (
                 mergedNameElement
               ) : isNarrator ? (

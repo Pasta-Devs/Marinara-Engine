@@ -24,12 +24,52 @@ export function sanitizeAppCss(css: string): string {
   return stripDangerousCss(normalizeThemeCss(css));
 }
 
+/** Splits a declaration block at top-level semicolons (not inside strings or brackets). */
+function splitDeclarations(text: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let start = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]!;
+    if (quote) {
+      if (char === "\\") index += 1;
+      else if (char === quote) quote = null;
+    } else if (char === '"' || char === "'") quote = char;
+    else if (char === "(" || char === "[") depth += 1;
+    else if ((char === ")" || char === "]") && depth > 0) depth -= 1;
+    else if (char === ";" && depth === 0) {
+      out.push(text.slice(start, index));
+      start = index + 1;
+    }
+  }
+  out.push(text.slice(start));
+  return out.map((part) => part.trim()).filter(Boolean);
+}
+
 function importantDeclarations(style: CSSStyleDeclaration): string {
   const out: string[] = [];
+  // A shorthand written with var() (`border-image: var(--frame) 40 fill !important`) leaves its
+  // longhands empty until the variable is known, so getPropertyValue() returns "" for them. Those
+  // are copied as the browser serialises them in cssText, which keeps the shorthand.
+  const pending = new Set<string>();
   for (let index = 0; index < style.length; index += 1) {
     const property = style.item(index);
     if (style.getPropertyPriority(property) !== "important") continue;
-    out.push(`${property}: ${style.getPropertyValue(property)} !important;`);
+    const value = style.getPropertyValue(property);
+    if (value) out.push(`${property}: ${value} !important;`);
+    else pending.add(property);
+  }
+  if (pending.size) {
+    for (const declaration of splitDeclarations(style.cssText)) {
+      if (!/!\s*important\s*$/i.test(declaration)) continue;
+      const colon = declaration.indexOf(":");
+      if (colon < 0) continue;
+      const property = declaration.slice(0, colon).trim().toLowerCase();
+      // Keep it when it is one of the empty longhands, or a shorthand that covers one.
+      const covers = pending.has(property) || [...pending].some((longhand) => longhand.startsWith(`${property}-`));
+      if (covers && !property.startsWith("--")) out.push(`${declaration};`);
+    }
   }
   return out.join(" ");
 }

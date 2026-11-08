@@ -389,11 +389,13 @@ export function stripDangerousCss(css: string): string {
 
   // ── Network exfiltration prevention ──
   // Strip ALL url() except data: URIs for images and fonts (no external network requests), and
-  // same-document fragment references like url(#grad) that SVG paints and filters use.
+  // same-document fragment references like url(#grad) that SVG paints and filters use, and
+  // `theme:<name>` references to a theme's own bundled pictures (lib/theme-images.ts turns those
+  // into blob: URLs after sanitising; on their own they never reach the network).
   // Allowed MIME prefixes are intentionally narrow: image/*, font/*, and the font-specific
   // application/font* and application/x-font* (no generic application/octet-stream).
   out = out.replace(
-    /url\s*\(\s*(['"]?)\s*(?!['"]?\s*(?:data:(?:image\/|font\/|application\/(?:font|x-font))|#[\w-]+\s*['"]?\s*\)))[^)]*\)/gi,
+    /url\s*\(\s*(['"]?)\s*(?!['"]?\s*(?:data:(?:image\/|font\/|application\/(?:font|x-font))|#[\w-]+\s*['"]?\s*\)|theme:[a-z0-9][a-z0-9._-]*\s*['"]?\s*\)))[^)]*\)/gi,
     "url(about:invalid)",
   );
   // CSS Images also accepts a bare quoted URL inside image-set(). Normalize

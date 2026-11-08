@@ -64,7 +64,8 @@ import { ANDROID_BRIDGE_READY_EVENT, getAndroidBridgeToken } from "../../lib/and
 import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { extractImportantThemeCss, normalizeThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
 import { cssContrast, fixContrast } from "../../lib/color-contrast";
-import { checkProtectedChrome, checkThemeCss } from "../../lib/theme-guard";
+import { checkProtectedChrome, checkThemeCssReady } from "../../lib/theme-guard";
+import { dataUrlByteSize, prepareThemeCss, shrinkThemeImage, themeImageName } from "../../lib/theme-images";
 import { ThemeEditorChecks } from "./settings/ThemeEditorChecks";
 import { useThemeSafetyStore, type ThemeGuardProblem } from "../../lib/theme-safety";
 import { takeThemeEditRequest, useThemeEditRequest } from "../../lib/theme-edit-request";
@@ -77,6 +78,7 @@ import {
   readFontFamily,
   shrinkImageDataUrl,
   fileToDataUrl,
+  formatKiB,
   readThemeFile,
   themeFontFaceCss,
   type ThemePackage,
@@ -6035,7 +6037,10 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     style.dataset.mariCustomCss = "preview";
     let guardTimeout: number | undefined;
     const previewTimeout = window.setTimeout(() => {
-      const css = sanitizeAppCss(`${themeFontFaceCss(themeMeta)}\n${themeCss}`);
+      const css = prepareThemeCss(sanitizeAppCss(`${themeFontFaceCss(themeMeta)}\n${themeCss}`), [
+        ...(themeMeta.images ?? []),
+        ...(themeMeta.backgrounds ?? []),
+      ]).css;
       style.media = "";
       style.textContent = css;
       // Keep the preview after the active-theme injector's saved CSS.
@@ -6108,7 +6113,10 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
         // Save runs the same guard as a live theme first, whether or not Preview is on, so a theme
         // that hides or covers the protected chrome is caught here and not on someone else's screen.
         if (!force) {
-          const problems = checkThemeCss(`${themeFontFaceCss(themeMeta)}\n${css}`);
+          const problems = await checkThemeCssReady(`${themeFontFaceCss(themeMeta)}\n${css}`, [
+            ...(themeMeta.images ?? []),
+            ...(themeMeta.backgrounds ?? []),
+          ]);
           setSaveProblems(problems);
           if (problems.length > 0) return;
         }
@@ -6226,7 +6234,8 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
           try {
             const formData = new FormData();
             formData.append("file", dataUrlToFile(background.src, background.name));
-            await api.upload("/backgrounds/upload", formData);
+            // dedupe: an update (or Keep both) doesn't add the same picture to the gallery again.
+            await api.upload("/backgrounds/upload?dedupe=1", formData);
           } catch (err) {
             skipped += 1;
             console.warn("[ThemesSettings] Couldn't add a theme background:", background.name, err);
@@ -6381,6 +6390,45 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                 );
               })
             }
+            onAddImages={() =>
+              triggerFilePicker({
+                accept: "image/png,image/jpeg,image/webp,image/gif,image/avif,image/svg+xml",
+                multiple: true,
+                onSelect: (files) => {
+                  for (const file of Array.from(files)) {
+                    // Still PNG and JPEG become WebP on the way in (lib/theme-images.ts).
+                    void fileToDataUrl(file)
+                      .then((dataUrl) => shrinkThemeImage(dataUrl))
+                      .then((src) =>
+                        setThemeMeta((meta) => {
+                          const extension = /^data:image\/([a-z0-9.+-]+)/.exec(src)?.[1] ?? "png";
+                          const base = file.name.replace(/\.[a-z0-9]+$/i, "");
+                          const name = themeImageName(
+                            `${base}.${extension.replace("svg+xml", "svg").replace("jpeg", "jpg")}`,
+                            meta.images,
+                          );
+                          return { ...meta, images: [...(meta.images ?? []), { name, src }] };
+                        }),
+                      )
+                      .catch(() => toast.error(localizeUi("theming.editor.assetFailed")));
+                  }
+                },
+              })
+            }
+            onInsertImage={(name) => {
+              const reference = `url("theme:${name}")`;
+              const box = cssBoxRef.current;
+              if (box) {
+                const start = box.selectionStart ?? themeCss.length;
+                const end = box.selectionEnd ?? start;
+                setThemeCss(`${themeCss.slice(0, start)}${reference}${themeCss.slice(end)}`);
+                window.setTimeout(() => {
+                  box.focus();
+                  box.setSelectionRange(start + reference.length, start + reference.length);
+                }, 0);
+              }
+              void navigator.clipboard?.writeText(reference).catch(() => undefined);
+            }}
             onAddBackground={() =>
               pickThemeAsset("image/png,image/jpeg,image/webp", (dataUrl, file) =>
                 setThemeMeta((meta) => ({
@@ -6676,12 +6724,16 @@ function ThemePackageDetails({
   onChange,
   onPickThumbnail,
   onAddFont,
+  onAddImages,
+  onInsertImage,
   onAddBackground,
 }: {
   meta: ThemeMeta;
   onChange: (update: (meta: ThemeMeta) => ThemeMeta) => void;
   onPickThumbnail: () => void;
   onAddFont: () => void;
+  onAddImages: () => void;
+  onInsertImage: (name: string) => void;
   onAddBackground: () => void;
 }) {
   const { t } = useUiTranslation();
@@ -6692,7 +6744,7 @@ function ThemePackageDetails({
   return (
     <details className="rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]" data-theme-package-details>
       <summary className="cursor-pointer px-3 py-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
-        {t("theming.editor.packageDetails", "Sharing details (author, version, thumbnail, fonts)")}
+        {t("theming.editor.packageDetails", "Pictures and sharing details (author, version, thumbnail, fonts)")}
       </summary>
       <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 border-t border-[var(--border)] px-3 py-2.5 text-[0.6875rem]">
         <span>{t("theming.editor.author", "Author")}</span>
@@ -6787,6 +6839,42 @@ function ThemePackageDetails({
           <button type="button" className={cn(SETTINGS_BUTTON_CLASS, "self-start")} onClick={onAddFont}>
             <Plus size="0.75rem" />
             {t("theming.editor.addFont", "Add font file")}
+          </button>
+        </div>
+        <span className="self-start pt-1">{t("theming.editor.images", "Pictures")}</span>
+        <div className="flex flex-col gap-1" data-theme-editor-images>
+          <span className="text-[var(--muted-foreground)]">
+            {t(
+              "theming.editor.imagesHelp",
+              'Use one in the CSS as url("theme:name"). Click a name to put it at the cursor. They count in the 6 MiB package, not the CSS limit.',
+            )}
+          </span>
+          {(meta.images ?? []).map((image, index) => (
+            <div key={`${image.name}-${index}`} className="flex items-center gap-2">
+              <img src={image.src} alt="" className="h-6 w-10 rounded object-cover ring-1 ring-[var(--border)]" />
+              <button
+                type="button"
+                className="min-w-0 flex-1 truncate text-left font-mono text-[var(--foreground)] hover:underline"
+                title={t("theming.editor.insertImage", 'Put url("theme:{{name}}") at the cursor', { name: image.name })}
+                onClick={() => onInsertImage(image.name)}
+              >
+                {image.name}
+              </button>
+              <span className="tabular-nums text-[var(--muted-foreground)]">
+                {formatKiB(dataUrlByteSize(image.src))}
+              </span>
+              <button
+                type="button"
+                className={SETTINGS_BUTTON_CLASS}
+                onClick={() => set({ images: (meta.images ?? []).filter((_, i) => i !== index) })}
+              >
+                {t("theming.editor.remove", "Remove")}
+              </button>
+            </div>
+          ))}
+          <button type="button" className={cn(SETTINGS_BUTTON_CLASS, "self-start")} onClick={onAddImages}>
+            <Plus size="0.75rem" />
+            {t("theming.editor.addImages", "Add pictures")}
           </button>
         </div>
         <span className="self-start pt-1">{t("theming.editor.backgrounds", "Backgrounds")}</span>
