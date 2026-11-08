@@ -21,6 +21,10 @@ jobs:
     name: Analyze ${{ matrix.language }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # Build the incremental (overlay) base database on staging pushes, so PRs into staging
+      # can analyse only their diff. The action otherwise builds it only on the default branch.
+      CODE_SCANNING_IS_ANALYZING_DEFAULT_BRANCH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/staging' && 'true' || '' }}
     permissions:
       contents: read
       security-events: write # Upload CodeQL SARIF results.
@@ -48,3 +52,5 @@ jobs:
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           category: /language:${{ matrix.language }}
+          # The override above would otherwise make staging upload its database as main's.
+          upload-database: ${{ github.ref == 'refs/heads/main' }}
