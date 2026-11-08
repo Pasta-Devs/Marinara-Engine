@@ -5,6 +5,7 @@
 // high-contrast scheme that follows the OS by default, and a colour-blind-safe palette. Text size
 // stays in "Fonts & text size", right above. The effects live in styles/accessibility.css.
 // ──────────────────────────────────────────────
+import type { CSSProperties } from "react";
 import { Accessibility } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../../stores/ui.store";
@@ -30,6 +31,8 @@ export function AccessibilitySettings({ anchorId }: { anchorId: string }) {
   const setColorBlindSafe = useUIStore((s) => s.setA11yColorBlindSafe);
   const reduceMotion = useUIStore((s) => s.reduceAmbientEffects);
   const setReduceMotion = useUIStore((s) => s.setReduceAmbientEffects);
+  const backdropStrength = useUIStore((s) => s.a11yBackdropStrength);
+  const setBackdropStrength = useUIStore((s) => s.setA11yBackdropStrength);
 
   const lineLabel = (value: number) =>
     value === 1
@@ -141,6 +144,28 @@ export function AccessibilitySettings({ anchorId }: { anchorId: string }) {
             "Stops animations, transitions, Accent Pulse and theme effects. Turns on by itself when your system asks for less motion.",
           )}
         />
+        <label className="flex scroll-mt-3 flex-col gap-1">
+          <span className="flex items-center gap-1 text-xs font-medium">
+            {t("theming.a11y.backdropStrength", "Theme art strength")}
+            <HelpTooltip
+              text={t(
+                "theming.a11y.backdropStrengthHelp",
+                "How strongly a theme's background picture and ambient overlay (rain, leaves, scanlines) show. Lower it when you like a theme but its art makes text hard to read. High contrast keeps it at 25% or less.",
+              )}
+            />
+            <span className="ml-auto font-normal tabular-nums text-[var(--muted-foreground)]">{backdropStrength}%</span>
+          </span>
+          <input
+            id="settings-control-a11y-backdrop-strength"
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={backdropStrength}
+            onChange={(event) => setBackdropStrength(Number(event.target.value))}
+            style={{ "--range-progress": `${backdropStrength}%` } as CSSProperties}
+          />
+        </label>
         <ToggleSetting
           anchorId="settings-control-a11y-color-blind"
           label={t("theming.a11y.colorBlind", "Colour-blind-safe colours")}

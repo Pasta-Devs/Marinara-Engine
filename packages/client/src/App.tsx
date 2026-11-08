@@ -629,7 +629,13 @@ export function App() {
     const timer = themeAuto === "time" ? window.setInterval(apply, 30_000) : undefined;
     query?.addEventListener("change", apply);
     document.addEventListener("visibilitychange", apply);
+    // Anything else that writes the scheme while it is automatic (settings arriving from another
+    // device, a restored backup) is corrected at once rather than at the next 30 s tick.
+    const unsubscribe = useUIStore.subscribe((state, previous) => {
+      if (state.theme !== previous.theme && state.themeAuto !== "off") apply();
+    });
     return () => {
+      unsubscribe();
       if (timer) window.clearInterval(timer);
       query?.removeEventListener("change", apply);
       document.removeEventListener("visibilitychange", apply);
@@ -650,6 +656,7 @@ export function App() {
   const a11yStrongFocus = useUIStore((s) => s.a11yStrongFocus);
   const a11yContrast = useUIStore((s) => s.a11yContrast);
   const a11yColorBlindSafe = useUIStore((s) => s.a11yColorBlindSafe);
+  const a11yBackdropStrength = useUIStore((s) => s.a11yBackdropStrength);
   const a11yScheme = useUIStore((s) => s.theme);
   useEffect(() => {
     const root = document.documentElement;
@@ -685,6 +692,7 @@ export function App() {
         highContrast: more,
         colorBlindSafe: a11yColorBlindSafe,
         reduceMotion: reduceAmbientEffects,
+        backdropStrength: a11yBackdropStrength,
         scheme: a11yScheme === "light" ? "light" : "dark",
       });
     };
@@ -698,6 +706,7 @@ export function App() {
     a11yStrongFocus,
     a11yContrast,
     a11yColorBlindSafe,
+    a11yBackdropStrength,
     a11yScheme,
     reduceAmbientEffects,
   ]);

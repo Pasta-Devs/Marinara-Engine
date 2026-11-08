@@ -161,6 +161,24 @@ function uniqueFilename(desired: string): string {
   return `${name}_${i}${ext}`;
 }
 
+/** A file named `desired` (or `desired_2`, `desired_3`, …) with exactly these bytes, if there is one. */
+function findSameBackground(desired: string, bytes: Buffer): string | null {
+  const { name, ext } = parsePath(desired);
+  const candidates = [desired];
+  for (let i = 2; i < 50; i++) candidates.push(`${name}_${i}${ext}`);
+  for (const candidate of candidates) {
+    const path = join(BG_DIR, candidate);
+    if (!existsSync(path)) continue;
+    try {
+      if (statSync(path).size !== bytes.length) continue;
+      if (readFileSync(path).equals(bytes)) return candidate;
+    } catch {
+      /* unreadable: treat as different */
+    }
+  }
+  return null;
+}
+
 function encodeAssetPath(path: string): string {
   return path
     .split("/")
@@ -381,8 +399,6 @@ export async function backgroundsRoutes(app: FastifyInstance) {
 
     // Use the original filename (sanitised) instead of a UUID
     const sanitized = sanitizeFilename(basename(data.filename));
-    const safeName = sanitized ? uniqueFilename(sanitized) : uniqueFilename(`background${ext}`);
-    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, safeName));
     let buffer: Buffer;
     try {
       buffer = await data.toBuffer();
@@ -395,6 +411,22 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     if (!isAllowedImageBuffer(buffer, ext)) {
       return reply.status(400).send({ error: "Unsupported or invalid image file" });
     }
+    // ?dedupe=1 (a theme's backgrounds, installed again on update): the same picture under the same
+    // name, or a numbered copy of it, is already in the gallery, so it isn't added a second time.
+    if (sanitized && (req.query as { dedupe?: string } | undefined)?.dedupe === "1") {
+      const existing = findSameBackground(sanitized, buffer);
+      if (existing) {
+        return {
+          success: true,
+          duplicate: true,
+          filename: existing,
+          url: `/api/backgrounds/file/${encodeURIComponent(existing)}`,
+          tags: readMeta()[existing]?.tags ?? [],
+        };
+      }
+    }
+    const safeName = sanitized ? uniqueFilename(sanitized) : uniqueFilename(`background${ext}`);
+    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, safeName));
     await writeFile(filePath, buffer);
 
     // Store metadata

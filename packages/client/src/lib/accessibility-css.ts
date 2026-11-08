@@ -15,6 +15,8 @@ export interface AccessibilityChoices {
   colorBlindSafe: boolean;
   /** Reduce motion (the setting, or the OS asking for it): theme animations and transitions stop too. */
   reduceMotion?: boolean;
+  /** Appearance > Accessibility > Backdrop strength, 0-100: how strongly a theme's art shows. */
+  backdropStrength?: number;
   scheme: "dark" | "light";
 }
 
@@ -37,10 +39,28 @@ export function accessibilityCss(choices: AccessibilityChoices) {
     choices.strongFocus ||
     choices.highContrast ||
     choices.colorBlindSafe ||
-    !!choices.reduceMotion;
+    !!choices.reduceMotion ||
+    (choices.backdropStrength ?? 100) < 100;
   if (!any) return "";
 
+  // A theme's art (the backdrop and the ambient overlay) at the user's strength. High contrast
+  // fades it to a quarter at most, so text sits on the solid surfaces below, not on the picture.
+  const strength = Math.min(
+    Math.max(0, Math.min(100, choices.backdropStrength ?? 100)) / 100,
+    choices.highContrast ? 0.25 : 1,
+  );
+  if (strength < 1) {
+    rules.push(
+      `[data-mari-part="app-backdrop"] { opacity: ${strength} !important; }` +
+        ` [data-mari-part="ambient"] { opacity: calc(min(var(--mari-ambient-opacity, 1), 1) * ${strength}) !important; }`,
+    );
+  }
+
   if (choices.reduceMotion) {
+    // The ambient overlay stands still (its pictures are swapped for still frames by the theme injector).
+    rules.push(
+      `[data-mari-part="ambient"], [data-mari-part="ambient"]::before, [data-mari-part="ambient"]::after { animation: none !important; }`,
+    );
     // Loading spinners keep turning: a still spinner reads as a frozen app.
     rules.push(
       `*:not(.animate-spin, .animate-spin *), ::before, ::after { animation-duration: 0.01ms !important;` +
@@ -78,6 +98,30 @@ export function accessibilityCss(choices: AccessibilityChoices) {
   if (choices.highContrast) {
     const fg = choices.scheme === "light" ? "#000000" : "#ffffff";
     const mix = (percent: number) => `color-mix(in srgb, ${fg} ${percent}%, transparent)`;
+    // Solid surfaces: white text on a pastel card (or black on a night picture) is unreadable
+    // whatever the text colour, so panels, cards, menus, sidebars, bubbles and the page veil become
+    // the scheme's own solid colours while High contrast is on.
+    const surface =
+      choices.scheme === "light"
+        ? { page: "#ffffff", panel: "#f3f3f5", raised: "#e9e9ee" }
+        : { page: "#0b0b10", panel: "#15151c", raised: "#1e1e27" };
+    rules.push(
+      `:root, :root * { --background: ${surface.page} !important; --card: ${surface.panel} !important;` +
+        ` --popover: ${surface.raised} !important; --sidebar: ${surface.panel} !important;` +
+        ` --secondary: ${surface.raised} !important; --muted: ${surface.raised} !important;` +
+        ` --mari-rp-bubble-bg: ${surface.panel} !important; --ov-panel: ${surface.panel} !important;` +
+        ` --ov-panel-raised: ${surface.raised} !important; --mari-page-veil: ${surface.page} !important;` +
+        ` --mari-home-wash: ${surface.page} !important; --mari-home-widget-bg: ${surface.panel} !important;` +
+        ` --mari-top-bar-plate: ${surface.page} !important; }`,
+      // A theme that paints its panels with its own colours (not the tokens above) would leave
+      // the new text colour on a pale or busy surface, so the big panels and message boxes are
+      // painted solid too, without picture frames (only while a theme is on).
+      `:root[data-custom-theme] :is([data-component="TopBar"], [data-component="ChatSidebarPanel"], [data-component="CenterContent"],` +
+        ` [data-component="RightPanelDesktop"], [data-component="RightPanelMobile"], [data-mari-part="composer"])` +
+        ` { background: ${surface.page} !important; border-image: none !important; }` +
+        ` :root[data-custom-theme] :is([data-mari-part="message"], [data-mari-part="home-widget"], [data-component="CenterContent"] :is(section, fieldset))` +
+        ` { background: ${surface.panel} !important; border-image: none !important; }`,
+    );
     rules.push(
       `:root, :root * { --foreground: ${fg} !important; --muted-foreground: ${mix(88)} !important;` +
         ` --border: ${mix(45)} !important; --input: ${mix(50)} !important; --ov-line: ${mix(40)} !important;` +

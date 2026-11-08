@@ -819,6 +819,9 @@ function FeedModule({
           src={art}
           alt=""
           aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+          data-mari-part="home-art"
           className={cn("pointer-events-none absolute select-none object-contain", artClassName)}
         />
       ) : null}
@@ -2361,7 +2364,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                   <div className="min-w-0 max-w-5xl">
                     <div className="flex min-w-0 flex-col items-center">
                       <img
-                        src="/logo.png"
+                        src="/logo-home.webp"
+                        width={160}
+                        height={128}
                         alt=""
                         aria-hidden="true"
                         className="mb-1 h-[clamp(1.8rem,2.4vw,2.35rem)] w-auto object-contain"
@@ -2567,7 +2572,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                         eyebrow={t("home.recentChats.eyebrow")}
                         title={t("home.recentChats.title")}
                         accent={HOME_MODULE_ACCENTS.cyan}
-                        art="/home/story-comet.png"
+                        art="/home/story-comet.webp"
                         artClassName={HOME_CARD_ART_CLASS}
                         className="h-full"
                         onOpen={() => executeStateNavigation({ kind: "chats" })}
@@ -2600,7 +2605,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                         eyebrow={t("home.whatsNew.eyebrow")}
                         title={t("home.whatsNew.title", { version: APP_VERSION })}
                         accent={HOME_MODULE_ACCENTS.orange}
-                        art="/home/kitchen-orbit.png"
+                        art="/home/kitchen-orbit.webp"
                         artClassName={HOME_CARD_ART_CLASS}
                         className="h-full"
                       >
@@ -2744,8 +2749,11 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                                 )}
                               </span>
                               <img
-                                src="/home/character-portal.png"
+                                src="/home/character-portal.webp"
                                 alt=""
+                                loading="lazy"
+                                decoding="async"
+                                data-mari-part="home-art"
                                 className="pointer-events-none absolute inset-0 h-full w-full object-contain"
                                 aria-hidden="true"
                               />
@@ -2891,7 +2899,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                         title={t("home.achievements.title")}
                         description={t("home.achievements.description")}
                         accent={HOME_MODULE_ACCENTS.orange}
-                        art="/home/achievement-trophy.png"
+                        art="/home/achievement-trophy.webp"
                         artClassName={HOME_CARD_ART_CLASS}
                         className="h-full min-h-0"
                       >

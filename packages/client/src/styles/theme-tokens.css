@@ -81,14 +81,20 @@
      --mari-app-backdrop-rendering   auto         (pixelated keeps pixel art crisp)
    For several layers (art + a dot grid + a colour), set --mari-app-backdrop-layers to a whole
    `background` value instead; it wins over the single-image token.
-   The art is drawn on a fixed layer under the app, so it also shows behind chats: the roleplay,
-   conversation and game surfaces go transparent and the stock chat background steps aside.
-   A background the user picked for a chat still shows on top. */
+   The art is drawn on its own fixed layer under the app ([data-mari-part="app-backdrop"], the first
+   child of the app shell), so Home's ambient decorations and the light scheme can't hide it, and it
+   also shows behind chats: the roleplay, conversation and game surfaces go transparent and the
+   stock chat background steps aside. A background the user picked for a chat still shows on top.
+   Appearance > Accessibility > Backdrop strength (and High contrast) fade it; a theme can't undo
+   that, because the value is written into the protected layer. */
+[data-mari-part="app-backdrop"] {
+  display: none;
+}
 :root[data-mari-app-backdrop] .mari-app {
   isolation: isolate;
 }
-:root[data-mari-app-backdrop] .mari-app::after {
-  content: "";
+:root[data-mari-app-backdrop] [data-mari-part="app-backdrop"] {
+  display: block;
   position: fixed;
   inset: 0;
   z-index: -2;
@@ -100,7 +106,7 @@
   background-attachment: var(--mari-app-backdrop-attachment, fixed);
   image-rendering: var(--mari-app-backdrop-rendering, auto);
 }
-:root[data-mari-app-backdrop-layers] .mari-app::after {
+:root[data-mari-app-backdrop-layers] [data-mari-part="app-backdrop"] {
   background: var(--mari-app-backdrop-layers);
   image-rendering: var(--mari-app-backdrop-rendering, auto);
 }
@@ -110,7 +116,7 @@
 :root[data-mari-app-backdrop]
   .mari-app
   :is(
-    .mari-app-background-paint,
+    .mari-app-background-paint:not([data-center-page]),
     [data-mari-part="home"],
     .rpg-chat-area,
     .mari-chat-area[data-chat-mode="conversation"],
@@ -185,6 +191,107 @@
 }
 [data-component="CenterContent"][data-center-page] {
   background-image: linear-gradient(var(--mari-page-veil), var(--mari-page-veil));
+}
+/* Over a backdrop the page's own colour steps aside, the veil stays. */
+:root[data-mari-app-backdrop] .mari-app [data-component="CenterContent"][data-center-page] {
+  background: linear-gradient(var(--mari-page-veil), var(--mari-page-veil)) !important;
+}
+
+/* ─── Ambient overlay (theming round 3) ───
+   --mari-ambient takes a whole `background` value (falling leaves, rain, scanlines, a vignette) for
+   a layer over the chat and the pages but UNDER the top bar and both sidebars. It never takes
+   clicks, stops moving with Reduce motion, and must stay mostly see-through (the chrome guard
+   switches off a theme whose ambient layer hides the chat). Also: --mari-ambient-opacity,
+   --mari-ambient-blend (a mix-blend-mode), --mari-ambient-animation (an `animation` value), and
+   the layer's own ::before and ::after for a second and third layer. */
+[data-mari-part="ambient"] {
+  display: none;
+}
+:root[data-mari-ambient] [data-mari-part="ambient"] {
+  display: block;
+  background: var(--mari-ambient);
+  opacity: var(--mari-ambient-opacity, 1);
+  mix-blend-mode: var(--mari-ambient-blend, normal);
+  animation: var(--mari-ambient-animation, none);
+}
+
+/* ─── Picture icons and cursor (theming round 3) ───
+   --mari-icon-send, --mari-icon-stop, --mari-icon-attach and --mari-icon-emoji swap the message
+   box's icons for a picture (a whole background-image value, e.g. url("theme:teacup.webp")); the
+   button, its label and its clicks stay. --mari-cursor (a whole cursor value, e.g.
+   url("theme:paw.png") 4 4, auto) replaces the pointer everywhere, --mari-cursor-pointer over
+   links and buttons, and both win over Appearance > Custom Mouse Pointer while the theme is on.
+   Text boxes keep the text cursor. */
+:root[data-mari-icon-send] [data-mari-part="composer"] svg:is(.lucide-send, .lucide-send-horizontal),
+:root[data-mari-icon-stop] [data-mari-part="composer"] svg:is(.lucide-circle-stop, .lucide-stop-circle, .lucide-square),
+:root[data-mari-icon-attach] [data-mari-part="composer"] svg.lucide-paperclip,
+:root[data-mari-icon-emoji] [data-mari-part="composer"] svg.lucide-smile {
+  background: center / contain no-repeat;
+  stroke: transparent;
+}
+:root[data-mari-icon-send] [data-mari-part="composer"] svg:is(.lucide-send, .lucide-send-horizontal) {
+  background-image: var(--mari-icon-send);
+}
+:root[data-mari-icon-stop] [data-mari-part="composer"] svg:is(.lucide-circle-stop, .lucide-stop-circle, .lucide-square) {
+  background-image: var(--mari-icon-stop);
+}
+:root[data-mari-icon-attach] [data-mari-part="composer"] svg.lucide-paperclip {
+  background-image: var(--mari-icon-attach);
+}
+:root[data-mari-icon-emoji] [data-mari-part="composer"] svg.lucide-smile {
+  background-image: var(--mari-icon-emoji);
+}
+:root[data-mari-theme-cursor],
+:root[data-mari-theme-cursor] body,
+:root[data-mari-theme-cursor] body * {
+  cursor: var(--mari-cursor) !important;
+}
+:root[data-mari-theme-cursor]
+  :is(a[href], button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], summary, label, select, .cursor-pointer) {
+  cursor: var(--mari-cursor-pointer, var(--mari-cursor)) !important;
+}
+:root[data-mari-theme-cursor]
+  :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="color"], [type="file"]), textarea, [contenteditable="true"]) {
+  cursor: text !important;
+}
+
+/* --mari-home-art: none hides the stock pictures on Home's cards (they load lazily, so a hidden
+   one is never downloaded). Themes can also restyle them through [data-mari-part="home-art"]. */
+:root[data-mari-home-art] [data-mari-part="home-art"] {
+  display: none;
+}
+
+/* ─── Home widgets, more tokens (theming round 3) ───
+   --mari-home-widget-eyebrow-color, --mari-home-widget-action-size (Professor Mari's Ask button)
+   and --mari-professor-sprite-scale. --mari-home-wash is the tint Home lays over the backdrop
+   (stock: 65% of the card colour). With Display Size 19 or more, widget titles and the Professor's
+   blurb aren't cut off: the card grows instead. */
+[data-mari-part="home-widget"] [data-mari-part="home-widget-eyebrow"] {
+  color: var(--mari-home-widget-eyebrow-color, var(--home-module-accent));
+}
+.mari-home-professor-widget [data-mari-part="home-widget-eyebrow"] {
+  color: var(--mari-home-widget-eyebrow-color, var(--marinara-chat-chrome-button-text-active));
+}
+.mari-home-professor-widget [data-home-professor-action] {
+  font-size: var(--mari-home-widget-action-size, clamp(0.56rem, 2.2cqw, 0.75rem));
+}
+.mari-home-professor-widget [data-home-professor-art] {
+  transform: scale(var(--mari-professor-sprite-scale, 1));
+  transform-origin: bottom center;
+}
+:root[data-mari-large-text] .mari-home-professor-widget [data-home-professor-description],
+:root[data-mari-large-text] [data-mari-part="home-widget"] [data-mari-part="home-widget-title"],
+:root[data-mari-large-text] .mari-home-widget-shortcut :is(p, span) {
+  display: block;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+  overflow: visible;
+}
+:root[data-mari-large-text] .mari-home-professor-widget [data-home-professor-content] {
+  overflow: visible;
+}
+:root[data-mari-large-text] [data-mari-part="home-widget"] > header {
+  flex-wrap: wrap;
 }
 
 /* ─── Accent effects (Accent Pulse and RGB Mode in the new layout) ───

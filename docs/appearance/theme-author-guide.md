@@ -115,6 +115,39 @@ These have no value until a theme sets one, so the user's own setting applies un
 | `--mari-msg-head-rule`                                                                                                                                                                                                       | The line under the name in roleplay messages (a `border-bottom` value, such as `none` or `2px dashed currentColor`)                                                                                       |
 | `--mari-home-widget-border`, `--mari-home-widget-border-width`, `--mari-home-widget-radius`, `--mari-home-widget-bg`                                                                                                         | Every Home widget's frame and surface, Professor Mari included                                                                                                                                            |
 | `--mari-home-widget-font`, `--mari-home-widget-title-font`, `--mari-home-widget-title-size`, `--mari-home-widget-title-color`, `--mari-home-widget-eyebrow-size`, `--mari-home-widget-text-size`, `--mari-home-widget-muted` | Home widget type. Widgets grow taller when the text needs more room instead of clipping it                                                                                                                |
+| `--mari-home-widget-eyebrow-color`, `--mari-home-widget-action-size`, `--mari-professor-sprite-scale`                                                                                                                        | The small label above widget titles, Professor Mari's Ask button text, and the size of Mari's picture (1 = stock)                                                                                         |
+| `--mari-home-wash`                                                                                                                                                                                                           | The tint Home lays over a backdrop (stock: 65% of the card colour); `transparent` shows the art at full strength                                                                                          |
+| `--mari-home-art`                                                                                                                                                                                                            | `none` hides the stock pictures on Home's cards; they load lazily, so hidden ones are never downloaded                                                                                                    |
+| `--mari-ambient` (and `-opacity`, `-blend`, `-animation`)                                                                                                                                                                    | The ambient overlay: see Ambient overlay                                                                                                                                                                  |
+| `--mari-icon-send`, `--mari-icon-stop`, `--mari-icon-attach`, `--mari-icon-emoji`                                                                                                                                            | A picture instead of the message box's icon (a `background-image` value)                                                                                                                                  |
+| `--mari-cursor`, `--mari-cursor-pointer`                                                                                                                                                                                     | A picture pointer (a whole `cursor` value). It wins over Custom Mouse Pointer while the theme is on                                                                                                       |
+
+## Pictures
+
+A theme carries its pictures in `images` in the theme file, and its CSS uses them by name:
+
+```css
+:root {
+  --mari-app-backdrop: url("theme:night.webp");
+}
+[data-mari-part="home-widget"] {
+  border-image: url("theme:frame.webp") 24 fill / 24px stretch;
+}
+```
+
+- Pictures count in the 6 MiB package budget, not in the 256 KiB CSS limit, so full-size art fits.
+- In the editor, open **Pictures and sharing details** and press **Add pictures**. PNG and JPEG are
+  saved as WebP on the way in (small ones lossless, so pixel art and 9-slice frames stay crisp;
+  at most 2560 px on the longest side). Click a picture's name to put `url("theme:name")` at the cursor.
+- Importing a theme does the same: pictures written inline as `data:` URLs move out of the CSS
+  into `images`, still PNG and JPEG become WebP, and the preview lists every picture with its size
+  (with a "Keep the original files instead" box).
+- `theme:` names also find the theme's `backgrounds` by name, so art you ship for the chat
+  background gallery can be used in the CSS too, whether or not the user adds it to the gallery.
+- When the theme is applied, every picture becomes a short same-origin `blob:` URL: nothing is
+  downloaded, and a picture used in many places is decoded once.
+- GIF, APNG, animated WebP and SVG with `<animate>` count as moving pictures. The import preview
+  says so, and with Reduce motion on they show as their first frame.
 
 ## Backdrops
 
@@ -122,13 +155,14 @@ Set `--mari-app-backdrop` on `:root` to paint art behind the app:
 
 ```css
 :root {
-  --mari-app-backdrop: url("data:image/webp;base64,…");
+  --mari-app-backdrop: url("theme:city.webp");
   --mari-app-backdrop-position: bottom center;
   --mari-app-backdrop-rendering: pixelated;
 }
 ```
 
-It is drawn once, on a fixed layer under the whole app, and it shows behind chats too: the roleplay,
+It is drawn once, on its own fixed layer under the whole app (`[data-mari-part="app-backdrop"]`, so
+Home's decorations and the light scheme never hide it), and it shows behind chats too: the roleplay,
 conversation and game surfaces go transparent and the stock chat background steps aside. A
 background the user picked for a chat still shows on top of it. Panels keep `--card` and
 `--sidebar`, so make those translucent if you want the art to show behind them, and use
@@ -147,6 +181,32 @@ background the user picked for a chat still shows on top of it. Panels keep `--c
 Custom images are the most flexible part of a theme: backdrops, a top bar strip, Home widget
 frames and message frames (`border-image`, or a `background` on any part hook), tiled patterns
 and bundled pixel fonts all ship inside the theme file, and the import preview lists them.
+The user's Appearance > Accessibility > Theme art strength fades the backdrop and the ambient
+overlay, and High contrast keeps them at 25% or less; a theme can't undo either.
+
+## Ambient overlay
+
+`--mari-ambient` takes a whole `background` value for a layer over the chat and the pages but
+**under** the top bar and both sidebars: rain, falling leaves, scanlines, a vignette.
+
+```css
+:root {
+  --mari-ambient: url("theme:leaves.webp") 0 0 / 512px repeat;
+  --mari-ambient-opacity: 0.6;
+  --mari-ambient-animation: leaves-fall 30s linear infinite;
+}
+@keyframes leaves-fall {
+  to {
+    background-position: 0 1024px;
+  }
+}
+```
+
+`--mari-ambient-blend` sets a `mix-blend-mode`, and `[data-mari-part="ambient"]::before` and
+`::after` are free for two more layers. The layer never takes clicks, stops moving with Reduce
+motion (its pictures become still frames), and must stay mostly see-through: a theme whose ambient
+layer would hide the chat is switched off. Use this instead of a full-screen `body::after`, which
+the guard treats as covering the app.
 
 A chat's own background is an `<img data-mari-part="backdrop">`. The stock one (no background picked)
 also has `data-default-background="true"`, so a theme can replace only that one:
@@ -199,22 +259,27 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 
 ### Parts
 
-| Selector                                                                               | What it is                                                                                                                                                                                                            |
-| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[data-mari-part="message"]`                                                           | One message, in every chat mode. Also has `data-message-id` and `data-message-role` (`user`, `assistant`, `system`, …) and the message data below                                                                     |
-| `[data-mari-part="message"][data-latest]`                                              | The newest reply from the character                                                                                                                                                                                   |
-| `[data-mari-part="message"][data-streaming]`                                           | A reply that is still being written                                                                                                                                                                                   |
-| `[data-mari-part="avatar"]`, `[data-mari-part="header"]`, `[data-mari-part="actions"]` | Inside a message: the avatar, the name line and the message tools                                                                                                                                                     |
-| `[data-mari-part="reasoning"]`, `[data-mari-part="reasoning-text"]`                    | The reasoning toggle (or box) and its text, the same hook on desktop and on phones                                                                                                                                    |
-| `[data-mari-part="composer"]`                                                          | The message box. `data-composer` is `roleplay`, `conversation` or `game`                                                                                                                                              |
-| `[data-mari-part="home-widget"]`                                                       | A Home widget card, Professor Mari included. Its frame has `data-home-widget-id` (`recent`, `professor`, `whats-new`, `character-library`, …). Inside: `home-widget-eyebrow`, `home-widget-title`, `home-widget-text` |
-| `[data-mari-part="backdrop"]`                                                          | A chat's background image (see Backdrops)                                                                                                                                                                             |
-| `[data-mari-part="stage-empty"]`                                                       | The game stage with no scene image                                                                                                                                                                                    |
-| `[data-chat-row]`                                                                      | A row in the chats sidebar; `data-selected="true"` on the open chat                                                                                                                                                   |
-| `[data-chat-mode]`                                                                     | The chat surface, by mode                                                                                                                                                                                             |
-| `.mari-messages-scroll`                                                                | The scrolling message list                                                                                                                                                                                            |
-| `.mari-rp-bubble`, `.mari-rp-bubble--user`, `.mari-message-assistant`                  | Roleplay and conversation bubbles                                                                                                                                                                                     |
-| `.mari-window`, `.mari-drawer`                                                         | Pop-out windows and drawers                                                                                                                                                                                           |
+| Selector                                                                               | What it is                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[data-mari-part="message"]`                                                           | One message, in every chat mode. Also has `data-message-id` and `data-message-role` (`user`, `assistant`, `system`, …) and the message data below                                                                                                                                                                                               |
+| `[data-mari-part="message"][data-latest]`                                              | The newest reply from the character                                                                                                                                                                                                                                                                                                             |
+| `[data-mari-part="message"][data-streaming]`                                           | A reply that is still being written                                                                                                                                                                                                                                                                                                             |
+| `[data-mari-part="avatar"]`, `[data-mari-part="header"]`, `[data-mari-part="actions"]` | Inside a message: the avatar, the name line and the message tools                                                                                                                                                                                                                                                                               |
+| `[data-mari-part="reasoning"]`, `[data-mari-part="reasoning-text"]`                    | The reasoning toggle (or box) and its text, the same hook on desktop and on phones                                                                                                                                                                                                                                                              |
+| `[data-mari-part="composer"]`                                                          | The message box. `data-composer` is `roleplay`, `conversation` or `game`                                                                                                                                                                                                                                                                        |
+| `[data-mari-part="home-art"]`                                                          | The stock pictures on Home's cards                                                                                                                                                                                                                                                                                                              |
+| `[data-mari-part="message"][data-vn]`                                                  | The visual novel dialogue box: a message with the same data (character, role, index), plus `avatar` and `header` parts inside                                                                                                                                                                                                                   |
+| `[data-mari-part="vn-sprite"]`                                                         | An empty layer behind the VN dialogue box, reaching the bottom of the scene. It has `data-vn-speaker` (the speaker's name as a slug, or their role), `data-vn-speaker-role`, `data-character` and `data-character-id` for whoever is speaking now, so a theme can stand their picture there. `[data-roleplay-vn-media]` has the same attributes |
+| `[data-mari-part="message"][data-game-narration]`                                      | The Game narration box. `data-message-role` is `narrator`, or `assistant` with `data-character` and `data-character-name` while a character speaks; `data-segment-type` and `data-expression` describe the current line                                                                                                                         |
+| `[data-mari-part="app-backdrop"]`, `[data-mari-part="ambient"]`                        | The backdrop and ambient layers. Their place in the page is fixed; style them with the tokens                                                                                                                                                                                                                                                   |
+| `[data-mari-part="home-widget"]`                                                       | A Home widget card, Professor Mari included. Its frame has `data-home-widget-id` (`recent`, `professor`, `whats-new`, `character-library`, …). Inside: `home-widget-eyebrow`, `home-widget-title`, `home-widget-text`                                                                                                                           |
+| `[data-mari-part="backdrop"]`                                                          | A chat's background image (see Backdrops)                                                                                                                                                                                                                                                                                                       |
+| `[data-mari-part="stage-empty"]`                                                       | The game stage with no scene image                                                                                                                                                                                                                                                                                                              |
+| `[data-chat-row]`                                                                      | A row in the chats sidebar; `data-selected="true"` on the open chat                                                                                                                                                                                                                                                                             |
+| `[data-chat-mode]`                                                                     | The chat surface, by mode                                                                                                                                                                                                                                                                                                                       |
+| `.mari-messages-scroll`                                                                | The scrolling message list                                                                                                                                                                                                                                                                                                                      |
+| `.mari-rp-bubble`, `.mari-rp-bubble--user`, `.mari-message-assistant`                  | Roleplay and conversation bubbles                                                                                                                                                                                                                                                                                                               |
+| `.mari-window`, `.mari-drawer`                                                         | Pop-out windows and drawers                                                                                                                                                                                                                                                                                                                     |
 
 ### Message data
 
@@ -288,12 +353,17 @@ so a theme gets a day and a night look by styling both:
 
 ```css
 :root[data-theme="light"] {
-  --mari-app-backdrop: url("data:image/webp;base64,…day…");
+  --mari-app-backdrop: url("theme:day.webp");
 }
 :root[data-theme="dark"] {
-  --mari-app-backdrop: url("data:image/webp;base64,…night…");
+  --mari-app-backdrop: url("theme:night.webp");
 }
 ```
+
+The scheme is worked out on each device by its own clock (it isn't synced), so a phone and a PC in
+different places each show the right half. A theme file can suggest the switch itself:
+`"settings": { "colorScheme": "time", "dayStart": "07:00", "nightStart": "19:00" }` (or
+`"system"`). The import preview offers it like any other setting.
 
 ## Theme files
 
@@ -311,17 +381,20 @@ Export writes one theme as one JSON file:
   "thumbnail": "data:image/webp;base64,…",
   "settings": { "colorScheme": "dark", "visualStyle": "stage", "accent": "#3fae7a", "fontFamily": "Georgia" },
   "fonts": [{ "family": "My Display", "src": "data:font/woff2;base64,…" }],
+  "images": [{ "name": "frame.webp", "src": "data:image/webp;base64,…" }],
   "backgrounds": [{ "name": "forest.webp", "src": "data:image/webp;base64,…" }],
   "css": ":root { --primary: #3fae7a; }"
 }
 ```
 
-Only `kind`, `name` and `css` are required. `templates` is described under Message template. `settings` keys: `colorScheme`, `visualStyle`, `accent`,
+Only `kind`, `name` and `css` are required. `templates` is described under Message template. `settings` keys: `colorScheme` (`dark`, `light`, `time` or `system`), `dayStart`, `nightStart`, `visualStyle`, `accent`,
 `accentLight`, `background`, `backgroundLight`, `fontFamily`, `accentPulse`. Importing shows a preview
 first, and the user picks which settings to apply and whether to add the backgrounds to their gallery.
 Fonts load with the theme (as `@font-face` rules) and go away with it. Importing a theme with the same
-name as an installed one offers to update it. The CSS limit is 256 KiB; thumbnail, fonts and
-backgrounds together get 6 MiB. Plain `.css` files, `{ "name", "css" }` and the older
+name as an installed one offers to update it, and an update doesn't add the same background to the
+gallery twice. The CSS limit is 256 KiB of CSS text; pictures, thumbnail, fonts and backgrounds
+together get 6 MiB. A picture that doesn't fit is left out on its own, with its size, and the rest
+of the theme still installs. Plain `.css` files, `{ "name", "css" }` and the older
 `marinara.theme-folder` export still import.
 
 ## Accessibility
@@ -336,6 +409,17 @@ a theme can't undo them, not even by redefining variables. While an option is of
 | `--mari-focus-ring-color`                              | The app's normal focus ring (defaults to `--primary`)            |
 | `--mari-cvd-good`, `--mari-cvd-warn`, `--mari-cvd-bad` | Status and gauge colours when you want your own blue/orange pair |
 
+With art, three more choices win over a theme:
+
+- **Theme art strength** (0-100%) fades the backdrop and the ambient overlay.
+- **High contrast** also makes surfaces solid in the scheme's own colours (`--background`, `--card`,
+  `--popover`, `--sidebar`, `--secondary`, `--muted`, `--mari-rp-bubble-bg`, the page veil, the Home
+  wash, Home widgets and the top bar plate) and keeps theme art at 25% or less, so text never sits on
+  a pastel picture. Colours a theme writes as literals on its own selectors aren't changed, so
+  prefer the tokens.
+- **Reduce motion** shows moving pictures as their first frame and stops the ambient overlay.
+  Forced colours (Windows High Contrast) hide the art and `border-image` frames.
+
 Use the status and gauge tokens above rather than fixed greens and reds, and the colour-blind-safe
 switch reaches your theme too. Skip links (`.mari-skip-link`) stay reachable whatever a theme does.
 The import preview tells the user when a theme tries to change any of these.
@@ -346,7 +430,17 @@ The import preview tells the user when a theme tries to change any of these.
   Library sidebar, Ctrl+K and the message box can be restyled, not hidden, moved, covered, faded,
   filtered away or made unclickable. The guard measures them with and without the theme after the
   theme loads, at 2.5 s and 10 s, when a chat opens, when a panel opens, when the colour scheme
-  changes and on resize, and switches a theme off in that tab when it breaks one.
+  changes, on resize and when one of the theme's own animations starts or ends, and switches a
+  theme off in that tab when it breaks one.
+- Pictures count (guard v3). Whatever is painted over a tab, an icon, a chat row or the message
+  box is found at the control's centre, `pointer-events: none` or not and at any size, and a layer
+  that hides it (a colour, a gradient, or a picture whose pixels there are mostly opaque) counts as
+  covering. So do a `border-image` outset that spills over a control and a picture `mask` on one.
+  Inside the top bar, every `::before` and `::after` is stacked under the labels and icons, and
+  masks, `list-style-image` and `border-image-outset` don't apply. The backdrop and the ambient
+  overlay never count: they sit under the bars by construction.
+- Contrast over art: when a picture is behind text, the guard reads the picture's colours instead
+  of skipping the check.
 - Text a theme adds with `content:` is shown in the import preview. Added text in the chat or the
   message box that asks for keys, passwords or sign-ins switches the theme off.
 - "Keep this theme?" survives a reload or a closed tab: unanswered means going back. Hovering or
@@ -354,6 +448,12 @@ The import preview tells the user when a theme tries to change any of these.
   an Escape that closes Ctrl+K, a menu or a dialog doesn't count.
 
 ## Changes
+
+- **v1.3** (theming round 3, pictures): `images` in the theme file and `url("theme:name")`; the
+  CSS limit counts CSS text only; WebP on import; backdrop on its own layer; `--mari-page-veil`
+  kept over a backdrop; `!important` shorthands with `var()` kept; ambient overlay; picture icons
+  and cursor; `--mari-home-wash`, `--mari-home-art` and more Home widget tokens; VN dialogue, VN
+  sprite slot and Game narration hooks; theme files can suggest Follow time of day; guard v3.
 
 - **v1.1**: message hooks in every chat mode with character, index and generation time; avatar,
   header, actions and reasoning parts; `--mari-composer-placeholder`; backdrop v2 (size, position,

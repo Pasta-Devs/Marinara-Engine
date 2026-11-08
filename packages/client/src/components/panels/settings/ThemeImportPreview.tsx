@@ -7,16 +7,21 @@
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Check, ImageIcon, Type, Wand2 } from "lucide-react";
+import { AlertTriangle, Check, Film, ImageIcon, Images, Loader2, Type, Wand2 } from "lucide-react";
 import type { Theme } from "@marinara-engine/shared";
 import { cn } from "../../../lib/utils";
-import { checkThemeCss } from "../../../lib/theme-guard";
+import { checkThemeCssReady } from "../../../lib/theme-guard";
+import { summarizeThemeImages, type ThemeImage } from "../../../lib/theme-images";
 import type { ThemeGuardProblem } from "../../../lib/theme-safety";
 import { problemText } from "../../layout/ThemeSafetyHost";
 import {
   convertHslTriplets,
   formatKiB,
+  formatSize,
+  optimizeThemePackage,
+  themePackageBytes,
   themeSettingKeys,
+  type OptimizedThemePackage,
   validateThemePackage,
   type ThemePackage,
   type ThemeSettingKey,
@@ -36,10 +41,16 @@ export interface ThemeInstallChoice {
   activate: boolean;
 }
 
-/** Hidden, moved or covered chrome, measured with the theme switched on for one task. */
-function useChromeCheck(css: string) {
+/** Hidden, moved or covered chrome, measured with the theme switched on for one task (its pictures sampled first). */
+function useChromeCheck(css: string, images: ThemeImage[] | undefined) {
   const [problems, setProblems] = useState<ThemeGuardProblem[]>([]);
-  useEffect(() => setProblems(checkThemeCss(css)), [css]);
+  useEffect(() => {
+    let alive = true;
+    void checkThemeCssReady(css, images).then((found) => alive && setProblems(found));
+    return () => {
+      alive = false;
+    };
+  }, [css, images]);
   return problems;
 }
 
@@ -74,10 +85,29 @@ export function ThemeImportPreview({
   onSkip: () => void;
 }) {
   const { t } = useTranslation();
-  const [pkg, setPkg] = useState(initialPkg);
+  const [original, setPkg] = useState(initialPkg);
   useEffect(() => setPkg(initialPkg), [initialPkg]);
+  // Pictures are moved out of the CSS and re-saved as WebP before anything is installed; the
+  // original file can still be kept as it is.
+  const [optimized, setOptimized] = useState<OptimizedThemePackage | null>(null);
+  const [keepOriginals, setKeepOriginals] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setOptimized(null);
+    void optimizeThemePackage(original)
+      .then((result) => alive && setOptimized(result))
+      .catch(() => alive && setOptimized({ pkg: original, moved: 0, shrunk: 0, before: 0, after: 0 }));
+    return () => {
+      alive = false;
+    };
+  }, [original]);
+  const optimizing = optimized === null;
+  const pkg = keepOriginals || !optimized ? original : optimized.pkg;
   const issues = useMemo(() => validateThemePackage({ ...pkg, metaProblems }), [pkg, metaProblems]);
-  const chromeProblems = useChromeCheck(pkg.css);
+  const chromeProblems = useChromeCheck(pkg.css, pkg.meta.images);
+  const pictures = useMemo(() => summarizeThemeImages(pkg.css, pkg.meta.images), [pkg]);
+  const optimizedSomething =
+    !!optimized && (optimized.moved > 0 || optimized.shrunk > 0) && optimized.after < optimized.before;
   const sameName = installed.find((theme) => theme.name === pkg.name) ?? null;
   const settingKeys = themeSettingKeys(pkg.meta.settings);
   const [chosenSettings, setChosenSettings] = useState<ThemeSettingKey[]>([]);
@@ -85,7 +115,8 @@ export function ThemeImportPreview({
   const allowThemeHtml = useUIStore((s) => s.allowThemeHtml);
   // A theme with HTML installs only after the user turned on "Allow themes with HTML".
   const htmlBlocked = !allowThemeHtml && issues.some((issue) => issue.kind === "has-html");
-  const blocking = htmlBlocked || issues.some((issue) => issue.kind === "css-too-big" || issue.kind === "meta-too-big");
+  const blocking =
+    optimizing || htmlBlocked || issues.some((issue) => issue.kind === "css-too-big" || issue.kind === "meta-too-big");
   const meta = pkg.meta;
   const scheme = meta.colorScheme;
 
@@ -94,7 +125,14 @@ export function ThemeImportPreview({
     const shown =
       typeof value === "boolean"
         ? `: ${value ? t("theming.import.on", "on") : t("theming.import.off", "off")}`
-        : `: ${String(value)}`;
+        : key === "colorScheme" && value === "time"
+          ? `: ${t("theming.import.followTime", "Follow time of day ({{day}} light, {{night}} dark)", {
+              day: meta.settings?.dayStart ?? "07:00",
+              night: meta.settings?.nightStart ?? "19:00",
+            })}`
+          : key === "colorScheme" && value === "system"
+            ? `: ${t("theming.import.followSystem", "Follow system")}`
+            : `: ${String(value)}`;
     const label = {
       colorScheme: t("theming.import.setting.colorScheme", "Color scheme"),
       visualStyle: t("theming.import.setting.visualStyle", "Visual style"),
@@ -104,6 +142,8 @@ export function ThemeImportPreview({
       backgroundLight: t("theming.import.setting.backgroundLight", "Background (Light)"),
       fontFamily: t("theming.import.setting.fontFamily", "Font"),
       accentPulse: t("theming.import.setting.accentPulseName", "Accent Pulse"),
+      dayStart: t("theming.import.setting.dayStart", "Light from"),
+      nightStart: t("theming.import.setting.nightStart", "Dark from"),
     }[key];
     return `${label}${shown}`;
   };
@@ -113,7 +153,7 @@ export function ThemeImportPreview({
       case "css-too-big":
         return t(
           "theming.import.issue.cssTooBig",
-          "The CSS is {{size}}; the limit is {{limit}}. Compress images or subset fonts.",
+          "The CSS is {{size}}; the limit is {{limit}}. Pictures don't count once they're in the theme's images, so this is the CSS itself: subset fonts or trim rules.",
           {
             size: formatKiB(issue.bytes),
             limit: formatKiB(issue.limit),
@@ -122,7 +162,7 @@ export function ThemeImportPreview({
       case "meta-too-big":
         return t(
           "theming.import.issue.metaTooBig",
-          "Its thumbnail, fonts and backgrounds come to {{size}}; the limit is {{limit}}.",
+          "Its pictures, thumbnail, fonts and backgrounds come to {{size}}; the limit is {{limit}}.",
           { size: formatKiB(issue.bytes), limit: formatKiB(issue.limit) },
         );
       case "hsl-triplets":
@@ -176,6 +216,18 @@ export function ThemeImportPreview({
         return t("theming.import.issue.badMeta", "Part of the file was left out: {{message}}", {
           message: issue.message,
         });
+      case "animated":
+        return t(
+          "theming.import.issue.animated",
+          "This theme has moving pictures ({{count}}). With Reduce motion on, they show as still frames.",
+          { count: issue.count },
+        );
+      case "missing-images":
+        return t(
+          "theming.import.issue.missingImages",
+          "Its CSS uses pictures the file doesn't carry, so they won't show: {{names}}",
+          { names: issue.names.slice(0, 4).join(", ") },
+        );
     }
   };
 
@@ -211,7 +263,13 @@ export function ThemeImportPreview({
                   : scheme === "both"
                     ? t("theming.import.forBoth", "for Dark and Light")
                     : null,
-              formatKiB(new Blob([pkg.css]).size),
+              pictures.length
+                ? t("theming.import.sizeWithPictures", "{{total}} ({{css}} CSS + {{count}} pictures)", {
+                    total: formatSize(themePackageBytes(pkg)),
+                    css: formatKiB(new Blob([pkg.css]).size),
+                    count: pictures.length,
+                  })
+                : formatSize(themePackageBytes(pkg)),
             ]
               .filter(Boolean)
               .join(" · ")}
@@ -229,6 +287,52 @@ export function ThemeImportPreview({
           ) : null}
         </div>
       </div>
+
+      {pictures.length > 0 || optimizing ? (
+        <div className="flex flex-col gap-1" data-theme-import-pictures="true">
+          <div className="flex items-center gap-1.5 text-[0.6875rem] font-medium text-[var(--foreground)]">
+            <Images size="0.75rem" />
+            {t("theming.import.pictures", "Pictures")}
+            {optimizing ? (
+              <span className="flex items-center gap-1 font-normal text-[var(--muted-foreground)]">
+                <Loader2 size="0.6875rem" className="animate-spin" />
+                {t("theming.import.optimizing", "Making them lighter…")}
+              </span>
+            ) : optimizedSomething && !keepOriginals ? (
+              <span className="font-normal text-[var(--muted-foreground)]">
+                {t("theming.import.optimized", "Saved as WebP: {{before}} → {{after}}", {
+                  before: formatSize(optimized!.before),
+                  after: formatSize(optimized!.after),
+                })}
+              </span>
+            ) : null}
+          </div>
+          {pictures.length ? (
+            <ul className="flex flex-wrap gap-1" role="list">
+              {pictures.map((picture) => (
+                <li
+                  key={picture.name}
+                  className="flex items-center gap-1 rounded bg-[var(--muted)]/60 px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]"
+                >
+                  {picture.animated ? <Film size="0.625rem" aria-label={t("theming.import.moving", "moving")} /> : null}
+                  <span className="font-mono text-[var(--foreground)]">{picture.name}</span>
+                  {formatKiB(picture.bytes)}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {optimizedSomething ? (
+            <label className="flex items-center gap-2 text-[0.6875rem]">
+              <input
+                type="checkbox"
+                checked={keepOriginals}
+                onChange={(event) => setKeepOriginals(event.target.checked)}
+              />
+              {t("theming.import.keepOriginals", "Keep the original files instead (bigger)")}
+            </label>
+          ) : null}
+        </div>
+      ) : null}
 
       {issues.length > 0 || chromeProblems.length > 0 ? (
         <ul className="flex flex-col gap-1" role="list">

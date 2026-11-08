@@ -7,12 +7,14 @@
 // Safe mode skips both, and the chrome guard switches a theme off for this tab when it hides,
 // moves, covers or blanks the top bar, a sidebar or Ctrl+K.
 // ──────────────────────────────────────────────
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useThemes } from "../../hooks/use-themes";
 import { extractImportantThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
 import { themeFontFaceCss } from "../../lib/theme-package";
 import { installSafeModeShortcut, useThemeSafetyStore } from "../../lib/theme-safety";
 import { checkProtectedChrome } from "../../lib/theme-guard";
+import { preloadImageSamples, prepareThemeCss } from "../../lib/theme-images";
+import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { themeHasHtml, useThemeTemplates } from "../../lib/theme-template";
 import { useUIStore } from "../../stores/ui.store";
 import {
@@ -21,6 +23,16 @@ import {
   useChatArtBehindPanels,
   useChatRootHooks,
 } from "../../hooks/use-chat-theme";
+
+/** Tokens whose presence switches a rule on (unset custom properties can't be tested in CSS). */
+const THEME_FLAG_TOKENS: Array<[string, string]> = [
+  ["--mari-icon-send", "data-mari-icon-send"],
+  ["--mari-icon-stop", "data-mari-icon-stop"],
+  ["--mari-icon-attach", "data-mari-icon-attach"],
+  ["--mari-icon-emoji", "data-mari-icon-emoji"],
+  ["--mari-cursor", "data-mari-theme-cursor"],
+  ["--mari-home-art", "data-mari-home-art"],
+];
 
 const NORMAL_ID = "marinara-custom-theme";
 const IMPORTANT_ID = "marinara-custom-theme-important";
@@ -63,6 +75,9 @@ export function CustomThemeInjector() {
   }, [templates]);
   useChatRootHooks();
   useChatArtBehindPanels();
+  // Reduce motion (the setting or the system's): moving pictures are swapped for their first frame.
+  const reduceMotion = useReducedAmbientEffects();
+  const [stillsReady, setStillsReady] = useState(0);
 
   // Inject active custom theme CSS
   useEffect(() => {
@@ -71,8 +86,17 @@ export function CustomThemeInjector() {
       document.getElementById(IMPORTANT_ID)?.remove();
       return;
     }
-    // A v2 theme's own fonts load with it, as @font-face rules ahead of its CSS.
-    const css = sanitizeAppCss(`${themeFontFaceCss(activeTheme.meta)}\n${activeTheme.css}`);
+    // A v2 theme's own fonts load with it, as @font-face rules ahead of its CSS. Its pictures
+    // (`theme:` names and inline data: pictures) become short blob: URLs (lib/theme-images.ts).
+    const sanitized = sanitizeAppCss(`${themeFontFaceCss(activeTheme.meta)}\n${activeTheme.css}`);
+    const prepared = prepareThemeCss(
+      sanitized,
+      [...(activeTheme.meta?.images ?? []), ...(activeTheme.meta?.backgrounds ?? [])],
+      { still: reduceMotion },
+    );
+    let cancelled = false;
+    if (prepared.stillsPending) void prepared.stillsPending.then(() => !cancelled && setStillsReady((n) => n + 1));
+    const css = prepared.css;
     const normal = ensureStyle(NORMAL_ID);
     normal.textContent = css;
     const importantCss = extractImportantThemeCss(css);
@@ -88,9 +112,23 @@ export function CustomThemeInjector() {
     else delete document.documentElement.dataset.mariAppBackdropLayers;
     if (themeSetsVariable(css, "--mari-top-bar-bg")) document.documentElement.dataset.mariTopBarArt = "";
     else delete document.documentElement.dataset.mariTopBarArt;
+    // The ambient overlay (rain, leaves, scanlines): over the chat, under the protected bars.
+    if (themeSetsVariable(css, "--mari-ambient")) document.documentElement.dataset.mariAmbient = "";
+    else delete document.documentElement.dataset.mariAmbient;
+    if (prepared.animated) document.documentElement.dataset.mariThemeMoves = "";
+    else delete document.documentElement.dataset.mariThemeMoves;
+    // Picture icons in the message box and a picture cursor (theme-tokens.css).
+    for (const [token, attribute] of THEME_FLAG_TOKENS) {
+      if (themeSetsVariable(css, token)) document.documentElement.setAttribute(attribute, "");
+      else document.documentElement.removeAttribute(attribute);
+    }
     detectThemeChatHooks(css, themeSetsVariable);
 
     return () => {
+      cancelled = true;
+      delete document.documentElement.dataset.mariAmbient;
+      delete document.documentElement.dataset.mariThemeMoves;
+      for (const [, attribute] of THEME_FLAG_TOKENS) document.documentElement.removeAttribute(attribute);
       document.getElementById(NORMAL_ID)?.remove();
       document.getElementById(IMPORTANT_ID)?.remove();
       delete document.documentElement.dataset.customTheme;
@@ -99,7 +137,7 @@ export function CustomThemeInjector() {
       delete document.documentElement.dataset.mariTopBarArt;
       detectThemeChatHooks(null, themeSetsVariable);
     };
-  }, [activeTheme, allowed]);
+  }, [activeTheme, allowed, reduceMotion, stillsReady]);
 
   // The chrome guard: check after the theme lands, again at 2.5 s and 10 s (rules that wait), when a
   // side panel or Ctrl+K opens, when a chat opens or the colour scheme changes, and on resize.
@@ -112,12 +150,23 @@ export function CustomThemeInjector() {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let retries = 0;
     let confirming = false;
+    let cancelled = false;
+    // Pictures are read (how see-through they are) before the first check, so a faint one isn't
+    // taken for a solid cover.
+    let samplesRead = false;
+    const samples = preloadImageSamples(document.getElementById(NORMAL_ID)?.textContent ?? "").then(() => {
+      samplesRead = true;
+    });
     const sheets = () =>
       [NORMAL_ID, IMPORTANT_ID]
         .map((id) => document.getElementById(id) as HTMLStyleElement | null)
         .filter((sheet): sheet is HTMLStyleElement => !!sheet);
     const run = () => {
       timer = null;
+      if (!samplesRead) {
+        void samples.then(() => !cancelled && schedule(0));
+        return;
+      }
       // A panel still sliding in is measured once it settles.
       const sliding = document.querySelectorAll(
         '[data-component="ChatSidebarPanel"], [data-component="RightPanelDesktop"]',
@@ -180,13 +229,31 @@ export function CustomThemeInjector() {
     });
     const onResize = () => schedule(500);
     window.addEventListener("resize", onResize);
+    // A rule that waits (an animation delay of 13 s, say) is looked at when it starts or ends,
+    // not only at the fixed checks. At most one extra check every 2 s.
+    let lastAnimationCheck = 0;
+    const themeKeyframes = new Set(
+      Array.from(activeTheme.css.matchAll(/@(?:-webkit-)?keyframes\s+([\w-]+)/g), (match) => match[1]!),
+    );
+    const onAnimation = (event: AnimationEvent) => {
+      if (!themeKeyframes.has(event.animationName)) return;
+      const now = Date.now();
+      if (now - lastAnimationCheck < 2000) return;
+      lastAnimationCheck = now;
+      schedule(400);
+    };
+    document.addEventListener("animationstart", onAnimation, true);
+    document.addEventListener("animationend", onAnimation, true);
     return () => {
+      cancelled = true;
       if (timer) clearTimeout(timer);
       clearTimeout(late);
       clearTimeout(later);
       unsubscribe();
       observer.disconnect();
       window.removeEventListener("resize", onResize);
+      document.removeEventListener("animationstart", onAnimation, true);
+      document.removeEventListener("animationend", onAnimation, true);
     };
   }, [activeTheme, allowed]);
 

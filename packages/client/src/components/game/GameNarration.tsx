@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Game: Narration Area (VN-style segmented box)
 // ──────────────────────────────────────────────
+import { slugForCss } from "../../lib/message-hooks";
 import { artPortraitFor } from "@marinara-engine/shared";
 import { ArtIcon } from "./ArtIcon";
 import {
@@ -5347,6 +5348,15 @@ export function GameNarration({
             ref={activePanelRef}
             data-game-skip-bg-nav="true"
             data-component="GameNarration.ActivePanel"
+            // Theme hooks, like a chat message's (lib/message-hooks.ts): the narration box is a message
+            // from the narrator, or from whoever speaks in the current line of dialogue.
+            data-mari-part="message"
+            data-game-narration="true"
+            data-message-role={active?.type === "dialogue" && active.speaker ? "assistant" : "narrator"}
+            data-character-name={active?.type === "dialogue" && active.speaker ? active.speaker : undefined}
+            data-character={active?.type === "dialogue" && active.speaker ? slugForCss(active.speaker) : undefined}
+            data-segment-type={active?.type ?? undefined}
+            data-expression={active?.type === "dialogue" && active.sprite ? active.sprite : undefined}
             className="pointer-events-auto mari-chat-style-surface mari-game-narration-surface shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 p-3 shadow-[0_16px_38px_rgba(0,0,0,0.45)] backdrop-blur-md dark:border-white/15 dark:bg-black/50"
           >
             {/* Scene preparation gate: wait for effects before showing narration */}

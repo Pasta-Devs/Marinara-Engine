@@ -196,6 +196,59 @@
           clip-path: none !important;
           mask: none !important;
         }
+        /* Guard v3 (pictures): art attached anywhere inside the top bar (a strip on the tab row, a
+           picture on each tab's ::after) is stacked under the labels and icons, picture masks
+           can't erase them, a list-style picture can't blow the bar up, and a border-image outset
+           can't spill over the controls next to it. Chat rows keep their text the same way. */
+        [data-component="TopBar"] :is(button, a, [role="tab"], [role="tablist"]) {
+          isolation: isolate !important;
+        }
+        [data-component="TopBar"] *::before,
+        [data-component="TopBar"] *::after {
+          z-index: -1 !important;
+        }
+        [data-component="TopBar"] *,
+        [data-component="ChatSidebarPanel"] [data-chat-row],
+        [data-component="ChatSidebarPanel"] [data-chat-row] * {
+          mask: none !important;
+          -webkit-mask: none !important;
+        }
+        [data-component="TopBar"],
+        [data-component="TopBar"] * {
+          list-style-image: none !important;
+          border-image-outset: 0 !important;
+        }
+        /* The theme's art layers keep their place: the backdrop under everything, the ambient overlay
+           over the chat and pages but under the top bar (z-index 20) and the sidebars (lifted to 2). */
+        [data-mari-part="app-backdrop"],
+        [data-mari-part="ambient"] {
+          pointer-events: none !important;
+          transform: none !important;
+          translate: var(--mari-none, none) !important;
+          rotate: var(--mari-none, none) !important;
+          scale: var(--mari-none, none) !important;
+          margin: 0 !important;
+        }
+        [data-mari-part="app-backdrop"] {
+          position: fixed !important;
+          inset: 0 !important;
+          z-index: -2 !important;
+        }
+        [data-mari-part="ambient"] {
+          position: absolute !important;
+          inset: 0 !important;
+          width: auto !important;
+          height: auto !important;
+          z-index: 1 !important;
+        }
+        [data-mari-part="ambient"]::before,
+        [data-mari-part="ambient"]::after {
+          pointer-events: none !important;
+        }
+        [data-component="ChatSidebarSlot"]:not([aria-hidden="true"]),
+        [data-component="RightPanelDesktopSlot"]:not([aria-hidden="true"]) {
+          z-index: 2 !important;
+        }
         /* Pseudo-element decorations (scanlines, grain, vignettes) never take clicks. */
         :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::before,
         :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::after {
@@ -217,6 +270,20 @@
           opacity: 1 !important;
           transform: none !important;
           filter: none !important;
+          pointer-events: none !important;
+        }
+        /* The chrome guard's "can it be seen" pass: for one task every element and pseudo-element is
+           hit-testable, so whatever is painted over a control answers, pointer-events: none or not. */
+        html[data-mari-guard-pierce]:not(#mari-pierce-x)::before,
+        html[data-mari-guard-pierce]:not(#mari-pierce-x)::after,
+        html[data-mari-guard-pierce] :not(#mari-pierce-x),
+        html[data-mari-guard-pierce] :not(#mari-pierce-x)::before,
+        html[data-mari-guard-pierce] :not(#mari-pierce-x)::after {
+          pointer-events: auto !important;
+        }
+        /* ...except the guard's own exempt layers: the app backdrop and the ambient overlay sit
+           under the protected bars by construction. */
+        html[data-mari-guard-pierce] :is([data-mari-part="app-backdrop"], [data-mari-part="ambient"]):not(#mari-pierce-x) {
           pointer-events: none !important;
         }
         /* The chrome guard measures with and without the theme in one task; nothing may animate. */

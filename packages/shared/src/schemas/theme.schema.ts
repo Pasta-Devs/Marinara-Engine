@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { cssByteLimit, cssByteMessage, utf8ByteLength } from "./css-size.js";
 
-/** Thumbnail, fonts and backgrounds ride along with a theme package; together they stay under this. */
+/** Images, thumbnail, fonts and backgrounds ride along with a theme package; together they stay under this. */
 export const MAX_THEME_META_BYTES = 6 * 1024 * 1024; // 6 MiB
 
 /** One message template (per role) stays under this many characters. */
@@ -19,7 +19,16 @@ const dataUrl = (prefix: RegExp, message = "Must be a data: URL") =>
 /** Appearance settings a theme can suggest. The user picks which to apply when installing. */
 export const themeSettingsSchema = z
   .object({
-    colorScheme: z.enum(["dark", "light"]).optional(),
+    /** "time" = Follow time of day (dayStart/nightStart, "HH:MM"), "system" = follow the device. */
+    colorScheme: z.enum(["dark", "light", "time", "system"]).optional(),
+    dayStart: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .optional(),
+    nightStart: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .optional(),
     visualStyle: z.enum(["default", "sillytavern", "stage"]).optional(),
     accent: z.string().max(2000).optional(),
     accentLight: z.string().max(2000).optional(),
@@ -29,6 +38,37 @@ export const themeSettingsSchema = z
     accentPulse: z.boolean().optional(),
   })
   .strip();
+
+export const themeFontSchema = z.object({
+  family: z.string().min(1).max(120),
+  src: dataUrl(
+    /^data:(font\/[a-z0-9.+-]+|application\/(font-woff2?|x-font-[a-z]+|octet-stream));base64,/i,
+    "Fonts must be WOFF2, WOFF, TTF or OTF data: URLs",
+  ),
+  weight: z.string().max(20).optional(),
+  style: z.enum(["normal", "italic"]).optional(),
+});
+
+/** A picture the theme's CSS uses as `url("theme:<name>")`. */
+export const themeImageSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z0-9][a-z0-9._-]*$/i, "Image names use letters, digits, dots, dashes and underscores"),
+  src: dataUrl(
+    /^data:image\/(png|jpeg|webp|gif|avif|svg\+xml)[;,]/i,
+    "Images must be PNG, JPEG, WebP, GIF, AVIF or SVG data: URLs",
+  ),
+});
+
+export const themeBackgroundSchema = z.object({
+  name: z.string().min(1).max(120),
+  src: dataUrl(
+    /^data:image\/(png|jpeg|webp|gif|avif);base64,/i,
+    "Backgrounds must be PNG, JPEG, WebP, GIF or AVIF data: URLs (SVG isn't allowed)",
+  ),
+});
 
 export const themeMetaSchema = z
   .object({
@@ -42,20 +82,7 @@ export const themeMetaSchema = z
       "The thumbnail must be a PNG, JPEG, WebP, GIF or AVIF data: URL",
     ).optional(),
     settings: themeSettingsSchema.optional(),
-    fonts: z
-      .array(
-        z.object({
-          family: z.string().min(1).max(120),
-          src: dataUrl(
-            /^data:(font\/[a-z0-9.+-]+|application\/(font-woff2?|x-font-[a-z]+|octet-stream));base64,/i,
-            "Fonts must be WOFF2, WOFF, TTF or OTF data: URLs",
-          ),
-          weight: z.string().max(20).optional(),
-          style: z.enum(["normal", "italic"]).optional(),
-        }),
-      )
-      .max(12)
-      .optional(),
+    fonts: z.array(themeFontSchema).max(12).optional(),
     /** Message template slot (theming round 2, batch 7): sanitised HTML shown in every message's
      *  `data-mari-part="message-extra"` box. Only rendered when the user allows themes with HTML. */
     templates: z
@@ -67,22 +94,14 @@ export const themeMetaSchema = z
       })
       .strip()
       .optional(),
-    backgrounds: z
-      .array(
-        z.object({
-          name: z.string().min(1).max(120),
-          src: dataUrl(
-            /^data:image\/(png|jpeg|webp|gif|avif);base64,/i,
-            "Backgrounds must be PNG, JPEG, WebP, GIF or AVIF data: URLs (SVG isn't allowed)",
-          ),
-        }),
-      )
-      .max(12)
-      .optional(),
+    /** Pictures the theme's CSS uses as `url("theme:<name>")` (theming round 3). They count in the
+     *  6 MiB package budget, not the 256 KiB CSS budget. */
+    images: z.array(themeImageSchema).max(64).optional(),
+    backgrounds: z.array(themeBackgroundSchema).max(12).optional(),
   })
   .strip()
   .refine((value) => utf8ByteLength(JSON.stringify(value)) <= MAX_THEME_META_BYTES, {
-    message: `Thumbnail, fonts and backgrounds must be at most ${MAX_THEME_META_BYTES / 1024 / 1024} MiB together`,
+    message: `Images, thumbnail, fonts and backgrounds must be at most ${MAX_THEME_META_BYTES / 1024 / 1024} MiB together`,
   });
 
 export const createThemeSchema = z.object({

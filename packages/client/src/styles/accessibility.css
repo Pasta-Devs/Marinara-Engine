@@ -74,6 +74,39 @@
      switches, sliders and selected states lost their on/off look. These redraw them in system
      colours (Highlight for "on" and "selected", CanvasText for outlines). */
   @media (forced-colors: active) {
+    /* A theme's art stays out of forced colours: the browser keeps pictures but drops the panels'
+       background colours, so text would sit straight on the art. Panels become Canvas. */
+    :is([data-mari-part="app-backdrop"], [data-mari-part="ambient"]),
+    :root[data-mari-chat-art-behind] .mari-app::before {
+      display: none !important;
+    }
+    * {
+      border-image: none !important;
+    }
+    :is(
+      [data-component="ChatSidebarPanel"],
+      [data-component="RightPanelDesktop"],
+      [data-component="RightPanelMobile"],
+      [data-component="TopBar"],
+      [data-mari-part="message"],
+      [data-mari-part="composer"],
+      [data-mari-part="home-widget"]
+    ) {
+      forced-color-adjust: none !important;
+      background: Canvas !important;
+      color: CanvasText !important;
+    }
+    :is(
+        [data-component="ChatSidebarPanel"],
+        [data-component="RightPanelDesktop"],
+        [data-component="TopBar"],
+        [data-mari-part="message"],
+        [data-mari-part="composer"],
+        [data-mari-part="home-widget"]
+      )
+      * {
+      forced-color-adjust: auto !important;
+    }
     :is([data-settings-switch-track], .ov-switch) {
       forced-color-adjust: none !important;
       background: Canvas !important;

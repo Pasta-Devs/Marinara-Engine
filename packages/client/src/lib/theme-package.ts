@@ -12,6 +12,9 @@ import {
   MAX_USER_CSS_BYTES,
   getFolderImportEntries,
   getFolderManifestConfig,
+  themeBackgroundSchema,
+  themeFontSchema,
+  themeImageSchema,
   themeMetaSchema,
   utf8ByteLength,
   type Theme,
@@ -21,6 +24,13 @@ import {
 import { useUIStore, type VisualTheme } from "../stores/ui.store";
 import { normalizeThemeCss } from "./theme-css";
 import { themeHasHtml } from "./theme-template";
+import {
+  dataUrlByteSize,
+  extractInlineThemeImages,
+  missingThemeImages,
+  shrinkThemeImage,
+  summarizeThemeImages,
+} from "./theme-images";
 
 export const THEME_FILE_KIND = "marinara.theme";
 export const THEME_FORMAT_VERSION = 2;
@@ -42,7 +52,9 @@ export type ThemeIssue =
   | { kind: "asks-secrets"; text: string }
   | { kind: "a11y"; what: string[] }
   | { kind: "bad-meta"; message: string }
-  | { kind: "has-html" };
+  | { kind: "has-html" }
+  | { kind: "animated"; count: number }
+  | { kind: "missing-images"; names: string[] };
 
 function parseJsonLenient(text: string): unknown {
   try {
@@ -65,7 +77,15 @@ function str(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-/** Keeps the parts of a file's metadata that pass the schema; drops the rest instead of failing the import. */
+function sizeText(bytes: number) {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : formatKiB(bytes);
+}
+
+/**
+ * Keeps the parts of a file's metadata that pass the schema; drops the rest instead of failing the
+ * import. Pictures, fonts and backgrounds are checked one by one, so one bad or oversized file only
+ * drops itself, with a plain reason, and the rest are kept while they fit the 6 MiB budget.
+ */
 function readMeta(record: Record<string, unknown>): { meta: ThemeMeta; problems: string[] } {
   const raw: Record<string, unknown> = {
     author: str(record.author),
@@ -74,8 +94,6 @@ function readMeta(record: Record<string, unknown>): { meta: ThemeMeta; problems:
     colorScheme: record.colorScheme,
     thumbnail: record.thumbnail,
     settings: record.settings,
-    fonts: record.fonts,
-    backgrounds: record.backgrounds,
     templates: record.templates,
   };
   const meta: Record<string, unknown> = {};
@@ -85,6 +103,45 @@ function readMeta(record: Record<string, unknown>): { meta: ThemeMeta; problems:
     const single = themeMetaSchema.safeParse({ [key]: value });
     if (single.success) Object.assign(meta, single.data);
     else problems.push(`${key}: ${single.error.issues[0]?.message ?? "invalid"}`);
+  }
+  let budget = MAX_THEME_META_BYTES - utf8ByteLength(JSON.stringify(meta));
+  const lists = [
+    ["images", themeImageSchema, (item: Record<string, unknown>) => item.name],
+    ["fonts", themeFontSchema, (item: Record<string, unknown>) => item.family],
+    ["backgrounds", themeBackgroundSchema, (item: Record<string, unknown>) => item.name],
+  ] as const;
+  for (const [key, schema, label] of lists) {
+    const value = record[key];
+    if (value === undefined || value === null) continue;
+    if (!Array.isArray(value)) {
+      problems.push(`${key}: not a list`);
+      continue;
+    }
+    const kept: unknown[] = [];
+    for (const item of value) {
+      const name = String((item && typeof item === "object" && label(item as Record<string, unknown>)) || key);
+      const parsed = schema.safeParse(item);
+      if (!parsed.success) {
+        const src = (item as { src?: unknown })?.src;
+        const tooBig = typeof src === "string" && src.length > MAX_THEME_META_BYTES;
+        problems.push(
+          tooBig
+            ? `${name} is ${sizeText(dataUrlByteSize(src))}; pictures, fonts and backgrounds can be ${MAX_THEME_META_BYTES / 1024 / 1024} MiB together. Save it as WebP.`
+            : `${name}: ${parsed.error.issues[0]?.message ?? "invalid"}`,
+        );
+        continue;
+      }
+      const bytes = utf8ByteLength(JSON.stringify(parsed.data));
+      if (bytes > budget) {
+        problems.push(
+          `${name} (${sizeText(bytes)}) doesn't fit: pictures, fonts and backgrounds can be ${MAX_THEME_META_BYTES / 1024 / 1024} MiB together.`,
+        );
+        continue;
+      }
+      budget -= bytes;
+      kept.push(parsed.data);
+    }
+    if (kept.length) meta[key] = kept;
   }
   return { meta: meta as ThemeMeta, problems };
 }
@@ -198,6 +255,10 @@ export function validateThemePackage(pkg: ThemePackage & { metaProblems?: string
   if (a11y.length) issues.push({ kind: "a11y", what: a11y });
   for (const message of pkg.metaProblems ?? []) issues.push({ kind: "bad-meta", message });
   if (themeHasHtml(pkg.meta)) issues.push({ kind: "has-html" });
+  const animated = summarizeThemeImages(pkg.css, pkg.meta.images).filter((image) => image.animated).length;
+  if (animated) issues.push({ kind: "animated", count: animated });
+  const missing = missingThemeImages(pkg.css, [...(pkg.meta.images ?? []), ...(pkg.meta.backgrounds ?? [])]);
+  if (missing.length) issues.push({ kind: "missing-images", names: missing });
   return issues;
 }
 
@@ -263,7 +324,9 @@ function accessibilityChanges(css: string) {
     what.add("line spacing");
   if (/--mari-a11y-letter-spacing\s*:|letter-spacing\s*:\s*-/i.test(clean)) what.add("letter spacing");
   if (/--mari-cvd-[\w-]+\s*:/i.test(clean)) what.add("colour-blind-safe colours");
-  if (/--mari-focus-ring-[\w-]+\s*:/i.test(clean)) what.add("focus rings");
+  // --mari-focus-ring-color is a theme token; only taking focus rings away is a change to flag.
+  if (/--mari-focus-ring-(?!color\b)[\w-]+\s*:|:focus(-visible)?[^{]*\{[^}]*outline\s*:\s*(none|0)\b/i.test(clean))
+    what.add("focus rings");
   return [...what];
 }
 
@@ -279,6 +342,66 @@ export function convertHslTriplets(css: string) {
 
 export function formatKiB(bytes: number) {
   return bytes < 1024 ? "<1 KiB" : `${Math.round(bytes / 1024)} KiB`;
+}
+
+/** KiB below 1 MiB, then MiB with one decimal. */
+export function formatSize(bytes: number) {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MiB` : formatKiB(bytes);
+}
+
+/** The whole package: its CSS plus every picture, font and background it carries. */
+export function themePackageBytes(pkg: Pick<ThemePackage, "css" | "meta">) {
+  const meta = pkg.meta ?? {};
+  let bytes = utf8ByteLength(pkg.css);
+  for (const image of meta.images ?? []) bytes += dataUrlByteSize(image.src);
+  for (const font of meta.fonts ?? []) bytes += dataUrlByteSize(font.src);
+  for (const background of meta.backgrounds ?? []) bytes += dataUrlByteSize(background.src);
+  if (meta.thumbnail) bytes += dataUrlByteSize(meta.thumbnail);
+  return bytes;
+}
+
+export interface OptimizedThemePackage {
+  pkg: ThemePackage;
+  /** Pictures that were written inline in the CSS and now sit in `images`. */
+  moved: number;
+  /** Pictures re-saved as WebP (or scaled down). */
+  shrunk: number;
+  before: number;
+  after: number;
+}
+
+/**
+ * Makes a theme lighter before it's installed: pictures written inline in its CSS move to its
+ * `images` (so the 256 KiB CSS limit counts the CSS itself), and still PNG and JPEG pictures and
+ * backgrounds become WebP, at most 2560 px on the longest side. Moving pictures, SVG and pictures
+ * that wouldn't get smaller are left alone.
+ */
+export async function optimizeThemePackage(pkg: ThemePackage): Promise<OptimizedThemePackage> {
+  const before = themePackageBytes(pkg);
+  const extracted = await extractInlineThemeImages(pkg.css, pkg.meta.images);
+  let shrunk = 0;
+  const images = [];
+  for (const image of extracted.images) {
+    const src = (pkg.meta.images ?? []).includes(image) ? await shrinkThemeImage(image.src) : image.src;
+    if (src !== image.src) shrunk += 1;
+    images.push(src === image.src ? image : { ...image, src });
+  }
+  const backgrounds = [];
+  for (const background of pkg.meta.backgrounds ?? []) {
+    const src = await shrinkThemeImage(background.src);
+    if (src !== background.src) shrunk += 1;
+    // A WebP background keeps its name but gets the matching extension for the gallery.
+    const name =
+      src === background.src || !/\.(png|jpe?g|bmp)$/i.test(background.name)
+        ? background.name
+        : background.name.replace(/\.(png|jpe?g|bmp)$/i, ".webp");
+    backgrounds.push(src === background.src ? background : { name, src });
+  }
+  const meta: ThemeMeta = { ...pkg.meta };
+  if (images.length) meta.images = images;
+  if (backgrounds.length) meta.backgrounds = backgrounds;
+  const next: ThemePackage = { ...pkg, css: extracted.css, meta };
+  return { pkg: next, moved: extracted.moved, shrunk, before, after: themePackageBytes(next) };
 }
 
 // ── Fonts ──
@@ -305,7 +428,10 @@ export type ThemeSettingKey = keyof ThemeSettings;
 
 export function themeSettingKeys(settings: ThemeSettings | undefined): ThemeSettingKey[] {
   if (!settings) return [];
-  return (Object.keys(settings) as ThemeSettingKey[]).filter((key) => settings[key] !== undefined);
+  // The day and night hours go with "Follow time of day", not as choices of their own.
+  return (Object.keys(settings) as ThemeSettingKey[]).filter(
+    (key) => settings[key] !== undefined && key !== "dayStart" && key !== "nightStart",
+  );
 }
 
 /** Applies the chosen suggested settings through the normal Appearance setters (so they sync as usual). */
@@ -316,7 +442,11 @@ export function applyThemeSettings(settings: ThemeSettings, keys: ThemeSettingKe
     if (value === undefined) continue;
     switch (key) {
       case "colorScheme":
-        ui.setTheme(value as "dark" | "light");
+        if (value === "time" || value === "system") {
+          ui.setThemeAuto(value);
+          if (value === "time" && (settings.dayStart || settings.nightStart))
+            ui.setThemeDayHours(settings.dayStart ?? ui.themeDayStart, settings.nightStart ?? ui.themeNightStart);
+        } else ui.setTheme(value as "dark" | "light");
         break;
       case "visualStyle":
         ui.setVisualTheme(value as VisualTheme);
@@ -350,7 +480,11 @@ export function snapshotThemeSettings(keys: ThemeSettingKey[]): { settings: Them
   for (const key of keys) {
     switch (key) {
       case "colorScheme":
-        settings.colorScheme = ui.theme === "light" ? "light" : "dark";
+        if (ui.themeAuto !== "off") {
+          settings.colorScheme = ui.themeAuto;
+          settings.dayStart = ui.themeDayStart;
+          settings.nightStart = ui.themeNightStart;
+        } else settings.colorScheme = ui.theme === "light" ? "light" : "dark";
         break;
       case "visualStyle":
         settings.visualStyle = ui.visualTheme;
@@ -382,9 +516,13 @@ export function snapshotThemeSettings(keys: ThemeSettingKey[]): { settings: Them
 export function currentThemeSettings(): ThemeSettings {
   const ui = useUIStore.getState();
   const settings: ThemeSettings = {
-    colorScheme: ui.theme === "light" ? "light" : "dark",
+    colorScheme: ui.themeAuto !== "off" ? ui.themeAuto : ui.theme === "light" ? "light" : "dark",
     visualStyle: ui.visualTheme,
   };
+  if (ui.themeAuto === "time") {
+    settings.dayStart = ui.themeDayStart;
+    settings.nightStart = ui.themeNightStart;
+  }
   if (ui.appAccentColor) settings.accent = ui.appAccentColor;
   if (ui.appAccentColorLight) settings.accentLight = ui.appAccentColorLight;
   if (ui.appBackgroundColor) settings.background = ui.appBackgroundColor;

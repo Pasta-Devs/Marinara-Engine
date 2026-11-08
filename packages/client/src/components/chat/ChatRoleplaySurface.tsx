@@ -1,4 +1,5 @@
 import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { slugForCss } from "../../lib/message-hooks";
 import { isDefaultChatBackground } from "../../lib/chat-background";
 import { useReportChatArt } from "../../hooks/use-chat-theme";
 import { useStagedTranscriptCap } from "../../hooks/use-staged-transcript";
@@ -1118,6 +1119,24 @@ export function ChatRoleplaySurface({
     return latestVnMessage;
   }, [latestVnMessage, visibleVnMessages, vnSelectedMessageId]);
 
+  // Who the VN view is showing, for themes: the same names as message hooks (lib/message-hooks.ts).
+  const vnSpeakerHooks = useMemo(() => {
+    if (!activeVnMessage) return {};
+    const role = activeVnMessage.role;
+    const name =
+      role === "user"
+        ? (personaInfo?.name ?? null)
+        : activeVnMessage.characterId
+          ? (characterMap.get(activeVnMessage.characterId)?.name ?? null)
+          : null;
+    return {
+      "data-vn-speaker-role": role,
+      "data-character-id": role === "user" ? undefined : (activeVnMessage.characterId ?? undefined),
+      "data-character": name ? slugForCss(name) : undefined,
+      "data-vn-speaker": name ? slugForCss(name) : role,
+    };
+  }, [activeVnMessage, characterMap, personaInfo?.name]);
+
   const activeVnMessageIndex = useMemo(() => {
     return activeVnMessage ? visibleVnMessages.indexOf(activeVnMessage) : -1;
   }, [activeVnMessage, visibleVnMessages]);
@@ -1870,9 +1889,21 @@ export function ChatRoleplaySurface({
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
         {weatherEffects && <WeatherEffectsConnected paused={weatherEffectsPaused} />}
         {visualNovel && !vnHistoryOpen && (
+          // A theme's sprite slot (theming round 3): behind the dialogue box, reaching the bottom, and
+          // named after whoever is speaking, so a theme can stand a picture of them there:
+          // [data-mari-part="vn-sprite"][data-character="captain-ilsa-varn"] { background: … }
+          <div
+            data-mari-part="vn-sprite"
+            aria-hidden="true"
+            {...vnSpeakerHooks}
+            className="pointer-events-none absolute inset-0 z-[3]"
+          />
+        )}
+        {visualNovel && !vnHistoryOpen && (
           <div
             ref={setVnMediaTarget}
             data-roleplay-vn-media
+            {...vnSpeakerHooks}
             className="pointer-events-none absolute inset-x-3 top-0 bottom-0 z-[4] flex items-end justify-center gap-2 overflow-hidden pb-2"
           />
         )}
