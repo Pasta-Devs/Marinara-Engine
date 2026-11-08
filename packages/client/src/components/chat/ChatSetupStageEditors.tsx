@@ -13,7 +13,7 @@ import {
   type Lorebook,
 } from "@marinara-engine/shared";
 import { chatKeys, useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
-import { useCharacter, useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useCharacter, useCharacters, useCreatePersona, usePersonas } from "../../hooks/use-characters";
 import { usePresets } from "../../hooks/use-presets";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import {
@@ -397,7 +397,72 @@ function PersonaEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
           onSelect={() => pick(p.id)}
         />
       ))}
+      {personas?.length === 0 && <CreatePersonaForm onCreated={pick} />}
     </>
+  );
+}
+
+/** With no personas yet, the picker makes one in place and plays it. */
+function CreatePersonaForm({ onCreated }: { onCreated: (personaId: string) => void }) {
+  const { t } = useTranslation();
+  const createPersona = useCreatePersona();
+  const [name, setName] = useState<string | null>(null);
+  if (name === null) {
+    return (
+      <button
+        type="button"
+        data-stage-option
+        onClick={() => setName("")}
+        className={cn(
+          "mt-1 flex min-h-11 w-full items-center gap-3 rounded-[12px] px-3 py-2 text-left text-[13px] text-[var(--muted-foreground)] hover:bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)] hover:text-[var(--foreground)]",
+          FOCUS,
+        )}
+      >
+        <Plus size="1rem" aria-hidden="true" className="shrink-0 text-[var(--primary)]" />
+        {t("chat.setupStage.editor.createPersona")}
+      </button>
+    );
+  }
+  const create = async () => {
+    const trimmed = name.trim();
+    if (!trimmed || createPersona.isPending) return;
+    try {
+      const created = await createPersona.mutateAsync({ name: trimmed.slice(0, 120), description: "" });
+      onCreated((created as { id: string }).id);
+    } catch {
+      toast.error(t("chat.setupStage.editor.createPersonaFailed"));
+    }
+  };
+  return (
+    <form
+      className="mt-1.5 space-y-1 border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-1 pb-1 pt-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void create();
+      }}
+    >
+      <label className="flex min-h-11 items-center rounded-[12px] border border-[color-mix(in_srgb,var(--foreground)_10%,transparent)] px-3 focus-within:ring-2 focus-within:ring-[var(--ring)]">
+        <span className="sr-only">{t("chat.setupStage.editor.personaName")}</span>
+        <input
+          autoFocus
+          value={name}
+          maxLength={120}
+          onChange={(event) => setName(event.target.value)}
+          placeholder={t("chat.setupStage.editor.personaName")}
+          className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[var(--muted-foreground)] md:text-[14px]"
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={!name.trim() || createPersona.isPending}
+        className={cn(
+          "flex min-h-11 w-full items-center justify-center rounded-[12px] bg-[var(--primary)] px-3 text-[14px] font-semibold text-[var(--primary-foreground)] disabled:opacity-50",
+          FOCUS,
+        )}
+      >
+        {t("chat.setupStage.editor.createPersona")}
+      </button>
+    </form>
   );
 }
 

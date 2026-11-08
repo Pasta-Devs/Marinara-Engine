@@ -47,7 +47,7 @@ import { usePresetFull, usePresets } from "../../hooks/use-presets";
 import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useChatPresets } from "../../hooks/use-chat-presets";
-import { useCharacter, usePersonas } from "../../hooks/use-characters";
+import { useCharacter } from "../../hooks/use-characters";
 import {
   deriveActiveLorebookViews,
   getChatActiveLorebookIds,
@@ -355,7 +355,6 @@ export function ChatSetupStage({
   const { data: lorebooksData } = useLorebooks();
   const { data: agentConfigs } = useAgentConfigs();
   const { data: chatPresets } = useChatPresets(variant);
-  const { data: personas } = usePersonas();
 
   const connections = (connectionsData ?? []) as ConnectionRow[];
   const chatConnection = connections.find((c) => c.id === chat.connectionId) ?? null;
@@ -402,9 +401,8 @@ export function ChatSetupStage({
     .slice(0, 3);
   const hasCreatorNotes = readCreatorNotes(leadCard).length > 0;
   const personaName = personaInfo?.name || null;
-  const canPickPersona = (personas?.length ?? 0) >= 2;
-  // With one persona the wizard never picked it, so an unset persona stays out of the sentence.
-  const personaWord = personaName ?? (canPickPersona ? t("chat.setupStage.choosePersona") : null);
+  // Always in the sentence: with no persona set, the word opens the picker (which can also make one).
+  const personaWord = personaName ?? t("chat.setupStage.choosePersona");
 
   const first = messages?.[0]?.role === "assistant" && messages[0].chatId === chat.id ? messages[0] : null;
   const greetingCount = Math.max(1, first?.swipeCount ?? first?.swipes?.length ?? 1);
@@ -466,9 +464,11 @@ export function ChatSetupStage({
   const beginTimer = useRef<number>(0);
   useEffect(() => () => window.clearTimeout(beginTimer.current), []);
   // Start: the title lifts away, the rest fades and the stage folds so the greeting slides up. The composer gets
-  // focus at once; the stage closes when the curtain is down.
+  // focus at once (the stage marker turns to "leaving" first so the hidden composer shows inside the tap); the stage
+  // closes when the curtain is down.
   const begin = () => {
     if (leaving) return;
+    document.documentElement.dataset.setupStage = "leaving";
     focusChatComposer(sectionRef.current);
     setEditor(null);
     setLeaving(true);
@@ -531,11 +531,7 @@ export function ChatSetupStage({
     return { src: known?.avatarUrl, crop: known?.avatarCrop, name: c.name ?? "" };
   });
   const sentenceComponents: Record<string, ReactElement> = {
-    persona: canPickPersona ? (
-      word(open("persona"), t("chat.setupStage.a11y.persona", { value: personaWord }), personaAvatars)
-    ) : (
-      <span />
-    ),
+    persona: word(open("persona"), t("chat.setupStage.a11y.persona", { value: personaWord }), personaAvatars),
     cast: word(
       open("characters"),
       t("chat.setupStage.a11y.cast", { value: castNames ?? t("chat.setupStage.chooseCharacter") }),
@@ -658,7 +654,6 @@ export function ChatSetupStage({
     <button
       type="button"
       onClick={begin}
-      data-stage-kb="start"
       className={cn(
         "max-md:h-[52px] max-md:flex-1 max-md:justify-center max-md:text-base",
         "inline-flex h-[46px] min-w-11 items-center gap-2 rounded-full bg-[var(--primary)] px-[26px] text-[15px] font-semibold text-[var(--primary-foreground)] shadow-[0_10px_30px_color-mix(in_srgb,var(--primary)_40%,transparent)] transition-[filter] duration-150 hover:brightness-110",
@@ -670,17 +665,10 @@ export function ChatSetupStage({
       {t("chat.setupStage.start")}
     </button>
   );
-  // The first message ends the stage too; on phones the row has no room for it.
-  const typingHint = noModel ? null : (
-    <span className="font-serif text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] max-md:hidden">
-      {t("chat.setupStage.typingHint")}
-    </span>
-  );
   const toggleButton = (
     <button
       type="button"
       onClick={() => setExpanded((v) => !v)}
-      data-stage-kb="hide"
       aria-expanded={expanded}
       className={cn(
         "inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-sm text-[color-mix(in_srgb,var(--foreground)_85%,transparent)] hover:text-[var(--foreground)]",
@@ -725,7 +713,6 @@ export function ChatSetupStage({
           tabIndex={-1}
           aria-hidden="true"
           onClick={open("characters")}
-          data-stage-kb="hide"
           className={cn(
             "mb-4 flex cursor-pointer -space-x-4 bg-transparent p-0 max-md:my-auto max-md:self-center max-md:-space-x-8 md:mb-5",
             sceneOpen && "max-md:hidden",
@@ -740,8 +727,11 @@ export function ChatSetupStage({
           ))}
         </button>
       ) : null}
-      {/* Phones anchor this block above the composer, under the art. */}
-      <div data-stage-kb="block" className="max-md:relative max-md:mt-auto">
+      {/* Phones anchor this block at the bottom, where the composer appears after Start. */}
+      <div
+        data-stage-kb="block"
+        className="max-md:relative max-md:mt-auto max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))]"
+      >
         {!calm && (
           <div
             aria-hidden
@@ -749,10 +739,7 @@ export function ChatSetupStage({
           />
         )}
         {(tags.length > 0 || hasCreatorNotes) && (
-          <p
-            data-stage-kb="hide"
-            className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs"
-          >
+          <p className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs">
             {tags.length > 0 && (
               <span className="font-semibold uppercase tracking-[0.18em]">{[modeTag, ...tags].join(" · ")}</span>
             )}
@@ -773,7 +760,6 @@ export function ChatSetupStage({
           </p>
         )}
         <h1
-          data-stage-kb="name"
           style={SERIF}
           className={cn(
             "m-0 font-normal tracking-[-0.02em] text-[var(--foreground)]",
@@ -798,21 +784,17 @@ export function ChatSetupStage({
           </button>
         </h1>
         {tagline && (
-          <p
-            data-stage-kb="hide"
-            className="mt-3 text-sm max-md:line-clamp-2 text-[color-mix(in_srgb,var(--foreground)_80%,transparent)] md:text-[15px] dark:text-[color-mix(in_srgb,var(--foreground)_72%,transparent)]"
-          >
+          <p className="mt-3 text-sm max-md:line-clamp-2 text-[color-mix(in_srgb,var(--foreground)_80%,transparent)] md:text-[15px] dark:text-[color-mix(in_srgb,var(--foreground)_72%,transparent)]">
             {tagline}
           </p>
         )}
         <p
-          data-stage-kb="hide"
           style={SERIF}
           className="mt-5 text-[22px] leading-[1.42] text-[color-mix(in_srgb,var(--foreground)_66%,transparent)] [text-wrap:pretty] md:mt-7 md:text-[27px]"
         >
           <Trans
             t={t}
-            i18nKey={personaWord ? "chat.setupStage.sentenceWho" : "chat.setupStage.sentenceWhoNoPersona"}
+            i18nKey="chat.setupStage.sentenceWho"
             values={{ persona: personaWord, cast: castNames ?? t("chat.setupStage.chooseCharacter") }}
             components={sentenceComponents}
           />{" "}
@@ -845,17 +827,17 @@ export function ChatSetupStage({
           )}
         </p>
 
-        <div data-stage-kb="hide">
+        <div>
           <ChatSetupStageMemoryNote chatId={chat.id} />
         </div>
 
         {hasScene && (
-          <div data-stage-kb="hide" className={cn(!sceneOpen && "max-md:hidden")}>
+          <div className={cn(!sceneOpen && "max-md:hidden")}>
             <ChatSetupStageScene chat={chat} first={first} onSetActiveSwipe={onSetActiveSwipe} />
           </div>
         )}
         {(greetingPeek || hasScene) && (
-          <div data-stage-kb="hide" className="mt-4 flex items-center gap-4 md:hidden">
+          <div className="mt-4 flex items-center gap-4 md:hidden">
             {greetingPeek && (
               <button
                 type="button"
@@ -894,7 +876,6 @@ export function ChatSetupStage({
         )}
         {expanded ? (
           <div
-            data-stage-kb="card"
             className={cn(
               "mt-6 rounded-[22px] border p-2 md:mt-[26px]",
               calm
@@ -902,7 +883,7 @@ export function ChatSetupStage({
                 : "border-[color-mix(in_srgb,var(--foreground)_11%,transparent)] bg-[color-mix(in_srgb,var(--background)_66%,transparent)] shadow-[0_20px_50px_rgba(0,0,0,.35)] backdrop-blur-[20px] backdrop-saturate-[1.25]",
             )}
           >
-            <div data-stage-kb="hide" className="grid grid-cols-1 gap-0.5 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-0.5 md:grid-cols-2">
               {rows.map((row) => (
                 <button
                   key={row.key}
@@ -932,12 +913,8 @@ export function ChatSetupStage({
                 </button>
               ))}
             </div>
-            <div
-              data-stage-kb="actions"
-              className="mt-1.5 flex items-center gap-[18px] border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-1.5 pb-1.5 pt-3"
-            >
+            <div className="mt-1.5 flex items-center gap-[18px] border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-1.5 pb-1.5 pt-3">
               {beginButton}
-              {typingHint}
               {toggleButton}
             </div>
           </div>
@@ -961,19 +938,15 @@ export function ChatSetupStage({
                   </button>
                 ))}
             </div>
-            <div data-stage-kb="actions" className="mt-[18px] flex items-center gap-[18px] md:mt-[22px]">
+            <div className="mt-[18px] flex items-center gap-[18px] md:mt-[22px]">
               {beginButton}
-              {typingHint}
               {toggleButton}
             </div>
           </>
         )}
 
         {readiness && !noModel && (
-          <p
-            data-stage-kb="hide"
-            className="mt-6 flex flex-wrap items-center gap-x-2 text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_62%,transparent)]"
-          >
+          <p className="mt-6 flex flex-wrap items-center gap-x-2 text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_62%,transparent)]">
             <CircleAlert size="0.85rem" aria-hidden="true" className="flex-none" />
             <span>{t(readiness.text, { percent: readiness.percent })}</span>
             <button
