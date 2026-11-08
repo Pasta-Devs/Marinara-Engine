@@ -6017,6 +6017,13 @@ export function ChatSettingsDrawer({
                 onSpecialInstructionsChange={setGameSpecialInstructionsDraft}
                 onPromptPresetChange={handleModePromptPresetChange}
                 onGmPromptTemplateChange={updateGameGmPromptTemplateSelection}
+                rating={gameSetupConfig.rating === "nsfw" ? "nsfw" : "sfw"}
+                ratingGuidelinesValue={
+                  typeof gameSetupConfig.ratingGuidelines === "string" ? gameSetupConfig.ratingGuidelines : ""
+                }
+                onRatingGuidelinesCommit={(ratingGuidelines) =>
+                  updateMeta.mutate({ id: chat.id, gameSetupConfig: { ...gameSetupConfig, ratingGuidelines } })
+                }
               />
             </div>
           )}

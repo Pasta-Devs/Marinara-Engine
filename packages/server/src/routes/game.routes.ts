@@ -9,6 +9,7 @@ import { rejectGenerationOutput, type GenerationOutput } from "./generate/sse.js
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 import {
+  GAME_RATING_GUIDELINES_MAX_CHARS,
   SYMBOL_DICE_NOTATION_MAX_LENGTH,
   TTS_SETTINGS_KEY,
   normalizeGameDifficulty,
@@ -2240,6 +2241,7 @@ const gameSetupConfigSchema = z.object({
   playerGoals: z.string().max(2000).default(""),
   gmMode: z.enum(["standalone", "character"]),
   rating: z.enum(["sfw", "nsfw"]).default("sfw"),
+  ratingGuidelines: z.string().max(GAME_RATING_GUIDELINES_MAX_CHARS).nullable().optional(),
   gmCharacterId: z.string().nullable().optional(),
   partyCharacterIds: z.array(z.string()),
   personaId: z.string().nullable().optional(),
@@ -7771,6 +7773,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         role: "system",
         content: buildSetupPrompt({
           rating: setupConfig.rating ?? "sfw",
+          ratingGuidelines: setupConfig.ratingGuidelines ?? null,
           personaCard: personaCard || null,
           playerName: personaName,
           partyCards: partyCards.length > 0 ? partyCards : undefined,

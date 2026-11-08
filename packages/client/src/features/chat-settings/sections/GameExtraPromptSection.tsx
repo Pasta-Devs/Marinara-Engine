@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { FileText, RotateCcw } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { DEFAULT_GAME_SYSTEM_PROMPT, type AgentPromptTemplateOption } from "@marinara-engine/shared";
+import {
+  DEFAULT_GAME_SYSTEM_PROMPT,
+  defaultGameRatingGuidelines,
+  GAME_RATING_GUIDELINES_MAX_CHARS,
+  storedGameRatingGuidelines,
+  type AgentPromptTemplateOption,
+} from "@marinara-engine/shared";
 import { MacroTextarea } from "../../../components/ui/MacroTextarea";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 
@@ -24,6 +30,11 @@ interface GameExtraPromptSectionProps {
   onSpecialInstructionsChange: (value: string) => void;
   onPromptPresetChange: (presetId: string | null) => void;
   onGmPromptTemplateChange: (templateId: string | null) => void;
+  /** The game's content rating, which picks the built-in rating guidelines. */
+  rating: "sfw" | "nsfw";
+  /** The game's own rating guidelines, or empty for the built-in text. */
+  ratingGuidelinesValue: string;
+  onRatingGuidelinesCommit: (value: string | null) => void;
 }
 
 export function GameExtraPromptSection({
@@ -39,6 +50,9 @@ export function GameExtraPromptSection({
   onSpecialInstructionsChange,
   onPromptPresetChange,
   onGmPromptTemplateChange,
+  rating,
+  ratingGuidelinesValue,
+  onRatingGuidelinesCommit,
 }: GameExtraPromptSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const selectedGmPromptTemplate = gmPromptTemplates.find((template) => template.id === gmPromptTemplateId) ?? null;
@@ -54,6 +68,17 @@ export function GameExtraPromptSection({
   const commitDraft = () => {
     const isBasePrompt = draft.trim() === basePrompt.trim();
     onCommit(!draft.trim() || isBasePrompt ? null : draft);
+  };
+
+  const defaultRatingGuidelines = defaultGameRatingGuidelines(rating);
+  const [ratingDraft, setRatingDraft] = useState(ratingGuidelinesValue || defaultRatingGuidelines);
+  useEffect(() => {
+    setRatingDraft(ratingGuidelinesValue || defaultRatingGuidelines);
+  }, [ratingGuidelinesValue, defaultRatingGuidelines]);
+  const commitRatingDraft = () => {
+    const next = storedGameRatingGuidelines(ratingDraft, rating);
+    if ((next ?? "") === ratingGuidelinesValue.trim()) return;
+    onRatingGuidelinesCommit(next);
   };
 
   const resetPrompt = () => {
@@ -173,6 +198,42 @@ export function GameExtraPromptSection({
             maxLength={2000}
             className="mari-chrome-field min-h-[5rem] w-full !rounded-md px-3 py-2 pr-8 text-xs leading-relaxed"
           />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.chatSettings.gameextrapromptsection.ratingGuidelines")}
+            </span>
+            {ratingGuidelinesValue && (
+              <button
+                type="button"
+                onClick={() => {
+                  onRatingGuidelinesCommit(null);
+                  setRatingDraft(defaultRatingGuidelines);
+                }}
+                className="flex items-center justify-center rounded-lg bg-[var(--secondary)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                title={localizeUi("ui.game.gamesetupwizard.resetRatingGuidelines")}
+              >
+                <RotateCcw size="0.625rem" />
+              </button>
+            )}
+          </div>
+          <MacroTextarea
+            value={ratingDraft}
+            onChange={setRatingDraft}
+            onBlur={commitRatingDraft}
+            onExpandedClose={commitRatingDraft}
+            title={localizeUi("ui.chatSettings.gameextrapromptsection.ratingGuidelines")}
+            ariaLabel={localizeUi("ui.chatSettings.gameextrapromptsection.ratingGuidelines")}
+            rows={5}
+            maxLength={GAME_RATING_GUIDELINES_MAX_CHARS}
+            className="mari-editor-field min-h-[7rem] w-full p-3 font-mono text-xs"
+            spellCheck={false}
+          />
+          <span className="text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("ui.game.gamesetupwizard.ratingGuidelinesHelp")}
+          </span>
         </div>
       </div>
     </ChatSettingsSection>
