@@ -87,6 +87,8 @@ export function GameModeSheet({
   renderBarIcon,
   renderPoolIcon,
   barsNote = "shown on your Tracker Panel card",
+  attributesNote,
+  poolsNote,
   footer,
 }: {
   rpgEnabled: boolean;
@@ -108,6 +110,9 @@ export function GameModeSheet({
   renderBarIcon?: (index: number) => ReactNode;
   renderPoolIcon?: (index: number) => ReactNode;
   barsNote?: string;
+  /** What the attributes and pools are used for, beside their names. */
+  attributesNote?: string;
+  poolsNote?: string;
   footer?: ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
@@ -117,7 +122,12 @@ export function GameModeSheet({
     <div className="ov-sheet" data-component="OverhaulGameModeSheet">
       <div className="ov-sheet__top">
         <div>
-          <Eyebrow title={localizeUi("ui.characters.statstab.attributes")} on={rpgEnabled} onToggle={onRpgEnabled} />
+          <Eyebrow
+            title={localizeUi("ui.characters.statstab.attributes")}
+            note={attributesNote}
+            on={rpgEnabled}
+            onToggle={onRpgEnabled}
+          />
           {rpgEnabled ? (
             <>
               <div className="ov-attrs">
@@ -156,7 +166,7 @@ export function GameModeSheet({
           )}
         </div>
         <div>
-          <Eyebrow title={localizeUi("ui.characters.statstab.pools")} />
+          <Eyebrow title={localizeUi("ui.characters.statstab.pools")} note={poolsNote} />
           {rpgEnabled ? (
             <>
               <div className="ov-sheet__table">

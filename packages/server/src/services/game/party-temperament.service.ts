@@ -72,7 +72,7 @@ export function keepPartyTemperaments<T extends { name?: unknown; aiHints?: Comb
  * named exactly, else the one card a variant of the name matches (a first name, a name without its
  * title). A variant two cards match finds neither, so no card is given another's temperament.
  */
-function gameCardFor<T extends { name: string }>(cards: readonly T[], name: string): T | undefined {
+export function gameCardFor<T extends { name: string }>(cards: readonly T[], name: string): T | undefined {
   if (hasExactNamedEntry(cards, name, (card) => card.name)) return findNamedEntry(cards, name, (card) => card.name);
   const variants = cards.filter((card) => characterNamesMatch(card.name, name));
   return variants.length === 1 ? variants[0] : undefined;

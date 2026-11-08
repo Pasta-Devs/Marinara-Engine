@@ -108,25 +108,25 @@ async function start(page: Page, wizard: Locator): Promise<Record<string, any>> 
   return (await page.evaluate(() => window.__styleSetup)) as Record<string, any>;
 }
 
-test("a new game starts on the Overworld RPG, with a setting kit for its genre and a world", async ({
+test("a new game starts on the Overworld, with a setting kit for its genre and a world", async ({
   page,
 }, testInfo) => {
   const wizard = await mountWizard(page, testInfo);
   const styles = wizard.getByTestId("game-style-chooser");
-  await expect(styles.getByRole("radio", { name: /Overworld RPG/ })).toHaveAttribute("aria-checked", "true");
-  await expect(styles.getByRole("radio", { name: /Classic/ })).toHaveAttribute("aria-checked", "false");
+  await expect(styles.getByRole("radio", { name: /^Overworld/ })).toHaveAttribute("aria-checked", "true");
+  await expect(styles.getByRole("radio", { name: /^VN/ })).toHaveAttribute("aria-checked", "false");
   if (testInfo.project.name === "desktop-chromium") {
     await styles.screenshot({ path: testInfo.outputPath("game-mode-style.png") });
   }
   // A radio group: the chosen style is the one tab stop, and the arrow keys move the choice.
-  await expect(styles.getByRole("radio", { name: /Overworld RPG/ })).toHaveAttribute("tabindex", "0");
-  await expect(styles.getByRole("radio", { name: /Classic/ })).toHaveAttribute("tabindex", "-1");
-  await styles.getByRole("radio", { name: /Overworld RPG/ }).focus();
+  await expect(styles.getByRole("radio", { name: /^Overworld/ })).toHaveAttribute("tabindex", "0");
+  await expect(styles.getByRole("radio", { name: /^VN/ })).toHaveAttribute("tabindex", "-1");
+  await styles.getByRole("radio", { name: /^Overworld/ }).focus();
   await page.keyboard.press("ArrowRight");
-  await expect(styles.getByRole("radio", { name: /Classic/ })).toHaveAttribute("aria-checked", "true");
-  await expect(styles.getByRole("radio", { name: /Classic/ })).toBeFocused();
+  await expect(styles.getByRole("radio", { name: /^VN/ })).toHaveAttribute("aria-checked", "true");
+  await expect(styles.getByRole("radio", { name: /^VN/ })).toBeFocused();
   await page.keyboard.press("ArrowLeft");
-  await expect(styles.getByRole("radio", { name: /Overworld RPG/ })).toHaveAttribute("aria-checked", "true");
+  await expect(styles.getByRole("radio", { name: /^Overworld/ })).toHaveAttribute("aria-checked", "true");
 
   await stepTo(wizard, "World");
   await expect(wizard.getByText("Setting kit", { exact: true })).toBeVisible();
@@ -148,11 +148,11 @@ test("a new game starts on the Overworld RPG, with a setting kit for its genre a
   expect(setup.tacticalTurnOrder).toBe("initiative");
 });
 
-test("a Classic game has no setting kit or world, and keeps tactical turns by side", async ({ page }, testInfo) => {
+test("a VN game has no setting kit or world, and keeps tactical turns by side", async ({ page }, testInfo) => {
   const wizard = await mountWizard(page, testInfo);
   await wizard
     .getByTestId("game-style-chooser")
-    .getByRole("radio", { name: /Classic/ })
+    .getByRole("radio", { name: /^VN/ })
     .click();
   await stepTo(wizard, "World");
   await expect(wizard.getByText("Setting kit", { exact: true })).toHaveCount(0);
@@ -166,7 +166,7 @@ test("a Classic game has no setting kit or world, and keeps tactical turns by si
   expect(setup.tacticalTurnOrder).toBeUndefined();
 });
 
-test("the server refuses a Classic game sent with a setting kit", async ({ request }) => {
+test("the server refuses a VN game sent with a setting kit", async ({ request }) => {
   const read = parseWorldKit(WORLD_STARTER_KITS[0]!);
   if (!read.ok) throw new Error("The first starter kit does not read");
   const worldKit = read.kit;
@@ -186,5 +186,5 @@ test("the server refuses a Classic game sent with a setting kit", async ({ reque
     },
   });
   expect(created.status()).toBe(400);
-  expect(((await created.json()) as { error?: string }).error).toContain("A Classic game has no setting kit or world");
+  expect(((await created.json()) as { error?: string }).error).toContain("A VN game has no setting kit or world");
 });

@@ -208,6 +208,12 @@ export interface CombatEnemy extends RulesetEncounterBlueprint {
   class?: string;
   /** Tactical traversal rule. Classic combat ignores this; missing means walk. */
   movementMode?: TacticalMovementMode;
+  /** Classic Marinara classes: its bestiary family, tier, and the fight's own difficulty. */
+  marinara?: {
+    family?: { familyId: string; tier?: string };
+    tier?: string;
+    encounter?: string;
+  };
 }
 
 /** AI-chosen visual styling hints for the combat environment. */

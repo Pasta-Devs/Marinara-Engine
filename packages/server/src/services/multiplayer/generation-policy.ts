@@ -14,7 +14,7 @@ export interface GenerationRoomContext {
 type Participant = {
   id: string;
   displayName: string;
-  persona: { name: string; description: string };
+  persona: { name: string; description: string; concept?: string; classic?: { tree?: string } };
   isHost: boolean;
   /** The game card bound to them, when it goes by another name than their persona. */
   character?: string;
@@ -225,7 +225,11 @@ export function roomRosterPrompt(): string | null {
       (participant) =>
         `${participant.displayName} controls ${participant.persona.name}${
           participant.character ? ` and plays the game character ${participant.character}` : ""
-        }${participant.isHost ? " (host)" : ""}:\n${participant.persona.description}`,
+        }${participant.isHost ? " (host)" : ""}:\n${participant.persona.description}${
+          participant.persona.concept?.trim()
+            ? `\nTheir character concept, from their player to you, to fit them into the story: ${participant.persona.concept.trim()}`
+            : ""
+        }${participant.persona.classic?.tree ? `\nThe MRPG starting tree they picked: ${participant.persona.classic.tree}` : ""}`,
     ),
     `Played by these people, never by you: ${room.participants
       .flatMap((participant) => [participant.persona.name, ...(participant.character ? [participant.character] : [])])

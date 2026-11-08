@@ -177,5 +177,5 @@ A ruleset can also use **Progress clocks**: circles split into segments that the
 - [Game Mode: Fights on a Ruleset](fighting-on-a-ruleset.md)
 - [Game Mode: Dice and Skill Checks](dice-and-skill-checks.md)
 - [Game Mode: Party and NPCs](party-and-npcs.md)
-- [Character Colors and RPG Stats: Ruleset sheets](../characters/colors-and-stats.md#ruleset-sheets)
+- [Character Colors and Roleplay Stats: Ruleset sheets](../characters/colors-and-stats.md#ruleset-sheets)
 - [Writing Game Mode Rulesets](../extending/writing-rulesets.md)

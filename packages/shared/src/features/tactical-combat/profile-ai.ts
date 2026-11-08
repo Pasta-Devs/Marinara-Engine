@@ -184,7 +184,8 @@ export function decideProfileAction(
     for (const skill of unit.skills.filter((s) => !s.reaction && s.type !== "attack" && skillReady(unit, s))) {
       for (const target of skill.type === "debuff" ? opponents : allies) {
         const at = target.id === unit.id ? tile : target;
-        if (manhattan(tile, at) > (skill.range ?? 2) || !hasLineOfSight(state.grid, tile, at)) continue;
+        const reach = skill.range ?? (skill.type === "debuff" ? Math.max(unit.attackRange.max, 2) : 2);
+        if (manhattan(tile, at) > reach || !hasLineOfSight(state.grid, tile, at)) continue;
         const status = skill.statusEffect || skill.name;
         const active = target.statusEffects.some((s) => s.name === status && s.turnsLeft > 1);
         const healing =

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MARINARA_ARCHETYPES, MARINARA_STATS } from "../features/marinara-classes.js";
 
 export const MULTIPLAYER_PROTOCOL_VERSION = 1 as const;
 export const MULTIPLAYER_LIMITS = {
@@ -20,7 +21,23 @@ const mode = z.enum(["conversation", "roleplay", "game"]);
 
 /** Reviewed text only. Never accept card extensions, image URLs or library records. */
 export const multiplayerPersonaSchema = z
-  .object({ name, description: z.string().max(MULTIPLAYER_LIMITS.description) })
+  .object({
+    name,
+    description: z.string().max(MULTIPLAYER_LIMITS.description),
+    /** The persona's MRPG picks from its Game Mode section (owner 2026-11-06: a guest builds their
+     *  character as any player would): starting tree, up to two strong stats and one weak one. */
+    classic: z
+      .object({
+        tree: z.enum(MARINARA_ARCHETYPES).optional(),
+        strong: z.array(z.enum(MARINARA_STATS)).max(2).optional(),
+        weak: z.enum(MARINARA_STATS).optional(),
+        built: z.literal(true).optional(),
+      })
+      .strict()
+      .optional(),
+    /** The player's character concept for the Game Master, to fit them into the story. */
+    concept: z.string().max(MULTIPLAYER_LIMITS.description).optional(),
+  })
   .strict();
 
 export const multiplayerCharacterProposalSchema = z

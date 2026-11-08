@@ -219,7 +219,7 @@ function MultiplayerJoin() {
             onChange={(event) => setDisplayName(event.target.value)}
             className={MULTIPLAYER_INPUT_CLASS}
           />
-          <MultiplayerPersonaFields value={persona} onChange={setPersona} />
+          <MultiplayerPersonaFields value={persona} onChange={setPersona} game={preview.data.mode === "game"} />
           <label className="flex items-start gap-2 text-xs leading-relaxed">
             <input
               type="checkbox"

@@ -49,6 +49,16 @@ for (const directed of [false, true]) {
       });
       expect(created.ok(), await created.text()).toBeTruthy();
       const chatId = (await created.json()).sessionChat.id;
+      // A game made before MRPG plays Legacy fights (every new game is MRPG, owner 2026-11-06).
+      const legacy = await request.patch(`/api/chats/${chatId}/metadata`, {
+        data: {
+          gameSetupConfig: {
+            ...JSON.parse((await created.json()).sessionChat.metadata).gameSetupConfig,
+            marinaraClasses: false,
+          },
+        },
+      });
+      expect(legacy.ok(), await legacy.text()).toBeTruthy();
       try {
         const started = await request.post("/api/game/combat/tactical/start", {
           data: { chatId, party, enemies, seed: 9 },

@@ -60,6 +60,7 @@ const REMOVABLE_GM_TAGS = new Set([
   "inventory",
   "party_change",
   "party_add",
+  "mrpg_join",
   "party-turn",
   "party-chat",
   "dice",

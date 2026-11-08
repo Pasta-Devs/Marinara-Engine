@@ -46,7 +46,7 @@ Tabs that have their own guide:
 | **Lorebook** | [Linking Lorebooks to Characters](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [Character Sprites](sprites.md) |
 | **Gallery** | [Character and Persona Galleries](galleries.md) |
-| **Colors** and **Stats** | [Character Colors and RPG Stats](colors-and-stats.md) |
+| **Colors** and **Stats** | [Character Colors and Roleplay Stats](colors-and-stats.md) |
 
 The sections below cover **Metadata**, **Card**, **Voice** and **Advanced**, plus avatars and version history.
 

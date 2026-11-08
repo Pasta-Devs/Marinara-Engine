@@ -14,6 +14,7 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useOverhaulStore, type OverhaulGamePaneTab } from "../../stores/overhaul.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useGameModeStore } from "../../stores/game-mode.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 
 /** The narrowest the game scene (narration, composer) may get beside the game pane before the pane floats. */
@@ -96,6 +97,7 @@ function PartyTab({
   onEditSheet?: (memberId: string) => (() => void) | undefined;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
   const [picked, setPicked] = useState<string | null>(null);
   const selected = members.find((member) => member.id === picked) ?? members[0];
   if (!members.length) return <p className="ov-gpane__empty">{localizeUi("ui.overhaul.partytab.noPartyMembersYet")}</p>;
@@ -154,6 +156,17 @@ function PartyTab({
         <div className="ov-gpane__detail">
           <div className="ov-gpane__detail-head">
             <p className="ov-gpane__label">{selected.name}</p>
+            {/* The full character sheet (MRPG classes, skills and gear live there); the party bar that
+                opened it is hidden in this layout. */}
+            {card ? (
+              <button
+                type="button"
+                className="ov-gpane__link"
+                onClick={() => useGameModeStore.getState().openCharacterSheet(selected.id)}
+              >
+                {localize("Open sheet")} ›
+              </button>
+            ) : null}
             {editSheet ? (
               <button type="button" className="ov-gpane__link" onClick={editSheet}>
                 {localizeUi("ui.overhaul.partytab.editSheet")} ›

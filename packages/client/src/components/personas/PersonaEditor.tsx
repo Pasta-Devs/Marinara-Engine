@@ -68,6 +68,7 @@ import {
   AlertTriangle,
   Palette,
   Activity,
+  Dices,
   Plus,
   X,
   Tag,
@@ -157,6 +158,7 @@ import { OvEditorHead } from "../overhaul/EditorChrome";
 import { MariContextChip } from "../chat/MariContextChip";
 import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
+import { ClassicCardSection } from "../overhaul/ClassicCardSection";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { EditorSectionJumps } from "../ui/EditorSectionJumps";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
@@ -198,8 +200,12 @@ const TABS = [
   { id: "sprites", label: "Sprites", icon: Image },
   { id: "gallery", label: "Gallery", icon: Camera },
   { id: "colors", label: "Colors", icon: Palette },
+  { id: "rpstats", label: "Roleplay Stats", icon: Dices },
   { id: "stats", label: "Stats", icon: Activity },
 ] as const;
+
+/** The classic look keeps roleplay stats inside its Stats tab; only the new layout splits them out. */
+const CLASSIC_TABS = TABS.filter((tab) => tab.id !== "rpstats");
 
 type TabId = (typeof TABS)[number]["id"];
 
@@ -249,14 +255,18 @@ const PERSONA_RPG_ATTRIBUTES_HELP =
 const OVERHAUL_SECTION_LABELS: Record<TabId, string> = {
   metadata: "Details",
   card: "The Card",
-  convo: "Convo profile",
+  convo: "Convo Profile",
   lorebook: "Lorebook",
   sprites: "Sprites",
   gallery: "Gallery",
   colors: "Colors",
+  rpstats: "Roleplay Stats",
   stats: "Game Mode",
 };
-const OVERHAUL_TAB_ORDER = [...TABS.filter((tab) => tab.id !== "metadata"), TABS[0]];
+// The mode sections sit together, in mode order (owner 2026-11-07).
+const OVERHAUL_TAB_ORDER = (
+  ["card", "lorebook", "sprites", "gallery", "colors", "convo", "rpstats", "stats", "metadata"] as const
+).map((id) => TABS.find((tab) => tab.id === id)!);
 const OVERHAUL_OPTIONAL_CARD_FIELDS = [
   { id: "summary", label: "Summary" },
   { id: "personality", label: "Personality" },
@@ -2137,7 +2147,8 @@ export function PersonaEditor() {
       overhaulHasText(formData.nameColor) ||
       overhaulHasText(formData.dialogueColor) ||
       overhaulHasText(formData.boxColor),
-    stats: formData.personaStats != null,
+    rpstats: Boolean(formData.personaStats?.enabled || formData.personaStats?.rpgStats?.enabled),
+    stats: formData.personaStats?.classic != null || Object.keys(formData.personaStats?.rulesetSheets ?? {}).length > 0,
   };
   const showSection = (id: TabId) => !overhaulActive || overhaulSectionInUse[id] || overhaulAddedSections.includes(id);
   const overhaulCardFieldInUse: Record<string, boolean> = {
@@ -2335,7 +2346,7 @@ export function PersonaEditor() {
         }
         fileInputRef={fileInputRef}
         onAvatarFileChange={handleAvatarUpload}
-        tabs={TABS}
+        tabs={CLASSIC_TABS}
         activeTab={activeTab}
         onTabChange={scrollToSection}
         saveLabel={saveLabel}
@@ -2442,6 +2453,18 @@ export function PersonaEditor() {
             <PersonaColorsTab formData={formData} updateField={updateField} avatarUrl={avatarPreview} />
           </section>
         )}
+        {overhaulActive && showSection("rpstats") && (
+          <section data-editor-section="rpstats">
+            <PersonaStatsTab
+              formData={formData}
+              updateField={updateField}
+              personaId={personaId}
+              avatarUrl={avatarPreview}
+              overhaul
+              part="roleplay"
+            />
+          </section>
+        )}
         {showSection("stats") && (
           <section data-editor-section="stats">
             <PersonaStatsTab
@@ -2450,6 +2473,7 @@ export function PersonaEditor() {
               personaId={personaId}
               avatarUrl={avatarPreview}
               overhaul={overhaulActive}
+              part={overhaulActive ? "game" : undefined}
             />
           </section>
         )}
@@ -3437,6 +3461,7 @@ function PersonaStatsTab({
   personaId,
   avatarUrl,
   overhaul = false,
+  part,
 }: {
   formData: PersonaFormData;
   updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
@@ -3444,6 +3469,9 @@ function PersonaStatsTab({
   avatarUrl: string | null;
   /** UI overhaul: the compact Game Mode sheet (attribute tiles, pool and bar tables). */
   overhaul?: boolean;
+  /** UI overhaul: the Game Mode section (MRPG picks, ruleset sheets) or the Roleplay Stats section
+   *  (attributes, pools, status bars), each its own section (owner 2026-11-07). Both when unset. */
+  part?: "game" | "roleplay";
 }) {
   const { t: localizeUi } = useUiTranslation();
   // Form state keeps personaStats decoded (hydrated from the projected Persona);
@@ -3561,33 +3589,55 @@ function PersonaStatsTab({
     };
     return (
       <div className="space-y-6">
-        <SectionHeader title={localizeUi("game.style.label")} />
-        <GameModeSheet
-          rpgEnabled={rpgStats.enabled}
-          onRpgEnabled={(enabled) => updateRpg({ enabled })}
-          attributes={rpgStats.attributes}
-          onAttributeChange={(index, patch) => {
-            const [key, value] = Object.entries(patch)[0] ?? [];
-            if (key) updateRpgAttribute(index, key, value as string | number);
-          }}
-          onAddAttribute={addRpgAttribute}
-          onRemoveAttribute={removeRpgAttribute}
-          pools={rpgPools}
-          onPoolChange={updateRpgPool}
-          onAddPool={() => updateRpgPools([...rpgPools, createNewRpgPool(rpgPools)])}
-          onRemovePool={(index) => updateRpgPools(rpgPools.filter((_, poolIndex) => poolIndex !== index))}
-          barsEnabled={parsed.enabled}
-          onBarsEnabled={(enabled) => save({ ...parsed, enabled })}
-          bars={parsed.bars}
-          onBarChange={(index, patch) => {
-            const [key, value] = Object.entries(patch)[0] ?? [];
-            if (key) updateBar(index, key as keyof PersonaStatBar, value as never);
-          }}
-          onAddBar={addBar}
-          onRemoveBar={removeBar}
-          renderBarIcon={renderBarIcon}
-        />
-        {rulesetSheets}
+        {part !== "roleplay" ? (
+          <>
+            <SectionHeader title={localizeUi("game.style.label")} />
+            <ClassicCardSection
+              value={parsed.classic}
+              onChange={(classic) => {
+                const { classic: _old, ...rest } = parsed;
+                save(classic ? { ...rest, classic } : rest);
+              }}
+              description={formData.description ?? ""}
+            />
+          </>
+        ) : null}
+        {part !== "game" ? (
+          <>
+            <SectionHeader
+              title={localizeUi("ui.characters.statstab.roleplayStats")}
+              subtitle={localizeUi("ui.characters.statstab.roleplayStatsNote")}
+            />
+            <GameModeSheet
+              attributesNote={localizeUi("ui.characters.statstab.attributesNote")}
+              poolsNote={localizeUi("ui.characters.statstab.poolsNote")}
+              rpgEnabled={rpgStats.enabled}
+              onRpgEnabled={(enabled) => updateRpg({ enabled })}
+              attributes={rpgStats.attributes}
+              onAttributeChange={(index, patch) => {
+                const [key, value] = Object.entries(patch)[0] ?? [];
+                if (key) updateRpgAttribute(index, key, value as string | number);
+              }}
+              onAddAttribute={addRpgAttribute}
+              onRemoveAttribute={removeRpgAttribute}
+              pools={rpgPools}
+              onPoolChange={updateRpgPool}
+              onAddPool={() => updateRpgPools([...rpgPools, createNewRpgPool(rpgPools)])}
+              onRemovePool={(index) => updateRpgPools(rpgPools.filter((_, poolIndex) => poolIndex !== index))}
+              barsEnabled={parsed.enabled}
+              onBarsEnabled={(enabled) => save({ ...parsed, enabled })}
+              bars={parsed.bars}
+              onBarChange={(index, patch) => {
+                const [key, value] = Object.entries(patch)[0] ?? [];
+                if (key) updateBar(index, key as keyof PersonaStatBar, value as never);
+              }}
+              onAddBar={addBar}
+              onRemoveBar={removeBar}
+              renderBarIcon={renderBarIcon}
+            />
+          </>
+        ) : null}
+        {part !== "roleplay" ? rulesetSheets : null}
       </div>
     );
   }
