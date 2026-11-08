@@ -249,6 +249,9 @@ export function missingThemeImages(css: string, images: ThemeImage[] | null | un
   return [...missing];
 }
 
+/** Inline pictures under this size stay in the CSS and are listed together as small icons. */
+export const SMALL_INLINE_IMAGE_BYTES = 4096;
+
 export interface ThemeImageSummary {
   name: string;
   bytes: number;
@@ -361,8 +364,8 @@ export function themeImageName(fileName: string, images: ThemeImage[] | null | u
 /**
  * Moves pictures written inline in a theme's CSS into its `images` list (each one once, even when
  * the CSS repeats it), shrinking still PNG and JPEG to WebP on the way. The CSS then points at
- * `theme:` names, so the 256 KiB CSS limit counts the CSS itself. Pictures smaller than 2 KiB
- * (tiny SVG patterns) stay inline.
+ * `theme:` names, so the 256 KiB CSS limit counts the CSS itself. Pictures smaller than 4 KiB
+ * (tiny SVG masks, icons and patterns) stay inline.
  */
 export async function extractInlineThemeImages(
   css: string,
@@ -373,7 +376,7 @@ export async function extractInlineThemeImages(
   const bySrc = new Map<string, string>();
   const found = Array.from(css.matchAll(INLINE_IMAGE), (match) => match[1] ?? match[2] ?? match[3] ?? "");
   for (const src of found) {
-    if (bySrc.has(src) || dataUrlByteSize(src) < 2048) continue;
+    if (bySrc.has(src) || dataUrlByteSize(src) < SMALL_INLINE_IMAGE_BYTES) continue;
     const mime = /^data:([^;,]+)/.exec(src)?.[1]?.toLowerCase() ?? "image/png";
     const shrunk = await shrinkThemeImage(src);
     const extension = (/^data:image\/([a-z0-9.+-]+)/.exec(shrunk)?.[1] ?? mime.split("/")[1] ?? "png")
@@ -402,6 +405,48 @@ export interface ImageSample {
   /** A dark and a light colour among the opaque parts (10th and 90th luminance percentile). */
   dark: [number, number, number];
   light: [number, number, number];
+  /** The picture's own size, for mapping a part of the page onto it. */
+  width: number;
+  height: number;
+  /** The picture shrunk to SAMPLE_GRID x SAMPLE_GRID, RGBA, row by row (for sampling one part of it). */
+  grid: Uint8ClampedArray;
+}
+
+export const SAMPLE_GRID = 24;
+
+/** What one part of a picture looks like (u and v from 0 to 1, left to right and top to bottom). */
+export function sampleRegion(sample: ImageSample, u0: number, v0: number, u1: number, v1: number) {
+  const n = SAMPLE_GRID;
+  const clampCell = (value: number) => Math.min(n - 1, Math.max(0, value));
+  const x0 = clampCell(Math.floor(Math.min(u0, u1) * n));
+  const x1 = clampCell(Math.ceil(Math.max(u0, u1) * n) - 1);
+  const y0 = clampCell(Math.floor(Math.min(v0, v1) * n));
+  const y1 = clampCell(Math.ceil(Math.max(v0, v1) * n) - 1);
+  let alpha = 0;
+  let weight = 0;
+  let count = 0;
+  const sum = [0, 0, 0];
+  let dark: [number, number, number] | null = null;
+  let light: [number, number, number] | null = null;
+  for (let y = y0; y <= Math.max(y0, y1); y += 1) {
+    for (let x = x0; x <= Math.max(x0, x1); x += 1) {
+      const index = (y * n + x) * 4;
+      const a = sample.grid[index + 3]! / 255;
+      alpha += a;
+      count += 1;
+      if (a < 0.3) continue;
+      const rgb: [number, number, number] = [sample.grid[index]!, sample.grid[index + 1]!, sample.grid[index + 2]!];
+      sum[0] += rgb[0] * a;
+      sum[1] += rgb[1] * a;
+      sum[2] += rgb[2] * a;
+      weight += a;
+      if (!dark || relLum(rgb) < relLum(dark)) dark = rgb;
+      if (!light || relLum(rgb) > relLum(light)) light = rgb;
+    }
+  }
+  if (!count) return null;
+  const average: [number, number, number] = weight ? [sum[0]! / weight, sum[1]! / weight, sum[2]! / weight] : [0, 0, 0];
+  return { alpha: alpha / count, average, dark: dark ?? average, light: light ?? average };
 }
 
 const samples = new Map<string, ImageSample | null | "pending">();
@@ -417,12 +462,13 @@ function relLum([r, g, b]: [number, number, number]) {
 function sampleNow(image: HTMLImageElement): ImageSample | null {
   try {
     const canvas = document.createElement("canvas");
-    canvas.width = 24;
-    canvas.height = 24;
+    canvas.width = SAMPLE_GRID;
+    canvas.height = SAMPLE_GRID;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context) return null;
-    context.drawImage(image, 0, 0, 24, 24);
-    const data = context.getImageData(0, 0, 24, 24).data;
+    context.drawImage(image, 0, 0, SAMPLE_GRID, SAMPLE_GRID);
+    const data = context.getImageData(0, 0, SAMPLE_GRID, SAMPLE_GRID).data;
+    const size = { width: image.naturalWidth || SAMPLE_GRID, height: image.naturalHeight || SAMPLE_GRID, grid: data };
     let alpha = 0;
     let weight = 0;
     const sum = [0, 0, 0];
@@ -439,13 +485,14 @@ function sampleNow(image: HTMLImageElement): ImageSample | null {
       pixels.push(rgb);
     }
     const count = data.length / 4;
-    if (!pixels.length) return { alpha: alpha / count, average: [0, 0, 0], dark: [0, 0, 0], light: [0, 0, 0] };
+    if (!pixels.length) return { alpha: alpha / count, average: [0, 0, 0], dark: [0, 0, 0], light: [0, 0, 0], ...size };
     pixels.sort((a, b) => relLum(a) - relLum(b));
     return {
       alpha: alpha / count,
       average: [sum[0]! / weight, sum[1]! / weight, sum[2]! / weight],
       dark: pixels[Math.floor(pixels.length * 0.1)]!,
       light: pixels[Math.min(pixels.length - 1, Math.floor(pixels.length * 0.9))]!,
+      ...size,
     };
   } catch {
     return null;

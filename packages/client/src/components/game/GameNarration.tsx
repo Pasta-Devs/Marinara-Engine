@@ -4117,7 +4117,7 @@ export function GameNarration({
         "relative",
         combatGenerationFailed
           ? "border-[var(--destructive)]/30 bg-[var(--destructive)]/15 text-[var(--destructive)] hover:bg-[var(--destructive)]/25"
-          : "border-[color-mix(in_srgb,var(--mari-game-combat)_25%,transparent)] bg-[color-mix(in_srgb,var(--mari-game-combat)_12%,transparent)] text-[var(--mari-game-combat-text)] hover:bg-[color-mix(in_srgb,var(--mari-game-combat)_22%,transparent)] dark:border-[color-mix(in_srgb,var(--mari-game-combat)_25%,transparent)] dark:bg-[color-mix(in_srgb,var(--mari-game-combat)_12%,transparent)] dark:text-[var(--mari-game-combat-text)]",
+          : "border-[color:var(--mari-game-combat-border,color-mix(in_srgb,var(--mari-game-combat)_25%,transparent))] bg-[var(--mari-game-combat-bg,color-mix(in_srgb,var(--mari-game-combat)_12%,transparent))] text-[var(--mari-game-combat-text)] hover:bg-[var(--mari-game-combat-bg-hover,color-mix(in_srgb,var(--mari-game-combat)_22%,transparent))] dark:border-[color:var(--mari-game-combat-border,color-mix(in_srgb,var(--mari-game-combat)_25%,transparent))] dark:bg-[var(--mari-game-combat-bg,color-mix(in_srgb,var(--mari-game-combat)_12%,transparent))] dark:text-[var(--mari-game-combat-text)]",
         combatStarting && "cursor-wait opacity-80",
       )}
       title={
@@ -5649,7 +5649,7 @@ export function GameNarration({
                   renderTranslationPanel(activeSourceMessage, activeTranslatedSegmentText, activeIsTranslating, "mt-2")}
 
                 <div className="mt-2 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5" data-mari-part="game-tools">
                     {showLogsButton && (
                       <button
                         onClick={() => setLogsOpen(true)}
@@ -5726,7 +5726,7 @@ export function GameNarration({
                   renderTranslationPanel(activeSourceMessage, activeTranslatedSegmentText, activeIsTranslating, "mt-2")}
 
                 <div className="mt-2 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5" data-mari-part="game-tools">
                     {showLogsButton && (
                       <button
                         onClick={() => setLogsOpen(true)}
@@ -5801,7 +5801,7 @@ export function GameNarration({
                   renderTranslationPanel(activeSourceMessage, activeTranslatedSegmentText, activeIsTranslating, "mt-2")}
 
                 <div className="mt-2 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5" data-mari-part="game-tools">
                     {showLogsButton && (
                       <button
                         onClick={() => setLogsOpen(true)}

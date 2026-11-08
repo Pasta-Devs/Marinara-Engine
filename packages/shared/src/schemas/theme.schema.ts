@@ -36,6 +36,22 @@ export const themeSettingsSchema = z
     backgroundLight: z.string().max(2000).optional(),
     fontFamily: z.string().max(200).optional(),
     accentPulse: z.boolean().optional(),
+    /** Appearance > Display Size (px). Offered unticked: it's the user's call. */
+    fontSize: z
+      .union([
+        z.literal(12),
+        z.literal(14),
+        z.literal(16),
+        z.literal(17),
+        z.literal(19),
+        z.literal(22),
+        z.literal(26),
+        z.literal(30),
+        z.literal(34),
+      ])
+      .optional(),
+    /** Appearance > Reduce motion. Offered unticked. */
+    reduceMotion: z.boolean().optional(),
   })
   .strip();
 

@@ -1,3 +1,4 @@
+import { WindowTitle } from "../../lib/theme-slots";
 import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
 import { avatarInitial } from "../../lib/avatar-initial";
 import { messageHooks } from "../../lib/message-hooks";
@@ -3067,9 +3068,13 @@ export const ChatMessage = memo(function ChatMessage({
     latest: isLastAssistantMessage && !isUser,
     streaming: isStreaming,
   });
+  // A message's persona snapshot can predate the persona's picture: the same persona's current
+  // picture fills in, so the stock placeholder only shows when the persona really has none.
+  const snapshotIsCurrentPersona = !!msgPersona && (!msgPersona.personaId || msgPersona.personaId === personaInfo?.id);
+  const personaFallsBack = !!msgPersona && !msgPersona.avatarUrl && snapshotIsCurrentPersona;
   const avatarUrl = isUser
     ? msgPersona
-      ? (msgPersona.avatarUrl ?? null)
+      ? (msgPersona.avatarUrl ?? (personaFallsBack ? (personaInfo?.avatarUrl ?? null) : null))
       : (personaInfo?.avatarUrl ?? null)
     : (resolvedCharacterInfo?.avatarUrl ?? null);
   const personaExpressionId =
@@ -3082,7 +3087,7 @@ export const ChatMessage = memo(function ChatMessage({
         : null;
   const displayAvatarUrl = expressionAvatarUrl ?? avatarUrl;
   const personaAvatarCrop = isUser
-    ? msgPersona
+    ? msgPersona && !personaFallsBack
       ? (normalizeAvatarCrop(msgPersona.avatarCrop) ?? null)
       : (personaInfo?.avatarCrop ?? null)
     : null;
@@ -4062,6 +4067,8 @@ export const ChatMessage = memo(function ChatMessage({
               <div
                 className="flex h-full items-center justify-center text-[var(--muted-foreground)]"
                 aria-hidden="true"
+                data-mari-part="avatar-placeholder"
+                data-role={isUser ? "user" : "assistant"}
               >
                 {isUser ? <User size="1.75rem" /> : <Bot size="1.75rem" />}
               </div>
@@ -4407,7 +4414,9 @@ export const ChatMessage = memo(function ChatMessage({
         >
           {isMergedGroup ? mergedNameElement : <NameColorText color={msgNameColor}>{displayName}</NameColorText>}
         </span>
-        <span className="text-[0.625rem] text-white/30">{formatTime(message.createdAt)}</span>
+        <span className="text-[0.625rem] text-white/30" data-mari-part="time">
+          {formatTime(message.createdAt)}
+        </span>
         {isGrouped ? null : ovThinkingButton}
         {genLabel && (
           <span className="text-[0.5625rem] text-white/25 italic truncate max-w-[15.625rem]" title={genLabel}>
@@ -4455,7 +4464,7 @@ export const ChatMessage = memo(function ChatMessage({
           <div className="ov-rpmsg__tools-float">{rpActions("tools")}</div>
         )
       ) : (
-        <div className="ov-rpmsg__head" data-mari-part="header">
+        <div className="ov-rpmsg__head" data-mari-part="header" data-placement="inside">
           {rpNameMeta}
           <span className="ov-rpmsg__grow" />
           {/* Touch screens: the tools live in the long-press menu. */}
@@ -4573,6 +4582,8 @@ export const ChatMessage = memo(function ChatMessage({
                 </div>
               ) : (
                 <div
+                  data-mari-part="avatar-placeholder"
+                  data-role={isUser ? "user" : "assistant"}
                   className={cn(
                     "flex items-center justify-center ring-2 shadow-lg",
                     compactAvatarFrameClass,
@@ -4616,6 +4627,7 @@ export const ChatMessage = memo(function ChatMessage({
               <div
                 className={cn("flex items-baseline gap-2 px-1", isUser && "flex-row-reverse")}
                 data-mari-part="header"
+                data-placement="outside"
               >
                 {rpNameMeta}
               </div>
@@ -4733,6 +4745,8 @@ export const ChatMessage = memo(function ChatMessage({
                         </button>
                       ) : (
                         <div
+                          data-mari-part="avatar-placeholder"
+                          data-role={isUser ? "user" : "assistant"}
                           className={cn(
                             "flex h-full w-full items-start justify-center pt-4",
                             isUser
@@ -4769,6 +4783,7 @@ export const ChatMessage = memo(function ChatMessage({
                   </div>
                   {roleplayBubbleContent && (
                     <div className="min-w-0 flex-1 px-3 py-3">
+                      <WindowTitle title={displayName} where="message" />
                       {ovRpHead}
                       {roleplayBubbleContent}
                     </div>
@@ -4776,6 +4791,7 @@ export const ChatMessage = memo(function ChatMessage({
                 </div>
               ) : roleplayBubbleContent ? (
                 <div className="px-4 py-3">
+                  <WindowTitle title={displayName} where="message" />
                   {ovRpHead}
                   {roleplayBubbleContent}
                 </div>
@@ -5137,7 +5153,10 @@ export const ChatMessage = memo(function ChatMessage({
           {/* Timestamp + model — only for last in a group or standalone */}
           {!isGrouped && (
             <div className={cn("mari-message-meta flex items-center gap-2 px-3", isUser && "flex-row-reverse")}>
-              <span className="mari-message-timestamp text-[0.625rem] text-[var(--muted-foreground)]/50">
+              <span
+                className="mari-message-timestamp text-[0.625rem] text-[var(--muted-foreground)]/50"
+                data-mari-part="time"
+              >
                 {formatTime(message.createdAt)}
               </span>
               {genLabel && (

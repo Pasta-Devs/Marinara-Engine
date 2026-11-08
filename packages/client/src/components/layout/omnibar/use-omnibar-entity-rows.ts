@@ -76,9 +76,9 @@ export function useOmnibarEntityRows({
   const latestMessageByChatId = useMemo(
     () =>
       new Map(
-        (homeFeed.data?.recentChats ?? []).flatMap(({ chat, latestMessage }) =>
-          latestMessage ? [[chat.id, latestMessage] as const] : [],
-        ),
+        (homeFeed.data?.recentChats ?? [])
+          .slice(0, 6)
+          .flatMap(({ chat, latestMessage }) => (latestMessage ? [[chat.id, latestMessage] as const] : [])),
       ),
     [homeFeed.data?.recentChats],
   );

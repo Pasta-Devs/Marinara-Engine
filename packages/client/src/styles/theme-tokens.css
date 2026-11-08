@@ -165,6 +165,23 @@
   background-color: var(--mari-top-bar-plate, color-mix(in srgb, var(--background) 78%, transparent));
   border-radius: var(--mari-top-bar-plate-radius, 0.5rem);
 }
+/* Active controls (the open Library, a pressed toggle) keep their accent, mixed into a plate so their
+   label still reads over the art (theming round 4). --mari-top-bar-plate-active restyles it. */
+:root[data-mari-top-bar-art]
+  [data-component="TopBar"]
+  :is([role="tab"], button, a, .ov-tab):is([aria-selected="true"], [aria-pressed="true"], .is-active):not(
+      .ov-tab > *
+    ) {
+  background-color: var(
+    --mari-top-bar-plate-active,
+    color-mix(
+      in srgb,
+      var(--mari-top-bar-plate, color-mix(in srgb, var(--background) 78%, transparent)) 80%,
+      var(--marinara-chat-chrome-accent, var(--primary)) 20%
+    )
+  );
+  border-radius: var(--mari-top-bar-plate-radius, 0.5rem);
+}
 /* An open chat tab is one plate: its title and close buttons sit on it, not on plates of their own. */
 :root[data-mari-top-bar-art]
   [data-component="TopBar"]
@@ -385,4 +402,158 @@
   :is([data-component="ChatSidebarPanel"], [data-component="RightPanelDesktop"], [data-component="TopBar"]) {
   background-color: color-mix(in srgb, var(--sidebar, var(--background)) 72%, transparent);
   backdrop-filter: blur(12px) saturate(1.1);
+}
+
+/* ─── Tokens for the last hard-coded bits (theming round 4) ───
+   Each switches on only when a theme sets it (CustomThemeInjector puts a flag on <html>), so the
+   stock look doesn't change by a pixel.
+     --mari-message-time        colour of message times ([data-mari-part="time"]) in every layout
+     --mari-chat-wash           the tint laid over a roleplay chat's background (a whole `background`
+                                value; stock: a dark wash, lavender-white in Light). `none` removes it.
+     --mari-lore-constant / -selective / -normal   the lorebook entry status dots
+     --mari-toast-font-size     toasts (their font already follows --mari-font-ui)
+     --mari-home-shortcut-size / --mari-home-shortcut-desc-size   Home's Learn and Community
+                                shortcut lines; with only --mari-home-widget-text-size set they follow
+                                it (descriptions at 0.85x)
+     --mari-min-ui-text         a floor for the app's smallest text (9-12 px labels, counts, chips);
+                                Tailwind's own --text-xs, --text-sm and --text-base can be set too
+     --mari-user-avatar-image   a picture for the user's avatar when the persona has none
+   Also plain fallbacks (no flag): --mari-chrome-accent (active tab underline, editor shells,
+   selects, connection screens), --mari-chrome-muted (grey secondary text in panels, sidebars and
+   Home; stock: 58% of the chrome text), --mari-resource-accent and --mari-resource-<type>
+   (characters, personas, lorebooks, presets, connections, agents, settings, backgrounds, browser),
+   --mari-ctrlk-conversation / -roleplay / -game (Ctrl+K row colours), --mari-game-combat-bg /
+   -bg-hover / -border (the Combat button). */
+:root[data-mari-message-time] [data-mari-part="time"] {
+  color: var(--mari-message-time) !important;
+}
+:root[data-mari-chat-wash] .mari-app .rpg-overlay,
+:root[data-mari-chat-wash] .mari-app .mari-rp-reduced-paint > .rpg-overlay {
+  background: var(--mari-chat-wash);
+}
+:root[data-mari-lore-constant] .ov-lrow__dot[data-status="constant"] {
+  background-color: var(--mari-lore-constant);
+}
+:root[data-mari-lore-selective] .ov-lrow__dot[data-status="selective"] {
+  background-color: var(--mari-lore-selective);
+}
+:root[data-mari-lore-normal] .ov-lrow__dot[data-status="normal"] {
+  background-color: var(--mari-lore-normal);
+}
+:root[data-mari-toast-size] [data-sonner-toast] {
+  font-size: var(--mari-toast-font-size) !important;
+}
+:root[data-mari-toast-size] [data-sonner-toast] :is([data-title], [data-description]) {
+  font-size: inherit !important;
+}
+:root[data-mari-home-shortcut-size] .mari-home-widget-shortcut__title {
+  font-size: var(--mari-home-shortcut-size, var(--mari-home-widget-text-size)) !important;
+}
+:root[data-mari-home-shortcut-size] .mari-home-widget-shortcut__description {
+  font-size: var(
+    --mari-home-shortcut-desc-size,
+    calc(var(--mari-home-shortcut-size, var(--mari-home-widget-text-size)) * 0.85)
+  ) !important;
+}
+:root[data-mari-min-ui-text] .text-\[0\.5rem\] {
+  font-size: max(0.5rem, var(--mari-min-ui-text)) !important;
+}
+:root[data-mari-min-ui-text] .text-\[0\.5625rem\] {
+  font-size: max(0.5625rem, var(--mari-min-ui-text)) !important;
+}
+:root[data-mari-min-ui-text] .text-\[0\.625rem\] {
+  font-size: max(0.625rem, var(--mari-min-ui-text)) !important;
+}
+:root[data-mari-min-ui-text] .text-\[0\.6875rem\] {
+  font-size: max(0.6875rem, var(--mari-min-ui-text)) !important;
+}
+:root[data-mari-min-ui-text] .text-\[0\.75rem\] {
+  font-size: max(0.75rem, var(--mari-min-ui-text)) !important;
+}
+:root[data-mari-min-ui-text] .text-\[10px\] {
+  font-size: max(10px, var(--mari-min-ui-text)) !important;
+}
+:root[data-mari-min-ui-text] .text-\[11px\] {
+  font-size: max(11px, var(--mari-min-ui-text)) !important;
+}
+:root[data-mari-min-ui-text] .text-xs {
+  font-size: max(var(--text-xs), var(--mari-min-ui-text)) !important;
+}
+:root[data-mari-user-avatar-image] [data-mari-part="avatar-placeholder"][data-role="user"] {
+  background: var(--mari-user-avatar-image) center / cover no-repeat !important;
+}
+:root[data-mari-user-avatar-image] [data-mari-part="avatar-placeholder"][data-role="user"] > svg {
+  display: none;
+}
+
+/* ─── Slots v1.2 (theming round 4) ───
+   Focus frame: --mari-focus-frame takes a whole `border-image` value (source slice / width / outset
+   repeat, e.g. url("theme:frame.png") 24 fill / 24px / 6px stretch) and the app paints it on the
+   surface that has the reader's attention: the newest reply, Ctrl+K, an open dialog and the Recent
+   chats widget on Home. Mark any other element with data-mari-focus-surface to give it the frame. */
+:root[data-mari-focus-frame]
+  :is(
+    [data-mari-part="message"][data-latest] .mari-message-bubble,
+    [data-mari-part="message"][data-latest]:not(:has(.mari-message-bubble)),
+    [data-component="GlobalOmnibar.Panel"],
+    [role="dialog"],
+    [data-home-widget-id="recent"] [data-mari-part="home-widget"],
+    [data-mari-focus-surface]
+  ) {
+  border-image: var(--mari-focus-frame);
+}
+
+/* Window titles (--mari-window-title, lib/theme-slots.ts): the row is a plain flex line; the theme
+   does the rest. */
+[data-mari-part="window-title"] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+[data-home-professor-content] > [data-mari-part="window-title"] {
+  align-self: stretch;
+}
+[data-mari-part="window-title-text"] {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ambient layer extras: --mari-ambient-mask (a whole `mask` value) shapes where it shows, and
+   --mari-gutter-mask is a ready-made one that keeps the middle of the window clear (rain in the
+   side gutters, not over the text): `--mari-ambient-mask: var(--mari-gutter-mask)`. Its clear
+   half-width is --mari-gutter-clear (stock 26rem). --mari-ambient-placement: behind-cards puts the
+   layer under messages, Home widgets and panels (over the backdrop) instead of over the chat. */
+:root {
+  --mari-gutter-mask: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(50% - var(--mari-gutter-clear, 26rem) - 4rem),
+    transparent calc(50% - var(--mari-gutter-clear, 26rem)),
+    transparent calc(50% + var(--mari-gutter-clear, 26rem)),
+    #000 calc(50% + var(--mari-gutter-clear, 26rem) + 4rem),
+    #000 100%
+  );
+}
+:root[data-mari-ambient] [data-mari-part="ambient"] {
+  -webkit-mask: var(--mari-ambient-mask, none);
+  mask: var(--mari-ambient-mask, none);
+}
+/* Behind cards: the centre's own background layers paint the same colour as the app root, so they
+   step aside (as under --mari-app-backdrop) and the ambient layer shows between the cards. A chat's
+   own background picture still covers it;
+   pair it with --mari-app-backdrop for art behind everything. */
+:root[data-mari-ambient-behind]
+  .mari-app
+  :is(
+    .mari-app-background-paint:not([data-center-page]),
+    [data-mari-part="home"],
+    .rpg-chat-area,
+    .mari-chat-area[data-chat-mode="conversation"],
+    [data-chat-mode="game"].mari-card-css
+  ) {
+  background: transparent !important;
 }

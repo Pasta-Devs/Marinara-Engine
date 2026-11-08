@@ -278,7 +278,10 @@ export function ConversationMessageGrouped({
                           {segName}
                         </span>
                         {isFirst && !hideTimestamp && (
-                          <span className="mari-conversation-transcript-chrome-text shrink-0 text-[0.625rem]">
+                          <span
+                            className="mari-conversation-transcript-chrome-text shrink-0 text-[0.625rem]"
+                            data-mari-part="time"
+                          >
                             {formatTimestamp(message.createdAt)}
                           </span>
                         )}
@@ -356,7 +359,10 @@ export function ConversationMessageGrouped({
                         {segName}
                       </span>
                       {isFirst && !hideTimestamp && (
-                        <span className="mari-conversation-transcript-chrome-text text-[0.6875rem]">
+                        <span
+                          className="mari-conversation-transcript-chrome-text text-[0.6875rem]"
+                          data-mari-part="time"
+                        >
                           {formatTimestamp(message.createdAt)}
                         </span>
                       )}

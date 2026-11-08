@@ -176,7 +176,7 @@
         :root[data-ov-topbar-pinned] [data-component="TopBar"].is-autohide,
         .ov-topbar-hotzone:hover + [data-component="TopBar"].is-autohide,
         [data-component="TopBar"].is-autohide:hover,
-        [data-component="TopBar"].is-autohide:focus-within,
+        [data-component="TopBar"].is-autohide:has(:focus-visible),
         html[data-mari-guard-measure] [data-component="TopBar"].is-autohide {
           transform: none !important;
           top: 0 !important;
@@ -202,6 +202,16 @@
            can't spill over the controls next to it. Chat rows keep their text the same way. */
         [data-component="TopBar"] :is(button, a, [role="tab"], [role="tablist"]) {
           isolation: isolate !important;
+        }
+        /* Guard v4: a control's ::before/::after stays on that control (position: relative), so a
+           picture on one tab can't spread over the whole bar, the chats toggle and the logo; and the
+           tab row stays a row (a list-item or block display would push the open chat tab away). */
+        [data-component="TopBar"] :is(button, a, [role="tab"], .ov-tab, .ov-mark) {
+          position: relative !important;
+        }
+        [data-component="TopBar"] :is(.ov-tabs, [role="tablist"]) {
+          display: flex !important;
+          list-style: none !important;
         }
         [data-component="TopBar"] *::before,
         [data-component="TopBar"] *::after {
@@ -248,6 +258,10 @@
         [data-component="ChatSidebarSlot"]:not([aria-hidden="true"]),
         [data-component="RightPanelDesktopSlot"]:not([aria-hidden="true"]) {
           z-index: 2 !important;
+        }
+        /* --mari-ambient-placement: behind-cards: under the page and its cards, over the backdrop. */
+        :root[data-mari-ambient-behind] [data-mari-part="ambient"] {
+          z-index: -1 !important;
         }
         /* Pseudo-element decorations (scanlines, grain, vignettes) never take clicks. */
         :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::before,

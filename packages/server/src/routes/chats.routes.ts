@@ -1101,7 +1101,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     const seenRecentChatIds = new Set<string>();
     const pageSize = 24;
     let offset = 0;
-    while (recentChats.length < 6) {
+    // Up to 12: the new layout's Recent widget shows as many as fit; the classic grid shows 6.
+    while (recentChats.length < 12) {
       const page = await storage.listRecent(pageSize, offset);
       if (page.length === 0) break;
       for (const chat of page) {
@@ -1109,7 +1110,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           seenRecentChatIds.add(chat.id);
           recentChats.push(chat);
         }
-        if (recentChats.length === 6) break;
+        if (recentChats.length === 12) break;
       }
       offset += page.length;
       if (page.length < pageSize) break;

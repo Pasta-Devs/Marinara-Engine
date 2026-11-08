@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Game: Input Bar (send message, roll dice, attach files, emoji)
 // ──────────────────────────────────────────────
+import { WindowTitle } from "../../lib/theme-slots";
 import { useThemedPlaceholder } from "../../hooks/use-themed-placeholder";
 import { useState, useRef, useEffect, useCallback, useMemo, type KeyboardEvent } from "react";
 import {
@@ -462,6 +463,7 @@ export function GameInput({
       className={cn(inline ? "" : "px-3 pt-2 pb-3")}
       style={inline ? undefined : { minHeight: 61 }}
     >
+      <WindowTitle where="composer" />
       {spatialCapabilityEnabled && draftKey ? (
         <CapabilityElement
           packageId="hierarchical-maps"

@@ -1,3 +1,4 @@
+import { WindowTitle } from "../../lib/theme-slots";
 import {
   useCallback,
   useEffect,
@@ -810,8 +811,10 @@ function FeedModule({
           className="absolute inset-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-app-accent-solid)]"
         />
       )}
+      <WindowTitle title={title} where="home-widget" />
       <span
-        className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[color-mix(in_srgb,var(--home-module-accent)_11%,transparent)] blur-3xl"
+        className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[var(--mari-home-widget-glow,color-mix(in_srgb,var(--home-module-accent)_11%,transparent))] blur-3xl"
+        data-mari-part="home-widget-glow"
         aria-hidden="true"
       />
       {art ? (
@@ -827,7 +830,7 @@ function FeedModule({
       ) : null}
       <header
         className={cn(
-          "relative z-[1] flex min-w-0 items-end justify-between gap-3 pr-8",
+          "relative z-[1] flex min-w-0 shrink-0 items-end justify-between gap-3 pr-8",
           description ? "mb-1.5" : "mb-3",
           onOpen && "pointer-events-none [&_button]:pointer-events-auto [&_a]:pointer-events-auto",
         )}
@@ -2487,6 +2490,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                           className="relative z-[2] -my-(--mari-home-professor-pad) flex min-h-0 min-w-0 flex-col items-start justify-center overflow-y-clip py-(--mari-home-professor-pad)"
                           data-home-professor-content
                         >
+                          <WindowTitle title={t("home.shortcuts.professorMari")} where="home-widget" />
                           <p
                             data-mari-part="home-widget-eyebrow"
                             className="mari-chrome-accent-icon mari-accent-animated text-[length:var(--mari-home-widget-eyebrow-size,0.625rem)] font-extrabold uppercase tracking-[0.16em]"

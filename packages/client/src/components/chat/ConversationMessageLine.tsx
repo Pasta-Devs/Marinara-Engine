@@ -170,7 +170,10 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
               onOpenAboutMe={ctx.onOpenAboutMe}
             />
             {!hideTimestamp && (
-              <span className="mari-message-timestamp mari-conversation-transcript-chrome-text text-[0.6875rem]">
+              <span
+                className="mari-message-timestamp mari-conversation-transcript-chrome-text text-[0.6875rem]"
+                data-mari-part="time"
+              >
                 {formatTimestamp(message.createdAt)}
               </span>
             )}

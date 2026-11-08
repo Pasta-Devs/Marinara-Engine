@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { avatarInitial } from "../../lib/avatar-initial";
 import { MessageCircleQuestion, MessageSquare, RefreshCw } from "lucide-react";
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
@@ -89,6 +89,25 @@ export function RecentChats() {
   const gameAssets = useGameAssetManifest();
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
   const recentChats = useMemo(() => feed.data?.recentChats ?? [], [feed.data?.recentChats]);
+  // New layout: as many rows as the widget has room for (it can be resized), so a tall widget isn't
+  // left with an empty band under six rows.
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const [fitRows, setFitRows] = useState(6);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const row = list.firstElementChild as HTMLElement | null;
+      const rowHeight = row?.getBoundingClientRect().height ?? 0;
+      if (rowHeight < 8) return;
+      const fits = Math.max(1, Math.floor((list.getBoundingClientRect().height + 0.5) / rowHeight));
+      setFitRows((current) => (current === fits ? current : fits));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [overhaul, recentChats.length]);
   const characterIds = useMemo(
     () => Array.from(new Set(recentChats.flatMap(({ chat }) => chat.characterIds))),
     [recentChats],
@@ -204,8 +223,8 @@ export function RecentChats() {
 
   if (overhaul) {
     return (
-      <ul className="ov-recent" data-component="RecentChats" data-variant="list">
-        {recentChats.slice(0, 6).map(({ chat, latestMessage }) => {
+      <ul ref={listRef} className="ov-recent" data-component="RecentChats" data-variant="list">
+        {recentChats.slice(0, Math.min(12, fitRows)).map(({ chat, latestMessage }) => {
           const mode = MODE_BADGE[chat.mode];
           const characterId = chat.characterIds.find((id) => characterLookup.has(id)) ?? null;
           const character = characterId ? characterLookup.get(characterId) : null;
@@ -260,7 +279,7 @@ export function RecentChats() {
       data-mobile-limit="3"
       data-narrow-desktop-limit="4"
     >
-      {recentChats.map(({ chat, latestMessage }, index) => {
+      {recentChats.slice(0, 6).map(({ chat, latestMessage }, index) => {
         const chatMode = chat.mode;
         const mode = MODE_BADGE[chatMode];
         const chatCharacterIds = chat.characterIds;

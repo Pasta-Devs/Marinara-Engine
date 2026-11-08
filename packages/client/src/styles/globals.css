@@ -275,7 +275,7 @@
   --marinara-app-accent-static: var(--primary);
   --marinara-app-accent-gradient: linear-gradient(90deg, #ec4b97, #f29744, #36cdde);
   --marinara-app-accent-static-gradient: linear-gradient(90deg, #ec4b97, #f29744, #36cdde);
-  --marinara-chat-chrome-accent: var(--marinara-app-accent-solid);
+  --marinara-chat-chrome-accent: var(--mari-chrome-accent, var(--marinara-app-accent-solid));
   --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient);
   --marinara-chat-chrome-text: var(--card-foreground);
   --marinara-chat-chrome-button-text-base: var(--marinara-chat-chrome-accent);
@@ -322,7 +322,10 @@
   --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent);
   --marinara-chat-chrome-panel-text: color-mix(in srgb, var(--marinara-chat-chrome-text) 90%, transparent);
   --marinara-chat-chrome-panel-title: color-mix(in srgb, var(--marinara-chat-chrome-text) 96%, transparent);
-  --marinara-chat-chrome-panel-muted: color-mix(in srgb, var(--marinara-chat-chrome-text) 58%, transparent);
+  --marinara-chat-chrome-panel-muted: var(
+    --mari-chrome-muted,
+    color-mix(in srgb, var(--marinara-chat-chrome-text) 58%, transparent)
+  );
   --marinara-chat-chrome-panel-scrollbar: color-mix(in srgb, var(--marinara-chat-chrome-accent) 22%, transparent);
   --marinara-chat-message-action-text: color-mix(in srgb, var(--marinara-chat-chrome-text) 40%, transparent);
   --marinara-chat-message-action-text-hover: color-mix(in srgb, var(--marinara-chat-chrome-text) 70%, transparent);
@@ -1688,27 +1691,27 @@
 .mari-panel-gradient--characters,
 .mari-field-review-line,
 [data-mari-field][data-mari-focus] {
-  --mari-panel-gradient-start: #f472b6;
-  --mari-panel-gradient-end: #f43f5e;
+  --mari-panel-gradient-start: var(--mari-resource-characters, var(--mari-resource-accent, #f472b6));
+  --mari-panel-gradient-end: var(--mari-resource-characters, var(--mari-resource-accent, #f43f5e));
   --mari-panel-gradient-text: #fff7fb;
 }
 
 .mari-panel-gradient--lorebooks {
-  --mari-panel-gradient-start: #f59e0b;
-  --mari-panel-gradient-end: #f97316;
+  --mari-panel-gradient-start: var(--mari-resource-lorebooks, var(--mari-resource-accent, #f59e0b));
+  --mari-panel-gradient-end: var(--mari-resource-lorebooks, var(--mari-resource-accent, #f97316));
   --mari-panel-gradient-text: #fff7ed;
 }
 
 .mari-panel-gradient--presets {
-  --mari-panel-gradient-start: #c084fc;
-  --mari-panel-gradient-end: #8b5cf6;
+  --mari-panel-gradient-start: var(--mari-resource-presets, var(--mari-resource-accent, #c084fc));
+  --mari-panel-gradient-end: var(--mari-resource-presets, var(--mari-resource-accent, #8b5cf6));
   --mari-panel-gradient-text: #fbf7ff;
 }
 
 .mari-panel-gradient--connections,
 .mari-connection-scope {
-  --mari-panel-gradient-start: #38bdf8;
-  --mari-panel-gradient-end: #3b82f6;
+  --mari-panel-gradient-start: var(--mari-resource-connections, var(--mari-resource-accent, #38bdf8));
+  --mari-panel-gradient-end: var(--mari-resource-connections, var(--mari-resource-accent, #3b82f6));
   --mari-panel-gradient-text: #f0f9ff;
   /* Connection blue for text, rails and selected chips; leaning on the foreground keeps it legible in light and dark. */
   --mari-connection-ink: color-mix(in srgb, var(--mari-panel-gradient-end) 80%, var(--foreground) 20%);
@@ -1724,7 +1727,7 @@
  */
 .mari-connection-scope,
 [data-marinara-accent-animation] .mari-connection-scope {
-  --marinara-chat-chrome-accent: var(--mari-panel-gradient-start);
+  --marinara-chat-chrome-accent: var(--mari-chrome-accent, var(--mari-panel-gradient-start));
   --marinara-chat-chrome-focus-ring: var(--mari-connection-ring);
   --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
   --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--foreground) 10%, transparent);
@@ -1889,26 +1892,26 @@
   }
 }
 .mari-panel-gradient--agents {
-  --mari-panel-gradient-start: #a78bfa;
-  --mari-panel-gradient-end: #a855f7;
+  --mari-panel-gradient-start: var(--mari-resource-agents, var(--mari-resource-accent, #a78bfa));
+  --mari-panel-gradient-end: var(--mari-resource-agents, var(--mari-resource-accent, #a855f7));
   --mari-panel-gradient-text: #fbf7ff;
 }
 
 .mari-panel-gradient--personas {
-  --mari-panel-gradient-start: #34d399;
-  --mari-panel-gradient-end: #14b8a6;
+  --mari-panel-gradient-start: var(--mari-resource-personas, var(--mari-resource-accent, #34d399));
+  --mari-panel-gradient-end: var(--mari-resource-personas, var(--mari-resource-accent, #14b8a6));
   --mari-panel-gradient-text: #ecfdf5;
 }
 
 .mari-panel-gradient--settings {
-  --mari-panel-gradient-start: #9ca3af;
-  --mari-panel-gradient-end: #6b7280;
+  --mari-panel-gradient-start: var(--mari-resource-settings, var(--mari-resource-accent, #9ca3af));
+  --mari-panel-gradient-end: var(--mari-resource-settings, var(--mari-resource-accent, #6b7280));
   --mari-panel-gradient-text: #f9fafb;
 }
 
 .mari-panel-gradient--backgrounds {
-  --mari-panel-gradient-start: #818cf8;
-  --mari-panel-gradient-end: #6366f1;
+  --mari-panel-gradient-start: var(--mari-resource-backgrounds, var(--mari-resource-accent, #818cf8));
+  --mari-panel-gradient-end: var(--mari-resource-backgrounds, var(--mari-resource-accent, #6366f1));
   --mari-panel-gradient-text: #eef2ff;
 }
 
@@ -2102,8 +2105,8 @@
 }
 
 .mari-panel-gradient--browser {
-  --mari-panel-gradient-start: #a3e635;
-  --mari-panel-gradient-end: #14b8a6;
+  --mari-panel-gradient-start: var(--mari-resource-browser, var(--mari-resource-accent, #a3e635));
+  --mari-panel-gradient-end: var(--mari-resource-browser, var(--mari-resource-accent, #14b8a6));
   --mari-panel-gradient-text: #07130f;
 }
 
@@ -3115,7 +3118,7 @@
   --ring: var(--marinara-app-accent-static);
   --marinara-app-accent-solid: var(--marinara-app-accent-static);
   --marinara-app-accent-gradient: var(--marinara-app-accent-static-gradient);
-  --marinara-chat-chrome-accent: var(--marinara-app-accent-static);
+  --marinara-chat-chrome-accent: var(--mari-chrome-accent, var(--marinara-app-accent-static));
   --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-static-gradient);
 }
 

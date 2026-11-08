@@ -763,7 +763,11 @@ export function LorebookEntryRow({
             <span />
           </button>
           <span className="ov-lrow__name">
-            <span className={cn("ov-lrow__dot", STATUS_DOT_COLOR[localStatus])} title={STATUS_LABEL[localStatus]} />
+            <span
+              className={cn("ov-lrow__dot", STATUS_DOT_COLOR[localStatus])}
+              data-status={localStatus}
+              title={STATUS_LABEL[localStatus]}
+            />
             <span className="truncate">{localName || localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}</span>
             {entry.locked ? (
               <Lock size="0.6875rem" aria-label={localizeUi("ui.lorebooks.expandeddrawer.locked")} />
