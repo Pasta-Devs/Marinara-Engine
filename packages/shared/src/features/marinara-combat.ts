@@ -4276,10 +4276,18 @@ export type MarinaraKnownAffinities = Record<string, MarinaraAffinities>;
 /** The key a foe's kind is remembered under. */
 export function marinaraFoeKindKey(fighter: Pick<MarinaraFighter, "familyId" | "name">): string {
   if (fighter.familyId) return `family:${fighter.familyId}`;
-  return `name:${fighter.name
-    .trim()
-    .replace(/\s+(?:[A-Z]|\d+)$/, "")
-    .toLowerCase()}`;
+  return `name:${marinaraNameWithoutMark(fighter.name.trim()).toLowerCase()}`;
+}
+
+/** "Bandit B" or "Bandit 12" without its fight's letter or number, read by hand (no backtracking pattern). */
+function marinaraNameWithoutMark(name: string): string {
+  let start = name.length;
+  while (start > 0 && name[start - 1]! >= "0" && name[start - 1]! <= "9") start--;
+  if (start === name.length && start > 0 && name[start - 1]! >= "A" && name[start - 1]! <= "Z") start--;
+  if (start === name.length) return name;
+  let cut = start;
+  while (cut > 0 && /\s/.test(name[cut - 1]!)) cut--;
+  return cut < start ? name.slice(0, cut) : name;
 }
 
 /** Folds what this fight's foes showed into what the game already knew. */

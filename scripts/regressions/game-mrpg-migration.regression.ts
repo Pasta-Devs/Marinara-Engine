@@ -289,3 +289,17 @@ console.log("game-mrpg-migration: ok");
   assert.equal(read("str:" + "\t".repeat(50_000) + "+" + "\t".repeat(50_000) + "!"), undefined);
   assert.ok(Date.now() - started < 500, "no backtracking on a long run of tabs");
 }
+
+// A foe's kind drops its fight's letter or number, and a long run of tabs is read at once (CodeQL, PR 8964).
+{
+  const { marinaraFoeKindKey: kind } = await import("../../packages/shared/src/index.js");
+  assert.equal(kind({ name: "Bandit B" }), "name:bandit");
+  assert.equal(kind({ name: " Cult Guard 12 " }), "name:cult guard");
+  assert.equal(kind({ name: "Wolf AB" }), "name:wolf ab");
+  assert.equal(kind({ name: "Bandit" }), "name:bandit");
+  assert.equal(kind({ name: "B" }), "name:b");
+  assert.equal(kind({ name: "Ghoul", familyId: "ghoul" }), "family:ghoul");
+  const started = Date.now();
+  kind({ name: "a" + "\t".repeat(100_000) + "x" });
+  assert.ok(Date.now() - started < 500, "no backtracking on a long run of tabs");
+}
