@@ -341,7 +341,8 @@ export function normalizeUiStyleOverrides(value: unknown): UiStyleOverrides {
 /**
  * Moves the retired Background Color setting into the Whole app part. A background already saved on that
  * part wins. The old field is cleared only once the part has a background; a value the part cannot hold
- * (`url(...)`, quotes, over-long) stays in `appBackgroundColor`, which App.tsx still paints.
+ * (`url(...)`, quotes, over-long) stays in `appBackgroundColor`, which App.tsx still paints until the
+ * Whole app part is reset or replaced (the store actions clear it then).
  */
 export function foldAppBackgroundColor(
   color: string,

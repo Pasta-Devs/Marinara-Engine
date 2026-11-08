@@ -2650,9 +2650,12 @@ export const useUIStore = create<UIState>()(
             const clean = normalizeUiStyleOverride(override);
             if (clean) next[target] = clean;
             else delete next[target];
-            return { uiStyleOverrides: next };
+            // A legacy Background Color the Whole app part could not hold goes once that part is reset or
+            // gets a background of its own; nothing else can clear it now that its setting is gone.
+            const dropLegacy = target === "app" && (!clean || clean.background);
+            return dropLegacy ? { uiStyleOverrides: next, appBackgroundColor: "" } : { uiStyleOverrides: next };
           }),
-        resetUiStyleOverrides: () => set({ uiStyleOverrides: {}, uiStylePreview: null }),
+        resetUiStyleOverrides: () => set({ uiStyleOverrides: {}, uiStylePreview: null, appBackgroundColor: "" }),
         saveUiStylePreset: (name) =>
           set((state) => {
             const [fresh] = normalizeUiStylePresets([{ id: "new", name, overrides: state.uiStyleOverrides }]);
@@ -2672,7 +2675,9 @@ export const useUIStore = create<UIState>()(
         applyUiStylePreset: (id) =>
           set((state) => {
             const preset = state.uiStylePresets.find((candidate) => candidate.id === id);
-            return preset ? { uiStyleOverrides: { ...preset.overrides }, uiStylePreview: null } : {};
+            return preset
+              ? { uiStyleOverrides: { ...preset.overrides }, uiStylePreview: null, appBackgroundColor: "" }
+              : {};
           }),
         deleteUiStylePreset: (id) =>
           set((state) => ({ uiStylePresets: state.uiStylePresets.filter((preset) => preset.id !== id) })),

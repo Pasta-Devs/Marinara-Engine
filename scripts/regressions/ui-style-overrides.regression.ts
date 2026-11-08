@@ -359,6 +359,29 @@ assert.notEqual(serializeUiStyleOverride({ shadow: "soft" }), serializeUiStyleOv
   const { useUIStore } = await import("../../packages/client/src/stores/ui.store.js");
   assert.equal(useUIStore.getState().appBackgroundColor, "url(wall.png)", "the migrate keeps what it cannot fold");
   assert.equal(useUIStore.getState().uiStyleOverrides.app, undefined);
+
+  // Nothing else clears that leftover now, so each way of resetting or replacing the Whole app part does.
+  const legacy = { appBackgroundColor: "url(wall.png)" };
+  const { saveUiStyleOverride, resetUiStyleOverrides, saveUiStylePreset, applyUiStylePreset } =
+    useUIStore.getState();
+  useUIStore.setState(legacy);
+  saveUiStyleOverride("app", { color: "#eeeeee" });
+  assert.equal(useUIStore.getState().appBackgroundColor, "url(wall.png)", "a Whole app edit without a background keeps it");
+  saveUiStyleOverride("app", null);
+  assert.equal(useUIStore.getState().appBackgroundColor, "", "resetting Whole app clears it");
+  useUIStore.setState(legacy);
+  saveUiStyleOverride("app", { background: "#101010" });
+  assert.equal(useUIStore.getState().appBackgroundColor, "", "a Whole app background replaces it");
+  useUIStore.setState(legacy);
+  saveUiStyleOverride("sidebar", null);
+  assert.equal(useUIStore.getState().appBackgroundColor, "url(wall.png)", "other parts leave it");
+  resetUiStyleOverrides();
+  assert.equal(useUIStore.getState().appBackgroundColor, "", "Reset all clears it");
+  saveUiStyleOverride("sidebar", { color: "#eeeeee" });
+  saveUiStylePreset("Plain");
+  useUIStore.setState(legacy);
+  applyUiStylePreset(useUIStore.getState().uiStylePresets[0]!.id);
+  assert.equal(useUIStore.getState().appBackgroundColor, "", "Apply preset clears it");
 }
 
 console.info("UI style override regressions passed.");
