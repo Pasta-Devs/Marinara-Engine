@@ -3,7 +3,8 @@
 // MariDbService against the two docs examples, which share no ids or dice: Ember Roads (2d6, three
 // stats, no saves) on a persona and Gravewatch (a d10 pool, a save, enum fields) on a card. Each
 // update writes only that ruleset's sheet, refuses anything the sheet editor would refuse, and
-// leaves the rest of personaStats and the card untouched.
+// leaves the rest of personaStats and the card untouched. The MRPG picks actions (`*.mrpg.get|update`)
+// ride along at the end on the same two cards.
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -289,6 +290,46 @@ try {
     await mari.executeAction({ action: "persona.rulesetSheet.get", personaId: "rook", rulesetId: GRAVE })
   ).output as Row;
   assert.equal(blankRead.status, "unreadable");
+
+  // ── MRPG card picks (primary tree, strong and weak stats) share the same cards ──
+  const picks = await mari.executeAction({
+    action: "character.mrpg.update",
+    characterId: "warden",
+    patch: { tree: "Guard", strong: ["defense", "hp"], weak: "speed" },
+    apply: true,
+  });
+  assert.equal(picks.ok, true, `character.mrpg.update: ${picks.error ?? ""}`);
+  const [pickedRow] = await db.select().from(characters).where(eq(characters.id, "warden"));
+  const picked = JSON.parse(String(pickedRow!.data)) as Row & { extensions: Row };
+  assert.deepEqual(picked.extensions.classic, { tree: "guard", strong: ["defense", "hp"], weak: "speed", built: true });
+  assert.ok(picked.extensions.rulesetSheets, "MRPG picks leave the ruleset sheets alone");
+  assert.equal(picked.description, "Keeps the gate.");
+  const refusedPicks = await mari.executeAction({
+    action: "persona.mrpg.update",
+    personaId: "rook",
+    patch: { tree: "wizard", strong: ["luck", "magic", "skill"], weak: "luck" },
+    apply: true,
+  });
+  assert.equal(refusedPicks.ok, false);
+  assert.match(String(refusedPicks.error), /tree must be one of/);
+  assert.match(String(refusedPicks.error), /strong takes at most 2/);
+  const personaPicks = await mari.executeAction({
+    action: "persona.mrpg.update",
+    personaId: "rook",
+    patch: { strong: ["luck"], weak: "luck" },
+    apply: true,
+  });
+  assert.match(String(personaPicks.error), /luck can't be both strong and weak/);
+  await mari.executeAction({
+    action: "persona.mrpg.update",
+    personaId: "rook",
+    patch: { strong: ["luck"] },
+    apply: true,
+  });
+  const rookPicks = (await mari.executeAction({ action: "persona.mrpg.get", personaId: "rook" })).output as Row;
+  assert.equal(rookPicks.tree, "auto");
+  assert.deepEqual(rookPicks.strong, ["luck"]);
+  assert.equal((await personaStats()).enabled, true, "the rest of personaStats is untouched");
 } finally {
   await closeDB();
   if (previousDataDir === undefined) delete process.env.DATA_DIR;
