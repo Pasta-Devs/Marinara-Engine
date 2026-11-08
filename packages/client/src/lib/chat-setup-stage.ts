@@ -152,3 +152,17 @@ export function welcomeRecapFromSummary(summary: unknown): string | null {
       .at(-1) ?? null
   );
 }
+
+/**
+ * A short title for an opening card: the first words of the greeting's first sentence.
+ * ponytail: plain word trim; a model-made title and mood tag could replace it later.
+ */
+export function openingTitle(text: string): string | null {
+  const sentence = text.replace(/[*_"“”«»]/g, "").split(/(?<=[.!?…])\s|\n/)[0] ?? "";
+  const words = sentence
+    .replace(/[.!?…,;:]+$/, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return null;
+  return words.length > 4 ? `${words.slice(0, 4).join(" ")}…` : words.join(" ");
+}

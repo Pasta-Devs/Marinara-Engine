@@ -275,7 +275,7 @@ export function StageAvatar({ src, crop, name, className }: StageAvatarProps & {
 const UNDO_TOAST_ID = "chat-setup-stage-undo";
 
 /** Every stage change offers Undo; it writes the old value back through the same path. One toast at a time. */
-function useStageUndo(section: StageEditorSection) {
+export function useStageUndo(section: StageEditorSection) {
   const { t } = useTranslation();
   return (undo: () => void) =>
     toast(t("chat.setupStage.polish.changed", { section: t(TITLES[section]) }), {
@@ -588,17 +588,8 @@ function CastEditor({ ctx, addOnly, close }: { ctx: StageEditorContext; addOnly?
   );
 }
 
-export function OpeningEditor({
-  ctx,
-  close,
-  inline = false,
-}: {
-  ctx: StageEditorContext;
-  close: () => void;
-  inline?: boolean;
-}) {
-  const { t } = useTranslation();
-  const undo = useStageUndo("opening");
+/** The first lines of every greeting of the opening message, resolved like the greeting below the stage. */
+export function useOpeningPreviews(ctx: StageEditorContext): string[] {
   const first = ctx.first;
   const { data: characterData } = useCharacters();
   const characterRows = characterData as Array<{ id: string; data: unknown }> | undefined;
@@ -640,68 +631,24 @@ export function OpeningEditor({
         .split("\n")
         .map((line) => line.trim())
         .filter(Boolean)
+        .slice(0, 2)
         .join("\n");
     });
   }, [data, first, characterRows, personas, chatVariables, ctx.chat]);
+  return previews;
+}
+
+function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => void }) {
+  const { t } = useTranslation();
+  const undo = useStageUndo("opening");
+  const first = ctx.first;
+  const previews = useOpeningPreviews(ctx);
   if (!first) return <Muted>{t("chat.setupStage.row.noGreeting")}</Muted>;
-  const swipes = data?.length ? [...data].sort((a, b) => a.index - b.index).map((s) => s.content) : [first.content];
   const active = first.activeSwipeIndex ?? 0;
   const speaker = first.characterId ? ctx.characterMap.get(first.characterId) : undefined;
-  const fullGreeting = (
-    <details className="mt-2 text-sm text-[var(--foreground)]">
-      <summary className={cn("min-h-11 cursor-pointer content-center rounded-sm", FOCUS)}>
-        {t("chat.setupStage.readOpening")}
-      </summary>
-      <p
-        tabIndex={0}
-        className={cn(
-          "max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-sm py-2 leading-relaxed",
-          FOCUS,
-        )}
-      >
-        {previews[active]}
-      </p>
-    </details>
-  );
-  if (inline)
-    return (
-      <div className="mt-5 hidden md:block">
-        <p className="mb-2 text-xs font-medium text-[var(--muted-foreground)]">{t("chat.setupStage.firstMessage")}</p>
-        <div className="flex gap-2 overflow-x-auto pb-2" role="group" aria-label={t("chat.setupStage.firstMessage")}>
-          {swipes.map((_content, index) => (
-            <button
-              key={index}
-              type="button"
-              aria-pressed={index === active}
-              onClick={() => {
-                if (index !== active) {
-                  ctx.onSetActiveSwipe(first.id, index);
-                  undo(() => ctx.onSetActiveSwipe(first.id, active));
-                }
-              }}
-              className={cn(
-                "min-h-24 w-56 flex-none rounded-xl border p-3 text-left text-sm",
-                FOCUS,
-                index === active
-                  ? "border-[var(--stage-accent,var(--primary))] bg-[var(--card)]"
-                  : "border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_85%,transparent)] hover:bg-[var(--card)]",
-              )}
-            >
-              <span className="mb-1 flex items-center gap-2 text-xs font-medium text-[var(--foreground)]">
-                {t("chat.setupStage.editor.greeting", { index: index + 1 })}
-                {index === active && <Check size="0.9rem" aria-hidden />}
-              </span>
-              <span className="line-clamp-2 break-words text-[var(--muted-foreground)]">{previews[index]}</span>
-            </button>
-          ))}
-        </div>
-        {fullGreeting}
-      </div>
-    );
   return (
     <>
-      {fullGreeting}
-      {swipes.map((_content, index) => (
+      {previews.map((_preview, index) => (
         <Option
           key={index}
           active={index === active}

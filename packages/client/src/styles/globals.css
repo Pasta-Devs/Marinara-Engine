@@ -9210,6 +9210,46 @@ html[data-setup-stage]:not([data-setup-stage="leaving"]) .mari-chat-input {
   }
 }
 
+@media (min-width: 768px) {
+  /* Desktop encounter: the greeting peek in the stage replaces the bubble below it
+     until Start, which drops data-setup-stage to "leaving" as the curtain folds. */
+  html[data-setup-stage]:not([data-setup-stage="leaving"]) .mari-setup-stage ~ * {
+    display: none;
+  }
+  /* Sprites stand at the right edge at full height, beside the text column; a group
+     makes an overlapping row of up to three. Inline placement, hence !important. */
+  html[data-setup-stage] [data-sprite-overlay] > * {
+    top: 100% !important;
+    left: 84% !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > * img {
+    height: 74dvh !important;
+    max-width: 30vw !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :nth-child(2) {
+    left: 72% !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :nth-child(3) {
+    left: 94% !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :nth-child(n + 4) {
+    display: none;
+  }
+}
+
+@media (min-width: 72rem) {
+  html[data-setup-stage] [data-sprite-overlay] > :only-child {
+    left: 81% !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :only-child img {
+    height: calc(100dvh - 5rem) !important;
+    max-width: 40vw !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :not(:only-child) img {
+    height: 66dvh !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mari-setup-stage,
   .mari-setup-stage > [data-stage-kb="block"] > h1 {
@@ -9261,43 +9301,5 @@ html[data-setup-stage]:not([data-setup-stage="leaving"]) .mari-chat-input {
   to {
     opacity: 0;
     transform: translateY(-0.45em);
-  }
-}
-
-/* Tablet and desktop posters leave the right side for a lone full-body sprite. Phones retain the stacked layout. */
-@media (min-width: 768px) {
-  .mari-setup-stage[data-poster] {
-    width: 52%;
-    max-width: 600px;
-    margin-left: 4%;
-    padding-top: 3rem;
-    padding-bottom: 2rem;
-  }
-  .mari-setup-stage[data-poster] [data-stage-portrait] {
-    position: absolute;
-    left: 115%;
-    top: 8rem;
-  }
-  .mari-setup-stage[data-poster] [data-stage-portrait] > * {
-    width: clamp(160px, 22vw, 300px);
-    height: clamp(160px, 22vw, 300px);
-  }
-  .mari-setup-stage[data-poster] [data-stage-portrait] > span > span {
-    font-size: clamp(48px, 8vw, 100px);
-  }
-  .mari-setup-stage[data-poster] [data-stage-group] > span {
-    width: clamp(76px, 12vw, 150px);
-    height: clamp(76px, 12vw, 150px);
-  }
-  .mari-setup-stage[data-poster] [data-stage-group] > span > span {
-    font-size: clamp(24px, 4vw, 48px);
-  }
-  html[data-setup-stage] [data-sprite-overlay] > [data-sprite-full-body]:only-child {
-    left: 78% !important;
-    top: 92% !important;
-  }
-  html[data-setup-stage] [data-sprite-overlay] > [data-sprite-full-body]:only-child img {
-    height: calc(78dvh * var(--game-sprite-scale)) !important;
-    max-width: 40vw !important;
   }
 }
