@@ -32,6 +32,7 @@ export const OVERHAUL_SETTINGS_TABS: {
     sections: [
       "app-style",
       "text-scale",
+      "accessibility",
       "text-colors",
       "layout",
       "motion-backgrounds",

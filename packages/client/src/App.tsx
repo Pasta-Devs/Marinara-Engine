@@ -21,6 +21,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Translation } from "react-i18next";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
+import { ThemeSafetyHost } from "./components/layout/ThemeSafetyHost";
+import { useThemeSafetyStore } from "./lib/theme-safety";
+import { applyAccessibilityCss } from "./lib/accessibility-css";
+import { removeRootVar, setRootVar } from "./lib/root-vars";
+import { useThemeChatHooks } from "./hooks/use-chat-theme";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { WhatsNewModal } from "./components/modals/WhatsNewModal";
@@ -40,6 +45,8 @@ import {
   isMobileShellViewport,
   MOBILE_SHELL_MEDIA_QUERY,
   useUIStore,
+  selectChatChromeTextColor,
+  schemeForTime,
 } from "./stores/ui.store";
 import { useOverhaulLook, useOverhaulStore } from "./stores/overhaul.store";
 import { loadOverhaulStyles } from "./lib/overhaul-styles";
@@ -146,7 +153,10 @@ function formatRecoveryError(error: unknown) {
 }
 
 function getRecoveryChromeStyle(): CSSProperties {
-  const { appAccentColor, chatChromeTextColor, theme } = useUIStore.getState();
+  const state = useUIStore.getState();
+  const { appAccentColor: darkAccent, appAccentColorLight, theme } = state;
+  const chatChromeTextColor = selectChatChromeTextColor(state);
+  const appAccentColor = theme === "light" && appAccentColorLight.trim() ? appAccentColorLight : darkAccent;
   const defaultAccent = getDefaultAppAccentColor();
   const accentSource = appAccentColor.trim() || defaultAccent;
   const accent = getCssColorFallback(accentSource, getCssColorFallback(defaultAccent, "currentColor"));
@@ -166,6 +176,18 @@ function getRecoveryChromeStyle(): CSSProperties {
     "--marinara-chat-chrome-text": chromeText,
   } as CSSProperties;
 }
+
+/** Surfaces that follow a custom background: [variable, share of the text colour mixed in, %]. */
+const DERIVED_SURFACES: readonly [string, number][] = [
+  ["--card", 6],
+  ["--popover", 8],
+  ["--secondary", 11],
+  ["--muted", 11],
+  ["--input", 14],
+  ["--sidebar", 3],
+  ["--border", 16],
+  ["--sidebar-border", 16],
+];
 
 export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { error: unknown; hasError: boolean }> {
   state: { error: unknown; hasError: boolean } = { error: null, hasError: false };
@@ -190,6 +212,17 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
       /* ignore storage reset errors */
     }
     reloadBrowser("reset-ui");
+  };
+
+  /** Display Size is kept on this device only, so this reset never comes back from the server. */
+  private resetTextSize = () => {
+    useUIStore.getState().setFontSize(17 as Parameters<ReturnType<typeof useUIStore.getState>["setFontSize"]>[0]);
+    reloadBrowser("render-recovery");
+  };
+
+  private safeModeReload = () => {
+    useThemeSafetyStore.getState().enterSafeMode("url");
+    reloadBrowser("render-recovery");
   };
 
   render() {
@@ -221,6 +254,14 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
                   className="mari-chrome-control mari-chrome-control--selected px-3 py-2 text-sm"
                 >
                   {t("ui.app.recovery.reload")}
+                </button>
+                {useUIStore.getState().fontSize !== 17 ? (
+                  <button type="button" onClick={this.resetTextSize} className="mari-chrome-control px-3 py-2 text-sm">
+                    {t("theming.recovery.resetTextSize", "Reset text size")}
+                  </button>
+                ) : null}
+                <button type="button" onClick={this.safeModeReload} className="mari-chrome-control px-3 py-2 text-sm">
+                  {t("theming.recovery.safeMode", "Reload without custom theme")}
                 </button>
                 <button
                   type="button"
@@ -351,13 +392,13 @@ function getAccentCursorValue(fill: string, stroke: string) {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 3`;
 }
 
-function setAccentCursorVariable(root: HTMLElement, accent: string, theme: "dark" | "light") {
+function setAccentCursorVariable(_root: HTMLElement, accent: string, theme: "dark" | "light") {
   const { fill, stroke } = getAccentCursorColors(accent, theme);
   const nextCursor = getAccentCursorValue(fill, stroke);
 
-  root.style.setProperty("--marinara-custom-cursor-fill", fill);
-  root.style.setProperty("--marinara-custom-cursor-stroke", stroke);
-  root.style.setProperty("--cursor-pink", nextCursor);
+  setRootVar("--marinara-custom-cursor-fill", fill);
+  setRootVar("--marinara-custom-cursor-stroke", stroke);
+  setRootVar("--cursor-pink", nextCursor);
 }
 
 function getSolidAccentGradient(accent: string) {
@@ -427,16 +468,16 @@ function applyAppAccentVariables({
   theme: "dark" | "light";
   updateCursor?: boolean;
 }) {
-  root.style.setProperty("--primary", accent);
-  root.style.setProperty("--ring", accent);
-  root.style.setProperty("--accent", getAccentSurface(surfaceAccent, theme));
-  root.style.setProperty("--sidebar-accent", `color-mix(in srgb, ${surfaceAccent} 12%, transparent)`);
-  root.style.setProperty("--sidebar-accent-foreground", accent);
-  root.style.setProperty("--glow-primary", getAccentGlow(surfaceAccent, theme));
-  root.style.setProperty("--marinara-app-accent-solid", accent);
-  root.style.setProperty("--marinara-app-accent-gradient", gradient);
-  root.style.setProperty("--marinara-chat-chrome-accent", accent);
-  root.style.setProperty("--marinara-chat-chrome-accent-gradient", gradient);
+  setRootVar("--primary", accent);
+  setRootVar("--ring", accent);
+  setRootVar("--accent", getAccentSurface(surfaceAccent, theme));
+  setRootVar("--sidebar-accent", `color-mix(in srgb, ${surfaceAccent} 12%, transparent)`);
+  setRootVar("--sidebar-accent-foreground", accent);
+  setRootVar("--glow-primary", getAccentGlow(surfaceAccent, theme));
+  setRootVar("--marinara-app-accent-solid", accent);
+  setRootVar("--marinara-app-accent-gradient", gradient);
+  setRootVar("--marinara-chat-chrome-accent", accent);
+  setRootVar("--marinara-chat-chrome-accent-gradient", gradient);
   if (updateCursor) setAccentCursorVariable(root, accent, theme);
 }
 
@@ -462,8 +503,8 @@ function getGradientRgbAccent(stops: string[]) {
   return `color-mix(in srgb, ${stops[fromIndex]} ${fromPercent}%, ${stops[toIndex]} ${toPercent}%)`;
 }
 
-function clearCustomAppAccentVariables(root: HTMLElement) {
-  APP_ACCENT_CUSTOM_VARIABLES.forEach((variable) => root.style.removeProperty(variable));
+function clearCustomAppAccentVariables(_root: HTMLElement) {
+  APP_ACCENT_CUSTOM_VARIABLES.forEach((variable) => removeRootVar(variable));
 }
 
 function canRunAccentAnimation(reducedMotionQuery: MediaQueryList, forcePaused = false) {
@@ -513,8 +554,14 @@ export function App() {
   const chatWidgetApplyShape = useUIStore((s) => s.chatWidgetApplyShape);
   const chatWidgetApplyColors = useUIStore((s) => s.chatWidgetApplyColors);
   const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
-  const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
-  const appAccentColor = useUIStore((s) => s.appAccentColor);
+  // Each scheme has its own background and accent (theming panel batch 2): Light mode's background
+  // never falls back to Dark's, and its accent follows Dark's until it gets its own.
+  const appBackgroundColor = useUIStore((s) =>
+    s.theme === "light" ? s.appBackgroundColorLight : s.appBackgroundColor,
+  );
+  const appAccentColor = useUIStore((s) =>
+    s.theme === "light" && s.appAccentColorLight.trim() ? s.appAccentColorLight : s.appAccentColor,
+  );
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
   const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
   const customCursorEnabled = useUIStore((s) => s.customCursorEnabled);
@@ -522,7 +569,7 @@ export function App() {
   // In a fight on a board colour is information (whose turn, what may be aimed at), so the accent
   // holds still while one is on screen rather than drifting as if something changed.
   const fightOnScreen = useCombatScreenStore((state) => state.round !== null || state.tacticalShowing);
-  const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
+  const chatChromeTextColor = useUIStore(selectChatChromeTextColor);
   const hasModalOpen = useUIStore((s) => s.modal !== null);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const rightPanel = useUIStore((s) => s.rightPanel);
@@ -560,6 +607,100 @@ export function App() {
   useEffect(() => {
     setCustomNotificationSoundUrl(customNotificationSound?.url ?? null);
   }, [customNotificationSound?.url]);
+
+  // Appearance > Color Scheme > Follow system / Follow time of day: flips Dark and Light by itself.
+  // Themes already style both ([data-theme="dark"], [data-theme="light"]), so they follow too.
+  const themeAuto = useUIStore((s) => s.themeAuto);
+  const themeDayStart = useUIStore((s) => s.themeDayStart);
+  const themeNightStart = useUIStore((s) => s.themeNightStart);
+  useEffect(() => {
+    if (themeAuto === "off") return;
+    const query = window.matchMedia?.("(prefers-color-scheme: light)");
+    const apply = () => {
+      const want =
+        themeAuto === "system"
+          ? query?.matches
+            ? "light"
+            : "dark"
+          : schemeForTime(new Date(), themeDayStart, themeNightStart);
+      if (useUIStore.getState().theme !== want) useUIStore.setState({ theme: want });
+    };
+    apply();
+    const timer = themeAuto === "time" ? window.setInterval(apply, 30_000) : undefined;
+    query?.addEventListener("change", apply);
+    document.addEventListener("visibilitychange", apply);
+    return () => {
+      if (timer) window.clearInterval(timer);
+      query?.removeEventListener("change", apply);
+      document.removeEventListener("visibilitychange", apply);
+    };
+  }, [themeAuto, themeDayStart, themeNightStart]);
+
+  // Appearance > Roleplay messages > Hide line under names (theme-tokens.css reads the attribute).
+  const hideMessageNameRule = useUIStore((s) => s.hideMessageNameRule);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (hideMessageNameRule) root.dataset.mariHideNameRule = "";
+    else delete root.dataset.mariHideNameRule;
+  }, [hideMessageNameRule]);
+
+  // Settings > Appearance > Accessibility (theming panel batch 6): styles/accessibility.css reads these.
+  const a11yLineHeight = useUIStore((s) => s.a11yLineHeight);
+  const a11yLetterSpacing = useUIStore((s) => s.a11yLetterSpacing);
+  const a11yStrongFocus = useUIStore((s) => s.a11yStrongFocus);
+  const a11yContrast = useUIStore((s) => s.a11yContrast);
+  const a11yColorBlindSafe = useUIStore((s) => s.a11yColorBlindSafe);
+  const a11yScheme = useUIStore((s) => s.theme);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (a11yLineHeight > 1) {
+      root.dataset.mariA11yLineHeight = String(a11yLineHeight);
+      root.style.setProperty("--mari-a11y-line-height", String(a11yLineHeight));
+    } else {
+      delete root.dataset.mariA11yLineHeight;
+      root.style.removeProperty("--mari-a11y-line-height");
+    }
+    if (a11yLetterSpacing > 0) {
+      root.dataset.mariA11yLetterSpacing = String(a11yLetterSpacing);
+      root.style.setProperty("--mari-a11y-letter-spacing", `${a11yLetterSpacing}em`);
+    } else {
+      delete root.dataset.mariA11yLetterSpacing;
+      root.style.removeProperty("--mari-a11y-letter-spacing");
+    }
+    if (a11yStrongFocus) root.dataset.mariA11yFocus = "";
+    else delete root.dataset.mariA11yFocus;
+    if (a11yColorBlindSafe) root.dataset.mariCvdSafe = "";
+    else delete root.dataset.mariCvdSafe;
+
+    const query = window.matchMedia?.("(prefers-contrast: more)");
+    const applyContrast = () => {
+      const more = a11yContrast === "on" || (a11yContrast === "system" && !!query?.matches);
+      if (more) root.dataset.mariContrast = "more";
+      else delete root.dataset.mariContrast;
+      // The values themselves go into the protected layer as literals (lib/accessibility-css.ts).
+      applyAccessibilityCss({
+        lineHeight: a11yLineHeight,
+        letterSpacing: a11yLetterSpacing,
+        strongFocus: a11yStrongFocus,
+        highContrast: more,
+        colorBlindSafe: a11yColorBlindSafe,
+        reduceMotion: reduceAmbientEffects,
+        scheme: a11yScheme === "light" ? "light" : "dark",
+      });
+    };
+    applyContrast();
+    if (a11yContrast !== "system" || !query) return;
+    query.addEventListener("change", applyContrast);
+    return () => query.removeEventListener("change", applyContrast);
+  }, [
+    a11yLineHeight,
+    a11yLetterSpacing,
+    a11yStrongFocus,
+    a11yContrast,
+    a11yColorBlindSafe,
+    a11yScheme,
+    reduceAmbientEffects,
+  ]);
 
   // [#3104 diagnostic] warn on long main-thread tasks (see lib/perf-diagnostics.ts)
   useEffect(() => {
@@ -701,11 +842,17 @@ export function App() {
     const resolvedBackground = getCssColorFallback(background, defaultBackground);
 
     if (background) {
-      root.style.setProperty("--background", resolvedBackground);
-      root.style.setProperty("--marinara-app-background-paint", background);
+      setRootVar("--background", resolvedBackground);
+      setRootVar("--marinara-app-background-paint", background);
+      // Panels, inputs and cards take their shade from the chosen background, a step towards the text
+      // colour each, instead of keeping the scheme's own surfaces (theming panel batch 2).
+      for (const [variable, share] of DERIVED_SURFACES) {
+        setRootVar(variable, `color-mix(in srgb, ${resolvedBackground} ${100 - share}%, var(--foreground) ${share}%)`);
+      }
     } else {
-      root.style.removeProperty("--background");
-      root.style.removeProperty("--marinara-app-background-paint");
+      removeRootVar("--background");
+      removeRootVar("--marinara-app-background-paint");
+      for (const [variable] of DERIVED_SURFACES) removeRootVar(variable);
     }
 
     const syncLiteralBackground = () => {
@@ -734,7 +881,7 @@ export function App() {
           context.fillRect(0, 0, 1, 1);
           const [red, green, blue] = context.getImageData(0, 0, 1, 1).data;
           const shellSurface = `rgb(${red}, ${green}, ${blue})`;
-          root.style.setProperty("--marinara-shell-surface", shellSurface);
+          setRootVar("--marinara-shell-surface", shellSurface);
           context.putImageData(backgroundPixels, 0, 0);
           context.fillStyle = computedStyle.getPropertyValue("--marinara-topbar-surface").trim();
           context.fillRect(0, 0, 1, 1);
@@ -744,7 +891,7 @@ export function App() {
           console.warn("[theme] Could not read the canvas to flatten the page backing", error);
         }
       }
-      root.style.setProperty("--marinara-page-backing", literalBackground);
+      setRootVar("--marinara-page-backing", literalBackground);
       root.style.setProperty("background-color", literalBackground, "important");
       document.body.style.setProperty("background-color", literalBackground, "important");
       document.querySelector('meta[name="theme-color"]')?.setAttribute("content", literalBackground);
@@ -808,9 +955,20 @@ export function App() {
       !overhaulLook &&
       (appAccentRgbMode || (appAccentPulseMode && !stageDefaultAccent) || themeAccentPulseConfig.enabled);
     const usesTimerDrivenAccentAnimation = accentAnimationEnabled;
+    // The new layout's version: a CSS filter animation on a few accent spots (overhaul.css,
+    // "Accent effects"). Nothing is rewritten per frame, so the rest of the page stays idle.
+    const accentFx = !overhaulLook
+      ? null
+      : appAccentRgbMode
+        ? "rgb"
+        : (appAccentPulseMode && !stageDefaultAccent) || themeAccentPulseConfig.enabled
+          ? "pulse"
+          : null;
+    if (accentFx && !reduceAmbientEffects) root.dataset.mariAccentFx = accentFx;
+    else delete root.dataset.mariAccentFx;
 
-    root.style.setProperty("--marinara-app-accent-static", solidAccent);
-    root.style.setProperty(
+    setRootVar("--marinara-app-accent-static", solidAccent);
+    setRootVar(
       "--marinara-app-accent-static-gradient",
       accentIsGradient ? accentSource : getSolidAccentGradient(solidAccent),
     );
@@ -908,12 +1066,12 @@ export function App() {
         // Pulse only the foreground-facing accent tokens. Recomputing surface,
         // sidebar, and glow tokens on every tick forces Firefox to restyle most
         // of the app and can briefly starve an otherwise independent canvas.
-        root.style.setProperty("--primary", liveAccent);
-        root.style.setProperty("--ring", liveAccent);
-        root.style.setProperty("--marinara-app-accent-solid", liveAccent);
-        root.style.setProperty("--marinara-app-accent-gradient", liveGradient);
-        root.style.setProperty("--marinara-chat-chrome-accent", liveAccent);
-        root.style.setProperty("--marinara-chat-chrome-accent-gradient", liveGradient);
+        setRootVar("--primary", liveAccent);
+        setRootVar("--ring", liveAccent);
+        setRootVar("--marinara-app-accent-solid", liveAccent);
+        setRootVar("--marinara-app-accent-gradient", liveGradient);
+        setRootVar("--marinara-chat-chrome-accent", liveAccent);
+        setRootVar("--marinara-chat-chrome-accent-gradient", liveGradient);
       }
       setAccentModeDataset();
     };
@@ -1037,15 +1195,14 @@ export function App() {
   ]);
 
   useEffect(() => {
-    const root = document.documentElement;
     const textColor = chatChromeTextColor.trim();
     const variables = ["--marinara-chat-chrome-text"];
 
     if (textColor) {
       const resolvedColor = getCssColorFallback(textColor, getDefaultChatChromeTextColor(theme));
-      variables.forEach((variable) => root.style.setProperty(variable, resolvedColor));
+      variables.forEach((variable) => setRootVar(variable, resolvedColor));
     } else {
-      variables.forEach((variable) => root.style.removeProperty(variable));
+      variables.forEach((variable) => removeRootVar(variable));
     }
   }, [chatChromeTextColor, theme]);
 
@@ -1066,6 +1223,12 @@ export function App() {
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
+    // Pixel-sized parts of the new layout (icons, the top bar's buttons) scale by this, so they grow
+    // with the text instead of staying put (theming panel H4). 1 at the default size.
+    setRootVar("--ov-ui-scale", String(Math.round((fontSize / 17) * 1000) / 1000));
+    // Large text: layouts that would clip (the phone's chat title) switch to their roomier form.
+    if (fontSize >= 19) document.documentElement.dataset.mariLargeText = "";
+    else delete document.documentElement.dataset.mariLargeText;
   }, [fontSize]);
 
   useEffect(() => {
@@ -1139,14 +1302,13 @@ export function App() {
   // Apply custom font family via CSS variable
   useEffect(() => {
     const family = fontFamily ? stripFontFamilyQuotes(fontFamily) : "";
-    const rootStyle = document.documentElement.style;
     if (family) {
-      rootStyle.setProperty("--font-user", toCssFontFamilyValue(family));
+      setRootVar("--font-user", toCssFontFamilyValue(family));
       // Prompt fields (mari-prompt-font) stay monospace until a font is picked, then use the full app stack.
-      rootStyle.setProperty("--font-prompt", "var(--font-y2k)");
+      setRootVar("--font-prompt", "var(--font-y2k)");
     } else {
-      rootStyle.removeProperty("--font-user");
-      rootStyle.removeProperty("--font-prompt");
+      removeRootVar("--font-user");
+      removeRootVar("--font-prompt");
     }
   }, [fontFamily]);
 
@@ -1165,24 +1327,24 @@ export function App() {
     if (shape) root.dataset.chatWidgetShape = shape;
     else delete root.dataset.chatWidgetShape;
     const font = getChatWidgetFontFamily(chatWidgetFont);
-    if (font) root.style.setProperty("--mari-widget-font-override", font);
-    else root.style.removeProperty("--mari-widget-font-override");
+    if (font) setRootVar("--mari-widget-font-override", font);
+    else removeRootVar("--mari-widget-font-override");
   }, [chatWidgetPreset, chatWidgetFont, chatWidgetShape]);
 
   useEffect(() => {
     const root = document.documentElement;
     if (chatWidgetButtonSize === null) {
       delete root.dataset.chatWidgetButtonSize;
-      root.style.removeProperty("--mari-window-bubble-size");
+      removeRootVar("--mari-window-bubble-size");
     } else {
       root.dataset.chatWidgetButtonSize = String(chatWidgetButtonSize);
-      root.style.setProperty("--mari-window-bubble-size", `${chatWidgetButtonSize}px`);
+      setRootVar("--mari-window-bubble-size", `${chatWidgetButtonSize}px`);
     }
   }, [chatWidgetButtonSize]);
 
   useEffect(() => {
     // Root-authored gradient variables resolve their alpha here before inheritance.
-    document.documentElement.style.setProperty("--mari-rp-bubble-opacity", String(chatFontOpacity / 100));
+    setRootVar("--mari-rp-bubble-opacity", String(chatFontOpacity / 100));
     const colors = getChatWidgetColorStyle({
       border: chatWidgetBorderColor,
       background: chatWidgetBackgroundColor,
@@ -1193,22 +1355,24 @@ export function App() {
     else delete document.documentElement.dataset.chatWidgetColors;
     for (const property of CHAT_WIDGET_COLOR_PROPERTIES) {
       const value = colors[property];
-      if (value) document.documentElement.style.setProperty(property, value);
-      else document.documentElement.style.removeProperty(property);
+      if (value) setRootVar(property, value);
+      else removeRootVar(property);
     }
   }, [chatWidgetBorderColor, chatWidgetBackgroundColor, chatWidgetTextColor, chatFontOpacity]);
 
+  // A theme that sets --mari-chat-* hooks turns the matching part on by itself (theming batch 5).
+  const themeChatHooks = useThemeChatHooks();
   useEffect(() => {
     const root = document.documentElement;
     for (const [attribute, enabled] of [
-      ["data-chat-widget-apply-font", chatWidgetApplyFont],
-      ["data-chat-widget-apply-shape", chatWidgetApplyShape],
-      ["data-chat-widget-apply-colors", chatWidgetApplyColors],
+      ["data-chat-widget-apply-font", chatWidgetApplyFont || themeChatHooks.font],
+      ["data-chat-widget-apply-shape", chatWidgetApplyShape || themeChatHooks.shape],
+      ["data-chat-widget-apply-colors", chatWidgetApplyColors || themeChatHooks.colors],
     ] as const) {
       if (enabled) root.setAttribute(attribute, "true");
       else root.removeAttribute(attribute);
     }
-  }, [chatWidgetApplyFont, chatWidgetApplyShape, chatWidgetApplyColors]);
+  }, [chatWidgetApplyFont, chatWidgetApplyShape, chatWidgetApplyColors, themeChatHooks]);
 
   // Register custom font faces without forcing every shard to load at startup.
   const { data: customFonts } = useQuery<CustomFontFace[]>({
@@ -1259,6 +1423,7 @@ export function App() {
   return (
     <>
       <CustomThemeInjector />
+      <ThemeSafetyHost />
       <PersonalExtensionInjector />
       <ChibiProfessorMariEasterEgg />
       <Suspense fallback={null}>

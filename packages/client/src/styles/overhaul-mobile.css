@@ -136,6 +136,27 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Large text: the chat title gets two lines instead of "Smugg…", and the mode line steps aside. */
+:root[data-mari-large-text] .ovm-title {
+  padding-inline: 0;
+}
+:root[data-mari-large-text] .ovm-title__inner {
+  gap: 0.25rem;
+}
+:root[data-mari-large-text] .ovm-title__text small {
+  display: none;
+}
+:root[data-mari-large-text] .ovm-title__text :is(b, .ov-tab__label) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  font-size: 0.875rem;
+  line-height: 1.15;
+}
 .ovm-stack-btn {
   display: flex;
   flex: none;

@@ -18,7 +18,7 @@ import {
   type MessageReaction,
 } from "@marinara-engine/shared";
 import { toast } from "sonner";
-import { useUIStore, type ConversationMessageStyle } from "../../stores/ui.store";
+import { useUIStore, type ConversationMessageStyle, selectChatFontColor } from "../../stores/ui.store";
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { resolveMessageMacros } from "../../lib/chat-macros";
@@ -42,6 +42,7 @@ import {
 } from "./ConversationMessageShared";
 import { MessageReplyPreview } from "./MessageReplyPreview";
 import { ConversationMessageActions } from "./ConversationMessageActions";
+import { messageHooks } from "../../lib/message-hooks";
 import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { SwipeCountChip } from "../overhaul/SwipeCountChip";
 import { useLongPress } from "../overhaul/MobileMessageSheet";
@@ -67,6 +68,7 @@ import {
   type ReactionSegmentTarget,
 } from "../../lib/reactions";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { MessageTemplateSlot } from "./MessageTemplateSlot";
 
 const EMPTY_CUSTOM_EMOJI_MAP = new Map<string, string>();
 const EMPTY_CUSTOM_STICKER_MAP = new Map<string, string>();
@@ -210,7 +212,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const collapseHiddenMessages = useUIStore((s) => s.summaryPopoverSettings.collapseHiddenMessages);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const chatFontSize = useUIStore((s) => s.chatFontSize);
-  const chatFontColor = useUIStore((s) => s.chatFontColor);
+  const chatFontColor = useUIStore(selectChatFontColor);
   const showMessageNumbers = useUIStore((s) => s.showMessageNumbers);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const conversationAvatarShape = useUIStore((s) => s.conversationAvatarShape);
@@ -237,7 +239,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     : undefined;
   const messageTextStyle = useMemo<CSSProperties>(
     () => ({
-      fontSize: `${chatFontSize}px`,
+      fontSize: `var(--mari-chat-font-size, ${chatFontSize}px)`,
       ...(chatFontColor ? { color: `var(--mari-chat-resolved-text, ${chatFontColor})` } : {}),
     }),
     [chatFontSize, chatFontColor],
@@ -1177,11 +1179,22 @@ export const ConversationMessage = memo(function ConversationMessage({
   // Conversation replies show no model label, so the marker gets its own line under the reply (#7697).
   const fallback = isUser ? null : extra.generationInfo?.fallback;
 
+  // Theme hooks, the same as roleplay messages carry (see lib/message-hooks.ts).
+  const messageHookProps = messageHooks({
+    role: message.role,
+    characterId: isUser ? null : message.characterId,
+    characterName: displayName,
+    index: messageIndex,
+    generationMs: extra.generationInfo?.durationMs,
+    latest: !!isLastAssistantMessage && !isUser,
+    streaming: !!isStreaming,
+  });
+
   // ── Grouped multi-speaker layout ──
   if (groupedLayoutActive) {
     return (
       <>
-        <ConversationMessageGrouped ctx={ctx} msgRef={msgRef} reactionRow={reactionRow} />
+        <ConversationMessageGrouped ctx={ctx} msgRef={msgRef} reactionRow={reactionRow} hooks={messageHookProps} />
         <GenerationFallbackMarker fallback={fallback} className="flex w-fit px-4" />
         {replyCheckup && <div className="px-4">{replyCheckup}</div>}
         {sceneInvitation}
@@ -1198,7 +1211,8 @@ export const ConversationMessage = memo(function ConversationMessage({
         className={cn("min-w-0", !noHoverGroup && "group")}
         tabIndex={0}
         data-message-id={message.id}
-        data-message-role={message.role}
+        {...messageHookProps.attrs}
+        style={messageHookProps.style}
         onClick={handleMobileTap}
         {...longPress}
       >
@@ -1296,6 +1310,7 @@ export const ConversationMessage = memo(function ConversationMessage({
             />
           )}
         </div>
+        <MessageTemplateSlot hook={messageHookProps.input} createdAt={message.createdAt} />
       </div>
       {modals}
     </>

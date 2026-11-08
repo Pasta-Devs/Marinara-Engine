@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Game: Input Bar (send message, roll dice, attach files, emoji)
 // ──────────────────────────────────────────────
+import { useThemedPlaceholder } from "../../hooks/use-themed-placeholder";
 import { useState, useRef, useEffect, useCallback, useMemo, type KeyboardEvent } from "react";
 import {
   Send,
@@ -165,6 +166,8 @@ export function GameInput({
 }: GameInputProps) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
+  // A theme can set its own text with --mari-composer-placeholder (hooks/use-themed-placeholder.ts).
+  const themedDefaultPlaceholder = useThemedPlaceholder("game", t("game.input.default"));
   const enterToSend = useUIStore((s) => s.enterToSendGame);
   const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
@@ -454,6 +457,8 @@ export function GameInput({
     <div
       data-chat-resource-drop-exclude
       data-chat-input-container
+      data-mari-part="composer"
+      data-composer="game"
       className={cn(inline ? "" : "px-3 pt-2 pb-3")}
       style={inline ? undefined : { minHeight: 61 }}
     >
@@ -714,7 +719,7 @@ export function GameInput({
                     ? t("game.input.sayToGm")
                     : pendingMoveLabel
                       ? t("game.input.onArrival")
-                      : t("game.input.default")
+                      : themedDefaultPlaceholder
           }
           disabled={draftDisabled}
           rows={1}

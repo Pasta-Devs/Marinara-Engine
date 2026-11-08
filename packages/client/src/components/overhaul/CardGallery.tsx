@@ -5,6 +5,7 @@
 // then a grid of portraits with the token count, name and tags. Clicking a
 // portrait opens its editor; the Library pane's tags filter the list.
 // ──────────────────────────────────────────────
+import { placeholderArt } from "../../lib/placeholder-art";
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import {
   MessageCircle,
@@ -41,10 +42,7 @@ type SortKey = "name-asc" | "name-desc" | "newest" | "oldest";
 
 /** A stable, pleasant gradient for cards without a picture. */
 function placeholderGradient(id: string) {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  const hue = Math.abs(hash) % 360;
-  return `linear-gradient(170deg, hsl(${hue} 55% 58%), hsl(${(hue + 40) % 360} 45% 24%))`;
+  return placeholderArt(id, 40, 170, [55, 58, 45, 24]);
 }
 
 /** The card-size switch: pictures matter for telling characters apart, so the grid scales instead of becoming a list. */

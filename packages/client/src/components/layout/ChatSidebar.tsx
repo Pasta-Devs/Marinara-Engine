@@ -47,6 +47,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { openActivityOverview, openGlobalSearch } from "../../lib/chat-insights";
+import { normalizeChatTags } from "../../lib/chat-tags";
 import {
   useBulkExportChats,
   useChats,
@@ -142,10 +143,10 @@ const CONVERSATION_STATUS_PRIORITY: Record<ConversationPresenceStatus, number> =
 };
 
 const CONVERSATION_STATUS_DOT_CLASS: Record<ConversationPresenceStatus, string> = {
-  online: "bg-green-500",
-  idle: "bg-yellow-500",
-  offline: "bg-gray-400",
-  dnd: "bg-red-500",
+  online: "bg-[var(--mari-status-online)]",
+  idle: "bg-[var(--mari-status-idle)]",
+  offline: "bg-[var(--mari-status-offline)]",
+  dnd: "bg-[var(--mari-status-dnd)]",
 };
 
 function asConversationStatus(value: unknown): ConversationPresenceStatus | undefined {
@@ -1179,6 +1180,26 @@ export function ChatSidebar() {
     );
   };
 
+  // "Tags…": comma-separated, used by the tag filter and by themes (data-chat-tags).
+  const editChatTagsWithSheet = async (chat: Chat) => {
+    const current = getChatTags(chat);
+    const next = await showPromptDialog({
+      title: localizeUi("theming.tags.editTitle", { defaultValue: "Chat tags" }),
+      message: localizeUi("theming.tags.editHelp", {
+        defaultValue: "Separate tags with commas. Themes can style a chat by its tags.",
+      }),
+      defaultValue: current.join(", "),
+      confirmLabel: localizeUi("theming.tags.save", { defaultValue: "Save tags" }),
+    });
+    if (next == null) return;
+    updateChatMetadata.mutate(
+      { id: chat.id, tags: normalizeChatTags(next.split(",")) },
+      {
+        onError: () => toast.error(localizeUi("theming.tags.saveFailed", { defaultValue: "Couldn't save the tags." })),
+      },
+    );
+  };
+
   const renderChatRow = (entry: ChatListEntry) => {
     const { chat, branchCount, branchRows } = entry;
     const cfg = MODE_CONFIG[chat.mode] ?? MODE_CONFIG.conversation;
@@ -1279,6 +1300,12 @@ export function ChatSidebar() {
         onSelect: () => void renameChatWithSheet(chat.id, chat.name),
       },
       {
+        key: "tags",
+        label: localizeUi("theming.tags.short", { defaultValue: "Tags" }),
+        icon: <Tag size="1rem" />,
+        onSelect: () => void editChatTagsWithSheet(chat),
+      },
+      {
         key: "delete",
         label: localizeUi("lorebook.editor.batch.delete"),
         icon: <Trash2 size="1rem" />,
@@ -1349,6 +1376,8 @@ export function ChatSidebar() {
               const row = event.currentTarget;
               activateRowFromKey(event, () => row.click());
             }}
+            data-chat-row="true"
+            data-selected={isActive && !(multiSelectMode && isSelected) ? "true" : undefined}
             className={cn(
               "group relative isolate flex w-full touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 overflow-hidden rounded-lg px-3 text-left transition-all duration-150",
               overhaulActive ? "py-1.5" : "py-2.5",
@@ -1591,6 +1620,22 @@ export function ChatSidebar() {
                       className="ov-chat-rename-btn shrink-0 rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-opacity hover:text-[var(--foreground)] focus-visible:opacity-100 group-hover:opacity-100"
                     >
                       <Pencil size="0.6875rem" />
+                    </button>
+                  ) : null}
+                  {overhaulDesktop && !multiSelectMode ? (
+                    <button
+                      type="button"
+                      data-chat-tags-button=""
+                      aria-label={localizeUi("theming.tags.editTitle", { defaultValue: "Chat tags" })}
+                      title={localizeUi("theming.tags.editTitle", { defaultValue: "Chat tags" })}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void editChatTagsWithSheet(chat);
+                      }}
+                      className="ov-chat-rename-btn shrink-0 rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-opacity hover:text-[var(--foreground)] focus-visible:opacity-100 group-hover:opacity-100"
+                    >
+                      <Tag size="0.6875rem" />
                     </button>
                   ) : null}
                 </span>
@@ -2697,29 +2742,29 @@ const STATUS_OPTIONS: Array<{
     value: "active",
     label: "Active",
     description: "You're online and available",
-    color: "bg-green-500",
-    icon: <Circle size="0.625rem" className="fill-green-500 text-green-500" />,
+    color: "bg-[var(--mari-status-online)]",
+    icon: <Circle size="0.625rem" className="fill-[var(--mari-status-online)] text-[var(--mari-status-online)]" />,
   },
   {
     value: "idle",
     label: "Idle",
     description: "Automatic when you're away",
-    color: "bg-yellow-500",
-    icon: <Moon size="0.625rem" className="text-yellow-500" />,
+    color: "bg-[var(--mari-status-idle)]",
+    icon: <Moon size="0.625rem" className="text-[var(--mari-status-idle)]" />,
   },
   {
     value: "dnd",
     label: "Do Not Disturb",
     description: "Suppress auto messages",
-    color: "bg-red-500",
-    icon: <MinusCircle size="0.625rem" className="text-red-500" />,
+    color: "bg-[var(--mari-status-dnd)]",
+    icon: <MinusCircle size="0.625rem" className="text-[var(--mari-status-dnd)]" />,
   },
   {
     value: "invisible",
     label: "Invisible",
     description: "Hide your status from models",
-    color: "bg-gray-400",
-    icon: <Circle size="0.625rem" className="fill-gray-400 text-gray-400" />,
+    color: "bg-[var(--mari-status-offline)]",
+    icon: <Circle size="0.625rem" className="fill-[var(--mari-status-offline)] text-[var(--mari-status-offline)]" />,
   },
 ];
 

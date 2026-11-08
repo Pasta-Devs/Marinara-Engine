@@ -11,4 +11,6 @@ export const customThemes = fileTable("custom_themes", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   isActive: text("is_active").notNull().default("false"),
+  /** Theme package v2 details as JSON (author, version, thumbnail, settings, fonts, backgrounds). */
+  meta: text("meta").notNull().default(""),
 });

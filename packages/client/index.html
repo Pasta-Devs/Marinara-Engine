@@ -23,6 +23,210 @@
         background-color: #0f0f13 !important;
       }
     </style>
+    <style id="marinara-cascade-layers">
+      /* Cascade order for every stylesheet in the app (styles/README-theming.md):
+         mari-protected beats everything, so a theme can restyle the top bar, the chats sidebar,
+         the Library sidebar and Ctrl+K but never hide, move or blank them. mari-theme-important holds
+         a custom theme's !important rules, so they beat the app's own !important ones. The app's
+         CSS sits in mari-app, the Appearance pickers in mari-pickers, and the custom theme's normal
+         rules stay unlayered, so they win over both without !important.
+         translate/rotate/scale are written as var(--mari-none, none): the Safari 14 build target
+         otherwise folds them into transform: translate(0,0) rotate(0) scale(1), and a transform on
+         html, body or #root makes them the box for the fixed app shell, which collapses to 0px. */
+      @layer mari-protected, mari-theme-important, theme, base, components, utilities, mari-app, mari-pickers;
+      @layer mari-protected {
+        html,
+        body {
+          visibility: visible !important;
+          opacity: 1 !important;
+          transform: none !important;
+          translate: var(--mari-none, none) !important;
+          rotate: var(--mari-none, none) !important;
+          scale: var(--mari-none, none) !important;
+          filter: none !important;
+          clip-path: none !important;
+          mask: none !important;
+          content-visibility: visible !important;
+          pointer-events: auto !important;
+        }
+        html {
+          display: block !important;
+        }
+        body {
+          display: block !important;
+        }
+        #root {
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          transform: none !important;
+          translate: var(--mari-none, none) !important;
+          rotate: var(--mari-none, none) !important;
+          scale: var(--mari-none, none) !important;
+          filter: none !important;
+          clip-path: none !important;
+          mask: none !important;
+          content-visibility: visible !important;
+        }
+        [data-component="AppShell"] {
+          position: fixed !important;
+          inset: 0 !important;
+          display: flex !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          transform: none !important;
+          translate: var(--mari-none, none) !important;
+          rotate: var(--mari-none, none) !important;
+          scale: var(--mari-none, none) !important;
+          filter: none !important;
+          clip-path: none !important;
+          mask: none !important;
+          content-visibility: visible !important;
+        }
+        [data-component="OverhaulShellRow"],
+        [data-component="TopBar"],
+        [data-component="ChatSidebarSlot"]:not([aria-hidden="true"]),
+        [data-component="ChatSidebarPanel"]:not([aria-hidden="true"]),
+        [data-component="ChatSidebarPanel"]:not([aria-hidden="true"]) [data-component="ChatSidebar"],
+        [data-component="RightPanelDesktopSlot"]:not([aria-hidden="true"]),
+        [data-component="RightPanelDesktop"]:not([aria-hidden="true"]),
+        [data-component="RightPanelMobile"],
+        [data-component="GlobalOmnibar"],
+        [data-component="GlobalOmnibar.Panel"] {
+          visibility: visible !important;
+          opacity: 1 !important;
+          clip-path: none !important;
+          mask: none !important;
+          content-visibility: visible !important;
+          translate: var(--mari-none, none) !important;
+          rotate: var(--mari-none, none) !important;
+          scale: var(--mari-none, none) !important;
+        }
+        [data-component="TopBar"]:not(.is-autohide),
+        [data-component="ChatSidebarPanel"]:not([aria-hidden="true"]),
+        [data-component="RightPanelDesktop"]:not([aria-hidden="true"]),
+        [data-component="RightPanelMobile"] {
+          pointer-events: auto !important;
+          zoom: 1 !important;
+        }
+        header[data-overhaul-topbar="true"]:not(.is-autohide) {
+          display: flex !important;
+          position: relative !important;
+          inset: auto !important;
+          transform: none !important;
+          margin: 0 !important;
+          min-height: 2rem !important;
+        }
+        header[data-overhaul-topbar="mobile"] {
+          display: grid !important;
+          position: relative !important;
+          inset: auto !important;
+          transform: none !important;
+          margin: 0 !important;
+          min-height: 2.5rem !important;
+        }
+        [data-component="ChatSidebarSlot"]:not([aria-hidden="true"]),
+        [data-component="RightPanelDesktopSlot"]:not([aria-hidden="true"]) {
+          display: block !important;
+          position: relative !important;
+          inset: auto !important;
+          transform: none !important;
+          margin: 0 !important;
+          min-width: 10rem !important;
+        }
+        [data-component="ChatSidebarPanel"].mari-shell-panel-enter-left,
+        [data-component="RightPanelDesktop"].mari-shell-panel-enter-right {
+          display: block !important;
+          position: absolute !important;
+          top: 0 !important;
+          bottom: 0 !important;
+          transform: translate3d(0, 0, 0) !important;
+          margin: 0 !important;
+        }
+        [data-component="ChatSidebarPanel"].mari-shell-panel-enter-left {
+          left: 0 !important;
+          right: auto !important;
+        }
+        [data-component="RightPanelDesktop"].mari-shell-panel-enter-right {
+          right: 0 !important;
+          left: auto !important;
+        }
+        /* Chat rows stay visible: a theme can restyle them, not fade the list away. */
+        [data-component="ChatSidebarPanel"] [data-chat-row] {
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        /* Fullscreen hides the top bar until the pointer reaches the top edge. A theme may restyle
+           it, but the bar must stay in the page and come back on hover, focus and when pinned. */
+        [data-component="TopBar"].is-autohide {
+          display: flex !important;
+          pointer-events: auto !important;
+          zoom: 1 !important;
+        }
+        .ov-topbar-hotzone {
+          display: block !important;
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          height: 6px !important;
+          visibility: visible !important;
+          pointer-events: auto !important;
+        }
+        :root[data-ov-topbar-pinned] [data-component="TopBar"].is-autohide,
+        .ov-topbar-hotzone:hover + [data-component="TopBar"].is-autohide,
+        [data-component="TopBar"].is-autohide:hover,
+        [data-component="TopBar"].is-autohide:focus-within,
+        html[data-mari-guard-measure] [data-component="TopBar"].is-autohide {
+          transform: none !important;
+          top: 0 !important;
+          margin: 0 !important;
+        }
+        /* The top bar can carry art (--mari-top-bar-bg, or its own ::before/::after), but the art
+           stays under the tabs and icons and never takes their clicks. */
+        [data-component="TopBar"]::before,
+        [data-component="TopBar"]::after {
+          z-index: -1 !important;
+          pointer-events: none !important;
+        }
+        [data-component="TopBar"] > *,
+        [data-component="TopBar"] [role="tablist"],
+        [data-component="TopBar"] [role="tab"]:not(.is-clipped) {
+          visibility: visible !important;
+          clip-path: none !important;
+          mask: none !important;
+        }
+        /* Pseudo-element decorations (scanlines, grain, vignettes) never take clicks. */
+        :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::before,
+        :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::after {
+          pointer-events: none !important;
+        }
+        /* The "Keep this theme?" and safe-mode bars live in a shadow root; only their host is reachable. */
+        mari-theme-safety {
+          all: initial !important;
+          display: block !important;
+          position: fixed !important;
+          z-index: 2147483647 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          top: auto !important;
+          width: auto !important;
+          height: auto !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          transform: none !important;
+          filter: none !important;
+          pointer-events: none !important;
+        }
+        /* The chrome guard measures with and without the theme in one task; nothing may animate. */
+        html[data-mari-guard-measure] *,
+        html[data-mari-guard-measure] *::before,
+        html[data-mari-guard-measure] *::after {
+          transition: none !important;
+        }
+      }
+    </style>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
     <link rel="apple-touch-icon" href="/icon-192.png" />

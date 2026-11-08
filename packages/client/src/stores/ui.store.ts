@@ -441,9 +441,35 @@ export function getDefaultAppAccentColor() {
   return MARINARA_GRADIENT_PRESET;
 }
 
+export type ThemeAutoMode = "off" | "system" | "time";
+
+/** "H:MM" or "HH:MM" (24 h) to "HH:MM"; anything else is the fallback. */
+export function normalizeClock(value: unknown, fallback: string): string {
+  const match = typeof value === "string" ? /^(\d{1,2}):(\d{2})$/.exec(value.trim()) : null;
+  if (!match) return fallback;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return fallback;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/** The scheme "Follow time of day" wants at `now`: Light between the day and night starts. */
+export function schemeForTime(now: Date, dayStart: string, nightStart: string): "dark" | "light" {
+  const toMinutes = (clock: string) => {
+    const [hours, minutes] = clock.split(":").map(Number);
+    return (hours ?? 0) * 60 + (minutes ?? 0);
+  };
+  const minute = now.getHours() * 60 + now.getMinutes();
+  const day = toMinutes(dayStart);
+  const night = toMinutes(nightStart);
+  if (day === night) return "dark";
+  const isDay = day < night ? minute >= day && minute < night : minute >= day || minute < night;
+  return isDay ? "light" : "dark";
+}
+
 export function getDefaultAppAccentPulseMode() {
-  // Device input, not window width: a narrow desktop window still gets the desktop default.
-  return typeof window !== "undefined" && !window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  // Off everywhere (theming round 2, batch 6): motion is opt-in. Appearance > Accent Pulse turns it on.
+  return false;
 }
 
 export function getDefaultAppBackgroundColor(theme: "dark" | "light") {
@@ -762,8 +788,34 @@ interface UIState {
   /** Not saved: an Advanced Memory scene to open, or a Fix to start, once its Chat Settings section shows. */
   advancedMemoryRequest: { chatId: string; sceneId?: string; fix?: boolean } | null;
   theme: "dark" | "light";
+  /** Switch the colour scheme by itself: "system" follows the OS, "time" uses the day hours below. */
+  themeAuto: ThemeAutoMode;
+  /** "HH:MM" when Light mode starts while themeAuto is "time". */
+  themeDayStart: string;
+  /** "HH:MM" when Dark mode starts while themeAuto is "time". */
+  themeNightStart: string;
+  /** Background for Dark mode (and, from before the split, for both schemes). */
   appBackgroundColor: string;
+  /** Accent for Dark mode, and Light mode's too while appAccentColorLight is empty. */
   appAccentColor: string;
+  /** Light mode's own background ("" = the Light scheme default). */
+  appBackgroundColorLight: string;
+  /** Light mode's own accent ("" = use appAccentColor). */
+  appAccentColorLight: string;
+  /** A character's default custom theme for its chats (character id → theme id, "" = Default). */
+  characterThemeDefaults: Record<string, string>;
+  /** Show a chat's background behind the side panels too (they turn translucent). */
+  chatArtBehindPanels: boolean;
+  /** Accessibility: line height multiplier for reading text (1 = the app's own). */
+  a11yLineHeight: number;
+  /** Accessibility: extra letter spacing in em (0 = none). */
+  a11yLetterSpacing: number;
+  /** Accessibility: thick, high-contrast focus rings on every control. */
+  a11yStrongFocus: boolean;
+  /** Accessibility: high-contrast colours. "system" follows the OS (prefers-contrast: more). */
+  a11yContrast: "system" | "on" | "off";
+  /** Accessibility: blue/orange instead of green/red for status, gauges and danger. */
+  a11yColorBlindSafe: boolean;
   appAccentPulseMode: boolean;
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
@@ -1135,6 +1187,16 @@ interface UIState {
   defaultDialogueColor: string;
   /** Color for non-action chrome copy in tracker widgets, folder labels, settings descriptors, and popovers (empty = scheme default) */
   chatChromeTextColor: string;
+  /** Light mode's own chat text colour ("" = use chatFontColor). */
+  chatFontColorLight: string;
+  /** Light mode's own dialogue colour ("" = use defaultDialogueColor). */
+  defaultDialogueColorLight: string;
+  /** Light mode's own chrome text colour ("" = use chatChromeTextColor). */
+  chatChromeTextColorLight: string;
+  /** Hide the line under character and persona names in messages. */
+  hideMessageNameRule: boolean;
+  /** Themes may carry HTML (message templates). Off by default: the user accepts the risk. */
+  allowThemeHtml: boolean;
   /** Opacity for roleplay message backgrounds (0–100) */
   chatFontOpacity: number;
   /** When true, flatten expensive Roleplay paint effects for smoother navigation. */
@@ -1349,8 +1411,19 @@ interface UIState {
   closeModal: () => void;
   setAdvancedMemoryRequest: (request: UIState["advancedMemoryRequest"]) => void;
   setTheme: (theme: "dark" | "light") => void;
+  setThemeAuto: (mode: ThemeAutoMode) => void;
+  setThemeDayHours: (dayStart: string, nightStart: string) => void;
   setAppBackgroundColor: (color: string) => void;
   setAppAccentColor: (color: string) => void;
+  setAppBackgroundColorLight: (color: string) => void;
+  setAppAccentColorLight: (color: string) => void;
+  setCharacterThemeDefault: (characterId: string, themeId: string | null) => void;
+  setChatArtBehindPanels: (enabled: boolean) => void;
+  setA11yLineHeight: (value: number) => void;
+  setA11yLetterSpacing: (value: number) => void;
+  setA11yStrongFocus: (enabled: boolean) => void;
+  setA11yContrast: (value: "system" | "on" | "off") => void;
+  setA11yColorBlindSafe: (enabled: boolean) => void;
   setAppAccentPulseMode: (enabled: boolean) => void;
   setAppAccentRgbMode: (enabled: boolean) => void;
   setCustomCursorEnabled: (enabled: boolean) => void;
@@ -1546,6 +1619,11 @@ interface UIState {
   setChatFontColor: (v: string) => void;
   setDefaultDialogueColor: (v: string) => void;
   setChatChromeTextColor: (v: string) => void;
+  setChatFontColorLight: (v: string) => void;
+  setDefaultDialogueColorLight: (v: string) => void;
+  setChatChromeTextColorLight: (v: string) => void;
+  setHideMessageNameRule: (v: boolean) => void;
+  setAllowThemeHtml: (v: boolean) => void;
   setChatFontOpacity: (v: number) => void;
   setRoleplayReducedPaintEffects: (v: boolean) => void;
   setShowRoleplayThinkingInMessages: (v: boolean) => void;
@@ -1699,6 +1777,10 @@ export function shownMariAppearancePack(state: UIState, playHours: number | null
   );
 }
 
+function clampA11y(value: unknown, min: number, max: number, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+}
+
 /**
  * Returns the subset of UI state that is synced to the server so it persists
  * across devices and browsers. Excludes device-local sizing preferences,
@@ -1723,8 +1805,20 @@ export function pickSyncedSettings(state: UIState) {
     trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
     trackerPanelSectionOrder: state.trackerPanelSectionOrder,
     theme: state.theme,
+    themeAuto: state.themeAuto,
+    themeDayStart: state.themeDayStart,
+    themeNightStart: state.themeNightStart,
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
+    appBackgroundColorLight: state.appBackgroundColorLight,
+    appAccentColorLight: state.appAccentColorLight,
+    characterThemeDefaults: state.characterThemeDefaults,
+    chatArtBehindPanels: state.chatArtBehindPanels,
+    a11yLineHeight: state.a11yLineHeight,
+    a11yLetterSpacing: state.a11yLetterSpacing,
+    a11yStrongFocus: state.a11yStrongFocus,
+    a11yContrast: state.a11yContrast,
+    a11yColorBlindSafe: state.a11yColorBlindSafe,
     reduceAmbientEffects: state.reduceAmbientEffects,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
@@ -1844,6 +1938,11 @@ export function pickSyncedSettings(state: UIState) {
     chatFontColor: state.chatFontColor,
     defaultDialogueColor: state.defaultDialogueColor,
     chatChromeTextColor: state.chatChromeTextColor,
+    chatFontColorLight: state.chatFontColorLight,
+    defaultDialogueColorLight: state.defaultDialogueColorLight,
+    chatChromeTextColorLight: state.chatChromeTextColorLight,
+    hideMessageNameRule: state.hideMessageNameRule,
+    allowThemeHtml: state.allowThemeHtml,
     chatFontOpacity: state.chatFontOpacity,
     showRoleplayThinkingInMessages: state.showRoleplayThinkingInMessages,
     keepRoleplayThinkingExpanded: state.keepRoleplayThinkingExpanded,
@@ -1973,8 +2072,20 @@ export function pickPersistedUIState(state: UIState) {
     trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
     trackerPanelSectionOrder: state.trackerPanelSectionOrder,
     theme: state.theme,
+    themeAuto: state.themeAuto,
+    themeDayStart: state.themeDayStart,
+    themeNightStart: state.themeNightStart,
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
+    appBackgroundColorLight: state.appBackgroundColorLight,
+    appAccentColorLight: state.appAccentColorLight,
+    characterThemeDefaults: state.characterThemeDefaults,
+    chatArtBehindPanels: state.chatArtBehindPanels,
+    a11yLineHeight: state.a11yLineHeight,
+    a11yLetterSpacing: state.a11yLetterSpacing,
+    a11yStrongFocus: state.a11yStrongFocus,
+    a11yContrast: state.a11yContrast,
+    a11yColorBlindSafe: state.a11yColorBlindSafe,
     appAccentPulseMode: state.appAccentPulseMode,
     appAccentRgbMode: state.appAccentRgbMode,
     customCursorEnabled: state.customCursorEnabled,
@@ -2101,6 +2212,11 @@ export function pickPersistedUIState(state: UIState) {
     chatFontColor: state.chatFontColor,
     defaultDialogueColor: state.defaultDialogueColor,
     chatChromeTextColor: state.chatChromeTextColor,
+    chatFontColorLight: state.chatFontColorLight,
+    defaultDialogueColorLight: state.defaultDialogueColorLight,
+    chatChromeTextColorLight: state.chatChromeTextColorLight,
+    hideMessageNameRule: state.hideMessageNameRule,
+    allowThemeHtml: state.allowThemeHtml,
     chatFontOpacity: state.chatFontOpacity,
     roleplayReducedPaintEffects: state.roleplayReducedPaintEffects,
     showRoleplayThinkingInMessages: state.showRoleplayThinkingInMessages,
@@ -2249,8 +2365,20 @@ export const useUIStore = create<UIState>()(
         modal: null,
         advancedMemoryRequest: null,
         theme: "dark" as const,
+        themeAuto: "off" as ThemeAutoMode,
+        themeDayStart: "07:00",
+        themeNightStart: "19:00",
         appBackgroundColor: "",
         appAccentColor: "",
+        appBackgroundColorLight: "",
+        appAccentColorLight: "",
+        characterThemeDefaults: {},
+        chatArtBehindPanels: false,
+        a11yLineHeight: 1,
+        a11yLetterSpacing: 0,
+        a11yStrongFocus: false,
+        a11yContrast: "system" as const,
+        a11yColorBlindSafe: false,
         appAccentPulseMode: getDefaultAppAccentPulseMode(),
         appAccentRgbMode: false,
         customCursorEnabled: true,
@@ -2437,6 +2565,11 @@ export const useUIStore = create<UIState>()(
         chatFontColor: "",
         defaultDialogueColor: "",
         chatChromeTextColor: "",
+        chatFontColorLight: "",
+        defaultDialogueColorLight: "",
+        chatChromeTextColorLight: "",
+        hideMessageNameRule: false,
+        allowThemeHtml: false,
         chatFontOpacity: 90,
         roleplayReducedPaintEffects: false,
         showRoleplayThinkingInMessages: false,
@@ -2671,9 +2804,31 @@ export const useUIStore = create<UIState>()(
         },
         closeModal: () => set({ modal: null }),
         setAdvancedMemoryRequest: (advancedMemoryRequest) => set({ advancedMemoryRequest }),
-        setTheme: (theme) => set({ theme }),
+        // Picking Dark or Light by hand stops the automatic switch.
+        setTheme: (theme) => set({ theme, themeAuto: "off" }),
+        setThemeAuto: (mode) => set({ themeAuto: mode }),
+        setThemeDayHours: (dayStart, nightStart) =>
+          set({
+            themeDayStart: normalizeClock(dayStart, "07:00"),
+            themeNightStart: normalizeClock(nightStart, "19:00"),
+          }),
         setAppBackgroundColor: (color) => set({ appBackgroundColor: normalizeAppBackgroundColor(color) }),
         setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
+        setAppBackgroundColorLight: (color) => set({ appBackgroundColorLight: normalizeAppBackgroundColor(color) }),
+        setAppAccentColorLight: (color) => set({ appAccentColorLight: normalizeAppAccentColor(color) }),
+        setCharacterThemeDefault: (characterId, themeId) =>
+          set((state) => {
+            const next = { ...state.characterThemeDefaults };
+            if (themeId === null) delete next[characterId];
+            else next[characterId] = themeId;
+            return { characterThemeDefaults: next };
+          }),
+        setChatArtBehindPanels: (enabled) => set({ chatArtBehindPanels: enabled }),
+        setA11yLineHeight: (value) => set({ a11yLineHeight: clampA11y(value, 1, 2, 1) }),
+        setA11yLetterSpacing: (value) => set({ a11yLetterSpacing: clampA11y(value, 0, 0.2, 0) }),
+        setA11yStrongFocus: (enabled) => set({ a11yStrongFocus: enabled }),
+        setA11yContrast: (value) => set({ a11yContrast: value }),
+        setA11yColorBlindSafe: (enabled) => set({ a11yColorBlindSafe: enabled }),
         setAppAccentPulseMode: (enabled) => set({ appAccentPulseMode: enabled }),
         setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
         setCustomCursorEnabled: (enabled) => set({ customCursorEnabled: enabled }),
@@ -3437,6 +3592,11 @@ export const useUIStore = create<UIState>()(
         setChatFontColor: (v) => set({ chatFontColor: v }),
         setDefaultDialogueColor: (v) => set({ defaultDialogueColor: v }),
         setChatChromeTextColor: (v) => set({ chatChromeTextColor: normalizeChatChromeTextColor(v) }),
+        setChatFontColorLight: (v) => set({ chatFontColorLight: v }),
+        setDefaultDialogueColorLight: (v) => set({ defaultDialogueColorLight: v }),
+        setChatChromeTextColorLight: (v) => set({ chatChromeTextColorLight: normalizeChatChromeTextColor(v) }),
+        setHideMessageNameRule: (v) => set({ hideMessageNameRule: v }),
+        setAllowThemeHtml: (v) => set({ allowThemeHtml: v }),
         setChatFontOpacity: (v) => set({ chatFontOpacity: Math.max(0, Math.min(100, v)) }),
         setRoleplayReducedPaintEffects: (v) => set({ roleplayReducedPaintEffects: v }),
         setShowRoleplayThinkingInMessages: (v) =>
@@ -3498,8 +3658,19 @@ export const useUIStore = create<UIState>()(
             trackerPanelCollapsedSections: {},
             trackerPanelSectionOrder: [...TRACKER_DATA_PANEL_SECTIONS],
             theme: "dark" as const,
+            themeAuto: "off" as ThemeAutoMode,
+            themeDayStart: "07:00",
+            themeNightStart: "19:00",
             appBackgroundColor: "",
             appAccentColor: "",
+            appBackgroundColorLight: "",
+            appAccentColorLight: "",
+            chatArtBehindPanels: false,
+            a11yLineHeight: 1,
+            a11yLetterSpacing: 0,
+            a11yStrongFocus: false,
+            a11yContrast: "system" as const,
+            a11yColorBlindSafe: false,
             appAccentPulseMode: getDefaultAppAccentPulseMode(),
             appAccentRgbMode: false,
             customCursorEnabled: true,
@@ -3534,6 +3705,11 @@ export const useUIStore = create<UIState>()(
             chatFontColor: "",
             defaultDialogueColor: "",
             chatChromeTextColor: "",
+            chatFontColorLight: "",
+            defaultDialogueColorLight: "",
+            chatChromeTextColorLight: "",
+            hideMessageNameRule: false,
+            allowThemeHtml: false,
             chatFontOpacity: 90,
             roleplayReducedPaintEffects: false,
             showRoleplayThinkingInMessages: false,
@@ -4359,10 +4535,43 @@ export const useUIStore = create<UIState>()(
         persisted.defaultDialogueColor =
           typeof persisted.defaultDialogueColor === "string" ? persisted.defaultDialogueColor : "";
         persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
+        persisted.chatFontColorLight =
+          typeof persisted.chatFontColorLight === "string" ? persisted.chatFontColorLight : "";
+        persisted.defaultDialogueColorLight =
+          typeof persisted.defaultDialogueColorLight === "string" ? persisted.defaultDialogueColorLight : "";
+        persisted.chatChromeTextColorLight = normalizeChatChromeTextColor(persisted.chatChromeTextColorLight);
+        persisted.hideMessageNameRule = persisted.hideMessageNameRule === true;
+        persisted.allowThemeHtml = persisted.allowThemeHtml === true;
+        persisted.themeAuto =
+          persisted.themeAuto === "system" || persisted.themeAuto === "time" ? persisted.themeAuto : "off";
+        persisted.themeDayStart = normalizeClock(persisted.themeDayStart, "07:00");
+        persisted.themeNightStart = normalizeClock(persisted.themeNightStart, "19:00");
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
         // v103 -> v104: the three feature Model picks moved to the server; stage them for useMigrateFeatureModels.
         if (version <= 103) stageLegacyFeatureModels(persisted, version);
+        if (version <= 104) {
+          // Background and accent got a value per scheme (theming panel batch 2). Someone who set a
+          // background while in Light mode set it for Light mode.
+          persisted.appBackgroundColorLight =
+            persisted.theme === "light" && typeof persisted.appBackgroundColor === "string"
+              ? persisted.appBackgroundColor
+              : "";
+          persisted.appAccentColorLight = "";
+        }
+        persisted.appBackgroundColorLight = normalizeAppBackgroundColor(persisted.appBackgroundColorLight);
+        persisted.appAccentColorLight = normalizeAppAccentColor(persisted.appAccentColorLight);
+        persisted.characterThemeDefaults =
+          persisted.characterThemeDefaults && typeof persisted.characterThemeDefaults === "object"
+            ? Object.fromEntries(
+                Object.entries(persisted.characterThemeDefaults as Record<string, unknown>).filter(
+                  (entry): entry is [string, string] => typeof entry[1] === "string",
+                ),
+              )
+            : {};
+        persisted.a11yLineHeight = clampA11y(persisted.a11yLineHeight, 1, 2, 1);
+        persisted.a11yLetterSpacing = clampA11y(persisted.a11yLetterSpacing, 0, 0.2, 0);
+        if (!["system", "on", "off"].includes(persisted.a11yContrast as string)) persisted.a11yContrast = "system";
         return persisted;
       },
       merge: (persistedState: unknown, currentState) => {
@@ -4416,3 +4625,14 @@ export const useUIStore = create<UIState>()(
     },
   ),
 );
+
+/** A text colour for the scheme on screen: Light mode's own value when it has one, else the shared one. */
+export function schemeTextColor(theme: "dark" | "light", shared: string, light: string): string {
+  return theme === "light" && light ? light : shared;
+}
+export const selectChatFontColor = (state: UIState) =>
+  schemeTextColor(state.theme, state.chatFontColor, state.chatFontColorLight);
+export const selectDefaultDialogueColor = (state: UIState) =>
+  schemeTextColor(state.theme, state.defaultDialogueColor, state.defaultDialogueColorLight);
+export const selectChatChromeTextColor = (state: UIState) =>
+  schemeTextColor(state.theme, state.chatChromeTextColor, state.chatChromeTextColorLight);

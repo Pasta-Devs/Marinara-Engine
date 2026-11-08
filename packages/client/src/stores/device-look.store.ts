@@ -15,7 +15,24 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 /** The synced settings that make up "the look". */
-export const DEVICE_LOOK_KEYS = ["theme", "visualTheme", "appAccentColor", "appBackgroundColor", "fontFamily"] as const;
+export const DEVICE_LOOK_KEYS = [
+  "theme",
+  "themeAuto",
+  "themeDayStart",
+  "themeNightStart",
+  "visualTheme",
+  "appAccentColor",
+  "appBackgroundColor",
+  "appAccentColorLight",
+  "chatArtBehindPanels",
+  "a11yLineHeight",
+  "a11yLetterSpacing",
+  "a11yStrongFocus",
+  "a11yContrast",
+  "a11yColorBlindSafe",
+  "appBackgroundColorLight",
+  "fontFamily",
+] as const;
 export type DeviceLookKey = (typeof DEVICE_LOOK_KEYS)[number];
 export type LookValues = Partial<Record<DeviceLookKey, unknown>>;
 

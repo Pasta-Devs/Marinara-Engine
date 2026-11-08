@@ -304,12 +304,12 @@ const HOME_WIDGET_MIN_ROW_HEIGHT = 208;
 const HOME_WIDGET_MAX_ROW_HEIGHT = 640;
 const ENGINE_RELEASE_URL = `https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v${encodeURIComponent(APP_VERSION)}`;
 const HOME_MODULE_ACCENTS = {
-  cyan: "oklch(0.79 0.16 205)",
-  orange: "oklch(0.76 0.19 52)",
+  cyan: "var(--mari-mode-conversation)",
+  orange: "var(--mari-mode-roleplay)",
   // Explicit custom-widget palette choice; built-in interface accents follow the theme.
-  pink: "oklch(0.73 0.21 345)",
+  pink: "var(--mari-home-pink)",
   accent: "var(--marinara-chat-chrome-accent)",
-  violet: "oklch(0.72 0.17 303)",
+  violet: "var(--mari-home-violet)",
 } as const;
 
 // The folded tab menu's dots and rows wear the three chat-mode colors in turn.
@@ -793,8 +793,11 @@ function FeedModule({
   return (
     <section
       style={style}
+      data-mari-part="home-widget"
       className={cn(
-        "relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--home-module-accent)_30%,var(--border))] bg-[color-mix(in_srgb,var(--home-module-accent)_6%,var(--card))] p-[clamp(0.8rem,0.9vw,1.1rem)] shadow-[0_20px_50px_-38px_color-mix(in_srgb,var(--home-module-accent)_70%,transparent)]",
+        // Theme tokens (v1.1): --mari-home-widget-border/-border-width/-radius/-bg/-font. Each falls back
+        // to the stock look, so nothing changes until a theme sets one.
+        "relative flex min-w-0 flex-col overflow-hidden rounded-[var(--mari-home-widget-radius,1rem)] border [border-width:var(--mari-home-widget-border-width,1px)] border-[color:var(--mari-home-widget-border,color-mix(in_srgb,var(--home-module-accent)_30%,var(--border)))] bg-[var(--mari-home-widget-bg,color-mix(in_srgb,var(--home-module-accent)_6%,var(--card)))] p-[clamp(0.8rem,0.9vw,1.1rem)] [font-family:var(--mari-home-widget-font,inherit)] shadow-[0_20px_50px_-38px_color-mix(in_srgb,var(--home-module-accent)_70%,transparent)]",
         className,
       )}
     >
@@ -827,12 +830,25 @@ function FeedModule({
         )}
       >
         <div className="min-w-0">
-          <p className="text-[0.625rem] font-extrabold uppercase tracking-[0.16em] text-[var(--home-module-accent)]">
+          <p
+            data-mari-part="home-widget-eyebrow"
+            className="text-[length:var(--mari-home-widget-eyebrow-size,0.625rem)] font-extrabold uppercase tracking-[0.16em] text-[var(--home-module-accent)]"
+          >
             {eyebrow}
           </p>
-          <h2 className="mt-0.5 truncate text-base font-bold text-[var(--foreground)] xl:text-[1.05rem]">{title}</h2>
+          <h2
+            data-mari-part="home-widget-title"
+            className="mt-0.5 line-clamp-2 text-[length:var(--mari-home-widget-title-size,1rem)] font-bold [overflow-wrap:anywhere] text-[var(--mari-home-widget-title-color,var(--foreground))] [font-family:var(--mari-home-widget-title-font,inherit)] xl:text-[length:var(--mari-home-widget-title-size,1.05rem)]"
+          >
+            {title}
+          </h2>
           {description ? (
-            <p className="mt-1 text-xs leading-relaxed text-[var(--muted-foreground)]">{description}</p>
+            <p
+              data-mari-part="home-widget-text"
+              className="mt-1 text-[length:var(--mari-home-widget-text-size,0.75rem)] leading-relaxed text-[var(--mari-home-widget-muted,var(--muted-foreground))]"
+            >
+              {description}
+            </p>
           ) : null}
         </div>
         {action}
@@ -1664,9 +1680,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
           style={{ "--widget-tone": tone } as CSSProperties}
           aria-hidden="true"
         >
-          <i className="rounded-[0.12rem] bg-[oklch(0.79_0.16_205)]" />
-          <i className="rounded-[0.12rem] bg-[oklch(0.76_0.19_52)]" />
-          <i className="rounded-[0.12rem] bg-[oklch(0.73_0.21_345)]" />
+          <i className="rounded-[0.12rem] bg-[var(--mari-mode-conversation)]" />
+          <i className="rounded-[0.12rem] bg-[var(--mari-mode-roleplay)]" />
+          <i className="rounded-[0.12rem] bg-[var(--mari-home-pink)]" />
           <i className="rounded-[0.12rem] bg-[var(--widget-tone)]" />
         </span>
         <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-[var(--foreground)]">{label}</span>
@@ -1720,6 +1736,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   };
   return (
     <div
+      data-mari-part="home"
       className="mari-chrome-token-scope relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--background)]"
       data-component="HomeBrowserHub"
       data-home-tab={activeTab}
@@ -1805,7 +1822,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     aria-selected={activeTab === "home"}
                     onClick={() => selectTab("home")}
                     className={cn(
-                      "flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.79_0.16_205)]",
+                      "flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--mari-mode-conversation)]",
                       !mobileShell && "sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
                       activeTab === "home" ? "min-w-[6.5rem] flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
                       activeTab === "home"
@@ -2007,7 +2024,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     type="button"
                     onClick={() => selectTab("home")}
                     disabled={activeTab === "home"}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.79_0.16_205)] disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mari-mode-conversation)] disabled:opacity-30"
                     aria-label={t("home.browser.back")}
                   >
                     <ArrowLeft size="0.9rem" />
@@ -2324,7 +2341,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
             </div>
           ) : (
             <div
-              className="relative min-h-full overflow-hidden bg-[radial-gradient(circle_at_12%_8%,oklch(0.79_0.16_205/0.14),transparent_27%),radial-gradient(circle_at_87%_12%,oklch(0.73_0.21_345/0.14),transparent_29%),radial-gradient(circle_at_72%_76%,oklch(0.76_0.19_52/0.08),transparent_28%),var(--background)]"
+              className="relative min-h-full overflow-hidden bg-[radial-gradient(circle_at_12%_8%,color-mix(in_srgb,var(--mari-mode-conversation)_14%,transparent),transparent_27%),radial-gradient(circle_at_87%_12%,color-mix(in_srgb,var(--mari-home-pink)_14%,transparent),transparent_29%),radial-gradient(circle_at_72%_76%,color-mix(in_srgb,var(--mari-mode-roleplay)_8%,transparent),transparent_28%),var(--background)]"
               data-component="HomeBrowserHub.HomePage"
             >
               <HomeStarfield />
@@ -2454,8 +2471,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                   >
                     <HomeWidgetFrame {...widgetFrameProps("professor")}>
                       <section
-                        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-widget relative grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)] gap-x-[min(0.75rem,12px)] rounded-2xl border p-(--mari-home-professor-pad) [--mari-home-professor-pad:0.75rem] sm:[--mari-home-professor-pad:clamp(0.85rem,1vw,1.2rem)]"
+                        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-widget relative grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)] gap-x-[min(0.75rem,12px)] rounded-[var(--mari-home-widget-radius,1rem)] border [border-width:var(--mari-home-widget-border-width,1px)] p-(--mari-home-professor-pad) [font-family:var(--mari-home-widget-font,inherit)] [--mari-home-professor-pad:0.75rem] sm:[--mari-home-professor-pad:clamp(0.85rem,1vw,1.2rem)]"
                         data-component="HomeBrowserHub.ProfessorWidget"
+                        data-mari-part="home-widget"
                       >
                         {/* The card does not clip, so Mari can stand in its bottom padding (#7032). The text column
                             clips instead, reaching into the card's vertical padding so a large UI font is cut at
@@ -2464,14 +2482,21 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                           className="relative z-[2] -my-(--mari-home-professor-pad) flex min-h-0 min-w-0 flex-col items-start justify-center overflow-y-clip py-(--mari-home-professor-pad)"
                           data-home-professor-content
                         >
-                          <p className="mari-chrome-accent-icon mari-accent-animated text-[0.625rem] font-extrabold uppercase tracking-[0.16em]">
+                          <p
+                            data-mari-part="home-widget-eyebrow"
+                            className="mari-chrome-accent-icon mari-accent-animated text-[length:var(--mari-home-widget-eyebrow-size,0.625rem)] font-extrabold uppercase tracking-[0.16em]"
+                          >
                             {t("home.professorMari.eyebrow")}
                           </p>
-                          <h2 className="mt-0.5 text-sm font-bold text-[var(--foreground)] sm:text-base">
+                          <h2
+                            data-mari-part="home-widget-title"
+                            className="mt-0.5 text-[length:var(--mari-home-widget-title-size,0.875rem)] font-bold text-[var(--mari-home-widget-title-color,var(--foreground))] [font-family:var(--mari-home-widget-title-font,inherit)] sm:text-[length:var(--mari-home-widget-title-size,1rem)]"
+                          >
                             {t("home.shortcuts.professorMari")}
                           </h2>
                           <p
-                            className="mt-1 line-clamp-6 min-w-0 text-[clamp(0.56rem,2.4cqw,0.75rem)] leading-[1.3] text-[var(--muted-foreground)] sm:mt-1.5 sm:line-clamp-7"
+                            className="mt-1 line-clamp-6 min-w-0 text-[length:var(--mari-home-widget-text-size,clamp(0.56rem,2.4cqw,0.75rem))] leading-[1.3] text-[var(--mari-home-widget-muted,var(--muted-foreground))] sm:mt-1.5 sm:line-clamp-7"
+                            data-mari-part="home-widget-text"
                             data-home-professor-description
                           >
                             {mariPackSeason
@@ -2483,7 +2508,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                           <button
                             type="button"
                             onClick={openProfessor}
-                            className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected mari-accent-animated mt-2 h-8 max-w-full px-2 text-center text-[clamp(0.56rem,2.2cqw,0.75rem)] font-bold leading-tight sm:gap-1.5 sm:px-2.5"
+                            className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected mari-accent-animated mt-2 h-auto min-h-8 max-w-full px-2 py-1 text-center text-[clamp(0.56rem,2.2cqw,0.75rem)] font-bold leading-tight sm:gap-1.5 sm:px-2.5"
                             data-home-professor-action
                           >
                             <MessageCircle size="0.8rem" className="mari-rgb-static-icon text-current" />{" "}

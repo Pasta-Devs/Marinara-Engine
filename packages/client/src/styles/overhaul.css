@@ -11,7 +11,7 @@
 
 :root {
   /* Titles use the app's own font (Inter by default, or the user's font choice). */
-  --ov-serif: var(--font-y2k);
+  --ov-serif: var(--mari-font-heading);
   --ov-topbar-height: 2.625rem;
   --ov-mode-conversation: #4fb8c9;
   --ov-mode-roleplay: #e0566f;
@@ -23,6 +23,11 @@
   --ov-accent: var(--primary);
   --ov-hover: color-mix(in srgb, var(--foreground) 7%, transparent);
   --ov-active-bg: color-mix(in srgb, var(--foreground) 9%, var(--background));
+  /* Selected rows, pills and toggles take this neutral tint, not the accent (theming panel batch 2).
+     A theme that wants the old accent-tinted selection sets --mari-selected-tint: var(--primary). */
+  --mari-selected-tint: var(--foreground);
+  --mari-selected-bg: color-mix(in srgb, var(--mari-selected-tint) 10%, transparent);
+  --mari-selected-ring: color-mix(in srgb, var(--mari-selected-tint) 18%, transparent);
 }
 
 /* ─── Top bar ─── */
@@ -71,7 +76,7 @@
 }
 .ov-icon-btn.is-on {
   color: var(--ov-accent);
-  background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
+  background: var(--mari-selected-bg);
 }
 .ov-tabs {
   display: flex;
@@ -315,7 +320,7 @@
 }
 .ov-libnav__tag.is-on {
   color: var(--ov-text);
-  background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
+  background: var(--mari-selected-bg);
 }
 .ov-libnav__tag svg {
   opacity: 0.6;
@@ -406,6 +411,18 @@
 }
 :root[data-overhaul="on"] [data-component="ChatSidebar"] .mari-sidebar-header {
   padding-inline: 0.75rem;
+}
+/* Large text: the header grows and wraps to a second row (the buttons move under the title)
+   instead of pushing "+ New" past the sidebar's edge. At normal sizes it stays one 3rem row. */
+:root[data-overhaul]:not([data-overhaul="mobile"]) [data-component="ChatSidebar"] .mari-sidebar-header {
+  height: auto;
+  min-height: 3rem;
+  flex-wrap: wrap;
+  row-gap: 0.375rem;
+  padding-block: 0.375rem;
+}
+:root[data-overhaul]:not([data-overhaul="mobile"]) [data-component="ChatSidebar"] .mari-sidebar-header > :last-child {
+  margin-inline-start: auto;
 }
 
 /* ─── Home ─── */
@@ -2462,8 +2479,8 @@
   grid-template-columns: minmax(0, 1fr) !important;
 }
 :root[data-overhaul] .mari-home-feed-grid :is(h2, h3) {
-  font-family: var(--ov-serif);
-  font-size: 1.375rem;
+  font-family: var(--mari-home-widget-title-font, var(--ov-serif));
+  font-size: var(--mari-home-widget-title-size, 1.375rem);
   font-weight: 400;
   letter-spacing: 0;
 }
@@ -4338,7 +4355,7 @@ input.ov-edhead__title:focus {
   align-items: center;
   gap: 0.25rem;
   flex: none;
-  color: #5fc48a;
+  color: var(--mari-status-online);
   font-size: 0.6875rem;
 }
 .ov-tab__presence i {
@@ -4415,7 +4432,7 @@ input.ov-edhead__title:focus {
   color: var(--ov-muted);
 }
 .ov-gsw__steps button.is-done svg {
-  color: #5fc48a;
+  color: var(--mari-status-online);
 }
 .ov-gsw__steps button.is-on {
   background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
@@ -6482,10 +6499,11 @@ input.ov-edhead__title:focus {
       var(--marinara-chat-chrome-surface-bg-hover) 90%,
       var(--marinara-chat-chrome-accent) 10%
     );
+    /* Selected, not accented: the selected state takes a neutral tint (theming panel batch 2). */
     --marinara-chat-chrome-button-bg-active: color-mix(
       in srgb,
       var(--marinara-chat-chrome-surface-bg-active) 84%,
-      var(--marinara-chat-chrome-accent) 16%
+      var(--mari-selected-tint) 16%
     );
     --marinara-chat-chrome-panel-bg: var(--marinara-chat-chrome-button-bg);
     --marinara-chat-chrome-input-bg: var(--marinara-chat-chrome-surface-bg);
@@ -7277,7 +7295,7 @@ input.ov-edhead__title:focus {
   gap: 0.5rem;
   margin-bottom: 0.5rem;
   padding-bottom: 0.375rem;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-bottom: var(--mari-msg-head-rule, 1px solid color-mix(in srgb, currentColor 14%, transparent));
 }
 .ov-rpmsg__grow {
   flex: 1;
@@ -11195,4 +11213,104 @@ input.ov-edhead__title:not(#ov-x) {
 /* Light skins: a game with no scene art sits on the skin's own canvas, not pure black (panel 3, PV11). */
 :root[data-overhaul][data-theme="light"] .bg-black[data-chat-mode="game"] {
   background: color-mix(in srgb, var(--foreground) 6%, var(--background));
+}
+
+/* ─── Grows with Display Size (theming panel H4) ───
+   Lucide icons given a pixel size (size={16}) stayed 16px at every Display Size while the text around
+   them grew. --ov-ui-scale (App.tsx) is the text size over the default, so these keep their proportion.
+   Icons sized by a Tailwind class or in rem already scale and are left alone. */
+:root[data-overhaul] svg.lucide[width="10"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(10px * var(--ov-ui-scale, 1));
+  height: calc(10px * var(--ov-ui-scale, 1));
+}
+:root[data-overhaul] svg.lucide[width="11"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(11px * var(--ov-ui-scale, 1));
+  height: calc(11px * var(--ov-ui-scale, 1));
+}
+:root[data-overhaul] svg.lucide[width="12"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(12px * var(--ov-ui-scale, 1));
+  height: calc(12px * var(--ov-ui-scale, 1));
+}
+:root[data-overhaul] svg.lucide[width="13"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(13px * var(--ov-ui-scale, 1));
+  height: calc(13px * var(--ov-ui-scale, 1));
+}
+:root[data-overhaul] svg.lucide[width="14"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(14px * var(--ov-ui-scale, 1));
+  height: calc(14px * var(--ov-ui-scale, 1));
+}
+:root[data-overhaul] svg.lucide[width="15"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(15px * var(--ov-ui-scale, 1));
+  height: calc(15px * var(--ov-ui-scale, 1));
+}
+:root[data-overhaul] svg.lucide[width="16"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(16px * var(--ov-ui-scale, 1));
+  height: calc(16px * var(--ov-ui-scale, 1));
+}
+:root[data-overhaul] svg.lucide[width="17"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(17px * var(--ov-ui-scale, 1));
+  height: calc(17px * var(--ov-ui-scale, 1));
+}
+:root[data-overhaul] svg.lucide[width="18"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(18px * var(--ov-ui-scale, 1));
+  height: calc(18px * var(--ov-ui-scale, 1));
+}
+:root[data-overhaul] svg.lucide[width="20"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(20px * var(--ov-ui-scale, 1));
+  height: calc(20px * var(--ov-ui-scale, 1));
+}
+:root[data-overhaul] svg.lucide[width="22"]:not([class*="w-"]):not([class*="size-"]) {
+  width: calc(22px * var(--ov-ui-scale, 1));
+  height: calc(22px * var(--ov-ui-scale, 1));
+}
+
+/* The top bar stays one row at any text size: the tab strip and then the right-hand labels give way,
+   never the row itself (H4: at 34px on an iPad Pro it wrapped and lost its first row). */
+.ov-topbar {
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  container: ov-topbar / inline-size;
+}
+.ov-topbar__right {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ov-topbar__right > * {
+  flex-shrink: 0;
+}
+.ov-topbar :is(button, a) {
+  white-space: nowrap;
+}
+@container ov-topbar (max-width: 46rem) {
+  .ov-topbar__right .ov-text-btn > :not(svg):not([aria-hidden="true"]) {
+    display: none;
+  }
+  .ov-topbar__right .ov-text-btn {
+    padding-inline: 0.4375rem;
+  }
+}
+
+/* Chat mode tabs at a big Display Size: the counts, then the icons, step aside before anything overlaps. */
+:root[data-overhaul] [data-tour="chat-modes"] {
+  container-type: inline-size;
+}
+:root[data-overhaul] [data-tour="chat-modes"] .mari-chrome-segmented__button {
+  min-width: 0;
+}
+@container (max-width: 16rem) {
+  :root[data-overhaul] [data-tour="chat-modes"] .ov-mode-count {
+    display: none;
+  }
+}
+@container (max-width: 12.5rem) {
+  :root[data-overhaul] [data-tour="chat-modes"] .mari-chrome-segmented__button > span:first-child {
+    display: none;
+  }
+}
+
+/* The open chat in the chats sidebar: neutral selected tint; the accent stays on the small indicator. */
+:root[data-overhaul] [data-chat-row][data-selected="true"] {
+  background: var(--mari-selected-bg);
+  box-shadow: inset 0 0 0 1px var(--mari-selected-ring);
 }

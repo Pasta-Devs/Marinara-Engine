@@ -1,4 +1,6 @@
 import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { isDefaultChatBackground } from "../../lib/chat-background";
+import { useReportChatArt } from "../../hooks/use-chat-theme";
 import { useStagedTranscriptCap } from "../../hooks/use-staged-transcript";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { normalizeSemanticSummaryRetrievalSettings } from "@marinara-engine/shared";
@@ -229,6 +231,7 @@ function CrossfadeBackground({
   const [bgA, setBgA] = useState<string | null>(url);
   const [bgB, setBgB] = useState<string | null>(null);
   const [aActive, setAActive] = useState(true);
+  useReportChatArt(aActive ? bgA : bgB);
   const activeSlot = useRef<"a" | "b">("a");
   const cleanupTimerRef = useRef<number | null>(null);
   const backgroundBlurStyle = getBackgroundBlurStyle(blurPx);
@@ -294,6 +297,8 @@ function CrossfadeBackground({
         src={bgA ?? undefined}
         alt=""
         draggable={false}
+        data-mari-part="backdrop"
+        data-default-background={isDefaultChatBackground(bgA) ? "true" : undefined}
         className={cn(
           "mari-background pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-center",
           className,
@@ -308,6 +313,8 @@ function CrossfadeBackground({
         src={bgB ?? undefined}
         alt=""
         draggable={false}
+        data-mari-part="backdrop"
+        data-default-background={isDefaultChatBackground(bgB) ? "true" : undefined}
         className={cn(
           "mari-background pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-center",
           className,

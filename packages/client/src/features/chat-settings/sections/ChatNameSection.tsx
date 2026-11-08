@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { copyToClipboard } from "../../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import type { Chat } from "@marinara-engine/shared";
+import { ChatTagsEditor } from "./ChatTagsEditor";
 
 interface ChatNameSectionProps {
   chatId: string;
@@ -12,6 +14,8 @@ interface ChatNameSectionProps {
   onBeginEdit: () => void;
   onNameValueChange: (value: string) => void;
   onSaveName: () => void;
+  /** Shows the chat's tags under the name ("+ Add tag"). */
+  chat?: Chat;
 }
 
 export function ChatNameSection({
@@ -22,6 +26,7 @@ export function ChatNameSection({
   onBeginEdit,
   onNameValueChange,
   onSaveName,
+  chat,
 }: ChatNameSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   return (
@@ -59,6 +64,7 @@ export function ChatNameSection({
             {chatName}
           </button>
         )}
+        {chat ? <ChatTagsEditor chat={chat} /> : null}
         <button
           type="button"
           onClick={async () => {

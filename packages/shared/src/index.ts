@@ -74,6 +74,7 @@ export * from "./schemas/regex.schema.js";
 export * from "./schemas/custom-emoji.schema.js";
 export * from "./schemas/custom-sticker.schema.js";
 export * from "./schemas/theme.schema.js";
+export { MAX_USER_CSS_BYTES, utf8ByteLength } from "./schemas/css-size.js";
 export * from "./schemas/app-settings.schema.js";
 export * from "./schemas/impersonate-prompt-templates.schema.js";
 export * from "./schemas/feature-settings.schema.js";

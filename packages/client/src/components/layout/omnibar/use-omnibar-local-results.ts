@@ -9,6 +9,8 @@ import { OMNIBAR_SETTINGS_TOGGLE_BINDINGS } from "../../../lib/omnibar-settings-
 import type { OmnibarResult } from "../../../lib/omnibar-search";
 import { buildOmnibarControlResults, buildOmnibarChatControlResults } from "../../../lib/omnibar-results";
 import type { useUpdateChat, useUpdateChatMetadata } from "../../../hooks/use-chats";
+import { useActivateTheme, useSetActiveTheme, useThemes } from "../../../hooks/use-themes";
+import { useThemeSafetyStore } from "../../../lib/theme-safety";
 
 /** Every row the omnibar can rank without a server search: setting controls, the open chat's controls, commands and records. */
 export function useOmnibarLocalResults({
@@ -45,9 +47,54 @@ export function useOmnibarLocalResults({
     }),
   );
   const userStatus = useUIStore((state) => state.userStatus);
+  // "Custom theme": the way out of a broken theme that every theme leaves reachable (Ctrl+K and
+  // the omnibar sit in the protected layer). Off switches the theme off everywhere; on picks the
+  // theme again (with "Keep this theme?") or leaves safe mode.
+  const { data: themes = [] } = useThemes();
+  const activeTheme = themes.find((theme) => theme.isActive) ?? null;
+  const safeMode = useThemeSafetyStore((state) => state.safeMode);
+  const blockedThemeId = useThemeSafetyStore((state) => state.blockedThemeId);
+  const setActiveTheme = useSetActiveTheme();
+  const activateTheme = useActivateTheme();
+  const setThemeActive = setActiveTheme.mutateAsync;
+  const customThemeRow = useMemo<OmnibarResult | null>(() => {
+    if (!activeTheme && !safeMode) return null;
+    const on = !!activeTheme && !safeMode && blockedThemeId !== activeTheme.id;
+    return {
+      id: "control:customTheme",
+      title: t("theming.command.customTheme", "Custom theme"),
+      description: activeTheme?.name,
+      aliases: [
+        t("theming.command.turnOff", "Turn off custom theme"),
+        "turn off custom theme",
+        "disable theme",
+        "safe mode",
+        "reset theme",
+        "default theme",
+      ],
+      category: "settings",
+      score: 178,
+      control: {
+        type: "toggle",
+        label: t("theming.command.customTheme", "Custom theme"),
+        value: on,
+        onChange: (next: string | boolean) => {
+          const safety = useThemeSafetyStore.getState();
+          if (next !== true) {
+            void setThemeActive(null).then(() => {
+              safety.clearBlockedTheme();
+              if (safety.safeMode) safety.leaveSafeMode();
+            });
+          } else if (safety.safeMode) safety.leaveSafeMode();
+          else if (activeTheme) void activateTheme(activeTheme);
+        },
+      },
+    };
+  }, [activateTheme, activeTheme, blockedThemeId, safeMode, setThemeActive, t]);
   const controls = useMemo<OmnibarResult[]>(
-    () =>
-      buildOmnibarControlResults({
+    () => [
+      ...(customThemeRow ? [customThemeRow] : []),
+      ...buildOmnibarControlResults({
         localize,
         musicPlayerEnabled,
         notificationSoundsOnlyWhenUnfocused,
@@ -62,7 +109,9 @@ export function useOmnibarLocalResults({
         theme,
         userStatus,
       }),
+    ],
     [
+      customThemeRow,
       localize,
       musicPlayerEnabled,
       notificationSoundsOnlyWhenUnfocused,

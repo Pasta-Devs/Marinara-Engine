@@ -114,7 +114,10 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
         )}
 
         {/* Avatar column */}
-        <div className={cn("mari-message-avatar w-10 flex-shrink-0", shouldHideUserAvatar && "hidden")}>
+        <div
+          data-mari-part="avatar"
+          className={cn("mari-message-avatar w-10 flex-shrink-0", shouldHideUserAvatar && "hidden")}
+        >
           {!isGrouped && (
             <>
               {ctx.onOpenAboutMe ? (
@@ -180,6 +183,7 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
           {/* Header — name + timestamp for first in group */}
           {!isGrouped && (!isUser || hiddenFromAIHeader) && (
             <div
+              data-mari-part="header"
               className={cn(
                 "mari-message-meta mb-0.5 flex items-baseline gap-2",
                 isUser ? "justify-end pr-2 text-right" : "pl-2",

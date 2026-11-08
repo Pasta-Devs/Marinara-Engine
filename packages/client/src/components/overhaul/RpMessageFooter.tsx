@@ -243,9 +243,9 @@ export function OvRpMessageFooter({
     pinned && "is-pinned",
     open && "is-open",
   );
-  if (!armed) return <div className={footerClassName} data-ov-rp-footer />;
+  if (!armed) return <div className={footerClassName} data-ov-rp-footer data-mari-part="actions" />;
   return (
-    <div className={footerClassName} data-ov-rp-footer>
+    <div className={footerClassName} data-ov-rp-footer data-mari-part="actions">
       {part === "generate" && onRegenerate ? (
         <button
           type="button"
