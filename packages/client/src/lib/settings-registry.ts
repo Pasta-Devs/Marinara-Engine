@@ -163,6 +163,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Select",
   },
   {
+    id: "replay-walkthroughs",
+    sectionId: "confirmations-help",
+    labelKey: "settings.controls.replayWalkthroughs.label",
+    label: "Walkthroughs",
+    description: "Replay the welcome tour, this device's walkthrough, or each chat mode's help.",
+    descriptionKey: "settings.search.replayWalkthroughs.description",
+    aliases: ["tutorial", "tour", "walkthrough", "onboarding", "guide", "replay"],
+    keywords: ["show tutorial again", "restart tour", "gestures"],
+    kind: "Button group",
+  },
+  {
     id: "confirm-before-delete",
     sectionId: "confirmations-help",
     labelKey: "settings.controls.confirmBeforeDelete.label",

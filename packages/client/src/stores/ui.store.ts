@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Zustand Store: UI Slice
 // ──────────────────────────────────────────────
+import { markAllModeWalkthroughsSeen, markModeWalkthroughSeen } from "../lib/walkthroughs";
 import { create } from "zustand";
 import { isOverhaulLook, useOverhaulStore } from "./overhaul.store";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -3829,14 +3830,19 @@ export const useUIStore = create<UIState>()(
         setHasCompletedOnboarding: (v) => set({ hasCompletedOnboarding: v }),
         markChatHelpSeen: (mode) =>
           set((state) => {
+            // Also per device kind, so the same mode's help still opens once on a phone or tablet.
+            markModeWalkthroughSeen(mode);
             const seenModes = state.chatHelpSeenModes ?? [];
             return seenModes.includes(mode) ? state : { chatHelpSeenModes: [...seenModes, mode] };
           }),
         setChatHelpButtonHidden: (v) =>
-          set((state) => ({
+          set((state) => {
+            if (v) markAllModeWalkthroughsSeen();
+            return {
             chatHelpButtonHidden: v,
             chatHelpSeenModes: v ? ["conversation", "roleplay", "game"] : state.chatHelpSeenModes,
-          })),
+            };
+          }),
         dismissLinkApiBanner: () => set({ linkApiBannerDismissed: true }),
         dismissConnectionsUpgradeNote: () => set({ connectionsUpgradeNoteDismissed: true }),
         toggleConnectionCollapsed: (id) =>

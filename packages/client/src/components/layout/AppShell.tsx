@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Layout: Main App Shell (Discord-like three-column)
 // ──────────────────────────────────────────────
+import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due";
 import { useCenterPageOpen } from "../../hooks/use-chat-theme";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatSidebar } from "./ChatSidebar";
@@ -791,6 +792,7 @@ export function AppShell({
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
   const gameAssetsBrowserOpen = useUIStore((s) => s.gameAssetsBrowserOpen);
   const hasCompletedOnboarding = useUIStore((s) => s.hasCompletedOnboarding);
+  const deviceWalkthroughDue = useDeviceWalkthroughDue();
   const activeChatId = useChatStore((s) => s.activeChatId);
   const discardNewChatSetup = useDiscardNewChatSetup();
   useEffect(
@@ -2011,8 +2013,8 @@ export function AppShell({
         />
       ) : null}
 
-      {/* First-time onboarding tutorial */}
-      {!hasCompletedOnboarding && (
+      {/* First-time onboarding tutorial, or this device's walkthrough the first time a phone, tablet or computer opens */}
+      {(!hasCompletedOnboarding || deviceWalkthroughDue) && (
         <Suspense fallback={null}>
           <OnboardingTutorial />
         </Suspense>

@@ -41,6 +41,8 @@ import { getChatHelpTargets, type ChatHelpTargetDefinition, type ChatHelpTargetI
 import { orderChatTools, useChatToolsMenuStore } from "../../stores/chat-tools-menu.store";
 import { useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useUIStore } from "../../stores/ui.store";
+import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due";
+import { hasSeenModeWalkthrough, useWalkthroughDevice, useWalkthroughRecord } from "../../lib/walkthroughs";
 import { NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 
@@ -668,6 +670,11 @@ export function ChatHelpOverlay({
   const chatHelpButtonHidden = useUIStore((state) => state.chatHelpButtonHidden ?? false);
   const markChatHelpSeen = useUIStore((state) => state.markChatHelpSeen);
   const setChatHelpButtonHidden = useUIStore((state) => state.setChatHelpButtonHidden);
+  const walkthroughDevice = useWalkthroughDevice();
+  // Read so a Settings > Replay re-arms the help without a reload.
+  const walkthroughRecord = useWalkthroughRecord();
+  // The device walkthrough goes first; this mode's help waits until it is done.
+  const deviceTourDue = useDeviceWalkthroughDue();
   const [open, setOpen] = useState(false);
   const [rootRect, setRootRect] = useState<Rect | null>(null);
   const [surfaces, setSurfaces] = useState<Rect[]>([]);
@@ -698,25 +705,43 @@ export function ChatHelpOverlay({
   }, [chatHelpButtonHidden, mode]);
 
   useEffect(() => {
-    if (
-      chatHelpButtonHidden ||
-      autoOpenBlocked ||
-      !isFirstChat ||
-      seenModes.includes(mode) ||
-      autoOpenedChatRef.current === activeChatId
-    ) {
+    // Each kind of device shows a mode's help once. A computer keeps the original rule (the first chat of
+    // that mode, or a replay from Settings); a phone or tablet shows it the first time that mode opens there,
+    // so someone who has used the mode on a PC for months still learns where its controls sit on touch.
+    const seenHere = hasSeenModeWalkthrough(mode, walkthroughDevice);
+    const due = walkthroughDevice !== "desktop" || isFirstChat || !seenModes.includes(mode);
+    if (chatHelpButtonHidden || autoOpenBlocked || deviceTourDue || seenHere || !due || autoOpenedChatRef.current === activeChatId) {
       return;
     }
-    const root = document.querySelector<HTMLElement>(`[data-chat-mode="${mode}"]`);
-    if (!root || root.getBoundingClientRect().width <= 1) return;
-    const timer = window.setTimeout(() => {
+    // The chat can still be sliding in (the phone layout opens it from the chat list), so wait for it to
+    // have a size instead of giving up on the first look.
+    let tries = 0;
+    let timer = 0;
+    const attempt = () => {
+      const root = document.querySelector<HTMLElement>(`[data-chat-mode="${mode}"]`);
+      if (!root || root.getBoundingClientRect().width <= 1) {
+        if (++tries < 20) timer = window.setTimeout(attempt, 300);
+        return;
+      }
       autoOpenedChatRef.current = activeChatId;
       // It opens by itself only once: leaving without its own exit must not bring it back on every visit.
       markChatHelpSeen(mode);
       requestChatHelp(mode);
-    }, 600);
+    };
+    timer = window.setTimeout(attempt, 600);
     return () => window.clearTimeout(timer);
-  }, [activeChatId, autoOpenBlocked, chatHelpButtonHidden, isFirstChat, markChatHelpSeen, mode, seenModes]);
+  }, [
+    activeChatId,
+    autoOpenBlocked,
+    chatHelpButtonHidden,
+    deviceTourDue,
+    isFirstChat,
+    markChatHelpSeen,
+    mode,
+    seenModes,
+    walkthroughDevice,
+    walkthroughRecord,
+  ]);
 
   useEffect(() => {
     if (!open) return;
