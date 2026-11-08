@@ -125,8 +125,7 @@ jobs:
             BUILD_BRANCH=${{ github.head_ref || github.ref_name }}
           push: false
           load: true
-          cache-from: type=gha,scope=platform-${{ matrix.variant }}-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=platform-${{ matrix.variant }}-${{ matrix.arch }}
+          # This check does not use the Actions cache, to stay within its budget (see #8950, #8967).
       - name: Verify startup, native dependencies and data after replacement
         run: node scripts/smoke-container.mjs marinara-platform-proof:${{ matrix.variant }} ${{ matrix.variant }} ${{ matrix.arch }}
 
