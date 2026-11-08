@@ -45,6 +45,8 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: none
           # The Node regression harness is about 30% of the TypeScript lines and never ships.
+          # Keep the default query suite: query-filters or custom queries turn off overlay analysis
+          # (codeql-action v4.39.1), which doubles PR scans and stops staging saving a base.
           config: |
             paths-ignore:
               - scripts/regressions
@@ -55,3 +57,36 @@ jobs:
           category: /language:${{ matrix.language }}
           # The override above would otherwise make staging upload its database as main's.
           upload-database: ${{ github.ref == 'refs/heads/main' }}
+
+  # The action saves a ~1 GB overlay-base cache per push but never deletes old ones, and a PR
+  # scan restores only the newest, so delete the rest before they evict other caches.
+  prune-overlay-base:
+    name: Prune overlay-base caches
+    needs: analyze
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write # Delete superseded overlay-base cache entries.
+    steps:
+      - name: Delete all but the newest entry per key prefix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CACHE_REF: ${{ github.ref }}
+        # The key prefix is everything before the commit SHA: hash, language and CodeQL version.
+        run: |
+          ids=$(gh api -X GET "repos/$GH_REPO/actions/caches" \
+            -f ref="$CACHE_REF" -f key=codeql-overlay-base-database- -F per_page=100 \
+            --jq '.actions_caches | group_by(.key | sub("-[0-9a-f]{40}-.*$"; "")) | .[] | sort_by(.created_at) | reverse | .[1:][] | .id')
+          failed=0
+          for id in $ids; do
+            echo "Deleting cache $id"
+            if ! err=$(gh api -X DELETE "repos/$GH_REPO/actions/caches/$id" 2>&1); then
+              case "$err" in
+                *"HTTP 404"*) echo "Cache $id is already gone" ;;
+                *) echo "::warning::Could not delete cache $id: $err"; failed=1 ;;
+              esac
+            fi
+          done
+          exit $failed
