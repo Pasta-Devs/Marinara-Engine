@@ -25,6 +25,7 @@ import {
   Play,
   Plus,
   Sparkles,
+  UserRound,
   Users,
   CircleAlert,
 } from "lucide-react";
@@ -47,7 +48,7 @@ import { usePresetFull, usePresets } from "../../hooks/use-presets";
 import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useChatPresets } from "../../hooks/use-chat-presets";
-import { useCharacter } from "../../hooks/use-characters";
+import { useCharacter, usePersonas } from "../../hooks/use-characters";
 import {
   deriveActiveLorebookViews,
   getChatActiveLorebookIds,
@@ -441,14 +442,17 @@ export function ChatSetupStage({
 
   const helperNames = useMemo(() => {
     if (chatMeta.enableAgents !== true || !Array.isArray(chatMeta.activeAgentIds)) return [];
-    return (chatMeta.activeAgentIds as unknown[])
-      .filter((id): id is string => typeof id === "string")
-      .map(
-        (id) =>
-          agentConfigs?.find((config) => config.type === id)?.name ??
-          BUILT_IN_AGENTS.find((agent) => agent.id === id)?.name ??
-          id,
-      );
+    return (
+      (chatMeta.activeAgentIds as unknown[])
+        .filter((id): id is string => typeof id === "string")
+        .map(
+          (id) =>
+            agentConfigs?.find((config) => config.type === id)?.name ??
+            BUILT_IN_AGENTS.find((agent) => agent.id === id)?.name,
+        )
+        // An id with no installed agent behind it would show as a raw lowercase word.
+        .filter((name): name is string => !!name)
+    );
   }, [agentConfigs, chatMeta.activeAgentIds, chatMeta.enableAgents]);
   const helperText = helperNames.length ? listFormat.format(helperNames) : null;
   const look = backgroundLabel(chatBackground);
@@ -680,6 +684,66 @@ export function ChatSetupStage({
     </button>
   );
 
+  const { data: personaList } = usePersonas();
+  const noPersonas = !personaName && personaList?.length === 0;
+  // Your side of the encounter: tap opens the persona picker (which also makes one).
+  const you = (small: boolean) => (
+    <button
+      type="button"
+      onClick={open("persona")}
+      aria-haspopup="dialog"
+      aria-label={t("chat.setupStage.a11y.persona", { value: personaWord })}
+      className={cn(
+        "group flex cursor-pointer items-center bg-transparent p-0 text-center",
+        small ? "gap-2.5 text-left" : "flex-col gap-1.5",
+        FOCUS,
+        "rounded-xl",
+      )}
+    >
+      <span
+        className={cn(
+          "grid flex-none place-items-center overflow-hidden rounded-full",
+          small
+            ? "size-10"
+            : "mb-2 size-[min(24vh,160px)] shadow-[0_0_70px_color-mix(in_srgb,var(--ring)_26%,transparent)]",
+          personaName
+            ? "border-2 border-[color-mix(in_srgb,var(--ring)_70%,transparent)]"
+            : "border border-dashed border-[color-mix(in_srgb,var(--foreground)_30%,transparent)] bg-[color-mix(in_srgb,var(--foreground)_6%,transparent)] text-[var(--muted-foreground)]",
+        )}
+      >
+        {personaName ? (
+          <StageAvatar
+            src={personaInfo?.avatarUrl}
+            crop={personaInfo?.avatarCrop}
+            name={personaName}
+            className={cn("size-full border-0", small ? "text-base" : "text-6xl")}
+          />
+        ) : (
+          <UserRound size={small ? "1.1rem" : "2.75rem"} strokeWidth={1.5} aria-hidden />
+        )}
+      </span>
+      <span className="flex flex-col">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--muted-foreground)]">
+          {t("chat.setupStage.you.label")}
+        </span>
+        <span
+          style={SERIF}
+          className={cn(
+            "italic text-[var(--foreground)] underline decoration-[color-mix(in_srgb,var(--ring)_70%,transparent)] decoration-[1.5px] underline-offset-[5px]",
+            small ? "text-[17px]" : "text-[24px]",
+          )}
+        >
+          {personaName ?? t("chat.setupStage.you.choose")}
+        </span>
+        {personaName && !small && (
+          <span className="mt-0.5 text-[12px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
+            {t("chat.setupStage.you.change")}
+          </span>
+        )}
+      </span>
+    </button>
+  );
+
   return (
     <section
       data-component="ChatSetupStage"
@@ -693,18 +757,20 @@ export function ChatSetupStage({
       aria-label={t("chat.setupStage.a11y.region")}
       className={cn(
         "mari-setup-stage relative z-[2] mx-auto mb-2 w-full max-w-[600px]",
+        // Desktop encounter: you on the left, the text in the middle, them on the right.
+        "md:grid md:min-h-[min(46rem,calc(100dvh-9rem))] md:max-w-none md:grid-cols-[minmax(0,34rem)_minmax(0,1fr)] md:items-center md:gap-x-10 md:px-12 min-[72rem]:px-8 min-[72rem]:grid-cols-[minmax(0,1fr)_minmax(0,38rem)_minmax(0,1fr)]",
         // Phones: fill the list down to the composer so the greeting starts below the fold.
         "max-md:mb-0 max-md:flex max-md:min-h-[calc(100%+var(--mari-roleplay-content-padding-bottom,0px))] max-md:flex-col max-md:pb-[var(--mari-roleplay-content-padding-bottom,0px)]",
         calm
           ? "px-4 pt-6 [--stage-list-offset:3.5rem] max-md:min-h-[calc(100%-3.5rem)] md:pt-10" // the floating chat header shares the list
-          : "px-2 pt-4 md:mx-0 md:px-0 md:ml-[max(0px,calc(50%-20rem))] md:pt-16",
+          : "px-2 pt-4 md:pt-10",
       )}
     >
       {/* Scrim: keeps the text readable over the roleplay background and sprites. */}
       {!calm && (
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-x-[50vw] -bottom-6 -top-[20vh] max-md:hidden -z-10 [mask-image:linear-gradient(to_bottom,#000_75%,transparent)] bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--background)_55%,transparent)_30%,color-mix(in_srgb,var(--background)_70%,transparent)_100%)] md:right-auto md:w-[min(100vw,1100px)] md:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--background)_82%,transparent)_0%,color-mix(in_srgb,var(--background)_58%,transparent)_55%,transparent_100%)]"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--background)_72%,transparent),transparent)] max-md:hidden"
         />
       )}
       {!hasSprite && castAvatars.length > 0 ? (
@@ -714,7 +780,7 @@ export function ChatSetupStage({
           aria-hidden="true"
           onClick={open("characters")}
           className={cn(
-            "mb-4 flex cursor-pointer -space-x-4 bg-transparent p-0 max-md:my-auto max-md:self-center max-md:-space-x-8 md:mb-5",
+            "mb-4 flex cursor-pointer -space-x-4 bg-transparent p-0 max-md:my-auto max-md:self-center max-md:-space-x-8 md:col-start-2 md:row-start-1 md:mb-0 md:justify-self-center md:-space-x-10 min-[72rem]:col-start-3",
             sceneOpen && "max-md:hidden",
           )}
         >
@@ -722,16 +788,39 @@ export function ChatSetupStage({
             <StageAvatar
               key={index}
               {...avatar}
-              className="h-[120px] w-[120px] border-2 border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_55%,transparent)] text-2xl shadow-[0_8px_30px_rgba(0,0,0,.35)] md:h-[76px] md:w-[76px]"
+              className={cn(
+                "h-[120px] w-[120px] border-2 border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_55%,transparent)] text-2xl shadow-[0_8px_30px_rgba(0,0,0,.35)]",
+                castAvatars.length > 1
+                  ? "md:h-[min(24vh,180px)] md:w-[min(24vh,180px)] md:text-4xl"
+                  : "md:h-[min(42vh,320px)] md:w-[min(42vh,320px)] md:border-[3px] md:text-7xl md:shadow-[0_0_70px_color-mix(in_srgb,var(--stage-accent,var(--primary))_38%,transparent)] min-[72rem]:h-[min(46vh,340px)] min-[72rem]:w-[min(46vh,340px)]",
+              )}
             />
           ))}
         </button>
       ) : null}
+      <div className="col-start-1 row-start-1 hidden flex-col items-center gap-3 justify-self-center min-[72rem]:flex">
+        {you(false)}
+        {noPersonas && (
+          <button
+            type="button"
+            onClick={open("persona")}
+            aria-haspopup="dialog"
+            className={cn(
+              "inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--foreground)_16%,transparent)] bg-[color-mix(in_srgb,var(--background)_60%,transparent)] px-3.5 text-[13px] text-[color-mix(in_srgb,var(--foreground)_85%,transparent)] transition-colors hover:text-[var(--foreground)]",
+              FOCUS,
+            )}
+          >
+            <Plus size="0.85rem" aria-hidden />
+            {t("chat.setupStage.editor.createPersona")}
+          </button>
+        )}
+      </div>
       {/* Phones anchor this block at the bottom, where the composer appears after Start. */}
       <div
         data-stage-kb="block"
-        className="max-md:relative max-md:mt-auto max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))]"
+        className="md:col-start-1 md:row-start-1 min-[72rem]:col-start-2 min-[72rem]:text-center max-md:relative max-md:mt-auto max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))]"
       >
+        <div className="mb-4 hidden md:flex min-[72rem]:hidden">{you(true)}</div>
         {!calm && (
           <div
             aria-hidden
@@ -739,7 +828,7 @@ export function ChatSetupStage({
           />
         )}
         {(tags.length > 0 || hasCreatorNotes) && (
-          <p className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs">
+          <p className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] min-[72rem]:justify-center text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs">
             {tags.length > 0 && (
               <span className="font-semibold uppercase tracking-[0.18em]">{[modeTag, ...tags].join(" · ")}</span>
             )}
@@ -775,7 +864,7 @@ export function ChatSetupStage({
             onClick={open("characters")}
             aria-haspopup="dialog"
             className={cn(
-              "cursor-pointer bg-transparent p-0 text-left max-md:block max-md:w-full",
+              "cursor-pointer bg-transparent p-0 text-left max-md:block max-md:w-full min-[72rem]:text-center",
               FOCUS,
               "rounded-md",
             )}
@@ -832,19 +921,19 @@ export function ChatSetupStage({
         </div>
 
         {hasScene && (
-          <div className={cn(!sceneOpen && "max-md:hidden")}>
+          <div className={cn(!sceneOpen && "hidden")}>
             <ChatSetupStageScene chat={chat} first={first} onSetActiveSwipe={onSetActiveSwipe} />
           </div>
         )}
         {(greetingPeek || hasScene) && (
-          <div className="mt-4 flex items-center gap-4 md:hidden">
+          <div className="mt-4 flex items-center gap-4 md:mt-6 min-[72rem]:justify-center">
             {greetingPeek && (
               <button
                 type="button"
                 onClick={openGreeting}
                 aria-haspopup="dialog"
                 className={cn(
-                  "flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 bg-transparent p-0 text-left text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_86%,transparent)]",
+                  "flex min-h-11 min-w-0 flex-1 cursor-pointer items-center min-[72rem]:max-w-[26rem] min-[72rem]:flex-none gap-2.5 bg-transparent p-0 text-left text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_86%,transparent)]",
                   FOCUS,
                   "rounded-sm",
                 )}
@@ -920,7 +1009,7 @@ export function ChatSetupStage({
           </div>
         ) : (
           <>
-            <div className="mt-[18px] flex flex-wrap gap-x-4 max-md:hidden text-[13.5px] text-[color-mix(in_srgb,var(--foreground)_82%,transparent)] md:mt-[22px] md:gap-x-[22px] md:gap-y-1 md:text-sm">
+            <div className="mt-[18px] flex flex-wrap gap-x-4 max-md:hidden min-[72rem]:justify-center text-[13.5px] text-[color-mix(in_srgb,var(--foreground)_82%,transparent)] md:mt-[22px] md:gap-x-[22px] md:gap-y-1 md:text-sm">
               {lineItems
                 .filter((item) => item.text)
                 .map((item) => (
@@ -938,7 +1027,7 @@ export function ChatSetupStage({
                   </button>
                 ))}
             </div>
-            <div className="mt-[18px] flex items-center gap-[18px] md:mt-[22px]">
+            <div className="mt-[18px] flex items-center gap-[18px] md:mt-[22px] min-[72rem]:justify-center">
               {beginButton}
               {toggleButton}
             </div>
@@ -946,7 +1035,7 @@ export function ChatSetupStage({
         )}
 
         {readiness && !noModel && (
-          <p className="mt-6 flex flex-wrap items-center gap-x-2 text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_62%,transparent)]">
+          <p className="mt-6 flex flex-wrap items-center gap-x-2 text-[12.5px] min-[72rem]:justify-center text-[color-mix(in_srgb,var(--foreground)_62%,transparent)]">
             <CircleAlert size="0.85rem" aria-hidden="true" className="flex-none" />
             <span>{t(readiness.text, { percent: readiness.percent })}</span>
             <button
@@ -960,23 +1049,6 @@ export function ChatSetupStage({
               )}
             >
               {t(readiness.fix)}
-            </button>
-          </p>
-        )}
-        {first && (
-          <p className="mb-0 mt-8 flex items-center gap-2 max-md:hidden text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]">
-            <button
-              type="button"
-              onClick={open("opening")}
-              aria-haspopup="dialog"
-              className={cn(
-                "-my-2 inline-flex min-h-11 cursor-pointer items-center gap-2 bg-transparent p-0 hover:text-[var(--foreground)] md:my-0 md:min-h-0",
-                FOCUS,
-                "rounded-sm",
-              )}
-            >
-              <MessageSquare size="0.8rem" aria-hidden className="text-[var(--stage-accent,var(--primary))]" />
-              {t("chat.setupStage.firstMessage")}
             </button>
           </p>
         )}

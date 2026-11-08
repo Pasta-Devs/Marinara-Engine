@@ -9210,6 +9210,46 @@ html[data-setup-stage]:not([data-setup-stage="leaving"]) .mari-chat-input {
   }
 }
 
+@media (min-width: 768px) {
+  /* Desktop encounter: the greeting peek in the stage replaces the bubble below it
+     until Start, which drops data-setup-stage to "leaving" as the curtain folds. */
+  html[data-setup-stage]:not([data-setup-stage="leaving"]) .mari-setup-stage ~ * {
+    display: none;
+  }
+  /* Sprites stand at the right edge at full height, beside the text column; a group
+     makes an overlapping row of up to three. Inline placement, hence !important. */
+  html[data-setup-stage] [data-sprite-overlay] > * {
+    top: 100% !important;
+    left: 84% !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > * img {
+    height: 74dvh !important;
+    max-width: 30vw !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :nth-child(2) {
+    left: 72% !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :nth-child(3) {
+    left: 94% !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :nth-child(n + 4) {
+    display: none;
+  }
+}
+
+@media (min-width: 72rem) {
+  html[data-setup-stage] [data-sprite-overlay] > :only-child {
+    left: 81% !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :only-child img {
+    height: calc(100dvh - 5rem) !important;
+    max-width: 40vw !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > :not(:only-child) img {
+    height: 66dvh !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mari-setup-stage,
   .mari-setup-stage > [data-stage-kb="block"] > h1 {
