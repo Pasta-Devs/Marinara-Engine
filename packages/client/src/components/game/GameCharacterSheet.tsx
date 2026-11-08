@@ -32,6 +32,8 @@ import type {
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { GameRulesetSheet } from "./GameRulesetSheet";
+import { MarinaraClassSheet } from "./MarinaraClassSheet";
+import { marinaraClass, readMarinaraCardProgression } from "@marinara-engine/shared";
 import { rulesetSheetLevel } from "../../lib/ruleset-sheet-view";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
@@ -116,6 +118,8 @@ interface GameCharacterSheetProps {
   /** The game has a ruleset, even while it loads: the header then never shows the game card's own
    *  level, which is from before the ruleset. */
   rulesetPinned?: boolean;
+  /** Classic Marinara classes (combat overhaul): the class kept on this party member's card. */
+  marinara?: { chatId: string; stored: unknown };
 }
 
 interface GameCardDraft {
@@ -351,6 +355,7 @@ export function GameCharacterSheet({
   isRegenerating = false,
   ruleset,
   rulesetPinned = false,
+  marinara,
 }: GameCharacterSheetProps) {
   const { t: localizeUi } = useUiTranslation();
   const backdropDismiss = useBackdropDismiss(onClose);
@@ -361,11 +366,20 @@ export function GameCharacterSheet({
       !ruleset
         ? rulesetPinned
           ? null
-          : card.level
+          : // With Classic Marinara classes, the class progression's level is the character's.
+            ((marinara ? readMarinaraCardProgression(marinara.stored)?.level : undefined) ?? card.level)
         : ruleset.status === "ok"
           ? rulesetSheetLevel(ruleset.definition, ruleset.envelope, ruleset.live, ruleset.items)
           : null,
-    [card.level, ruleset, rulesetPinned],
+    [card.level, ruleset, rulesetPinned, marinara],
+  );
+  const marinaraProgression = useMemo(
+    () => (marinara ? readMarinaraCardProgression(marinara.stored) : undefined),
+    [marinara],
+  );
+  // Classic shows its own fight HP and MP above, so the tracker's copies would only repeat them.
+  const sheetStats = (card.stats ?? []).filter(
+    (stat) => !marinaraProgression || !/^(hp|health|mp|mana)$/i.test(stat.name.trim()),
   );
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -678,15 +692,32 @@ export function GameCharacterSheet({
               className="sr-only"
               tabIndex={-1}
             />
-            <div className="min-w-0 flex-1 pr-20 sm:pr-64">
+            {/* On phones the level badge already keeps clear of the corner buttons, so the text needs no
+                padding of its own there (with both, a name was cut to a few letters). */}
+            <div className={cn("min-w-0 flex-1 sm:pr-64", headerLevel == null && "pr-20")}>
               <h2
                 className="scrollbar-hide max-w-full touch-pan-x overflow-x-auto whitespace-nowrap text-lg font-bold text-[var(--foreground)] [-webkit-overflow-scrolling:touch] sm:truncate sm:overflow-hidden"
                 title={card.title}
               >
                 {card.title}
               </h2>
-              {previewGameCard?.class && (
-                <p className="text-xs font-medium text-[var(--muted-foreground)]">{previewGameCard.class}</p>
+              {marinaraProgression ? (
+                // Classic: the class they fight as, not the story's own label for them.
+                <p className="flex flex-wrap gap-x-1.5 text-xs font-medium text-[var(--muted-foreground)]">
+                  <span className="text-[var(--primary)]">
+                    {marinaraClass(marinaraProgression.activeClass)?.label ?? marinaraProgression.activeClass}
+                  </span>
+                  <span className="whitespace-nowrap">
+                    <span aria-hidden="true">· </span>
+                    {localizeUi("game.combat.marinara.sheet2.classLevel", {
+                      level: marinaraProgression.classLevels[marinaraProgression.activeClass] ?? 1,
+                    })}
+                  </span>
+                </p>
+              ) : (
+                previewGameCard?.class && (
+                  <p className="text-xs font-medium text-[var(--muted-foreground)]">{previewGameCard.class}</p>
+                )
               )}
               {previewGameCard?.shortDescription && !previewGameCard.class && (
                 <p className="text-xs text-[var(--muted-foreground)]">{previewGameCard.shortDescription}</p>
@@ -754,6 +785,11 @@ export function GameCharacterSheet({
               )}
             </div>
           )}
+          {!isEditing && marinara && (
+            <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
+              <MarinaraClassSheet chatId={marinara.chatId} name={card.title} stored={marinara.stored} />
+            </div>
+          )}
           {isEditing && (
             <>
               <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
@@ -788,123 +824,127 @@ export function GameCharacterSheet({
                 </div>
               </div>
 
-              <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
-                <div className="mb-2.5 flex items-center justify-between gap-3">
-                  <SectionHeader
-                    icon={<Shield size={12} />}
-                    title={localizeUi("ui.personas.personastatstab.rpgAttributes")}
-                    className="mb-0 text-[var(--muted-foreground)]"
-                  />
-                  <label className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-                    <input
-                      type="checkbox"
-                      checked={draft.rpgStatsEnabled}
-                      onChange={(e) => setDraft((prev) => ({ ...prev, rpgStatsEnabled: e.target.checked }))}
-                      className="h-4 w-4 rounded accent-[var(--foreground)]"
+              {/* An MRPG game makes no Legacy sheet (owner 2026-11-06): its class sheet holds the stats, so the
+                  Legacy attributes and pools are neither shown nor made here. A card that has them keeps them. */}
+              {!marinara && (
+                <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
+                  <div className="mb-2.5 flex items-center justify-between gap-3">
+                    <SectionHeader
+                      icon={<Shield size={12} />}
+                      title={localizeUi("ui.personas.personastatstab.rpgAttributes")}
+                      className="mb-0 text-[var(--muted-foreground)]"
                     />
-                    {localizeUi("ui.presets.sectionstab.enable")}
-                  </label>
-                </div>
-                {draft.rpgStatsEnabled ? (
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={FIELD_LABEL_CLASS}>{localizeUi("ui.characters.statstab.pools")}</span>
+                    <label className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                      <input
+                        type="checkbox"
+                        checked={draft.rpgStatsEnabled}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, rpgStatsEnabled: e.target.checked }))}
+                        className="h-4 w-4 rounded accent-[var(--foreground)]"
+                      />
+                      {localizeUi("ui.presets.sectionstab.enable")}
+                    </label>
+                  </div>
+                  {draft.rpgStatsEnabled ? (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={FIELD_LABEL_CLASS}>{localizeUi("ui.characters.statstab.pools")}</span>
+                          <button
+                            onClick={addPool}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--marinara-chat-chrome-panel-border)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]"
+                          >
+                            <Plus size={13} />
+                            {localizeUi("ui.game.gamecharactersheet.addPool")}
+                          </button>
+                        </div>
+                        {draft.pools.map((pool, index) => (
+                          <div
+                            key={`${pool.name}-${index}`}
+                            className="grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem_auto] gap-2 max-sm:grid-cols-1"
+                          >
+                            <input
+                              type="color"
+                              value={pool.color}
+                              onChange={(e) => updatePool(index, { color: e.target.value })}
+                              className="h-9 w-8 rounded border border-[var(--marinara-chat-chrome-panel-border)] bg-transparent p-0.5 max-sm:w-full"
+                              aria-label={localizeUi("ui.game.gamecharactersheet.value1Color", {
+                                value1: pool.name || localizeUi("ui.game.gamecharactersheet.pool"),
+                              })}
+                            />
+                            <input
+                              type="text"
+                              value={pool.name}
+                              onChange={(e) => updatePool(index, { name: e.target.value })}
+                              placeholder={localizeUi("ui.game.gamecharactersheet.hp")}
+                              className={TEXT_INPUT_CLASS}
+                            />
+                            <DraftNumberInput
+                              value={pool.value}
+                              onCommit={(value) => updatePool(index, { value: Math.max(0, value) })}
+                              min={0}
+                              selectOnFocus
+                              ariaLabel={`${pool.name || "Pool"} value`}
+                              className={NUMBER_INPUT_CLASS}
+                            />
+                            <DraftNumberInput
+                              value={pool.max}
+                              min={1}
+                              onCommit={(value) => updatePool(index, { max: Math.max(1, value) })}
+                              selectOnFocus
+                              ariaLabel={`${pool.name || "Pool"} max`}
+                              className={NUMBER_INPUT_CLASS}
+                            />
+                            <button
+                              onClick={() => removePool(index)}
+                              className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-app-accent-static)] max-sm:h-9"
+                              title={localizeUi("ui.game.gamecharactersheet.removePool")}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-2">
+                        {draft.attributes.map((attr, index) => (
+                          <div key={`${attr.name}-${index}`} className="grid grid-cols-[minmax(0,1fr)_7rem_auto] gap-2">
+                            <input
+                              type="text"
+                              value={attr.name}
+                              onChange={(e) => updateAttribute(index, "name", e.target.value)}
+                              placeholder={localizeUi("ui.game.gamecharactersheet.str")}
+                              className={TEXT_INPUT_CLASS}
+                            />
+                            <DraftNumberInput
+                              value={attr.value}
+                              onCommit={(value) => updateAttribute(index, "value", value)}
+                              selectOnFocus
+                              className={NUMBER_INPUT_CLASS}
+                            />
+                            <button
+                              onClick={() => removeAttribute(index)}
+                              className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-app-accent-static)]"
+                              title={localizeUi("ui.game.gamecharactersheet.removeAttribute")}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
                         <button
-                          onClick={addPool}
+                          onClick={addAttribute}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--marinara-chat-chrome-panel-border)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]"
                         >
                           <Plus size={13} />
-                          {localizeUi("ui.game.gamecharactersheet.addPool")}
+                          {localizeUi("ui.game.gamecharactersheet.addAttribute")}
                         </button>
                       </div>
-                      {draft.pools.map((pool, index) => (
-                        <div
-                          key={`${pool.name}-${index}`}
-                          className="grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem_auto] gap-2 max-sm:grid-cols-1"
-                        >
-                          <input
-                            type="color"
-                            value={pool.color}
-                            onChange={(e) => updatePool(index, { color: e.target.value })}
-                            className="h-9 w-8 rounded border border-[var(--marinara-chat-chrome-panel-border)] bg-transparent p-0.5 max-sm:w-full"
-                            aria-label={localizeUi("ui.game.gamecharactersheet.value1Color", {
-                              value1: pool.name || localizeUi("ui.game.gamecharactersheet.pool"),
-                            })}
-                          />
-                          <input
-                            type="text"
-                            value={pool.name}
-                            onChange={(e) => updatePool(index, { name: e.target.value })}
-                            placeholder={localizeUi("ui.game.gamecharactersheet.hp")}
-                            className={TEXT_INPUT_CLASS}
-                          />
-                          <DraftNumberInput
-                            value={pool.value}
-                            onCommit={(value) => updatePool(index, { value: Math.max(0, value) })}
-                            min={0}
-                            selectOnFocus
-                            ariaLabel={`${pool.name || "Pool"} value`}
-                            className={NUMBER_INPUT_CLASS}
-                          />
-                          <DraftNumberInput
-                            value={pool.max}
-                            min={1}
-                            onCommit={(value) => updatePool(index, { max: Math.max(1, value) })}
-                            selectOnFocus
-                            ariaLabel={`${pool.name || "Pool"} max`}
-                            className={NUMBER_INPUT_CLASS}
-                          />
-                          <button
-                            onClick={() => removePool(index)}
-                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-app-accent-static)] max-sm:h-9"
-                            title={localizeUi("ui.game.gamecharactersheet.removePool")}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      ))}
                     </div>
-                    <div className="space-y-2">
-                      {draft.attributes.map((attr, index) => (
-                        <div key={`${attr.name}-${index}`} className="grid grid-cols-[minmax(0,1fr)_7rem_auto] gap-2">
-                          <input
-                            type="text"
-                            value={attr.name}
-                            onChange={(e) => updateAttribute(index, "name", e.target.value)}
-                            placeholder={localizeUi("ui.game.gamecharactersheet.str")}
-                            className={TEXT_INPUT_CLASS}
-                          />
-                          <DraftNumberInput
-                            value={attr.value}
-                            onCommit={(value) => updateAttribute(index, "value", value)}
-                            selectOnFocus
-                            className={NUMBER_INPUT_CLASS}
-                          />
-                          <button
-                            onClick={() => removeAttribute(index)}
-                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-app-accent-static)]"
-                            title={localizeUi("ui.game.gamecharactersheet.removeAttribute")}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        onClick={addAttribute}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--marinara-chat-chrome-panel-border)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]"
-                      >
-                        <Plus size={13} />
-                        {localizeUi("ui.game.gamecharactersheet.addAttribute")}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-[var(--muted-foreground)]">
-                    {localizeUi("ui.game.gamecharactersheet.useThisWhenTheSheetShouldTrackHpAnd")}
-                  </p>
-                )}
-              </div>
+                  ) : (
+                    <p className="text-sm text-[var(--muted-foreground)]">
+                      {localizeUi("ui.game.gamecharactersheet.useThisWhenTheSheetShouldTrackHpAnd")}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
                 <div className="mb-2.5 flex items-center justify-between gap-3">
@@ -1072,7 +1112,9 @@ export function GameCharacterSheet({
             </>
           )}
 
-          {!isEditing && hasRpgStats && previewGameCard?.rpgStats && (
+          {/* MRPG replaces the story attributes and pools with its own stats (in the class sheet above), even
+              before a first fight has made the progression. */}
+          {!isEditing && !marinara && hasRpgStats && previewGameCard?.rpgStats && (
             <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
               <SectionHeader
                 icon={<Shield size={12} />}
@@ -1127,7 +1169,7 @@ export function GameCharacterSheet({
             </div>
           )}
 
-          {card.stats && card.stats.length > 0 && (
+          {sheetStats.length > 0 && (
             <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
               <SectionHeader
                 icon={<Shield size={12} />}
@@ -1135,7 +1177,7 @@ export function GameCharacterSheet({
                 className="text-[var(--muted-foreground)]"
               />
               <div className="space-y-2">
-                {card.stats.map((stat) => {
+                {sheetStats.map((stat) => {
                   const max = Math.max(1, stat.max ?? 100);
                   const value = Math.max(0, Math.min(max, stat.value));
                   const width = (value / max) * 100;

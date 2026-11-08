@@ -1,5 +1,6 @@
 import {
   gridDimensions,
+  MARINARA_BOARD_NARROWING,
   TACTICAL_BATTLEFIELD_GENERATOR_VERSION,
   validateTacticalBattlefieldBrief,
 } from "./grid-gen.js";
@@ -49,7 +50,10 @@ export function summarizeTacticalBattlefield(value: unknown): string | undefined
     return undefined;
   }
 
-  const { width, height } = gridDimensions(0, provenance.size as TacticalBattlefieldSize);
+  const full = gridDimensions(0, provenance.size as TacticalBattlefieldSize);
+  // A Classic Marinara board is the same size made narrower (MARINARA_BOARD_NARROWING).
+  const narrowed = gridDimensions(0, provenance.size as TacticalBattlefieldSize, MARINARA_BOARD_NARROWING);
+  const { width, height } = value.grid.width === narrowed.width ? narrowed : full;
   const tiles = value.grid.tiles;
   if (value.grid.width !== width || value.grid.height !== height || !Array.isArray(tiles) || tiles.length !== height) {
     return undefined;

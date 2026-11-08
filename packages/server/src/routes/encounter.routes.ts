@@ -4,6 +4,9 @@ import { z } from "zod";
 import { resolveGameConnection as resolveEncounterConnection } from "../services/game/connection.service.js";
 import {
   TTS_SETTINGS_KEY,
+  marinaraBestiaryMenu,
+  marinaraBestiarySetting,
+  readMarinaraCardProgression,
   combatAiHintsSchema,
   combatBossSchema,
   lenientCombatInterruptFields,
@@ -835,6 +838,27 @@ export async function encounterRulesetBrief(
   };
 }
 
+/** The bestiary the GM picks Classic Marinara foes from: the setting's families at the party's level. */
+export function marinaraEncounterBrief(
+  chatMeta: Record<string, any> | null | undefined,
+  setupConfig: Record<string, any> | null | undefined,
+  hasRuleset: boolean,
+): { menu: ReturnType<typeof marinaraBestiaryMenu> } | null {
+  if (hasRuleset || setupConfig?.marinaraClasses !== true) return null;
+  const setting = marinaraBestiarySetting(
+    typeof chatMeta?.gameWorldKit?.id === "string" ? chatMeta.gameWorldKit.id : null,
+    typeof setupConfig?.genre === "string" ? setupConfig.genre : null,
+  );
+  const levels = (Array.isArray(chatMeta?.gameCharacterCards) ? chatMeta.gameCharacterCards : []).flatMap(
+    (card: Record<string, unknown>) => {
+      const progression = readMarinaraCardProgression(card.marinara);
+      return progression && !progression.fallen ? [progression.level] : [];
+    },
+  );
+  const level = levels.length ? levels.reduce((sum: number, one: number) => sum + one, 0) / levels.length : 1;
+  return { menu: setting ? marinaraBestiaryMenu(setting, level) : [] };
+}
+
 export function buildInitPrompt(
   personaName: string,
   personaCtx: string,
@@ -857,6 +881,8 @@ export function buildInitPrompt(
   /** The setting's own scenes and tile words (worldgen W6d), when its kit names them. */
   battlefields?: WorldBattlefields,
   ttsEmotionIndicatorsEnabled = false,
+  /** Classic Marinara classes (combat overhaul): the setting's bestiary families at the party's level. */
+  marinara?: { menu: ReturnType<typeof marinaraBestiaryMenu> } | null,
 ): ChatMessage[] {
   const msgs: ChatMessage[] = [];
   // What an attack's element may be: one of the setting's own, none in a setting without them.
@@ -925,6 +951,10 @@ export function buildInitPrompt(
   if (tactical) {
     inst += `      "class": "fighter|knight|rogue|archer|mage|healer",\n`;
     inst += `      "movementMode": "walk|fly|teleport",\n`;
+  }
+  if (marinara && !ruleset) {
+    inst += `      "family": "a family id from the bestiary list below, when one of them is this enemy",\n`;
+    inst += `      "tier": "minion|standard|elite|boss",\n`;
   }
   if (ruleset) {
     inst += `      "creature": "a name from the bestiary list below, when one of them is this enemy",\n`;
@@ -1061,6 +1091,17 @@ export function buildInitPrompt(
     inst += `  - A caster you make up has one role (it blasts, heals, or holds the party back) and spells that fit its theme and tier: two or three that cost nothing and at most ${RULESET_INVENTED_CASTER_MOST} that spend its pools, its class level about what its tier would have, and every spell one its class can learn (a sorcerer has no warlock's spells; give it the class whose spells you want). At most one or two that take somebody out of the fight on one failed save, and a spell that stops another spell only on a boss. A spell its sheet cannot pay for is dropped, and past ${RULESET_INVENTED_CASTER_MOST} the rest go, unless it is a boss of legend (with legendaryResistance or signature actions): a famed archmage, a god. Prefer a caster from the bestiary above when one fits, and give a caster others to stand in front of it, or make it the boss.\n`;
   }
 
+  if (marinara && !ruleset) {
+    inst += `- This game fights with Classic Marinara classes. Add a top-level "encounterDifficulty": "easy|normal|hard|deadly" for how hard the story means this fight to be (normal for most fights; deadly only for a true climax).\n`;
+    inst += `- Give every enemy a tier: minion (fodder that goes down fast), standard, elite (a captain, a veteran beast) or boss (one per fight at most, only a true boss, never below party level 5). The Engine fits the fight to the party: too many or too strong enemies are lowered a tier or held back.\n`;
+    inst += `- A boss only when the story calls for one (a climax, a named villain), never in a chance encounter.\n`;
+    inst += `- Add a top-level "encounterKind": "chance" for a chance meeting (wandering beasts, roadside bandits, whatever the party stumbles on), or "story" for a fight the story set up. In a chance encounter the Engine now and then adds a rare treasure creature that flees after a few rounds. Add "treasure": true only when the story itself has found such a rare treasure creature.\n`;
+    if (marinara.menu.length) {
+      inst += `- Bestiary for this setting at the party's level. When an enemy is one of these, give its family id exactly as written and keep its name as listed or the story's own name for it; HP and attacks you write for it are ignored, the bestiary decides them:\n`;
+      for (const one of marinara.menu)
+        inst += `  - ${one.familyId}: ${one.name} (${one.kind}, ${one.role}; tiers ${one.tiers.join("/")}). ${one.summary}\n`;
+    }
+  }
   msgs.push({ role: "user", content: inst });
   return msgs;
 }
@@ -1390,6 +1431,7 @@ export async function encounterRoutes(app: FastifyInstance) {
         gameWorldElementSet(chatMeta),
         gameWorldBattlefields(chatMeta),
         gameTtsEmotionIndicatorsEnabled(await createAppSettingsStorage(app.db).get(TTS_SETTINGS_KEY)),
+        marinaraEncounterBrief(chatMeta, setupConfig, !!fightRuleset),
       );
       // A fight the story set (Capability API 1.343): its opponents are the story's, never the model's.
       // Creatures the ruleset doesn't have are refused (and logged); with none left, the model picks them.
@@ -1528,6 +1570,34 @@ export async function encounterRoutes(app: FastifyInstance) {
           combatState = { ...combatState, enemies: bossed };
           logger.info("[game/combat:init] chatId=%s boss fight with no boss marked: %s is the boss", chatId, made.name);
         }
+      }
+      // Classic Marinara classes: each enemy's bestiary family and tier, and the fight's own difficulty,
+      // ride on the enemy as `marinara` for the fight's start to read.
+      if (!fightRuleset && setupConfig?.marinaraClasses === true) {
+        const tiers = ["minion", "standard", "elite", "boss"];
+        const encounter = ["easy", "normal", "hard", "deadly"].includes(String(combatState.encounterDifficulty))
+          ? String(combatState.encounterDifficulty)
+          : undefined;
+        // A chance encounter may turn up a rare treasure foe; the story may also find one itself.
+        const chance = combatState.encounterKind === "chance";
+        const treasure = combatState.treasure === true;
+        combatState = {
+          ...combatState,
+          enemies: ((combatState.enemies as Array<Record<string, unknown>>) ?? []).map((enemy) => {
+            const tier = tiers.includes(String(enemy.tier)) ? String(enemy.tier) : undefined;
+            const family = typeof enemy.family === "string" && enemy.family.trim() ? enemy.family.trim() : undefined;
+            return {
+              ...enemy,
+              marinara: {
+                ...(family ? { family: { familyId: family, ...(tier ? { tier } : {}) } } : {}),
+                ...(tier ? { tier } : {}),
+                ...(encounter ? { encounter } : {}),
+                ...(chance ? { chance: true } : {}),
+                ...(treasure ? { treasure: true } : {}),
+              },
+            };
+          }),
+        };
       }
       if (combatStyle === "tactical") {
         const tacticalResult = validateTacticalEncounterBlueprint(combatState);

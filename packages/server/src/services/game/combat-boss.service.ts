@@ -83,7 +83,8 @@ export function buildCombatBossPrompt(state: CombatDirectorState, personality = 
         battlefield: state.tactical
           ? { grid: state.tactical.grid, environment: state.tactical.environment }
           : undefined,
-        recentEvents: state.log.slice(-16),
+        // The Engine's own AI reasons are for Debug, not for the Game Master.
+        recentEvents: state.log.filter((entry) => entry.kind !== "marinara:reasoning").slice(-16),
       }),
     },
   ];

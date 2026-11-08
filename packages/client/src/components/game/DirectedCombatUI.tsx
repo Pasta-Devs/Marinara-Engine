@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps 
 import { ApiError } from "../../lib/api-client";
 import type {
   CombatDecisionOption,
+  MarinaraDamageType,
   RulesetDefinition,
   TacticalBattlefieldBrief,
   TacticalTerrain,
@@ -21,7 +22,9 @@ import { rulesetSpendCarry, runRulesetSpendCarry, type RulesetSpendCarried } fro
 import type { RulesetCellChoice } from "../../lib/ruleset-combat-board";
 import { TacticalCombatUI } from "./TacticalCombatUI";
 import { CombatAiControls } from "./CombatAiControls";
+import { MarinaraFightPanel } from "./MarinaraFightPanel";
 import { cn } from "../../lib/utils";
+import { useUIStore } from "../../stores/ui.store";
 import { GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
 
 type Props = ComponentProps<typeof GameCombatUI> & {
@@ -44,6 +47,8 @@ type Props = ComponentProps<typeof GameCombatUI> & {
 };
 export function DirectedCombatUI(props: Props) {
   const { t, i18n } = useTranslation();
+  // The AI's reasons for its Classic Marinara picks are shown only with Debug on.
+  const debugMode = useUIStore((state) => state.debugMode);
   const {
     session: s,
     error,
@@ -331,6 +336,7 @@ export function DirectedCombatUI(props: Props) {
                   actorId: s.actorId,
                   canAct,
                   round: s.round,
+                  paused: !!s.mercy,
                   outcome: s.outcome,
                   onAction: (action) => send(action.type === "flee" ? { type: "flee" } : { type: "classic", action }),
                   onControl: (unitId, controller) => send({ type: "control", unitId, controller }),
@@ -402,7 +408,51 @@ export function DirectedCombatUI(props: Props) {
               </div>
             )}
             {fight && definition && <RulesetCombatStatus definition={definition} view={fight} />}
-            {s.stage === "select" && s.style === "classic" && (
+            {!fight && (
+              <MarinaraFightPanel
+                party={s.party}
+                enemies={s.enemies}
+                actorId={s.actorId}
+                growth={s.summary?.marinara}
+                loot={s.summary?.loot}
+                over={!!s.outcome || !!s.mercy}
+                busy={busy}
+                onLoadAmmo={(unitId, type) => send({ type: "loadAmmo", unitId, ammo: type as MarinaraDamageType })}
+                onChannel={(unitId, element) =>
+                  send({ type: "channelElement", unitId, element: element as MarinaraDamageType })
+                }
+              />
+            )}
+            {/* Only foes who yielded are left: the party spares them or finishes them (Alyssa 2026-11-01);
+                both pay loot and XP. */}
+            {s.mercy && !s.outcome && (
+              <div className="mt-2" role="group" aria-live="polite" data-testid="combat-mercy">
+                <p className="font-medium">
+                  {t("game.combat.director.mercy.ask", {
+                    names: s.mercy.foeIds.map((id) => name(id)).join(", "),
+                    count: s.mercy.foeIds.length,
+                  })}
+                </p>
+                <p className="text-xs text-[var(--muted-foreground)]">{t("game.combat.director.mercy.help")}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    disabled={busy}
+                    className="min-h-11 rounded-md bg-[var(--primary)] px-4 text-[var(--primary-foreground)] disabled:opacity-50"
+                    onClick={() => send({ type: "mercy", choice: "spare" })}
+                  >
+                    {t("game.combat.director.mercy.spare")}
+                  </button>
+                  <button
+                    disabled={busy}
+                    className="min-h-11 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-4 disabled:opacity-50"
+                    onClick={() => send({ type: "mercy", choice: "finish" })}
+                  >
+                    {t("game.combat.director.mercy.finish")}
+                  </button>
+                </div>
+              </div>
+            )}
+            {s.stage === "select" && s.style === "classic" && !s.mercy && (
               <button
                 disabled={busy}
                 className="mt-2 min-h-11 rounded-md bg-[var(--secondary)] px-3"
@@ -411,7 +461,7 @@ export function DirectedCombatUI(props: Props) {
                 {t("game.combat.director.waitRound")}
               </button>
             )}
-            {s.stage === "select" && s.style === "tactical" && !busy && (
+            {s.stage === "select" && s.style === "tactical" && !busy && !s.mercy && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <p className="w-full text-xs text-[var(--muted-foreground)]">{t("game.combat.director.beginHint")}</p>
                 {s.party
@@ -491,13 +541,16 @@ export function DirectedCombatUI(props: Props) {
               <details className="mt-2">
                 <summary className="cursor-pointer py-1">{t("game.combat.director.events")}</summary>
                 <ol className="mt-1 space-y-1 text-xs text-[var(--muted-foreground)]">
-                  {s.log.slice(-12).map((e) => (
-                    <li key={e.id}>
-                      {e.message ? t(e.message.key, { ...e.message.params, defaultValue: e.text }) : e.text}
-                      {e.message?.suffixKey && ` ${t(e.message.suffixKey)}`}
-                      {e.source === "fallback" && ` (${t("game.combat.director.fallbackUsed")})`}
-                    </li>
-                  ))}
+                  {s.log
+                    .filter((e) => debugMode || e.kind !== "marinara:reasoning")
+                    .slice(debugMode ? -24 : -12)
+                    .map((e) => (
+                      <li key={e.id}>
+                        {e.message ? t(e.message.key, { ...e.message.params, defaultValue: e.text }) : e.text}
+                        {e.message?.suffixKey && ` ${t(e.message.suffixKey)}`}
+                        {e.source === "fallback" && ` (${t("game.combat.director.fallbackUsed")})`}
+                      </li>
+                    ))}
                 </ol>
               </details>
             )}

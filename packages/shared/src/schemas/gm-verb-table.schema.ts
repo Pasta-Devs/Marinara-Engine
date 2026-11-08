@@ -96,6 +96,7 @@ export const RESERVED_GM_TAG_NAMES = Object.freeze([
   "main",
   "map",
   "map_update",
+  "mrpg_join",
   "music",
   "note",
   "on",

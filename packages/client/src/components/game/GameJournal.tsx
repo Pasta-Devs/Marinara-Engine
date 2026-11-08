@@ -39,6 +39,7 @@ import { GameRulesetUpdate } from "./GameRulesetUpdate";
 
 import type { GameNpc, WorldFile, WorldJournal } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { MarinaraLegacyUpgrade } from "./MarinaraLegacyUpgrade";
 
 interface JournalEntry {
   timestamp: string;
@@ -440,6 +441,7 @@ export function GameJournal({
         data-game-journal-scroll
         className="relative min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain p-4 [-webkit-overflow-scrolling:touch]"
       >
+        {activeTab === "all" && <MarinaraLegacyUpgrade chatId={chatId} />}
         {activeTab === "all" && (
           <TimelineView
             entries={visibleEntries}
