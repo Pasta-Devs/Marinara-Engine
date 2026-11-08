@@ -596,6 +596,14 @@ export interface CapabilityRuntimeHost {
   embeddings: CapabilityEmbeddingHost;
   /** Resolve the package's current embedding configuration. Requires capability API 1.15. */
   resolveEmbeddings(): Promise<CapabilityEmbeddingHost>;
+  /**
+   * Capability API 1.818. Embeddings from a source the package chooses, without the package's agent connection or
+   * the app-wide default. `null` is the built-in local MiniLM embedder. A connection id is that connection's own
+   * embedding source (its Embedding Connection, endpoint URL and model, as Connections > Test embedding resolves it).
+   * Resolves null for an id that names no connection, or a connection without a usable embedding source. Optional:
+   * feature-detect it on older Engines.
+   */
+  embeddingsFor?(connectionId: string | null): Promise<CapabilityEmbeddingHost | null>;
   getAgentConfig(): Promise<{ connectionId: string | null; settings: Record<string, unknown> } | null>;
   /**
    * Capability API 1.380. Resolve this package's per-chat reference lorebook through
