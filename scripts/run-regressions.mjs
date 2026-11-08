@@ -60,7 +60,7 @@ function discoverRegressions(directory = regressionsRoot) {
   return files.sort();
 }
 
-const USAGE = 'Usage: node scripts/run-regressions.mjs [--list] [--filter <text>] [--concurrency <n>] [--shard <i>/<n>]';
+const USAGE = 'Usage: node scripts/run-regressions.mjs [--list] [--filter <text>]... [--concurrency <n>] [--shard <i>/<n>]';
 
 function parseConcurrency(value, message = USAGE) {
   if (!/^[1-9][0-9]*$/.test(value ?? '')) throw new Error(message);
@@ -76,7 +76,8 @@ function parseShard(value) {
 
 function parseArguments(args) {
   let list = false;
-  let filter;
+  // A file runs when any --filter matches it.
+  const filters = [];
   let concurrency;
   let shard;
 
@@ -87,10 +88,8 @@ function parseArguments(args) {
     } else if (argument === '--list') {
       list = true;
     } else if (argument === '--filter') {
-      if (filter !== undefined || index + 1 === args.length || args[index + 1] === '') {
-        throw new Error(USAGE);
-      }
-      filter = args[index + 1];
+      if (index + 1 === args.length || args[index + 1] === '') throw new Error(USAGE);
+      filters.push(args[index + 1]);
       index += 1;
     } else if (argument === '--concurrency') {
       if (concurrency !== undefined) throw new Error(USAGE);
@@ -109,7 +108,7 @@ function parseArguments(args) {
   concurrency ??= fromEnv
     ? parseConcurrency(fromEnv, 'REGRESSION_CONCURRENCY must be a positive whole number.')
     : os.availableParallelism();
-  return { concurrency, filter, list, shard };
+  return { concurrency, filters, list, shard };
 }
 
 // Deal the slow-first order round-robin so every shard gets its share of the known slow files.
@@ -262,12 +261,12 @@ async function main() {
   for (const signal of process.platform === 'win32' ? ['SIGINT', 'SIGTERM', 'SIGBREAK'] : ['SIGINT', 'SIGTERM']) {
     process.on(signal, () => handleRunnerSignal(signal));
   }
-  const { concurrency, filter, list, shard } = parseArguments(process.argv.slice(2));
+  const { concurrency, filters, list, shard } = parseArguments(process.argv.slice(2));
   const discovered = discoverRegressions();
   if (discovered.length === 0) throw new Error('No regression files were discovered.');
 
-  const matched = filter === undefined ? discovered : discovered.filter((file) => file.includes(filter));
-  if (matched.length === 0) throw new Error(`No regression files matched filter: ${filter}`);
+  const matched = filters.length === 0 ? discovered : discovered.filter((file) => filters.some((filter) => file.includes(filter)));
+  if (matched.length === 0) throw new Error(`No regression files matched filter: ${filters.join(', ')}`);
   const selected = shard ? shardOf(matched, shard) : matched;
   if (selected.length === 0) throw new Error(`Shard ${shard.index}/${shard.total} has no regression files.`);
 
