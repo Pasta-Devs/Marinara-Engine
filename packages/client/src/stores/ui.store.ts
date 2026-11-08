@@ -732,8 +732,12 @@ interface UIState {
   settingsTargetSectionId: string | null;
   /** Not saved: a Home surface to open once Home mounts (see `requestHome`). */
   homeRequest: HomeRequest | null;
-  /** Not saved: the Home tab a package opened the connection editor from; closing that editor returns there. */
-  connectionDetailReturnTab: string | null;
+  /**
+   * Not saved: the Home tab being shown (`"home"` or an installed package's id). It lives here because the desktop
+   * shell unmounts Home under every full-page surface, so Back must find the tab the user left. Opening a chat
+   * resets it (AppShell); `closeAllDetails` leaves it alone.
+   */
+  homeTab: string;
   /** Not saved: the What's New window should open again (see `requestWhatsNew`). */
   whatsNewRequested: boolean;
   modal: { type: string; props?: Record<string, unknown> } | null;
@@ -890,7 +894,10 @@ interface UIState {
   cardLibraryKind: CardLibraryKind;
   /** When true, the main area shows the full-page downloadable agent catalog */
   agentCatalogOpen: boolean;
-  /** Optional package selected when opening the downloadable agent catalog */
+  /**
+   * The agent page the catalog shows, or null for its front page. Set when the catalog opens and kept current by
+   * the catalog while it is mounted, so Back from an agent's Settings returns to the page that was being viewed.
+   */
   agentCatalogInitialPackageId: string | null;
   /** Last selected character card inside the full-page character library */
   characterLibrarySelectedId: string | null;
@@ -1328,6 +1335,7 @@ interface UIState {
   setSettingsTargetControlId: (controlId: string | null) => void;
   requestHome: (request: HomeRequest) => void;
   consumeHomeRequest: () => void;
+  setHomeTab: (tab: string) => void;
   requestWhatsNew: () => void;
   consumeWhatsNewRequest: () => void;
   setSettingsTargetSectionId: (sectionId: string | null) => void;
@@ -1397,7 +1405,7 @@ interface UIState {
   setLorebookLinkClipboard: (links: NonNullable<UIState["lorebookLinkClipboard"]>) => void;
   openPresetDetail: (id: string, options?: { initialTab?: string }) => void;
   closePresetDetail: () => void;
-  openConnectionDetail: (id: string, options?: { returnToHomeTab?: string }) => void;
+  openConnectionDetail: (id: string) => void;
   closeConnectionDetail: () => void;
   openAgentDetail: (agentType: string) => void;
   closeAgentDetail: () => void;
@@ -1423,6 +1431,7 @@ interface UIState {
   closeCharacterLibrary: () => void;
   openAgentCatalog: (packageId?: string) => void;
   closeAgentCatalog: () => void;
+  setAgentCatalogPage: (packageId: string | null) => void;
   openBotBrowser: () => void;
   closeBotBrowser: () => void;
   openGameAssetsBrowser: () => void;
@@ -1688,11 +1697,7 @@ const CLOSED_MAIN_SURFACE = {
  */
 type MainSurfaceSnapshot = Pick<
   UIState,
-  | MainSurfaceKey
-  | "cardLibraryKind"
-  | "detailReturnRightPanel"
-  | "connectionDetailReturnTab"
-  | "pendingSpatialMapDraftReview"
+  MainSurfaceKey | "cardLibraryKind" | "detailReturnRightPanel" | "pendingSpatialMapDraftReview"
 >;
 
 const MAIN_SURFACE_HISTORY_LIMIT = 10;
@@ -1714,7 +1719,6 @@ function snapshotMainSurface(state: UIState): MainSurfaceSnapshot {
   const snapshot = {
     cardLibraryKind: state.cardLibraryKind,
     detailReturnRightPanel: state.detailReturnRightPanel,
-    connectionDetailReturnTab: state.connectionDetailReturnTab,
     pendingSpatialMapDraftReview: state.pendingSpatialMapDraftReview,
   } as MainSurfaceSnapshot;
   for (const key of MAIN_SURFACE_KEYS) (snapshot as Record<string, unknown>)[key] = state[key];
@@ -1755,12 +1759,11 @@ function leaveMainSurface(s: UIState, own: Partial<UIState>): Partial<UIState> {
 }
 
 /** Where the Back button of the open surface lands; `null` means the chat (or Home), which the caller resolves. */
-export type BackDestination =
-  { surface: MainSurfaceKey; cardLibraryKind: CardLibraryKind } | { panel: Panel } | { home: true } | null;
+export type BackDestination = { surface: MainSurfaceKey; cardLibraryKind: CardLibraryKind } | { panel: Panel } | null;
 
 /**
- * Names the destination `closeTopMainSurface` reaches from `state`, mirroring `leaveMainSurface` and the two closes
- * that override it: the regex editor's return target and the connection editor's Home tab.
+ * Names the destination `closeTopMainSurface` reaches from `state`, mirroring `leaveMainSurface` and the close that
+ * overrides it: the regex editor's return target.
  */
 export function selectBackDestination(state: UIState): BackDestination {
   if (state.regexDetailId && state.regexDetailReturn) {
@@ -1772,7 +1775,6 @@ export function selectBackDestination(state: UIState): BackDestination {
     const surface = mainSurfaceKind(top);
     if (surface) return { surface, cardLibraryKind: top.cardLibraryKind };
   }
-  if (state.connectionDetailId && state.connectionDetailReturnTab) return { home: true };
   return state.detailReturnRightPanel ? { panel: state.detailReturnRightPanel } : null;
 }
 
@@ -2356,7 +2358,7 @@ export const useUIStore = create<UIState>()(
         lastAppError: null,
         settingsTargetControlId: null,
         homeRequest: null,
-        connectionDetailReturnTab: null,
+        homeTab: "home",
         whatsNewRequested: false,
         settingsTargetSectionId: null,
         modal: null,
@@ -2762,6 +2764,7 @@ export const useUIStore = create<UIState>()(
         setSettingsTargetControlId: (controlId) => set({ settingsTargetControlId: controlId }),
         requestHome: (homeRequest) => set({ homeRequest }),
         consumeHomeRequest: () => set({ homeRequest: null }),
+        setHomeTab: (homeTab) => set({ homeTab }),
         requestWhatsNew: () => set({ whatsNewRequested: true }),
         consumeWhatsNewRequest: () => set({ whatsNewRequested: false }),
         setSettingsTargetSectionId: (sectionId) => set({ settingsTargetSectionId: sectionId }),
@@ -2915,25 +2918,12 @@ export const useUIStore = create<UIState>()(
           })),
         closePresetDetail: () =>
           set((s) => leaveMainSurface(s, { presetDetailId: null, presetDetailInitialTab: null })),
-        openConnectionDetail: (id, options) =>
+        openConnectionDetail: (id) =>
           set((s) => ({
             ...enterMainSurface(s, { connectionDetailId: id }),
-            // Switching the open editor to another connection keeps the package tab it returns to; an editor
-            // opened afresh starts without one.
-            connectionDetailReturnTab:
-              options?.returnToHomeTab || (s.connectionDetailId ? s.connectionDetailReturnTab : null),
             ...getMobileDetailReturnState(s),
           })),
-        closeConnectionDetail: () =>
-          set((s) => {
-            const left = leaveMainSurface(s, { connectionDetailId: null, connectionDetailReturnTab: null });
-            // Only closing the editor itself returns Home to the package tab that opened it. Leaving it any other
-            // way (a chat, another editor, closeAllDetails) queues nothing, so Home never jumps to that tab later.
-            // Popping to another surface leaves Home hidden, so nothing is queued then either.
-            return s.connectionDetailId && s.connectionDetailReturnTab && s.mainSurfaceHistory.length === 0
-              ? { ...left, homeRequest: { kind: "tab" as const, tab: s.connectionDetailReturnTab } }
-              : left;
-          }),
+        closeConnectionDetail: () => set((s) => leaveMainSurface(s, { connectionDetailId: null })),
         openAgentDetail: (agentType) =>
           set((s) => ({
             ...enterMainSurface(s, { agentDetailId: agentType }),
@@ -3028,6 +3018,7 @@ export const useUIStore = create<UIState>()(
           })),
         closeAgentCatalog: () =>
           set((s) => leaveMainSurface(s, { agentCatalogOpen: false, agentCatalogInitialPackageId: null })),
+        setAgentCatalogPage: (agentCatalogInitialPackageId) => set({ agentCatalogInitialPackageId }),
         openBotBrowser: () =>
           set((s) => ({ ...enterMainSurface(s, { botBrowserOpen: true }), ...getMobileDetailReturnState(s) })),
         closeBotBrowser: () => set((s) => leaveMainSurface(s, { botBrowserOpen: false })),
@@ -3049,7 +3040,6 @@ export const useUIStore = create<UIState>()(
           set({
             ...CLOSED_MAIN_SURFACE,
             mainSurfaceHistory: [],
-            connectionDetailReturnTab: null,
             editorDirty: false,
             detailReturnRightPanel: null,
           }),

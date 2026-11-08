@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 // Back on a full-page surface pops the surface opened before it (one step per press) instead of closing to the chat.
 // This drives the real store: the stack lives in `ui.store`, and so do the on-screen Back and hardware back paths.
@@ -156,17 +157,30 @@ Object.defineProperty(globalThis, "localStorage", { configurable: true, value: s
   ui().closeCharacterDetail();
   assert.equal(ui().lorebookDetailId, "L");
 
-  // 9. A connection editor opened from a Home package returns to its tab; one opened over a surface returns to it.
+  // 9. The Home tab is remembered by the store, so every editor (not only the connection editor) returns to it.
   reset();
-  ui().openConnectionDetail("X", { returnToHomeTab: "packages" });
+  ui().setHomeTab("packages");
+  ui().openConnectionDetail("X");
   ui().closeConnectionDetail();
-  assert.deepEqual(ui().homeRequest, { kind: "tab", tab: "packages" });
+  assert.equal(ui().homeTab, "packages", "the connection editor returns to the tab it was opened from");
+  assert.equal(ui().homeRequest, null, "no tab request is needed: Home remounts on the remembered tab");
+  assert.equal(ui().hasAnyDetailOpen(), false);
   reset();
+  ui().setHomeTab("noodle");
+  ui().openCharacterDetail("C");
+  ui().closeCharacterDetail();
+  assert.equal(ui().homeTab, "noodle", "so does the character editor");
   ui().openLorebookDetail("L");
-  ui().openConnectionDetail("X", { returnToHomeTab: "packages" });
-  ui().closeConnectionDetail();
-  assert.equal(ui().lorebookDetailId, "L");
-  assert.equal(ui().homeRequest, null, "Home is not visible after a pop, so no tab is queued");
+  ui().openCharacterDetail("C");
+  ui().closeCharacterDetail();
+  ui().closeLorebookDetail();
+  assert.equal(ui().homeTab, "noodle", "and so does a two-deep stack");
+  ui().openLorebookDetail("L");
+  ui().openCharacterDetail("C");
+  ui().closeAllDetails();
+  assert.equal(ui().homeTab, "noodle", "the ✕ closes to Home on the tab left behind");
+  assert.ok(!("homeTab" in pickPersistedUIState(ui())), "the Home tab is never saved");
+  assert.ok(!("homeTab" in pickSyncedSettings(ui())), "nor synced");
 
   // 10. A pending map draft review never shows on another surface, and returns with the map it belongs to.
   reset();
@@ -269,14 +283,15 @@ Object.defineProperty(globalThis, "localStorage", { configurable: true, value: s
   ui().closeCharacterDetail();
   assert.deepEqual(selectBackDestination(ui()), { panel: "lorebooks" });
 
-  // 15c. The regex editor returns to the card or preset that opened it, and the connection editor to its Home tab.
+  // 15c. The regex editor returns to the card or preset that opened it; a connection editor over Home has no
+  // destination of its own (Home shows the tab it left).
   reset();
   ui().openCharacterDetail("C");
   ui().openRegexDetail("R", { returnTo: { characterId: "C", tab: "advanced" } });
   assert.deepEqual(selectBackDestination(ui()), { surface: "characterDetailId", cardLibraryKind: "characters" });
   reset();
-  ui().openConnectionDetail("X", { returnToHomeTab: "connections" });
-  assert.deepEqual(selectBackDestination(ui()), { home: true });
+  ui().openConnectionDetail("X");
+  assert.equal(selectBackDestination(ui()), null);
 
   // 16. The ✕ shows exactly when Back would not already reach the base (a surface or the opening panel is the destination).
   const { selectShowsSurfaceClose } = await import("../../packages/client/src/components/ui/SurfaceCloseButton.js");
@@ -296,8 +311,8 @@ Object.defineProperty(globalThis, "localStorage", { configurable: true, value: s
   assert.equal(ui().rightPanelOpen, false, "closing to the chat does not reopen the panel");
   assert.equal(selectShowsSurfaceClose(ui()), false);
   reset();
-  ui().openConnectionDetail("X", { returnToHomeTab: "connections" });
-  assert.equal(selectShowsSurfaceClose(ui()), false, "a Home destination is a single Back");
+  ui().openConnectionDetail("X");
+  assert.equal(selectShowsSurfaceClose(ui()), false, "Back already reaches Home");
   reset();
   ui().openCharacterDetail("C");
   ui().openRegexDetail("R", { returnTo: { characterId: "C", tab: "advanced" } });
@@ -366,6 +381,32 @@ Object.defineProperty(globalThis, "localStorage", { configurable: true, value: s
   await accepted;
   assert.equal(ui().hasAnyDetailOpen(), false, "discarding closes every surface");
   assert.equal(ui().mainSurfaceHistory.length, 0);
+
+  // 18. The Agent Organizer remembers the agent page being viewed, so Back from that agent's Settings returns to it
+  // (not to the page the catalog was opened for).
+  reset();
+  ui().openAgentCatalog("A");
+  assert.equal(ui().agentCatalogInitialPackageId, "A");
+  ui().setAgentCatalogPage("B");
+  ui().openAgentDetail("B");
+  assert.equal(ui().agentCatalogOpen, false);
+  ui().closeAgentDetail();
+  assert.equal(ui().agentCatalogOpen, true, "Back reopens the catalog");
+  assert.equal(ui().agentCatalogInitialPackageId, "B", "on the page that was viewed, not the one it opened for");
+  ui().setAgentCatalogPage(null);
+  ui().openAgentDetail("C");
+  ui().closeAgentDetail();
+  assert.equal(ui().agentCatalogInitialPackageId, null, "the front page is remembered too");
+  ui().closeAgentCatalog();
+  assert.equal(ui().agentCatalogOpen, false);
+  ui().openAgentCatalog();
+  assert.equal(ui().agentCatalogInitialPackageId, null, "a fresh open starts on the front page");
+
+  // 19. Opening a chat starts Home on its first tab: the reset lives in AppShell, which the store cannot see.
+  assert.match(
+    readFileSync(new URL("../../packages/client/src/components/layout/AppShell.tsx", import.meta.url), "utf8"),
+    /if \(activeChatId\) useUIStore\.getState\(\)\.setHomeTab\("home"\);/u,
+  );
 
   console.info("Surface back history regression passed.");
 }

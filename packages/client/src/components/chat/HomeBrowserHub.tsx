@@ -1087,7 +1087,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     () => browserPackages.find((item) => item.id === "noodle") ?? null,
     [browserPackages],
   );
-  const [activeTab, setActiveTab] = useState("home");
+  // Kept in the store: the desktop shell unmounts Home under every editor, and Back must find the tab left behind.
+  const activeTab = useUIStore((state) => state.homeTab);
+  const setActiveTab = useUIStore((state) => state.setHomeTab);
   const [fullscreenPackageId, setFullscreenPackageId] = useState<string | null>(null);
   const activeBrowserPackageId = pageActive && browserPackages.some((item) => item.id === activeTab) ? activeTab : null;
   const activeBrowserPackageIdRef = useRef(activeBrowserPackageId);
@@ -1328,15 +1330,17 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
 
   useEffect(() => {
     if (activeTab === "home" || activeTab === "professor") return;
+    // A remount before the installed list arrives must not mistake the remembered package for an uninstalled one.
+    if (installed.isPending) return;
     if (!browserPackages.some((item) => item.id === activeTab)) setActiveTab("home");
-  }, [activeTab, browserPackages]);
+  }, [activeTab, browserPackages, installed.isPending, setActiveTab]);
 
   // A scene that ended, or its Back button, asks for the package thread it started in.
   useEffect(() => {
     if (sceneOriginFocus && browserPackages.some((item) => item.id === sceneOriginFocus.packageId)) {
       setActiveTab(sceneOriginFocus.packageId);
     }
-  }, [browserPackages, sceneOriginFocus]);
+  }, [browserPackages, sceneOriginFocus, setActiveTab]);
 
   useEffect(() => {
     if (activeTab !== "noodle" || !latestNoodleRefreshMarker) return;
@@ -1418,7 +1422,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       }
       setActiveTab(tab);
     },
-    [sceneOriginFocus, setSceneOriginFocus],
+    [sceneOriginFocus, setActiveTab, setSceneOriginFocus],
   );
   const openProfessor = () => requestProfessorMariOpen();
   // The picked entry leaves with the menu, so focus moves on to the tab it opened (Professor opens a panel,
@@ -2316,14 +2320,13 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     initialTab: typeof options?.tab === "string" ? options.tab : undefined,
                   });
                 },
-                // Capability API 1.386: open a connection in the editor, and come back to this tab once it
-                // closes. The desktop shell unmounts Home while an editor is open, so the store remembers the
-                // tab and queues it for the remounted Home only when the editor itself closes.
+                // Capability API 1.386: open a connection in the editor. Back returns to this tab, which the
+                // store remembers while the desktop shell unmounts Home.
                 openConnection: (connectionId: string) => {
                   if (typeof connectionId !== "string" || !connectionId) return;
                   // A retained callback cannot act for a package that is no longer the active tab.
                   if (activeBrowserPackageIdRef.current !== activeTab) return;
-                  useUIStore.getState().openConnectionDetail(connectionId, { returnToHomeTab: activeTab });
+                  useUIStore.getState().openConnectionDetail(connectionId);
                 },
               }}
             />

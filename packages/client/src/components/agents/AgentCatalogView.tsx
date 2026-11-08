@@ -87,6 +87,7 @@ export function AgentCatalogView() {
   const shownLanguage = i18n.resolvedLanguage ?? i18n.language;
   const closeAgentCatalog = useUIStore((state) => state.closeAgentCatalog);
   const initialPackageId = useUIStore((state) => state.agentCatalogInitialPackageId);
+  const setAgentCatalogPage = useUIStore((state) => state.setAgentCatalogPage);
   const catalog = useCapabilityCatalog();
   const installed = useInstalledCapabilityPackages();
   const install = useInstallCapabilityPackage();
@@ -218,6 +219,13 @@ export function AgentCatalogView() {
     setQuery("");
     setPage({ kind: "agent", id: initialPackageId });
   }, [initialPackageId]);
+
+  // Back from an agent's Settings remounts the catalog: keep the store on the agent page being viewed, not the one
+  // the catalog was opened for.
+  const viewedAgentId = page.kind === "agent" ? page.id : null;
+  useEffect(() => {
+    setAgentCatalogPage(viewedAgentId);
+  }, [setAgentCatalogPage, viewedAgentId]);
 
   const handleInstall = async (entry: CapabilityCatalogPackage) => {
     const isUpdate = installedById.has(entry.manifest.id);

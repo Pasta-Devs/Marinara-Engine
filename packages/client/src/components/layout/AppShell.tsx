@@ -675,6 +675,10 @@ export function AppShell({
   const gameAssetsBrowserOpen = useUIStore((s) => s.gameAssetsBrowserOpen);
   const hasCompletedOnboarding = useUIStore((s) => s.hasCompletedOnboarding);
   const activeChatId = useChatStore((s) => s.activeChatId);
+  // Home remembers its tab for Back from an editor; opening a chat starts it over on the first tab, as leaving Home did.
+  useEffect(() => {
+    if (activeChatId) useUIStore.getState().setHomeTab("home");
+  }, [activeChatId]);
   const discardNewChatSetup = useDiscardNewChatSetup();
   useEffect(
     () => () => {
