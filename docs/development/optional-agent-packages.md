@@ -1900,6 +1900,30 @@ Errors and calls slower than a few seconds are logged and ignored; the branch is
 the method nothing changes. It is a soft seam: older Engines never call it, so the package must still cope when
 it is missing. No permission is needed.
 
+### Capability API 1.818: embeddings from a connection the package chooses
+
+`api.runtime.embeddingsFor(connectionId)` resolves embeddings from a source the package's own setting names, instead of the agent connection that `resolveEmbeddings()` follows. Unlike `resolveEmbeddings()`, it never falls back to the app-wide **Embeddings** default.
+
+| `connectionId` | Resolves |
+| --- | --- |
+| `null` | The built-in local MiniLM embedder. |
+| A connection id | That connection's own embedding source: its **Embedding provider**, **Embedding endpoint URL** and embedding model, as **Test embedding** resolves them. |
+| An id that names no connection, or a connection without a usable embedding source | `null`. It logs and resolves; it does not throw. |
+
+The returned host is the same shape as `resolveEmbeddings()`: `spaceId`, `label` and `embed(texts, signal?, inputType?)`, with the same limits (128 texts, 200,000 combined characters) and the 1.68 input type. `embed` resolves `null` when the call fails. Each source has its own `spaceId`, so re-embed stored vectors when the setting changes.
+
+```ts
+const runtime = api.runtime;
+const chosen = settings.embeddingConnectionId ?? null; // null: the built-in local model
+const embeddings =
+  typeof runtime.embeddingsFor === "function"
+    ? ((await runtime.embeddingsFor(chosen)) ?? (await runtime.embeddingsFor(null)))
+    : await runtime.resolveEmbeddings();
+const [queryVector] = (await embeddings?.embed([query], signal, "query")) ?? [];
+```
+
+It is a soft seam: older Engines leave the method out, so check that it exists before calling it, and fall back as the example does. Declare 1.818 only when the package cannot work without it. No permission is needed.
+
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 
 `persistence.listChatSummaries(chatId)` also returns `advancedMemory`: the chat's enabled, completed
