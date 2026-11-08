@@ -12,11 +12,12 @@ import { useThemes } from "../../hooks/use-themes";
 import { extractImportantThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
 import { themeFontFaceCss } from "../../lib/theme-package";
 import { installSafeModeShortcut, useThemeSafetyStore } from "../../lib/theme-safety";
-import { checkProtectedChrome } from "../../lib/theme-guard";
+import { checkProtectedChrome, topBarPseudoArt } from "../../lib/theme-guard";
 import { preloadImageSamples, prepareThemeCss } from "../../lib/theme-images";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { themeHasHtml, useThemeTemplates } from "../../lib/theme-template";
 import { useUIStore } from "../../stores/ui.store";
+import { useThemeSlots } from "../../lib/theme-slots";
 import {
   detectThemeChatHooks,
   useActiveThemeOverride,
@@ -32,6 +33,25 @@ const THEME_FLAG_TOKENS: Array<[string, string]> = [
   ["--mari-icon-emoji", "data-mari-icon-emoji"],
   ["--mari-cursor", "data-mari-theme-cursor"],
   ["--mari-home-art", "data-mari-home-art"],
+  // Theming round 4: tokens for bits that were hard-coded (theme-tokens.css).
+  ["--mari-message-time", "data-mari-message-time"],
+  ["--mari-chat-wash", "data-mari-chat-wash"],
+  ["--mari-lore-constant", "data-mari-lore-constant"],
+  ["--mari-lore-selective", "data-mari-lore-selective"],
+  ["--mari-lore-normal", "data-mari-lore-normal"],
+  ["--mari-toast-font-size", "data-mari-toast-size"],
+  ["--mari-min-ui-text", "data-mari-min-ui-text"],
+  ["--mari-user-avatar-image", "data-mari-user-avatar-image"],
+  ["--mari-focus-frame", "data-mari-focus-frame"],
+  ["--mari-window-title", "data-mari-window-titles"],
+];
+
+/** Flags switched on by any of several tokens. */
+const THEME_FLAG_ANY: Array<[string[], string]> = [
+  [
+    ["--mari-home-shortcut-size", "--mari-home-shortcut-desc-size", "--mari-home-widget-text-size"],
+    "data-mari-home-shortcut-size",
+  ],
 ];
 
 const NORMAL_ID = "marinara-custom-theme";
@@ -110,8 +130,16 @@ export function CustomThemeInjector() {
     else delete document.documentElement.dataset.mariAppBackdrop;
     if (backdropLayers) document.documentElement.dataset.mariAppBackdropLayers = "";
     else delete document.documentElement.dataset.mariAppBackdropLayers;
-    if (themeSetsVariable(css, "--mari-top-bar-bg")) document.documentElement.dataset.mariTopBarArt = "";
+    // Bar art through the token, or a picture hung on the bar's own ::before/::after: either way the
+    // tabs and icons sit on plates (checked once the CSS has applied).
+    const barArtToken = themeSetsVariable(css, "--mari-top-bar-bg");
+    if (barArtToken) document.documentElement.dataset.mariTopBarArt = "";
     else delete document.documentElement.dataset.mariTopBarArt;
+    const barArtFrame = barArtToken
+      ? 0
+      : requestAnimationFrame(() => {
+          if (topBarPseudoArt()) document.documentElement.dataset.mariTopBarArt = "";
+        });
     // The ambient overlay (rain, leaves, scanlines): over the chat, under the protected bars.
     if (themeSetsVariable(css, "--mari-ambient")) document.documentElement.dataset.mariAmbient = "";
     else delete document.documentElement.dataset.mariAmbient;
@@ -122,13 +150,26 @@ export function CustomThemeInjector() {
       if (themeSetsVariable(css, token)) document.documentElement.setAttribute(attribute, "");
       else document.documentElement.removeAttribute(attribute);
     }
+    for (const [tokens, attribute] of THEME_FLAG_ANY) {
+      if (tokens.some((token) => themeSetsVariable(css, token))) document.documentElement.setAttribute(attribute, "");
+      else document.documentElement.removeAttribute(attribute);
+    }
     detectThemeChatHooks(css, themeSetsVariable);
+    // Slots the app renders only on request (lib/theme-slots.ts), and where the ambient layer sits.
+    useThemeSlots.setState({ windowTitles: themeSetsVariable(css, "--mari-window-title") });
+    if (/(^|[\s;{])--mari-ambient-placement\s*:\s*behind-cards\b/.test(css))
+      document.documentElement.dataset.mariAmbientBehind = "";
+    else delete document.documentElement.dataset.mariAmbientBehind;
 
     return () => {
+      cancelAnimationFrame(barArtFrame);
+      useThemeSlots.setState({ windowTitles: false });
+      delete document.documentElement.dataset.mariAmbientBehind;
       cancelled = true;
       delete document.documentElement.dataset.mariAmbient;
       delete document.documentElement.dataset.mariThemeMoves;
       for (const [, attribute] of THEME_FLAG_TOKENS) document.documentElement.removeAttribute(attribute);
+      for (const [, attribute] of THEME_FLAG_ANY) document.documentElement.removeAttribute(attribute);
       document.getElementById(NORMAL_ID)?.remove();
       document.getElementById(IMPORTANT_ID)?.remove();
       delete document.documentElement.dataset.customTheme;
@@ -186,6 +227,8 @@ export function CustomThemeInjector() {
         return;
       }
       retries = 0;
+      if (document.documentElement.dataset.mariTopBarArt === undefined && topBarPseudoArt())
+        document.documentElement.dataset.mariTopBarArt = "";
       const problems = checkProtectedChrome(sheets());
       if (problems.length === 0) {
         confirming = false;

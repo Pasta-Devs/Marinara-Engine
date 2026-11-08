@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Chat: Conversation Input — Discord-style
 // ──────────────────────────────────────────────
+import { WindowTitle } from "../../lib/theme-slots";
 import { useState, useRef, useCallback, useEffect, useMemo, type FormEvent } from "react";
 import {
   Send,
@@ -2051,6 +2052,7 @@ export function ConversationInput({
       data-mari-part="composer"
       data-composer="conversation"
     >
+      <WindowTitle where="composer" />
       {/* Slash command autocomplete */}
       {completions.length > 0 && (
         <div

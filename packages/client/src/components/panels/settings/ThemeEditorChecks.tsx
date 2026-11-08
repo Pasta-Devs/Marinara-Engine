@@ -76,6 +76,12 @@ export function ThemeEditorChecks({
           "{{subject}} needs a full colour such as hsl(270 25% 8%) or #1b1530, not a bare triplet.",
           { subject },
         );
+      case "fixed-pseudo-picture":
+        return t(
+          "theming.lint.fixedPseudoPicture",
+          "{{subject}} lays a picture with position: fixed, which can reach over the sidebars or the top bar. Use position: absolute on its own element, or --mari-ambient or --mari-app-backdrop.",
+          { subject },
+        );
     }
   };
 

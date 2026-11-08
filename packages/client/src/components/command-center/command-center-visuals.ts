@@ -18,7 +18,10 @@ export type CommandCenterChatModeLabels = Record<ChatMode, string>;
 // of their mode from the Chats icon's logo gradient; navigation, settings pages and docs stay neutral.
 const CATEGORY_VISUALS: Record<OmnibarCategory, Omit<CommandCenterVisual, "label">> = {
   navigation: { tone: "neutral", groupClassName: "" },
-  chat: { tone: "playful", groupClassName: "[--mari-panel-gradient-start:var(--mari-logo-cyan)]" },
+  chat: {
+    tone: "playful",
+    groupClassName: "[--mari-panel-gradient-start:var(--mari-ctrlk-conversation,var(--mari-logo-cyan))]",
+  },
   character: { tone: "playful", groupClassName: "mari-panel-gradient--characters" },
   persona: { tone: "natural", groupClassName: "mari-panel-gradient--personas" },
   lorebook: { tone: "warm", groupClassName: "mari-panel-gradient--lorebooks" },
@@ -31,9 +34,18 @@ const CATEGORY_VISUALS: Record<OmnibarCategory, Omit<CommandCenterVisual, "label
 };
 
 const CHAT_MODE_VISUALS: Record<ChatMode, Omit<CommandCenterVisual, "label">> = {
-  conversation: { tone: "cool", groupClassName: "[--mari-panel-gradient-start:var(--mari-logo-cyan)]" },
-  roleplay: { tone: "warm", groupClassName: "[--mari-panel-gradient-start:var(--mari-logo-orange)]" },
-  game: { tone: "playful", groupClassName: "[--mari-panel-gradient-start:var(--mari-logo-pink)]" },
+  conversation: {
+    tone: "cool",
+    groupClassName: "[--mari-panel-gradient-start:var(--mari-ctrlk-conversation,var(--mari-logo-cyan))]",
+  },
+  roleplay: {
+    tone: "warm",
+    groupClassName: "[--mari-panel-gradient-start:var(--mari-ctrlk-roleplay,var(--mari-logo-orange))]",
+  },
+  game: {
+    tone: "playful",
+    groupClassName: "[--mari-panel-gradient-start:var(--mari-ctrlk-game,var(--mari-logo-pink))]",
+  },
 };
 
 /** A navigation row about one type ("Create lorebook", the Agents library) wears that type's colour. */

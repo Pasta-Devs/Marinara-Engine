@@ -556,7 +556,11 @@ export function ConversationView({
   const conversationCapabilityProps = { chatId, metadata: chatMeta, characterMap, chatCharIds, personaInfo };
   // Like the Roleplay strip, the see-through header lets touches through to the transcript except on its controls.
   const renderHeader = () => (
-    <div className="pointer-events-none sticky top-0 z-30 flex items-center justify-between px-4 py-2">
+    <div
+      className="pointer-events-none sticky top-0 z-30 flex items-center justify-between px-4 py-2"
+      data-mari-part="chat-header"
+      data-chat-mode="conversation"
+    >
       <div data-conversation-header-identity className="pointer-events-auto flex min-w-0 items-center gap-1.5">
         <ConversationPresenceCard
           chatId={chatId}

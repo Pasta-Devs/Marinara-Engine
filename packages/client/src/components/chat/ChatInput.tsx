@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Chat: Input — mode-aware styling
 // ──────────────────────────────────────────────
+import { WindowTitle } from "../../lib/theme-slots";
 import { useState, useRef, useCallback, useEffect, useMemo, memo, type FormEvent } from "react";
 import { avatarInitial } from "../../lib/avatar-initial";
 import {
@@ -1857,6 +1858,7 @@ export const ChatInput = memo(function ChatInput({
 
   return (
     <div className="mari-chat-input chat-input-container px-3 pb-3" data-mari-part="composer" data-composer="roleplay">
+      <WindowTitle where="composer" />
       {/* Slash command autocomplete popup */}
       {completions.length > 0 && (
         <div

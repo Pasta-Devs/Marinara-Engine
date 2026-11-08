@@ -23,7 +23,14 @@
 // ──────────────────────────────────────────────
 import type { ThemeGuardProblem } from "./theme-safety";
 import { extractImportantThemeCss, sanitizeAppCss } from "./theme-css";
-import { cssImageUrls, peekImageSample, preloadImageSamples, prepareThemeCss, type ThemeImage } from "./theme-images";
+import {
+  cssImageUrls,
+  peekImageSample,
+  preloadImageSamples,
+  prepareThemeCss,
+  sampleRegion,
+  type ThemeImage,
+} from "./theme-images";
 
 type Area = ThemeGuardProblem["area"];
 
@@ -68,7 +75,8 @@ interface Snapshot {
   /** Chat rows that are visible (the chats sidebar's list). */
   rows: number;
   hitOk: boolean[];
-  contrast: number | null;
+  /** Text contrast per sampled text element (the top bar and the message box sample several). */
+  contrast: Map<Element, number>;
 }
 
 interface SamplePoint {
@@ -192,66 +200,364 @@ function pseudoCoverage(element: Element): number {
   return most;
 }
 
-/** The art behind everything: the app backdrop's colour, when a theme paints one. */
-function backdropColor(): Rgba | null {
+// ── What is painted behind a piece of text (guard v4, theming round 4) ──
+// Background layers are read in order, top first, and each is weighted by the area it really paints
+// under the text (a 1 px rule in a gradient layer, or a corner ornament, doesn't count as a plate).
+// Pictures are sampled under the text's own box, not as a whole, and three versions of the stack are
+// kept: the average, and the darkest and lightest the art gets there, so busy art behind a label can
+// be judged by its worst spot.
+
+interface Paint {
+  avg: Rgba;
+  dark: Rgba;
+  light: Rgba;
+}
+
+interface Box {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface Behind {
+  avg: Rgba;
+  dark: Rgba;
+  light: Rgba;
+}
+
+/** A comma-separated CSS list split at its top level (commas inside parentheses stay). */
+export function splitTopLevel(value: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const char of value) {
+    if (char === "(") depth += 1;
+    else if (char === ")") depth = Math.max(0, depth - 1);
+    if (char === "," && depth === 0) {
+      parts.push(current.trim());
+      current = "";
+    } else current += char;
+  }
+  if (current.trim()) parts.push(current.trim());
+  return parts;
+}
+
+/** Splits a value at top-level spaces ("calc(100% - 4px) 0%" → two parts). */
+function splitSpaces(value: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const char of value.trim()) {
+    if (char === "(") depth += 1;
+    else if (char === ")") depth = Math.max(0, depth - 1);
+    if (/\s/.test(char) && depth === 0) {
+      if (current) parts.push(current);
+      current = "";
+    } else current += char;
+  }
+  if (current) parts.push(current);
+  return parts;
+}
+
+/** A length (px, %, or calc(P% ± Npx)) against a basis; null when it can't be read. */
+function lengthPx(token: string | undefined, basis: number): number | null {
+  if (!token) return null;
+  const plain = /^(-?[\d.]+)(px|%)?$/.exec(token);
+  if (plain) {
+    const number = Number.parseFloat(plain[1]!);
+    return plain[2] === "%" ? (number / 100) * basis : number;
+  }
+  const calc = /^calc\(\s*(-?[\d.]+)%\s*([+-])\s*(-?[\d.]+)px\s*\)$/.exec(token);
+  if (calc) {
+    const pct = (Number.parseFloat(calc[1]!) / 100) * basis;
+    const px = Number.parseFloat(calc[3]!);
+    return calc[2] === "+" ? pct + px : pct - px;
+  }
+  return null;
+}
+
+/** Where one background layer's tile sits (viewport px) and whether it repeats, per axis. */
+function layerTile(
+  style: CSSStyleDeclaration,
+  index: number,
+  box: Box,
+  natural: { width: number; height: number } | null,
+) {
+  const pick = (list: string) => {
+    const items = splitTopLevel(list);
+    return items.length ? items[index % items.length]! : "";
+  };
+  const fixed = pick(style.backgroundAttachment) === "fixed";
+  const area: Box = fixed ? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight } : box;
+  const ratio = natural && natural.width > 0 && natural.height > 0 ? natural.width / natural.height : null;
+  const size = pick(style.backgroundSize) || "auto";
+  let width = natural?.width ?? area.width;
+  let height = natural?.height ?? area.height;
+  if (size === "cover" || size === "contain") {
+    if (ratio) {
+      const scale = (size === "cover" ? Math.max : Math.min)(
+        area.width / natural!.width,
+        area.height / natural!.height,
+      );
+      width = natural!.width * scale;
+      height = natural!.height * scale;
+    } else {
+      width = area.width;
+      height = area.height;
+    }
+  } else {
+    const [sx, sy] = splitSpaces(size);
+    const wx = sx && sx !== "auto" ? lengthPx(sx, area.width) : null;
+    const hy = sy && sy !== "auto" ? lengthPx(sy, area.height) : null;
+    if (wx !== null && hy !== null) {
+      width = wx;
+      height = hy;
+    } else if (wx !== null) {
+      width = wx;
+      height = ratio ? wx / ratio : natural ? natural.height : area.height;
+    } else if (hy !== null) {
+      height = hy;
+      width = ratio ? hy * ratio : natural ? natural.width : area.width;
+    }
+  }
+  if (!(width > 0) || !(height > 0)) return null;
+  const repeat = splitSpaces(pick(style.backgroundRepeat) || "repeat");
+  const repeatsX =
+    repeat.length === 1 ? repeat[0] !== "no-repeat" && repeat[0] !== "repeat-y" : repeat[0] !== "no-repeat";
+  const repeatsY =
+    repeat.length === 1 ? repeat[0] !== "no-repeat" && repeat[0] !== "repeat-x" : repeat[1] !== "no-repeat";
+  const [px, py] = splitSpaces(pick(style.backgroundPosition) || "0% 0%");
+  const offsetX = lengthPxAlong(px, area.width - width);
+  const offsetY = lengthPxAlong(py, area.height - height);
+  return { x: area.left + offsetX, y: area.top + offsetY, width, height, repeatsX, repeatsY };
+}
+
+/** A background-position part: percentages are of the free space; calc() mixes both. */
+function lengthPxAlong(token: string | undefined, free: number) {
+  return lengthPx(token, free) ?? free / 2;
+}
+
+/** The share of a box a layer's tile paints (0-1), and which part of the tile lies under it (u, v). */
+function tileUnder(tile: NonNullable<ReturnType<typeof layerTile>>, rect: Box) {
+  const axis = (start: number, length: number, at: number, size: number, repeats: boolean) => {
+    if (repeats) {
+      if (length >= size) return { share: 1, from: 0, to: 1 };
+      const from = ((((start - at) % size) + size) % size) / size;
+      const to = from + length / size;
+      return to > 1 ? { share: 1, from: 0, to: 1 } : { share: 1, from, to };
+    }
+    const lo = Math.max(start, at);
+    const hi = Math.min(start + length, at + size);
+    if (hi <= lo) return { share: 0, from: 0, to: 0 };
+    return { share: (hi - lo) / Math.max(1, length), from: (lo - at) / size, to: (hi - at) / size };
+  };
+  const x = axis(rect.left, rect.width, tile.x, tile.width, tile.repeatsX);
+  const y = axis(rect.top, rect.height, tile.y, tile.height, tile.repeatsY);
+  return { share: x.share * y.share, u0: x.from, u1: x.to, v0: y.from, v1: y.to };
+}
+
+function withAlpha([r, g, b]: [number, number, number] | Rgba, alpha: number): Rgba {
+  return [r, g, b, alpha];
+}
+
+/** A gradient's paint: its stops' average, darkest and lightest (as see-through as its thinnest stop). */
+function gradientPaint(image: string): Paint | null {
+  const stops = gradientColors(image);
+  if (!stops) return null;
+  const alpha = Math.min(...stops.map((stop) => stop[3]));
+  const opaque = stops.filter((stop) => stop[3] > 0.05);
+  const pool = opaque.length ? opaque : stops;
+  const avg: Rgba = [0, 1, 2].map(
+    (channel) => pool.reduce((sum, stop) => sum + stop[channel]!, 0) / pool.length,
+  ) as Rgba;
+  const byLum = [...pool].sort((a, b) => luminance(a) - luminance(b));
+  return {
+    avg: withAlpha(avg, alpha),
+    dark: withAlpha(byLum[0]!, alpha),
+    light: withAlpha(byLum[byLum.length - 1]!, alpha),
+  };
+}
+
+/** A picture's paint under a box; undefined while it hasn't been sampled (or can't be). */
+function picturePaint(
+  url: string,
+  under: { u0: number; u1: number; v0: number; v1: number } | null,
+): Paint | undefined {
+  const sample = peekImageSample(url);
+  if (!sample) return undefined;
+  const region = under && sample.grid ? sampleRegion(sample, under.u0, under.v0, under.u1, under.v1) : null;
+  const part = region ?? sample;
+  return {
+    avg: withAlpha(part.average, part.alpha),
+    dark: withAlpha(part.dark, part.alpha),
+    light: withAlpha(part.light, part.alpha),
+  };
+}
+
+const SKIP = Symbol("skip");
+
+/** The paint of one background-image layer under a box: SKIP when it paints too little of it, null when unknown. */
+function layerPaint(
+  style: CSSStyleDeclaration,
+  layer: string,
+  index: number,
+  box: Box,
+  rect: Box,
+): Paint | null | typeof SKIP {
+  const urls = cssImageUrls(layer);
+  if (urls.length) {
+    const sample = peekImageSample(urls[0]!);
+    if (!sample) return null;
+    const tile = layerTile(style, index, box, { width: sample.width, height: sample.height });
+    if (!tile) return SKIP;
+    const under = tileUnder(tile, rect);
+    if (under.share < 0.5) return SKIP;
+    return picturePaint(urls[0]!, under) ?? null;
+  }
+  if (layer === "none") return SKIP;
+  const tile = layerTile(style, index, box, null);
+  if (!tile || tileUnder(tile, rect).share < 0.5) return SKIP;
+  return gradientPaint(layer);
+}
+
+/** Everything one element paints under a box, top first: border-image fill, picture/gradient layers, colour. */
+function ownPaints(style: CSSStyleDeclaration, box: Box, rect: Box, opacity = 1): Paint[] | null {
+  const paints: Paint[] = [];
+  const add = (paint: Paint) =>
+    paints.push(
+      opacity >= 1
+        ? paint
+        : {
+            avg: withAlpha(paint.avg, paint.avg[3] * opacity),
+            dark: withAlpha(paint.dark, paint.dark[3] * opacity),
+            light: withAlpha(paint.light, paint.light[3] * opacity),
+          },
+    );
+  const borderImage = style.borderImageSource;
+  if (borderImage && borderImage !== "none" && /\bfill\b/.test(style.borderImageSlice)) {
+    const url = cssImageUrls(borderImage)[0];
+    const paint = url ? picturePaint(url, null) : gradientPaint(borderImage);
+    if (!paint) return null;
+    add(paint);
+  }
+  const image = style.backgroundImage;
+  if (image && image !== "none") {
+    const layers = splitTopLevel(image);
+    for (let index = 0; index < layers.length; index += 1) {
+      const paint = layerPaint(style, layers[index]!, index, box, rect);
+      if (paint === SKIP) continue;
+      if (!paint) return null;
+      add(paint);
+    }
+  }
+  const color = parseColor(style.backgroundColor);
+  if (color && color[3] > 0) add({ avg: color, dark: color, light: color });
+  return paints;
+}
+
+/** A pseudo-element of an ancestor that paints a box-sized layer behind the text (art strips, plates). */
+function pseudoPaints(node: Element, box: Box, rect: Box): Paint[] | null {
+  const paints: Paint[] = [];
+  for (const pseudo of ["::after", "::before"] as const) {
+    const style = getComputedStyle(node, pseudo);
+    if (!style.content || style.content === "none" || style.content === "normal") continue;
+    if (style.display === "none" || style.visibility !== "visible") continue;
+    if (style.position !== "absolute" && style.position !== "fixed") continue;
+    if (style.mixBlendMode && style.mixBlendMode !== "normal") continue;
+    const width = Number.parseFloat(style.width);
+    const height = Number.parseFloat(style.height);
+    if (!(width >= box.width * 0.5 && height >= box.height * 0.5)) continue;
+    const pseudoBox: Box = { left: box.left, top: box.top, width, height };
+    const own = ownPaints(
+      style,
+      pseudoBox,
+      rect,
+      Number.parseFloat(style.opacity || "1") * filterOpacity(style.filter),
+    );
+    if (!own) return null;
+    paints.push(...own);
+  }
+  return paints;
+}
+
+/** The art behind everything: the app backdrop, when a theme paints one. */
+function backdropPaint(rect: Box): Paint | null {
   const backdrop = document.querySelector('[data-mari-part="app-backdrop"]');
   if (!backdrop) return null;
   const style = getComputedStyle(backdrop);
   if (style.display === "none") return null;
-  let result: Rgba | null = null;
-  const color = parseColor(style.backgroundColor);
-  if (color && color[3] > 0) result = color;
-  for (const url of cssImageUrls(style.backgroundImage)) {
-    const sample = peekImageSample(url);
-    if (!sample) continue;
-    const layer: Rgba = [...sample.average, sample.alpha];
-    result = result ? over(layer, result) : layer;
+  const box = backdrop.getBoundingClientRect();
+  const paints = ownPaints(style, box, rect, Number.parseFloat(style.opacity || "1"));
+  if (!paints || !paints.length) return null;
+  return composite(paints, [255, 255, 255, 0]);
+}
+
+function composite(paints: Paint[], base: Rgba): Paint {
+  let avg = base;
+  let dark = base;
+  let light = base;
+  for (let index = paints.length - 1; index >= 0; index -= 1) {
+    const paint = paints[index]!;
+    avg = blend(paint.avg, avg);
+    dark = blend(paint.dark, dark);
+    light = blend(paint.light, light);
   }
-  const opacity = Number.parseFloat(style.opacity || "1");
-  return result ? [result[0], result[1], result[2], result[3] * opacity] : null;
+  return { avg, dark, light };
+}
+
+/** `top` over `bottom`, keeping alpha (so a stack that never turns opaque can still sit on something). */
+function blend(top: Rgba, bottom: Rgba): Rgba {
+  const a = top[3] + bottom[3] * (1 - top[3]);
+  if (a <= 0) return [0, 0, 0, 0];
+  const mix = (index: number) => (top[index]! * top[3] + bottom[index]! * bottom[3] * (1 - top[3])) / a;
+  return [mix(0), mix(1), mix(2), a];
 }
 
 /**
- * The colour behind an element: translucent backgrounds are blended down to the first opaque one.
- * Null when a picture (or a gradient that isn't one flat colour) is in the way.
+ * What is painted behind a piece of text: every layer from the text's own element up to the first
+ * opaque one (backgrounds, border-image fills, ancestors' art pseudo-elements), each weighted by the
+ * area it paints under the text. Null when a picture in the way can't be read yet.
  */
-function backgroundBehind(element: Element): Rgba | null {
-  const layers: Rgba[] = [];
+export function paintBehind(element: Element, rectOverride?: Box): Behind | null {
+  const rect: Box = rectOverride ?? element.getBoundingClientRect();
+  const paints: Paint[] = [];
   let node: Element | null = element;
+  const opaque = () => paints.length > 0 && paints[paints.length - 1]!.avg[3] >= 0.99;
   while (node) {
-    const style = getComputedStyle(node);
-    if (style.backgroundImage && style.backgroundImage !== "none") {
-      const urls = cssImageUrls(style.backgroundImage);
-      if (urls.length) {
-        // A picture: its sampled average colour, as opaque as its pixels are.
-        for (const url of urls) {
-          const sample = peekImageSample(url);
-          if (!sample) return null;
-          layers.push([...sample.average, sample.alpha]);
-        }
-      } else {
-        const stops = gradientColors(style.backgroundImage);
-        if (!stops) return null;
-        const first = stops[0]!;
-        const flat = stops.every(
-          (stop) => Math.abs(stop[0] - first[0]) + Math.abs(stop[1] - first[1]) + Math.abs(stop[2] - first[2]) < 30,
-        );
-        if (!flat) return null;
-        layers.push([first[0], first[1], first[2], Math.min(...stops.map((stop) => stop[3]))]);
-      }
+    const box = node.getBoundingClientRect();
+    if (node !== element) {
+      const pseudo = pseudoPaints(node, box, rect);
+      if (!pseudo) return null;
+      paints.push(...pseudo);
+      if (opaque()) break;
     }
-    const color = parseColor(style.backgroundColor);
-    if (color && color[3] > 0) layers.push(color);
-    if (layers.length && layers[layers.length - 1]![3] >= 0.99) break;
+    const own = ownPaints(getComputedStyle(node), box, rect);
+    if (!own) return null;
+    paints.push(...own);
+    if (opaque()) break;
     node = node.parentElement;
   }
-  let result: Rgba = [255, 255, 255, 1];
-  if (!layers.length || layers[layers.length - 1]![3] < 0.99) {
-    const backdrop = backdropColor();
-    if (backdrop) result = over(backdrop, result);
+  const base: Rgba = [255, 255, 255, 1];
+  if (!opaque()) {
+    const backdrop = backdropPaint(rect);
+    if (backdrop) {
+      const under = composite([backdrop], base);
+      const stacked = composite(paints, under.avg);
+      return {
+        avg: stacked.avg,
+        dark: composite(paints, under.dark).dark,
+        light: composite(paints, under.light).light,
+      };
+    }
   }
-  for (let index = layers.length - 1; index >= 0; index -= 1) result = over(layers[index]!, result);
-  return result;
+  return composite(paints, base);
+}
+
+/** The lowest contrast of a text colour against what's behind it: the average, or the art's worst spot. */
+function textContrast(fg: Rgba, behind: Behind, worst: boolean) {
+  const against = worst ? [behind.avg, behind.dark, behind.light] : [behind.avg];
+  return Math.min(...against.map((bg) => contrastRatio(over(fg, bg), bg)));
 }
 
 // ── Visibility ──
@@ -335,6 +641,28 @@ function textIsClipped(element: Element) {
   return false;
 }
 
+/**
+ * How much a control's own ::before/::after hides its label: a positioned pseudo-element that stacks
+ * above the control's content (z-index auto or 0 and up) and spans most of it, like a picture on a
+ * chat row's ::after. One stacked under the content (a negative z-index) is a background and passes.
+ */
+function ownPseudoOver(control: Element): number {
+  const box = control.getBoundingClientRect();
+  let most = 0;
+  for (const pseudo of ["::before", "::after"] as const) {
+    const style = getComputedStyle(control, pseudo);
+    if (!style.content || style.content === "none" || style.content === "normal") continue;
+    if (style.position !== "absolute" && style.position !== "fixed") continue;
+    const z = Number.parseInt(style.zIndex, 10);
+    if (Number.isFinite(z) && z < 0) continue;
+    const width = Number.parseFloat(style.width);
+    const height = Number.parseFloat(style.height);
+    if (!(width * height >= box.width * box.height * 0.5)) continue;
+    most = Math.max(most, paintCoverage(style));
+  }
+  return most;
+}
+
 /** Points to hit-test: the centre of the first few controls, or the area's centre. */
 function samplePoints(element: Element): SamplePoint[] {
   const points: SamplePoint[] = [];
@@ -356,16 +684,49 @@ function samplePoints(element: Element): SamplePoint[] {
   return points;
 }
 
-function textSample(element: Element): Element | null {
+/** Elements holding visible text in an area (the first `limit` of them, one per element). */
+function textSamples(element: Element, limit: number): Element[] {
+  const found: Element[] = [];
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (node.textContent && node.textContent.trim().length > 1 && node.parentElement) {
-      const parent = node.parentElement;
-      const rect = parent.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0 && onScreen(rect)) return parent;
-    }
+  for (let node = walker.nextNode(); node && found.length < limit; node = walker.nextNode()) {
+    if (!node.textContent || node.textContent.trim().length <= 1 || !node.parentElement) continue;
+    const parent = node.parentElement;
+    if (found.includes(parent)) continue;
+    const rect = parent.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0 || !onScreen(rect)) continue;
+    if (limit > 1 && (getComputedStyle(parent).visibility !== "visible" || effectiveOpacity(parent) < 0.35)) continue;
+    found.push(parent);
   }
-  return null;
+  return found;
+}
+
+/** Where people read in each area: the top bar's labels, the message box's text field, else the first text. */
+function contrastSamples(element: Element, area: Area): Element[] {
+  if (area === "composer") {
+    const field = element.querySelector('textarea, [contenteditable="true"]');
+    return field ? [field] : textSamples(element, 1);
+  }
+  return textSamples(element, area === "topbar" ? 8 : 1);
+}
+
+/** The top bar and the message box are judged by the worst spot of any art behind them, at 3:1. */
+const STRICT_CONTRAST: ReadonlySet<Area> = new Set<Area>(["topbar", "composer"]);
+
+function contrastMap(element: Element, area: Area) {
+  const result = new Map<Element, number>();
+  for (const sample of contrastSamples(element, area)) {
+    if (textIsClipped(sample)) continue;
+    const style = getComputedStyle(sample);
+    const fg = parseColor(style.webkitTextFillColor || style.color);
+    if (!fg) continue;
+    if (fg[3] < 0.1) {
+      result.set(sample, 1);
+      continue;
+    }
+    const behind = paintBehind(sample);
+    if (behind) result.set(sample, textContrast(fg, behind, STRICT_CONTRAST.has(area)));
+  }
+  return result;
 }
 
 function pointFor(point: SamplePoint) {
@@ -408,7 +769,13 @@ function seeTest(element: Element, points: SamplePoint[]) {
     // Everything painted at the point, top first. Layers above the control add up.
     let through = 1;
     for (const hit of document.elementsFromPoint(at.x, at.y)) {
-      if (target === hit || target.contains(hit)) break;
+      // The control itself answering can mean its own ::before/::after is on top of its label.
+      if (hit === target) {
+        through *= 1 - Math.min(1, ownPseudoOver(target));
+        if (through <= 0.4) return false;
+        break;
+      }
+      if (target.contains(hit)) break;
       if (hit.closest(OVERLAY_SELECTOR)) return true;
       const ancestor = hit.contains(target);
       const coverage = ancestor
@@ -509,26 +876,18 @@ function outsetCovers(
   return covered;
 }
 
-function snapshot(element: Element, points: SamplePoint[] | null): Snapshot {
+function snapshot(element: Element, area: Area, points: SamplePoint[] | null): Snapshot {
   const rect = element.getBoundingClientRect();
   const shown = isShown(element);
   const hitOk = points ? hitTest(element, points) : [];
-  let contrast: number | null = null;
-  const sample = textSample(element);
-  if (sample && !textIsClipped(sample)) {
-    const style = getComputedStyle(sample);
-    const fg = parseColor(style.webkitTextFillColor || style.color);
-    const bg = backgroundBehind(sample);
-    if (fg && fg[3] < 0.1) contrast = 1;
-    else if (fg && bg) contrast = contrastRatio(over(fg, bg), bg);
-  }
+  const contrast = contrastMap(element, area);
   let controls = 0;
   for (const control of Array.from(element.querySelectorAll(CONTROL_SELECTOR)).slice(0, 40)) {
-    if (controlVisible(control)) controls += 1;
+    if (controlVisible(control) && ownPseudoOver(control) < 0.6) controls += 1;
   }
   let rows = 0;
   for (const row of Array.from(element.querySelectorAll("[data-chat-row]")).slice(0, 12)) {
-    if (controlVisible(row)) rows += 1;
+    if (controlVisible(row) && ownPseudoOver(row) < 0.6) rows += 1;
   }
   return { rect, shown, hitOk, contrast, controls, rows };
 }
@@ -579,13 +938,56 @@ function opaquePseudoOverlay(hosts: Element[]): boolean {
  * The ambient overlay (rain, leaves, scanlines) sits over the chat and under the protected bars.
  * It has to stay mostly see-through: a solid picture there would hide the chat.
  */
+/** Blend modes that keep the chat underneath recognisable; any other one repaints it (a negative, a burn). */
+const GENTLE_BLENDS = new Set(["normal", "screen", "overlay", "soft-light", "multiply", "lighten", "darken"]);
+
 function ambientTooSolid() {
   const ambient = document.querySelector('[data-mari-part="ambient"]');
   if (!ambient) return false;
+  // Placed behind the cards it's part of the backdrop, not a layer over the text.
+  if (document.documentElement.hasAttribute("data-mari-ambient-behind")) return false;
   const style = getComputedStyle(ambient);
-  if (style.display === "none") return false;
-  const own = paintCoverage(style);
-  return Math.max(own, pseudoCoverage(ambient) * Number.parseFloat(style.opacity || "1")) >= 0.6;
+  if (style.display === "none" || style.visibility !== "visible") return false;
+  const opacity = Number.parseFloat(style.opacity || "1") * filterOpacity(style.filter);
+  // paintCoverage ignores blended layers (fine for decorations); here a harsh blend counts like
+  // a normal layer, since `difference` with white turns the whole chat into a negative.
+  const blend = style.mixBlendMode || "normal";
+  const solid = (layer: CSSStyleDeclaration) => {
+    if (layer.display === "none" || layer.visibility !== "visible") return 0;
+    let cover = parseColor(layer.backgroundColor)?.[3] ?? 0;
+    cover = Math.max(cover, imageCoverage(layer.backgroundImage));
+    return cover;
+  };
+  let coverage = solid(style) * opacity;
+  for (const pseudo of ["::before", "::after"] as const) {
+    const layer = getComputedStyle(ambient, pseudo);
+    if (!layer.content || layer.content === "none" || layer.content === "normal") continue;
+    coverage = Math.max(coverage, solid(layer) * Number.parseFloat(layer.opacity || "1") * opacity);
+  }
+  if (!GENTLE_BLENDS.has(blend)) return coverage > 0.5;
+  if (blend !== "normal") return false;
+  return coverage >= 0.6;
+}
+
+/**
+ * Pictures a theme hangs on the top bar's own ::before/::after or on a strip inside it (not on one
+ * control): that's bar art like --mari-top-bar-bg, so the tabs get their plates too.
+ */
+export function topBarPseudoArt(): boolean {
+  const bar = document.querySelector('[data-component="TopBar"]');
+  if (!bar) return false;
+  const controls = "button, a, [role='tab'], .ov-tab, .ov-mark";
+  const nodes = [bar, ...Array.from(bar.querySelectorAll("*")).slice(0, 200)];
+  for (const node of nodes) {
+    if (node !== bar && node.closest(controls)) continue;
+    for (const pseudo of ["::before", "::after"] as const) {
+      const style = getComputedStyle(node, pseudo);
+      if (!style.content || style.content === "none" || style.content === "normal") continue;
+      if (/url\(/.test(style.backgroundImage) || /url\(/.test(style.borderImageSource) || /url\(/.test(style.content))
+        return true;
+    }
+  }
+  return false;
 }
 
 /** Quoted strings in a computed `content` value. */
@@ -653,6 +1055,10 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
   // The page is measured as it is first (so rules that only kick in after a delay, which restart
   // when the sheet is switched back on, are seen), then without the theme, then the theme's clicks.
   root.dataset.mariGuardMeasure = "true";
+  // Art on the bar's own pseudo-elements gets plates like --mari-top-bar-bg (CustomThemeInjector sets
+  // this for the active theme; a theme being previewed or imported is measured the same way).
+  const tempPlates = root.dataset.mariTopBarArt === undefined && topBarPseudoArt();
+  if (tempPlates) root.dataset.mariTopBarArt = "";
   const previousMedia = active.map((sheet) => sheet.media);
   const points = new Map<Element, SamplePoint[]>();
   let before: Map<Element, Snapshot>;
@@ -663,7 +1069,7 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
   let textAfter: Map<Element, string>;
   let outset: Set<Area>;
   try {
-    after = new Map(targets.map(({ element }) => [element, snapshot(element, null)]));
+    after = new Map(targets.map(({ area, element }) => [element, snapshot(element, area, null)]));
     overlayAfter = opaquePseudoOverlay(hosts);
     textAfter = pseudoTexts(textElements);
     try {
@@ -671,10 +1077,10 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
       overlayBefore = opaquePseudoOverlay(hosts);
       textBefore = pseudoTexts(textElements);
       before = new Map(
-        targets.map(({ element }) => {
+        targets.map(({ area, element }) => {
           const elementPoints = samplePoints(element);
           points.set(element, elementPoints);
-          return [element, snapshot(element, elementPoints)];
+          return [element, snapshot(element, area, elementPoints)];
         }),
       );
       root.dataset.mariGuardPierce = "true";
@@ -704,6 +1110,7 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
     outset = outsetCovers(active, targets, points);
   } finally {
     delete root.dataset.mariGuardMeasure;
+    if (tempPlates) delete root.dataset.mariTopBarArt;
   }
 
   const problems: ThemeGuardProblem[] = [];
@@ -769,7 +1176,16 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
       report("covered");
       continue;
     }
-    if (now.contrast !== null && now.contrast < 1.5 && (was.contrast ?? 4.5) >= 2.5) report("unreadable");
+    // Text that was readable without the theme and isn't with it. The top bar and the message box
+    // must keep 3:1 against the worst spot of any art behind them; elsewhere 1.5:1 on average.
+    const strict = STRICT_CONTRAST.has(area);
+    let unreadable = false;
+    for (const [sample, value] of now.contrast) {
+      const before = was.contrast.get(sample) ?? (was.contrast.size ? null : 4.5);
+      if (before === null) continue;
+      if ((value < 1.5 && before >= 2.5) || (strict && value < 3 && before >= 3)) unreadable = true;
+    }
+    if (unreadable) report("unreadable");
   }
   return problems;
 }

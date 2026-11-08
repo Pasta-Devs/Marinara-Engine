@@ -11,7 +11,7 @@ import { AlertTriangle, Check, Film, ImageIcon, Images, Loader2, Type, Wand2 } f
 import type { Theme } from "@marinara-engine/shared";
 import { cn } from "../../../lib/utils";
 import { checkThemeCssReady } from "../../../lib/theme-guard";
-import { summarizeThemeImages, type ThemeImage } from "../../../lib/theme-images";
+import { SMALL_INLINE_IMAGE_BYTES, summarizeThemeImages, type ThemeImage } from "../../../lib/theme-images";
 import type { ThemeGuardProblem } from "../../../lib/theme-safety";
 import { problemText } from "../../layout/ThemeSafetyHost";
 import {
@@ -52,6 +52,12 @@ function useChromeCheck(css: string, images: ThemeImage[] | undefined) {
     };
   }, [css, images]);
   return problems;
+}
+
+const UNTICKED_SETTINGS = new Set<ThemeSettingKey>(["visualStyle", "accentPulse", "fontSize", "reduceMotion"]);
+
+function preTickedSettings(keys: ThemeSettingKey[]) {
+  return keys.filter((key) => !UNTICKED_SETTINGS.has(key));
 }
 
 /** "1.2" vs "1.10": true when `incoming` is a lower version than `installed`. */
@@ -105,12 +111,24 @@ export function ThemeImportPreview({
   const pkg = keepOriginals || !optimized ? original : optimized.pkg;
   const issues = useMemo(() => validateThemePackage({ ...pkg, metaProblems }), [pkg, metaProblems]);
   const chromeProblems = useChromeCheck(pkg.css, pkg.meta.images);
-  const pictures = useMemo(() => summarizeThemeImages(pkg.css, pkg.meta.images), [pkg]);
+  const allPictures = useMemo(() => summarizeThemeImages(pkg.css, pkg.meta.images), [pkg]);
+  // Tiny inline SVGs (masks, icons) stay in the CSS; they're listed as one "small icons" chip.
+  const smallIcons = allPictures.filter(
+    (picture) => picture.inline && !picture.animated && picture.bytes < SMALL_INLINE_IMAGE_BYTES,
+  );
+  const pictures = allPictures.filter((picture) => !smallIcons.includes(picture));
   const optimizedSomething =
     !!optimized && (optimized.moved > 0 || optimized.shrunk > 0) && optimized.after < optimized.before;
   const sameName = installed.find((theme) => theme.name === pkg.name) ?? null;
   const settingKeys = themeSettingKeys(pkg.meta.settings);
-  const [chosenSettings, setChosenSettings] = useState<ThemeSettingKey[]>([]);
+  // The theme's own look (its day/night switch, colours and font) starts ticked so a stranger gets
+  // what the author made; matters of taste and need (visual style, Display Size, Reduce motion,
+  // Accent Pulse) start unticked.
+  const [chosenSettings, setChosenSettings] = useState<ThemeSettingKey[]>(() => preTickedSettings(settingKeys));
+  const settingsSignature = settingKeys.join(",");
+  useEffect(() => {
+    setChosenSettings(preTickedSettings(settingsSignature ? (settingsSignature.split(",") as ThemeSettingKey[]) : []));
+  }, [settingsSignature]);
   const [addBackgrounds, setAddBackgrounds] = useState(false);
   const allowThemeHtml = useUIStore((s) => s.allowThemeHtml);
   // A theme with HTML installs only after the user turned on "Allow themes with HTML".
@@ -125,14 +143,16 @@ export function ThemeImportPreview({
     const shown =
       typeof value === "boolean"
         ? `: ${value ? t("theming.import.on", "on") : t("theming.import.off", "off")}`
-        : key === "colorScheme" && value === "time"
-          ? `: ${t("theming.import.followTime", "Follow time of day ({{day}} light, {{night}} dark)", {
-              day: meta.settings?.dayStart ?? "07:00",
-              night: meta.settings?.nightStart ?? "19:00",
-            })}`
-          : key === "colorScheme" && value === "system"
-            ? `: ${t("theming.import.followSystem", "Follow system")}`
-            : `: ${String(value)}`;
+        : key === "fontSize"
+          ? `: ${String(value)} px`
+          : key === "colorScheme" && value === "time"
+            ? `: ${t("theming.import.followTime", "Follow time of day ({{day}} light, {{night}} dark)", {
+                day: meta.settings?.dayStart ?? "07:00",
+                night: meta.settings?.nightStart ?? "19:00",
+              })}`
+            : key === "colorScheme" && value === "system"
+              ? `: ${t("theming.import.followSystem", "Follow system")}`
+              : `: ${String(value)}`;
     const label = {
       colorScheme: t("theming.import.setting.colorScheme", "Color scheme"),
       visualStyle: t("theming.import.setting.visualStyle", "Visual style"),
@@ -144,6 +164,8 @@ export function ThemeImportPreview({
       accentPulse: t("theming.import.setting.accentPulseName", "Accent Pulse"),
       dayStart: t("theming.import.setting.dayStart", "Light from"),
       nightStart: t("theming.import.setting.nightStart", "Dark from"),
+      fontSize: t("theming.import.setting.fontSize", "Display Size"),
+      reduceMotion: t("theming.import.setting.reduceMotion", "Reduce motion"),
     }[key];
     return `${label}${shown}`;
   };
@@ -263,11 +285,11 @@ export function ThemeImportPreview({
                   : scheme === "both"
                     ? t("theming.import.forBoth", "for Dark and Light")
                     : null,
-              pictures.length
+              allPictures.length
                 ? t("theming.import.sizeWithPictures", "{{total}} ({{css}} CSS + {{count}} pictures)", {
                     total: formatSize(themePackageBytes(pkg)),
                     css: formatKiB(new Blob([pkg.css]).size),
-                    count: pictures.length,
+                    count: allPictures.length,
                   })
                 : formatSize(themePackageBytes(pkg)),
             ]
@@ -288,7 +310,7 @@ export function ThemeImportPreview({
         </div>
       </div>
 
-      {pictures.length > 0 || optimizing ? (
+      {allPictures.length > 0 || optimizing ? (
         <div className="flex flex-col gap-1" data-theme-import-pictures="true">
           <div className="flex items-center gap-1.5 text-[0.6875rem] font-medium text-[var(--foreground)]">
             <Images size="0.75rem" />
@@ -307,7 +329,7 @@ export function ThemeImportPreview({
               </span>
             ) : null}
           </div>
-          {pictures.length ? (
+          {allPictures.length ? (
             <ul className="flex flex-wrap gap-1" role="list">
               {pictures.map((picture) => (
                 <li
@@ -319,6 +341,14 @@ export function ThemeImportPreview({
                   {formatKiB(picture.bytes)}
                 </li>
               ))}
+              {smallIcons.length ? (
+                <li className="flex items-center gap-1 rounded bg-[var(--muted)]/60 px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                  <span className="text-[var(--foreground)]">
+                    {t("theming.import.smallIcons", "{{count}} small icons", { count: smallIcons.length })}
+                  </span>
+                  {formatKiB(smallIcons.reduce((sum, picture) => sum + picture.bytes, 0))}
+                </li>
+              ) : null}
             </ul>
           ) : null}
           {optimizedSomething ? (
@@ -386,9 +416,10 @@ export function ThemeImportPreview({
             {t("theming.import.applyTooTitle", "Apply its settings too?")}
           </legend>
           {settingKeys.map((key) => (
-            <label key={key} className="flex items-center gap-2 text-[0.6875rem]">
+            <label key={key} className="flex min-w-0 items-start gap-2 text-[0.6875rem]">
               <input
                 type="checkbox"
+                className="mt-0.5 shrink-0"
                 checked={chosenSettings.includes(key)}
                 onChange={(event) =>
                   setChosenSettings((current) =>
@@ -396,7 +427,7 @@ export function ThemeImportPreview({
                   )
                 }
               />
-              <span className="truncate">{settingLabel(key)}</span>
+              <span className="min-w-0 break-words">{settingLabel(key)}</span>
             </label>
           ))}
           {meta.backgrounds?.length ? (

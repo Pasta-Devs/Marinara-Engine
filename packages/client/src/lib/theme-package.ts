@@ -215,7 +215,8 @@ const UNKNOWN_HOOKS: Array<[RegExp, string, string]> = [
 
 function declarations(css: string) {
   const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
-  return [...clean.matchAll(/(--[\w-]+)\s*:\s*([^;{}]+)/g)].map((match) => ({
+  // Anchored to the start of a declaration, so a selector like `.x--primary:not(…)` isn't read as one.
+  return [...clean.matchAll(/(?:^|[;{])\s*(--[\w-]+)\s*:\s*([^;{}]+)/g)].map((match) => ({
     name: match[1]!,
     value: match[2]!.replace(/!important\s*$/i, "").trim(),
   }));
@@ -320,9 +321,10 @@ export function addedTexts(css: string) {
 function accessibilityChanges(css: string) {
   const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
   const what = new Set<string>();
-  if (/--mari-a11y-line-height\s*:|line-height\s*:\s*(0?\.\d|1(\.[0-2]\d*)?)\s*!important/i.test(clean))
-    what.add("line spacing");
-  if (/--mari-a11y-letter-spacing\s*:|letter-spacing\s*:\s*-/i.test(clean)) what.add("letter spacing");
+  // Only the Accessibility tokens themselves: a theme's own line-height or letter-spacing on headings
+  // and messages is styling, and the user's spacing settings win over it anyway.
+  if (/(?:^|[;{\s])--mari-a11y-line-height\s*:/i.test(clean)) what.add("line spacing");
+  if (/(?:^|[;{\s])--mari-a11y-letter-spacing\s*:/i.test(clean)) what.add("letter spacing");
   if (/--mari-cvd-[\w-]+\s*:/i.test(clean)) what.add("colour-blind-safe colours");
   // --mari-focus-ring-color is a theme token; only taking focus rings away is a change to flag.
   if (/--mari-focus-ring-(?!color\b)[\w-]+\s*:|:focus(-visible)?[^{]*\{[^}]*outline\s*:\s*(none|0)\b/i.test(clean))
@@ -332,7 +334,7 @@ function accessibilityChanges(css: string) {
 
 /** `--x: 270 25% 8%` → `--x: hsl(270 25% 8%)` (the shadcn convention, which isn't a colour on its own). */
 export function convertHslTriplets(css: string) {
-  return css.replace(/(--[\w-]+\s*:\s*)([^;{}]+)/g, (whole, head: string, value: string) => {
+  return css.replace(/((?:^|[;{])\s*--[\w-]+\s*:\s*)([^;{}]+)/g, (whole, head: string, value: string) => {
     const important = /!important\s*$/i.test(value);
     const bare = value.replace(/!important\s*$/i, "").trim();
     if (!HSL_TRIPLET.test(bare)) return whole;
@@ -469,6 +471,12 @@ export function applyThemeSettings(settings: ThemeSettings, keys: ThemeSettingKe
       case "accentPulse":
         ui.setAppAccentPulseMode(Boolean(value));
         break;
+      case "fontSize":
+        ui.setFontSize(value as Parameters<typeof ui.setFontSize>[0]);
+        break;
+      case "reduceMotion":
+        ui.setReduceAmbientEffects(Boolean(value));
+        break;
     }
   }
 }
@@ -506,6 +514,12 @@ export function snapshotThemeSettings(keys: ThemeSettingKey[]): { settings: Them
         break;
       case "accentPulse":
         settings.accentPulse = ui.appAccentPulseMode;
+        break;
+      case "fontSize":
+        settings.fontSize = ui.fontSize as ThemeSettings["fontSize"];
+        break;
+      case "reduceMotion":
+        settings.reduceMotion = ui.reduceAmbientEffects;
         break;
     }
   }

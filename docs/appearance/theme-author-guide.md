@@ -123,6 +123,37 @@ These have no value until a theme sets one, so the user's own setting applies un
 | `--mari-icon-send`, `--mari-icon-stop`, `--mari-icon-attach`, `--mari-icon-emoji`                                                                                                                                            | A picture instead of the message box's icon (a `background-image` value)                                                                                                                                                          |
 | `--mari-cursor`, `--mari-cursor-pointer`                                                                                                                                                                                     | A picture pointer (a whole `cursor` value). It wins over Custom Mouse Pointer while the theme is on                                                                                                                               |
 
+### Theme tokens added in v1.4
+
+Like the v1.1 tokens, the first group does nothing until a theme sets it.
+
+| Token                                                                                          | Used for                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mari-message-time`                                                                          | The colour of message times (`[data-mari-part="time"]`) in every chat mode                                                                          |
+| `--mari-chat-wash`                                                                             | The tint over a roleplay chat's background, as a whole `background` value. The stock one is a dark wash, lavender-white in Light. `none` removes it |
+| `--mari-lore-constant`, `--mari-lore-selective`, `--mari-lore-normal`                          | The lorebook entry status dots                                                                                                                      |
+| `--mari-toast-font-size`                                                                       | Toast text size (toasts already use `--mari-font-ui`)                                                                                               |
+| `--mari-home-shortcut-size`, `--mari-home-shortcut-desc-size`                                  | Home's Learn and Community shortcut lines. With only `--mari-home-widget-text-size` set they follow it, with descriptions at 0.85x                  |
+| `--mari-min-ui-text`                                                                           | A floor for the app's smallest text (9-12 px labels, counts, chips). Tailwind's `--text-xs`, `--text-sm` and `--text-base` can be set too           |
+| `--mari-user-avatar-image`                                                                     | A picture for your avatar when the persona has none. With no token, the placeholder now shows the persona's own picture when it has one             |
+| `--mari-focus-frame`, `--mari-window-title`, `--mari-ambient-placement`, `--mari-ambient-mask` | Slots, see below                                                                                                                                    |
+
+These replace values that were fixed in the app, and fall back to the stock look:
+
+| Token                                                                               | Used for                                                                                                                                      |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mari-chrome-accent`                                                              | The active tab underline, editor shells, selects and connection screens                                                                       |
+| `--mari-chrome-muted`                                                               | Grey secondary text in panels, sidebars and Home (stock: 58% of the chrome text)                                                              |
+| `--mari-resource-accent`, `--mari-resource-<type>`                                  | The Library colours per type: `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents`, `settings`, `backgrounds`, `browser` |
+| `--mari-ctrlk-conversation`, `--mari-ctrlk-roleplay`, `--mari-ctrlk-game`           | Ctrl+K row colours per mode                                                                                                                   |
+| `--mari-game-combat-bg`, `--mari-game-combat-bg-hover`, `--mari-game-combat-border` | The Game Combat button                                                                                                                        |
+| `--mari-top-bar-plate-active`                                                       | The plate behind an active top-bar control when the bar has art (stock: the plate mixed with 20% accent)                                      |
+| `--mari-chat-header-bg`                                                             | The fade behind the conversation header (stock: the page colour at 88% fading out; `none` under an app backdrop)                              |
+| `--mari-home-hero-padding`, `--mari-home-widget-glow`                               | Home's greeting padding and the glow behind a Home widget header                                                                              |
+
+The app also publishes `--mari-top-bar-height` on `<html>` (the top bar's real height, which
+changes when a theme makes the bar taller), so a theme can pad its own layers below it.
+
 ## Pictures
 
 A theme carries its pictures in `images` in the theme file, and its CSS uses them by name:
@@ -276,11 +307,36 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 | `[data-mari-part="home-widget"]`                                                       | A Home widget card, Professor Mari included. Its frame has `data-home-widget-id` (`recent`, `professor`, `whats-new`, `character-library`, …). Inside: `home-widget-eyebrow`, `home-widget-title`, `home-widget-text`                                                                                                                           |
 | `[data-mari-part="backdrop"]`                                                          | A chat's background image (see Backdrops)                                                                                                                                                                                                                                                                                                       |
 | `[data-mari-part="stage-empty"]`                                                       | The game stage with no scene image                                                                                                                                                                                                                                                                                                              |
+| `[data-mari-part="time"]`                                                              | A message's time, in every chat mode                                                                                                                                                                                                                                                                                                            |
+| `[data-mari-part="chat-header"]`                                                       | The conversation header (`data-chat-mode="conversation"`)                                                                                                                                                                                                                                                                                       |
+| `[data-mari-part="game-hud"]`, `[data-mari-part="game-tools"]`                         | The Game map-and-party float and the narration tool row                                                                                                                                                                                                                                                                                         |
+| `[data-mari-part="avatar-placeholder"]`                                                | The empty avatar circle; `data-role` is `user` or `assistant`                                                                                                                                                                                                                                                                                   |
+| `[data-mari-part="header"][data-placement]`                                            | On roleplay messages: `outside` (name above the bubble) or `inside`                                                                                                                                                                                                                                                                             |
+| `[data-mari-part="home-widget-glow"]`                                                  | The glow behind a Home widget's header                                                                                                                                                                                                                                                                                                          |
+| `.ov-lrow__dot[data-status]`                                                           | A lorebook entry dot: `constant`, `selective` or `normal`                                                                                                                                                                                                                                                                                       |
 | `[data-chat-row]`                                                                      | A row in the chats sidebar; `data-selected="true"` on the open chat                                                                                                                                                                                                                                                                             |
 | `[data-chat-mode]`                                                                     | The chat surface, by mode                                                                                                                                                                                                                                                                                                                       |
 | `.mari-messages-scroll`                                                                | The scrolling message list                                                                                                                                                                                                                                                                                                                      |
 | `.mari-rp-bubble`, `.mari-rp-bubble--user`, `.mari-message-assistant`                  | Roleplay and conversation bubbles                                                                                                                                                                                                                                                                                                               |
 | `.mari-window`, `.mari-drawer`                                                         | Pop-out windows and drawers                                                                                                                                                                                                                                                                                                                     |
+
+### Slots
+
+These appear only while the active theme asks for them, so the stock page carries no extra parts.
+
+- **Focus frame.** `--mari-focus-frame` takes a whole `border-image` value, for example
+  `url("theme:frame.png") 24 fill / 24px / 6px stretch`, and paints it on whatever has the
+  reader's attention: the newest reply, Ctrl+K, an open dialog and Home's Recent chats. Add
+  `data-mari-focus-surface` to any other element (in a message template) to frame it too.
+- **Window titles.** Setting `--mari-window-title` (any value, such as `on`) adds a title row at the
+  top of each message, Home widget and message box: `[data-mari-part="window-title"]` with
+  `data-window` (`message`, `home-widget`, `composer`), holding `window-title-text` (the speaker,
+  the widget title, or "Message") and an empty `window-buttons` for your `_ [] X` decorations.
+- **Ambient behind cards.** `--mari-ambient-placement: behind-cards` moves the ambient layer under
+  messages, Home widgets and panels (still over the backdrop) instead of over the chat.
+  `--mari-ambient-mask` (a whole `mask` value) shapes where it shows, and
+  `--mari-ambient-mask: var(--mari-gutter-mask)` keeps the middle of the window clear, so rain falls
+  in the side gutters and not over the text. `--mari-gutter-clear` sets the clear half-width (26rem).
 
 ### Message data
 
@@ -389,8 +445,11 @@ Export writes one theme as one JSON file:
 ```
 
 Only `kind`, `name` and `css` are required. `templates` is described under Message template. `settings` keys: `colorScheme` (`dark`, `light`, `time` or `system`), `dayStart`, `nightStart`, `visualStyle`, `accent`,
-`accentLight`, `background`, `backgroundLight`, `fontFamily`, `accentPulse`. Importing shows a preview
-first, and the user picks which settings to apply and whether to add the backgrounds to their gallery.
+`accentLight`, `background`, `backgroundLight`, `fontFamily`, `accentPulse`, `fontSize` (Display
+Size in px: 12, 14, 16, 17, 19, 22, 26, 30 or 34) and `reduceMotion` (true or false). Importing shows a
+preview first with the suggested settings ticked, except Visual Style, Accent Pulse, Display Size and
+Reduce motion, which the user ticks if they want them, and the user picks whether to add the
+backgrounds to their gallery. Pictures under 4 KiB stay inline and show as one "small icons" chip.
 Fonts load with the theme (as `@font-face` rules) and go away with it. Importing a theme with the same
 name as an installed one offers to update it, and an update doesn't add the same background to the
 gallery twice. The CSS limit is 256 KiB of CSS text; pictures, thumbnail, fonts and backgrounds
@@ -440,6 +499,16 @@ The import preview tells the user when a theme tries to change any of these.
   Inside the top bar, every `::before` and `::after` is stacked under the labels and icons, and
   masks, `list-style-image` and `border-image-outset` don't apply. The backdrop and the ambient
   overlay never count: they sit under the bars by construction.
+- Guard v4 (round 4). Contrast reads the layers behind text in paint order (a `border-image`
+  fill, then each background layer from the top, then the colour), weighs each by the part of the
+  text it actually covers (size, position and repeat), and samples a picture only under the text.
+  A thin rule or a small corner ornament no longer counts, and a dark veil over a light page is
+  read as dark. The top bar and the message box are checked more strictly: their text must keep
+  3:1 at its worst spot when it had that before. A picture on a control's own `::before` or
+  `::after` that covers the control counts as covering it, in the top bar, the chat rows and the
+  message box. A `position: fixed` picture on a pseudo-element gets a warning in the editor; use
+  `position: absolute`, `--mari-ambient` or `--mari-app-backdrop` instead. When top-bar art is
+  found on a pseudo-element, the tabs and icons get their plates as with `--mari-top-bar-bg`.
 - Contrast over art: when a picture is behind text, the guard reads the picture's colours instead
   of skipping the check.
 - Text a theme adds with `content:` is shown in the import preview. Added text in the chat or the
@@ -449,6 +518,14 @@ The import preview tells the user when a theme tries to change any of these.
   an Escape that closes Ctrl+K, a menu or a dialog doesn't count.
 
 ## Changes
+
+- **v1.4** (theming round 4): guard v4 (layered backgrounds, painted area, strict top bar and
+  message box, pseudo-element covers); `fontSize` and `reduceMotion` in theme files and the
+  import preview ticking suggested settings; tokens for message times, the roleplay wash, chrome
+  accent and muted text, Library and Ctrl+K colours, Combat, toasts, lorebook dots, Home shortcuts,
+  a text-size floor and the user avatar; `--mari-top-bar-height` and `--mari-top-bar-plate-active`;
+  time, chat-header, game-hud, game-tools, avatar-placeholder and home-widget-glow parts; focus
+  frame, window title, ambient behind cards and gutter mask slots.
 
 - **v1.3** (theming round 3, pictures): `images` in the theme file and `url("theme:name")`; the
   CSS limit counts CSS text only; WebP on import; backdrop on its own layer; `--mari-page-veil`

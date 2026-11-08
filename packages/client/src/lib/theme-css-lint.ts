@@ -20,7 +20,8 @@ export type CssLintCode =
   | "unknown-property"
   | "bad-value"
   | "missing-semicolon"
-  | "hsl-triplet";
+  | "hsl-triplet"
+  | "fixed-pseudo-picture";
 
 export interface CssLintIssue {
   line: number;
@@ -263,5 +264,26 @@ export function lintThemeCss(css: string, env: CssLintEnv | null = browserEnv())
   if (top().kind === "declarations" && buffer.trim() && stack.length > 1) checkDeclaration();
   for (const open of stack.slice(1)) issues.push({ line: open.line, code: "unclosed-block" });
 
+  issues.push(...fixedPseudoPictures(css));
   return issues.sort((a, b) => a.line - b.line);
+}
+
+/**
+ * A picture on a position: fixed ::before/::after can reach over the sidebars and the top bar (they
+ * paint above it today, but only by stacking order). Flagged as a warning: anchor it to its own
+ * element (position: absolute) or use --mari-ambient / --mari-app-backdrop (theming round 4).
+ */
+function fixedPseudoPictures(css: string): CssLintIssue[] {
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, " "));
+  const issues: CssLintIssue[] = [];
+  for (const match of clean.matchAll(/([^{}@;]+)\{([^{}]*)\}/g)) {
+    const selector = match[1]!.trim();
+    const body = match[2]!;
+    if (!/::?(before|after)\b/.test(selector)) continue;
+    if (!/(^|;)\s*position\s*:\s*fixed\b/i.test(body) || !/url\(/i.test(body)) continue;
+    const line = clean.slice(0, match.index! + match[0].indexOf(selector)).split("\n").length;
+    issues.push({ line, code: "fixed-pseudo-picture", subject: selector.slice(0, 60) });
+    if (issues.length >= 3) break;
+  }
+  return issues;
 }

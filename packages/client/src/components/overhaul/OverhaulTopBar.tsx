@@ -505,6 +505,22 @@ export function OverhaulTopBar() {
     document.documentElement.toggleAttribute("data-ov-topbar-autohide", autoHide);
     return () => document.documentElement.removeAttribute("data-ov-topbar-autohide");
   }, [autoHide]);
+  // --mari-top-bar-height: the bar's real height (themes can make it taller), for themes and for the
+  // room the page makes while the fullscreen bar is pinned open.
+  const barRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty("--mari-top-bar-height", `${Math.round(bar.offsetHeight)}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--mari-top-bar-height");
+    };
+  }, []);
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
@@ -547,6 +563,7 @@ export function OverhaulTopBar() {
     <>
       {autoHide ? <div className="ov-topbar-hotzone" aria-hidden="true" /> : null}
       <header
+        ref={barRef}
         data-component="TopBar"
         data-overhaul-topbar="true"
         className={cn("ov-topbar", autoHide && "is-autohide")}
