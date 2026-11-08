@@ -1,8 +1,9 @@
 import type { ChangeEventHandler, CSSProperties, ReactNode, RefObject } from "react";
-import { ArrowDown, ArrowLeft, ArrowUp, Save, User } from "lucide-react";
+import { ArrowDown, ArrowUp, Save, User } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { EditorTabNavigation, type EditorTabItem } from "../ui/EditorTabNavigation";
 import { useTranslation } from "react-i18next";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 
 interface CardEditorProps<T extends string> {
   variant: "character" | "persona";
@@ -107,16 +108,11 @@ export function CardEditor<T extends string>({
         )}
       >
         <div className="mari-editor-header-main mari-editor-header-main--identity">
-          <button
-            type="button"
+          <SurfaceBackButton
             onClick={onBack}
             disabled={busy}
             className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
-            title={t("ui.noodle.noodlerframe.back")}
-            aria-label={t("ui.noodle.noodlerframe.back")}
-          >
-            <ArrowLeft size="1.125rem" />
-          </button>
+          />
 
           {/* Avatar */}
           <div

@@ -13,7 +13,6 @@ import {
   type CustomToolRow,
 } from "../../hooks/use-custom-tools";
 import {
-  ArrowLeft,
   Save,
   Wrench,
   Check,
@@ -37,6 +36,7 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { createFolderEntry } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 
 const EXEC_TYPES = [
   { value: "static", label: "Static Result", icon: FileText, description: "Returns a fixed string when called." },
@@ -334,14 +334,7 @@ export function ToolEditor() {
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
       <div className="mari-editor-header">
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label={localizeUi("ui.agents.tooleditor.backToTools")}
-          className="mari-editor-action inline-flex"
-        >
-          <ArrowLeft size="1.125rem" />
-        </button>
+        <SurfaceBackButton onClick={handleClose} />
         <div className="mari-editor-icon-tile">
           <Wrench size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
         </div>

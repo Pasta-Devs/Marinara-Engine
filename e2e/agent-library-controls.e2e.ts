@@ -145,7 +145,7 @@ for (const folder of [false, true]) {
     await page.keyboard.press("Enter");
     await expect.poll(() => copies.length).toBe(1);
     expect(copies[0]?.name).toBe("My Director (Copy)");
-    await expect(page.getByRole("button", { name: "Back to agents", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Back to/ })).toBeVisible();
     await expect(page.getByRole("note")).toHaveCount(0);
   });
 }

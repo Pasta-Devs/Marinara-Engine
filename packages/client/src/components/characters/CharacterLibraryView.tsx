@@ -11,7 +11,7 @@ import {
   useState,
   type UIEvent,
 } from "react";
-import { ArrowLeft, ArrowUpDown, Download, Hash, MessageCircle, Pencil, Plus, Search, Star, User } from "lucide-react";
+import { ArrowUpDown, Download, Hash, MessageCircle, Pencil, Plus, Search, Star, User } from "lucide-react";
 import { estimateTextTokens, type CharacterData, type Persona } from "@marinara-engine/shared";
 import type { CharacterCatalogEntry } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -42,6 +42,7 @@ import {
   type CharacterLibrarySort,
   type ResourcePanelSort,
 } from "../../stores/ui.store";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 
 const libraryToolbarButtonClass =
   "mari-chrome-control mari-chrome-control--primary h-10 min-h-10 min-w-0 px-3 text-[0.75rem]";
@@ -385,7 +386,6 @@ export function CharacterLibraryView() {
   const kind = useUIStore((s) => s.cardLibraryKind);
   const copy = LIBRARY_COPY[kind];
   const isPersonaLibrary = kind === "personas";
-  const closeLibrary = useUIStore((s) => s.closeCharacterLibrary);
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
   const openPersonaDetail = useUIStore((s) => s.openPersonaDetail);
   const openModal = useUIStore((s) => s.openModal);
@@ -606,13 +606,10 @@ export function CharacterLibraryView() {
       <div className="sticky top-0 z-10 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--card)]/85 backdrop-blur-xl">
         <div className="flex flex-col gap-2 px-3 py-2 md:px-6 md:py-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <button
-              onClick={closeLibrary}
+            <SurfaceBackButton
               className="mari-chrome-control h-9 w-9 rounded-2xl p-0 md:h-10 md:w-10"
-              title={localizeUi("ui.characters.characterlibraryview.closeLibrary")}
-            >
-              <ArrowLeft size="0.95rem" />
-            </button>
+              iconSize="0.95rem"
+            />
             <div className="min-w-0">
               <p className="text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-[var(--marinara-chat-chrome-panel-muted)]">
                 {copy.title}

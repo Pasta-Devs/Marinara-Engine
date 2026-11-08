@@ -1,10 +1,10 @@
 import type { ReactNode, Ref } from "react";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import type { OrganizerEntry } from "./organizer/organizer-model";
-import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { AgentArtwork } from "./AgentArtwork";
 import { StoreBanner } from "./organizer/OrganizerParts";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 
 /**
  * The one header of every agent settings page: Back, store banner and logo, name, an optional
@@ -16,6 +16,7 @@ export function AgentDetailHeader({
   compact = false,
   headerRef,
   onBack,
+  backLabel,
   title,
   meta,
   actions,
@@ -24,13 +25,14 @@ export function AgentDetailHeader({
   compact?: boolean;
   headerRef?: Ref<HTMLDivElement>;
   onBack: () => void;
+  /** Names where Back lands when the stack cannot (the feature host opens the Agents panel). */
+  backLabel?: string;
   /** The name: a heading, or the editor's name field. */
   title: ReactNode;
   /** A short line under the name, such as "Pasta Devs · v1.5.15". */
   meta?: ReactNode;
   actions?: ReactNode;
 }) {
-  const { t: localizeUi } = useUiTranslation();
   const hasBanner = Boolean(storeEntry?.store?.bannerSmallUrl ?? storeEntry?.store?.bannerUrl);
   const iconUrl = storeEntry?.store?.iconUrl;
   const tall = hasBanner && !compact;
@@ -61,14 +63,11 @@ export function AgentDetailHeader({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-2/3 bg-gradient-to-t from-[var(--marinara-editor-bg,var(--background))] to-transparent" />
         </>
       )}
-      <button
-        type="button"
+      <SurfaceBackButton
         onClick={onBack}
-        aria-label={localizeUi("ui.agents.agenteditor.backToAgents")}
+        label={backLabel}
         className={cn("mari-editor-action inline-flex", tall && "order-1")}
-      >
-        <ArrowLeft size="1.125rem" />
-      </button>
+      />
       <div
         className={cn(
           "mari-editor-icon-tile",

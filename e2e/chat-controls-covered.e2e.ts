@@ -115,7 +115,7 @@ async function checkCoveredChat(page: Page, info: TestInfo) {
   await newAgent.click();
   const editor = page.locator('[data-component="MobileDetailSheet"]');
   const save = editor.getByRole("button", { name: "Save", exact: true });
-  const back = editor.getByRole("button", { name: "Back to agents", exact: true });
+  const back = editor.getByRole("button", { name: /^Back to/ });
   await expect(save).toBeVisible();
   await snap(page, info, "agent-editor");
   await expect(chatButtons).toHaveCount(0);

@@ -105,6 +105,7 @@ import { useRegexScripts } from "../../hooks/use-regex-scripts";
 import { PresetVariablesEditor, reorderIdsByOffset, reorderIdsToGap } from "./PresetVariablesEditor";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 
 // ── Tab definitions ──
 const TABS = [
@@ -606,9 +607,7 @@ export function PresetEditor() {
       {/* ── Header ── */}
       <div className="mari-editor-header mari-editor-header--with-nav">
         <div className="mari-editor-header-main">
-          <button onClick={handleClose} className="mari-editor-action inline-flex">
-            <ArrowLeft size="1.125rem" />
-          </button>
+          <SurfaceBackButton onClick={handleClose} />
           <div className="mari-editor-icon-tile mari-panel-gradient-surface mari-panel-gradient--presets overflow-hidden">
             {presetArtwork ? (
               <img src={presetArtwork} alt="" className="h-full w-full object-cover" draggable={false} />

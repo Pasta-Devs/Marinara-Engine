@@ -1661,7 +1661,7 @@ const MAIN_SURFACE_KEYS = [
   "gameAssetsBrowserOpen",
   "noodleOpen",
 ] as const;
-type MainSurfaceKey = (typeof MAIN_SURFACE_KEYS)[number];
+export type MainSurfaceKey = (typeof MAIN_SURFACE_KEYS)[number];
 
 const CLOSED_MAIN_SURFACE = {
   regexDetailId: null,
@@ -1752,6 +1752,28 @@ function leaveMainSurface(s: UIState, own: Partial<UIState>): Partial<UIState> {
   const top = s.mainSurfaceHistory[s.mainSurfaceHistory.length - 1];
   if (top) return { ...own, ...top, mainSurfaceHistory: s.mainSurfaceHistory.slice(0, -1), editorDirty: false };
   return { ...own, editorDirty: false, ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel) };
+}
+
+/** Where the Back button of the open surface lands; `null` means the chat (or Home), which the caller resolves. */
+export type BackDestination =
+  { surface: MainSurfaceKey; cardLibraryKind: CardLibraryKind } | { panel: Panel } | { home: true } | null;
+
+/**
+ * Names the destination `closeTopMainSurface` reaches from `state`, mirroring `leaveMainSurface` and the two closes
+ * that override it: the regex editor's return target and the connection editor's Home tab.
+ */
+export function selectBackDestination(state: UIState): BackDestination {
+  if (state.regexDetailId && state.regexDetailReturn) {
+    const ret = state.regexDetailReturn;
+    return { surface: "presetId" in ret ? "presetDetailId" : "characterDetailId", cardLibraryKind: "characters" };
+  }
+  const top = state.mainSurfaceHistory[state.mainSurfaceHistory.length - 1];
+  if (top) {
+    const surface = mainSurfaceKind(top);
+    if (surface) return { surface, cardLibraryKind: top.cardLibraryKind };
+  }
+  if (state.connectionDetailId && state.connectionDetailReturnTab) return { home: true };
+  return state.detailReturnRightPanel ? { panel: state.detailReturnRightPanel } : null;
 }
 
 function normalizePersistedMainSurface(persisted: Record<string, unknown>) {

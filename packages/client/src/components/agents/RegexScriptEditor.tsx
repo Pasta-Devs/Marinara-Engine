@@ -13,7 +13,6 @@ import {
 } from "../../hooks/use-regex-scripts";
 import { usePresets } from "../../hooks/use-presets";
 import {
-  ArrowLeft,
   Save,
   Check,
   AlertCircle,
@@ -45,6 +44,7 @@ import {
   type RegexPlacement,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 
 // ═══════════════════════════════════════════════
 //  Placement metadata
@@ -557,14 +557,7 @@ export function RegexScriptEditor() {
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
       <div className="mari-editor-header">
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label={localizeUi("ui.agents.regexscripteditor.backToRegexScripts")}
-          className="mari-editor-action inline-flex"
-        >
-          <ArrowLeft size="1.125rem" />
-        </button>
+        <SurfaceBackButton onClick={handleClose} />
         <div className="mari-editor-icon-tile">
           <Regex size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
         </div>

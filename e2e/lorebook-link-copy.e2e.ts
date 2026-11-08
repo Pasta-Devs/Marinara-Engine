@@ -44,7 +44,7 @@ test("lorebook links copy across editors, merge without duplicates, and save nor
     await expect(page.getByRole("button", { name: "Paste links", exact: true })).toBeDisabled();
     await page.getByRole("button", { name: "Copy links", exact: true }).click();
     // Leaving the editor unmounts it; the in-app clipboard survives navigation.
-    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await page.getByRole("button", { name: /^Back to/ }).click();
     await open(target.name);
     await page.getByRole("button", { name: "Paste links", exact: true }).click();
     // Repeated pastes must not duplicate the linked resources.
@@ -108,7 +108,7 @@ for (const kind of ["character", "persona"] as const) {
       await clickTopbarPanel(page, "lorebooks");
       await page.getByText(source.name, { exact: true }).click();
       await page.getByRole("button", { name: "Copy links", exact: true }).click();
-      await page.getByRole("button", { name: "Back", exact: true }).click();
+      await page.getByRole("button", { name: /^Back to/ }).click();
       await page.getByText(target.name, { exact: true }).click();
       const paste = page.getByRole("button", { name: "Paste links", exact: true });
       await expect(paste).toBeEnabled();

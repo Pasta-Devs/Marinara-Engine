@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
-  ArrowLeft,
   Check,
   ChevronRight,
   Download,
@@ -64,6 +63,7 @@ import {
 } from "./organizer/OrganizerLists";
 import type { AgentUpdateResult } from "./AgentUpdateDialog";
 import { AgentPage } from "./organizer/AgentPage";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 
 type BulkActionProgress = {
   action: "install" | "uninstall";
@@ -546,7 +546,7 @@ export function AgentCatalogView() {
     ? localizeUi("ui.agents.organizer.backToSection", {
         section: localizeUi(sectionLabelKey(sectionOf(agentEntry))),
       })
-    : localizeUi("capabilities.actions.backToAgents");
+    : undefined;
 
   const searchField = (
     <div className="relative">
@@ -656,15 +656,12 @@ export function AgentCatalogView() {
         className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-hidden bg-[var(--marinara-editor-bg)]"
       >
         <header className="relative z-10 flex shrink-0 items-center gap-3 border-b border-[var(--border)]/50 bg-[var(--card)]/90 px-3 py-2 backdrop-blur-md md:px-6 md:py-3">
-          <button
-            type="button"
-            onClick={agentEntry ? () => go({ kind: "section", id: sectionOf(agentEntry) }) : closeAgentCatalog}
+          <SurfaceBackButton
+            onClick={agentEntry ? () => go({ kind: "section", id: sectionOf(agentEntry) }) : undefined}
+            label={backLabel}
             className="mari-chrome-control h-9 w-9 shrink-0 rounded-xl p-0 md:h-10 md:w-10"
-            title={backLabel}
-            aria-label={backLabel}
-          >
-            <ArrowLeft size="1rem" />
-          </button>
+            iconSize="1rem"
+          />
           <div className="min-w-0 flex-1">
             <p className="text-[0.625rem] font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)]">
               {localizeUi("ui.agents.organizer.eyebrow")}

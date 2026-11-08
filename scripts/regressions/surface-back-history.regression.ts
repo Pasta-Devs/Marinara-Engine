@@ -19,7 +19,7 @@ const storage = {
 // The stubs stay installed: the store's debounced save flushes after the cases finish, and this runs in its own process.
 Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
 {
-  const { useUIStore, pickPersistedUIState, pickSyncedSettings } =
+  const { useUIStore, pickPersistedUIState, pickSyncedSettings, selectBackDestination } =
     await import("../../packages/client/src/stores/ui.store.js");
   const { registerEditorLeaveHandler } = await import("../../packages/client/src/lib/editor-leave.js");
   // The store is imported without a `window` (its debounced storage registers browser listeners when one exists);
@@ -244,6 +244,39 @@ Object.defineProperty(globalThis, "localStorage", { configurable: true, value: s
   assert.equal(ui().mainSurfaceHistory.length, 1);
   assert.equal("mainSurfaceHistory" in pickPersistedUIState(ui()), false);
   assert.equal("mainSurfaceHistory" in pickSyncedSettings(ui()), false);
+
+  // 15. The Back button names the destination `closeTopMainSurface` reaches.
+  reset();
+  assert.equal(selectBackDestination(ui()), null, "nothing to return to but the chat");
+  ui().openLorebookDetail("L");
+  assert.equal(selectBackDestination(ui()), null);
+  ui().openCharacterDetail("C");
+  assert.deepEqual(selectBackDestination(ui()), { surface: "lorebookDetailId", cardLibraryKind: "characters" });
+  ui().openPersonaLibrary();
+  assert.deepEqual(selectBackDestination(ui()), { surface: "characterDetailId", cardLibraryKind: "characters" });
+  ui().openCharacterDetail("C2", { preserveCharacterLibrary: true });
+  assert.deepEqual(selectBackDestination(ui()), { surface: "characterLibraryOpen", cardLibraryKind: "personas" });
+  ui().closeAllDetails();
+  assert.equal(selectBackDestination(ui()), null);
+
+  // 15b. On a phone the panel a first surface was opened from is where the last Back lands.
+  reset(true);
+  ui().openRightPanel("lorebooks");
+  ui().openLorebookDetail("L");
+  assert.deepEqual(selectBackDestination(ui()), { panel: "lorebooks" });
+  ui().openCharacterDetail("C");
+  assert.deepEqual(selectBackDestination(ui()), { surface: "lorebookDetailId", cardLibraryKind: "characters" });
+  ui().closeCharacterDetail();
+  assert.deepEqual(selectBackDestination(ui()), { panel: "lorebooks" });
+
+  // 15c. The regex editor returns to the card or preset that opened it, and the connection editor to its Home tab.
+  reset();
+  ui().openCharacterDetail("C");
+  ui().openRegexDetail("R", { returnTo: { characterId: "C", tab: "advanced" } });
+  assert.deepEqual(selectBackDestination(ui()), { surface: "characterDetailId", cardLibraryKind: "characters" });
+  reset();
+  ui().openConnectionDetail("X", { returnToHomeTab: "connections" });
+  assert.deepEqual(selectBackDestination(ui()), { home: true });
 
   console.info("Surface back history regression passed.");
 }

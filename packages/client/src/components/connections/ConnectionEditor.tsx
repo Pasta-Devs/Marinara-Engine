@@ -39,7 +39,6 @@ import {
 } from "../../hooks/use-connections";
 import { usePresets } from "../../hooks/use-presets";
 import {
-  ArrowLeft,
   Save,
   Trash2,
   Upload,
@@ -150,6 +149,7 @@ import {
   type VideoReferenceUploadExpiry,
   type VideoResolution,
 } from "@marinara-engine/shared";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 
 /** Links where users can obtain API keys for each provider */
 const DEFAULT_CACHING_AT_DEPTH = 5;
@@ -2218,13 +2218,7 @@ export function ConnectionEditor({
       {/* ── Header ── */}
       <div className={"mari-editor-header"}>
         <div className="mari-editor-header-main">
-          <button
-            onClick={handleClose}
-            className="mari-editor-action inline-flex shrink-0"
-            aria-label={localizeUi("connections.editor.back")}
-          >
-            <ArrowLeft size="1.125rem" />
-          </button>
+          <SurfaceBackButton onClick={handleClose} className="mari-editor-action inline-flex shrink-0" />
 
           <ProviderIcon
             provider={localProvider}
