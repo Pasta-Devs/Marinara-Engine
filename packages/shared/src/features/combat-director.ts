@@ -2,6 +2,7 @@ import type { RulesetCheckSource } from "./rulesets/check-effects.js";
 import type { RulesetItemEffectFact } from "./rulesets/item-book.js";
 import type { CombatWeather } from "./combat-conditions.js";
 import type { CombatOrders } from "./combat-ai.js";
+import type { MarinaraDamageType } from "./marinara-classes.js";
 import { z } from "zod";
 import type { Combatant, CombatPlayerAction, CombatSummary } from "../types/game.js";
 import type {
@@ -142,6 +143,16 @@ export type DirectedCommand =
   /** Whether the player chooses what their own symbol throws buy (1.382) rather than the Engine. */
   | { type: "spends"; choose: boolean }
   | { type: "flee" }
+  /** Classic Marinara (Alyssa 2026-11-01): what becomes of foes who threw down their arms once nobody
+   *  else fights on (the view's `mercy`). Spared, they leave as surrendered; finished, they fall as
+   *  beaten. Both pay loot and XP. */
+  | { type: "mercy"; choice: "spare" | "finish" }
+  /** Classic Marinara (Alyssa 2026-11-01): a Marksman loads another of the ammunition types the party
+   *  owns (the unit's `marinara.ammo.choices`), by hand, at any time; a free action. */
+  | { type: "loadAmmo"; unitId: string; ammo: MarinaraDamageType }
+  /** Channel Element: a Channeler-tree caster of the party channels an element (the
+   *  unit's `marinara.channel.choices`); a bonus action, once between their turns. */
+  | { type: "channelElement"; unitId: string; element: MarinaraDamageType }
   /** The party gives itself up to opponents who are all honourable (combat AI T6): a ruleset fight's. */
   | { type: "yield" };
 export interface CombatDecisionOption {
@@ -594,4 +605,7 @@ export interface DirectedCombatView {
   }>;
   outcome?: "victory" | "defeat" | "flee";
   summary?: CombatSummary;
+  /** Classic Marinara: only foes who yielded are left, and the fight waits on the party's `mercy`
+   *  command (spare or finish). No turns are taken meanwhile. */
+  mercy?: { foeIds: string[] };
 }

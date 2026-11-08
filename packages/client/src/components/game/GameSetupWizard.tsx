@@ -626,6 +626,10 @@ export function GameSetupWizard({
   const [gmNamedControl, setGmNamedControl] = useState(true);
   // A cruel opponent may strike the fallen (combat AI T3): off unless asked for.
   const [cruelOpponents, setCruelOpponents] = useState(false);
+  const [marinaraClasses, setMarinaraClasses] = useState(false);
+  // Every new game is on MRPG classes, an Experience too (owner 2026-11-06).
+  const classicClasses = isNewGame || marinaraClasses;
+  const [permadeath, setPermadeath] = useState(false);
   // Companions fight on their own unless the player plays them (Alyssa 2026-10-26): on unless asked.
   const [companionsOnTheirOwn, setCompanionsOnTheirOwn] = useState(true);
   const [gmMode, setGmMode] = useState<GameGmMode>("standalone");
@@ -1380,6 +1384,8 @@ export function GameSetupWizard({
     setGmBossControl(config.gmBossControl ?? true);
     setGmNamedControl(config.gmNamedControl ?? false);
     setCruelOpponents(config.cruelOpponents === true);
+    setMarinaraClasses(config.marinaraClasses === true);
+    setPermadeath(config.permadeath === true);
     setCompanionsOnTheirOwn(config.playerRunsCompanions !== true);
     setRating(config.rating);
     setLanguage(config.language?.trim() || "English");
@@ -1550,6 +1556,10 @@ export function GameSetupWizard({
       gmBossControl,
       ...(gmBossControl ? { gmNamedControl } : {}),
       ...(cruelOpponents ? { cruelOpponents } : {}),
+      // Every new game fights with Classic classes (owner 2026-11-06): Legacy sheets stay only in games
+      // made before, which can upgrade from their Journal. A game set up again keeps what it had.
+      ...(classicClasses ? { marinaraClasses: true } : {}),
+      ...(classicClasses && permadeath ? { permadeath } : {}),
       ...(companionsOnTheirOwn ? {} : { playerRunsCompanions: true }),
       // The board's size is the Game Master's to choose, by the place (2026-10-24, Alyssa).
       spatialMapInstructions:
@@ -2384,6 +2394,22 @@ export function GameSetupWizard({
                           </span>
                         </span>
                       </label>
+                      {classicClasses && (
+                        <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
+                          <input
+                            type="checkbox"
+                            checked={permadeath}
+                            onChange={(e) => setPermadeath(e.target.checked)}
+                            className="mt-1 size-4 accent-[var(--primary)]"
+                          />
+                          <span>
+                            {localizeUi("game.combat.director.permadeathLabel")}
+                            <span className="mt-1 block text-xs text-[var(--muted-foreground)]">
+                              {localizeUi("game.combat.director.permadeathHelp")}
+                            </span>
+                          </span>
+                        </label>
+                      )}
                     </div>
 
                     {!isNewGame && chatMetadata?.gameRuleset != null && (

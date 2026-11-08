@@ -47,6 +47,7 @@ import {
   gameDungeonMapFromMetadata,
   GAME_LOOT_GIVEN_LINE,
   GAME_REWARD_PROMPT_LINE,
+  marinaraGameWorldKit,
 } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Game: Main Surface (rendered by ChatArea when mode === "game")
@@ -257,6 +258,12 @@ import type {
   SpatialMapDraftSize,
   GenerateSpatialMapDraftResponse,
   PendingSpatialTransition,
+} from "@marinara-engine/shared";
+import {
+  marinaraClass,
+  marinaraGameItemPlace,
+  marinaraPartyFighter,
+  readMarinaraCardProgression,
 } from "@marinara-engine/shared";
 import type { AvatarCrop, CombatIconChoice, Persona, SceneSegmentEffect } from "@marinara-engine/shared";
 import {
@@ -1254,6 +1261,11 @@ export function generatedEnemyToCombatant(enemy: CombatEnemy, index: number, fal
       ? { creatureType: enemy.creatureType.trim() }
       : {}),
     ...(enemy.proposed !== undefined ? { proposed: enemy.proposed } : {}),
+    // Classic Marinara classes: the bestiary family and tier the setup gave it (read only by such a game).
+    // Until the fight starts this is the setup's word on the foe, not the screen's view of it.
+    ...(enemy.marinara && typeof enemy.marinara === "object"
+      ? { marinara: enemy.marinara as unknown as Combatant["marinara"] }
+      : {}),
     ...(enemy.surprised === true ? { surprised: true } : {}),
     ...(enemy.inLair === true ? { inLair: true } : {}),
     ...(enemy.start ? { start: enemy.start } : {}),
@@ -3371,6 +3383,15 @@ function GameSurfaceComponent({
           characterName,
           ...(partyChange.copyOf ? { copyOf: partyChange.copyOf } : {}),
           ...(partyChange.condition ? { condition: partyChange.condition } : {}),
+          ...(partyChange.level || partyChange.growths || partyChange.stats
+            ? {
+                mrpg: {
+                  ...(partyChange.level ? { level: partyChange.level } : {}),
+                  ...(partyChange.growths ? { growths: partyChange.growths } : {}),
+                  ...(partyChange.stats ? { stats: partyChange.stats } : {}),
+                },
+              }
+            : {}),
         };
         const forgetCommand = () => processedPartyChangeCommandsRef.current.delete(commandKey);
         if (partyChange.change !== "add") {
@@ -5594,6 +5615,32 @@ function GameSurfaceComponent({
 
     if (tags.partyChanges.length > 0) {
       handlePartyChangeCommands(msg.id, tags.partyChanges);
+    }
+
+    // A room player brought into an MRPG game under way at the level the Game Master gave them.
+    for (const join of tags.mrpgJoins) {
+      const name = join.characterName.trim();
+      const commandKey = `${msg.id}:mrpg_join:${normalizeTextForMatch(name)}`;
+      if (!name || processedPartyChangeCommandsRef.current.has(commandKey)) continue;
+      processedPartyChangeCommandsRef.current.add(commandKey);
+      void api
+        .post("/game/marinara/join", {
+          chatId: activeChatId,
+          name,
+          ...(join.level ? { level: join.level } : {}),
+          ...(join.growths ? { growths: join.growths } : {}),
+          ...(join.stats ? { stats: join.stats } : {}),
+          ...(join.sister ? { sister: join.sister } : {}),
+        })
+        .then(() => queryClient.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) }))
+        .catch((error: unknown) => {
+          console.warn("[mrpg_join] not applied:", error);
+          // A refusal (409: they already have their level, no such member, not an MRPG game) is the answer.
+          if (error instanceof ApiError && error.status === 409) return;
+          // A failure: let a later pass over this message try again, and tell the player.
+          processedPartyChangeCommandsRef.current.delete(commandKey);
+          toast.error(localizeUi("ui.game.gamesurfacecomponent.mrpgJoinFailed", { name }));
+        });
     }
 
     if (directAddressMode) {
@@ -9439,7 +9486,16 @@ function GameSurfaceComponent({
     });
   }, [chatMeta.gameCharacterCards, gameRuleset]);
   // A game with no ruleset buys and pays in its setting kit's money (worldgen W6b).
-  const inventoryKit = gameKit;
+  // A Classic Marinara game's shops also sell the item tables' wares for the party's tier.
+  const inventoryKit = useMemo(
+    () =>
+      marinaraGameWorldKit({
+        gameWorldKit: chatMeta.gameWorldKit,
+        gameSetupConfig: chatMeta.gameSetupConfig,
+        gameCharacterCards: chatMeta.gameCharacterCards,
+      }),
+    [chatMeta.gameWorldKit, chatMeta.gameSetupConfig, chatMeta.gameCharacterCards],
+  );
   const inventoryItemBook = useRulesetItemBook(gameRuleset, inventorySheets, chatMeta.gameInventedItems, inventoryKit);
   /** The Use button. One of the ruleset's items with a `use` is used by the Engine first: what it does
    *  to whoever carries it lands on their sheet, it is spent, and the Game Master is told what happened
@@ -9689,6 +9745,15 @@ function GameSurfaceComponent({
       { action: { label: localizeUi("game.ruleset.startingGear.button"), onClick: () => setInventoryOpen(true) } },
     );
   }, [startingGearOffered, chat.id, startingGearTaken, startingGearWaiting, inventoryItems, localizeUi]);
+  // A Classic game's items show what they do when picked in the inventory (owner 2026-11-06).
+  const inventoryMarinaraPlace = useMemo(
+    () =>
+      (chatMeta.gameSetupConfig as { marinaraClasses?: boolean } | undefined)?.marinaraClasses === true &&
+      chatMeta.gameRuleset == null
+        ? marinaraGameItemPlace(chatMeta)
+        : undefined,
+    [chatMeta],
+  );
   const inventoryStartingGear = useMemo(
     () =>
       gameRuleset.status === "ok" && gameRuleset.definition.items?.startingGear?.length
@@ -11120,6 +11185,30 @@ function GameSurfaceComponent({
       };
     }
 
+    // Classic: the level, class and fight HP/MP come from the character's progression, so the party list
+    // agrees with the sheet instead of the story's own label and tracker numbers.
+    if (
+      (config as { marinaraClasses?: boolean } | undefined)?.marinaraClasses === true &&
+      gameRuleset.status === "none"
+    ) {
+      for (const [id, card] of Object.entries(cards)) {
+        const progression = readMarinaraCardProgression(findGameCard(card.title)?.marinara);
+        if (!progression) continue;
+        const fighter = marinaraPartyFighter(card.title, card.title, progression);
+        const others = (card.stats ?? []).filter((stat) => !/^(hp|health|mp|mana)$/i.test(stat.name.trim()));
+        cards[id] = {
+          ...card,
+          subtitle: marinaraClass(progression.activeClass)?.label ?? card.subtitle,
+          level: progression.level,
+          stats: [
+            { name: "HP", value: fighter.maxHp, max: fighter.maxHp },
+            { name: "MP", value: fighter.maxMp, max: fighter.maxMp },
+            ...others,
+          ],
+        };
+      }
+    }
+
     return cards;
   }, [
     chatCharacterIds,
@@ -11131,6 +11220,7 @@ function GameSurfaceComponent({
     sessionNumber,
     inventoryItems,
     roomHumans,
+    gameRuleset.status,
   ]);
 
   const handleSaveCharacterSheet = useCallback(
@@ -11183,10 +11273,16 @@ function GameSurfaceComponent({
       const updatedCards = [...currentCards];
       if (sanitizedGameCard) {
         if (currentIndex >= 0) {
-          // This editor only knows the fields above. The game's copy of the ruleset sheet lives on
-          // the same card and is edited elsewhere, so it rides along instead of being dropped.
-          const rulesetSheet = currentCards[currentIndex]?.rulesetSheet;
-          updatedCards[currentIndex] = rulesetSheet ? { ...sanitizedGameCard, rulesetSheet } : sanitizedGameCard;
+          // This editor only knows the fields above. What the game owns on the same card and edits
+          // elsewhere rides along instead of being dropped: the ruleset sheet, the Classic progression
+          // (class levels, gear, tamed beasts), the temperament and the multiplayer seat.
+          const existing = currentCards[currentIndex] ?? {};
+          const kept = Object.fromEntries(
+            (
+              ["rulesetSheet", "marinara", "temperament", "temperamentInitial", "multiplayerParticipantId"] as const
+            ).flatMap((field) => (existing[field] != null ? [[field, existing[field]] as const] : [])),
+          );
+          updatedCards[currentIndex] = { ...sanitizedGameCard, ...kept };
         } else {
           updatedCards.push(sanitizedGameCard);
         }
@@ -12189,6 +12285,7 @@ function GameSurfaceComponent({
         // Out of it alive, their heart gone: the story goes on with them.
         const fledEnemies = summary.enemies.filter((e) => e.left === "fled");
         const yieldedEnemies = summary.enemies.filter((e) => e.left === "surrendered");
+        const tamedEnemies = summary.enemies.filter((e) => e.left === "tamed");
         const partyStatus = summary.party.map((p) => {
           const hpPct = p.maxHp > 0 ? Math.round((p.hp / p.maxHp) * 100) : 0;
           const effects = p.statusEffects.length > 0 ? ` [${p.statusEffects.join(", ")}]` : "";
@@ -12248,6 +12345,10 @@ function GameSurfaceComponent({
         if (yieldedEnemies.length > 0 && !fought) {
           recapLines.push(`Surrendered to the party, alive: ${yieldedEnemies.map((e) => e.name).join(", ")}`);
         }
+        if (tamedEnemies.length > 0)
+          recapLines.push(
+            `Tamed by the party, now a companion that follows them: ${tamedEnemies.map((e) => e.name).join(", ")}`,
+          );
         // The ruleset's own numbers in place of the percentage lines: the fight was not fought on a
         // share of a maximum, so the Game Master is never shown one.
         if (fought) recapLines.push(...rulesetCombatRecapLines(fought.definition, fought.ruleset));
@@ -14796,6 +14897,7 @@ function GameSurfaceComponent({
                   onAddItem={handleAddInventoryItem}
                   itemBook={inventoryItemBook}
                   rulesetDefinition={gameRuleset.status === "ok" ? gameRuleset.definition : undefined}
+                  marinaraPlace={inventoryMarinaraPlace}
                   onAddRulesetItems={handleAddRulesetItems}
                   placeAmong={inventoryPlaceAmong}
                   onWearItem={handleWearInventoryStack}
@@ -14909,6 +15011,18 @@ function GameSurfaceComponent({
             }
             ruleset={characterSheetRuleset}
             rulesetPinned={gameRuleset.status !== "none"}
+            {...((chatMeta.gameSetupConfig as { marinaraClasses?: boolean } | undefined)?.marinaraClasses === true &&
+            gameRuleset.status === "none" &&
+            activeChatId
+              ? {
+                  marinara: {
+                    chatId: activeChatId,
+                    stored: findStoredGameCard(partyCards[characterSheetCharId].title).cards[
+                      findStoredGameCard(partyCards[characterSheetCharId].title).index
+                    ]?.marinara,
+                  },
+                }
+              : {})}
           />
         )}
 

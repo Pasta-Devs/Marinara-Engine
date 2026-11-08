@@ -135,4 +135,6 @@ export interface PersonaStatsConfig {
   combatIcon?: CombatIconChoice;
   /** Starting builds for Game Mode rulesets, keyed by ruleset id. A game copies the one it needs. */
   rulesetSheets?: Record<string, unknown>;
+  /** Classic games: the starting tree and the stats they are strong and weak in (MarinaraCardClassic). */
+  classic?: { tree?: string; strong?: string[]; weak?: string };
 }

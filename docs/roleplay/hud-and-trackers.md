@@ -179,6 +179,6 @@ If it did not work: if the story moved on while you edited, the editor does not 
 
 - [Downloadable Agents Reference](../agents/built-in-agents.md)
 - [Agents: AI Helpers for Your Chats](../agents/agents-overview.md)
-- [Character Colors and RPG Stats](../characters/colors-and-stats.md): the **Stats** tab sets the bars and attributes a persona or character starts with.
+- [Character Colors and Roleplay Stats](../characters/colors-and-stats.md): the **Stats** tab sets the bars and attributes a persona or character starts with.
 - [Roleplay Mode: Getting Started](getting-started.md)
 - [Game Mode: HUD Widgets](../game/hud-widgets.md)

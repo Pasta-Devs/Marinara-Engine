@@ -64,7 +64,7 @@ The persona editor works like the [Character Editor](creating-and-editing-charac
 | **Lorebook** | Attach lorebook entries that activate when this persona is in the chat. See [Lorebooks Overview](../lorebooks/overview.md). |
 | **Sprites** | Standing art for Game and Roleplay. Has **Facial Expressions**, **Full-body** and **Clips**, and **Upload Folder**. See [Character Sprites](sprites.md). |
 | **Gallery** | Reference images and videos, with **Upload Persona Images** and **Upload Persona Videos**. See [Character and Persona Galleries](galleries.md). |
-| **Colors** | Name, dialogue and message box colors. See [Character Colors and RPG Stats](colors-and-stats.md). |
+| **Colors** | Name, dialogue and message box colors. See [Character Colors and Roleplay Stats](colors-and-stats.md). |
 | **Stats** | Status bars and RPG attributes. See [Stats tab](#stats-tab) below. |
 
 The **Metadata** tab shows:
@@ -105,7 +105,7 @@ These features work the same as on characters, with the persona as the subject:
 The **Stats** tab has two separate blocks. Both feed the HUD, the stat panel shown on screen during a chat.
 
 - **Enable Persona Stats** turns on status bars, meters for needs such as hunger and mood. A fresh one starts with Satiety, Energy, Hygiene and Mood, each at 100 of 100. The **Persona Stats** agent adjusts them as the story goes.
-- **Enable RPG Attributes** turns on Pools (bars such as HP and MP) and Attributes (numbers such as strength). Both are explained in [Character Colors and RPG Stats](colors-and-stats.md). A fresh one starts with HP and MP at 100 of 100 and STR, DEX, CON, INT, WIS and CHA at 10. They are sent with the persona for combat and Game Mode, and for optional rolls. Agents do not update them.
+- **Enable Roleplay Stats** turns on Pools (bars such as HP and MP) and Attributes (numbers such as strength). Both are explained in [Character Colors and Roleplay Stats](colors-and-stats.md). A fresh one starts with HP and MP at 100 of 100 and STR, DEX, CON, INT, WIS and CHA at 10. They are sent with the persona for combat and Game Mode, and for optional rolls. Agents do not update them.
 
 A **Game Mode Icon** block sets your token picture in a Game Mode fight. See [Game Mode Icon](colors-and-stats.md#game-mode-icon). When a Game Mode ruleset (a rule set for tabletop-style games) is installed, a **Ruleset sheets** block holds your starting build for it. See [Ruleset sheets](colors-and-stats.md#ruleset-sheets). The values you set are the starting defaults for new chats.
 
@@ -135,7 +135,7 @@ To delete, click **Delete** on a row or **Delete persona** in the editor, then c
 ## Related guides
 
 - [Choosing Your Persona in a Chat](choosing-your-persona.md)
-- [Character Colors and RPG Stats](colors-and-stats.md)
+- [Character Colors and Roleplay Stats](colors-and-stats.md)
 - [Creating and Editing Characters](creating-and-editing-characters.md)
 - [Conversation Mode Profiles](../conversation/profiles.md)
 - [Macros](../prompts/macros.md)

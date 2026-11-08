@@ -44,6 +44,8 @@ import {
   rulesetFoundStored,
   type GameInventoryBearerStatus,
   type GameInventoryWear,
+  marinaraItemIdByName,
+  type MarinaraItemPlace,
   type RulesetDefinition,
   type RulesetItemBook,
   type RulesetItemBookEntry,
@@ -61,6 +63,7 @@ import { useRulesetDefinitionText } from "../../hooks/use-ruleset-text";
 import type { RulesetText } from "../../lib/ruleset-text";
 import { StartingGearPicker, type StartingGearTaken } from "./StartingGearPicker";
 import { ArtIcon } from "./ArtIcon";
+import { MarinaraItemFacts } from "./MarinaraItemFacts";
 
 /** One stack. Two stacks may hold the same item, so a stack is told apart by its id, never its name. */
 export interface InventoryItem {
@@ -118,6 +121,8 @@ interface GameInventoryProps {
    *  a ruleset that takes only its own items (`freeform: "refuse"`) offers only the picker. */
   itemBook?: RulesetItemBook;
   rulesetDefinition?: RulesetDefinition;
+  /** A Classic game's item place: a Classic item shows what it does when picked (owner 2026-11-06). */
+  marinaraPlace?: MarinaraItemPlace;
   /** Called with the items picked from the ruleset, one of each, into the open tab's bag. Resolves to
    *  the stack the last one went onto. */
   onAddRulesetItems?: (
@@ -203,6 +208,7 @@ export function GameInventory({
   onAddItem,
   itemBook,
   rulesetDefinition,
+  marinaraPlace,
   onAddRulesetItems,
   placeAmong,
   onWearItem,
@@ -857,6 +863,12 @@ export function GameInventory({
                   </span>
                 )}
               </div>
+            )}
+            {!selectedRulesetItem && selectedInventoryItem && marinaraPlace && (
+              <MarinaraItemFacts
+                itemId={marinaraItemIdByName(selectedInventoryItem.name, marinaraPlace)}
+                className="mb-2.5 text-white/70"
+              />
             )}
             {selectedRulesetItem && (
               <RulesetItemDetails

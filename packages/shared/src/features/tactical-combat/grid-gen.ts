@@ -292,10 +292,23 @@ export function defaultBattlefieldSize(unitCount: number): TacticalBattlefieldSi
   return unitCount > 20 ? "huge" : unitCount > 8 ? "large" : unitCount > 5 ? "medium" : "small";
 }
 
+/** Classic Marinara boards are this many columns narrower than the shared small/medium/large sizes
+ *  (overnight playtest 2026-11-06: foes spent rounds walking up; 2 narrower cut the walk-up about 40%
+ *  with wins flat over the A/B). Only the Marinara director asks for it; 5e and the rest keep the
+ *  shared sizes. Its own commit so it can be reverted alone. */
+export const MARINARA_BOARD_NARROWING = 2;
+const NARROWABLE: ReadonlySet<TacticalBattlefieldSize> = new Set(["small", "medium", "large"]);
+
 /** Grid dimensions scale with the number of combatants. Default 12x8; past 20 fighters, 24x16. The
- *  vast and colossal boards only when asked for. */
-export function gridDimensions(unitCount: number, size?: TacticalBattlefieldSize): { width: number; height: number } {
-  return { ...BATTLEFIELD_SIZES[size ?? defaultBattlefieldSize(unitCount)] };
+ *  vast and colossal boards only when asked for. `narrow` takes columns off the three everyday sizes. */
+export function gridDimensions(
+  unitCount: number,
+  size?: TacticalBattlefieldSize,
+  narrow = 0,
+): { width: number; height: number } {
+  const picked = size ?? defaultBattlefieldSize(unitCount);
+  const base = BATTLEFIELD_SIZES[picked];
+  return NARROWABLE.has(picked) && narrow > 0 ? { width: base.width - narrow, height: base.height } : { ...base };
 }
 
 const SPAWN_COLS = 2;
@@ -433,8 +446,9 @@ export function generateGrid(
   rng: () => number,
   environment?: TacticalEnvironment,
   size?: TacticalBattlefieldSize,
+  narrow = 0,
 ): TacticalGrid {
-  const { width, height } = gridDimensions(unitCount, size);
+  const { width, height } = gridDimensions(unitCount, size, narrow);
   const tiles: TacticalTerrain[][] = Array.from({ length: height }, () =>
     Array.from({ length: width }, () => "plains" as TacticalTerrain),
   );
@@ -591,12 +605,13 @@ export function generateTacticalBattlefield(
   rng: () => number,
   environment: TacticalEnvironment | undefined,
   requestedBrief: unknown,
+  narrow = 0,
 ): GenerateTacticalBattlefieldResult {
   const validated = validateTacticalBattlefieldBrief(requestedBrief);
   if (!validated.ok) return validated;
   const brief = validated.brief;
   const size = brief?.size ?? defaultBattlefieldSize(unitCount);
-  const grid = generateGrid(unitCount, rng, environment, size);
+  const grid = generateGrid(unitCount, rng, environment, size, narrow);
   const protectedTiles = new Set<string>();
   // Cut to the place's outline (2026-10-24): what is off the map is a wall nobody sees, keeping the
   // strips the sides line up on and the middle on it.

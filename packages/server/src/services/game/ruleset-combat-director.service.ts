@@ -7902,6 +7902,8 @@ function rulesetPickReasons(
     // Its own side's one is not one it wants down: the friend it picked is the one most in need
     // (laptop playtest 2026-10-23: "heals Isolde; Isolde is the one its side most wants down").
     if (why === "focus" && target && actor && !foe) return { why: "mostInNeed", ...(targetId ? { targetId } : {}) };
+    // Only Classic Marinara weighs it (a foe kept from striking); a ruleset candidate never carries it.
+    if (why === "prevented") return { why: "takesTurn", ...(targetId ? { targetId } : {}) };
     return { why, ...(targetId ? { targetId } : {}) };
   });
   // The help it gives, weighed both as help and as what it gains them, is said once.
@@ -11345,6 +11347,7 @@ function rulesetSuggestionReason(
     healing: () => `heals ${target || "a friend"}`,
     support: () => `helps ${target || "its side"}`,
     setup: () => `sets up what comes next (a condition, a broken concentration, a better position)`,
+    prevented: () => `keeps ${target || "a foe"} from striking its side`,
     risk: () => "puts itself in danger",
     cost: () =>
       `spends ${option.cost?.length ? option.cost.map((one) => `${one.amount} ${one.label}`).join(", ") : "a limited use"}`,

@@ -58,7 +58,31 @@ A skill check tests something risky, such as sneaking, spotting a clue or convin
 The check rolls one d20 and adds two modifiers:
 
 - A skill modifier, from the skill level the game tracks for your character. It is 0 if the game has no level for that skill yet.
-- An attribute modifier, from the skill's governing attribute. Each skill maps to one automatically: Stealth uses Dexterity, Perception uses Wisdom, Persuasion uses Charisma. A skill Marinara does not recognize uses Intelligence.
+- A stat modifier, from the stat the skill leans on. Which stats depends on the game, as below.
+
+In a shared game, each check reads the stats of the character it names.
+
+#### MRPG games
+
+In a game on **MRPG** classes, which is every new game, the stat modifier comes from the character's MRPG stats, the ones their active class gives them (see [MRPG Classes](mrpg-classes.md#what-the-stats-mean)). Any Legacy attributes still on an upgraded card are not used. Each skill leans on one stat:
+
+| Stat | Skills |
+| --- | --- |
+| Strength | Athletics, Intimidation |
+| Speed | Acrobatics, Stealth |
+| Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling, and any skill not listed here |
+| Defense | Endurance, Constitution |
+| Magic | Arcana, History, Nature, Intelligence |
+| Resistance | Insight, Religion, Wisdom |
+| Luck | Persuasion, Deception, Performance, Charisma |
+
+The check adds a fifth of that stat above 3, rounded down, from -1 to +5. A weak stat (2 or less) takes 1 off, an ordinary one adds nothing, a new character's best stat adds about +1, a level-10 one +2, and the best at the top +5. Since the stats follow the active class, switching class changes these bonuses too.
+
+#### Legacy games
+
+In a **Legacy** game, the modifier comes from the skill's governing attribute on the character's sheet. Each skill maps to one automatically: Stealth uses Dexterity, Perception uses Wisdom, Persuasion uses Charisma. A skill Marinara does not recognize uses Intelligence.
+
+#### The result
 
 If the total reaches or beats the DC, the check succeeds. Two rolls override the math:
 
@@ -73,7 +97,7 @@ The GM can call a check with advantage (roll two d20s, keep the higher) or disad
 
 ### Pre-roll your own d20
 
-Queue a `d20` from the dice menu before the check happens. The check then uses your number instead of rolling a new die. Your skill and attribute modifiers still apply.
+Queue a `d20` from the dice menu before the check happens. The check then uses your number instead of rolling a new die. Your skill and stat modifiers still apply.
 
 For how the GM finishes a turn after a roll, and what it costs, see [How a rolled turn is narrated](#how-a-rolled-turn-is-narrated).
 

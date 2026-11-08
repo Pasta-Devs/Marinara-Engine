@@ -8,6 +8,7 @@ import {
   mergedReplyRoster,
   VIDEO_GENERATION_SETTINGS_KEY,
   type RulesetClocks,
+  marinaraGameWorldKit,
 } from "@marinara-engine/shared";
 import {
   GAME_STARTING_GEAR_TAKEN_KEY,
@@ -25,6 +26,7 @@ import {
   runWithRoomGeneration,
   type GenerationRoomContext,
 } from "../services/multiplayer/generation-policy.js";
+import { roomMrpgRoster } from "../services/multiplayer/fight-players.js";
 import { appendLorebookImageMessages, type LorebookImageNotice } from "../services/generation/lorebook-image-prompt.js";
 import { withLorebookImageCompatibility } from "../services/llm/lorebook-image-provider.js";
 import { fixedTextProvider } from "../services/llm/fixed-text-provider.js";
@@ -5605,7 +5607,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               : normalizeGameInventoryStacks(chatMeta.gameInventory);
           // A game with no ruleset buys, pays and earns in its setting kit's money (worldgen W6b).
           const promptKitItems =
-            chatMeta.gameRuleset == null ? worldKitItems(gameWorldKitFromMetadata(chatMeta)) : undefined;
+            chatMeta.gameRuleset == null ? worldKitItems(marinaraGameWorldKit(chatMeta)) : undefined;
           // What each ruleset item the party holds is, for the Game Master: read when one is held, or
           // when the game has coins in use (its layers may hide them all), so an empty purse is said
           // too (never told one is empty, the Game Master narrates a buy the Engine then refuses).
@@ -5926,6 +5928,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             // A package that brought its own inventory takes the built-in one out of the prompt.
             // Dungeon, cave and station maps are the Overworld RPG's; Classic Game Mode never opens one.
             overworld: gameStyleFromMetadata(chatMeta) === "overworld",
+            mrpg:
+              (chatMeta.gameSetupConfig as { marinaraClasses?: unknown } | undefined)?.marinaraClasses === true &&
+              chatMeta.gameRuleset == null,
+            ...((chatMeta.gameSetupConfig as { marinaraClasses?: unknown } | undefined)?.marinaraClasses === true &&
+            chatMeta.gameRuleset == null &&
+            chatMeta.multiplayer
+              ? { mrpgRoom: roomMrpgRoster(chatMeta as Record<string, unknown>) }
+              : {}),
             experienceProvidedSystems: capabilityPromptContext.provides,
             // A package that declares GM verbs gets one COMMANDS line each. No package declares a
             // table today, so this renders nothing and the reminder is byte-identical.
@@ -10524,7 +10534,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // A game with no ruleset has its setting kit's market (worldgen W6b).
           const turnKitItems =
             chatMode === "game" && !input.impersonate && chatMeta.gameRuleset == null
-              ? worldKitItems(gameWorldKitFromMetadata(chatMeta))
+              ? worldKitItems(marinaraGameWorldKit(chatMeta))
               : undefined;
           const turnMarket =
             chatMode === "game" && !input.impersonate && turnGameRuleset?.status === "ok"

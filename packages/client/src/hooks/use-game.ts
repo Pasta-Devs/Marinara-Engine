@@ -560,6 +560,8 @@ export function useRecruitPartyMember() {
       connectionId?: string;
       copyOf?: string;
       condition?: string;
+      /** MRPG games: the joiner's level, growths and stats as the Game Master wrote them. */
+      mrpg?: { level?: number; growths?: string; stats?: string };
     }) => api.post<RecruitPartyMemberResponse>("/game/party/recruit", data),
     onMutate: (variables) => ({ metadataVersion: captureChatMetadataVersion(variables.chatId) }),
     onSuccess: (res, variables, context) => {

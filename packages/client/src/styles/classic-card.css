@@ -1,0 +1,370 @@
+/* MRPG card picks (ClassicCardSection) outside the new layout: the new layout's colour tokens, mapped
+   onto the app's own so the section reads the same in either look. */
+.ov-classic {
+  --ov-accent: var(--primary);
+  --ov-dim: var(--muted-foreground);
+  --ov-hover: var(--accent);
+  --ov-line: var(--border);
+  --ov-mode-game: #d9a441;
+  --ov-muted: var(--muted-foreground);
+  --ov-text: var(--foreground);
+}
+
+.ov-sheet__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--ov-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ov-sheet__eyebrow small {
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ov-classic {
+  display: grid;
+  gap: 1rem;
+  container-type: inline-size;
+}
+.ov-classic .ov-sheet__eyebrow {
+  margin-bottom: 0;
+}
+.ov-classic__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.ov-classic__edit,
+.ov-classic__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 999px;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.ov-classic__edit:hover,
+.ov-classic__btn:hover:not(:disabled) {
+  background: var(--ov-hover);
+}
+.ov-classic__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ov-classic__btn.is-primary {
+  border-color: var(--ov-accent);
+  background: var(--ov-accent);
+  color: var(--primary-foreground);
+}
+.ov-classic__btn.is-primary:hover {
+  background: color-mix(in srgb, var(--ov-accent) 86%, var(--foreground));
+}
+.ov-classic__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.125rem 0.75rem;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The step list: a segmented progress bar, each segment named with what it holds now. */
+.ov-classic__steps {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ov-classic__stepper {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 0.375rem;
+  padding: 0 0 0.25rem;
+  color: var(--ov-dim);
+  text-align: left;
+}
+.ov-classic__stepper::before {
+  content: "";
+  height: 0.1875rem;
+  border-radius: 999px;
+  background: var(--ov-line);
+}
+.ov-classic__stepper.is-past::before {
+  background: color-mix(in srgb, var(--ov-accent) 55%, transparent);
+}
+.ov-classic__stepper[aria-current="step"]::before {
+  background: var(--ov-accent);
+}
+.ov-classic__stepper:hover {
+  color: var(--ov-text);
+}
+.ov-classic__stepper[aria-current="step"] {
+  color: var(--ov-text);
+}
+.ov-classic__step-text {
+  display: grid;
+  min-width: 0;
+  gap: 0.0625rem;
+}
+.ov-classic__step-text b {
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-classic__step-text small {
+  overflow: hidden;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The open step. */
+.ov-classic__panel {
+  display: grid;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.875rem;
+}
+.ov-classic__ask h4 {
+  margin: 0;
+  color: var(--ov-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.ov-classic__ask p {
+  margin: 0.25rem 0 0;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+}
+.ov-classic__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--ov-line);
+}
+.ov-classic__count {
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Choice tiles: trees, and stats with what each does. */
+.ov-classic__trees,
+.ov-classic__choices {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+@container (max-width: 36rem) {
+  .ov-classic__trees,
+  .ov-classic__choices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.ov-classic__choice {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.1875rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.625rem;
+  color: var(--ov-text);
+  text-align: left;
+}
+.ov-classic__choice:hover {
+  background: var(--ov-hover);
+}
+.ov-classic__choice-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.ov-classic__choice b {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.ov-classic__choice small {
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+.ov-classic__choice svg {
+  flex: none;
+  color: var(--ov-accent);
+}
+.ov-classic__choice em {
+  color: var(--ov-accent);
+  font-size: 0.625rem;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ov-classic__choice.is-auto {
+  grid-column: 1 / -1;
+}
+.ov-classic__choice[aria-checked="true"],
+.ov-classic__choice[aria-pressed="true"] {
+  border-color: var(--ov-accent);
+  background: color-mix(in srgb, var(--ov-accent) 10%, transparent);
+}
+.ov-classic__choice.is-weak[aria-pressed="true"] {
+  border-color: var(--ov-mode-game);
+  background: color-mix(in srgb, var(--ov-mode-game) 10%, transparent);
+}
+.ov-classic__choice.is-weak[aria-pressed="true"] svg {
+  color: var(--ov-mode-game);
+}
+
+/* The finished card, and the builder's review. */
+.ov-classic__card {
+  display: grid;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.875rem;
+}
+.ov-classic__panel .ov-classic__card {
+  padding: 0;
+  border: 0;
+}
+.ov-classic__identity {
+  display: grid;
+  gap: 0.25rem;
+}
+.ov-classic__tree-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+}
+.ov-classic__tree-name b {
+  color: var(--ov-text);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.ov-classic__tree-name span {
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+}
+.ov-classic__identity p {
+  margin: 0;
+  color: var(--ov-dim);
+  font-size: 0.8125rem;
+}
+.ov-classic__stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+/* Narrow (a phone): four across, with MP and Stamina sharing the last row. */
+@container (max-width: 26rem) {
+  .ov-classic__stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .ov-classic__stat.is-resource {
+    grid-column: span 2;
+  }
+}
+.ov-classic__stat {
+  display: grid;
+  min-width: 0;
+  gap: 0.0625rem;
+  padding: 0.4375rem 0.625rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.5rem;
+}
+.ov-classic__stat small {
+  color: var(--ov-dim);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ov-classic__stat b {
+  color: var(--ov-text);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.ov-classic__stat em {
+  font-size: 0.625rem;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ov-classic__stat.is-strong {
+  border-color: color-mix(in srgb, var(--ov-accent) 55%, transparent);
+}
+.ov-classic__stat.is-strong em {
+  color: var(--ov-accent);
+}
+.ov-classic__stat.is-weak {
+  border-color: color-mix(in srgb, var(--ov-mode-game) 55%, transparent);
+}
+.ov-classic__stat.is-weak em {
+  color: var(--ov-mode-game);
+}
+.ov-classic__help {
+  margin: 0;
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+}
+.ov-classic__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.875rem;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  text-align: left;
+}
+.ov-classic__row:hover {
+  background: var(--ov-hover);
+}
+.ov-classic__row small {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-classic__row svg {
+  flex: none;
+  color: var(--ov-dim);
+}

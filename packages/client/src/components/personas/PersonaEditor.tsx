@@ -1,4 +1,5 @@
 import { CardProseSectionHeader, type CardProseSectionHeaderProps } from "../cards/CardProse";
+import { ClassicCardSection } from "../overhaul/ClassicCardSection";
 import { useCardEditorDraft } from "../../hooks/use-card-editor-draft";
 import { useCardEditorSave } from "../../hooks/use-card-editor-save";
 import { CardEditor } from "../cards/CardEditor";
@@ -3265,6 +3266,15 @@ function PersonaStatsTab({
 
   return (
     <div className="space-y-6">
+      {/* MRPG: the persona's starting tree and strong and weak stats for MRPG games. */}
+      <ClassicCardSection
+        value={parsed.classic}
+        onChange={(classic) => {
+          const { classic: _old, ...rest } = parsed;
+          save(classic ? { ...rest, classic } : rest);
+        }}
+        description={formData.description ?? ""}
+      />
       <SectionHeader
         title={localizeUi("ui.personas.personastatstab.personaStatusBars")}
         subtitle={localizeUi("ui.personas.personastatstab.trackYourPersonaSPhysicalAndMentalNeedsThese")}

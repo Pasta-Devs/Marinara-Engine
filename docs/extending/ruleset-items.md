@@ -13,7 +13,7 @@ Sections on this page:
 - [Weapons in a fight](#weapons-in-a-fight)
 - [Armor and worn effects in a fight](#armor-and-worn-effects-in-a-fight)
 - [Using items in a fight](#using-items-in-a-fight)
-- [Items in Classic and Tactical battles](#items-in-classic-and-tactical-battles)
+- [Items in Turn-Based and Tactical battles](#items-in-turn-based-and-tactical-battles)
 - [Loot](#loot)
 - [Money](#money)
 - [Starting gear](#starting-gear)
@@ -154,7 +154,7 @@ Everything above is checked when the ruleset is imported, and your catalogs of i
 - **Names find your items.** A name the player types, or one the Game Master writes in `[inventory: action="add"]`, that is the `label` of one of your items, in any case, adds that item. When two items share a label, the one your catalogs list first is the one a name finds.
 - **`stack`** is kept: adding, setting, merging or giving past it fills the stack and starts a new one.
 - **`freeform: "refuse"`** leaves the player only your items: the picker, and names that are your items.
-- **`native: false`** leaves the Game Master only your items and the ones it invents: a name that is neither is refused (`not-ruleset-item`), while more of something already held can still be added, and its instructions say so. A fight no longer asks a model what the inventory's items do, so only your items fight: in a ruleset fight your held weapons and your items' uses (see Weapons in a fight, below), and in a Classic or Tactical battle your items with a `use` (see Items in Classic and Tactical battles, below). What the player types in still follows `freeform`, and what the party carried comes back in a new session either way.
+- **`native: false`** leaves the Game Master only your items and the ones it invents: a name that is neither is refused (`not-ruleset-item`), while more of something already held can still be added, and its instructions say so. A fight no longer asks a model what the inventory's items do, so only your items fight: in a ruleset fight your held weapons and your items' uses (see Weapons in a fight, below), and in a Turn-Based or Tactical battle your items with a `use` (see Items in Turn-Based and Tactical battles, below). What the player types in still follows `freeform`, and what the party carried comes back in a new session either way.
 - **What an item is** shows on the selected stack: its category, rarity and tags by their labels, the stats it gives, its summary and how many one stack holds. The picker also shows its `cost`. The Game Master sees each of your items it holds with its category, rarity, tags and the stats you left `promptVisible`, such as `Hand axe [Weapon, Common, Thrown; Damage 1d6, Reach close]`.
 
 - **`slots`**: an item that takes slots can be equipped by whoever carries it, while they have those slots free, and one item of a larger stack is taken into its own stack to be worn. The inventory shows each slot in use per character.
@@ -167,7 +167,7 @@ Everything above is checked when the ruleset is imported, and your catalogs of i
 - **What a weapon does** shows the same way ("Attack (Action): Brawn to hit, 1d6 + Brawn cut damage"), and a fight offers it while it is held (see Weapons in a fight, below).
 - **What using an item does** shows the same way ("Use (Action): heals 1d4 + 1, range 0 paces, used up"), with the charges it has left. A fight offers it, and so do the inventory's **Use** button and the Game Master's `[inventory: action="use"]` (see Using items in a fight and Using items outside a fight, below).
 
-In a Classic or Tactical battle, each of your items with a `use` does what it says there, and one without is not offered (see Items in Classic and Tactical battles, below). Whatever `native` says, the sheet can read your items (below), a held weapon is an attack in a ruleset fight, shooting what it draws from the bag, what an item does while worn or carried counts in one (see Armor and worn effects in a fight, below), and an item with a `use` is used by its own rules, in a fight and outside one (see Using items in a fight and Using items outside a fight, below), and your `currencies` are the party's money (see Money, below).
+In a Turn-Based or Tactical battle, each of your items with a `use` does what it says there, and one without is not offered (see Items in Turn-Based and Tactical battles, below). Whatever `native` says, the sheet can read your items (below), a held weapon is an attack in a ruleset fight, shooting what it draws from the bag, what an item does while worn or carried counts in one (see Armor and worn effects in a fight, below), and an item with a `use` is used by its own rules, in a fight and outside one (see Using items in a fight and Using items outside a fight, below), and your `currencies` are the party's money (see Money, below).
 
 ## Items on the sheet
 
@@ -441,9 +441,9 @@ An item may be used in a fight (Capability API 1.59): a poultice pressed on a cu
 
 What a fight uses up and the charges it leaves are written to the inventory as each step is taken, as a weapon's shots are, and the journal says what was used. The fight log says each use ("Poultice: 1 of 2 left.", "Dawn bell: 2 of 3 left."). A party member the Engine plays uses a heal only on somebody hurt, and nobody uses an item to strike at somebody walking away. The item's details and the Game Master's line say what using it does: "Use (Action): heals 1d4 + 1, range 0 paces, used up" and `use (Act): Steel 7 save negates it, Rattled, 1 of 3 charges`, and the details show the charges left. An item the Game Master invents `like=` one of yours is used as that one is, charges and all.
 
-## Items in Classic and Tactical battles
+## Items in Turn-Based and Tactical battles
 
-A ruleset that does not resolve its own fights leaves them to Game Mode's own Classic and Tactical battles, where a model is asked what the inventory's items do when a fight begins. Your items are not guessed at: each one with a `use` does what that says, on the Engine's own numbers, and the Game Master's guess is asked only for the items that are not yours (and for none with `native: false`).
+A ruleset that does not resolve its own fights leaves them to Game Mode's own Turn-Based and Tactical battles, where a model is asked what the inventory's items do when a fight begins. Your items are not guessed at: each one with a `use` does what that says, on the Engine's own numbers, and the Game Master's guess is asked only for the items that are not yours (and for none with `native: false`).
 
 - A `heal` heals and an `attack` harms by a share of the target's maximum health, from the average of its `amount`: an average of 7, a basic weapon's `1d8+3`, is a little over a fifth of it, never less than a twentieth and at most all of it. That is the scale the combat bridge reads a catalog entry's numbers on. The `damageType` is the element.
 - The first condition in `applies` goes on as a status by its own name, for its `rounds` (2 without them), and a `buff` or `debuff` is that status alone, which raises or lowers defense as the Engine's own statuses do.

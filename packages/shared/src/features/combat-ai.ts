@@ -372,6 +372,9 @@ export interface CombatAiCandidate<T> {
   coordination?: number;
   /** What its own data says it goes for first (a ruleset creature's `behavior`, 1.763). */
   focus?: number;
+  /** Damage it keeps off its own side, as a share of a friend's HP: a foe killed before it acts, or held
+   *  down (Classic Marinara, Alyssa 2026-11-03: a dead or stunned foe deals no damage). Weighed as damage. */
+  prevented?: number;
   hold?: boolean;
 }
 
@@ -417,10 +420,11 @@ export function chooseRankedCombatCandidate<T>(
   turn: number,
   difficulty: GameDifficulty = "normal",
   orders: CombatOrders | undefined = unit.orders,
+  holdsLean = false,
 ): RankedCombatCandidate<T> {
   if (!candidates.length) throw new Error("AI needs at least one legal action.");
   const profile = unit.tactics!;
-  const chosen = rankCombatCandidates(unit, candidates, turn, difficulty, orders)[0]!;
+  const chosen = rankCombatCandidates(unit, candidates, turn, difficulty, orders, holdsLean)[0]!;
   profile.holds = chosen.candidate.hold ? Math.min(2, (profile.holds ?? 0) + 1) : 0;
   if (chosen.candidate.targetId) profile.targetId = chosen.candidate.targetId;
   return chosen;
@@ -431,12 +435,25 @@ export interface RankedCombatCandidate<T> {
   candidate: CombatAiCandidate<T>;
   score: number;
   parts: CombatAiScoreParts;
+  /** What the unit's nature, its orders and its wavering added beyond the weighed parts, so a reasons
+   *  log accounts for the whole score (Marinara reasons audit 2026-11-03: "a hidden bonus of about 0.8"). */
+  extras?: Partial<Record<"temperament" | "retreat" | "noise", number>>;
 }
 
 /** What each weighed part of a candidate added to its score, after the unit's weights. */
 export type CombatAiScoreParts = Partial<
   Record<
-    "damage" | "finish" | "healing" | "support" | "setup" | "risk" | "cost" | "protection" | "coordination" | "focus",
+    | "damage"
+    | "finish"
+    | "healing"
+    | "support"
+    | "setup"
+    | "risk"
+    | "cost"
+    | "protection"
+    | "coordination"
+    | "focus"
+    | "prevented",
     number
   >
 >;
@@ -457,6 +474,10 @@ export function rankCombatCandidates<T>(
   turn: number,
   difficulty: GameDifficulty = "normal",
   orders: CombatOrders | undefined = unit.orders,
+  /** Classic Marinara's leans (playtest combo hunt 2026-11-05): a patient or wounded cowardly one's hold
+   *  leans by a share of the best gain on the table instead of a flat sum (a flat +0.80 Defend beat a 0.25
+   *  Cover), and a temperament leans setup by half again at most. */
+  holdsLean = false,
 ): Array<RankedCombatCandidate<T>> {
   const profile = unit.tactics!;
   const adjective = profile.adjective;
@@ -478,8 +499,16 @@ export function rankCombatCandidates<T>(
     support: adjective === "supportive" ? 1.2 : 0.35,
     // An arrogant one (T5) sets nothing up and keeps its best for a foe worth it.
     // A hungry one (T8) takes hold of its prey.
-    setup:
-      adjective === "methodical"
+    // Classic Marinara weighs setup in its one currency (the HP it keeps off or adds): a temperament leans
+    // it by half again, not four to eight times (combo hunt 2026-11-05: a cruel Blade carrying Weaken
+    // spent a third of its turns on it, its fights 12.1 rounds against 8.8 with Wither).
+    setup: holdsLean
+      ? adjective === "arrogant"
+        ? 0.05
+        : adjective === "methodical" || adjective === "hungry" || adjective === "cruel"
+          ? 0.3
+          : 0.2
+      : adjective === "methodical"
         ? 1.6
         : adjective === "hungry"
           ? 1
@@ -503,6 +532,7 @@ export function rankCombatCandidates<T>(
     // A disciplined one keeps formation (T1): it goes where its side is going.
     coordination: adjective === "coordinated" ? 1.5 : adjective === "disciplined" ? 1 : 0,
     focus: 1,
+    prevented: 1,
   };
   // What it is bends how it weighs things. A mindless creature knows only to hit; an animal drags down
   // the weakest and minds its own hide once hurt; a genius never ignores the danger it stands in.
@@ -517,6 +547,7 @@ export function rankCombatCandidates<T>(
       protection: 0,
       coordination: 0,
       focus: 0,
+      prevented: 0,
     });
   else if (profile.mind === "instinct") {
     weights.finish *= 2;
@@ -534,7 +565,10 @@ export function rankCombatCandidates<T>(
       weights.finish *= 1.3;
     } else if (profile.role === "marksman") weights.risk = Math.max(weights.risk * 1.5, 0.9);
     else if (profile.role === "spellcaster") weights.cost = Math.max(weights.cost, 0.4);
-    else if (profile.role === "controller") weights.setup = Math.max(weights.setup, 1.2);
+    // Classic Marinara's leans stay leans: a controller sets up as a methodical one does (r61 2026-11-06:
+    // any foe carrying a debuff and no buff was a controller and weighed setup six times over, so human
+    // foes spent their turns on Weaken and Mark Prey in fights a blow would have served better).
+    else if (profile.role === "controller") weights.setup = Math.max(weights.setup, holdsLean ? 0.3 : 1.2);
     else if (profile.role === "supporter") weights.support = Math.max(weights.support, 0.8);
     else if (profile.role === "solo") {
       // Save an arrogant one (T5), which holds its best back until the fight proves worth it. It still
@@ -569,7 +603,8 @@ export function rankCombatCandidates<T>(
     (candidate.finish ?? 0) * weights.finish +
     (candidate.healing ?? 0) * weights.healing +
     (candidate.support ?? 0) * weights.support +
-    (candidate.setup ?? 0) * weights.setup;
+    (candidate.setup ?? 0) * weights.setup +
+    (candidate.prevented ?? 0) * weights.prevented;
   const most = Math.max(0, ...candidates.map(gains));
   const stakes = Math.min(1, Math.max(0.1, most / COMBAT_AI_FULL_STAKES));
   const scored = candidates.map((candidate) => {
@@ -587,6 +622,7 @@ export function rankCombatCandidates<T>(
       "protection",
       "coordination",
       "focus",
+      "prevented",
     ] as const) {
       const part = (candidate[key] ?? 0) * weights[key] * (key === "risk" || key === "cost" ? -1 : 1);
       score += part;
@@ -594,14 +630,23 @@ export function rankCombatCandidates<T>(
     }
     // Sticking with its target is worth as much as the turn is, and less for a weaker blow at them:
     // never two daggers at disadvantage past a Multiattack beside it (re-test 10).
+    const extras: NonNullable<RankedCombatCandidate<T>["extras"]> = {};
+    let nature = 0;
     if (adjective === "methodical" && profile.targetId !== undefined && candidate.targetId === profile.targetId)
-      score += 0.35 * stakes * (most > 0 ? Math.min(1, gains(candidate) / most) : 1);
-    if (candidate.hold && orders?.posture === "retreat") score += 0.8;
-    if (candidate.hold && (profile.holds ?? 0) < 1 && profile.mind !== "mindless") {
-      if (adjective === "patient") score += 0.65;
-      if (adjective === "cowardly" && wounded) score += 0.8;
+      nature += 0.35 * stakes * (most > 0 ? Math.min(1, gains(candidate) / most) : 1);
+    if (candidate.hold && orders?.posture === "retreat") {
+      score += 0.8;
+      extras.retreat = 0.8;
     }
-    return { candidate, score, parts };
+    if (candidate.hold && (profile.holds ?? 0) < 1 && profile.mind !== "mindless") {
+      if (adjective === "patient") nature += holdsLean ? 0.4 * most : 0.65;
+      if (adjective === "cowardly" && wounded) nature += holdsLean ? 0.5 * most : 0.8;
+    }
+    if (nature) {
+      score += nature;
+      extras.temperament = nature;
+    }
+    return { candidate, score, parts, extras };
   });
   const leading = Math.max(...scored.map((one) => one.score));
   return scored
@@ -610,9 +655,9 @@ export function rankCombatCandidates<T>(
       // wavers past it (re-test 13): two daggers worth 93 hundredths of a Multiattack stay behind it.
       const gained = gains(one.candidate);
       const weaker = one.score < leading && gained > 0 && gained < most * COMBAT_AI_ALIKE;
-      return weaker
-        ? one
-        : { ...one, score: one.score + stakes * combatAiScoreNoise(profile, unit.id, turn, i, difficulty) };
+      if (weaker) return one;
+      const noise = stakes * combatAiScoreNoise(profile, unit.id, turn, i, difficulty);
+      return { ...one, score: one.score + noise, extras: { ...one.extras, noise } };
     })
     .sort((a, b) => b.score - a.score);
 }

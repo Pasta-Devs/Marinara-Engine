@@ -135,6 +135,9 @@ try {
     enableAgents: false,
   });
   assert.throws(() => parseRoomGameConfig({ ...config, gameExperienceId: "fixture.experience" }));
+  // A room's new game plays MRPG, never Legacy, whatever the host's client sends (owner 2026-11-06).
+  assert.equal(config.marinaraClasses, true);
+  assert.equal(parseRoomGameConfig({ ...config, marinaraClasses: false }).marinaraClasses, true);
   // Overworld games locked (MARINARA_OVERWORLD_GAMES off): a room game with a setting kit is refused.
   const overworldBefore = process.env.MARINARA_OVERWORLD_GAMES;
   delete process.env.MARINARA_OVERWORLD_GAMES;
@@ -196,7 +199,10 @@ try {
     "the existing generation commit binds Game whisper audiences to participant IDs",
   );
   assert.deepEqual(introExtra.multiplayerActor, { id: null, name: "GM", role: "gm" });
+  // A room game made before MRPG plays Legacy sheets: each check reads its own participant's card.
+  const legacySetup = { ...((await meta()).gameSetupConfig as Record<string, unknown>), marinaraClasses: false };
   await chats.patchMetadata(chat.id, {
+    gameSetupConfig: legacySetup,
     gameCharacterCards: [
       { name: "Reviewed Host", rpgStats: { attributes: [{ name: "STR", value: 20 }] } },
       { name: "Rowan", rpgStats: { attributes: [{ name: "STR", value: 8 }] } },
