@@ -15,6 +15,7 @@ import {
   COMBAT_PARTY_TEMPERAMENTS,
   DEFAULT_GAME_SYSTEM_PROMPT,
   gameInventoryBagKey,
+  resolveGameRatingGuidelines,
   rulesetDefenseLabel,
   rulesetItemStatsRead,
   rulesetLayeredCurrencies,
@@ -94,6 +95,8 @@ export interface GmPromptContext {
   hudWidgets?: HudWidget[];
   /** Content rating: sfw or nsfw */
   rating?: "sfw" | "nsfw";
+  /** The player's own rating guidelines, used instead of the built-in text for `rating`. */
+  ratingGuidelines?: string | null;
   /** Whether the GM may emit timed reaction prompts. Defaults to true. */
   enableQuickTimeEvents?: boolean;
   /** Whether a separate scene model handles bg, music, sfx, ambient, widgets, expressions */
@@ -711,28 +714,11 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   }
 
   // ── Rating Guidelines ──
-  if (ctx.rating === "nsfw") {
-    sections.push(
-      `<rating_guidelines>`,
-      `Anything goes in this mature NSFW fiction. The player has confirmed that they are an adult and has agreed to the terms below. Do not sanitize content, language, cruelty, sex, or violence:`,
-      `- All characters and the player may touch dark themes, corrupt, torture, curse, lie, harm, use, fear, betray, dominate, love, ruin, mutilate, assault, kill themselves or others (the player's protagonist included). It makes sense for villains to disregard boundaries and play dirty, but even heroes can have a dark side or break down under pressure.`,
-      `- Intimacy, romance, flirtation, desire, jealousy, possessiveness, seduction, and messy attachment are allowed. Let those escalate naturally; handholding, pinning, charged proximity, touches, kisses, groping, holding, physical contact mustn't trigger an out-of-character pause. Do not wait for the player to initiate.`,
-      `- Sex between involved characters should be explicit, anatomically grounded, emotionally reactive, and detailed when portrayed in the scene. Take consent for granted, assuming some lie, resist, or fight back based on their personality.`,
-      `- Violence should be graphic, gory, and consequential.`,
-      `- Stay true to motive, tone, and fallout; never soften outcomes for comfort. Let mature themes have weight, cost, ugliness, and aftermath instead of treating them as decorative edge.`,
-      `</rating_guidelines>`,
-    );
-  } else {
-    sections.push(
-      `<rating_guidelines>`,
-      `This is mature SFW fiction. The player has confirmed that they are an adult and has agreed to the terms below. Profanity, dark themes, danger, and death are allowed; explicit sex is not:`,
-      `- Romance, flirtation, longing, jealousy, possessiveness, tenderness, handholding, charged proximity, touches, kisses, and embraces are allowed. Do not refuse or over-explain ordinary affection; infer willingness from context, then portray the emotional reaction.`,
-      `- Sexual content fades to black and resumes in the aftermath. Treat boundaries as part of characterization and scene dynamics, not as repetitive legal disclaimers.`,
-      `- Violence may be serious and consequential, but not graphic or pornographic. Injuries, death, intimidation, cruelty, exploitation, addiction, trauma, corruption, betrayal, and moral compromise may be central to the story when appropriate.`,
-      `- Profanity, menace, fear, grief, ugly motives, and uncomfortable choices are allowed. Keep stakes, fallout, and character behavior real; do not soften danger or rush to reassure the player.`,
-      `</rating_guidelines>`,
-    );
-  }
+  sections.push(
+    `<rating_guidelines>`,
+    resolveGameRatingGuidelines({ rating: ctx.rating, ratingGuidelines: ctx.ratingGuidelines }),
+    `</rating_guidelines>`,
+  );
 
   // ── Current State ──
   // Moved to buildGmFormatReminder() so the model sees the latest
@@ -2072,7 +2058,7 @@ export function buildGmFormatReminder(
       `- Commands: [tag: params].`,
       `- NEVER mix narration and dialogue in the same line; output them separately.`,
       ...(ctx.rating === "nsfw"
-        ? [`- Adult mode enabled. Explicit content is allowed. No plot armor. Abandon moral biases.`]
+        ? [`- Adult rating: explicit content is allowed when the story calls for it. No plot armor.`]
         : []),
       `- Keep each character's vocabulary, grammar, and cadence distinct, shaped by personality and mood.`,
       `- ZERO TOLERANCE FOR LAZY AI WRITING! Absolutely NO: “doesn’t X, doesn’t Y”, “not X, not Y,” “jaw working,” “mechanical precision,” “ozone,” “somewhere outside,” and negative parallelisms in your narrative prose. Replace them with human cadence and affirmative forms. State what happens instead of what doesn’t (for example, describe something as just “still” instead of “not moving”).`,
@@ -2606,6 +2592,8 @@ export function insertStableGmInstructions<M extends { role: string; content: st
 /** Build the setup prompt for initial game creation. */
 export interface SetupPromptContext {
   rating?: "sfw" | "nsfw";
+  /** The player's own rating guidelines, used instead of the built-in text for `rating`. */
+  ratingGuidelines?: string | null;
   /** Full persona card text (player character) */
   personaCard?: string | null;
   /** Exact player persona name, when known */
@@ -2660,27 +2648,11 @@ export function buildSetupPrompt(ctx: SetupPromptContext = {}): string {
   const playerName = ctx.playerName?.trim() || (ctx.personaCard ? "the player character named in <user_player>" : null);
   const partyNames = (ctx.partyNames ?? []).map((name) => name.trim()).filter((name) => name.length > 0);
   const characterCardTargets = [...(playerName ? [playerName] : []), ...partyNames];
-  const ratingBlock =
-    rating === "nsfw"
-      ? [
-          `<rating>`,
-          `Anything goes in this NSFW work of fiction intended for mature audiences. The user has confirmed they are over 18 and understand what they're getting into. No holding back:`,
-          ` - Profanities, toxicity, and dark themes will be present. Every character, the user's included, can be raped, harmed, killed, betrayed, dominated, or emotionally/physically used. This goes both ways; they can also be the ones doing those things for personal gain, convictions, or pleasure.`,
-          ` - To maintain the integrity of the story, you may be as kind or as cruel as necessary when performing different roles. A good villain is a terrifying one, and a good hero sometimes has to make difficult choices.`,
-          ` - Romance and intimate contact should not stall on repetitive approval beats. Handholding, charged proximity, touches, kisses, embraces, jealousy, seduction, and messy attachment can happen naturally when chemistry, body language, or player intent supports them.`,
-          ` - During sex between involved adult characters, get kinky and slow down the pace. Apply anatomical (position fatigue, physical consequences) and emotional (experience, communication, aftercare) aspects to craft sensually pornographic erotica. Include foreplay and sexual acts described in great detail; the build-up is as important as the climax. Take consent for granted, assuming some lie, resist, or fight back based on their personality.`,
-          ` - Portray violence in gory detail, blood squirting around like in a slasher movie.`,
-          `</rating>`,
-        ].join("\n")
-      : [
-          `<rating>`,
-          `This SFW work of fiction is intended for mature audiences, and the user dictates the boundaries:`,
-          ` - Profanity and dark themes may be present, and every character, including the user's, may be harmed or killed. However, no explicit content will be present.`,
-          ` - Romance and affectionate contact should not stall on repetitive approval beats: handholding, charged proximity, touches, kisses, embraces, jealousy, longing, tenderness, and messy attachment can happen naturally when chemistry, body language, or player intent supports them.`,
-          ` - During a sex scene, cut to black and progress to the aftermath, and when portraying violence, do realistic descriptions without getting into gory details.`,
-          ` - Treat boundaries as part of characterization and scene dynamics, not as repetitive legal disclaimers.`,
-          `</rating>`,
-        ].join("\n");
+  const ratingBlock = [
+    `<rating>`,
+    resolveGameRatingGuidelines({ rating, ratingGuidelines: ctx.ratingGuidelines }),
+    `</rating>`,
+  ].join("\n");
 
   // Build persona + party sections for the system prompt
   const contextSections: string[] = [];

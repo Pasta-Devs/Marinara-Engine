@@ -2,6 +2,9 @@ import { askLeaveSetup, gameSetupDraftKey, registerSetupInputProbe } from "../..
 import { useDialogStore } from "../../stores/dialog.store";
 import {
   audioConnectionSupportsGeneration,
+  defaultGameRatingGuidelines,
+  GAME_RATING_GUIDELINES_MAX_CHARS,
+  storedGameRatingGuidelines,
   compileGameWorld,
   LOCAL_SIDECAR_CONNECTION_ID,
   gameWorldFromSnapshot,
@@ -677,6 +680,8 @@ export function GameSetupWizard({
   const [generationParameters, setGenerationParameters] =
     useState<EditableGenerationParameters>(ROLEPLAY_PARAMETER_DEFAULTS);
   const [rating, setRating] = useState<"sfw" | "nsfw">("sfw");
+  // The player's own rating guidelines; null follows the built-in text for the rating.
+  const [ratingGuidelinesDraft, setRatingGuidelinesDraft] = useState<string | null>(null);
   const [useLocalScene, setUseLocalScene] = useState(true);
   const [enableSpriteGeneration, setEnableSpriteGeneration] = useState(false);
   const [gameImageDynamicPromptEnabled, setGameImageDynamicPromptEnabled] = useState(false);
@@ -1463,6 +1468,7 @@ export function GameSetupWizard({
     setPermadeath(config.permadeath === true);
     setCompanionsOnTheirOwn(config.playerRunsCompanions !== true);
     setRating(config.rating);
+    setRatingGuidelinesDraft(config.ratingGuidelines?.trim() ? config.ratingGuidelines : null);
     setLanguage(config.language?.trim() || "English");
     setAutoTranslate(config.autoTranslate === true);
     setTranslationLanguage(config.translationOutputTargetLang?.trim() || "en");
@@ -1722,6 +1728,10 @@ export function GameSetupWizard({
       spatialMapGroundingMode:
         enableAgents && hierarchicalMapsInstalled && draftSpatialMap ? spatialMapGroundingMode : undefined,
       rating,
+      ratingGuidelines:
+        ratingGuidelinesDraft === null
+          ? undefined
+          : (storedGameRatingGuidelines(ratingGuidelinesDraft, rating) ?? undefined),
       gmMode,
       gmCharacterId: gmMode === "character" && gmCharacterId ? gmCharacterId : undefined,
       ...(gameIntroForSetup(gameIntro) ? { gameIntro: gameIntroForSetup(gameIntro) } : {}),
@@ -2722,6 +2732,34 @@ export function GameSetupWizard({
                           ? localizeUi("ui.game.gamesetupwizard.anythingGoesViolenceDarkThemesAndExplicitContentAre")
                           : localizeUi("ui.game.gamesetupwizard.darkThemesAndProfanityAllowedButExplicitScenesCut")}
                       </p>
+                      <details className="mt-1.5">
+                        <summary className="cursor-pointer text-[0.625rem] text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+                          {localizeUi("ui.game.gamesetupwizard.editRatingGuidelines")}
+                        </summary>
+                        <textarea
+                          value={ratingGuidelinesDraft ?? defaultGameRatingGuidelines(rating)}
+                          onChange={(e) => setRatingGuidelinesDraft(e.target.value)}
+                          aria-label={localizeUi("ui.game.gamesetupwizard.editRatingGuidelines")}
+                          maxLength={GAME_RATING_GUIDELINES_MAX_CHARS}
+                          rows={7}
+                          spellCheck={false}
+                          className="mt-1.5 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
+                        />
+                        <div className="mt-1 flex items-center justify-between gap-2">
+                          <span className="text-[0.575rem] text-[var(--muted-foreground)]">
+                            {localizeUi("ui.game.gamesetupwizard.ratingGuidelinesHelp")}
+                          </span>
+                          {ratingGuidelinesDraft !== null && (
+                            <button
+                              type="button"
+                              onClick={() => setRatingGuidelinesDraft(null)}
+                              className="shrink-0 rounded-md bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                            >
+                              {localizeUi("ui.game.gamesetupwizard.resetRatingGuidelines")}
+                            </button>
+                          )}
+                        </div>
+                      </details>
                     </div>
 
                     {/* Language */}
