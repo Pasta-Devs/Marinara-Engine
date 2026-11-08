@@ -45,9 +45,13 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: none
           # The Node regression harness is about 30% of the TypeScript lines and never ships.
+          # js/prototype-polluting-assignment took 22 of the 48 scan minutes; its three alerts were false positives.
           config: |
             paths-ignore:
               - scripts/regressions
+            query-filters:
+              - exclude:
+                  id: js/prototype-polluting-assignment
 
       - name: Analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
@@ -55,3 +59,29 @@ jobs:
           category: /language:${{ matrix.language }}
           # The override above would otherwise make staging upload its database as main's.
           upload-database: ${{ github.ref == 'refs/heads/main' }}
+
+  # The action saves a ~1 GB overlay-base cache per push but never deletes old ones, and a PR
+  # scan restores only the newest, so delete the rest before they evict other caches.
+  prune-overlay-base:
+    name: Prune overlay-base caches
+    needs: analyze
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write # Delete superseded overlay-base cache entries.
+    steps:
+      - name: Delete all but the newest entry per key prefix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CACHE_REF: ${{ github.ref }}
+        # The key prefix is everything before the commit SHA: hash, language and CodeQL version.
+        run: |
+          ids=$(gh api -X GET "repos/$GH_REPO/actions/caches" \
+            -f ref="$CACHE_REF" -f key=codeql-overlay-base-database- -F per_page=100 \
+            --jq '.actions_caches | group_by(.key | sub("-[0-9a-f]{40}-.*$"; "")) | .[] | sort_by(.created_at) | reverse | .[1:][] | .id')
+          for id in $ids; do
+            echo "Deleting cache $id"
+            gh api -X DELETE "repos/$GH_REPO/actions/caches/$id"
+          done
