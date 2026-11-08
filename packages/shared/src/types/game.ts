@@ -255,6 +255,9 @@ export interface GameSetupConfig {
   gmMode: GameGmMode;
   /** Content rating: sfw or nsfw */
   rating: "sfw" | "nsfw";
+  /** The player's own rating guidelines, used instead of the built-in text for `rating` in the setup
+   *  and GM prompts. Absent or empty is the built-in text. */
+  ratingGuidelines?: string | null;
   /** Classic Game Mode or the Overworld RPG (see `GameStyle`), stored as `chat.metadata.gameStyle`.
    *  Absent in setups made before the choice: read as Overworld with a world, Classic without. */
   gameStyle?: GameStyle;

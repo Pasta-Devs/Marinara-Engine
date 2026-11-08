@@ -32,6 +32,9 @@ export function describeEmptyModelResponse(context: EmptyResponseContext): strin
   if (finish === "sensitive") {
     return 'The provider stopped the reply for content policy (finish reason "sensitive") and returned no text.';
   }
+  if (finish === "refusal") {
+    return 'The model declined this request (finish reason "refusal") and returned no text. Something in the prompt tripped its safety checks, such as a game\'s rating guidelines, a preset, or a card.';
+  }
   if (finish === "model_context_window_exceeded") {
     return 'The prompt exceeded the model\'s context window (finish reason "model_context_window_exceeded"). Lower Max Context or shorten the prompt.';
   }
