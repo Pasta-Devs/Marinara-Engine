@@ -9,9 +9,10 @@ on:
     - cron: "41 4 * * 2"
   workflow_dispatch:
 
+# Only PR runs cancel a superseded run; push, schedule and dispatch runs finish so the overlay-base database cache is saved.
 concurrency:
   group: codeql-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
