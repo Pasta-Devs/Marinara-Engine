@@ -5,7 +5,6 @@ import type { Chat } from "@marinara-engine/shared";
 import { useChats } from "../../hooks/use-chats";
 import { useStageGreeting, type StageGreetingMode } from "../../hooks/use-stage-greeting";
 import { ApiError } from "../../lib/api-client";
-import { openingTitle } from "../../lib/chat-setup-stage";
 import { cn } from "../../lib/utils";
 import { useStageUndo } from "./ChatSetupStageEditors";
 import type { MessageWithSwipes } from "./chat-area.types";
@@ -17,9 +16,9 @@ const CARD =
 const IDLE =
   "cursor-pointer border-[color-mix(in_srgb,var(--foreground)_12%,transparent)] bg-[color-mix(in_srgb,var(--background)_55%,transparent)] hover:border-[color-mix(in_srgb,var(--foreground)_24%,transparent)]";
 const CHOSEN =
-  "-translate-y-0.5 border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_80%,transparent)] bg-[color-mix(in_srgb,var(--background)_70%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--stage-accent,var(--primary))_45%,transparent),0_10px_30px_color-mix(in_srgb,var(--stage-accent,var(--primary))_18%,transparent)] motion-reduce:translate-y-0";
+  "-translate-y-0.5 border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_80%,transparent)] bg-[color-mix(in_srgb,var(--background)_70%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--stage-accent,var(--primary))_45%,transparent),0_4px_12px_color-mix(in_srgb,var(--stage-accent,var(--primary))_16%,transparent)] motion-reduce:translate-y-0";
 const ACTION =
-  "flex min-h-11 flex-1 cursor-pointer flex-col justify-center gap-1.5 rounded-[14px] border border-dashed border-[color-mix(in_srgb,var(--foreground)_16%,transparent)] bg-transparent px-3 text-left text-[13px] text-[color-mix(in_srgb,var(--foreground)_82%,transparent)] transition-colors hover:border-[color-mix(in_srgb,var(--foreground)_30%,transparent)] hover:text-[var(--foreground)] disabled:opacity-50 [&>svg]:text-[var(--stage-accent,var(--primary))]";
+  "inline-flex min-h-11 cursor-pointer items-center gap-[7px] rounded-md bg-transparent p-0 text-[13.5px] text-[color-mix(in_srgb,var(--foreground)_82%,transparent)] hover:text-[var(--foreground)] disabled:opacity-50 md:min-h-8 md:text-sm [&>svg]:h-[15px] [&>svg]:w-[15px] [&>svg]:flex-none [&>svg]:text-[var(--stage-accent,var(--primary))]";
 
 /** The server answers with a `code`; the text shown is always ours, never the server's or a provider's. */
 const ERROR_KEYS: Record<string, string> = {
@@ -75,7 +74,7 @@ export function ChatSetupStageScene({
     [chats, chat.id, chat.characterIds],
   );
   const active = Math.min(first.activeSwipeIndex ?? 0, Math.max(0, previews.length - 1));
-  const tiles = previews.length + (actions ? (hasEarlierChat ? 2 : 1) : 0);
+  const tiles = previews.length + (actions && hasEarlierChat ? 1 : 0);
 
   const run = (input: { mode: StageGreetingMode; idea?: string }) => {
     setLast(input);
@@ -114,8 +113,8 @@ export function ChatSetupStageScene({
         ref={row}
         onScroll={onScroll}
         className={cn(
-          "-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2.5 overflow-x-auto px-4 py-1 [scrollbar-width:none] md:mx-0 md:scroll-px-0 md:px-0",
-          tiles > 4 && "md:[mask-image:linear-gradient(90deg,#000_88%,transparent)]",
+          "-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2.5 overflow-x-auto -mb-4 px-4 pb-5 pt-1 [scrollbar-width:none] md:mx-0 md:scroll-px-0 md:px-0 min-[72rem]:mx-auto min-[72rem]:w-fit min-[72rem]:max-w-full",
+          tiles > 3 && "md:[mask-image:linear-gradient(90deg,#000_88%,transparent)]",
         )}
       >
         <div
@@ -146,8 +145,7 @@ export function ChatSetupStageScene({
                     chosen ? "text-[var(--stage-accent,var(--primary))]" : "text-[var(--muted-foreground)]",
                   )}
                 >
-                  {(chosen && openingTitle(preview)) ||
-                    t("chat.setupStage.greetingNumbered", { index: index + 1, count: previews.length })}
+                  {t("chat.setupStage.greetingNumbered", { index: index + 1, count: previews.length })}
                 </span>
               </button>
             );
@@ -169,28 +167,6 @@ export function ChatSetupStageScene({
             {t("chat.setupStage.scene.continue")}
           </button>
         )}
-        {actions && (
-          <div className="flex h-[8.5rem] w-[9.5rem] flex-none snap-start flex-col gap-2.5">
-            <button
-              type="button"
-              disabled={greeting.isPending}
-              onClick={() => run({ mode: "surprise" })}
-              className={cn(ACTION, FOCUS)}
-            >
-              <Shuffle size="1rem" aria-hidden />
-              {t("chat.setupStage.scene.surprise")}
-            </button>
-            <button
-              type="button"
-              aria-expanded={writing}
-              onClick={() => setWriting((open) => !open)}
-              className={cn(ACTION, writing && "border-solid text-[var(--foreground)]", FOCUS)}
-            >
-              <PenLine size="1rem" aria-hidden />
-              {t("chat.setupStage.scene.write")}
-            </button>
-          </div>
-        )}
       </div>
       {tiles > 2 && (
         <div aria-hidden="true" className="mt-2.5 flex justify-center gap-1.5 md:hidden">
@@ -205,6 +181,28 @@ export function ChatSetupStageScene({
               )}
             />
           ))}
+        </div>
+      )}
+      {actions && (
+        <div className="mt-2 flex flex-wrap gap-x-[22px] min-[72rem]:justify-center">
+          <button
+            type="button"
+            disabled={greeting.isPending}
+            onClick={() => run({ mode: "surprise" })}
+            className={cn(ACTION, FOCUS)}
+          >
+            <Shuffle size="1rem" aria-hidden />
+            {t("chat.setupStage.scene.surprise")}
+          </button>
+          <button
+            type="button"
+            aria-expanded={writing}
+            onClick={() => setWriting((open) => !open)}
+            className={cn(ACTION, writing && "text-[var(--foreground)]", FOCUS)}
+          >
+            <PenLine size="1rem" aria-hidden />
+            {t("chat.setupStage.scene.write")}
+          </button>
         </div>
       )}
       {writing && (

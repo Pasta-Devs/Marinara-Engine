@@ -764,7 +764,7 @@ export function ChatSetupStage({
       className={cn(
         "mari-setup-stage relative z-[2] mx-auto mb-2 w-full max-w-[600px]",
         // Desktop encounter: you on the left, the text in the middle, them on the right.
-        "md:grid md:min-h-[min(46rem,calc(100dvh-9rem))] md:max-w-none md:grid-cols-[minmax(0,34rem)_minmax(0,1fr)] md:items-center md:gap-x-10 md:px-12 min-[72rem]:px-8 min-[72rem]:grid-cols-[minmax(0,1fr)_minmax(0,38rem)_minmax(0,1fr)]",
+        "md:grid md:min-h-[min(46rem,calc(100dvh-9rem))] md:max-w-none md:grid-cols-[minmax(0,34rem)_minmax(0,1fr)] md:items-center md:gap-x-10 md:px-12 min-[72rem]:px-8 min-[72rem]:grid-cols-[minmax(0,1fr)_minmax(0,36rem)_minmax(0,1fr)]",
         // Phones: fill the list down to the composer so the greeting starts below the fold.
         "max-md:mb-0 max-md:flex max-md:min-h-[calc(100%+var(--mari-roleplay-content-padding-bottom,0px))] max-md:flex-col max-md:pb-[var(--mari-roleplay-content-padding-bottom,0px)]",
         calm
