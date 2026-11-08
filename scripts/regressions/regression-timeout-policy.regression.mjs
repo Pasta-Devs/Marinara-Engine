@@ -113,6 +113,24 @@ try {
     assert.equal(rejected.status, 1, `--shard ${value} must be refused`);
     assert.match(rejected.stderr, /--shard <i>\/<n>/u);
   }
+  // Repeated --filter selects the union, and a miss names every filter.
+  const filtered = (...filters) =>
+    execFileSync(
+      process.execPath,
+      [join(scripts, "run-regressions.mjs"), "--list", ...filters.flatMap((filter) => ["--filter", filter])],
+      { encoding: "utf8", timeout: 10_000 },
+    )
+      .trim()
+      .split("\n");
+  const [first, second] = ["regression-timeout-policy", "release-tag-version"];
+  assert.deepEqual(filtered(first, second), [...filtered(first), ...filtered(second)].sort());
+  const missed = spawnSync(
+    process.execPath,
+    [join(scripts, "run-regressions.mjs"), "--list", "--filter", "no-such-a", "--filter", "no-such-b"],
+    { encoding: "utf8", timeout: 10_000 },
+  );
+  assert.equal(missed.status, 1, "filters that match nothing must fail");
+  assert.match(missed.stderr, /no-such-a, no-such-b/u);
   const imported = execFileSync(process.execPath, ["--input-type=module", "-"], {
     input: `import { regressionTimeoutMs } from ${JSON.stringify(pathToFileURL(join(scripts, "run-regressions.mjs")).href)}; console.log(regressionTimeoutMs('scripts/regressions/prompt.regression.ts'));`,
     encoding: "utf8",
