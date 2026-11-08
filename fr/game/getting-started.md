@@ -36,9 +36,9 @@ Si ça n'a pas marché, voir [La génération du monde échoue avec une erreur J
 
 | Étape | Ce que tu définis |
 | --- | --- |
-| **Connection** (connexion) | **Game Name** (nom de la partie), le **Model** qui fait tourner le GM et un **Scene effects model** facultatif. L'encart **Game Mode** n'affiche que **Classic** pour l'instant (voir [Classic ou Overworld RPG](#classic-or-overworld-rpg)). |
-| **World** (monde) | Le genre, le cadre, le ton, la difficulté, la classification du contenu et la langue. **Combat Preference** (préférence de combat) se règle sur **Classic** ou **Tactical**. Quand un ensemble de règles est installé, un choix **Rules** (règles) apparaît (voir [Choisir les règles](#choose-rules)). |
-| **Party** (équipe) | Ton persona (le personnage que tu incarnes), le **Game Master Mode**, les membres de l'équipe et le **GM intro message** (message d'introduction du GM). Voir [Le message d'introduction du GM](#the-gm-intro-message). |
+| **Connection** (connexion) | **Game Name** (nom de la partie), le **Model** qui fait tourner le GM et un **Scene effects model** facultatif. L'encart **Game Mode** n'affiche que **VN** pour l'instant (voir [VN ou Overworld](#vn-or-overworld)). |
+| **World** (monde) | Le genre, le cadre, le ton, la difficulté, la classification du contenu et la langue. **Combat Preference** (préférence de combat) se règle sur **Turn-Based** ou **Tactical**. Chaque nouvelle partie utilise les classes **MRPG** (Marinara RPG) (voir [Classes MRPG](mrpg-classes.md)). Quand un ensemble de règles est installé, un choix **Rules** (règles) apparaît (voir [Choisir les règles](#choose-rules)). |
+| **Party** (équipe) | Ton persona (le personnage que tu incarnes), le **Game Master Mode**, les membres de l'équipe et le **GM intro message** (message d'introduction du GM). Voir [Le message d'introduction du GM](#the-gm-intro-message). L'arbre MRPG de départ de chaque membre vient de la section **Game Mode** de sa fiche (voir [Choisir les arbres d'un personnage](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** (objectifs) | Ce que tu attends de l'aventure. |
 | **Lorebooks** | Les lorebooks qui font foi pour le GM. Un lorebook est un recueil de faits sur ton univers. Voir [Lorebooks](../lorebooks/overview.md). |
 | **Features** (fonctionnalités) | **Enable Agents** (activer les agents), puis un encart pour chaque agent téléchargé (**Illustrator**, **Music DJ**, **Lorebook Keeper**), ainsi que **Custom HUD Widgets** (widgets HUD personnalisés), **Quick Time Events** et **Start Muted** (démarrer en sourdine). |
@@ -46,7 +46,7 @@ Si ça n'a pas marché, voir [La génération du monde échoue avec une erreur J
 
 Les idées proposées sous le cadre et les objectifs changent à chaque ouverture de l'assistant. Dans une partie Tactical, le GM rédige une courte description de chaque combat, et Marinara construit un plateau à partir de celle-ci. Voir [Combat](combat.md#tactical-battles-and-terrain).
 
-L'étape **World** propose aussi des options de combat pour les boss. **GM directs bosses** (le GM dirige les boss) est activé par défaut. Il laisse le GM décider des tours des boss avec ta connexion de GM, ce qui peut prendre un moment. Les ennemis ordinaires décident seuls, sauf si **GM directs bosses** est activé et que l'ensemble de règles de la partie confie l'opposition au Game Master (voir [Texte du Game Master](../extending/ruleset-sheets.md#game-master-text)). Tant que **GM directs bosses** est activé, **Game Master also plays named and brilliant opponents** (le Game Master joue aussi les adversaires nommés et brillants), activé par défaut, permet au GM de jouer aussi les personnages nommés et les ennemis très rusés. Deux autres options sont toujours affichées : **Companions fight on their own** (les compagnons combattent seuls), activé par défaut (désactive-le pour jouer toi-même toute l'équipe), et **Let cruel opponents strike the fallen** (laisser les adversaires cruels frapper ceux qui sont à terre), désactivé par défaut. Voir [Combat](combat.md).
+L'étape **World** propose aussi des options de combat pour les boss. **GM directs bosses** (le GM dirige les boss) est activé par défaut. Il laisse le GM décider des tours des boss avec ta connexion de GM, ce qui peut prendre un moment. Les ennemis ordinaires décident seuls, sauf si **GM directs bosses** est activé et que l'ensemble de règles de la partie confie l'opposition au Game Master (voir [Texte du Game Master](../extending/ruleset-sheets.md#game-master-text)). Tant que **GM directs bosses** est activé, **Game Master also plays named and brilliant opponents** (le Game Master joue aussi les adversaires nommés et brillants), activé par défaut, permet au GM de jouer aussi les personnages nommés et les ennemis très rusés. Deux autres options sont toujours affichées : **Companions fight on their own** (les compagnons combattent seuls), activé par défaut (désactive-le pour jouer toi-même toute l'équipe), et **Let cruel opponents strike the fallen** (laisser les adversaires cruels frapper ceux qui sont à terre), désactivé par défaut. Une nouvelle partie propose aussi **Permadeath** (mort permanente), désactivé par défaut : un membre de l'équipe qui tombe au combat et n'est pas sauvé avant la fin disparaît définitivement. Voir [Combat](combat.md).
 
 Avec l'agent **Hierarchical Maps** téléchargé (désormais appelé World Maps, voir [World Maps](../agents/hierarchical-maps.md)) et **Enable Agents** activé, l'étape **Features** peut aussi esquisser une **Hierarchical world map** (carte hiérarchique du monde), utiliser un modèle de carte enregistré ou lier un monde partagé.
 
@@ -56,7 +56,7 @@ Avec l'agent **Hierarchical Maps** téléchargé (désormais appelé World Maps,
 | --- | --- | --- |
 | Genre | Fantasy | Choix multiple, avec tes propres entrées. Un kit d'univers choisi en premier définit le sien. |
 | Tone | Heroic | Choix multiple. |
-| Difficulty | Normal | **Casual**, **Normal**, **Hard** ou **Brutal**. Plus le niveau est élevé, plus les attaques ennemies frappent fort (voir [Combat](combat.md#difficulty-scaling)). |
+| Difficulty | Normal | **Casual**, **Normal**, **Hard** ou **Brutal**. Plus le niveau est élevé, plus les combats sont difficiles : des ennemis plus nombreux et plus puissants dans une partie MRPG (voir [Batailles dans une partie MRPG](combat.md#battles-in-an-mrpg-game)), et des ennemis qui frappent plus fort dans une partie Legacy (voir [L'ajustement selon la difficulté](combat.md#difficulty-scaling)). |
 | Content Rating | SFW | **SFW** ou **NSFW**. NSFW autorise seulement le contenu adulte, il ne l'impose pas. |
 | Language | English | Tout le texte en jeu est écrit dans cette langue. |
 | Game Master Mode | Standalone GM | **Character GM** prend une de tes fiches de personnage comme GM. |
@@ -194,6 +194,7 @@ Certains modèles restent enjoués. Ajoute une consigne claire dans le champ de 
 ## Où trouver chaque sujet
 
 - [Game Mode : le combat](combat.md) : les rencontres, le menu d'action, le calcul des dégâts et les quick-time events.
+- [Game Mode : classes MRPG](mrpg-classes.md) : le choix des classes, les caractéristiques, les niveaux et les promotions, la fiche de classe, les parties partagées et le passage d'une partie Legacy à MRPG.
 - [Game Mode : l'équipe et les PNJ](party-and-npcs.md) : Character Profiles, les feuilles de personnage et l'Adventure Journal.
 - [Game Mode : sessions et sauvegardes](sessions-and-saves.md) : la fin et le début des sessions, l'historique et les points de contrôle.
 - [Game Mode : carte, heure et météo](map-time-weather.md) : les vues de la carte, l'horloge, la météo et le moral.
@@ -203,20 +204,20 @@ Certains modèles restent enjoués. Ajoute une consigne claire dans le champ de 
 - [Guide de l'agent Storyboard](storyboard.md) : les storyboards pour Game Mode et Roleplay.
 - [Mode Roleplay : premiers pas](../roleplay/getting-started.md) : les Author's Notes (notes de l'auteur) fonctionnent ici de la même façon.
 
-## Overworld RPG
+## Overworld
 
-Les sections ci-dessous décrivent **Overworld RPG**, qui n'est pas encore disponible. Ne les lis que si ton serveur l'a activé.
+Les sections ci-dessous décrivent les parties **Overworld**, qui ne sont pas encore disponibles. Ne les lis que si ton serveur les a activées.
 
-<a id="classic-or-overworld-rpg"></a>
+<a id="vn-or-overworld"></a>
 
-### Classic ou Overworld RPG
+### VN ou Overworld
 
 Une nouvelle partie se joue dans l'un de deux modes de jeu, choisi à la première étape et conservé pour toutes ses sessions :
 
-- **Overworld RPG** : un monde créé pour ton univers, parcouru sur une carte du monde, avec des villes, des lieux à explorer et des donjons. Il lui faut un kit d'univers et un monde. Tant que tu n'as pas choisi de kit, celui de ton premier genre est pris (High fantasy si le genre n'en a pas), et un monde est tiré au sort pour lui.
-- **Classic** : Game Mode tel qu'il a toujours été, scène par scène, avec la carte de scène et les combats, et sans kit d'univers, monde, carte du monde, villes ni cartes de donjon.
+- **Overworld** : un monde créé pour ton univers, parcouru sur une carte du monde, avec des villes, des lieux à explorer et des donjons. Il lui faut un kit d'univers et un monde. Tant que tu n'as pas choisi de kit, celui de ton premier genre est pris (High fantasy si le genre n'en a pas), et un monde est tiré au sort pour lui.
+- **VN** : Game Mode tel qu'il a toujours été, raconté comme un roman visuel, scène par scène, avec la carte de scène et les combats, et sans kit d'univers, monde, carte du monde, villes ni cartes de donjon.
 
-Overworld RPG est verrouillé tant que la personne qui exploite le serveur ne définit pas `MARINARA_OVERWORLD_GAMES`. Tant qu'il est verrouillé, son encart est grisé avec la note "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games." Toute nouvelle partie est alors Classic, et les choix de kit d'univers et de monde n'apparaissent pas. Une partie créée avant l'existence de ce choix continue de se jouer comme avant : avec un monde, c'est une partie Overworld ; sans monde, une partie Classic.
+Overworld est verrouillé tant que la personne qui exploite le serveur ne définit pas `MARINARA_OVERWORLD_GAMES`. Tant qu'il est verrouillé, son encart est grisé avec la note "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games." Toute nouvelle partie est alors une partie VN, et les choix de kit d'univers et de monde n'apparaissent pas. Une partie créée avant l'existence de ce choix continue de se jouer comme avant : avec un monde, c'est une partie Overworld ; sans monde, une partie VN.
 
 <a id="choosing-a-setting-kit"></a>
 

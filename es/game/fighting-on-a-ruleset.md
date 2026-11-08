@@ -96,7 +96,7 @@ Los oponentes también pueden responder, con una parada propia. Una reacción qu
 
 ## En un campo de batalla
 
-Un conjunto de reglas puede definir cuánto representa una casilla de un campo de batalla en su propia distancia, en pies, pasos o su propia unidad. Si lo hace y la opción **Combat Preference** (Preferencia de combate) de tu partida está en **Tactical** (Táctico), la pelea se libra en un campo de batalla: los mismos tableros (generados o hechos a mano para el lugar), el mismo terreno y el mismo despliegue que las [batallas Tactical](combat.md#tactical-battles-and-terrain) propias de Marinara. Un conjunto sin distancia, o una partida configurada como **Classic** (Clásica), combate sin posiciones, y cualquiera puede tomar como objetivo a cualquiera.
+Un conjunto de reglas puede definir cuánto representa una casilla de un campo de batalla en su propia distancia, en pies, pasos o su propia unidad. Si lo hace y la opción **Combat Preference** (Preferencia de combate) de tu partida está en **Tactical** (Táctico), la pelea se libra en un campo de batalla: los mismos tableros (generados o hechos a mano para el lugar), el mismo terreno y el mismo despliegue que las [batallas Tactical](combat.md#tactical-battles-and-terrain) propias de Marinara. Un conjunto sin distancia, o una partida configurada como **Turn-Based** (Por turnos), combate sin posiciones, y cualquiera puede tomar como objetivo a cualquiera.
 
 En el campo de batalla, las cifras propias del conjunto de reglas lo deciden todo:
 

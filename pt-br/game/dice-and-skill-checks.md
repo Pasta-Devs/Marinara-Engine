@@ -55,12 +55,44 @@ Você pode rolar no máximo 100 dados de uma vez, e cada dado pode ter no máxim
 
 Um teste de perícia põe à prova algo arriscado, como se esgueirar, notar uma pista ou convencer um NPC (personagem não jogável). Você não começa um teste. O GM pede o teste na narração, e Marinara o transforma em uma rolagem animada de d20 com uma faixa de resultado. A faixa mostra a perícia e o alvo, por exemplo **Stealth Check** com **DC 15**. Cada teste resolvido ganha a própria faixa, depois dos cartões de dados que estiverem na fila.
 
+<a id="how-the-result-is-decided"></a>
+
 ### Como o resultado é decidido
 
 O teste rola um d20 e soma dois modificadores:
 
 - Um modificador de perícia, tirado do nível de perícia que o jogo acompanha para o seu personagem. Ele é 0 se o jogo ainda não tem um nível para aquela perícia.
-- Um modificador de atributo, tirado do atributo que rege a perícia. Cada perícia é ligada a um atributo automaticamente: Stealth usa Dexterity, Perception usa Wisdom, Persuasion usa Charisma. Uma perícia que Marinara não reconhece usa Intelligence.
+- Um modificador de status, tirado do status no qual a perícia se apoia. Os status usados dependem da partida, como explicado abaixo.
+
+Em uma partida compartilhada, cada teste lê os status do personagem que ele menciona.
+
+<a id="mrpg-games"></a>
+
+#### Partidas MRPG
+
+Numa partida com classes **MRPG**, o que inclui toda partida nova, o modificador de status vem dos status MRPG do personagem, aqueles concedidos pela classe ativa dele (veja [Classes MRPG](mrpg-classes.md#what-the-stats-mean)). Os atributos Legacy que ainda estiverem num card atualizado não são usados. Cada perícia se apoia num status:
+
+| Status | Perícias |
+| --- | --- |
+| Força | Athletics, Intimidation |
+| Velocidade | Acrobatics, Stealth |
+| Habilidade | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling e qualquer perícia que não esteja listada aqui |
+| Defesa | Endurance, Constitution |
+| Magia | Arcana, History, Nature, Intelligence |
+| Resistência | Insight, Religion, Wisdom |
+| Sorte | Persuasion, Deception, Performance, Charisma |
+
+O teste soma um quinto da parte desse status acima de 3, arredondado para baixo, de -1 a +5. Um status baixo (2 ou menos) tira 1 do resultado, um comum não soma nada, o melhor status de um personagem novo soma cerca de +1, um de nível 10 soma +2 e o melhor no nível máximo soma +5. Como os status seguem a classe ativa, trocar de classe também muda esses bônus.
+
+<a id="legacy-games"></a>
+
+#### Partidas Legacy
+
+Numa partida **Legacy**, o modificador vem do atributo que rege a perícia na ficha do personagem. Cada perícia é ligada a um atributo automaticamente: Stealth usa Dexterity, Perception usa Wisdom, Persuasion usa Charisma. Uma perícia que Marinara não reconhece usa Intelligence.
+
+<a id="the-result"></a>
+
+#### O resultado
 
 Se o total alcançar ou superar a DC, o teste tem sucesso. Duas rolagens passam por cima da conta:
 
@@ -75,7 +107,7 @@ O GM pode pedir um teste com vantagem (rolar dois d20 e ficar com o maior) ou co
 
 ### Rolar o seu próprio d20 antes
 
-Coloque um `d20` na fila pelo menu de dados antes de o teste acontecer. O teste então usa o seu número em vez de rolar um dado novo. Os seus modificadores de perícia e de atributo continuam valendo.
+Coloque um `d20` na fila pelo menu de dados antes de o teste acontecer. O teste então usa o seu número em vez de rolar um dado novo. Os seus modificadores de perícia e de status continuam valendo.
 
 Para saber como o GM termina um turno depois de uma rolagem, e quanto isso custa, veja [Como um turno com dados é narrado](#how-a-rolled-turn-is-narrated).
 

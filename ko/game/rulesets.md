@@ -183,5 +183,5 @@ GM은 서술하는 동안 시트를 최신 상태로 유지합니다. 캐릭터�
 - [Game Mode: 규칙 집합의 전투](fighting-on-a-ruleset.md)
 - [Game Mode: 주사위와 스킬 판정](dice-and-skill-checks.md)
 - [Game Mode: 파티와 NPC](party-and-npcs.md)
-- [캐릭터 색상과 RPG 스탯: 규칙 집합 시트](../characters/colors-and-stats.md#ruleset-sheets)
+- [캐릭터 색상과 롤플레이 스탯: 규칙 집합 시트](../characters/colors-and-stats.md#ruleset-sheets)
 - [Game Mode 규칙 집합 작성하기](../extending/writing-rulesets.md)

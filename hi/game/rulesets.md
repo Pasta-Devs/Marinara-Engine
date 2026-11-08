@@ -183,5 +183,5 @@ GM नैरेशन करते हुए शीट को अपडेट �
 - [Game Mode: नियमसेट पर लड़ाइयाँ](fighting-on-a-ruleset.md)
 - [Game Mode: डाइस और स्किल चेक](dice-and-skill-checks.md)
 - [Game Mode: पार्टी और NPC](party-and-npcs.md)
-- [कैरेक्टर के रंग और RPG स्टैट: नियमसेट शीट](../characters/colors-and-stats.md#ruleset-sheets)
+- [कैरेक्टर के रंग और रोलप्ले स्टैट: नियमसेट शीट](../characters/colors-and-stats.md#ruleset-sheets)
 - [Game Mode के नियमसेट लिखना](../extending/writing-rulesets.md)

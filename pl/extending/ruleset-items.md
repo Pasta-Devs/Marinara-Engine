@@ -13,7 +13,7 @@ Sekcje na tej stronie:
 - [Broń w walce](#weapons-in-a-fight)
 - [Pancerz i efekty założonych przedmiotów w walce](#armor-and-worn-effects-in-a-fight)
 - [Używanie przedmiotów w walce](#using-items-in-a-fight)
-- [Przedmioty w bitwach Classic i Tactical](#items-in-classic-and-tactical-battles)
+- [Przedmioty w bitwach Turn-Based i Tactical](#items-in-turn-based-and-tactical-battles)
 - [Łupy](#loot)
 - [Pieniądze](#money)
 - [Początkowy sprzęt](#starting-gear)
@@ -160,7 +160,7 @@ Wszystko powyższe jest sprawdzane przy imporcie zestawu zasad, a twoje katalogi
 - **Nazwy odnajdują twoje przedmioty.** Nazwa wpisana przez gracza lub zapisana przez Mistrza Gry w `[inventory: action="add"]`, będąca `label` jednego z twoich przedmiotów, niezależnie od wielkości liter, dodaje ten przedmiot. Gdy dwa przedmioty mają tę samą etykietę, nazwa odnajduje ten, który twoje katalogi wymieniają jako pierwszy.
 - **`stack`** jest przestrzegane: dodanie, ustawienie, połączenie lub przekazanie ponad ten limit wypełnia stos i zaczyna nowy.
 - **`freeform: "refuse"`** zostawia graczowi tylko twoje przedmioty: selektor i nazwy, które są twoimi przedmiotami.
-- **`native: false`** zostawia Mistrzowi Gry tylko twoje przedmioty i te, które sam wymyśli: nazwa, która nie jest żadnym z nich, jest odrzucana (`not-ruleset-item`), choć nadal można dodać więcej czegoś, co już jest w posiadaniu, o czym mówią jego instrukcje. Walka nie pyta już modelu, co robią przedmioty z ekwipunku, więc walczą tylko twoje przedmioty: w walce według zestawu zasad trzymana broń i użycia twoich przedmiotów (zobacz niżej Broń w walce), a w bitwie Classic lub Tactical twoje przedmioty z `use` (zobacz niżej Przedmioty w bitwach Classic i Tactical). To, co wpisuje gracz, nadal podlega `freeform`, a rzeczy niesione przez drużynę w obu przypadkach wracają w nowej sesji.
+- **`native: false`** zostawia Mistrzowi Gry tylko twoje przedmioty i te, które sam wymyśli: nazwa, która nie jest żadnym z nich, jest odrzucana (`not-ruleset-item`), choć nadal można dodać więcej czegoś, co już jest w posiadaniu, o czym mówią jego instrukcje. Walka nie pyta już modelu, co robią przedmioty z ekwipunku, więc walczą tylko twoje przedmioty: w walce według zestawu zasad trzymana broń i użycia twoich przedmiotów (zobacz niżej Broń w walce), a w bitwie Turn-Based lub Tactical twoje przedmioty z `use` (zobacz niżej Przedmioty w bitwach Turn-Based i Tactical). To, co wpisuje gracz, nadal podlega `freeform`, a rzeczy niesione przez drużynę w obu przypadkach wracają w nowej sesji.
 - **Czym jest przedmiot**, widać na wybranym stosie: jego kategorię, rzadkość i tagi według etykiet, dawane statystyki, opis i pojemność jednego stosu. Selektor pokazuje też jego `cost`. Mistrz Gry widzi każdy twój przedmiot z ekwipunku z kategorią, rzadkością, tagami i statystykami pozostawionymi jako `promptVisible`, np. `Hand axe [Weapon, Common, Thrown; Damage 1d6, Reach close]`.
 
 - **`slots`**: przedmiot zajmujący miejsca może założyć ten, kto go niesie, jeśli ma te miejsca wolne, a jedna sztuka z większego stosu trafia do osobnego stosu, aby można ją było założyć. Ekwipunek pokazuje zajęte miejsca każdej postaci.
@@ -173,7 +173,7 @@ Wszystko powyższe jest sprawdzane przy imporcie zestawu zasad, a twoje katalogi
 - **Działanie broni** widać tak samo ("Attack (Action): Brawn to hit, 1d6 + Brawn cut damage"), a walka oferuje broń, gdy jest trzymana (zobacz niżej Broń w walce).
 - **Działanie użycia przedmiotu** widać tak samo ("Use (Action): heals 1d4 + 1, range 0 paces, used up"), wraz z pozostałymi ładunkami. Oferuje je walka, a także przycisk **Use** (użyj) w ekwipunku i `[inventory: action="use"]` Mistrza Gry (zobacz niżej Używanie przedmiotów w walce i Używanie przedmiotów poza walką).
 
-W bitwie Classic lub Tactical każdy twój przedmiot z `use` robi to, co tam zapisano, a przedmiot bez niego nie jest oferowany (zobacz niżej Przedmioty w bitwach Classic i Tactical). Niezależnie od `native` arkusz może odczytywać twoje przedmioty (niżej), trzymana broń jest atakiem w walce według zestawu zasad i strzela tym, co pobiera z torby, działanie przedmiotu założonego lub niesionego liczy się w takiej walce (zobacz niżej Pancerz i efekty założonych przedmiotów w walce), przedmiot z `use` jest używany według własnych zasad, w walce i poza nią (zobacz niżej Używanie przedmiotów w walce i Używanie przedmiotów poza walką), a twoje `currencies` są pieniędzmi drużyny (zobacz niżej Pieniądze).
+W bitwie Turn-Based lub Tactical każdy twój przedmiot z `use` robi to, co tam zapisano, a przedmiot bez niego nie jest oferowany (zobacz niżej Przedmioty w bitwach Turn-Based i Tactical). Niezależnie od `native` arkusz może odczytywać twoje przedmioty (niżej), trzymana broń jest atakiem w walce według zestawu zasad i strzela tym, co pobiera z torby, działanie przedmiotu założonego lub niesionego liczy się w takiej walce (zobacz niżej Pancerz i efekty założonych przedmiotów w walce), przedmiot z `use` jest używany według własnych zasad, w walce i poza nią (zobacz niżej Używanie przedmiotów w walce i Używanie przedmiotów poza walką), a twoje `currencies` są pieniędzmi drużyny (zobacz niżej Pieniądze).
 
 <a id="items-on-the-sheet"></a>
 
@@ -442,11 +442,11 @@ Przedmiotu można użyć w walce (Capability API 1.59): okład przyłożony do r
 
 To, co walka zużywa, i pozostawione ładunki są zapisywane w ekwipunku przy każdym kroku, tak jak strzały broni, a dziennik przygody podaje, co zużyto. Dziennik walki podaje każde użycie ("Poultice: 1 of 2 left.", "Dawn bell: 2 of 3 left."). Członek drużyny prowadzony przez Engine leczy tylko kogoś rannego, a nikt nie używa przedmiotu do uderzenia w odchodzącego. Szczegóły przedmiotu i wiersz dla Mistrza Gry podają działanie użycia: "Use (Action): heals 1d4 + 1, range 0 paces, used up" i `use (Act): Steel 7 save negates it, Rattled, 1 of 3 charges`, a szczegóły pokazują pozostałe ładunki. Przedmiot wymyślony przez Mistrza Gry przez `like=` na wzór jednego z twoich jest używany tak jak tamten, łącznie z ładunkami.
 
-<a id="items-in-classic-and-tactical-battles"></a>
+<a id="items-in-turn-based-and-tactical-battles"></a>
 
-## Przedmioty w bitwach Classic i Tactical
+## Przedmioty w bitwach Turn-Based i Tactical
 
-Zestaw zasad, który nie rozstrzyga własnych walk, zostawia je bitwom Classic i Tactical trybu Game Mode, w których na początku walki model jest pytany, co robią przedmioty z ekwipunku. Działanie twoich przedmiotów nie jest zgadywane: każdy z `use` robi to, co tam zapisano, na liczbach samego Engine, a Mistrza Gry pyta się tylko o przedmioty, które nie są twoje (i o żadne przy `native: false`).
+Zestaw zasad, który nie rozstrzyga własnych walk, zostawia je bitwom Turn-Based i Tactical trybu Game Mode, w których na początku walki model jest pytany, co robią przedmioty z ekwipunku. Działanie twoich przedmiotów nie jest zgadywane: każdy z `use` robi to, co tam zapisano, na liczbach samego Engine, a Mistrza Gry pyta się tylko o przedmioty, które nie są twoje (i o żadne przy `native: false`).
 
 - `heal` leczy, a `attack` rani o część maksymalnego zdrowia celu wyznaczoną ze średniej `amount`: średnia 7, czyli `1d8+3` podstawowej broni, to nieco ponad jedna piąta, nigdy mniej niż jedna dwudziesta i najwyżej całość. W tej skali pomost walki odczytuje liczby wpisu katalogu. `damageType` jest żywiołem.
 - Pierwszy stan w `applies` jest nakładany jako status pod własną nazwą, na swoje `rounds` (2, jeśli ich nie podano), a `buff` lub `debuff` to sam ten status, który podnosi lub obniża obronę jak własne statusy Engine.

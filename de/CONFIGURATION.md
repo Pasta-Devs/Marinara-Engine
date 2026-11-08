@@ -173,7 +173,7 @@ Auf dem Rechner, auf dem der Server läuft, funktionieren diese Aktionen meist a
 | `CUSTOM_TOOL_SCRIPT_ENABLED` | `false` | Aktiviert eigene Skript-Tools. Bei nicht vertrauenswürdigen oder importierten Tools aus lassen. |
 | `MARI_DB_ALLOW_UNSAFE_TRANSFORMS` | `false` | Lässt die Datenbank-Transformationsskripte von Professor Mari auch auf Hosts ohne Sandbox des Betriebssystems laufen (macOS Seatbelt oder Linux Bubblewrap, die genutzt werden, wo vorhanden). Lass das aus, solange du das Skript nicht geprüft hast. |
 | `ENABLE_CUSTOM_AGENT_REPOS` | `false` | Aktiviert die manuelle Vorschau und Synchronisierung von GitHub-Agent-Repositorys in Agent Organizer. Siehe [Eigene Agent-Repositorys](#custom-agent-repositories). |
-| `MARINARA_OVERWORLD_GAMES` | `false` | Erlaubt Spielern, Overworld-Spiele (ein Setting-Kit und eine generierte Welt) anzulegen und ein älteres Spiel in eines umzuwandeln. Ist die Variable aus, bietet der Assistent nur Classic-Spiele an. |
+| `MARINARA_OVERWORLD_GAMES` | `false` | Erlaubt Spielern, Overworld-Spiele (ein Setting-Kit und eine generierte Welt) anzulegen und ein älteres Spiel in eines umzuwandeln. Ist die Variable aus, bietet der Assistent nur VN-Spiele an. |
 | `ENABLE_EXTERNAL_EXTENSIONS` | `false` | Erste von zwei Sicherheitssperren für den Import von Erweiterungen Dritter. Siehe [External Extensions](#external-extensions). |
 | `IMPORT_ALLOWED_ROOTS` | leer | Ordner, die ein Massenimport ohne Auswahl-Token lesen darf. |
 | `PROFILE_EXPORT_JSON_LIMIT_BYTES` | `268435456` (256 MiB) | Größter einzelner JSON-Profil-Export, den der Server erzeugt. |

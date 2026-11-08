@@ -55,12 +55,44 @@ GM 也可以在叙述里用 `[dice: 3d8+2]` 请求掷骰。Marinara 会给出真
 
 技能检定用来判定有风险的行动，比如潜行、发现线索或说服 NPC(玩家之外的角色)。检定不由你发起，而是 GM 在叙述里提出，Marinara 再把它变成一次带动画的 d20 掷骰，并给出结果横幅。横幅上显示技能和目标，比如 **Stealth Check**(潜行检定) 和 **DC 15**。每个已结算的检定都有自己的横幅，排在已排队的骰子卡之后。
 
+<a id="how-the-result-is-decided"></a>
+
 ### 结果怎么判定
 
 检定掷一颗 d20，再加上两个调整值：
 
 - 技能调整值，来自游戏为你的角色记录的技能等级。如果游戏还没有这项技能的等级，这个调整值就是 0。
-- 属性调整值，来自这项技能对应的主导属性。每项技能都会自动对应一个属性：Stealth 对应 Dexterity，Perception 对应 Wisdom，Persuasion 对应 Charisma。Marinara 不认识的技能一律使用 Intelligence。
+- 属性调整值，来自这项技能主要依赖的属性。具体使用哪些属性取决于游戏，见下文。
+
+在共享游戏中，每次检定都会读取检定所指角色的属性。
+
+<a id="mrpg-games"></a>
+
+#### MRPG 游戏
+
+采用 **MRPG** 职业的游戏（也就是所有新游戏）使用角色的 MRPG 属性调整值，也就是当前职业提供的属性（见 [MRPG 职业](mrpg-classes.md#what-the-stats-mean)）。升级后角色卡上仍保留的 Legacy 属性不会使用。每项技能主要依赖一个属性：
+
+| 属性 | 技能 |
+| --- | --- |
+| Strength | Athletics、Intimidation |
+| Speed | Acrobatics、Stealth |
+| Skill | Sleight of Hand、Investigation、Perception、Medicine、Survival、Animal Handling，以及此处未列出的所有技能 |
+| Defense | Endurance、Constitution |
+| Magic | Arcana、History、Nature、Intelligence |
+| Resistance | Insight、Religion、Wisdom |
+| Luck | Persuasion、Deception、Performance、Charisma |
+
+检定会加上该属性超过 3 的部分的五分之一（向下取整），范围为 -1 到 +5。较弱的属性（2 或以下）会减去 1，普通属性不提供加值，新角色最强的属性约提供 +1，10 级时提供 +2，最高等级时最强的属性提供 +5。由于属性随当前职业变化，切换职业也会改变这些加值。
+
+<a id="legacy-games"></a>
+
+#### Legacy 游戏
+
+在 **Legacy** 游戏中，调整值来自人物卡上这项技能的主导属性。每项技能都会自动对应一个属性：Stealth 对应 Dexterity，Perception 对应 Wisdom，Persuasion 对应 Charisma。Marinara 不认识的技能一律使用 Intelligence。
+
+<a id="the-result"></a>
+
+#### 结果
 
 总值达到或超过 DC，检定就成功。有两种骰面会直接覆盖这套算法：
 

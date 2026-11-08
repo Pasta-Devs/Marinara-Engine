@@ -189,7 +189,7 @@ Kiedy postać wraca po opuszczeniu sceny, tracker używa jej ostatnich zapisanyc
 
 - **Faza**: Post-Processing.
 - **Gdzie działa**: Roleplay.
-- **Najważniejsze ustawienia**: **Add as Prompt Section** (domyślnie włączone). Zobacz [Kolory postaci i statystyki](../characters/colors-and-stats.md).
+- **Najważniejsze ustawienia**: **Add as Prompt Section** (domyślnie włączone). Zobacz [Kolory postaci i Statystyki Roleplay](../characters/colors-and-stats.md).
 
 ### Custom Tracker
 

@@ -55,12 +55,44 @@ Du kannst höchstens 100 Würfel auf einmal werfen, und jeder Würfel darf höch
 
 Eine Fertigkeitsprobe testet etwas Riskantes, etwa Anschleichen, einen Hinweis entdecken oder einen NPC (Nicht-Spieler-Charakter) überzeugen. Du startest keine selbst. Der GM fordert sie in seiner Erzählung an, und Marinara macht daraus einen animierten d20-Wurf mit einem Ergebnis-Banner. Das Banner zeigt die Fertigkeit und die Zielzahl, zum Beispiel **Stealth Check** mit **DC 15**. Jede ausgewertete Probe bekommt ein eigenes Banner, nach etwaigen wartenden Würfelkarten.
 
+<a id="how-the-result-is-decided"></a>
+
 ### Wie das Ergebnis zustande kommt
 
 Die Probe wirft einen d20 und addiert zwei Modifikatoren:
 
 - Einen Fertigkeits-Modifikator aus der Fertigkeitsstufe, die das Spiel für deinen Charakter mitführt. Hat das Spiel für diese Fertigkeit noch keine Stufe, beträgt er 0.
-- Einen Attribut-Modifikator aus dem Attribut, das für die Fertigkeit zuständig ist. Jede Fertigkeit ist automatisch einem Attribut zugeordnet: Stealth (Heimlichkeit) nutzt Dexterity (Geschicklichkeit), Perception (Wahrnehmung) nutzt Wisdom (Weisheit), Persuasion (Überredung) nutzt Charisma. Eine Fertigkeit, die Marinara nicht kennt, nutzt Intelligence (Intelligenz).
+- Einen Werte-Modifikator aus dem Wert, auf den sich die Fertigkeit stützt. Welche Werte gelten, hängt wie unten beschrieben vom Spiel ab.
+
+In einem geteilten Spiel liest jede Probe die Werte des Charakters, den sie nennt.
+
+<a id="mrpg-games"></a>
+
+#### MRPG-Spiele
+
+In einem Spiel mit **MRPG**-Klassen – also jedem neuen Spiel – stammt der Werte-Modifikator aus den MRPG-Werten des Charakters, die ihm seine aktive Klasse gibt (siehe [MRPG-Klassen](mrpg-classes.md#what-the-stats-mean)). Legacy-Attribute, die nach einem Upgrade noch auf einer Karte stehen, werden nicht verwendet. Jede Fertigkeit stützt sich auf einen Wert:
+
+| Wert | Fertigkeiten |
+| --- | --- |
+| Strength | Athletics, Intimidation |
+| Speed | Acrobatics, Stealth |
+| Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling und jede hier nicht aufgeführte Fertigkeit |
+| Defense | Endurance, Constitution |
+| Magic | Arcana, History, Nature, Intelligence |
+| Resistance | Insight, Religion, Wisdom |
+| Luck | Persuasion, Deception, Performance, Charisma |
+
+Die Probe addiert ein Fünftel des Anteils dieses Werts über 3, abgerundet, von -1 bis +5. Ein schwacher Wert (2 oder weniger) zieht 1 ab, ein gewöhnlicher addiert nichts, der beste Wert eines neuen Charakters etwa +1, einer auf Stufe 10 +2 und der beste auf der höchsten Stufe +5. Weil die Werte der aktiven Klasse folgen, ändern sich diese Boni ebenfalls, wenn der Charakter die Klasse wechselt.
+
+<a id="legacy-games"></a>
+
+#### Legacy-Spiele
+
+In einem **Legacy**-Spiel stammt der Modifikator aus dem Attribut auf dem Charakterbogen, das für die Fertigkeit zuständig ist. Jede Fertigkeit ist automatisch einem Attribut zugeordnet: Stealth (Heimlichkeit) nutzt Dexterity (Geschicklichkeit), Perception (Wahrnehmung) nutzt Wisdom (Weisheit), Persuasion (Überredung) nutzt Charisma. Eine Fertigkeit, die Marinara nicht kennt, nutzt Intelligence (Intelligenz).
+
+<a id="the-result"></a>
+
+#### Das Ergebnis
 
 Erreicht oder übertrifft die Summe die DC, gelingt die Probe. Zwei Würfe setzen die Rechnung außer Kraft:
 
@@ -75,7 +107,7 @@ Der GM kann eine Probe mit Vorteil (zwei d20 werfen, den höheren behalten) oder
 
 ### Eigenen d20 vorab werfen
 
-Leg vor der Probe über das Würfelmenü einen `d20` in die Warteschlange. Die Probe nimmt dann deine Zahl, statt einen neuen Würfel zu werfen. Deine Fertigkeits- und Attribut-Modifikatoren gelten weiterhin.
+Leg vor der Probe über das Würfelmenü einen `d20` in die Warteschlange. Die Probe nimmt dann deine Zahl, statt einen neuen Würfel zu werfen. Deine Fertigkeits- und Werte-Modifikatoren gelten weiterhin.
 
 Wie der GM einen Zug nach einem Wurf abschließt und was das kostet, steht unter [Wie ein gewürfelter Zug erzählt wird](#how-a-rolled-turn-is-narrated).
 

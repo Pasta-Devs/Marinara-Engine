@@ -9,7 +9,7 @@ Game Mode mostra um painel de mapa na tela do jogo. Ele traz o nome do mapa atua
 - **No computador**, o mapa é um painel embutido, fácil de consultar num relance. Você pode arrastá-lo e travá-lo no lugar. Para entender como funcionam os painéis arrastáveis, veja [Game Mode: widgets do HUD](hud-widgets.md).
 - **No celular**, toque em **Map** (mapa) para abrir o painel. O botão dele começa perto do canto superior esquerdo e pode ser arrastado pelo chat. Use **Lock window** (travar janela) para manter o botão no lugar e **Close** (fechar) para voltar a ele. A posição fica salva com o chat. O mapa do celular usa o estilo de widget do chat definido em **Settings → Appearance → App**, e o botão dele fica separado do menu de três pontos **Chat tools** (ferramentas do chat).
 
-Uma partida Classic comum tem o mapa de cena descrito aqui. O overworld, as cidades e os mapas de masmorra pertencem às partidas Overworld RPG, que ainda não estão disponíveis (veja [Classic ou Overworld RPG](getting-started.md#classic-or-overworld-rpg)).
+Uma partida VN tem o mapa de cena descrito aqui. O overworld, as cidades e os mapas de masmorra pertencem às partidas Overworld, que ainda não estão disponíveis (veja [VN ou Overworld](getting-started.md#vn-or-overworld)).
 
 ### Visualização em grade e visualização em nós
 
@@ -82,9 +82,9 @@ O jogo mantém uma pontuação oculta de moral da equipe, de 0 a 100. Ela tem ci
 
 O moral sobe quando você vence uma luta, conclui uma missão ou encontra um tesouro. Ele cai quando você perde uma luta, falha em uma missão ou perde um aliado. Com o tempo, ele volta aos poucos para o meio. O moral não aparece como número. Ele dá cor à maneira como o GM descreve o humor da equipe. Ele não muda as suas rolagens de dados.
 
-## O overworld e os outros mapas do Overworld RPG
+## O overworld e os outros mapas do Overworld
 
-As seções abaixo descrevem as partidas **Overworld RPG**, que ainda não estão disponíveis. Elas só valem se o seu servidor tiver ativado o recurso.
+As seções abaixo descrevem as partidas **Overworld**, que ainda não estão disponíveis. Elas só valem se o seu servidor tiver ativado o recurso.
 
 <a id="the-overworld"></a>
 

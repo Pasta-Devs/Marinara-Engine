@@ -1,4 +1,4 @@
-# Colores del personaje y estadísticas RPG
+# Colores del personaje y Estadísticas de Roleplay
 
 Las pestañas **Colors** (Colores) y **Stats** (Estadísticas) aparecen tanto en el Character Editor como en el Persona Editor. Los colores cambian cómo se ve un personaje o una persona en el chat. Las estadísticas configuran valores que puedes seguir, como la salud o el hambre.
 
@@ -54,7 +54,7 @@ Las pestañas **Stats** del personaje y de la persona tienen diseños distintos.
 
 ### Estadísticas del personaje
 
-Un personaje tiene un interruptor, **Enable RPG Stats** (Activar estadísticas RPG). Si está desactivado, no se muestra ni se envía nada de lo que hay debajo. Si está activado, aparecen dos secciones:
+Un personaje tiene un interruptor, **Enable Roleplay Stats** (Activar Estadísticas de Roleplay). Si está desactivado, no se muestra ni se envía nada de lo que hay debajo. Si está activado, aparecen dos secciones:
 
 - **Pools** (Reservas) son barras con nombre, con un valor actual, un máximo y un color. Los personajes nuevos empiezan con HP y MP, cada uno en 100 de 100.
 - **Attributes** (Atributos) son números con nombre. Los personajes nuevos empiezan con STR, DEX, CON, INT, WIS y CHA, cada uno en 10.
@@ -66,7 +66,24 @@ Haz clic en **Add** (Agregar) para crear una reserva o un atributo, y en la X de
 La pestaña **Stats** de una persona tiene dos bloques separados, cada uno con su propio interruptor.
 
 - **Persona Status Bars** (Barras de estado de la persona), que se activan con **Enable Persona Stats** (Activar estadísticas de la persona), siguen necesidades físicas y mentales. Las barras iniciales son Satiety, Energy, Hygiene y Mood, cada una en 100 de 100. En **Status Bars**, cada barra tiene un nombre, un valor actual, un máximo y un color. Haz clic en **Add** para crear una y en la X para quitar una.
-- **Enable RPG Attributes** (Activar atributos RPG) funciona como en una tarjeta de personaje. Le da a tu persona **Pools** (que empiezan con HP y MP en 100 de 100) y **Attributes** (que empiezan con STR, DEX, CON, INT, WIS y CHA en 10).
+- **Enable Roleplay Stats** (Activar Estadísticas de Roleplay) funciona como en una tarjeta de personaje. Le da a tu persona **Pools** (que empiezan con HP y MP en 100 de 100) y **Attributes** (que empiezan con STR, DEX, CON, INT, WIS y CHA en 10).
+
+<a id="mrpg-picks-on-a-card"></a>
+
+### Elecciones MRPG en una tarjeta
+
+Ambas pestañas **Stats** tienen una sección **Game Mode** con un bloque **MRPG**, para partidas con clases MRPG (todas las partidas nuevas). Cada partida genera de nuevo las estadísticas MRPG de cada personaje, por lo que la tarjeta no contiene números, solo tres elecciones. Un asistente guiado las pide paso a paso:
+
+1. **Tree** (Árbol): el árbol en el que empieza el personaje. **Auto** lo deduce de la descripción y la personalidad de la tarjeta, y muestra qué árbol da como resultado.
+2. **Strong in** (Fuerte en): hasta dos estadísticas en las que el personaje progresa bien. Cada estadística indica qué hace.
+3. **Weak in** (Débil en): una estadística en la que progresa poco, o ninguna.
+4. **Review** (Revisar): la clase con la que empieza en una partida nueva, en el nivel 1, junto con su fila, todas las estadísticas, el MP y la Stamina.
+
+Cada elección se conserva a medida que la haces, y **Back** (Atrás), **Next** (Siguiente) y los nombres de los pasos permiten desplazarse entre ellos. Haz clic en **Finish** (Finalizar) en el último paso. Después, el bloque muestra la revisión: la clase inicial y sus estadísticas, con las fuertes y débiles marcadas. Haz clic en **Edit** (Editar) para volver a usar el asistente. Guarda la tarjeta como de costumbre para conservar los cambios.
+
+Las elecciones fuertes y débiles inclinan el crecimiento oculto del personaje en cada partida. Su árbol hermano procede de su temperamento en la partida, no de la tarjeta. Consulta [Game Mode: clases MRPG](../game/mrpg-classes.md#choose-a-characters-trees).
+
+Las **Roleplay Stats** (Estadísticas de Roleplay) debajo del bloque son las reservas y los atributos descritos arriba. Los chats de Roleplay y las partidas Legacy los usan. Una partida MRPG usa en su lugar el bloque MRPG y nunca crea una ficha a partir de ellos.
 
 <a id="game-mode-icon"></a>
 
@@ -101,7 +118,7 @@ Algunos conjuntos de reglas incluyen conjuros, ataques y rasgos ya preparados. L
 
 Una ficha de un conjunto de reglas que no tienes instalado se conserva. Se muestra como una sola línea con un botón **Remove** (Quitar), nunca se envía a la IA, vuelve a ser editable cuando instalas ese conjunto de reglas y viaja con la tarjeta cuando la exportas. Una ficha de un conjunto de reglas instalado que esta versión no puede leer, como una guardada por una versión más reciente, también se conserva tal cual. Su entrada solo ofrece **Remove this sheet** (Quitar esta ficha), así que una ficha nueva nunca puede sobrescribirla por accidente. Cada ficha tiene un límite de 64 KB.
 
-Las fichas de conjuntos de reglas son independientes de **Enable RPG Stats** y **Enable RPG Attributes**. Una partida con las reglas propias de Marinara las ignora. Una partida con un conjunto de reglas usa la ficha en lugar de los Attributes de arriba para sus pruebas.
+Las fichas de conjuntos de reglas son independientes de **Enable Roleplay Stats** (Activar Estadísticas de Roleplay). Una partida con las reglas propias de Marinara las ignora. Una partida con un conjunto de reglas usa la ficha en lugar de los Attributes de arriba para sus pruebas.
 
 <a id="how-agents-update-your-stats"></a>
 
@@ -113,7 +130,7 @@ La pestaña **Stats** define el estado inicial del chat. Los agentes solo actual
 | --- | --- |
 | **Pools** del personaje, como HP | El agente **Character Tracker**, a partir del combate, la curación y los eventos de la historia. No sigue la persona del jugador. |
 | **Persona Status Bars** | El agente **Persona Stats**, después de cada mensaje. |
-| **RPG Attributes**, como STR y DEX | Ningún agente. Se envían con la tarjeta para el combate y Game Mode, y para las tiradas opcionales en Roleplay o Game Mode. |
+| **Roleplay Stats** (Estadísticas de Roleplay), como STR y DEX | Ningún agente. Se envían con la tarjeta para el combate y Game Mode, y para las tiradas opcionales en Roleplay o Game Mode. |
 
 Si no activas el agente correspondiente, los valores de los trackers se quedan en los predeterminados que definiste. La pestaña **Stats** por sí sola no actualiza nada durante el juego. Para activar estos agentes, consulta [Referencia de agentes descargables](../agents/built-in-agents.md).
 

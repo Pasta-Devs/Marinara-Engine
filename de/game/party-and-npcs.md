@@ -22,11 +22,13 @@ Du kannst die Schaltfläche am Computer und am Handy im Chat herumziehen. Öffne
 
 ## Charakterbögen
 
-Ein Charakterbogen ist eine Spielübersicht zu einem Partymitglied, getrennt von der Charakterkarte. Der GM schreibt ihn aus deinem Charakter und der aktuellen Geschichte. Er zeigt die Abschnitte, die Inhalt haben:
+Ein Charakterbogen ist eine Spielübersicht zu einem Partymitglied, getrennt von der Charakterkarte. In einem Spiel mit **MRPG**-Klassen – also jedem neuen Spiel – beginnt er mit dem MRPG-Klassenbogen des Charakters: den Tabs **Status** (Status), **Classes** (Klassen), **Skills** (Fertigkeiten) und **Gear** (Ausrüstung), in denen du Klassen wechselst, Fertigkeiten mitführst und Ausrüstung anlegst. Siehe [Der Charakterbogen](mrpg-classes.md#the-character-sheet). Seine MRPG-Werte treten an die Stelle der **Attributes** unten.
+
+Darunter schreibt der GM aus deinem Charakter und der aktuellen Geschichte die erzählerische Seite des Bogens. Sie zeigt die Abschnitte, die Inhalt haben:
 
 | Abschnitt | Inhalt |
 | --- | --- |
-| **Attributes** (Attribute) | Werte wie STR, DEX und CON mit Modifikator sowie Ressourcenbalken wie HP oder MP. |
+| **Attributes** (Attribute) | Nur Legacy-Spiele: Werte wie STR, DEX und CON mit Modifikator sowie Ressourcenbalken wie HP oder MP. |
 | **Stats** (Statuswerte) | Weitere Statusbalken. |
 | **Abilities** (Fähigkeiten) | Was der Charakter kann. |
 | **Strengths** (Stärken), **Weaknesses** (Schwächen) | Kurze Listen. |
@@ -45,7 +47,7 @@ Bei einem neuen Charakter steht womöglich „Character data will populate as th
 1. Öffne den Charakterbogen und klick auf **Edit card**.
 2. Ändere, was du brauchst:
    - **Class** (Klasse) und eine kurze Beschreibung unter **Sheet Details** (Details zum Bogen).
-   - **RPG Attributes** (RPG-Attribute): Schalte **Enable** (Aktivieren) ein, um Pools und Attribute mitzuführen. **Add Pool** (Pool hinzufügen) fügt einen Balken hinzu (Name, aktueller Wert, Maximalwert, Farbe). **Add Attribute** (Attribut hinzufügen) fügt einen Wert wie STR hinzu.
+   - **Roleplay Stats** (Roleplay-Werte, Legacy-Spiele): Schalte **Enable** (Aktivieren) ein, um Pools und Attribute mitzuführen. **Add Pool** (Pool hinzufügen) fügt einen Balken hinzu (Name, aktueller Wert, Maximalwert, Farbe). **Add Attribute** (Attribut hinzufügen) fügt einen Wert wie STR hinzu. Ein Spiel mit MRPG-Klassen nutzt sie weder für Proben noch für Kämpfe.
    - **Abilities**, **Strengths** und **Weaknesses**: **Add** (Hinzufügen) hängt eine Zeile an.
    - **Details**: **Add Detail** (Detail hinzufügen) fügt eine beschriftete Angabe hinzu.
 3. Klick auf **Save Sheet**. Mit **Cancel** verwirfst du deine Änderungen.

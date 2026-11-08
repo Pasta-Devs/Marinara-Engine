@@ -96,7 +96,7 @@ Os oponentes também podem responder, com um aparo próprio. Uma anulação pode
 
 ## Em um campo de batalha
 
-Um conjunto de regras pode definir quanto vale uma casa de um campo de batalha na própria distância dele, em pés, passos ou na própria unidade. Quando ele faz isso, e a **Combat Preference** (preferência de combate) do seu jogo é **Tactical** (tático), a luta acontece em um campo de batalha. Ele usa os mesmos tabuleiros (gerados ou feitos à mão para o lugar), o mesmo terreno e o mesmo posicionamento inicial das [batalhas Tactical](combat.md#tactical-battles-and-terrain) próprias do Marinara. Um conjunto de regras sem distância, ou um jogo definido como **Classic** (clássico), luta sem posições, e qualquer um pode mirar em qualquer um.
+Um conjunto de regras pode definir quanto vale uma casa de um campo de batalha na própria distância dele, em pés, passos ou na própria unidade. Quando ele faz isso, e a **Combat Preference** (preferência de combate) do seu jogo é **Tactical** (tático), a luta acontece em um campo de batalha. Ele usa os mesmos tabuleiros (gerados ou feitos à mão para o lugar), o mesmo terreno e o mesmo posicionamento inicial das [batalhas Tactical](combat.md#tactical-battles-and-terrain) próprias do Marinara. Um conjunto de regras sem distância, ou um jogo definido como **Turn-Based** (por turnos), luta sem posições, e qualquer um pode mirar em qualquer um.
 
 No campo de batalha, os números do próprio conjunto de regras decidem tudo:
 

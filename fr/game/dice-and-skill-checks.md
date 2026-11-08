@@ -55,12 +55,44 @@ Tu peux lancer au maximum 100 dés à la fois, et chaque dé peut avoir au plus 
 
 Un jet de compétence met à l'épreuve une action risquée, comme te faufiler sans être vu, repérer un indice ou convaincre un PNJ (personnage non-joueur). Tu ne le déclenches pas toi-même. Le GM le demande dans sa narration, et Marinara le transforme en un jet de d20 animé accompagné d'un bandeau de résultat. Le bandeau affiche la compétence et la cible, par exemple **Stealth Check** avec **DC 15**. Chaque jet résolu reçoit son propre bandeau, après les éventuelles cartes de dés en attente.
 
+<a id="how-the-result-is-decided"></a>
+
 ### Comment le résultat est calculé
 
 Le jet lance un d20 et ajoute deux modificateurs :
 
 - Un modificateur de compétence, issu du niveau de compétence que le jeu suit pour ton personnage. Il vaut 0 si le jeu n'a pas encore de niveau pour cette compétence.
-- Un modificateur de caractéristique, issu de la caractéristique dont dépend la compétence. Chaque compétence est rattachée automatiquement à une caractéristique : Stealth utilise Dexterity, Perception utilise Wisdom, Persuasion utilise Charisma. Une compétence que Marinara ne reconnaît pas utilise Intelligence.
+- Un modificateur de caractéristique, issu de la caractéristique sur laquelle s'appuie la compétence. Les caractéristiques concernées dépendent de la partie, comme expliqué ci-dessous.
+
+Dans une partie partagée, chaque jet lit les caractéristiques du personnage qu'il nomme.
+
+<a id="mrpg-games"></a>
+
+#### Parties MRPG
+
+Dans une partie utilisant les classes **MRPG**, c'est-à-dire toute nouvelle partie, le modificateur de caractéristique vient des caractéristiques MRPG du personnage, celles que lui donne sa classe active (voir [Classes MRPG](mrpg-classes.md#what-the-stats-mean)). Les éventuelles caractéristiques Legacy qui restent sur une fiche mise à niveau ne sont pas utilisées. Chaque compétence s'appuie sur une caractéristique :
+
+| Caractéristique | Compétences |
+| --- | --- |
+| Force | Athletics, Intimidation |
+| Vitesse | Acrobatics, Stealth |
+| Compétence | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling, et toute compétence qui ne figure pas ici |
+| Défense | Endurance, Constitution |
+| Magie | Arcana, History, Nature, Intelligence |
+| Résistance | Insight, Religion, Wisdom |
+| Chance | Persuasion, Deception, Performance, Charisma |
+
+Le jet ajoute un cinquième de la part de cette caractéristique qui dépasse 3, arrondi à l'inférieur, de -1 à +5. Une caractéristique faible (2 ou moins) retire 1, une caractéristique ordinaire n'ajoute rien, la meilleure caractéristique d'un nouveau personnage ajoute environ +1, une caractéristique de niveau 10 ajoute +2 et la meilleure au niveau maximum ajoute +5. Comme les caractéristiques suivent la classe active, changer de classe modifie aussi ces bonus.
+
+<a id="legacy-games"></a>
+
+#### Parties Legacy
+
+Dans une partie **Legacy**, le modificateur vient de la caractéristique directrice de la compétence sur la fiche du personnage. Chaque compétence est rattachée automatiquement à une caractéristique : Stealth utilise Dexterity, Perception utilise Wisdom, Persuasion utilise Charisma. Une compétence que Marinara ne reconnaît pas utilise Intelligence.
+
+<a id="the-result"></a>
+
+#### Le résultat
 
 Si le total atteint ou dépasse le DC, le jet réussit. Deux résultats passent outre le calcul :
 

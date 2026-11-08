@@ -183,5 +183,5 @@ Ein Regelsatz kann außerdem **Progress clocks** (Fortschrittsuhren) nutzen: Kre
 - [Game Mode: Kämpfe mit einem Regelsatz](fighting-on-a-ruleset.md)
 - [Game Mode: Würfel und Fertigkeitsproben](dice-and-skill-checks.md)
 - [Game Mode: Party und NPCs](party-and-npcs.md)
-- [Charakterfarben und RPG-Werte: Regelsatzbögen](../characters/colors-and-stats.md#ruleset-sheets)
+- [Charakterfarben und Roleplay-Werte: Regelsatzbögen](../characters/colors-and-stats.md#ruleset-sheets)
 - [Regelsätze für Game Mode schreiben](../extending/writing-rulesets.md)

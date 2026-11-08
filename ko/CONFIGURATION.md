@@ -173,7 +173,7 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `CUSTOM_TOOL_SCRIPT_ENABLED` | `false` | 사용자 지정 스크립트 도구를 켭니다. 신뢰할 수 없거나 가져온 도구라면 꺼 두세요. |
 | `MARI_DB_ALLOW_UNSAFE_TRANSFORMS` | `false` | OS 샌드박스(macOS Seatbelt 또는 Linux Bubblewrap, 있으면 사용)가 없는 호스트에서도 Professor Mari의 데이터베이스 변환 스크립트를 실행할 수 있게 합니다. 스크립트를 검토하지 않았다면 꺼 두세요. |
 | `ENABLE_CUSTOM_AGENT_REPOS` | `false` | Agent Organizer에서 GitHub 에이전트 저장소를 수동으로 미리 보고 동기화할 수 있게 합니다. [사용자 지정 에이전트 저장소](#custom-agent-repositories)를 참고하세요. |
-| `MARINARA_OVERWORLD_GAMES` | `false` | 플레이어가 Overworld 게임(세계관 키트와 생성된 세계)을 만들고 예전 게임을 Overworld 게임으로 바꿀 수 있게 합니다. 꺼져 있으면 마법사는 Classic 게임만 제공합니다. |
+| `MARINARA_OVERWORLD_GAMES` | `false` | 플레이어가 Overworld 게임(세계관 키트와 생성된 세계)을 만들고 예전 게임을 Overworld 게임으로 바꿀 수 있게 합니다. 꺼져 있으면 마법사는 VN 게임만 제공합니다. |
 | `ENABLE_EXTERNAL_EXTENSIONS` | `false` | 서드파티 확장 가져오기를 여는 두 관문 중 첫 번째입니다. [외부 확장](#external-extensions)을 참고하세요. |
 | `IMPORT_ALLOWED_ROOTS` | 비어 있음 | 선택기 토큰 없이 일괄 가져오기가 읽을 수 있는 폴더입니다. |
 | `PROFILE_EXPORT_JSON_LIMIT_BYTES` | `268435456`(256 MiB) | 서버가 만드는 단일 JSON 프로필 내보내기의 최대 크기입니다. |

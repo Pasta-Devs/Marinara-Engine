@@ -24,11 +24,13 @@ Ten przycisk możesz przeciągać po czacie na komputerze i na telefonie. Otwór
 
 ## Arkusze postaci
 
-Arkusz postaci to podsumowanie jednego członka drużyny na potrzeby gry, oddzielne od karty postaci. GM pisze go na podstawie twojej postaci i bieżącej historii. Arkusz pokazuje te sekcje, które mają treść:
+Arkusz postaci to podsumowanie jednego członka drużyny na potrzeby gry, oddzielne od karty postaci. W grze korzystającej z klas **MRPG**, czyli każdej nowej grze, otwiera się arkuszem klasy MRPG postaci: zakładkami **Status**, **Classes**, **Skills** i **Gear**, na których zmienia się klasy, przenosi umiejętności i zakłada wyposażenie. Zobacz [Arkusz postaci](mrpg-classes.md#the-character-sheet). Statystyki MRPG zastępują opisane niżej **Attributes**.
+
+Pod nim GM zapisuje fabularną część arkusza na podstawie twojej postaci i bieżącej historii. Arkusz pokazuje te sekcje, które mają treść:
 
 | Sekcja | Zawartość |
 | --- | --- |
-| **Attributes** (atrybuty) | Wartości takie jak STR, DEX i CON z modyfikatorem oraz paski zasobów, na przykład HP albo MP. |
+| **Attributes** (atrybuty) | Tylko gry Legacy: wartości takie jak STR, DEX i CON z modyfikatorem oraz paski zasobów, na przykład HP albo MP. |
 | **Stats** (statystyki) | Inne paski statystyk. |
 | **Abilities** (zdolności) | To, co postać potrafi zrobić. |
 | **Strengths** (mocne strony), **Weaknesses** (słabe strony) | Krótkie listy. |
@@ -47,7 +49,7 @@ Przyciski **Retry** (ponów), **Save Sheet** (zapisanie arkusza) i **Cancel** (a
 1. Otwórz arkusz postaci i kliknij **Edit card**.
 2. Zmień to, czego potrzebujesz:
    - **Class** (klasa) i krótki opis w sekcji **Sheet Details** (szczegóły arkusza).
-   - **RPG Attributes** (atrybuty RPG): włącz **Enable** (włącz), żeby śledzić pule i atrybuty. **Add Pool** (dodanie puli) dodaje pasek (nazwa, wartość bieżąca, wartość maksymalna, kolor). **Add Attribute** (dodanie atrybutu) dodaje wartość taką jak STR.
+   - **Roleplay Stats** (Statystyki Roleplay; gry Legacy): włącz **Enable** (włącz), żeby śledzić pule i atrybuty. **Add Pool** (dodanie puli) dodaje pasek (nazwa, wartość bieżąca, wartość maksymalna, kolor). **Add Attribute** (dodanie atrybutu) dodaje wartość taką jak STR. Gra korzystająca z klas MRPG nie używa ich w testach ani walkach.
    - **Abilities**, **Strengths** i **Weaknesses**: **Add** (dodaj) dopisuje kolejną linię.
    - **Details**: **Add Detail** (dodanie szczegółu) dodaje opisany fakt.
 3. Kliknij **Save Sheet**. Kliknij **Cancel**, żeby odrzucić zmiany.

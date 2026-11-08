@@ -1,6 +1,6 @@
 # Game Mode : le combat
 
-En Game Mode, le combat prend deux formes : les batailles **Classic** (combat par menus) et les batailles **Tactical** (combat sur grille). Tu choisis entre les deux avec **Combat Preference** (préférence de combat), à l'étape **World** (monde) de l'assistant de configuration. Pour changer plus tard, ouvre **Chat Settings** (réglages du chat), déplie **Combat Style** (style de combat) et choisis un **Battle system** (système de combat). Un ensemble de règles qui gère ses propres combats peut limiter les choix. Le Game Master (GM, le maître du jeu : l'IA qui mène la partie) met en place la rencontre et raconte le résultat. Marinara résout les actions de combat avec des calculs de dés fixes : l'IA ne décide donc jamais qui touche.
+En Game Mode, le combat prend deux formes : les batailles **Turn-Based** (combat par menus) et les batailles **Tactical** (combat sur grille). Tu choisis entre les deux avec **Combat Preference** (préférence de combat), à l'étape **World** (monde) de l'assistant de configuration. Pour changer plus tard, ouvre **Chat Settings** (réglages du chat), déplie **Combat Style** (style de combat) et choisis un **Battle system** (système de combat). Un ensemble de règles qui gère ses propres combats peut limiter les choix. Le Game Master (GM, le maître du jeu : l'IA qui mène la partie) met en place la rencontre et raconte le résultat. Marinara résout les actions de combat avec des calculs de dés fixes : l'IA ne décide donc jamais qui touche.
 
 ## Le début d'une rencontre
 
@@ -8,11 +8,13 @@ Tu ne déclenches pas le combat toi-même. Le GM lance un combat quand l'histoir
 
 L'écran affiche ton équipe d'un côté et les ennemis de l'autre. Chaque combattant a une barre de vie (HP, points de vie) et, s'il utilise des compétences, une barre de magie (MP, points de magie). En haut s'affichent **Next:** suivi du nom de celui qui agit ensuite, et **Round** avec le numéro du round.
 
+La façon dont un combat est résolu dépend du système de personnages de la partie. Chaque nouvelle partie utilise les classes **MRPG** : chaque combattant se bat avec les caractéristiques, les compétences et l'équipement de sa classe (voir [Batailles dans une partie MRPG](#battles-in-an-mrpg-game)). Une partie **Legacy**, créée avant les classes MRPG, utilise les anciennes règles d'Attaque et de Défense décrites dans [Comment les combats se calculent](#how-combat-math-works). Les écrans et les boutons ci-dessous sont les mêmes dans les deux cas.
+
 > **Remarque :** dans une partie dont l'ensemble de règles résout ses propres combats, comme 5e (SRD 5.1), le combat suit l'ensemble de règles, pas cette page. Consulte [Combats avec un ensemble de règles](fighting-on-a-ruleset.md). Un ensemble de règles qui se contente de prêter sa fiche aux combats garde le combat décrit ici. Consulte [Ce qui se passe dans les combats](rulesets.md#what-happens-in-battles).
 
-## Jouer une bataille Classic
+## Jouer une bataille Turn-Based
 
-Une bataille Classic n'a pas de plateau. Tous les membres de l'équipe y participent. Tu choisis l'action d'un seul personnage, le premier membre vivant de l'équipe. Les autres compagnons agissent d'eux-mêmes.
+Une bataille Turn-Based n'a pas de plateau. Tous les membres de l'équipe y participent. Tu choisis l'action d'un seul personnage, le premier membre vivant de l'équipe. Les autres compagnons agissent d'eux-mêmes.
 
 À ton tour, choisis une action :
 
@@ -43,6 +45,52 @@ Si le plateau affiche **Resolving…**, patiente un instant. **Restart** (recomm
 
 Qui agit à quel moment dépend de **Turn order** (ordre des tours). Consulte [Ordre des tours](#turn-order). Les plateaux faits à la main et les règles de terrain se trouvent dans [Combats tactiques et terrain](#tactical-battles-and-terrain).
 
+<a id="battles-in-an-mrpg-game"></a>
+
+## Batailles dans une partie MRPG
+
+Dans une partie utilisant les classes MRPG, chaque membre de l'équipe combat avec sa classe active : ses caractéristiques, ses compétences et l'équipement de sa fiche (voir [Classes MRPG](mrpg-classes.md)). Les adversaires combattent selon leur rang : sbire, standard, élite ou boss. Un panneau à côté du combat indique qui agit ensuite, la classe, le niveau, la ligne et les ressources de chaque combattant, puis ce que l'équipe a gagné à la fin.
+
+<a id="turns-skills-and-resources"></a>
+
+### Tours, compétences et ressources
+
+- **Ordre des tours.** Il n'y a pas de jet d'initiative. Les combattants agissent sur une chronologie, et chaque action repousse d'autant moins le prochain tour d'un combattant que sa Vitesse est élevée : les combattants rapides agissent donc plus souvent.
+- **Compétences.** **Skills** liste les compétences de la classe active et celles qui sont conservées, avec le coût de chacune et une estimation de son effet. Les compétences magiques coûtent des **MP**, qui ne reviennent pas pendant le combat. Les autres coûtent de la **Stamina**, qui revient un peu à chaque tour.
+- **Défendre.** **Defend** augmente la Défense de moitié jusqu'au prochain tour du combattant et rend davantage de Stamina.
+- **Munitions et éléments.** Un Marksman charge un type de munitions, et un Channeler canalise un élément, depuis le panneau à côté du combat. Changer l'un ou l'autre est gratuit. Si tu ne choisis rien, l'IA sélectionne le meilleur pour la cible.
+
+<a id="hitting-and-damage"></a>
+
+### Toucher et infliger des dégâts
+
+- **Chances de toucher.** Elles augmentent avec la Compétence et la Chance de l'attaquant, et diminuent avec la Vitesse et la Chance de la cible. Elles ne descendent jamais sous 25 pour cent.
+- **Coups critiques.** Ils dépendent de la Compétence de l'attaquant face à la Chance de la cible, et infligent le double de dégâts.
+- **Dégâts.** Une attaque avec une arme inflige la Force plus la puissance de l'attaque, moins la Défense de la cible. Un sort, ou un coup porté avec un bâton, une baguette ou un focus, utilise plutôt la Magie contre la Résistance. La puissance augmente un peu avec le niveau, comme le ferait un meilleur équipement.
+- **Types de dégâts.** Chaque coup possède un type : tranchant, perforant ou contondant pour les armes, un élément (feu, glace, foudre, vent, bois, terre, eau ou métal), ou lumière ou ténèbres. Un ennemi peut être vulnérable à un type (moitié de dégâts en plus), y résister (les dégâts sont réduits de moitié), y être immunisé ou l'absorber. Une vulnérabilité ou une résistance s'affiche sur l'ennemi une fois qu'un coup l'a révélée, et l'équipe s'en souvient pour tous les ennemis de ce type. Les vulnérabilités élémentaires des ennemis suivent le cycle des cinq phases, où chaque élément l'emporte sur le suivant : le bois fend la terre, la terre endigue l'eau, l'eau éteint le feu, le feu fait fondre le métal et le métal coupe le bois.
+
+<a id="rows"></a>
+
+### Lignes
+
+Une bataille Turn-Based possède une première et une seconde ligne de chaque côté. Un coup de mêlée porté sur la seconde ligne inflige moitié moins de dégâts, dans les deux sens, tandis que les attaques à distance et les sorts infligent tous leurs dégâts à l'une comme à l'autre. Quand personne ne se tient sur la première ligne d'un camp, sa seconde ligne devient la première. Chaque classe a une ligne par défaut, et tu peux changer celle d'un personnage dans l'onglet **Status** (statut) de sa fiche. Les batailles Tactical n'ont pas de lignes : les positions sur le plateau déterminent qui peut atteindre qui.
+
+<a id="taunts-yielding-and-taming"></a>
+
+### Provocations, reddition et apprivoisement
+
+- **Provoke.** La compétence Provoke d'un Sentinel force tous les ennemis à cibler le Sentinel pendant 2 tours. Sur un plateau, un ennemi qui ne peut pas l'atteindre s'en approche autant que possible et se prépare à la place.
+- **Reddition.** Un ennemi intelligent en mauvaise posture peut se rendre ou fuir. Quand les seuls ennemis restants se sont rendus, le combat propose **Spare them** (les épargner) ou **Finish them** (les achever). Dans les deux cas, l'équipe reçoit leur butin et leur expérience. Un ennemi qui transporte un trésor et prend la fuite l'emporte avec lui.
+- **Apprivoisement.** Un Tracker peut apprivoiser une bête sauvage à moins de 30 pour cent de ses HP. Elle quitte le combat et devient un compagnon, conservé même si le combat est ensuite perdu.
+
+<a id="after-the-fight"></a>
+
+### Après le combat
+
+Un combat remporté rapporte de l'expérience à tous ceux qui y ont participé (voir [Niveaux et expérience](mrpg-classes.md#levels-and-experience)), et le panneau de fin affiche chaque niveau gagné, les caractéristiques qui ont augmenté et toute promotion désormais disponible. Un combat perdu ou fui ne rapporte rien. Quand **Permadeath** (mort permanente) est activé, un membre de l'équipe à terre à la fin du combat disparaît définitivement.
+
+Dans une partie MRPG, la **Difficulty** (difficulté) détermine le nombre et la puissance des ennemis, au lieu de multiplier leurs dégâts. En **Brutal**, les ennemis peuvent dépasser l'équipe de plusieurs niveaux.
+
 ## Interrompre le GM
 
 Pendant que le GM écrit, tu peux lui couper la parole avec le bouton **Interrupt** (interrompre). Rien de ce que tu tapes n'est validé tant que tu ne l'as pas envoyé.
@@ -70,7 +118,9 @@ Sur un téléphone, les boutons d'action restent collés en bas de l'écran. Les
 
 ## Comment les combats se calculent
 
-Chaque round est réglé par des calculs de dés fixes, pas par l'IA. Le combat reste ainsi équitable et cohérent. Un d20 est un dé à vingt faces (de 1 à 20). Les règles d'initiative, d'attaque et de dégâts ci-dessous décrivent le déroulement des batailles Classic. Ce sont les règles propres à Marinara, pas celles d'un ensemble de règles. Pour les batailles Tactical, consulte [Ordre des tours](#turn-order) et [Ligne de vue, couvert et hauteur](#sight-cover-and-height).
+Les règles de cette section s'appliquent aux parties **Legacy**, ainsi qu'aux parties dont l'ensemble de règles prête sa fiche aux combats de Marinara. Une partie utilisant les classes **MRPG**, comme toute nouvelle partie, combat plutôt selon les règles de [Batailles dans une partie MRPG](#battles-in-an-mrpg-game).
+
+Chaque round est réglé par des calculs de dés fixes, pas par l'IA. Le combat reste ainsi équitable et cohérent. Un d20 est un dé à vingt faces (de 1 à 20). Pour les batailles Tactical, consulte aussi [Ordre des tours](#turn-order) et [Ligne de vue, couvert et hauteur](#sight-cover-and-height).
 
 **Initiative.** Au début de chaque round, chaque combattant lance un d20 et ajoute un bonus tiré de sa Vitesse (la Vitesse divisée par 5, arrondie à l'inférieur). Les totaux les plus élevés agissent en premier. Un combattant saute le round s'il est gelé, étourdi ou emprisonné, ou si sa Vitesse est tombée à 0.
 
@@ -87,7 +137,7 @@ Chaque round est réglé par des calculs de dés fixes, pas par l'IA. Le combat 
 
 ### L'ajustement selon la difficulté
 
-Ensuite, les dégâts sont ajustés selon la **Difficulty** (difficulté) que tu définis dans l'assistant de configuration. Les modificateurs de météo et d'effets de statut s'appliquent après lui. Le multiplicateur ne s'applique qu'aux attaques des ennemis : une partie plus difficile fait frapper les ennemis plus fort, tandis que les dégâts de ton équipe restent les mêmes.
+Dans une partie Legacy, les dégâts sont ensuite ajustés selon la **Difficulty** que tu définis dans l'assistant de configuration. Les modificateurs de météo et d'effets de statut s'appliquent après lui. Le multiplicateur ne s'applique qu'aux attaques des ennemis : une partie plus difficile fait frapper les ennemis plus fort, tandis que les dégâts de ton équipe restent les mêmes.
 
 | Difficulté | Multiplicateur des dégâts ennemis |
 | --- | --- |
@@ -99,6 +149,8 @@ Ensuite, les dégâts sont ajustés selon la **Difficulty** (difficulté) que tu
 Ces multiplicateurs font partie des règles propres à Marinara. Un ensemble de règles fournit sa propre politique de difficulté.
 
 ## Les effets de statut et les réactions élémentaires
+
+Cette section décrit les batailles Legacy. Une partie MRPG possède ses propres types de dégâts (voir [Toucher et infliger des dégâts](#hitting-and-damage)), et les effets de ses compétences, comme Poisoned, Asleep ou Slowed, sont décrits sur chaque compétence.
 
 Un effet de statut est une modification temporaire de l'Attaque, de la Défense, de la Vitesse ou des HP d'un combattant. Les buffs aident, les debuffs pénalisent. Un statut dure un nombre de rounds défini, puis disparaît. Les effets de type poison drainent des HP à chaque round et les effets de type régénération en rendent. Gelé, étourdi et emprisonné font passer son tour au combattant.
 
@@ -164,8 +216,8 @@ Ces deux modes spéciaux utilisent le budget de déplacement actuel et la distan
 
 Une bataille Tactical se joue tour par tour de l'une de ces deux façons :
 
-- **One at a time, by initiative** : chaque unité reçoit une place dans un ordre tiré aux dés, et seule l'unité dont c'est le tour peut agir. Le plateau affiche l'ordre. Les nouvelles parties Overworld RPG utilisent ce mode.
-- **Your whole party, then the enemies** : chaque unité de l'équipe peut agir, puis la phase ennemie se joue. Les parties Classic utilisent ce mode.
+- **One at a time, by initiative** : chaque unité reçoit une place dans un ordre tiré aux dés, et seule l'unité dont c'est le tour peut agir. Le plateau affiche l'ordre. Les nouvelles parties Overworld utilisent ce mode.
+- **Your whole party, then the enemies** : chaque unité de l'équipe peut agir, puis la phase ennemie se joue. Les parties VN utilisent ce mode.
 
 Pour le changer, ouvre **Chat Settings**, déplie **Combat Style** et choisis un **Turn order**. Ce réglage apparaît tant que le **Battle system** est sur Tactical, sauf si l'ensemble de règles de la partie gère ses propres combats. Le changement s'applique à partir de la bataille suivante. Une bataille en cours garde son ordre.
 

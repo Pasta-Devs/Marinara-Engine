@@ -46,7 +46,7 @@ Character Editorは、チャット領域を全画面の作業スペースに置�
 | **Lorebook** | [ロアブックをキャラクターに結び付ける](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [キャラクターのスプライト](sprites.md) |
 | **Gallery** | [キャラクターとペルソナのギャラリー](galleries.md) |
-| **Colors**と**Stats** | [キャラクターの色とRPGステータス](colors-and-stats.md) |
+| **Colors**と**Stats** | [キャラクターの色とロールプレイ用ステータス](colors-and-stats.md) |
 
 以下のセクションでは、**Metadata**、**Card**、**Voice**、**Advanced**の各タブと、アバター、バージョン履歴を説明します。
 

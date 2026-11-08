@@ -163,7 +163,7 @@ Acompanha os personagens presentes, com o humor, as ações, a aparência, a rou
 
 Um card que descreve várias pessoas, como um card de cenário com um elenco, pode ser acompanhado pessoa por pessoa. Marque cada pessoa no texto do card com um cabeçalho `[CHARACTER: Name]` ou um campo `Name:`. Cada membro mantém o próprio nome, humor, roupa, pensamentos e retrato. Eles não compartilham o retrato do card. Uma entrada antiga com o nome do card permanece até o tracker informar um membro individual para substituí-la. Personagens adicionados manualmente mantêm a identidade manual deles.
 
-Quando um personagem volta depois de sair da cena, o tracker reutiliza as últimas estatísticas e os campos personalizados salvos dele. Personagens vinculados a cards também recebem as reservas e os atributos de RPG configurados. Em um grupo de Roleplay no modo Merged, os personagens presentes também podem definir quais cards de personagem ficam ativos na próxima resposta. Veja [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only).
+Quando um personagem volta depois de sair da cena, o tracker reutiliza as últimas estatísticas e os campos personalizados salvos dele. Personagens vinculados a cards também recebem os pools e os atributos de história configurados. Em um grupo de Roleplay no modo Merged, os personagens presentes também podem definir quais cards de personagem ficam ativos na próxima resposta. Veja [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only).
 
 - **Fase**: Post-Processing.
 - **Onde funciona**: Roleplay.
@@ -187,7 +187,7 @@ Acompanha as barras de status da persona (o personagem que você interpreta), co
 
 - **Fase**: Post-Processing.
 - **Onde funciona**: Roleplay.
-- **Configurações principais**: **Add as Prompt Section** (ativado por padrão). Veja [Cores do personagem e status de RPG](../characters/colors-and-stats.md).
+- **Configurações principais**: **Add as Prompt Section** (ativado por padrão). Veja [Cores do personagem e Status de Roleplay](../characters/colors-and-stats.md).
 
 ### Custom Tracker
 

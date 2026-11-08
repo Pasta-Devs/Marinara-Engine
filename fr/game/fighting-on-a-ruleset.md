@@ -96,7 +96,7 @@ Les adversaires peuvent aussi répondre, avec leur propre parade. Un contre peut
 
 ## Sur un champ de bataille
 
-Un ensemble de règles peut définir ce que vaut une case d'un champ de bataille dans sa propre distance, en pieds, en pas ou dans sa propre unité. S'il le fait et que le réglage **Combat Preference** (préférence de combat) de ta partie est sur **Tactical** (tactique), le combat se déroule sur un champ de bataille : les mêmes plateaux (générés ou faits à la main pour le lieu), terrains et déploiements que les [batailles Tactical](combat.md#tactical-battles-and-terrain) propres à Marinara. Un ensemble de règles sans distance, ou une partie réglée sur **Classic** (classique), combat sans positions, et chacun peut cibler n'importe qui.
+Un ensemble de règles peut définir ce que vaut une case d'un champ de bataille dans sa propre distance, en pieds, en pas ou dans sa propre unité. S'il le fait et que le réglage **Combat Preference** (préférence de combat) de ta partie est sur **Tactical** (tactique), le combat se déroule sur un champ de bataille : les mêmes plateaux (générés ou faits à la main pour le lieu), terrains et déploiements que les [batailles Tactical](combat.md#tactical-battles-and-terrain) propres à Marinara. Un ensemble de règles sans distance, ou une partie réglée sur **Turn-Based** (tour par tour), combat sans positions, et chacun peut cibler n'importe qui.
 
 Sur le champ de bataille, les nombres de l'ensemble de règles déterminent tout :
 

@@ -216,7 +216,7 @@
 - `checkGuidance` 替换内置的检定请求说明段落。请说明是什么系统、何时掷骰。Game Master 仅指定技能和难度，Engine 依据人物卡计算并掷骰，所以不要要求模型做算术。
 - `sheetGuidance` 在提示词中介绍人物卡，用来说明重要资源及何时消耗。
 - `worldGuidance` 可选，在生成世界时只读一次，让 GM 创造的背景符合规则，例如无火药、魔法稀有、死者行走。它从不进入回合提示词。
-- `opposition` 指定由谁扮演战斗的另一方（Capability API 1.774）。`"game-master"` 把每个对手的回合交给游戏主持人（GM），由 GM 从 Engine 提供的选项中选择；若 GM 没有回答，则回退到 Engine 自己的选择器。它只适用于玩家已允许 GM 扮演首领的游戏，适用于所有战斗风格，包括没有 `combat` 块的规则集中的 Classic 或 Tactical 战斗。适合敌方按故事情境行动、而非按伤害总和行动的叙事系统：Fate、Blades in the Dark、Trophy、Lasers & Feelings。`"engine"` 或省略该键时，保留 Engine 的选择器，首领仍交给 GM；玩家要求时，有名字的对手和天才型对手也交给 GM。使用该键的规则集需要 Capability API 1.774。
+- `opposition` 指定由谁扮演战斗的另一方（Capability API 1.774）。`"game-master"` 把每个对手的回合交给游戏主持人（GM），由 GM 从 Engine 提供的选项中选择；若 GM 没有回答，则回退到 Engine 自己的选择器。它只适用于玩家已允许 GM 扮演首领的游戏，适用于所有战斗风格，包括没有 `combat` 块的规则集中的 Turn-Based 或 Tactical 战斗。适合敌方按故事情境行动、而非按伤害总和行动的叙事系统：Fate、Blades in the Dark、Trophy、Lasers & Feelings。`"engine"` 或省略该键时，保留 Engine 的选择器，首领仍交给 GM；玩家要求时，有名字的对手和天才型对手也交给 GM。使用该键的规则集需要 Capability API 1.774。
 - `sheetSummary` 选择 GM 对各角色可见的字段、派生值和列表行。Engine 始终显示属性调整值、受训练技能和豁免，以及实时数值。其余保持简短，因为每回合都会发送。摘要列表的 `nameColumn` 可以是文本列或枚举列（枚举显示其值的标签），`columns` 指定最多三个该行自身的其他列，打印在名称之后，因此人物卡块显示为 `Gear: Crowbar 1d6`，而不只有名称。布尔列为真时打印其标签。两者对打包规则集都要求 Capability API 1.37。
 - 不必在 `sheetGuidance` 中教授人物卡命令。Engine 会使用文件声明的名称自行教授每条命令；规则集有伤势轨道时，它会加上用于标记轨道的 `op="damage"` 命令，并列出轨道的等级和伤害种类。规则集有实时状态时，它会加上 `op="state"` 命令，并列出每个状态可取的值。
 

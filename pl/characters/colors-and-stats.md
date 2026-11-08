@@ -1,4 +1,4 @@
-# Kolory postaci i statystyki RPG
+# Kolory postaci i Statystyki Roleplay
 
 Zakładki **Colors** (kolory) i **Stats** (statystyki) znajdują się zarówno w edytorze postaci, jak i w edytorze persony. Kolory zmieniają wygląd postaci albo persony na czacie. Statystyki ustawiają wartości, które da się śledzić, takie jak zdrowie czy głód.
 
@@ -54,7 +54,7 @@ Zakładki **Stats** postaci i persony mają różny układ.
 
 ### Statystyki postaci
 
-Postać ma jeden przełącznik, **Enable RPG Stats** (włączenie statystyk RPG). Gdy jest wyłączony, nic poniżej nie jest widoczne ani wysyłane. Po włączeniu pojawiają się dwie sekcje:
+Postać ma jeden przełącznik, **Enable Roleplay Stats** (Włącz Statystyki Roleplay). Gdy jest wyłączony, nic poniżej nie jest widoczne ani wysyłane. Po włączeniu pojawiają się dwie sekcje:
 
 - **Pools** (pule) to nazwane paski z wartością bieżącą, wartością maksymalną i kolorem. Nowe postacie mają na starcie HP i MP, każde na poziomie 100 ze 100.
 - **Attributes** (atrybuty) to nazwane liczby. Nowe postacie mają na starcie STR, DEX, CON, INT, WIS i CHA, każdy o wartości 10.
@@ -66,7 +66,24 @@ Kliknij **Add** (dodaj), aby dodać pulę albo atrybut, i X w wierszu, aby go us
 Zakładka **Stats** persony ma dwa osobne bloki, każdy z własnym przełącznikiem.
 
 - **Persona Status Bars** (paski stanu persony), włączane przełącznikiem **Enable Persona Stats** (włączenie statystyk persony), śledzą potrzeby fizyczne i psychiczne. Paski startowe to Satiety, Energy, Hygiene i Mood, każdy na poziomie 100 ze 100. W sekcji **Status Bars** każdy pasek ma nazwę, wartość bieżącą, wartość maksymalną i kolor. Kliknij **Add**, aby dodać pasek, a X, aby go usunąć.
-- **Enable RPG Attributes** (włączenie atrybutów RPG) działa tak samo jak w karcie postaci. Daje personie sekcję **Pools** (na starcie HP i MP na poziomie 100 ze 100) oraz sekcję **Attributes** (na starcie STR, DEX, CON, INT, WIS i CHA o wartości 10).
+- **Enable Roleplay Stats** (Włącz Statystyki Roleplay) działa tak samo jak w karcie postaci. Daje personie sekcję **Pools** (na starcie HP i MP na poziomie 100 ze 100) oraz sekcję **Attributes** (na starcie STR, DEX, CON, INT, WIS i CHA o wartości 10).
+
+<a id="mrpg-picks-on-a-card"></a>
+
+### Wybory MRPG na karcie
+
+Obie zakładki **Stats** mają sekcję **Game Mode** (tryb Game Mode) z blokiem **MRPG** dla gier korzystających z klas MRPG (czyli każdej nowej gry). Gra losuje statystyki MRPG każdej postaci od nowa, więc karta nie przechowuje liczb, a tylko trzy wybory. Kreator przeprowadza przez nie krok po kroku:
+
+1. **Tree** (drzewko): drzewko, w którym postać zaczyna. Opcja **Auto** (automatycznie) odczytuje je z opisu i osobowości na karcie oraz pokazuje, które drzewko z nich wynika.
+2. **Strong in** (mocne statystyki): maksymalnie dwie statystyki, w których postać dobrze się rozwija. Przy każdej statystyce podano jej działanie.
+3. **Weak in** (słaba statystyka): jedna statystyka, w której postać rozwija się słabo, albo żadna.
+4. **Review** (przegląd): klasa, z którą postać rozpocznie nową grę na poziomie 1, wraz z jej szeregiem, wszystkimi statystykami, MP i Stamina.
+
+Każdy wybór jest zachowywany na bieżąco, a przyciski **Back** (wstecz), **Next** (dalej) oraz nazwy kroków pozwalają przechodzić między krokami. W ostatnim kroku kliknij **Finish** (zakończ). Blok pokaże wtedy przegląd: klasę początkową i jej statystyki, z oznaczeniem mocnych i słabej. Kliknij **Edit** (edytuj), aby ponownie przejść przez kreator. Zapisz kartę jak zwykle, aby zachować zmiany.
+
+Wybór mocnych i słabej statystyki wpływa na ukryty rozwój postaci w każdej grze. Jej siostrzane drzewko wynika z temperamentu w grze, a nie z karty. Zobacz [Game Mode: klasy MRPG](../game/mrpg-classes.md#choose-a-characters-trees).
+
+Znajdująca się pod blokiem sekcja **Roleplay Stats** (Statystyki Roleplay) zawiera opisane wyżej pule i atrybuty. Korzystają z nich czaty Roleplay i gry Legacy. Gra MRPG używa zamiast nich bloku MRPG i nigdy nie tworzy na ich podstawie arkusza.
 
 <a id="game-mode-icon"></a>
 
@@ -101,7 +118,7 @@ Niektóre zestawy zasad zawierają gotowe zaklęcia, ataki i zdolności. Listy, 
 
 Arkusz zestawu zasad, którego nie masz zainstalowanego, zostaje zachowany. Wyświetla się jako jedna linia z przyciskiem **Remove** (usuń), nigdy nie trafia do AI, znów da się go edytować po zainstalowaniu tego zestawu i przenosi się razem z kartą przy eksporcie. Arkusz zainstalowanego zestawu zasad, którego ta wersja aplikacji nie potrafi odczytać, na przykład zapisany przez nowszą wersję, również zostaje zachowany bez zmian. Jego wpis oferuje tylko **Remove this sheet** (usuń ten arkusz), więc nowy arkusz nigdy go przypadkiem nie nadpisze. Każdy arkusz może mieć najwyżej 64 KB.
 
-Arkusze zestawów zasad są niezależne od **Enable RPG Stats** i **Enable RPG Attributes**. Gra na własnych zasadach aplikacji Marinara Engine je pomija. Gra na zestawie zasad używa do testów arkusza zamiast opisanych wyżej atrybutów (Attributes).
+Arkusze zestawów zasad są niezależne od **Enable Roleplay Stats** (Włącz Statystyki Roleplay). Gra na własnych zasadach aplikacji Marinara Engine je pomija. Gra na zestawie zasad używa do testów arkusza zamiast opisanych wyżej atrybutów (Attributes).
 
 <a id="how-agents-update-your-stats"></a>
 
@@ -113,7 +130,7 @@ Zakładka **Stats** ustawia stan początkowy czatu. Agenci aktualizują tylko wa
 | --- | --- |
 | **Pools** postaci, takie jak HP | Agent **Character Tracker**, na podstawie walki, leczenia i wydarzeń fabularnych. Nie śledzi persony gracza. |
 | **Persona Status Bars** | Agent **Persona Stats**, po każdej wiadomości. |
-| **RPG Attributes**, takie jak STR i DEX | Żaden agent. Są wysyłane razem z kartą na potrzeby walki i trybu Game Mode oraz opcjonalnych rzutów w trybie Roleplay lub Game Mode. |
+| **Roleplay Stats** (Statystyki Roleplay), takie jak STR i DEX | Żaden agent. Są wysyłane razem z kartą na potrzeby walki i trybu Game Mode oraz opcjonalnych rzutów w trybie Roleplay lub Game Mode. |
 
 Jeśli nie włączysz odpowiedniego agenta, wartości należące do trackerów pozostają na ustawionych przez ciebie wartościach domyślnych. Sama zakładka **Stats** niczego nie aktualizuje w trakcie gry. Sposób włączania tych agentów opisuje przewodnik [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md).
 

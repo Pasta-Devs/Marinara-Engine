@@ -9,7 +9,7 @@ Im Game Mode sitzt auf dem Spielbildschirm ein Karten-Panel. Es zeigt den Namen 
 - **Am Computer** ist die Karte ein eingebettetes Panel, das du auf einen Blick erfassen kannst. Du kannst es verschieben und an Ort und Stelle fixieren. Wie verschiebbare Panels funktionieren, steht unter [Game Mode: HUD-Widgets](hud-widgets.md).
 - **Am Handy** tippst du auf **Map** (Karte), um das Panel zu öffnen. Seine Schaltfläche startet oben links und lässt sich im Chat herumziehen. Mit **Lock window** (Fenster sperren) bleibt die Schaltfläche an ihrem Platz, mit **Close** (Schließen) kehrst du zu ihr zurück. Die Position wird mit dem Chat gespeichert. Die Handy-Karte nutzt deinen Chat-Widget-Stil aus **Settings → Appearance → App** (Einstellungen → Darstellung → App), und ihre Schaltfläche bleibt vom Drei-Punkte-Menü **Chat tools** getrennt.
 
-Ein normales Classic-Spiel hat die hier beschriebene Szenenkarte. Oberwelt, Städte und Dungeon-Karten gehören zu Overworld-RPG-Spielen, die noch nicht verfügbar sind (siehe [Classic oder Overworld RPG](getting-started.md#classic-or-overworld-rpg)).
+Ein VN-Spiel hat die hier beschriebene Szenenkarte. Oberwelt, Städte und Dungeon-Karten gehören zu Overworld-Spielen, die noch nicht verfügbar sind (siehe [VN oder Overworld](getting-started.md#vn-or-overworld)).
 
 ### Grid-Ansicht und Node-Ansicht
 
@@ -82,9 +82,9 @@ Das Spiel führt im Verborgenen einen Moralwert der Party von 0 bis 100. Er hat 
 
 Die Moral steigt, wenn du einen Kampf gewinnst, eine Quest abschließt oder einen Schatz findest. Sie sinkt, wenn du einen Kampf verlierst, bei einer Quest scheiterst oder einen Verbündeten verlierst. Mit der Zeit driftet sie wieder zur Mitte zurück. Als Zahl wird sie nicht angezeigt. Sie färbt darauf ab, wie der GM die Stimmung deiner Party beschreibt. Auf deine Würfelwürfe wirkt sie sich nicht aus.
 
-## Die Oberwelt und andere Overworld-RPG-Karten
+## Die Oberwelt und andere Overworld-Karten
 
-Die folgenden Abschnitte beschreiben Spiele mit **Overworld RPG**, die noch nicht verfügbar sind. Sie gelten nur, wenn dein Server die Funktion eingeschaltet hat.
+Die folgenden Abschnitte beschreiben **Overworld**-Spiele, die noch nicht verfügbar sind. Sie gelten nur, wenn dein Server die Funktion eingeschaltet hat.
 
 <a id="the-overworld"></a>
 

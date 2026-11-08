@@ -9,7 +9,7 @@ Le Game Mode affiche un panneau de carte sur l'écran de jeu. Il indique le nom 
 - **Sur un ordinateur**, la carte s'affiche directement dans un panneau, lisible d'un coup d'œil. Tu peux le faire glisser et le verrouiller en place. Pour le fonctionnement des panneaux déplaçables, voir [Game Mode : widgets HUD](hud-widgets.md).
 - **Sur un téléphone**, touche **Map** (carte) pour ouvrir le panneau. Son bouton commence près du coin supérieur gauche et peut être déplacé dans le chat. Utilise **Lock window** (verrouiller la fenêtre) pour garder le bouton en place, et **Close** (fermer) pour y revenir. La position est enregistrée avec le chat. La carte sur téléphone suit le style des widgets du chat choisi dans **Settings → Appearance → App** (Paramètres → Apparence → Application), et son bouton reste séparé du menu à trois points **Chat tools** (outils du chat).
 
-Une partie Classic simple a la carte de scène décrite ici. La carte du monde, les villes et les cartes de donjon appartiennent aux parties Overworld RPG, qui ne sont pas encore disponibles (voir [Classic ou Overworld RPG](getting-started.md#classic-or-overworld-rpg)).
+Une partie VN a la carte de scène décrite ici. La carte du monde, les villes et les cartes de donjon appartiennent aux parties Overworld, qui ne sont pas encore disponibles (voir [VN ou Overworld](getting-started.md#vn-or-overworld)).
 
 ### Vue en grille et vue en nœuds
 
@@ -82,9 +82,9 @@ Le jeu tient un score de moral d'équipe caché, de 0 à 100. Il comporte cinq n
 
 Le moral monte quand tu gagnes un combat, termines une quête ou trouves un trésor. Il baisse quand tu perds un combat, rates une quête ou perds un allié. Avec le temps, il revient peu à peu vers le milieu. Il n'apparaît pas sous forme de nombre. Il teinte la façon dont le GM décrit l'humeur de ton équipe. Il ne modifie pas tes jets de dés.
 
-## La carte du monde et les autres cartes Overworld RPG
+## La carte du monde et les autres cartes Overworld
 
-Les sections ci-dessous décrivent les parties **Overworld RPG**, qui ne sont pas encore disponibles. Elles ne s'appliquent que si ton serveur a activé la fonction.
+Les sections ci-dessous décrivent les parties **Overworld**, qui ne sont pas encore disponibles. Elles ne s'appliquent que si ton serveur a activé la fonction.
 
 <a id="the-overworld"></a>
 

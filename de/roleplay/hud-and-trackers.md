@@ -187,6 +187,6 @@ Wenn es nicht funktioniert hat: Ist die Geschichte weitergelaufen, während du b
 
 - [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md)
 - [Agenten: KI-Helfer für deine Chats](../agents/agents-overview.md)
-- [Charakterfarben und RPG-Werte](../characters/colors-and-stats.md): Der Tab **Stats** legt fest, mit welchen Balken und Attributen eine Persona oder ein Charakter startet.
+- [Charakterfarben und Roleplay-Werte](../characters/colors-and-stats.md): Der Tab **Stats** legt fest, mit welchen Balken und Attributen eine Persona oder ein Charakter startet.
 - [Roleplay Mode: Erste Schritte](getting-started.md)
 - [Game Mode: HUD-Widgets](../game/hud-widgets.md)

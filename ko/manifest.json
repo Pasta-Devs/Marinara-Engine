@@ -1,11 +1,11 @@
 {
   "language": "ko",
-  "sourceCommit": "dd85f7b40dae5a246bc236a5e11246af9a1378e1",
+  "sourceCommit": "7b0f12be357a21375ccb801f2bcd5d1710b1cbbd",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "9d4c98b3588258c34f8c142b004b1768c5dcdb0de71c976d67327586fcdf7b8c",
-      "bytes": 53203
+      "sha256": "e650e7b11cfd72600f3250ae1dba665527cd533ac5bc139d97f390313b2a4d1d",
+      "bytes": 53198
     },
     {
       "path": "FAQ.md",
@@ -49,8 +49,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "f1734320fc4a2e750032a15ee0b36c4928a76858e2dbd6e71724303ca64e010f",
-      "bytes": 38818
+      "sha256": "630ff900a5f0ce695ffbb635eb852bb547a5ee9d0692b667cbf0713b0e04cb8c",
+      "bytes": 38827
     },
     {
       "path": "agents/custom-agents.md",
@@ -119,13 +119,13 @@
     },
     {
       "path": "characters/colors-and-stats.md",
-      "sha256": "8b8f296b152c5f75f302e000c6f9d037c402039db9bba5757fd2fe96903694a2",
-      "bytes": 12589
+      "sha256": "baa9defb3e769c29f86f392ed5d96718ab2d3c3e14ffca2de2ca83a17a05a17d",
+      "bytes": 14743
     },
     {
       "path": "characters/creating-and-editing-characters.md",
-      "sha256": "f358b8283fd3480ec8d086f86517bcea1a875d6e25a7e24a6fab9ed97f6e72c8",
-      "bytes": 21620
+      "sha256": "b8a9821900849ac9c749dbfb955fc0050d4b4e3756fde256fe6279e1bd27a3f8",
+      "bytes": 21629
     },
     {
       "path": "characters/galleries.md",
@@ -149,8 +149,8 @@
     },
     {
       "path": "characters/personas.md",
-      "sha256": "5121b2255e7d3584e387f70ce686a4fca6a5c187173852f706589fcc7be1eb6c",
-      "bytes": 13550
+      "sha256": "59bdcb087dd14fe31bd8ad615b65cb47b853a29865404e49b77510298030e2f8",
+      "bytes": 13586
     },
     {
       "path": "characters/sprites.md",
@@ -439,13 +439,13 @@
     },
     {
       "path": "extending/ruleset-combat.md",
-      "sha256": "3b240de46e0b13094fba44c25579be7ac2c27ed7e0847f4dbbdd3aa443343e53",
-      "bytes": 155979
+      "sha256": "9e1d723dd36855baac4852eb598fcf64ffc466694c8784993fca351596a1c12c",
+      "bytes": 155985
     },
     {
       "path": "extending/ruleset-items.md",
-      "sha256": "af947e1aa0b15ac61ebd2c725f455ac3a5887a181938e647463118068c88b897",
-      "bytes": 94592
+      "sha256": "01974a9f00f30a13d597bed7544aa391abfa300abbc74e391bf22d36fd9fea97",
+      "bytes": 94613
     },
     {
       "path": "extending/ruleset-layers-and-translations.md",
@@ -454,13 +454,13 @@
     },
     {
       "path": "extending/ruleset-mechanics.md",
-      "sha256": "52c5dbed9518c83552484db6e6ac058df7379e5303deb709f9039c9ad238d814",
-      "bytes": 580966
+      "sha256": "a590a16795a51465af7267fb7dacf8e4a091e745004316f203911d1e58174ae1",
+      "bytes": 580972
     },
     {
       "path": "extending/ruleset-sheets.md",
-      "sha256": "51039b02292b00085861ba976f8a64a9f24bd252ad0c52b17009ccc7d549ccd3",
-      "bytes": 42193
+      "sha256": "5d1ec323d68046f81004f6312dec75eea21912eca504e54763f0afa1f7b3e501",
+      "bytes": 42196
     },
     {
       "path": "extending/writing-creature-packs.md",
@@ -474,8 +474,8 @@
     },
     {
       "path": "extending/writing-rulesets.md",
-      "sha256": "9825de24346d1a32d8c176367fb50dec117f8c80b4e26a285a8ecd735f3781fd",
-      "bytes": 17887
+      "sha256": "ed8416ff1feb83fabd54f9c219ce9750d2070f3a3995a8e3591e3200c0c3c5fa",
+      "bytes": 17890
     },
     {
       "path": "extending/writing-story-scripts.md",
@@ -484,18 +484,18 @@
     },
     {
       "path": "game/combat.md",
-      "sha256": "73003d0e0161f22a3c8b35a1a1a148b0851b9cc1c8a46a10790ed9a1f10a7b3f",
-      "bytes": 21197
+      "sha256": "a45b4518c5a451579b2c6c87fe2459b654ee0d258deadd9d50df7d92d4521ffd",
+      "bytes": 27096
     },
     {
       "path": "game/dice-and-skill-checks.md",
-      "sha256": "91346249a4c804258e2a854716a3783feb31708dd12bcc0849ace78fd7a874bd",
-      "bytes": 17090
+      "sha256": "e14b7983f49a2d5651cde5f7f27ed71d58cc7acb44bd46212d3e7f41d1c1c29b",
+      "bytes": 18795
     },
     {
       "path": "game/fighting-on-a-ruleset.md",
-      "sha256": "9366eca96c9a98bfb51ea2269afadba1a7a4fd350b7e4e64561254733b0f35eb",
-      "bytes": 13768
+      "sha256": "f18efe4e38fafcc7bca0f8ad1b79141c729f8d645cc8a7c34029601f180484fe",
+      "bytes": 13757
     },
     {
       "path": "game/game-assets.md",
@@ -504,8 +504,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "7c1f95ff68060da02ef1d3ca6e8b804129d123cf8010967916e5e2d419b9e89e",
-      "bytes": 36618
+      "sha256": "812869264ccceb25e83dfa8973f77b9d61febe08c1c1d1d6f2e67c1d655916a7",
+      "bytes": 37427
     },
     {
       "path": "game/hud-widgets.md",
@@ -519,18 +519,23 @@
     },
     {
       "path": "game/map-time-weather.md",
-      "sha256": "d056fc1935e282f667161ee9225470e8d4b9aff7f8f3e4e15e928fe19a59ebc6",
-      "bytes": 16735
+      "sha256": "a2c6b400b222db04d70c82a9d82e0d7e876e6eef4c391787793724f99ebfe218",
+      "bytes": 16693
+    },
+    {
+      "path": "game/mrpg-classes.md",
+      "sha256": "603005c9415cd826033855f64f7d2c47553d20e28439c68fa014cf258eecc2c4",
+      "bytes": 18073
     },
     {
       "path": "game/party-and-npcs.md",
-      "sha256": "74e3f1e61c8428bf466ec826f1bd6b547e3137283ad95dd609beb6074a003d1e",
-      "bytes": 22334
+      "sha256": "69aaba9fe7c0e0d2dd4d850932a9efcb6ac59006bc59bb6bd12ef064fbbc7904",
+      "bytes": 22981
     },
     {
       "path": "game/rulesets.md",
-      "sha256": "6ec903a5f4dbebc910b7145125454947edfdfee43b8791fc388136863be18684",
-      "bytes": 25352
+      "sha256": "86a570f50d90811ac775981e5ca18eaa22717818705f9d6bb40991bd580dfb48",
+      "bytes": 25361
     },
     {
       "path": "game/sessions-and-saves.md",
@@ -729,8 +734,8 @@
     },
     {
       "path": "roleplay/hud-and-trackers.md",
-      "sha256": "3987dc221dc18f330a75da84588757e34e46b8d1ab406c9c8e08fc54295acbc1",
-      "bytes": 19937
+      "sha256": "d37231feb1b9627802d778de776dd1fe6ced0f135e274811ae754f7de6ef63fc",
+      "bytes": 19946
     },
     {
       "path": "roleplay/narrative-director.md",

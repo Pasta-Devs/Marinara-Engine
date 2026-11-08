@@ -173,7 +173,7 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `CUSTOM_TOOL_SCRIPT_ENABLED` | `false` | कस्टम स्क्रिप्ट टूल चालू करता है। भरोसे के बाहर या इंपोर्ट किए गए टूल के लिए इसे बंद रखें। |
 | `MARI_DB_ALLOW_UNSAFE_TRANSFORMS` | `false` | Professor Mari की डेटाबेस बदलने वाली स्क्रिप्ट को उन होस्ट पर भी चलने देता है, जिनमें OS सैंडबॉक्स नहीं है (macOS Seatbelt या Linux Bubblewrap, जो मौजूद होने पर इस्तेमाल होते हैं)। जब तक आपने स्क्रिप्ट जाँची न हो, इसे बंद रखें। |
 | `ENABLE_CUSTOM_AGENT_REPOS` | `false` | Agent Organizer में GitHub एजेंट-रिपॉज़िटरी का मैन्युअल प्रीव्यू और सिंक चालू करता है। देखें [कस्टम एजेंट रिपॉज़िटरी](#custom-agent-repositories)। |
-| `MARINARA_OVERWORLD_GAMES` | `false` | खिलाड़ियों को Overworld गेम (एक सेटिंग किट और एक जेनरेट हुई दुनिया) बनाने और किसी पुराने गेम को Overworld गेम में बदलने देता है। बंद होने पर विज़ार्ड सिर्फ़ Classic गेम देता है। |
+| `MARINARA_OVERWORLD_GAMES` | `false` | खिलाड़ियों को Overworld गेम (एक सेटिंग किट और एक जेनरेट हुई दुनिया) बनाने और किसी पुराने गेम को Overworld गेम में बदलने देता है। बंद होने पर विज़ार्ड सिर्फ़ VN गेम देता है। |
 | `ENABLE_EXTERNAL_EXTENSIONS` | `false` | थर्ड-पार्टी एक्सटेंशन इंपोर्ट के दो गेट में से पहला। देखें [External Extensions](#external-extensions)। |
 | `IMPORT_ALLOWED_ROOTS` | खाली | वे फ़ोल्डर, जिन्हें बल्क इंपोर्ट बिना पिकर टोकन के पढ़ सकता है। |
 | `PROFILE_EXPORT_JSON_LIMIT_BYTES` | `268435456` (256 MiB) | सर्वर ज़्यादा से ज़्यादा इतना बड़ा एक JSON प्रोफ़ाइल एक्सपोर्ट बनाता है। |

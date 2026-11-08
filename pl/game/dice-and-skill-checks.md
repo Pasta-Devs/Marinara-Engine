@@ -55,12 +55,44 @@ Możesz rzucić najwyżej 100 kośćmi naraz, a każda kość może mieć najwy�
 
 Test umiejętności sprawdza coś ryzykownego, na przykład skradanie, dostrzeżenie poszlaki albo przekonanie postaci NPC (postaci niezależnej). Testu nie zaczynasz samodzielnie. GM wywołuje go w swojej narracji, a Marinara zamienia go w animowany rzut d20 z banerem wyniku. Baner pokazuje umiejętność i liczbę do osiągnięcia, na przykład **Stealth Check** (test skradania) z **DC 15**. Każdy rozstrzygnięty test dostaje osobny baner, po kartach rzutów czekających w kolejce.
 
+<a id="how-the-result-is-decided"></a>
+
 ### Jak liczy się wynik
 
 Test rzuca jedną kością d20 i dodaje dwa modyfikatory:
 
 - Modyfikator umiejętności, wyliczony z poziomu umiejętności, jaki gra prowadzi dla twojej postaci. Jeśli gra nie ma jeszcze poziomu dla tej umiejętności, wynosi 0.
-- Modyfikator atrybutu, wyliczony z atrybutu przypisanego do umiejętności. Każda umiejętność ma automatycznie przypisany jeden atrybut: Stealth korzysta z Dexterity, Perception z Wisdom, a Persuasion z Charisma. Umiejętność, której Marinara nie rozpoznaje, korzysta z Intelligence.
+- Modyfikator statystyki wynikający ze statystyki, na której opiera się umiejętność. Dostępne statystyki zależą od rodzaju gry, jak opisano niżej.
+
+W grze współdzielonej każdy test korzysta ze statystyk postaci, którą wskazuje.
+
+<a id="mrpg-games"></a>
+
+#### Gry MRPG
+
+W grze z klasami **MRPG**, czyli każdej nowej grze, modyfikator statystyki pochodzi ze statystyk MRPG postaci, które daje jej aktywna klasa (zobacz [Klasy MRPG](mrpg-classes.md#what-the-stats-mean)). Ewentualne atrybuty Legacy pozostawione na ulepszonej karcie nie są używane. Każda umiejętność opiera się na jednej statystyce:
+
+| Statystyka | Umiejętności |
+| --- | --- |
+| Strength | Athletics, Intimidation |
+| Speed | Acrobatics, Stealth |
+| Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling i każda umiejętność niewymieniona tutaj |
+| Defense | Endurance, Constitution |
+| Magic | Arcana, History, Nature, Intelligence |
+| Resistance | Insight, Religion, Wisdom |
+| Luck | Persuasion, Deception, Performance, Charisma |
+
+Test dodaje jedną piątą części tej statystyki powyżej 3, zaokrągloną w dół, od -1 do +5. Słaba statystyka (2 lub mniej) odejmuje 1, zwykła nie dodaje nic, najlepsza statystyka nowej postaci dodaje około +1, statystyka na poziomie 10 dodaje +2, a najlepsza na najwyższym poziomie +5. Ponieważ statystyki wynikają z aktywnej klasy, zmiana klasy zmienia również te premie.
+
+<a id="legacy-games"></a>
+
+#### Gry Legacy
+
+W grze **Legacy** modyfikator pochodzi z atrybutu przypisanego do umiejętności na arkuszu postaci. Każda umiejętność ma automatycznie przypisany jeden atrybut: Stealth korzysta z Dexterity, Perception z Wisdom, a Persuasion z Charisma. Umiejętność, której Marinara nie rozpoznaje, korzysta z Intelligence.
+
+<a id="the-result"></a>
+
+#### Wynik
 
 Jeśli suma osiągnie DC albo je przebije, test się udaje. Dwa wyniki rzutu unieważniają liczenie:
 
@@ -75,7 +107,7 @@ GM może wywołać test z ułatwieniem (rzut dwiema kośćmi d20, liczy się wy�
 
 ### Własny rzut d20 z wyprzedzeniem
 
-Zanim dojdzie do testu, dodaj do kolejki `d20` z menu kości. Test użyje wtedy twojej liczby zamiast rzucać nową kością. Modyfikatory umiejętności i atrybutu nadal się doliczają.
+Zanim dojdzie do testu, dodaj do kolejki `d20` z menu kości. Test użyje wtedy twojej liczby zamiast rzucać nową kością. Modyfikatory umiejętności i statystyki nadal się doliczają.
 
 Jak GM kończy turę po rzucie i ile to kosztuje, opisuje część [Jak opisywana jest tura z rzutem](#how-a-rolled-turn-is-narrated).
 

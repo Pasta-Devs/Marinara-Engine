@@ -46,7 +46,7 @@ Character Editor 会把聊天区域换成一整页的工作区。屏幕够宽时
 | **Lorebook** | [把世界书关联到角色](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [角色立绘](sprites.md) |
 | **Gallery** | [角色与用户角色图库](galleries.md) |
-| **Colors** 和 **Stats** | [角色颜色与 RPG 属性](colors-and-stats.md) |
+| **Colors** 和 **Stats** | [角色颜色与角色扮演属性](colors-and-stats.md) |
 
 下面几节讲 **Metadata**、**Card**、**Voice** 和 **Advanced**，以及头像和版本历史。
 

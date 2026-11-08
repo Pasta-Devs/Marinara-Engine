@@ -46,7 +46,7 @@
 | **Lorebook** | [Привязка лорбуков к персонажам](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [Спрайты персонажа](sprites.md) |
 | **Gallery** | [Галереи персонажей и персон](galleries.md) |
-| **Colors** и **Stats** | [Цвета персонажа и характеристики RPG](colors-and-stats.md) |
+| **Colors** и **Stats** | [Цвета персонажа и Характеристики ролевой игры](colors-and-stats.md) |
 
 Разделы ниже разбирают вкладки **Metadata**, **Card**, **Voice** и **Advanced**, а также аватары и историю версий.
 

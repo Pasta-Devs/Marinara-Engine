@@ -55,12 +55,44 @@ GM도 서술에서 `[dice: 3d8+2]`로 굴림을 요청할 수 있습니다. Mari
 
 스킬 판정은 몰래 숨어들기, 단서 찾기, NPC(플레이어가 아닌 캐릭터) 설득처럼 위험이 따르는 행동을 시험합니다. 스킬 판정은 직접 시작하지 않습니다. GM이 서술에서 판정을 요구하면 Marinara가 이를 결과 배너가 있는 d20 굴림 애니메이션으로 바꿉니다. 배너에는 스킬과 목표 숫자가 표시됩니다. 예를 들면 **Stealth Check**와 **DC 15**입니다. 해결된 판정마다 별도 배너가 생기며, 대기 중인 주사위 카드가 있으면 그 뒤에 표시됩니다.
 
+<a id="how-the-result-is-decided"></a>
+
 ### 결과를 정하는 방식
 
 판정에서는 d20 1개를 굴리고 수정치 2가지를 더합니다.
 
 - 스킬 수정치. 게임이 내 캐릭터에 대해 관리하는 스킬 레벨에서 가져옵니다. 게임에 아직 그 스킬의 레벨이 없으면 0입니다.
-- 능력치 수정치. 그 스킬을 관장하는 능력치에서 가져옵니다. 스킬마다 관장 능력치가 자동으로 정해집니다. Stealth는 Dexterity, Perception은 Wisdom, Persuasion은 Charisma를 씁니다. Marinara가 알지 못하는 스킬은 Intelligence를 씁니다.
+- 스탯 수정치. 스킬이 의존하는 스탯에서 가져옵니다. 어떤 스탯을 쓰는지는 아래와 같이 게임에 따라 달라집니다.
+
+공유 게임에서는 판정마다 그 판정에 이름이 나온 캐릭터의 스탯을 읽습니다.
+
+<a id="mrpg-games"></a>
+
+#### MRPG 게임
+
+모든 새 게임을 포함해 **MRPG** 클래스를 사용하는 게임에서는 캐릭터의 활성 클래스가 부여하는 MRPG 스탯에서 수정치를 가져옵니다([MRPG 클래스](mrpg-classes.md#what-the-stats-mean) 참고). 업그레이드한 카드에 Legacy 속성이 남아 있어도 사용하지 않습니다. 각 스킬은 스탯 하나를 사용합니다.
+
+| 스탯 | 스킬 |
+| --- | --- |
+| Strength | Athletics, Intimidation |
+| Speed | Acrobatics, Stealth |
+| Skill | Sleight of Hand, Investigation, Perception, Medicine, Survival, Animal Handling, 그리고 여기에 없는 모든 스킬 |
+| Defense | Endurance, Constitution |
+| Magic | Arcana, History, Nature, Intelligence |
+| Resistance | Insight, Religion, Wisdom |
+| Luck | Persuasion, Deception, Performance, Charisma |
+
+판정에는 그 스탯에서 3을 넘는 부분의 5분의 1을 내림한 값을 -1부터 +5까지 더합니다. 낮은 스탯(2 이하)은 1을 빼고, 보통 스탯은 아무것도 더하지 않으며, 새 캐릭터의 가장 좋은 스탯은 약 +1, 레벨 10의 스탯은 +2, 최고 수준의 가장 좋은 스탯은 +5를 더합니다. 스탯은 활성 클래스를 따르므로 클래스를 바꾸면 이 보너스도 바뀝니다.
+
+<a id="legacy-games"></a>
+
+#### Legacy 게임
+
+**Legacy** 게임에서는 캐릭터 시트에서 스킬을 관장하는 속성으로부터 수정치를 가져옵니다. 스킬마다 관장 속성이 자동으로 정해집니다. Stealth는 Dexterity, Perception은 Wisdom, Persuasion은 Charisma를 씁니다. Marinara가 알지 못하는 스킬은 Intelligence를 씁니다.
+
+<a id="the-result"></a>
+
+#### 결과
 
 합계가 DC에 도달하거나 넘어서면 판정에 성공합니다. 다음 두 굴림은 계산 결과보다 우선합니다.
 
@@ -75,7 +107,7 @@ GM은 이점(d20 2개를 굴려 높은 쪽을 남김)이나 불리점(낮은 쪽
 
 ### d20 미리 굴려 두기
 
-판정이 일어나기 전에 주사위 메뉴에서 `d20`을 대기열에 올려 두세요. 그러면 판정이 주사위를 새로 굴리지 않고 내 숫자를 씁니다. 스킬 수정치와 능력치 수정치는 그대로 적용됩니다.
+판정이 일어나기 전에 주사위 메뉴에서 `d20`을 대기열에 올려 두세요. 그러면 판정이 주사위를 새로 굴리지 않고 내 숫자를 씁니다. 스킬 수정치와 스탯 수정치는 그대로 적용됩니다.
 
 굴림 뒤에 GM이 턴을 어떻게 마무리하는지, 그리고 그 비용은 [주사위를 굴리는 턴의 서술 방식](#how-a-rolled-turn-is-narrated)을 참고하세요.
 

@@ -64,8 +64,8 @@ Marinara 会在每一次提示词里把你的用户角色发给 AI。在聊天�
 | **Lorebook** | 挂上世界书条目，这个用户角色在聊天里时，这些条目就会触发。见[世界书总览](../lorebooks/overview.md)。 |
 | **Sprites** | Game Mode(游戏模式) 和 Roleplay(角色扮演) 中使用的立绘。包含 **Facial Expressions**(面部表情)、**Full-body**(全身) 和 **Clips**(片段)，以及 **Upload Folder**(上传文件夹)。见[角色立绘](sprites.md)。 |
 | **Gallery** | 参考图和视频，带 **Upload Persona Images**(上传用户角色图片) 和 **Upload Persona Videos**(上传用户角色视频)。见[角色与用户角色图库](galleries.md)。 |
-| **Colors** | 名字、对话和消息框的颜色。见[角色颜色与 RPG 属性](colors-and-stats.md)。 |
-| **Stats** | 状态条和 RPG 属性值。见下文的 [Stats 选项卡](#stats-tab)。 |
+| **Colors** | 名字、对话和消息框的颜色。见[角色颜色与角色扮演属性](colors-and-stats.md)。 |
+| **Stats** | 状态条和角色扮演属性。见下文的 [Stats 选项卡](#stats-tab)。 |
 
 **Metadata** 选项卡显示：
 
@@ -109,7 +109,7 @@ Marinara 会在每一次提示词里把你的用户角色发给 AI。在聊天�
 **Stats** 选项卡分成两个独立的区块。两者都会送到 HUD，也就是聊天时显示在屏幕上的属性面板。
 
 - **Enable Persona Stats**(启用用户角色属性) 会开启状态条，也就是饥饿、心情这类需求的量表。新开启时会有 Satiety、Energy、Hygiene 和 Mood 四条，数值都是 100，满值 100。**Persona Stats** 智能体会随着剧情推进调整它们。
-- **Enable RPG Attributes**(启用 RPG 属性值) 会开启 Pools(HP、MP 这类条) 和 Attributes(力量这类数值)。两者的说明见[角色颜色与 RPG 属性](colors-and-stats.md)。新开启时，HP 和 MP 都是 100，满值 100，STR、DEX、CON、INT、WIS 和 CHA 都是 10。这些数值会随用户角色一起发送，用于战斗和 Game Mode，以及可选的掷骰。智能体不会更新它们。
+- **Enable Roleplay Stats**(启用角色扮演属性) 会开启 Pools(HP、MP 这类条) 和 Attributes(力量这类数值)。两者的说明见[角色颜色与角色扮演属性](colors-and-stats.md)。新开启时，HP 和 MP 都是 100，满值 100，STR、DEX、CON、INT、WIS 和 CHA 都是 10。这些数值会随用户角色一起发送，用于战斗和 Game Mode，以及可选的掷骰。智能体不会更新它们。
 
 **Game Mode Icon**(游戏模式图标) 区块设置你在 Game Mode 战斗中的棋子图片，见 [Game Mode 图标](colors-and-stats.md#game-mode-icon)。安装了 Game Mode 规则集（桌游式玩法的一套规则）后，**Ruleset sheets**(规则集人物卡) 区块会保存你在该规则集下的初始配置，见[规则集人物卡](colors-and-stats.md#ruleset-sheets)。这里设置的数值是新聊天的起始默认值。
 
@@ -139,7 +139,7 @@ Marinara 会在每一次提示词里把你的用户角色发给 AI。在聊天�
 ## 相关指南
 
 - [在聊天里选择用户角色](choosing-your-persona.md)
-- [角色颜色与 RPG 属性](colors-and-stats.md)
+- [角色颜色与角色扮演属性](colors-and-stats.md)
 - [创建和编辑角色](creating-and-editing-characters.md)
 - [Conversation Mode 个人资料](../conversation/profiles.md)
 - [宏](../prompts/macros.md)

@@ -46,7 +46,7 @@ Pestañas que tienen su propia guía:
 | **Lorebook** | [Vincular lorebooks a personajes](../lorebooks/linking-to-characters.md) |
 | **Sprites** | [Sprites de personaje](sprites.md) |
 | **Gallery** | [Galerías de personaje y persona](galleries.md) |
-| **Colors** y **Stats** | [Colores de personaje y stats de RPG](colors-and-stats.md) |
+| **Colors** y **Stats** | [Colores del personaje y Estadísticas de Roleplay](colors-and-stats.md) |
 
 Las secciones de abajo cubren **Metadata**, **Card**, **Voice** y **Advanced**, además de los avatares y el historial de versiones.
 

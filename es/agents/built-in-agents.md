@@ -187,7 +187,7 @@ Registra barras de estado para tu propio personaje, como Satiety, Energy e Hygie
 
 - **Fase**: Post-Processing.
 - **Dónde funciona**: Roleplay.
-- **Ajustes clave**: **Add as Prompt Section** (activado de forma predeterminada). Consulta [Colores y estadísticas de personaje](../characters/colors-and-stats.md).
+- **Ajustes clave**: **Add as Prompt Section** (activado de forma predeterminada). Consulta [Colores del personaje y Estadísticas de Roleplay](../characters/colors-and-stats.md).
 
 ### Custom Tracker
 

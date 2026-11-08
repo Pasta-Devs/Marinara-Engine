@@ -9,7 +9,7 @@ Game Mode pokazuje na ekranie gry panel mapy. Panel podaje nazwę bieżącej map
 - **Na komputerze** mapa jest wbudowanym panelem, który widać od razu. Panel da się przeciągać i zablokować w wybranym miejscu. Zasady działania przeciąganych paneli opisuje przewodnik [Game Mode: widgety HUD](hud-widgets.md).
 - **Na telefonie** dotknij **Map** (Mapa), żeby otworzyć panel. Jego przycisk zaczyna w pobliżu lewego górnego rogu i można go przeciągać po czacie. Użyj **Lock window** (Zablokuj okno), żeby przycisk pozostał na miejscu, a **Close** (Zamknij), żeby do niego wrócić. Położenie zapisuje się razem z czatem. Mapa na telefonie korzysta ze stylu widgetów czatu z **Settings → Appearance → App** (ustawienia, wygląd, aplikacja), a jej przycisk pozostaje osobno, poza menu **Chat tools** (narzędzia czatu) z trzema kropkami.
 
-Zwykła gra Classic ma opisaną tu mapę sceny. Mapa świata, miasta i mapy lochów należą do gier Overworld RPG, które nie są jeszcze dostępne (zobacz [Classic czy Overworld RPG](getting-started.md#classic-or-overworld-rpg)).
+Gra VN ma opisaną tu mapę sceny. Mapa świata, miasta i mapy lochów należą do gier Overworld, które nie są jeszcze dostępne (zobacz [VN czy Overworld](getting-started.md#vn-or-overworld)).
 
 ### Widok siatki i widok węzłów
 
@@ -82,9 +82,9 @@ Gra prowadzi ukryty wskaźnik morale drużyny w skali od 0 do 100. Ma on pięć 
 
 Morale rośnie, gdy drużyna wygrywa walkę, kończy zadanie albo znajduje skarb. Spada, gdy drużyna przegrywa walkę, nie wykonuje zadania albo traci sojusznika. Z czasem morale wraca w okolice środka skali. Gra nie pokazuje go jako liczby. Morale zabarwia opisy nastroju drużyny tworzone przez GM. Nie zmienia twoich rzutów kośćmi.
 
-## Mapa świata i inne mapy Overworld RPG
+## Mapa świata i inne mapy Overworld
 
-Poniższe sekcje opisują gry **Overworld RPG**, które nie są jeszcze dostępne. Dotyczą tylko sytuacji, w której na twoim serwerze włączono tę funkcję.
+Poniższe sekcje opisują gry **Overworld**, które nie są jeszcze dostępne. Dotyczą tylko sytuacji, w której na twoim serwerze włączono tę funkcję.
 
 <a id="the-overworld"></a>
 

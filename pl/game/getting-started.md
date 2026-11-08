@@ -36,9 +36,9 @@ Jeśli coś nie zadziałało, zajrzyj do sekcji [Generowanie świata kończy si�
 
 | Krok | Co ustawiasz |
 | --- | --- |
-| **Connection** (połączenie) | **Game Name** (nazwa gry), **Model**, który obsługuje postać GM, oraz opcjonalny **Scene effects model**. Karta **Game Mode** pokazuje na razie tylko **Classic** (zobacz [Classic czy Overworld RPG](#classic-or-overworld-rpg)). |
-| **World** (świat) | Gatunek, realia, ton, poziom trudności, klasyfikacja treści i język. **Combat Preference** (preferowany rodzaj walki) to **Classic** albo **Tactical**. Gdy jest zainstalowany zestaw zasad, pojawia się wybór **Rules** (zasady) (zobacz [Wybór zasad](#choose-rules)). |
-| **Party** (drużyna) | Twoja persona (postać, w którą się wcielasz), **Game Master Mode**, członkowie drużyny i **GM intro message** (wiadomość otwierająca GM; zobacz [Wiadomość otwierająca GM](#the-gm-intro-message)). |
+| **Connection** (połączenie) | **Game Name** (nazwa gry), **Model**, który obsługuje postać GM, oraz opcjonalny **Scene effects model**. Karta **Game Mode** pokazuje na razie tylko **VN** (zobacz [VN czy Overworld](#vn-or-overworld)). |
+| **World** (świat) | Gatunek, realia, ton, poziom trudności, klasyfikacja treści i język. **Combat Preference** (preferowany rodzaj walki) to **Turn-Based** albo **Tactical**. Każda nowa gra korzysta z klas **MRPG** (Marinara RPG) (zobacz [Klasy MRPG](mrpg-classes.md)). Gdy jest zainstalowany zestaw zasad, pojawia się wybór **Rules** (zasady) (zobacz [Wybór zasad](#choose-rules)). |
+| **Party** (drużyna) | Twoja persona (postać, w którą się wcielasz), **Game Master Mode**, członkowie drużyny i **GM intro message** (wiadomość otwierająca GM; zobacz [Wiadomość otwierająca GM](#the-gm-intro-message)). Początkowe drzewko MRPG każdego członka wynika z sekcji **Game Mode** na jego karcie (zobacz [Wybieranie drzewek postaci](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** (cele) | Czego oczekujesz od przygody. |
 | **Lorebooks** (lorebooki) | Lorebooki, które postać GM traktuje jako kanon. Lorebook to zbiór faktów o świecie w tle. Zobacz [Lorebooki](../lorebooks/overview.md). |
 | **Features** (funkcje) | **Enable Agents** (włączenie agentów), a pod nim karta każdego pobranego agenta (**Illustrator**, **Music DJ**, **Lorebook Keeper**), a także **Custom HUD Widgets** (własne widgety HUD), **Quick Time Events** (wydarzenia na czas) i **Start Muted** (start z wyciszonym dźwiękiem). |
@@ -46,7 +46,7 @@ Jeśli coś nie zadziałało, zajrzyj do sekcji [Generowanie świata kończy si�
 
 Pomysły podsuwane przy realiach i celach zmieniają się przy każdym otwarciu kreatora. W grze Tactical postać GM pisze krótki opis każdej walki, a Marinara buduje na jego podstawie planszę. Zobacz [Game Mode: walka](combat.md#tactical-battles-and-terrain).
 
-Krok **World** ma też opcje walki z bossami. **GM directs bosses** (GM steruje bossami) jest domyślnie włączone. Pozwala postaci GM decydować o turach bossów przez twoje połączenie GM, co może chwilę potrwać. Zwykli przeciwnicy decydują sami, chyba że **GM directs bosses** jest włączone, a zestaw zasad gry oddaje stronę przeciwników postaci Game Master (zobacz [Tekst Game Master](../extending/ruleset-sheets.md#game-master-text)). Gdy **GM directs bosses** jest włączone, opcja **Game Master also plays named and brilliant opponents** (Game Master prowadzi też nazwanych i błyskotliwych przeciwników; domyślnie włączona) pozwala postaci GM wcielać się także w postacie z imieniem i bardzo sprytnych wrogów. Dwie kolejne opcje są widoczne zawsze: **Companions fight on their own** (towarzysze walczą samodzielnie; domyślnie włączona – wyłącz ją, żeby samodzielnie kierować całą drużyną) oraz **Let cruel opponents strike the fallen** (okrutni przeciwnicy mogą atakować powalonych; domyślnie wyłączona). Zobacz [Game Mode: walka](combat.md).
+Krok **World** ma też opcje walki z bossami. **GM directs bosses** (GM steruje bossami) jest domyślnie włączone. Pozwala postaci GM decydować o turach bossów przez twoje połączenie GM, co może chwilę potrwać. Zwykli przeciwnicy decydują sami, chyba że **GM directs bosses** jest włączone, a zestaw zasad gry oddaje stronę przeciwników postaci Game Master (zobacz [Tekst Game Master](../extending/ruleset-sheets.md#game-master-text)). Gdy **GM directs bosses** jest włączone, opcja **Game Master also plays named and brilliant opponents** (Game Master prowadzi też nazwanych i błyskotliwych przeciwników; domyślnie włączona) pozwala postaci GM wcielać się także w postacie z imieniem i bardzo sprytnych wrogów. Dwie kolejne opcje są widoczne zawsze: **Companions fight on their own** (towarzysze walczą samodzielnie; domyślnie włączona – wyłącz ją, żeby samodzielnie kierować całą drużyną) oraz **Let cruel opponents strike the fallen** (okrutni przeciwnicy mogą atakować powalonych; domyślnie wyłączona). Nowa gra oferuje też opcję **Permadeath** (trwała śmierć; domyślnie wyłączona): członek drużyny, który padnie w walce i nie zostanie uratowany przed jej końcem, przepada na zawsze. Zobacz [Game Mode: walka](combat.md).
 
 Gdy agent **Hierarchical Maps** jest pobrany (teraz nazywa się World Maps, zobacz [World Maps](../agents/hierarchical-maps.md)), a **Enable Agents** jest włączone, krok **Features** może też przygotować szkic mapy **Hierarchical world map** (hierarchiczna mapa świata), użyć zapisanego szablonu mapy albo podłączyć udostępniony świat.
 
@@ -56,7 +56,7 @@ Gdy agent **Hierarchical Maps** jest pobrany (teraz nazywa się World Maps, zoba
 | --- | --- | --- |
 | Genre | Fantasy | Można wybrać kilka, a także dopisać własne. Zestaw settingu wybrany wcześniej ustawia własny gatunek. |
 | Tone | Heroic | Można wybrać kilka. |
-| Difficulty | Normal | **Casual**, **Normal**, **Hard** albo **Brutal**. Przy wyższych ustawieniach ataki wrogów zadają więcej obrażeń (zobacz [Game Mode: walka](combat.md#difficulty-scaling)). |
+| Difficulty | Normal | **Casual**, **Normal**, **Hard** albo **Brutal**. Wyższe ustawienia utrudniają walki: w grze MRPG dodają liczniejszych i silniejszych przeciwników (zobacz [Walki w grze MRPG](combat.md#battles-in-an-mrpg-game)), a w grze Legacy zwiększają obrażenia zadawane przez wrogów (zobacz [Skalowanie trudności](combat.md#difficulty-scaling)). |
 | Content Rating | SFW | **SFW** albo **NSFW**. NSFW tylko dopuszcza treści dla dorosłych, nie wymusza ich. |
 | Language | English | W tym języku powstaje cały tekst w grze. |
 | Game Master Mode | Standalone GM | **Character GM** (GM z karty postaci) używa jednej z twoich kart postaci jako postaci GM. |
@@ -194,6 +194,7 @@ Część modeli pozostaje radosna. Dopisz wyraźną instrukcję w polu preferenc
 ## Gdzie szukać poszczególnych tematów
 
 - [Game Mode: walka](combat.md): starcia, menu akcji, obliczanie obrażeń i wydarzenia na czas.
+- [Game Mode: klasy MRPG](mrpg-classes.md): wybieranie klas, statystyki, poziomy i awanse klas, arkusz klas, gry współdzielone oraz przenoszenie gry Legacy.
 - [Game Mode: drużyna i postacie NPC](party-and-npcs.md): Character Profiles, arkusze postaci i Adventure Journal.
 - [Game Mode: sesje i zapisy gry](sessions-and-saves.md): kończenie i rozpoczynanie sesji, historia i punkty kontrolne.
 - [Game Mode: mapa, czas i pogoda](map-time-weather.md): widoki mapy, zegar, pogoda i morale.
@@ -203,20 +204,20 @@ Część modeli pozostaje radosna. Dopisz wyraźną instrukcję w polu preferenc
 - [Przewodnik po agencie Storyboard](storyboard.md): storyboardy w trybach Game Mode i Roleplay.
 - [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md): funkcja Author's Notes (notatki autora) działa tu tak samo.
 
-## Overworld RPG
+## Overworld
 
-Sekcje poniżej opisują tryb **Overworld RPG**, który nie jest jeszcze dostępny. Czytaj je tylko wtedy, gdy twój serwer go włączył.
+Sekcje poniżej opisują gry **Overworld**, które nie są jeszcze dostępne. Czytaj je tylko wtedy, gdy twój serwer je włączył.
 
-<a id="classic-or-overworld-rpg"></a>
+<a id="vn-or-overworld"></a>
 
-### Classic czy Overworld RPG
+### VN czy Overworld
 
 Nowa gra toczy się w jednym z dwóch trybów gry, wybieranym w pierwszym kroku i zachowywanym we wszystkich jej sesjach:
 
-- **Overworld RPG** to świat stworzony dla twojego settingu, przemierzany na mapie świata, z miastami, miejscami do zbadania i lochami. Wymaga zestawu settingu i świata. Dopóki nie wybierzesz zestawu, używany jest zestaw dla pierwszego wybranego gatunku (High fantasy, jeśli gatunek nie ma własnego), a świat jest dla niego losowany.
-- **Classic** to Game Mode w dotychczasowej postaci: scena po scenie, z mapą sceny i walkami, bez zestawu settingu, świata, mapy świata, miast i map lochów.
+- **Overworld** to świat stworzony dla twojego settingu, przemierzany na mapie świata, z miastami, miejscami do zbadania i lochami. Wymaga zestawu settingu i świata. Dopóki nie wybierzesz zestawu, używany jest zestaw dla pierwszego wybranego gatunku (High fantasy, jeśli gatunek nie ma własnego), a świat jest dla niego losowany.
+- **VN** to Game Mode w dotychczasowej postaci, opowiadany jak powieść wizualna: scena po scenie, z mapą sceny i walkami, bez zestawu settingu, świata, mapy świata, miast i map lochów.
 
-Overworld RPG jest zablokowany, dopóki właściciel serwera nie ustawi `MARINARA_OVERWORLD_GAMES`. Gdy jest zablokowany, jego karta jest wyszarzona z informacją "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games." Każda nowa gra jest wtedy grą Classic, a wybory zestawu settingu i świata się nie pojawiają. Gra utworzona, zanim pojawił się ten wybór, działa tak jak dotąd: ze światem jest grą Overworld, bez świata – grą Classic.
+Overworld jest zablokowany, dopóki właściciel serwera nie ustawi `MARINARA_OVERWORLD_GAMES`. Gdy jest zablokowany, jego karta jest wyszarzona z informacją "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games." Każda nowa gra jest wtedy grą VN, a wybory zestawu settingu i świata się nie pojawiają. Gra utworzona, zanim pojawił się ten wybór, działa tak jak dotąd: ze światem jest grą Overworld, bez świata – grą VN.
 
 <a id="choosing-a-setting-kit"></a>
 

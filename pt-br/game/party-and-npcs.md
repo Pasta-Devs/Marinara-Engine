@@ -22,11 +22,13 @@ Você pode arrastar o botão pelo chat no computador ou no celular. Abra-o e use
 
 ## Fichas de personagem
 
-A ficha de personagem é um resumo de um integrante da equipe feito para o jogo, separado do card de personagem. O GM a escreve a partir do seu personagem e da história atual. Ela mostra as seções que têm conteúdo:
+A ficha de personagem é um resumo de um integrante da equipe feito para o jogo, separado do card de personagem. Numa partida com classes **MRPG**, o que inclui toda partida nova, ela começa com a ficha de classe MRPG do personagem: abas para **Status**, **Classes**, **Skills** e **Gear**, onde você troca de classe, leva habilidades consigo e equipa itens. Veja [A ficha do personagem](mrpg-classes.md#the-character-sheet). Os status MRPG substituem os **Attributes** abaixo.
+
+Abaixo dela, o GM escreve a parte narrativa da ficha a partir do seu personagem e da história atual. Ela mostra as seções que têm conteúdo:
 
 | Seção | O que ela guarda |
 | --- | --- |
-| **Attributes** | Valores como STR, DEX e CON, com um modificador, e barras de recurso como HP ou MP. |
+| **Attributes** | Só para partidas Legacy: valores como STR, DEX e CON, com um modificador, e barras de recurso como HP ou MP. |
 | **Stats** | Outras barras de status. |
 | **Abilities** | O que o personagem sabe fazer. |
 | **Strengths**, **Weaknesses** | Listas curtas. |
@@ -45,7 +47,7 @@ Um personagem novo pode mostrar "Character data will populate as the story progr
 1. Abra a ficha do personagem e clique em **Edit card**.
 2. Mude o que precisar:
    - **Class** (classe) e uma descrição curta, em **Sheet Details**.
-   - **RPG Attributes**: ative **Enable** para acompanhar reservas e atributos. **Add Pool** cria uma barra (nome, valor atual, valor máximo, cor). **Add Attribute** cria um valor como STR.
+   - **Roleplay Stats** (Status de Roleplay, em partidas Legacy): ative **Enable** para acompanhar reservas e atributos. **Add Pool** cria uma barra (nome, valor atual, valor máximo, cor). **Add Attribute** cria um valor como STR. Uma partida com classes MRPG não os usa para testes nem lutas.
    - **Abilities**, **Strengths** e **Weaknesses**: **Add** (adicionar) acrescenta uma linha.
    - **Details**: **Add Detail** acrescenta um fato com rótulo.
 3. Clique em **Save Sheet** (salvar a ficha). Clique em **Cancel** (cancelar) para descartar as alterações.

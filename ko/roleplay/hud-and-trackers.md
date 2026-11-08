@@ -187,6 +187,6 @@ Character Tracker에 이미지 연결이 있으면 캐릭터의 큰 카드에서
 
 - [다운로드 가능한 에이전트 레퍼런스](../agents/built-in-agents.md)
 - [에이전트: 채팅을 도와주는 AI](../agents/agents-overview.md)
-- [캐릭터 색상과 RPG 스탯](../characters/colors-and-stats.md): **Stats**(스탯) 탭에서 페르소나나 캐릭터가 처음 갖는 막대와 능력치를 정합니다.
+- [캐릭터 색상과 롤플레이 스탯](../characters/colors-and-stats.md): **Stats**(스탯) 탭에서 페르소나나 캐릭터가 처음 갖는 막대와 능력치를 정합니다.
 - [Roleplay Mode: 시작하기](getting-started.md)
 - [Game Mode: HUD 위젯](../game/hud-widgets.md)
