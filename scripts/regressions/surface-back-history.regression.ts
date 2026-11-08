@@ -408,5 +408,73 @@ Object.defineProperty(globalThis, "localStorage", { configurable: true, value: s
     /if \(activeChatId\) useUIStore\.getState\(\)\.setHomeTab\("home"\);/u,
   );
 
+  // 20. A surface opened from the Chat Settings drawer brings the drawer back: the drawer closes first, so the store
+  // remembers it and the last pop queues a request for ChatArea.
+  reset();
+  ui().setChatSettingsReturn({ chatId: "chat-1", section: "lorebooks" });
+  ui().openAgentDetail("long-term-memory");
+  assert.deepEqual(selectBackDestination(ui()), { chatSettings: true });
+  assert.equal(selectShowsSurfaceClose(ui()), true, "Back leads to Chat Settings, not straight to the chat");
+  ui().closeAgentDetail();
+  assert.equal(ui().hasAnyDetailOpen(), false);
+  assert.deepEqual(ui().chatSettingsRequest, { chatId: "chat-1", section: "lorebooks" });
+  assert.equal(ui().chatSettingsReturn, null, "the marker is spent");
+  assert.equal(selectBackDestination(ui()), null);
+  ui().consumeChatSettingsRequest();
+  assert.equal(ui().chatSettingsRequest, null);
+
+  // 20b. Surfaces stacked on top of it still end at the drawer, one Back per surface.
+  reset();
+  ui().setChatSettingsReturn({ chatId: "chat-1", section: null });
+  ui().openLorebookDetail("L");
+  ui().openCharacterDetail("C");
+  ui().closeCharacterDetail();
+  assert.equal(ui().chatSettingsRequest, null, "a surface still shows");
+  assert.equal(ui().lorebookDetailId, "L");
+  ui().closeLorebookDetail();
+  assert.deepEqual(ui().chatSettingsRequest, { chatId: "chat-1", section: null });
+
+  // 20c. The ✕ and the chat-mode shortcut drop the marker; a mobile panel return wins over it.
+  reset();
+  ui().setChatSettingsReturn({ chatId: "chat-1", section: null });
+  ui().openAgentDetail("long-term-memory");
+  ui().closeAllDetails();
+  assert.equal(ui().chatSettingsReturn, null);
+  assert.equal(ui().chatSettingsRequest, null);
+  ui().setChatSettingsReturn({ chatId: "chat-1", section: null });
+  ui().requestChatModeShortcut("roleplay");
+  assert.equal(ui().chatSettingsReturn, null);
+  reset(true);
+  ui().openRightPanel("agents");
+  ui().setChatSettingsReturn({ chatId: "chat-1", section: null });
+  ui().openAgentDetail("long-term-memory");
+  ui().closeAgentDetail();
+  assert.equal(ui().rightPanel, "agents", "the panel the surface came from reopens");
+  assert.equal(ui().chatSettingsRequest, null, "and the drawer does not stack on it");
+
+  // 20d. Opening another chat drops a marker left for the previous one: the clear lives in AppShell.
+  assert.match(
+    readFileSync(new URL("../../packages/client/src/components/layout/AppShell.tsx", import.meta.url), "utf8"),
+    /ui\.chatSettingsReturn\.chatId !== activeChatId\) ui\.setChatSettingsReturn\(null\)/u,
+  );
+
+  // 20d2. Download agents opens the Agent Organizer, a surface, from the drawer: Back reaches the drawer too.
+  reset();
+  ui().setChatSettingsReturn({ chatId: "chat-1", section: null });
+  ui().openRightPanel("agents");
+  ui().openAgentCatalog();
+  ui().closeAgentCatalog();
+  assert.deepEqual(ui().chatSettingsRequest, { chatId: "chat-1", section: null });
+  assert.match(
+    readFileSync(new URL("../../packages/client/src/components/layout/AppShell.tsx", import.meta.url), "utf8"),
+    /chatSettingsRequest\.chatId !== activeChatId\) ui\.consumeChatSettingsRequest\(\)/u,
+  );
+
+  // 20e. The marker and request are never saved.
+  reset();
+  ui().setChatSettingsReturn({ chatId: "chat-1", section: null });
+  assert.equal("chatSettingsReturn" in pickPersistedUIState(ui()), false);
+  assert.equal("chatSettingsRequest" in pickPersistedUIState(ui()), false);
+
   console.info("Surface back history regression passed.");
 }

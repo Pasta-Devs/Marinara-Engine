@@ -12,11 +12,11 @@ import { selectBackDestination, useUIStore } from "../../stores/ui.store";
 
 /**
  * True while Back leads to another surface (a stack entry or the regex editor's return) or reopens the panel the
- * surface came from (a drawer over the chat on mobile), not straight to the base.
+ * surface came from (a drawer over the chat on mobile) or Chat Settings, not straight to the base.
  */
 export function selectShowsSurfaceClose(state: Parameters<typeof selectBackDestination>[0]): boolean {
   const destination = selectBackDestination(state);
-  return !!destination && ("surface" in destination || "panel" in destination);
+  return !!destination && ("surface" in destination || "panel" in destination || "chatSettings" in destination);
 }
 
 interface Props {

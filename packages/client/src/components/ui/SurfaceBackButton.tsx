@@ -9,6 +9,7 @@ import { selectBackDestination, useUIStore, type BackDestination } from "../../s
 
 function backLabelKey(destination: BackDestination, hasActiveChat: boolean): string {
   if (!destination) return hasActiveChat ? "navigation.back.toChat" : "navigation.back.toHome";
+  if ("chatSettings" in destination) return "navigation.back.toChatSettings";
   if ("panel" in destination) {
     switch (destination.panel) {
       case "characters":

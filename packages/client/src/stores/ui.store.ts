@@ -738,6 +738,13 @@ interface UIState {
    * resets it (AppShell); `closeAllDetails` leaves it alone.
    */
   homeTab: string;
+  /**
+   * Not saved: the chat (and Chat Settings section) whose drawer opened the full-page surface now showing. The drawer
+   * closes first, so nothing else remembers it: popping the last surface turns this into `chatSettingsRequest`.
+   */
+  chatSettingsReturn: ChatSettingsReturn | null;
+  /** Not saved: reopen Chat Settings once the chat shows again (ChatArea consumes it; the desktop shell remounts it). */
+  chatSettingsRequest: ChatSettingsReturn | null;
   /** Not saved: the What's New window should open again (see `requestWhatsNew`). */
   whatsNewRequested: boolean;
   modal: { type: string; props?: Record<string, unknown> } | null;
@@ -1335,6 +1342,8 @@ interface UIState {
   setSettingsTargetControlId: (controlId: string | null) => void;
   requestHome: (request: HomeRequest) => void;
   consumeHomeRequest: () => void;
+  setChatSettingsReturn: (back: ChatSettingsReturn | null) => void;
+  consumeChatSettingsRequest: () => void;
   setHomeTab: (tab: string) => void;
   requestWhatsNew: () => void;
   consumeWhatsNewRequest: () => void;
@@ -1672,6 +1681,9 @@ const MAIN_SURFACE_KEYS = [
 ] as const;
 export type MainSurfaceKey = (typeof MAIN_SURFACE_KEYS)[number];
 
+/** The Chat Settings drawer a surface was opened from; `section` is the drawer's `initialSection`. */
+export type ChatSettingsReturn = { chatId: string; section: string | null };
+
 const CLOSED_MAIN_SURFACE = {
   regexDetailId: null,
   personaDetailId: null,
@@ -1755,11 +1767,20 @@ function enterMainSurface(s: UIState, target: Partial<UIState>): Partial<UIState
 function leaveMainSurface(s: UIState, own: Partial<UIState>): Partial<UIState> {
   const top = s.mainSurfaceHistory[s.mainSurfaceHistory.length - 1];
   if (top) return { ...own, ...top, mainSurfaceHistory: s.mainSurfaceHistory.slice(0, -1), editorDirty: false };
-  return { ...own, editorDirty: false, ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel) };
+  // A mobile panel the surface came from wins; otherwise a surface opened from Chat Settings reopens the drawer.
+  const reopenSettings = !s.detailReturnRightPanel && s.chatSettingsReturn;
+  return {
+    ...own,
+    editorDirty: false,
+    ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
+    chatSettingsReturn: null,
+    ...(reopenSettings && { chatSettingsRequest: reopenSettings }),
+  };
 }
 
 /** Where the Back button of the open surface lands; `null` means the chat (or Home), which the caller resolves. */
-export type BackDestination = { surface: MainSurfaceKey; cardLibraryKind: CardLibraryKind } | { panel: Panel } | null;
+export type BackDestination =
+  { surface: MainSurfaceKey; cardLibraryKind: CardLibraryKind } | { panel: Panel } | { chatSettings: true } | null;
 
 /**
  * Names the destination `closeTopMainSurface` reaches from `state`, mirroring `leaveMainSurface` and the close that
@@ -1775,7 +1796,8 @@ export function selectBackDestination(state: UIState): BackDestination {
     const surface = mainSurfaceKind(top);
     if (surface) return { surface, cardLibraryKind: top.cardLibraryKind };
   }
-  return state.detailReturnRightPanel ? { panel: state.detailReturnRightPanel } : null;
+  if (state.detailReturnRightPanel) return { panel: state.detailReturnRightPanel };
+  return state.chatSettingsReturn ? { chatSettings: true } : null;
 }
 
 function normalizePersistedMainSurface(persisted: Record<string, unknown>) {
@@ -2358,6 +2380,8 @@ export const useUIStore = create<UIState>()(
         lastAppError: null,
         settingsTargetControlId: null,
         homeRequest: null,
+        chatSettingsReturn: null,
+        chatSettingsRequest: null,
         homeTab: "home",
         whatsNewRequested: false,
         settingsTargetSectionId: null,
@@ -2764,6 +2788,8 @@ export const useUIStore = create<UIState>()(
         setSettingsTargetControlId: (controlId) => set({ settingsTargetControlId: controlId }),
         requestHome: (homeRequest) => set({ homeRequest }),
         consumeHomeRequest: () => set({ homeRequest: null }),
+        setChatSettingsReturn: (chatSettingsReturn) => set({ chatSettingsReturn }),
+        consumeChatSettingsRequest: () => set({ chatSettingsRequest: null }),
         setHomeTab: (homeTab) => set({ homeTab }),
         requestWhatsNew: () => set({ whatsNewRequested: true }),
         consumeWhatsNewRequest: () => set({ whatsNewRequested: false }),
@@ -3042,6 +3068,7 @@ export const useUIStore = create<UIState>()(
             mainSurfaceHistory: [],
             editorDirty: false,
             detailReturnRightPanel: null,
+            chatSettingsReturn: null,
           }),
         closeTopMainSurface: () => {
           const actions = get();
@@ -3074,6 +3101,7 @@ export const useUIStore = create<UIState>()(
             rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
             editorDirty: false,
             detailReturnRightPanel: null,
+            chatSettingsReturn: null,
             chatModeShortcutRequest: {
               mode,
               token: (state.chatModeShortcutRequest?.token ?? 0) + 1,

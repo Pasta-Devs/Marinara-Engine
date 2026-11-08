@@ -713,6 +713,7 @@ const LocalChatArea = memo(function LocalChatArea({
   const settingsPinned = useFloatingWindowStore((s) => s.layouts[CHAT_SETTINGS_WINDOW_ID]?.pinned === true);
   const [settingsInitialSection, setSettingsInitialSection] = useState<ChatSettingsInitialSection>(null);
   const advancedMemoryRequest = useUIStore((state) => state.advancedMemoryRequest);
+  const chatSettingsRequest = useUIStore((state) => state.chatSettingsRequest);
   const [settingsAnchor, setSettingsAnchor] = useState<FloatingPanelAnchor>(null);
   // Held in the store: desktop editors (model settings, characters, agents) unmount ChatArea mid-setup.
   const wizardOpen = useChatStore((s) => s.setupWizardChatId !== null && s.setupWizardChatId === activeChatId);
@@ -852,6 +853,17 @@ const LocalChatArea = memo(function LocalChatArea({
     )
       ui.setAdvancedMemoryRequest(null);
   }, [activeChatId, advancedMemoryRequest, chatDetail?.id, handleOpenSettingsPanel]);
+
+  // Back from a surface opened in Chat Settings reopens the drawer; a pinned one that never closed stays as it is.
+  useEffect(() => {
+    if (!chatSettingsRequest || chatSettingsRequest.chatId !== chatDetail?.id || chatDetail.id !== activeChatId) return;
+    if (!useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID]) {
+      handleOpenSettingsPanel(undefined, {
+        initialSection: chatSettingsRequest.section as ChatSettingsInitialSection,
+      });
+    }
+    useUIStore.getState().consumeChatSettingsRequest();
+  }, [activeChatId, chatDetail?.id, chatSettingsRequest, handleOpenSettingsPanel]);
 
   // The Chat Summary agent's "open summaries" link and the omnibar's chat tool rows land on their Chat Settings drawer.
   useEffect(() => {

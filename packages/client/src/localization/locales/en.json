@@ -6282,6 +6282,7 @@
   "navigation.back.toCharactersPanel": "Back to Characters",
   "navigation.back.toChat": "Back to the chat",
   "navigation.back.toChatPanel": "Back to chat settings",
+  "navigation.back.toChatSettings": "Back to chat settings",
   "navigation.back.toConnection": "Back to the connection",
   "navigation.back.toConnectionsPanel": "Back to Connections",
   "navigation.back.toExtensionsPanel": "Back to Extensions",

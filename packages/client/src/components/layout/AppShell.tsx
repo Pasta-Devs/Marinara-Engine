@@ -679,6 +679,12 @@ export function AppShell({
   useEffect(() => {
     if (activeChatId) useUIStore.getState().setHomeTab("home");
   }, [activeChatId]);
+  // Chat Settings reopens only for the chat it was opened from.
+  useEffect(() => {
+    const ui = useUIStore.getState();
+    if (ui.chatSettingsReturn && ui.chatSettingsReturn.chatId !== activeChatId) ui.setChatSettingsReturn(null);
+    if (ui.chatSettingsRequest && ui.chatSettingsRequest.chatId !== activeChatId) ui.consumeChatSettingsRequest();
+  }, [activeChatId]);
   const discardNewChatSetup = useDiscardNewChatSetup();
   useEffect(
     () => () => {
