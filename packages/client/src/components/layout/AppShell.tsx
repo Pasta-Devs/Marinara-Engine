@@ -452,6 +452,7 @@ export function AppShell({
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
+  const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
@@ -470,8 +471,10 @@ export function AppShell({
     [openLorebookDetail, refreshLorebooks],
   );
   const closeFeatureDetail = useCallback(() => {
+    // Popping back to another surface leaves the agents panel out of sight, so it only opens when nothing was popped.
+    const returnsToSurface = useUIStore.getState().mainSurfaceHistory.length > 0;
     closeAgentDetail();
-    openRightPanel("agents");
+    if (!returnsToSurface) openRightPanel("agents");
   }, [closeAgentDetail, openRightPanel]);
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
@@ -744,10 +747,10 @@ export function AppShell({
   const openChatSummarySettings = useCallback(() => {
     if (!activeChatId || activeChat?.mode !== "roleplay") return;
     const chatId = activeChatId;
-    closeAgentDetail();
+    closeAllDetails();
     closeRightPanel();
     window.requestAnimationFrame(() => requestChatSummaryOpen(chatId));
-  }, [activeChat?.mode, activeChatId, closeAgentDetail, closeRightPanel]);
+  }, [activeChat?.mode, activeChatId, closeAllDetails, closeRightPanel]);
   const openActivePromptPresetEditor = useCallback(() => {
     const presetId = activeChat?.promptPresetId;
     if (!activeChat || !presetId) return;

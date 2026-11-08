@@ -29,8 +29,8 @@ function isShellOverlayMode() {
 let detailCloseInFlight = false;
 
 /**
- * Closes the open detail editor the same way the sidebar does — including the
- * unsaved-changes confirm, so back can never discard an edit silently.
+ * Closes the front-most surface the way the on-screen Back button does (one step back through the surfaces
+ * opened before it), including the unsaved-changes confirm, so back can never discard an edit silently.
  */
 async function requestCloseDetails() {
   if (detailCloseInFlight) return;
@@ -52,13 +52,7 @@ async function requestCloseDetails() {
     }
   }
 
-  const current = useUIStore.getState();
-  // A regex editor opened from a character's scoped-regex manager has a real
-  // one-step return path; `closeRegexDetail` walks it back to that character.
-  if (current.regexDetailId && current.regexDetailReturn) current.closeRegexDetail();
-  // A connection editor a Home package opened (capability API 1.386) closes back to that package's tab.
-  else if (current.connectionDetailId && current.connectionDetailReturnTab) current.closeConnectionDetail();
-  else current.closeAllDetails();
+  useUIStore.getState().closeTopMainSurface();
 }
 
 export function getStoreBackLayers(): BackLayer[] {
