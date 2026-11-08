@@ -62,6 +62,7 @@ import {
   StageEditor,
   type StageAvatarProps,
   type StageEditorSection,
+  useOpeningPreviews,
 } from "./ChatSetupStageEditors";
 import { ChatSetupStageScene } from "./ChatSetupStageScene";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
@@ -73,6 +74,7 @@ import {
   stageTagline,
   chatTurnTaken,
   focusChatComposer,
+  openingTitle,
   setupStageClosedChats,
 } from "../../lib/chat-setup-stage";
 import { readCardWithQuestions } from "../../lib/onboarding-add-card";
@@ -349,7 +351,6 @@ export function ChatSetupStage({
 }: ChatSetupStageProps) {
   const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const [sceneOpen, setSceneOpen] = useState(false);
   const calm = variant === "conversation";
   const { data: connectionsData } = useConnections();
   const { data: presets } = usePresets();
@@ -414,8 +415,13 @@ export function ChatSetupStage({
     ?.replace(/[*_]/g, "")
     .trim();
   const hasScene = !calm && !!first && !chatMeta.multiplayer && chatMeta.multiplayerSetup !== true;
-  const greetingWord =
-    greetingCount > 1
+  const stageCtx = { variant, chat, chatMeta, chatCharIds, characterMap, personaInfo, first, onSetActiveSwipe };
+  const previews = useOpeningPreviews(stageCtx);
+  // The sentence names the chosen card: their own greeting, or the first words of another one.
+  const greetingTitle = greetingIndex > 0 ? openingTitle(previews[greetingIndex] ?? "") : null;
+  const greetingWord = greetingTitle
+    ? t("chat.setupStage.greetingQuoted", { title: greetingTitle })
+    : greetingIndex > 0
       ? t("chat.setupStage.greetingNumbered", { index: greetingIndex + 1, count: greetingCount })
       : t("chat.setupStage.greetingSingle");
 
@@ -781,7 +787,6 @@ export function ChatSetupStage({
           onClick={open("characters")}
           className={cn(
             "mb-4 flex cursor-pointer -space-x-4 bg-transparent p-0 max-md:my-auto max-md:self-center max-md:-space-x-8 md:col-start-2 md:row-start-1 md:mb-0 md:justify-self-center md:-space-x-10 min-[72rem]:col-start-3",
-            sceneOpen && "max-md:hidden",
           )}
         >
           {castAvatars.slice(0, 3).map((avatar, index) => (
@@ -920,14 +925,17 @@ export function ChatSetupStage({
           <ChatSetupStageMemoryNote chatId={chat.id} />
         </div>
 
-        {hasScene && (
-          <div className={cn(!sceneOpen && "hidden")}>
-            <ChatSetupStageScene chat={chat} first={first} onSetActiveSwipe={onSetActiveSwipe} />
-          </div>
-        )}
-        {(greetingPeek || hasScene) && (
-          <div className="mt-4 flex items-center gap-4 md:mt-6 min-[72rem]:justify-center">
-            {greetingPeek && (
+        {first && (hasScene || greetingCount > 1) ? (
+          <ChatSetupStageScene
+            chat={chat}
+            first={first}
+            previews={previews}
+            actions={hasScene}
+            onSetActiveSwipe={onSetActiveSwipe}
+          />
+        ) : (
+          greetingPeek && (
+            <div className="mt-4 flex items-center gap-4 md:mt-6 min-[72rem]:justify-center">
               <button
                 type="button"
                 onClick={openGreeting}
@@ -946,22 +954,8 @@ export function ChatSetupStage({
                 <span className="min-w-0 flex-1 truncate">{greetingPeek}</span>
                 <ChevronRight size="1rem" aria-hidden className="flex-none opacity-60" />
               </button>
-            )}
-            {hasScene && (
-              <button
-                type="button"
-                onClick={() => setSceneOpen((v) => !v)}
-                aria-expanded={sceneOpen}
-                className={cn(
-                  "inline-flex min-h-11 flex-none cursor-pointer items-center bg-transparent p-0 text-[13px] underline decoration-[color-mix(in_srgb,var(--foreground)_30%,transparent)] underline-offset-4 text-[color-mix(in_srgb,var(--foreground)_70%,transparent)] hover:text-[var(--foreground)]",
-                  FOCUS,
-                  "rounded-sm",
-                )}
-              >
-                {t(sceneOpen ? "chat.setupStage.scene.hide" : "chat.setupStage.scene.toggle")}
-              </button>
-            )}
-          </div>
+            </div>
+          )
         )}
         {expanded ? (
           <div
@@ -1054,12 +1048,7 @@ export function ChatSetupStage({
         )}
       </div>
       {editor && chat && (
-        <StageEditor
-          section={editor.section}
-          anchor={editor.anchor}
-          onClose={closeEditor}
-          ctx={{ variant, chat, chatMeta, chatCharIds, characterMap, personaInfo, first, onSetActiveSwipe }}
-        />
+        <StageEditor section={editor.section} anchor={editor.anchor} onClose={closeEditor} ctx={stageCtx} />
       )}
     </section>
   );

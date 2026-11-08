@@ -275,7 +275,7 @@ export function StageAvatar({ src, crop, name, className }: StageAvatarProps & {
 const UNDO_TOAST_ID = "chat-setup-stage-undo";
 
 /** Every stage change offers Undo; it writes the old value back through the same path. One toast at a time. */
-function useStageUndo(section: StageEditorSection) {
+export function useStageUndo(section: StageEditorSection) {
   const { t } = useTranslation();
   return (undo: () => void) =>
     toast(t("chat.setupStage.polish.changed", { section: t(TITLES[section]) }), {
@@ -588,9 +588,8 @@ function CastEditor({ ctx, addOnly, close }: { ctx: StageEditorContext; addOnly?
   );
 }
 
-function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => void }) {
-  const { t } = useTranslation();
-  const undo = useStageUndo("opening");
+/** The first lines of every greeting of the opening message, resolved like the greeting below the stage. */
+export function useOpeningPreviews(ctx: StageEditorContext): string[] {
   const first = ctx.first;
   const { data: characterData } = useCharacters();
   const characterRows = characterData as Array<{ id: string; data: unknown }> | undefined;
@@ -636,13 +635,20 @@ function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
         .join("\n");
     });
   }, [data, first, characterRows, personas, chatVariables, ctx.chat]);
+  return previews;
+}
+
+function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => void }) {
+  const { t } = useTranslation();
+  const undo = useStageUndo("opening");
+  const first = ctx.first;
+  const previews = useOpeningPreviews(ctx);
   if (!first) return <Muted>{t("chat.setupStage.row.noGreeting")}</Muted>;
-  const swipes = data?.length ? [...data].sort((a, b) => a.index - b.index).map((s) => s.content) : [first.content];
   const active = first.activeSwipeIndex ?? 0;
   const speaker = first.characterId ? ctx.characterMap.get(first.characterId) : undefined;
   return (
     <>
-      {swipes.map((_content, index) => (
+      {previews.map((_preview, index) => (
         <Option
           key={index}
           active={index === active}
