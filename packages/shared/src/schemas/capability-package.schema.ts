@@ -1575,7 +1575,11 @@ const capabilityPackageManifestBaseSchema = z
 // 1.817: the `long-term-memory:runtime` service's optional `chatBranched({ chatId, parentChatId })`, awaited once
 //        after a chat branch is fully copied and before the branch is returned (errors and a slow call are
 //        ignored). A soft seam: older Engines never call it. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 817 } as const);
+// 1.818: the server runtime host's optional `embeddingsFor(connectionId)`: `null` is the built-in local MiniLM
+//        embedder, a connection id is that connection's own embedding source (as Connections > Test embedding
+//        resolves it, never the app-wide default), and an unknown id or a connection without embeddings resolves
+//        null. A soft seam: older Engines leave it out, so a package feature-detects it. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 818 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
