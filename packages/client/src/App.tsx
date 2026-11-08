@@ -46,6 +46,7 @@ import {
   MOBILE_SHELL_MEDIA_QUERY,
   useUIStore,
   selectChatChromeTextColor,
+  schemeForTime,
 } from "./stores/ui.store";
 import { useOverhaulLook, useOverhaulStore } from "./stores/overhaul.store";
 import { loadOverhaulStyles } from "./lib/overhaul-styles";
@@ -606,6 +607,34 @@ export function App() {
   useEffect(() => {
     setCustomNotificationSoundUrl(customNotificationSound?.url ?? null);
   }, [customNotificationSound?.url]);
+
+  // Appearance > Color Scheme > Follow system / Follow time of day: flips Dark and Light by itself.
+  // Themes already style both ([data-theme="dark"], [data-theme="light"]), so they follow too.
+  const themeAuto = useUIStore((s) => s.themeAuto);
+  const themeDayStart = useUIStore((s) => s.themeDayStart);
+  const themeNightStart = useUIStore((s) => s.themeNightStart);
+  useEffect(() => {
+    if (themeAuto === "off") return;
+    const query = window.matchMedia?.("(prefers-color-scheme: light)");
+    const apply = () => {
+      const want =
+        themeAuto === "system"
+          ? query?.matches
+            ? "light"
+            : "dark"
+          : schemeForTime(new Date(), themeDayStart, themeNightStart);
+      if (useUIStore.getState().theme !== want) useUIStore.setState({ theme: want });
+    };
+    apply();
+    const timer = themeAuto === "time" ? window.setInterval(apply, 30_000) : undefined;
+    query?.addEventListener("change", apply);
+    document.addEventListener("visibilitychange", apply);
+    return () => {
+      if (timer) window.clearInterval(timer);
+      query?.removeEventListener("change", apply);
+      document.removeEventListener("visibilitychange", apply);
+    };
+  }, [themeAuto, themeDayStart, themeNightStart]);
 
   // Appearance > Roleplay messages > Hide line under names (theme-tokens.css reads the attribute).
   const hideMessageNameRule = useUIStore((s) => s.hideMessageNameRule);

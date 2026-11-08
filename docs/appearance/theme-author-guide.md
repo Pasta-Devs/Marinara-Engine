@@ -280,6 +280,21 @@ Setting any `--mari-chat-*` variable (for example `--mari-chat-bg`, `--mari-chat
 `--mari-chat-radius`, `--mari-chat-font-family`) switches on the matching chat-surface styling by
 itself; users don't need the "Apply preset …" switches for a theme's chat colours to show.
 
+## Day and night
+
+Settings > Appearance > Color Scheme can follow the system or the time of day (Light from 07:00,
+Dark from 19:00 by default, both adjustable). Either way it only switches `data-theme` on `<html>`,
+so a theme gets a day and a night look by styling both:
+
+```css
+:root[data-theme="light"] {
+  --mari-app-backdrop: url("data:image/webp;base64,…day…");
+}
+:root[data-theme="dark"] {
+  --mari-app-backdrop: url("data:image/webp;base64,…night…");
+}
+```
+
 ## Theme files
 
 Export writes one theme as one JSON file:

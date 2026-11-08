@@ -3752,6 +3752,11 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const { t: localizeUi } = useUiTranslation();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
+  const themeAuto = useUIStore((s) => s.themeAuto);
+  const setThemeAuto = useUIStore((s) => s.setThemeAuto);
+  const themeDayStart = useUIStore((s) => s.themeDayStart);
+  const themeNightStart = useUIStore((s) => s.themeNightStart);
+  const setThemeDayHours = useUIStore((s) => s.setThemeDayHours);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
   const rightPanelWidth = useUIStore((state) => state.rightPanelWidth);
@@ -4261,14 +4266,52 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   />
                 </span>
                 <select
-                  value={theme}
-                  onChange={(e) => setTheme(e.target.value as "dark" | "light")}
+                  value={themeAuto === "off" ? theme : themeAuto}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "system" || value === "time") setThemeAuto(value);
+                    else setTheme(value as "dark" | "light");
+                  }}
                   className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
                 >
                   <option value="dark">{localizeUi("ui.panels.appearancesettings.dark")}</option>
                   <option value="light">{localizeUi("ui.panels.appearancesettings.light")}</option>
+                  <option value="system">
+                    {localizeUi("theming.scheme.system", { defaultValue: "Follow system" })}
+                  </option>
+                  <option value="time">
+                    {localizeUi("theming.scheme.time", { defaultValue: "Follow time of day" })}
+                  </option>
                 </select>
               </label>
+              {themeAuto === "time" ? (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs" data-theme-day-hours>
+                  <label className="inline-flex items-center gap-1.5">
+                    {localizeUi("theming.scheme.lightFrom", { defaultValue: "Light from" })}
+                    <input
+                      type="time"
+                      value={themeDayStart}
+                      onChange={(e) => e.target.value && setThemeDayHours(e.target.value, themeNightStart)}
+                      className="rounded-md bg-[var(--secondary)] px-2 py-1 text-xs outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
+                    />
+                  </label>
+                  <label className="inline-flex items-center gap-1.5">
+                    {localizeUi("theming.scheme.darkFrom", { defaultValue: "Dark from" })}
+                    <input
+                      type="time"
+                      value={themeNightStart}
+                      onChange={(e) => e.target.value && setThemeDayHours(themeDayStart, e.target.value)}
+                      className="rounded-md bg-[var(--secondary)] px-2 py-1 text-xs outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
+                    />
+                  </label>
+                  <span className="basis-full text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("theming.scheme.timeHelp", {
+                      defaultValue:
+                        "Switches by this device's clock. Themes that style Dark and Light switch with it. Picking Dark or Light stops it.",
+                    })}
+                  </span>
+                </div>
+              ) : null}
 
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("custom-cursor")}
