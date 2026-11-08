@@ -12,11 +12,11 @@ import {
   CalendarDays,
   CircleHelp,
   FileText,
+  Gamepad2,
   GraduationCap,
   Layers,
   Link,
   MessageCircle,
-  PanelRight,
   Plus,
   Regex,
   Settings2,
@@ -337,7 +337,7 @@ function GamePaneToggle() {
   return (
     <button
       type="button"
-      className={cn("ov-icon-btn", open && "is-on")}
+      className={cn("ov-icon-btn ov-game-pane-toggle", open && "is-on")}
       aria-pressed={open}
       title={
         open ? localizeUi("ui.overhaul.ovgamepane.hideGamePane") : localizeUi("ui.overhaul.gamepanetoggle.showGamePane")
@@ -347,7 +347,7 @@ function GamePaneToggle() {
       }
       onClick={() => setOpen(!open)}
     >
-      <PanelRight size={16} />
+      <Gamepad2 aria-hidden="true" size={16} />
     </button>
   );
 }
