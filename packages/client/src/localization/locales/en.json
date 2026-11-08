@@ -1263,6 +1263,7 @@
   "chat.setupStage.polish.starHint": "New chats start from this profile",
   "chat.setupStage.polish.starIt": "Star it",
   "chat.setupStage.polish.undo": "Undo",
+  "chat.setupStage.readOpening": "Read full opening",
   "chat.setupStage.row.cast": "Cast",
   "chat.setupStage.row.castWithPersona": "{{cast}}, you as {{persona}}",
   "chat.setupStage.row.customPrompt": "Custom prompt",

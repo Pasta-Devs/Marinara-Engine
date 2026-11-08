@@ -55,6 +55,7 @@ import {
 } from "../../lib/chat-lorebooks";
 import { ChatSetupStageMemoryNote } from "./ChatSetupStageMemoryNote";
 import {
+  OpeningEditor,
   parseData,
   readCreatorNotes,
   StageAvatar,
@@ -446,9 +447,9 @@ export function ChatSetupStage({
       .map(
         (id) =>
           agentConfigs?.find((config) => config.type === id)?.name ??
-          BUILT_IN_AGENTS.find((agent) => agent.id === id)?.name ??
-          id,
-      );
+          BUILT_IN_AGENTS.find((agent) => agent.id === id)?.name,
+      )
+      .filter((name): name is string => !!name);
   }, [agentConfigs, chatMeta.activeAgentIds, chatMeta.enableAgents]);
   const helperText = helperNames.length ? listFormat.format(helperNames) : null;
   const look = backgroundLabel(chatBackground);
@@ -683,6 +684,7 @@ export function ChatSetupStage({
   return (
     <section
       data-component="ChatSetupStage"
+      data-poster={!calm || undefined}
       ref={sectionRef}
       data-leaving={leaving || undefined}
       style={
@@ -713,6 +715,8 @@ export function ChatSetupStage({
           tabIndex={-1}
           aria-hidden="true"
           onClick={open("characters")}
+          data-stage-portrait
+          data-stage-group={castAvatars.length > 1 || undefined}
           className={cn(
             "mb-4 flex cursor-pointer -space-x-4 bg-transparent p-0 max-md:my-auto max-md:self-center max-md:-space-x-8 md:mb-5",
             sceneOpen && "max-md:hidden",
@@ -766,6 +770,7 @@ export function ChatSetupStage({
             calm
               ? "text-[32px] md:text-[40px]"
               : "text-[42px] [text-shadow:0_2px_30px_rgba(0,0,0,.45),0_0_46px_color-mix(in_srgb,var(--stage-accent,var(--primary))_26%,transparent)] md:text-[66px]",
+            !calm && title.length > 45 && "md:text-[48px]",
             // Last, so the size classes above do not drop it in tailwind-merge.
             "leading-[1.02]",
           )}
@@ -780,7 +785,9 @@ export function ChatSetupStage({
               "rounded-md",
             )}
           >
-            <span className="max-md:line-clamp-2">{title}</span>
+            <span className="line-clamp-2" title={title}>
+              {title}
+            </span>
           </button>
         </h1>
         {tagline && (
@@ -832,19 +839,19 @@ export function ChatSetupStage({
         </div>
 
         {hasScene && (
-          <div className={cn(!sceneOpen && "max-md:hidden")}>
+          <div className={cn(!sceneOpen && "hidden")}>
             <ChatSetupStageScene chat={chat} first={first} onSetActiveSwipe={onSetActiveSwipe} />
           </div>
         )}
         {(greetingPeek || hasScene) && (
-          <div className="mt-4 flex items-center gap-4 md:hidden">
+          <div className="mt-4 flex items-center gap-4">
             {greetingPeek && (
               <button
                 type="button"
                 onClick={openGreeting}
                 aria-haspopup="dialog"
                 className={cn(
-                  "flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 bg-transparent p-0 text-left text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_86%,transparent)]",
+                  "flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 md:hidden bg-transparent p-0 text-left text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_86%,transparent)]",
                   FOCUS,
                   "rounded-sm",
                 )}
@@ -873,6 +880,13 @@ export function ChatSetupStage({
               </button>
             )}
           </div>
+        )}
+        {!calm && first && (
+          <OpeningEditor
+            inline
+            close={closeEditor}
+            ctx={{ variant, chat, chatMeta, chatCharIds, characterMap, personaInfo, first, onSetActiveSwipe }}
+          />
         )}
         {expanded ? (
           <div
@@ -963,7 +977,7 @@ export function ChatSetupStage({
             </button>
           </p>
         )}
-        {first && (
+        {calm && first && (
           <p className="mb-0 mt-8 flex items-center gap-2 max-md:hidden text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]">
             <button
               type="button"

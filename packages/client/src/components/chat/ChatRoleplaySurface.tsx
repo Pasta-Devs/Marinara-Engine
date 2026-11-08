@@ -2087,7 +2087,7 @@ export function ChatRoleplaySurface({
                   />
                 )}
                 {visibleMessages?.map((msg, i) => {
-                  if (isMessageHiddenFromUser(msg)) return null;
+                  if (setupStage.visible || isMessageHiddenFromUser(msg)) return null;
                   if (
                     isMessageShadowedByLiveStream({
                       hasLiveStream,

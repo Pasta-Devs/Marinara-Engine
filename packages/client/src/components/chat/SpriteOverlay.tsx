@@ -486,6 +486,7 @@ function CharacterSprite({
 
   return (
     <div
+      data-sprite-full-body={renderMode === "full-body" || undefined}
       className={`absolute -translate-x-1/2 -translate-y-full select-none ${editing ? "pointer-events-auto" : "pointer-events-none"}`}
       style={{
         left: `${currentPlacement.x}%`,

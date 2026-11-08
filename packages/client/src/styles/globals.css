@@ -9263,3 +9263,41 @@ html[data-setup-stage]:not([data-setup-stage="leaving"]) .mari-chat-input {
     transform: translateY(-0.45em);
   }
 }
+
+/* Tablet and desktop posters leave the right side for a lone full-body sprite. Phones retain the stacked layout. */
+@media (min-width: 768px) {
+  .mari-setup-stage[data-poster] {
+    width: 52%;
+    max-width: 600px;
+    margin-left: 4%;
+    padding-top: 3rem;
+    padding-bottom: 2rem;
+  }
+  .mari-setup-stage[data-poster] [data-stage-portrait] {
+    position: absolute;
+    left: 115%;
+    top: 8rem;
+  }
+  .mari-setup-stage[data-poster] [data-stage-portrait] > * {
+    width: clamp(160px, 22vw, 300px);
+    height: clamp(160px, 22vw, 300px);
+  }
+  .mari-setup-stage[data-poster] [data-stage-portrait] > span > span {
+    font-size: clamp(48px, 8vw, 100px);
+  }
+  .mari-setup-stage[data-poster] [data-stage-group] > span {
+    width: clamp(76px, 12vw, 150px);
+    height: clamp(76px, 12vw, 150px);
+  }
+  .mari-setup-stage[data-poster] [data-stage-group] > span > span {
+    font-size: clamp(24px, 4vw, 48px);
+  }
+  html[data-setup-stage] [data-sprite-overlay] > [data-sprite-full-body]:only-child {
+    left: 78% !important;
+    top: 92% !important;
+  }
+  html[data-setup-stage] [data-sprite-overlay] > [data-sprite-full-body]:only-child img {
+    height: calc(78dvh * var(--game-sprite-scale)) !important;
+    max-width: 40vw !important;
+  }
+}
