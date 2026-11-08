@@ -73,6 +73,8 @@ import { translate } from "../../localization/i18n";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
 
 // ════════════════════════════════════════════════
 // Types
@@ -1606,7 +1608,7 @@ export function BotBrowserView() {
   const { t: localizeUi } = useUiTranslation();
   const qc = useQueryClient();
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
-  const closeBotBrowser = useUIStore((s) => s.closeBotBrowser);
+  const showsClose = useUIStore(selectShowsSurfaceClose);
 
   const browserRootRef = useRef<HTMLDivElement | null>(null);
   const [sourceId, setSourceId] = useState("chub");
@@ -2358,16 +2360,11 @@ export function BotBrowserView() {
     >
       {/* ═══ Header ═══ */}
       <header className="relative z-10 flex shrink-0 flex-col gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--card)]/85 px-3 py-2 backdrop-blur-xl md:px-6 md:py-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={closeBotBrowser}
+        <div className={cn("flex min-w-0 items-center gap-3", showsClose && "max-lg:pr-12")}>
+          <SurfaceBackButton
             className="mari-chrome-control h-9 w-9 shrink-0 rounded-2xl p-0 md:h-10 md:w-10"
-            title={localizeUi("ui.characters.characterlibraryview.closeLibrary")}
-            aria-label={localizeUi("ui.characters.characterlibraryview.closeLibrary")}
-          >
-            <ArrowLeft size="0.95rem" />
-          </button>
+            iconSize="0.95rem"
+          />
           <div className="min-w-0">
             <p className="text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-[var(--marinara-chat-chrome-panel-muted)]">
               {localizeUi("ui.botBrowser.botbrowserview.cardsLibrary")}
@@ -2456,6 +2453,12 @@ export function BotBrowserView() {
             </span>
           )}
         </div>
+        <SurfaceCloseButton
+          className="absolute right-3 top-2 md:right-6 md:top-3 lg:static lg:self-start"
+          buttonClassName="mari-chrome-control h-9 w-9 shrink-0 rounded-2xl p-0 md:h-10 md:w-10"
+          iconSize="0.95rem"
+          dividerClassName="max-lg:hidden"
+        />
       </header>
 
       <div className="flex flex-1 overflow-hidden">

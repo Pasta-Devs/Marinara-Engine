@@ -52,7 +52,6 @@ import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import {
-  ArrowLeft,
   Save,
   BookOpen,
   FileText,
@@ -122,6 +121,8 @@ import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mar
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 
 // ──────────────────────────────────────────────
 // Folder collapse state lives in localStorage — purely a UI preference, not
@@ -2178,14 +2179,12 @@ export function LorebookEditor() {
           {/* Header */}
           <div className="mari-editor-header mari-editor-header--with-nav">
             <div className="mari-editor-header-main">
-              <button
+              <SurfaceBackButton
                 onClick={handleClose}
                 disabled={saving}
-                aria-label={t("navigation.common.back")}
+                iconSize="1rem"
                 className="mari-editor-action inline-flex disabled:opacity-50"
-              >
-                <ArrowLeft size="1rem" />
-              </button>
+              />
               <div className="mari-editor-icon-tile">
                 <BookOpen size="1.125rem" />
               </div>
@@ -2259,6 +2258,7 @@ export function LorebookEditor() {
                 <Trash2 size="0.875rem" />
               </button>
             </div>
+            <SurfaceCloseButton disabled={saving} dividerClassName="" />
           </div>
 
           {/* Body */}

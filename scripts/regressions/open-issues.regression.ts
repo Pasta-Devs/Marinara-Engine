@@ -6071,8 +6071,8 @@ assert.match(
 );
 assert.match(
   conversationGroupSettingsSource,
-  /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\)\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
-  "Long-Term Memory settings navigation must wait for the guarded drawer close",
+  /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\) \{\s+rememberSettingsReturn\(\);\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
+  "Long-Term Memory settings navigation must wait for the guarded drawer close, then record the Chat Settings return",
 );
 assert.match(
   conversationPresenceSource,
@@ -9519,7 +9519,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(
     chatSettingsSource,
-    /const openLorebookFromSettings = useCallback\([\s\S]{0,220}onClose\(\);[\s\S]{0,80}openLorebookDetail\(lorebookId\);/u,
+    /const openLorebookFromSettings = useCallback\([\s\S]{0,220}closeForSurface\(\);[\s\S]{0,80}openLorebookDetail\(lorebookId\);/u,
     "Opening linked Maps lore from Chat Settings must close the drawer before navigating",
   );
   assert.equal(
@@ -10902,7 +10902,7 @@ assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!stor
     "utf8",
   );
   const cardOpens = drawerSource.match(
-    /void requestClose\(false\)\.then\(\(closed\) => \{\s*if \(closed\) useUIStore\.getState\(\)\.openCharacterDetail\(c\.id, \{ initialTab: "card" \}\);/gu,
+    /void requestClose\(false\)\.then\(\(closed\) => \{\s*if \(closed\) \{\s*rememberSettingsReturn\(\);\s*useUIStore\.getState\(\)\.openCharacterDetail\(c\.id, \{ initialTab: "card" \}\);/gu,
   );
   assert.equal(cardOpens?.length, 2, "both member-name buttons open the card after a guarded, unforced close");
   assert.match(

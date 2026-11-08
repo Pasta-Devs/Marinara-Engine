@@ -1358,19 +1358,28 @@ export function ChatSettingsDrawer({
     setSettingsTab("generations");
     openRightPanel("settings");
   }, [openRightPanel, setSettingsTab]);
-  const openDownloadAgents = useCallback(() => {
+  // A full-page surface opened from this drawer: Back from it reopens the drawer (see `chatSettingsReturn`).
+  const rememberSettingsReturn = useCallback(
+    () => useUIStore.getState().setChatSettingsReturn({ chatId: chat.id, section: initialSection ?? null }),
+    [chat.id, initialSection],
+  );
+  const closeForSurface = useCallback(() => {
+    rememberSettingsReturn();
     onClose();
+  }, [onClose, rememberSettingsReturn]);
+  const openDownloadAgents = useCallback(() => {
+    closeForSurface();
     openRightPanel("agents");
     openAgentCatalog();
-  }, [onClose, openAgentCatalog, openRightPanel]);
+  }, [closeForSurface, openAgentCatalog, openRightPanel]);
   const refreshLorebooks = useCallback(() => qc.invalidateQueries({ queryKey: lorebookKeys.all }), [qc]);
   const openLorebookFromSettings = useCallback(
     (lorebookId: string) => {
       void refreshLorebooks();
-      onClose();
+      closeForSurface();
       openLorebookDetail(lorebookId);
     },
-    [onClose, openLorebookDetail, refreshLorebooks],
+    [closeForSurface, openLorebookDetail, refreshLorebooks],
   );
   const inactiveCharacterIds = useMemo<string[]>(
     () =>
@@ -3651,7 +3660,10 @@ export function ChatSettingsDrawer({
             },
             onOpenAgentSettings: () => {
               void requestClose().then((closed) => {
-                if (closed) useUIStore.getState().openAgentDetail("long-term-memory");
+                if (closed) {
+                  rememberSettingsReturn();
+                  useUIStore.getState().openAgentDetail("long-term-memory");
+                }
               });
             },
             onDirtyChange: setEditorDirty,
@@ -3665,7 +3677,7 @@ export function ChatSettingsDrawer({
           <StoryboardChatSettingsPanel
             chatId={chat.id}
             metadata={metadata as Record<string, unknown>}
-            onClose={onClose}
+            onClose={closeForSurface}
             ownerMode="roleplay"
           />
         </Suspense>
@@ -3677,7 +3689,10 @@ export function ChatSettingsDrawer({
             chatId={chat.id}
             onOpenAgentSettings={() => {
               void requestClose().then((closed) => {
-                if (closed) useUIStore.getState().openAgentDetail("beholder");
+                if (closed) {
+                  rememberSettingsReturn();
+                  useUIStore.getState().openAgentDetail("beholder");
+                }
               });
             }}
           />
@@ -3884,6 +3899,7 @@ export function ChatSettingsDrawer({
     setShowToolPicker(false);
     setPendingToolIds([]);
     setToolSearch("");
+    rememberSettingsReturn();
     openToolDetail("__new__");
     onClose();
   };
@@ -5188,7 +5204,7 @@ export function ChatSettingsDrawer({
             <button
               type="button"
               onClick={() => {
-                onClose();
+                closeForSurface();
                 const ui = useUIStore.getState();
                 ui.openRightPanel("agents");
                 ui.openAgentDetail("__new__");
@@ -6156,7 +6172,10 @@ export function ChatSettingsDrawer({
                               type="button"
                               onClick={() => {
                                 void requestClose(false).then((closed) => {
-                                  if (closed) useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                                  if (closed) {
+                                    rememberSettingsReturn();
+                                    useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                                  }
                                 });
                               }}
                               className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
@@ -6486,7 +6505,10 @@ export function ChatSettingsDrawer({
                             data-drag-surface
                             onClick={() => {
                               void requestClose(false).then((closed) => {
-                                if (closed) useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                                if (closed) {
+                                  rememberSettingsReturn();
+                                  useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                                }
                               });
                             }}
                             className="flex items-center gap-2.5 min-w-0 flex-1 text-left transition-colors hover:opacity-80"
@@ -7585,7 +7607,10 @@ export function ChatSettingsDrawer({
                             },
                             onOpenAgentSettings: () => {
                               void requestClose().then((closed) => {
-                                if (closed) useUIStore.getState().openAgentDetail("long-term-memory");
+                                if (closed) {
+                                  rememberSettingsReturn();
+                                  useUIStore.getState().openAgentDetail("long-term-memory");
+                                }
                               });
                             },
                             onDirtyChange: setEditorDirty,
@@ -8549,7 +8574,7 @@ export function ChatSettingsDrawer({
                             <div className="flex w-full min-w-0 flex-col items-stretch gap-1.5 @lg:w-auto @lg:shrink-0 @lg:flex-row @lg:items-center">
                               <AgentSettingsActionButton
                                 onClick={() => {
-                                  onClose();
+                                  closeForSurface();
                                   useUIStore.getState().openAgentDetail("lorebook-keeper");
                                 }}
                                 className="!h-8 !min-h-8 w-full whitespace-nowrap !py-0 @lg:w-auto"
@@ -8643,7 +8668,7 @@ export function ChatSettingsDrawer({
                             </p>
                             <AgentSettingsActionButton
                               onClick={() => {
-                                onClose();
+                                closeForSurface();
                                 useUIStore.getState().openAgentDetail("card-evolution-auditor");
                               }}
                               variant="primary"
@@ -8946,7 +8971,7 @@ export function ChatSettingsDrawer({
                               };
                             })}
                             onOpenOwner={(kind, id) => {
-                              onClose();
+                              closeForSurface();
                               if (kind === "persona") {
                                 useUIStore.getState().openPersonaDetail(id);
                               } else {
@@ -9009,7 +9034,7 @@ export function ChatSettingsDrawer({
                             </p>
                             <AgentSettingsActionButton
                               onClick={() => {
-                                onClose();
+                                closeForSurface();
                                 useUIStore.getState().openAgentDetail("echo-chamber");
                               }}
                               className="shrink-0"
@@ -9167,7 +9192,7 @@ export function ChatSettingsDrawer({
                             </p>
                             <AgentSettingsActionButton
                               onClick={() => {
-                                onClose();
+                                closeForSurface();
                                 useUIStore.getState().openAgentDetail("illustrator");
                               }}
                               className="shrink-0"
@@ -9702,6 +9727,7 @@ export function ChatSettingsDrawer({
                                             onOpenAgentSettings: () => {
                                               void requestClose().then((closed) => {
                                                 if (closed) {
+                                                  rememberSettingsReturn();
                                                   useUIStore.getState().openAgentDetail("long-term-memory");
                                                 }
                                               });
@@ -9726,7 +9752,7 @@ export function ChatSettingsDrawer({
                                           <StoryboardChatSettingsPanel
                                             chatId={chat.id}
                                             metadata={metadata as Record<string, unknown>}
-                                            onClose={onClose}
+                                            onClose={closeForSurface}
                                             ownerMode="game"
                                           />
                                         </Suspense>

@@ -3683,7 +3683,7 @@ test("Character favorite tags and stars inherit the configured accent color", as
     await expect(favoriteToggle).toHaveAttribute("data-favorite", "true");
     await expect(favoriteToggle).toHaveCSS("color", accentColor);
     expect(await favoriteToggle.getAttribute("class")).not.toMatch(/amber|yellow/iu);
-    await editor.getByTitle("Back", { exact: true }).click();
+    await editor.getByTitle(/^Back to/).click();
 
     await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
@@ -14642,7 +14642,7 @@ test("Character and Persona panels launch card downloads and their local librari
     expect(sourceMenuRight).toBeLessThanOrEqual(browserBox!.x + browserBox!.width);
   }
   await page.getByRole("button", { name: "Close provider menu" }).click();
-  const closeCardLibrary = cardLibrary.getByRole("button", { name: "Close library" });
+  const closeCardLibrary = cardLibrary.getByRole("button", { name: /^Back to/ });
   await expect(closeCardLibrary).toBeVisible();
   await closeCardLibrary.click();
 
@@ -14669,7 +14669,7 @@ test("Character and Persona panels launch card downloads and their local librari
     body: await page.screenshot({ fullPage: true }),
     contentType: "image/png",
   });
-  await characterLibrary.getByTitle("Close library").click();
+  await characterLibrary.getByRole("button", { name: /^Back to/ }).click();
 
   await clickTopbarPanel(page, "personas");
   const personaActions = page.locator('[data-component="PersonaLibraryActions"]');
@@ -17478,7 +17478,7 @@ test("Roleplay and Game chat settings link empty agent libraries to Download Age
       const catalog = page.locator('[data-component="AgentCatalogView"]');
       await expect(catalog).toBeVisible();
       await expect(page.locator('[data-component="RightPanelDesktop"]')).toBeVisible();
-      await catalog.getByRole("button", { name: "Back to Agents" }).click();
+      await catalog.getByRole("button", { name: /^Back to/ }).click();
       await expect(catalog).toHaveCount(0);
     }
     expect(errors).toEqual([]);
