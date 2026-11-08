@@ -161,9 +161,20 @@
    picture does. A theme can restyle the plate (--mari-top-bar-plate), not remove the controls. */
 :root[data-mari-top-bar-art]
   [data-component="TopBar"]
-  :is([role="tab"], button, a):not([aria-selected="true"], [aria-pressed="true"], .is-active) {
+  :is([role="tab"], button, a, .ov-tab, .ov-mark):not([aria-selected="true"], [aria-pressed="true"], .is-active) {
   background-color: var(--mari-top-bar-plate, color-mix(in srgb, var(--background) 78%, transparent));
-  border-radius: 0.5rem;
+  border-radius: var(--mari-top-bar-plate-radius, 0.5rem);
+}
+/* An open chat tab is one plate: its title and close buttons sit on it, not on plates of their own. */
+:root[data-mari-top-bar-art]
+  [data-component="TopBar"]
+  .ov-tab
+  > :is(button, a):not([aria-selected="true"], [aria-pressed="true"], .is-active) {
+  background-color: transparent;
+}
+/* The logo is a picture, not a button: its plate reaches out to the size of the icon buttons. */
+:root[data-mari-top-bar-art] [data-component="TopBar"] .ov-mark {
+  box-shadow: 0 0 0 0.25rem var(--mari-top-bar-plate, color-mix(in srgb, var(--background) 78%, transparent));
 }
 
 /* Appearance > Hide line under names: the user's choice beats a theme's line (important in a layer
@@ -232,7 +243,9 @@
 :root[data-mari-icon-send] [data-mari-part="composer"] svg:is(.lucide-send, .lucide-send-horizontal) {
   background-image: var(--mari-icon-send);
 }
-:root[data-mari-icon-stop] [data-mari-part="composer"] svg:is(.lucide-circle-stop, .lucide-stop-circle, .lucide-square) {
+:root[data-mari-icon-stop]
+  [data-mari-part="composer"]
+  svg:is(.lucide-circle-stop, .lucide-stop-circle, .lucide-square) {
   background-image: var(--mari-icon-stop);
 }
 :root[data-mari-icon-attach] [data-mari-part="composer"] svg.lucide-paperclip {
@@ -247,11 +260,26 @@
   cursor: var(--mari-cursor) !important;
 }
 :root[data-mari-theme-cursor]
-  :is(a[href], button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], summary, label, select, .cursor-pointer) {
+  :is(
+    a[href],
+    button,
+    [role="button"],
+    [role="tab"],
+    [role="menuitem"],
+    [role="option"],
+    summary,
+    label,
+    select,
+    .cursor-pointer
+  ) {
   cursor: var(--mari-cursor-pointer, var(--mari-cursor)) !important;
 }
 :root[data-mari-theme-cursor]
-  :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="color"], [type="file"]), textarea, [contenteditable="true"]) {
+  :is(
+    input:not([type="range"], [type="checkbox"], [type="radio"], [type="color"], [type="file"]),
+    textarea,
+    [contenteditable="true"]
+  ) {
   cursor: text !important;
 }
 
