@@ -1741,7 +1741,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     >
       <div
         className={cn(
-          "flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--marinara-home-page-wash)]",
+          "mari-home-page flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--marinara-home-page-wash)]",
           !browserFullscreen && "border border-[var(--border)]/75 shadow-2xl shadow-black/25 sm:rounded-xl",
         )}
         data-browser-fullscreen={browserFullscreen ? "" : undefined}

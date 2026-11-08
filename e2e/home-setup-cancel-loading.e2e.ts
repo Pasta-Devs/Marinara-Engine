@@ -659,7 +659,7 @@ for (const themeMode of ["dark", "light"] as const) {
         rightPanelOpen: false,
         appAccentPulseMode: false,
         theme: themeMode,
-        appBackgroundColor: "#34392e",
+        uiStyleOverrides: { app: { background: "#34392e" } },
       },
       "merge",
     );

@@ -14014,7 +14014,7 @@ test("Mobile Roleplay quick picker matches the character selector surface", asyn
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
         const ui = useUIStore.getState();
         ui.setTheme(theme === "light" ? "light" : "dark");
-        ui.setAppBackgroundColor(theme === "custom" ? "#0b1920" : "");
+        ui.saveUiStyleOverride("app", theme === "custom" ? { background: "#0b1920" } : null);
         ui.setChatChromeTextColor(theme === "custom" ? "#22d3ee" : "");
       }, theme);
       await page.getByTitle("Trigger character response", { exact: true }).click();
@@ -22822,7 +22822,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().setTheme("dark");
       useUIStore.getState().setVisualTheme("default");
-      useUIStore.getState().setAppBackgroundColor("");
+      useUIStore.getState().saveUiStyleOverride("app", null);
     });
     await page.locator("html").evaluate((element) => {
       element.style.setProperty("--mari-safe-area-inset-bottom", "34px");
@@ -23236,18 +23236,18 @@ test("mobile chat composer follows the visual viewport above the software keyboa
       const { useUIStore } = (await import(/* @vite-ignore */ storePath)) as {
         useUIStore: {
           getState: () => {
-            setAppBackgroundColor: (color: string) => void;
+            saveUiStyleOverride: (target: "app", override: { background: string } | null) => void;
             setVisualTheme: (theme: "default" | "sillytavern") => void;
           };
         };
       };
-      useUIStore.getState().setAppBackgroundColor("#123456");
+      useUIStore.getState().saveUiStyleOverride("app", { background: "#123456" });
     });
     await expect(topbar).not.toHaveCSS("background-color", defaultBacking);
     const customSolidBacking = await expectMatchingMobileBacking();
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-      useUIStore.getState().setAppBackgroundColor("linear-gradient(135deg, #345678, #987654)");
+      useUIStore.getState().saveUiStyleOverride("app", { background: "linear-gradient(135deg, #345678, #987654)" });
     });
     await expect(topbar).not.toHaveCSS("background-color", customSolidBacking);
     const gradientBacking = await expectMatchingMobileBacking();
@@ -23258,7 +23258,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
       const { useUIStore } = (await import(/* @vite-ignore */ storePath)) as {
         useUIStore: {
           getState: () => {
-            setAppBackgroundColor: (color: string) => void;
+            saveUiStyleOverride: (target: "app", override: { background: string } | null) => void;
             setVisualTheme: (theme: "default" | "sillytavern") => void;
           };
         };
@@ -23267,7 +23267,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
       style.id = "marinara-safe-area-theme-smoke";
       style.textContent = 'html[data-visual-theme="sillytavern"][data-theme] { --background: rgb(101, 67, 33); }';
       document.head.appendChild(style);
-      useUIStore.getState().setAppBackgroundColor("");
+      useUIStore.getState().saveUiStyleOverride("app", null);
       useUIStore.getState().setVisualTheme("sillytavern");
     });
     await expect(page.locator("html")).toHaveAttribute("data-visual-theme", "sillytavern");
@@ -23374,7 +23374,7 @@ test("page backing keeps the app running when the browser refuses canvas reads",
   await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
   await page.evaluate(async () => {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-    useUIStore.getState().setAppBackgroundColor("#234567");
+    useUIStore.getState().saveUiStyleOverride("app", { background: "#234567" });
   });
   await expect(page.getByText("Marinara hit a recoverable UI error.")).toHaveCount(0);
   // Without the canvas, the backing keeps the theme's own background color, unflattened.

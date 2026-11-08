@@ -11,7 +11,6 @@ import {
   RIGHT_PANEL_WIDTH_MIN,
   RIGHT_PANEL_WIDTH_MAX,
   getDefaultAppAccentColor,
-  getDefaultAppBackgroundColor,
   getDefaultChatChromeTextColor,
   getDefaultChatTextColor,
   getTrackerPanelWidthForProfile,
@@ -196,6 +195,7 @@ import {
   ToggleSetting,
 } from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
+import { UiStyleSettings } from "./settings/UiStyleSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
 import { AccessStatusSettings, AdminSecretMaker } from "./settings/AccessStatusSettings";
@@ -3466,8 +3466,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
   const rightPanelWidth = useUIStore((state) => state.rightPanelWidth);
   const setRightPanelWidth = useUIStore((state) => state.setRightPanelWidth);
-  const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
-  const setAppBackgroundColor = useUIStore((s) => s.setAppBackgroundColor);
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const setAppAccentColor = useUIStore((s) => s.setAppAccentColor);
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
@@ -3478,9 +3476,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setCustomCursorEnabled = useUIStore((s) => s.setCustomCursorEnabled);
   const reduceAmbientEffects = useUIStore((s) => s.reduceAmbientEffects);
   const setReduceAmbientEffects = useUIStore((s) => s.setReduceAmbientEffects);
-  const defaultAppBackgroundColor = getDefaultAppBackgroundColor(theme);
-  const displayedAppBackgroundColor =
-    appBackgroundColor.trim().toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : appBackgroundColor;
   const defaultAppAccentColor = getDefaultAppAccentColor();
   const displayedAppAccentColor =
     appAccentColor.trim().toLowerCase() === defaultAppAccentColor.toLowerCase() ? "" : appAccentColor;
@@ -3532,13 +3527,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
       );
     }
   };
-  const handleAppBackgroundColorChange = useCallback(
-    (color: string) => {
-      const normalized = color.trim();
-      setAppBackgroundColor(normalized.toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : normalized);
-    },
-    [defaultAppBackgroundColor, setAppBackgroundColor],
-  );
   const handleAppAccentColorChange = useCallback(
     (color: string) => {
       const normalized = color.trim();
@@ -3965,24 +3953,13 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 help={localizeUi("settings.controls.reduceAmbientEffects.help")}
               />
 
-              <SearchableSettingTarget controlId="app-background-color">
-                <ColorPicker
-                  value={displayedAppBackgroundColor}
-                  onChange={handleAppBackgroundColorChange}
-                  gradient
-                  compact
-                  label={localizeUi("settings.controls.backgroundColor.label")}
-                  helpText="Colors the main app shell background. Leave it on the scheme default to follow Dark and Light mode automatically. Gradients are supported for the shell paint."
-                  emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
-                    value1: defaultAppBackgroundColor,
-                  })}
-                  emptyPreviewValue={defaultAppBackgroundColor}
-                  clearLabel="Reset to default"
-                />
+              <SearchableSettingTarget controlId="ui-element-styles">
+                <UiStyleSettings />
               </SearchableSettingTarget>
 
               <SearchableSettingTarget controlId="app-accent-color">
                 <ColorPicker
+                  opacity={false}
                   value={displayedAppAccentColor}
                   onChange={handleAppAccentColorChange}
                   gradient

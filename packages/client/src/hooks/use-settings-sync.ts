@@ -25,6 +25,7 @@ import { api } from "../lib/api-client";
 import { translate } from "../localization/i18n";
 import { normalizeConversationTimeZone } from "../lib/conversation-time-zone";
 import { normalizeApprovedRemoteImageUrls } from "../lib/remote-images";
+import { foldAppBackgroundColor, normalizeUiStyleOverrides, normalizeUiStylePresets } from "../lib/ui-style-overrides";
 import { normalizeChatWidgetFont } from "../lib/font-family";
 import {
   normalizeChatWidgetColor,
@@ -45,6 +46,7 @@ import {
   normalizeRoleplayChatWidthPercent,
   normalizeOmnibarWindowWidthRem,
   normalizeOmnibarWindowHeightRem,
+  normalizeAppBackgroundColor,
   pickSyncedSettings,
   useUIStore,
 } from "../stores/ui.store";
@@ -99,6 +101,12 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
   }
   if ("omnibarWindowHeightRem" in sanitized) {
     sanitized.omnibarWindowHeightRem = normalizeOmnibarWindowHeightRem(sanitized.omnibarWindowHeightRem);
+  }
+  if ("uiStyleOverrides" in sanitized) {
+    sanitized.uiStyleOverrides = normalizeUiStyleOverrides(sanitized.uiStyleOverrides);
+  }
+  if ("uiStylePresets" in sanitized) {
+    sanitized.uiStylePresets = normalizeUiStylePresets(sanitized.uiStylePresets);
   }
   return sanitized;
 }
@@ -276,6 +284,19 @@ export function useSettingsSync() {
               // corrected value back to the server; without it the stale array survives
               // and re-arrives on every other device.
               let staleSyncedShape = false;
+              // Background Color became the Whole app part (persist v105). A blob written before that, or by
+              // an older client, still carries it: fold it in, as `migrate` does locally, and rewrite the blob.
+              // A value the part cannot hold stays put (App.tsx still paints it), so it is not rewritten.
+              if (parsed.settings.appBackgroundColor) {
+                const folded = foldAppBackgroundColor(
+                  normalizeAppBackgroundColor(parsed.settings.appBackgroundColor),
+                  parsed.settings.uiStyleOverrides ?? useUIStore.getState().uiStyleOverrides,
+                );
+                if (!folded.appBackgroundColor) {
+                  Object.assign(parsed.settings, folded);
+                  staleSyncedShape = true;
+                }
+              }
               if ("trackerPanelSectionOrder" in parsed.settings) {
                 const normalizedOrder = normalizeTrackerPanelSectionOrder(parsed.settings.trackerPanelSectionOrder);
                 if (!Array.isArray(parsed.settings.trackerPanelSectionOrder)) {
