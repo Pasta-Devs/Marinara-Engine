@@ -59,6 +59,7 @@ import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-lo
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
+import { splitDragProps } from "./split-view";
 // Its own chunk, so the app shell stays under the bundle budget.
 const DesktopTabStrip = lazy(() => import("./DesktopTabStrip").then((module) => ({ default: module.DesktopTabStrip })));
 
@@ -81,6 +82,71 @@ const MODE_DOT: Record<string, string> = {
   game: "var(--ov-mode-game)",
 };
 
+type CurrentTabInputs = {
+  activeChatId: string | null;
+  characterDetailId: string | null;
+  personaDetailId: string | null;
+  lorebookDetailId: string | null;
+  presetDetailId: string | null;
+  connectionDetailId: string | null;
+  agentDetailId: string | null;
+  regexDetailId: string | null;
+  toolDetailId: string | null;
+  characterLibraryOpen: boolean;
+  cardLibraryKind: string;
+  libraryPage: LibrarySection | null;
+  activeDocsTab: string | null;
+  activeMari: boolean;
+  activeSchedules: boolean;
+  activeApp: string | null;
+};
+
+function currentTabFrom(v: CurrentTabInputs): OverhaulTab | null {
+  const real = (id: string | null | undefined) => (id && id !== "__new__" ? id : null);
+  if (v.activeSchedules) return { kind: "schedules", id: "main" };
+  if (v.activeMari) return { kind: "mari", id: "main" };
+  if (v.activeDocsTab) return { kind: "docs", id: v.activeDocsTab };
+  // Regex scripts, Connections and Agents open in one viewer per section, so they share its Library tab.
+  if (v.regexDetailId) return { kind: "library", id: "regex" };
+  if (v.toolDetailId) return { kind: "library", id: "tools" };
+  if (real(v.personaDetailId)) return { kind: "persona", id: v.personaDetailId! };
+  if (v.agentDetailId) return { kind: "library", id: "agents" };
+  if (v.connectionDetailId) return { kind: "library", id: "connections" };
+  if (real(v.presetDetailId)) return { kind: "preset", id: v.presetDetailId! };
+  if (real(v.characterDetailId)) return { kind: "character", id: v.characterDetailId! };
+  if (v.characterLibraryOpen)
+    return { kind: "library", id: v.cardLibraryKind === "personas" ? "personas" : "characters" };
+  if (real(v.lorebookDetailId)) return { kind: "lorebook", id: v.lorebookDetailId! };
+  if (v.libraryPage) return { kind: "library", id: v.libraryPage };
+  if (v.activeChatId) return { kind: "chat", id: v.activeChatId };
+  if (v.activeApp) return { kind: "app", id: v.activeApp };
+  return null;
+}
+
+/** The page on screen right now, read outside React (split view uses it when a drop lands). */
+export function currentTabNow(): OverhaulTab | null {
+  const ui = useUIStore.getState();
+  const overhaul = useOverhaulStore.getState();
+  return currentTabFrom({
+    activeChatId: useChatStore.getState().activeChatId,
+    characterDetailId: ui.characterDetailId,
+    personaDetailId: ui.personaDetailId,
+    lorebookDetailId: ui.lorebookDetailId,
+    presetDetailId: ui.presetDetailId,
+    connectionDetailId: ui.connectionDetailId,
+    agentDetailId: ui.agentDetailId,
+    regexDetailId: ui.regexDetailId,
+    toolDetailId: ui.toolDetailId,
+    characterLibraryOpen: ui.characterLibraryOpen,
+    cardLibraryKind: ui.cardLibraryKind,
+    libraryPage: overhaul.libraryPage,
+    activeDocsTab: overhaul.activeDocsTab,
+    activeMari: overhaul.activeMari,
+    activeSchedules: overhaul.activeSchedules,
+    activeApp: overhaul.activeApp,
+  });
+}
+
 /** The editor or chat on screen right now, as a tab; null on Home. */
 export function useCurrentTab(): OverhaulTab | null {
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -99,44 +165,45 @@ export function useCurrentTab(): OverhaulTab | null {
   const activeMari = useOverhaulStore((s) => s.activeMari);
   const activeSchedules = useOverhaulStore((s) => s.activeSchedules);
   const activeApp = useOverhaulStore((s) => s.activeApp);
-  return useMemo(() => {
-    const real = (id: string | null | undefined) => (id && id !== "__new__" ? id : null);
-    if (activeSchedules) return { kind: "schedules", id: "main" };
-    if (activeMari) return { kind: "mari", id: "main" };
-    if (activeDocsTab) return { kind: "docs", id: activeDocsTab };
-    // Regex scripts, Connections and Agents open in one viewer per section, so they share its Library tab.
-    if (regexDetailId) return { kind: "library", id: "regex" };
-    if (toolDetailId) return { kind: "library", id: "tools" };
-    if (real(personaDetailId)) return { kind: "persona", id: personaDetailId! };
-    if (agentDetailId) return { kind: "library", id: "agents" };
-    if (connectionDetailId) return { kind: "library", id: "connections" };
-    if (real(presetDetailId)) return { kind: "preset", id: presetDetailId! };
-    if (real(characterDetailId)) return { kind: "character", id: characterDetailId! };
-    if (characterLibraryOpen)
-      return { kind: "library", id: cardLibraryKind === "personas" ? "personas" : "characters" };
-    if (real(lorebookDetailId)) return { kind: "lorebook", id: lorebookDetailId! };
-    if (libraryPage) return { kind: "library", id: libraryPage };
-    if (activeChatId) return { kind: "chat", id: activeChatId };
-    if (activeApp) return { kind: "app", id: activeApp };
-    return null;
-  }, [
-    activeApp,
-    activeChatId,
-    activeDocsTab,
-    activeMari,
-    activeSchedules,
-    agentDetailId,
-    cardLibraryKind,
-    characterDetailId,
-    characterLibraryOpen,
-    connectionDetailId,
-    libraryPage,
-    lorebookDetailId,
-    personaDetailId,
-    presetDetailId,
-    regexDetailId,
-    toolDetailId,
-  ]);
+  return useMemo(
+    () =>
+      currentTabFrom({
+        activeChatId,
+        characterDetailId,
+        personaDetailId,
+        lorebookDetailId,
+        presetDetailId,
+        connectionDetailId,
+        agentDetailId,
+        regexDetailId,
+        toolDetailId,
+        characterLibraryOpen,
+        cardLibraryKind,
+        libraryPage,
+        activeDocsTab,
+        activeMari,
+        activeSchedules,
+        activeApp,
+      }),
+    [
+      activeApp,
+      activeChatId,
+      activeDocsTab,
+      activeMari,
+      activeSchedules,
+      agentDetailId,
+      cardLibraryKind,
+      characterDetailId,
+      characterLibraryOpen,
+      connectionDetailId,
+      libraryPage,
+      lorebookDetailId,
+      personaDetailId,
+      presetDetailId,
+      regexDetailId,
+      toolDetailId,
+    ],
+  );
 }
 
 export function goHome() {
@@ -325,7 +392,7 @@ export function TabPresence({ tab, chats }: { tab: OverhaulTab; chats: Chat[] })
 }
 
 /** Game chats: show or hide the right game pane (Party, Inventory, Journal, Map, Sessions). */
-function GamePaneToggle() {
+export function GamePaneToggle() {
   const { t: localizeUi } = useUiTranslation();
   const paneOpen = useOverhaulStore((state) => state.gamePaneOpen);
   const madeRoom = useOverhaulStore((state) => state.gamePaneMadeRoom);
@@ -633,6 +700,11 @@ export function OverhaulTopBar() {
             onClick={() => useUIStore.getState().openModal("docs-viewer")}
             title={localize("Docs")}
             data-tour="docs-button"
+            {...splitDragProps(() => ({
+              kind: "docs",
+              id: "main",
+              path: useOverhaulStore.getState().docsTabs.main ?? null,
+            }))}
           >
             <span aria-hidden="true">📖</span>
             <span>{localize("Docs")}</span>

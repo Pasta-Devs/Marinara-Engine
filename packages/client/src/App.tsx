@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Translation } from "react-i18next";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
+import { SPLIT_PANE } from "./lib/split-view-env";
 import { ThemeSafetyHost } from "./components/layout/ThemeSafetyHost";
 import { useThemeSafetyStore } from "./lib/theme-safety";
 import { applyAccessibilityCss } from "./lib/accessibility-css";
@@ -1434,10 +1435,11 @@ export function App() {
       <CustomThemeInjector />
       <ThemeSafetyHost />
       <PersonalExtensionInjector />
-      <ChibiProfessorMariEasterEgg />
+      {SPLIT_PANE ? null : <ChibiProfessorMariEasterEgg />}
       <Suspense fallback={null}>
         <LazyAppShell
           chatWindowIntroAllowed={
+            !SPLIT_PANE &&
             whatsNewResolved &&
             !hasModalOpen &&
             !hasAppDialogOpen &&
@@ -1452,51 +1454,56 @@ export function App() {
           onChatWindowIntroOpenChange={setChatWindowIntroOpen}
         />
       </Suspense>
-      <WhatsNewModal
-        presentationAllowed={!hasModalOpen && !hasAppDialogOpen && (isLite || !showDownloadModal)}
-        onOpenChange={setWhatsNewOpen}
-        onResolved={handleWhatsNewResolved}
-      />
-      <StorageMigrationNoticeModal
-        presentationAllowed={
-          whatsNewResolved && !hasModalOpen && !hasAppDialogOpen && !whatsNewOpen && (isLite || !showDownloadModal)
-        }
-      />
-      <AgentUpdatePrompter
-        onOpenChange={setAgentUpdateOpen}
-        onResolved={handleAgentUpdatesResolved}
-        presentationAllowed={
-          whatsNewResolved &&
-          !hasModalOpen &&
-          !hasAppDialogOpen &&
-          !whatsNewOpen &&
-          !migrationNoticePending &&
-          !migrationNotice &&
-          !chatWindowIntroOpen &&
-          !seasonalGreetingOpen &&
-          (isLite || !showDownloadModal)
-        }
-      />
-      <SeasonalGreetingModal
-        themeId={seasonal.themeId}
-        pending={seasonal.showGreeting}
-        onShown={seasonal.markGreeted}
-        onTurnOff={seasonal.turnOff}
-        onOpenChange={setSeasonalGreetingOpen}
-        presentationAllowed={
-          whatsNewResolved &&
-          !hasModalOpen &&
-          !hasAppDialogOpen &&
-          !whatsNewOpen &&
-          !migrationNoticePending &&
-          !migrationNotice &&
-          agentUpdatesResolved &&
-          !agentUpdateOpen &&
-          !chatWindowIntroOpen &&
-          (isLite || !showDownloadModal)
-        }
-      />
-      {!isLite && <ModelDownloadModal open={showDownloadModal} onClose={() => setShowDownloadModal(false)} />}
+      {/* Split view: the second side leaves What's new, notices and downloads to the main window. */}
+      {SPLIT_PANE ? null : (
+        <>
+          <WhatsNewModal
+            presentationAllowed={!hasModalOpen && !hasAppDialogOpen && (isLite || !showDownloadModal)}
+            onOpenChange={setWhatsNewOpen}
+            onResolved={handleWhatsNewResolved}
+          />
+          <StorageMigrationNoticeModal
+            presentationAllowed={
+              whatsNewResolved && !hasModalOpen && !hasAppDialogOpen && !whatsNewOpen && (isLite || !showDownloadModal)
+            }
+          />
+          <AgentUpdatePrompter
+            onOpenChange={setAgentUpdateOpen}
+            onResolved={handleAgentUpdatesResolved}
+            presentationAllowed={
+              whatsNewResolved &&
+              !hasModalOpen &&
+              !hasAppDialogOpen &&
+              !whatsNewOpen &&
+              !migrationNoticePending &&
+              !migrationNotice &&
+              !chatWindowIntroOpen &&
+              !seasonalGreetingOpen &&
+              (isLite || !showDownloadModal)
+            }
+          />
+          <SeasonalGreetingModal
+            themeId={seasonal.themeId}
+            pending={seasonal.showGreeting}
+            onShown={seasonal.markGreeted}
+            onTurnOff={seasonal.turnOff}
+            onOpenChange={setSeasonalGreetingOpen}
+            presentationAllowed={
+              whatsNewResolved &&
+              !hasModalOpen &&
+              !hasAppDialogOpen &&
+              !whatsNewOpen &&
+              !migrationNoticePending &&
+              !migrationNotice &&
+              agentUpdatesResolved &&
+              !agentUpdateOpen &&
+              !chatWindowIntroOpen &&
+              (isLite || !showDownloadModal)
+            }
+          />
+          {!isLite && <ModelDownloadModal open={showDownloadModal} onClose={() => setShowDownloadModal(false)} />}
+        </>
+      )}
       {hasModalOpen && (
         <Suspense fallback={null}>
           <LazyModalRenderer />

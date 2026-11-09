@@ -6,6 +6,7 @@ import { create } from "zustand";
 import { isOverhaulLook, useOverhaulStore } from "./overhaul.store";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { generateClientId } from "../lib/utils";
+import { SPLIT_PANE } from "../lib/split-view-env";
 import {
   activeSeasonalMariPack,
   getMariAppearancePack,
@@ -66,11 +67,14 @@ export type HomeRequest = { kind: "faq" | "widgets" | "credits" } | { kind: "tab
 export const CHARACTER_LIBRARY_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const;
 export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[number];
 export type CardLibraryKind = "characters" | "personas";
-export const MOBILE_SHELL_MEDIA_QUERY =
-  "(max-width: 767px), (max-width: 1440px) and (hover: none) and (any-pointer: coarse)";
+// Split view: the second side is a desktop page however narrow its side is, so it never takes the phone shell.
+export const MOBILE_SHELL_MEDIA_QUERY = SPLIT_PANE
+  ? "not all"
+  : "(max-width: 767px), (max-width: 1440px) and (hover: none) and (any-pointer: coarse)";
 /** UI overhaul: touch tablets held sideways (1024px+ wide) get the desktop shell; portrait keeps the phone shell. */
-export const OVERHAUL_MOBILE_SHELL_MEDIA_QUERY =
-  "(max-width: 767px), (max-width: 1023px) and (hover: none) and (any-pointer: coarse), (max-width: 1440px) and (hover: none) and (any-pointer: coarse) and (orientation: portrait)";
+export const OVERHAUL_MOBILE_SHELL_MEDIA_QUERY = SPLIT_PANE
+  ? "not all"
+  : "(max-width: 767px), (max-width: 1023px) and (hover: none) and (any-pointer: coarse), (max-width: 1440px) and (hover: none) and (any-pointer: coarse) and (orientation: portrait)";
 
 /** The phone-shell media query in effect (the overhaul lets touch tablets in landscape use the desktop shell). */
 export function mobileShellMediaQuery(): string {
@@ -531,7 +535,8 @@ function normalizeScrollTop(value: unknown) {
 const mobileShellQueries = new Map<string, MediaQueryList>();
 
 export function isMobileShellViewport(): boolean {
-  if (typeof window === "undefined") return false;
+  // Split view's second side is a desktop page at any width (its side panes stay closed).
+  if (typeof window === "undefined" || SPLIT_PANE) return false;
   const query = mobileShellMediaQuery();
   let mobileShellQuery = mobileShellQueries.get(query);
   if (!mobileShellQuery) {

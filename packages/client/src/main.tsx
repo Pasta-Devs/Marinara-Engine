@@ -1,3 +1,5 @@
+// Split view: the second side's frame keeps where it is to itself (must run before any store loads).
+import { SPLIT_PANE } from "./lib/split-view-env";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -26,7 +28,7 @@ Object.assign(globalThis, { React, ReactDOM });
 
 registerClientRuntimeDiagnostics(formatRuntimeBuild(APP_VERSION, __MARINARA_BUILD_COMMIT__));
 // Prevent Chrome/Edge from sleeping this tab
-startKeepAlive();
+if (!SPLIT_PANE) startKeepAlive();
 installCsrfFetchShim();
 // Auto-recover from stale-chunk dynamic-import failures (e.g. a lazy route that
 // 404s after an update) instead of surfacing "Failed to fetch dynamically
@@ -107,6 +109,15 @@ async function renderApplication() {
     useUIStore.getState().setLanguage(activeLanguage);
   }
 
+  // Split view's second side: open the page it was made for before the first paint.
+  if (SPLIT_PANE) {
+    try {
+      (await import("./components/overhaul/SplitView")).startSplitPane();
+    } catch {
+      /* the frame still shows the app */
+    }
+  }
+
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
@@ -119,7 +130,8 @@ async function renderApplication() {
     </React.StrictMode>,
   );
 
-  registerServiceWorker();
+  // The main window looks after the service worker and updates; the split view's second side does not.
+  if (!SPLIT_PANE) registerServiceWorker();
 }
 
 void renderApplication();

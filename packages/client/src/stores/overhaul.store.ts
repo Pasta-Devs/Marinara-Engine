@@ -10,6 +10,7 @@
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { SplitPage } from "../lib/split-view-env";
 
 export type OverhaulTabKind =
   | "chat"
@@ -56,6 +57,9 @@ export type OverhaulChatSettingsLayout = { order: string[]; hidden: string[] };
 export type GalleryCardSize = "small" | "medium" | "large";
 
 export type OverhaulGamePaneTab = "party" | "inventory" | "journal" | "map" | "sessions";
+
+/** Split view: the page on the second side, the side it's on, and its share of the room (0.5 = half). */
+export type OverhaulSplit = { page: SplitPage; side: "left" | "right"; size: number };
 
 export function overhaulTabKey(tab: OverhaulTab) {
   return `${tab.kind}:${tab.id}`;
@@ -156,6 +160,16 @@ interface OverhaulState {
   /** Phones and tablets: the Safari-style All Tabs viewer is open. */
   allTabsOpen: boolean;
   setAllTabsOpen: (open: boolean) => void;
+  /** Desktop split view: a second page beside the main one (null = one page). */
+  split: OverhaulSplit | null;
+  setSplit: (split: OverhaulSplit | null) => void;
+  /** Not kept: the second side is on screen (a split needs room for two pages; phones never split). */
+  splitShown: boolean;
+  /** Not kept: there is room for two pages here and now. */
+  splitRoom: boolean;
+  /** Not kept: what is being dragged that can be dropped at a side of the page to split it. */
+  splitDrag: SplitPage | null;
+  setSplitDrag: (page: SplitPage | null) => void;
 }
 
 /** A group's tabs stay side by side: each group gathers at its first tab's place. */
@@ -375,6 +389,12 @@ export const useOverhaulStore = create<OverhaulState>()(
       setGameSettingsSlot: (gameSettingsSlot) => set({ gameSettingsSlot }),
       allTabsOpen: false,
       setAllTabsOpen: (allTabsOpen) => set({ allTabsOpen }),
+      split: null,
+      setSplit: (split) => set({ split }),
+      splitShown: false,
+      splitRoom: false,
+      splitDrag: null,
+      setSplitDrag: (splitDrag) => set({ splitDrag }),
       galleryCardSize: "medium",
       setGalleryCardSize: (galleryCardSize) => set({ galleryCardSize }),
     }),
@@ -403,6 +423,7 @@ export const useOverhaulStore = create<OverhaulState>()(
         gamePaneOpen: state.gamePaneOpen,
         gamePaneTab: state.gamePaneTab,
         galleryCardSize: state.galleryCardSize,
+        split: state.split,
       }),
     },
   ),

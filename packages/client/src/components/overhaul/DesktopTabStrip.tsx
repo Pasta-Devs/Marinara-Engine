@@ -24,6 +24,16 @@ import {
   goHome,
   reopenClosedTab,
 } from "./OverhaulTopBar";
+import {
+  HOME_PAGE,
+  SPLIT_MIME,
+  beginSplitDrag,
+  closeSplit,
+  endSplitDrag,
+  openInSplit,
+  pageOfTab,
+  splitPageKey,
+} from "./split-view";
 
 type Placed = { tab: OverhaulTab; key: string; index: number };
 type StripItem =
@@ -57,6 +67,9 @@ export function DesktopTabStrip({
   const localize = useLocalizedUiText();
   const tabs = useOverhaulStore((s) => s.tabs);
   const tabGroups = useOverhaulStore((s) => s.tabGroups);
+  // Split view: the tab on the second side is marked too.
+  const splitKey = useOverhaulStore((s) => (s.split && s.splitShown ? splitPageKey(s.split.page) : null));
+  const splitRoom = useOverhaulStore((s) => s.splitRoom);
   const store = useOverhaulStore.getState;
   const stripRef = useRef<HTMLDivElement | null>(null);
   const lastMoveRef = useRef<{ key: string; width: number } | null>(null);
@@ -243,10 +256,19 @@ export function DesktopTabStrip({
     event.dataTransfer.setData(DRAG_MIME, "1");
     event.dataTransfer.setData("text/plain", value.kind === "tab" ? value.key : value.id);
     setDrag(value);
+    // A tab dragged far to the left or right of the page opens there, beside the page you're on.
+    if (value.kind === "tab") {
+      const tab = store().tabs.find((entry) => overhaulTabKey(entry) === value.key);
+      if (tab) {
+        event.dataTransfer.setData(SPLIT_MIME, "1");
+        beginSplitDrag(pageOfTab(tab));
+      }
+    }
   };
   const endDrag = () => {
     setDrag(null);
     setDrop(null);
+    endSplitDrag();
   };
   /** Over a strip item: before/after by the pointer's half; with Shift, the middle groups (tabs only). */
   const overStripItem = (event: DragEvent, item: StripItem) => {
@@ -363,6 +385,7 @@ export function DesktopTabStrip({
           className={cn(
             "ov-tab",
             entry.key === currentKey && "is-on",
+            entry.key === splitKey && "is-split",
             drag?.kind === "tab" && drag.key === entry.key && "is-dragging",
             dropClass(`entry:${entry.key}`),
           )}
@@ -398,9 +421,20 @@ export function DesktopTabStrip({
       >
         <button
           type="button"
-          className={cn("ov-tab ov-tab--home", current === null && "is-on")}
+          className={cn(
+            "ov-tab ov-tab--home",
+            current === null && "is-on",
+            splitKey === splitPageKey(HOME_PAGE) && "is-split",
+          )}
           aria-current={current === null ? "page" : undefined}
           onClick={goHome}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = "copyMove";
+            event.dataTransfer.setData(SPLIT_MIME, "1");
+            beginSplitDrag(HOME_PAGE);
+          }}
+          onDragEnd={endSplitDrag}
         >
           <Home size={14} aria-hidden="true" className="ov-tab__icon" />
           <span className="ov-tab__label">{localize("Home")}</span>
@@ -417,6 +451,7 @@ export function DesktopTabStrip({
                 className={cn(
                   "ov-tab",
                   entry.key === currentKey && "is-on",
+                  entry.key === splitKey && "is-split",
                   hidden && "is-clipped",
                   drag?.kind === "tab" && drag.key === entry.key && "is-dragging",
                   dropClass(item.itemKey),
@@ -594,6 +629,15 @@ export function DesktopTabStrip({
                     </button>
                   ) : null}
                   <div className="ov-menu__sep" role="separator" />
+                  {!splitRoom ? null : menu.entry.key === splitKey ? (
+                    <button type="button" role="menuitem" onClick={closeSplit}>
+                      {localize("Close split view")}
+                    </button>
+                  ) : (
+                    <button type="button" role="menuitem" onClick={() => openInSplit(pageOfTab(menu.entry.tab))}>
+                      {localize("Open in split view")}
+                    </button>
+                  )}
                   <button type="button" role="menuitem" disabled={!closedCount} onClick={() => reopenClosedTab()}>
                     {localize("Reopen closed tab")}
                   </button>
