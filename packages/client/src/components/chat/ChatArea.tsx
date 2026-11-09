@@ -708,7 +708,6 @@ const LocalChatArea = memo(function LocalChatArea({
   // Tracks whether the initial load stagger animation has played.
   // After the first render with messages, new/re-mounted messages
   // skip the entry animation to avoid a visible flash on refetch.
-  const hasAnimatedRef = useRef(false);
   const settingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
   const settingsPinned = useFloatingWindowStore((s) => s.layouts[CHAT_SETTINGS_WINDOW_ID]?.pinned === true);
   const [settingsInitialSection, setSettingsInitialSection] = useState<ChatSettingsInitialSection>(null);
@@ -3366,9 +3365,7 @@ const LocalChatArea = memo(function LocalChatArea({
     if (chat) useChatStore.getState().setActiveChat(chat);
   }, [chat]);
 
-  // Reset stagger animation flag when switching chats
   useEffect(() => {
-    hasAnimatedRef.current = false;
     // A remount on the same chat keeps its open wizard; switching chats closes it.
     if (useChatStore.getState().setupWizardChatId !== activeChatId) setWizardOpen(false);
   }, [activeChatId, setWizardOpen]);
@@ -4328,9 +4325,6 @@ const LocalChatArea = memo(function LocalChatArea({
   // ═══════════════════════════════════════════════
   // Roleplay mode — existing layout
   // ═══════════════════════════════════════════════
-  const shouldAnimateMessages = !hasAnimatedRef.current;
-  if (messages?.length) hasAnimatedRef.current = true;
-
   return (
     <>
       {cardCssInjector}
@@ -4381,7 +4375,6 @@ const LocalChatArea = memo(function LocalChatArea({
           generationVisualsPaused={isStreaming || agentProcessing}
           agentProcessing={agentProcessing}
           regenerateMessageId={regenerateMessageId}
-          shouldAnimateMessages={shouldAnimateMessages}
           summaryContextSize={summaryContextSize}
           totalMessageCount={totalMessageCount}
           lastAssistantMessageId={lastAssistantMessageId}
