@@ -1,6 +1,6 @@
 # Custom CSS Themes
 
-A theme changes the whole look of Marinara: colors, fonts, pictures and the shape of panels. Marinara comes with seven ready-made starter themes. You can also import a theme someone shared, or make your own.
+A theme changes the whole look of Marinara: colors, fonts, pictures and the shape of panels. Marinara has a gallery of ready-made starter themes you can download. You can also import a theme someone shared, or make your own.
 
 For a quick change with no theme at all, see [Appearance Settings](appearance-settings.md) or [Ready-made chat window styles](#ready-made-chat-window-styles). To make your own theme, the [Theme Author Guide](theme-author-guide.md) walks you through it step by step.
 
@@ -16,29 +16,44 @@ The section has:
 
 - **Create Theme** and **Import File** at the top.
 - **Allow themes with HTML (I accept the risk)**, off by default. See [Themes with HTML](#themes-with-html).
-- **Installed Themes**: **Default Theme**, then your own themes, then the **Starter themes**.
+- **Installed Themes**: **Default Theme**, then your own themes, then the starter themes you downloaded.
+- **Browse the theme gallery**: the starter themes you can download.
 
 ## Starter themes
 
+Starter themes aren't part of the install, so they take no space until you want one. They live in the theme gallery, and Marinara downloads a theme only when you pick it.
+
+1. Click **Browse the theme gallery** under **Installed Themes**. Marinara needs an internet connection for this.
+2. Each theme shows a preview, a short description, its size and its tags.
+3. Click **Download** next to the ones you like. They appear under **Starter themes** in **Installed Themes**, ready to switch on.
+
 | Theme | Look |
 | --- | --- |
+| **Aero Lagoon** | Glossy sky, glass bubbles and a turquoise lagoon. |
+| **Brassworks Sky** | Steampunk brass, copper and airships, gaslight at night. |
 | **Lantern Meadow** | Calm and very readable, with no motion. |
 | **Lantern Path** | A reading column with gentle motion. |
 | **Maple's Bramble Cottage** | A cozy cottage, with a reading column for long replies. |
 | **NEON//GRID** | Neon cyberpunk, made for long replies. |
+| **Nightshade Parlour** | Pastel goth by day, traditional goth by night. |
 | **Petal OS** | A playful retro desktop with pixel fonts. |
 | **Rosalind's Folio** | A storybook layout with visual novel touches. |
+| **Saltwind Harbor** | A seaside harbour with a lighthouse and real storms. |
+| **Sodium Row** | A gritty rain-soaked city under orange streetlights. |
 | **Swiss Poster** | Quiet, clean poster design with no motion. |
 
 Every starter theme has a Dark and a Light version. The small tags under each name, such as **No motion** or **High legibility**, tell you what to expect.
 
-Starter themes are read-only, so they always stay as they shipped. Each has three buttons:
+When the gallery has a newer version of a theme you downloaded, the theme shows **Update** in the gallery list. Click it to get the new version.
+
+Downloaded starter themes are read-only, so they always stay as they were made. Each has four buttons:
 
 - **(i) Credits and licences**: who made the art and fonts, and how you may reuse them.
 - **Clone + Edit** (the copy icon): makes your own copy, such as "Petal OS (my copy)", and opens it in the editor.
 - **Export** (the upload icon): saves the theme as a file.
+- **Remove** (the bin icon): removes the theme from this install. You can download it again from the gallery any time.
 
-If you clear your data, the starter themes come back the next time Marinara starts.
+You can also get the theme files without the app: they're in the `themes` folder of the theme gallery on GitHub ([kolacheee-themes branch](https://github.com/kolacheee/Marinara-Engine-kolacheee/tree/kolacheee-themes/themes)). Download a `.json` file there and use **Import File**.
 
 ## Activating a theme
 

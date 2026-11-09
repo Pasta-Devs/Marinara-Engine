@@ -77,7 +77,7 @@ Each kind of weather has a short name. You use that name in the token, such as `
 | When the story says | The app draws | Name in the tokens |
 | --- | --- | --- |
 | rain, downpour | Rain streaks | `rain` |
-| storm, thunder, lightning | Heavy rain with lightning flashes | `rain` (flash: `lightning-color`) |
+| storm, thunder, lightning | Heavy rain with lightning flashes | `rain` (flash: `lightning-color`, bolts: `lightning-bolt`) |
 | snow, sleet, blizzard, frost, cold | Snowflakes | `snow` |
 | hail | Hailstones | `hail` |
 | fog, mist, haze | Soft fog banks low on the screen over ground mist | `fog` |
@@ -202,8 +202,22 @@ These settings change the whole weather layer at once:
 | `--mari-weather-strength` | How strongly particles show | `0.5` (faint) to `1.5` (bold) |
 | `--mari-weather-tint-strength` | The coloured wash over the chat (blue in rain, dark at night) | `0` (none) to `1` (normal) |
 | `--mari-weather-lightning-color` | The colour of the lightning flash | A plain colour. The flash stays gentle and slow, so it's safe for people sensitive to flashing light. |
+| `--mari-weather-lightning-bolt` | Draws a forked lightning bolt with each flash, in the lightning colour | `on`, or a width from `0.5` to `3`. `none` (the default) keeps the flash only. |
 
 For a quiet reading theme, try `--mari-weather-amount: 0.5;` and `--mari-weather-tint-strength: 0.3;`.
+
+### Lightning bolts
+
+By default a storm only flashes the screen. Add `--mari-weather-lightning-bolt` to draw a real forked bolt with each flash:
+
+```css
+:root {
+  --mari-weather-lightning-color: #e8f2ff;
+  --mari-weather-lightning-bolt: 1.2;
+}
+```
+
+The bolt strikes down the left or right side of the screen, never across the middle where the chat text is. It only shows while the app's own flash is up and fades with it, so a theme can't add flashes or make them faster. In pixel style the bolt is drawn in blocks on the pixel grid. Saltwind Harbor and Sodium Row use bolts.
 
 ## Make your backdrop follow the weather
 
@@ -270,11 +284,16 @@ Your theme changes how the weather looks, never whether people see it:
 
 ## Learn from the starter themes
 
-Three starter themes show off weather. Click **Clone + Edit** on one and scroll to the part of its CSS marked `Weather` to see how it's done.
+Every starter theme in the theme gallery shows off weather. Download one, click **Clone + Edit** and scroll to the part of its CSS marked `Weather` to see how it's done.
 
 - **NEON//GRID**: long cyan rain streaks, square "data snow", magenta sparks for leaves and petals. Its painted rain overlay steps aside when real weather falls.
 - **Petal OS**: pixel style on a 3 px grid, its own pixel petals, pale pink rain at night and deep berry rain by day, and a city that greys over in bad weather.
 - **Lantern Path**: its own painted leaves, warm fireflies, no app sun (the backdrop paints its own light) and backdrops that turn overcast or snowy with the weather.
+- **Aero Lagoon**: glossy green leaves in the wind, white glints for motes, and a lagoon that greys over in the rain or freezes in the snow.
+- **Nightshade Parlour**: pastel petals by day and crimson ones by night, and little bats flitting on clear nights.
+- **Saltwind Harbor**: long slate rain, lightning bolts in storms, thick sea fog, and a stormy sea backdrop.
+- **Brassworks Sky**: little clockwork gears that spin past in the wind, sooty ash, sparks for embers and yellow-brown smog.
+- **Sodium Row**: orange rain under the streetlights at night, lightning bolts in storms, paper scraps blowing down the street.
 
 ## Related guides
 
