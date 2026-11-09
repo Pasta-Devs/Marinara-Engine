@@ -20,6 +20,7 @@ import { queryOptions, useIsMutating, useQueries, useQuery, useMutation, useQuer
 import { useEffect, useRef } from "react";
 import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
+import type { LocalServer } from "../lib/local-servers";
 import { translate } from "../localization/i18n";
 import { useDebouncedValue } from "./use-debounced-value";
 import { chatKeys } from "./use-chats";
@@ -843,5 +844,16 @@ export function useUploadConnectionAccountImage() {
     mutationFn: ({ id, image }: { id: string; image: string }) =>
       api.post<Record<string, unknown>>(`/connection-accounts/${id}/image`, { image }),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
+  });
+}
+
+/** Model servers on the Marinara server's machine: asked once each time the panel opens, never polled. */
+export function useLocalServers() {
+  return useQuery({
+    queryKey: ["local-servers"],
+    queryFn: () => api.get<{ servers: LocalServer[] }>("/connections/local-servers"),
+    select: (data) => data.servers,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }

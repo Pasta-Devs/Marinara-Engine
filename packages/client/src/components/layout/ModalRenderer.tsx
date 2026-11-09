@@ -44,6 +44,12 @@ const JobPickerWindow = lazy(() =>
 const CreateConnectionModal = lazy(() =>
   import("../modals/CreateConnectionModal").then((module) => ({ default: module.CreateConnectionModal })),
 );
+const JobSettingsWindow = lazy(() =>
+  import("../connections/DeviceDetail").then((module) => ({ default: module.JobSettingsWindow })),
+);
+const DeviceDetailWindow = lazy(() =>
+  import("../connections/DeviceDetail").then((module) => ({ default: module.DeviceDetailWindow })),
+);
 const ConnectionAccountEditor = lazy(() =>
   import("../connections/ConnectionAccountEditor").then((module) => ({ default: module.ConnectionAccountEditor })),
 );
@@ -166,11 +172,19 @@ export function ModalRenderer() {
           initialService={(modal?.props?.service ?? modal?.props?.provider) as ServiceId | undefined}
           modelsFor={modal?.props?.modelsFor as ModelsFor | undefined}
           forJob={modal?.props?.forJob as AddFor | undefined}
+          initialBaseUrl={modal?.props?.baseUrl as string | undefined}
+          initialName={modal?.props?.name as string | undefined}
         />
       );
       break;
     case "import-connection":
       content = <ImportConnectionModal open onClose={closeModal} />;
+      break;
+    case "job-settings":
+      content = <JobSettingsWindow job={modal?.props?.job as "voice" | "stt"} onClose={closeModal} />;
+      break;
+    case "device-detail":
+      content = <DeviceDetailWindow onClose={closeModal} />;
       break;
     case "job-picker":
       content = <JobPickerWindow job={JOB[modal?.props?.job as JobKey]} onClose={closeModal} />;
