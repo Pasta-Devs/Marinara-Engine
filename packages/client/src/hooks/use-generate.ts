@@ -3729,17 +3729,28 @@ export function useGenerate() {
           } else {
             try {
               // Stop aborts the stream before the server's message_saved may arrive: reuse a reply it already stored.
-if (!(await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values(), { fetchEvenIfInactive: true }))) {
-throw new Error("history refetch failed");
-}
-const stored = latestNewMessageByRole(qc, params.chatId, expectedPersistedRole, expectedMessagesBeforeGeneration);
-const created = stored ?? (await api.post<Message>(`/chats/${params.chatId}/messages`, {
-                role: partialRole,
-                characterId: partialCharacterId,
-                content: partialContent,
-                createdAt,
-                updatedAt: createdAt,
-              }));
+              if (
+                !(await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values(), {
+                  fetchEvenIfInactive: true,
+                }))
+              ) {
+                await Promise.reject(new Error("history refetch failed")); // not a bare throw: no-unsafe-finally
+              }
+              const stored = latestNewMessageByRole(
+                qc,
+                params.chatId,
+                expectedPersistedRole,
+                expectedMessagesBeforeGeneration,
+              );
+              const created =
+                stored ??
+                (await api.post<Message>(`/chats/${params.chatId}/messages`, {
+                  role: partialRole,
+                  characterId: partialCharacterId,
+                  content: partialContent,
+                  createdAt,
+                  updatedAt: createdAt,
+                }));
               unpersistedPartialMessage = created;
               persistedMessages.set(created.id, created);
             } catch (error) {
