@@ -33,7 +33,8 @@ interface PanelVirtualListProps {
 /**
  * One windowed list for the side panels. It scrolls inside the nearest scrollable ancestor (the panel's own
  * container), so several lists can share one container: each measures its own offset (`scrollMargin`) from the
- * container's top and re-measures when anything in the container resizes or the container's children change.
+ * container's top and re-measures when anything above it (its ancestors or their earlier siblings) changes size.
+ * Rows are wrapped, so `data-virtual-list` marks the row scope for sibling lookups (see use-library-order).
  */
 export function PanelVirtualList({
   listKey,
@@ -74,14 +75,20 @@ export function PanelVirtualList({
     const measure = () =>
       setScrollMargin(listEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop);
     const resize = new ResizeObserver(measure);
-    const observeChildren = () => {
+    // Anything above the list that changes size moves it: watch every ancestor up to the container and all of their
+    // earlier siblings (an open folder closing while another opens keeps the total height, but not the offsets).
+    const mutation = new MutationObserver(() => observeAbove());
+    const observeAbove = () => {
       resize.disconnect();
-      for (const child of container.children) resize.observe(child);
+      mutation.disconnect();
+      for (let el: HTMLElement | null = listEl; el && el !== container; el = el.parentElement) {
+        resize.observe(el);
+        for (let sib = el.previousElementSibling; sib; sib = sib.previousElementSibling) resize.observe(sib);
+        if (el.parentElement) mutation.observe(el.parentElement, { childList: true });
+      }
       measure();
     };
-    const mutation = new MutationObserver(observeChildren);
-    mutation.observe(container, { childList: true });
-    observeChildren();
+    observeAbove();
     return () => {
       resize.disconnect();
       mutation.disconnect();
@@ -105,7 +112,12 @@ export function PanelVirtualList({
   });
 
   return (
-    <div ref={setListEl} className={className} style={{ position: "relative", height: virtualizer.getTotalSize() }}>
+    <div
+      ref={setListEl}
+      data-virtual-list
+      className={className}
+      style={{ position: "relative", height: virtualizer.getTotalSize() }}
+    >
       {items.map((virtualRow) => (
         <div
           key={virtualRow.key}
