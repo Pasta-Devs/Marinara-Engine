@@ -626,6 +626,7 @@ function DictationSettings() {
         checked={speechToTextEnabled}
         onChange={setSpeechToTextEnabled}
       />
+      {/* ponytail: the speech-to-text server keeps its own address and key here; an account for it comes in S4. */}
       {callsInstalled && <SpeechToTextCard />}
     </>
   );
