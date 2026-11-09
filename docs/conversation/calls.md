@@ -2,7 +2,7 @@
 
 A call is a live screen, like a voice-chat app, where you talk to one or more characters by microphone or by typing. It sits on top of the normal Conversation chat while it runs. Calls exist only in Conversation Mode.
 
-Calls is an optional package. Install **Calls** from **Agents → Agent Organizer**. If the catalog asks you to restart, stop Marinara and start it again the way you normally start it (see [Installation](../INSTALLATION.md)).
+Calls is an optional package. Install **Calls** from **Library → Agents**. If the catalog asks you to restart, stop Marinara and start it again the way you normally start it (see [Installation](../INSTALLATION.md)).
 
 During a call, characters with a working Text to Speech (TTS, text turned into spoken audio) voice speak out loud. Characters without a voice reply as typed messages in the call chat. You can also show looping AI-made video clips of a character instead of a still avatar.
 
@@ -154,7 +154,7 @@ While it is on, **Mic recording + Local Whisper** sends your speech to this serv
 
 A server on the same computer works as is. A server on another computer in your network is refused unless you set `STT_LOCAL_URLS_ENABLED=true` in `.env` (see [Server Configuration Reference](../CONFIGURATION.md)).
 
-If it did not work: read the message under **Test**. "Could not reach the speech-to-text server" means the address is wrong or the server is off. A message naming `STT_LOCAL_URLS_ENABLED` means the server is on another computer. A number comes from your server: 401 usually means a wrong API key, 404 a wrong address or model name. If calls still use Local Whisper, update Calls from **Agents → Agent Organizer**.
+If it did not work: read the message under **Test**. "Could not reach the speech-to-text server" means the address is wrong or the server is off. A message naming `STT_LOCAL_URLS_ENABLED` means the server is on another computer. A number comes from your server: 401 usually means a wrong API key, 404 a wrong address or model name. If calls still use Local Whisper, update Calls from **Library → Agents**.
 
 ## Settings and defaults
 

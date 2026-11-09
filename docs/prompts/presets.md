@@ -23,8 +23,8 @@ If the preset has variables, the **Configure Preset Variables** window opens. Se
 
 ## Create a preset
 
-1. Open **Library** > **Presets**. The Library is on the right.
-2. Click **New** (the plus icon). The **Create Preset** window opens.
+1. Open **Library → Presets**. The Library is on the right.
+2. Click **New preset**. The **Create Preset** window opens.
 3. Type a **Name**. It is required. Add a **Description** if you want.
 4. Click **Create**. The preset opens in the **Preset Editor**.
 5. Build the prompt on the **Sections** tab.
@@ -34,7 +34,13 @@ The editor does not save by itself. Click **Save** after every change. If you le
 
 To export a preset, click the up-arrow icon in the top bar (tooltip **Export preset**). Marinara asks you to save first if you have unsaved edits. To delete it, click the trash icon.
 
-## The Presets panel
+## The Presets page
+
+**Library → Presets** lists your presets in a table with **Description**, **Sections**, **Author**, **Default** and **Updated** columns. Along the top are **Import** (load a `.json` file) and **New preset**. **All** / **Defaults** narrows the list, **List** / **Gallery** switches the view, and the sort menu offers **Recently edited**, **A to Z** and **Z to A**. Click a preset to open it.
+
+Regex scripts have their own page, [Library → Regex scripts](../extending/regex-scripts.md). Custom tools are made from a chat's **Chat Settings → Function Calling**; see [Custom Tools](../extending/custom-tools.md).
+
+## In the classic layout: the Presets panel
 
 **Prompts** is the section for presets. The other sections are **Regexes** and **Functions**. The top buttons are **New**, **Import** (load a `.json` file) and **Select** (export or delete several at once).
 

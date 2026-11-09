@@ -22,7 +22,7 @@ You need:
 2. A GPU with enough VRAM (the memory on your graphics card). An 8 GB card can work for a first test at 480p with one keyframe.
 3. The editable `ltx-director-simple` workflow, or an equivalent LTX 2.3 image-to-video graph that completes in ComfyUI, and its `ltx-director-simple-api` API-format export.
 4. An image account in Marinara for the first-frame illustrations.
-5. The **Storyboard** agent, downloaded from **Agents → Agent Organizer** and turned on for the game under **Chat Settings → Agents**. See [Storyboard Agent Guide](storyboard.md).
+5. The **Storyboard** agent, downloaded from **Library → Agents** and turned on for the game under **Chat Settings → Agents**. See [Storyboard Agent Guide](storyboard.md).
 
 The editable workflow and its API export are different files. Open `ltx-director-simple` in ComfyUI, install every custom node that ComfyUI Manager reports as missing, and test the graph there. Import `ltx-director-simple-api` into Marinara. After every node or model change, export the graph again in API format and replace the JSON on the Marinara account. Do not paste the normal visual-editor workflow into Marinara.
 
@@ -83,7 +83,7 @@ Deleting a node and continuing to use an older export leaves references to a nod
 
 ## Create the video account
 
-1. Open **Settings → Connections**.
+1. Open **Library → Connections**.
 2. Click **Add account** and choose a **Video Generation** account.
 3. Choose **ComfyUI**.
 4. Enter the **Base URL**, normally `http://127.0.0.1:8188` when ComfyUI runs on the same computer.

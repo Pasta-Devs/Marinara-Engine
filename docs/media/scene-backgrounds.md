@@ -26,7 +26,7 @@ To generate a background:
 4. A status message reads "AI background generation is running. The new background will be applied when it finishes."
 5. When it finishes, the new image is applied to the current scene at once, and "Background generated." confirms it.
 
-The background is built from your current scene. In a game, this includes the genre, setting, location, weather, and time of day. Generated backgrounds use the **Backgrounds** canvas size, which is 1280 by 720 pixels by default. You can change that size under **Settings**, then **Generations**, then **Image Generation**.
+The background is built from your current scene. In a game, this includes the genre, setting, location, weather, and time of day. Generated backgrounds use the **Backgrounds** canvas size, which is 1280 by 720 pixels by default. You can change that size under **Settings → Media → Image Generation**.
 
 If it did not work: if Marinara finds no image model to use, the step fails with this message:
 
@@ -78,7 +78,7 @@ The new image replaces the old one in the message. The old one stays in the Gall
 
 You can check and edit the prompt before Marinara sends a background request to your image service.
 
-1. Open **Settings**, then **Generations**, then **Overall Generations**.
+1. Open **Settings → Media → Generation Defaults**.
 2. Turn on **Expose media prompts before sending**.
 
 With this setting on, a **Review Image Prompt** window opens before each request is sent. Its help text reads: "Edit the prompt below before Marinara sends the image request to your provider."

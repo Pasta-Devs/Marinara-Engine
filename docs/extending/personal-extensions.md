@@ -6,7 +6,7 @@ A Personal Extension is a small piece of code that adds a button, panel or helpe
 
 | Name | What it is |
 | --- | --- |
-| Personal Extension | An extension Professor Mari wrote for you. It appears as a draft under **Settings → Addons**. |
+| Personal Extension | An extension Professor Mari wrote for you. It appears as a draft under **Library → Extensions**. |
 | External Extension | An extension from someone else, or one you wrote. It needs the extra steps in [Allow third-party imports](#allow-third-party-imports). |
 | Browser Extension | Runs inside your browser in a sandbox. Safe by default. |
 | Server Extension | Runs on the computer that runs Marinara, in an operating-system sandbox. Needs a supported platform. |
@@ -16,7 +16,7 @@ A Personal Extension is a small piece of code that adds a button, panel or helpe
 
 Before you start, do the two steps in [Allow third-party imports](#allow-third-party-imports). Without them the import buttons are hidden.
 
-1. Open **Settings → Addons**. Under **External Extensions**, choose **Import Extension File** for a `.zip`, `.json`, `.css` or `.js` file, or **Import Extension Folder** for a folder.
+1. Open **Library → Extensions**. Under **External Extensions**, choose **Import Extension File** for a `.zip`, `.json`, `.css` or `.js` file, or **Import Extension Folder** for a folder.
 2. Open the new draft. It is disabled and shows its code and a hash, a short fingerprint of that exact code (Marinara uses SHA-256).
 3. Read the code and the **Requested access** list.
 4. Choose **Review and Run** only if you accept that exact version. The extension then shows as enabled.
@@ -27,7 +27,7 @@ If it did not work: if the import buttons are missing, one of the two steps is n
 
 Before you start, ask [Professor Mari](../home/professor-mari.md) to create an extension. She can save the code, but she cannot approve or enable it. This section has no New Draft button and no import control.
 
-1. Open **Settings → Addons → Personal Extensions**. With no drafts it reads: "Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash."
+1. Open **Library → Extensions**. With no drafts it reads: "Ask Professor Mari to create an extension for you. Nothing runs until you enable it and approve the exact code hash."
 2. Open the draft and read the code. Check the hash and the **Requested access** list.
 3. Choose **Review and Run** only if you accept that exact version.
 
@@ -74,9 +74,9 @@ On Windows and Android there is no supported process sandbox, so Server Extensio
 Third-party imports are locked and hidden by default, because they run code written by other people. Two steps open them:
 
 1. On the computer that runs Marinara, set `ENABLE_EXTERNAL_EXTENSIONS=true` in the `.env` file, then restart Marinara. See the [Server Configuration Reference](../CONFIGURATION.md).
-2. Open **Settings → Advanced → Danger Zone**, scroll below the data-deletion controls, read the warning, and turn on **Allow third-party extension imports**.
+2. Open **Settings → Advanced → Security**, read the warning and turn on **Allow third-party extension imports**.
 
-**Settings → Addons** then shows **External Extensions** with file and folder import controls. Supported formats:
+**Library → Extensions** then shows **External Extensions** with file and folder import controls. Supported formats:
 
 - `.personal-extension.zip` and compatible `.zip` packages
 - `.json` manifests
@@ -95,13 +95,13 @@ Legacy, profile-imported, manually stored and unknown-source records are also tr
 
 Turning either step off disables all imported extensions. Turning it back on does not run them again. Reload the page if a full page extension left changes behind.
 
-If it did not work: if the import controls do not appear, check that both steps are done and that you are on the server computer or have saved the admin secret under **Settings → Advanced → Admin Access**.
+If it did not work: if the import controls do not appear, check that both steps are done and that you are on the server computer or have saved the admin secret under **Settings → Advanced → Security**.
 
 ## Export, revisions and recovery
 
 Use an extension's export action to download a portable package. Exported and restored packages stay disabled. Restoring a revision also returns it to a disabled draft.
 
-**Settings → Addons → Extension revision history** sets how many previous code versions are kept for every Personal and External Extension. The default is **10**. Choose **0** to **10**, where **0** turns history off. Reducing the limit asks for confirmation before it permanently removes older revisions. Current code, approvals, enabled state and saved extension data are kept. Edits made through Professor Mari follow the same limit.
+**Library → Extensions → Extension revision history** sets how many previous code versions are kept for every Personal and External Extension. The default is **10**. Choose **0** to **10**, where **0** turns history off. Reducing the limit asks for confirmation before it permanently removes older revisions. Current code, approvals, enabled state and saved extension data are kept. Edits made through Professor Mari follow the same limit.
 
 If an extension misbehaves, choose **Disable**. If the interface is unavailable, stop Marinara and set the `enabled` value of the matching `installed_extensions` record to `"false"`. Never set `approvedHash` by hand.
 

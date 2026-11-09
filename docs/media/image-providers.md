@@ -6,8 +6,8 @@ Image generation powers scene illustrations, selfies, scene backgrounds, and gen
 
 An API key is a secret code a service gives you so Marinara can use your account. Marinara fills in each service's web address for you, so you rarely type one.
 
-1. Click **Connections** in the top bar, then **Add**. The **Add account** window opens.
-2. Find the service. The list has an **Images & video** section, and **Search providers** helps you find one.
+1. Open **Library → Connections** and click **Add connection**. The list of services opens.
+2. Open the **Images** tab and find the service. **Search services** helps you find one.
 3. Paste your key into the **API key** field. Free and local services need none. For a server you run yourself, fill in the address field.
 4. Click **Connect**. Marinara tests the account.
 5. Pick an image model from the list, or type a model ID. This is your image model. It appears under the account in the **Connections** panel.
@@ -218,7 +218,7 @@ NovelAI precise reference works only on a V4.5 model such as `nai-diffusion-4-5-
 
 ## Queue media generation requests
 
-The **Queue media generation requests** toggle is in **Settings → Generations → Overall Generations**. It is on by default.
+The **Queue media generation requests** toggle is in **Settings → Media → Generation Defaults**. It is on by default.
 
 When on, Marinara sends image jobs to each image account one at a time, and video jobs to each video account one at a time, in separate queues. An image and a video for the same account can run together. It applies to every feature that asks for them: the Illustrator, trackers, commands, the Gallery, Game assets and downloaded agents such as Slurp. Two models with the same address and API key share a queue. Different accounts still run at the same time. NovelAI also gets a short pause between jobs, and when it answers that it is busy, Marinara waits and tries twice more.
 

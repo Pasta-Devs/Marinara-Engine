@@ -6,7 +6,7 @@ This integration lets your AI characters control real smart home devices from a 
 
 The integration is a small piece of software that installs inside Home Assistant and links it to your Marinara server. On first setup it creates the following for you. You never copy tool addresses or set up tools by hand.
 
-- Smart home tools in the **Functions** section of the Presets panel. See [Custom Tools](../extending/custom-tools.md).
+- Smart home tools among your custom tools (the **Functions** list in a chat's **Chat Settings → Function Calling**). See [Custom Tools](../extending/custom-tools.md).
 - One agent named **Home Assistant**, an AI helper that runs alongside your chat. See [Agents Overview](../agents/agents-overview.md).
 - Home Assistant entities (devices, sensors and controls) so you can watch and control Marinara from Home Assistant.
 
@@ -158,7 +158,7 @@ The webhook call is probably blocked. Add `WEBHOOK_LOCAL_URLS_ENABLED=true` to `
 
 ### The tools do not appear in Functions
 
-Press **Marinara Sync HA Tools**, or restart Home Assistant, then check **Functions** in the Presets panel.
+Press **Marinara Sync HA Tools**, or restart Home Assistant, then check **Chat Settings → Function Calling → Add Functions** in a chat.
 
 ### The Home Assistant agent is not in my chat
 

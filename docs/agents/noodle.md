@@ -23,10 +23,10 @@ Noodle activity is off by default. Nothing is generated until you invite a chara
 
 Noodle is a downloadable agent package. Install it once.
 
-1. Open the **Agents** panel (the Sparkles icon in the right-side tabs) and click **Agent Organizer**.
+1. Open **Library → Agents** and go to **Available**.
 2. Find **Noodle** and click **Get**.
 3. Restart Marinara Engine when prompted, so its server code can load. To restart, close it and start it again the way you normally do. See [Installation](../INSTALLATION.md).
-4. Open **Home** and click the **Noodle** tab beside **Home** and **Professor**.
+4. Open **Home** and click **Noodle** beside **Professor**. It opens in its own tab.
 
 The Noodle timeline opens inside Marinara's Home browser. To leave, choose another Home tab or open a chat. On a phone or narrow window Noodle uses a mobile layout (see [Noodle on a phone](#noodle-on-a-phone)).
 

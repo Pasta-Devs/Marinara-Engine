@@ -6,9 +6,9 @@ Live2D models are not supported. Live2D's licence needs a separate agreement eve
 
 ## Install the avatar agents
 
-Both agents are in **Agent Organizer** for every install, under the **Roleplay** and **Game** filters. They need Marinara Engine 2.5.1 or newer. An older Engine refuses to install them. They are separate downloads, so install only the one you want. Both work for characters and personas in Roleplay and Game chats, and send no extra requests to your AI models while you chat.
+Both agents are in **Library → Agents**, under **Available**, for every install, under the **Roleplay** and **Game** filters. They need Marinara Engine 2.5.1 or newer. An older Engine refuses to install them. They are separate downloads, so install only the one you want. Both work for characters and personas in Roleplay and Game chats, and send no extra requests to your AI models while you chat.
 
-1. Open **Agents → Agent Organizer** and install **2D Avatars**, **3D Avatars** or both. Neither needs a restart.
+1. Open **Library → Agents** and install **2D Avatars**, **3D Avatars** or both. Neither needs a restart.
 2. Set up each avatar on the agent's page (see [Set up an avatar](#set-up-an-avatar)).
 3. In a Roleplay or Game chat, open **Chat Settings → Agents → Misc Agents** and add the agent.
 
@@ -41,7 +41,7 @@ The layout is saved for that chat on this device. It does not sync to other devi
 
 ### Where avatar files live
 
-Imported files are checked before they are stored. The only size limit is the server's normal upload limit. Files live in the data folder under `avatar-models/<character or persona>/<id>/`, next to an `avatar.json` with the settings. Backups and profile exports include this folder. Deleting a character or persona deletes its avatar, and so does clearing all **Characters**, **Personas** or **Media & Assets** in the Danger Zone of Settings. Character card exports never include avatars.
+Imported files are checked before they are stored. The only size limit is the server's normal upload limit. Files live in the data folder under `avatar-models/<character or persona>/<id>/`, next to an `avatar.json` with the settings. Backups and profile exports include this folder. Deleting a character or persona deletes its avatar, and so does clearing all **Characters**, **Personas** or **Media & Assets** in **Settings → Data → Delete Data**. Character card exports never include avatars.
 
 ### Group chats
 

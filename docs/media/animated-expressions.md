@@ -36,11 +36,11 @@ While it runs you see "Generating animated portrait GIFs...". When it finishes, 
 
 Animated expressions take longer than still sprites, because they are made one at a time. Start with a few.
 
-With **Expose media prompts before sending** on (**Settings → Generations → Overall Generations**), Marinara pauses so you can read and edit each prompt before it goes to the service.
+With **Expose media prompts before sending** on (**Settings → Media → Generation Defaults**), Marinara pauses so you can read and edit each prompt before it goes to the service.
 
 ## Length and shape
 
-Every animated expression is a tall portrait clip at 9:16, which you cannot change. To change how long each clip runs, open **Settings → Generations**, find **Video Generation** and set **Animated expression length**. The default is 3 seconds. The range is 1 to 8 seconds. Marinara saves a small looping GIF, 512 pixels wide. A shorter clip gives a smaller file and a tighter loop.
+Every animated expression is a tall portrait clip at 9:16, which you cannot change. To change how long each clip runs, open **Settings → Media**, find **Video Generation** and set **Animated expression length**. The default is 3 seconds. The range is 1 to 8 seconds. Marinara saves a small looping GIF, 512 pixels wide. A shorter clip gives a smaller file and a tighter loop.
 
 ## Backgrounds are not removed
 

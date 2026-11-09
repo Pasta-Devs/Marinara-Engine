@@ -6,7 +6,7 @@
 
 **Music DJ** is an optional downloadable agent. An agent is a helper that runs in the background of a chat. After each reply, it can read the mood of the scene and play matching music.
 
-Before you start: open **Agents**, select **Agent Organizer** and install **Music DJ**. It is off after installation. Turn it on for a chat like any other agent. It works in Roleplay chats, in Game Mode through a separate toggle ([Music DJ in Game Mode](#music-dj-in-game-mode)), and in Conversation through the **Music** command ([The Conversation Music command](#the-conversation-music-command)).
+Before you start: open **Library → Agents** and install **Music DJ** from **Available**. It is off after installation. Turn it on for a chat like any other agent. It works in Roleplay chats, in Game Mode through a separate toggle ([Music DJ in Game Mode](#music-dj-in-game-mode)), and in Conversation through the **Music** command ([The Conversation Music command](#the-conversation-music-command)).
 
 It plays from three sources.
 
@@ -18,7 +18,7 @@ It plays from three sources.
 
 The active source shows as a small **Music Player** pinned in the top bar. On phones and narrow windows it becomes a small floating round widget you can drag.
 
-You set up Music DJ in one shared place. Open the right-side **Agents** panel, then **Music DJ**. You can also click the gear icon on the mini player (tooltip **Music DJ setup**).
+You set up Music DJ in one shared place. Open **Library → Agents**, then **Music DJ**. You can also click the gear icon on the mini player (tooltip **Music DJ setup**).
 
 ### Choose a music source
 
@@ -99,7 +99,7 @@ Playing from a folder outside Game Assets needs local access on the server. From
 
 ## Use the music player
 
-The **Music Player** is a pill in the top bar on desktop and a draggable widget on mobile. To show or hide it, open **Settings → General → App Behavior** and toggle **Music Player**. It is on by default. With it on and Music DJ not installed, the player reads **Download Music DJ Agent to configure** and offers an **Agent Organizer** button.
+The **Music Player** is a pill in the top bar on desktop and a draggable widget on mobile. To show or hide it, open **Settings → General → Extras** and toggle **Music Player**. It is on by default. With it on and Music DJ not installed, the player reads **Download Music DJ Agent to configure** and offers an **Agent Organizer** button.
 
 On a fresh profile the source starts as **YouTube**. Change it with the round source switch on the player (tooltip "Switch to ... player"), the **Music Player** buttons in the editor, or a chat's **Music DJ** settings.
 
@@ -137,7 +137,7 @@ A character can then name a song for Spotify, or describe a track for YouTube, a
 
 ## Troubleshooting
 
-- **The mini player is missing**: turn on **Music Player** in **Settings → General → App Behavior**.
+- **The mini player is missing**: turn on **Music Player** in **Settings → General → Extras**.
 - **Spotify plays nothing**: playback needs Spotify Premium and an active Spotify device. Open the desktop app on a device, or click **Enable Marinara player** on desktop.
 - **The Spotify login window fails on another machine**: use the "Browser couldn't reach the callback?" paste box, or set `SPOTIFY_REDIRECT_URI` on the server.
 - **YouTube search fails**: confirm **YouTube Data API v3** is enabled for your project and the key is not restricted by HTTP referrer. If you hit the daily quota, try the next day or use another key.

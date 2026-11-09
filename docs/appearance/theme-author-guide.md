@@ -1,16 +1,32 @@
 # Theme Author Guide
 
-This guide is for people who write or share custom themes. It lists the variables, attributes and part hooks a theme can rely on, how a theme wins over the app's own styles, and the safety rules every theme follows. To switch themes, import one or use the Theme Library, see [Custom CSS Themes](custom-css-themes.md).
+This guide is for people who make or share their own themes. The first part walks you through your first theme with no coding experience needed. The rest is a reference: every colour, picture and part a theme can change, and the safety rules every theme follows. To pick, try, import or remove a theme, see [Custom CSS Themes](custom-css-themes.md).
 
-**Token contract version 1** (`--mari-tokens-version: 1` on `:root`). The variables, attributes and hooks in this guide keep their names between releases. When one has to change, the version goes up and the change is listed under [Changes](#changes) at the end. Everything else (other `--ov-*`, `--mari-*` and `--marinara-*` variables, Tailwind classes, element structure) is internal and can change in any update.
+**Token contract version 1** (`--mari-tokens-version: 1` on `:root`). The names in this guide keep working between releases. When one has to change, the version goes up and the change is listed under [Changes](#changes) at the end. Everything else (other `--ov-*`, `--mari-*` and `--marinara-*` variables, Tailwind classes, element structure) is internal and can change in any update.
 
-## Start here
+## Your first theme, step by step
 
-1. Open **Settings → Appearance → CSS Themes** (in the classic layout, **Settings → Addons → Theme Library**) and click **Create Theme**.
-2. The editor starts from a template built on the tokens below. Remove the `/*` and `*/` around a line and set your own value.
-3. Leave **Preview** on to see each change as you type.
-4. Problems show under the editor with a line number: a missing brace, a property the browser doesn't know, a value it won't accept (usually a missing `;`), or a colour written as a bare `270 25% 8%`.
-5. Click **Save**. Save first checks the CSS against the safety rules in [Safety](#safety). If the theme hides, moves or covers the top bar, a sidebar, Ctrl+K or the message box, it tells you what broke and doesn't save until you fix it or choose **Save anyway**.
+A theme is a short list of settings written in CSS, the language web pages use for colours and fonts. You don't need to know CSS to start. Each line looks like `--name: value;`: a **token** (a named setting that starts with `--`), a colon, the value, and a semicolon.
+
+1. Open **Library → Settings → Appearance** and click **CSS Themes** in the row of sections.
+2. To change a starter theme, find one you like under **Starter themes** and click **Clone + Edit** (the copy icon). Marinara makes your own copy, named for example "Petal OS (my copy)", and opens it in the editor. Starter themes stay read-only, so the original is always there. To start from scratch instead, click **Create Theme**. Its template has lines between `/*` and `*/`, which are switched off. Delete those marks around a line to switch it on.
+3. Type a name in the name box.
+4. Change a colour. Find a line such as `--primary: #3fae7a;` and replace the colour. `#3fae7a` is a hex colour code. Any colour picker on the web gives you one. Names such as `teal` work too.
+5. Leave **Preview** on. The app changes as you type, so you see each change at once.
+6. Look under the editor. **No CSS problems found.** means the CSS is fine. Otherwise each problem shows with its line number, such as a missing `;` or `}`.
+7. Click **Save**. Your new theme turns on, and Marinara asks **Keep this theme?** Click **Keep theme** within 15 seconds, or it goes back to your old look.
+
+The tokens most people change first:
+
+| Token | What it colours |
+| --- | --- |
+| `--background` | The page behind everything |
+| `--foreground` | Main text |
+| `--primary` | Buttons, links and highlights |
+| `--card` | Cards and panels |
+| `--sidebar` | The chats and Library sidebars |
+| `--border` | Lines around things |
+| `--mari-font-ui` | The app font, for example `"Georgia", serif` |
 
 A small theme:
 
@@ -28,6 +44,27 @@ A small theme:
   --sidebar: #0b120e;
 }
 ```
+
+`:root { … }` holds settings for every colour scheme. `[data-theme="dark"] { … }` holds settings for Dark only, and `[data-theme="light"] { … }` for Light only. To see the full list of tokens while you work, open **CSS Variable Reference** under the editor, or read [Colour tokens](#colour-tokens) below.
+
+### Add pictures and fonts
+
+Open **Pictures and sharing details (author, version, thumbnail, fonts)** under the editor and click **Add pictures**. Click a picture's name to put it in your CSS at the cursor. See [Pictures](#pictures) and [Backdrops](#backdrops) for where pictures can go.
+
+Pictures and fonts must be inside the theme. A theme can't load anything from another website, so a link to a picture or a Google Font in your CSS won't work.
+
+### Share your theme
+
+1. In **Pictures and sharing details**, fill in **Author**, **Version** (such as `1.0`), **Description** and **Thumbnail**, and pick **Made for** (Dark, Light or both). To suggest your colours and font along with the theme, click **Use my current Appearance** under **Settings**. Save.
+2. Click **Export** (the upload icon) on your theme's row. Marinara saves one `.json` file with the CSS, pictures and fonts inside.
+3. If you used art or fonts someone else made, open the file in a text editor and add credits and a licence. See [Theme files](#theme-files).
+4. Send that file. The other person imports it with **Import File** and sees your name, credits and a list of anything the theme changes before they install it.
+
+### If something goes wrong
+
+Marinara keeps the top bar, the sidebars, <kbd>Ctrl</kbd>+<kbd>K</kbd> and the message box usable whatever a theme does. If your theme hides, moves or covers one of them, Save tells you what broke. You can still choose **Save anyway**, but Marinara switches the theme off in a tab as soon as it breaks one. To get your normal look back at any time, press <kbd>Esc</kbd> three times, add `?safe` to the end of the address, or press <kbd>Ctrl</kbd>+<kbd>K</kbd> and type "Custom theme".
+
+Starter themes are good examples to learn from. Clone one and read its CSS to see how it uses the tokens and part hooks below.
 
 ## How a theme wins
 
@@ -419,10 +456,9 @@ tags (`div`, `span`, `p`, `b`, `i`, `ul`, `table`, `details`, `progress`, …) w
 `role` and `data-*` attributes, and strips scripts, styles, inline `style`, links, images, forms and
 event attributes. A template whose text asks for keys or passwords is dropped.
 
-HTML is opt-in for users: a theme with a template can only be installed while Settings > Appearance
-
-> CSS Themes > **Allow themes with HTML** is on (off by default), the import preview warns about it,
-> and with the switch off an installed theme shows without its HTML.
+HTML is opt-in for users: a theme with a template can only be installed while **Settings →
+Appearance → CSS Themes → Allow themes with HTML** is on (off by default). The import preview warns
+about it, and with the switch off an installed theme shows without its HTML.
 
 ## Per-chat looks
 
@@ -602,6 +638,12 @@ The import preview tells the user when a theme tries to change any of these.
 
 ## Changes
 
+- **Round 6 and security audit** (November 2026, no new tokens, contract still version 1): the
+  seven starter themes ship read-only, and **Clone + Edit** makes an editable copy; credits,
+  licence and labels show in the import preview and behind the (i) button; trying a theme happens
+  in that tab only until **Keep theme**; the theme text rules, URL check, SVG rebuild and suggested
+  colour check described under [Safety](#safety).
+
 - **v1.5** (theming round 5, long replies): `--mari-chat-column`, `--mari-message-measure`,
   `--mari-chat-line-height`, `--mari-dialogue-weight`, `--mari-paragraph-gap`, pinned speaker,
   `--mari-phone-avatar`, VN text box parts and fade, `--mari-message-actions`,
@@ -625,15 +667,15 @@ The import preview tells the user when a theme tries to change any of these.
   and cursor; `--mari-home-wash`, `--mari-home-art` and more Home widget tokens; VN dialogue, VN
   sprite slot and Game narration hooks; theme files can suggest Follow time of day; guard v3.
 
+- **v1.2**: message template slot (`templates` in the theme file, `[data-mari-part="message-extra"]`),
+  opt-in for users with "Allow themes with HTML".
+
 - **v1.1**: message hooks in every chat mode with character, index and generation time; avatar,
   header, actions and reasoning parts; `--mari-composer-placeholder`; backdrop v2 (size, position,
   repeat, pixelated, layers) that also shows behind chats; `--mari-page-veil`; `--mari-top-bar-bg`;
   `--mari-text-outline`, `--mari-dialogue-color`, `--mari-chat-font-size`, `--mari-msg-head-rule`;
   Home widget tokens, with Professor Mari as a `home-widget`. `--mari-stage-empty-bg` is now a
   `background` (gradients work).
-- **v1.2**: message template slot (`templates` in the theme file, `[data-mari-part="message-extra"]`),
-  opt-in for users with "Allow themes with HTML".
-
 - **v1.0.1**: guard v2, protected Accessibility values, added-text checks. Install is all-or-nothing,
   bundled backgrounds install, Go back also restores the settings a theme applied, theme fonts show
   in the Font list, `url(#id)` references are kept, and bundled font names are read from the font.

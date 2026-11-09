@@ -17,7 +17,7 @@ If it did not work: with no tracker agents on, the HUD shows no widgets. Check t
 
 ## Where the HUD appears
 
-On a phone, the trackers are the movable **World State** and **Player & Tracker** buttons. Tap one to open its panel, and **X** to close it. Once World State has details, its button shows a small banner with the location, day, time, weather and temperature. Drag the buttons anywhere. Your chat remembers where you put them. They follow your **Chat widget style** in **Settings → Appearance → App**.
+On a phone, the trackers are the movable **World State** and **Player & Tracker** buttons. Tap one to open its panel, and **X** to close it. Once World State has details, its button shows a small banner with the location, day, time, weather and temperature. Drag the buttons anywhere. Your chat remembers where you put them. They follow your **Chat widget style** in **Settings → Appearance → Chat Buttons & Windows**.
 
 On a computer, the same trackers appear in one of two places:
 
@@ -126,7 +126,7 @@ A character's large card can make a new portrait once the Character Tracker has 
 
 ### Tracker Panel settings
 
-Open **Settings → Appearance**, open the **Roleplay** group, and find the **Tracker Panel** section.
+Open **Settings → Roleplay** and find the **Tracker Panel** section.
 
 | Setting | What it does |
 | --- | --- |

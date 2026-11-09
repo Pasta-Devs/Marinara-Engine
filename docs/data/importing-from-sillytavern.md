@@ -15,8 +15,8 @@ Bring your SillyTavern data into Marinara Engine. Import one file at a time, or 
 
 ## Quick single-file imports
 
-1. Open **Settings → Imports**.
-2. In **SillyTavern Import**, click the button for your file type.
+1. Open **Settings → Data → SillyTavern Import**.
+2. Click the button for your file type.
 3. Choose the file.
 
 | Button | File |
@@ -26,7 +26,7 @@ Bring your SillyTavern data into Marinara Engine. Import one file at a time, or 
 | **Import Preset (JSON)** | A `.json` preset. |
 | **Import Lorebook (JSON)** | A `.json` World Info file. |
 
-The buttons have no options. A character import keeps all source tags and limits any regex scripts to that character. A regex script is a find-and-replace rule for text. To choose these options, use **Import** in the Characters panel. See [Importing and Exporting Character Cards](../characters/import-export.md).
+The buttons have no options. A character import keeps all source tags and limits any regex scripts to that character. A regex script is a find-and-replace rule for text. To choose these options, use **Import** on the **Library → Characters** page. See [Importing and Exporting Character Cards](../characters/import-export.md).
 
 If a character card has a lorebook inside it, your browser asks whether to import it as its own lorebook. Click **OK** to keep it as a lorebook you can reuse, or **Cancel** to import only the character.
 
@@ -38,9 +38,9 @@ To pick the mode, use the import button at the top of the chat list. Its tooltip
 
 ## Import a SillyTavern folder
 
-Before you start: the wizard reads files on the server computer. If SillyTavern is on another computer, copy its folder (the one where you installed SillyTavern) to the Marinara computer first. On the Marinara computer the wizard works right away. From another device, set the admin secret and enter it in **Settings → Advanced → Admin Access**. See [Backing Up and Restoring Marinara](backup-and-restore.md) and the "Privileged APIs (ADMIN_SECRET)" section of the [Server Configuration Reference](../CONFIGURATION.md).
+Before you start: the wizard reads files on the server computer. If SillyTavern is on another computer, copy its folder (the one where you installed SillyTavern) to the Marinara computer first. On the Marinara computer the wizard works right away. From another device, set the admin secret and enter it in **Settings → Advanced → Security**. See [Backing Up and Restoring Marinara](backup-and-restore.md) and the "Privileged APIs (ADMIN_SECRET)" section of the [Server Configuration Reference](../CONFIGURATION.md).
 
-1. Open **Settings → Imports → SillyTavern Import**.
+1. Open **Settings → Data → SillyTavern Import**.
 2. Click **Import from SillyTavern Folder**.
 3. Choose your SillyTavern folder. Pick the main folder, usually the one that holds a `data/` or `public/` folder. Use one of these ways:
    - Click **Browse** and pick the folder.

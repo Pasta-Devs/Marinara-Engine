@@ -1,6 +1,6 @@
 # Clearing or Resetting Your Data
 
-Permanently delete some or all of your data with the **Danger Zone**. There is no undo.
+Permanently delete some or all of your data with **Delete Data**, at **Settings → Data → Delete Data**. There is no undo.
 
 To delete one chat or one character, use its own delete button instead. See [Managing Chats](../chats/managing-chats.md) and [Creating and Editing Characters](../characters/creating-and-editing-characters.md).
 
@@ -8,7 +8,7 @@ To delete one chat or one character, use its own delete button instead. See [Man
 
 ## Clear some categories
 
-1. Open **Settings → Advanced** and scroll to **Danger Zone**.
+1. Open **Settings → Data** and go to **Delete Data**.
 2. Check each category you want to delete. **Select All** checks every box. When all are checked, the same button reads **Clear Selection** and unchecks them.
 3. Click **Clear Selected Data**. It stays disabled until you check a category.
 4. Read the warning. It shows how many categories you picked.
@@ -18,7 +18,7 @@ When it works, a message says the selected data was cleared. If the request fail
 
 ## Clear everything
 
-1. In **Danger Zone**, click **Clear All Data**. You do not need to check any box.
+1. In **Delete Data**, click **Clear All Data**. You do not need to check any box.
 2. The warning asks: "Delete all supported data categories except Professor Mari? There is no undo."
 3. Click **Confirm Delete**, or **Cancel** to stop.
 
@@ -47,7 +47,7 @@ More detail:
 - **Connections** also clears text-to-speech and speech-to-text settings, the models you chose for features, and a Tripo API key saved on the **3D Avatars** page.
 - **Automation & Addons** also deletes agent results, agent memory, agent folders and agent Home widgets.
 - **Media & Assets** also deletes the asset list and chat images.
-- Knowledge-source files are files you uploaded for knowledge agents. Synced themes are your custom themes saved in Marinara.
+- Knowledge-source files are files you uploaded for knowledge agents. Synced themes are your custom themes saved in Marinara. The starter themes that come with Marinara come back the next time Marinara starts.
 
 Some categories reach into files outside their name. **Chats & Messages** deletes the whole `gallery` folder, including character and persona gallery images, even if you did not check **Characters** or **Personas**.
 
@@ -55,7 +55,7 @@ Clearing does not touch your other settings, the `backups/` folder or the `.encr
 
 ## Professor Mari stays
 
-Professor Mari is the built-in assistant on the Home screen. The **Danger Zone** never deletes her, not even with **Clear All Data**.
+Professor Mari is the built-in assistant on the Home screen. **Delete Data** never deletes her, not even with **Clear All Data**.
 
 ## Related guides
 

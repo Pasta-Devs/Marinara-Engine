@@ -11,7 +11,7 @@ Before you start: Prompt Overrides only matter for features that generate images
 ## Find the editors
 
 1. Open **Settings**.
-2. Click the **Generations** tab.
+2. Click the **Media** tab. Until the Illustrator agent is installed, this tab only offers to download it.
 3. Scroll to **Prompt Overrides** ("Reusable image and video prompt templates").
 
 Two editors are there. Click a title to expand it.

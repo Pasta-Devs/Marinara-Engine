@@ -2,7 +2,7 @@
 
 This page is a reference for the main services Marinara Engine can connect to: where to get its API key, its default address, and its quirks. To add an account step by step, read [Connecting to an AI Provider](connecting-to-a-provider.md) first.
 
-You choose a service in the **Add account** window, under the section for what it does: **Chat**, **Images & video**, **Voice**, or **Decisions**. The tile uses the name shown below. The address is the web address Marinara sends requests to. It is called **Address** in the account editor and **Base URL** in the model editor. Marinara fills it in for known services. Change it only for a proxy or a server you run.
+You choose a service after **Add connection**, on the tab for what it does: **Chat**, **Images** (video services are here too), **Voice**, or **Decisions**. The list uses the name shown below. The address is the web address Marinara sends requests to. It is called **Address** in the account editor and **Base URL** in the model editor. Marinara fills it in for known services. Change it only for a proxy or a server you run.
 
 Models change often, so this page does not list them. After you connect, the model list loads in the picker. Click **Refresh model list** in the picker to reload it.
 
@@ -133,7 +133,7 @@ Connect DeepSeek with its own tile, not by pointing **OpenAI** at DeepSeek's add
 
 ### OpenAI-compatible
 
-**OpenAI-compatible** connects a server or proxy that accepts the OpenAI request format, such as Ollama, LM Studio, or KoboldCpp. In the **Add account** window it appears as **OpenAI-compatible address**. The key can stay empty for most local servers. You enter the address. See [Connecting a Local or Self-Hosted Model](local-self-hosted.md). For the small model Marinara runs by itself, see [Built-in Model Setup](local-model.md).
+**OpenAI-compatible** connects a server or proxy that accepts the OpenAI request format, such as Ollama, LM Studio, or KoboldCpp. In the **Add connection** list it appears as **OpenAI-compatible address**. The key can stay empty for most local servers. You enter the address. See [Connecting a Local or Self-Hosted Model](local-self-hosted.md). For the small model Marinara runs by itself, see [Built-in Model Setup](local-model.md).
 
 ## Images and video
 
@@ -160,11 +160,11 @@ Under **Voice**, an audio service speaks character voices and narration. Pick an
 
 Each source fills in a default address and model. **Default voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line. Raise it for a slow voice server.
 
-To choose the speech account Marinara uses by default, click the **Voice (Text to Speech)** row in the **Jobs** box. To read messages aloud with one, pick it as the **Source** in the **Text to Speech** card. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use an Audio connection](../media/tts-setup.md#use-an-audio-connection).
+To choose the speech account Marinara uses by default, click the **Voice (Text to Speech)** in the **Defaults** box. To read messages aloud with one, pick it as the **Source** in the **Text to Speech** card. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use an Audio connection](../media/tts-setup.md#use-an-audio-connection).
 
 ## Music & Sound Effects
 
-This account type makes instrumental music and sound effects, separately from speech. The **Add account** window has no tile for it. These accounts come from an upgrade (see below) or an import. You edit one with **Edit model**, where you pick its service and turn on **Music generation**, **Sound-effect generation**, or both. Game setup asks for one in **Music & Sound Effects account**, and its default choice is **Use the default Music & Sound Effects account**.
+This account type makes instrumental music and sound effects, separately from speech. The **Add connection** list has no entry for it. These accounts come from an upgrade (see below) or an import. You edit one with **Edit model**, where you pick its service and turn on **Music generation**, **Sound-effect generation**, or both. Game setup asks for one in **Music & Sound Effects account**, and its default choice is **Use the default Music & Sound Effects account**.
 
 The services:
 
@@ -188,7 +188,7 @@ Embeddings turn text into lists of numbers so Marinara can find related text. Th
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, and **Grok CLI (Subscription)** cannot make embeddings. For those, use the **Embedding provider** dropdown to borrow another account, such as an OpenAI-compatible one, **Google Gemini**, or the **Built-in model**.
 
-To use one embedding source for every account that has no embedding settings of its own, click the **Embeddings** row in the **Jobs** box. **Marinara's own search** keeps the built-in embedding model. An account's own embedding model or **Embedding provider** still wins. Vectorize your lorebooks and memories again after you change it. See [Semantic Search for Lorebooks](../lorebooks/semantic-search.md).
+To use one embedding source for every account that has no embedding settings of its own, click the **Embeddings** in the **Defaults** box. **Marinara's own search** keeps the built-in embedding model. An account's own embedding model or **Embedding provider** still wins. Vectorize your lorebooks and memories again after you change it. See [Semantic Search for Lorebooks](../lorebooks/semantic-search.md).
 
 ## Timeouts
 

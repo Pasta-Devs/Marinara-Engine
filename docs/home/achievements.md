@@ -5,7 +5,10 @@ Achievements are cosmetic badges that unlock as you use Marinara Engine, for exa
 ## Open the Achievements window
 
 1. Go to the Home screen.
-2. Click the **Achievements** bookmark (trophy icon). On a phone, tap the bookmark button at the left of the tabs first.
+2. Click **Widgets** and turn on the **Achievements** widget.
+3. Click the widget.
+
+In the classic layout, Home also has an **Achievements** bookmark (trophy icon). On a phone, tap the bookmark button at the left of the tabs first.
 
 The **Achievements** window opens. At the top is a summary such as **12 of 24 achievements unlocked in this profile.** A profile is your saved set of Marinara data. Below it is a grid of cards.
 
@@ -13,7 +16,7 @@ The **Achievements** window opens. At the top is a summary such as **12 of 24 ac
 - An unlocked card shows an **unlocked** tag.
 - A card with a target also shows a **Progress** row and bar.
 
-You can also add the **Achievements** widget to Home. Click **Widgets** in the bookmarks and turn it on. It shows a count like **12 of 24 unlocked**, your **Last obtained** achievement and your **Closest next** one. While it loads, it reads **Checking the collection...**. Click it to open the window. See [Home widgets](welcome.md#home-widgets).
+The **Achievements** widget shows a count like **12 of 24 unlocked**, your **Last obtained** achievement and your **Closest next** one. While it loads, it reads **Checking the collection...**. Click it to open the window. See [Home widgets](welcome.md#home-widgets).
 
 If it did not work: the bookmark, widget and window show only when the **Achievements** setting is on. See [Turn achievements on or off](#turn-achievements-on-or-off).
 
@@ -51,7 +54,7 @@ If you remove an agent, its section goes away and your unlocks are kept. If you 
 ## Turn achievements on or off
 
 1. Open **Settings → General**.
-2. In the **App Behavior** section, turn the **Achievements** toggle on or off. It is on by default.
+2. In the **Extras** section, turn the **Achievements** toggle on or off. It is on by default.
 
 - On: the bookmark and window are available, and a pop-up appears when something unlocks.
 - Off: the bookmark, widget and pop-ups are hidden. The app still records unlocks in the background, so nothing is lost when you turn it back on.

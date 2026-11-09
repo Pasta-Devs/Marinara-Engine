@@ -42,7 +42,7 @@ More: [Peek Prompt](peek-prompt.md), [Chat Branches](branches.md), [Scenes](../r
 3. Click **Save**, or press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on a Mac).
 4. To stop without saving, click **Cancel** or press <kbd>Esc</kbd>.
 
-Two settings in **Settings → General → Input & Editing** start an edit faster. Both are on by default.
+Two settings in **Settings → Chatting → Editing & Swipes** start an edit faster. Both are on by default.
 
 - **Up Arrow edits last message**: press <kbd>Up</kbd> while the input box is empty.
 - **Double-click edits messages**: double-click or double-tap a Roleplay message.
@@ -79,10 +79,10 @@ You cannot delete the last swipe. The app says "Cannot delete the last remaining
 In the new layout on a phone or tablet, swipes and long-presses replace the buttons that show on hover on a computer.
 
 - **Swipe the newest reply** left or right to move between its swipes. Swiping left past the last one asks "Generate a new reply?" before it makes one, because a new reply costs a request.
-- **Swipe the title** in the top bar left or right to move between your open tabs. Home counts as the tab before the first one.
-- **Swipe a chat** in the chat list to the left to show **Pin**, **Rename** and **Delete**.
+- **Swipe the title** in the top bar left or right to move between your open tabs. Home counts as the tab before the first one. This works in the phone layout, which a tablet uses when held upright; turned sideways, a tablet shows the tab bar instead.
+- **Swipe a chat** in the chat list to the left to show **Pin**, **Rename**, **Tags** and **Delete**.
 - **Long-press a message** for its actions: Regenerate, Edit, Copy, Branch and the rest.
-- **Long-press a chat** in the chat list for its actions, including Pin, Rename and Delete.
+- **Long-press a chat** in the chat list for the same actions.
 
 Turn the swipes off with **Swipe gestures on touch screens** in Settings > Chatting > Editing & Swipes. Long-press keeps working either way.
 
@@ -106,7 +106,7 @@ Type `/continue` (or `/cont`) in the input box and send it. The model picks up w
 /continue
 ```
 
-Marinara adds a blank line before the new text. To attach it directly to the last character, turn off **Settings → General → Responses → Add a new line before /continue text**.
+Marinara adds a blank line before the new text. To attach it directly to the last character, turn off **Settings → Chatting → Responses → Add a new line before /continue text**.
 
 ### Retry with an empty Send
 
@@ -126,7 +126,7 @@ When Advanced Memory's **Decide who sees new messages** is on, new messages in a
 
 ## Message display toggles
 
-These are in **Settings → Advanced → Message Tools**.
+These are in **Settings → Chatting → Message Info**.
 
 | Toggle | Default | What it shows |
 | --- | --- | --- |

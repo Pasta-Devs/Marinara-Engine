@@ -40,7 +40,7 @@ In a Roleplay chat, the picker can also offer **Create your persona**, which ask
 
 ## Play as a character
 
-To use a character card as your identity, turn on **Show characters in Persona pickers** under **Settings → Advanced → Message Tools**. The pickers then show a **Play as a character** group that lists your characters.
+To use a character card as your identity, turn on **Show characters in Persona pickers** under **Settings → Chatting → Message Box**. The pickers then show a **Play as a character** group that lists your characters.
 
 ## Related guides
 

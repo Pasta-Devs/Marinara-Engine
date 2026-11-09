@@ -8,7 +8,7 @@ Image generation is not required. Without an image generation account, the backd
 
 Use this to keep one image behind the chat you have open, instead of letting the agent choose. It changes only that chat.
 
-1. Open the chat. Then open **Settings → Appearance** and find **Backgrounds**.
+1. Open the chat. Then open **Settings → Appearance → Backgrounds**.
 2. Under **Chat Background**, pick an uploaded image or one of your game asset backgrounds.
 
 You see the image behind your messages. To go back to the default, click **Remove** next to **Chat Background**.

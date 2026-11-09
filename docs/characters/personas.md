@@ -22,9 +22,13 @@ Marinara sends your persona to the AI in every prompt. Choose **None** in a chat
 
 The `{{user}}` macro is a placeholder. Marinara replaces it with the persona's name before it sends the prompt. If your persona is named Alex, `{{user}}` becomes Alex. See [Macros](../prompts/macros.md).
 
-## The Personas panel
+## The Personas page
 
-The **Personas** panel is your persona library. Click a row to open that persona in the Persona Editor.
+Open **Library → Personas**. It works like the [Characters page](library-organization.md#the-characters-page): portrait cards, **Import**, **New persona** (blank or from a template), a search box, **Recently edited** and tag chips, the sort menu (**A to Z**, **Z to A**, **Newest**, **Oldest**) and three card sizes. Click a card to open the persona in the Persona Editor.
+
+## In the classic layout: the Personas panel
+
+The classic **Personas** panel has folders, manual order and bulk select as well. Click a row to open that persona in the Persona Editor.
 
 | Control | What it does |
 | --- | --- |

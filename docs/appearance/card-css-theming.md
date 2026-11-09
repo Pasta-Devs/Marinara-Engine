@@ -140,7 +140,7 @@ Roleplay and Conversation share the same skeleton. Stick to the `mari-*` classes
 | `[data-card-css] p`, `[data-card-css] span` | Paragraphs and inline spans inside the text. |
 | `[data-grouped]` | Continuation messages from the same character. Conversation only. Use `[data-card-css]:not([data-grouped])` for the first message in a group. |
 
-To change the layout, open **Settings → Appearance → Conversation**, then **Conversation Display**, then **Chat Layout**. In **Linear**, style `.mari-message-content` (the text) and `[data-card-css]` (the row), since there is no bubble.
+To change the layout, open **Settings → Conversation → Conversation Layout → Chat Layout**. In **Linear**, style `.mari-message-content` (the text) and `[data-card-css]` (the row), since there is no bubble.
 
 A styled bubble:
 
@@ -422,5 +422,5 @@ Output a single <style> block I can paste into Creator Notes.
 ## Related guides
 
 - [Appearance Settings](appearance-settings.md)
-- [Custom CSS Themes (Theme Library)](custom-css-themes.md)
+- [Custom CSS Themes](custom-css-themes.md)
 - [Creating and Editing Characters](../characters/creating-and-editing-characters.md)

@@ -73,6 +73,7 @@ const DIR_ORDER = [
   "prompts",
   "appearance",
   "settings",
+  "configuration",
   "data",
   "extending",
   "integrations",
@@ -116,6 +117,7 @@ const DOC_ORDER: Record<string, string[]> = {
   game: [
     "getting-started.md",
     "rulesets.md",
+    "mrpg-classes.md",
     "combat.md",
     "fighting-on-a-ruleset.md",
     "party-and-npcs.md",
@@ -129,6 +131,7 @@ const DOC_ORDER: Record<string, string[]> = {
   ],
   characters: [
     "creating-and-editing-characters.md",
+    "interactive-onboarding.md",
     "personas.md",
     "choosing-your-persona.md",
     "sprites.md",
@@ -169,6 +172,8 @@ const DOC_ORDER: Record<string, string[]> = {
     "approvals-and-agent-suite.md",
     "noodle.md",
     "noodle-settings.md",
+    "avatars.md",
+    "hierarchical-maps.md",
   ],
   media: [
     "image-providers.md",
@@ -191,9 +196,9 @@ const DOC_ORDER: Record<string, string[]> = {
   ],
   appearance: [
     "appearance-settings.md",
+    "custom-css-themes.md",
     "fonts.md",
     "chat-backgrounds.md",
-    "custom-css-themes.md",
     "theme-author-guide.md",
     "card-css-theming.md",
   ],
@@ -212,6 +217,8 @@ const DOC_ORDER: Record<string, string[]> = {
     "ruleset-items.md",
     "ruleset-combat.md",
     "ruleset-layers-and-translations.md",
+    "writing-story-scripts.md",
+    "writing-creature-packs.md",
   ],
   integrations: ["home-assistant.md", "discord-mirror.md", "message-translation.md", "haptic-feedback.md"],
   development: USER_DEVELOPMENT_DOCS,

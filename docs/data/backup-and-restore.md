@@ -9,14 +9,14 @@ Save a copy of your Marinara Engine data, and put it back later. Do this before 
 | **Download Backup** | A `.zip` with all your data and files. | One complete copy of everything. |
 | **Export Profile** | A smaller file with your account data (characters, chats, lorebooks and more). | A copy without secrets, or files for other tools. |
 
-A `.zip` is one file that holds many files. Both options are in **Settings → Advanced → Backup & Export**. Restoring is in **Settings → Imports → Profile & Marinara**.
+A `.zip` is one file that holds many files. Both options, and restoring, are in **Settings → Data → Backup & Restore**.
 
-**Before you start:** on the computer that runs Marinara, these tools work right away. From a phone, a tablet or any other device, set the admin secret on the server and enter the same value in **Settings → Advanced → Admin Access**. The admin secret is a password in the server's `.env` file, as the setting `ADMIN_SECRET`. See the "Privileged APIs (ADMIN_SECRET)" section of the [Server Configuration Reference](../CONFIGURATION.md) and [Remote Access](../REMOTE_ACCESS.md).
+**Before you start:** on the computer that runs Marinara, these tools work right away. From a phone, a tablet or any other device, set the admin secret on the server and enter the same value in **Settings → Advanced → Security**. The admin secret is a password in the server's `.env` file, as the setting `ADMIN_SECRET`. See the "Privileged APIs (ADMIN_SECRET)" section of the [Server Configuration Reference](../CONFIGURATION.md) and [Remote Access](../REMOTE_ACCESS.md).
 
 ## Download Backup
 
-1. Open **Settings → Advanced**.
-2. In **Backup & Export**, click **Download Backup**. The button shows **Creating backup…**.
+1. Open **Settings → Data**.
+2. In **Backup & Restore**, click **Download Backup**. The button shows **Creating backup…**.
 3. Save the file when your browser asks, or find it in your Downloads folder.
 
 The `.zip` holds:
@@ -32,13 +32,13 @@ For the folder names, see [Where Marinara Stores Your Data](where-data-is-stored
 
 On Android you cannot reach the app's data folder, so **Download Backup** is the way to get a copy off the device.
 
-If it did not work: if you see "Backup preparation timed out after one hour.", try again. If another device cannot download, check **Admin Access** (see above).
+If it did not work: if you see "Backup preparation timed out after one hour.", try again. If another device cannot download, check the admin secret (see above).
 
 ## Automatic backups
 
 Marinara can make a full backup on a schedule, on the computer that runs it.
 
-1. Open **Settings → Advanced → Backup & Export**.
+1. Open **Settings → Data → Backup & Restore**.
 2. Turn on **Automatic backups**.
 3. Choose **Daily**, **Weekly** or **Monthly**.
 4. Set **Automatic backups kept** from 1 to 9999.
@@ -53,7 +53,7 @@ Each run needs free space for one more full archive, because the old one stays u
 
 ## Export a profile
 
-1. Open **Settings → Advanced → Backup & Export**.
+1. Open **Settings → Data → Backup & Restore**.
 2. Click **Export Profile**. A dialog with the same title opens.
 3. Pick a format.
 4. Your browser downloads the file.
@@ -63,14 +63,14 @@ Each run needs free space for one more full archive, because the old one stays u
 
 A native profile downloads as `marinara-profile.json`. If it is too large, Marinara offers a ZIP file instead. Click **Export ZIP** to download `marinara-profile.zip`.
 
-A native profile keeps Personal Extension code, but not whether it is turned on or approved. Every restored extension arrives disabled. Review it again in **Settings → Addons**.
+A native profile keeps Personal Extension code, but not whether it is turned on or approved. Every restored extension arrives disabled. Review it again in **Library → Extensions**.
 
 ## Restore with Import Profile
 
 **Import Profile** loads a profile file or a **Download Backup** `.zip`.
 
-1. Open **Settings → Imports**.
-2. In **Profile & Marinara**, click **Import Profile (JSON/ZIP)**.
+1. Open **Settings → Data → Backup & Restore**.
+2. Click **Import Profile (JSON/ZIP)**.
 3. Choose `marinara-profile.json`, `marinara-profile.zip` or a backup `.zip`. The button shows **Scanning Profile...**.
 4. Read the **Import Profile** dialog. It lists what Marinara found and warns that you cannot undo the import.
 5. Click **Import**, or **Cancel** to stop. The button shows **Importing Profile...** and a progress bar follows. When it finishes, a message says the profile was imported.
@@ -86,7 +86,7 @@ If you import the same profile twice, Marinara updates your items and does not c
 
 **Import Profile** never brings back API keys or webhook links, even from a **Download Backup** `.zip`. An API key is the secret code a service gives you. The profile file and the profile inside a backup have these values blanked. So after you import on a new computer, you must enter them again:
 
-1. Open **Connections** from the top bar.
+1. Open **Library → Connections**.
 2. Open each account you use, enter its API key and save. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 3. Enter the webhook link again on each custom tool that uses one.
 
@@ -97,7 +97,7 @@ Importing never blanks keys you already set on the same install.
 ## Move to a new computer
 
 1. Install Marinara on the new computer and start it. See [Installation](../INSTALLATION.md).
-2. Open **Settings → Imports → Profile & Marinara** and click **Import Profile (JSON/ZIP)**.
+2. Open **Settings → Data → Backup & Restore** and click **Import Profile (JSON/ZIP)**.
 3. Choose your **Download Backup** `.zip` or your profile file, then click **Import**.
 4. Enter your API keys again, as described above.
 
@@ -114,7 +114,7 @@ Use this only if **Import Profile** cannot be used. The `.zip` has one folder in
 
 Keep the `.encryption-key` file with the `storage` folder, or the saved API keys cannot be read.
 
-The **Existing backups** list in **Backup & Export** is normally empty. You do not need it.
+The **Existing backups** list in **Backup & Restore** is normally empty. You do not need it.
 
 ## Related guides
 

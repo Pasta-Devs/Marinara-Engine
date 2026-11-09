@@ -96,7 +96,7 @@ This section lets Noodle attach AI-made images to some posts. It needs an image 
 
 If it did not work: with image generation on but no usable image model, a refresh is blocked with "Choose an image generation connection for Noodle first." A failed image is retried once. If it fails again, the refresh goes on and publishes a clean text-only post.
 
-The template for these image prompts is **Noodle Post Image**. Edit it under **Settings → Generations → Image Generation Prompt Overrides**. Your image instructions go into that template, and the result goes through your style profile. See [Prompt Overrides for Image and Video](../prompts/prompt-overrides.md) and [Image Style Profiles](../media/style-profiles.md). Professor Mari has no character card, so her image posts use her built-in avatar and reference art.
+The template for these image prompts is **Noodle Post Image**. Edit it under **Settings → Media → Prompt Overrides**. Your image instructions go into that template, and the result goes through your style profile. See [Prompt Overrides for Image and Video](../prompts/prompt-overrides.md) and [Image Style Profiles](../media/style-profiles.md). Professor Mari has no character card, so her image posts use her built-in avatar and reference art.
 
 ## Image Understanding
 
@@ -117,7 +117,7 @@ This section tunes the refresh writer's tone and memory.
 
 ### Customize the writer's voice
 
-You can rewrite the writer's built-in tone and creative-freedom instructions under **Settings → Generations → Image Generation Prompt Overrides → Noodle Timeline Voice & Tone**. The section is titled "Image," but the list holds every customizable Noodle and Conversation text prompt. The default text there follows **Enhanced tone & continuity** until you save your own text, and then yours is used regardless.
+You can rewrite the writer's built-in tone and creative-freedom instructions under **Settings → Media → Prompt Overrides → Noodle Timeline Voice & Tone**. The section is titled "Image," but the list holds every customizable Noodle and Conversation text prompt. The default text there follows **Enhanced tone & continuity** until you save your own text, and then yours is used regardless.
 
 This override covers voice and tone only. The rules that keep a refresh valid, such as which structured actions are allowed, always stay in effect.
 

@@ -8,14 +8,13 @@ Function calling means the AI asks the app to run an action and then uses the re
 
 ## Create a tool
 
-Before you start, open the **Presets** panel from the top bar. Tools live in its **Functions** section (wrench icon). If you open Marinara from another device, save the admin secret first under **Settings → Advanced → Admin Access**. It must match the server's `ADMIN_SECRET`; see the [Server Configuration Reference](../CONFIGURATION.md).
+Before you start: in the new layout, you make a tool from a chat. Open any chat, then **Chat Settings → Function Calling → Add Functions**, and click **New Custom Function**. In the classic layout, tools also live in the **Presets** panel's **Functions** section (wrench icon), where you can open, edit and delete the ones you have. If you open Marinara from another device, save the admin secret first under **Settings → Advanced → Security**. It must match the server's `ADMIN_SECRET`; see the [Server Configuration Reference](../CONFIGURATION.md).
 
 For a first try, pick **Static Result**: it needs nothing else.
 
 ### Creating a tool
 
-1. Open **Presets** and find **Functions**.
-2. Click **Create function** (plus icon). A blank tool editor opens.
+1. Open the tool editor: in a chat, **Chat Settings → Function Calling → Add Functions → New Custom Function**; or in the classic layout, **Presets → Functions → Create function** (plus icon). A blank tool editor opens.
 3. Type a name in lowercase snake_case, such as `check_weather`. This is the exact name the AI calls. It starts with a lowercase letter, then uses lowercase letters, numbers and underscores.
 4. Fill in **Description**. Write it as an instruction to the AI, because the AI reads it to decide when to call the tool. Example: `Get the current weather for a city the user names.`
 5. Add any parameters the tool needs (see [Add parameters](#add-parameters)).
@@ -171,7 +170,7 @@ If it did not work: confirm **Enable Tool Use** is on, the tool is in the chat's
 
 You can also give a tool to an agent instead of a chat.
 
-1. Open the **Agents** panel and open an agent.
+1. Open **Library → Agents** and open an agent.
 2. Open its **Tools / Function Calling** group.
 3. Turn on the tools that agent may use.
 

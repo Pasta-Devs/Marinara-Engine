@@ -17,8 +17,8 @@ Update Marinara Engine to a newer version, check for updates in the app, and go 
 Make a backup before any large jump, and always before you might go back to an older version.
 
 1. Open **Settings**.
-2. Go to the **Advanced** tab.
-3. Find the **Backup & Export** section.
+2. Go to the **Data** tab.
+3. Find the **Backup & Restore** section.
 4. Click **Download Backup**.
 5. Save the `.zip` file somewhere safe.
 
@@ -37,7 +37,7 @@ The launcher updates Marinara when you start it.
 
 The launcher fetches the latest code, reinstalls what changed, rebuilds and starts the new version. If you changed the code yourself, it sets your changes aside and puts them back after the update. If it cannot, it keeps your current version and prints a note. It copies your data before it updates, and it skips an update that would land on a version older than your data (see [Downgrading to an older version](#downgrading-to-an-older-version)).
 
-To skip the update once, run `start.bat --skip-update`. To keep your installed version across launches, set `AUTO_UPDATE_ENABLED=false` in the project `.env`. This turns off only automatic updates. Manual commands and **Settings → Advanced → Check for Updates** still work.
+To skip the update once, run `start.bat --skip-update`. To keep your installed version across launches, set `AUTO_UPDATE_ENABLED=false` in the project `.env`. This turns off only automatic updates. Manual commands and **Settings → Advanced → Updates → Check for Updates** still work.
 
 If the launcher says Node.js is too old, install Node.js 24 LTS (Long Term Support, the recommended stable release), then start Marinara again. You can also download the newest installer from the GitHub Releases page and run it.
 
@@ -169,7 +169,7 @@ Applying from another device is off by default. It needs all three of these:
 
 - `UPDATES_ALLOW_REMOTE_APPLY=true` in the server `.env`.
 - `ADMIN_SECRET` set in the server `.env`. This is a second password for risky actions.
-- The same secret saved on your device in **Settings → Advanced → Admin Access**.
+- The same secret saved on your device in **Settings → Advanced → Security**.
 
 Click **Apply Update**. The button shows **Updating…** while the server fetches the code, reinstalls, rebuilds and shuts down. Then you see "Update applied successfully. Please relaunch the app to use the new version." Start Marinara again to finish.
 
@@ -190,7 +190,7 @@ Use it when the app looks old or blank after the server already updated. The but
 Upgrading replaces the app code, not your data folder or the `marinara-data` volume. Your chats, characters, personas, lorebooks, presets, connections and settings stay in place. To see where the data lives, read [Backing Up and Restoring Marinara](data/backup-and-restore.md).
 
 - **Optional packages.** When you upgrade from a version that bundled first-party agents, maps, calls or Conversation games, the first start downloads their matching optional packages. Your selections, settings and history stay. Keep the server online for that first start. If the download source cannot be reached, Marinara tries again on the next start and does not delete anything.
-- **Guide language.** If you use a downloaded documentation language (**Settings → General → Documentation Language**), the first start after an update refreshes it. If it cannot be reached, Marinara keeps your installed pack, shows missing guides in English and tries again on the next start.
+- **Guide language.** If you use a downloaded documentation language (**Settings → General → Language → Documentation Language**), the first start after an update refreshes it. If it cannot be reached, Marinara keeps your installed pack, shows missing guides in English and tries again on the next start.
 - **Interface language.** UI language packs are a separate, manual download. On the first upgrade from bundled translations, the interface returns to English. Choose your language again in **Settings → General → Language**. Later updates keep downloaded packs. Use **Refresh language pack** for new translations. Missing translations show English.
 
 ## Updating from 2.5.0

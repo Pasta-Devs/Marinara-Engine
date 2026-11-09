@@ -50,7 +50,7 @@ Some setups give the key through the `ENCRYPTION_KEY` environment variable inste
 
 ## Copy your data from Android
 
-On Android, the data folder is in app storage that you cannot reach without root access, so you cannot copy it. Use **Settings → Advanced → Backup & Export → Download Backup**. The `.zip` includes the `.encryption-key` file when one exists. See [Backing Up and Restoring Marinara](backup-and-restore.md).
+On Android, the data folder is in app storage that you cannot reach without root access, so you cannot copy it. Use **Settings → Data → Backup & Restore → Download Backup**. The `.zip` includes the `.encryption-key` file when one exists. See [Backing Up and Restoring Marinara](backup-and-restore.md).
 
 Automatic backups are saved in the same app storage. Uninstalling or resetting the app can remove them with the live data, so keep a copy somewhere else.
 

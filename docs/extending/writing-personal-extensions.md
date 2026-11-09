@@ -6,9 +6,9 @@ Code you write and import yourself is treated as an **External Extension**. It s
 
 ## Before you start
 
-External Extensions are hidden until you open both safety steps in [Allow third-party imports](personal-extensions.md#allow-third-party-imports): `ENABLE_EXTERNAL_EXTENSIONS=true` in `.env`, and **Allow third-party extension imports** under **Settings → Advanced → Danger Zone**.
+External Extensions are hidden until you open both safety steps in [Allow third-party imports](personal-extensions.md#allow-third-party-imports): `ENABLE_EXTERNAL_EXTENSIONS=true` in `.env`, and **Allow third-party extension imports** under **Settings → Advanced → Security**.
 
-Importing and managing extensions also needs localhost access or the admin secret. From a phone, LAN address or remote browser, set `ADMIN_SECRET` on the server and enter the same value under **Settings → Advanced → Admin Access**.
+Importing and managing extensions also needs localhost access or the admin secret. From a phone, LAN address or remote browser, set `ADMIN_SECRET` on the server and enter the same value under **Settings → Advanced → Security**.
 
 Choose the least powerful runtime that can do the job:
 
@@ -94,7 +94,7 @@ Use this `extension.css` to style the constrained iframe window opened by the bu
 
 Then import and run it:
 
-1. Open **Settings → Addons → External Extensions**.
+1. Open **Library → Extensions → External Extensions**.
 2. Choose **Import Extension Folder** and select `Hello Panel`, or zip the folder and import the ZIP with **Import Extension File**.
 3. Open the disabled draft and inspect its manifest and JavaScript.
 4. Choose **Review and Run** and approve the exact displayed hash.
@@ -334,7 +334,7 @@ If an External Extension depends on host DOM access, it may request:
 
 **Full page access is not a sandbox capability.** The approved JavaScript and CSS run inside Marinara's page. The code can read or change anything visible to the current browser session, inspect chats and cards, use browser storage, make network requests, and call same-origin Marinara APIs. It has the same practical page authority as code pasted into the browser console. Professor Mari drafts cannot request it.
 
-Full page extensions should use `marinara.fetch(...)` for network requests. It has the same signature and result as `window.fetch`, while allowing **Settings > Addons > External Extensions** to show that extension's session request count, transferred bytes reported by responses, recent request rate, and sustained high-traffic warning. Raw `window.fetch` remains available because full page access is trusted page code, but those requests cannot be attributed to the extension.
+Full page extensions should use `marinara.fetch(...)` for network requests. It has the same signature and result as `window.fetch`, while allowing **Library > Extensions > External Extensions** to show that extension's session request count, transferred bytes reported by responses, recent request rate, and sustained high-traffic warning. Raw `window.fetch` remains available because full page access is trusted page code, but those requests cannot be attributed to the extension.
 
 Marinara recognizes the older `kind: "marinara.extension"` v1 envelope without an explicit `capabilities` field as a pre-sandbox package and assigns **Full page access** during import. This allows legacy packages such as WeatherTweaker to reach the correct review flow instead of silently failing in a Worker. A modern package that uses that envelope but wants the safe runtime must include `"capabilities": []`.
 
@@ -437,13 +437,13 @@ The ZIP, request, sandbox-message, and storage limits protect separate transport
 | Symptom                                                                 | Check                                                                                              |
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | External import controls are missing                                    | Open both External Extension gates described above                                                 |
-| Management says localhost or Admin Access is required                   | Configure `ADMIN_SECRET` and save it under **Admin Access**                                        |
+| Management says localhost or Admin Access is required                   | Configure `ADMIN_SECRET` and save it under **Settings → Advanced → Security**                                        |
 | Import finds no extension                                               | Check `manifest.json` and its relative paths; Server needs JS, while Browser needs CSS or JS       |
 | The extension disables after an edit                                    | Expected: inspect and approve the new exact hash                                                   |
 | Browser code cannot use `document`, `window`, `fetch`, or local storage | Expected in the safe sandbox; use the documented broker APIs                                       |
 | Server Extension is unavailable                                         | Use macOS Seatbelt or Linux with Bubblewrap, or switch to a Browser Extension                      |
 | Browser Extension throws                                                | Open browser developer tools; `marinara.log` and startup errors are tagged with the extension name |
-| Server Extension throws                                                 | Check its status in **Settings → Addons** and the Marinara server log                          |
+| Server Extension throws                                                 | Check its status in **Library → Extensions** and the Marinara server log                          |
 
 CSS, private storage, import archives, and runtime messages retain separate safety limits. Marinara should report the boundary that rejected a package instead of presenting it as an execution failure.
 

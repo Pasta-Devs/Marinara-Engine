@@ -5,13 +5,13 @@ Professor Mari is the built-in assistant on the Home screen. She explains the ap
 ## Where to find her
 
 1. Go to the Home screen. It shows when no chat is open.
-2. Click **Ask Professor Mari** in the **Professor Mari** widget, or click the **Professor** tab.
+2. Click **Ask Professor Mari** in the **Professor Mari** widget, or click **Professor** at the top of Home.
 
-Her window opens. You can also reach her from any screen: type in Search and pick **Ask Prof. Mari**, press <kbd>Ctrl</kbd>+<kbd>J</kbd> (<kbd>⌘</kbd>+<kbd>J</kbd> on a Mac), or pull down from the top bar on a phone. Her header reads **Ready to help** when she is idle and **Working on it...** while she works.
+She opens in her own tab. You can also reach her from any screen: press <kbd>Ctrl</kbd>+<kbd>K</kbd>, type your question and pick **Ask Prof. Mari**, press <kbd>Ctrl</kbd>+<kbd>J</kbd> (<kbd>⌘</kbd>+<kbd>J</kbd> on a Mac) for her pop-up window, or on a phone tap the title in the top bar. Her header reads **Ready to help** when she is idle and **Working on it...** while she works.
 
 Type your message in plain language and press <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line. If you turn off **Enter sends to Professor Mari** in her settings, <kbd>Enter</kbd> adds a new line and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends. Your first message unlocks the **Hello World** achievement.
 
-All her settings are under **Settings → General → Search and Professor Mari settings → Open**, or the gear in Search. On a computer, the **Height** and **Width** sliders under **Professor Mari window** resize her window. On a phone, her window fills the screen.
+All her settings are under **Settings → General → Professor Mari → Open**, or the gear in Search. On a computer, the **Height** and **Width** sliders under **Professor Mari window** resize her window. On a phone, her window fills the screen.
 
 ## Make a character with Mari
 
@@ -34,9 +34,9 @@ She reads an item before she edits it, and she asks when your request is vague.
 - Explain a setting, a mode or a concept.
 - Create or edit a character, a persona or a lorebook. A character card gives the AI a name, personality and voice. A persona is the character card that stands for you. A lorebook is a set of world facts the AI reads when their keywords come up.
 - Write a character's [interactive onboarding](../characters/interactive-onboarding.md), and fill a [ruleset sheet](../characters/colors-and-stats.md#ruleset-sheets) for an installed Game Mode ruleset. She is refused, with a reason, when a value does not fit the ruleset.
-- Create or edit a theme, an agent, a prompt preset or a Personal Extension draft. A draft stays off until you read its code and approve it in **Settings → Addons**.
+- Create or edit a theme, an agent, a prompt preset or a Personal Extension draft. A draft stays off until you read its code and approve it in **Library → Extensions**.
 - Edit one section of a preset in place, instead of replacing the whole preset.
-- Compare the downloadable agents and tell you which fit your goal. She sends you to **Agents → Agent Organizer** to install them. See [Downloadable Agents Reference](../agents/built-in-agents.md).
+- Compare the downloadable agents and tell you which fit your goal. She sends you to **Library → Agents** to install them. See [Downloadable Agents Reference](../agents/built-in-agents.md).
 - Make or assign images such as avatars, sprites and backgrounds. You need an image generation account first. She does not create one.
 - Look up public Fandom wiki pages when you research a character or world.
 
@@ -221,7 +221,7 @@ When a request fails, the chat keeps the reason and shows **Retry** when you can
 
 ## Read the FAQ
 
-Click the **FAQ** bookmark, or **Read FAQ** in the **Learn the engine** widget, to open **Professor Mari's FAQ**. It is a fixed written list, not the AI chat, so it does not know your setup. Type in **Search FAQ** to filter. Each question has a category tag such as **Setup**, **Connections** or **Game Mode**. Tap a question to read the answer.
+Click **Read FAQ** in the **Learn the engine** widget on Home (or the **FAQ** bookmark in the classic layout) to open **Professor Mari's FAQ**. It is a fixed written list, not the AI chat, so it does not know your setup. Type in **Search FAQ** to filter. Each question has a category tag such as **Setup**, **Connections** or **Game Mode**. Tap a question to read the answer.
 
 ## Limits and safety
 

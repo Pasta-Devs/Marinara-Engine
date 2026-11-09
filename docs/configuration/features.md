@@ -1,6 +1,12 @@
 # Feature Switches
 
-Some server behaviours are optional. You turn them on in **Settings > Advanced > Features**. Every switch starts off, so a server where nobody opens this section behaves exactly as before.
+Some server behaviours are optional. Every switch starts off, so a server where nobody turns them on behaves exactly as before. They sit in different places in **Settings**:
+
+- **Stable lorebook picks** and **Lorebook activation stats**: **Settings → Advanced → Lorebooks**.
+- **Retry failed provider calls**: **Settings → Advanced → Timeouts & Retries**.
+- **Recover deleted chat messages**: **Settings → Data → Backup & Restore**.
+
+In the classic layout, search Settings for the switch's name.
 
 A change applies straight away. You do not need to restart the server or reload the page.
 
@@ -13,7 +19,7 @@ A change applies straight away. You do not need to restart the server or reload 
 | **Lorebook activation stats**     | `usageAndActivationStats`  | Off     | none                              |
 | **Recover deleted chat messages** | `messageTrash`             | Off     | none                              |
 
-Searching settings for `features` takes you to the section.
+Searching settings for a switch's name takes you to it.
 
 ## Where the settings are stored
 
@@ -60,7 +66,7 @@ Off: deleted messages are removed right away.
 ## Precedence
 
 1. **Environment variable.** When the switch's variable is set, it wins over the saved switch, both on and off, and Settings shows the switch locked with the variable's name. A blank variable counts as unset.
-2. **Saved switch.** The value saved in Settings > Advanced > Features.
+2. **Saved switch.** The value saved in Settings > Advanced > Lorebooks.
 3. **Default.** Off.
 
 | Variable                          | Controls                    | Values                                                               |

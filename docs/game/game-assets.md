@@ -31,7 +31,7 @@ Bundled files and folders are protected. You cannot delete or move them in the *
 The **Asset Browser** is a file manager for game assets. Open it from **Settings**:
 
 1. Open **Settings**.
-2. Go to the **Imports** tab.
+2. Go to the **Game** tab.
 3. Find **Game Assets** and click **Asset Browser**.
 
 Or open it from a game:
@@ -57,7 +57,7 @@ You must be inside a category folder. If you drop files at the top level, the ap
 
 ### Upload from Settings
 
-1. Open **Settings** and go to the **Imports** tab.
+1. Open **Settings** and go to the **Game** tab.
 2. In **Game Assets**, pick a category from **Type**: **Music**, **Ambient**, **Sound Effects**, **Sprites** or **Backgrounds**.
 3. Set the destination in **Folder**, or keep the default.
 4. Click **Choose Files** and select your files.
@@ -147,7 +147,7 @@ The bundled starter backgrounds count as shared, except the fantasy ones (`ancie
 
 Game Mode can generate sound effects and music through a **Music & Sound Effects** account. Choose ElevenLabs, SunoAPI or a custom compatible server. Each new sound or track uses that service account. Bundled audio stays available without generation.
 
-**Before you start:** you need a **Music & Sound Effects** account. The **Add account** window has no tile for it. These accounts come from an upgrade or an import (**Import a backup** in **Connections**). See [provider setup and limits](../connections/providers-reference.md#music--sound-effects).
+**Before you start:** you need a **Music & Sound Effects** account. The **Add connection** list has no entry for it. These accounts come from an upgrade or an import (**Import** on the **Connections** page). See [provider setup and limits](../connections/providers-reference.md#music--sound-effects).
 
 1. In **Connections**, open the account's model with **Edit model**.
 2. Choose the service, enter its key and select the music and sound-effect models. SunoAPI music also needs a public HTTPS callback URL. A custom server needs its endpoint paths.

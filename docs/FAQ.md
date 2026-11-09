@@ -20,7 +20,7 @@ There is no separate native app. On a phone or tablet, use the web app in a brow
 
 On Android, you can also [download the latest APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk). It runs Marinara on the phone through Termux. See [Android Installation](installation/android-termux.md). On iPhone and iPad, see the [iOS PWA Guide](installation/ios-pwa.md).
 
-In the Android app, the launcher offers **Open in browser**, **Retry connection** and **Install / Start Marinara**. To change your choice later, use **Settings → General → App Behavior → Open Android launcher (app or browser)**. Older APKs sign in manually at `/android-login`.
+In the Android app, the launcher offers **Open in browser**, **Retry connection** and **Install / Start Marinara**. To change your choice later, use **Settings → Appearance → Layout → Open Android launcher (app or browser)**. Older APKs sign in manually at `/android-login`.
 
 ## Can I play with other people?
 
@@ -78,11 +78,11 @@ See [Lorebooks](lorebooks/overview.md).
 
 ## What is an agent?
 
-An agent is an optional AI helper that runs during a chat to do a focused job, such as tracking the scene or adding maps. Fresh installs have none. Open **Agents → Agent Organizer**, pick one and install it. Then turn it on per chat in **Chat Settings**. See [Agents](agents/agents-overview.md).
+An agent is an optional AI helper that runs during a chat to do a focused job, such as tracking the scene or adding maps. Fresh installs have none. Open **Library → Agents**, pick one and install it. Then turn it on per chat in **Chat Settings**. See [Agents](agents/agents-overview.md).
 
 ## How do I set up Noodle?
 
-Noodle is a local, fictional social network for your characters. Install **Noodle** from **Agents → Agent Organizer**, restart Marinara when asked, then open **Home → Noodle**. See [Noodle: The In-App Social Timeline](agents/noodle.md).
+Noodle is a local, fictional social network for your characters. Install **Noodle** from **Library → Agents**, restart Marinara when asked, then open **Home → Noodle**. See [Noodle: The In-App Social Timeline](agents/noodle.md).
 
 ## Why does my character not reply?
 
@@ -94,11 +94,11 @@ Models read only so much text at once, so old messages drop out of long chats. T
 
 ## How do I back up my data?
 
-Open **Settings → Advanced → Backup & Export** and click **Download Backup**. This saves a `.zip` of your data and uploads. To restore, use **Import Profile (JSON/ZIP)** under **Settings → Imports**. The same section can run a daily, weekly or monthly backup. See [Backing Up and Restoring](data/backup-and-restore.md).
+Open **Settings → Data → Backup & Restore** and click **Download Backup**. This saves a `.zip` of your data and uploads. To restore, use **Import Profile (JSON/ZIP)** in the same section. The same section can run a daily, weekly or monthly backup. See [Backing Up and Restoring](data/backup-and-restore.md).
 
 ## How do extensions work, and can I import third-party code?
 
-Only Professor Mari creates Personal Extension drafts by default. A draft starts off, and you approve its exact code before it runs. Third-party imports are hidden until the host sets `ENABLE_EXTERNAL_EXTENSIONS=true` in `.env` and you accept the warning under **Settings → Advanced → Danger Zone**. See [Personal Extensions](extending/personal-extensions.md).
+Only Professor Mari creates Personal Extension drafts by default. A draft starts off, and you approve its exact code before it runs. Third-party imports are hidden until the host sets `ENABLE_EXTERNAL_EXTENSIONS=true` in `.env` and you accept the warning under **Settings → Advanced → Security**. See [Personal Extensions](extending/personal-extensions.md).
 
 ## Where is my data stored?
 
@@ -114,7 +114,7 @@ Professor Mari is the built-in assistant on the Home screen. She explains the ap
 
 ## What is the Storyboard Agent, and how do I use it in Game Mode?
 
-It turns finished story text into images. Install **Storyboard** from **Agents → Agent Organizer**, then turn it on in the chat. See the [Storyboard Agent Guide](game/storyboard.md).
+It turns finished story text into images. Install **Storyboard** from **Library → Agents**, then turn it on in the chat. See the [Storyboard Agent Guide](game/storyboard.md).
 
 ## Can characters talk out loud in a call?
 
@@ -126,7 +126,7 @@ Yes. Add an image generation account, such as **Pollinations** (no key needed) o
 
 ## How do I read the documentation inside the app?
 
-On the Home screen, click **Documentation** in the bookmarks. On a phone, open the bookmarks menu first. In the Home FAQ, you can also click **Open Documentation**.
+Click **Docs** in the top bar. On a phone, the Docs are in the Library (the stack button at the top right). In the classic layout, click **Documentation** in Home's bookmarks. In the Home FAQ, you can also click **Open Documentation**.
 
 ## Where do I get help or report a bug?
 

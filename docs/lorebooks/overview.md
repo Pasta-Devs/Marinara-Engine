@@ -67,9 +67,19 @@ The tab also has these switches.
 
 The **Semantic search (embeddings)** panel below the switches is covered in [Semantic Search for Lorebooks](semantic-search.md).
 
-## The Lorebooks panel
+## The Lorebooks page
 
-At the top of the panel, three icon buttons show their names when you hover over them.
+Open **Library → Lorebooks**. Along the top are **Import** (see [Importing and Exporting Lorebooks](import-export.md)) and **New lorebook**. Below them:
+
+- **All kinds** narrows the list to **Global**, **World**, **Character**, **NPC** or **Spellbook** lorebooks.
+- **List** and **Gallery** switch between a table and picture tiles.
+- The sort menu offers **Recently edited**, **A to Z** and **Z to A**.
+
+Click a lorebook to open it.
+
+## In the classic layout: the Lorebooks panel
+
+The classic panel adds library folders, manual order, copy and bulk select. At the top of the panel, three icon buttons show their names when you hover over them.
 
 - **New** opens the **Create Lorebook** window.
 - **Import** opens the **Import Lorebook** window. See [Importing and Exporting Lorebooks](import-export.md).
