@@ -319,6 +319,38 @@
       "alt": "A new custom tool open in the editor: name, description, parameters and what it does when called.",
       "width": 2240,
       "height": 1240
+    },
+    {
+      "name": "weather-stock",
+      "guide": "appearance/theme-weather.md",
+      "heading": "The weather with no theme",
+      "alt": "A Roleplay chat on a rainy night with no theme: thin pale rain streaks over a dark wash.",
+      "width": 2000,
+      "height": 1250
+    },
+    {
+      "name": "weather-neon",
+      "guide": "appearance/theme-weather.md",
+      "heading": "What you get",
+      "alt": "The same rainy night in the NEON//GRID theme: long cyan rain streaks over a neon city.",
+      "width": 2000,
+      "height": 1250
+    },
+    {
+      "name": "weather-petal",
+      "guide": "appearance/theme-weather.md",
+      "heading": "Example: Petal OS",
+      "alt": "The Petal OS theme on a blossom night: its own pixel petals drift down past pixel-window messages.",
+      "width": 2000,
+      "height": 1250
+    },
+    {
+      "name": "weather-follow-art",
+      "guide": "appearance/theme-weather.md",
+      "heading": "Example: Lantern Path in the rain",
+      "alt": "Lantern Path side by side: a sunny autumn forest on a clear morning, and the same forest grey and overcast in the rain.",
+      "width": 2000,
+      "height": 621
     }
   ]
 }
