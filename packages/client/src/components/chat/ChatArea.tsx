@@ -705,9 +705,6 @@ const LocalChatArea = memo(function LocalChatArea({
   const intuitiveTouchStartRef = useRef<{ x: number; y: number; target: EventTarget | null } | null>(null);
   const swipeActionSeq = useRef(0);
   const pendingSwipeMutationsRef = useRef(new Map<string, Promise<void>>());
-  // Tracks whether the initial load stagger animation has played.
-  // After the first render with messages, new/re-mounted messages
-  // skip the entry animation to avoid a visible flash on refetch.
   const settingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
   const settingsPinned = useFloatingWindowStore((s) => s.layouts[CHAT_SETTINGS_WINDOW_ID]?.pinned === true);
   const [settingsInitialSection, setSettingsInitialSection] = useState<ChatSettingsInitialSection>(null);
