@@ -42,6 +42,7 @@ import { JOB, jobAddKind, jobLabelKey } from "../../../lib/connection-jobs";
 import type { ModelKind } from "../../../lib/add-model-search";
 import { AccessStep } from "./AccessStep";
 import { ModelsStep } from "./ModelsStep";
+import { UseForStep } from "./UseForStep";
 import { ServiceListStep } from "./ServiceListStep";
 import { starAnchorOf } from "../../../hooks/use-model-star";
 import { isConnectionFlagTrue } from "../../../lib/connection-filters";
@@ -524,6 +525,19 @@ export function CreateConnectionModalContent({
     onClose();
   };
 
+  /** A saved, tested account goes on to "use for"; it is kept now, so closing never throws it away. */
+  const openUseFor = (current: Target) => {
+    setTarget({ ...current, fresh: false, ownedPlaceholderIds: [] });
+    setStep(3);
+  };
+  const finishUseFor = (applied: boolean) => {
+    if (!target) return;
+    if (!applied) return void finishAdded(target);
+    flashConnectionCard(target.accountId);
+    resetFields();
+    onClose();
+  };
+
   /** Creates the Connection with its empty first Model (or updates it on a retry), tests it, and on success goes on. */
   const savingRef = useRef(false);
   const saveAndTest = async (continueAnyway = false) => {
@@ -647,6 +661,7 @@ export function CreateConnectionModalContent({
                 ? { provider: "image_generation", imageGenerationSource: source, imageService: source }
                 : { provider: "video_generation", videoGenerationSource: source, videoService: source }),
         });
+        if (!forJob?.assign && !newChatMode) return openUseFor(current);
         await finishAdded(current);
         return;
       }
@@ -660,12 +675,12 @@ export function CreateConnectionModalContent({
       const available: AddableKind[] = service
         ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local")
         : ["chat"];
-      if (newChatMode || (!target && !hasMain && !modelsFor && !job)) {
+      if (newChatMode) {
         setSetupKind(startKind(available));
-        if (!newChatMode && !hasMain && !modelsFor && !job) setMakeMain(true);
         setStep(3);
         return;
       }
+      if (!forJob?.assign && !modelsFor) return openUseFor(current);
       await finishAdded(current);
     } catch (error) {
       await discardFreshAccount();
@@ -860,6 +875,8 @@ export function CreateConnectionModalContent({
     modelId;
   const mediaRow = mediaRowId ? allRows.find((row) => row.id === mediaRowId) : undefined;
   const isJobKind = setupKind === "decision" || setupKind === "voice";
+  // A new account ends on "Found in <account> — use it for:" unless a job picker waits for it.
+  const useForStep = step === 3 && !newChatMode && !forJob?.assign && !modelsFor;
   // A chat service lists its own models for the job; the old Decision and Audio services keep theirs.
   const jobPicker = isJobKind && !!pickerRow && !!mediaRow && isChatProvider(pickerRow.provider ?? "");
   // The built-in model does the jobs a small local model can do; the rest need a real model.
@@ -872,7 +889,7 @@ export function CreateConnectionModalContent({
 
   const heading =
     step === 3
-      ? t("connections.add.heading.addModels", { name: targetName })
+      ? t(useForStep ? "connections.add.heading.connected" : "connections.add.heading.addModels", { name: targetName })
       : step === 1
         ? t("connections.add.heading.forProvider")
         : (presetName ?? serviceName(service ?? provider!));
@@ -882,7 +899,7 @@ export function CreateConnectionModalContent({
   const goBack =
     step === 2
       ? backToList
-      : step === 3 && !modelsFor && picks.length === 0
+      : step === 3 && !useForStep && !modelsFor && picks.length === 0
         ? target?.fresh
           ? () => setStep(2)
           : backToList
@@ -991,7 +1008,9 @@ export function CreateConnectionModalContent({
   const panelClass = cn(
     "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
     // The key step fits its content; the lists and the built-in model keep the tall frame.
-    step === 2 && device !== "local_model" && service !== DECISION_BUILTIN ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
+    (step === 2 && device !== "local_model" && service !== DECISION_BUILTIN) || useForStep
+      ? "sm:h-auto"
+      : "sm:h-[min(90dvh,44rem)]",
   );
 
   return (
@@ -1000,7 +1019,7 @@ export function CreateConnectionModalContent({
       onClose={requestClose}
       // Picking models has no back step: its heading is the window title, not a second line under it.
       title={step === 3 && !goBack ? heading : t(modelsFor ? "connections.accounts.addModel" : "connections.add.title")}
-      width={step === 2 ? "max-w-xl" : "max-w-3xl lg:max-w-4xl"}
+      width={step === 2 || useForStep ? "max-w-xl" : "max-w-3xl lg:max-w-4xl"}
       mobileFullscreen
       opaque
       closeDisabled={closeBlocked}
@@ -1056,6 +1075,7 @@ export function CreateConnectionModalContent({
               choosePreset={choosePreset}
               openDecisionServer={() => void chooseService(DECISION_BUILTIN)}
               serviceName={serviceName}
+              kind={kindFilter}
             />
           )}
           {step === 2 && (
@@ -1091,7 +1111,17 @@ export function CreateConnectionModalContent({
             />
           )}
 
-          {
+          {useForStep && target && service ? (
+            <UseForStep
+              target={target}
+              service={service}
+              accounts={accounts}
+              accountName={targetName}
+              job={job}
+              serviceName={serviceName}
+              onFinish={finishUseFor}
+            />
+          ) : (
             <ModelsStep
               step={step}
               service={service}
@@ -1129,7 +1159,7 @@ export function CreateConnectionModalContent({
               onClose={onClose}
               recommended={recommended}
             />
-          }
+          )}
         </div>
 
         {step === 3 && firstPick && !chat && (
@@ -1181,7 +1211,7 @@ export function CreateConnectionModalContent({
         )}
 
         {/* The built-in model window brings its own footer. */}
-        {!(step === 2 && device === "local_model") && (
+        {!(step === 2 && device === "local_model") && !useForStep && (
           <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
             <div className="flex min-w-0 items-center gap-2">{footerLeft}</div>
             {footerRight}

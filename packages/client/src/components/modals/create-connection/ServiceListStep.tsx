@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../../lib/utils";
 import { ListSearch, ListStatus } from "../../connections/ListFrame";
 import {
   DECISION_BUILTIN,
+  isDevice,
   LOCAL_PRESETS,
   SEARCH_ALIASES,
   SECONDARY_CLASS,
@@ -11,6 +13,8 @@ import {
   kindsOf,
   ServiceTile,
   mediaBackendOf,
+  MUTED_BADGE_CLASS,
+  type ChipKind,
   type ServiceId,
 } from "./shared";
 
@@ -23,8 +27,16 @@ const GOOD_NEWS = new Set<ServiceId>([
   "grok_subscription",
 ]);
 
-const SECTIONS = ["chat", "image", "voice", "decision"] as const;
-type Section = (typeof SECTIONS)[number];
+/** The model types a tile offers, in chip and filter order (Text = chat). */
+const TYPES = ["text", "image", "video", "voice", "dictation"] as const;
+type ModelType = (typeof TYPES)[number];
+export const typesOf = (key: ServiceId): ModelType[] => {
+  if (key === "stt") return ["dictation"];
+  const kinds = kindsOf(key);
+  return TYPES.filter((type) =>
+    type === "text" ? kinds.includes("chat") || key === "local_model" : kinds.includes(type as never),
+  );
+};
 
 const TILE =
   "flex min-h-14 w-full items-center gap-3 rounded-xl border border-[var(--border)] px-3 py-2 text-left transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)]";
@@ -36,9 +48,11 @@ interface ServiceListStepProps {
   choosePreset: (preset: { label: string; url: string }) => Promise<void>;
   openDecisionServer: () => void;
   serviceName: (service: ServiceId) => string;
+  /** The job's kind when the window adds for a job: the type filter starts on it. */
+  kind?: ChipKind | null;
 }
 
-/** Step 1: every place models come from, in sections by what they give: chat, images and video, voice, decisions. */
+/** Step 1: one provider list, filtered by search and model type; device engines close it as "This device". */
 export function ServiceListStep({
   query,
   setQuery,
@@ -46,8 +60,12 @@ export function ServiceListStep({
   choosePreset,
   openDecisionServer,
   serviceName,
+  kind,
 }: ServiceListStepProps) {
   const { t } = useTranslation();
+  const [type, setType] = useState<ModelType | "all">(
+    kind === "chat" ? "text" : kind === "decision" || !kind ? "all" : kind,
+  );
   const needle = query.trim().toLowerCase();
   const matches = (name: string, key?: ServiceId) =>
     !needle || `${name} ${key ? (SEARCH_ALIASES[key] ?? "") : ""}`.toLowerCase().includes(needle);
@@ -61,47 +79,56 @@ export function ServiceListStep({
     if (media && SELF_HOSTED.has(media.source)) return t("connections.add.tag.selfHosted");
     return null;
   };
-  // Sections say what you get.
-  const sectionOf = (key: ServiceId): Section => {
-    if (key === "stt") return "voice";
-    const kinds = kindsOf(key);
-    return SECTIONS.find((s) => kinds.includes(s) || (s === "image" && kinds.includes("video"))) ?? "chat";
+  type Tile = {
+    id: string;
+    name: string;
+    tag: string | null;
+    icon: React.ReactNode;
+    open: () => void;
+    good?: boolean;
+    types: ModelType[];
+    device: boolean;
   };
-  type Tile = { id: string; name: string; tag: string | null; icon: React.ReactNode; open: () => void; good?: boolean };
-  const sections = SECTIONS.map((id) => ({ id, tiles: [] as Tile[] }));
+  const tiles: Tile[] = [];
   for (const group of SERVICE_GROUPS) {
-    const tiles: (Tile & { section: Section })[] = [];
+    const groupTiles: Tile[] = [];
     for (const key of group.services) {
       const name = serviceName(key);
       if (matches(name, key))
-        tiles.push({
+        groupTiles.push({
           id: key,
           name,
           tag: tagOf(key),
           good: GOOD_NEWS.has(key),
           icon: <ServiceTile service={key} />,
           open: () => (key === DECISION_BUILTIN ? openDecisionServer() : void chooseService(key)),
-          section: sectionOf(key),
+          types: typesOf(key),
+          device: isDevice(key) || key === DECISION_BUILTIN,
         });
       // The common local servers follow the built-in model, as their own tiles.
-      if (key === "local_model")
-        for (const preset of LOCAL_PRESETS)
-          if (matches(preset.label))
-            tiles.push({
-              id: preset.label,
-              name: preset.label,
-              tag: t("connections.add.tag.selfHosted"),
-              icon: <ServiceTile service="custom" baseUrl={preset.url} name={preset.label} />,
-              open: () => void choosePreset(preset),
-              section: "chat",
-            });
+      if (key !== "local_model") continue;
+      for (const preset of LOCAL_PRESETS) {
+        if (matches(preset.label))
+          groupTiles.push({
+            id: preset.label,
+            name: preset.label,
+            tag: t("connections.add.tag.selfHosted"),
+            icon: <ServiceTile service="custom" baseUrl={preset.url} name={preset.label} />,
+            open: () => void choosePreset(preset),
+            types: ["text"],
+            device: false,
+          });
+      }
     }
-    if (group.sorted) tiles.sort((a, b) => a.name.localeCompare(b.name));
-    for (const tile of tiles) sections.find((s) => s.id === tile.section)?.tiles.push(tile);
+    if (group.sorted) groupTiles.sort((a, b) => a.name.localeCompare(b.name));
+    tiles.push(...groupTiles);
   }
-  // Chat keeps the curated order; the smaller sections read best A–Z.
-  for (const section of sections) if (section.id !== "chat") section.tiles.sort((a, b) => a.name.localeCompare(b.name));
-  const shown = sections.filter((section) => section.tiles.length > 0);
+  const visible = tiles.filter((tile) => type === "all" || tile.types.includes(type));
+  // ponytail: device engines stay here as one group until the This device card owns their setup (S4).
+  const lists = [
+    { id: "providers", tiles: visible.filter((tile) => !tile.device) },
+    { id: "device", tiles: visible.filter((tile) => tile.device) },
+  ].filter((list) => list.tiles.length > 0);
 
   return (
     <div className="h-full min-h-0 overflow-y-auto overscroll-contain">
@@ -112,16 +139,35 @@ export function ServiceListStep({
           label={t("connections.add.searchProviders")}
           placeholder={t("connections.add.searchProviders")}
         />
-        {shown.map((section) => (
-          <section key={section.id} aria-labelledby={`add-group-${section.id}`} className="flex flex-col gap-2">
-            <h3
-              id={`add-group-${section.id}`}
-              className="px-0.5 pt-1 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]"
+        <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5">
+          {(["all", ...TYPES] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={type === option}
+              onClick={() => setType(option)}
+              className="mari-connection-chip"
             >
-              {t(`connections.add.group.${section.id}`)}
-            </h3>
+              {t(`connections.add.type.${option}`)}
+            </button>
+          ))}
+        </div>
+        {lists.map((list) => (
+          <section
+            key={list.id}
+            aria-labelledby={list.id === "device" ? "add-group-device" : undefined}
+            className="flex flex-col gap-2"
+          >
+            {list.id === "device" && (
+              <h3
+                id="add-group-device"
+                className="px-0.5 pt-1 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]"
+              >
+                {t("connections.add.group.device")}
+              </h3>
+            )}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {section.tiles.map((tile) => (
+              {list.tiles.map((tile) => (
                 <button
                   key={tile.id}
                   type="button"
@@ -130,18 +176,29 @@ export function ServiceListStep({
                   onClick={tile.open}
                 >
                   {tile.icon}
-                  <span className="flex min-w-0 flex-col">
-                    <span className="text-sm font-medium [overflow-wrap:anywhere]">{tile.name}</span>
-                    {tile.tag && (
-                      <span
-                        className={cn(
-                          "text-xs",
-                          tile.good
-                            ? "text-[color-mix(in_srgb,var(--color-emerald-500)_80%,var(--foreground)_20%)]"
-                            : "text-[var(--muted-foreground)]",
-                        )}
-                      >
-                        {tile.tag}
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+                      <span className="text-sm font-medium [overflow-wrap:anywhere]">{tile.name}</span>
+                      {tile.tag && (
+                        <span
+                          className={cn(
+                            "text-xs",
+                            tile.good
+                              ? "text-[color-mix(in_srgb,var(--color-emerald-500)_80%,var(--foreground)_20%)]"
+                              : "text-[var(--muted-foreground)]",
+                          )}
+                        >
+                          {tile.tag}
+                        </span>
+                      )}
+                    </span>
+                    {tile.types.length > 0 && (
+                      <span className="flex flex-wrap gap-1">
+                        {tile.types.map((option) => (
+                          <span key={option} className={MUTED_BADGE_CLASS}>
+                            {t(`connections.add.type.${option}`)}
+                          </span>
+                        ))}
                       </span>
                     )}
                   </span>
@@ -150,7 +207,7 @@ export function ServiceListStep({
             </div>
           </section>
         ))}
-        {shown.length === 0 && (
+        {lists.length === 0 && (
           <div data-add-connection-no-match className="flex flex-col items-center gap-2 py-4 text-center">
             <ListStatus>{t("connections.add.noMatch", { query: query.trim() })}</ListStatus>
             <button type="button" onClick={() => void chooseService("custom")} className={SECONDARY_CLASS}>

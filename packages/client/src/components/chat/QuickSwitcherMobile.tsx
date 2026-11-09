@@ -144,7 +144,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                   </div>
                 )}
                 <ConnectionSwitcherBody
-                  onAdd={() => openAddConnection()}
+                  onAdd={() => openAddConnection({ job: "main" })}
                   current={chatPick.current}
                   onApply={chatPick.apply}
                   onDone={closeMenu}

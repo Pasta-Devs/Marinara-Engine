@@ -79,9 +79,11 @@ export function useVoiceJobMoved() {
  * along. Returns an undo, or null when nothing changed.
  */
 export function useFollowVoiceJob() {
-  const { data: config } = useTTSConfig();
+  const qc = useQueryClient();
   const update = useUpdateTTSConfig();
   return async (connectionId: string | null, source?: TTSSource) => {
+    // Read the config fresh: an Undo can run after the render that made this function.
+    const config = qc.getQueryData<TTSConfigResponse>(KEYS.config);
     if (!config) return null;
     const enabled = connectionId !== null || source !== undefined;
     const nextSource = source ?? config.source;

@@ -10,7 +10,6 @@ import {
   Check,
   ChevronDown,
   Copy,
-  ImageIcon,
   ListChecks,
   KeyRound,
   MoreHorizontal,
@@ -24,8 +23,6 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "sonner";
 import {
-  IMAGE_GENERATION_SOURCES,
-  IMAGE_SOURCE_VENDOR,
   isChatProvider,
   isLocalAuthProvider,
   PROVIDERS,
@@ -261,12 +258,6 @@ export function ConnectionGroup({
   // The anchor Model: Add model shows and keeps the Connection's stars on it.
   const chatRow = starAnchorOf(rows) ?? null;
   const firstRow = chatRow ?? rows[0] ?? null;
-  // Decision 20: an image Model on the same vendor key joins this Connection, so it needs no key of its own.
-  const imageSource = chatRow
-    ? IMAGE_GENERATION_SOURCES.find((source) => IMAGE_SOURCE_VENDOR[source.id] === account.provider)
-    : undefined;
-  const addImageModel = () => openAddModels({ accountId: account.id, kind: "image" });
-  // The sidebar's main door is "+ Add" at the top; the card's ⋯ menu is the per-Connection one.
   const addModels = () => openAddModels({ accountId: account.id, connectionId: chatRow?.id });
   const rolesOf = (row: ConnectionRowData) => modelRoleLabels(row, t, voiceRowId);
   const editAccount = () => openModal("connection-account", { accountId: account.id });
@@ -497,15 +488,6 @@ export function ConnectionGroup({
               icon: <Plus size="0.75rem" />,
               onSelect: addModels,
             },
-            ...(imageSource
-              ? [
-                  {
-                    label: t("connections.accounts.addImageModel"),
-                    icon: <ImageIcon size="0.75rem" />,
-                    onSelect: addImageModel,
-                  },
-                ]
-              : []),
             {
               label: t("connections.accounts.select.start"),
               icon: <ListChecks size="0.75rem" />,
