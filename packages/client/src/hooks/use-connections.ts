@@ -475,7 +475,7 @@ export type ConnectionModelList = {
 /** What the cached catalogs say about one model: its cost badge and price, whether it is retiring, what it reads. */
 export type CachedModelFacts = Pick<
   RemoteConnectionModel,
-  "cost" | "pricing" | "deprecated" | "retiresAt" | "inputModalities" | "capabilities"
+  "cost" | "pricing" | "deprecated" | "retiresAt" | "inputModalities" | "outputModalities" | "capabilities"
 >;
 
 export type CachedCatalogFacts = {
@@ -514,6 +514,7 @@ function indexCatalog(list: ConnectionModelList): CatalogIndex {
       model.deprecated ||
       model.retiresAt ||
       model.inputModalities?.length ||
+      model.outputModalities?.length ||
       model.capabilities?.logprobs
     ) {
       index.byId.set(model.id, {
@@ -522,6 +523,7 @@ function indexCatalog(list: ConnectionModelList): CatalogIndex {
         deprecated: model.deprecated,
         retiresAt: model.retiresAt,
         inputModalities: model.inputModalities,
+        outputModalities: model.outputModalities,
         capabilities: model.capabilities,
       });
     }

@@ -27,6 +27,7 @@ export function EmbeddingDefaultControl({
 
   return (
     <ConnectionSelect
+      jobKey="embeddings"
       variant="controlled"
       open={open}
       onOpenChange={onOpenChange}

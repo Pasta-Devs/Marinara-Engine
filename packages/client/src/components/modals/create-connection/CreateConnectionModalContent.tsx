@@ -38,7 +38,7 @@ import { useUIStore } from "../../../stores/ui.store";
 import { useSidecarStore } from "../../../stores/sidecar.store";
 import {} from "@marinara-engine/shared";
 import { flashConnectionCard, type AddFor, type ModelsFor } from "../../../lib/add-connection";
-import { jobAddKind } from "../../../lib/connection-jobs";
+import { JOB, jobAddKind, jobLabelKey } from "../../../lib/connection-jobs";
 import type { ModelKind } from "../../../lib/add-model-search";
 import { AccessStep } from "./AccessStep";
 import { ModelsStep } from "./ModelsStep";
@@ -280,11 +280,39 @@ export function CreateConnectionModalContent({
   // Adding for Main sets Main on Done, so the box would say the same thing twice.
   const offerMain = !hasMain && !alreadyMain && !modelsFor?.chat && job !== "main";
   const applyChoices = async (includeMain = true) => {
+    const jobPick =
+      jobFor?.assign &&
+      picks.find(
+        (pick) =>
+          pick.kind ===
+          (kindFilter === "voice"
+            ? "voice"
+            : kindFilter === "decision"
+              ? "decision"
+              : kindFilter === "image"
+                ? "image"
+                : kindFilter === "video"
+                  ? "video"
+                  : "chat"),
+      );
+    if (jobPick && jobFor?.assign) {
+      jobFor.assign(jobPick.connectionId);
+      toast.success(
+        t("connections.picker.nowUses", {
+          job: job ? t(jobLabelKey(JOB[job])) : t("connections.picker.model"),
+          model: modelName(jobPick.modelId),
+        }),
+        {
+          duration: 8000,
+          action: { label: t("connections.switcher.undo"), onClick: () => jobFor.assign?.(jobFor.previous ?? null) },
+        },
+      );
+    }
     // Added for the Decision job ("Use this key for decisions", a feature with no Decision model): the model that
     // passed its test becomes the Decision model, with Undo, as a pick in "Model for Decision" does.
     const decisionPick = job === "decision" ? picks.find((pick) => pick.kind === "decision") : undefined;
     const previousDecision = decisionOptions.data?.selected ?? null;
-    if (decisionPick && decisionPick.connectionId !== previousDecision) {
+    if (decisionPick && !jobFor?.assign && decisionPick.connectionId !== previousDecision) {
       try {
         await selectDecision.mutateAsync(decisionPick.connectionId);
       } catch (error) {
@@ -302,7 +330,7 @@ export function CreateConnectionModalContent({
         },
       );
     }
-    if (!firstPick) return true;
+    if (!firstPick || jobPick) return true;
     if (includeMain && offerMain && makeMainOn) {
       try {
         // A first Main also becomes the Agents default when there is none, when the user chooses to make it Main.
