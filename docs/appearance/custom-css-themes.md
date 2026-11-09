@@ -320,6 +320,7 @@ On phones, the three-dot menu expands into round buttons. Its trigger is `[data-
 ## Related guides
 
 - [Theme Author Guide](theme-author-guide.md)
+- [Weather in Your Theme](theme-weather.md)
 - [Card CSS Theming Guide](card-css-theming.md)
 - [Appearance Settings](appearance-settings.md)
 - [Server Configuration Reference](../CONFIGURATION.md)

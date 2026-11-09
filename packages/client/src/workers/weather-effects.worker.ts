@@ -1,10 +1,12 @@
 import {
   createWeatherParticle,
-  drawWeatherMoon,
+  drawWeatherCelestial,
+  drawWeatherLightning,
   drawWeatherParticle,
-  drawWeatherSun,
-  weatherCelestialX,
-  weatherCelestialY,
+  drawWeatherTint,
+  populateWeatherParticles,
+  STOCK_WEATHER_LOOK,
+  type WeatherLook,
   type WeatherParticle,
   type WeatherRenderConfig,
 } from "../lib/weather-renderer";
@@ -13,6 +15,8 @@ type InitMessage = {
   type: "init";
   canvas: OffscreenCanvas;
   config: WeatherRenderConfig;
+  /** The theme's weather look (lib/theme-weather.ts); stock when left out. */
+  look?: WeatherLook;
   showCelestial: boolean;
   width: number;
   height: number;
@@ -25,12 +29,11 @@ type WeatherWorkerMessage = InitMessage | ResizeMessage | VisibilityMessage;
 
 const FRAME_MS = 1000 / 30;
 const BASE_FRAME_MS = 1000 / 60;
-const FIREFLY_COUNT = 10;
-const STAR_COUNT = 18;
 
 let canvas: OffscreenCanvas | null = null;
 let context: OffscreenCanvasRenderingContext2D | null = null;
 let config: WeatherRenderConfig | null = null;
+let look: WeatherLook = STOCK_WEATHER_LOOK;
 let showCelestial = true;
 let width = 1;
 let height = 1;
@@ -45,20 +48,7 @@ let nextLightning = Infinity;
 
 function populateParticles() {
   if (!config) return;
-  particles = [];
-  for (let index = 0; index < config.count; index += 1) {
-    particles.push(createWeatherParticle(config.type, width, height));
-  }
-  if (config.addFireflies) {
-    for (let index = 0; index < FIREFLY_COUNT; index += 1) {
-      particles.push(createWeatherParticle("firefly", width, height));
-    }
-  }
-  if (config.addStars) {
-    for (let index = 0; index < STAR_COUNT; index += 1) {
-      particles.push(createWeatherParticle("star", width, height));
-    }
-  }
+  particles = populateWeatherParticles(config, look, width, height);
 }
 
 function resizeSurface(nextWidth: number, nextHeight: number, nextScale: number) {
@@ -69,6 +59,8 @@ function resizeSurface(nextWidth: number, nextHeight: number, nextScale: number)
   canvas.width = Math.max(1, Math.round(width * scale));
   canvas.height = Math.max(1, Math.round(height * scale));
   context.setTransform(scale, 0, 0, scale, 0, 0);
+  // Pixel style: the canvas is smaller than the screen and scaled up crisp by CSS.
+  context.imageSmoothingEnabled = look.pixel <= 1;
 }
 
 function drawFrame(now: number, advanceSimulation = true) {
@@ -85,14 +77,7 @@ function drawFrame(now: number, advanceSimulation = true) {
   frameCount += frameScale;
   context.clearRect(0, 0, width, height);
 
-  if (config.tint) {
-    context.fillStyle = config.tint;
-    context.fillRect(0, 0, width, height);
-  }
-  if (config.overlay) {
-    context.fillStyle = config.overlay;
-    context.fillRect(0, 0, width, height);
-  }
+  drawWeatherTint(context, config, look, width, height);
 
   if (config.lightning) {
     if (frameCount >= nextLightning) {
@@ -100,34 +85,13 @@ function drawFrame(now: number, advanceSimulation = true) {
       nextLightning = frameCount + 400 + Math.random() * 800;
     }
     if (lightningAlpha > 0) {
-      context.fillStyle = `rgba(220,230,255,${lightningAlpha})`;
-      context.fillRect(0, 0, width, height);
+      drawWeatherLightning(context, look, lightningAlpha, width, height);
       lightningAlpha *= Math.pow(0.88, frameScale);
       if (lightningAlpha < 0.01) lightningAlpha = 0;
     }
   }
 
-  if (showCelestial && config.isClearSky && config.celestial !== "none") {
-    const radius = Math.min(width, height) * 0.035;
-    const hour = config.hour >= 0 ? config.hour : 12;
-    if (config.celestial === "sun") {
-      drawWeatherSun(
-        context,
-        weatherCelestialX(hour, width),
-        weatherCelestialY(hour, height, false),
-        radius,
-        width,
-        height,
-        config.sunRays,
-        config.sunsetGlow,
-        frameCount,
-      );
-    } else {
-      const moonPosition = hour >= 12 ? ((hour - 21 + 24) % 24) / 10 : (hour + 3) / 10;
-      const moonX = width * 0.1 + Math.min(1, Math.max(0, moonPosition)) * width * 0.8;
-      drawWeatherMoon(context, moonX, weatherCelestialY(hour, height, true), radius * 1.1, frameCount);
-    }
-  }
+  if (showCelestial) drawWeatherCelestial(context, config, look, width, height, frameCount);
 
   for (let index = particles.length - 1; index >= 0; index -= 1) {
     const particle = particles[index]!;
@@ -145,10 +109,10 @@ function drawFrame(now: number, advanceSimulation = true) {
       particle.x += Math.sin(particle.wobble) * 0.8 * frameScale;
       particle.y += Math.cos(particle.wobble * 0.7) * 0.4 * frameScale;
     }
-    drawWeatherParticle(context, particle);
+    drawWeatherParticle(context, particle, look);
     const outside = particle.y > height + 20 || particle.y < -20 || particle.x > width + 20 || particle.x < -20;
     if (outside || particle.life > particle.maxLife) {
-      particles[index] = createWeatherParticle(particle.type, width, height, true);
+      particles[index] = createWeatherParticle(particle.type, width, height, true, look);
     }
   }
 }
@@ -185,6 +149,7 @@ self.onmessage = (event: MessageEvent<WeatherWorkerMessage>) => {
     canvas = message.canvas;
     context = canvas.getContext("2d");
     config = message.config;
+    look = message.look ?? STOCK_WEATHER_LOOK;
     showCelestial = message.showCelestial;
     nextLightning = config.lightning ? 200 + Math.random() * 400 : Infinity;
     resizeSurface(message.width, message.height, message.scale);

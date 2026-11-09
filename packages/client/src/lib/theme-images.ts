@@ -224,6 +224,17 @@ export function imageEntry(src: string): Entry | null {
   return entry;
 }
 
+/**
+ * Whether a URL is one of the blob: URLs this registry made for a theme picture (or a still frame
+ * of one). Theme weather sprites use only these: anything else a theme writes is ignored.
+ */
+export function isThemeImageUrl(url: string) {
+  if (!url.startsWith("blob:")) return false;
+  for (const entry of entries.values()) if (entry.url === url) return true;
+  for (const still of stills.values()) if (still === url) return true;
+  return false;
+}
+
 /** The first frame of a moving picture, as a still blob: URL (null until it's ready). */
 function stillFor(entry: Entry): string | null {
   const known = stills.get(entry.url);
