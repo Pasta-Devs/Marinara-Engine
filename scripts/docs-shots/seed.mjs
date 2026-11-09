@@ -180,11 +180,14 @@ async function chat(name, mode, chars, firstMes, lines, meta) {
     ...lines.map((content, i) => ({ role: i % 2 ? "assistant" : "user", content })),
   ];
   for (const m of all) {
+    // Group chats: "[Vale] text" is Vale's line.
+    const speaker = m.role === "assistant" ? m.content.match(/^\[([^\]]+)\]\s+/) : null;
+    const who = speaker ? chars.find((x) => (typeof x.data === "string" ? JSON.parse(x.data) : x.data).name.includes(speaker[1])) : chars[0];
     await api("POST", `/chats/${c.id}/messages`, {
       chatId: c.id,
       role: m.role,
-      characterId: m.role === "assistant" ? (chars[0]?.id ?? null) : null,
-      content: m.content,
+      characterId: m.role === "assistant" ? (who?.id ?? null) : null,
+      content: speaker && who ? m.content.slice(speaker[0].length) : m.content,
     });
   }
   if (meta) await api("PATCH", `/chats/${c.id}/metadata`, meta);
@@ -257,6 +260,12 @@ await chat(
     "That he tips well. *She winks.* And that he always takes the window seat with the best view of the lighthouse.",
   ],
 );
+await chat("Deck 4 crew", "conversation", [mira, vale], "[Mira] Morning, crew. The coffee machine is still haunted.", [
+  "Status report, everyone?",
+  "[Vale] Everyone drink water. That is my status.",
+  "Wait. Something is moving in the vents.",
+  "[Mira] Okay, nobody panic. Vale, you have the flashlight.",
+]);
 const game = await chat(
   "The Ember Reach",
   "game",
