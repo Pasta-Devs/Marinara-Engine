@@ -4443,7 +4443,16 @@ export const ChatMessage = memo(function ChatMessage({
 
             {/* Swipes */}
             {/* Reserve the pager row while streaming so the saved reply does not push the view. */}
-            {isStreaming && !isUser && alwaysDisplaySwipeMenu && <div aria-hidden="true" className="h-[34px]" />}
+            {isStreaming && !isUser && alwaysDisplaySwipeMenu && (
+          <SwipeJumpControl
+            alwaysShow
+            messageId={message.id}
+            activeSwipeIndex={message.activeSwipeIndex}
+            swipeCount={swipeCount}
+            onSetActiveSwipe={handleSetActiveSwipe}
+            className="invisible"
+          />
+        )}
             {showSwipeControls && (
               <SwipeJumpControl
                 alwaysShow={alwaysDisplaySwipeMenu && !isUser}
@@ -4901,7 +4910,16 @@ export const ChatMessage = memo(function ChatMessage({
 
           {/* Swipes */}
           {/* Reserve the pager row while streaming so the saved reply does not push the view. */}
-          {isStreaming && !isUser && alwaysDisplaySwipeMenu && <div aria-hidden="true" className="h-[34px]" />}
+          {isStreaming && !isUser && alwaysDisplaySwipeMenu && (
+          <SwipeJumpControl
+            alwaysShow
+            messageId={message.id}
+            activeSwipeIndex={message.activeSwipeIndex}
+            swipeCount={swipeCount}
+            onSetActiveSwipe={handleSetActiveSwipe}
+            className="invisible"
+          />
+        )}
           {showSwipeControls && (
             <SwipeJumpControl
               alwaysShow={alwaysDisplaySwipeMenu && !isUser}
