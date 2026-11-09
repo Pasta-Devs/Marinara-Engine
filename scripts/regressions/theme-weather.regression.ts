@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { readThemeWeatherTokens, parseWeatherColor } from "../../packages/client/src/lib/theme-weather.js";
 import {
+  createWeatherBolt,
+  drawWeatherBolt,
   drawWeatherLightning,
   drawWeatherParticle,
   drawWeatherCelestial,
@@ -125,6 +127,26 @@ const look: WeatherLook = {
 };
 drawWeatherLightning(context, look, 0.9, 100, 100);
 assert.equal((context as unknown as { fillStyle: string }).fillStyle, "rgba(201,162,255,0.6)");
+
+// Lightning bolts (2026-11-09): opt-in, sized 0.5-3, struck down a side of the screen, only during a flash.
+assert.equal(readThemeWeatherTokens(style({ "--mari-weather-lightning-bolt": "on" }))?.bolt, 1);
+assert.equal(readThemeWeatherTokens(style({ "--mari-weather-lightning-bolt": "9" }))?.bolt, 3);
+assert.equal(readThemeWeatherTokens(style({ "--mari-weather-lightning-bolt": "none" })), null);
+for (let seed = 0; seed < 50; seed += 1) {
+  let n = seed + 1;
+  const random = () => ((n = (n * 16807) % 2147483647) / 2147483647);
+  const bolt = createWeatherBolt(1000, 800, random);
+  const x = bolt.trunk[0]![0];
+  assert.ok((x >= 80 && x <= 280) || (x >= 720 && x <= 920), `bolt starts at a side, not over the text (${x})`);
+  assert.ok(bolt.forks.length >= 1 && bolt.forks.length <= 2);
+}
+calls.length = 0;
+drawWeatherBolt(context, createWeatherBolt(100, 100), { ...look, bolt: 0 }, 0.5);
+assert.equal(calls.length, 0, "no bolt unless the theme turns it on");
+drawWeatherBolt(context, createWeatherBolt(100, 100), { ...look, bolt: 1 }, 0);
+assert.equal(calls.length, 0, "no bolt without a flash");
+drawWeatherBolt(context, createWeatherBolt(100, 100), { ...look, bolt: 1 }, 0.5);
+assert.ok(calls.length > 0, "the bolt draws during a flash");
 
 const storm = resolveWeatherRenderConfig("heavy snow storm", "midnight");
 const stock = weatherPopulation(storm);
