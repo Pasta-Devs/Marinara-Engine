@@ -5637,10 +5637,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     // The branch starts from the chat variables at its cutoff (#8990): undo what the omitted
     // replies' shown swipes changed, newest first, as deleting them would.
     const omittedMessages = msgs.slice(sourceCutoffIndex + 1);
-    const omittedSwipes = await storage.getSwipesByMessageId(omittedMessages.map((msg) => msg.id));
+    const swipesByMessageId = await storage.getSwipesByMessageId(msgs.map((msg) => msg.id));
     const omittedVariableChanges = omittedMessages
       .map((msg) => {
-        const shown = omittedSwipes.get(msg.id)?.find((swipe) => swipe.index === msg.activeSwipeIndex);
+        const shown = swipesByMessageId.get(msg.id)?.find((swipe) => swipe.index === msg.activeSwipeIndex);
         return parseExportMetadata(shown?.extra).macroVariableChanges;
       })
       .reverse();
@@ -5682,7 +5682,6 @@ export async function chatsRoutes(app: FastifyInstance) {
     const copiedSourceMessages: typeof msgs = [];
     const copiedMessageInputs: Parameters<typeof storage.createMessagesBatch>[1] = [];
 
-    const swipesByMessageId = await storage.getSwipesByMessageId(sourceMessagesToCopy.map((msg) => msg.id));
     for (const msg of sourceMessagesToCopy) {
       const swipes = swipesByMessageId.get(msg.id) ?? [];
       const messageExtra = await storage.prepareRoleplayInterruptionExtraForCopy(
@@ -5739,7 +5738,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     // A branch ending before the interrupting response keeps the full preceding message.
     // Copy only; never restore or otherwise mutate the source chat while branching.
-    for (const omittedMessage of msgs.slice(sourceCutoffIndex + 1)) {
+    for (const omittedMessage of omittedMessages) {
       const omittedActivity = (
         await storage.prepareRoleplayInterruptionExtraForCopy(parseExportMetadata(omittedMessage.extra))
       ).roleplayCommandActivity;

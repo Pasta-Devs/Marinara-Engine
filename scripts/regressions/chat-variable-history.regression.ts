@@ -1,7 +1,9 @@
 // Chat variables roll back with the reply that changed them (#6923). A swipe
 // starts from the values in place before that reply, deleting the reply puts
-// them back, and restoring it from the trash brings its changes back. Values
-// typed in Chat Settings after the reply are the user's and stay.
+// them back, and restoring it from the trash brings its changes back. Deleting
+// several replies at once undoes them all, and a branch from an earlier message
+// starts from the values at that message (#8990). Values typed in Chat Settings
+// after the reply are the user's and stay.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
@@ -307,6 +309,29 @@ try {
   await request("PATCH", `/api/chats/${chat.id}/metadata`, { macroVariables: { told: "regenerate" } });
   await request("DELETE", `/api/chats/${chat.id}/messages/${reply.id}`);
   assert.equal(await told(), "regenerate", "deleting a reply ignores its hidden swipes");
+
+  // A branch undoes the swipe on screen of each later reply, not a hidden one. Here the first
+  // swipe of the later reply changes nothing and the one on screen sets "regenerate".
+  await request("PATCH", `/api/chats/${chat.id}/metadata`, { macroVariables: {} });
+  await request("POST", "/api/generate/", { chatId: chat.id, userMessage: "Hello again." });
+  const forkPoint = (await chats.listMessages(chat.id)).at(-1)!;
+  assert.equal(await told(), "normal");
+  await request("POST", "/api/generate/", { chatId: chat.id, userMessage: "And again." });
+  const later = (await chats.listMessages(chat.id)).at(-1)!;
+  await request("POST", "/api/generate/", { chatId: chat.id, regenerateMessageId: later.id });
+  assert.equal(await told(), "regenerate");
+  const forked = await app.inject({
+    method: "POST",
+    url: `/api/chats/${chat.id}/branch`,
+    payload: { upToMessageId: forkPoint.id },
+  });
+  assert.equal(forked.statusCode, 200, forked.body);
+  const forkedMetadata = (await chats.getById((forked.json() as { id: string }).id))!.metadata;
+  assert.equal(
+    (typeof forkedMetadata === "string" ? JSON.parse(forkedMetadata) : forkedMetadata).macroVariables?.told,
+    "normal",
+    "a branch undoes the swipe on screen",
+  );
 } finally {
   provider.closeAllConnections();
   await new Promise<void>((done) => provider.close(() => done()));
