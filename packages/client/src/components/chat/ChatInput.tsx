@@ -2092,27 +2092,32 @@ export const ChatInput = memo(function ChatInput({
           className="hidden"
           onChange={handleFileUpload}
         />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!activeChatId || isInputBusy}
-          className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-xl transition-all active:scale-90 disabled:cursor-not-allowed disabled:text-foreground/25 disabled:opacity-50 sm:h-8 sm:w-8",
-            attachments.length
-              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
-              : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
-          )}
-          title={t("chat.input.attachFiles")}
-          aria-label={t("chat.input.attachFiles")}
-        >
-          <Paperclip size="1rem" />
-        </button>
+        {/* Paperclip + quick switchers share one tight group. The paperclip glyph is
+            narrow, so on desktop its button is narrower and tucked in: the empty
+            space after it then matches link-to-persona and emoji-to-send. */}
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!activeChatId || isInputBusy}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl transition-all active:scale-90 disabled:cursor-not-allowed disabled:text-foreground/25 disabled:opacity-50 sm:-mr-1 sm:h-8 sm:w-6",
+              attachments.length
+                ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+                : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+            )}
+            title={t("chat.input.attachFiles")}
+            aria-label={t("chat.input.attachFiles")}
+          >
+            <Paperclip size="1rem" />
+          </button>
 
-        {/* Quick Switchers — desktop: inline, mobile: chevron */}
-        <QuickConnectionSwitcher className="hidden sm:flex" contextBudget={showContextUsage ? contextBudget : null} />
-        <QuickPersonaSwitcher className="hidden sm:flex" />
-        <div className="sm:hidden">
-          <QuickSwitcherMobile contextBudget={showContextUsage ? contextBudget : null} />
+          {/* Quick Switchers — desktop: inline, mobile: chevron */}
+          <QuickConnectionSwitcher className="hidden sm:flex" contextBudget={showContextUsage ? contextBudget : null} />
+          <QuickPersonaSwitcher className="hidden sm:flex" />
+          <div className="sm:hidden">
+            <QuickSwitcherMobile contextBudget={showContextUsage ? contextBudget : null} />
+          </div>
         </div>
 
         {/* Text input */}

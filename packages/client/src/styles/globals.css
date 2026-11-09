@@ -4320,6 +4320,11 @@ body {
   animation: mari-home-professor-blink 5.6s steps(1, end) infinite;
 }
 
+/* Scrolled out of view (often on a phone): no blink, so nothing keeps animating where nobody can see it. */
+[data-home-professor-art][data-offscreen="true"] .mari-home-professor-blink {
+  animation: none;
+}
+
 @keyframes mari-home-professor-blink {
   0%,
   72%,
