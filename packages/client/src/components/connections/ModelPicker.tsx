@@ -3,14 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import {
-  IMAGE_GENERATION_SOURCES,
-  VIDEO_GENERATION_SOURCES,
-  AUDIO_SOURCE_OPTIONS,
-  LOCAL_SIDECAR_CONNECTION_ID,
-  type ChatModelChoice,
-  type ConnectionPickerKind,
-} from "@marinara-engine/shared";
+import { LOCAL_SIDECAR_CONNECTION_ID, type ChatModelChoice, type ConnectionPickerKind } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { usePickModel, useConnectionAccounts } from "../../hooks/use-connection-accounts";
@@ -27,8 +20,7 @@ import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { openAddConnection } from "../../lib/add-connection";
 import type { JobKey } from "../../lib/connection-jobs";
-import { rowUsesMediaSource } from "../../lib/media-source";
-import { IMAGE_VENDOR, MEDIA_BACKENDS, SPEECH_SOURCE, VIDEO_SOURCE_VENDOR } from "../modals/create-connection/shared";
+import { mediaRowFor, mediaSources, type MediaKind } from "../../lib/media-source";
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
 import { ProviderIcon } from "./ProviderIcon";
 
@@ -226,92 +218,21 @@ function ModelPickerSlot({
   };
 
   const mediaKind = kind === "image" || kind === "video" || kind === "audio";
-  const mediaSources = (provider: string) => {
-    if (kind === "audio")
-      return [
-        SPEECH_SOURCE[provider as keyof typeof SPEECH_SOURCE] ??
-          MEDIA_BACKENDS.find((backend) => backend.id === `audio:${provider}`)?.source,
-      ].filter((source): source is string => !!source);
-    if (kind === "image")
-      return [
-        ...Object.entries(IMAGE_VENDOR)
-          .filter(([, vendor]) => vendor === provider)
-          .map(([source]) => source),
-        ...MEDIA_BACKENDS.filter((backend) => backend.source === provider && backend.image).map(
-          (backend) => backend.source,
-        ),
-        ...(provider === "custom" ? ["openai"] : []),
-      ];
-    if (kind === "video")
-      return [
-        ...Object.entries(VIDEO_SOURCE_VENDOR)
-          .filter(([, vendor]) => vendor === provider)
-          .map(([source]) => source),
-        ...MEDIA_BACKENDS.filter((backend) => backend.source === provider && backend.video).map(
-          (backend) => backend.source,
-        ),
-      ];
-    return [];
-  };
-  const mediaSource = (provider: string) => {
-    return mediaSources(provider)[0];
-  };
-
   const applyMedia = async (choice: ChatModelChoice) => {
     const anchor = (rows as ConnectionModelRow[] | undefined)?.find(
       (row) => row.id === choice.connectionId || row.accountId === choice.connectionId,
     );
     const account = accounts?.find((item) => item.id === anchor?.accountId);
     const model = choice.model ?? anchor?.model;
-    if (!account || !model) return false;
-    const source = mediaSource(account.provider);
-    if (!source) return false;
-    const provider = kind === "image" ? "image_generation" : kind === "video" ? "video_generation" : "audio";
-    const existing = (
-      rows as
-        | Array<
-            ConnectionModelRow & {
-              imageGenerationSource?: string | null;
-              videoGenerationSource?: string | null;
-              audioSource?: string | null;
-            }
-          >
-        | undefined
-    )?.find(
-      (row) =>
-        row.provider === provider &&
-        row.accountId === account.id &&
-        row.model === model &&
-        (kind === "image" || kind === "video" ? rowUsesMediaSource(row, source) : row.audioSource === source),
+    if (!account || !model || !mediaSources(account.provider, kind as MediaKind).length) return false;
+    const id = await mediaRowFor(
+      kind as MediaKind,
+      account,
+      model,
+      choice.name,
+      (rows ?? []) as Parameters<typeof mediaRowFor>[4],
+      (data) => createRow.mutateAsync(data),
     );
-    let id = existing?.id;
-    if (!id) {
-      const sourceDef = (kind === "image" ? IMAGE_GENERATION_SOURCES : VIDEO_GENERATION_SOURCES).find(
-        (candidate) => candidate.id === source,
-      );
-      const baseUrl =
-        account.provider === "custom" ||
-        account.provider === "linkapi" ||
-        MEDIA_BACKENDS.some((backend) => backend.source === source)
-          ? (account.baseUrl ?? "")
-          : (sourceDef?.defaultBaseUrl ??
-            AUDIO_SOURCE_OPTIONS.find((option) => option.id === source)?.defaultBaseUrl ??
-            account.baseUrl ??
-            "");
-      const voice = AUDIO_SOURCE_OPTIONS.find((option) => option.id === source)?.defaultVoice;
-      const created = (await createRow.mutateAsync({
-        name: choice.name ?? model,
-        provider,
-        apiKey: "",
-        accountId: account.id,
-        baseUrl,
-        model,
-        ...(kind === "image" ? { imageGenerationSource: source, imageService: source } : {}),
-        ...(kind === "video" ? { videoGenerationSource: source, videoService: source } : {}),
-        ...(kind === "audio" ? { audioSource: source, ...(voice ? { audioVoice: voice } : {}) } : {}),
-      })) as { id?: string };
-      id = created.id;
-    }
     if (!id) throw new Error(t("connections.add.mediaCreateFailed"));
     if (id === value) return keep(id);
     commit(id, choice.name ?? model);
@@ -386,7 +307,9 @@ function ModelPickerSlot({
         kind={decision ? "chat" : kind}
         rowFilter={rowFilter}
         catalogBrowse
-        accountFilter={mediaKind ? (account) => mediaSources(account.provider).length > 0 : undefined}
+        accountFilter={
+          mediaKind ? (account) => mediaSources(account.provider, kind as MediaKind).length > 0 : undefined
+        }
         catalogAnchor={
           mediaKind
             ? (account, all) => all.find((row) => row.accountId === account.id && row.provider === account.provider)

@@ -438,7 +438,7 @@ export const DEFAULTS_FOLD_ID = "defaults";
 type RoleField = (typeof FLAG_JOBS)[number]["flag"] | (typeof FLAG_JOBS)[number]["fallback"];
 
 /** The jobs' Model pickers and the setters behind them; one hook so the rows stay plain. */
-function useJobModels(connectionsList: ConnectionRowData[]) {
+export function useJobModels(connectionsList: ConnectionRowData[]) {
   const { t } = useTranslation();
   const { data: tts } = useTTSConfig();
   const followVoiceJob = useFollowVoiceJob();
@@ -450,7 +450,7 @@ function useJobModels(connectionsList: ConnectionRowData[]) {
   const setFeatureModels = useSetFeatureModels();
   const lite = import.meta.env.VITE_MARINARA_LITE === "true";
 
-  const setRole = (field: RoleField, current: ConnectionRowData | null, nextId: string | null) => {
+  const setRole = (field: RoleField, current: { id: string } | null, nextId: string | null) => {
     if (nextId === (current?.id ?? null)) return;
     if (!nextId) {
       if (current) updateConnection.mutate({ id: current.id, [field]: false });
@@ -458,7 +458,9 @@ function useJobModels(connectionsList: ConnectionRowData[]) {
     }
     updateConnection.mutate({ id: nextId, [field]: true });
   };
-  const setMainDefault = (current: ConnectionRowData | null, nextId: string | null) => {
+  // Read the sidecar flags fresh: an Undo can run after the window that set the job closed.
+  const setMainDefault = (current: { id: string } | null, nextId: string | null) => {
+    const mainIsBuiltIn = useSidecarStore.getState().config.useAsMainDefault;
     if (nextId === LOCAL_SIDECAR_CONNECTION_ID) {
       if (mainIsBuiltIn) return;
       void updateSidecarConfig({ useAsMainDefault: true });
@@ -469,7 +471,8 @@ function useJobModels(connectionsList: ConnectionRowData[]) {
     if (mainIsBuiltIn) void updateSidecarConfig({ useAsMainDefault: false });
     setRole("isDefault", current, nextId);
   };
-  const setAgentsDefault = (current: ConnectionRowData | null, nextId: string | null) => {
+  const setAgentsDefault = (current: { id: string } | null, nextId: string | null) => {
+    const sidecarAsAgentsDefault = useSidecarStore.getState().config.useAsAgentsDefault;
     if (nextId === LOCAL_SIDECAR_CONNECTION_ID) {
       if (sidecarAsAgentsDefault) return;
       void updateSidecarConfig({ useAsAgentsDefault: true });
@@ -515,18 +518,22 @@ function useJobModels(connectionsList: ConnectionRowData[]) {
     const fallbackRow = rows.find((row) => isConnectionFlagTrue(row[role.fallback])) ?? null;
     const isAgents = job.key === "agents";
     const isMain = job.key === "main";
+    const set = (currentId: string | null, id: string | null) => {
+      const current = currentId ? { id: currentId } : null;
+      if (isAgents) return setAgentsDefault(current, id);
+      if (isMain) return setMainDefault(current, id);
+      setRole(role.flag, current, id);
+      if (job.key === "voice") void followVoiceJob(id).catch(() => toast.error(t("connections.defaults.saveFailed")));
+    };
     return {
       kind: role.kind,
       value:
         (isAgents && sidecarAsAgentsDefault) || (isMain && mainIsBuiltIn)
           ? LOCAL_SIDECAR_CONNECTION_ID
           : (primary?.id ?? null),
-      onChange: (id: string | null) => {
-        if (isAgents) return setAgentsDefault(primary, id);
-        if (isMain) return setMainDefault(primary, id);
-        setRole(role.flag, primary, id);
-        if (job.key === "voice") void followVoiceJob(id).catch(() => toast.error(t("connections.defaults.saveFailed")));
-      },
+      onChange: (id: string | null) => set(primary?.id ?? null, id),
+      /** Moves the job from a known row; Undo passes the row it set, as `primary` is stale then. */
+      set,
       fallback: {
         value: fallbackRow?.id ?? null,
         onChange: (id: string | null) => setRole(role.fallback, fallbackRow, id),
