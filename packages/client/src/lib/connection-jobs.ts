@@ -168,12 +168,6 @@ export function catalogMatchesKind(
 ): boolean {
   if (kind === "all") return true;
   if (kind === "decision") return true;
-  if (kind === "chat")
-    return (
-      !catalogMatchesKind(model, facts, "image") &&
-      !catalogMatchesKind(model, facts, "video") &&
-      !catalogMatchesKind(model, facts, "audio")
-    );
   if (facts?.outputModalities?.length)
     return facts.outputModalities.some(
       (output) => output.toLowerCase() === kind || (kind === "audio" && output.toLowerCase() === "speech"),

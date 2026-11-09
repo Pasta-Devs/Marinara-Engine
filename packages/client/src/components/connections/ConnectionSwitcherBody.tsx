@@ -28,6 +28,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
+  isChatProvider,
   rankModelMatch,
   readChatModelOverride,
   readChatRecentModels,
@@ -542,19 +543,24 @@ export function ConnectionSwitcherBody({
     return [
       // A provider with no saved model still lists its catalog; one with only image or voice Models has nothing to pick here.
       ...byAccount
-        .filter(
-          (group) =>
-            group.rows.length > 0 ||
-            (catalogBrowse &&
-              (!accountFilter || accountFilter(group.account)) &&
-              !!(catalogAnchor
-                ? catalogAnchor(group.account, allRows)
-                : allRows.find(
-                    (row) =>
-                      row.accountId === group.account.id &&
-                      row.provider &&
-                      (kind === "chat" || kind === "decision" || kind === "all" || row.provider !== "decision"),
-                  ))),
+        .filter((group) =>
+          kind === "chat"
+            ? rows.some((row) => row.accountId === group.account.id)
+            : group.rows.length > 0 ||
+              (catalogBrowse &&
+                (!accountFilter || accountFilter(group.account)) &&
+                !!(catalogAnchor
+                  ? catalogAnchor(
+                      group.account,
+                      allRows.filter((row) => !hiddenIds.has(row.id)),
+                    )
+                  : allRows.find(
+                      (row) =>
+                        !hiddenIds.has(row.id) &&
+                        row.accountId === group.account.id &&
+                        row.provider &&
+                        (kind === "decision" || kind === "all" || row.provider !== "decision"),
+                    ))),
         )
         .sort((a, b) =>
           a.account.id === firstAccountId
@@ -584,6 +590,7 @@ export function ConnectionSwitcherBody({
     catalogBrowse,
     accountFilter,
     catalogAnchor,
+    hiddenIds,
   ]);
   const groupOfRow = useMemo(() => {
     const map = new Map<string, SwitcherGroup>();
@@ -599,10 +606,18 @@ export function ConnectionSwitcherBody({
   const catalogAnchors = groups.map((group) =>
     group.account
       ? catalogAnchor
-        ? catalogAnchor(group.account, (connectionsRaw ?? []) as SwitcherRow[])?.id
+        ? catalogAnchor(
+            group.account,
+            ((connectionsRaw ?? []) as SwitcherRow[]).filter((row) => !hiddenIds.has(row.id)),
+          )?.id
         : (connectionsRaw as SwitcherRow[] | undefined)?.find(
             (row) =>
-              row.accountId === group.account!.id && row.provider && (kind === "chat" || row.provider !== "decision"),
+              !hiddenIds.has(row.id) &&
+              row.accountId === group.account!.id &&
+              row.provider &&
+              (kind === "chat"
+                ? isChatProvider(row.provider)
+                : kind === "decision" || kind === "all" || row.provider !== "decision"),
           )?.id
       : group.rows[0]?.id,
   );
@@ -1430,8 +1445,10 @@ export function ConnectionSwitcherBody({
     : [];
   // A filtered job (embeddings) skips accounts with nothing it can use, as the old list did.
   const accountGroups = groups.filter((group) => {
-    if (!group.account) return false;
-    if (!modelFilter && !catalogFilter && (kind === "chat" || kind === "all")) return true;
+    const account = group.account;
+    if (!account) return false;
+    if (kind === "chat") return rows.some((row) => row.accountId === account.id);
+    if (!modelFilter && !catalogFilter && kind === "all") return true;
     const { starred, rest } = paneEntries(group);
     return starred.length + rest.length > 0;
   });

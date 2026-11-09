@@ -27,6 +27,7 @@ import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { openAddConnection } from "../../lib/add-connection";
 import type { JobKey } from "../../lib/connection-jobs";
+import { rowUsesMediaSource } from "../../lib/media-source";
 import { IMAGE_VENDOR, MEDIA_BACKENDS, SPEECH_SOURCE, VIDEO_SOURCE_VENDOR } from "../modals/create-connection/shared";
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
 import { ProviderIcon } from "./ProviderIcon";
@@ -281,11 +282,7 @@ function ModelPickerSlot({
         row.provider === provider &&
         row.accountId === account.id &&
         row.model === model &&
-        (kind === "image"
-          ? row.imageGenerationSource === source
-          : kind === "video"
-            ? row.videoGenerationSource === source
-            : row.audioSource === source),
+        (kind === "image" || kind === "video" ? rowUsesMediaSource(row, source) : row.audioSource === source),
     );
     let id = existing?.id;
     if (!id) {
