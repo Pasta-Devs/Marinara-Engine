@@ -484,10 +484,12 @@ export function SplitPaneBar({ phone = false }: { phone?: boolean }) {
           </>
         )}
       </span>
-      {activeChat && !phone ? (
+      {activeChat ? (
         <button
           type="button"
-          className={cn("ov-text-btn", chatSettingsOpen && "is-on")}
+          className={cn(phone ? "ov-icon-btn ov-icon-btn--sm" : "ov-text-btn", chatSettingsOpen && "is-on")}
+          title={phone ? localize("Chat settings") : undefined}
+          aria-label={phone ? localize("Chat settings") : undefined}
           aria-pressed={chatSettingsOpen}
           data-window-opener={CHAT_SETTINGS_WINDOW_ID}
           onClick={(event) => {
@@ -497,9 +499,13 @@ export function SplitPaneBar({ phone = false }: { phone?: boolean }) {
             else windows.openWindow(CHAT_SETTINGS_WINDOW_ID, event.currentTarget);
           }}
         >
-          <Settings2 size={15} aria-hidden="true" />
-          <span>{localize("Chat settings")}</span>
-          <ChatSettingsSummary chat={activeChat} fallback="" />
+          <Settings2 size={phone ? 14 : 15} aria-hidden="true" />
+          {phone ? null : (
+            <>
+              <span>{localize("Chat settings")}</span>
+              <ChatSettingsSummary chat={activeChat} fallback="" />
+            </>
+          )}
         </button>
       ) : null}
       {activeChat?.mode === "game" && !phone ? <GamePaneToggle /> : null}

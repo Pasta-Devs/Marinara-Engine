@@ -1751,7 +1751,9 @@ export function AppShell({
         >
           {overhaulMobile ? (
             <>
-              <OverhaulMobileTopBar />
+              {/* Split view's second side in the phone layout: no phone top bar (tabs, chat list, Home,
+                  Library), so that side stays on its page; its split bar has Chat settings. */}
+              {SPLIT_PANE ? null : <OverhaulMobileTopBar />}
               {mobileTrackerStripVisible && activeChatId ? <OverhaulMobileTrackerStrip chatId={activeChatId} /> : null}
             </>
           ) : (
