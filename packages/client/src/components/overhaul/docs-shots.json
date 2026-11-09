@@ -1,3 +1,148 @@
 {
-  "shots": []
+  "shots": [
+    {
+      "name": "home-screen",
+      "guide": "home/welcome.md",
+      "heading": "The Home screen at a glance",
+      "alt": "The Home screen in the new layout: chats on the left, recent chats and widgets in the middle, the Library on the right.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "roleplay-chat",
+      "guide": "roleplay/getting-started.md",
+      "heading": "",
+      "alt": "A Roleplay chat with Detective Rook on a rainy street background.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "conversation-chat",
+      "guide": "conversation/getting-started.md",
+      "heading": "",
+      "alt": "A Conversation chat with Juniper Hale, laid out like a messenger.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "game-chat",
+      "guide": "game/getting-started.md",
+      "heading": "",
+      "alt": "A Game Mode chat in the Ember Reach, with Kestrel as the game master.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "chat-settings",
+      "guide": "chats/chat-settings.md",
+      "heading": "Opening Chat Settings",
+      "alt": "Chat Settings open beside a Roleplay chat, from the Chat settings button in the top bar.",
+      "width": 912,
+      "height": 1520
+    },
+    {
+      "name": "selfie-settings",
+      "guide": "conversation/selfies.md",
+      "heading": "Selfie settings",
+      "alt": "Illustrator Settings in a Conversation chat's Chat Settings, with Generated Selfies on and the selfie settings below it.",
+      "width": 912,
+      "height": 1240
+    },
+    {
+      "name": "chat-list",
+      "guide": "chats/managing-chats.md",
+      "heading": "The chat list and mode tabs",
+      "alt": "The chat list with the Convo, Roleplay and Game tabs, search, sort and filter.",
+      "width": 640,
+      "height": 840
+    },
+    {
+      "name": "characters-page",
+      "guide": "characters/library-organization.md",
+      "heading": "",
+      "alt": "The Characters page in the Library, showing the characters as a gallery.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "character-editor",
+      "guide": "characters/creating-and-editing-characters.md",
+      "heading": "The Character Editor at a glance",
+      "alt": "The Character Editor for Detective Rook: portrait and sections on the left, the card's fields on the right.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "personas-page",
+      "guide": "characters/personas.md",
+      "heading": "The Personas page",
+      "alt": "The Personas page in the Library.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "persona-editor",
+      "guide": "characters/personas.md",
+      "heading": "The Persona Editor",
+      "alt": "The Persona Editor for the persona Nova.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "lorebooks-page",
+      "guide": "lorebooks/overview.md",
+      "heading": "The Lorebooks page",
+      "alt": "The Lorebooks page in the Library.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "lorebook-entries",
+      "guide": "lorebooks/entries.md",
+      "heading": "The Entries tab",
+      "alt": "The Saltmere Harbor lorebook open on its entries.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "preset-editor",
+      "guide": "prompts/presets.md",
+      "heading": "The Preset Editor's tabs",
+      "alt": "The Preset Editor with the prompt sections in order.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "regex-page",
+      "guide": "extending/regex-scripts.md",
+      "heading": "Create a regex script",
+      "alt": "The Regex scripts page in the Library.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "connections-page",
+      "guide": "connections/connecting-to-a-provider.md",
+      "heading": "The Connections page",
+      "alt": "The Connections page: your accounts and models, and the model picked for each job.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "settings",
+      "guide": "settings/settings-overview.md",
+      "heading": "Opening Settings",
+      "alt": "Settings open on the General tab, with the other tabs along the side.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "appearance-settings",
+      "guide": "appearance/appearance-settings.md",
+      "heading": "Opening the Appearance settings",
+      "alt": "The Appearance tab in Settings.",
+      "width": 1600,
+      "height": 1240
+    }
+  ]
 }
