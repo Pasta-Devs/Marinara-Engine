@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
-import { hideExistingItems } from "./connections-panel.js";
+import { hideExistingItems, openJobSettings } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -517,21 +517,20 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
       .poll(async () => [await status(`/api/connections/${linkedId}`), await status(`/api/connections/${source.id}`)])
       .toEqual([404, 404]);
 
-    // A Decision Model can still borrow another Model's key ("API key source" in its editor). Deleting that Model
-    // warns first, and the Decision Model then asks to be relinked.
-    const openEditor = async (id: string) => {
-      await page.evaluate(async (id) => {
-        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-        useUIStore.getState().closeAllDetails();
-        useUIStore.getState().openConnectionDetail(id);
-      }, id);
+    // A Decision Model can still borrow another Model's key ("API key source" in Decision settings). Deleting that
+    // Model warns first, and the Decision Model then asks to be relinked.
+    expect((await request.post("/api/decision/select", { data: { id: borrowerId } })).ok()).toBeTruthy();
+    await page.reload();
+    const openEditor = async () => {
+      await openJobSettings(page, "decision");
     };
     const keySource = page.getByLabel("API key source", { exact: true });
-    await openEditor(borrowerId);
+    await openEditor();
     await expect(keySource).toHaveValue(lenderId);
     await expect(keySource.locator("option:checked")).toHaveText(
       `Use key from “${await accountName(lender!.accountId!)}”`,
     );
+    await page.keyboard.press("Escape");
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().closeAllDetails();
@@ -548,10 +547,15 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     await expect(keyWarning).toContainText(`${borrowerName} will need another linked account or a separate key.`);
     await keyWarning.getByRole("button", { name: "Delete account", exact: true }).click();
     await expect.poll(() => status(`/api/connections/${lenderId}`)).toBe(404);
-    await openEditor(borrowerId);
+    await openEditor();
     await expect(keySource).toHaveValue(lenderId);
     const relink = "Linked account is missing or incompatible. Choose another or enter a key.";
     await expect(keySource.locator("option:checked")).toHaveText(relink);
+    await page.keyboard.press("Escape");
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openConnectionDetail(id);
+    }, borrowerId);
     await page.getByRole("button", { name: "Test provider", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: `Decision test failed: ${relink}` })).toBeVisible();
   } finally {

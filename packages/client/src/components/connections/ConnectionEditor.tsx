@@ -376,7 +376,6 @@ export function ConnectionEditor({
 
   const { data: conn, isLoading } = useConnection(connectionDetailId);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [pickingModel, setPickingModel] = useState(false);
   const [useForMenu, setUseForMenu] = useState<MenuAt | null>(null);
   const modelStar = useModelStar();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -426,6 +425,7 @@ export function ConnectionEditor({
   }, [dirty, setEditorDirty]);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedFlash, setSavedFlash] = useState(false);
   useKeepFocusedFieldAboveKeyboard(contentRef);
 
   const editorBusy =
@@ -1178,6 +1178,8 @@ export function ConnectionEditor({
       // save; otherwise it would ride along on every later save.
       setLocalManagementToken("");
       setClearStoredManagementTokenOnSave(false);
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1500);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save connection";
       setSaveError(message);
@@ -2530,7 +2532,7 @@ export function ConnectionEditor({
 
   if (part)
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" data-connection-part={part}>
         {part === "decision" && decisionFields}
         {part === "voice" && voiceFields}
         {part === "captioning" && captioningFields}
@@ -2550,16 +2552,17 @@ export function ConnectionEditor({
     );
 
   const usedFor = useFor.filter((item) => item.checked);
-  const done = async () => {
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        // The error banner explains what must be fixed; keep the window open.
-        return;
-      }
+  const save = async () => {
+    try {
+      await handleSave();
+      return true;
+    } catch {
+      // The error banner explains what must be fixed; keep the window open.
+      return false;
     }
-    closeEditor();
+  };
+  const done = async () => {
+    if (!dirty || (await save())) closeEditor();
   };
   return (
     <Modal
@@ -2567,6 +2570,7 @@ export function ConnectionEditor({
       onClose={handleClose}
       title={localName || localModel}
       width="max-w-lg"
+      panelClassName="mari-editor-shell"
       closeDisabled={editorBusy}
       titleSlot={
         <div className="flex min-w-0 items-center gap-2.5">
@@ -2631,11 +2635,33 @@ export function ConnectionEditor({
           >
             <Trash2 size="0.9375rem" />
           </button>
+          {savedFlash && !dirty && (
+            <span className="ml-auto inline-flex items-center gap-1 text-xs text-emerald-400">
+              <Check size="0.75rem" aria-hidden="true" />
+              {localizeUi("chat.settings.inlineEditor.saved")}
+            </span>
+          )}
+          {dirty && !saveError && (
+            <span className="ml-auto text-xs text-amber-400">
+              {localizeUi("ui.connections.connectioneditor.unsaved")}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={editorBusy || !!swarmUiWorkflowError}
+            className={cn(
+              "mari-chrome-control px-3 text-xs disabled:opacity-50",
+              !(savedFlash && !dirty) && !(dirty && !saveError) && "ml-auto",
+            )}
+          >
+            {localizeUi("ui.noodle.noodlehome.save")}
+          </button>
           <button
             type="button"
             onClick={() => void done()}
             disabled={editorBusy || !!swarmUiWorkflowError}
-            className="mari-chrome-control mari-chrome-control--primary ml-auto text-xs disabled:opacity-50"
+            className="mari-chrome-control mari-chrome-control--primary text-xs disabled:opacity-50"
           >
             {t("connections.editor.done")}
           </button>
@@ -2734,7 +2760,7 @@ export function ConnectionEditor({
                 markDirty();
               }}
               className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-              placeholder={localizeUi("ui.connections.connectioneditor.eGClaudeSonnetRp")}
+              placeholder={localizeUi("connections.editor.modelName")}
             />
           </FieldGroup>
 
@@ -3450,34 +3476,20 @@ export function ConnectionEditor({
                 {localizeUi("ui.connections.connectioneditor.useGrokCliDefault")}
               </button>
             )}
-            {pickingModel || !localModel ? (
-              <ConnectionModelPicker
-                className="h-80 overflow-hidden rounded-xl border border-[var(--border)]"
-                connection={{
-                  id: connectionDetailId,
-                  name: localName,
-                  provider: localProvider,
-                  model: localModel,
-                  pinnedModels: (conn as { pinnedModels?: unknown }).pinnedModels,
-                  accountId,
-                }}
-                accountName={linkedAccount?.name}
-                builtInModels={providerModels}
-                onChoose={async (choice) => {
-                  await selectModel(choice);
-                  setPickingModel(false);
-                }}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setPickingModel(true)}
-                className="mari-chrome-field flex h-11 w-full items-center justify-between gap-2 px-3 text-left font-mono text-xs md:h-9"
-              >
-                <span className="truncate">{localModel}</span>
-                <ChevronDown size="0.875rem" aria-hidden className="shrink-0 text-[var(--muted-foreground)]" />
-              </button>
-            )}
+            <ConnectionModelPicker
+              className="h-80 overflow-hidden rounded-xl border border-[var(--border)]"
+              connection={{
+                id: connectionDetailId,
+                name: localName,
+                provider: localProvider,
+                model: localModel,
+                pinnedModels: (conn as { pinnedModels?: unknown }).pinnedModels,
+                accountId,
+              }}
+              accountName={linkedAccount?.name}
+              builtInModels={providerModels}
+              onChoose={async (choice) => selectModel(choice)}
+            />
             {!!selectedModelInfo?.context && (
               <p className="mt-2 flex flex-wrap gap-x-4 text-[0.6875rem] text-[var(--muted-foreground)]">
                 <span>

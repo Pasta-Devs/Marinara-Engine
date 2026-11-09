@@ -5,6 +5,7 @@ import {
   openDevicePage,
   revealDefaultsTile,
   ttsConfigCard,
+  openJobSettings,
 } from "./connections-panel.js";
 import {
   expect,
@@ -3411,6 +3412,8 @@ test("NovelAI generation defaults survive save and editor navigation", async ({ 
     };
     expect(exported.connections?.[0]?.defaultParameters?.imageGeneration?.seed).toBe(50);
 
+    // The model window covers the page; close it before switching panels.
+    await editor.getByRole("button", { name: "Done", exact: true }).click();
     await clickTopbarPanel(page, "personas");
     await rightPanel
       .getByText(personaName, { exact: true })
@@ -3555,25 +3558,20 @@ test("Connection image captioning defaults persist with a dedicated captioning c
     });
     expect(invalidDefaultsResponse.status()).toBe(400);
 
+    // A model's own captioning override is set up once, then edited in the Image reading settings window.
+    const seeded = await request.put(`/api/connections/${chatConnection.id}/default-parameters`, {
+      data: { imageCaptioningEnabled: true, imageCaptioningConnectionId: captionConnection.id },
+    });
+    expect(seeded.ok(), await seeded.text()).toBeTruthy();
     await page.goto("/");
-    await clickTopbarPanel(page, "connections");
-    const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
-    await openConnectionsPanelModel(rightPanel, chatConnectionName);
-
-    const editor = page.locator(".mari-editor-shell");
-    await expect(editor).toBeVisible();
-    await editor
-      .getByText("Use custom defaults for this model", { exact: true })
-      .evaluate((element) => (element as HTMLElement).click());
-    await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this model" })).toBeChecked();
-    await editor.getByText("Image captioning", { exact: true }).click();
-    await expect(editor.getByRole("checkbox", { name: "Image captioning" })).toBeChecked();
-    // #8456: the captioning field is a ConnectionSelect, a button that opens the model picker.
-    const captioningSelect = editor
+    const settings = await openJobSettings(page, "vision");
+    const part = settings.locator('[data-connection-part="captioning"]');
+    await expect(part).toHaveCount(1);
+    const captioningSelect = part
       .locator("label", { hasText: "Captioning provider" })
       .locator("[data-connection-value]");
-    await chooseConnection(page, captioningSelect, captionConnection.id);
-
+    await expect(captioningSelect).toHaveAttribute("data-connection-value", captionConnection.id);
+    await part.getByText("Image captioning", { exact: true }).click();
     await Promise.all([
       page.waitForResponse(
         (response) =>
@@ -3581,21 +3579,13 @@ test("Connection image captioning defaults persist with a dedicated captioning c
           response.request().method() === "PUT" &&
           response.ok(),
       ),
-      editor.getByRole("button", { name: "Save", exact: true }).click(),
+      part.getByRole("button", { name: "Save", exact: true }).click(),
     ]);
-
-    const storedResponse = await request.get(`/api/connections/${chatConnection.id}`);
-    expect(storedResponse.ok()).toBeTruthy();
-    const stored = (await storedResponse.json()) as { defaultParameters: string | null };
+    const stored = (await (await request.get(`/api/connections/${chatConnection.id}`)).json()) as {
+      defaultParameters: string | null;
+    };
     const storedDefaults = JSON.parse(stored.defaultParameters ?? "{}") as Record<string, unknown>;
-    expect(storedDefaults.imageCaptioningEnabled).toBe(true);
-    expect(storedDefaults.imageCaptioningConnectionId).toBe(captionConnection.id);
-
-    await editor.locator(".mari-editor-header .mari-editor-action").first().click();
-    await openConnectionsPanelModel(rightPanel, chatConnectionName);
-    await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this model" })).toBeChecked();
-    await expect(editor.getByRole("checkbox", { name: "Image captioning" })).toBeChecked();
-    await expect(captioningSelect).toHaveAttribute("data-connection-value", captionConnection.id);
+    expect(storedDefaults.imageCaptioningEnabled).toBe(false);
   } finally {
     await Promise.all([
       request.delete(`/api/connections/${chatConnection.id}`).catch(() => undefined),
@@ -3633,8 +3623,11 @@ test("Connection Discard uses the Connections editor accent", async ({ page }, t
 
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
-    await editor.locator(".mari-editor-title-input").fill("Connection Discard Accent Edited");
-    await editor.locator(".mari-editor-header .mari-editor-action").first().click();
+    await editor.getByPlaceholder("Model name", { exact: true }).fill("Connection Discard Accent Edited");
+    await editor
+      .getByRole("button", { name: /^Close/ })
+      .first()
+      .click();
 
     const discardButton = editor.getByRole("button", { name: "Discard", exact: true });
     await expect(discardButton).toBeVisible();
@@ -18192,6 +18185,12 @@ test("desktop resource editors open beside their source sidebars", async ({ page
       await expect(centerContent).toHaveAttribute("data-center-compact", "true");
       if (resource.panel === "connections") {
         await openConnectionsPanelModel(resourceSidebar, resource.name);
+        // A model opens in its own window over the page, not in the center editor area.
+        const modelWindow = page.locator(".mari-editor-shell");
+        await expect(modelWindow).toBeVisible();
+        await modelWindow.getByRole("button", { name: "Done", exact: true }).click();
+        await expect(modelWindow).toHaveCount(0);
+        continue;
       } else {
         const resourceRow = resourceSidebar.getByText(resource.name, { exact: true }).first();
         await expect(resourceRow).toBeVisible();

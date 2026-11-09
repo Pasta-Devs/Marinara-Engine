@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import { openJobSettings } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -40,48 +41,68 @@ test("a Decision connection's time limit saves, and Test reports an answer slowe
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false, theme: "dark" });
     await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
-    const open = () =>
-      page.evaluate(async (id) => {
+    const previous = (await (await request.get("/api/decision/options")).json()).selected ?? null;
+    expect((await request.post("/api/decision/select", { data: { id } })).ok()).toBeTruthy();
+    // The time limit lives in the Decision settings window; Test stays in the model window.
+    const openSettings = async () => {
+      await openJobSettings(page, "decision");
+      return page.locator('[data-connection-part="decision"]');
+    };
+    const setLimit = async (value: string) => {
+      const part = await openSettings();
+      const limit = part.getByLabel("Time limit (seconds)", { exact: true });
+      await limit.scrollIntoViewIfNeeded();
+      await limit.fill(value);
+      await limit.blur();
+      await part.getByRole("button", { name: "Save", exact: true }).click();
+      await page.keyboard.press("Escape");
+      return limit;
+    };
+    const openWindow = async () => {
+      await page.evaluate(async (id) => {
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
         useUIStore.getState().openConnectionDetail(id);
       }, id);
-    await page.goto("/");
-    await open();
-    const editor = page.locator(".mari-editor-shell");
-    const limit = editor.getByLabel("Time limit (seconds)", { exact: true });
-    await limit.scrollIntoViewIfNeeded();
-    await expect(limit).toHaveValue("1.5");
-    await expect(editor.getByText(/Answers that come later count as no\./u)).toBeVisible();
-
-    // An answer slower than the limit is reported with its real time, not as a dead endpoint. #8456 renamed
-    // "Test connection" to "Test provider" and "this connection's" to "this provider's".
-    await limit.fill("0.5");
-    await limit.blur();
-    delayMs = 1000;
-    await editor.getByRole("button", { name: "Test provider", exact: true }).click();
-    await expect(editor.getByText(/over this provider's 0\.5 s time limit/u)).toBeVisible();
-    await expect
-      .poll(async () => (await (await request.get(`/api/connections/${id}`)).json()).decisionTimeoutMs)
-      .toBe(500);
+      return page.locator(".mari-editor-shell");
+    };
     const capture = async (name: string) => {
       const path = testInfo.outputPath(`${name}.png`);
       await page.screenshot({ path, animations: "disabled" });
       await testInfo.attach(name, { path, contentType: "image/png" });
     };
-    await editor.getByText(/over this provider's 0\.5 s time limit/u).scrollIntoViewIfNeeded();
-    await capture("decision-time-limit-slow");
-    await limit.scrollIntoViewIfNeeded();
-    await capture("decision-time-limit-field");
+    try {
+      await page.goto("/");
+      const part = await openSettings();
+      await expect(part.getByLabel("Time limit (seconds)", { exact: true })).toHaveValue("1.5");
+      await expect(part.getByText(/Answers that come later count as no\./)).toBeVisible();
+      await capture("decision-time-limit-field");
+      await page.keyboard.press("Escape");
 
-    delayMs = 0;
-    await limit.fill("2.5");
-    await limit.blur();
-    await editor.getByRole("button", { name: "Test provider", exact: true }).click();
-    await expect(editor.getByText(/Probability of yes: 0\.800 · answered in .* \(time limit 2\.5 s\)/u)).toBeVisible();
-    await page.reload();
-    await open();
-    await expect(limit).toHaveValue("2.5");
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      // An answer slower than the limit is reported with its real time, not as a dead endpoint.
+      await setLimit("0.5");
+      await expect
+        .poll(async () => (await (await request.get(`/api/connections/${id}`)).json()).decisionTimeoutMs)
+        .toBe(500);
+      delayMs = 1000;
+      let editor = await openWindow();
+      await editor.getByRole("button", { name: "Test provider", exact: true }).click();
+      await expect(editor.getByText(/over this provider's 0\.5 s time limit/u)).toBeVisible();
+      await capture("decision-time-limit-slow");
+      await editor.getByRole("button", { name: "Done", exact: true }).click();
+
+      delayMs = 0;
+      await setLimit("2.5");
+      editor = await openWindow();
+      await editor.getByRole("button", { name: "Test provider", exact: true }).click();
+      await expect(
+        editor.getByText(/Probability of yes: 0\.800 · answered in .* \(time limit 2\.5 s\)/u),
+      ).toBeVisible();
+      await page.reload();
+      await expect((await openSettings()).getByLabel("Time limit (seconds)", { exact: true })).toHaveValue("2.5");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    } finally {
+      await request.post("/api/decision/select", { data: { id: previous } });
+    }
   } finally {
     await request.delete(`/api/connections/${id}`);
     server.closeAllConnections();
