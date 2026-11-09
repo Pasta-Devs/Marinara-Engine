@@ -320,6 +320,8 @@ When the story has weather (Settings > Appearance > Effects > Dynamic weather ef
 on), the app draws rain, snow, fog, petals, stars, a sun or a moon over the chat. A theme can restyle
 all of it with `--mari-weather-*` tokens, and change its own art to match the weather.
 
+New to this? [Weather in Your Theme](theme-weather.md) walks you through it step by step, with pictures.
+
 ```css
 :root {
   --mari-weather-style: pixel; /* every drop and flake lands on a pixel grid */
@@ -343,7 +345,7 @@ understand. So day and night (or per-chat) weather work like any other token.
 | `--mari-weather-style`           | `smooth` (default) or `pixel`: the layer is drawn at low resolution and scaled up crisp, and particles become square cells                      |
 | `--mari-weather-pixel-size`      | 2 to 6 (px per cell), default 3                                                                                                                 |
 | `--mari-weather-<kind>-color`    | A plain colour (`#hex`, a colour name, `rgb()`, `hsl()`), no gradients or pictures                                                              |
-| `--mari-weather-<kind>-image`    | Up to 4 of the theme's own pictures, `url("theme:a.png") url("theme:b.png")`; each particle picks one. Leaves, petals and ash spin as they fall |
+| `--mari-weather-<kind>-image`    | Up to 4 of the theme's own pictures, `url("theme:a.png") url("theme:b.png")`; each particle picks one. In smooth style leaves, petals and ash spin as they fall |
 | `--mari-weather-<kind>-size`     | 0.5 to 3 times. In pixel style a picture is drawn at its own size times this, so pixel art keeps its pixels (art pixel = size x 1 px)           |
 | `--mari-weather-<kind>-shape`    | `round` or `square` (smooth style; squares for "data snow" or sparks)                                                                           |
 | `--mari-weather-amount`          | 0.25 to 1: a theme can thin the weather out, never add more                                                                                     |
