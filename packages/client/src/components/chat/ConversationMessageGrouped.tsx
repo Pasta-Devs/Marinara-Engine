@@ -126,7 +126,7 @@ export function ConversationMessageGrouped({
       ref={msgRef}
       data-component="ConversationMessage.Grouped"
       tabIndex={0}
-      data-message-id={message.id}
+      data-message-id={message.id} aria-busy={isStreaming || undefined}
       data-message-role={message.role}
       className={cn(
         "relative px-4 py-0.5 transition-colors hover:bg-[var(--secondary)]/30",
