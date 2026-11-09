@@ -34,7 +34,7 @@ const JOB_OF: Partial<Record<UseKind, JobKey>> = {
   audio: "voice",
   decision: "decision",
 };
-type Use = { kind: UseKind; job: JobKey; model: string; name?: string; rowId?: string };
+type Use = { kind: UseKind; job: JobKey; model: string; name?: string; rowId?: string; typed?: true };
 
 /** A catalog model that writes text: its listed outputs say so, else no media or embedding name. */
 const writesText = (model: RemoteConnectionModel) =>
@@ -45,13 +45,15 @@ const writesText = (model: RemoteConnectionModel) =>
 
 /**
  * What a new account can do, one row per model type it offers: a saved row of that type, else the
- * catalog's first fit (for text, the provider's recommended pick when the catalog has it).
+ * catalog's first fit (for text, the provider's recommended pick when the catalog has it). Asked for
+ * Decision with no model that reports logprobs, it offers a text model and lets the test decide.
  */
 export function usesOf(
   kinds: readonly UseKind[],
   provider: string,
   accountRows: readonly ConnectionRowData[],
   models: readonly RemoteConnectionModel[],
+  wanted?: JobKey | null,
 ): Use[] {
   const recommended = (MODEL_LISTS[provider as keyof typeof MODEL_LISTS] ?? []).map((model) => model.id);
   return kinds.flatMap((kind): Use[] => {
@@ -62,14 +64,14 @@ export function usesOf(
       const name = models.find((model) => model.id === own.model)?.name;
       return [{ kind, job, model: own.model!, rowId: own.id, ...(name ? { name } : {}) }];
     }
-    const fits = models.filter((model) =>
-      kind === "decision"
-        ? model.capabilities?.logprobs
-        : kind === "chat"
-          ? writesText(model)
-          : catalogMatchesKind(model.id, model, kind),
-    );
-    const best = (kind === "chat" && fits.find((model) => recommended.includes(model.id))) || fits[0];
+    const logprobs = kind === "decision" ? models.filter((model) => model.capabilities?.logprobs) : [];
+    const asText = kind === "chat" || (kind === "decision" && !logprobs.length && wanted === "decision");
+    const fits = asText
+      ? models.filter(writesText)
+      : kind === "decision"
+        ? logprobs
+        : models.filter((model) => catalogMatchesKind(model.id, model, kind));
+    const best = (asText && fits.find((model) => recommended.includes(model.id))) || fits[0];
     return best ? [{ kind, job, model: best.id, name: best.name }] : [];
   });
 }
@@ -101,6 +103,8 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
   const testRow = useTestConnection();
   const [ticked, setTicked] = useState<Set<JobKey> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [errors, setErrors] = useState<Partial<Record<JobKey, string>>>({});
   const account = accounts?.find((item) => item.id === target.accountId);
 
   const kinds = kindsOf(service).map((kind) => (kind === "voice" ? "audio" : kind)) as UseKind[];
@@ -110,8 +114,12 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
         account.provider,
         rows.filter((row) => row.accountId === account.id),
         catalog.data?.models ?? [],
+        job,
       )
     : [];
+  // A server with no model list (or a failed one) still gets a Main model: the user types its ID.
+  if (account && kinds.includes("chat") && !catalog.isLoading && !uses.some((use) => use.kind === "chat"))
+    uses.unshift({ kind: "chat", job: "main", model: typed.trim(), typed: true });
   const currentOf = (use: Use) =>
     use.kind === "decision" ? (decisionOptions.data?.selected ?? null) : (modelFor(JOB[use.job])?.value ?? null);
   const labelOf = (id: string) => {
@@ -159,12 +167,11 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
       const result = await testRow.mutateAsync(created.id);
       if (result.success && result.logprobs !== false) return created.id;
       if (!existing) await deleteRow.mutateAsync(created.id).catch(() => undefined);
-      toast.error(
+      throw new Error(
         result.success && result.logprobs === false
           ? t("connections.decision.noLogprobs")
           : decisionConnectionTestMessage(t, result).message,
       );
-      return undefined;
     }
     return mediaRowFor(use.kind, account, use.model, use.name, rows, (data) => createRow.mutateAsync(data));
   };
@@ -173,36 +180,40 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
     setBusy(true);
     const undo: Array<() => void> = [];
     const jobs: string[] = [];
-    let failed = false;
-    try {
-      for (const use of uses.filter(isTicked)) {
+    const failures: Partial<Record<JobKey, string>> = {};
+    const setFlag = (key: JobKey, id: string, previous: string | null) => {
+      const model = modelFor(JOB[key]);
+      const set = model && "set" in model ? model.set : undefined;
+      if (!model || !set) return false;
+      model.onChange(id);
+      undo.push(() => set(id, previous));
+      return true;
+    };
+    for (const use of uses.filter(isTicked)) {
+      if (!use.model) continue;
+      try {
         const id = await rowFor(use);
         const previous = currentOf(use);
         if (!id || id === previous) continue;
         if (use.kind === "decision") {
           await selectDecision.mutateAsync(id);
           undo.push(() => selectDecision.mutate(previous));
-        } else {
-          const model = modelFor(JOB[use.job]);
-          const set = model && "set" in model ? model.set : undefined;
-          if (!model || !set) continue;
-          model.onChange(id);
-          undo.push(() => set(id, previous));
-        }
+        } else if (!setFlag(use.job, id, previous)) continue;
+        // Like the first-account path before step 3: a first Main also becomes Agents when that is empty.
+        if (use.job === "main" && !previous && !modelFor(JOB.agents)?.value) setFlag("agents", id, null);
         jobs.push(t(jobLabelKey(JOB[use.job])));
+      } catch (error) {
+        failures[use.job] = errorText(error);
       }
-    } catch (error) {
-      failed = true;
-      toast.error(errorText(error));
-    } finally {
-      setBusy(false);
     }
+    setErrors(failures);
+    setBusy(false);
     if (jobs.length)
       toast.success(t("connections.add.usedFor", { name: accountName, jobs: jobs.join(", ") }), {
         duration: 8000,
         action: { label: t("connections.switcher.undo"), onClick: () => undo.forEach((step) => step()) },
       });
-    if (!failed) onFinish(jobs.length > 0);
+    if (!Object.keys(failures).length) onFinish(jobs.length > 0);
   };
 
   const loading = catalog.isLoading && !uses.length;
@@ -210,12 +221,25 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-3 py-4">
         <p className="text-sm text-[var(--muted-foreground)]">{t("connections.add.foundIn", { name: accountName })}</p>
+        {catalog.isError && (
+          <p role="alert" className="flex flex-wrap items-center gap-2 text-sm text-[var(--destructive)]">
+            {t("connections.modelPicker.loadFailed")}
+            <button
+              type="button"
+              className={SECONDARY_CLASS}
+              disabled={catalog.isFetching}
+              onClick={() => void catalog.refetch()}
+            >
+              {t("connections.device.retry")}
+            </button>
+          </p>
+        )}
         {loading ? (
           <p role="status" className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
             <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
             {t("connections.add.readingCatalog")}
           </p>
-        ) : uses.length === 0 ? (
+        ) : uses.length === 0 && !catalog.isError ? (
           <p role="status" className="text-sm text-[var(--muted-foreground)]">
             {t("connections.add.nothingFound")}
           </p>
@@ -235,14 +259,29 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
                   disabled={busy}
                   className="h-[1.125rem] w-[1.125rem] shrink-0 accent-[var(--primary)]"
                 />
-                <span className="flex min-w-0 flex-col">
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="text-sm font-medium">{t(jobLabelKey(JOB[use.job]))}</span>
+                  {use.typed && (
+                    <input
+                      value={typed}
+                      onChange={(event) => setTyped(event.target.value)}
+                      disabled={busy}
+                      aria-label={t("connections.move.manualLabel")}
+                      placeholder={t("connections.move.manualLabel")}
+                      className="h-9 w-full rounded-lg border border-[var(--border)] bg-transparent px-2.5 text-base sm:text-sm"
+                    />
+                  )}
                   <span className="text-xs text-[var(--muted-foreground)] [overflow-wrap:anywhere]">
-                    {use.name ?? use.model} ·{" "}
+                    {!use.typed && <>{use.name ?? use.model} · </>}
                     {current
                       ? t("connections.add.nowUses", { model: labelOf(current) })
                       : t("connections.add.nothingSet")}
                   </span>
+                  {errors[use.job] && (
+                    <span role="alert" className="text-xs text-[var(--destructive)] [overflow-wrap:anywhere]">
+                      {errors[use.job]}
+                    </span>
+                  )}
                 </span>
               </label>
             );
