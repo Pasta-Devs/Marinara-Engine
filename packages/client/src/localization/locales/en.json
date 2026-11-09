@@ -16768,6 +16768,7 @@
   "ui.presets.sectionstab.system": "System",
   "ui.presets.sectionstab.the": "The",
   "ui.presets.sectionstab.thisIsWhereActiveLorebookEntriesAreInserted": "This is where active lorebook entries are inserted.",
+  "ui.presets.sectionstab.tokenEstimateShort": "~{{tokens}}",
   "ui.presets.sectionstab.user": "User",
   "ui.presets.sectionstab.zeroMeansAfterLastMessage": "(0 = after last message)",
   "ui.presets.variablecard.allowUsersToSelectMultipleOptionsInsteadOfJust": "Allow users to select multiple options instead of just one.",
