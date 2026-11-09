@@ -156,9 +156,6 @@ export function ConnectionRow({
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   // A pick closes the ⋯ menu, so "Use for…" opens a second menu at its place.
-  const followVoiceJob = useFollowVoiceJob();
-  const { data: featureModels } = useFeatureModels();
-  const setFeatureModels = useSetFeatureModels();
   const [subMenu, setSubMenu] = useState<{ at: MenuAt; items: ContextMenuItem[] } | null>(null);
 
   const chatModel = isChatProvider(row.provider);
@@ -182,41 +179,12 @@ export function ConnectionRow({
         if (id) openConnectionDetail(id);
       },
     });
-  // The Add window's Decision job makes the decision row under this Model's Connection, with its key.
-  const canLendToDecisions = row.provider === "openrouter" || (row.provider === "custom" && !!row.model?.trim());
-  const useForDecisions = () =>
-    useUIStore.getState().openModal(
-      "create-connection",
-      row.accountId
-        ? {
-            modelsFor: { accountId: row.accountId, connectionId: row.id, kind: "decision" },
-            forJob: { job: "decision" },
-          }
-        : { service: row.provider, forJob: { job: "decision" } },
-    );
+  const useFor = useUseFor(row);
 
   const remove = async () => {
     if (await confirmModelDelete(row.id, title, t)) deleteConnection.mutate(row.id);
   };
 
-  // "Use for…" is the one way to give this Model a job from its row; a tick marks the jobs it already does.
-  const useFor: ContextMenuItem[] = [
-    ...rowJobs(row).map((job) => ({
-      label: t(jobLabelKey(job)),
-      checked: job.key === "voice" ? voiceRowId === row.id : isConnectionFlagTrue(row[job.flag]),
-      onSelect: () => {
-        updateConnection.mutate({ id: row.id, [job.flag]: true });
-        // The Voice job is the row saved in the speech settings, not only the audio flag.
-        if (job.key === "voice") void followVoiceJob(row.id).catch(() => {});
-      },
-    })),
-    ...(chatModel ? JOBS.filter((job) => job.feature) : []).map((job) => ({
-      label: t(jobLabelKey(job)),
-      checked: featureModels?.[job.feature!] === row.id,
-      onSelect: () => setFeatureModels.mutate({ [job.feature!]: row.id }),
-    })),
-    ...(canLendToDecisions ? [{ label: t(jobLabelKey(JOB.decision)), onSelect: useForDecisions }] : []),
-  ];
   const openSub = (items: ContextMenuItem[]) => menu && setSubMenu({ at: menu, items });
 
   const menuItems: ContextMenuItem[] = [
@@ -469,4 +437,46 @@ export async function confirmAccountDelete(
       : t("connections.accounts.editor.delete"),
     tone: "destructive",
   });
+}
+
+/** The jobs one Model can do, ticked where it already does them: its "Use for…" list. */
+export function useUseFor(row: ConnectionRowData): ContextMenuItem[] {
+  const { t } = useTranslation();
+  const voiceRowId = useVoiceRowId();
+  const followVoiceJob = useFollowVoiceJob();
+  const { data: featureModels } = useFeatureModels();
+  const setFeatureModels = useSetFeatureModels();
+  const updateConnection = useUpdateConnection();
+  const chatModel = isChatProvider(row.provider);
+  // The Add window's Decision job makes the decision row under this Model's Connection, with its key.
+  const canLendToDecisions = row.provider === "openrouter" || (row.provider === "custom" && !!row.model?.trim());
+  const useForDecisions = () =>
+    useUIStore.getState().openModal(
+      "create-connection",
+      row.accountId
+        ? {
+            modelsFor: { accountId: row.accountId, connectionId: row.id, kind: "decision" },
+            forJob: { job: "decision" },
+          }
+        : { service: row.provider, forJob: { job: "decision" } },
+    );
+
+  // "Use for…" is the one way to give this Model a job from its row; a tick marks the jobs it already does.
+  return [
+    ...rowJobs(row).map((job) => ({
+      label: t(jobLabelKey(job)),
+      checked: job.key === "voice" ? voiceRowId === row.id : isConnectionFlagTrue(row[job.flag]),
+      onSelect: () => {
+        updateConnection.mutate({ id: row.id, [job.flag]: true });
+        // The Voice job is the row saved in the speech settings, not only the audio flag.
+        if (job.key === "voice") void followVoiceJob(row.id).catch(() => {});
+      },
+    })),
+    ...(chatModel ? JOBS.filter((job) => job.feature) : []).map((job) => ({
+      label: t(jobLabelKey(job)),
+      checked: featureModels?.[job.feature!] === row.id,
+      onSelect: () => setFeatureModels.mutate({ [job.feature!]: row.id }),
+    })),
+    ...(canLendToDecisions ? [{ label: t(jobLabelKey(JOB.decision)), onSelect: useForDecisions }] : []),
+  ];
 }

@@ -4,7 +4,7 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 
-test("Add models for ElevenLabs opens the audio editor instead of a blank modal", async ({ page, request }, info) => {
+test("Add models for an old ElevenLabs row opens the Voice job picker instead of a blank modal", async ({ page, request }, info) => {
   const response = await request.post("/api/connections", {
     data: {
       name: "ElevenLabs voice regression",
@@ -27,20 +27,18 @@ test("Add models for ElevenLabs opens the audio editor instead of a blank modal"
       const { openAddModels } = await import("/src/lib/add-connection.ts" as string);
       openAddModels({ accountId });
     }, row.accountId);
+    // #16: an old Voice row has no models to add; the Voice job's picker opens, not the Model window.
+    await expect(page.getByRole("dialog", { name: "Model for Voice" })).toBeVisible();
     await expect(page.locator("[data-add-connection-step]")).toHaveCount(0);
-    await expect(page.getByText("Default voice", { exact: true })).toBeVisible();
-    await expect
-      .poll(() =>
-        page.evaluate(async () => {
-          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-          return useUIStore.getState().connectionDetailId;
-        }),
-      )
-      .toBe(row.id);
-    await expect(page.locator("[data-connection-model-picker]")).toBeVisible();
+    expect(
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        return useUIStore.getState().connectionDetailId;
+      }),
+    ).toBeNull();
     for (const width of [390, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.screenshot({ path: info.outputPath(`elevenlabs-editor-${width}.png`) });
+      await page.screenshot({ path: info.outputPath(`elevenlabs-voice-picker-${width}.png`) });
     }
     expect(errors).toEqual([]);
   } finally {

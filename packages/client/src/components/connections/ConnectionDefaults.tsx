@@ -3,13 +3,15 @@
 // its "If it fails" Model when set. A row opens the job's one picker (Model and If it fails). A job with a
 // problem shows it as a chip on its row. Agents and Decision keep their other settings behind a gear.
 // ──────────────────────────────────────────────
-import { useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Loader2, Shuffle, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
   isAgentConfigDeleted,
+  isChatProvider,
+  parseConnectionImageCaptioningDefaults,
   type TTSSource,
   isRetiredBuiltInAgentId,
   type ConnectionAccountListItem,
@@ -641,6 +643,27 @@ function AgentsSettings() {
   );
 }
 
+const ConnectionEditor = lazy(() =>
+  import("./ConnectionEditor").then((module) => ({ default: module.ConnectionEditor })),
+);
+
+/** Chat Models whose own row overrides the Embeddings or Image reading job. */
+function overridesOf(key: JobKey, rows: readonly ConnectionRowData[]) {
+  if (key === "embeddings")
+    return rows.filter(
+      (row) =>
+        isChatProvider(row.provider) &&
+        !!(row.embeddingModel?.trim() || row.embeddingBaseUrl?.trim() || row.embeddingConnectionId),
+    );
+  if (key === "vision")
+    return rows.filter(
+      (row) =>
+        isChatProvider(row.provider) &&
+        Object.keys(parseConnectionImageCaptioningDefaults(row.defaultParameters)).length > 0,
+    );
+  return [];
+}
+
 /** Jobs with behaviour of their own: a gear opens the job's settings window. */
 const JOB_SETTINGS = new Set<JobKey>(["voice", "stt", "decision", "agents"]);
 
@@ -679,7 +702,10 @@ function DefaultsJobRow({
   job,
   modelFor,
   onOpenDevice,
+  overrides = [],
 }: {
+  /** Models that keep a setting of this job on their own row, edited here */
+  overrides?: readonly ConnectionRowData[];
   tile: DefaultsTile;
   job: Job;
   modelFor: ReturnType<typeof useJobModels>;
@@ -691,7 +717,7 @@ function DefaultsJobRow({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const embeddings = job.key === "embeddings";
   const decision = job.key === "decision";
-  const hasSettings = JOB_SETTINGS.has(job.key as JobKey);
+  const hasSettings = JOB_SETTINGS.has(job.key as JobKey) || overrides.length > 0;
   const model = embeddings || decision || job.device ? null : modelFor(job);
   const title = t(jobLabelKey(job));
   const onClick = () => {
@@ -771,8 +797,33 @@ function DefaultsJobRow({
               </JobSettingsSection>
             )}
             {job.key === "voice" && <TTSConfigCard />}
+            {job.key === "voice" && tile.source?.provider === "audio" && (
+              <Suspense fallback={null}>
+                <ConnectionEditor connectionId={tile.source.id} part="voice" />
+              </Suspense>
+            )}
             {job.key === "stt" && <DictationSettings />}
             {decision && <DecisionDefaultControl settings />}
+            {decision && tile.source?.provider === "decision" && (
+              <Suspense fallback={null}>
+                <ConnectionEditor connectionId={tile.source.id} part="decision" />
+              </Suspense>
+            )}
+            {overrides.length > 0 && (
+              <JobSettingsSection title={t("connections.jobSettings.overrides")}>
+                {overrides.map((row) => (
+                  <div key={row.id} className="space-y-2">
+                    <p className="text-xs font-medium">{row.name}</p>
+                    <Suspense fallback={null}>
+                      <ConnectionEditor
+                        connectionId={row.id}
+                        part={job.key === "vision" ? "captioning" : "embeddings"}
+                      />
+                    </Suspense>
+                  </div>
+                ))}
+              </JobSettingsSection>
+            )}
             {job.key === "agents" && <AgentsSettings />}
           </div>
         </Modal>
@@ -786,6 +837,7 @@ export function JobPickerWindow({ job, onClose }: { job: Job; onClose: () => voi
   const { t } = useTranslation();
   const connectionsList = (useConnections().data ?? []) as ConnectionRowData[];
   const model = useJobModels(connectionsList)(job);
+  if (job.key === "decision") return <DecisionDefaultControl open onOpenChange={(open) => !open && onClose()} />;
   if (!model) return null;
   return (
     <ConnectionSelect
@@ -862,7 +914,13 @@ export function ConnectionDefaultsBox({
                   .filter((tile) => JOB[tile.key].group === group)
                   .map((tile) => (
                     <div key={tile.key} className="mari-connection-model-slot min-w-0">
-                      <DefaultsJobRow tile={tile} job={JOB[tile.key]} modelFor={modelFor} onOpenDevice={onOpenDevice} />
+                      <DefaultsJobRow
+                        tile={tile}
+                        job={JOB[tile.key]}
+                        modelFor={modelFor}
+                        onOpenDevice={onOpenDevice}
+                        overrides={overridesOf(tile.key, connectionsList)}
+                      />
                     </div>
                   ))}
               </div>
