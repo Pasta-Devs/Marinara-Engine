@@ -68,7 +68,13 @@ function Highlighted({ text, term }: { text: string; term: string }) {
 function ShotFigure({ shot, onOpen }: { shot: DocShot; onOpen: (shot: DocShot) => void }) {
   return (
     <figure className="ov-docs__shot">
-      <button type="button" onClick={() => onOpen(shot)} aria-label={shot.alt}>
+      {/* A button shrinks to its content, so the width goes here rather than on the picture. */}
+      <button
+        type="button"
+        onClick={() => onOpen(shot)}
+        aria-label={shot.alt}
+        style={{ width: `min(100%, ${Math.round(shot.width / 2)}px)` }}
+      >
         <img
           src={`${import.meta.env.BASE_URL}docs-shots/${shot.name}.webp`}
           alt={shot.alt}
@@ -76,7 +82,6 @@ function ShotFigure({ shot, onOpen }: { shot: DocShot; onOpen: (shot: DocShot) =
           height={shot.height}
           loading="lazy"
           decoding="async"
-          style={{ width: `min(100%, ${Math.round(shot.width / 2)}px)` }}
         />
       </button>
     </figure>

@@ -32,6 +32,26 @@ const library = (section) => [
   { wait: 1200 },
 ];
 
+/** Editors with the Library pane closed, for the ones that need the room. */
+const WIDE = { x: 320, y: 44, width: 1120, height: 620 };
+const closeLibrary = [{ click: 'button:has-text("Library")' }, { wait: 800 }];
+
+/** The Chat Settings window, scrolled to one section. */
+const DRAWER = { x: 984, y: 44, width: 456, height: 620 };
+const chatSettings = (mode, chatName, section) => [
+  ...modeTab(mode),
+  ...chat(chatName),
+  { click: 'button:has-text("Chat settings")' },
+  { wait: 1200 },
+  { click: 'button:has-text("Got it")', optional: true },
+  ...(section ? [{ scroll: `.mari-drawer__header:has-text("${section}"), :text-is("${section}")` }] : []),
+];
+const settingsTab = (tab) => [
+  ...library("Settings"),
+  { click: `.ov-settings button:text-is("${tab}")` },
+  { wait: 1000 },
+];
+
 /** name, guide, heading, alt, steps, and what to capture: the window, a selector, or a clip. */
 const SHOTS = [
   {
@@ -189,6 +209,209 @@ const SHOTS = [
     steps: [...library("Settings"), { click: 'button:has-text("Appearance")' }, { wait: 1000 }],
     clip: CENTER,
   },
+  {
+    name: "add-account",
+    guide: "connections/connecting-to-a-provider.md",
+    heading: "Adding an account",
+    alt: "Add connection opened on the Connections page, with the kinds of service to pick from.",
+    steps: [...library("Connections"), { click: 'button:has-text("Add connection")' }, { wait: 1000 }],
+  },
+  {
+    name: "agents-page",
+    guide: "agents/agents-overview.md",
+    heading: "Install and update agents",
+    alt: "The Agents page in the Library, with installed agents and the Agent Organizer.",
+    steps: [...library("Agents"), { wait: 1500 }],
+    clip: CENTER,
+  },
+  {
+    name: "characters-import",
+    guide: "characters/import-export.md",
+    heading: "",
+    alt: "The Import button on the Characters page.",
+    steps: [
+      ...library("Characters"),
+      { click: '.ov-gallery__head button:has-text("Import"), button:has-text("Import")' },
+      { wait: 1000 },
+    ],
+  },
+  {
+    name: "lorebook-settings",
+    guide: "lorebooks/overview.md",
+    heading: "The Overview tab settings",
+    alt: "Book settings for the Saltmere Harbor lorebook.",
+    steps: [
+      ...library("Lorebooks"),
+      { click: ':text-is("Saltmere Harbor")' },
+      { wait: 1200 },
+      { click: 'button:has-text("Book settings")' },
+      { wait: 1000 },
+      ...closeLibrary,
+    ],
+    clip: WIDE,
+  },
+  {
+    name: "lorebook-keyword-test",
+    guide: "lorebooks/entries.md",
+    heading: "The Keyword test tool",
+    alt: "The Keyword test tool in the lorebook editor.",
+    steps: [
+      ...library("Lorebooks"),
+      { click: ':text-is("Saltmere Harbor")' },
+      { wait: 1200 },
+      { click: 'button:has-text("Keyword test")' },
+      { wait: 1000 },
+    ],
+    clip: CENTER,
+  },
+  {
+    name: "preset-variables",
+    guide: "prompts/preset-variables.md",
+    heading: "Adding a preset variable",
+    alt: "The Variables tab of the Preset Editor.",
+    steps: [
+      ...library("Presets"),
+      { click: ':text("Marinara\'s Universal")' },
+      { wait: 1500 },
+      { click: 'button:text-is("Variables")' },
+      { wait: 1000 },
+      ...closeLibrary,
+    ],
+    clip: WIDE,
+  },
+  {
+    name: "preset-parameters",
+    guide: "prompts/generation-parameters.md",
+    heading: "Each parameter in plain language",
+    alt: "The Parameters tab of the Preset Editor.",
+    steps: [
+      ...library("Presets"),
+      { click: ':text("Marinara\'s Universal")' },
+      { wait: 1500 },
+      { click: 'button:text-is("Parameters")' },
+      { wait: 1000 },
+      ...closeLibrary,
+    ],
+    clip: WIDE,
+  },
+  {
+    name: "chat-settings-persona",
+    guide: "characters/choosing-your-persona.md",
+    heading: "From Chat Settings",
+    alt: "The Persona section of Chat Settings.",
+    steps: chatSettings("Roleplay", "The clock tower case", "Persona"),
+    clip: DRAWER,
+  },
+  {
+    name: "chat-settings-lorebooks",
+    guide: "lorebooks/linking-to-characters.md",
+    heading: "The Chat Settings Lorebooks section",
+    alt: "The Lorebooks section of Chat Settings.",
+    steps: chatSettings("Roleplay", "The clock tower case", "Lorebooks"),
+    clip: DRAWER,
+  },
+  {
+    name: "chat-branches",
+    guide: "chats/branches.md",
+    heading: "The Chat Branches section",
+    alt: "The Chat Branches section of Chat Settings.",
+    steps: chatSettings("Roleplay", "The clock tower case", "Chat Branches"),
+    clip: DRAWER,
+  },
+  {
+    name: "memory-recall",
+    guide: "agents/memory.md",
+    heading: "Turning Memory Recall on",
+    alt: "The Memory Recall section of Chat Settings.",
+    steps: chatSettings("Roleplay", "The clock tower case", "Memory Recall"),
+    clip: DRAWER,
+  },
+  {
+    name: "translation-settings",
+    guide: "integrations/message-translation.md",
+    heading: "Where to find translation settings",
+    alt: "The Translation section of Chat Settings.",
+    steps: chatSettings("Roleplay", "The clock tower case", "Translation"),
+    clipFrom: '.mari-drawer__header:has-text("Translation"), :text-is("Translation")',
+    clipHeight: 300,
+  },
+  {
+    name: "group-chat",
+    guide: "chats/group-chats.md",
+    heading: "",
+    alt: "A group Conversation with Mira Voss and Dr. Vale Okonkwo.",
+    steps: [...modeTab("Convo"), ...chat("Deck 4 crew")],
+  },
+  {
+    name: "message-toolbar",
+    guide: "chats/messages.md",
+    heading: "The message toolbar",
+    alt: "The buttons on a message in a Roleplay chat.",
+    steps: [...modeTab("Roleplay"), ...chat("The clock tower case"), { hover: ':text("Rook frowns, jaw tight")' }],
+    clip: { x: 400, y: 550, width: 940, height: 160 },
+  },
+  {
+    name: "slash-menu",
+    guide: "chats/slash-commands.md",
+    heading: "How slash commands work",
+    alt: "Typing / in the message box opens the list of slash commands.",
+    steps: [...modeTab("Convo"), ...chat("Juniper's cafe"), { click: "textarea" }, { type: "/" }, { wait: 800 }],
+    clip: { x: 320, y: 400, width: 1120, height: 500 },
+  },
+  {
+    name: "presence-status",
+    guide: "conversation/getting-started.md",
+    heading: "Your presence status",
+    alt: "The presence status menu at the bottom of the chat list.",
+    steps: [...modeTab("Convo"), { click: '[aria-label="Change activity status"]' }, { wait: 600 }],
+    clip: { x: 0, y: 560, width: 320, height: 340 },
+  },
+  {
+    name: "schedule-manager",
+    guide: "conversation/schedules.md",
+    heading: "Turn on schedules",
+    alt: "The Character Schedule Manager.",
+    steps: [...modeTab("Convo"), { click: '[aria-label="Character Schedule Manager"]' }, { wait: 1500 }],
+  },
+  {
+    name: "professor-mari",
+    guide: "home/professor-mari.md",
+    heading: "Where to find her",
+    alt: "Professor Mari's window, opened from the Home page.",
+    steps: [{ click: 'button:has-text("Ask Professor Mari")' }, { wait: 1500 }],
+  },
+  {
+    name: "backup",
+    guide: "data/backup-and-restore.md",
+    heading: "Download Backup",
+    alt: "The Data tab in Settings, with Download Backup.",
+    steps: settingsTab("Data"),
+    clip: CENTER,
+  },
+  {
+    name: "fonts",
+    guide: "appearance/fonts.md",
+    heading: "Choosing an app font",
+    alt: "Fonts & Text Size in Settings, Appearance.",
+    steps: [...settingsTab("Appearance"), { click: 'button:text-is("Fonts & Text Size")' }, { wait: 800 }],
+    clip: CENTER,
+  },
+  {
+    name: "starter-themes",
+    guide: "appearance/custom-css-themes.md",
+    heading: "Starter themes",
+    alt: "CSS Themes in Settings, Appearance, with the starter themes.",
+    steps: [...settingsTab("Appearance"), { click: 'button:text-is("CSS Themes")' }, { wait: 1000 }],
+    clip: CENTER,
+  },
+  {
+    name: "custom-tool-editor",
+    guide: "extending/custom-tools.md",
+    heading: "Creating a tool",
+    alt: "A new custom tool open in the editor: name, description, parameters and what it does when called.",
+    steps: [...library("Custom tools"), { click: 'button:has-text("New tool")' }, { wait: 1200 }, ...closeLibrary],
+    clip: WIDE,
+  },
 ];
 
 const manifest = JSON.parse(readFileSync(manifestFile, "utf8"));
@@ -235,6 +458,8 @@ for (const shot of SHOTS) {
         if (step.unless && (await page.locator(step.unless).first().isVisible())) continue;
         await target.click({ timeout: 8000 });
       }
+      if (step.hover) await page.locator(step.hover).first().hover();
+      if (step.type) await page.keyboard.type(step.type);
       if (step.scroll) {
         await page
           .locator(step.scroll)
@@ -252,11 +477,18 @@ for (const shot of SHOTS) {
           .click()
           .catch(() => {});
     }
-    await page.mouse.move(1, 899);
+    // Park the mouse out of the way, unless the shot is of something that shows on hover.
+    if (!shot.steps.some((step) => step.hover)) await page.mouse.move(1, 899);
     await page.waitForTimeout(800);
+    let clip = shot.clip;
+    if (shot.clipFrom) {
+      const box = await page.locator(shot.clipFrom).first().boundingBox();
+      const y = Math.max(DRAWER.y, Math.round(box.y) - 8);
+      clip = { x: DRAWER.x, y, width: DRAWER.width, height: Math.min(shot.clipHeight, 900 - y) };
+    }
     const png = shot.selector
       ? await page.locator(shot.selector).first().screenshot()
-      : await page.screenshot(shot.clip ? { clip: shot.clip } : {});
+      : await page.screenshot(clip ? { clip } : {});
     const meta = await sharp(png).metadata();
     const width = Math.round(meta.width / 2);
     const height = Math.round(meta.height / 2);

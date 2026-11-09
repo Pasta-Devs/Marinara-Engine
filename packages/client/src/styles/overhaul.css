@@ -2559,9 +2559,12 @@
   background: none;
   cursor: zoom-in;
 }
-.ov-docs__shot img {
+/* Beats the chat rule that caps message images at 28rem (.mari-message-content img). */
+.ov-docs .ov-docs__shot img {
   display: block;
+  width: 100%;
   max-width: 100%;
+  margin: 0;
   height: auto;
   border: 1px solid var(--ov-line);
   border-radius: 0.75rem;
@@ -10909,14 +10912,16 @@ input.ov-edhead__title:focus {
 }
 
 /* Book settings: Enabled and the lorebook's Picture share a line. */
+/* They wrap onto two lines when the column is narrow instead of overlapping. */
 .ov-bk__pair {
   display: flex;
   min-width: 0;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: 1.5rem;
+  gap: 0.625rem 1.5rem;
 }
 .ov-bk__pair > :first-child {
-  min-width: 0;
+  min-width: 8rem;
   flex: 1;
 }
 
