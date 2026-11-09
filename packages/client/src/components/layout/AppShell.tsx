@@ -77,6 +77,8 @@ import { useOverhaulStore } from "../../stores/overhaul.store";
 import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../../lib/overhaul-styles";
 import { preloadChatSurface } from "../chat/chat-surface-preload";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
+import { SPLIT_PANE } from "../../lib/split-view-env";
+import { SPLIT_DIVIDER, SPLIT_MIN_SIDE, clampSplitSize, useSplitRoom } from "../overhaul/split-view";
 import { LIBRARY_SECTIONS, openLibrarySection } from "../overhaul/library-navigation";
 import { OverhaulMobileTopBar } from "../overhaul/MobileTopBar";
 import { OverhaulMobileTrackerStrip } from "../overhaul/MobileTrackerStrip";
@@ -147,6 +149,11 @@ const TrackerDataSidebar = lazy(() =>
 const ChatNotificationBubbles = lazy(() =>
   import("../chat/ChatNotificationBubbles").then((module) => ({ default: module.ChatNotificationBubbles })),
 );
+const SplitSide = lazy(() => import("../overhaul/SplitView").then((module) => ({ default: module.SplitSide })));
+const SplitDropOverlay = lazy(() =>
+  import("../overhaul/SplitView").then((module) => ({ default: module.SplitDropOverlay })),
+);
+const SplitPaneBar = lazy(() => import("../overhaul/SplitView").then((module) => ({ default: module.SplitPaneBar })));
 const OnboardingTutorial = lazy(() =>
   import("../onboarding/OnboardingTutorial").then((module) => ({ default: module.OnboardingTutorial })),
 );
@@ -587,6 +594,18 @@ export function AppShell({
   const overhaulSchedules = useOverhaulStore((s) => s.activeSchedules);
   const overhaulActive = overhaulEnabled && !shellOverlayMode;
   const overhaulMobile = overhaulEnabled && shellOverlayMode;
+  // Split view (desktop only): a second page beside the main one, when both fit.
+  const split = useOverhaulStore((s) => s.split);
+  const splitDragging = useOverhaulStore((s) => s.splitDrag !== null);
+  const splitRoom = useSplitRoom(sidebarOpen ? liveSidebarWidth : 0, rightPanelOpen ? liveRightPanelWidth : 0);
+  const splitFits = overhaulActive && !SPLIT_PANE && splitRoom >= SPLIT_MIN_SIDE * 2 + SPLIT_DIVIDER;
+  const splitOn = splitFits && split !== null;
+  const splitSize = split ? clampSplitSize(split.size, splitRoom) : 0.5;
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-ov-split", splitOn);
+    useOverhaulStore.setState({ splitShown: splitOn, splitRoom: splitFits });
+    return () => document.documentElement.removeAttribute("data-ov-split");
+  }, [splitFits, splitOn]);
   // Pages the overhaul adds (Library landing pages, Settings tabs, Docs, Mari, Schedules) show on both.
   const overhaulPages = overhaulActive || overhaulMobile;
   // The new layout's stylesheets load on demand (lib/overhaul-styles.ts). Wait for this shell's before
@@ -1619,7 +1638,14 @@ export function AppShell({
       {/* A theme's backdrop art (styles/theme-tokens.css): its own layer, under everything. */}
       <div data-mari-part="app-backdrop" aria-hidden="true" />
       <SkipLinks />
-      {overhaulActive && <OverhaulTopBar />}
+      {overhaulActive &&
+        (SPLIT_PANE ? (
+          <Suspense fallback={<div className="ov-splitbar" />}>
+            <SplitPaneBar />
+          </Suspense>
+        ) : (
+          <OverhaulTopBar />
+        ))}
       <div
         data-component="OverhaulShellRow"
         className={overhaulActive ? "relative flex min-h-0 flex-1 overflow-hidden" : "contents"}
@@ -1665,7 +1691,10 @@ export function AppShell({
               sidebarDragWidth != null && "!transition-none",
               !sidebarOpen && "pointer-events-none",
             )}
-            style={{ width: sidebarOpen ? liveSidebarWidth : 0 }}
+            style={{
+              width: sidebarOpen ? liveSidebarWidth : 0,
+              order: splitOn && split?.side === "left" ? -3 : undefined,
+            }}
           >
             <div
               data-component="ChatSidebarPanel"
@@ -1712,6 +1741,7 @@ export function AppShell({
             "@container mari-main mari-app-background-paint relative flex min-w-0 flex-1 flex-col overflow-hidden",
             shellOverlayMode && hasDetailView && "z-50",
           )}
+          style={splitOn ? { flex: `${1 - splitSize} 1 0px` } : undefined}
         >
           {overhaulMobile ? (
             <>
@@ -1792,10 +1822,23 @@ export function AppShell({
             </AnimatePresence>
           </div>
           {/* Floating avatar notification bubbles (right edge) */}
-          <Suspense fallback={null}>
-            <ChatNotificationBubbles />
-          </Suspense>
+          {SPLIT_PANE ? null : (
+            <Suspense fallback={null}>
+              <ChatNotificationBubbles />
+            </Suspense>
+          )}
         </main>
+
+        {splitOn && split ? (
+          <Suspense fallback={null}>
+            <SplitSide split={split} size={splitSize} />
+          </Suspense>
+        ) : null}
+        {splitFits && splitDragging ? (
+          <Suspense fallback={null}>
+            <SplitDropOverlay />
+          </Suspense>
+        ) : null}
 
         <AnimatePresence initial={false} mode="wait">
           {!shellOverlayMode && trackerPanelSurfaceAvailable && trackerPanelDesktop(trackerPanelSide)}
@@ -2020,7 +2063,7 @@ export function AppShell({
       ) : null}
 
       {/* First-time onboarding tutorial, or this device's walkthrough the first time a phone, tablet or computer opens */}
-      {(!hasCompletedOnboarding || deviceWalkthroughDue) && (
+      {!SPLIT_PANE && (!hasCompletedOnboarding || deviceWalkthroughDue) && (
         <Suspense fallback={null}>
           <OnboardingTutorial />
         </Suspense>

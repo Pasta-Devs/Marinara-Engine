@@ -20,6 +20,7 @@ import { cn } from "../../lib/utils";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { OVERHAUL_SETTINGS_TABS } from "./SettingsPage";
 import { useOvAgentRows } from "./LibraryTables";
+import { splitDragProps } from "./split-view";
 
 function cleanTags(value: unknown): string[] {
   if (typeof value === "string") {
@@ -165,6 +166,7 @@ export function LibraryNav() {
                   className={cn("ov-libnav__item", on && "is-on")}
                   aria-current={on ? "page" : undefined}
                   data-tour={`panel-${entry.id}`}
+                  {...splitDragProps(() => ({ kind: "library", id: entry.id }))}
                   onClick={() => {
                     if (entry.id === "characters" || entry.id === "personas" || entry.id === "lorebooks") {
                       tagState[entry.id].set(null);

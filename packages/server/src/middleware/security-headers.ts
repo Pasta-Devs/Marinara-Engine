@@ -8,7 +8,9 @@ const SECURITY_HEADERS: Record<string, string> = {
   // Marinara URL in browser or CSS subresource requests.
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "DENY",
+  // Same origin only: the new layout's split view shows its second page in a frame of the app itself.
+  // Other sites still cannot frame Marinara.
+  "X-Frame-Options": "SAMEORIGIN",
   "X-Permitted-Cross-Domain-Policies": "none",
 };
 
@@ -27,7 +29,7 @@ const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
+  "frame-ancestors 'self'",
   "object-src 'none'",
   "script-src 'self' https://sdk.scdn.co https://www.youtube.com https://s.ytimg.com",
   "style-src 'self' 'unsafe-inline'",

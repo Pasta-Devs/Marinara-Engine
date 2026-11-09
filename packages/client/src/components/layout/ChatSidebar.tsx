@@ -1,6 +1,8 @@
 import { insertLibraryItems } from "../../lib/library-order";
 import { preloadChatSurface } from "../chat/chat-surface-preload";
+import { beginSplitDrag, dropSplitAt, endSplitDrag } from "../overhaul/split-view";
 import {
+  isOverhaulActive,
   isOverhaulLook,
   isOverhaulMobile,
   useOverhaulActive,
@@ -984,8 +986,14 @@ export function ChatSidebar() {
     onActivate: (chatId) => {
       setDraggedChatId(chatId);
       suppressTouchDragClickRef.current = true;
+      // New layout on a computer: a chat dragged far to a side of the page opens there (split view).
+      if (isOverhaulActive()) beginSplitDrag({ kind: "chat", id: chatId });
     },
     onDrop: (_chatId, x, y, dragIds) => {
+      if (dropSplitAt(x, y)) {
+        resetTouchDrag();
+        return;
+      }
       const target = document.elementFromPoint(x, y);
       const folderId = target?.closest<HTMLElement>("[data-chat-folder-id]")?.dataset.chatFolderId;
       if (folderId) {
@@ -998,7 +1006,10 @@ export function ChatSidebar() {
       }
       resetTouchDrag();
     },
-    onCancel: resetTouchDrag,
+    onCancel: () => {
+      endSplitDrag();
+      resetTouchDrag();
+    },
     // New layout: a still long-press opens the row's actions; moving the finger after pickup still drags.
     onHoldRelease: (chatId) => {
       if (!overhaulActive || multiSelectMode) return;
@@ -1354,8 +1365,11 @@ export function ChatSidebar() {
               event.dataTransfer.setData("application/x-marinara-chat-ids", JSON.stringify(chatIds));
               event.dataTransfer.setData("application/x-marinara-chat-id", chat.id);
               event.dataTransfer.setData("text/plain", chat.id);
+              // New layout on a computer: a chat dragged far to a side of the page opens there (split view).
+              if (isOverhaulActive()) beginSplitDrag({ kind: "chat", id: chat.id });
             }}
             onDragEnd={() => {
+              endSplitDrag();
               setDraggedChatId(null);
               setIsRootDropTarget(false);
             }}
