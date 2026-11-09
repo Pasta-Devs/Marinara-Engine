@@ -157,9 +157,10 @@ export function drawWeatherTint(
     // Fog: mist that thickens toward the ground instead of one flat grey layer.
     const tone = look.kinds.fog?.color ?? FOG_TONE;
     const mist = ctx.createLinearGradient(0, 0, 0, height);
-    mist.addColorStop(0, `rgba(${tone},0.02)`);
-    mist.addColorStop(0.5, `rgba(${tone},0.08)`);
-    mist.addColorStop(1, `rgba(${tone},0.3)`);
+    mist.addColorStop(0, `rgba(${tone},0)`);
+    mist.addColorStop(0.45, `rgba(${tone},0.02)`);
+    mist.addColorStop(0.75, `rgba(${tone},0.1)`);
+    mist.addColorStop(1, `rgba(${tone},0.32)`);
     ctx.fillStyle = mist;
     ctx.fillRect(0, 0, width, height);
     ctx.globalAlpha = 1;
@@ -256,6 +257,15 @@ export function drawWeatherCelestial(
 }
 
 const FOG_TONE = "205,208,222";
+
+/**
+ * The most canvas pixels per CSS pixel the weather needs. Pixel style draws at its grid size. Fog is all soft
+ * shapes, so it draws at about a third of the resolution and the browser smooths it up: much less to paint.
+ */
+export function weatherCanvasScaleCap(config: Pick<WeatherRenderConfig, "type">, look: WeatherLook) {
+  if (look.pixel > 1) return 1 / look.pixel;
+  return config.type === "fog" ? 0.35 : Infinity;
+}
 
 function snap(value: number, look: WeatherLook) {
   return look.pixel > 1 ? Math.round(value / look.pixel) * look.pixel : value;
@@ -623,12 +633,12 @@ export function createWeatherParticle(
       // before it fades, so none pops out.
       base.vy = 0;
       base.vx = (0.15 + Math.random() * 0.3) * (Math.random() < 0.3 ? -1 : 1);
-      base.size = 110 + Math.random() * 150;
+      base.size = Math.min(110 + Math.random() * 150, h * 0.4);
       base.opacity = 0.45 + Math.random() * 0.35;
       base.maxLife = 900 + Math.random() * 700;
       const travel = Math.min(w, Math.abs(base.vx) * base.maxLife);
       base.x = (base.vx > 0 ? 0 : travel) + Math.random() * Math.max(0, w - travel);
-      base.y = h * (0.25 + Math.random() * 0.75);
+      base.y = h * (0.62 + Math.random() * 0.38); // low, hugging the ground
       break;
     }
     case "dust":
@@ -804,14 +814,14 @@ export function drawWeatherParticle(
         ctx.globalAlpha = alpha * 0.5;
         ctx.fillStyle = `rgba(${fog},0.12)`;
         ctx.beginPath();
-        ctx.ellipse(p.x, p.y, p.size * 2.2, p.size * 0.6, 0, 0, Math.PI * 2);
+        ctx.ellipse(p.x, p.y, p.size * 2.2, p.size * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
         break;
       }
       // A wide, soft bank: a radial fade stretched sideways.
       ctx.save();
       ctx.translate(p.x, p.y);
-      ctx.scale(2.2, 0.75);
+      ctx.scale(2.4, 0.45);
       const bank = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
       bank.addColorStop(0, `rgba(${fog},0.32)`);
       bank.addColorStop(0.55, `rgba(${fog},0.16)`);
@@ -1010,7 +1020,7 @@ function drawPixelParticle(ctx: WeatherCanvasContext, p: WeatherParticle, look: 
       ctx.fillStyle = `rgba(${tone},0.18)`;
       for (const ring of [1, 0.68, 0.4]) {
         const rx = p.size * 2.2 * ring;
-        const ry = p.size * 0.5 * ring;
+        const ry = p.size * 0.3 * ring;
         for (let dy = -ry; dy <= ry; dy += big) {
           const half = Math.round((rx * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2))) / big) * big;
           if (half <= 0) continue;

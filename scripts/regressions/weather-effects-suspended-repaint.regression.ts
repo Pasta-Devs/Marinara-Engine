@@ -6,6 +6,7 @@ import { runInNewContext } from "node:vm";
 import {
   createWeatherParticle,
   resolveWeatherRenderConfig,
+  weatherCanvasScaleCap,
   STOCK_WEATHER_LOOK,
   weatherPopulation,
   type WeatherLook,
@@ -102,6 +103,7 @@ for (const suspendedBy of ["paused", "hidden"]) {
       resumeFallbackRef: { current: null as (() => void) | null },
       config: resolveWeatherRenderConfig("clear", "night"),
       look: STOCK_WEATHER_LOOK,
+      weatherCanvasScaleCap,
       createWeatherParticle: (...args: Parameters<typeof createWeatherParticle>) => {
         creationSizes.push([args[1], args[2]]);
         return createWeatherParticle(...args);
