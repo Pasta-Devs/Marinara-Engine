@@ -67,7 +67,7 @@ Open the **Built-in model** card after it is downloaded. Its page shows its stat
 | **Use for tracker agents (roleplay)** | Keeps the model running for tracker agents. Off by default. |
 | **Use for game scene analysis** | Keeps it running for Game Mode scene effects such as backgrounds, music, and weather. On by default. |
 | **Use the built-in model for all tracker agents** | Points every built-in tracker agent at this model. It does not turn the agents on. |
-| **Change in Defaults** | Opens the **Jobs** box, where you can give it other jobs. |
+| **Open its settings in Jobs** | Opens the **Jobs** box, where you can give it other jobs. |
 
 If both switches are off, the model does not start on its own. It starts when you turn one on, or when a chat or job uses it. See [Memory Recall and Chat Summaries](../agents/memory.md) for enabling agents.
 
@@ -145,7 +145,7 @@ Marinara downloads only the llama.cpp, MLX, and uv versions approved for your re
 
 The **Local speech model** turns your voice into text on your own computer for Conversation calls. It is a Whisper model, a speech-to-text model. It needs the **Calls** agent package, which you install in **Agents → Agent Organizer**.
 
-1. Open the **Connections** panel and click the **Speech to text** item under **On this device**.
+1. Open the **Connections** panel and click **Local speech model** in the **On this device** card.
 2. Under **Local speech model**, pick a model from the dropdown.
 3. Click **Download Whisper**.
 4. Wait for **Ready**. Restart Marinara completely before you use Calls.

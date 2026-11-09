@@ -160,7 +160,7 @@ Under **Voice**, an audio service speaks character voices and narration. Pick an
 
 Each source fills in a default address and model. **Default voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line. Raise it for a slow voice server.
 
-To choose the speech account Marinara uses by default, click the **Voice (Text to Speech)** row in the **Jobs** box. To read messages aloud with one, pick it as the **Source** in the **Text to Speech** card. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use an Audio connection](../media/tts-setup.md#use-an-audio-connection).
+To choose the speech account Marinara uses by default, click the **Voice (Text to Speech)** row in the **Jobs** box. To read messages aloud with one, pick its model on the **Voice** row. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use a Voice model from an account](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 ## Music & Sound Effects
 
