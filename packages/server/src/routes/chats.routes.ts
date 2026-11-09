@@ -83,6 +83,7 @@ import {
   omitChatMetadataLocalDestinations,
   rulesetAllowsCombatStyle,
   rulesetCombatStyles,
+  undoChatVariableChanges,
 } from "@marinara-engine/shared";
 import type {
   Chat,
@@ -5633,6 +5634,19 @@ export async function chatsRoutes(app: FastifyInstance) {
     const sourceMessagesToCopy = msgs.slice(0, sourceCutoffIndex + 1);
     const copiedSourceMessageIds = new Set(sourceMessagesToCopy.map((msg) => msg.id));
     const firstOmittedMessage = msgs[sourceCutoffIndex + 1];
+    // The branch starts from the chat variables at its cutoff (#8990): undo what the omitted
+    // replies' shown swipes changed, newest first, as deleting them would.
+    const omittedMessages = msgs.slice(sourceCutoffIndex + 1);
+    const omittedSwipes = await storage.getSwipesByMessageId(omittedMessages.map((msg) => msg.id));
+    const omittedVariableChanges = omittedMessages
+      .map((msg) => {
+        const shown = omittedSwipes.get(msg.id)?.find((swipe) => swipe.index === msg.activeSwipeIndex);
+        return parseExportMetadata(shown?.extra).macroVariableChanges;
+      })
+      .reverse();
+    if (omittedVariableChanges.some(Boolean)) {
+      settingsToKeep.macroVariables = undoChatVariableChanges(sourceMeta.macroVariables, omittedVariableChanges);
+    }
     if (sourceChat.mode === "game" && firstOmittedMessage) {
       if (settingsToKeep.gameJournal) {
         settingsToKeep.gameJournal = trimJournalForBranch(
