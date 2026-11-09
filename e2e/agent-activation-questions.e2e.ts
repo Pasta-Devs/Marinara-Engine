@@ -469,7 +469,7 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     await actions.scrollIntoViewIfNeeded();
     await actions.click();
     await page.getByRole("menuitem", { name: "Use for…", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Decision", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Decision", exact: true }).click();
     // #8456: the shortcut opens the key's Connection on its decision models, with a Decision Model for the source's
     // model made under that Connection; testing it there is what keeps it. It reaches the key through its Connection,
     // so the old editor fields (Decision source "openrouter", API key source = the source Model) and the

@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { isChatProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
 import {
+  useConnections,
   useDeleteConnection,
   useDuplicateConnection,
   useUpdateConnection,
@@ -36,6 +37,7 @@ import type { ComponentProps } from "react";
 import { MEDIA_KIND, ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
 import { useFollowVoiceJob, useVoiceRowId } from "../../hooks/use-tts";
 import { useFeatureModels, useSetFeatureModels } from "../../hooks/use-connection-accounts";
+import { useDecisionOptions } from "../../hooks/use-decision-model";
 
 type ModelRowProps = ComponentProps<typeof ModelRow>["rowProps"];
 
@@ -448,6 +450,15 @@ export function useUseFor(row: ConnectionRowData): ContextMenuItem[] {
   const setFeatureModels = useSetFeatureModels();
   const updateConnection = useUpdateConnection();
   const chatModel = isChatProvider(row.provider);
+  const { data: decisionOptions } = useDecisionOptions();
+  const connections = (useConnections().data ?? []) as ConnectionRowData[];
+  const decisionPick = decisionOptions?.options.find((entry) => entry.selected);
+  const decisionRow =
+    decisionPick?.group === "connection" ? connections.find((entry) => entry.id === decisionPick.id) : undefined;
+  // A chat Model lends itself to Decision through a decision row under the same account and model.
+  const decides =
+    !!decisionRow &&
+    (decisionRow.id === row.id || (decisionRow.accountId === row.accountId && decisionRow.model === row.model));
   // The Add window's Decision job makes the decision row under this Model's Connection, with its key.
   const canLendToDecisions = row.provider === "openrouter" || (row.provider === "custom" && !!row.model?.trim());
   const useForDecisions = () =>
@@ -462,7 +473,7 @@ export function useUseFor(row: ConnectionRowData): ContextMenuItem[] {
     );
 
   // "Use for…" is the one way to give this Model a job from its row; a tick marks the jobs it already does.
-  return [
+  const items: ContextMenuItem[] = [
     ...rowJobs(row).map((job) => ({
       label: t(jobLabelKey(job)),
       checked: job.key === "voice" ? voiceRowId === row.id : isConnectionFlagTrue(row[job.flag]),
@@ -477,6 +488,10 @@ export function useUseFor(row: ConnectionRowData): ContextMenuItem[] {
       checked: featureModels?.[job.feature!] === row.id,
       onSelect: () => setFeatureModels.mutate({ [job.feature!]: row.id }),
     })),
-    ...(canLendToDecisions ? [{ label: t(jobLabelKey(JOB.decision)), onSelect: useForDecisions }] : []),
+    ...(canLendToDecisions
+      ? [{ label: t(jobLabelKey(JOB.decision)), checked: decides, onSelect: useForDecisions }]
+      : []),
   ];
+  // A ticked job is already this Model's: choosing it again writes nothing. There is no unset here.
+  return items.map((item) => (item.checked ? { ...item, onSelect: () => {} } : item));
 }

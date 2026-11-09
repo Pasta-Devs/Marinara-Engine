@@ -69,7 +69,6 @@ import {
   type AddableKind,
   type ChipKind,
   type ConnectionRowLite,
-  type DeviceService,
   type ModelPick,
   type ServiceId,
   type Target,
@@ -91,6 +90,9 @@ export interface CreateConnectionModalProps {
   onStartChat?: (connectionId?: string) => Promise<void>;
   /** Add for a job: step 1 starts filtered to it, and Done sets the new Model for it (with Undo). */
   forJob?: AddFor;
+  /** A found local server: its address and name are filled in on the address step. */
+  initialBaseUrl?: string;
+  initialName?: string;
 }
 
 /** A pasted "127.0.0.1:7999" is a valid address to the user; the server needs the scheme. */
@@ -104,6 +106,8 @@ export function CreateConnectionModalContent({
   newChatMode,
   onStartChat,
   forJob,
+  initialBaseUrl,
+  initialName,
 }: CreateConnectionModalProps) {
   const { t } = useTranslation();
   const { data: accounts } = useConnectionAccounts();
@@ -122,18 +126,16 @@ export function CreateConnectionModalContent({
   const setChatModel = useSetChatModel();
   const activeChatId = useChatStore((s) => s.activeChatId);
   const countModels = useCountConnectionModels();
-  const builtInReady = useSidecarStore((state) => state.modelDownloaded && state.inferenceReady);
   const builtInMain = useSidecarStore((state) => state.config.useAsMainDefault);
   const selectDecision = useSelectDecisionModel();
 
   // Old image/video deep links now land on real backend discovery instead of a generic credential form.
   const startingService =
     initialService === "image_generation" || initialService === "video_generation" ? null : (initialService ?? null);
-  const startDevice = isDevice(startingService) ? (startingService as DeviceService) : null;
   const startMedia = mediaBackendOf(startingService);
   const [service, setService] = useState<ServiceId | null>(startingService);
   const [provider, setProvider] = useState<APIProvider | null>(
-    startingService && !startDevice && !startMedia && startingService !== DECISION_BUILTIN
+    startingService && !startMedia && !isDevice(startingService) && startingService !== DECISION_BUILTIN
       ? (startingService as APIProvider)
       : startMedia
         ? startMedia.image
@@ -141,13 +143,12 @@ export function CreateConnectionModalContent({
           : "video_generation"
         : null,
   );
-  const [device, setDevice] = useState<DeviceService | null>(startDevice);
   const [step, setStep] = useState<1 | 2 | 3>(modelsFor ? 3 : startingService ? 2 : 1);
   const [target, setTarget] = useState<Target | null>(null);
   const [name, setName] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
-  const [baseUrl, setBaseUrl] = useState("");
+  const [baseUrl, setBaseUrl] = useState(initialBaseUrl ?? "");
   const [maxRpm, setMaxRpm] = useState("");
   const [maxJobs, setMaxJobs] = useState("");
   const [tested, setTested] = useState<TestResult | null>(null);
@@ -180,7 +181,7 @@ export function CreateConnectionModalContent({
   // A model chosen in step 1's search: step 3 starts on its kind and picks it once the list loads.
   const [want, setWant] = useState<{ model: string; kind: ModelKind } | null>(null);
   // A local server picked from its own tile names the form.
-  const [presetName, setPresetName] = useState<string | null>(null);
+  const [presetName, setPresetName] = useState<string | null>(initialName ?? null);
   // A service that is already connected: the user chose to connect a second account of it.
   // Step 3's footer; null = "Make Main" is on when there is no Main model yet.
   const [makeMain, setMakeMain] = useState<boolean | null>(null);
@@ -470,7 +471,6 @@ export function CreateConnectionModalContent({
       setBaseUrl(LINKAPI.baseUrl);
       setName(LINKAPI.name);
     }
-    setDevice(isDevice(key) ? key : null);
     setStep(2);
   };
 
@@ -486,7 +486,6 @@ export function CreateConnectionModalContent({
     setWant(null);
     setProvider(null);
     setService(null);
-    setDevice(null);
     setStep(1);
   };
 
@@ -882,12 +881,6 @@ export function CreateConnectionModalContent({
   const useForStep = step === 3 && !newChatMode && !forJob?.assign && !modelsFor;
   // A chat service lists its own models for the job; the old Decision and Audio services keep theirs.
   const jobPicker = isJobKind && !!pickerRow && !!mediaRow && isChatProvider(pickerRow.provider ?? "");
-  // The built-in model does the jobs a small local model can do; the rest need a real model.
-  // The built-in model's own setup is the whole job.
-  const continueBuiltIn = () => {
-    toast.success(t("connections.add.added", { name: serviceName("local_model") }));
-    onClose();
-  };
   const finishModels = () => void close(true);
 
   const heading =
@@ -896,9 +889,8 @@ export function CreateConnectionModalContent({
       : step === 1
         ? t("connections.add.heading.forProvider")
         : (presetName ?? serviceName(service ?? provider!));
-  // The account form names the account in the header; device and built-in screens have no name.
-  const nameInHeader =
-    step === 2 && !!provider && !device && service !== DECISION_BUILTIN && (!isMedia || !!selectedMedia);
+  // The account form names the account in the header; the lists have no name.
+  const nameInHeader = step === 2 && !!provider && (!isMedia || !!selectedMedia);
   const goBack =
     step === 2
       ? backToList
@@ -911,51 +903,36 @@ export function CreateConnectionModalContent({
   let footerLeft: ReactNode = null;
   let footerRight: ReactNode = null;
   if (step === 2) {
-    footerRight =
-      device || service === DECISION_BUILTIN ? (
-        device === "local_model" && builtInReady ? (
-          <button type="button" onClick={continueBuiltIn} className={PRIMARY_CLASS}>
-            {t("connections.add.continue")}
-          </button>
-        ) : (
+    footerRight = (
+      <div className="flex items-center gap-3">
+        {canContinueAnyway && (
           <button
             type="button"
-            onClick={onClose}
-            className={device === "local_model" ? SECONDARY_CLASS : PRIMARY_CLASS}
+            onClick={() => void saveAndTest(true)}
+            disabled={busy}
+            className="mari-chrome-control mari-chrome-control--small text-xs"
           >
-            {device === "local_model" ? t("connections.add.close") : t("connections.add.done")}
+            {t("connections.add.continueAnyway")}
           </button>
-        )
-      ) : (
-        <div className="flex items-center gap-3">
-          {canContinueAnyway && (
-            <button
-              type="button"
-              onClick={() => void saveAndTest(true)}
-              disabled={busy}
-              className="mari-chrome-control mari-chrome-control--small text-xs"
-            >
-              {t("connections.add.continueAnyway")}
-            </button>
+        )}
+        <button
+          type="button"
+          data-add-connection-connect
+          onClick={() => void saveAndTest(checkFailed)}
+          disabled={connectDisabled}
+          className={checkFailed ? SECONDARY_CLASS : PRIMARY_CLASS}
+        >
+          {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+          {t(
+            checkFailed
+              ? "connections.add.continueAnyway"
+              : failure
+                ? "connections.add.tryAgain"
+                : "connections.add.connect",
           )}
-          <button
-            type="button"
-            data-add-connection-connect
-            onClick={() => void saveAndTest(checkFailed)}
-            disabled={connectDisabled}
-            className={checkFailed ? SECONDARY_CLASS : PRIMARY_CLASS}
-          >
-            {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-            {t(
-              checkFailed
-                ? "connections.add.continueAnyway"
-                : failure
-                  ? "connections.add.tryAgain"
-                  : "connections.add.connect",
-            )}
-          </button>
-        </div>
-      );
+        </button>
+      </div>
+    );
   } else if (step === 3 && setupKind) {
     footerLeft = picks.length > 0 && (
       <p role="status" className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
@@ -1010,10 +987,8 @@ export function CreateConnectionModalContent({
   // and the search field stays under the caret when typing switches to the tall results.
   const panelClass = cn(
     "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
-    // The key step fits its content; the lists and the built-in model keep the tall frame.
-    (step === 2 && device !== "local_model" && service !== DECISION_BUILTIN) || useForStep
-      ? "sm:h-auto"
-      : "sm:h-[min(90dvh,44rem)]",
+    // The key step fits its content; the lists keep the tall frame.
+    step === 2 || useForStep ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
   );
 
   return (
@@ -1076,7 +1051,6 @@ export function CreateConnectionModalContent({
               setQuery={setQuery}
               chooseService={chooseService}
               choosePreset={choosePreset}
-              openDecisionServer={() => void chooseService(DECISION_BUILTIN)}
               serviceName={serviceName}
               kind={kindFilter}
             />
@@ -1085,7 +1059,6 @@ export function CreateConnectionModalContent({
             <AccessStep
               provider={provider}
               service={service}
-              device={device}
               selectedMedia={selectedMedia}
               def={def}
               closeBlocked={closeBlocked}
@@ -1110,7 +1083,6 @@ export function CreateConnectionModalContent({
               serviceName={serviceName}
               modelCount={modelCount}
               keyRef={keyRef}
-              onBuiltInDone={device === "local_model" && builtInReady ? continueBuiltIn : onClose}
             />
           )}
 
@@ -1213,8 +1185,7 @@ export function CreateConnectionModalContent({
           </div>
         )}
 
-        {/* The built-in model window brings its own footer. */}
-        {!(step === 2 && device === "local_model") && !useForStep && (
+        {!useForStep && (
           <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
             <div className="flex min-w-0 items-center gap-2">{footerLeft}</div>
             {footerRight}
