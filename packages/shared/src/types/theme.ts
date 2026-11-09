@@ -17,4 +17,6 @@ export interface Theme {
   isActive: boolean;
   /** Theme package v2 details: author, version, thumbnail, suggested settings, fonts, backgrounds. */
   meta: ThemeMeta | null;
+  /** A starter theme that ships with the app (theming round 6): read-only, cloned to edit. */
+  builtIn?: boolean;
 }

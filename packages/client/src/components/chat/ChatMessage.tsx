@@ -3335,6 +3335,13 @@ export const ChatMessage = memo(function ChatMessage({
     const box = vnTextRef.current;
     setVnMoreBelow(!!box && box.scrollHeight - box.scrollTop - box.clientHeight > 2);
   }, []);
+  // A new page starts at its top (theming round 6): the box is reused, so without this a page turned
+  // after scrolling a long paragraph opened scrolled down, hiding its first lines.
+  const vnPageKey = visualNovel ? `${message.id}:${activeVnParagraphIndex}` : "";
+  useLayoutEffect(() => {
+    const box = vnTextRef.current;
+    if (box && vnPageKey) box.scrollTop = 0;
+  }, [vnPageKey]);
   useEffect(() => {
     const box = vnTextRef.current;
     if (!visualNovel || !box) return;

@@ -905,6 +905,7 @@ export function ChatHelpOverlay({
     <div
       ref={overlayRef}
       data-chat-help-overlay={mode}
+      data-mari-app-overlay=""
       role="dialog"
       aria-modal="true"
       aria-label={t("chat.help.overlayLabel")}

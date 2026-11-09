@@ -13,6 +13,7 @@ import {
   getFolderImportEntries,
   getFolderManifestConfig,
   themeBackgroundSchema,
+  themeCreditSchema,
   themeFontSchema,
   themeImageSchema,
   themeMetaSchema,
@@ -95,6 +96,7 @@ function readMeta(record: Record<string, unknown>): { meta: ThemeMeta; problems:
     thumbnail: record.thumbnail,
     settings: record.settings,
     templates: record.templates,
+    license: str(record.license),
   };
   const meta: Record<string, unknown> = {};
   const problems: string[] = [];
@@ -104,11 +106,31 @@ function readMeta(record: Record<string, unknown>): { meta: ThemeMeta; problems:
     if (single.success) Object.assign(meta, single.data);
     else problems.push(`${key}: ${single.error.issues[0]?.message ?? "invalid"}`);
   }
+  // Labels (theming round 6): kept one by one, minus any that claim to speak for the app or vouch
+  // for the theme ("Official", "Verified by Marinara"): a label is the author's own words.
+  if (record.labels !== undefined && record.labels !== null) {
+    if (!Array.isArray(record.labels)) problems.push("labels: not a list");
+    else {
+      const labels: string[] = [];
+      for (const item of record.labels) {
+        const label = str(item);
+        if (!label) continue;
+        if (label.length > 40)
+          problems.push(`Label "${label.slice(0, 40)}…" is longer than 40 characters, so it was left out.`);
+        else if (isReservedThemeLabel(label))
+          problems.push(`Label "${label}" was left out: labels can't claim a theme is official or verified.`);
+        else if (labels.length >= 4) problems.push(`Label "${label}" was left out: a theme can have 4 labels.`);
+        else if (!labels.includes(label)) labels.push(label);
+      }
+      if (labels.length) meta.labels = labels;
+    }
+  }
   let budget = MAX_THEME_META_BYTES - utf8ByteLength(JSON.stringify(meta));
   const lists = [
     ["images", themeImageSchema, (item: Record<string, unknown>) => item.name],
     ["fonts", themeFontSchema, (item: Record<string, unknown>) => item.family],
     ["backgrounds", themeBackgroundSchema, (item: Record<string, unknown>) => item.name],
+    ["credits", themeCreditSchema, (item: Record<string, unknown>) => item.what],
   ] as const;
   for (const [key, schema, label] of lists) {
     const value = record[key];
@@ -144,6 +166,63 @@ function readMeta(record: Record<string, unknown>): { meta: ThemeMeta; problems:
     if (kept.length) meta[key] = kept;
   }
   return { meta: meta as ThemeMeta, problems };
+}
+
+/** Cyrillic and Greek letters that look like Latin ones, folded before the reserved-word check. */
+const CONFUSABLES: Record<string, string> = {
+  а: "a",
+  е: "e",
+  о: "o",
+  р: "p",
+  с: "c",
+  у: "y",
+  х: "x",
+  і: "i",
+  ј: "j",
+  ѕ: "s",
+  ԁ: "d",
+  һ: "h",
+  ӏ: "l",
+  А: "A",
+  В: "B",
+  Е: "E",
+  К: "K",
+  М: "M",
+  Н: "H",
+  О: "O",
+  Р: "P",
+  С: "C",
+  Т: "T",
+  Х: "X",
+  І: "I",
+  α: "a",
+  ε: "e",
+  ι: "i",
+  ο: "o",
+  ρ: "p",
+  ν: "v",
+  τ: "t",
+  κ: "k",
+  Ο: "O",
+  Ι: "I",
+  Α: "A",
+  Ε: "E",
+  ɡ: "g",
+  ı: "i",
+  ℓ: "l",
+};
+
+const RESERVED_LABEL =
+  /\b(official|officially|verified|verify|certified|endorsed|approved|trusted|authentic|genuine|marinara|security|safe[\s-]?checked)\b|[\u2713\u2714\u2611\u2705\u{1F6E1}]/iu;
+
+/** Whether a label would read as the app (or anyone) vouching for the theme, e.g. "Official",
+ *  "Verified ✓", "Marinara pick". Checked on NFKC-folded text so look-alike letters don't slip by. */
+export function isReservedThemeLabel(label: string) {
+  const folded = label
+    .normalize("NFKC")
+    .replace(/[\u200b-\u200f\u2060\ufeff\u00ad]/g, "")
+    .replace(/./gu, (ch) => CONFUSABLES[ch] ?? ch);
+  return RESERVED_LABEL.test(folded);
 }
 
 /** Reads a .css or .json theme file into one or more packages, with per-theme metadata problems. */

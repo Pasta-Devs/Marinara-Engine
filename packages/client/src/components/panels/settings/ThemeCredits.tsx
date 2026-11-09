@@ -12,6 +12,19 @@ import { ExternalLink, Info } from "lucide-react";
 import type { ThemeMeta } from "@marinara-engine/shared";
 import { Modal } from "../../ui/Modal";
 import { SETTINGS_ICON_BUTTON_CLASS } from "./SettingControls";
+import { isReservedThemeLabel } from "../../../lib/theme-package";
+
+/** The real host of a credit link (round 6): the window shows "example.com", never the author's
+ *  own link text, so "Marinara support" can't hide where the link goes. */
+function creditHost(url: string) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password) return null;
+    return parsed.hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
 
 /** Licence texts the app ships (public/licenses), by the short id a theme file uses. */
 const BUNDLED_LICENSES: Record<string, { file: string; name: string }> = {
@@ -41,14 +54,15 @@ export function themeHasCredits(meta: ThemeMeta | null | undefined) {
 }
 
 export function ThemeLabels({ meta, className }: { meta: ThemeMeta | null | undefined; className?: string }) {
-  const labels = meta?.labels?.filter(Boolean) ?? [];
+  const labels = meta?.labels?.filter((label) => label && !isReservedThemeLabel(label)) ?? [];
   if (labels.length === 0) return null;
   return (
     <span className={className ?? "flex flex-wrap gap-1"} data-theme-labels="">
       {labels.map((label) => (
         <span
           key={label}
-          className="rounded-full bg-[var(--muted)]/70 px-1.5 py-px text-[0.625rem] leading-4 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]"
+          className="max-w-full truncate whitespace-nowrap rounded-full bg-[var(--muted)]/70 px-1.5 py-px text-[0.625rem] leading-4 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]"
+          title={label}
         >
           {label}
         </span>
@@ -104,18 +118,26 @@ function CreditsBody({ name, meta }: { name: string; meta: ThemeMeta }) {
               <li key={`${credit.what}-${index}`} className="flex flex-col">
                 <span className="font-medium text-[var(--foreground)]">{credit.what}</span>
                 <span className="text-[var(--muted-foreground)]">
-                  {credit.url ? (
-                    <a
-                      href={credit.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[var(--primary)] underline-offset-2 hover:underline"
-                    >
-                      {credit.by}
-                    </a>
-                  ) : (
-                    credit.by
-                  )}
+                  {credit.by}
+                  {credit.url && creditHost(credit.url) ? (
+                    <>
+                      {" · "}
+                      <a
+                        href={credit.url}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        title={credit.url}
+                        data-credit-host=""
+                        className="inline-flex items-center gap-0.5 text-[var(--primary)] underline-offset-2 hover:underline"
+                      >
+                        {creditHost(credit.url)}
+                        <ExternalLink
+                          size="0.75rem"
+                          aria-label={t("theming.credits.leaves", "opens outside Marinara")}
+                        />
+                      </a>
+                    </>
+                  ) : null}
                   {credit.license ? (
                     <>
                       {" · "}

@@ -113,10 +113,9 @@ export function ThemeImportPreview({
   const issues = useMemo(() => validateThemePackage({ ...pkg, metaProblems }), [pkg, metaProblems]);
   const chromeProblems = useChromeCheck(pkg.css, pkg.meta.images);
   const allPictures = useMemo(() => summarizeThemeImages(pkg.css, pkg.meta.images), [pkg]);
-  // Tiny inline SVGs (masks, icons) stay in the CSS; they're listed as one "small icons" chip.
-  const smallIcons = allPictures.filter(
-    (picture) => picture.inline && !picture.animated && picture.bytes < SMALL_INLINE_IMAGE_BYTES,
-  );
+  // Tiny pictures (masks, icons), inline or in the theme's images, are listed as one "small icons"
+  // chip (round 6: a theme's own images[] SVGs folded in too); hovering it names them all.
+  const smallIcons = allPictures.filter((picture) => !picture.animated && picture.bytes < SMALL_INLINE_IMAGE_BYTES);
   const pictures = allPictures.filter((picture) => !smallIcons.includes(picture));
   const optimizedSomething =
     !!optimized && (optimized.moved > 0 || optimized.shrunk > 0) && optimized.after < optimized.before;
@@ -347,7 +346,11 @@ export function ThemeImportPreview({
                 </li>
               ))}
               {smallIcons.length ? (
-                <li className="flex items-center gap-1 rounded bg-[var(--muted)]/60 px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                <li
+                  className="flex items-center gap-1 rounded bg-[var(--muted)]/60 px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]"
+                  title={smallIcons.map((picture) => picture.name).join(", ")}
+                  data-theme-small-icons=""
+                >
                   <span className="text-[var(--foreground)]">
                     {t("theming.import.smallIcons", "{{count}} small icons", { count: smallIcons.length })}
                   </span>

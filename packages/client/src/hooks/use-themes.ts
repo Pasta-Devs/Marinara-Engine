@@ -143,11 +143,24 @@ export function useActivateTheme() {
           ? device.customThemeId
           : (themes.find((item) => item.isActive)?.id ?? null);
       if ((theme?.id ?? null) === previousId) return;
+      // Round 6: trying another theme while the last one still asks "Keep this theme?" chains the
+      // tries. Going back then returns to the theme and settings from before the first try (the
+      // last ones the person kept), not to the untried theme in between.
+      const waiting = useThemeSafetyStore.getState().pendingKeep;
+      const chained = theme && waiting && waiting.themeId === previousId ? waiting : null;
+      const backTo = chained ? chained.previousId : previousId;
+      const restore = chained?.restoreSettings
+        ? {
+            settings: { ...(restoreSettings?.settings ?? {}), ...chained.restoreSettings.settings },
+            keys: [...new Set([...(restoreSettings?.keys ?? []), ...chained.restoreSettings.keys])],
+          }
+        : restoreSettings;
       await setActiveTheme.mutateAsync(theme?.id ?? null);
       const safety = useThemeSafetyStore.getState();
       if (theme && safety.blockedThemeId === theme.id) safety.clearBlockedTheme();
       if (theme && safety.safeMode) safety.leaveSafeMode();
-      if (theme) safety.askToKeep({ themeId: theme.id, themeName: theme.name, previousId, restoreSettings });
+      if (theme)
+        safety.askToKeep({ themeId: theme.id, themeName: theme.name, previousId: backTo, restoreSettings: restore });
       else safety.settleKeep();
     },
     [qc, setActiveTheme],
