@@ -21,6 +21,15 @@ If it did not work: an imported or homemade ruleset needs **Allow custom Agent i
 
 When a character joins the chat later, click **Add missing sheets**. Members who already have a sheet keep it.
 
+### Remove a sheet
+
+A member who shouldn't have a sheet, such as a narrator card, can lose it.
+
+1. Click **Open sheets** and pick the member's tab.
+2. At the bottom, click **Remove** followed by the member's name, such as **Remove Mira's sheet**, then click **Remove sheet**.
+
+The chat remembers this, so **Add missing sheets** and a newer version of the ruleset leave that member out. To give them a sheet again, click their button after **No sheet:** in the **Ruleset** section, such as **Give Mira a sheet**.
+
 ### Change or turn off the ruleset
 
 - Pick **None** to stop playing by the ruleset. The sheets are kept, so picking the same ruleset again continues where you left off.

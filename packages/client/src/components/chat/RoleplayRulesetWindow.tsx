@@ -8,7 +8,7 @@
 // ──────────────────────────────────────────────
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Dices, PencilRuler, Plus, ScrollText } from "lucide-react";
+import { Dices, PencilRuler, Plus, ScrollText, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
@@ -28,6 +28,7 @@ import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { useGameStatePatcher } from "../../hooks/use-game-state-patcher";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { api } from "../../lib/api-client";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import type { WindowBounds, WindowLayout } from "../../lib/floating-window-layout";
 import { cn } from "../../lib/utils";
 import { useFloatingWindowStore } from "../../stores/floating-window.store";
@@ -46,6 +47,12 @@ interface StoredCard {
 
 function readCards(metadata: Record<string, unknown>): StoredCard[] {
   return Array.isArray(metadata.gameCharacterCards) ? (metadata.gameCharacterCards as StoredCard[]) : [];
+}
+
+/** The members whose sheets the player removed; pinning never gives them one again until put back. */
+function declinedNames(metadata: Record<string, unknown>): string[] {
+  const value = metadata.rulesetSheetsDeclined;
+  return Array.isArray(value) ? value.filter((name): name is string => typeof name === "string" && !!name.trim()) : [];
 }
 
 function cardNames(metadata: Record<string, unknown>): string[] {
@@ -90,6 +97,17 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
       ? ((metadata.gameRuleset as { id?: unknown }).id as string | undefined)
       : undefined;
   const members = cardNames(metadata);
+  const declined = declinedNames(metadata);
+  const updateChatMetadata = useUpdateChatMetadata();
+  // Taking a removal back, then pinning again, which gives that member a sheet like any newcomer.
+  const giveSheet = async (name: string) => {
+    const key = normalizeCharacterLookupName(name);
+    await updateChatMetadata.mutateAsync({
+      id: chatId,
+      rulesetSheetsDeclined: declined.filter((entry) => normalizeCharacterLookupName(entry) !== key),
+    });
+    if (pinnedId) await pin(pinnedId);
+  };
   const [builder, setBuilder] = useState<"new" | "edit" | null>(null);
   const pinnedEntry = pinnedId ? installed.data?.find((entry) => entry.definition.id === pinnedId) : undefined;
   // Only a ruleset the builder wrote opens in it; any other is its author's file.
@@ -129,6 +147,24 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
               ? localizeUi("chat.settings.ruleset.members", { names: members.join(", ") })
               : localizeUi("chat.settings.ruleset.noMembers")}
           </p>
+          {declined.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+              <span>{localizeUi("chat.settings.ruleset.declined")}</span>
+              {declined.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  disabled={busy || updateChatMetadata.isPending}
+                  onClick={() => void giveSheet(name)}
+                  title={localizeUi("chat.settings.ruleset.giveSheetHelp", { name })}
+                  className="flex items-center gap-1 rounded-md px-1.5 py-0.5 ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
+                >
+                  <UserPlus size="0.6875rem" aria-hidden="true" />
+                  {localizeUi("chat.settings.ruleset.giveSheet", { name })}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -292,6 +328,29 @@ function RoleplayRulesetSheets({ chatId, metadata }: { chatId: string; metadata:
     toast.success(localizeUi("game.ruleset.sheet.saved", { name: cardName }));
   };
 
+  // Removing a sheet also remembers the member, so Add missing sheets and a newer version leave them out.
+  const removeSheet = async () => {
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("chat.settings.ruleset.removeTitle", { name: cardName }),
+      message: localizeUi("chat.settings.ruleset.removeMessage", { name: cardName }),
+      confirmLabel: localizeUi("chat.settings.ruleset.remove"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    const declined = declinedNames(metadata);
+    await updateChatMetadata.mutateAsync({
+      id: chatId,
+      gameCharacterCards: readCards(metadata).filter(
+        (card) => typeof card.name !== "string" || normalizeCharacterLookupName(card.name) !== key,
+      ),
+      rulesetSheetsDeclined: declined.some((name) => normalizeCharacterLookupName(name) === key)
+        ? declined
+        : [...declined, cardName],
+    });
+    setSelected(null);
+    toast.success(localizeUi("chat.settings.ruleset.removed", { name: cardName }));
+  };
+
   const changeLive = (next: RulesetLiveState) => {
     // Read at click time: this turn's own sheet commands may have landed since the sheet rendered.
     const now = useGameStateStore.getState().current;
@@ -342,6 +401,17 @@ function RoleplayRulesetSheets({ chatId, metadata }: { chatId: string; metadata:
             onEnvelopeSave={saveEnvelope}
           />
         )}
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            disabled={updateChatMetadata.isPending}
+            onClick={() => void removeSheet()}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] text-[var(--destructive)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+          >
+            <Trash2 size="0.6875rem" aria-hidden="true" />
+            {localizeUi("chat.settings.ruleset.removeButton", { name: cardName })}
+          </button>
+        </div>
       </div>
     </div>
   );

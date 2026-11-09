@@ -9,7 +9,9 @@
 // as it reads a game, because that machinery keys off `gameRuleset` and the cards, not the mode.
 //
 // Pinning the ruleset a chat already plays keeps every card it has and only adds the members that
-// are missing one, so it doubles as "give the new arrival a sheet". Pinning another ruleset starts
+// are missing one, so it doubles as "give the new arrival a sheet". A member whose sheet the player
+// removed (`rulesetSheetsDeclined`, a narrator card, say) is never given one again until the player
+// takes the removal back. Pinning another ruleset starts
 // the cards over, since a sheet built for one ruleset means nothing to another. Unpinning keeps the
 // cards, so pinning the same ruleset again picks up where the chat left off.
 // ──────────────────────────────────────────────
@@ -80,6 +82,12 @@ async function loadRoleplaySheetSources(
     }
   }
   return player ? [player, ...byName.values()] : [...byName.values()];
+}
+
+/** The members whose sheets the player removed from this chat, by name. */
+export function readRulesetSheetsDeclined(metadata: Record<string, unknown>): string[] {
+  const value = metadata.rulesetSheetsDeclined;
+  return Array.isArray(value) ? value.filter((name): name is string => typeof name === "string" && !!name.trim()) : [];
 }
 
 /** A card that only carries a ruleset sheet: Roleplay has no Game Master setup to fill the rest. */
@@ -165,8 +173,10 @@ export async function pinRoleplayRuleset(
         ? (current.gameCharacterCards as GameCharacterCard[])
         : [];
     const carded = new Set(kept.map((card) => normalizeCharacterLookupName(card.name ?? "")));
+    const declined = new Set(readRulesetSheetsDeclined(current).map(normalizeCharacterLookupName));
     const fresh = sources
       .filter((source) => !carded.has(normalizeCharacterLookupName(source.name)))
+      .filter((source) => !declined.has(normalizeCharacterLookupName(source.name)))
       .map((source) => sheetOnlyCard(definition, source));
     added = fresh.length;
     cardCount = kept.length + fresh.length;
