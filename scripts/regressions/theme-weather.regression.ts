@@ -137,7 +137,7 @@ for (let seed = 0; seed < 50; seed += 1) {
   const random = () => (n = (n * 16807) % 2147483647) / 2147483647;
   const bolt = createWeatherBolt(1000, 800, random);
   const x = bolt.trunk[0]![0];
-  assert.ok((x >= 80 && x <= 280) || (x >= 720 && x <= 920), `bolt starts at a side, not over the text (${x})`);
+  assert.ok((x >= 30 && x <= 120) || (x >= 880 && x <= 970), `bolt starts at a side, not over the text (${x})`);
   assert.ok(
     bolt.forks.length >= 2 && bolt.forks.length <= 8,
     `2-4 forks, each with at most one twig (${bolt.forks.length})`,
