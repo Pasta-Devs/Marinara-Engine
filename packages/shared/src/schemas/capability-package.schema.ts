@@ -1595,7 +1595,10 @@ const capabilityPackageManifestBaseSchema = z
 // 1.825: a diceless ruleset (`gm.diceless`): the Game Master asks for no checks and judges outcomes from the
 //        sheets by `gm.checkGuidance`. Not a soft seam: an Engine that cannot read it refuses the whole
 //        ruleset file. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 825 } as const);
+// 1.826: a practice meter on skills (`sheet.progress`, `op="practice"`): 0 to 99 toward the next rank, started
+//        over when the rank changes. Not a soft seam: an Engine that cannot read it refuses the whole ruleset
+//        file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 826 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

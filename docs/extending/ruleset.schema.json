@@ -24761,6 +24761,18 @@
           },
           "additionalProperties": false
         },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "$comment": {}
+          },
+          "additionalProperties": false
+        },
         "totals": {
           "minItems": 1,
           "maxItems": 8,

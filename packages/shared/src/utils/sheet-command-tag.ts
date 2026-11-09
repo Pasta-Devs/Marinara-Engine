@@ -159,6 +159,13 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
       };
     return { ...parsed, op: { op: "advance", field: requested, ...(to === undefined ? { by: numeric } : { to }) } };
   }
+  if (name === "practice") {
+    const skill = values.get("skill")?.trim();
+    const to = readInteger(values.get("to"));
+    const by = readInteger(values.get("by"));
+    if (!skill || (to === null) === (by === null)) return parsed;
+    return { ...parsed, op: to !== null ? { op: "practice", skill, to } : { op: "practice", skill, by: by! } };
+  }
   if (name === "track") {
     const track = values.get("track")?.trim();
     const to = readInteger(values.get("to"));
@@ -374,6 +381,10 @@ export function serializeSheetCommandTag(
       if (op.to !== undefined) attribute("to", op.to);
       else attribute("by", op.by ?? 0);
       if (op.upTo !== undefined && op.to === undefined) attribute("upto", op.upTo);
+    } else if (op.op === "practice") {
+      attribute("skill", op.skill);
+      if (op.to !== undefined) attribute("to", op.to);
+      else attribute("by", op.by ?? 0);
     } else if (op.op === "condition") {
       attribute("condition", op.condition);
       attribute("state", op.active ? "on" : "off");

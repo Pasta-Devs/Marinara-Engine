@@ -55,6 +55,8 @@ export interface RulesetBuilderDraft {
   /** A skill's ranks above untrained, lowest first, each with what it adds: to the total on a sum,
    *  dice on a pool, points on a percentile. The sheet sets each skill's rank. */
   ranks: Array<{ label: string; bonus: number }>;
+  /** A practice meter on every trained skill (1.826): progress toward its next rank, started over on a rank-up. */
+  practice?: boolean;
   /** What play spends and gets back: hit points, willpower, luck. */
   pools: Array<{ label: string; max: number; bar?: boolean }>;
   /** What play fills: stress, harm, heat. `bar` draws it as a fill bar as well as a number. */
@@ -536,6 +538,7 @@ export function rulesetFromBuilderDraft(draft: RulesetBuilderDraft, version = 1)
       derived: [],
       lists,
       live: { pools, tracks, conditions: [], states: [] },
+      ...(draft.practice && skills.length > 0 ? { progress: {} } : {}),
       // The narrator (or a Sheet Keeper) may raise stats, set skill ranks and change fields as the story earns
       // them; without this a builder ruleset's sheet could only spend and restore.
       ...(abilities.length > 0 || skills.length > 0 || fields.length > 0
@@ -658,6 +661,7 @@ export function rulesetBuilderDraftFrom(definition: {
       ability: abilityLabel.get(skill.ability) ?? "",
       ...(skill.section && sectionLabel.has(skill.section) ? { group: sectionLabel.get(skill.section) } : {}),
     })),
+    ...(sheet.progress ? { practice: true } : {}),
     ranks: (resolution.proficiencyTiers ?? []).slice(1).map((tier: { label: string; flat?: number }) => ({
       label: tier.label,
       bonus: tier.flat ?? 0,

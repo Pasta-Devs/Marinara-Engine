@@ -650,6 +650,17 @@ export function RulesetBuilderModal({
               </div>
             )}
           </SortableRows>
+          <label className="flex items-center gap-2 pt-1 text-xs text-[var(--foreground)]">
+            <input
+              type="checkbox"
+              checked={draft.practice === true}
+              onChange={(event) => set({ practice: event.target.checked })}
+            />
+            {localizeUi("rulesetBuilder.practice")}
+          </label>
+          <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+            {localizeUi("rulesetBuilder.practiceHelp")}
+          </p>
         </Group>
 
         <Group

@@ -105,6 +105,7 @@ The chat moves to the new version and keeps every sheet. Another chat on the sam
 | The order of rows | Stats, skills, pools, tracks, fields and list tabs show in the order of the form. Drag a row by its grip to move it, or focus the grip and press the up and down arrow keys. |
 | A stat's or skill's **Group** | Stats or skills with the same group show under one heading. |
 | **Skill ranks** | The ranks you pick for each skill on the sheet, each with what it adds: to the total on a d20 or 2d6 roll, dice on a pool, points on a percentile. |
+| **Practice meter** | Each trained skill shows how far it is toward its next rank, from 0 to 99%. Practice in the story raises it, and a rank-up starts it over. You can correct it on the sheet. |
 | **Bar** on a pool or track | A fill bar beside its number. |
 | **Lists** | Each list gets its own tab, named after the list unless you type another tab name. Lists with the same tab name share a tab. |
 | A list's columns | Every row has a name, plus your columns: **Text**, **Number** or **Checkbox**. The first checkbox column shows as a tick beside each name. |

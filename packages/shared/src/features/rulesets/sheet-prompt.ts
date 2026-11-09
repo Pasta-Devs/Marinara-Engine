@@ -131,12 +131,25 @@ export function renderRulesetSheetBlock(
   // "Trained" is whatever the ruleset's first tier is not: the first tier is the untrained default
   // every unmentioned skill takes, so listing it would list the whole sheet.
   const firstTier = definition.resolution.proficiencyTiers[0]!.id;
+  // Practice toward the next rank (1.826), as the keeper of the sheet reads it: every trained skill below the
+  // top rank shows its percent, 0 included, so a practice command has a number to add to.
+  const topTier = definition.resolution.proficiencyTiers.at(-1)!.id;
+  const storedProgress =
+    sheet.progress && stored && typeof stored === "object" && !Array.isArray(stored)
+      ? (stored as { progress?: unknown }).progress
+      : undefined;
+  const practiceOf = (skillId: string) => {
+    if (!sheet.progress || evaluated.skillTiers[skillId] === topTier) return "";
+    const value =
+      storedProgress && typeof storedProgress === "object" ? (storedProgress as Record<string, unknown>)[skillId] : 0;
+    return ` (${typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 99 ? value : 0}%)`;
+  };
   const trained = [
     ...sheet.skills
       .filter((skill) => (evaluated.skillTiers[skill.id] ?? firstTier) !== firstTier)
       .map((skill) => ({
         section: skill.section,
-        text: `${skill.label} ${diceless ? tierLabel(evaluated.skillTiers[skill.id]) : checkValue(evaluated.skillMods[skill.id] ?? 0)}`,
+        text: `${skill.label} ${diceless ? tierLabel(evaluated.skillTiers[skill.id]) : checkValue(evaluated.skillMods[skill.id] ?? 0)}${practiceOf(skill.id)}`,
       })),
     ...sheet.saves
       .filter((save) => (evaluated.saveTiers[save.id] ?? firstTier) !== firstTier)

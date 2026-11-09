@@ -15,6 +15,8 @@ import { join } from "node:path";
 import {
   RULESET_BUILDER_MARK,
   renderRulesetSheetBlock,
+  applyRulesetSheetOp,
+  parseSheetCommandTagBody,
   parseRulesetDefinition,
   rulesetBuilderDraftFrom,
   rulesetBuilderStarter,
@@ -243,6 +245,48 @@ try {
       withDice.includes("[skill_check: skill=") && withDice.includes("CHECKS:"),
       "a ruleset with dice still teaches checks",
     );
+  }
+
+  // The practice meter (1.826): practice adds up and stops at 99, only a trained skill takes it, a rank
+  // change starts it over, and the narrator reads it on the sheet.
+  {
+    const draft = rulesetBuilderStarter("diceless", "Practice");
+    draft.skills = [
+      { label: "Smithing", ability: "Body" },
+      { label: "Stealth", ability: "Body" },
+    ];
+    draft.practice = true;
+    const definition = parsed(rulesetFromBuilderDraft(draft));
+    assert.deepEqual(definition.sheet.progress, {}, "the builder turns the meter on");
+    assert.equal(rulesetBuilderDraftFrom(definition as any)!.practice, true, "and reads it back");
+    const build = {
+      abilities: { body: 1 },
+      skills: { smithing: "rank_2" },
+      saves: {},
+      bonuses: {},
+      fields: {},
+      lists: {},
+    } as any;
+    const practice = (stored: unknown, op: any) =>
+      applyRulesetSheetOp(definition, build, stored, { op: "practice", ...op });
+    const first = practice({}, { skill: "Smithing", by: 60 });
+    assert.ok(first.ok && first.live.progress?.smithing === 60, JSON.stringify(first));
+    const capped = practice(first.ok ? first.live : {}, { skill: "smithing", by: 75 });
+    assert.ok(capped.ok && capped.live.progress?.smithing === 99, "practice stops at 99");
+    const untrained = practice({}, { skill: "Stealth", by: 5 });
+    assert.ok(!untrained.ok && untrained.reason === "not-allowed", "an untrained skill opens by a rank change");
+    const live = capped.ok ? capped.live : {};
+    const same = applyRulesetSheetOp(definition, build, live, { op: "advance", skill: "Smithing", tier: "rank_2" });
+    assert.ok(same.ok && same.live.progress?.smithing === 99, "the same rank written again keeps the practice");
+    const up = applyRulesetSheetOp(definition, build, live, { op: "advance", skill: "Smithing", tier: "rank_3" });
+    assert.ok(up.ok && up.live.progress?.smithing === undefined, "a rank-up starts it over");
+    const tag = parseSheetCommandTagBody('who="Blake" op="practice" skill="Smithing" by="5"');
+    assert.deepEqual(tag.op, { op: "practice", skill: "Smithing", by: 5 });
+    const block = renderRulesetSheetBlock(definition, { name: "Blake", build }, { progress: { smithing: 60 } });
+    assert.ok(block.includes("Smithing Adept (60%)"), block);
+    const plain = parsed(rulesetFromBuilderDraft({ ...draft, practice: false }));
+    const refused = applyRulesetSheetOp(plain, build, {}, { op: "practice", skill: "Smithing", by: 5 });
+    assert.ok(!refused.ok && refused.reason === "not-allowed", "a ruleset without the meter refuses practice");
   }
 
   // Labels that would collide or are not ids still make a ruleset.

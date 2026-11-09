@@ -1574,6 +1574,11 @@ function renderRulesetSheetSection(
     `- [sheet: who="Name" op="damage" pool="Pool" amount="N"] - takes it away, temporary points first.`,
     `- [sheet: who="Name" op="temp" pool="Pool" amount="N"] - sets temporary points on a pool that has them.`,
     `- [sheet: who="Name" op="track" track="Track" by="+1"] - or to="N" to set it.`,
+    ...(ruleset.sheet.progress
+      ? [
+          `- [sheet: who="Name" op="practice" skill="Skill" by="5"] - adds practice toward a trained skill's next rank, or to="N" sets it; it stops at 99%. A rank change starts it over at 0%, so a rank-up is op="advance", never practice.`,
+        ]
+      : []),
     ...(woundTracks.length > 0
       ? [
           `- [sheet: who="Name" op="damage" track="Track" kind="Kind" amount="N"] - marks harm of that kind on a wound track; a negative amount heals marks of that kind, or the lightest when kind is left out.`,

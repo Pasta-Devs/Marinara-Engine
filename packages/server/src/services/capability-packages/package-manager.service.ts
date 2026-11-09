@@ -9396,6 +9396,9 @@ function capabilityPackageInstallIssueFor(
       return "A ruleset that chooses how a pool or track is drawn requires schemaVersion 2 and capabilityApi 1.824 or newer";
     }
   }
+  if (!declaresApi(826) && plainRecord(ruleset?.sheet)?.progress !== undefined) {
+    return "A ruleset whose skills keep practice progress requires schemaVersion 2 and capabilityApi 1.826 or newer";
+  }
   if (!declaresApi(825) && plainRecord(ruleset?.gm)?.diceless !== undefined) {
     return "A diceless ruleset requires schemaVersion 2 and capabilityApi 1.825 or newer";
   }
