@@ -8,6 +8,7 @@
 // show when something is dropped on it. Saves in either one refresh the other.
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeftRight, Columns2, Home, Maximize2, Settings2, X } from "lucide-react";
 import { SPLIT_PANE, forgetSplitPaneCopy, type SplitPage } from "../../lib/split-view-env";
 import { queryClient } from "../../lib/query-client";
@@ -31,7 +32,7 @@ import {
 import {
   HOME_PAGE,
   SPLIT_DIVIDER,
-  SPLIT_MIN_SIDE,
+  clampSplitSize,
   closeSplit,
   endSplitDrag,
   isTabPage,
@@ -177,10 +178,8 @@ export function SplitSide({ split, size }: { split: OverhaulSplit; size: number 
       frame = requestAnimationFrame(() => {
         const x = moveEvent.clientX - left;
         const share = useOverhaulStore.getState().split?.side === "left" ? x / width : 1 - x / width;
-        const min = SPLIT_MIN_SIDE / width;
         const current = useOverhaulStore.getState().split;
-        if (current)
-          useOverhaulStore.getState().setSplit({ ...current, size: Math.min(1 - min, Math.max(min, share)) });
+        if (current) useOverhaulStore.getState().setSplit({ ...current, size: clampSplitSize(share, width) });
       });
     };
     const stop = () => {
@@ -203,7 +202,7 @@ export function SplitSide({ split, size }: { split: OverhaulSplit; size: number 
     else if (event.key === towardSecond) next = split.size - step;
     if (next === null) return;
     event.preventDefault();
-    useOverhaulStore.getState().setSplit({ ...split, size: Math.min(0.8, Math.max(0.2, next)) });
+    useOverhaulStore.getState().setSplit({ ...split, size: Math.min(0.85, Math.max(0.15, next)) });
   };
 
   const left = split.side === "left";
@@ -419,10 +418,16 @@ export function startSplitPane() {
 }
 
 /** The second side's own bar: what it shows, Chat settings for a chat, and swap / only this / close. */
-export function SplitPaneBar() {
+export function SplitPaneBar({ phone = false }: { phone?: boolean }) {
   const localize = useLocalizedUiText();
   const barRef = useRef<HTMLElement | null>(null);
-  usePublishTopBarHeight(barRef);
+  // In the phone layout the phone top bar under this one publishes the height.
+  usePublishTopBarHeight(phone ? NO_BAR : barRef);
+  // Phone layout: the app starts below this bar (index.html's guard rules hold the app's position).
+  useLayoutEffect(() => {
+    document.documentElement.toggleAttribute("data-ov-split-phone", phone);
+    return () => document.documentElement.removeAttribute("data-ov-split-phone");
+  }, [phone]);
   const { data: chats = [] } = useChats();
   const current = useCurrentTab();
   const docsTabs = useOverhaulStore((s) => s.docsTabs);
@@ -448,8 +453,13 @@ export function SplitPaneBar() {
   const send = (action: "swap" | "only" | "close") =>
     window.parent.postMessage({ type: "ov-split", action } satisfies SplitMessage, origin());
 
-  return (
-    <header ref={barRef} className="ov-splitbar" data-component="SplitViewBar" data-overhaul-topbar="true">
+  const bar = (
+    <header
+      ref={barRef}
+      className={cn("ov-splitbar", phone && "ov-splitbar--phone")}
+      data-component="SplitViewBar"
+      data-overhaul-topbar="true"
+    >
       <span className="ov-splitbar__page">
         {current ? (
           <>
@@ -463,7 +473,7 @@ export function SplitPaneBar() {
           </>
         )}
       </span>
-      {activeChat ? (
+      {activeChat && !phone ? (
         <button
           type="button"
           className={cn("ov-text-btn", chatSettingsOpen && "is-on")}
@@ -481,7 +491,7 @@ export function SplitPaneBar() {
           <ChatSettingsSummary chat={activeChat} fallback="" />
         </button>
       ) : null}
-      {activeChat?.mode === "game" ? <GamePaneToggle /> : null}
+      {activeChat?.mode === "game" && !phone ? <GamePaneToggle /> : null}
       <span className="ov-splitbar__fill" />
       <button
         type="button"
@@ -512,4 +522,21 @@ export function SplitPaneBar() {
       </button>
     </header>
   );
+  // The phone shell's panels are placed against the window, so its bar goes above the app (before #root),
+  // and the app starts below it (AppShell).
+  return phone ? createPortal(bar, phoneBarHost()) : bar;
+}
+
+const NO_BAR = { current: null };
+
+function phoneBarHost() {
+  let host = document.getElementById("ov-split-phone-bar");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "ov-split-phone-bar";
+    const root = document.getElementById("root");
+    if (root?.parentNode) root.parentNode.insertBefore(host, root);
+    else document.body.prepend(host);
+  }
+  return host;
 }

@@ -68,6 +68,13 @@
           mask: none !important;
           content-visibility: visible !important;
         }
+        /* Split view's second side in the phone layout: the app starts under the split bar, and holds
+           the phone shell's fixed panels so they open under it too. */
+        :root[data-ov-split-phone] [data-component="AppShell"] {
+          inset: var(--ov-topbar-height) 0 0 0 !important;
+          height: auto !important;
+          contain: layout !important;
+        }
         [data-component="AppShell"] {
           position: fixed !important;
           inset: 0 !important;

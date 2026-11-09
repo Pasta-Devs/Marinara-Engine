@@ -78,7 +78,7 @@ import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../
 import { preloadChatSurface } from "../chat/chat-surface-preload";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
 import { SPLIT_PANE } from "../../lib/split-view-env";
-import { SPLIT_DIVIDER, SPLIT_MIN_SIDE, clampSplitSize, useSplitRoom } from "../overhaul/split-view";
+import { SPLIT_MIN_ROOM, clampSplitSize, useSplitRoom } from "../overhaul/split-view";
 import { LIBRARY_SECTIONS, openLibrarySection } from "../overhaul/library-navigation";
 import { OverhaulMobileTopBar } from "../overhaul/MobileTopBar";
 import { OverhaulMobileTrackerStrip } from "../overhaul/MobileTrackerStrip";
@@ -598,7 +598,7 @@ export function AppShell({
   const split = useOverhaulStore((s) => s.split);
   const splitDragging = useOverhaulStore((s) => s.splitDrag !== null);
   const splitRoom = useSplitRoom(sidebarOpen ? liveSidebarWidth : 0, rightPanelOpen ? liveRightPanelWidth : 0);
-  const splitFits = overhaulActive && !SPLIT_PANE && splitRoom >= SPLIT_MIN_SIDE * 2 + SPLIT_DIVIDER;
+  const splitFits = overhaulActive && !SPLIT_PANE && splitRoom >= SPLIT_MIN_ROOM;
   const splitOn = splitFits && split !== null;
   const splitSize = split ? clampSplitSize(split.size, splitRoom) : 0.5;
   useEffect(() => {
@@ -1638,6 +1638,12 @@ export function AppShell({
       {/* A theme's backdrop art (styles/theme-tokens.css): its own layer, under everything. */}
       <div data-mari-part="app-backdrop" aria-hidden="true" />
       <SkipLinks />
+      {/* Split view's second side in the phone layout (a narrow side) keeps its swap / only / close bar on top. */}
+      {SPLIT_PANE && overhaulMobile ? (
+        <Suspense fallback={null}>
+          <SplitPaneBar phone />
+        </Suspense>
+      ) : null}
       {overhaulActive &&
         (SPLIT_PANE ? (
           <Suspense fallback={<div className="ov-splitbar" />}>

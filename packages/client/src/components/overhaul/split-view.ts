@@ -17,8 +17,12 @@ import { overhaulTabKey, useOverhaulStore, type OverhaulTab } from "../../stores
 import { activateTab, currentTabNow, goHome } from "./OverhaulTopBar";
 
 export const SPLIT_MIME = "application/x-marinara-split-page";
-/** Neither side gets narrower than this; below twice this, the page shows one side only. */
+/** The main side never gets narrower than this. */
 export const SPLIT_MIN_SIDE = 440;
+/** The second side can go down to phone width: below SPLIT_PANE_PHONE_WIDTH it shows the phone layout. */
+export const SPLIT_MIN_SECOND = 340;
+/** Room needed for two pages; with less, the page shows one side only. */
+export const SPLIT_MIN_ROOM = SPLIT_MIN_SIDE + SPLIT_MIN_SECOND + 6;
 export const SPLIT_DIVIDER = 6;
 export const HOME_PAGE: SplitPage = { kind: "home", id: "main" };
 
@@ -137,10 +141,11 @@ export function useSplitRoom(leftWidth: number, rightWidth: number) {
   return Math.max(0, viewport - leftWidth - rightWidth);
 }
 
-/** The second side's share, kept so that neither side is narrower than SPLIT_MIN_SIDE. */
+/** The second side's share, kept between its phone-width minimum and the main side's minimum. */
 export function clampSplitSize(size: number, room: number) {
   const usable = Math.max(1, room - SPLIT_DIVIDER);
-  const min = SPLIT_MIN_SIDE / usable;
-  if (min >= 0.5) return 0.5;
-  return Math.min(1 - min, Math.max(min, size));
+  const min = SPLIT_MIN_SECOND / usable;
+  const max = 1 - SPLIT_MIN_SIDE / usable;
+  if (min >= max) return Math.min(0.5, Math.max(0, max));
+  return Math.min(max, Math.max(min, size));
 }
