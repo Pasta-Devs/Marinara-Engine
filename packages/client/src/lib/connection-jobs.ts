@@ -18,7 +18,13 @@ import {
   Volume2,
   type LucideIcon,
 } from "lucide-react";
-import { isChatProvider, type ConnectionPickerKind, type FeatureModelConnections } from "@marinara-engine/shared";
+import {
+  isChatProvider,
+  type ConnectionPickerKind,
+  type FeatureModelConnections,
+  type TTSConfig,
+  type TTSSource,
+} from "@marinara-engine/shared";
 import type { AddKind } from "./add-connection";
 import { isConnectionFlagTrue } from "./connection-filters";
 import type { ConnectionModelRow } from "./connection-groups";
@@ -197,8 +203,9 @@ export const jobAddKind = (key: JobKey) => {
 };
 
 /**
- * The audio row Text to speech uses, in the server's order (tts.routes.ts): the TTS card's row; only with the card
- * empty, the audio default. `missing` when the card names a row that is gone or not audio — the server then fails.
+ * The audio row Text to speech uses, in the server's order (tts.routes.ts): the row the Voice job saved in the TTS
+ * settings (`useFollowVoiceJob`); only when none is saved, as in settings from before the Voice job, the audio
+ * default. `missing` when the saved row is gone or not audio — the server then fails.
  */
 export function voiceRowOf<R extends Pick<ConnectionModelRow, "id" | "provider" | "defaultForAgents">>(
   rows: readonly R[],
@@ -211,4 +218,25 @@ export function voiceRowOf<R extends Pick<ConnectionModelRow, "id" | "provider" 
   }
   const row = rows.find((row) => row.provider === "audio" && isConnectionFlagTrue(row.defaultForAgents)) ?? null;
   return { row, missing: false };
+}
+
+type VoiceRow = Pick<ConnectionModelRow, "id" | "provider" | "defaultForAgents"> & {
+  audioSource?: string | null;
+  audioVoice?: string | null;
+};
+
+/**
+ * Settings from before the Voice job: text to speech on with no saved row speaks with the audio default. Saves that
+ * row as the Voice job's with the voice the server picks for it today (tts.routes.ts `resolveAudioConfig`), so the
+ * job is the only source and the voice stays the same. Null when there is nothing to move.
+ */
+export function voiceJobMigration(config: TTSConfig, rows: readonly VoiceRow[]): TTSConfig | null {
+  if (!config.enabled || config.connectionId.trim()) return null;
+  const { row } = voiceRowOf(rows, "");
+  if (!row) return null;
+  const own = config.connectionProfiles?.[row.id];
+  if (own) return { ...config, ...own, connectionId: row.id };
+  const source = (row.audioSource ?? "elevenlabs") as TTSSource;
+  const profile = source === config.source ? config : config.sourceProfiles?.[source];
+  return { ...config, ...profile, voice: row.audioVoice || profile?.voice || "", connectionId: row.id };
 }

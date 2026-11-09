@@ -47,6 +47,11 @@ const DEVICE_SERVICES = {
 
 /** Opens the Add window, on one service's set-up screen when a target is given. */
 export function openAddConnection(target?: AddConnectionTarget) {
+  // Voice settings live in the Voice job: the character editor's "Open settings" opens its picker.
+  if (target && "item" in target && target.item === "tts") {
+    useUIStore.getState().openModal("job-picker", { job: "voice" });
+    return;
+  }
   if (target && !("item" in target) && !("provider" in target)) {
     useUIStore.getState().openModal("create-connection", { forJob: target });
     return;
