@@ -435,14 +435,19 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     const list = lists[index]?.data;
     return list ? [{ name: account.name, provider: account.provider, models: list.models ?? [] }] : [];
   });
-  return all.map((tile) =>
-    isEmpty(tile)
-      ? {
-          ...tile,
-          find: foundForJob(JOB[tile.key], catalogs, (provider, kind) => mediaSources(provider, kind).length > 0),
-        }
-      : tile,
-  );
+  // Accounts with no catalog list (a Decision account) still offer the Models saved under them.
+  const listed = new Set(catalogRows.filter((_, index) => lists[index]?.data).map(({ account }) => account.id));
+  const findFor = (job: Job) => {
+    const found = foundForJob(job, catalogs, (provider, kind) => mediaSources(provider, kind).length > 0);
+    const kind = job.kind;
+    const saved =
+      kind && job.key !== "embeddings"
+        ? connectionsList.filter((row) => !listed.has(row.accountId ?? "") && matchesKind(row, kind))
+        : [];
+    const names = saved.map((row) => accountOf(row)?.name ?? row.name);
+    return { count: found.count + saved.length, accounts: [...new Set([...found.accounts, ...names])] };
+  };
+  return all.map((tile) => (isEmpty(tile) ? { ...tile, find: findFor(JOB[tile.key]) } : tile));
 }
 
 /** Voice job picker values for a built-in text to speech source, not a Model. */
@@ -701,7 +706,8 @@ function DefaultsJobRow({
   return (
     <div className="relative" data-defaults-role={job.key}>
       <JobRow
-        tile={tile}
+        // Pick or Add is the fix, so an empty job's own warning chip would only repeat it.
+        tile={tile.find ? { ...tile, warning: null } : tile}
         data-defaults-tile={job.key}
         onClick={onClick}
         aria-haspopup={tile.device ? undefined : "dialog"}
@@ -716,7 +722,7 @@ function DefaultsJobRow({
               <button
                 type="button"
                 onClick={onClick}
-                className="mari-chrome-control mari-chrome-control--primary mari-chrome-control--small shrink-0"
+                className="mari-chrome-control mari-chrome-control--primary shrink-0 !min-h-7 !px-3 !py-1 !text-xs"
               >
                 {t(tile.find.count ? "connections.defaults.pick" : "connections.defaults.add")}
               </button>

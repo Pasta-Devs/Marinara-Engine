@@ -73,6 +73,7 @@ test("Decision settings, test errors and custom-agent questions survive reload",
   // #8456: Decision is one row of the Jobs box. The row opens its "Model for Decision" picker, and its gear opens
   // the rest of the job's settings in place.
   const decisionTile = page.locator('[data-defaults-tile="decision"]');
+  const settings = page.getByRole("dialog", { name: "Decision settings", exact: true });
   const openDefaults = async () => {
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -83,12 +84,14 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await expect(defaults).toBeVisible();
     if ((await defaults.getAttribute("aria-expanded")) !== "true") await defaults.click();
     await expect(decisionTile).toBeVisible();
-    const gear = page.getByRole("button", { name: "Decision settings", exact: true });
-    if ((await gear.getAttribute("aria-expanded")) !== "true") await gear.click();
-    await expect(page.getByRole("region", { name: "Decision settings", exact: true })).toBeVisible();
+    // The gear opens the job's settings window (#8995).
+    if (!(await settings.isVisible()))
+      await page.getByRole("button", { name: "Decision settings", exact: true }).click();
+    await expect(settings).toBeVisible();
   };
   const pickDecision = async (choice: (picker: Locator) => Locator) => {
-    await decisionTile.click();
+    // The window's Model row opens the job's picker.
+    await settings.locator('[aria-haspopup="dialog"]').first().click();
     const picker = page.getByRole("dialog", { name: "Model for Decision", exact: true });
     await expect(picker).toBeVisible();
     // Checked first, so a missing choice fails here and the cleanup below still runs.
@@ -122,6 +125,8 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await expect(smartOrder).not.toBeChecked();
     await smartOrder.check();
     await expect.poll(async () => (await (await request.get("/api/decision/smart-order")).json()).enabled).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(settings).toBeHidden();
     // #8456: a Decision connection is tested from its Model editor; the job's own Test is left to the built-in slots.
     await page.evaluate(async (id) => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -167,6 +172,7 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await expect(smartOrder).toBeChecked();
     await pickDecision((picker) => picker.locator("[data-switcher-default]"));
     await expect(smartOrder).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await openAgent();
     await expect(question).toBeDisabled();
     await expect(question).toHaveValue("Did {{char}} enter a new location?");
@@ -462,7 +468,8 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
     await actions.scrollIntoViewIfNeeded();
     await actions.click();
-    await page.getByRole("menuitem", { name: "Use this key for decisions", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Use for…", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Decision", exact: true }).click();
     // #8456: the shortcut opens the key's Connection on its decision models, with a Decision Model for the source's
     // model made under that Connection; testing it there is what keeps it. It reaches the key through its Connection,
     // so the old editor fields (Decision source "openrouter", API key source = the source Model) and the
