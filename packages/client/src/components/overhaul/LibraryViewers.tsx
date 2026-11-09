@@ -7,7 +7,9 @@
 // right in its usual editor. One Library tab per section, not one per item.
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronLeft, Download, Plus, Search } from "lucide-react";
+import { CheckSquare, ChevronDown, ChevronLeft, Download, Plus, Search, Trash2, Upload } from "lucide-react";
+import { toast } from "sonner";
+import { getFolderImportEntries } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { PROVIDERS, type APIConnection, type APIProvider } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
@@ -15,10 +17,16 @@ import { useOverhaulStore } from "../../stores/overhaul.store";
 import { useConnections } from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { groupModelsByAccount } from "../../lib/connection-groups";
-import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../../hooks/use-regex-scripts";
+import {
+  useRegexScripts,
+  useReorderRegexScripts,
+  useUpdateRegexScript,
+  type RegexScriptRow,
+} from "../../hooks/use-regex-scripts";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
-import { Toggle, flag, parseList, useRegexImport } from "./LibraryTables";
+import { Toggle, flag, parseList, useRegexImport, useRegexKitActions } from "./LibraryTables";
+import { insertLibraryItems } from "../../lib/library-order";
 import { DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
 import { ConnectionAccountEditor } from "../connections/ConnectionAccountEditor";
 import { ProviderIcon } from "../connections/ProviderIcon";
@@ -28,6 +36,34 @@ import { DECISION_DEVICE_ID, useDecisionEngine } from "./decision-engine";
 import { EditorCrumbs, type RailCrumb } from "./EditorRail";
 import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { OvEditorHeadSlot } from "./EditorChrome";
+import {
+  useCreateCustomTool,
+  useCustomTools,
+  useDeleteCustomTool,
+  useUpdateCustomTool,
+  type CustomToolRow,
+} from "../../hooks/use-custom-tools";
+import {
+  createCustomToolFolderPackageFiles,
+  importCustomToolEntries,
+  serializeCustomToolForTransfer,
+} from "../../lib/custom-tool-transfer";
+import { collectFolderPackageEntries, type FolderPackageImportEntry } from "../../lib/folder-package-transfer";
+import { isZipFile, readTextFilesFromZip } from "../../lib/read-zip-text";
+import { downloadZipFile } from "../../lib/download-zip";
+import { showConfirmDialog } from "../../lib/app-dialogs";
+import {
+  KitBulkBar,
+  KitCheck,
+  KitMoreButton,
+  useKitMenu,
+  useKitSelection,
+  useKitRowDrag,
+  useSuppressClick,
+  kitDelete,
+  type KitAction,
+  type KitSelection,
+} from "./LibraryKit";
 
 /** Built-in model and local voice engines share the Model viewer: their id is `device:<item>`. */
 export const DEVICE_PREFIX = "device:";
@@ -50,6 +86,16 @@ export type OvViewerGroup = { id: string; label: string; rows: OvViewerRow[]; op
 
 export type OvViewerTool = { label: string; icon: typeof Plus; onClick: () => void };
 
+/** Select, ⋯ menus and dragging for a viewer's list (Regex). Rows without a menu are left alone. */
+export type OvViewerKit = {
+  selection: KitSelection;
+  menu: ReturnType<typeof useKitMenu>;
+  rowMenu: (id: string) => { title: string; actions: KitAction[] } | null;
+  bulkActions: KitAction[];
+  rowDrag?: (id: string) => Record<string, unknown>;
+  blocked?: () => boolean;
+};
+
 function OvViewer({
   title,
   meta,
@@ -69,7 +115,9 @@ function OvViewer({
   emptyDetail,
   children,
   onSection,
+  kit,
 }: {
+  kit?: OvViewerKit;
   title: string;
   /** The section's landing page (Library > Connections). Without it the crumb only names the section. */
   onSection?: () => void;
@@ -91,6 +139,7 @@ function OvViewer({
   emptyDetail: string;
   children: ReactNode;
 }) {
+  const localize = useLocalizedUiText();
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const [headSlot, setHeadSlot] = useState<HTMLDivElement | null>(null);
   const visible = groups.filter((group) => group.rows.length || !search);
@@ -135,6 +184,17 @@ function OvViewer({
             <Plus size={13} aria-hidden="true" />
             {newLabel}
           </button>
+          {kit ? (
+            <button
+              type="button"
+              className={cn("ov-vw__tools-end", kit.selection.on && "is-on")}
+              aria-pressed={kit.selection.on}
+              onClick={() => (kit.selection.on ? kit.selection.stop() : kit.selection.start())}
+            >
+              <CheckSquare size={13} aria-hidden="true" />
+              {localize("Select")}
+            </button>
+          ) : null}
         </div>
         <p className="ov-vw__label">
           {listLabel}
@@ -176,33 +236,70 @@ function OvViewer({
                 ) : null}
                 {isClosed
                   ? null
-                  : group.rows.map((row) => (
-                      <div
-                        key={row.id}
-                        role="option"
-                        tabIndex={0}
-                        aria-selected={row.id === selectedId}
-                        className={cn("ov-vw__row", row.id === selectedId && "is-on", row.dim && "is-dim")}
-                        onClick={() => onSelect(row.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            onSelect(row.id);
+                  : group.rows.map((row) => {
+                      const rowMenu = kit?.rowMenu(row.id) ?? null;
+                      const selecting = !!kit?.selection.on && !!rowMenu;
+                      const checked = selecting && kit!.selection.has(row.id);
+                      const pick = () => {
+                        if (kit?.blocked?.()) return;
+                        if (selecting) kit!.selection.toggle(row.id);
+                        else onSelect(row.id);
+                      };
+                      return (
+                        <div
+                          key={row.id}
+                          role="option"
+                          tabIndex={0}
+                          aria-selected={selecting ? checked : row.id === selectedId}
+                          className={cn(
+                            "ov-vw__row",
+                            !selecting && row.id === selectedId && "is-on",
+                            checked && "is-selected",
+                            row.dim && "is-dim",
+                          )}
+                          {...(rowMenu && kit?.rowDrag ? kit.rowDrag(row.id) : {})}
+                          onClick={pick}
+                          onContextMenu={
+                            rowMenu && kit
+                              ? (event) => kit.menu.openFromEvent(event, rowMenu.title, rowMenu.actions)
+                              : undefined
                           }
-                        }}
-                      >
-                        {row.lead ? <span className="ov-vw__lead">{row.lead}</span> : null}
-                        <span className="ov-vw__text">
-                          <span className="ov-vw__name">{row.name}</span>
-                          {row.sub ? <small className={cn(row.monoSub && "is-mono")}>{row.sub}</small> : null}
-                        </span>
-                        {row.trail ? <span className="ov-vw__trail">{row.trail}</span> : null}
-                      </div>
-                    ))}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              pick();
+                            }
+                          }}
+                        >
+                          {selecting ? (
+                            <span className="ov-vw__lead">
+                              <KitCheck checked={checked} label={row.name} />
+                            </span>
+                          ) : row.lead ? (
+                            <span className="ov-vw__lead">{row.lead}</span>
+                          ) : null}
+                          <span className="ov-vw__text">
+                            <span className="ov-vw__name">{row.name}</span>
+                            {row.sub ? <small className={cn(row.monoSub && "is-mono")}>{row.sub}</small> : null}
+                          </span>
+                          {row.trail ? <span className="ov-vw__trail">{row.trail}</span> : null}
+                          {rowMenu && kit ? (
+                            <KitMoreButton
+                              label={rowMenu.title}
+                              onOpen={(event) =>
+                                kit.menu.openFromEvent(event, rowMenu.title, rowMenu.actions, "button")
+                              }
+                            />
+                          ) : null}
+                        </div>
+                      );
+                    })}
               </section>
             );
           })}
         </div>
+        {kit ? <KitBulkBar selection={kit.selection} actions={kit.bulkActions} /> : null}
+        {kit?.menu.node}
       </aside>
       <div className="ov-vw__main">
         <OvEditorHeadSlot.Provider value={headSlot}>
@@ -219,7 +316,7 @@ function OvViewer({
  * instead of reopening it on the way out.
  */
 function useAutoSelect(
-  section: "regex" | "connections" | "agents",
+  section: "regex" | "tools" | "connections" | "agents",
   selectedId: string | null,
   firstId: string | undefined,
   open: (id: string) => void,
@@ -283,6 +380,45 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
   }, [localize, scripts, search, updateRegex]);
 
   useAutoSelect("regex", selectedId, scripts[0]?.id, openRegexDetail);
+  const reorderRegex = useReorderRegexScripts();
+  const visibleIds = useMemo(() => groups.flatMap((group) => group.rows.map((row) => row.id)), [groups]);
+  const selection = useKitSelection(visibleIds);
+  const menu = useKitMenu();
+  const suppress = useSuppressClick();
+  const regexActions = useRegexKitActions(scripts, selection);
+  const byId = useMemo(() => new Map(scripts.map((script) => [script.id, script])), [scripts]);
+  // Dragging a script changes its run order, like the classic panel. Not while searching.
+  const dragProps = useKitRowDrag({
+    kind: "regex",
+    reorder: (ids, target, edge) =>
+      reorderRegex.mutate(
+        insertLibraryItems(
+          scripts.map((script) => script.id),
+          ids,
+          target,
+          edge,
+        ),
+      ),
+    selection,
+    suppress,
+    onHold: (id) => {
+      const script = byId.get(id);
+      if (script) menu.open(script.name, regexActions.rowActions(script), { x: 0, y: 0 });
+    },
+  });
+  const kit: OvViewerKit = {
+    selection,
+    menu,
+    blocked: suppress.blocked,
+    bulkActions: regexActions.bulkActions,
+    rowDrag: search.trim() ? undefined : (id) => dragProps(id, null),
+    rowMenu: (id) => {
+      const script = byId.get(id);
+      return script
+        ? { title: script.name || localize("Untitled script"), actions: regexActions.rowActions(script) }
+        : null;
+    },
+  };
   const enabledCount = scripts.filter((script) => script.enabled === "true").length;
 
   return (
@@ -300,6 +436,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
       groups={groups}
       selectedId={selectedId}
       onSelect={(id) => openRegexDetail(id)}
+      kit={kit}
       emptyList={localize("No regex scripts yet.")}
       emptyDetail={localize("Pick a script on the left, or make a new one.")}
     >
@@ -312,6 +449,215 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
           const file = event.target.files?.[0];
           event.target.value = "";
           if (file) void handleImport(file);
+        }}
+      />
+      {children}
+    </OvViewer>
+  );
+}
+
+// ── Custom tools ──
+
+const TOOL_TYPE_LABEL: Record<string, string> = { static: "Static result", webhook: "Webhook", script: "Script" };
+
+function toolParamCount(tool: CustomToolRow) {
+  try {
+    const schema = JSON.parse(tool.parametersSchema || "{}") as { properties?: Record<string, unknown> };
+    return Object.keys(schema.properties ?? {}).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Custom tools (functions the AI can call): the list on the left, the open tool's editor on the right.
+ * Import and Export use the same files as the classic Presets panel's Functions section.
+ */
+export function OvToolsViewer({ children }: { children: ReactNode }) {
+  const localize = useLocalizedUiText();
+  const { t: localizeUi } = useTranslation();
+  const { data } = useCustomTools();
+  const createTool = useCreateCustomTool();
+  const updateTool = useUpdateCustomTool();
+  const deleteTool = useDeleteCustomTool();
+  const selectedId = useUIStore((s) => s.toolDetailId);
+  const openToolDetail = useUIStore((s) => s.openToolDetail);
+  const closeToolDetail = useUIStore((s) => s.closeToolDetail);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState("");
+
+  const tools = useMemo(
+    () =>
+      [...((data ?? []) as CustomToolRow[])].sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name),
+      ),
+    [data],
+  );
+  const groups = useMemo<OvViewerGroup[]>(() => {
+    const needle = search.trim().toLowerCase();
+    const rows = tools
+      .filter((tool) => !needle || `${tool.name} ${tool.description}`.toLowerCase().includes(needle))
+      .map((tool) => {
+        const enabled = tool.enabled === "true" || tool.enabled === "1";
+        const params = toolParamCount(tool);
+        return {
+          id: tool.id,
+          name: tool.name,
+          monoSub: false,
+          sub: [
+            localize(TOOL_TYPE_LABEL[tool.executionType] ?? tool.executionType),
+            `${params} ${localize(params === 1 ? "parameter" : "parameters")}`,
+          ].join(" · "),
+          dim: !enabled,
+          trail: (
+            <Toggle
+              on={enabled}
+              label={localize(enabled ? "Turn off" : "Turn on")}
+              onChange={(next) => updateTool.mutate({ id: tool.id, enabled: next })}
+            />
+          ),
+        };
+      });
+    return [{ id: "tools", label: "", rows }];
+  }, [localize, search, tools, updateTool]);
+
+  useAutoSelect("tools", selectedId, tools[0]?.id, openToolDetail);
+
+  const visibleIds = useMemo(() => groups.flatMap((group) => group.rows.map((row) => row.id)), [groups]);
+  const selection = useKitSelection(visibleIds);
+  const menu = useKitMenu();
+  const byId = useMemo(() => new Map(tools.map((tool) => [tool.id, tool])), [tools]);
+
+  const exportTools = async (picked: CustomToolRow[]) => {
+    if (!picked.length) return;
+    // A webhook address can hold a key: ask before it leaves the app.
+    if (
+      picked.some((tool) => tool.executionType === "webhook" && Boolean(tool.webhookUrl)) &&
+      !(await showConfirmDialog({
+        title: localizeUi("ui.panels.presetspanel.exportWebhookCredentials"),
+        message: localizeUi("ui.panels.presetspanel.exportWebhookCredentialsWarning"),
+        confirmLabel: localizeUi("ui.panels.presetspanel.exportWithCredentials"),
+        tone: "destructive",
+      }))
+    )
+      return;
+    const status = await downloadZipFile(
+      createCustomToolFolderPackageFiles(picked.map(serializeCustomToolForTransfer)),
+      picked.length === 1 ? `${picked[0]!.name}.zip` : "marinara-functions.zip",
+    );
+    if (status === "saved") toast.success(`${localize("Exported")} ${picked.length}`);
+  };
+  const removeMany = async (ids: string[], names?: string) => {
+    const failed = await kitDelete(ids, (id) => deleteTool.mutateAsync(id), {
+      noun: localize("tools"),
+      localize,
+      names,
+    });
+    if (failed && selectedId && ids.includes(selectedId) && !failed.includes(selectedId)) closeToolDetail();
+    if (failed) selection.set(new Set(failed));
+    if (failed && !failed.length) selection.stop();
+  };
+  const importFile = async (file: File) => {
+    try {
+      const entries: FolderPackageImportEntry[] = isZipFile(file)
+        ? collectFolderPackageEntries(await readTextFilesFromZip(file), {
+            rootFilenames: ["marinara-functions.json"],
+            collectionKeys: ["functions", "customTools", "tools"],
+          })
+        : getFolderImportEntries(JSON.parse(await file.text()), ["functions", "customTools", "tools"]).map(
+            (raw): FolderPackageImportEntry => ({ raw, path: file.name, basePath: "", resolveTextFile: () => null }),
+          );
+      if (!entries.length) throw new Error(localizeUi("ui.panels.functionssection.noFunctionsFoundInFile"));
+      const { imported, failed, reviews } = await importCustomToolEntries(entries, createTool);
+      if (imported === 0 && failed.length === 0)
+        throw new Error(localizeUi("ui.panels.functionssection.noValidFunctionsFoundInFile"));
+      if (imported > 0) toast.success(localizeUi("ui.panels.functionssection.importedFunctions", { count: imported }));
+      if (failed.length > 0)
+        toast.error(
+          localizeUi("ui.panels.functionssection.failedFunctions", { count: failed.length, error: failed[0] }),
+        );
+      // Webhook and script tools come in switched off, for you to check first.
+      if (reviews.length > 0)
+        toast.warning(
+          `${reviews.map((review) => review.name).join(", ")}: ${localizeUi("ui.panels.functionssection.executableImportReviewDescription")}`,
+          { duration: 12000 },
+        );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : localizeUi("ui.panels.functionssection.failedToImportFunctions"),
+      );
+    }
+  };
+
+  const rowActions = (tool: CustomToolRow): KitAction[] => [
+    { key: "export", label: "Export", icon: <Upload size={14} />, onSelect: () => void exportTools([tool]) },
+    { key: "select", label: "Select", icon: <CheckSquare size={14} />, onSelect: () => selection.start(tool.id) },
+    {
+      key: "delete",
+      label: "Delete",
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onSelect: () => void removeMany([tool.id], `"${tool.name}"`),
+    },
+  ];
+  const kit: OvViewerKit = {
+    selection,
+    menu,
+    bulkActions: [
+      {
+        key: "export",
+        label: "Export",
+        icon: <Upload size={14} />,
+        onSelect: () => void exportTools(tools.filter((tool) => selection.has(tool.id))),
+      },
+      {
+        key: "delete",
+        label: "Delete",
+        icon: <Trash2 size={14} />,
+        danger: true,
+        onSelect: () => void removeMany(selection.list),
+      },
+    ],
+    rowMenu: (id) => {
+      const tool = byId.get(id);
+      return tool ? { title: tool.name, actions: rowActions(tool) } : null;
+    },
+  };
+  const enabledCount = tools.filter((tool) => tool.enabled === "true" || tool.enabled === "1").length;
+
+  return (
+    <OvViewer
+      title={localize("Custom tools")}
+      meta={`${tools.length} ${localize(tools.length === 1 ? "tool" : "tools")} · ${enabledCount} ${localize("on")}`}
+      tools={[
+        { label: localize("Import"), icon: Download, onClick: () => fileRef.current?.click() },
+        ...(tools.length
+          ? [{ label: localize("Export all"), icon: Upload, onClick: () => void exportTools(tools) }]
+          : []),
+      ]}
+      listLabel={localize("Tools")}
+      search={search}
+      onSearch={setSearch}
+      searchPlaceholder={localize("Search tools")}
+      newLabel={localize("New tool")}
+      onNew={() => openToolDetail("__new__")}
+      groups={groups}
+      selectedId={selectedId}
+      onSelect={(id) => openToolDetail(id)}
+      emptyList={localize("No custom tools yet.")}
+      emptyDetail={localize("Pick a tool on the left, or make a new one.")}
+      onSection={() => openLibrarySection("tools")}
+      kit={kit}
+    >
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".json,.zip,application/json,application/zip"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void importFile(file);
         }}
       />
       {children}

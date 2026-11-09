@@ -82,11 +82,11 @@ This page covers starting, trying and sharing a ruleset. The other pages cover o
 
 Before you start, turn on **Allow custom Agent imports** under **Settings → Advanced → Security**. Imported rulesets use the same safety switch as imported agents, so it is off until you turn it on. Importing also needs localhost access or the admin secret (**Settings → Advanced → Security**).
 
-1. Importing is in the classic layout for now. Turn off **New layout** in **Settings → Appearance → Theme**, open the **Agents** panel and choose the **Import agents** button (the download icon in the row of buttons at the top of the panel).
+1. Open **Library → Agents** and click **Import agents** (the download icon next to **Starter kits**). In the classic layout, it is the download icon at the top of the **Agents** panel.
 2. Pick **Game Mode ruleset** and choose your JSON file, or a ruleset package file ending in `.ruleset.json` (see [Sharing your ruleset](#sharing-your-ruleset)).
 3. Read the review. It shows the name, version, license, what the ruleset covers and the Game Master text. Choose **Import**.
 
-Your ruleset appears in the panel's **Rules** section and in the setup wizard's **Rules** choice for new games. A ruleset imported from a file is filed as `local/<your id>`, so it is never confused with an official ruleset or somebody else's.
+Your ruleset appears in the setup wizard's **Rules** choice for new games, and in the classic **Agents** panel's **Rules** section. A ruleset imported from a file is filed as `local/<your id>`, so it is never confused with an official ruleset or somebody else's.
 
 ### Change a ruleset you already imported
 

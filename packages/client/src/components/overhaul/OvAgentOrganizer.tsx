@@ -4,7 +4,20 @@
 // An agent's page keeps a narrow list of its neighbours on the left.
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { ChevronDown, Loader2, MoreHorizontal, Plus, RefreshCw, Search } from "lucide-react";
+import {
+  CheckSquare,
+  ChevronDown,
+  Copy,
+  Download,
+  Loader2,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { CapabilityStoreKit } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
@@ -32,6 +45,111 @@ import {
 } from "../agents/organizer/organizer-model";
 import { AgentIcon, StoreBanner, useOrganizer, useShownEntry } from "../agents/organizer/OrganizerParts";
 import type { AgentModeFilterValue } from "../agents/AgentModeFilter";
+import { useAgentImportFlow } from "../agents/useAgentImportFlow";
+import { useAgentConfigs, useCreateAgent, useDeleteAgent, type AgentConfigRow } from "../../hooks/use-agents";
+import {
+  createAgentFolderPackageFilename,
+  createAgentFolderPackageFiles,
+  createDuplicateAgentInput,
+  serializeAgentConfig,
+} from "../../lib/agent-transfer";
+import { downloadZipFile } from "../../lib/download-zip";
+import {
+  KitBulkBar,
+  KitCheck,
+  KitMoreButton,
+  KitSelectButton,
+  kitDelete,
+  useKitMenu,
+  useKitSelection,
+  type KitAction,
+  type KitSelection,
+} from "./LibraryKit";
+
+/** Select, ⋯ and the bulk bar for "Your agents" (agents you made or imported). */
+type OwnTools = {
+  selection: KitSelection;
+  menu: ReturnType<typeof useKitMenu>;
+  actionsFor: (row: OvAgentRow) => KitAction[] | null;
+};
+
+function useOwnAgentTools(own: readonly OvAgentRow[]) {
+  const localize = useLocalizedUiText();
+  const { data: configs } = useAgentConfigs();
+  const createAgent = useCreateAgent();
+  const deleteAgent = useDeleteAgent();
+  const openAgentDetail = useUIStore((s) => s.openAgentDetail);
+  // Only agents with their own settings row can be copied, exported or deleted here; built-ins keep theirs.
+  const configById = useMemo(
+    () => new Map(((configs ?? []) as AgentConfigRow[]).map((config) => [config.id, config])),
+    [configs],
+  );
+  const mine = own.filter((row) => configById.has(row.id));
+  const selection = useKitSelection(mine.map((row) => row.id));
+  const menu = useKitMenu();
+  const exportAgents = async (ids: string[]) => {
+    const picked = ids.map((id) => configById.get(id)).filter((config): config is AgentConfigRow => !!config);
+    if (!picked.length) return;
+    try {
+      const files = createAgentFolderPackageFiles(picked.map(serializeAgentConfig));
+      const filename =
+        picked.length === 1 ? createAgentFolderPackageFilename(picked[0]!.name, "agent") : "marinara-agents.zip";
+      const status = await downloadZipFile(files, filename);
+      if (status === "saved") toast.success(`${localize("Exported")} ${picked.length}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : localize("Export failed"));
+    }
+  };
+  const removeMany = async (ids: string[], names?: string) => {
+    const failed = await kitDelete(ids, (id) => deleteAgent.mutateAsync(id), {
+      noun: localize("agents"),
+      localize,
+      names,
+    });
+    if (failed) selection.set(new Set(failed));
+    if (failed && !failed.length) selection.stop();
+  };
+  const actionsFor = (row: OvAgentRow): KitAction[] | null => {
+    const config = configById.get(row.id);
+    if (!config) return null;
+    return [
+      {
+        key: "dup",
+        label: "Duplicate",
+        icon: <Copy size={14} />,
+        onSelect: () =>
+          void createAgent.mutateAsync(createDuplicateAgentInput(config)).then(
+            (created) => {
+              toast.success(`${localize("Copied")} ${row.name}`);
+              if (created?.id) openAgentDetail(created.id);
+            },
+            (error: unknown) => toast.error(error instanceof Error ? error.message : localize("Couldn't duplicate")),
+          ),
+      },
+      { key: "export", label: "Export", icon: <Upload size={14} />, onSelect: () => void exportAgents([row.id]) },
+      { key: "select", label: "Select", icon: <CheckSquare size={14} />, onSelect: () => selection.start(row.id) },
+      {
+        key: "delete",
+        label: "Delete",
+        icon: <Trash2 size={14} />,
+        danger: true,
+        onSelect: () => void removeMany([row.id], `"${row.name}"`),
+      },
+    ];
+  };
+  const bulkActions: KitAction[] = [
+    { key: "export", label: "Export", icon: <Upload size={14} />, onSelect: () => void exportAgents(selection.list) },
+    {
+      key: "delete",
+      label: "Delete",
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onSelect: () => void removeMany(selection.list),
+    },
+  ];
+  const tools: OwnTools = { selection, menu, actionsFor };
+  return { tools, bulkActions, count: mine.length };
+}
 
 type Tab = "installed" | "available" | "updates";
 type SortKey = "section" | "name" | "featured";
@@ -352,6 +470,8 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
         : ownAgents.filter((row) => !needle || `${row.name} ${row.description ?? ""}`.toLowerCase().includes(needle)),
     [needle, ownAgents, section, tab],
   );
+  const own = useOwnAgentTools(visibleOwn);
+  const agentImport = useAgentImportFlow({ toasts: true });
   const installedCount = all.filter((entry) => installedById.has(entry.manifest.id)).length + ownAgents.length;
   const onInstalled = tab === "installed";
 
@@ -425,7 +545,17 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
             {installedCount} {localize("installed")} · {all.length} {localize("available")}
           </span>
         </h1>
+        {own.count > 0 ? <KitSelectButton selection={own.tools.selection} /> : null}
         <KitsMenu kits={props.kits} onInstallKit={props.onInstallKit} />
+        <button
+          type="button"
+          className={cn("ov-btn ov-btn--icon", !agentImport.enabled && "is-muted")}
+          aria-label={localize("Import agents")}
+          title={agentImport.enabled ? localize("Import agents") : agentImport.disabledHelp}
+          onClick={() => void agentImport.choose()}
+        >
+          <Download size={15} aria-hidden="true" />
+        </button>
         <button
           type="button"
           className="ov-btn ov-btn--icon"
@@ -557,7 +687,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
               <h3 className="ov-org-gallery__head">{localize("Your agents")}</h3>
               <div className="ov-org-gallery__grid">
                 {visibleOwn.map((row) => (
-                  <OwnCard key={row.id} row={row} />
+                  <OwnCard key={row.id} row={row} tools={own.tools} />
                 ))}
               </div>
             </section>
@@ -586,7 +716,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
               </tr>
             </thead>
             <tbody>
-              {visibleOwn.length > 0 ? <OwnRows rows={visibleOwn} /> : null}
+              {visibleOwn.length > 0 ? <OwnRows rows={visibleOwn} tools={own.tools} /> : null}
               {groups.map((group) => (
                 <GroupRows key={group.id ?? "all"} id={group.id} rows={group.rows} settings={onInstalled} />
               ))}
@@ -594,6 +724,10 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
           </table>
         </div>
       )}
+      <KitBulkBar selection={own.tools.selection} actions={own.bulkActions} />
+      {own.tools.menu.node}
+      {agentImport.inputs}
+      {agentImport.dialogs}
     </section>
   );
 }
@@ -632,9 +766,13 @@ function ownRunsLabel(row: OvAgentRow) {
 }
 
 /** Agents the user made or imported: no catalog entry, so they open straight into their settings. */
-function OwnRows({ rows }: { rows: readonly OvAgentRow[] }) {
+function OwnRows({ rows, tools }: { rows: readonly OvAgentRow[]; tools: OwnTools }) {
   const localize = useLocalizedUiText();
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
+  const activate = (row: OvAgentRow) => {
+    if (tools.selection.on && tools.actionsFor(row)) tools.selection.toggle(row.id);
+    else if (!tools.selection.on) openAgentDetail(row.id);
+  };
   return (
     <>
       <tr className="ov-org__group">
@@ -645,51 +783,84 @@ function OwnRows({ rows }: { rows: readonly OvAgentRow[] }) {
           </span>
         </td>
       </tr>
-      {rows.map((row) => (
-        <tr
-          key={row.id}
-          data-ov-org-row
-          tabIndex={0}
-          onClick={() => openAgentDetail(row.id)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") openAgentDetail(row.id);
-          }}
-        >
-          <td>
-            <span className="ov-org__name">
-              <Thumb id={row.id} src={row.imagePath} />
-              <b>{row.name}</b>
-            </span>
-          </td>
-          <td className="ov-org__dim">{row.description || "—"}</td>
-          <td className="ov-org__dim">{localize(ownRunsLabel(row))}</td>
-          <td className="ov-org__dim">—</td>
-          <td className="ov-org__actcell">
-            <button type="button" className="ov-org__act is-quiet">
-              {localize("Edit")}
-            </button>
-          </td>
-        </tr>
-      ))}
+      {rows.map((row) => {
+        const actions = tools.actionsFor(row);
+        const checked = tools.selection.has(row.id);
+        return (
+          <tr
+            key={row.id}
+            data-ov-org-row
+            tabIndex={0}
+            className={cn(checked && "is-selected")}
+            onClick={() => activate(row)}
+            onContextMenu={actions ? (event) => tools.menu.openFromEvent(event, row.name, actions) : undefined}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") activate(row);
+            }}
+          >
+            <td>
+              <span className="ov-org__name">
+                {tools.selection.on && actions ? <KitCheck checked={checked} label={row.name} /> : null}
+                <Thumb id={row.id} src={row.imagePath} />
+                <b>{row.name}</b>
+              </span>
+            </td>
+            <td className="ov-org__dim">{row.description || "—"}</td>
+            <td className="ov-org__dim">{localize(ownRunsLabel(row))}</td>
+            <td className="ov-org__dim">—</td>
+            <td className="ov-org__actcell">
+              <button type="button" className="ov-org__act is-quiet">
+                {localize("Edit")}
+              </button>
+              {actions ? (
+                <KitMoreButton
+                  label={localize("More actions")}
+                  onOpen={(event) => tools.menu.openFromEvent(event, row.name, actions, "button")}
+                />
+              ) : null}
+            </td>
+          </tr>
+        );
+      })}
     </>
   );
 }
 
-function OwnCard({ row }: { row: OvAgentRow }) {
+function OwnCard({ row, tools }: { row: OvAgentRow; tools: OwnTools }) {
   const localize = useLocalizedUiText();
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
+  const actions = tools.actionsFor(row);
+  const checked = tools.selection.has(row.id);
+  const activate = () => {
+    if (tools.selection.on && actions) tools.selection.toggle(row.id);
+    else if (!tools.selection.on) openAgentDetail(row.id);
+  };
   return (
     <div
-      className="ov-org-card"
+      className={cn("ov-org-card", checked && "is-selected")}
       data-ov-org-row
       role="button"
       tabIndex={0}
-      onClick={() => openAgentDetail(row.id)}
+      onClick={activate}
+      onContextMenu={actions ? (event) => tools.menu.openFromEvent(event, row.name, actions) : undefined}
       onKeyDown={(event) => {
-        if (event.key === "Enter") openAgentDetail(row.id);
+        if (event.key === "Enter") activate();
       }}
     >
-      <div className="ov-org-card__art ov-org-card__art--own" style={{ background: swatch(row.id) }} />
+      <div className="ov-org-card__art ov-org-card__art--own" style={{ background: swatch(row.id) }}>
+        {tools.selection.on && actions ? (
+          <span className="ov-card__check">
+            <KitCheck checked={checked} label={row.name} />
+          </span>
+        ) : null}
+        {actions ? (
+          <KitMoreButton
+            className="ov-card__more"
+            label={localize("More actions")}
+            onOpen={(event) => tools.menu.openFromEvent(event, row.name, actions, "button")}
+          />
+        ) : null}
+      </div>
       <div className="ov-org-card__foot">
         <Thumb id={row.id} src={row.imagePath} />
         <span className="ov-org-card__text">

@@ -11,12 +11,43 @@ Open **Library → Characters**. The page shows your characters as portrait card
 - **New character** opens the **Create Character** window, blank or from a template. The **New character** card in the grid does the same.
 - **Search characters or tag:name** filters the cards (see [Search](#search)).
 - **Favourites**, **Recently edited** and a chip for each tag narrow the cards. On a phone these are one **Filter** list.
-- The sort menu offers **A to Z**, **Z to A**, **Newest** and **Oldest**.
+- The sort menu offers **A to Z**, **Z to A**, **Newest**, **Oldest** and **My order**.
 - The three size buttons make the cards small, medium or large.
+- **New folder** (the folder icon) and **Select** (the check icon) sit next to the page title.
 
 Click a card to open the character. Its **Chat** button starts a chat with that character. With many characters, click **Load more** at the bottom.
 
-Folders, **Manual order**, the **Favorites first** sort, tag deleting, **Duplicate** and selecting many characters to export or delete are in the classic layout's Characters panel, described below. Switch to it with **New layout** in **Settings → Appearance → Theme**, and back the same way.
+### A card's actions
+
+Hover a card and click **⋯** in its top-left corner, or right-click the card. On a touch screen, press and hold the card. The menu has:
+
+- **Duplicate** makes a copy of the character.
+- **Move to folder** puts the character in a folder, or takes it out with **No folder**.
+- **Export** downloads the character in Marinara's native format.
+- **Select** starts selecting, with this card already picked.
+- **Delete** removes the character after you confirm.
+
+### Your own order
+
+Drag a card and drop it before or after another card. The sort menu switches to **My order** and keeps that order until you pick another sort. Choose **My order** again to go back to it. The classic panel's **Manual order** is the same order.
+
+### Folders
+
+1. Click **New folder** next to the page title. A folder named **unnamed** appears above the cards.
+2. To rename it, click **⋯** on the folder and choose **Rename**.
+3. Drag a card onto the folder, or use **Move to folder** in the card's menu.
+
+Click a folder's name to fold or unfold it. The number next to the name is how many characters it holds. **Delete folder** in the folder's **⋯** menu removes the folder only: its characters move back out to the page.
+
+### Export or delete many characters
+
+1. Click **Select** next to the page title. A check box appears on each card.
+2. Click the cards you want. A bar at the bottom shows how many are selected, with **Select all**.
+3. Choose **Move to folder**, **Export** or **Delete** in the bar.
+
+**Export** downloads one zip named `marinara-characters.zip`. **Delete** asks you to confirm first. Click **X** in the bar or press <kbd>Esc</kbd> to stop selecting.
+
+The **Favorites first** sort and deleting a tag from every character are in the classic layout's Characters panel, described below. Switch to it with **New layout** in **Settings → Appearance → Theme**, and back the same way.
 
 ## In the classic layout: the Characters panel
 
@@ -48,7 +79,7 @@ Ordinary phrase searches still work. The same search works in the full-page Char
 
 ## Sort (classic layout)
 
-The new layout's sort menu has **A to Z**, **Z to A**, **Newest** and **Oldest**. The classic panel's sort dropdown has more:
+The classic panel's sort dropdown has:
 
 | Option | What it does |
 | --- | --- |
@@ -63,7 +94,7 @@ To set a manual order, drag a row up or down, or press <kbd>Alt</kbd>+<kbd>Up</k
 
 ## Folders (classic layout)
 
-Folders group related characters, for example by story or series, so a long list is easier to scan. They are optional.
+Folders group related characters, for example by story or series, so a long list is easier to scan. They are optional, and the new layout shows the same folders.
 
 1. Click **New Folder**. A folder named **unnamed** appears.
 2. Rename it: double-click or double-tap it, or select it and press <kbd>F2</kbd>. Type the new name and press <kbd>Enter</kbd>.
@@ -77,7 +108,7 @@ To move several at once, hold one row and tap other rows with a second finger to
 
 To delete a folder, hover it and click its trash button. A folder with characters asks you to confirm: **Delete "name"? Its N characters will stay in the library and move out of the folder.** An empty folder is removed at once. Deleting a folder never deletes the characters in it.
 
-### Use a folder as a group chat roster
+## Use a folder as a group chat roster
 
 Each folder is also a saved roster for group chats. When you set up a chat with more than one character, **Add from Folder** adds every character in a folder in one step. See [Group Chats and Group Conversations](../chats/group-chats.md).
 

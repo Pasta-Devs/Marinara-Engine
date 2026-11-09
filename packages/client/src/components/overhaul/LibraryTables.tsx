@@ -6,27 +6,79 @@
 // items have pictures, sort) and a dense table. Clicking a row opens its editor.
 // ──────────────────────────────────────────────
 import { placeholderArt } from "../../lib/placeholder-art";
-import { useMemo, useRef, useState, type ReactNode } from "react";
-import { Plus, Search, Download, List, LayoutGrid } from "lucide-react";
+import { Fragment, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import {
+  CheckSquare,
+  Copy,
+  Download,
+  LayoutGrid,
+  List,
+  Plus,
+  Power,
+  PowerOff,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { toast } from "sonner";
 import { BUILT_IN_AGENTS, isAgentConfigDeleted, isRetiredBuiltInAgentId, type Lorebook } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
-import { useLorebooks, useUpdateLorebook } from "../../hooks/use-lorebooks";
-import { usePresets } from "../../hooks/use-presets";
+import {
+  useCreateLorebook,
+  useDeleteLorebook,
+  useLorebooks,
+  useSetLorebooksEnabled,
+  useUpdateLorebook,
+} from "../../hooks/use-lorebooks";
+import { useLibraryOrder } from "../../hooks/use-library-order";
+import { duplicateLorebook } from "../../lib/lorebook-duplicate";
+import { api } from "../../lib/api-client";
+import { useDeletePreset, useDuplicatePreset, usePresets } from "../../hooks/use-presets";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import {
+  useDeleteRegexScript,
   useImportRegexScript,
   useRegexScripts,
+  useReorderRegexScripts,
   useUpdateRegexScript,
   type RegexScriptRow,
 } from "../../hooks/use-regex-scripts";
+import { downloadJsonFile } from "../../lib/download-json";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
 import { cn } from "../../lib/utils";
-import { getImportEntries, getNextRegexOrderBase, normalizeRegexImportEntry } from "../panels/PresetsPanel";
+import {
+  getImportEntries,
+  getNextRegexOrderBase,
+  normalizeRegexImportEntry,
+  serializeRegexScript,
+} from "../panels/PresetsPanel";
+import { insertLibraryItems, type InsertEdge } from "../../lib/library-order";
+import {
+  KitBulkBar,
+  KitCheck,
+  KitFolderHead,
+  KitMoreButton,
+  KitNewFolderButton,
+  KitSelectButton,
+  folderActions,
+  groupByFolder,
+  kitDelete,
+  kitExport,
+  moveToFolderAction,
+  useKitMenu,
+  useKitSelection,
+  useScopeFolders,
+  useKitRowDrag,
+  useSuppressClick,
+  type KitAction,
+  type KitFolder,
+  type KitFolders,
+  type KitSelection,
+} from "./LibraryKit";
 
 // ── Shared pieces ──
 
@@ -89,6 +141,20 @@ function relative(iso: string | null | undefined) {
   return formatRelativeContact(iso) ?? "—";
 }
 
+/** What a page hands ListPage to get Select, "⋯" menus, folders and My order (LibraryKit). */
+export type ListKit<T> = {
+  selection: KitSelection;
+  menu: ReturnType<typeof useKitMenu>;
+  rowTitle: (row: T) => string;
+  rowActions: (row: T) => KitAction[];
+  bulkActions: KitAction[];
+  folders?: KitFolders | null;
+  /** Manual order kind (shared with the classic panels) and its reorder; rows become draggable. */
+  drag?: { kind: string; reorder?: (ids: string[], target: string, edge: InsertEdge, visibleIds: string[]) => void };
+  /** Search or a filter is on: folders with no matching rows step aside. */
+  filtering: boolean;
+};
+
 function ListPage<T extends { id: string }>({
   title,
   actions,
@@ -106,6 +172,7 @@ function ListPage<T extends { id: string }>({
   leading,
   gallery,
   empty,
+  kit,
 }: {
   title: string;
   actions: ReactNode;
@@ -122,8 +189,9 @@ function ListPage<T extends { id: string }>({
   columns: Column<T>[];
   onOpen: (row: T) => void;
   leading?: (row: T) => ReactNode;
-  gallery?: { on: boolean; render: (row: T) => ReactNode };
+  gallery?: { on: boolean; render: (row: T, extra?: GalleryExtra) => ReactNode };
   empty: string;
+  kit?: ListKit<T>;
 }) {
   const localize = useLocalizedUiText();
   // New layout on phones: the filter chips become one dropdown beside + New, the view switch
@@ -131,6 +199,35 @@ function ListPage<T extends { id: string }>({
   const mobile = useOverhaulMobile();
   // Many filters read as one dropdown on desktop too (like Connections' "All kinds"), so the toolbar stays on one line.
   const chipsAsSelect = !!chips?.length && (mobile || chips.length > 3);
+  const suppress = useSuppressClick();
+  const byId = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
+  const openRowMenu = (row: T, at: { x: number; y: number }) =>
+    kit?.menu.open(kit.rowTitle(row), kit.rowActions(row), at);
+  const bindDrag = useKitRowDrag({
+    kind: kit?.drag?.kind ?? "ov-none",
+    reorder: kit?.drag?.reorder,
+    folders: kit?.folders,
+    selection: kit?.selection ?? NO_SELECTION,
+    suppress,
+    onHold: (id) => {
+      const row = byId.get(id);
+      const el = document.querySelector<HTMLElement>(`[data-drag-id="${CSS.escape(id)}"]`);
+      const rect = el?.getBoundingClientRect();
+      if (row) openRowMenu(row, { x: rect?.left ?? 0, y: rect?.bottom ?? 0 });
+    },
+  });
+  const activate = (row: T) => {
+    if (suppress.blocked()) return;
+    if (kit?.selection.on) kit.selection.toggle(row.id);
+    else onOpen(row);
+  };
+  const rowProps = (row: T, folderId: string | null) => ({
+    ...(kit?.drag ? bindDrag(row.id, folderId) : {}),
+    onContextMenu: kit
+      ? (event: ReactMouseEvent<HTMLElement>) => kit.menu.openFromEvent(event, kit.rowTitle(row), kit.rowActions(row))
+      : undefined,
+  });
+  const { groups, loose } = groupByFolder(rows, kit?.folders ?? null, !!kit?.filtering);
   const chipSelect = chips?.length ? (
     <select
       className={cn("ov-select", mobile && "ovm-lp-filter")}
@@ -145,10 +242,75 @@ function ListPage<T extends { id: string }>({
       ))}
     </select>
   ) : null;
+  const selecting = !!kit?.selection.on;
+  const colCount = columns.length + (leading ? 1 : 0) + (selecting ? 1 : 0) + (kit ? 1 : 0);
+  const folderHead = (folder: KitFolder, count: number) =>
+    kit?.folders ? (
+      <KitFolderHead
+        folder={folder}
+        count={count}
+        dragKind={kit.drag?.kind}
+        collapsed={kit.folders.isCollapsed(folder)}
+        onToggle={() => kit.folders!.toggleCollapsed(folder)}
+        onMenu={(event, anchor) =>
+          kit.menu.openFromEvent(event, folder.name, folderActions(kit.folders!, folder), anchor)
+        }
+      />
+    ) : null;
+  const tableRow = (row: T, folderId: string | null) => (
+    <tr
+      key={row.id}
+      tabIndex={0}
+      className={cn(folderId && "is-in-folder", kit?.selection.has(row.id) && "is-selected")}
+      onClick={() => activate(row)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") activate(row);
+      }}
+      {...rowProps(row, folderId)}
+    >
+      {selecting ? (
+        <td className="ov-table__check">
+          <KitCheck checked={kit!.selection.has(row.id)} label={kit!.rowTitle(row)} />
+        </td>
+      ) : null}
+      {leading ? <td className="ov-table__lead">{leading(row)}</td> : null}
+      {columns.map((column) => (
+        <td key={column.key} className={column.className}>
+          {column.render(row)}
+        </td>
+      ))}
+      {kit ? (
+        <td className="ov-table__more">
+          <KitMoreButton
+            label={localize("More actions")}
+            onOpen={(event) => kit.menu.openFromEvent(event, kit.rowTitle(row), kit.rowActions(row), "button")}
+          />
+        </td>
+      ) : null}
+    </tr>
+  );
+  const galleryItem = (row: T, folderId: string | null) => {
+    const extra: GalleryExtra = {
+      selecting,
+      selected: !!kit?.selection.has(row.id),
+      onActivate: () => activate(row),
+      props: rowProps(row, folderId),
+      more: kit ? (
+        <KitMoreButton
+          className="ov-card__more"
+          label={localize("More actions")}
+          onOpen={(event) => kit.menu.openFromEvent(event, kit.rowTitle(row), kit.rowActions(row), "button")}
+        />
+      ) : null,
+    };
+    return gallery!.render(row, extra);
+  };
   return (
     <section className="ov-list" data-component="OverhaulLibraryList">
       <header className="ov-gallery__head">
         <h1>{title}</h1>
+        {kit?.folders ? <KitNewFolderButton folders={kit.folders} /> : null}
+        {kit ? <KitSelectButton selection={kit.selection} /> : null}
         {actions}
         {mobile ? chipSelect : null}
         {mobile ? view : null}
@@ -174,48 +336,80 @@ function ListPage<T extends { id: string }>({
         {mobile ? null : view}
         {toolsEnd}
       </div>
-      {rows.length === 0 ? (
+      {rows.length === 0 && groups.length === 0 ? (
         <p className="ov-list__empty">{empty}</p>
       ) : gallery?.on ? (
-        <div className="ov-gallery__grid">{rows.map((row) => gallery.render(row))}</div>
+        <div className="ov-gallery__grid">
+          {groups.map(({ folder, rows: members }) => (
+            <Fragment key={`folder:${folder.id}`}>
+              <div className="ov-kit-folder-cell">{folderHead(folder, members.length)}</div>
+              {kit?.folders?.isCollapsed(folder) ? null : members.map((row) => galleryItem(row, folder.id))}
+            </Fragment>
+          ))}
+          {groups.length > 0 && loose.length > 0 ? (
+            <div className="ov-kit-folder-cell ov-kit-loose">{localize("Not in a folder")}</div>
+          ) : null}
+          {loose.map((row) => galleryItem(row, null))}
+        </div>
       ) : (
         <div className="ov-table-wrap">
           <table className="ov-table">
             <thead>
               <tr>
+                {selecting ? (
+                  <th className="ov-table__check">
+                    <button
+                      type="button"
+                      onClick={kit!.selection.toggleAll}
+                      aria-label={localize(kit!.selection.allSelected ? "Select none" : "Select all")}
+                    >
+                      <KitCheck checked={kit!.selection.allSelected} label={localize("Select all")} />
+                    </button>
+                  </th>
+                ) : null}
                 {leading ? <th className="ov-table__lead" aria-hidden="true" /> : null}
                 {columns.map((column) => (
                   <th key={column.key} className={column.className}>
                     {localize(column.label)}
                   </th>
                 ))}
+                {kit ? <th className="ov-table__more" aria-hidden="true" /> : null}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  tabIndex={0}
-                  onClick={() => onOpen(row)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") onOpen(row);
-                  }}
-                >
-                  {leading ? <td className="ov-table__lead">{leading(row)}</td> : null}
-                  {columns.map((column) => (
-                    <td key={column.key} className={column.className}>
-                      {column.render(row)}
-                    </td>
-                  ))}
-                </tr>
+              {groups.map(({ folder, rows: members }) => (
+                <Fragment key={`folder:${folder.id}`}>
+                  <tr className="ov-table__folder">
+                    <td colSpan={colCount}>{folderHead(folder, members.length)}</td>
+                  </tr>
+                  {kit?.folders?.isCollapsed(folder) ? null : members.map((row) => tableRow(row, folder.id))}
+                </Fragment>
               ))}
+              {loose.map((row) => tableRow(row, null))}
             </tbody>
           </table>
         </div>
       )}
+      {kit ? <KitBulkBar selection={kit.selection} actions={kit.bulkActions} /> : null}
+      {kit?.menu.node}
     </section>
   );
 }
+
+const NO_SELECTION = {
+  on: false,
+  has: () => false,
+  list: [] as string[],
+} as unknown as KitSelection;
+
+/** Extra bits ListPage hands a gallery tile: selection state, drag/right-click props and the "⋯" button. */
+export type GalleryExtra = {
+  selecting: boolean;
+  selected: boolean;
+  onActivate: () => void;
+  props: Record<string, unknown>;
+  more: ReactNode;
+};
 
 export function ViewSwitch({ gallery, onChange }: { gallery: boolean; onChange: (gallery: boolean) => void }) {
   const localize = useLocalizedUiText();
@@ -292,6 +486,22 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: "name-desc", label: "Z to A" },
 ];
 
+/** Bulk "On or off ›": two choices in one button so the selection bar stays on one line. */
+function onOffAction(set: (enabled: boolean) => void): KitAction {
+  return {
+    key: "onoff",
+    label: "On or off",
+    icon: <Power size={14} />,
+    submenu: [
+      { key: "on", label: "Turn on", icon: <Power size={14} />, onSelect: () => set(true) },
+      { key: "off", label: "Turn off", icon: <PowerOff size={14} />, onSelect: () => set(false) },
+    ],
+  };
+}
+
+type OrderSortKey = SortKey | "custom";
+const ORDER_SORTS: { id: OrderSortKey; label: string }[] = [...SORTS, { id: "custom", label: "My order" }];
+
 function sortRows<T extends { name: string; updatedAt?: string }>(rows: T[], sort: SortKey) {
   const list = [...rows];
   if (sort === "name-asc") return list.sort((a, b) => a.name.localeCompare(b.name));
@@ -317,25 +527,35 @@ function GalleryTile({
   sub,
   src,
   onOpen,
+  extra,
 }: {
   id: string;
   name: string;
   sub: string;
   src?: string | null;
   onOpen: () => void;
+  extra?: GalleryExtra;
 }) {
+  const open = extra?.onActivate ?? onOpen;
   return (
-    <div key={id} className="ov-card">
+    <div key={id} className={cn("ov-card", extra?.selected && "is-selected")} {...(extra?.props ?? {})}>
       <button
         type="button"
         className="ov-card__art ov-card__art--square"
-        onClick={onOpen}
+        onClick={open}
         style={src ? undefined : { background: swatch(id) }}
         aria-label={name}
+        data-drag-surface
       >
         {src ? <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}
+        {extra?.selecting ? (
+          <span className="ov-card__check">
+            <KitCheck checked={extra.selected} label={name} />
+          </span>
+        ) : null}
       </button>
-      <button type="button" className="ov-card__name" onClick={onOpen}>
+      {extra?.more}
+      <button type="button" className="ov-card__name" onClick={open} data-drag-surface>
         {name}
       </button>
       <p className="ov-card__tags">{sub}</p>
@@ -357,12 +577,26 @@ export function LorebooksLanding() {
   const localize = useLocalizedUiText();
   const { data } = useLorebooks();
   const updateLorebook = useUpdateLorebook();
+  const createLorebook = useCreateLorebook();
+  const deleteLorebook = useDeleteLorebook();
+  const setEnabled = useSetLorebooksEnabled();
   const openModal = useUIStore((s) => s.openModal);
   const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
   const [search, setSearch] = useState("");
   const [chip, setChip] = useState("all");
   const [gallery, setGallery] = useState(false);
-  const [sort, setSort] = useState<SortKey>("recent");
+  const order = useLibraryOrder("lorebook");
+  const [baseSort, setBaseSort] = useState<SortKey>("recent");
+  const sort: OrderSortKey = order.active ? "custom" : baseSort;
+  const setSort = (next: OrderSortKey) => {
+    if (next === "custom") order.setActive(true);
+    else {
+      if (order.active) order.setActive(false);
+      setBaseSort(next);
+    }
+  };
+  const folders = useScopeFolders("lorebooks", localize("lorebooks"));
+  const menu = useKitMenu();
 
   const tagFilter = useOverhaulStore((s) => s.lorebookTag);
   const rows = useMemo(() => {
@@ -382,8 +616,70 @@ export function LorebooksLanding() {
         book.tags?.some((tag) => tag.toLowerCase().includes(needle))
       );
     });
-    return sortRows(list, sort);
-  }, [chip, data, search, sort, tagFilter]);
+    return sort === "custom" ? order.orderItems(sortRows(list, "name-asc")) : sortRows(list, sort);
+  }, [chip, data, order, search, sort, tagFilter]);
+  const selection = useKitSelection(rows.map((row) => row.id));
+  const duplicate = async (book: Lorebook) => {
+    try {
+      const id = await duplicateLorebook(book, (input) => createLorebook.mutateAsync(input));
+      toast.success(`${localize("Copied")} ${book.name}`);
+      openLorebookDetail(id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : localize("Couldn't copy the lorebook."));
+    }
+  };
+  const removeMany = async (ids: string[], names?: string) => {
+    const failed = await kitDelete(ids, (id) => deleteLorebook.mutateAsync(id), {
+      noun: localize("lorebooks"),
+      localize,
+      names,
+    });
+    if (failed) selection.set(new Set(failed));
+    if (failed && !failed.length) selection.stop();
+  };
+  const kit: ListKit<Lorebook> = {
+    selection,
+    menu,
+    folders,
+    filtering: !!search.trim() || chip !== "all" || tagFilter !== null,
+    drag: { kind: "lorebook", reorder: order.reorder },
+    rowTitle: (book) => book.name,
+    rowActions: (book) => [
+      { key: "dup", label: "Duplicate", icon: <Copy size={14} />, onSelect: () => void duplicate(book) },
+      moveToFolderAction(folders, () => [book.id], folders.folderOf(book.id)),
+      {
+        key: "export",
+        label: "Export",
+        icon: <Upload size={14} />,
+        onSelect: () => void api.download(`/lorebooks/${book.id}/export?format=native`),
+      },
+      { key: "select", label: "Select", icon: <CheckSquare size={14} />, onSelect: () => selection.start(book.id) },
+      {
+        key: "delete",
+        label: "Delete",
+        icon: <Trash2 size={14} />,
+        danger: true,
+        onSelect: () => void removeMany([book.id], `"${book.name}"`),
+      },
+    ],
+    bulkActions: [
+      moveToFolderAction(folders, () => selection.list, null),
+      onOffAction((enabled) => setEnabled.mutate({ ids: selection.list, enabled })),
+      {
+        key: "export",
+        label: "Export",
+        icon: <Upload size={14} />,
+        onSelect: () => void kitExport("/lorebooks/export-bulk", selection.list, "marinara-lorebooks.zip", localize),
+      },
+      {
+        key: "delete",
+        label: "Delete",
+        icon: <Trash2 size={14} />,
+        danger: true,
+        onSelect: () => void removeMany(selection.list),
+      },
+    ],
+  };
 
   const activeIn = (book: Lorebook) => {
     if (book.isGlobal) return localize("Global");
@@ -422,7 +718,8 @@ export function LorebooksLanding() {
       chip={chip}
       onChip={setChip}
       view={<ViewSwitch gallery={gallery} onChange={setGallery} />}
-      toolsEnd={<SortSelect value={sort} onChange={setSort} options={SORTS} />}
+      toolsEnd={<SortSelect value={sort} onChange={setSort} options={ORDER_SORTS} />}
+      kit={kit}
       rows={rows}
       onOpen={(book) => openLorebookDetail(book.id)}
       leading={(book) => (
@@ -460,9 +757,10 @@ export function LorebooksLanding() {
       ]}
       gallery={{
         on: gallery,
-        render: (book) => (
+        render: (book, extra) => (
           <GalleryTile
             key={book.id}
+            extra={extra}
             id={book.id}
             name={book.name}
             sub={`${localize(LOREBOOK_CATEGORY_LABEL[book.category] ?? book.category)} · ${book.entryCount ?? 0} ${localize("entries")}`}
@@ -481,12 +779,25 @@ export function LorebooksLanding() {
 export function PresetsLanding() {
   const localize = useLocalizedUiText();
   const { data } = usePresets();
+  const duplicatePreset = useDuplicatePreset();
+  const deletePreset = useDeletePreset();
   const openModal = useUIStore((s) => s.openModal);
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
   const [search, setSearch] = useState("");
   const [chip, setChip] = useState("all");
   const [gallery, setGallery] = useState(false);
-  const [sort, setSort] = useState<SortKey>("recent");
+  const order = useLibraryOrder("preset");
+  const [baseSort, setBaseSort] = useState<SortKey>("recent");
+  const sort: OrderSortKey = order.active ? "custom" : baseSort;
+  const setSort = (next: OrderSortKey) => {
+    if (next === "custom") order.setActive(true);
+    else {
+      if (order.active) order.setActive(false);
+      setBaseSort(next);
+    }
+  };
+  const folders = useScopeFolders("presets", localize("presets"));
+  const menu = useKitMenu();
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -495,8 +806,77 @@ export function PresetsLanding() {
       if (!needle) return true;
       return preset.name.toLowerCase().includes(needle) || preset.description?.toLowerCase().includes(needle);
     });
-    return sortRows(list, sort);
-  }, [chip, data, search, sort]);
+    return sort === "custom" ? order.orderItems(sortRows(list, "name-asc")) : sortRows(list, sort);
+  }, [chip, data, order, search, sort]);
+  const selection = useKitSelection(rows.map((row) => row.id));
+  type PresetRow = (typeof rows)[number];
+  const removeMany = async (ids: string[], names?: string) => {
+    const failed = await kitDelete(ids, (id) => deletePreset.mutateAsync(id), {
+      noun: localize("presets"),
+      localize,
+      names,
+    });
+    if (failed) selection.set(new Set(failed));
+    if (failed && !failed.length) selection.stop();
+  };
+  const kit: ListKit<PresetRow> = {
+    selection,
+    menu,
+    folders,
+    filtering: !!search.trim() || chip !== "all",
+    drag: { kind: "preset", reorder: order.reorder },
+    rowTitle: (preset) => preset.name,
+    rowActions: (preset) => [
+      {
+        key: "dup",
+        label: "Duplicate",
+        icon: <Copy size={14} />,
+        onSelect: () =>
+          void duplicatePreset
+            .mutateAsync(preset.id)
+            .then((copy) => {
+              toast.success(`${localize("Copied")} ${preset.name}`);
+              openPresetDetail(copy.id);
+            })
+            .catch((error: unknown) =>
+              toast.error(error instanceof Error ? error.message : localize("Couldn't copy the preset.")),
+            ),
+      },
+      moveToFolderAction(folders, () => [preset.id], folders.folderOf(preset.id)),
+      {
+        key: "export",
+        label: "Export",
+        icon: <Upload size={14} />,
+        onSelect: () => void api.download(`/prompts/${preset.id}/export`),
+      },
+      { key: "select", label: "Select", icon: <CheckSquare size={14} />, onSelect: () => selection.start(preset.id) },
+      {
+        key: "delete",
+        label: "Delete",
+        icon: <Trash2 size={14} />,
+        danger: true,
+        disabled: preset.isDefault,
+        onSelect: () => void removeMany([preset.id], `"${preset.name}"`),
+      },
+    ],
+    bulkActions: [
+      moveToFolderAction(folders, () => selection.list, null),
+      {
+        key: "export",
+        label: "Export",
+        icon: <Upload size={14} />,
+        onSelect: () => void kitExport("/prompts/export-bulk", selection.list, "marinara-presets.zip", localize),
+      },
+      {
+        key: "delete",
+        label: "Delete",
+        icon: <Trash2 size={14} />,
+        danger: true,
+        onSelect: () =>
+          void removeMany(selection.list.filter((id) => !(data ?? []).find((p) => p.id === id)?.isDefault)),
+      },
+    ],
+  };
 
   return (
     <ListPage
@@ -520,7 +900,8 @@ export function PresetsLanding() {
       chip={chip}
       onChip={setChip}
       view={<ViewSwitch gallery={gallery} onChange={setGallery} />}
-      toolsEnd={<SortSelect value={sort} onChange={setSort} options={SORTS} />}
+      toolsEnd={<SortSelect value={sort} onChange={setSort} options={ORDER_SORTS} />}
+      kit={kit}
       rows={rows}
       onOpen={(preset) => openPresetDetail(preset.id)}
       columns={[
@@ -557,9 +938,10 @@ export function PresetsLanding() {
       ]}
       gallery={{
         on: gallery,
-        render: (preset) => (
+        render: (preset, extra) => (
           <GalleryTile
             key={preset.id}
+            extra={extra}
             id={preset.id}
             name={preset.name}
             sub={`${orderCount(preset.sectionOrder)} ${localize("sections")}`}
@@ -618,10 +1000,86 @@ export function useRegexImport() {
   };
 }
 
+/** Duplicate, export, delete and on/off for regex scripts: shared by the list page and the Regex viewer. */
+export function useRegexKitActions(allScripts: RegexScriptRow[], selection: KitSelection) {
+  const localize = useLocalizedUiText();
+  const updateRegex = useUpdateRegexScript();
+  const deleteRegex = useDeleteRegexScript();
+  const importRegex = useImportRegexScript();
+  const exportScripts = (scripts: RegexScriptRow[]) =>
+    void downloadJsonFile(
+      {
+        kind: "marinara.regex-scripts",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        regexScripts: scripts.map(serializeRegexScript),
+      },
+      scripts.length === 1 ? `${scripts[0]!.name || "regex"}.json` : "marinara-regexes.json",
+    );
+  const setEnabledMany = (ids: string[], enabled: boolean) =>
+    void Promise.all(ids.map((id) => updateRegex.mutateAsync({ id, enabled })));
+  const removeMany = async (ids: string[], names?: string) => {
+    const failed = await kitDelete(ids, (id) => deleteRegex.mutateAsync(id), {
+      noun: localize("scripts"),
+      localize,
+      names,
+    });
+    // The open script went away: let the viewer open the first one left.
+    const ui = useUIStore.getState();
+    if (failed && ui.regexDetailId && ids.includes(ui.regexDetailId) && !failed.includes(ui.regexDetailId))
+      ui.closeRegexDetail();
+    if (failed) selection.set(new Set(failed));
+    if (failed && !failed.length) selection.stop();
+  };
+  const rowActions = (script: RegexScriptRow): KitAction[] => [
+    {
+      key: "dup",
+      label: "Duplicate",
+      icon: <Copy size={14} />,
+      onSelect: () => {
+        const entry = normalizeRegexImportEntry(
+          { ...serializeRegexScript(script), name: `${script.name} (Copy)` },
+          getNextRegexOrderBase(allScripts),
+        );
+        if (entry)
+          void importRegex.mutateAsync(entry).then(() => toast.success(`${localize("Copied")} ${script.name}`));
+      },
+    },
+    { key: "export", label: "Export", icon: <Upload size={14} />, onSelect: () => exportScripts([script]) },
+    { key: "select", label: "Select", icon: <CheckSquare size={14} />, onSelect: () => selection.start(script.id) },
+    {
+      key: "delete",
+      label: "Delete",
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onSelect: () => void removeMany([script.id], `"${script.name}"`),
+    },
+  ];
+  const bulkActions: KitAction[] = [
+    onOffAction((enabled) => setEnabledMany(selection.list, enabled)),
+    {
+      key: "export",
+      label: "Export",
+      icon: <Upload size={14} />,
+      onSelect: () => exportScripts(allScripts.filter((script) => selection.has(script.id))),
+    },
+    {
+      key: "delete",
+      label: "Delete",
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onSelect: () => void removeMany(selection.list),
+    },
+  ];
+  return { rowActions, bulkActions };
+}
+
 export function RegexLanding() {
   const localize = useLocalizedUiText();
   const { data } = useRegexScripts();
   const updateRegex = useUpdateRegexScript();
+  const reorderRegex = useReorderRegexScripts();
+  const menu = useKitMenu();
   const openRegexDetail = useUIStore((s) => s.openRegexDetail);
   const fileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
@@ -648,6 +1106,36 @@ export function RegexLanding() {
   }, [chip, data, search, sort]);
 
   const handleImport = useRegexImport();
+  const selection = useKitSelection(rows.map((row) => row.id));
+  const allScripts = useMemo(
+    () => [...((data ?? []) as RegexScriptRow[])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [data],
+  );
+  const regexActions = useRegexKitActions(allScripts, selection);
+  const kit: ListKit<RegexScriptRow> = {
+    selection,
+    menu,
+    filtering: !!search.trim() || chip !== "all",
+    // Run order is the scripts' own order: dragging a row changes it, like the classic panel.
+    drag:
+      sort === "order"
+        ? {
+            kind: "regex",
+            reorder: (ids, target, edge) => {
+              const next = insertLibraryItems(
+                allScripts.map((script) => script.id),
+                ids,
+                target,
+                edge,
+              );
+              reorderRegex.mutate(next);
+            },
+          }
+        : undefined,
+    rowTitle: (script) => script.name,
+    rowActions: regexActions.rowActions,
+    bulkActions: regexActions.bulkActions,
+  };
 
   return (
     <ListPage
@@ -686,6 +1174,7 @@ export function RegexLanding() {
       toolsEnd={
         <SortSelect value={sort} onChange={setSort} options={[{ id: "order", label: "Run order" }, ...SORTS]} />
       }
+      kit={kit}
       rows={rows}
       onOpen={(script) => openRegexDetail(script.id)}
       leading={(script) => {

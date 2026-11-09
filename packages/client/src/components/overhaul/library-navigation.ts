@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // UI overhaul: Library sections and how to open them
 // ──────────────────────────────────────────────
-import { BookOpen, FileText, Link, Puzzle, Regex, Settings, Sparkles, Users, VenetianMask } from "lucide-react";
+import { BookOpen, FileText, Link, Puzzle, Regex, Settings, Sparkles, Users, VenetianMask, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useUIStore, type Panel } from "../../stores/ui.store";
 import { isOverhaulLook, useOverhaulStore, type LibrarySection } from "../../stores/overhaul.store";
@@ -23,6 +23,7 @@ export const LIBRARY_SECTIONS: readonly LibrarySectionEntry[] = [
   { id: "regex", label: "Regex scripts", icon: Regex, group: "library" },
   { id: "connections", label: "Connections", icon: Link, group: "library" },
   { id: "agents", label: "Agents", icon: Sparkles, group: "library" },
+  { id: "tools", label: "Custom tools", icon: Wrench, group: "library" },
   { id: "settings", label: "Settings", icon: Settings, group: "app" },
   { id: "extensions", label: "Extensions", icon: Puzzle, group: "app" },
 ];
@@ -63,7 +64,7 @@ function showLibrarySection(section: LibrarySection) {
     overhaul.setLibraryPage(section);
   }
   // Keep the pane's highlight in step without reopening a closed pane.
-  if (section !== "regex") useUIStore.setState({ rightPanel: section as Panel });
+  if (section !== "regex" && section !== "tools") useUIStore.setState({ rightPanel: section as Panel });
 }
 
 /** The "Library" crumb: shows the Library pane beside whatever is open (nothing is closed). */

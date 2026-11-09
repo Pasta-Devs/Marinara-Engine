@@ -6,8 +6,13 @@
 // portrait opens its editor; the Library pane's tags filter the list.
 // ──────────────────────────────────────────────
 import { placeholderArt } from "../../lib/placeholder-art";
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { toast } from "sonner";
 import {
+  CheckSquare,
+  Copy,
+  Trash2,
+  Upload,
   MessageCircle,
   Plus,
   Search,
@@ -24,6 +29,33 @@ import { cn } from "../../lib/utils";
 import { useOverhaulMobile, useOverhaulStore, type GalleryCardSize } from "../../stores/overhaul.store";
 import { AvatarImage } from "../characters/AvatarImage";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { api } from "../../lib/api-client";
+import { useLibraryOrder } from "../../hooks/use-library-order";
+import {
+  useDeleteCharacter,
+  useDeletePersona,
+  useDuplicateCharacter,
+  useDuplicatePersona,
+} from "../../hooks/use-characters";
+import {
+  KitBulkBar,
+  KitCheck,
+  KitFolderHead,
+  KitMoreButton,
+  KitNewFolderButton,
+  KitSelectButton,
+  folderActions,
+  groupByFolder,
+  kitDelete,
+  kitExport,
+  moveToFolderAction,
+  useCardFolders,
+  useKitMenu,
+  useKitRowDrag,
+  useKitSelection,
+  useSuppressClick,
+  type KitAction,
+} from "./LibraryKit";
 
 export type GalleryCard = {
   id: string;
@@ -38,7 +70,7 @@ export type GalleryCard = {
 };
 
 type QuickFilter = "favorites" | "recent" | null;
-type SortKey = "name-asc" | "name-desc" | "newest" | "oldest";
+type SortKey = "name-asc" | "name-desc" | "newest" | "oldest" | "custom";
 
 /** A stable, pleasant gradient for cards without a picture. */
 function placeholderGradient(id: string) {
@@ -96,8 +128,18 @@ export function CardGallery({
       ),
     [cards],
   );
-  const [sort, setSort] = useState<SortKey>("name-asc");
+  const [baseSort, setBaseSort] = useState<SortKey>("name-asc");
   const singular = kind === "characters" ? "character" : "persona";
+  // My order: drag cards into your own order (shared with the classic panel's manual order).
+  const order = useLibraryOrder(singular);
+  const sort: SortKey = order.active ? "custom" : baseSort;
+  const setSort = (next: SortKey) => {
+    if (next === "custom") order.setActive(true);
+    else {
+      if (order.active) order.setActive(false);
+      setBaseSort(next);
+    }
+  };
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -112,6 +154,8 @@ export function CardGallery({
     list = [...list];
     if (quick === "recent") return list.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
     switch (sort) {
+      case "custom":
+        return order.orderItems(list.sort((a, b) => a.name.localeCompare(b.name)));
       case "name-desc":
         return list.sort((a, b) => b.name.localeCompare(a.name));
       case "newest":
@@ -121,15 +165,176 @@ export function CardGallery({
       default:
         return list.sort((a, b) => a.name.localeCompare(b.name));
     }
-  }, [cards, quick, search, sort, tag]);
+  }, [cards, order, quick, search, sort, tag]);
+
+  // ── Select, ⋯ menus, folders and dragging (like the Lorebooks and Presets pages) ──
+  const isCharacters = kind === "characters";
+  const nounPlural = localize(isCharacters ? "characters" : "personas");
+  const selection = useKitSelection(visible.map((card) => card.id));
+  const menu = useKitMenu();
+  const folders = useCardFolders(kind, localize(isCharacters ? "Characters" : "Personas"));
+  const suppress = useSuppressClick();
+  const duplicateCharacter = useDuplicateCharacter();
+  const duplicatePersona = useDuplicatePersona();
+  const deleteCharacter = useDeleteCharacter();
+  const deletePersona = useDeletePersona();
+  const filtering = !!search.trim() || !!quick || !!tag;
+  const byId = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
+  const exportBase = isCharacters ? "/characters" : "/characters/personas";
+  const removeMany = async (ids: string[], names?: string) => {
+    const failed = await kitDelete(
+      ids,
+      (id) => (isCharacters ? deleteCharacter.mutateAsync(id) : deletePersona.mutateAsync(id)),
+      { noun: nounPlural, localize, names },
+    );
+    if (failed) selection.set(new Set(failed));
+    if (failed && !failed.length) selection.stop();
+  };
+  const cardActions = (card: GalleryCard): KitAction[] => [
+    {
+      key: "dup",
+      label: "Duplicate",
+      icon: <Copy size={14} />,
+      onSelect: () =>
+        void (isCharacters ? duplicateCharacter.mutateAsync(card.id) : duplicatePersona.mutateAsync(card.id)).then(
+          () => toast.success(`${localize("Copied")} ${card.name}`),
+          (error: unknown) => toast.error(error instanceof Error ? error.message : localize("Couldn't duplicate")),
+        ),
+    },
+    moveToFolderAction(folders, () => [card.id], folders.folderOf(card.id)),
+    {
+      key: "export",
+      label: "Export",
+      icon: <Upload size={14} />,
+      onSelect: () => void api.download(`${exportBase}/${card.id}/export?format=native`),
+    },
+    { key: "select", label: "Select", icon: <CheckSquare size={14} />, onSelect: () => selection.start(card.id) },
+    {
+      key: "delete",
+      label: "Delete",
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onSelect: () => void removeMany([card.id], `"${card.name}"`),
+    },
+  ];
+  const bulkActions: KitAction[] = [
+    moveToFolderAction(folders, () => selection.list, null),
+    {
+      key: "export",
+      label: "Export",
+      icon: <Upload size={14} />,
+      onSelect: () =>
+        void kitExport(
+          `${exportBase}/export-bulk`,
+          selection.list,
+          isCharacters ? "marinara-characters.zip" : "marinara-personas.zip",
+          localize,
+        ),
+    },
+    {
+      key: "delete",
+      label: "Delete",
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onSelect: () => void removeMany(selection.list),
+    },
+  ];
+  const bindDrag = useKitRowDrag({
+    kind: singular,
+    reorder: (ids, target, edge, visibleIds) => order.reorder(ids, target, edge, visibleIds),
+    folders,
+    selection,
+    suppress,
+    onHold: (id) => {
+      const card = byId.get(id);
+      if (card) menu.open(card.name, cardActions(card), { x: 0, y: 0 });
+    },
+  });
+  const activate = (card: GalleryCard) => {
+    if (suppress.blocked()) return;
+    if (selection.on) selection.toggle(card.id);
+    else onOpen(card.id);
+  };
+  const { groups, loose } = groupByFolder(visible, folders, filtering);
 
   const Placeholder = kind === "characters" ? User : VenetianMask;
+
+  const renderCard = (card: GalleryCard, folderId: string | null) => (
+    <div
+      key={card.id}
+      className={cn("ov-card", selection.has(card.id) && "is-selected")}
+      data-card-library-card={card.id}
+      {...bindDrag(card.id, folderId)}
+      onContextMenu={(event) => menu.openFromEvent(event, card.name, cardActions(card))}
+    >
+      <button
+        type="button"
+        className="ov-card__art"
+        onClick={() => activate(card)}
+        // A card with no picture: --mari-card-art-placeholder (any background) replaces the gradient.
+        data-mari-part="card-art"
+        data-placeholder={card.avatarPath ? undefined : ""}
+        style={
+          card.avatarPath
+            ? undefined
+            : { background: `var(--mari-card-art-placeholder, ${placeholderGradient(card.id)})` }
+        }
+        aria-label={card.name}
+        data-drag-surface
+      >
+        {card.avatarPath ? (
+          <AvatarImage
+            src={card.avatarPath}
+            alt=""
+            iconSize="2rem"
+            className="h-full w-full object-cover"
+            style={card.avatarStyle}
+            loading="lazy"
+          />
+        ) : (
+          <Placeholder size={28} className="ov-card__ph" aria-hidden="true" />
+        )}
+        <span className="ov-card__tokens">{card.tokens}</span>
+        {selection.on ? (
+          <span className="ov-card__check">
+            <KitCheck checked={selection.has(card.id)} label={card.name} />
+          </span>
+        ) : null}
+      </button>
+      <KitMoreButton
+        className="ov-card__more"
+        label={localize("More actions")}
+        onOpen={(event) => menu.openFromEvent(event, card.name, cardActions(card), "button")}
+      />
+      {onChat ? (
+        <button
+          type="button"
+          className="ov-card__chat"
+          onClick={() => onChat(card.id)}
+          title={localize("Chat")}
+          aria-label={localize("Chat")}
+        >
+          <MessageCircle size={14} />
+        </button>
+      ) : null}
+      <button type="button" className="ov-card__name" onClick={() => activate(card)} data-drag-surface>
+        {card.name}
+      </button>
+      <p className="ov-card__tags">
+        {card.tags.length
+          ? card.tags.map((tag) => `#${tag}`).join(" ")
+          : localizeUi("ui.overhaul.cardgallery.value1", { value1: localize("Untagged") })}
+      </p>
+    </div>
+  );
 
   return (
     <section className="ov-gallery" data-component="OverhaulCardGallery" data-kind={kind}>
       <header className="ov-gallery__head">
         <h1>{title}</h1>
         {extraHeader}
+        <KitNewFolderButton folders={folders} />
+        <KitSelectButton selection={selection} />
         {onBrowse ? (
           <button
             type="button"
@@ -226,6 +431,7 @@ export function CardGallery({
           <option value="name-desc">{localize("Z to A")}</option>
           <option value="newest">{localize("Newest")}</option>
           <option value="oldest">{localize("Oldest")}</option>
+          <option value="custom">{localize("My order")}</option>
         </select>
         <div className="ov-seg ov-gallery__size" role="group" aria-label={localize("Card size")}>
           {GALLERY_SIZES.map((option) => (
@@ -245,57 +451,27 @@ export function CardGallery({
       </div>
 
       <div className="ov-gallery__grid" data-size={cardSize}>
-        {visible.map((card) => (
-          <div key={card.id} className="ov-card" data-card-library-card={card.id}>
-            <button
-              type="button"
-              className="ov-card__art"
-              onClick={() => onOpen(card.id)}
-              // A card with no picture: --mari-card-art-placeholder (any background) replaces the gradient.
-              data-mari-part="card-art"
-              data-placeholder={card.avatarPath ? undefined : ""}
-              style={
-                card.avatarPath
-                  ? undefined
-                  : { background: `var(--mari-card-art-placeholder, ${placeholderGradient(card.id)})` }
-              }
-              aria-label={card.name}
-            >
-              {card.avatarPath ? (
-                <AvatarImage
-                  src={card.avatarPath}
-                  alt=""
-                  iconSize="2rem"
-                  className="h-full w-full object-cover"
-                  style={card.avatarStyle}
-                  loading="lazy"
-                />
-              ) : (
-                <Placeholder size={28} className="ov-card__ph" aria-hidden="true" />
-              )}
-              <span className="ov-card__tokens">{card.tokens}</span>
-            </button>
-            {onChat ? (
-              <button
-                type="button"
-                className="ov-card__chat"
-                onClick={() => onChat(card.id)}
-                title={localize("Chat")}
-                aria-label={localize("Chat")}
-              >
-                <MessageCircle size={14} />
-              </button>
-            ) : null}
-            <button type="button" className="ov-card__name" onClick={() => onOpen(card.id)}>
-              {card.name}
-            </button>
-            <p className="ov-card__tags">
-              {card.tags.length
-                ? card.tags.map((tag) => `#${tag}`).join(" ")
-                : localizeUi("ui.overhaul.cardgallery.value1", { value1: localize("Untagged") })}
-            </p>
-          </div>
+        {groups.map(({ folder, rows: members }) => (
+          <Fragment key={`folder:${folder.id}`}>
+            <div className="ov-kit-folder-cell">
+              <KitFolderHead
+                folder={folder}
+                count={members.length}
+                dragKind={singular}
+                collapsed={folders.isCollapsed(folder)}
+                onToggle={() => folders.toggleCollapsed(folder)}
+                onMenu={(event, anchor) =>
+                  menu.openFromEvent(event, folder.name, folderActions(folders, folder), anchor)
+                }
+              />
+            </div>
+            {folders.isCollapsed(folder) ? null : members.map((card) => renderCard(card, folder.id))}
+          </Fragment>
         ))}
+        {groups.length > 0 && loose.length > 0 ? (
+          <div className="ov-kit-folder-cell ov-kit-loose">{localize("Not in a folder")}</div>
+        ) : null}
+        {loose.map((card) => renderCard(card, null))}
         <div className="ov-card">
           <button type="button" className="ov-card__art ov-card__art--new" onClick={onNew}>
             <Plus size={22} aria-hidden="true" />
@@ -314,6 +490,8 @@ export function CardGallery({
           </button>
         </div>
       ) : null}
+      <KitBulkBar selection={selection} actions={bulkActions} />
+      {menu.node}
     </section>
   );
 }

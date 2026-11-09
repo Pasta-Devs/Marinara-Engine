@@ -188,7 +188,7 @@ export function getImportEntries(parsed: unknown, envelopeKeys: string[]) {
   return getFolderImportEntries(parsed, envelopeKeys);
 }
 
-function serializeRegexScript(script: RegexScriptRow) {
+export function serializeRegexScript(script: RegexScriptRow) {
   return {
     name: script.name,
     enabled: parseBooleanValue(script.enabled),
