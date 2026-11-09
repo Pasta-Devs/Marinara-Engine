@@ -76,7 +76,7 @@ It is asked like the Built-in model: one yes-or-no word per statement. Statement
 A hosted Decision account sends the selected recent messages and statements to the service and can cost money. Smart response order also sends a [character roster](#what-the-model-sees).
 
 1. Click **Connections** in the top bar, then click **Add**.
-2. Search for **TypeSafe** or **Own decision server**, or click **Decision** in the type chips. For OpenRouter, click **OpenRouter** instead.
+2. Search for **TypeSafe** or **Own decision server**, or click **Text** in the type chips. For OpenRouter, click **OpenRouter** instead.
 3. Enter the **API key**, or for **Own decision server** the **Server address**. Click **Connect**.
 4. Under **Found in TypeSafe — use it for:**, tick **Decision**, then click **Done**. The **Decision** row under **Behind the scenes** in the **Jobs** box now shows the model.
 5. To test it, click the model in the panel to open **Edit model**, then click **Test provider** in the **Provider tests** card. An **Own decision server** model has no **Test provider** button there. Open the account's **⋯** menu in the panel and click **Test** instead.

@@ -68,12 +68,12 @@ A job is something a model does for you. The **Jobs** box lists them in four gro
 | --- | --- |
 | **Chat** | **Main** writes replies in your chats. **Agents** runs the helper agents. **Impersonate** writes as you. |
 | **Omnibar** | **Professor Mari** and **Quick answers**. |
-| **Pictures & sound** | **Images**, **Video**, **Voice (Text to Speech)**, and **Dictation (Speech to Text)** when it is available. |
+| **Pictures & sound** | **Images**, **Video**, **Voice**, and **Dictation** when it is available. |
 | **Behind the scenes** | **Decision**, **Embeddings**, and **Image reading**. |
 
 Each row shows the model doing that job, or what the job does without one, such as **Follows Main** or **Off**. An empty job shows **N models found** with **Pick**, or **None in your accounts** with **Add**. The picker lists the models of every account that fit the job. **Add** opens the **Add account** window and returns you to the job. Click **Jobs** to fold the box.
 
-To change the model for a job, click its row. **Model for** that job opens, except for three rows. **Decision** and **Embeddings** open their own controls (see [Decision Models](decision-models.md) and [Supported AI Providers](providers-reference.md#embeddings)). **Dictation (Speech to Text)** opens speech setup. **Voice** and **Dictation** also have a gear that opens their settings window. Picking a **Voice** model turns text to speech on.
+To change the model for a job, click its row. **Model for** that job opens, except for three rows. **Decision** and **Embeddings** open their own controls (see [Decision Models](decision-models.md) and [Supported AI Providers](providers-reference.md#embeddings)). **Dictation** opens speech setup. **Voice** and **Dictation** also have a gear that opens their settings window. Picking a **Voice** model turns text to speech on.
 
 In **Model for**:
 
