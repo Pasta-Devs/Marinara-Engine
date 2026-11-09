@@ -1579,7 +1579,23 @@ const capabilityPackageManifestBaseSchema = z
 //        embedder, a connection id is that connection's own embedding source (as Connections > Test embedding
 //        resolves it, never the app-wide default), and an unknown id or a connection without embeddings resolves
 //        null. A soft seam: older Engines leave it out, so a package feature-detects it. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 818 } as const);
+// 1.819: a summed check's two named dice (`resolution.duality`): Daggerheart's Hope and Fear, the higher one
+//        recorded as `duality=`, and a tie a critical success. Not a soft seam: an Engine that cannot read
+//        it refuses the whole ruleset file. No permission.
+// 1.820: a pool's special dice (`resolution.hunger`, asked for with `hunger=`) and paired faces
+//        (`resolution.pairs`): Vampire V5's Hunger dice, messy criticals, bestial failures and paired 10s.
+// 1.821: a pool told apart by source (`resolution.groups`, `gear=`) and pushed (`resolution.push`,
+//        `push="true"`): the Year Zero Engine's base, skill and gear dice and their 1s.
+// 1.822: a summed check's plot die (`resolution.plotDie`, `plot="true"`): the Cosmere RPG's complications
+//        and opportunities.
+// 1.823: a summed check's natural total as a critical (`resolution.naturalTotal`) and a band the Game Master
+//        moves (`resolution.tierShift`, `shift="+1"`): Draw Steel's natural 19-20 and double edges.
+// 1.824: how a live pool or plain track is drawn (`display: "bar"`): a fill bar beside its number on the
+//        sheet. Not a soft seam: an Engine that cannot read it refuses the whole ruleset file. No permission.
+// 1.825: a diceless ruleset (`gm.diceless`): the Game Master asks for no checks and judges outcomes from the
+//        sheets by `gm.checkGuidance`. Not a soft seam: an Engine that cannot read it refuses the whole
+//        ruleset file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 825 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

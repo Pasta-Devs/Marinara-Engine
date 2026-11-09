@@ -91,7 +91,9 @@ import {
   Wallpaper,
   Search,
   UserRound,
+  Dices,
 } from "lucide-react";
+import { RoleplayRulesetSettings } from "./RoleplayRulesetWindow";
 import { NEUTRAL_PANEL_SCROLL_AREA, SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { FloatingWindow } from "../ui/FloatingWindow";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
@@ -6658,6 +6660,19 @@ export function ChatSettingsDrawer({
                 }}
               />
               {cardThemingControls}
+            </Section>
+          )}
+
+          {/* Ruleset — a Roleplay chat played by a Game Mode ruleset */}
+          {isRoleplayMode && (
+            <Section
+              id="roleplay-ruleset"
+              style={{ order: CHAT_SETTINGS_ORDER.characters + 1 }}
+              label={localizeUi("chat.settings.ruleset.label")}
+              icon={<Dices size="0.875rem" />}
+              help={localizeUi("chat.settings.ruleset.help")}
+            >
+              <RoleplayRulesetSettings chatId={chat.id} metadata={metadata} />
             </Section>
           )}
 

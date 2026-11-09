@@ -70,6 +70,7 @@ Types that need **Edit trackers**:
 - **Character Tracker**: updates the present characters.
 - **Persona Stats**: updates persona stats, status and inventory.
 - **Custom Tracker**: replaces your custom tracker fields.
+- **Ruleset Sheet Keeper**: records what each reply does to the character sheets in a Roleplay chat played by a ruleset. Use it with **Post-Processing**. See [Let an agent keep the sheets](../roleplay/rulesets.md#let-an-agent-keep-the-sheets).
 - **Game State**: updates world-state style game data.
 
 Other types, each with its own ability:

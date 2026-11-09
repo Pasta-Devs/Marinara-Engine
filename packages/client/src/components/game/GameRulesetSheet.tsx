@@ -72,6 +72,20 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { DraftTextarea } from "../ui/DraftTextarea";
 
 const cardClass = "rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5";
+
+/** A pool's or plain track's fill bar, where the ruleset draws it as one (1.824). The number beside it
+ *  already says the value, so the bar is decoration for a glance and stays out of the reading order. */
+function SheetFillBar({ value, min, max }: { value: number; min: number; max: number }) {
+  const share = max > min ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0;
+  return (
+    <div aria-hidden="true" className="h-1.5 w-full basis-full overflow-hidden rounded-full bg-[var(--muted)]">
+      <div
+        className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-300"
+        style={{ width: `${share * 100}%` }}
+      />
+    </div>
+  );
+}
 const labelClass = "text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]";
 const stepButtonClass =
   "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40";
@@ -301,10 +315,15 @@ function RulesetSheetListView({
 }) {
   const text = useRulesetText();
   const display = list.display;
+  const summary = definition.gm.sheetSummary.lists.find((entry) => entry.list === list.id);
+  // The columns the narrator is shown beside each name, so the player reads what it reads; a column
+  // already drawn as the tick is not repeated.
+  const shownColumns = (summary?.columns ?? []).flatMap((id) => {
+    const column = list.columns.find((entry) => entry.id === id);
+    return column && id !== display?.mark ? [column] : [];
+  });
   const nameColumn =
-    definition.gm.sheetSummary.lists.find((entry) => entry.list === list.id)?.nameColumn ??
-    list.pools?.nameColumn ??
-    list.columns.find((column) => column.type === "text")?.id;
+    summary?.nameColumn ?? list.pools?.nameColumn ?? list.columns.find((column) => column.type === "text")?.id;
   const entries = (Array.isArray(rows) ? rows : []).flatMap((raw, index) => {
     if (!raw || typeof raw !== "object") return [];
     const row = raw as Record<string, unknown>;
@@ -317,6 +336,11 @@ function RulesetSheetListView({
         name: name.trim(),
         place: typeof place === "number" && Number.isInteger(place) ? place : undefined,
         marked: display?.mark ? row[display.mark] === true : false,
+        details: shownColumns.flatMap((column) => {
+          const value = row[column.id];
+          if (value === undefined || value === null || value === "" || value === false) return [];
+          return [`${text(column.label)} ${value === true ? yes : String(value)}`];
+        }),
       },
     ];
   });
@@ -346,6 +370,11 @@ function RulesetSheetListView({
                   </span>
                 )}
                 <span className="min-w-0 break-words text-xs text-[var(--foreground)]">{text(entry.name)}</span>
+                {entry.details.length > 0 && (
+                  <span className="ml-auto shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
+                    {entry.details.join(" · ")}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -1089,6 +1118,10 @@ export function GameRulesetSheet({
                           />
                         </div>
                       )}
+                      {!pool.tally &&
+                        definition.sheet.live.pools.find((entry) => entry.id === pool.key)?.display === "bar" && (
+                          <SheetFillBar value={pool.value} min={0} max={pool.max} />
+                        )}
                     </div>
                   ))}
                 </div>
@@ -1155,6 +1188,9 @@ export function GameRulesetSheet({
                             <Plus size={12} aria-hidden="true" />
                           </button>
                         </div>
+                        {definition.sheet.live.tracks.find((entry) => entry.id === track.id)?.display === "bar" && (
+                          <SheetFillBar value={track.value} min={track.min} max={track.max} />
+                        )}
                       </div>
                     ),
                   )}

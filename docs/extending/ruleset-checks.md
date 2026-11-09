@@ -39,6 +39,24 @@ What the resulting number means is the kind's business: `dice-sum` adds it to th
 - `unmodified`: faces of a single die the record marks when the first die shows them (1.136), so tables that treat "an unmodified 66" apart can be applied: `[66, 100]`. The record says `unmodified="66"`, the card says it, and the Game Master is told to apply what the rules say about it.
 - `difficultyLadder`: the difficulties the Game Master is told to pick from. `dc` is the number the total must reach. The Game Master may name a step instead of writing its number, as `difficulty="Hard"`, and the Engine reads the number off the step.
 
+#### Named dice, a plot die and natural totals
+
+Four optional keys cover summed systems whose dice do more than add up. A community ruleset needs nothing; a packaged one declares the Capability API given for each.
+
+```json
+"dice": { "count": 2, "sides": 12 },
+"duality": {
+  "dice": [{ "id": "hope", "label": "Hope" }, { "id": "fear", "label": "Fear" }],
+  "tieIsCritical": true,
+  "text": "With Hope the player gains Hope; with Fear the Game Master gains Fear."
+}
+```
+
+- `duality` (1.819): Daggerheart's Hope and Fear. Two dice of one size, `dice.count` 2, plain faces, no open-ended roll and `advantage` false. The total is their sum plus the modifier, read against the difficulty as usual. The record says which die showed more, `duality="Hope"`, or `duality="tie"`. A tie is a critical success whatever the total, unless `tieIsCritical` is `false`. The first die in `rolls` is the first one named.
+- `plotDie` (1.822): the Cosmere RPG's plot die. `label`, `sides` (2 to 20), `faces` and `text`. Each listed face has a `symbol`, `"complication"`, `"opportunity"` or `null`, and an optional `bonus` added to the total; a face it does not list is blank. The Game Master throws it with `plot="true"`. It is thrown after the check's own dice and is not one of `rolls`: the record says `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`, and the bonus is inside `modifier`, so the dice and the modifier still add up to the total. Cosmere's plot die is `{ "sides": 6, "faces": [{ "face": 1, "symbol": "complication", "bonus": 2 }, { "face": 2, "symbol": "complication", "bonus": 4 }, { "face": 5, "symbol": "opportunity" }, { "face": 6, "symbol": "opportunity" }] }`.
+- `naturalTotal` (1.823): the dice's own total, before anything is added, that is a critical. Draw Steel's natural 19 or 20 on 2d10 is `{ "atLeast": 19 }`; `atMost` is a critical failure. It works on any number of dice, where `naturals` needs one. A critical lands in the band on that critical, or else in the best or the worst band.
+- `tierShift` (1.823): `{ "max": 1, "text": "..." }`. The Game Master moves one check's band with `shift="+1"` or `shift="-1"`, up to `max` bands and never past the ends, after the number is read and before a critical pins its band. It needs `outcomes`. Draw Steel's double edge and double bane are `shift="+1"` and `shift="-1"`; a single edge's +2 is a number, which a condition's modifier adds. The record says `shift="+1"` when the band moved.
+
 ### `dice-pool`: throw the dice and count them
 
 The sheet's number is the **size of the pool**, not a bonus on top of it. A rating of 3 and a trade worth 2 throw five dice. That is the whole trick: no new sheet vocabulary, no new editor, and a system whose ratings are handfuls of dice is written with the same `abilities`, `skills` and `proficiencyTiers` as any other.
@@ -83,10 +101,14 @@ The sheet's number is the **size of the pool**, not a bonus on top of it. A rati
 - `target.from`: optional. Reads each character's target off their sheet, as Lasers & Feelings' Number, which a character picks once (any value reference: an ability, a field, a derived value). It is held to `min`..`max`, and `threshold=` does not move it, because the number is the character's own; a threshold an entry the character used bought still does. The record's `threshold=` says what was used.
 - `stances`: optional. Up to six, each with an `id`, a `label`, `count` (`"below"` or `"above"`) and the `skills` it covers. A check on one of those skills counts the dice **under** the target, or **over** it, instead of at or above it: Lasers & Feelings is a Lasers stance counting below and a Feelings stance counting above, with each skill in one of them. A skill may be in one stance only. Stances leave out `explode`, `double`, `cancel` and `botch`, which are read against "at or above".
 - `exact`: optional. A die showing exactly the target: `label` names it (`"LASER FEELINGS"`), `text` may say what it does at the table, and it counts as one success unless `counts` is `false`. The record carries `exact="N"`, the number of such dice, and the dice card shows it beside the result, so the Game Master can give the player the insight it buys.
+- `pairs`: optional (1.820). `{ "from": 10, "successes": 4 }`: each pair of dice showing `from` or more counts `successes` together instead of two, and a check that succeeds with a pair is a critical success. Vampire V5's paired 10s: two 10s are four successes, three are five. `from` is at or above the highest target, and `double` and `stances` are left out beside it.
+- `hunger`: optional (1.820). Special dice among the pool: `label`, `max` (1 to 10) and `text`. The Game Master asks for them with `hunger="N"`, held to `max` and to the pool; they are the first `N` dice of `rolls`. A critical success with one of them on the critical face (`pairs.from`, or the die's top face) is marked `messy="true"`; a failure with one of them on a 1 is marked `bestial="true"`. No re-throw touches them. What a messy critical or a bestial failure does is the Game Master's to apply.
+- `groups`: optional (1.821). The pool told apart by where its dice come from, up to three: `{ "id": "base", "label": "Base", "from": "ability" }`, `from` being `"ability"`, `"skill"` or `"gear"`. The ability's group holds the ability's dice, the gear group holds the dice the Game Master adds with `gear="N"`, and the skill's group, which every `groups` needs, holds the rest, so a penalty comes off the skill dice first. `rolls` lists them in the order the groups are written. A group counts its 1s unless `banes` is `false`, and the record says each group's dice and 1s: `groups="Base:3:1|Skill:2|Gear:1:0"`.
+- `push`: optional (1.821). `{ "text": "..." }`. The Game Master pushes a roll with `push="true"`: every die that did not succeed is thrown again once, except a 1 its group counts (every 1 where there are no groups). The record says `pushed="N"`, the dice thrown again, and the groups' 1s after the push. The Year Zero Engine's push is `push` beside base, skill and gear groups whose skill group has `"banes": false`.
 
 `cancel` and `botch` faces must be below the lowest target, and every face any of these rules names has to be a face the die has. A rule that could never fire is refused at import rather than found in play.
 
-A pool ruleset is Capability API 1.24 for a packaged ruleset; a `min` on `explode` or `double`, `pool.abilityPlusAbility` and `botch.rule` are 1.37; `reroll` is 1.38; `target.from`, `stances` and `exact` are 1.137. A community ruleset you import is validated by the Engine that reads it, so it needs nothing.
+A pool ruleset is Capability API 1.24 for a packaged ruleset; a `min` on `explode` or `double`, `pool.abilityPlusAbility` and `botch.rule` are 1.37; `reroll` is 1.38; `target.from`, `stances` and `exact` are 1.137; `pairs` and `hunger` are 1.820; `groups` and `push` are 1.821. A community ruleset you import is validated by the Engine that reads it, so it needs nothing.
 
 ### What the Game Master may write on a pool check
 
@@ -95,6 +117,8 @@ A pool ruleset is Capability API 1.24 for a packaged ruleset; a `min` on `explod
 [skill_check: skill="Ward" difficulty="Grim" explode="9"]
 [skill_check: skill="Nerve" dc="1" with="Warmth"]
 [skill_check: skill="Ward" dc="2" reroll="careful"]
+[skill_check: skill="Brawl" dc="3" hunger="2"]
+[skill_check: skill="Force" dc="1" gear="2" push="true"]
 ```
 
 - `dc` is the number of **successes** needed, not a target number. It may be anything from 1 up to the most one roll could ever count: the pool's maximum, doubled when dice can explode, and doubled again when faces count twice.
@@ -104,6 +128,7 @@ A pool ruleset is Capability API 1.24 for a packaged ruleset; a `min` on `explod
 - `difficulty=` names a ladder step in place of `dc=`, on both kinds: its successes (or its difficulty on a sum) and, on a pool, its target. A `dc=` written beside it still wins for the number, and `threshold=` for the target. A name no step answers to, or two steps share, is ignored.
 - `explode=` and `double=` move those rules' faces for this check, and are only offered where the rule has a `min`.
 - `reroll=` names one of your `reroll` entries for this check, and is only offered where you declared any. A name none of them answers to is ignored.
+- `hunger=`, `gear=` and `push=` are offered only where you declared `hunger`, a gear group and `push`.
 
 Each one is held to what your file declares: a value outside the range is pulled back to the nearest end, and an attribute your ruleset does not offer is ignored rather than refusing the check. The saved record then shows what the roll used: the difficulty and the threshold as numbers, the bonus dice after your limits, `with=` only when that ability was swapped in or added, a face only when the check moved it, `reroll=` only when the re-throw it names was the one thrown and threw something, and `complication="true"` when a `halfOrMore` botch went wrong alongside a result. The Engine always throws the dice itself. A pool result the model wrote is replaced, `mode="advantage"` is ignored because the kind has no advantage, and a die the player rolled before the turn does not apply.
 
@@ -243,6 +268,9 @@ These mechanics still need their own resolution kind:
 
 - **Opposed pools** resolve two characters at once; a check has one roller.
 - **Sum pools with a wild die** (as in OpenD6) add the dice up and treat one of them specially.
+- **Mixed dice in one sum** (Daggerheart's advantage d6 beside the duality dice) and pools that mix die sizes. A summed check throws one size, and a pool one.
+
+Named dice, plot dice and natural totals on a summed check, and special dice, pairs, groups and a push on a pool, are modelled: see the keys above.
 
 Both of the things this kind used to leave out are modelled now, and Spending to change a roll below says how. A rule of the system itself, "spend a point for a success" or "spend a point to throw the failures again", is `resolution.spend`. A re-throw the system grants for free when the situation calls for it is `resolution.reroll`, above. One that belongs to something a character picked is `mechanics.check` on a catalog entry, bought with that entry's own cost.
 

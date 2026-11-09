@@ -963,6 +963,10 @@ function renderRulesetSkillCheckLine(
   oneRequestDice: boolean,
   playerIsParty = false,
 ): string {
+  // A diceless ruleset (1.825) is never rolled: the Game Master judges outcomes by its own guidance.
+  if (ruleset.gm.diceless) {
+    return `- This ruleset has no dice. Never write [skill_check] tags and never roll or invent dice; decide each outcome yourself from the character sheets and the story. ${ruleset.gm.checkGuidance}`;
+  }
   const line = renderRulesetKindCheckLine(ruleset, playerDiceRollSubmitted, oneRequestDice, playerIsParty);
   // Checks that roll their own way (1.140), named so the Game Master asks for them like any other.
   const overrides = ruleset.resolution.overrides ?? [];
@@ -1235,6 +1239,35 @@ function renderRulesetKindCheckLine(
         : []),
       ...faceClause("explode", explode, "roll one more die"),
       ...faceClause("double", double, "count twice"),
+      // Paired faces and special dice (1.820), dice groups and a push (1.821), each where declared.
+      ...(resolution.pairs
+        ? [
+            `Each pair of dice showing ${resolution.pairs.from} or more counts ${resolution.pairs.successes} successes, and a check that succeeds with a pair is a critical success.`,
+          ]
+        : []),
+      ...(resolution.hunger
+        ? [
+            `Add hunger="N" to make N of the pool's dice ${resolution.hunger.label} dice, up to ${resolution.hunger.max}; they are never thrown again. The engine marks messy="true" on a critical with a ${resolution.hunger.label} die on the critical face, and bestial="true" on a failure with a ${resolution.hunger.label} die showing 1${resolution.hunger.text ? `: ${resolution.hunger.text}` : "."}`,
+          ]
+        : []),
+      ...(resolution.groups?.some((group) => group.from === "gear")
+        ? [
+            `Add gear="N" for the dice the character's gear adds (${resolution.groups.find((group) => group.from === "gear")!.label}).`,
+          ]
+        : []),
+      ...(resolution.groups?.some((group) => group.banes)
+        ? [
+            `The engine marks groups="..." with each group's dice and how many of ${resolution.groups
+              .filter((group) => group.banes)
+              .map((group) => group.label)
+              .join(", ")} dice show 1; narrate those 1s as the rules say.`,
+          ]
+        : []),
+      ...(resolution.push
+        ? [
+            `When the player pushes a roll, write the check again with push="true": every die that neither succeeded nor shows a counted 1 is thrown once more, and the record says pushed="N"${resolution.push.text ? `. ${resolution.push.text}` : "."}`,
+          ]
+        : []),
       ...withClause,
       ...untrainedClause,
       ...effectsClause,
@@ -1452,6 +1485,38 @@ function renderRulesetKindCheckLine(
     ...untrainedClause,
     ...effectsClause,
     ...outcomesClause("points"),
+    // Two named dice (1.819), the plot die (1.822), a natural total and a moved band (1.823).
+    ...(resolution.duality
+      ? [
+          `The two dice are ${resolution.duality.dice[0].label} and ${resolution.duality.dice[1].label}; the engine marks duality="..." with the one that showed more${
+            resolution.duality.tieIsCritical ? `, or duality="tie", which is a critical success` : `, or duality="tie"`
+          }. Narrate the check as with that die${resolution.duality.text ? `: ${resolution.duality.text}` : "."}`,
+        ]
+      : []),
+    ...(resolution.plotDie
+      ? [
+          `Add plot="true" to throw the ${resolution.plotDie.label} with the check; the engine marks plotFace, plotSymbol (complication or opportunity) and any plotBonus it added${resolution.plotDie.text ? `: ${resolution.plotDie.text}` : "."}`,
+        ]
+      : []),
+    ...(resolution.naturalTotal
+      ? [
+          [
+            resolution.naturalTotal.atLeast !== undefined
+              ? `The dice showing ${resolution.naturalTotal.atLeast} or more before anything is added is a critical success.`
+              : "",
+            resolution.naturalTotal.atMost !== undefined
+              ? `The dice showing ${resolution.naturalTotal.atMost} or less before anything is added is a critical failure.`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
+        ]
+      : []),
+    ...(resolution.tierShift
+      ? [
+          `Add shift="+1" or shift="-1" to move the outcome that many bands better or worse, up to ${resolution.tierShift.max}${resolution.tierShift.text ? `: ${resolution.tierShift.text}` : "."}`,
+        ]
+      : []),
     ...(resolution.unmodified
       ? [
           `A check the engine marks unmodified="N" rolled that face before anything was added or rolled again (${resolution.unmodified.join(", ")}): apply what the rules say about it.`,
@@ -1734,6 +1799,102 @@ export type GmReminderPart = "whole" | "stable" | "turn";
 /** The ruleset rest the player's turn asks for by name ("we take a long rest"), the longest name that
  *  matches when several do, for the turn's reminder (laptop playtest 2026-10-25: a long rest the
  *  player asked for was told with no rest command, and nothing came back). */
+/**
+ * What a Roleplay chat that plays by a ruleset is taught (the Game Master's reminder is for games).
+ * The same check line and sheet commands a game's Game Master learns, and the same clocks, around a
+ * short note on when to ask for a check. The ruleset's Game Master reference goes in too, since in
+ * Roleplay the narrator is the one keeping the rules.
+ */
+export function buildRulesetRoleplayReminder(args: {
+  ruleset: import("@marinara-engine/shared").RulesetDefinition;
+  sheetBlocks: string[];
+  clocks?: RulesetClocks;
+  /** A rest the player asked for by name in this turn. */
+  playerAsksRest?: string;
+  /** A Sheet Keeper agent records the sheet changes from the finished reply, so the narrator only
+   *  reads the sheets and asks for checks. */
+  keeper?: boolean;
+}): string {
+  const { ruleset } = args;
+  const sheetSection = renderRulesetSheetSection(ruleset, args.sheetBlocks, false);
+  const dataStart = sheetSection.indexOf(`<character_sheets>`);
+  const lines = [
+    `<ruleset>`,
+    `RULESET: ${ruleset.name}`,
+    ruleset.gm.diceless
+      ? `This roleplay plays by a diceless tabletop ruleset, and the Engine keeps its character sheets. Judge what characters can do from their sheets.`
+      : `This roleplay plays by a tabletop ruleset, and the Engine keeps its dice and character sheets. When a character tries something uncertain whose outcome matters, do not decide it yourself: write the check tag where the attempt happens. The Engine rolls it from the character's sheet, and you are then given the result to narrate. Ordinary actions that cannot really fail need no check.`,
+    ruleset.gm.diceless ? `OUTCOMES:` : `CHECKS:`,
+    renderRulesetSkillCheckLine(ruleset, false, false, false),
+    ...(args.keeper
+      ? [
+          ``,
+          `CHARACTER SHEETS:`,
+          `Another system reads your finished reply and records what it does to the sheets. Do not write [sheet: ...] or [clock: ...] commands: say plainly in the story what is spent, lost, healed or gained.`,
+          ...(dataStart < 0 ? [] : sheetSection.slice(dataStart)),
+        ]
+      : sheetSection),
+  ];
+  if (args.playerAsksRest && !args.keeper) {
+    lines.push(
+      ``,
+      `THE PLAYER ASKS TO REST:`,
+      `- Their turn asks for a ${args.playerAsksRest}. Unless the story stops it, write [sheet: who="party" op="rest" rest="${args.playerAsksRest}"] in this reply; a rest told without it restores nothing.`,
+    );
+  }
+  if (ruleset.clocks && !args.keeper) {
+    lines.push(
+      ``,
+      `PROGRESS CLOCKS (shared by the scene):`,
+      `Create: [clock: name="Alarm raised" size="${ruleset.clocks.sizes[0]}"]. Allowed sizes: ${ruleset.clocks.sizes.join(", ")}; at most ${ruleset.clocks.max} clocks at once. Existing names are refused (case-insensitive).`,
+      `Tick: [clock: name="Alarm raised" tick="2"]. Negative ticks remove segments; fill is bounded to 0..size. A full clock is done and stays visible until cleared.`,
+      `Clear: [clock: name="Alarm raised" clear]. Commands apply in reply order. Only the Engine writes now/result/reason; a refused command did not happen.`,
+      ...(ruleset.clocks.text ? [ruleset.clocks.text] : []),
+      `Open clocks:`,
+      ...(args.clocks?.length
+        ? args.clocks.map(
+            (clock) => `${clock.name}: ${clock.filled}/${clock.size}${clock.filled === clock.size ? " (done)" : ""}`,
+          )
+        : ["None."]),
+    );
+  }
+  if (ruleset.gmReference) lines.push(``, `RULES REFERENCE:`, ruleset.gmReference);
+  lines.push(`</ruleset>`);
+  return lines.join("\n");
+}
+
+/**
+ * What a Sheet Keeper agent is given: the sheet commands and the sheets as this turn began, and the
+ * job of writing one command for each change the finished reply describes. Its answer is applied by
+ * the Engine exactly as a Game Master's commands are, so it is held to the same grammar.
+ */
+export function buildRulesetSheetKeeperContext(args: {
+  ruleset: import("@marinara-engine/shared").RulesetDefinition;
+  sheetBlocks: string[];
+  clocks?: RulesetClocks;
+}): string {
+  const { ruleset } = args;
+  const lines = [
+    `<ruleset_sheet_keeper>`,
+    `RULESET: ${ruleset.name}`,
+    `You keep the character sheets for a roleplay played by this ruleset. Read the latest reply (and the player's message before it) and write one command for each change it describes to a sheet: points spent, damage taken, healing, a rest, a condition, a clock moved. Write only the commands, one per line, in the order they happen, and nothing else. Settled checks in the reply already paid what they bought; do not charge them again. When nothing changed, answer with nothing.`,
+    ...renderRulesetSheetSection(ruleset, args.sheetBlocks, false),
+  ];
+  if (ruleset.clocks) {
+    lines.push(
+      ``,
+      `PROGRESS CLOCKS (shared by the scene):`,
+      `Create: [clock: name="Alarm raised" size="${ruleset.clocks.sizes[0]}"]. Allowed sizes: ${ruleset.clocks.sizes.join(", ")}; at most ${ruleset.clocks.max} clocks at once. Existing names are refused (case-insensitive).`,
+      `Tick: [clock: name="Alarm raised" tick="2"]. Clear: [clock: name="Alarm raised" clear].`,
+      ...(ruleset.clocks.text ? [ruleset.clocks.text] : []),
+      `Open clocks:`,
+      ...(args.clocks?.length ? args.clocks.map((clock) => `${clock.name}: ${clock.filled}/${clock.size}`) : ["None."]),
+    );
+  }
+  lines.push(`</ruleset_sheet_keeper>`);
+  return lines.join("\n");
+}
+
 export function rulesetRestAskedFor(
   ruleset: Pick<import("@marinara-engine/shared").RulesetDefinition, "rests">,
   text: string,

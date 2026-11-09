@@ -11,10 +11,13 @@ To install an official ruleset such as 5e (SRD 5.1):
 3. Find the ruleset. Rulesets are marked **Rules**.
 4. Select **Install**.
 
-Then start a new game and pick it (see below). Rulesets come from two places:
+Then start a new game and pick it (see below). Rulesets come from three places:
 
 - **Official** rulesets are installed as above.
 - **Community** rulesets are imported from a file or an author's GitHub repository. They are filed by origin, such as `local/ember-roads` or `alice/v20`.
+- **Homemade** rulesets are made with the ruleset builder in a Roleplay chat's **Chat Settings**. They are filed under `local/` like an imported file. See [Make your own ruleset](../roleplay/rulesets.md#make-your-own-ruleset).
+
+Any of these also works in a Roleplay chat. See [Roleplay: Playing by a Ruleset](../roleplay/rulesets.md).
 
 Importing uses the same **Allow custom Agent imports** switch as imported agents. While it is off, imported rulesets are left out of new games, and games that already use one keep working. A game on an imported ruleset always plays on the exact version it was created on. To write your own, see [Writing Game Mode Rulesets](../extending/writing-rulesets.md).
 

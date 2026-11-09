@@ -913,6 +913,8 @@ import { addInventoryEntry, addLocationEntry, upsertQuest, addNpcEntry } from ".
 import { updateJournal } from "../services/generation/game-journal-runtime.js";
 import {
   buildGmFormatReminder,
+  buildRulesetRoleplayReminder,
+  buildRulesetSheetKeeperContext,
   buildGmSceneState,
   insertStableGmInstructions,
   rulesetRestAskedFor,
@@ -2758,6 +2760,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         applyAllSegmentEdits(mappedMessages, chatMeta as Record<string, unknown>, chatMessages);
         // Settled checks read back as what they came to, never as records to copy (after the edits,
         // which find their segments by those records).
+        for (const message of mappedMessages) {
+          if (message.role !== "user") message.content = checkRecordsAsHistoryNotes(message.content);
+        }
+      } else if (chatMode === "roleplay" && chatMeta.gameRuleset != null) {
+        // A Roleplay chat that plays by a ruleset saves its checks the way a game does.
         for (const message of mappedMessages) {
           if (message.role !== "user") message.content = checkRecordsAsHistoryNotes(message.content);
         }
@@ -5292,6 +5299,84 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         let canonicalGamePartyNames: string[] = [];
 
+        // ── Roleplay played by a ruleset ──
+        // A Roleplay chat pinned to a ruleset from its Chat Settings runs the sheet, check and clock
+        // passes a game runs (they key off the pin and the cards, not the mode), and its narrator is
+        // taught them in the prompt tail. Rooms keep their own command allowlist, so they are left out.
+        const roleplayRulesetTurn =
+          chatMode === "roleplay" && chatMeta.gameRuleset != null && !chatMeta.multiplayer && !input.impersonate;
+        let roleplayRulesetReminder = "";
+        // A Sheet Keeper: an agent of this chat whose result is ruleset sheet commands. While one runs,
+        // it records the sheet changes from the finished reply and the narrator only asks for checks.
+        const rulesetSheetKeepers = roleplayRulesetTurn
+          ? resolvedAgents
+              .filter((agent) => resolveAgentResultType(agent) === "ruleset_sheet_commands")
+              .map((agent) => agent.type)
+          : [];
+        let rulesetSheetKeeperContext = "";
+        if (roleplayRulesetTurn) {
+          const pinned = resolveGameRuleset(chatMeta, await loadRulesetRegistry());
+          turnGameRuleset = pinned;
+          if (pinned.status === "ok") {
+            try {
+              const definition = pinned.definition;
+              const sheetMeta = await rulesetAdvancementTurnStart(
+                app.db,
+                input.chatId,
+                chatMeta,
+                input.regenerateMessageId,
+              );
+              const sheetCards = Array.isArray(sheetMeta.gameCharacterCards) ? sheetMeta.gameCharacterCards : [];
+              const startSnapshot = await turnStartRulesetSnapshot();
+              const catalogs =
+                definition.resolution.kind === "dice-pool"
+                  ? (turnRulesetCatalogs ??= await loadTurnRulesetCatalogs(
+                      {
+                        definition,
+                        packageId: pinned.packageId,
+                        cards: sheetCommandCards(definition, sheetCards),
+                        playerName: personaName || null,
+                      },
+                      "",
+                      { force: true },
+                    ))
+                  : {};
+              const latestUserText =
+                input.userMessage ??
+                [...chatMessages].reverse().find((message: any) => message.role === "user")?.content ??
+                "";
+              const sheetBlocks = renderGameRulesetSheetBlocks(
+                definition,
+                sheetCards,
+                parseStoredRulesetLive(startSnapshot?.rulesetLive),
+                catalogs,
+                undefined,
+                sheetMeta.gamePartySheet,
+                personaName || null,
+              );
+              const clocks = definition.clocks ? parseStoredRulesetClocks(startSnapshot?.rulesetClocks) : undefined;
+              roleplayRulesetReminder = buildRulesetRoleplayReminder({
+                ruleset: definition,
+                sheetBlocks,
+                clocks,
+                playerAsksRest: rulesetRestAskedFor(definition, String(latestUserText).trimStart()),
+                keeper: rulesetSheetKeepers.length > 0,
+              });
+              if (rulesetSheetKeepers.length > 0) {
+                rulesetSheetKeeperContext = buildRulesetSheetKeeperContext({
+                  ruleset: definition,
+                  sheetBlocks,
+                  clocks,
+                });
+              }
+            } catch (err) {
+              logger.warn(err, "[generate/roleplay] Could not build the ruleset reminder for chat %s", input.chatId);
+            }
+          } else {
+            logger.warn("[generate/roleplay] Chat %s is pinned to a ruleset that is not available", input.chatId);
+          }
+        }
+
         // ── One-request dice: the roll_dice split (#6215) ──
         // Resolved here, above the GM format reminder, because the reminder has to describe the
         // tool exactly when the turn offers it. Both facts below are read twice: once by the
@@ -6923,6 +7008,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             aboutMeState.push({ characterId: char.id, name: char.name, publicAboutMe, chatAboutMe });
           }
           agentContext.memory._aboutMeState = aboutMeState;
+        }
+
+        // The Sheet Keeper's ruleset and sheets, read only by the agents whose result is sheet commands.
+        if (rulesetSheetKeeperContext) {
+          agentContext.memory._rulesetSheetAgents = rulesetSheetKeepers;
+          agentContext.memory._rulesetSheetContext = rulesetSheetKeeperContext;
         }
 
         // If the background agent is enabled, load available backgrounds + tags into context
@@ -9239,16 +9330,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             appendRoleplayPromptTail(
               preparedMessagesForGen,
               roleplayPersonalContext,
-              buildRoleplayCommandsReminder({
-                metadata: chatMeta,
-                privateAvailable: roleplayPrivateAvailable,
-                availableAgentIds: new Set(resolvedAgents.map((agent) => agent.type)),
-                format: wrapFormat,
-                characterNames: charInfo.map((character) => character.name),
-                characterId: roleplayCallerId,
-                interruptAvailable: Boolean(roleplayInterruptionTarget),
-                video: roleplayVideoOffer,
-              }),
+              [
+                buildRoleplayCommandsReminder({
+                  metadata: chatMeta,
+                  privateAvailable: roleplayPrivateAvailable,
+                  availableAgentIds: new Set(resolvedAgents.map((agent) => agent.type)),
+                  format: wrapFormat,
+                  characterNames: charInfo.map((character) => character.name),
+                  characterId: roleplayCallerId,
+                  interruptAvailable: Boolean(roleplayInterruptionTarget),
+                  video: roleplayVideoOffer,
+                }),
+                roleplayRulesetReminder,
+              ]
+                .filter(Boolean)
+                .join("\n\n"),
               wrapFormat,
             );
           }
@@ -10195,7 +10291,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           // Resolve this new segment before content_replace and persistence.
           // A continuation's already-saved segment is never rolled again.
-          if (chatMode === "game" && !input.impersonate) {
+          // A diceless ruleset (1.825) is never rolled, not even a check the model wrote anyway.
+          const turnDiceless = turnGameRuleset?.status === "ok" && turnGameRuleset.definition.gm.diceless === true;
+          if ((chatMode === "game" || roleplayRulesetTurn) && !input.impersonate && !turnDiceless) {
             // The sighted pool is handed to BOTH readers and to nobody else. It is what tells
             // a record the model just wrote apart from one read back out of a saved message:
             // the two are the same bytes, so the distinction is carried out of band rather
@@ -10269,10 +10367,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             // A defined intro stays as set: its rolls are recorded, its text is not rewritten around them.
             if (
               definedIntro?.mode !== "defined" &&
-              shouldNarrateGameDiceOutcome(
-                chatMeta,
-                Boolean(rolled.resolved || rolled.untrained || rolled.unknownRoller || generalRolls.rolled),
-              )
+              // One-request dice (a game's default) settles a roll inside the draft; Roleplay has no such
+              // pass, so a ruleset chat always narrates what its dice did, unless its narration is off.
+              (roleplayRulesetTurn
+                ? chatMeta.gameDiceOutcomeNarration !== false &&
+                  Boolean(rolled.resolved || rolled.untrained || rolled.unknownRoller || generalRolls.rolled)
+                : shouldNarrateGameDiceOutcome(
+                    chatMeta,
+                    Boolean(rolled.resolved || rolled.untrained || rolled.unknownRoller || generalRolls.rolled),
+                  ))
             ) {
               // The first draft predates these results. Rewrite it with the real
               // outcomes in context, including on providers without a tools API.
@@ -10309,7 +10412,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   draftTurn,
                   {
                     role: "user",
-                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) - (rolled.unknownRoller?.count ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}${rolled.unknownRoller ? "\nSome checks were not rolled because they did not name one party member: leave their outcome open; ask again next turn with who= set to the party member's name." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${rewriteKeptCommandsNote(chatMeta.gameRuleset != null)} ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: any planning goes inside one <think>...</think> block at the very start, never in the narration.`,
+                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) - (rolled.unknownRoller?.count ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}${rolled.unknownRoller ? "\nSome checks were not rolled because they did not name one party member: leave their outcome open; ask again next turn with who= set to the party member's name." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${rewriteKeptCommandsNote(chatMeta.gameRuleset != null)} ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : roleplayRulesetTurn ? "Return only the complete revised reply, starting directly with it" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: any planning goes inside one <think>...</think> block at the very start, never in the narration.`,
                   },
                 ],
                 { tools: undefined },
@@ -10409,7 +10512,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           let rulesetSheetTurn: GameRulesetSheetTurn | null = null;
           // Kept for the inventory tags below, which use items onto the same sheets.
           let turnSheetContext: GameRulesetSheetContext | null = null;
-          if (chatMode === "game" && !input.impersonate && chatMeta.gameRuleset != null) {
+          if ((chatMode === "game" || roleplayRulesetTurn) && !input.impersonate && chatMeta.gameRuleset != null) {
             // Purchases the checks above already paid for, folded onto the turn's starting state
             // one character at a time, so a member nobody spent for is untouched.
             const withSpends = (base: RulesetLiveStates | null) =>
@@ -14313,6 +14416,69 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               } catch (err) {
                 logger.error(err, "[generate] Failed to apply custom tracker update");
+              }
+            }
+
+            // Sheet Keeper → apply its sheet and clock commands to this turn's row, as a Game Master's are
+            if (
+              result.success &&
+              result.type === "ruleset_sheet_commands" &&
+              chatMeta.gameRuleset != null &&
+              customAgentCanApplyResult(result, resolvedAgents, builtInAgentTypes, "edit_trackers")
+            ) {
+              try {
+                const commands = String((result.data as { text?: unknown } | null)?.text ?? "").trim();
+                const sheetContext = commands
+                  ? await loadGameRulesetSheetContext(app.db, input.chatId, turnGameRuleset, input.regenerateMessageId)
+                  : null;
+                if (sheetContext) {
+                  // What this turn already left on the sheets (the narrator's checks and any commands it
+                  // wrote), so the keeper's changes land on top of them and never start the turn again.
+                  let snap = await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex);
+                  if (!snap) {
+                    await gameStateStore.updateByMessage(messageId, targetSwipeIndex, input.chatId, {}, undefined, {
+                      baseSnapshot: trackerBaseGameStateSnapshot,
+                    });
+                    snap = await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex);
+                  }
+                  const keeperTurn = applyGameRulesetSheetTurn(
+                    sheetContext,
+                    commands,
+                    parseStoredRulesetLive(snap?.rulesetLive),
+                    await loadTurnRulesetCatalogs(sheetContext, commands),
+                  );
+                  const keeperClocks = sheetContext.definition.clocks
+                    ? applyClockCommandTags(
+                        keeperTurn.content,
+                        sheetContext.definition,
+                        parseStoredRulesetClocks(snap?.rulesetClocks),
+                      ).clocks
+                    : undefined;
+                  const keeperPatch = {
+                    ...(keeperTurn.live ? { rulesetLive: keeperTurn.live } : {}),
+                    ...(keeperClocks !== undefined ? { rulesetClocks: keeperClocks } : {}),
+                  };
+                  if (Object.keys(keeperPatch).length > 0) {
+                    await gameStateStore.updateByMessage(messageId, targetSwipeIndex, input.chatId, keeperPatch);
+                    sendSseEvent(reply, { type: "game_state_patch", data: keeperPatch });
+                  }
+                  // Permanent changes (a level, a new feature) and their undo record, as a turn saves them.
+                  await saveGameRulesetAdvancement(
+                    app.db,
+                    input.chatId,
+                    messageId,
+                    targetSwipeIndex,
+                    sheetContext.definition,
+                    keeperTurn,
+                  );
+                  logger.debug(
+                    "[roleplay/sheet-keeper] Applied commands for chat %s: %s",
+                    input.chatId,
+                    keeperTurn.content,
+                  );
+                }
+              } catch (err) {
+                logger.error(err, "[generate] Failed to apply the Sheet Keeper's commands");
               }
             }
 
