@@ -100,7 +100,13 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
       {/* Avatar column */}
       <div
         data-mari-part="avatar"
-        className={cn("mari-message-avatar w-10 flex-shrink-0", shouldHideUserAvatar && "hidden")}
+        // Centred against the name + first line: the column stretches with the
+        // body but stops at about two lines, so a one-line message gets the
+        // avatar in the middle and a long one keeps it up by the name.
+        className={cn(
+          "mari-message-avatar flex max-h-[3.25em] w-10 flex-shrink-0 flex-col justify-center self-stretch",
+          shouldHideUserAvatar && "hidden",
+        )}
       >
         {!isGrouped && (
           <>

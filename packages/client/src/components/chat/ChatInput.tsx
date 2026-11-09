@@ -2092,15 +2092,16 @@ export const ChatInput = memo(function ChatInput({
           className="hidden"
           onChange={handleFileUpload}
         />
-        {/* Paperclip + quick switchers share one tight group, so the gap after the
-            paperclip matches the gap between the switchers (and emoji/send). */}
+        {/* Paperclip + quick switchers share one tight group. The paperclip glyph is
+            narrow, so on desktop its button is narrower and tucked in: the empty
+            space after it then matches link-to-persona and emoji-to-send. */}
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={!activeChatId || isInputBusy}
             className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-xl transition-all active:scale-90 disabled:cursor-not-allowed disabled:text-foreground/25 disabled:opacity-50 sm:h-8 sm:w-8",
+              "flex h-9 w-9 items-center justify-center rounded-xl transition-all active:scale-90 disabled:cursor-not-allowed disabled:text-foreground/25 disabled:opacity-50 sm:-mr-1 sm:h-8 sm:w-6",
               attachments.length
                 ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                 : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
