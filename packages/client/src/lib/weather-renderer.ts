@@ -213,20 +213,27 @@ function jagged(x: number, y: number, dx: number, length: number, steps: number,
 
 /**
  * A new forked bolt for one flash. It strikes down one SIDE of the screen (8-28% or 72-92% across), never the
- * middle, so it doesn't cross the chat text, and it reaches 45-75% of the height.
+ * middle, so it doesn't cross the chat text, and it reaches 55-90% of the height. Two to four forks branch off
+ * the trunk, and a long fork can split once more, so it reads as a real branching strike, not a crack.
  */
 export function createWeatherBolt(width: number, height: number, random: () => number = Math.random): WeatherBolt {
   const left = random() < 0.5;
   const x = width * (left ? 0.08 + random() * 0.2 : 0.72 + random() * 0.2);
-  const length = height * (0.45 + random() * 0.3);
+  const length = height * (0.55 + random() * 0.35);
   const lean = (left ? -1 : 1) * random() * 0.25;
-  const trunk = jagged(x, -4, lean, length, 9 + Math.floor(random() * 4), random);
+  const trunk = jagged(x, -4, lean, length, 11 + Math.floor(random() * 4), random);
   const forks: WeatherBolt["forks"] = [];
-  const forkCount = 1 + Math.floor(random() * 2);
+  const forkCount = 2 + Math.floor(random() * 3);
   for (let f = 0; f < forkCount; f += 1) {
     const from = trunk[2 + Math.floor(random() * (trunk.length - 5))]!;
     const side = random() < 0.5 ? -1 : 1;
-    forks.push(jagged(from[0], from[1], side * (0.5 + random() * 0.4), length * (0.18 + random() * 0.17), 4, random));
+    const forkLength = length * (0.18 + random() * 0.22);
+    const fork = jagged(from[0], from[1], side * (0.5 + random() * 0.4), forkLength, 5, random);
+    forks.push(fork);
+    if (forkLength > length * 0.28 && random() < 0.6) {
+      const twig = fork[2]!;
+      forks.push(jagged(twig[0], twig[1], -side * (0.3 + random() * 0.4), forkLength * 0.45, 3, random));
+    }
   }
   return { trunk, forks };
 }
@@ -273,13 +280,16 @@ export function drawWeatherBolt(ctx: WeatherCanvasContext, bolt: WeatherBolt | n
   const strength = Math.min(1, alpha * 1.7);
   ctx.save();
   if (!look.flat && look.pixel <= 1) {
-    // Soft glow first, then the bright core.
-    ctx.globalAlpha = strength * 0.35;
+    // A wide faint halo, a tighter glow, then the bright core, so the bolt reads as light, not a line.
+    ctx.globalAlpha = strength * 0.16;
+    strokeBolt(ctx, bolt.trunk, look, 18 * look.bolt, color);
+    for (const fork of bolt.forks) strokeBolt(ctx, fork, look, 10 * look.bolt, color);
+    ctx.globalAlpha = strength * 0.45;
     strokeBolt(ctx, bolt.trunk, look, 7 * look.bolt, color);
     for (const fork of bolt.forks) strokeBolt(ctx, fork, look, 4 * look.bolt, color);
   }
   ctx.globalAlpha = strength;
-  strokeBolt(ctx, bolt.trunk, look, 2.2 * look.bolt, look.pixel > 1 ? color : "255,255,255");
+  strokeBolt(ctx, bolt.trunk, look, 2.6 * look.bolt, look.pixel > 1 ? color : "255,255,255");
   ctx.globalAlpha = strength * 0.85;
   for (const fork of bolt.forks) strokeBolt(ctx, fork, look, 1.3 * look.bolt, look.pixel > 1 ? color : "255,255,255");
   ctx.restore();

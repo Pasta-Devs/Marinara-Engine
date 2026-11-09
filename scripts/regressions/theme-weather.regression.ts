@@ -134,11 +134,16 @@ assert.equal(readThemeWeatherTokens(style({ "--mari-weather-lightning-bolt": "9"
 assert.equal(readThemeWeatherTokens(style({ "--mari-weather-lightning-bolt": "none" })), null);
 for (let seed = 0; seed < 50; seed += 1) {
   let n = seed + 1;
-  const random = () => ((n = (n * 16807) % 2147483647) / 2147483647);
+  const random = () => (n = (n * 16807) % 2147483647) / 2147483647;
   const bolt = createWeatherBolt(1000, 800, random);
   const x = bolt.trunk[0]![0];
   assert.ok((x >= 80 && x <= 280) || (x >= 720 && x <= 920), `bolt starts at a side, not over the text (${x})`);
-  assert.ok(bolt.forks.length >= 1 && bolt.forks.length <= 2);
+  assert.ok(
+    bolt.forks.length >= 2 && bolt.forks.length <= 8,
+    `2-4 forks, each with at most one twig (${bolt.forks.length})`,
+  );
+  const bottom = bolt.trunk[bolt.trunk.length - 1]![1];
+  assert.ok(bottom >= 800 * 0.4, `the bolt reaches well down the screen (${bottom})`);
 }
 calls.length = 0;
 drawWeatherBolt(context, createWeatherBolt(100, 100), { ...look, bolt: 0 }, 0.5);
