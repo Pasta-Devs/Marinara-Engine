@@ -806,6 +806,21 @@
   :root[data-overhaul="mobile"] .ov-docs__reader {
     padding: 1rem 1rem 3rem;
   }
+  :root[data-overhaul="mobile"] .ov-docs__find {
+    top: -1rem;
+    margin: -1rem -1rem 0.75rem;
+    padding: 0.25rem 0.5rem 0.25rem 1rem;
+  }
+  :root[data-overhaul="mobile"] .ov-docs__find button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  :root[data-overhaul="mobile"] .ov-docs__content h1 {
+    font-size: 2rem !important;
+  }
+  :root[data-overhaul="mobile"] .ov-docs__group-head {
+    min-height: 2.75rem;
+  }
   :root[data-overhaul="mobile"] .ov-docs__back {
     display: inline-flex;
     height: 2.5rem;

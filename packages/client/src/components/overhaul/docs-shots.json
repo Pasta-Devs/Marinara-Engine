@@ -1,0 +1,324 @@
+{
+  "shots": [
+    {
+      "name": "home-screen",
+      "guide": "home/welcome.md",
+      "heading": "The Home screen at a glance",
+      "alt": "The Home screen in the new layout: chats on the left, recent chats and widgets in the middle, the Library on the right.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "roleplay-chat",
+      "guide": "roleplay/getting-started.md",
+      "heading": "",
+      "alt": "A Roleplay chat with Detective Rook on a rainy street background.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "conversation-chat",
+      "guide": "conversation/getting-started.md",
+      "heading": "",
+      "alt": "A Conversation chat with Juniper Hale, laid out like a messenger.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "game-chat",
+      "guide": "game/getting-started.md",
+      "heading": "",
+      "alt": "A Game Mode chat in the Ember Reach, with Kestrel as the game master.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "chat-settings",
+      "guide": "chats/chat-settings.md",
+      "heading": "Opening Chat Settings",
+      "alt": "Chat Settings open beside a Roleplay chat, from the Chat settings button in the top bar.",
+      "width": 912,
+      "height": 1520
+    },
+    {
+      "name": "selfie-settings",
+      "guide": "conversation/selfies.md",
+      "heading": "Selfie settings",
+      "alt": "Illustrator Settings in a Conversation chat's Chat Settings, with Generated Selfies on and the selfie settings below it.",
+      "width": 912,
+      "height": 1240
+    },
+    {
+      "name": "chat-list",
+      "guide": "chats/managing-chats.md",
+      "heading": "The chat list and mode tabs",
+      "alt": "The chat list with the Convo, Roleplay and Game tabs, search, sort and filter.",
+      "width": 640,
+      "height": 840
+    },
+    {
+      "name": "characters-page",
+      "guide": "characters/library-organization.md",
+      "heading": "",
+      "alt": "The Characters page in the Library, showing the characters as a gallery.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "character-editor",
+      "guide": "characters/creating-and-editing-characters.md",
+      "heading": "The Character Editor at a glance",
+      "alt": "The Character Editor for Detective Rook: portrait and sections on the left, the card's fields on the right.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "personas-page",
+      "guide": "characters/personas.md",
+      "heading": "The Personas page",
+      "alt": "The Personas page in the Library.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "persona-editor",
+      "guide": "characters/personas.md",
+      "heading": "The Persona Editor",
+      "alt": "The Persona Editor for the persona Nova.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "lorebooks-page",
+      "guide": "lorebooks/overview.md",
+      "heading": "The Lorebooks page",
+      "alt": "The Lorebooks page in the Library.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "lorebook-entries",
+      "guide": "lorebooks/entries.md",
+      "heading": "The Entries tab",
+      "alt": "The Saltmere Harbor lorebook open on its entries.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "preset-editor",
+      "guide": "prompts/presets.md",
+      "heading": "The Preset Editor's tabs",
+      "alt": "The Preset Editor with the prompt sections in order.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "regex-page",
+      "guide": "extending/regex-scripts.md",
+      "heading": "Create a regex script",
+      "alt": "The Regex scripts page in the Library.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "connections-page",
+      "guide": "connections/connecting-to-a-provider.md",
+      "heading": "The Connections page",
+      "alt": "The Connections page: your accounts and models, and the model picked for each job.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "settings",
+      "guide": "settings/settings-overview.md",
+      "heading": "Opening Settings",
+      "alt": "Settings open on the General tab, with the other tabs along the side.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "appearance-settings",
+      "guide": "appearance/appearance-settings.md",
+      "heading": "Opening the Appearance settings",
+      "alt": "The Appearance tab in Settings.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "add-account",
+      "guide": "connections/connecting-to-a-provider.md",
+      "heading": "Adding an account",
+      "alt": "Add connection opened on the Connections page, with the kinds of service to pick from.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "agents-page",
+      "guide": "agents/agents-overview.md",
+      "heading": "Install and update agents",
+      "alt": "The Agents page in the Library, with installed agents and the Agent Organizer.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "characters-import",
+      "guide": "characters/import-export.md",
+      "heading": "",
+      "alt": "The Import button on the Characters page.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "lorebook-settings",
+      "guide": "lorebooks/overview.md",
+      "heading": "The Overview tab settings",
+      "alt": "Book settings for the Saltmere Harbor lorebook.",
+      "width": 2240,
+      "height": 1240
+    },
+    {
+      "name": "lorebook-keyword-test",
+      "guide": "lorebooks/entries.md",
+      "heading": "The Keyword test tool",
+      "alt": "The Keyword test tool in the lorebook editor.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "preset-variables",
+      "guide": "prompts/preset-variables.md",
+      "heading": "Adding a preset variable",
+      "alt": "The Variables tab of the Preset Editor.",
+      "width": 2240,
+      "height": 1240
+    },
+    {
+      "name": "preset-parameters",
+      "guide": "prompts/generation-parameters.md",
+      "heading": "Each parameter in plain language",
+      "alt": "The Parameters tab of the Preset Editor.",
+      "width": 2240,
+      "height": 1240
+    },
+    {
+      "name": "chat-settings-persona",
+      "guide": "characters/choosing-your-persona.md",
+      "heading": "From Chat Settings",
+      "alt": "The Persona section of Chat Settings.",
+      "width": 912,
+      "height": 1240
+    },
+    {
+      "name": "chat-settings-lorebooks",
+      "guide": "lorebooks/linking-to-characters.md",
+      "heading": "The Chat Settings Lorebooks section",
+      "alt": "The Lorebooks section of Chat Settings.",
+      "width": 912,
+      "height": 1240
+    },
+    {
+      "name": "chat-branches",
+      "guide": "chats/branches.md",
+      "heading": "The Chat Branches section",
+      "alt": "The Chat Branches section of Chat Settings.",
+      "width": 912,
+      "height": 1240
+    },
+    {
+      "name": "memory-recall",
+      "guide": "agents/memory.md",
+      "heading": "Turning Memory Recall on",
+      "alt": "The Memory Recall section of Chat Settings.",
+      "width": 912,
+      "height": 1240
+    },
+    {
+      "name": "translation-settings",
+      "guide": "integrations/message-translation.md",
+      "heading": "Where to find translation settings",
+      "alt": "The Translation section of Chat Settings.",
+      "width": 912,
+      "height": 600
+    },
+    {
+      "name": "group-chat",
+      "guide": "chats/group-chats.md",
+      "heading": "",
+      "alt": "A group Conversation with Mira Voss and Dr. Vale Okonkwo.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "message-toolbar",
+      "guide": "chats/messages.md",
+      "heading": "The message toolbar",
+      "alt": "The buttons on a message in a Roleplay chat.",
+      "width": 1880,
+      "height": 320
+    },
+    {
+      "name": "slash-menu",
+      "guide": "chats/slash-commands.md",
+      "heading": "How slash commands work",
+      "alt": "Typing / in the message box opens the list of slash commands.",
+      "width": 2240,
+      "height": 1000
+    },
+    {
+      "name": "presence-status",
+      "guide": "conversation/getting-started.md",
+      "heading": "Your presence status",
+      "alt": "The presence status menu at the bottom of the chat list.",
+      "width": 640,
+      "height": 680
+    },
+    {
+      "name": "schedule-manager",
+      "guide": "conversation/schedules.md",
+      "heading": "Turn on schedules",
+      "alt": "The Character Schedule Manager.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "professor-mari",
+      "guide": "home/professor-mari.md",
+      "heading": "Where to find her",
+      "alt": "Professor Mari's window, opened from the Home page.",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "backup",
+      "guide": "data/backup-and-restore.md",
+      "heading": "Download Backup",
+      "alt": "The Data tab in Settings, with Download Backup.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "fonts",
+      "guide": "appearance/fonts.md",
+      "heading": "Choosing an app font",
+      "alt": "Fonts & Text Size in Settings, Appearance.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "starter-themes",
+      "guide": "appearance/custom-css-themes.md",
+      "heading": "Starter themes",
+      "alt": "CSS Themes in Settings, Appearance, with the starter themes.",
+      "width": 1600,
+      "height": 1240
+    },
+    {
+      "name": "custom-tool-editor",
+      "guide": "extending/custom-tools.md",
+      "heading": "Creating a tool",
+      "alt": "A new custom tool open in the editor: name, description, parameters and what it does when called.",
+      "width": 2240,
+      "height": 1240
+    }
+  ]
+}
