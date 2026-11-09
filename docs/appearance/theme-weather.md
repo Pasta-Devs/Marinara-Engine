@@ -80,7 +80,7 @@ Each kind of weather has a short name. You use that name in the token, such as `
 | storm, thunder, lightning | Heavy rain with lightning flashes | `rain` (flash: `lightning-color`) |
 | snow, sleet, blizzard, frost, cold | Snowflakes | `snow` |
 | hail | Hailstones | `hail` |
-| fog, mist, haze | Drifting fog | `fog` |
+| fog, mist, haze | Soft fog banks low on the screen over ground mist | `fog` |
 | sand, dust storm | Blowing sand | `sand` |
 | ash, smoke, volcanic | Falling ash | `ash` |
 | fire, embers, inferno | Rising embers | `ember` |
@@ -117,7 +117,7 @@ Example: "data snow" for a computer-style theme, with small cyan squares instead
 }
 ```
 
-Shapes don't apply to rain, fog or the aurora, which keep their own form.
+Shapes don't apply to rain, fog or the aurora, which keep their own form. For fog, `--mari-weather-fog-color` tints both the drifting banks and the ground mist, and `--mari-weather-tint-strength` makes the mist thinner or thicker.
 
 ## Use your own pictures
 
@@ -163,7 +163,7 @@ Pixel style puts the whole weather layer on a grid of big square pixels, so it m
 - `--mari-weather-style: pixel` turns pixel style on. `smooth` (or leaving it out) is the normal look.
 - `--mari-weather-pixel-size` is how big each block is, from `2px` to `6px`. `3px` is a good start.
 - In pixel style, your pictures are drawn at their own size times `-size`. Draw your pixel art at 1 pixel per art pixel, and set `-size` to the same number as the pixel size, so your art's pixels line up with the weather's. Petal OS draws 11-pixel petals at size `3`.
-- In pixel style, pictures don't turn as they fall, so pixel art stays crisp.
+- In pixel style, pictures don't turn as they fall and are drawn solid (they fade in and out in three hard steps), so pixel art stays crisp.
 
 ### Example: Petal OS
 
