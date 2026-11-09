@@ -43,7 +43,7 @@ Before you start: you need an account that offers embeddings. See [Connecting to
 
 Some services offer no embeddings. Marinara then asks you to pick a dedicated embedding account, such as an OpenAI-compatible one, Google, or the built-in model.
 
-To use one source everywhere, choose it under **Embeddings** in **Connections → Defaults**. Accounts with no embedding model of their own use it. An account's own setting still wins.
+To use one source everywhere, choose it on the **Embeddings** job in the **Jobs** box in **Connections**. Accounts with no embedding model of their own use it. An account's own setting still wins.
 
 With no embedding account and no **Embeddings** default, Marinara falls back to a built-in embedding model. It downloads once and runs on your computer with no API key. See [Built-in Model Setup](../connections/local-model.md).
 
