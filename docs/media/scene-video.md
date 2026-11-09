@@ -10,8 +10,8 @@ Scene videos use a separate kind of account, **Video Generation**, not normal im
 
 ## Set up a video service
 
-1. Click **Connections** in the top bar, then **Add**. The **Add account** window opens.
-2. Choose a service from the **Images & video** section. The services are listed below.
+1. Open **Library → Connections** and click **Add connection**. The list of services opens.
+2. Open the **Images** tab (it holds video services too) and choose a service. The services are listed below.
 3. Paste the API key for a cloud service. Local ComfyUI needs none. SwarmUI needs a Swarm Auth Token only if your server requires an account.
 4. Click **Connect**, then pick a model or keep the default. NanoGPT has no default, so pick one from its list. For ComfyUI, leave the model unset unless the workflow uses `%model%`. For SwarmUI the model is optional.
 5. Open the video model and click **Test video** to check it.
@@ -81,7 +81,7 @@ Roleplay and Game Mode chats can make scene videos from the Gallery. Open **Chat
 - **Avatar**: the clip starts from whoever your description names first, including your persona. A part of a name no one else shares is enough, with a capital ("Lena" for "Dr. Lena Kowalski"). With no one named, it starts from the chat's character.
 - **Review**: with **Expose media prompts before sending** on, you can review and edit the clip's prompt first.
 - **Context**: the AI reads as many recent messages as Illustrator does for a picture (Illustrator's **Context Size**, under **Agent Budget** on its setup screen).
-- **No picture**: when the clip starts from no picture or an avatar, the AI describes the scene itself. Its instructions are **Roleplay Clip Director**, under **Settings → Generations → Video Generation Prompt Overrides**.
+- **No picture**: when the clip starts from no picture or an avatar, the AI describes the scene itself. Its instructions are **Roleplay Clip Director**, under **Settings → Media → Prompt Overrides**.
 
 The finished clip plays inline under the latest reply, even when the picture came from an earlier one. Clips do not open in a floating window on their own. To float one, use **Pin video to chat** under **Videos**. Remove a clip from a message with its **X** button. It stays in the Gallery.
 
@@ -89,7 +89,7 @@ The finished clip plays inline under the latest reply, even when the picture cam
 
 1. Make sure at least one picture is under **Images**. Use **Illustrate** or upload one.
 2. Click **Video** in the action row at the top of the Gallery.
-3. If **Expose media prompts before sending** is on (**Settings → Generations → Overall Generations**), review or edit the prompt and click **Generate**. Canceling does not start a request.
+3. If **Expose media prompts before sending** is on (**Settings → Media → Generation Defaults**), review or edit the prompt and click **Generate**. Canceling does not start a request.
 4. The button shows **Generating...** and a banner says video generation is running.
 5. When it finishes, the clip appears under **Videos**.
 
@@ -101,7 +101,7 @@ If there is no picture, Marinara says "Add or generate a gallery image before ge
 2. Hover over the picture.
 3. Click **Animate illustration** (the film icon).
 
-With prompt review on, a window shows the exact compiled prompt, duration, aspect ratio and resolution for that picture. Your edit applies only to that clip. In Roleplay, the AI planning the motion reads as many recent messages as Illustrator does, ending at the reply the picture belongs to. Its reusable instructions are **Roleplay Gallery Animation Director** under **Settings → Generations → Video Generation Prompt Overrides**.
+With prompt review on, a window shows the exact compiled prompt, duration, aspect ratio and resolution for that picture. Your edit applies only to that clip. In Roleplay, the AI planning the motion reads as many recent messages as Illustrator does, ending at the reply the picture belongs to. Its reusable instructions are **Roleplay Gallery Animation Director** under **Settings → Media → Prompt Overrides**.
 
 Each clip under **Videos** plays inline with its length and model name. Use **Pin video to chat** or **Download scene video**. With no clips, the tab reads **No videos yet**.
 
@@ -167,7 +167,7 @@ When you create a Game Mode chat, the setup wizard has a video model picker on t
 
 ## Video generation settings
 
-Some video defaults are app-wide. Open **Settings → Generations** and find **Video Generation** ("Set default clip lengths and edit reusable video prompts for Game, Gallery, and Calls").
+Some video defaults are app-wide. Open **Settings → Media** and find **Video Generation** ("Set default clip lengths and edit reusable video prompts for Game, Gallery, and Calls").
 
 - **Scene video fallback length**: used only when the selected video model has no length of its own. The default is 10 seconds. The range is 1 to 60.
 - **Video Generation Prompt Overrides**: edit the reusable video prompt templates. **Roleplay Gallery Animation Director** sets the instructions sent to the Prompt Model before a Roleplay Gallery clip. Its `${durationSeconds}` variable becomes the clip length.

@@ -11,11 +11,10 @@ Both modes save keyframe images to the Gallery's **Images** tab and clips to its
 
 ## Install the agent
 
-1. Open the **Agents** panel (the Sparkles icon).
-2. Select **Agent Organizer**.
-3. Open **Storyboard** and select **Install**.
-4. Open a Game or Roleplay chat, then open **Chat Settings → Agents**.
-5. Turn on **Enable Agents**, then turn on **Enable Storyboards** in the Storyboard card.
+1. Open **Library → Agents** and click **Available**.
+2. Find **Storyboard** and click **Get**.
+3. Open a Game or Roleplay chat, then open **Chat Settings → Agents**.
+4. Turn on **Enable Agents**, then turn on **Enable Storyboards** in the Storyboard card.
 
 Installing makes the agent available but does not turn it on in every chat. No Marinara restart is needed.
 
@@ -184,7 +183,7 @@ Storyboard is separate from Illustrator, and manual Illustrator actions stay ava
 
 ## Storyboard agent settings
 
-Open the **Agents** panel, select **Storyboard** and open its setup. These values are the defaults for chats without their own overrides.
+Open **Library → Agents**, click **Storyboard** and open its setup. These values are the defaults for chats without their own overrides.
 
 | Setting | Default | Purpose |
 | --- | --- | --- |

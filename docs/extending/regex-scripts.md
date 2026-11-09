@@ -20,12 +20,12 @@ She smiles Hello there.
 
 ## Create a regex script
 
-Your global scripts live in the **Presets** panel, in the **Regexes** section. Open it with the **Presets** button in the top bar.
+Your global scripts live on the **Regex scripts** page: open **Library → Regex scripts**. The page lists your scripts on the left, **in run order**, and edits the selected one on the right. (In the classic layout, they are in the **Presets** panel's **Regexes** section.)
 
 ### Creating a regex script
 
-1. Open **Presets** and find **Regexes**.
-2. Click **Create regex**. The full editor opens.
+1. Open **Library → Regex scripts**.
+2. Click **New script**. The editor opens on the new script.
 3. Type a name at the top. A new script is named "New Regex Script".
 4. In **Find Pattern (Regex)**, type `\*([^*]+)\*` (see [Editor fields](#editor-fields)).
 5. In **Replace With**, type `$1`.
@@ -38,7 +38,9 @@ If it did not work: a red error under **Find Pattern (Regex)** blocks saving. Th
 
 ### Manage your scripts
 
-Each row in the **Regexes** list shows the script name, an **AI** or **User** tag, the pattern as `/pattern/flags`, an on/off toggle (takes effect right away), **Edit regex** (pencil) and **Delete regex** (trash). With no scripts, the list reads "No regexes yet". Drag a row by its handle to change the run order.
+On the **Regex scripts** page, each script in the list shows its name, its order (such as **Order 0 · runs 1st**) and whether it is **Enabled**. **Import** at the top loads scripts from a file, and **Export** in the editor saves the selected script.
+
+In the classic layout, each row in the **Regexes** list shows the script name, an **AI** or **User** tag, the pattern as `/pattern/flags`, an on/off toggle (takes effect right away), **Edit regex** (pencil) and **Delete regex** (trash). With no scripts, the list reads "No regexes yet". Drag a row by its handle to change the run order.
 
 The section header has three icon buttons: **Create regex**, **Import regexes from JSON** and **Export regexes to JSON** (saves all your global scripts to one file). Scripts tied to a single character are kept separately; see [Limit a script to one character](#limit-a-script-to-one-character).
 

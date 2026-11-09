@@ -72,7 +72,7 @@ For a longer note, drag the bottom corner of the box on a computer. Author's Not
 - **Activity** tab: the outputs agents saved, called thought bubbles. Dismiss one, or use **Clear all**. Custom agent outputs show here too.
 - While agents work, its icon turns into a spinner. If an agent fails, a dot shows on the icon until you open it.
 - Failed agents are listed with a retry button. You can also stop running agents, re-run the trackers, and use **Clear Trackers**.
-- **Injections** tab: shown only when **Debug mode** is on (**Settings → Advanced**). It lists the prompt snippets that writer-style agents saved before the last reply. These agents include **Prose Guardian**, which rewrites replies to match your style rules, and the **Narrative Director**, which steers the plot. You can view, edit and re-run a snippet. An edit changes only what is used when you regenerate that same reply, so regeneration stays repeatable. It does not change the reply on screen.
+- **Injections** tab: shown only when **Debug mode** is on (**Settings → Advanced → Troubleshooting**). It lists the prompt snippets that writer-style agents saved before the last reply. These agents include **Prose Guardian**, which rewrites replies to match your style rules, and the **Narrative Director**, which steers the plot. You can view, edit and re-run a snippet. An edit changes only what is used when you regenerate that same reply, so regeneration stays repeatable. It does not change the reply on screen.
 
 For all agents, see [Agents: AI Helpers for Your Chats](../agents/agents-overview.md). For the story-steering agent, see [Narrative Director and Secret Plot](narrative-director.md).
 
@@ -172,11 +172,11 @@ To get the original back, open the reply's command information and choose **Rest
 
 - On a computer, drag its title bar to move it and an edge to resize it. Pin it to keep it open. **X** closes it to a movable button.
 - On a phone, it starts as a compact window above the messages. Drag its title bar to move it, or an edge or corner to resize it. Pin keeps it open when you tap elsewhere, and lock stops accidental moves.
-- It follows your **Chat widget style** in **Settings → Appearance → App**. Each chat remembers its layout.
+- It follows your **Chat widget style** in **Settings → Appearance → Chat Buttons & Windows**. Each chat remembers its layout.
 
 ## CYOA choices
 
-CYOA means Choose Your Own Adventure. The CYOA Choices agent is off by default, and works only in Roleplay. When on, it adds clickable choice buttons after a reply, and clicking one sends it as your next message. To combine choices or edit one first, turn on **Add CYOA choices to the message box instead of sending them** in **Settings → General → Input & Editing**. Clicking a choice then adds its text to your message box.
+CYOA means Choose Your Own Adventure. The CYOA Choices agent is off by default, and works only in Roleplay. When on, it adds clickable choice buttons after a reply, and clicking one sends it as your next message. To combine choices or edit one first, turn on **Add CYOA choices to the message box instead of sending them** in **Settings → Chatting → Message Box**. Clicking a choice then adds its text to your message box.
 
 ## Troubleshooting
 

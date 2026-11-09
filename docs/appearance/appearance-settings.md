@@ -1,72 +1,51 @@
 # Appearance Settings
 
-The **Appearance** tab changes how Marinara looks: colors, text size, chat layout and message styling for each chat mode. 
+The **Appearance** tab changes how Marinara looks: colors, text size, spacing, backgrounds and the chat's buttons and windows. The **Conversation**, **Roleplay** and **Game** tabs next to it style each chat mode.
 
 Looking for something else?
 
+- A ready-made look or your own theme: [Custom CSS Themes](custom-css-themes.md).
 - A different font: [Custom Fonts and Google Fonts](fonts.md).
 - A chat background image: [Chat Backgrounds](chat-backgrounds.md).
-- A custom theme (**Settings → Addons → Theme Library**): [Custom CSS Themes](custom-css-themes.md).
 - A character's own look in chat: [Card CSS Theming Guide](card-css-theming.md).
 
 ## Opening the Appearance settings
 
-1. Open **Settings**.
-2. Select the **Appearance** tab.
-3. Pick a button at the top: **App**, **Conversation**, **Roleplay** or **Game**.
+1. Open **Library → Settings**.
+2. Click the **Appearance** tab.
+3. Click a section name in the row under the tabs to jump to it, or scroll.
 
-The buttons group the settings by chat mode, and the tab shows only the group you pick.
-
-| Button | Sections |
+| Tab | Sections |
 | --- | --- |
-| **App** | **App Style**, **Text & Scale**, **Atmosphere**, **Backgrounds** |
-| **Conversation** | **Conversation Display**, **Conversation Theme** |
-| **Roleplay** | **Tracker Panel**, **Roleplay Presentation** |
-| **Game** | **Game Presentation** |
+| **Appearance** | **Theme**, **Fonts & Text Size**, **Accessibility**, **Text Colors**, **Layout**, **Effects**, **Backgrounds**, **Chat Buttons & Windows**, **CSS Themes** |
+| **Conversation** | **Conversation Layout**, **Conversation Background** |
+| **Roleplay** | **Tracker Panel**, **Roleplay Messages**, **Avatars**, **Visual Novel** |
+| **Game** | **Game Text**, **Game Art**, **Game Assets** |
 
-To start over, click **Reset Appearance** at the top of **App Style**. It resets the whole tab to Marinara defaults, clears the current chat's background, and turns off any active theme from the Theme Library.
+To start over, click **Reset Appearance** at the top of **Theme**. It resets the look to Marinara defaults, clears the current chat's background, and turns off any custom theme.
 
-## App button
+In the classic layout, these sections sit in the **Appearance** tab behind four buttons: **App**, **Conversation**, **Roleplay** and **Game**.
 
-### Color Scheme and Visual Style
+## Theme
 
-In **App Style**, the **Color Scheme** dropdown has **Dark** (the default) and **Light**. The app changes at once. Colors with separate dark and light defaults follow it until you set your own.
+| Setting | What it does |
+| --- | --- |
+| **Visual Style** | **Default (Marinara)** is a retro Y2K look with glow effects. **SillyTavern** is a clean, minimal look. It changes the look only and has nothing to do with importing from SillyTavern. **Stage** uses the plum, brass and crimson of the new layout. |
+| **New layout (UI overhaul preview)** | On by default. Turn it off to go back to the classic layout. These guides describe the new layout first. |
+| **Look on this device** | **Same as my other devices** (the default) shares your Visual Style, colors, font and custom theme with every device. **Only this device** gives this device its own look, for example light on your phone and dark on your computer. |
+| **Color Scheme** | **Dark** (the default), **Light**, **Follow system**, or **Follow time of day**, which switches by this device's clock at the times you pick. |
+| **Custom Mouse Pointer** | On by default. Uses Marinara's accent-colored cursor. Turn it off for your system cursor, or to let a custom theme set it. |
+| **Background Color** | The main app background. Default `#050312` in Dark and `#faf8ff` in Light. |
+| **Accent Color** | Buttons, active icons, focus rings, highlights and outlines. Default **Marinara Gradient**, a pink, orange and cyan blend. |
+| **Accent Pulse** | Makes the accent gently brighten and darken, or cycle through a gradient's colors. On by default on desktop, off on phones. |
+| **RGB Mode** | Cycles the accent through a rainbow. Your saved **Accent Color** stays as it is. Off by default. |
 
-**Visual Style** has two cards. **Default (Marinara)** is a retro Y2K look with glow effects. **SillyTavern** is a clean, minimal look. It changes the look only and has nothing to do with importing from SillyTavern.
+Colors accept a plain color or a gradient, a smooth blend of two or more colors. A value such as `#050312` is a hex color code, a short way to write a color. Click **Reset to default** to go back to the default. Only one of **Accent Pulse** and **RGB Mode** can be on at a time.
 
-### Background Color and Accent Color
+## Fonts & Text Size
 
-Both accept a plain color or a gradient, a smooth blend of two or more colors. Clear a field with **Reset to default** to return to the default.
-
-| Setting | What it colors | Default |
-| --- | --- | --- |
-| **Background Color** | The main app shell. | `#050312` in Dark, `#faf8ff` in Light |
-| **Accent Color** | Buttons, active icons, focus rings, highlights, panel outlines and the controls around the chat. | **Marinara Gradient**, a pink, orange and cyan blend |
-
-A value such as `#050312` is a hex color code, a short way to write a color.
-
-Two switches change how the accent behaves. Only one can be on at a time.
-
-- **Accent Pulse** animates your accent. Solid colors brighten and darken, and gradients cycle through their colors. It is on by default on desktop and off on phones.
-- **RGB Mode** cycles the accent through a rainbow. Your saved **Accent Color** stays unchanged. It is off by default.
-
-If your device asks for reduced motion, both animations are skipped.
-
-### Other App Style controls
-
-- **Custom Mouse Pointer** (on by default) uses Marinara's accent-colored cursor. Turn it off for your system cursor, or to let a custom theme control it.
-- **Reduce Ambient Animations & Effects** stops decorative animation, ambient particles, rotating previews and gradual text reveal. Marinara also does this when your device asks for reduced motion.
-- **Desktop sidebar width** sets the width of both sidebars on desktop. **Reset width** restores it. Phones keep their layout.
-
-### Chat widget style
-
-At the bottom of **App Style**, pick **Default**, **Dottore** or **Prof. Mari** for movable chat buttons, windows and sections. You can change the font, shape and three main colors separately, and the three **Apply preset** switches carry the style into messages, input boxes and chat controls. **Button size (px)** resizes movable chat buttons and their icons without changing **Display Size**. Enter 32 to 96, or leave it empty for the default. See [Custom CSS Themes](custom-css-themes.md#ready-made-chat-window-styles) for every control.
-
-### Display Size and Chat Font Size
-
-In **Text & Scale**:
-
-- **Display Size** sets the base text size for the whole app on this device. The change applies at once. Choose one of these:
+- **Font** picks the app font. See [Custom Fonts and Google Fonts](fonts.md).
+- **Display Size** sets the base text size for the whole app on this device. It applies at once.
 
 | Choice | Size |
 | --- | --- |
@@ -82,71 +61,124 @@ In **Text & Scale**:
 
 - **Chat Font Size** is a slider for chat message text, from 12 px to 72 px. The default is 16 px.
 
-The **Font** dropdown is in the same section. See [Custom Fonts and Google Fonts](fonts.md).
+## Accessibility
 
-### Chat text colors and outline
+| Setting | What it does |
+| --- | --- |
+| **Line spacing** | Space between lines in messages and longer text: **Default**, **Relaxed (1.6)**, **Loose (1.8)** or **Double (2.0)**. Menus and buttons keep their size. |
+| **Letter spacing** | Space between letters everywhere: **Default**, **A little wider**, **Wider** or **Widest**. |
+| **High contrast** | Stronger text, borders and focus colors. **Follow system** turns it on when your device asks for more contrast. |
+| **Strong focus rings** | A thick outline on whatever the keyboard is on. <kbd>Tab</kbd> also offers **Skip to content** links. |
+| **Reduce motion** | Stops animations, transitions, **Accent Pulse** and theme effects. It turns on by itself when your device asks for less motion. |
+| **Theme art strength** | How strongly a custom theme's background picture and overlay (rain, leaves, scanlines) show. Lower it when a theme's art makes text hard to read. |
+| **Colour-blind-safe colours** | Blue and orange instead of green and red for status dots, gauges and Delete buttons. |
 
-Also in **Text & Scale**:
+## Text Colors
 
 - **Chat Text Color** is the main message text color. The default is `#d4d4d4` in Dark and `#1a1025` in Light.
-- **Default Dialogue Color** colors quoted dialogue when a character or persona has no Dialogue Highlight Color of its own. Card colors win. While **Apply preset colors** is on, dialogue uses the chat style's text color.
-- **Chat Chrome Text Color** sets the text of the controls around the chat: tracker widgets, folder labels and settings descriptions. It has the same defaults as **Chat Text Color**.
+- **Default Dialogue Color** colors quoted dialogue when a character or persona has no Dialogue Highlight Color of its own. Card colors win. While **Apply preset colors** is on in **Chat Buttons & Windows**, dialogue uses that style's text color.
+- **Chat Chrome Text Color** sets the text of the controls around the chat: tracker widgets, folder labels, settings descriptions and windows opened from chat buttons. It has the same defaults as **Chat Text Color**.
 - **Text Outline / Stroke** adds an outline so text stays readable over busy backgrounds. Set the color and a **Width** from 0 to 5 px. The default is 0.5 px, and 0 turns it off.
 
-Clearing a color field returns it to the scheme default.
+## Layout
 
-### Atmosphere
+- **Desktop sidebar width** sets the width of both sidebars on a computer. **Reset width** restores it. Phones keep their layout.
+- **Show Android status bar** shows the phone's status bar in the Android app.
 
-**Dynamic weather effects (rain, snow, fog, etc.)** is on by default. It shows weather particles based on the story's weather and time of day. It shows something only when the **World State** agent is on for the chat. See [Agents: AI Helpers for Your Chats](../agents/agents-overview.md).
+## Effects
 
-### Backgrounds
+- **Dynamic weather effects (rain, snow, fog, etc.)** is on by default. It shows weather based on the story's weather and time of day, and needs the **World State** agent on for the chat. See [Agents: AI Helpers for Your Chats](../agents/agents-overview.md).
+- **Reduce Ambient Animations & Effects** stops decorative animation, particles, rotating previews and gradual text reveal.
+- **Reduced paint effects** flattens costly see-through panels and shadows, so slower devices stay smooth.
 
-The **Backgrounds** section holds the **Chat Background** picker and **Background Blur**. Two more controls are here. **Conversation background image opacity** sets how strongly the chat background shows in Conversation mode, with the gradient still visible. **Chat List Backgrounds** shows each chat's background as a muted banner behind its row in the chat list. Choose **Active & Hovered**, **Every Row** or **Off**. See [Chat Backgrounds](chat-backgrounds.md).
+## Backgrounds
 
-## Conversation button
+This section holds the **Chat Background** picker and **Background Blur**. The picker shows the current chat's background (or **Default background**) and your recent picks. Click the picture or **Browse library** to choose another. It also has:
 
-- **Chat Layout** (in **Conversation Display**) changes how Conversation messages look, with a live preview. **Linear** (the default) shows chat-style rows. **Bubbles** shows messenger-style bubbles.
+- **Conversation background image opacity**: how strongly the chat background shows in Conversation mode.
+- **Chat background behind side panels**: spreads the open chat's background, softened, behind the sidebars and top bar.
+- **Chat List Backgrounds**: shows each chat's background as a muted banner behind its row in the chat list. Choose **Active & Hovered**, **Every Row** or **Off**.
+
+See [Chat Backgrounds](chat-backgrounds.md).
+
+## Chat Buttons & Windows
+
+**Chat widget style** sets the look of the chat's movable buttons, windows and sections. Pick **Default**, **Dottore** (icy blue, pale metal and cut corners) or **Prof. Mari** (gold-trimmed storybook frames). Picking one resets the controls below it.
+
+| Control | What it does |
+| --- | --- |
+| **Font** | **Preset font**, **App font**, **Sans serif**, **Storybook serif** or **Technical monospace**. |
+| **Shape** | **Preset shape**, **Rounded**, **Square**, **Cut corners** or **Arched**. |
+| **Button size (px)** | Resizes movable chat buttons and their icons. Enter 32 to 96, or leave it empty for the default. |
+| **Border & Buttons Color**, **Background Color**, **Text Color** | The three main colors. Reset one to follow the preset and Dark or Light. |
+| **Apply preset font**, **Apply preset shape**, **Apply preset colors** | Carry the style into messages, input boxes and chat controls too. Off by default. |
+
+Professor Mari can make a custom chat style for you. Ask her in chat.
+
+## CSS Themes
+
+Ready-made themes, and themes you make or import. See [Custom CSS Themes](custom-css-themes.md).
+
+## Conversation tab
+
+- **Chat Layout** (in **Conversation Layout**) changes how Conversation messages look, with a live preview. **Linear** (the default) shows chat-style rows. **Bubbles** shows messenger-style bubbles.
 - **Avatar Shape** is **Circular** or **Square**. Avatar size stays the same.
-- **Always display swipe menu** shows swipe arrows and the counter from the first response. Turn it off to show them only after regeneration.
-- **Conversation Theme** sets a two-color gradient behind every Conversation chat. The **Dark** and **Light** tabs each keep their own gradient. This is a device-wide default, not a per-chat setting.
+- **Conversation Theme** (in **Conversation Background**) sets a two-color gradient behind every Conversation chat. The **Dark** and **Light** tabs each keep their own gradient. It is a default for all Conversation chats, not a per-chat setting.
 
-## Roleplay button
+The swipe menu switches are in **Settings → Chatting → Editing & Swipes**.
 
-**Tracker Panel** styles the Roleplay tracker side panel. See [Roleplay HUD and Trackers](../roleplay/hud-and-trackers.md).
+## Roleplay tab
 
-**Roleplay Presentation** styles Roleplay messages.
+**Tracker Panel** styles the panel of stats, outfit and location beside Roleplay chats. See [Roleplay HUD and Trackers](../roleplay/hud-and-trackers.md).
+
+**Roleplay Messages**
 
 | Setting | What it does | Default |
 | --- | --- | --- |
-| **Chat position** | Where messages and the input box sit on wide screens: **Left**, **Center** or **Right**. An open sidebar or a Tracker Panel on the same side moves them along. Phones keep the full width. | **Center** |
-| **Visual Novel display** | Shows one finished paragraph at a time with a dialogue portrait and your sprites. It changes the current Roleplay and the default for chats with no saved style. | Off |
-| **Roleplay Messages Background Opacity** | A 0% to 100% slider. Lower it to let the background show through message bubbles. | 90% |
-| **Roleplay Avatars** | The avatar style beside each message: **None**, **Small Circles**, **Small Rectangles** or **Glued Side Panel**. | **Small Circles** |
+| **Chat position** | Where messages and the input box sit on wide screens: **Left**, **Center** or **Right**. Phones keep the full width. | **Center** |
+| **Custom chat width** | Sets your own width for the message column. | Off |
+| **Roleplay Messages Background Opacity** | Lower it to let the background show through message bubbles. It overrides see-through colors from cards and presets. | 90% |
+| **Stretch Messages** | Every message fills the full row, so short messages line up with long ones. | Off |
+| **Hide line under names** | Removes the thin line under names. | Off |
+
+**Avatars**
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| Avatar style | **None**, **Small Circles**, **Small Rectangles**, **Glued Side Panel** or **Faded Side Panel**, a wide portrait that fades into the message. | **Small Circles** |
 | **Scrollable Avatars** | Keeps avatars visible while you scroll a long message. | Off |
-| **Message avatar scale** | A 75% to 250% slider. | 100% |
-| **Default sprite scale** | A 50% to 175% slider. A chat's own sprite size still wins. | 100% |
+| **Narrator's Cycling Avatars**, **Narrator's Avatar Borders** | How the Narrator's avatar looks. | |
+| **Message avatar scale** | 75% to 250%. | 100% |
+| **Default sprite scale** | 50% to 175%. A chat's own sprite size still wins. | 100% |
 
-This section also has **Custom chat width**, **Always display swipe menu**, **Reduced paint effects** (flattens costly transparency and shadows to keep navigation smooth), **Show Thinking In Messages**, **Don't Collapse Thinking** and **Narrator's Cycling Avatars**. With **Visual Novel display** on, **Auto-play VN paragraphs** with a **Paragraph delay**, **Dialogue portrait scale** and **Full-body sprite scale** also appear.
+**Visual Novel**
 
-## Game button
+**Visual Novel display** shows one finished paragraph at a time with a dialogue portrait and your sprites. It sets the display for new Roleplays and ones without their own choice. **Auto-play VN paragraphs** with a **Paragraph delay**, **Dialogue portrait scale** and **Full-body sprite scale** set how it plays.
 
-In **Game Presentation**, **Game VN Art** has two sliders: **Dialogue portrait scale** (75% to 175%, default 100%) and **Full-body sprite scale** (75% to 275%, default 135%).
+**Show Thinking In Messages** and **Don't Collapse Thinking** are in **Settings → Chatting → Thinking**.
 
-**Game Dialogue Display** chooses how the dialogue box behaves.
+## Game tab
 
-- **Classic Dialogue Box** (the default) shows one active segment. Older lines are in the **Logs** button.
-- **History Above Dialogue Box** shows earlier segments above the box, and the whole session stays scrollable there.
+**Game Text**
 
-**Game text effects** (on by default) animates dramatic words, ALL CAPS emphasis, parenthetical asides and text-effect tags. Turn it off for plain text.
+- **Instantly reveal game text** skips the typing effect.
+- **Mouse-wheel + click navigation** moves through the story with the mouse.
+- **Game narration speed** and **Game auto-play segment delay** set how fast text plays and moves on.
+- **Game Dialogue Display**: **Classic Dialogue Box** (the default) shows one segment, with older lines in **Logs**. **History Above Dialogue Box** shows earlier segments above the box.
+- **Game text effects** (on by default) animates dramatic words, ALL CAPS, asides and text-effect tags. Turn it off for plain text.
+
+**Game Art** has two sliders: **Dialogue portrait scale** (75% to 175%, default 100%) and **Full-body sprite scale** (75% to 275%, default 135%).
+
+**Game Assets** is covered in [Game Assets](../game/game-assets.md).
 
 ## Settings that stay on this device
 
-Most Appearance settings sync to your other devices. **Display Size** and **Chat Font Size** do not. They save in the browser you use. See [Settings Overview](../settings/settings-overview.md) for what syncs.
+Most Appearance settings sync to your other devices. **Display Size** and **Chat Font Size** do not. They save in the browser you use. To give one device a whole different look, use **Look on this device** in **Theme**. See [Settings Overview](../settings/settings-overview.md) for what syncs.
 
 ## Related guides
 
+- [Custom CSS Themes](custom-css-themes.md)
 - [Custom Fonts and Google Fonts](fonts.md)
 - [Chat Backgrounds](chat-backgrounds.md)
-- [Custom CSS Themes (Theme Library)](custom-css-themes.md)
 - [Card CSS Theming Guide](card-css-theming.md)
 - [Settings Overview](../settings/settings-overview.md)

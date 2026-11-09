@@ -1,10 +1,10 @@
 # Downloadable Agents Reference
 
-This guide lists the official first-party agents in **Agents → Agent Organizer**, by group. Agents do not ship with a fresh install. Their sources and catalog are public in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Each entry says what the agent does, when it runs, where it works and its main settings. To install and turn agents on, read the [Agents overview](agents-overview.md) first. Entries marked **staging only** are available to Engine staging users; stable users see them after the package is promoted.
+This guide lists the official first-party agents in **Library → Agents**, by group. Agents do not ship with a fresh install. Their sources and catalog are public in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Each entry says what the agent does, when it runs, where it works and its main settings. To install and turn agents on, read the [Agents overview](agents-overview.md) first. Entries marked **staging only** are available to Engine staging users; stable users see them after the package is promoted.
 
 ## How to read this reference
 
-Install an agent from **Agent Organizer**, then add it to each chat you want. Agents are set up per chat, not per character card. The [Agents overview](agents-overview.md) covers installing, updating, per-chat setup and cost.
+Install an agent from **Library → Agents**, then add it to each chat you want. Agents are set up per chat, not per character card. The [Agents overview](agents-overview.md) covers installing, updating, per-chat setup and cost.
 
 Each entry shows the same quick facts.
 
@@ -26,7 +26,7 @@ Adds the optional local Noodle public timeline in its own **Home** tab. It does 
 
 - **Integration**: Feature package with local routes, generation and media flows, and background schedulers.
 - **Where it works**: Home, with optional context carried in from Conversation, Roleplay and Game chats.
-- **Key settings**: install it from **Agents → Agent Organizer** and restart when prompted. Inside Noodle you set invited accounts, text and image connections, timeline refreshes, random users and chat carryover.
+- **Key settings**: install it from **Library → Agents** and restart when prompted. Inside Noodle you set invited accounts, text and image connections, timeline refreshes, random users and chat carryover.
 - **Data**: uninstalling removes the tab and stops the schedulers after a restart. Your Noodle data stays for a later reinstall.
 - **Full guide**: [Noodle: The In-App Social Timeline](noodle.md).
 
@@ -322,7 +322,7 @@ Adds clickable "What will you do?" choice buttons after each reply, for a choose
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
-- **Key settings**: **Edit** to rewrite the choices and **Re-roll** to generate new ones. Turn on **Add CYOA choices to the message box instead of sending them** in **Settings → General → Input & Editing** to have clicked choices go into your message box.
+- **Key settings**: **Edit** to rewrite the choices and **Re-roll** to generate new ones. Turn on **Add CYOA choices to the message box instead of sending them** in **Settings → Chatting → Message Box** to have clicked choices go into your message box.
 
 ### Storyboard
 
@@ -340,7 +340,7 @@ Shows characters and personas as animated 2D avatars that blink, talk and change
 
 - **Integration**: Agent package. The Engine draws the avatars. It sends no extra requests to your AI connections while you chat.
 - **Where it works**: Roleplay and Game, for characters and personas.
-- **Availability**: in **Agent Organizer** for every install. Needs Marinara Engine 2.5.1 or newer.
+- **Availability**: in **Library → Agents** for every install. Needs Marinara Engine 2.5.1 or newer.
 - **Key settings**: set up each avatar on the agent's page in **Agents**. The agent also carries the prompts that make blink and talk pictures and a mesh avatar from a sprite.
 - **Compatibility**: Engine `2.5.0` through before `4.0.0`, Capability API 1.73. Permissions: `agent-runtime`, `chat-read`, `storage`, `ui`. No restart needed.
 - **Full guide**: [2D and 3D Avatars](avatars.md).
@@ -351,7 +351,7 @@ Shows characters and personas as animated 3D models that blink, talk and change 
 
 - **Integration**: Agent package. The Engine draws the avatars. It sends no extra requests to your AI connections while you chat.
 - **Where it works**: Roleplay and Game, for characters and personas.
-- **Availability**: in **Agent Organizer** for every install. Needs Marinara Engine 2.5.1 or newer.
+- **Availability**: in **Library → Agents** for every install. Needs Marinara Engine 2.5.1 or newer.
 - **Key settings**: set up each avatar on the agent's page in **Agents**.
 - **Compatibility**: same as 2D Avatars.
 - **Full guide**: [2D and 3D Avatars](avatars.md).

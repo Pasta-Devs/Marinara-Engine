@@ -74,7 +74,7 @@ The **Incidental contact** toggle ("Tiny taps for accidental brushes and bumps."
 
 By default, Marinara accepts haptic commands only from the computer that runs the Marinara server. This keeps device control private. So haptic feedback does not work when you open Marinara from a phone or another device that reaches a server elsewhere. Connect, scan and command actions are refused.
 
-To allow it, turn on the server setting `HAPTICS_ALLOW_REMOTE`, and set up access protection, a login or an admin secret. See the [Server Configuration Reference](../CONFIGURATION.md) and the [Remote Access guide](../REMOTE_ACCESS.md). You enter admin access in **Settings → Advanced → Admin Access**.
+To allow it, turn on the server setting `HAPTICS_ALLOW_REMOTE`, and set up access protection, a login or an admin secret. See the [Server Configuration Reference](../CONFIGURATION.md) and the [Remote Access guide](../REMOTE_ACCESS.md). You enter admin access in **Settings → Advanced → Security**.
 
 ## If something is not working
 

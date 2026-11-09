@@ -2,7 +2,23 @@
 
 The **Characters** page in the Library (on the right) lists every character you have created or imported. Use it to search, sort, group characters into folders, mark favorites, filter by tags, and export or delete many at once.
 
-## The Characters panel
+## The Characters page
+
+Open **Library → Characters**. The page shows your characters as portrait cards. Along the top:
+
+- **Browse online** opens the [Card Browser](bot-browser.md) to find characters on public sites.
+- **Import** brings in a character file. See [Importing and Exporting Character Cards](import-export.md).
+- **New character** opens the **Create Character** window, blank or from a template. The **New character** card in the grid does the same.
+- **Search characters or tag:name** filters the cards (see [Search](#search)).
+- **Favourites**, **Recently edited** and a chip for each tag narrow the cards. On a phone these are one **Filter** list.
+- The sort menu offers **A to Z**, **Z to A**, **Newest** and **Oldest**.
+- The three size buttons make the cards small, medium or large.
+
+Click a card to open the character. Its **Chat** button starts a chat with that character. With many characters, click **Load more** at the bottom.
+
+Folders, **Manual order**, the **Favorites first** sort, tag deleting, **Duplicate** and selecting many characters to export or delete are in the classic layout's Characters panel, described below. Switch to it with **New layout** in **Settings → Appearance → Theme**, and back the same way.
+
+## In the classic layout: the Characters panel
 
 From the top of the panel you can:
 
@@ -18,7 +34,7 @@ Each row shows the avatar, name, an optional title line, the creator and version
 
 ## Search
 
-Type in the search box at the top. The placeholder reads **Search characters/tags**. Plain text matches a character's name, title, description and tags, ignoring case. Typing `knight` shows every character with "knight" in any of those.
+Type in the search box at the top. The placeholder reads **Search characters or tag:name** (**Search characters/tags** in the classic layout). Plain text matches a character's name, title, description and tags, ignoring case. Typing `knight` shows every character with "knight" in any of those.
 
 | Search | What it finds |
 | --- | --- |
@@ -30,9 +46,9 @@ Type in the search box at the top. The placeholder reads **Search characters/tag
 
 Ordinary phrase searches still work. The same search works in the full-page Character Library and for personas.
 
-## Sort
+## Sort (classic layout)
 
-Pick an order in the sort dropdown next to the search box.
+The new layout's sort menu has **A to Z**, **Z to A**, **Newest** and **Oldest**. The classic panel's sort dropdown has more:
 
 | Option | What it does |
 | --- | --- |
@@ -45,7 +61,7 @@ Pick an order in the sort dropdown next to the search box.
 
 To set a manual order, drag a row up or down, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused row. Either switches the sort to **Manual order**.
 
-## Folders
+## Folders (classic layout)
 
 Folders group related characters, for example by story or series, so a long list is easier to scan. They are optional.
 
@@ -69,7 +85,7 @@ Each folder is also a saved roster for group chats. When you set up a chat with 
 
 ### Favorites
 
-Open a character and click its **Favorite** star to turn it on or off. You cannot set it from the panel list. Favorites show a small star badge. Under the search box, three buttons filter the list:
+Open a character and click its **Favorite** star to turn it on or off. On the Characters page, the **Favourites** chip shows only favorites. In the classic panel, favorites show a small star badge, and three buttons under the search box filter the list:
 
 - **All** shows every character.
 - **Favs** shows only favorites.
@@ -79,9 +95,9 @@ You can also pick **Favorites** in the sort dropdown to put favorites at the top
 
 ### Tags
 
-Tags are labels such as `fantasy` or `slow burn`. You add them in the character editor. See [Creating and Editing Characters](creating-and-editing-characters.md#metadata-tab). In the panel, click a tag chip on any row to filter the list to characters that share that tag.
+Tags are labels such as `fantasy` or `slow burn`. You add them in the character editor. See [Creating and Editing Characters](creating-and-editing-characters.md#metadata-tab). On the Characters page, click a tag's chip to show only characters with that tag. In the classic panel, click a tag chip on any row to filter the list the same way.
 
-When your characters have tags, a **Tags** button with a count appears, such as **Tags (12)**. Click it to expand the full list:
+In the classic panel, when your characters have tags, a **Tags** button with a count appears, such as **Tags (12)**. Click it to expand the full list:
 
 - Click a tag to include it as a filter. With several tags selected, a character matches if it has any of them.
 - Click the X on a tag to delete that tag from every character that has it. You are asked to confirm: **Remove tag "name" from all characters?**
@@ -89,7 +105,7 @@ When your characters have tags, a **Tags** button with a count appears, such as 
 
 To exclude a tag instead, use `-tag:` in the search box, as shown in [Search](#search).
 
-## Export or delete many characters
+## Export or delete many characters (classic layout)
 
 1. Click **Select** at the top of the panel. A checkbox appears on each row.
 2. Click the characters you want. The panel header shows how many are selected.

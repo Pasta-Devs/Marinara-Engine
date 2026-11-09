@@ -80,9 +80,9 @@ This page covers starting, trying and sharing a ruleset. The other pages cover o
 
 ## Try your ruleset
 
-Before you start, turn on **Allow custom Agent imports** under **Settings → Advanced → Danger Zone**. Imported rulesets use the same safety switch as imported agents, so it is off until you turn it on. Importing also needs localhost access or the admin secret (**Settings → Advanced → Admin Access**).
+Before you start, turn on **Allow custom Agent imports** under **Settings → Advanced → Security**. Imported rulesets use the same safety switch as imported agents, so it is off until you turn it on. Importing also needs localhost access or the admin secret (**Settings → Advanced → Security**).
 
-1. Open the **Agents** panel and choose the **Import agents** button (the download icon in the row of buttons at the top of the panel).
+1. Importing is in the classic layout for now. Turn off **New layout** in **Settings → Appearance → Theme**, open the **Agents** panel and choose the **Import agents** button (the download icon in the row of buttons at the top of the panel).
 2. Pick **Game Mode ruleset** and choose your JSON file, or a ruleset package file ending in `.ruleset.json` (see [Sharing your ruleset](#sharing-your-ruleset)).
 3. Read the review. It shows the name, version, license, what the ruleset covers and the Game Master text. Choose **Import**.
 
@@ -153,13 +153,13 @@ your-repository/
     another-system.json
 ```
 
-A user adds your repository once, reviews what it holds, and syncs later to receive new versions. The custom repository list is an advanced feature. The person running the server turns it on with `ENABLE_CUSTOM_AGENT_REPOS=true`, then opens **Agents → Agent Organizer → Custom Sources**. Rulesets from a repository are filed under the repository owner's name, such as `alice/ember-roads`, so two authors can both publish a ruleset called `v20` without clashing.
+A user adds your repository once, reviews what it holds, and syncs later to receive new versions. The custom repository list is an advanced feature. The person running the server turns it on with `ENABLE_CUSTOM_AGENT_REPOS=true`, then opens **Library → Agents → Custom Sources**. Rulesets from a repository are filed under the repository owner's name, such as `alice/ember-roads`, so two authors can both publish a ruleset called `v20` without clashing.
 
 Two limits apply. A repository can hold at most 32 JSON files directly inside `rulesets`, and one with more is refused. An account named `local` cannot publish rulesets, because `local/` is kept for rulesets imported from a file.
 
 ### In the official catalog
 
-A widely played system with clean licensing can be offered to everyone through **Agent Organizer**. To propose one, open a pull request to the [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) repository. Look at the `ruleset-5e-2014` package there for the layout.
+A widely played system with clean licensing can be offered to everyone through **Library → Agents**. To propose one, open a pull request to the [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) repository. Look at the `ruleset-5e-2014` package there for the layout.
 
 ## Licensing
 

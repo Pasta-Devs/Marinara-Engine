@@ -23,7 +23,7 @@ If no image model can be found, the picture fails and the app asks you to choose
 
 ## Turn on the Illustrator
 
-Before you start: install **Illustrator** from **Agent Organizer**. See [Agents overview](../agents/agents-overview.md).
+Before you start: install **Illustrator** from **Library → Agents**. See [Agents overview](../agents/agents-overview.md).
 
 1. Open the Roleplay chat you want to illustrate.
 2. Open **Chat Settings** and find **Agents**.
@@ -97,7 +97,7 @@ Clips use the video model under **Scene Videos**, and each clip is a video reque
 - With **Clips only**, every run is a clip, the **Video Run Interval** sets how often Illustrator runs, and **Image Run Interval** is hidden.
 - A chat with no value uses the **Video Run Interval** on the **Open Setup** screen, or 5.
 - **0**: no clips on its own, including for `[illustrate]` pictures, which get their picture instead.
-- A reply gets at most **Videos per reply** clips (**Settings → Generations → Video Generation**).
+- A reply gets at most **Videos per reply** clips (**Settings → Media → Video Generation**).
 - You can still animate a picture from the Gallery. With **Clips only**, a message's **Illustrate** button makes a clip.
 - A swipe of a reply that got a clip counts as a new reply and can get its own clip. The earlier swipe keeps its clip.
 
@@ -125,7 +125,7 @@ No setting is needed. Captions appear only for NovelAI on its own host, so a pro
 
 ## Gallery saving and prompt inspection
 
-In **Settings → Generations → Image Generation**, **Automatically save generated images to character galleries** is on by default. Turn it off to stop adding chat illustrations and selfies to the depicted characters' and personas' galleries. Images still appear in the conversation and chat Gallery, and explicit gallery saves still work. Existing entries are unchanged. Galleries share image files, so this controls membership, not deletion.
+In **Settings → Media → Image Generation**, **Automatically save generated images to character galleries** is on by default. Turn it off to stop adding chat illustrations and selfies to the depicted characters' and personas' galleries. Images still appear in the conversation and chat Gallery, and explicit gallery saves still work. Existing entries are unchanged. Galleries share image files, so this controls membership, not deletion.
 
 For new NovelAI illustrations, the image inspector shows the scene and style prompt followed by the positive character captions, separated by ` | `. The saved gallery prompt is the same.
 

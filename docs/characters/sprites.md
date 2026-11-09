@@ -62,7 +62,7 @@ You choose when and how sprites appear in the chat's settings, not in the charac
 
 ### Roleplay Mode
 
-The Expression Engine agent drives sprites in Roleplay. An agent is a helper that runs alongside replies. See [Agents: AI Helpers for Your Chats](../agents/agents-overview.md). It reads the mood of each message and picks a matching expression sprite. Add it to the chat, and install it from **Agent Organizer** if you do not have it. See [Downloadable Agents Reference](../agents/built-in-agents.md#expression-engine).
+The Expression Engine agent drives sprites in Roleplay. An agent is a helper that runs alongside replies. See [Agents: AI Helpers for Your Chats](../agents/agents-overview.md). It reads the mood of each message and picks a matching expression sprite. Add it to the chat, and install it from **Library → Agents** if you do not have it. See [Downloadable Agents Reference](../agents/built-in-agents.md#expression-engine).
 
 For sprites to appear, all of these must be true:
 

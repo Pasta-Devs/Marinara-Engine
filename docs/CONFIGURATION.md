@@ -123,7 +123,7 @@ In a terminal, the server prints readable lines. Elsewhere, such as Docker logs,
 
 ## Timeouts
 
-A timeout is the longest the server waits for a slow job. Open **Settings → Advanced → Request timeouts** to change text, agent, Game image-prompt, image, video, ComfyUI and embedding limits in seconds. Higher limits help slow local backends. They cannot override a limit the service sets. Saving needs server administration access.
+A timeout is the longest the server waits for a slow job. Open **Settings → Advanced → Timeouts & Retries** to change text, agent, Game image-prompt, image, video, ComfyUI and embedding limits in seconds. Higher limits help slow local backends. They cannot override a limit the service sets. Saving needs server administration access.
 
 Those settings apply to every profile and are saved beside the active `.env` as `.env.timeouts.json` (or `<custom-env-path>.timeouts.json`). They override the matching variables without editing `.env`. Text, agent, Game image-prompt and embedding changes apply to new requests. Media changes and installed agent packages need a restart. To go back to variables, delete that file and restart.
 
@@ -146,13 +146,13 @@ Values are in milliseconds unless the name says otherwise. Invalid, zero, negati
 
 ## Privileged APIs (ADMIN_SECRET)
 
-Destructive or risky actions, such as backups, clearing data, applying updates and installing themes, need an extra secret on top of the normal access checks. You can make one in **Settings → Advanced → Admin Access** on the server's own computer (see [Admin Access](REMOTE_ACCESS.md#admin-access-and-privileged-actions)), or set a long random value on the server:
+Destructive or risky actions, such as backups, clearing data, applying updates and installing themes, need an extra secret on top of the normal access checks. You can make one in **Settings → Advanced → Security** on the server's own computer (see [The admin secret](REMOTE_ACCESS.md#the-admin-secret-and-privileged-actions)), or set a long random value on the server:
 
 ```text
 ADMIN_SECRET=replace-this-with-a-long-random-secret
 ```
 
-On the server's own computer, these actions usually work without the secret. A request forwarded by a proxy or tunnel on that computer counts as remote unless `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`. Direct requests from another device need the secret. Paste the same value into **Settings → Advanced → Admin Access**, and the app sends it for you. `ADMIN_SECRET` in `.env` wins over a secret made in the app. With no admin secret, privileged actions fail from every device except the server's own computer, and the error tells you to set one. Installed agents work from any device that signed in with the login; installing, updating and removing them need the secret.
+On the server's own computer, these actions usually work without the secret. A request forwarded by a proxy or tunnel on that computer counts as remote unless `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`. Direct requests from another device need the secret. Paste the same value into **Settings → Advanced → Security**, and the app sends it for you. `ADMIN_SECRET` in `.env` wins over a secret made in the app. With no admin secret, privileged actions fail from every device except the server's own computer, and the error tells you to set one. Installed agents work from any device that signed in with the login; installing, updating and removing them need the secret.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
@@ -164,7 +164,7 @@ On the server's own computer, these actions usually work without the secret. A r
 | `HAPTICS_ALLOW_REMOTE` | `false` | Lets a remote device run haptic actions, with a valid secret. |
 | `CUSTOM_TOOL_SCRIPT_ENABLED` | `false` | Turns on custom script tools. Keep off for untrusted or imported tools. |
 | `MARI_DB_ALLOW_UNSAFE_TRANSFORMS` | `false` | Lets Professor Mari's database transform scripts run on hosts with no OS sandbox (macOS Seatbelt or Linux Bubblewrap, used when present). Keep off unless you reviewed the script. |
-| `ENABLE_CUSTOM_AGENT_REPOS` | `false` | Turns on manual GitHub agent-repository preview and sync in Agent Organizer. See [Custom agent repositories](#custom-agent-repositories). |
+| `ENABLE_CUSTOM_AGENT_REPOS` | `false` | Turns on manual GitHub agent-repository preview and sync on the Agents page. See [Custom agent repositories](#custom-agent-repositories). |
 | `MARINARA_OVERWORLD_GAMES` | `false` | Lets players make Overworld games (a setting kit and a generated world) and turn a legacy game into one. Off, the wizard offers VN games only. |
 | `ENABLE_EXTERNAL_EXTENSIONS` | `false` | First of two gates for third-party extension imports. See [External Extensions](#external-extensions). |
 | `IMPORT_ALLOWED_ROOTS` | empty | Folders bulk import may read without a picker token. |
@@ -187,7 +187,7 @@ To connect a local or self-hosted model, see [Connecting a Local or Self-Hosted 
 
 ## Feature switches
 
-Optional server behaviors, such as retrying failed provider calls or keeping lorebook group picks stable, are in **Settings → Advanced → Features**. All are off by default. A few have a variable that wins over the switch when set. See [Feature Switches](configuration/features.md).
+Optional server behaviors, such as retrying failed provider calls (**Settings → Advanced → Timeouts & Retries**) or keeping lorebook group picks stable (**Settings → Advanced → Lorebooks**), are switches in Settings. All are off by default. A few have a variable that wins over the switch when set. See [Feature Switches](configuration/features.md).
 
 ## Marinara notices
 
@@ -232,22 +232,22 @@ For exact restrictions and tested platforms, see the [compatibility and verifica
 
 ## Agents and extensions
 
-Install optional first-party agents in the app: **Agents → Agent Organizer**. Marinara picks the [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog that matches its major version.
+Install optional first-party agents in the app: **Library → Agents**. Marinara picks the [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog that matches its major version.
 
-- **Updates:** Marinara asks before it downloads a new version of an installed package. **Not now** keeps the current version and leaves **Update** in Agent Organizer. A fresh install has no packages.
+- **Updates:** Marinara asks before it downloads a new version of an installed package. **Not now** keeps the current version and leaves **Update** on the Agents page. A fresh install has no packages.
 - **Where packages live:** `DATA_DIR/capability-packages`. Docker volumes, custom data folders, backups and normal upgrades keep them. This applies to desktop, Docker and Termux. iOS and other browsers use the packages on their host server.
 - **Disk use:** Marinara keeps each package's current and previous version, and deletes older versions and the temporary copies in `DATA_DIR/capability-runtime-snapshots`. Package data is never deleted.
 - **Offline:** Installed packages keep working at their version when GitHub is unreachable, an update is declined or verification fails.
 
 ### Custom Agent imports
 
-External agent files, folders and repositories are locked. To allow them, turn on **Allow custom Agent imports** in **Settings → Advanced → Danger Zone**. This needs no environment variable. The import controls stay grey until you do.
+External agent files, folders and repositories are locked. To allow them, turn on **Allow custom Agent imports** in **Settings → Advanced → Security**. This needs no environment variable. The import controls stay grey until you do.
 
 Each import shows the agent's requested capabilities first. Permissions need explicit approval. Bundled functions and tool selections are not imported, generated CSS is cleaned, and result actions are checked against the approved capabilities. Turning the gate off stops imported agents. Agents made in Marinara and official packages are not affected.
 
 ### Custom agent repositories
 
-Repositories are off by default because their prompts and tools are unvetted. Set `ENABLE_CUSTOM_AGENT_REPOS=true`, turn on **Allow custom Agent imports**, then open **Agents → Agent Organizer → Custom Sources** to preview a public GitHub repository. Adding a source and applying later changes both need confirmation. Sync is manual, and Marinara never clones or polls repositories in the background. Only repository-root GitHub URLs are accepted.
+Repositories are off by default because their prompts and tools are unvetted. Set `ENABLE_CUSTOM_AGENT_REPOS=true`, turn on **Allow custom Agent imports**, then open **Library → Agents → Custom Sources** to preview a public GitHub repository. Adding a source and applying later changes both need confirmation. Sync is manual, and Marinara never clones or polls repositories in the background. Only repository-root GitHub URLs are accepted.
 
 A repository publishes agents, Game Mode rulesets or both. At the root:
 
@@ -277,12 +277,12 @@ Custom agents can also turn on **Previous output** under Context Sources to read
 
 ### External Extensions
 
-Third-party extension imports need two opt-ins. The environment variable is the host operator's permission. The Danger Zone switch is the user's acceptance.
+Third-party extension imports need two opt-ins. The environment variable is the host operator's permission. The **Allow third-party extension imports** switch in **Settings → Advanced → Security** is the user's acceptance.
 
 1. Set `ENABLE_EXTERNAL_EXTENSIONS=true` in `.env`.
-2. Open **Settings → Advanced → Danger Zone**, scroll below the data-deletion controls, read the warning and turn on **Allow third-party extension imports**.
+2. Open **Settings → Advanced → Security**, read the warning and turn on **Allow third-party extension imports**.
 
-Then the **External Extensions** section appears under **Settings → Addons**. Closing either gate disables external records and stops their code. Manually stored, legacy, profile-imported and unknown-source records count as external, so dropping files into a folder cannot bypass the gates. Professor Mari drafts need neither gate. They start disabled and need approval of their exact code hash.
+Then the **External Extensions** section appears under **Library → Extensions**. Closing either gate disables external records and stops their code. Manually stored, legacy, profile-imported and unknown-source records count as external, so dropping files into a folder cannot bypass the gates. Professor Mari drafts need neither gate. They start disabled and need approval of their exact code hash.
 
 Sandboxed Browser Extensions are the default. Some older packages show **Full page access** because they need Marinara's page. That mode runs the approved code in Marinara's page, with access to page content, browser storage, network APIs and your session. It is only for External Extensions with both gates open, and it needs a separate warning acknowledgement. Reload the page after disabling it.
 
@@ -303,7 +303,7 @@ The tables above cover access control, storage, logging, timeouts, privileged ac
 | `MARINARA_NOTICES_ENABLED` | `true` | Whether the server fetches maintainer notices. See [Marinara notices](#marinara-notices). |
 | `MARINARA_NOTICES_URL` | `notices.json` on the `notices` branch | Notices file override for forks and mirrors. It is validated the same way, and links outside `https://github.com/Pasta-Devs/` are dropped. |
 | `MARINARA_ENV_FILE` | project-root `.env` | Path override for the `.env` file. Set before startup. |
-| `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | Most image or video requests at once, across the whole server. Lower it to 1-2 if a local ComfyUI or SwarmUI runs out of VRAM. `0` removes the ceiling. Invalid values are ignored with a warning. Batch work never takes the last slot. Works on top of **Queue media generation requests** (**Settings → Generations → Overall Generations**, on by default), which queues image and video jobs per account. |
+| `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | Most image or video requests at once, across the whole server. Lower it to 1-2 if a local ComfyUI or SwarmUI runs out of VRAM. `0` removes the ceiling. Invalid values are ignored with a warning. Batch work never takes the last slot. Works on top of **Queue media generation requests** (**Settings → Media → Generation Defaults**, on by default), which queues image and video jobs per account. |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000` (10 min) | How long a request waits for a free slot before it fails. `0` waits forever. |
 | `MARINARA_SHARED_GPU_HOSTS` | empty | Comma-separated `host:port` list for one GPU shared by a local model and a local image or video backend, such as llama-swap. Text and media requests to a listed host take turns, so a picture cannot wait forever behind chat replies. A picture or clip waits at most `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS`. Embeddings are not held. Applies to new requests without a restart. |
 | `MARINARA_ENV_WATCH` | `1` | How `.env` is watched. Default: change events (about 250 ms debounce) with a 30-second check as fallback. `poll`: always the 30-second check. `0`: off. See [Restart or hot reload](#restart-or-hot-reload). |
@@ -339,7 +339,7 @@ Video accounts are set up in the app. These settings only tune the jobs. Values 
 
 ### Lorebooks
 
-Both are off by default and apply on the next generation after a `.env` change. When `LOREBOOK_STABLE_GROUP_WINNERS` is set, it wins over the **Stable lorebook picks** switch in **Settings → Advanced → Features**. Otherwise the switch decides. See [Feature Switches](configuration/features.md).
+Both are off by default and apply on the next generation after a `.env` change. When `LOREBOOK_STABLE_GROUP_WINNERS` is set, it wins over the **Stable lorebook picks** switch in **Settings → Advanced → Lorebooks**. Otherwise the switch decides. See [Feature Switches](configuration/features.md).
 
 | Variable | Default | What it does |
 | --- | --- | --- |
@@ -350,7 +350,7 @@ Both are off by default and apply on the next generation after a `.env` change. 
 
 ### Robustness
 
-All are off by default, which keeps the old behavior. `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` and `SHUTDOWN_FORCE_EXIT_ON_REPEAT` need a restart. The rest apply after a `.env` change. When `PROVIDER_RETRY_TRANSIENT_ERRORS` is set, it wins over the **Retry failed provider calls** switch in **Settings → Advanced → Features**. Otherwise the switch decides.
+All are off by default, which keeps the old behavior. `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` and `SHUTDOWN_FORCE_EXIT_ON_REPEAT` need a restart. The rest apply after a `.env` change. When `PROVIDER_RETRY_TRANSIENT_ERRORS` is set, it wins over the **Retry failed provider calls** switch in **Settings → Advanced → Timeouts & Retries**. Otherwise the switch decides.
 
 | Variable | Default | What it does |
 | --- | --- | --- |

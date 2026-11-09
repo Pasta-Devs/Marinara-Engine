@@ -36,8 +36,8 @@ Marinara exports every message from the first to the last one you picked. Click 
 
 ## Export several chats at once
 
-1. In the left sidebar, click the tab for the mode you want: **CONVO**, **RP** or **GM**. Each tab exports only its own chats.
-2. Click **Select chats** at the top of the list.
+1. In the **Chats** sidebar, click the tab for the mode you want: **Convo**, **Roleplay** or **Game**. Each tab exports only its own chats.
+2. Click **Select chats** (the check mark) at the top of the sidebar.
 3. Click each chat you want. A bar at the bottom shows the count, such as "3 selected".
 4. Click **Export** in the bar.
 
@@ -47,8 +47,8 @@ Your browser downloads a `.zip` file with one JSONL transcript per chat. Bulk ex
 
 This makes a new chat from a `.jsonl` file saved by Marinara or exported from SillyTavern.
 
-1. In the left sidebar, click the tab for the mode you want. The imported chat uses the mode of the tab you have open, not the mode in the file.
-2. Click the **Import** button next to the **+** button. Its label is **Import SillyTavern or Marinara chat JSONL**.
+1. In the **Chats** sidebar, click the tab for the mode you want. The imported chat uses the mode of the tab you have open, not the mode in the file.
+2. Click the **Import** button (the download arrow) next to **+ New**. Its label is **Import SillyTavern or Marinara chat JSONL**.
 3. Choose your `.jsonl` file.
 
 You see "Imported N messages", and Marinara opens the new chat. For SillyTavern files in more depth, see [Importing from SillyTavern](../data/importing-from-sillytavern.md).
@@ -67,7 +67,7 @@ You see "Imported N messages as a new branch". The branch reuses the open chat's
 
 ## Include reasoning and private notes in exports
 
-Two settings decide whether hidden text goes into export files. Both are toggles in **Settings → Advanced → Message Tools**, and both are off by default. They affect single-chat and `.zip` exports.
+Two settings decide whether hidden text goes into export files. Both are toggles in **Settings → Data → Chat Exports**, and both are off by default. They affect single-chat and `.zip` exports.
 
 | Setting | When on |
 | --- | --- |

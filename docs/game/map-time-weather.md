@@ -7,7 +7,7 @@ Use the map panel to see where your party is and to move it. This guide also cov
 Game Mode shows a map panel on the game screen. It lists the current map name, the game day and a sky icon for the time of day.
 
 - **On a computer**, the map is an inline panel you can read at a glance. You can drag it and lock it in place. For how draggable panels work, see [Game Mode: HUD Widgets](hud-widgets.md).
-- **On a phone**, tap **Map** to open the panel. Its button starts near the top left and can be dragged around the chat. Use **Lock window** to keep the button in place, and **Close** to return to it. The position is saved with the chat. The phone map uses your chat widget style from **Settings → Appearance → App**, and its button stays separate from the three-dot **Chat tools** menu.
+- **On a phone**, tap **Map** to open the panel. Its button starts near the top left and can be dragged around the chat. Use **Lock window** to keep the button in place, and **Close** to return to it. The position is saved with the chat. The phone map uses your chat widget style from **Settings → Appearance → Chat Buttons & Windows**, and its button stays separate from the three-dot **Chat tools** menu.
 
 A VN game has the scene map described here. The overworld, towns and dungeon maps belong to Overworld games, which are not available yet (see [VN or Overworld](getting-started.md#vn-or-overworld)).
 
@@ -104,7 +104,7 @@ To switch between views, use **Show the scene** and **Show the overworld** in **
 
 ### Tile packs
 
-Tile packs hold the palette and every tile (each kind of ground, settlements by size, the party, and a town's streets, roofs and townsfolk) as rows of pixels. Every setting family has a built-in pack. Open the **Agents** panel and find **Tile packs** to:
+Tile packs hold the palette and every tile (each kind of ground, settlements by size, the party, and a town's streets, roofs and townsfolk) as rows of pixels. Every setting family has a built-in pack. Open **Library → Agents** and find **Tile packs** to:
 
 - choose which pack each setting is drawn with (**Built in** is its own),
 - **Import a tile pack** from a `.tilepack.json` file,

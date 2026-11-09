@@ -2,14 +2,14 @@
 
 The background library holds images you upload and pick by hand to sit behind your chat. For the **Background** agent that picks a backdrop for you each turn, see [Roleplay Backgrounds](../roleplay/backgrounds.md). For AI-generated backgrounds made from the Gallery, see [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
 
-A chat background shows in all chat modes. In Conversation chats, the gradient from **Conversation Theme** stays over the image, and **Conversation background image opacity** sets how strongly the image shows. See [Appearance Settings](appearance-settings.md).
+A chat background shows in all chat modes. In Conversation chats, the gradient from **Conversation Background** stays over the image, and **Conversation background image opacity** sets how strongly the image shows. See [Appearance Settings](appearance-settings.md).
 
 ## Change the background of a chat
 
 Before you start: open the chat you want to change. The background you pick applies to that chat.
 
-1. Open **Settings**, then **Appearance**, then the **App** button.
-2. In **Backgrounds**, tap **Browse library**.
+1. Open **Settings → Appearance → Backgrounds**.
+2. Tap **Browse library**.
 3. Tap a picture. It becomes this chat's background, and the window closes.
 
 To use your own image, import it first (see [Import a background](#import-a-background)).
@@ -17,7 +17,7 @@ To use your own image, import it first (see [Import a background](#import-a-back
 ## Where to find backgrounds
 
 1. Open **Settings**.
-2. Select the **Appearance** tab, then the **App** button.
+2. Select the **Appearance** tab.
 3. Find the **Backgrounds** section.
 
 It has the **Chat Background** picker, the **Background Blur** slider, and the **Conversation background image opacity** and **Chat List Backgrounds** controls (see [Appearance Settings](appearance-settings.md)).

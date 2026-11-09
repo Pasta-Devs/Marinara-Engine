@@ -33,7 +33,7 @@ Change these later in **Chat Settings → Autonomous Messaging**. If characters 
 
 Commands are actions the character decides to do by itself. You do not type them. After setup, open **Chat Settings → Agents → Commands**. The master **Commands** switch gates all families: when it is off, no family works.
 
-Each family has its own switch. All start on except **Videos**, which you must turn on yourself. Families that belong to an optional agent show only when you install that agent from **Agents → Agent Organizer**.
+Each family has its own switch. All start on except **Videos**, which you must turn on yourself. Families that belong to an optional agent show only when you install that agent from **Library → Agents**.
 
 | Family | What a character can do | Needs an agent |
 | --- | --- | --- |
@@ -56,7 +56,7 @@ Each family has its own switch. All start on except **Videos**, which you must t
 | **Tic-Tac-Toe** | Accept a tic-tac-toe challenge. | Tic-Tac-Toe |
 | **Rock-Paper-Scissors** | Accept a match. | Rock-Paper-Scissors |
 
-For **Influence** and **Notes**, see [Connected Chats](../chats/connected-chats.md). The last column names the agent to install from **Agent Organizer**.
+For **Influence** and **Notes**, see [Connected Chats](../chats/connected-chats.md). The last column names the agent to install from **Library → Agents**.
 
 ## Your presence status
 

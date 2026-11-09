@@ -32,7 +32,7 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 
 A character's **Colors** tab also has **Name Aliases**. Type extra names or nicknames, separated by commas, such as `Kate, Kitty, Katherine`. They get the character's name color when they appear in chat messages. The main name is always included. Turn it on per chat in **Chat Settings → Characters**.
 
-To change transparency, use **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity**.
+To change transparency, use **Settings → Roleplay → Roleplay Messages → Roleplay Messages Background Opacity**.
 
 The slider replaces the transparency saved in character, persona and preset background colors, including extracted ones. Your saved color values stay as they are. Name and dialogue colors are not affected.
 

@@ -24,7 +24,7 @@ You can add both to one chat, but they overlap and raise cost. The agent editor 
 
 ## Add a Knowledge agent to a chat
 
-Before you start: install the agent from **Agent Organizer**. See [Agents overview](agents-overview.md).
+Before you start: install the agent from **Library → Agents**. See [Agents overview](agents-overview.md).
 
 1. In a Roleplay chat, open **Chat Settings**.
 2. Find the **Agents** section and turn on **Enable Agents**.

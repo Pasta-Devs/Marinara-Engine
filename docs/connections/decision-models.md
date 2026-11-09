@@ -10,8 +10,8 @@ Our advice: leave it on **None** if you are unsure. If you want decisions, use t
 
 Before you start, see [Which one to pick](#which-one-to-pick).
 
-1. Click **Connections** in the top bar and open the **Jobs** box.
-2. Under **Behind the scenes**, click the **Decision** row. A list opens.
+1. Open **Library → Connections**. The **Defaults** box is at the top.
+2. Click **Decision**. A list opens.
 3. Pick a model. The list has three groups:
    - **None (decisions off)** is the default. Nothing is asked, and the activation question fields in the agent editor stay disabled.
    - **Built-in model** lists the models Marinara runs on your computer: **Built-in model**, **Built-in model (utility)**, and **Built-in model (decisions)**. Nothing leaves your computer.
@@ -37,13 +37,13 @@ Jev and Open-Jev are different models. Jev is TypeSafe's hosted model, available
 
 On Android (Termux), the **Built-in decision model** cannot run, and a small local model on a phone's processor can be too slow. A hosted account is the practical choice, for example Jev through OpenRouter. See [Set up a Decision connection](#set-up-a-decision-connection).
 
-Write presets, cards, and agents for "a decision model", never "requires Jev". They use the same statement syntax with any model, but models can give different answers. When you import content that uses decisions, including custom agents and Agent Organizer installs, Marinara shows a notice that links here. Restoring a whole profile ZIP does not show it.
+Write presets, cards, and agents for "a decision model", never "requires Jev". They use the same statement syntax with any model, but models can give different answers. When you import content that uses decisions, including custom agents and official agent installs, Marinara shows a notice that links here. Restoring a whole profile ZIP does not show it.
 
 ## Use the Built-in model
 
 If you have the Built-in model downloaded, you can use it for decisions with no account and no cost. See [Built-in Model Setup](local-model.md).
 
-1. Click the **Decision** row under **Behind the scenes** in the **Jobs** box.
+1. Click **Decision** in the **Defaults** box on the Connections page.
 2. Pick **Built-in model** (or **Built-in model (utility)** if you have one).
 3. Click the **Decision settings** gear, then click **Test**.
 
@@ -65,9 +65,9 @@ A general chat model's yes-or-no probabilities work for a threshold, but they we
 
 If your chat model runs in Ollama, LM Studio, llama.cpp, or another OpenAI-compatible server, it can answer decisions without Marinara loading a second copy.
 
-1. Click **⋯** on that model in the **Connections** panel and choose **Use this model for decisions**. The **Add account** window opens on the decision step with the same address, model, and key.
+1. Open **Library → Connections**, click **Add connection**, open the **Decisions** tab and choose **Own decision server**. Type the same address and key your chat model uses. (In the classic layout, **⋯** on the model has **Use this model for decisions**, which fills these in.)
 2. Pick the model, then click **Test decision**. A passing test says whether the server returned log-probabilities and whether the model had to think first. Click **Done**.
-3. Click the **Decision** row under **Behind the scenes** and pick the new model.
+3. Click **Decision** in the **Defaults** box and pick the new model.
 
 You can also create one yourself. Use a Decision account with the source **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**, the same address as your chat account (for example `http://localhost:11434/v1` for Ollama), and the model name the server uses.
 
@@ -77,13 +77,13 @@ It is asked like the Built-in model: one yes-or-no word per statement. Statement
 
 A hosted Decision account sends the selected recent messages and statements to the service and can cost money. Smart response order also sends a [character roster](#what-the-model-sees).
 
-1. Click **Connections** in the top bar, then click **Add**.
-2. Under **Decisions**, click **TypeSafe** or **Own decision server**. For OpenRouter, click **OpenRouter** under **Chat**, connect it, then use **Use this key for decisions** in the model's **⋯** menu.
-3. Enter the **API key**, or for **Own decision server** the **Server address**. Click **Connect**. The window closes and the panel shows the new account.
-4. Click the **Decision** row under **Behind the scenes** and pick the new model.
-5. To test it, click the model in the panel to open **Edit model**, then click **Test provider** in the **Provider tests** card. An **Own decision server** model has no **Test provider** button there. Open the account's **⋯** menu in the panel and click **Test** instead.
+1. Open **Library → Connections** and click **Add connection**.
+2. On the **Decisions** tab, click **TypeSafe** or **Own decision server**. For OpenRouter, click **OpenRouter** on the **Chat** tab, connect it, then use **Use this key for decisions** in the model's **⋯** menu.
+3. Enter the **API key**, or for **Own decision server** the **Server address**. Click **Connect**. The window closes and the Connections page shows the new account.
+4. Click **Decision** in the **Defaults** box and pick the new model.
+5. To test it, click the model on the Connections page to open **Edit model**, then click **Test provider** in the **Provider tests** card. An **Own decision server** model has no **Test provider** button there. Click the account's **⋯**, choose **Edit account** and click **Test account** instead.
 
-A passing **Test provider** shows the probability, how long the answer took, and the account's time limit. The account's **Test** in the **⋯** menu only says whether it worked and how long it took. The test waits at least 10 seconds, or 5 seconds past a longer limit. If the answer took longer than the limit, the result says so: in chats that answer would count as no answer.
+A passing **Test provider** shows the probability, how long the answer took, and the account's time limit. **Test account** only says whether it worked and how long it took. The test waits at least 10 seconds, or 5 seconds past a longer limit. If the answer took longer than the limit, the result says so: in chats that answer would count as no answer.
 
 If it did not work, see [Troubleshooting](#troubleshooting).
 

@@ -2258,6 +2258,12 @@
   font-size: 0.9375rem;
   line-height: 1.65;
 }
+/* The docs page reads guides like a web page (white-space: normal), so a blank line between two
+   paragraphs needs its own break; without it, every paragraph ran into the next. */
+.ov-docs__content [data-mari-part="paragraph-gap"] {
+  display: block;
+  height: 0.75em;
+}
 .ov-docs__content h1 {
   margin: 0 0 0.75rem;
   font: 600 2.5rem/1.15 var(--ov-serif) !important;

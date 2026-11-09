@@ -6,11 +6,11 @@ Agents are small AI helpers that run around your main chat reply. One tracks the
 
 Agents are turned on per chat, not per character. Two chats with the same character can run different agents.
 
-A fresh install has no optional agents. Install them from **Agent Organizer**, the store for official one-click packages. The source and catalog are public in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Install through **Agent Organizer**, so Marinara can check compatibility, permissions and file hashes. For what each agent does, see [Downloadable Agents Reference](built-in-agents.md). To make your own, see [Creating Custom Agents](custom-agents.md).
+A fresh install has no optional agents. Install them from **Library → Agents**, the store for official one-click packages. In the classic layout it is called **Agent Organizer**. The source and catalog are public in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Install through that page, so Marinara can check compatibility, permissions and file hashes. For what each agent does, see [Downloadable Agents Reference](built-in-agents.md). To make your own, see [Creating Custom Agents](custom-agents.md).
 
 ## Add an agent to a chat
 
-Before you start: install the agent first. Open the **Agents** panel (the Sparkles icon in the right-side tabs), click **Agent Organizer**, open the agent's page and click **Get**. See [Install and update agents](#install-and-update-agents).
+Before you start: install the agent first. Open **Library → Agents**, find the agent under **Available** and click **Get**. See [Install and update agents](#install-and-update-agents).
 
 1. Open the chat.
 2. Open **Chat Settings** and find the **Agents** section.
@@ -61,7 +61,7 @@ Each agent runs at one point around your reply, called its **pipeline phase**. E
 - Tracker agents write into the HUD and tracker panels. If the time, location, mood or stats changed, a tracker ran.
 - **Agent activity** in **Chat Settings** lists short notes from agents. Its icon spins while they work and shows a dot when one fails. See [Agent activity](../roleplay/getting-started.md#agent-activity).
 - **Prose Guardian** and **Continuity Checker** change the reply text. A cleaned-up or corrected reply means they ran.
-- For a full trace, turn on **Debug mode** in **Settings → Advanced → Message Tools**. It logs each agent's prompt and response to the server console, and agent debug entries also appear in the browser console. Cached prompt injections show in the **Injections** tab of **Agent activity**.
+- For a full trace, turn on **Debug mode** in **Settings → Advanced → Troubleshooting**. It logs each agent's prompt and response to the server console, and agent debug entries also appear in the browser console. Cached prompt injections show in the **Injections** tab of **Agent activity**.
 
 ## Watch the cost
 
@@ -73,11 +73,11 @@ If you see the warning, remove agents you do not need or move some to a cheaper 
 
 ## Install and update agents
 
-Open the **Agents** panel (the Sparkles icon in the right-side tabs) and click **Agent Organizer**. It works on desktop and mobile.
+Open **Library → Agents**. It works on desktop and mobile.
 
-- **Home** shows featured agents and a shelf for each section: **Apps**, **Chat games**, **Trackers** and **Writing help**.
-- **Updates** lists installed agents with a newer version. **Installed** lists everything you have, with version and size.
-- Search and the mode filter narrow every list.
+- **Installed** lists everything you have, **Available** lists what you can download, and **Updates** lists installed agents with a newer version.
+- **All sections** narrows the list to one section, such as **Apps**, **Chat games**, **Writing help** or **Trackers**, and **All modes** to one chat mode. **Search agents**, the sort menu and **List** / **Gallery** work on every list.
+- **Starter kits** installs a ready-made set of agents in one go. **New agent** starts a [custom agent](custom-agents.md).
 - Select an agent to see its description, download size, permissions, compatibility and **Version history**. Click **Get** to install it. The **⋯** menu offers **Uninstall**.
 - The **⋯** menu next to the title has **Update all**, **Install all**, **Refresh catalog** and **Uninstall all**.
 
@@ -96,7 +96,7 @@ When a newer compatible version of an installed package exists, an **Agent updat
 3. Click **Update all** (or **Update 2 of 3** when you cleared some). Each row shows **Updated** or **Failed**. A failed row shows the reason and **Retry**.
 4. If an update needs a restart, click **Restart now**, or restart Marinara later.
 
-Click **Not now** to keep your versions. Marinara does not ask again about a version you skipped. You can update from **Agent Organizer** at any time. Installed packages keep working at their current version, even when the catalog cannot be reached. **See in Agent Organizer** opens the agent's page.
+Click **Not now** to keep your versions. Marinara does not ask again about a version you skipped. You can update from the **Updates** tab of **Library → Agents** at any time. Installed packages keep working at their current version, even when the catalog cannot be reached. **See in Agent Organizer** opens the agent's page.
 
 Updates apply only to packages you installed. Packages live on the Marinara server, so browser clients use what the server has installed.
 

@@ -6,7 +6,7 @@ Selfies come from the optional **Illustrator** package and use image generation.
 
 ## Turn selfies on
 
-Before you start: install **Illustrator** from **Agents → Agent Organizer**, and add an image account, which is an account for a service that makes pictures (see [Image Generation Providers and Setup](../media/image-providers.md)).
+Before you start: install **Illustrator** from **Library → Agents**, and add an image account, which is an account for a service that makes pictures (see [Image Generation Providers and Setup](../media/image-providers.md)).
 
 1. Open a Conversation chat, then open **Chat Settings**.
 2. Find the **Agents** section and open **Illustrator Settings**.
@@ -41,7 +41,7 @@ If the card or persona has **Image Appearance Override** on (under **Appearance*
 
 1. Open **Chat Settings** and expand the **Gallery** section.
 2. Click **Selfie**. With more than one character, pick who takes it from the list beside the button.
-3. If **Expose media prompts before sending** is on (**Settings → Generations → Overall Generations**), review or edit the prompt and click **Generate**. Canceling sends no request.
+3. If **Expose media prompts before sending** is on (**Settings → Media → Generation Defaults**), review or edit the prompt and click **Generate**. Canceling sends no request.
 4. Wait while the button reads **Generating...**.
 
 You see "Selfie generated." and the picture appears in the chat. A manual request uses **Selfie model** and costs one image request.
@@ -78,7 +78,7 @@ Open **Chat Settings → Agents → Illustrator Settings**, **Video messages**.
 - **Video model**: the video account. **Default video provider** uses your default.
 - **First frame**: the picture the clip starts from (below).
 
-`/video` and the Gallery **Video** button work either way and ignore the interval. Swiping a reply that sent a clip lets the new swipe send its own. In a group chat each character can send one clip per reply, up to **Videos per reply** (3 by default) under **Settings → Generations → Video Generation**.
+`/video` and the Gallery **Video** button work either way and ignore the interval. Swiping a reply that sent a clip lets the new swipe send its own. In a group chat each character can send one clip per reply, up to **Videos per reply** (3 by default) under **Settings → Media → Video Generation**.
 
 **First frame** options:
 
@@ -89,7 +89,7 @@ Open **Chat Settings → Agents → Illustrator Settings**, **Video messages**.
 
 With **Expose media prompts before sending** on, you review the selfie prompt together with the clip prompt.
 
-Pictures in other formats, such as WebP, are converted for the video service. One video message is one video request, plus one image request when it starts from a new selfie. Your **Prompt Model** writes the video prompt, and **Settings → Generations → Video Generation Prompt Overrides → Conversation Video Message** holds its instructions.
+Pictures in other formats, such as WebP, are converted for the video service. One video message is one video request, plus one image request when it starts from a new selfie. Your **Prompt Model** writes the video prompt, and **Settings → Media → Prompt Overrides → Conversation Video Message** holds its instructions.
 
 ## Reference: the selfie tag
 

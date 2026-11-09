@@ -48,7 +48,7 @@ A lorebook is a set of background facts the AI looks up during a chat. If a card
 
 ### Import a whole SillyTavern folder
 
-To move a whole SillyTavern install, use the bulk importer in **Settings** on the **Imports** tab. It brings over characters, chats, presets and lorebooks together. See [Importing from SillyTavern](../data/importing-from-sillytavern.md).
+To move a whole SillyTavern install, use the bulk importer in **Settings → Data → SillyTavern Import**. It brings over characters, chats, presets and lorebooks together. See [Importing from SillyTavern](../data/importing-from-sillytavern.md).
 
 ## Export a character
 
@@ -72,7 +72,7 @@ A card's [Interactive Onboarding](interactive-onboarding.md) is kept by **Marina
 2. Click **Select** in the toolbar (the checkmark icon) and tick the characters you want.
 3. Click **Export** in the bar at the bottom. Marinara downloads `marinara-characters.zip`.
 
-The zip holds one **Marinara Native** file per character. Bulk export has no PNG or JSON option. Use single-character export for those. For more ways to select characters, see [Organizing Your Character Library](library-organization.md#export-or-delete-many-characters).
+The zip holds one **Marinara Native** file per character. Bulk export has no PNG or JSON option. Use single-character export for those. For more ways to select characters, see [Organizing Your Character Library](library-organization.md#export-or-delete-many-characters-classic-layout).
 
 ## Related guides
 

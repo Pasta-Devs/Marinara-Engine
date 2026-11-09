@@ -6,7 +6,7 @@ A style profile is a reusable "house style" that shapes every image prompt befor
 
 Every generated image starts as a text prompt: avatars, portraits, Conversation selfies, scene backgrounds, illustrations and sprites. A style profile is a saved set of rules Marinara adds to that prompt. It can add positive words (what you want), negative words (what you want to avoid) and a preferred prompt style. You pick one profile as the app-wide default. You can override it for one chat or one image model.
 
-To find the editor, open **Settings → Generations → Image Generation** and scroll to **Style Profiles**.
+To find the editor, open **Settings → Media → Image Generation** and scroll to **Style Profiles**.
 
 ## The built-in profiles
 
@@ -35,7 +35,7 @@ The built-in profiles are:
 
 The default profile applies to every image unless a chat or image model overrides it.
 
-1. Open **Settings → Generations → Image Generation → Style Profiles**.
+1. Open **Settings → Media → Image Generation → Style Profiles**.
 2. Open the **Default style** list.
 3. Pick a profile.
 

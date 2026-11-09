@@ -1,16 +1,16 @@
 # Managing Your Chat List
 
-The **Chats** panel on the left holds every chat you have. Use it to start, find, sort, organize and delete chats.
+The **Chats** sidebar on the left holds every chat you have. Show or hide it with the chat bubble button at the far left of the top bar. Use it to start, find, sort, organize and delete chats.
 
 ## The chat list and mode tabs
 
-At the top of the panel are three mode tabs. Each tab lists only the chats of that mode.
+At the top of the sidebar are three mode tabs. Each tab lists only the chats of that mode.
 
 | Tab | Mode |
 | --- | --- |
-| **CONVO** | Conversation: a messaging-style chat. |
-| **RP** | Roleplay: a scene with characters and world tracking. |
-| **GM** | Game: a single-player RPG run by the AI. |
+| **Convo** | Conversation: a messaging-style chat. |
+| **Roleplay** | Roleplay: a scene with characters and world tracking. |
+| **Game** | Game: a single-player RPG run by the AI. |
 
 Each row shows the chat name and the avatars of its characters. In Conversation chats, a colored dot on an avatar shows that character's status. A red badge is the count of unread messages. A row with a small branch icon and a number is a chat with several branches, grouped into one row. See [Chat Branches](branches.md).
 
@@ -19,7 +19,7 @@ Each row shows the chat name and the avatars of its characters. In Conversation 
 Before you start: add at least one account in **Connections**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
 1. Click the tab for the mode you want.
-2. Tap the **+** button at the top of the panel. Its label is **New Conversation**, **New Roleplay** or **New Game**, to match the tab.
+2. Click **+ New** at the top of the sidebar. Its tooltip is **New Conversation**, **New Roleplay** or **New Game**, to match the tab. You can also start one from **Conversation**, **Roleplay** or **Game** on Home.
 
 Marinara creates and opens the chat. **Chat Settings** and a setup wizard open beside it. The chat starts with the name **New Conversation**, **New Roleplay** or **New Game**. If you saved a starred default settings profile for Conversation or Roleplay, Marinara applies it to the new chat. See [Settings Profiles](settings-profiles.md).
 
@@ -30,7 +30,7 @@ If it did not work: with no account saved, the **Add account** window opens inst
 You can import a `.jsonl` chat log from SillyTavern or Marinara.
 
 1. Click the tab for the mode the chat should land in.
-2. Tap the **Import** button at the top of the panel. Its label is **Import SillyTavern or Marinara chat JSONL**.
+2. Click the **Import** button (the download arrow) at the top of the sidebar. Its label is **Import SillyTavern or Marinara chat JSONL**.
 3. Choose your `.jsonl` file.
 
 Marinara creates the chat, opens it, and shows **Imported N messages**. For export formats and bulk export, see [Exporting and Importing Chats](export-import.md).
@@ -61,7 +61,7 @@ If the chat has several branches, the dialog says how many and gives two choices
 
 To manage branches without deleting the chat, see [Chat Branches](branches.md).
 
-The app-wide setting **Confirm before deleting** controls these dialogs. It is on by default. Find it in **Settings → General**.
+The app-wide setting **Confirm before deleting** controls these dialogs. It is on by default. Find it in **Settings → General → Confirmations & Help**.
 
 ## Chat folders
 

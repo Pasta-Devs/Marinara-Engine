@@ -4,7 +4,7 @@ A settings profile is a named bundle of reusable chat settings: connection, prom
 
 Profiles live at the top of **Chat Settings**. They work in Conversation and Roleplay. Game chats do not show the profile controls.
 
-A **prompt preset** is different. It controls the system prompt structure and generation values, and you edit it in the Presets panel. See [Preset Editor and Prompt Manager](../prompts/presets.md). A settings profile is the wider bundle, and it can include a prompt preset as one item.
+A **prompt preset** is different. It controls the system prompt structure and generation values, and you edit it on the **Library → Presets** page. See [Preset Editor and Prompt Manager](../prompts/presets.md). A settings profile is the wider bundle, and it can include a prompt preset as one item.
 
 ## Apply a profile
 

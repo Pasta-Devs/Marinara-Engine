@@ -6,10 +6,9 @@ A ruleset tells Game Mode how a tabletop system works: which dice a check rolls,
 
 To install an official ruleset such as 5e (SRD 5.1):
 
-1. Open the **Agents** panel (the Sparkles icon).
-2. Select **Agent Organizer**.
-3. Find the ruleset. Rulesets are marked **Rules**.
-4. Select **Install**.
+1. Open **Library → Agents** and click **Available**.
+2. Find the ruleset. Rulesets are marked **Rules**.
+3. Click **Get**.
 
 Then start a new game and pick it (see below). Rulesets come from two places:
 

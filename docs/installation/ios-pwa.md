@@ -91,7 +91,7 @@ See [Locked out after updating](../REMOTE_ACCESS.md#locked-out-after-updating).
 
 **A red banner says saves will silently fail.** This is a network trust warning from the server, not a problem with your iPhone or iPad. The server owner needs to trust your address. See [Remote Access](../REMOTE_ACCESS.md#why-is-my-save-blocked-csrf).
 
-**Privileged actions are blocked.** Some maintenance actions need the admin secret (a second password) from the server owner. Save it on your iPhone or iPad in **Settings → Advanced → Admin Access**. See [Remote Access](../REMOTE_ACCESS.md#admin-access-and-privileged-actions).
+**Privileged actions are blocked.** Some maintenance actions need the admin secret (a second password) from the server owner. Save it on your iPhone or iPad in **Settings → Advanced → Security**. See [Remote Access](../REMOTE_ACCESS.md#the-admin-secret-and-privileged-actions).
 
 ## Related guides
 

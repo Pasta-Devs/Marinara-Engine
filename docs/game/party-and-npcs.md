@@ -18,7 +18,7 @@ Details for both follow.
 
 To remove a companion, hover over their portrait on a computer and click the **X**. This works for any companion the GM recruited, in setup or later. Your own persona (the character you play) has no **X**.
 
-You can drag the button around the chat on a computer or phone. Open it and use **Lock window** to keep it in place. On a computer you can also move and resize the window, and **Close** returns it to its button. Its position is saved with the chat, and it follows your chat widget style from **Settings → Appearance → App**. On phones it stays separate from the three-dot **Chat tools** menu.
+You can drag the button around the chat on a computer or phone. Open it and use **Lock window** to keep it in place. On a computer you can also move and resize the window, and **Close** returns it to its button. Its position is saved with the chat, and it follows your chat widget style from **Settings → Appearance → Chat Buttons & Windows**. On phones it stays separate from the three-dot **Chat tools** menu.
 
 ## Character sheets
 

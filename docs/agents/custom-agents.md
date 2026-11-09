@@ -1,22 +1,22 @@
 # Creating Custom Agents
 
-A custom agent is a helper you write yourself: your own instructions, when it runs, and what it may change. Build one when no [downloadable agent](built-in-agents.md) does what you want. If an installed agent is close, hover its card in the **Agents** panel and click **Copy agent** to get an editable copy.
+A custom agent is a helper you write yourself: your own instructions, when it runs, and what it may change. Build one when no [downloadable agent](built-in-agents.md) does what you want. If an installed agent is close, hover its card on the **Agents** page and click **Copy agent** to get an editable copy.
 
 Before you start: read [Agents: AI Helpers for Your Chats](agents-overview.md). Building an agent does not run it. You add it to a chat afterward. Custom agents work in every chat mode.
 
 ## Creating a custom agent
 
-1. Open the **Agents** panel.
-2. Click **New** (the plus icon) near the top. The full-page agent editor opens.
+1. Open **Library → Agents**.
+2. Click **New agent** at the top right. The full-page agent editor opens.
 3. Type a name in the title field, for example `Weather Reporter`.
 4. Fill in **Description** and **Author**.
 5. Choose a **Pipeline Phase** (see [Pipeline Phase](#pipeline-phase)).
 6. Turn on the powers it needs under **Custom Agent Abilities**.
 7. Pick a **Result Type** that matches what the agent produces. If you are unsure, pick **Context Injection**. It needs no ability and no strict output format.
 8. Write its instructions under **Prompt Template**.
-9. Click **Save** in the top bar. A green **Saved** badge appears.
+9. Click **Save** at the top of the editor, or press <kbd>Ctrl</kbd>+<kbd>S</kbd>.
 
-The agent now appears in the **Custom Agents** section of the **Agents** panel. To use it, open a chat, go to **Chat Settings**, turn on **Enable Agents** and add the agent from **Custom Agents**.
+The agent now appears under **Your agents** on the **Agents** page. To use it, open a chat, go to **Chat Settings**, turn on **Enable Agents** and add the agent from **Custom Agents**.
 
 ## Pipeline Phase
 
@@ -160,21 +160,21 @@ Marinara swaps `editedText` into the reply. The `changes` notes show as a short 
 
 ## Import and export agents
 
-To export one agent, click **Export agent** (the upload icon) in the editor's top bar. The file holds the agent's prompt and settings, never custom-tool definitions. To export several, use **Select agents** in the **Agents** panel, pick them and export.
+To export one agent, click **Export agent** (the upload icon) in the editor's top bar. The file holds the agent's prompt and settings, never custom-tool definitions. To export several at once, use **Select agents** in the classic layout's **Agents** panel.
 
 External imports are locked by default.
 
-1. Open **Settings → Advanced → Danger Zone** and turn on **Allow custom Agent imports**. No `.env` change is needed.
-2. In the **Agents** panel, click **Import agents** and choose agent files or a folder.
+1. Open **Settings → Advanced → Security** and turn on **Allow custom Agent imports**. No `.env` change is needed.
+2. Importing agent files is in the classic layout for now. Turn off **New layout** in **Settings → Appearance → Theme**, open the **Agents** panel, click **Import agents** and choose agent files or a folder. Turn **New layout** back on afterwards.
 3. Review the permission list Marinara shows. Approve only what the agent needs. Unchecked capabilities stay blocked.
 
-This lock affects only agents from files, folders or custom repositories. Agents you create and official agents from **Agent Organizer** work normally. Each imported file gets a new custom identity, so it cannot replace an official agent.
+This lock affects only agents from files, folders or custom repositories. Agents you create and official agents from **Library → Agents** work normally. Each imported file gets a new custom identity, so it cannot replace an official agent.
 
-For safety, Marinara ignores bundled functions, clears tool selections, cleans temporary CSS and checks approved capabilities before an imported agent can change messages, trackers, lorebooks, backgrounds, sprites, media, haptics, About Me data, prompts or images. Import trusted functions separately, review them, and attach them to the agent yourself. Turning the **Danger Zone** toggle off stops imported agents from running.
+For safety, Marinara ignores bundled functions, clears tool selections, cleans temporary CSS and checks approved capabilities before an imported agent can change messages, trackers, lorebooks, backgrounds, sprites, media, haptics, About Me data, prompts or images. Import trusted functions separately, review them, and attach them to the agent yourself. Turning **Allow custom Agent imports** off stops imported agents from running.
 
 ## Activation questions
 
-An activation question asks whether the recent scene needs your agent. It catches paraphrases that keywords miss. It needs a **Decision model**, a small model that answers yes-or-no questions. Pick one in the Connections panel. See [Decision Models](../connections/decision-models.md). With **Decision model** set to **None**, the default, the question fields stay disabled, and an agent with a question runs as if it had none.
+An activation question asks whether the recent scene needs your agent. It catches paraphrases that keywords miss. It needs a **Decision model**, a small model that answers yes-or-no questions. Pick one in the **Defaults** box on the Connections page. See [Decision Models](../connections/decision-models.md). With **Decision model** set to **None**, the default, the question fields stay disabled, and an agent with a question runs as if it had none.
 
 1. Open the custom agent.
 2. Type a **Question** of up to 500 characters. The macros `{{user}}` and `{{char}}` work in it.

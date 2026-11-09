@@ -10,9 +10,9 @@ If the **Built-in model** card is missing, you have a "Lite" install, a slimmed-
 
 Before you start, make sure you have free disk space and memory (RAM) for the model. The sizes are in the table below.
 
-1. Click **Connections** in the top bar.
-2. Find the **Built-in model** card under the **Jobs** box. It says **Not downloaded**.
-3. Click the card, or click its **Download** button. A window titled **Built-in model** opens.
+1. Open **Library → Connections**.
+2. Find **Built-in model** under **On this device**. It says **Not downloaded**.
+3. Click the row, or click **Set up**. A window titled **Built-in model** opens.
 4. Under **Which model?**, pick a model. **Gemma 4 E2B — Q8 (Best Quality)** is tagged **Recommended**. If your computer has little memory, pick **Q4_K_M**. It needs about 3.4 GB of RAM instead of 5.4 GB.
 5. Click the **Download** button at the bottom. It shows the model size, for example **Download 5.0 GB**.
 6. Wait. The window shows three steps: **Install runtime**, **Download model**, and **Start and test**. A runtime is the program that runs the model. Marinara installs it first when it is missing.
@@ -27,7 +27,7 @@ If it did not work:
 - **Local runtime failed to start.** See [Troubleshooting](#troubleshooting).
 - **Download failed.** The window shows the error. Check your internet connection and free disk space, then click the download button again.
 
-You can also reach this window from **Add** in the **Connections** panel, under **Built-in model** in the **Add account** window.
+You can also reach this window from **Add connection** on the Connections page: **Built-in model** is on the **Chat** tab under **Self-hosted**.
 
 ### Curated presets
 
@@ -67,7 +67,7 @@ Open the **Built-in model** card after it is downloaded. Its page shows its stat
 | **Use for tracker agents (roleplay)** | Keeps the model running for tracker agents. Off by default. |
 | **Use for game scene analysis** | Keeps it running for Game Mode scene effects such as backgrounds, music, and weather. On by default. |
 | **Use the built-in model for all tracker agents** | Points every built-in tracker agent at this model. It does not turn the agents on. |
-| **Change in Defaults** | Opens the **Jobs** box, where you can give it other jobs. |
+| **Change in Defaults** | Opens the **Defaults** box, where you can give it other jobs. |
 
 If both switches are off, the model does not start on its own. It starts when you turn one on, or when a chat or job uses it. See [Memory Recall and Chat Summaries](../agents/memory.md) for enabling agents.
 
@@ -136,14 +136,14 @@ Some settings differ by system:
 
 Installing or reinstalling the runtime is a protected action. Windows one-click installs allow it for you. On macOS, Linux, and Docker, do one of these, then try again:
 
-- Enter the admin secret in **Settings → Advanced → Admin Access**. The admin secret is a second password for risky actions. You make it in **Admin Access** on the server's own computer, or set it as `ADMIN_SECRET` in the server's `.env` file. See [Admin Access](../REMOTE_ACCESS.md#admin-access-and-privileged-actions).
+- Enter the admin secret in **Settings → Advanced → Security**. The admin secret is a second password for risky actions. You make it in **Settings → Advanced → Security** on the server's own computer, or set it as `ADMIN_SECRET` in the server's `.env` file. See [The admin secret](../REMOTE_ACCESS.md#the-admin-secret-and-privileged-actions).
 - Add `SIDECAR_RUNTIME_INSTALL_ENABLED=true` to the server `.env` file, then restart Marinara. The `.env` file is a text file in the Marinara folder. See [Edit the .env file](../CONFIGURATION.md#edit-the-env-file).
 
 Marinara downloads only the llama.cpp, MLX, and uv versions approved for your release, and checks each file's size and SHA-256 checksum before it runs anything.
 
 ## Local speech model
 
-The **Local speech model** turns your voice into text on your own computer for Conversation calls. It is a Whisper model, a speech-to-text model. It needs the **Calls** agent package, which you install in **Agents → Agent Organizer**.
+The **Local speech model** turns your voice into text on your own computer for Conversation calls. It is a Whisper model, a speech-to-text model. It needs the **Calls** agent package, which you install in **Library → Agents**.
 
 1. Open the **Connections** panel and click the **Speech to text** item under **On this device**.
 2. Under **Local speech model**, pick a model from the dropdown.

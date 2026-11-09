@@ -9,8 +9,8 @@ Before you start: you need an API key (a secret code, like a password) from an A
 1. Install Marinara Engine and open it in your browser. Pick your platform in [Marinara Engine Installation](../INSTALLATION.md).
 2. Add an account. An account is one API key for one AI service. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 3. Pick the models the account should use. The same guide shows how.
-4. Make or import a character. Open the **Characters** panel, then click **New** to open the **Create Character** window, or click **Import** to bring in a card from a file. See [Creating and Editing Characters](../characters/creating-and-editing-characters.md).
-5. Open the chat list on the left with the chat button in the top bar. Its tabs read **Convo**, **Roleplay** and **Game**. Pick one, then click **+ New**.
+4. Make or import a character. Open **Library → Characters** (click **Library** at the top right), then click **New character**, or click **Import** to bring in a card from a file. See [Creating and Editing Characters](../characters/creating-and-editing-characters.md).
+5. Open the chat list on the left with the speech-bubble button at the far left of the top bar. Its tabs read **Convo**, **Roleplay** and **Game**. Pick one, then click **+ New**. Or click **Conversation**, **Roleplay** or **Game** on Home.
 6. Follow the setup window that opens, then click **Create Chat**.
 
 What you see: the new chat opens, and you can write your first message.
@@ -21,15 +21,21 @@ Marinara does not include an online AI. Most people connect to an online service
 
 The first time you open Marinara, a short guided tour starts. See [The First-Time Tutorial](tutorial.md). Stuck on a step? Ask Professor Mari, the built-in assistant: [Professor Mari, Your In-App Assistant](professor-mari.md).
 
+## Finding your way around
+
+Marinara has three fixed places, and they stay put whatever theme you use:
+
+- **The top bar.** At the left, the speech-bubble button shows or hides your chats. Next come **Home** and a tab for each chat, character or page you open. **+** (or <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>⌘</kbd>+<kbd>K</kbd> on a Mac) finds or opens anything: a chat, a character, a setting, a guide, or a question for Professor Mari. **Docs** opens these guides, and **Library** shows or hides the Library on the right.
+- **The chats sidebar** on the left, with the **Convo**, **Roleplay** and **Game** tabs. See [Managing Your Chat List](../chats/managing-chats.md).
+- **The Library** on the right: **Characters**, **Personas**, **Lorebooks**, **Presets**, **Regex scripts**, **Connections** and **Agents**, then **Settings** and **Extensions**. Pick one to open its page in the middle.
+
+On a phone, the chats list is behind the speech-bubble button at the top left, and the Library is behind the stack button at the top right. Tap the title in the top bar to search, and the number button next to the Library to see your open tabs. See [Touch gestures](../chats/messages.md#touch-gestures).
+
 ## The Home screen at a glance
 
-The Home screen shows when no chat is open. It looks like a web browser: tabs and bookmarks at the top, widgets below.
+Home shows when no chat is open. At the top are a greeting, the version number and **Conversation**, **Roleplay** and **Game**, which each start a new chat in that mode. With no model set up yet, **Connect a model to start chatting** opens the Connections page. **Professor** opens Professor Mari in her own tab, an installed app (such as Story Writer) adds a button here too, and **Widgets** arranges the cards below.
 
-- **Tabs.** **Home** is the main page. **Professor** opens Professor Mari. Some installed agents add a tab of their own.
-- **Search bar.** On a computer, click the bar under the tabs, or press <kbd>Ctrl</kbd>+<kbd>K</kbd> (<kbd>⌘</kbd>+<kbd>K</kbd> on a Mac), to find chats, characters, settings and more. Phones, tablets and narrow windows do not show this bar.
-- **Bookmarks.** Quick links to **Discord**, **Support**, **Credits**, **Documentation**, **Tutorial**, **FAQ**, **Achievements** and **Widgets**. **Achievements** shows only when the Achievements setting is on. Bookmarks show only on the **Home** tab. On a phone, tablet or narrow window, tap the bookmarks button (**Open bookmarks**) at the left of the tabs to see them as a list.
-
-In the middle you see the logo, **Marinara Engine** and the version number. Below them, the **Conversation**, **Roleplay** and **Game** buttons each start a new chat in that mode.
+In the classic layout (switched off under **Settings → Appearance → Theme → New layout**), Home looks like a web browser instead, with tabs, a search bar and bookmarks for **Discord**, **Support**, **Credits**, **Documentation**, **Tutorial**, **FAQ**, **Achievements** and **Widgets**.
 
 ## Choose a chat mode
 
@@ -43,11 +49,11 @@ You pick a mode when you start a chat.
 
 Widgets are small cards you can show, hide and move.
 
-1. Click **Widgets** in the bookmarks. The **Home Widgets** window opens. It lists widgets under **Built-in**, **Agents** and **Personal**.
+1. Click **Widgets** on Home. The **Home Widgets** window opens. It lists widgets under **Built-in**, **Agents** and **Personal**.
 2. Click the eye button beside a widget to show or hide it. A widget you show again goes to the first free place on Home.
 3. To move a widget, drag the handle in its top-right corner. On a computer, the handle appears when you point at the widget.
 
-Your layout is saved in this browser. Personal widgets also have buttons to edit or delete them. At the bottom of the window, **Browser chrome** has one switch: **Show URL bar** shows or hides the search bar on a computer.
+Your layout is saved in this browser. Personal widgets also have buttons to edit or delete them. In the classic layout, **Browser chrome** at the bottom of the window has one switch: **Show URL bar** shows or hides Home's search bar on a computer.
 
 Professor Mari can make a personal widget for you if you ask her. Installed agents can add widgets too.
 
@@ -69,9 +75,9 @@ Professor Mari can make a personal widget for you if you ask her. Installed agen
 ## Where to get help
 
 - Ask Professor Mari on the Home screen.
-- Open the **FAQ** bookmark for quick answers.
-- Open the **Documentation** bookmark for the in-app guides.
-- Click **Discord** to reach the community, or **Support** to back the project.
+- Click **Read FAQ** in the **Learn the engine** widget for quick answers.
+- Click **Docs** in the top bar for the in-app guides.
+- Click **Discord** in the **Community** widget to reach the community, or **Support** to back the project.
 
 If something is broken, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 

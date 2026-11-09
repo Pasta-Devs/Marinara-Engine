@@ -12,7 +12,7 @@ You need one thing: an AI account for the Game Master. See [Connecting to an AI 
 
 Everything else is optional and off by default. You can add it later:
 
-- **Images.** The **Illustrator** agent draws NPC portraits, location backgrounds and scene images. Download it from **Agents → Agent Organizer**. It needs an image account. Without it, you still get the story, state tracking and combat, but the visual areas stay empty.
+- **Images.** The **Illustrator** agent draws NPC portraits, location backgrounds and scene images. Download it from **Library → Agents**. It needs an image account. Without it, you still get the story, state tracking and combat, but the visual areas stay empty.
 - **Scene effects from the Built-in model.** Marinara can run a small model on your own computer to pick backgrounds and music at no cost. It becomes the default **Scene effects model** once you download it. Until then the default is **Skip - use inline tags from GM**. See [Built-in Model Setup](../connections/local-model.md).
 - **Storyboards.** Download the Storyboard agent, then turn it on for the game. See [Storyboard Agent Guide](storyboard.md).
 - **Video.** A video account is only needed for scene videos or animated Storyboards.
@@ -20,7 +20,7 @@ Everything else is optional and off by default. You can add it later:
 
 ## Start a game
 
-1. In the chat sidebar, open the **GM** tab and click the **+** button (**New Game**). Or click **Game** on the Home screen. The setup wizard opens. See [Managing Chats](../chats/managing-chats.md).
+1. In the **Chats** sidebar, open the **Game** tab and click **+ New** (**New Game**). Or click **Game** on the Home screen. The setup wizard opens. See [Managing Chats](../chats/managing-chats.md).
 2. On the first step, pick the **Model** that runs the GM. Choose an account you added before. If the list is empty, add one first. For world generation, pick a strong paid model (see [Choosing a model](#choosing-a-model)).
 3. Click **Next** on each step. Every other field has a default, so you can click through.
 4. On the last step, click **Create world**. The button shows **Generating World…** while Marinara builds your world. This is one large request to your model, so wait until it finishes.

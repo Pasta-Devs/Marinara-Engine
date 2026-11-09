@@ -1,6 +1,6 @@
 # Remote Access: Login and IP Allowlist
 
-This guide explains how to reach Marinara Engine from another device, such as your phone, a laptop, or a Docker container. It covers the main option, a login. It also covers the IP allowlist, login proxies, HTTPS, Admin Access, and the "save blocked" CSRF message. Almost every setting here lives in the server `.env` file, not in the app.
+This guide explains how to reach Marinara Engine from another device, such as your phone, a laptop, or a Docker container. It covers the main option, a login. It also covers the IP allowlist, login proxies, HTTPS, the admin secret, and the "save blocked" CSRF message. Almost every setting here lives in the server `.env` file, not in the app.
 
 A quick word list used throughout this guide:
 
@@ -22,7 +22,7 @@ If the page does not load, check that Tailscale is on for both devices and that 
 
 > **Note:** This does not work for Docker installs. Tailscale traffic reaches the container through the Docker gateway, so Marinara cannot see that it came from Tailscale. Set a login first ([Option 1](#option-1-login-recommended)), then publish the port beyond `127.0.0.1`.
 
-Backups, imports, updates, and other risky actions still need the admin secret from a remote device. See [Admin Access and privileged actions](#admin-access-and-privileged-actions).
+Backups, imports, updates, and other risky actions still need the admin secret from a remote device. See [The admin secret and privileged actions](#the-admin-secret-and-privileged-actions).
 
 ## What Marinara blocks by default
 
@@ -247,7 +247,7 @@ SSL_KEY=/path/to/key.pem
 
 You need a certificate and key before setting `SSL_CERT` and `SSL_KEY`. You can create one with a tool like `mkcert` for local use, or `certbot` for a public domain. If the files are missing or unreadable, the server stops on startup and names the exact paths it tried.
 
-## Admin Access and privileged actions
+## The admin secret and privileged actions
 
 Some actions are extra sensitive: clearing data, creating or downloading backups, importing and exporting profiles, installing themes and agents, and installing the Local Model runtime. These need a separate shared secret called the admin secret, on top of whichever access option you chose above.
 
@@ -257,9 +257,9 @@ Installed agents, such as the ones on the Home screen, do not need the admin sec
 
 ### Make the admin secret in the app
 
-1. On the computer that runs Marinara, open **Settings**, then the **Advanced** tab, then the **Admin Access** section.
+1. On the computer that runs Marinara, open **Settings**, then the **Advanced** tab, then the **Security** section.
 2. Click **Make admin secret**. Marinara shows the new secret once and saves it in this browser.
-3. On each remote device, open **Settings** → **Advanced** → **Admin Access**, type the secret into the box, then click **Save**. Case, spaces and dashes do not matter.
+3. On each remote device, open **Settings** → **Advanced** → **Security**, type the secret into the box, then click **Save**. Case, spaces and dashes do not matter.
 
 A device that already has the secret can also make it. A device that is only signed in with the login cannot. This stops a stolen sign-in from taking over the risky actions.
 
@@ -275,11 +275,11 @@ To change the secret, click **Replace admin secret**. The old secret stops worki
 ADMIN_SECRET=some-long-random-string
 ```
 
-2. On the remote device, open **Settings** → **Advanced** → **Admin Access**.
+2. On the remote device, open **Settings** → **Advanced** → **Security**.
 3. Paste the same value into the box (its placeholder reads **ADMIN_SECRET**), then click **Save**.
 4. You should see the message **Admin secret saved for this browser**.
 
-`ADMIN_SECRET` in `.env` wins over a secret made in the app. While it is set, **Admin Access** says so and you change the secret in `.env` only.
+`ADMIN_SECRET` in `.env` wins over a secret made in the app. While it is set, **Security** says so and you change the secret in `.env` only.
 
 ### Good to know
 

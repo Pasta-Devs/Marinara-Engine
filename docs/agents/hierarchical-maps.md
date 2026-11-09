@@ -2,7 +2,7 @@
 
 > **Current compatibility:** This guide matches World Maps **1.3.1**, which supports Marinara Engine **2.3.5 through 3.x** in Roleplay and Game chats. Engine **2.4.1** adds movement-stream cleanup and an immediate Lorebooks refresh after portable imports. Engine 2.3.5 through 2.4.0 still works, but needs a manual Lorebooks refresh after an import.
 
-World Maps gives your story a map of places that can sit inside each other, such as a coast, a town, a district and an inn. Marinara always knows where the party is, and the AI uses that to stay consistent. To try it: install **World Maps** in **Agent Organizer**, restart, then follow [Quick start](#quick-start).
+World Maps gives your story a map of places that can sit inside each other, such as a coast, a town, a district and an inn. Marinara always knows where the party is, and the AI uses that to stay consistent. To try it: install **World Maps** from **Library → Agents**, restart, then follow [Quick start](#quick-start).
 
 Instead of one free-text location, the world is a set of nested places:
 
@@ -50,7 +50,7 @@ Copying is not linking. **Use template**, **Add to chat**, and **Independent cop
 
 ## Quick start
 
-1. Open **Agents**, click **Agent Organizer** and install **World Maps**. Restart Marinara when prompted, because the package has server code.
+1. Open **Library → Agents**, find **World Maps** under **Available** and click **Get**. Restart Marinara when prompted, because the package has server code.
 2. Open a Roleplay or Game chat.
 3. Open **Agents → World Maps** (or the World Maps globe when your Engine has one) and enable it for the chat. You can also enable it in **Chat Settings → Agents**.
 4. Create the map with **Use template**, **Create with AI** or **Build manually**. Existing chats can also import a map file.
@@ -338,7 +338,7 @@ The exact edited positive and negative prompts shown in review are sent to the p
 
 ## Customize the automatic artwork prompt
 
-Open **Settings → Generations → Prompt Overrides** and select **Maps location artwork**. This is the global template used when Maps previews and generates automatic location artwork. Variables use `${variableName}` syntax and can be inserted from the editor.
+Open **Settings → Media → Prompt Overrides** and select **Maps location artwork**. This is the global template used when Maps previews and generates automatic location artwork. Variables use `${variableName}` syntax and can be inserted from the editor.
 
 | Variable                                            | Meaning                                                    |
 | --------------------------------------------------- | ---------------------------------------------------------- |
@@ -492,7 +492,7 @@ Use **Plan route** if an active parent, child or link path exists. Otherwise add
 
 ### Automatic artwork prompts include unwanted material
 
-- Game genre always appears: open **Settings → Generations → Prompt Overrides → Maps location artwork**, remove `${genreLine}` and save.
+- Game genre always appears: open **Settings → Media → Prompt Overrides → Maps location artwork**, remove `${genreLine}` and save.
 - Campaign style appears when it should be off: check **Chat Settings → Illustrator → Use campaign art style**. When off, `${campaignArtStyle}` and `${campaignArtStyleLine}` are empty.
 - A parent landmark appears in every child image: avoid `${parentLocationDescription}` and `${locationPath}` in the template unless needed.
 - The negative prompt has unexpected text: edit the negative field before confirming, then check the global negative image setting. The Maps template builds only the positive prompt.

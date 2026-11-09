@@ -2,7 +2,7 @@
 
 Play UNO, Chess, Poker, 8-Ball Pool, Tic-Tac-Toe and Rock-Paper-Scissors against the characters of a Conversation chat. Marinara deals the cards or sets up the board, enforces every rule and has each seated character narrate its moves in character. A live board appears above the message box while you play.
 
-Each game is an optional package. Install the ones you want from **Agents → Agent Organizer**, and restart Marinara if the catalog asks. A game you have not installed has no slash command, does not appear in the games picker, and its **Commands** switch stays hidden.
+Each game is an optional package. Install the ones you want from **Library → Agents**, and restart Marinara if the catalog asks. A game you have not installed has no slash command, does not appear in the games picker, and its **Commands** switch stays hidden.
 
 Rules that apply to every game:
 

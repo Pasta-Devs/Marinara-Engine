@@ -1,76 +1,115 @@
-# Custom CSS Themes (Theme Library)
+# Custom CSS Themes
 
-A custom CSS theme repaints the whole of Marinara. Use the **Theme Library** to create, import, export and switch themes. This guide also lists the CSS variables and classes a theme can use, and explains how themes work with Card CSS. For a quick change with no CSS, see [Ready-made chat window styles](#ready-made-chat-window-styles). If you write or share themes, the [Theme Author Guide](theme-author-guide.md) lists every stable token, hook and safety rule.
+A theme changes the whole look of Marinara: colors, fonts, pictures and the shape of panels. Marinara comes with seven ready-made starter themes. You can also import a theme someone shared, or make your own.
 
-Before you start: if you open Marinara from another device, such as a phone, the server needs an admin secret before you can create, edit, import, activate or remove themes. On the computer that runs the server, no secret is needed.
-
-1. On the server, set `ADMIN_SECRET` in the `.env` file.
-2. In the app, open **Settings → Advanced → Admin Access** and enter the same value.
-
-See the [Server Configuration Reference](../CONFIGURATION.md) and the [Remote Access guide](../REMOTE_ACCESS.md). To switch to a theme someone gave you, go to [Activating a theme](#activating-a-theme).
+For a quick change with no theme at all, see [Appearance Settings](appearance-settings.md) or [Ready-made chat window styles](#ready-made-chat-window-styles). To make your own theme, the [Theme Author Guide](theme-author-guide.md) walks you through it step by step.
 
 ## What a custom theme is
 
-CSS, short for Cascading Style Sheets, is the code that sets colors, borders and spacing. A theme is a block of CSS that can change the page background, accent color, cards, borders, text and more.
+A theme is a block of CSS, the code web pages use for colors, fonts and spacing, plus any pictures and fonts it brings along. Themes are saved on your Marinara server, so a theme you install shows up on every device that connects to it. Only one theme is on at a time, and you can keep as many as you like.
 
-Themes live in the **Theme Library** on your Marinara server, so they sync to every device that connects to the same server. Most other appearance settings stay on one device. Only one theme can be active at a time, and you can keep as many as you like.
+## Where to find themes
 
-## Where to find the Theme Library
+Open **Library → Settings → Appearance** and click **CSS Themes** in the row of sections. In the classic layout it is **Settings → Addons → Theme Library**.
 
-1. Open **Settings**.
-2. Open the **Addons** tab.
-3. Find the **Theme Library** section.
+The section has:
 
-## Creating a theme
+- **Create Theme** and **Import File** at the top.
+- **Allow themes with HTML (I accept the risk)**, off by default. See [Themes with HTML](#themes-with-html).
+- **Installed Themes**: **Default Theme**, then your own themes, then the **Starter themes**.
 
-1. In the **Theme Library** section, click **Create Theme**.
-2. Type a name in the name box (it shows "Theme name...").
-3. Write or paste your CSS in the large text box.
-4. Leave **Preview** on to see your changes live as you type. Turn it off to stop the live preview.
-5. Click **Save**.
+## Starter themes
 
-A new theme starts from a template that lists common variables as commented-out examples. Remove the comment marks and set your own values. A brand new theme is activated when you save it, and you see: Theme "My Theme" saved and activated.
+| Theme | Look |
+| --- | --- |
+| **Lantern Meadow** | Calm and very readable, with no motion. |
+| **Lantern Path** | A reading column with gentle motion. |
+| **Maple's Bramble Cottage** | A cozy cottage, with a reading column for long replies. |
+| **NEON//GRID** | Neon cyberpunk, made for long replies. |
+| **Petal OS** | A playful retro desktop with pixel fonts. |
+| **Rosalind's Folio** | A storybook layout with visual novel touches. |
+| **Swiss Poster** | Quiet, clean poster design with no motion. |
 
-To change a theme later, find it in **Installed Themes**, click the code icon (tooltip **Edit theme CSS**), edit, and click **Save**. Editing does not change which theme is active.
+Every starter theme has a Dark and a Light version. The small tags under each name, such as **No motion** or **High legibility**, tell you what to expect.
 
-## Importing and exporting themes
+Starter themes are read-only, so they always stay as they shipped. Each has three buttons:
 
-To import a theme:
+- **(i) Credits and licences**: who made the art and fonts, and how you may reuse them.
+- **Clone + Edit** (the copy icon): makes your own copy, such as "Petal OS (my copy)", and opens it in the editor.
+- **Export** (the upload icon): saves the theme as a file.
 
-1. Click **Import File** in the **Theme Library** section.
-2. Choose a `.css` or `.json` file.
-3. Read the message. It reports how many themes were imported, skipped or failed.
-
-A `.css` file becomes one theme, named after the file. A `.json` file can hold one or more themes. Import a file exported from Marinara as it is, or write a small one yourself:
-
-```json
-{ "name": "My Theme", "css": "..." }
-```
-
-Imported themes do not activate on their own. A theme with the same name and the same CSS as one already on the server is skipped.
-
-To export a theme, click the upload icon (tooltip **Export theme**) on its row in **Installed Themes**. Marinara downloads a `.json` file you can import elsewhere.
+If you clear your data, the starter themes come back the next time Marinara starts.
 
 ## Activating a theme
 
-**Installed Themes** lists every theme, with a **Default Theme** entry at the top.
+1. Click a theme's name in **Installed Themes**. The theme turns on in this browser tab.
+2. A bar asks **Keep this theme?** and counts down from 15 seconds. Pointing at the bar pauses the countdown.
+3. Click **Keep theme** to keep it. It now shows on your other devices too. Click **Go back**, or let the countdown run out, to return to your previous look.
 
-1. Click a theme's name to make it active. A check mark shows the active one.
-2. Click **Default Theme** to turn off custom theming and return to the built-in look.
+Click **Default Theme** to turn custom themes off. **Reset Appearance**, at the top of **Settings → Appearance → Theme**, also turns the theme off.
 
-**Reset Appearance**, at the top of **App Style** in **Settings → Appearance**, also turns off the active theme.
+To use a different theme on one device only, set **Look on this device** to **Only this device** in **Settings → Appearance → Theme** first.
 
-To delete a theme, click the trash icon (tooltip **Remove theme**) and confirm in the **Delete Theme** dialog. This permanently deletes its CSS from the server.
+### Getting your normal look back
 
-If it did not work: when the app looks wrong, check both the active theme and any Card CSS in the chat. See [Themes and Card CSS](#themes-and-card-css).
+If a theme makes Marinara hard to use, any of these turns it off in that tab:
+
+- Press <kbd>Esc</kbd> three times.
+- Add `?safe` to the end of the address in your browser.
+- Press <kbd>Ctrl</kbd>+<kbd>K</kbd> and type "Custom theme".
+
+Marinara also guards the top bar, the sidebars, <kbd>Ctrl</kbd>+<kbd>K</kbd> and the message box. A theme can restyle them, but if it hides, moves or covers one, Marinara switches the theme off in that tab and tells you why.
+
+## Importing a theme
+
+1. Click **Import File**.
+2. Choose a `.json` or `.css` theme file.
+3. A preview shows the theme's name, author, version, pictures and size, and its credits and license. It lists anything to know before you install, such as moving pictures, text the theme adds, or parts that won't work.
+4. Choose what to bring along. The preview offers the theme's suggested settings, such as its color scheme, accent color and font, with most of them ticked. It can also add the theme's backgrounds to your chat background gallery.
+5. Click **Install and try it** to switch to it straight away, or **Install** to add it to the list.
+
+If you already have a theme with the same name, the preview offers to update it or **Keep both**. When you go back from a theme you are trying, Marinara also puts back any settings it changed.
+
+A theme can't be installed if it writes text that asks for passwords or keys, or pretends to be Marinara. Never type a key or password because a theme asks for it.
+
+### Themes with HTML
+
+Some themes add a small HTML box to every message, called a message template. Marinara removes scripts, links, images and forms from it, but HTML from someone else could still mislead you. These themes install only while **Allow themes with HTML (I accept the risk)** is on. With the switch off, an installed theme shows without its HTML.
+
+## Creating a theme
+
+Click **Create Theme**, or **Clone + Edit** on a starter theme to start from something that already looks good. The editor has a name box, a large CSS box, **Preview** and **Save**. A new theme turns on when you save it, and asks **Keep this theme?**
+
+The [Theme Author Guide](theme-author-guide.md#your-first-theme-step-by-step) has a step-by-step walkthrough for your first theme.
+
+## Editing, exporting and removing your themes
+
+Your own themes have three buttons on their row:
+
+- **Edit theme CSS** (the code icon) opens the editor. Editing does not change which theme is on.
+- **Export** (the upload icon) downloads a `.json` file you can share or import elsewhere.
+- **Remove** (the trash icon) deletes the theme after you confirm. This cannot be undone, so export it first if you might want it later.
+
+## A theme for one chat
+
+A chat can have its own theme:
+
+1. Open the chat and open **Chat Settings**.
+2. In **Theme**, pick a theme. **Follow the app** uses your app theme, and **Default look (no custom theme)** turns themes off for that chat.
+3. In a chat with one character, tick **Use it for every chat with this character** to make it that character's theme.
+
+Settings and the Library always use the app theme.
+
+## Who can change themes
+
+On the computer that runs Marinara, no secret is needed. From another device, such as a phone, creating, importing, cloning, editing and removing themes needs the admin secret. Enter it in **Settings → Advanced → Security**. Picking a theme someone already installed needs no secret. See [The admin secret](../REMOTE_ACCESS.md#the-admin-secret-and-privileged-actions).
 
 ## Ready-made chat window styles
 
 Before you start: this needs no CSS.
 
-1. Open **Settings → Appearance → App**.
-2. At the bottom of **App Style**, find **Chat widget style**.
-3. Pick a style.
+1. Open **Settings → Appearance → Chat Buttons & Windows**.
+2. Under **Chat widget style**, pick a style.
 
 | Style          | Look                                                                                                                              |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -101,7 +140,11 @@ Three switches below the color pickers extend the style. Each starts off and wor
 
 The history buttons (**Load More**, **Show older**) follow the switches like other chat controls. In Game Mode they also cover side remarks, HUD widgets, the map panel, character sheets, logs, the Inventory, combat panels and dialogs. Professor Mari can create custom themes for these areas too.
 
-A custom theme can still override the styles. The window and drawer variables below take precedence over the style's colors. Use `--mari-window-font-family` for window lettering, `--mari-drawer-radius` for section corners, and `--mari-window-ornament: none` to hide the title ornament. To remove all style decoration, choose **Default** first.
+A custom theme can still override the styles. The window and drawer variables in [Styling chat windows and drawers](#styling-chat-windows-and-drawers) take precedence over the style's colors. Use `--mari-window-font-family` for window lettering, `--mari-drawer-radius` for section corners, and `--mari-window-ornament: none` to hide the title ornament. To remove all style decoration, choose **Default** first.
+
+## For theme authors
+
+The rest of this guide is reference material for people who write theme CSS by hand. Start with the [Theme Author Guide](theme-author-guide.md), which lists every stable token, part hook and safety rule.
 
 ## Themes and Card CSS
 
@@ -280,4 +323,4 @@ On phones, the three-dot menu expands into round buttons. Its trigger is `[data-
 - [Card CSS Theming Guide](card-css-theming.md)
 - [Appearance Settings](appearance-settings.md)
 - [Server Configuration Reference](../CONFIGURATION.md)
-- [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md)
+- [Remote Access](../REMOTE_ACCESS.md)

@@ -36,7 +36,7 @@ More causes:
 - **Custom name for this computer.** A name mapped to `127.0.0.1` in `/etc/hosts` counts as relayed. Use `localhost`, `127.0.0.1`, the machine's hostname or a `*.localhost` name instead.
 - **Too many wrong passwords.** Wait 15 minutes, then sign in. Forgot the password? Run `node scripts/reset-login.mjs` in the Marinara folder on the computer that runs Marinara. In Docker, run `docker exec <container> node scripts/reset-login.mjs`. Restarting the server also lets it try again.
 - **Untrusted request host.** For a public or reverse-proxy domain, add its exact hostname to `TRUSTED_HOSTS` in `.env`. Direct IP addresses stay accepted.
-- **Risky actions blocked** (backups, clearing data, updates) from that device. On the server's own computer, open **Settings → Advanced → Admin Access** and click **Make admin secret**, or set `ADMIN_SECRET` in the server `.env`. Type the secret into **Admin Access** on the other device and click **Save**.
+- **Risky actions blocked** (backups, clearing data, updates) from that device. On the server's own computer, open **Settings → Advanced → Security** and click **Make admin secret**, or set `ADMIN_SECRET` in the server `.env`. Type the secret into **Admin Access** on the other device and click **Save**.
 
 See [Remote Access](REMOTE_ACCESS.md) and the [FAQ](FAQ.md). If you were locked out after an update, see [Locked out after updating](REMOTE_ACCESS.md#locked-out-after-updating).
 
@@ -212,7 +212,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 The **Built-in model** runs on your computer with no API key. Some error messages call it the sidecar. For setup, see [Built-in model setup](connections/local-model.md).
 
-- **Sidecar runtime install is disabled.** On your own computer, set `SIDECAR_RUNTIME_INSTALL_ENABLED=true` in `.env`. From another device, save your admin secret in **Settings → Advanced → Admin Access** first.
+- **Sidecar runtime install is disabled.** On your own computer, set `SIDECAR_RUNTIME_INSTALL_ENABLED=true` in `.env`. From another device, save your admin secret in **Settings → Advanced → Security** first.
 - **Model download or setup fails from another device** (a network address or Docker). It may need the admin secret too. On your own computer it does not.
 - **Size or SHA-256 mismatch** from a bundled llama.cpp, MLX or uv file. Marinara rejected the file before using it. Update or reinstall Marinara and retry. Do not unpack, edit or bypass the file.
 
@@ -250,12 +250,12 @@ Summaries need a working text account.
 
 ## Downloadable agent problems
 
-- **Catalog unavailable in Agent Organizer.** The computer that runs the server, not only your browser, must reach the [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog over HTTPS. Installed agents keep working offline. Restore the connection, then click **Refresh** or **Try again**.
+- **The agent catalog does not load in Library → Agents.** The computer that runs the server, not only your browser, must reach the [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog over HTTPS. Installed agents keep working offline. Restore the connection, then click **Refresh** or **Try again**.
 - **An installed map or call does not appear.** Close Marinara completely and start it again. These packages stay in **Restart required** until the next start. Conversation games activate at once. If installation failed, refresh the catalog and check that the game shows as ready. Adding a game under a chat's **Commands** settings is only needed so characters can start it themselves, not for its manual slash command.
 - **First package migration cannot finish.** Do not delete `data/capability-packages` or your chat data. Marinara retries on the next start, and your chat selections stay stored.
 - **Large `data/capability-runtime-snapshots` or `data/capability-packages/versions`.** No cleanup needed. Marinara removes old copies at start and keeps the current and previous version of each agent.
 - **A package download is rejected.** The checksum, file list, Marinara version range or archive paths do not match the official catalog. Update Marinara, refresh the catalog and retry. Do not extract an artifact into the data folder by hand.
-- **Updates.** Agent updates never apply at startup. Marinara asks first. **Not now** keeps the installed version, and **Update** stays in **Agents → Agent Organizer**. A failed update leaves the installed version in place. A server runtime that fails its startup check rolls back.
+- **Updates.** Agent updates never apply at startup. Marinara asks first. **Not now** keeps the installed version, and **Update** stays in **Library → Agents**. A failed update leaves the installed version in place. A server runtime that fails its startup check rolls back.
 
 ## Card Browser problems
 
@@ -285,7 +285,7 @@ Then restart Marinara and click **Reapply Cleanup** in the sprite generation win
 
 Storyboards turn finished narration into keyframe images and optional clips. See the [Storyboard Agent Guide](game/storyboard.md) and [Game Mode: Getting Started](game/getting-started.md).
 
-- Install **Storyboard** from **Agents → Agent Organizer**, then turn on **Enable Agents** and **Enable Storyboards** for the chat.
+- Install **Storyboard** from **Library → Agents**, then turn on **Enable Agents** and **Enable Storyboards** for the chat.
 - Keyframes need an image account. Clips also need a video account.
 - Game, automatic: open **Chat Settings → Agents → Storyboards** and confirm **Automatic Storyboard Illustrations** is on. Turn on **Automatic Storyboard Animations** for clips.
 - Manual scene video: open **Chat Settings → Gallery**, generate or upload an image, then use **Video** or **Animate**. Check the **Videos** tab.
@@ -306,7 +306,7 @@ If the model returns broken JSON (structured text), Marinara opens the **Repair 
 
 - **Characters do not speak in a call.** Text to Speech is not set up. Open **Connections → Text to Speech**, turn it on, choose a source, enter your key, pick a voice and save. A character with no voice shows as text only.
 - **Speech stops with "No audio after N s".** Your voice server is slower than Marinara waits, which is common for a local server on a laptop. `N` is your current timeout. Raise **Request timeout (seconds)** in **Connections → Text to Speech**, or in the audio account the message names. See [Request timeout](media/tts-setup.md#request-timeout).
-- **The microphone does not work.** Install **Calls** from **Agents → Agent Organizer**. Then open **Connections → Speech to text**, find **Local speech model** under **On this device**, choose a Whisper model and click **Download Whisper**. Firefox needs this because it has no browser speech recognition. Uninstalling Calls deletes its Whisper models. You can also use your own server: see [Use your own speech-to-text server](conversation/calls.md#use-your-own-speech-to-text-server).
+- **The microphone does not work.** Install **Calls** from **Library → Agents**. Then open **Connections → Speech to text**, find **Local speech model** under **On this device**, choose a Whisper model and click **Download Whisper**. Firefox needs this because it has no browser speech recognition. Uninstalling Calls deletes its Whisper models. You can also use your own server: see [Use your own speech-to-text server](conversation/calls.md#use-your-own-speech-to-text-server).
 - **Local Whisper is disabled in Lite mode.** The lite image cannot run the local speech model. Use a full install.
 
 ### Music DJ Spotify login fails on a remote or network install
@@ -342,7 +342,7 @@ Marinara clears a lease left by a crashed process on its own on Linux, Android, 
 
 ### Backup or Export returns 403
 
-Same-computer sessions can back up without an admin secret. Requests from another device, a network address, Docker, or a proxy or tunnel on the same computer need one. Make it in **Settings → Advanced → Admin Access** on the server's own computer, or set `ADMIN_SECRET` on the server, then save the same value in **Admin Access** on the other device. To make loopback require it too, set `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. If `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, forwarded visitors get the local bypass. Keep it on for a public proxy or tunnel.
+Same-computer sessions can back up without an admin secret. Requests from another device, a network address, Docker, or a proxy or tunnel on the same computer need one. Make it in **Settings → Advanced → Security** on the server's own computer, or set `ADMIN_SECRET` on the server, then save the same value in **Admin Access** on the other device. To make loopback require it too, set `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. If `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, forwarded visitors get the local bypass. Keep it on for a public proxy or tunnel.
 
 ### Import says the file is not a readable ZIP archive
 
@@ -377,7 +377,7 @@ APK-managed Termux installs protect localhost with a private per-install secret,
 
 An error naming origin `null` means an older APK and server pair. Editing `.env` cannot fix it. Update the APK and Marinara.
 
-To open a browser on the same phone, tap **Open in browser** on the Android launcher, then **Retry connection**. Reopen it this way after a server restart or an expired session. To return to the launcher, use **Settings → General → App Behavior → Open Android launcher (app or browser)**.
+To open a browser on the same phone, tap **Open in browser** on the Android launcher, then **Retry connection**. Reopen it this way after a server restart or an expired session. To return to the launcher, use **Settings → Appearance → Layout → Open Android launcher (app or browser)**.
 
 Older APKs sign in at `/android-login` with the value from `cat ~/.marinara-engine/android-secret`. A browser link works once and expires after one minute, so open a new one from the launcher.
 
@@ -404,7 +404,7 @@ In Android settings, allow Termux to run in the background and remove its batter
 
 ### Marinara stops responding until Termux is in the foreground
 
-Chats hang at "Opening chat...", the app reports **Server unreachable**, the Support Diagnostics copy shows **Unreachable (request timed out)** for the server fields, and everything recovers the moment you open Termux. Android's cached-app freezer suspended the Termux process. The phone accepts the connection, but the frozen server never answers. A wake lock does not prevent this. The session log shows a gap in timestamps over the frozen time, not an error.
+Chats hang at "Opening chat...", the app reports **Server unreachable**, the **Copy Support Diagnostics** report shows **Unreachable (request timed out)** for the server fields, and everything recovers the moment you open Termux. Android's cached-app freezer suspended the Termux process. The phone accepts the connection, but the frozen server never answers. A wake lock does not prevent this. The session log shows a gap in timestamps over the frozen time, not an error.
 
 Exempt Termux from battery optimization, allow background activity, lock Termux in the recents screen if your phone supports it, and keep its notification visible. If freezes continue, keep Termux in the foreground or the screen on while you use Marinara.
 
@@ -468,12 +468,12 @@ Windows, Android and other unsupported hosts refuse Server Extension execution. 
 
 ## Extension problems
 
-### External Extensions is missing from Addons
+### External Extensions is missing from Extensions
 
 The section stays hidden until both gates are open.
 
 1. Set `ENABLE_EXTERNAL_EXTENSIONS=true` in the host's `.env`.
-2. Wait a moment, then open **Settings → Advanced → Danger Zone**, scroll below the data-deletion controls and turn on **Allow third-party extension imports**.
+2. Wait a moment, then open **Settings → Advanced → Security** and turn on **Allow third-party extension imports**.
 
 If the switch is disabled, the host flag is still false or the app has not seen the change. Confirm you edited the active `.env` described in [Server Configuration](CONFIGURATION.md). On Docker it is normally `/app/data/.env`.
 
@@ -481,7 +481,7 @@ While either gate is closed, external extension records do not appear and cannot
 
 ### An imported browser extension appears but does not work
 
-Open it in **Settings → Addons → External Extensions** and read **Requested access**. Older `marinara.extension` v1 packages with no capabilities declaration show **Full page access**. Approve only the exact hash you inspected and trust.
+Open it in **Library → Extensions → External Extensions** and read **Requested access**. Older `marinara.extension` v1 packages with no capabilities declaration show **Full page access**. Approve only the exact hash you inspected and trust.
 
 A package exported again with an empty capabilities list is treated as a safe sandbox extension, and code that needs the page's DOM will not work. Add `full_page_access` to its manifest only if you accept that the code gets the whole page, browser storage, network APIs and your session.
 
@@ -507,7 +507,7 @@ Use an HTTPS address, sign in, and reload after updating Marinara. The app reque
 
 ## Get more help
 
-1. Open **Settings → Advanced → Message Tools** and turn on **Debug mode**. It logs the prompt and response to the server console.
+1. Open **Settings → Advanced → Troubleshooting** and turn on **Debug mode**. It logs the prompt and response to the server console.
 2. Note your operating system, Node.js version and the full error text from the console.
 3. Remove API keys, access tokens, admin secrets and private chat content before you share anything.
 

@@ -29,7 +29,7 @@ These work in Conversation and Roleplay.
 | --- | --- |
 | `/help` | Lists every slash command. |
 | `/send` | Posts a message as your persona without asking for a reply. Macros are filled in, as with **Send**. Format: `/send [message]`. |
-| `/continue` | Adds more text to the last AI reply, without a new message. Also `/cont`. **Settings → General → Responses → Add a new line before /continue text** sets whether the text starts after a blank line or at the cutoff. |
+| `/continue` | Adds more text to the last AI reply, without a new message. Also `/cont`. **Settings → Chatting → Responses → Add a new line before /continue text** sets whether the text starts after a blank line or at the cutoff. |
 | `/goto` | Scrolls the chat to a message number. Also `/jump`, `/scroll`. Format: `/goto [number]`. |
 | `/hide` | Hides messages from the model on future turns. Format: `/hide [range] [name (optional)]`. |
 | `/unhide` | Puts globally hidden messages back. Format: `/unhide [range]`. |

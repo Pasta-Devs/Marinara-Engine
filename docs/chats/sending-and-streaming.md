@@ -15,7 +15,7 @@ If it did not work: with no model set for the chat, the reply fails at once with
 
 ### Send on Enter
 
-Find it in **Settings → General → Input & Editing**. There is one toggle per chat mode.
+Find it in **Settings → Chatting → Message Box**. There is one toggle per chat mode.
 
 | Chat mode | Default | When off |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ Find it in **Settings → General → Input & Editing**. There is one toggle per
 | Conversations | On | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
 | Game | On | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
 
-Roleplay is off by default because roleplay messages are often long and need line breaks. Professor Mari has her own toggle, **Enter sends to Professor Mari**, in **Settings → General → Search and Professor Mari settings**.
+Roleplay is off by default because roleplay messages are often long and need line breaks. Professor Mari has her own toggle, **Enter sends to Professor Mari**, in **Settings → General → Professor Mari**.
 
 ## Attach images and files
 
@@ -49,7 +49,7 @@ For a character's own gallery, use the portable form `card://self/gallery/<filen
 
 ## Streaming the reply
 
-Streaming shows the reply word by word instead of all at once. These settings are in **Settings → General → Responses**.
+Streaming shows the reply word by word instead of all at once. These settings are in **Settings → Chatting → Responses**.
 
 | Setting | Default | What it does |
 | --- | --- | --- |

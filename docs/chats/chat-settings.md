@@ -97,10 +97,10 @@ Windows stay inside the chat area. A window or button can sit beside the message
 
 These buttons are in the title bar.
 
-- **Help** (the **?**) shows labels that explain the chat's controls. On a phone it closes Chat Settings first. To hide it, turn on **Settings → General → App Behavior → Hide chat Help button**.
+- **Help** (the **?**) shows labels that explain the chat's controls. On a phone it closes Chat Settings first. To hide it, turn on **Settings → General → Confirmations & Help → Hide chat Help button**.
 - **Reset View** (the circular arrow) asks you to confirm, then restores this chat's starting layout: popped-out sections go back, and window sizes, positions, pins and locks reset.
 - **Favorite layout** (the star) saves this arrangement for new chats. See [Choosing a layout for new chats](#choosing-a-layout-for-new-chats).
-- **Tracker Panel** (the die) turns the panel on or off in a Roleplay chat that uses agents or Advanced Memory. On a computer it opens beside the chat. On a phone or tablet, a movable button opens it. It also changes the Tracker Panel preference in **Settings → Appearance**.
+- **Tracker Panel** (the die) turns the panel on or off in a Roleplay chat that uses agents or Advanced Memory. On a computer it opens beside the chat. On a phone or tablet, a movable button opens it. It also changes the Tracker Panel preference in **Settings → Roleplay → Tracker Panel**.
 
 When the Tracker Panel is not shown, desktop trackers use the [Trackers window](../roleplay/hud-and-trackers.md#the-trackers-window). With little room beside your messages, it starts as a small **Trackers** button. Use the die to show the Tracker Panel again.
 
@@ -154,7 +154,7 @@ After an upgrade from an older version, your old arrangement of tool buttons is 
 
 ## Changing how chat windows look
 
-Open **Settings → Appearance → App** and scroll to **Chat widget style** at the bottom of **App Style**. **Default** keeps the Marinara look. **Dottore** uses icy blues, pale metal and cut corners. **Prof. Mari** uses gemstone blues, warm gold and arched frames. Both follow light and dark mode and style the movable buttons, windows and sections in all three chat modes.
+Open **Settings → Appearance → Chat Buttons & Windows** and find **Chat widget style**. **Default** keeps the Marinara look. **Dottore** uses icy blues, pale metal and cut corners. **Prof. Mari** uses gemstone blues, warm gold and arched frames. Both follow light and dark mode and style the movable buttons, windows and sections in all three chat modes.
 
 - **Font**, **Shape** and three color pickers below the presets mix the look. Fonts installed in Marinara appear in the font list. Choosing a preset again resets the font, shape and custom colors.
 - **Button size (px)** sets the size of movable chat buttons, from 32 to 96. An empty field keeps the default.

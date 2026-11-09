@@ -25,11 +25,11 @@ You can type `/narrator`, `/narrate` or `/nar` instead of `/guided`. In a group 
 
 This reuses the text in your message box as a one-time direction for a regenerate.
 
-1. Open **Settings → Advanced → Message Tools** and turn on **Guide swipes/regens with chat input**. It is off by default.
+1. Open **Settings → Chatting → Editing & Swipes** and turn on **Guide swipes/regens with chat input**. It is off by default.
 2. In a chat, type a direction in the message box but do not send it.
 3. Click **Regenerate** on the AI message. With text in the box, the button is labeled **Regenerate (guided)**.
 
-Your direction stays in the box afterward, so you can adjust it and regenerate again. To clear it instead, turn off **Keep guidance after regenerating** in **Settings → General → Input & Editing**.
+Your direction stays in the box afterward, so you can adjust it and regenerate again. To clear it instead, turn off **Keep guidance after regenerating** in **Settings → Chatting → Message Box**.
 
 If it did not work: the button must be labeled **Regenerate (guided)**. If it says only **Regenerate**, the setting is off or the box is empty.
 
@@ -69,7 +69,7 @@ These settings apply to every `/impersonate` in all your chats. Open **Chat Sett
 | **Preset** | A prompt preset for impersonate replies only. Default: **Use chat default**. See [Presets](../prompts/presets.md). |
 | **Connection** | The model for impersonate replies, such as a cheaper or faster one. Default: **Use chat default**. You can also pick **Random**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md). |
 | **Skip agents** | Skips agents (trackers, lorebook routers and similar helpers) during impersonate. This keeps it fast and stops it from changing world state. Off by default. See [Agents](../agents/agents-overview.md). |
-| **Use CYOA as direction** | Clicking a CYOA (choose your own adventure) option uses it as the impersonate direction instead of posting it. Off by default. If **Add CYOA choices to the message box instead of sending them** is on in **Settings → General → Input & Editing**, a click only adds the text to your message box and this setting has no effect. |
+| **Use CYOA as direction** | Clicking a CYOA (choose your own adventure) option uses it as the impersonate direction instead of posting it. Off by default. If **Add CYOA choices to the message box instead of sending them** is on in **Settings → Chatting → Message Box**, a click only adds the text to your message box and this setting has no effect. |
 
 ### Set a prompt for one chat
 
@@ -86,7 +86,7 @@ To go back to the default, type `/impersonate_prompt reset`. The alias is `/imp_
 
 Quick replies add one-click **Send** alternatives, so you do not need to type a slash command.
 
-1. Open **Settings → General → Input & Editing**.
+1. Open **Settings → Chatting → Message Box**.
 2. Turn on **Quick replies**. It is off by default.
 3. Expand it to pick which actions appear. Once it is on, all three actions are on by default.
 

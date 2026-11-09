@@ -13,8 +13,8 @@ Text to speech (TTS) reads chat messages and game narration out loud. This guide
 
 Almost every TTS setting is in one card. Turning TTS on does not make anything speak by itself. It reveals the **Speak** button on each message and the **Auto-play** options. You still choose what is read and when.
 
-1. Click **Connections** in the top bar, then **Add**. The **Add account** window opens.
-2. Under **Voice**, choose **Text to speech**. The card opens. If you already use PocketTTS, the same card is also under **On this device**.
+1. Open **Library → Connections** and click **Add connection**. The list of services opens.
+2. On the **Voice** tab, choose **Text to speech**. The card opens. If you already use PocketTTS, the same card is also under **On this device**.
 3. Turn on **Use text to speech**. While it is off, nothing is read aloud.
 4. Open the **Source** list and pick a service.
 
@@ -194,7 +194,7 @@ These sections are for advanced setups.
 
 ### Game music and sound effects on a compatible audio server
 
-1. In **Connections**, open your **Music & Sound Effects** account with **Edit model** and choose **Custom compatible server**. The **Add account** window has no tile for this account type; it comes from an upgrade or an import (see [the account reference](../connections/providers-reference.md#music--sound-effects)).
+1. In **Connections**, open your **Music & Sound Effects** account with **Edit model** and choose **Custom compatible server**. The **Add connection** list has no entry for this account type; it comes from an upgrade or an import (see [the account reference](../connections/providers-reference.md#music--sound-effects)).
 2. Enter the address, key and model for your music or sound-effect server.
 3. Set **Generation API format** and enter the endpoint paths your server provides. A blank path leaves that capability unavailable.
 4. Turn on **Music generation**, **Sound-effect generation**, or both.

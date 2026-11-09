@@ -4,15 +4,15 @@ Change the font Marinara uses across the app. Pick the built-in font, add your o
 
 ## Choosing an app font
 
-1. Open **Settings** and click the **Appearance** tab, then the **App** button.
-2. Find the **Text & Scale** section.
+1. Open **Settings** and click the **Appearance** tab.
+2. Find the **Fonts & Text Size** section.
 3. Open the **Font** dropdown and pick a font.
 
 The easiest way to get a new font is [Google Fonts](#downloading-from-google-fonts). The default is **Default (Inter)**, a clean font chosen for on-screen reading. Fonts you add appear in the same dropdown below it.
 
 Your font choice syncs across devices. Every browser connected to the same Marinara server switches to it. See [Settings Overview](../settings/settings-overview.md).
 
-Chat widgets have a separate **Font** choice under **Chat widget style**. Turn on **Apply preset font** there to use it for messages, input boxes and chat controls too. See [Ready-made chat window styles](custom-css-themes.md#ready-made-chat-window-styles).
+Chat widgets have a separate **Font** choice under **Chat Buttons & Windows**. Turn on **Apply preset font** there to use it for messages, input boxes and chat controls too. See [Ready-made chat window styles](appearance-settings.md#chat-buttons--windows).
 
 ## Adding your own fonts
 
@@ -20,7 +20,7 @@ Before you start: fonts go in a folder on the server. The server is the computer
 
 1. Click **Open Fonts Folder**, next to the **Font** dropdown, to open `data/fonts/` on the server. Or find the `data/fonts/` folder in Marinara's data folder yourself.
 2. Copy your font file into it.
-3. Go to **Settings → Appearance → App → Text & Scale**.
+3. Go to **Settings → Appearance → Fonts & Text Size**.
 4. Open the **Font** dropdown. Your font is in the list.
 5. Select it. The app text changes at once.
 
@@ -34,7 +34,7 @@ If it did not work: check the file type and that the file is in `data/fonts/` on
 
 The server needs internet access for this.
 
-1. Go to **Settings → Appearance → App → Text & Scale**.
+1. Go to **Settings → Appearance → Fonts & Text Size**.
 2. In the **Google Fonts** field, type the exact font name, for example `Fira Code` or `Lora`.
 3. Click **Add**.
 4. Wait for the download. The font then appears in the **Font** dropdown.

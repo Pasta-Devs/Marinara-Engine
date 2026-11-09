@@ -89,6 +89,7 @@ export const OVERHAUL_SETTINGS_TABS: {
       "parameters",
       "features",
       "admin-access",
+      "access-status",
       "multiplayer",
       "support-diagnostics",
     ],
