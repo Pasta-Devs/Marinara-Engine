@@ -140,46 +140,53 @@ export function ThemeGallery({ starterThemes }: { starterThemes: Theme[] }) {
           return (
             <span
               key={entry.id}
-              className="flex items-start gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--secondary-foreground)]"
+              className="flex flex-col gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--secondary-foreground)]"
               data-theme-gallery-entry={entry.id}
             >
-              {entry.preview ? (
-                <img
-                  src={entry.preview}
-                  alt=""
-                  className="h-12 w-20 shrink-0 rounded object-cover ring-1 ring-[var(--border)]"
-                />
-              ) : (
-                <span className="h-12 w-20 shrink-0 rounded bg-[var(--muted)]/60 ring-1 ring-[var(--border)]" />
-              )}
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="mari-chrome-text truncate font-medium">{entry.name}</span>
-                <span className="mari-chrome-text-muted truncate text-[0.625rem]">
-                  {[
-                    entry.author ? localizeUi("theming.import.by", { author: entry.author }) : null,
-                    entry.version ? `v${entry.version}` : null,
-                    sizeLabel(entry.bytes),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+              <span className="flex items-center gap-2">
+                {entry.preview ? (
+                  <img
+                    src={entry.preview}
+                    alt=""
+                    className="h-10 w-16 shrink-0 rounded object-cover ring-1 ring-[var(--border)]"
+                  />
+                ) : (
+                  <span className="h-10 w-16 shrink-0 rounded bg-[var(--muted)]/60 ring-1 ring-[var(--border)]" />
+                )}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="mari-chrome-text truncate font-medium" title={entry.name}>
+                    {entry.name}
+                  </span>
+                  <span className="mari-chrome-text-muted truncate text-[0.625rem]">
+                    {[
+                      entry.author ? localizeUi("theming.import.by", { author: entry.author }) : null,
+                      entry.version ? `v${entry.version}` : null,
+                      sizeLabel(entry.bytes),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
                 </span>
-                {entry.description ? (
-                  <span className="mari-chrome-text-muted line-clamp-2 text-[0.6875rem]">{entry.description}</span>
-                ) : null}
-                <ThemeLabels meta={{ labels: entry.labels }} className="mt-0.5 flex flex-wrap gap-1" />
+                <button
+                  type="button"
+                  onClick={() => download.mutate(entry)}
+                  disabled={download.isPending}
+                  className={cn(SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, "shrink-0 disabled:opacity-50")}
+                  aria-label={`${update ? localizeUi("theming.gallery.update", { defaultValue: "Update" }) : localizeUi("theming.gallery.download", { defaultValue: "Download" })}: ${entry.name}`}
+                  data-theme-gallery-download={entry.id}
+                >
+                  {busy ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
+                  {update
+                    ? localizeUi("theming.gallery.update", { defaultValue: "Update" })
+                    : localizeUi("theming.gallery.download", { defaultValue: "Download" })}
+                </button>
               </span>
-              <button
-                type="button"
-                onClick={() => download.mutate(entry)}
-                disabled={download.isPending}
-                className={cn(SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, "shrink-0 disabled:opacity-50")}
-                aria-label={`${update ? localizeUi("theming.gallery.update", { defaultValue: "Update" }) : localizeUi("theming.gallery.download", { defaultValue: "Download" })}: ${entry.name}`}
-              >
-                {busy ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
-                {update
-                  ? localizeUi("theming.gallery.update", { defaultValue: "Update" })
-                  : localizeUi("theming.gallery.download", { defaultValue: "Download" })}
-              </button>
+              {entry.description ? (
+                <span className="mari-chrome-text-muted line-clamp-3 text-[0.6875rem] leading-snug">
+                  {entry.description}
+                </span>
+              ) : null}
+              <ThemeLabels meta={{ labels: entry.labels }} className="flex flex-wrap gap-1" />
             </span>
           );
         })
