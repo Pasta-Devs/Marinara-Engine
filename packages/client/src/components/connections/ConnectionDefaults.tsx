@@ -659,6 +659,7 @@ function DefaultsJobRow({
           open={open}
           onOpenChange={setOpen}
           job={title}
+          jobKey={job.key as JobKey}
           rowFilter={job.key === "vision" ? mayReadImages : undefined}
           {...model}
         />

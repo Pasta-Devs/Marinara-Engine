@@ -160,6 +160,35 @@ export function matchesKind(row: Pick<ConnectionModelRow, "provider">, kind: Con
   return kind === "chat" ? isChatProvider(row.provider) : row.provider === KIND_PROVIDER[kind];
 }
 
+/** A catalog model's generated media type. Explicit provider metadata takes precedence over its id. */
+export function catalogMatchesKind(
+  model: string,
+  facts: { outputModalities?: readonly string[] } | undefined,
+  kind: ConnectionPickerKind,
+): boolean {
+  if (kind === "all") return true;
+  if (kind === "decision") return true;
+  if (kind === "chat")
+    return (
+      !catalogMatchesKind(model, facts, "image") &&
+      !catalogMatchesKind(model, facts, "video") &&
+      !catalogMatchesKind(model, facts, "audio")
+    );
+  if (facts?.outputModalities?.length)
+    return facts.outputModalities.some(
+      (output) => output.toLowerCase() === kind || (kind === "audio" && output.toLowerCase() === "speech"),
+    );
+  // ponytail: names are only a fallback when the provider omits output modalities; a provider catalog with
+  // structured model types is the upgrade path for ambiguous names and speech-to-text models.
+  const id = model.toLowerCase();
+  if (kind === "image") return /image|dall-e|flux|stable-diffusion|ideogram|recraft/.test(id);
+  if (kind === "video") return /video|veo|sora|kling|runway|seedance|wan\d/.test(id);
+  return (
+    /tts|speech|voice|elevenlabs|music|sound-effect|sfx|suno/.test(id) &&
+    !/whisper|transcri|speech-to-text|stt/.test(id)
+  );
+}
+
 type FlagJob = Job & { key: JobKey } & Required<Pick<Job, "kind" | "flag" | "fallback">>;
 /** Jobs set by a row flag with a fallback flag: a default and a fallback picker each. */
 export const FLAG_JOBS = JOBS.filter((job): job is FlagJob => !!job.fallback);
