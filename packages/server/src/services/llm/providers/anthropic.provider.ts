@@ -153,7 +153,9 @@ function normalizeStrictClaudeParameters(
   if (!isClaudeStrictRequestModel(model)) return;
   // Saved/custom settings from earlier models must not disable mandatory thinking.
   stripAnthropicSamplingParameters(body);
-  if (isRecord(body.output_config) && body.output_config.effort === "none") body.output_config.effort = "low";
+  if (isRecord(body.output_config) && body.output_config.effort === "none") {
+    body.output_config = { ...body.output_config, effort: "low" };
+  }
   if (isRecord(body.thinking)) {
     const effort = isRecord(body.output_config) ? body.output_config.effort : undefined;
     // Sonnet 5.5 rejects "disabled"; "between_tools" skips up-front thinking, takes no other
@@ -166,13 +168,17 @@ function normalizeStrictClaudeParameters(
     if (skipsUpFrontThinking) {
       body.thinking = { type: "between_tools" };
     } else {
-      body.thinking.type = "adaptive";
-      delete body.thinking.budget_tokens;
+      const thinking = { ...body.thinking };
+      thinking.type = "adaptive";
+      delete thinking.budget_tokens;
+      body.thinking = thinking;
     }
   }
   if (isRecord(body.tool_choice) && (body.tool_choice.type === "any" || body.tool_choice.type === "tool")) {
-    body.tool_choice.type = "auto";
-    delete body.tool_choice.name;
+    const toolChoice = { ...body.tool_choice };
+    toolChoice.type = "auto";
+    delete toolChoice.name;
+    body.tool_choice = toolChoice;
   }
   if (maxTokensOverride && typeof body.max_tokens === "number") {
     body.max_tokens = Math.min(body.max_tokens, maxTokensOverride);
