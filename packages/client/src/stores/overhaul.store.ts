@@ -41,6 +41,7 @@ export type LibrarySection =
   | "regex"
   | "connections"
   | "agents"
+  | "tools"
   | "settings"
   | "extensions"
   | "bot-browser";

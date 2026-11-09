@@ -5,7 +5,24 @@
 // the account editor. Add account opens the add window anchored under its button.
 // ──────────────────────────────────────────────
 import { Fragment, useMemo, useState, type MouseEvent } from "react";
-import { ChevronDown, ChevronRight, Download, MoreHorizontal, Plus, Search, Star } from "lucide-react";
+import {
+  BadgeCheck,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Download,
+  Folder,
+  MoreHorizontal,
+  MoveRight,
+  Pencil,
+  Plus,
+  Search,
+  Shuffle,
+  Star,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import { toast } from "sonner";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { isChatProvider, parsePinnedModels, PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import type { ConnectionAccountListItem } from "@marinara-engine/shared";
@@ -27,6 +44,24 @@ import type { ConnectionRowData } from "../connections/ConnectionRow";
 import { useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
 import { useDecisionEngine } from "./decision-engine";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
+import { useDeleteConnection, useDuplicateConnection, useUpdateConnection } from "../../hooks/use-connections";
+import { useFeatureModels } from "../../hooks/use-connection-accounts";
+import {
+  useConnectionFolders,
+  useDeleteConnectionFolder,
+  useUpdateConnectionFolder,
+} from "../../hooks/use-connection-folders";
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
+import { jobLabelKey, rowJobs } from "../../lib/connection-jobs";
+import { createConnectionExportEnvelope, type ConnectionTransferRow } from "../../lib/connection-transfer";
+import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
+import { downloadZipFile } from "../../lib/download-zip";
+import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
+import { confirmModelDelete } from "../connections/ConnectionRow";
+import { moveBlockedKey, moveTargetsFor } from "../connections/ConnectionGroup";
+import { useFolderChooser } from "../connections/ConnectionFolderGroup";
+import { MoveConnectionDialog } from "../connections/MoveConnectionDialog";
+import { useKitMenu, type KitAction } from "./LibraryKit";
 
 type KindFilter = "all" | "chat" | "image" | "video" | "voice";
 type SortKey = "name" | "models" | "recent";
@@ -274,6 +309,25 @@ export function ConnectionsLanding() {
   const [sort, setSort] = useState<SortKey>("name");
   const [openIds, setOpenIds] = useState<string[] | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  // Model actions (the classic list's ⋯): Move, Folder, Duplicate, Shuffle, Make default for, Remove.
+  const modelMenu = useKitMenu();
+  const duplicateConnection = useDuplicateConnection();
+  const deleteConnection = useDeleteConnection();
+  const updateConnection = useUpdateConnection();
+  const { data: featureModels } = useFeatureModels();
+  const { data: folders } = useConnectionFolders();
+  const updateFolder = useUpdateConnectionFolder();
+  const deleteFolder = useDeleteConnectionFolder();
+  const chooseFolder = useFolderChooser();
+  const groupBy = useUIStore((s) => s.connectionsGroupBy);
+  const setGroupBy = useUIStore((s) => s.setConnectionsGroupBy);
+  const byFolder = groupBy === "folder";
+  const [moving, setMoving] = useState<{
+    row: ConnectionRowData;
+    same: ConnectionAccountListItem[];
+    other: ConnectionAccountListItem[];
+    splitFrom: ConnectionAccountListItem | null;
+  } | null>(null);
 
   const rows = useMemo(
     () => ((connections as ConnectionRowData[] | undefined) ?? []).filter((row) => !hiddenIds.has(row.id)),
@@ -324,7 +378,159 @@ export function ConnectionsLanding() {
 
   const modelCount = rows.filter((row) => !(isChatProvider(row.provider) && !row.model?.trim())).length;
 
-  const renderModel = (row: ConnectionRowData, accountRows: ConnectionRowData[]) => {
+  const allRows = useMemo(() => (connections as ConnectionRowData[] | undefined) ?? [], [connections]);
+  const modelActions = (row: ConnectionRowData): KitAction[] => {
+    const title = row.name?.trim() || row.model?.trim() || row.id;
+    const account = row.accountId ? accounts?.find((item) => item.id === row.accountId) : undefined;
+    const { same, other } = moveTargetsFor(row, account, accounts ?? [], allRows);
+    const splitFrom =
+      account &&
+      !row.credentialsFromConnectionId &&
+      allRows.filter((candidate) => candidate.accountId === account.id).length > 1
+        ? account
+        : null;
+    const canMove = same.length + other.length > 0 || !!splitFrom;
+    const blockedKey = moveBlockedKey(row);
+    const inShuffle = row.useForRandom === "true";
+    const canShuffle = row.provider !== "audio" && row.provider !== "audio_generation" && row.provider !== "decision";
+    const roles = rowJobs(row);
+    const folderName = (folders ?? []).find((folder) => folder.id === row.folderId)?.name;
+    return [
+      {
+        key: "edit",
+        label: t("connections.row.editModel"),
+        icon: <Pencil size={14} />,
+        onSelect: () => openConnectionDetail(row.id),
+      },
+      ...(roles.length
+        ? [
+            {
+              key: "default",
+              label: t("connections.row.makeDefaultFor"),
+              icon: <BadgeCheck size={14} />,
+              submenu: roles.map((job) => ({
+                key: job.flag,
+                label: `${isConnectionFlagTrue(row[job.flag]) ? "✓ " : ""}${t(jobLabelKey(job))}`,
+                onSelect: () => updateConnection.mutate({ id: row.id, [job.flag]: true }),
+              })),
+            },
+          ]
+        : []),
+      {
+        key: "move",
+        label: t("connections.accounts.row.moveTo"),
+        icon: <MoveRight size={14} />,
+        disabled: !canMove,
+        onSelect: () => (canMove ? setMoving({ row, same, other, splitFrom: splitFrom ?? null }) : undefined),
+        ...(canMove || !blockedKey ? {} : { label: `${t("connections.accounts.row.moveTo")} (${t(blockedKey)})` }),
+      },
+      {
+        key: "folder",
+        label: folderName ? `${t("connections.folders.folder")}: ${folderName}` : t("connections.folders.moveSelected"),
+        icon: <Folder size={14} />,
+        onSelect: () => void chooseFolder([row]),
+      },
+      {
+        key: "dup",
+        label: t("ui.presets.sectionstab.duplicate"),
+        icon: <Copy size={14} />,
+        onSelect: () =>
+          duplicateConnection.mutate(row.id, {
+            onSuccess: (data: unknown) => {
+              const id = (data as { id?: string } | undefined)?.id;
+              if (id) openConnectionDetail(id);
+            },
+          }),
+      },
+      ...(canShuffle
+        ? [
+            {
+              key: "shuffle",
+              label: inShuffle
+                ? t("connections.accounts.row.removeFromShuffle")
+                : t("connections.accounts.row.addToShuffle"),
+              icon: <Shuffle size={14} />,
+              onSelect: () => updateConnection.mutate({ id: row.id, useForRandom: !inShuffle }),
+            },
+          ]
+        : []),
+      {
+        key: "export",
+        label: localize("Export"),
+        icon: <Upload size={14} />,
+        onSelect: () => void exportConnections([row]),
+      },
+      {
+        key: "remove",
+        label: t("connections.row.remove"),
+        icon: <Trash2 size={14} />,
+        danger: true,
+        onSelect: () =>
+          void confirmModelDelete(row.id, title, t).then((ok) => {
+            if (ok) deleteConnection.mutate(row.id);
+          }),
+      },
+    ];
+  };
+  const exportConnections = async (list: ConnectionRowData[]) => {
+    if (!list.length) return;
+    const confirmed = await showConfirmDialog({
+      title: t("ui.panels.connectionspanel.exportConnectionData"),
+      message: t("connections.transfer.exportWarning"),
+      confirmLabel: t("ui.characters.spritestab.export"),
+      cancelLabel: t("common.close"),
+    });
+    if (!confirmed) return;
+    const envelope = createConnectionExportEnvelope(
+      list as ConnectionTransferRow[],
+      accounts ?? [],
+      featureModels ?? {},
+    );
+    const status =
+      list.length > 1
+        ? await downloadZipFile(
+            [{ path: "marinara-connections.json", content: JSON.stringify(envelope, null, 2) }],
+            "marinara-connections.zip",
+          )
+        : await downloadJsonFile(
+            envelope,
+            `${sanitizeExportFilenamePart(list[0]?.name, "connection")}.connection.json`,
+          );
+    if (status === "saved") toast.success(t("connections.transfer.exported", { count: list.length }));
+  };
+  const folderActions = (folder: { id: string; name: string }): KitAction[] => [
+    {
+      key: "rename",
+      label: "Rename",
+      icon: <Pencil size={14} />,
+      onSelect: () =>
+        void showPromptDialog({
+          title: t("connections.folders.renameTitle"),
+          message: "",
+          defaultValue: folder.name,
+          confirmLabel: localize("Rename"),
+        }).then((name) => {
+          if (name?.trim()) updateFolder.mutate({ id: folder.id, name: name.trim() });
+        }),
+    },
+    {
+      key: "delete",
+      label: t("connections.folders.delete"),
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onSelect: () =>
+        void showConfirmDialog({
+          title: `${t("connections.folders.delete")}: ${folder.name}?`,
+          message: t("connections.folders.deleteMessage"),
+          confirmLabel: localize("Delete"),
+          tone: "destructive",
+        }).then((ok) => {
+          if (ok) deleteFolder.mutate(folder.id);
+        }),
+    },
+  ];
+
+  const renderModel = (row: ConnectionRowData, accountRows: ConnectionRowData[], via?: string) => {
     const anchor = (row.accountId && starAnchorOf(accountRows)) || row;
     const starred = !!row.model && parsePinnedModels(anchor.pinnedModels).includes(row.model);
     const canStar = isChatProvider(row.provider) && !!row.model && !!row.accountId;
@@ -337,6 +543,7 @@ export function ConnectionsLanding() {
         className="ov-conn__model"
         tabIndex={0}
         onClick={() => openConnectionDetail(row.id)}
+        onContextMenu={(event) => modelMenu.openFromEvent(event, row.name || row.model, modelActions(row))}
         onKeyDown={(event) => {
           if (event.key === "Enter") openConnectionDetail(row.id);
         }}
@@ -366,6 +573,7 @@ export function ConnectionsLanding() {
               {row.name && row.model && row.name !== row.model ? (
                 <span className="ov-conn__dim">{row.model}</span>
               ) : null}
+              {via ? <span className="ov-conn__dim">· {via}</span> : null}
             </span>
             <span className="ov-conn__dim ov-conn__ctx">
               {[context && `${context} ${localize("context")}`, output && `${output} ${localize("out")}`]
@@ -376,6 +584,11 @@ export function ConnectionsLanding() {
         </td>
         <td colSpan={2}>
           <span className="ov-conn__chips">
+            {row.useForRandom === "true" ? (
+              <span className="ov-conn__chip" title={t("connections.switcher.shuffle")}>
+                <Shuffle size={11} aria-hidden="true" /> {t("connections.switcher.shuffle")}
+              </span>
+            ) : null}
             {jobs.map((job, index) => (
               <span key={job} className={cn("ov-conn__chip", index === 0 && jobs[0] === tiles[0]?.title && "is-main")}>
                 {job}
@@ -387,17 +600,102 @@ export function ConnectionsLanding() {
           <button
             type="button"
             className="ov-conn__more"
-            aria-label={localize("Edit model")}
-            onClick={(event) => {
-              event.stopPropagation();
-              openConnectionDetail(row.id);
-            }}
+            aria-label={localize("Model actions")}
+            aria-haspopup="menu"
+            onClick={(event) => modelMenu.openFromEvent(event, row.name || row.model, modelActions(row), "button")}
           >
             <MoreHorizontal size={15} aria-hidden="true" />
           </button>
         </td>
       </tr>
     );
+  };
+
+  // Group by folder: every visible Model under its folder, then the ones in none (shared with the classic list).
+  const [closedFolders, setClosedFolders] = useState<string[]>([]);
+  const folderView = () => {
+    const entries = [
+      ...visible.groups.flatMap((group) =>
+        group.rows.map((row) => ({
+          row,
+          via: group.account.name,
+          accountRows: groups.find((item) => item.account.id === group.account.id)?.rows ?? [],
+        })),
+      ),
+      ...visible.standalone.map((row) => ({ row, via: undefined as string | undefined, accountRows: [row] })),
+    ];
+    const list = [...(folders ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const known = new Set(list.map((folder) => folder.id));
+    const sections = [
+      ...list.map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        folder,
+        rows: entries.filter((entry) => entry.row.folderId === folder.id),
+      })),
+      {
+        id: "__none",
+        name: t("connections.folders.none"),
+        folder: null,
+        rows: entries.filter((entry) => !entry.row.folderId || !known.has(entry.row.folderId)),
+      },
+    ].filter((section) => section.rows.length > 0 || (section.folder && !needle && kind === "all"));
+    return sections.map((section) => {
+      const open = needle ? true : !closedFolders.includes(section.id);
+      const flip = () =>
+        setClosedFolders((current) =>
+          current.includes(section.id) ? current.filter((id) => id !== section.id) : [...current, section.id],
+        );
+      return (
+        <Fragment key={section.id}>
+          <tr
+            className={cn("ov-conn__account", open && "is-open")}
+            tabIndex={0}
+            aria-expanded={open}
+            onClick={flip}
+            onContextMenu={
+              section.folder
+                ? (event) => modelMenu.openFromEvent(event, section.name, folderActions(section.folder!))
+                : undefined
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                flip();
+              }
+            }}
+          >
+            <td className="ov-conn__lead">
+              {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+            </td>
+            <td colSpan={2}>
+              <span className="ov-conn__acct">
+                <Folder size={15} aria-hidden="true" />
+                <b>{section.name}</b>
+              </span>
+            </td>
+            <td className="ov-conn__num">{section.rows.length}</td>
+            <td colSpan={2} />
+            <td className="ov-conn__act">
+              {section.folder ? (
+                <button
+                  type="button"
+                  className="ov-conn__more"
+                  aria-label={localize("Folder actions")}
+                  aria-haspopup="menu"
+                  onClick={(event) =>
+                    modelMenu.openFromEvent(event, section.name, folderActions(section.folder!), "button")
+                  }
+                >
+                  <MoreHorizontal size={15} aria-hidden="true" />
+                </button>
+              ) : null}
+            </td>
+          </tr>
+          {open ? section.rows.map((entry) => renderModel(entry.row, entry.accountRows, entry.via)) : null}
+        </Fragment>
+      );
+    });
   };
 
   const openMenu = (event: MouseEvent<HTMLButtonElement>, id: string) => {
@@ -434,6 +732,16 @@ export function ConnectionsLanding() {
         <button type="button" className="ov-btn" onClick={() => openModal("import-connection")}>
           <Download size={14} aria-hidden="true" />
           {localize("Import")}
+        </button>
+        <button
+          type="button"
+          className="ov-btn ov-btn--icon"
+          disabled={allRows.length === 0}
+          aria-label={t("connections.list.exportAll")}
+          title={t("connections.list.exportAll")}
+          onClick={() => void exportConnections(allRows)}
+        >
+          <Upload size={15} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -474,6 +782,15 @@ export function ConnectionsLanding() {
           <option value="models">{localize("Sort: Most models")}</option>
           <option value="recent">{localize("Sort: Recently changed")}</option>
         </select>
+        <select
+          className="ov-select"
+          value={groupBy}
+          onChange={(event) => setGroupBy(event.target.value as "connection" | "folder")}
+          aria-label={localize("Group")}
+        >
+          <option value="connection">{localize("By account")}</option>
+          <option value="folder">{localize("By folder")}</option>
+        </select>
       </div>
       <DefaultsGrid connectionsList={rows} />
       {visible.groups.length === 0 && visible.standalone.length === 0 && (needle || kind !== "all") ? (
@@ -486,7 +803,7 @@ export function ConnectionsLanding() {
             <thead>
               <tr>
                 <th className="ov-conn__lead" aria-hidden="true" />
-                <th>{localize("Account")}</th>
+                <th>{localize(byFolder ? "Folder" : "Account")}</th>
                 <th className="ov-conn__fill" aria-hidden="true" />
                 <th className="ov-conn__num">{localize("Models")}</th>
                 <th>{localize("Status")}</th>
@@ -495,100 +812,108 @@ export function ConnectionsLanding() {
               </tr>
             </thead>
             <tbody>
-              {visible.groups.map(({ account, rows: models }) => {
-                const open = isOpen(account.id);
-                const host = hostOf(account.baseUrl) || PROVIDERS[account.provider as APIProvider]?.name || "";
-                return (
-                  <Fragment key={account.id}>
-                    <tr
-                      className={cn("ov-conn__account", open && "is-open")}
-                      tabIndex={0}
-                      aria-expanded={open}
-                      onClick={() => toggle(account.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          toggle(account.id);
-                        }
-                      }}
-                    >
-                      <td className="ov-conn__lead">
-                        {open ? (
-                          <ChevronDown size={14} aria-hidden="true" />
-                        ) : (
-                          <ChevronRight size={14} aria-hidden="true" />
-                        )}
-                      </td>
-                      <td colSpan={2}>
-                        <span className="ov-conn__acct">
-                          <ProviderIcon
-                            provider={account.provider}
-                            baseUrl={account.baseUrl}
-                            name={account.name}
-                            icon={account.icon}
-                            imagePath={account.imagePath}
-                            size="sm"
-                            dim={account.state !== "ok"}
-                          />
-                          <b>{account.name}</b>
-                          {host && !account.name.includes(host) ? <span className="ov-conn__dim">{host}</span> : null}
-                        </span>
-                      </td>
-                      <td className="ov-conn__num">{models.length}</td>
-                      <td>
-                        <AccountStatus account={account} />
-                      </td>
-                      <td>
-                        <AccountBalance account={account} />
-                      </td>
-                      <td className="ov-conn__act">
-                        <button
-                          type="button"
-                          className="ov-conn__more"
-                          aria-label={localize("Account actions")}
-                          aria-haspopup="menu"
-                          aria-expanded={menu?.id === account.id}
-                          onClick={(event) => openMenu(event, account.id)}
+              {byFolder ? (
+                folderView()
+              ) : (
+                <>
+                  {visible.groups.map(({ account, rows: models }) => {
+                    const open = isOpen(account.id);
+                    const host = hostOf(account.baseUrl) || PROVIDERS[account.provider as APIProvider]?.name || "";
+                    return (
+                      <Fragment key={account.id}>
+                        <tr
+                          className={cn("ov-conn__account", open && "is-open")}
+                          tabIndex={0}
+                          aria-expanded={open}
+                          onClick={() => toggle(account.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              toggle(account.id);
+                            }
+                          }}
                         >
-                          <MoreHorizontal size={15} aria-hidden="true" />
-                        </button>
-                      </td>
-                    </tr>
-                    {open ? (
-                      models.length ? (
-                        models.map((row) =>
-                          renderModel(row, groups.find((g) => g.account.id === account.id)?.rows ?? []),
-                        )
-                      ) : (
-                        <tr className="ov-conn__model ov-conn__model--empty">
-                          <td className="ov-conn__lead" />
-                          <td colSpan={6} className="ov-conn__dim">
-                            {localize("No models starred yet.")}{" "}
+                          <td className="ov-conn__lead">
+                            {open ? (
+                              <ChevronDown size={14} aria-hidden="true" />
+                            ) : (
+                              <ChevronRight size={14} aria-hidden="true" />
+                            )}
+                          </td>
+                          <td colSpan={2}>
+                            <span className="ov-conn__acct">
+                              <ProviderIcon
+                                provider={account.provider}
+                                baseUrl={account.baseUrl}
+                                name={account.name}
+                                icon={account.icon}
+                                imagePath={account.imagePath}
+                                size="sm"
+                                dim={account.state !== "ok"}
+                              />
+                              <b>{account.name}</b>
+                              {host && !account.name.includes(host) ? (
+                                <span className="ov-conn__dim">{host}</span>
+                              ) : null}
+                            </span>
+                          </td>
+                          <td className="ov-conn__num">{models.length}</td>
+                          <td>
+                            <AccountStatus account={account} />
+                          </td>
+                          <td>
+                            <AccountBalance account={account} />
+                          </td>
+                          <td className="ov-conn__act">
                             <button
                               type="button"
-                              className="ov-conn__link"
-                              onClick={() => openAddModels({ accountId: account.id })}
+                              className="ov-conn__more"
+                              aria-label={localize("Account actions")}
+                              aria-haspopup="menu"
+                              aria-expanded={menu?.id === account.id}
+                              onClick={(event) => openMenu(event, account.id)}
                             >
-                              {t("connections.accounts.addModel")}
+                              <MoreHorizontal size={15} aria-hidden="true" />
                             </button>
                           </td>
                         </tr>
-                      )
-                    ) : null}
-                  </Fragment>
-                );
-              })}
-              {visible.standalone.length ? (
-                <>
-                  <tr className="ov-conn__account is-open ov-conn__account--other">
-                    <td className="ov-conn__lead" />
-                    <td colSpan={6}>
-                      <b>{localize("Other models")}</b>
-                    </td>
-                  </tr>
-                  {visible.standalone.map((row) => renderModel(row, [row]))}
+                        {open ? (
+                          models.length ? (
+                            models.map((row) =>
+                              renderModel(row, groups.find((g) => g.account.id === account.id)?.rows ?? []),
+                            )
+                          ) : (
+                            <tr className="ov-conn__model ov-conn__model--empty">
+                              <td className="ov-conn__lead" />
+                              <td colSpan={6} className="ov-conn__dim">
+                                {localize("No models starred yet.")}{" "}
+                                <button
+                                  type="button"
+                                  className="ov-conn__link"
+                                  onClick={() => openAddModels({ accountId: account.id })}
+                                >
+                                  {t("connections.accounts.addModel")}
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
+                  {visible.standalone.length ? (
+                    <>
+                      <tr className="ov-conn__account is-open ov-conn__account--other">
+                        <td className="ov-conn__lead" />
+                        <td colSpan={6}>
+                          <b>{localize("Other models")}</b>
+                        </td>
+                      </tr>
+                      {visible.standalone.map((row) => renderModel(row, [row]))}
+                    </>
+                  ) : null}
                 </>
-              ) : null}
+              )}
               {!needle && kind === "all" ? (
                 <DeviceRows onOpen={(item) => openConnectionDetail(`device:${item}`)} />
               ) : null}
@@ -596,6 +921,15 @@ export function ConnectionsLanding() {
           </table>
         </div>
       )}
+      {modelMenu.node}
+      {chooseFolder.dialog}
+      {moving ? (
+        <MoveConnectionDialog
+          {...moving}
+          rowsOf={(accountId) => allRows.filter((candidate) => candidate.accountId === accountId)}
+          onClose={() => setMoving(null)}
+        />
+      ) : null}
       {menu ? (
         <>
           <div className="ov-conn__menu-scrim" onClick={() => setMenu(null)} />
