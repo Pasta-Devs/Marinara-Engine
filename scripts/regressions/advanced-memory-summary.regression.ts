@@ -130,7 +130,7 @@ const settings = {
   maxContextTokens: 16_384,
   summaryBudgetTokens: 512,
 };
-async function createChat(name: string, hardCap?: number, omitReasoning = false) {
+async function createChat(name: string, hardCap?: number, omitReasoning = false, reasoningEffort?: string) {
   const connection = await connections.create(
     createConnectionSchema.parse({
       name,
@@ -148,6 +148,7 @@ async function createChat(name: string, hardCap?: number, omitReasoning = false)
   assert(connection);
   if (omitReasoning)
     await connections.updateDefaultParameters(connection.id, { enabledParameters: { reasoningEffort: false } });
+  if (reasoningEffort) await connections.updateDefaultParameters(connection.id, { reasoningEffort });
   const chat = await chats.create({ name, mode: "roleplay", characterIds: [], connectionId: connection.id });
   assert(chat);
   await chats.patchMetadata(chat.id, {
@@ -1325,6 +1326,18 @@ try {
       (record) => record.kind === "scene" && record.sceneId === deletedScene.sceneId && record.content,
     )?.timeline,
     null,
+  );
+
+  // #8983: a level chosen on the connection wins over memory's own "none", in scene checks and summaries alike.
+  const chosenReasoning = await createChat("Connection reasoning chosen", undefined, false, "medium");
+  const chosenStart = requests.length;
+  await memory.initialize(chosenReasoning.id);
+  const chosenRequests = requests.slice(chosenStart);
+  assert(chosenRequests.some((item) => item.instructions?.startsWith("Identify scene transitions")));
+  assert(chosenRequests.some((item) => !item.instructions?.startsWith("Identify scene transitions")));
+  assert(
+    chosenRequests.every((item) => item.reasoning?.effort === "medium"),
+    `the connection's reasoning level is sent: ${JSON.stringify(chosenRequests.map((item) => item.reasoning))}`,
   );
 
   const withoutReasoning = await createChat("Explicitly omitted reasoning parameter", undefined, true);

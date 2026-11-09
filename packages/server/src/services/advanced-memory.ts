@@ -97,7 +97,12 @@ import {
   messageEnds,
 } from "./advanced-memory-decisions.js";
 import { cosineSimilarity } from "./lorebook/embeddings.js";
-import { contextWindowForInputBudget, measureContextBudget, withLlmRequestTimeout } from "./llm/base-provider.js";
+import {
+  contextWindowForInputBudget,
+  measureContextBudget,
+  withLlmRequestTimeout,
+  type ChatOptions,
+} from "./llm/base-provider.js";
 import { normalizeGemma4Delimiters } from "./llm/textual-tool-call-parser.js";
 import { resolveModelAccessPolicy } from "./generation/model-access-policy.js";
 import { longTermMemorySummaryInstruction } from "./generation/long-term-memory-runtime.js";
@@ -250,6 +255,19 @@ const RECOLLECTION_SCENES_PER_RUN = 3;
  * stay as they are and the log says so; upgrade by sizing this from the connection's reasoning settings.
  */
 const COMPACTION_REASONING_ROOM = 1024;
+
+/**
+ * The reasoning a memory call asks for (#8983): the level, or Off, chosen on its connection, as every agent call sends
+ * it (#7131); otherwise none, so a short summary or decision does not spend its output allowance thinking, unless the
+ * connection switched Reasoning Effort's Send off (then the provider's default stands).
+ */
+function memoryReasoning(resolved: {
+  reasoning?: { reasoningEffort?: ChatOptions["reasoningEffort"]; enableThinking: boolean };
+  enabledParameters?: ChatOptions["enabledParameters"];
+}): Pick<ChatOptions, "reasoningEffort" | "enableThinking"> {
+  if (resolved.reasoning) return resolved.reasoning;
+  return resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" };
+}
 /** A part of a summary under this many tokens is kept as it is: halving it saves less than its request's prompt costs. */
 const COMPACTION_MIN_TOKENS = 64;
 /** A complete `{{…}}` macro or template tag. */
@@ -1640,7 +1658,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       {
         model: resolved.model,
         ...resolveChatSummaryTemperatureOptions(resolved),
-        ...(resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" as const }),
+        ...memoryReasoning(resolved),
         maxTokens,
         maxContext,
         signal: options.signal,
@@ -2115,7 +2133,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         const completionOptions = {
           model: resolved.model,
           ...resolveChatSummaryTemperatureOptions(resolved),
-          ...(resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" as const }),
+          ...memoryReasoning(resolved),
           maxTokens: outputBudget,
           maxContext: window,
           signal: options.signal,
@@ -2353,7 +2371,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         const completionOptions = {
           model: resolved.model,
           ...resolveChatSummaryTemperatureOptions(resolved),
-          ...(resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" as const }),
+          ...memoryReasoning(resolved),
           maxTokens: Math.min(outputBudget, 2 * target + COMPACTION_REASONING_ROOM),
           maxContext: window,
           signal: options.signal,
@@ -3158,7 +3176,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           signal: options.signal,
           preserveContext: true,
           ...resolveChatSummaryTemperatureOptions(resolved),
-          ...(resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" as const }),
+          ...memoryReasoning(resolved),
         });
         abortIfNeeded(options.signal);
         if (result.finishReason === "length")
