@@ -769,6 +769,7 @@ export function PersonasPanel() {
           ).sort((a, b) => (personaOrder.get(a) ?? list.length) - (personaOrder.get(b) ?? list.length));
           if (folderFilterActive && folderMemberIds.length === 0) return null;
           const isExpanded = (folderFilterActive && folderMemberIds.length > 0) || expandedGroupId === group.id;
+          const renderableMemberIds = folderMemberIds.filter((pid) => personaMap.has(pid));
           const isEditing = editingGroupId === group.id;
           return (
             <div
@@ -899,15 +900,20 @@ export function PersonasPanel() {
                     {localizeUi("ui.panels.personaspanel.dropPersonasHere")}
                   </p>
                 ) : (
-                  <div className="flex flex-col gap-0.5">
-                    {folderMemberIds.map((pid) => {
-                      const p = personaMap.get(pid);
-                      if (!p) return null;
+                  <PanelVirtualList
+                    listKey={`personas:folder:${group.id}`}
+                    count={renderableMemberIds.length}
+                    getItemKey={(index) => renderableMemberIds[index]!}
+                    estimateSize={56}
+                    gap={2}
+                    pinnedIndex={draggedPersonaId ? renderableMemberIds.indexOf(draggedPersonaId) : -1}
+                    renderRow={(index) => {
+                      const pid = renderableMemberIds[index]!;
+                      const p = personaMap.get(pid)!;
                       const isBulkSelected = selectedPersonaIds.has(pid);
                       const personaMetadata = getPersonaPreviewMetadata(p);
                       return (
                         <div
-                          key={pid}
                           data-touch-drag-card="persona"
                           data-drag-id={pid}
                           aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
@@ -973,7 +979,7 @@ export function PersonasPanel() {
                           role="button"
                           tabIndex={0}
                           className={cn(
-                            "group group/member relative flex min-h-11 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2 rounded-lg p-1.5 text-xs transition-all hover:bg-[var(--sidebar-accent)]",
+                            "group group/member relative flex min-h-11 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2 rounded-lg p-1.5 text-xs transition-[color,background-color,box-shadow,opacity] hover:bg-[var(--sidebar-accent)]",
                             touchSafePersonaDragMode && "select-none",
                             selectionMode &&
                               isBulkSelected &&
@@ -1058,8 +1064,8 @@ export function PersonasPanel() {
                           )}
                         </div>
                       );
-                    })}
-                  </div>
+                    }}
+                  />
                 )}
               </SmoothFolderContent>
             </div>
