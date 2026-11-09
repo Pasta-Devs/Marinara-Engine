@@ -29,17 +29,12 @@ Starter themes aren't part of the install, so they take no space until you want 
 
 | Theme | Look |
 | --- | --- |
-| **Aero Lagoon** | Glossy sky, glass bubbles and a turquoise lagoon. |
-| **Brassworks Sky** | Steampunk brass, copper and airships, gaslight at night. |
 | **Lantern Meadow** | Calm and very readable, with no motion. |
 | **Lantern Path** | A reading column with gentle motion. |
 | **Maple's Bramble Cottage** | A cozy cottage, with a reading column for long replies. |
 | **NEON//GRID** | Neon cyberpunk, made for long replies. |
-| **Nightshade Parlour** | Pastel goth by day, traditional goth by night. |
 | **Petal OS** | A playful retro desktop with pixel fonts. |
 | **Rosalind's Folio** | A storybook layout with visual novel touches. |
-| **Saltwind Harbor** | A seaside harbour with a lighthouse and real storms. |
-| **Sodium Row** | A gritty rain-soaked city under orange streetlights. |
 | **Swiss Poster** | Quiet, clean poster design with no motion. |
 
 Every starter theme has a Dark and a Light version. The small tags under each name, such as **No motion** or **High legibility**, tell you what to expect.
