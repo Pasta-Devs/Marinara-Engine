@@ -51,7 +51,10 @@ export function usesOf(
     const job = JOB_OF[kind];
     if (!job) return [];
     const own = accountRows.find((row) => row.model?.trim() && matchesKind(row, kind));
-    if (own) return [{ kind, job, model: own.model!, rowId: own.id }];
+    if (own) {
+      const name = models.find((model) => model.id === own.model)?.name;
+      return [{ kind, job, model: own.model!, rowId: own.id, ...(name ? { name } : {}) }];
+    }
     const fits = models.filter((model) =>
       kind === "decision"
         ? model.capabilities?.logprobs
