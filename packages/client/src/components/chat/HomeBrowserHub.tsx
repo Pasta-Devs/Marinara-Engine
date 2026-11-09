@@ -54,6 +54,7 @@ import {
   homeAgentWidgetsSchema,
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
+import { useCoveredSurfaceFlag } from "../../hooks/use-covered-surface-flag";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
@@ -1128,6 +1129,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const [gridRowHeight, setGridRowHeight] = useState(HOME_WIDGET_MIN_ROW_HEIGHT);
   const contentRef = useRef<HTMLElement | null>(null);
   const heroRef = useRef<HTMLElement | null>(null);
+  const homePageRef = useRef<HTMLDivElement | null>(null);
+  // Freeze Home's ambient animations while Professor Mari, an editor or a panel covers it (phone battery).
+  useCoveredSurfaceFlag(homePageRef, "marinaraHomeCovered");
   const feedShellRef = useRef<HTMLDivElement | null>(null);
   const mobileBookmarksRef = useRef<HTMLDivElement | null>(null);
   const mobileBookmarksTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -2347,6 +2351,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
             </div>
           ) : (
             <div
+              ref={homePageRef}
               className="relative min-h-full overflow-hidden bg-[radial-gradient(circle_at_12%_8%,color-mix(in_srgb,var(--mari-mode-conversation)_14%,transparent),transparent_27%),radial-gradient(circle_at_87%_12%,color-mix(in_srgb,var(--mari-home-pink)_14%,transparent),transparent_29%),radial-gradient(circle_at_72%_76%,color-mix(in_srgb,var(--mari-mode-roleplay)_8%,transparent),transparent_28%),var(--background)]"
               data-component="HomeBrowserHub.HomePage"
             >
