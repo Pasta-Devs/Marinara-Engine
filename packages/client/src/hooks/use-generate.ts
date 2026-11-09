@@ -3696,9 +3696,13 @@ export function useGenerate() {
         }
         const partialContent = normalizeLineBreakSpacing(fullBuffer + pendingText).trim();
         let unpersistedPartialMessage: Message | null = null;
+        // The sent user turn is already in persistedMessages; only a saved reply means the server kept the text.
+        const replySaved = Array.from(persistedMessages.values()).some(
+          (m) => m.role === (params.impersonate ? "user" : "assistant"),
+        );
         if (
           receivedContent &&
-          persistedMessages.size === 0 &&
+          !replySaved &&
           partialContent &&
           // A failed game turn has its own retry; saving what streamed before the failure left a half-turn
           // (often the GM's lead-in to a tool call) in the story, and a second reply right after it.
