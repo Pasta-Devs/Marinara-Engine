@@ -727,8 +727,7 @@ The import preview tells the user when a theme tries to change any of these.
 
 - **Theme gallery and lightning bolts** (November 9 2026, contract still version 1): starter themes
   download on demand from the theme gallery; `--mari-weather-lightning-bolt` (`on`, `none` or a width
-  from 0.5 to 3) draws a forked bolt down one side of the screen with each storm flash. Five new
-  starters: Aero Lagoon, Nightshade Parlour, Saltwind Harbor, Brassworks Sky and Sodium Row.
+  from 0.5 to 3) draws a forked bolt down one side of the screen with each storm flash.
 
 - **Theme weather** (November 2026, contract still version 1): `--mari-weather-*` tokens (pixel
   style, colours, pictures, size, speed, amount, strength, tint, sun and moon off),

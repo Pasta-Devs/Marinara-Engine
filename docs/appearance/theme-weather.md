@@ -289,11 +289,6 @@ Every starter theme in the theme gallery shows off weather. Download one, click 
 - **NEON//GRID**: long cyan rain streaks, square "data snow", magenta sparks for leaves and petals. Its painted rain overlay steps aside when real weather falls.
 - **Petal OS**: pixel style on a 3 px grid, its own pixel petals, pale pink rain at night and deep berry rain by day, and a city that greys over in bad weather.
 - **Lantern Path**: its own painted leaves, warm fireflies, no app sun (the backdrop paints its own light) and backdrops that turn overcast or snowy with the weather.
-- **Aero Lagoon**: glossy green leaves in the wind, white glints for motes, and a lagoon that greys over in the rain or freezes in the snow.
-- **Nightshade Parlour**: pastel petals by day and crimson ones by night, and little bats flitting on clear nights.
-- **Saltwind Harbor**: long slate rain, lightning bolts in storms, thick sea fog, and a stormy sea backdrop.
-- **Brassworks Sky**: little clockwork gears that spin past in the wind, sooty ash, sparks for embers and yellow-brown smog.
-- **Sodium Row**: orange rain under the streetlights at night, lightning bolts in storms, paper scraps blowing down the street.
 
 ## Related guides
 
