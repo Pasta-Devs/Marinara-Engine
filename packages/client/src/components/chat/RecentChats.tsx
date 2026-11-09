@@ -242,7 +242,12 @@ export function RecentChats() {
                 onClick={() => setActiveChatId(chat.id)}
                 style={{ "--recent-chat-accent": mode.accent } as CSSProperties}
               >
-                <span className="ov-recent__avatar" aria-hidden="true">
+                <span
+                  className="ov-recent__avatar"
+                  aria-hidden="true"
+                  data-mari-part={character?.avatarUrl ? undefined : "avatar-placeholder"}
+                  data-role={character?.avatarUrl ? undefined : "assistant"}
+                >
                   {character?.avatarUrl ? (
                     <img
                       src={character.avatarUrl}

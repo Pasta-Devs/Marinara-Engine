@@ -61,6 +61,10 @@ const OVERLAY_SELECTOR = [
   "mari-theme-safety",
 ].join(",");
 
+/** Full-screen app layers that hold a window or a spotlight: the layer itself paints nothing over
+ *  the chrome, so only a theme's pseudo-elements on it are measured (seeTest). */
+const APP_BACKDROPS = '[data-mari-app-overlay], [data-component="Modal"]';
+
 /** Words that make added text in the chat look like a request for secrets. */
 const SENSITIVE_TEXT =
   /\b(api[\s_-]*key|apikey|password|passcode|passphrase|token|secret|sk-|credit\s*card|card\s*number|cvv|log\s*in|login|sign\s*in|session|verify|wallet|seed\s*phrase|paste)\b/i;
@@ -779,6 +783,19 @@ function seeTest(element: Element, points: SamplePoint[]) {
         break;
       }
       if (target.contains(hit)) break;
+      // Round 6: a line pinned over a reply's own text (the sticky name, a theme's sticky window
+      // title) covers it by design, and so do its ::before/::after (a fade under the name).
+      if (pinnedOverOwnText(hit, target)) continue;
+      // Round 6: a full-screen app overlay (the chat help spotlight, a window's dimmed backdrop) is
+      // allowed over the chrome, but a theme's own ::before/::after on it (a window title bar drawn
+      // by a [role="dialog"] rule) is not: only that paint counts, and what's inside is a window.
+      const backdrop = hit.closest(APP_BACKDROPS);
+      if (backdrop) {
+        if (hit !== backdrop) return true;
+        through *= 1 - Math.min(1, pseudoCoverage(hit) * effectiveOpacity(hit));
+        if (through <= 0.4) return false;
+        continue;
+      }
       if (hit.closest(OVERLAY_SELECTOR)) return true;
       const ancestor = hit.contains(target);
       const coverage = ancestor
@@ -789,6 +806,22 @@ function seeTest(element: Element, points: SamplePoint[]) {
     }
     return true;
   });
+}
+
+const PINNED_LINES = '.ov-rpmsg__head, [data-mari-part="header"], [data-mari-part="window-title"]';
+const MESSAGE_ROOT = '[data-mari-part="message"], .mari-roleplay-message-body';
+
+/** Whether `hit` is a sticky line (or inside one) of the same message as the chat text `target`. */
+function pinnedOverOwnText(hit: Element, target: Element) {
+  if (!target.classList.contains("mari-message-content")) return false;
+  const line = hit.closest(PINNED_LINES);
+  if (!line) return false;
+  const message = target.closest(MESSAGE_ROOT);
+  if (!message || !message.contains(line)) return false;
+  for (let node: Element | null = line; node && node !== message; node = node.parentElement) {
+    if (getComputedStyle(node).position === "sticky") return true;
+  }
+  return false;
 }
 
 /** Rules in the given stylesheets whose declarations mention a border image (they may have an outset). */
@@ -849,7 +882,8 @@ function outsetCovers(
     }
     if (elements.length > 120) break;
   }
-  if (document.documentElement.hasAttribute("data-mari-focus-frame")) {
+  const focusFrame = document.documentElement.hasAttribute("data-mari-focus-frame");
+  if (focusFrame) {
     for (const element of Array.from(document.querySelectorAll(FOCUS_SURFACES)).slice(0, 30)) elements.push(element);
   }
   for (const element of elements) {
@@ -867,19 +901,59 @@ function outsetCovers(
       top: box.top - outset.top,
       bottom: box.bottom + outset.bottom,
     };
+    const isFocusSurface = focusFrame && element.matches(FOCUS_SURFACES);
+    const hits = new Set<Area>();
     for (const { area, element: target } of targets) {
       if (element.contains(target)) continue; // an ancestor's border paints under its contents
+      // Round 6: the ring reaching into the top bar's box counts even between its tabs (a corner
+      // sprig over the "Chat settings" pill), unless the bar paints above it there.
+      if (area === "topbar") {
+        const bar = target.getBoundingClientRect();
+        const left = Math.max(outer.left, bar.left);
+        const right = Math.min(outer.right, bar.right);
+        const top = Math.max(outer.top, bar.top);
+        const bottom = Math.min(outer.bottom, bar.bottom);
+        const overlapsRing =
+          right - left > 2 &&
+          bottom - top > 2 &&
+          !(left >= box.left && right <= box.right && top >= box.top && bottom <= box.bottom);
+        if (overlapsRing && !paintsAbove(target, element, { x: (left + right) / 2, y: (top + bottom) / 2 }, box)) {
+          hits.add(area);
+          continue;
+        }
+      }
       for (const point of points.get(target) ?? []) {
         if (!point.control || element.contains(point.control) || point.control.contains(element)) continue;
         const at = pointFor(point);
         if (!at) continue;
         const inside = at.x >= outer.left && at.x <= outer.right && at.y >= outer.top && at.y <= outer.bottom;
         const inOwnBox = at.x >= box.left && at.x <= box.right && at.y >= box.top && at.y <= box.bottom;
-        if (inside && !inOwnBox) covered.add(area);
+        if (inside && !inOwnBox && !paintsAbove(target, element, at, box)) hits.add(area);
       }
     }
+    if (hits.size === 0) continue;
+    // The app's own focus-frame slot pulls its ring in on that surface (a drawer flush with the top
+    // bar) instead of switching the theme off; a theme's own border image is reported.
+    if (isFocusSurface) element.setAttribute("data-mari-frame-clip", "");
+    else for (const area of hits) covered.add(area);
   }
   return covered;
+}
+
+/**
+ * Round 6: whether the protected area paints above the framed element, so its outset ring lands
+ * under it (Ctrl+K opening over the newest reply). Outset paint takes no hits, so this asks at the
+ * nearest point inside the element's own box: when the protected area answers there first, it's on
+ * top. If the area isn't at that point, the order can't be read and the ring counts as covering.
+ */
+function paintsAbove(target: Element, element: Element, at: { x: number; y: number }, box: DOMRect) {
+  const x = Math.min(Math.max(at.x, box.left + 1), box.right - 1);
+  const y = Math.min(Math.max(at.y, box.top + 1), box.bottom - 1);
+  for (const hit of document.elementsFromPoint(x, y)) {
+    if (target.contains(hit)) return true;
+    if (hit === element || element.contains(hit)) return false;
+  }
+  return false;
 }
 
 function snapshot(element: Element, area: Area, points: SamplePoint[] | null): Snapshot {
@@ -1002,7 +1076,13 @@ function chatTextPoints(): SamplePoint[] {
     // A line near the top of the part that's on screen (a long reply may start far above it).
     const scroller = content.closest("[data-chat-scroll]")?.getBoundingClientRect();
     // A name line the theme pins to the top of the reply (--mari-pinned-speaker) covers text by design.
-    const pinned = content.closest(".mari-rp-bubble")?.querySelector(".ov-rpmsg__head")?.getBoundingClientRect();
+    let pinned: DOMRect | undefined;
+    for (const line of Array.from(content.closest(MESSAGE_ROOT)?.querySelectorAll(PINNED_LINES) ?? [])) {
+      if (line.contains(content) || getComputedStyle(line).position !== "sticky") continue;
+      const box = line.getBoundingClientRect();
+      if (!pinned || box.bottom > pinned.bottom) pinned = box;
+    }
+    pinned ??= content.closest(".mari-rp-bubble")?.querySelector(".ov-rpmsg__head")?.getBoundingClientRect();
     const visibleTop = Math.max(
       rect.top,
       scroller?.top ?? 0,

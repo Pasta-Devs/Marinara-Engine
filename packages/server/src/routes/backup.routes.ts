@@ -1666,7 +1666,8 @@ async function buildProfileExportEnvelope(
   );
 
   const allAgents = (await agents.list()).map(redactAgentSecrets);
-  const allThemes = await themes.list();
+  // Starter themes ship with the app, so a profile doesn't carry copies of them.
+  const allThemes = (await themes.list()).filter((theme) => !theme.builtIn);
   const data: Record<string, unknown> = {
     characters: characterExports,
     personas: allPersonas,

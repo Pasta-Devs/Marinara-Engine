@@ -75,6 +75,7 @@ import {
   currentThemeSettings,
   dataUrlToFile,
   snapshotThemeSettings,
+  themeSettingKeys,
   readFontFamily,
   shrinkImageDataUrl,
   fileToDataUrl,
@@ -5772,12 +5773,20 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 checked={activeRoleplayStyle === "visual-novel"}
                 onChange={(enabled) => {
                   const style = enabled ? "visual-novel" : "classic";
-                  setRoleplayDisplayStyle(style);
+                  // An open Roleplay switches alone (theming round 6); the default for chats without
+                  // their own style only changes with no Roleplay open.
                   if (appearanceChat?.mode === "roleplay")
                     updateMeta.mutate({ id: appearanceChat.id, roleplayDisplayStyle: style });
+                  else setRoleplayDisplayStyle(style);
                 }}
               />
-              <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("settings.roleplayVn.scope")}</p>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {localizeUi(
+                  appearanceChat?.mode === "roleplay"
+                    ? "settings.roleplayVn.scope"
+                    : "settings.roleplayVn.scopeDefault",
+                )}
+              </p>
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("roleplay-vn-autoplay")}
                 label={localizeUi("settings.roleplayVn.autoPlay")}
@@ -6149,6 +6158,162 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     setEditorOpen(true);
   }, []);
 
+  // Starter themes (round 6) are read-only, like the built-in preset: Clone + Edit makes the
+  // person's own copy and opens the editor on it.
+  const [cloningId, setCloningId] = useState<string | null>(null);
+  const cloneAndEditTheme = useCallback(
+    async (theme: Theme) => {
+      setCloningId(theme.id);
+      try {
+        const taken = new Set(syncedThemes.map((item) => item.name));
+        const base = localizeUi("theming.starter.copyName", { name: theme.name, defaultValue: "{{name}} (my copy)" });
+        let name = base;
+        for (let n = 2; taken.has(name); n += 1) name = `${base} ${n}`;
+        const copy = await createTheme.mutateAsync({
+          name,
+          css: theme.css,
+          meta: theme.meta ?? undefined,
+          installedAt: new Date().toISOString(),
+        });
+        openEditTheme(copy);
+        toast.success(localizeUi("theming.starter.copied", { name, defaultValue: "Made your own copy: {{name}}" }));
+      } catch (err) {
+        console.error("[ThemesSettings] Failed to copy theme:", err);
+        toast.error(localizeUi("theming.starter.copyFailed", { defaultValue: "Couldn't make a copy of the theme." }));
+      } finally {
+        setCloningId(null);
+      }
+    },
+    [createTheme, localizeUi, openEditTheme, syncedThemes],
+  );
+
+  const ownThemes = syncedThemes.filter((theme) => !theme.builtIn);
+  const starterThemes = syncedThemes.filter((theme) => theme.builtIn).sort((a, b) => a.name.localeCompare(b.name));
+  const renderThemeRow = (t: Theme) => (
+    <div
+      key={t.id}
+      className={cn(
+        "flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-all",
+        activeCustomTheme?.id === t.id
+          ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
+          : "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[var(--accent)]",
+      )}
+    >
+      <button
+        onClick={() => {
+          // A starter theme was never installed, so switching to it is when its suggested
+          // Appearance settings (day and night, fonts) apply; Go back puts them back.
+          const keys = t.builtIn ? themeSettingKeys(t.meta?.settings) : [];
+          const restore = keys.length ? snapshotThemeSettings(keys) : null;
+          if (restore && t.meta?.settings) applyThemeSettings(t.meta.settings, keys);
+          activateTheme(t, restore as { settings: Record<string, unknown>; keys: string[] } | null).catch(
+            (err: unknown) => {
+              if (restore) applyThemeSettings(restore.settings, restore.keys);
+              console.error("[ThemesSettings] Failed to activate theme:", err);
+              toast.error(localizeUi("ui.panels.themessettings.failedToActivateTheme"));
+            },
+          );
+        }}
+        className="flex flex-1 items-center gap-2 min-w-0 text-left"
+        data-theme-card={t.id}
+      >
+        {t.meta?.thumbnail ? (
+          <img
+            src={t.meta.thumbnail}
+            alt=""
+            className="h-7 w-11 shrink-0 rounded object-cover ring-1 ring-[var(--border)]"
+          />
+        ) : (
+          <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded bg-[var(--muted)]/60 ring-1 ring-[var(--border)]">
+            <FileCode2 size="0.75rem" className="mari-chrome-accent-icon" />
+          </span>
+        )}
+        <span className="flex min-w-0 flex-col">
+          <span className="mari-chrome-text truncate">{t.name}</span>
+          {t.meta?.author || t.meta?.version ? (
+            <span className="mari-chrome-text-muted truncate text-[0.625rem]">
+              {[
+                t.meta?.author ? localizeUi("theming.import.by", { author: t.meta.author }) : null,
+                t.meta?.version ? `v${t.meta.version}` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          ) : null}
+          <ThemeLabels meta={t.meta} className="mt-0.5 flex flex-wrap gap-1" />
+        </span>
+        {activeCustomTheme?.id === t.id && (
+          <Check size="0.75rem" className="mari-chrome-accent-icon ml-auto shrink-0" />
+        )}
+      </button>
+      <ThemeCreditsButton name={t.name} meta={t.meta} />
+      {t.builtIn ? (
+        <button
+          type="button"
+          onClick={() => void cloneAndEditTheme(t)}
+          disabled={cloningId === t.id}
+          className={cn(SETTINGS_ICON_BUTTON_CLASS, "disabled:opacity-50")}
+          title={localizeUi("theming.starter.clone", { defaultValue: "Clone + Edit" })}
+          aria-label={`${localizeUi("theming.starter.clone", { defaultValue: "Clone + Edit" })}: ${t.name}`}
+          data-theme-clone={t.id}
+        >
+          {cloningId === t.id ? <Loader2 size="0.75rem" className="animate-spin" /> : <Copy size="0.75rem" />}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => openEditTheme(t)}
+          className={SETTINGS_ICON_BUTTON_CLASS}
+          title={localizeUi("settings.actions.editThemeCss")}
+          aria-label={`${localizeUi("settings.actions.editThemeCss")}: ${t.name}`}
+        >
+          <Code size="0.75rem" />
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          downloadJsonFile(buildThemeFile(t), `${sanitizeExportFilenamePart(t.name, "theme")}.json`);
+        }}
+        className={SETTINGS_ICON_BUTTON_CLASS}
+        title={localizeUi("settings.actions.exportTheme")}
+        aria-label={`${localizeUi("settings.actions.exportTheme")}: ${t.name}`}
+      >
+        <Upload size="0.75rem" />
+      </button>
+      {t.builtIn ? null : (
+        <button
+          type="button"
+          onClick={() => {
+            void (async () => {
+              const confirmed = await showConfirmDialog({
+                title: localizeUi("ui.panels.themessettings.deleteTheme"),
+                message: localizeUi("ui.panels.themessettings.deleteValue1ThisPermanentlyRemovesTheSavedThemeCss", {
+                  value1: t.name,
+                }),
+                confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+                tone: "destructive",
+              });
+              if (!confirmed) return;
+              try {
+                await deleteTheme.mutateAsync(t.id);
+                toast.success(localizeUi("ui.panels.themessettings.themeValue1Removed", { value1: t.name }));
+              } catch (err) {
+                console.error("[ThemesSettings] Failed to remove theme:", err);
+                toast.error(localizeUi("ui.panels.themessettings.failedToRemoveTheme"));
+              }
+            })();
+          }}
+          className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger")}
+          title={localizeUi("settings.actions.removeTheme")}
+          aria-label={`${localizeUi("settings.actions.removeTheme")}: ${t.name}`}
+        >
+          <Trash2 size="0.75rem" />
+        </button>
+      )}
+    </div>
+  );
+
   // "Edit theme" from the safety bar or a theme preview opens the editor on that theme.
   const editRequestId = useThemeEditRequest((state) => state.themeId);
   useEffect(() => {
@@ -6156,8 +6321,9 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     const theme = syncedThemes.find((item) => item.id === editRequestId);
     if (!theme) return;
     takeThemeEditRequest();
-    openEditTheme(theme);
-  }, [editRequestId, openEditTheme, syncedThemes]);
+    if (theme.builtIn) void cloneAndEditTheme(theme);
+    else openEditTheme(theme);
+  }, [cloneAndEditTheme, editRequestId, openEditTheme, syncedThemes]);
 
   const handleSave = useCallback(
     async (force = false) => {
@@ -6629,108 +6795,21 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
               {activeCustomTheme === null && <Check size="0.75rem" className="mari-chrome-accent-icon ml-auto" />}
             </button>
 
-            {/* Custom theme list */}
-            {syncedThemes.map((t) => (
-              <div
-                key={t.id}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-all",
-                  activeCustomTheme?.id === t.id
-                    ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
-                    : "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[var(--accent)]",
-                )}
-              >
-                <button
-                  onClick={() =>
-                    activateTheme(t).catch((err: unknown) => {
-                      console.error("[ThemesSettings] Failed to activate theme:", err);
-                      toast.error(localizeUi("ui.panels.themessettings.failedToActivateTheme"));
-                    })
-                  }
-                  className="flex flex-1 items-center gap-2 min-w-0 text-left"
-                  data-theme-card={t.id}
-                >
-                  {t.meta?.thumbnail ? (
-                    <img
-                      src={t.meta.thumbnail}
-                      alt=""
-                      className="h-7 w-11 shrink-0 rounded object-cover ring-1 ring-[var(--border)]"
-                    />
-                  ) : (
-                    <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded bg-[var(--muted)]/60 ring-1 ring-[var(--border)]">
-                      <FileCode2 size="0.75rem" className="mari-chrome-accent-icon" />
-                    </span>
-                  )}
-                  <span className="flex min-w-0 flex-col">
-                    <span className="mari-chrome-text truncate">{t.name}</span>
-                    {t.meta?.author || t.meta?.version ? (
-                      <span className="mari-chrome-text-muted truncate text-[0.625rem]">
-                        {[
-                          t.meta?.author ? localizeUi("theming.import.by", { author: t.meta.author }) : null,
-                          t.meta?.version ? `v${t.meta.version}` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    ) : null}
-                    <ThemeLabels meta={t.meta} className="mt-0.5 flex flex-wrap gap-1" />
-                  </span>
-                  {activeCustomTheme?.id === t.id && (
-                    <Check size="0.75rem" className="mari-chrome-accent-icon ml-auto shrink-0" />
-                  )}
-                </button>
-                <ThemeCreditsButton name={t.name} meta={t.meta} />
-                <button
-                  type="button"
-                  onClick={() => openEditTheme(t)}
-                  className={SETTINGS_ICON_BUTTON_CLASS}
-                  title={localizeUi("settings.actions.editThemeCss")}
-                  aria-label={`${localizeUi("settings.actions.editThemeCss")}: ${t.name}`}
-                >
-                  <Code size="0.75rem" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    downloadJsonFile(buildThemeFile(t), `${sanitizeExportFilenamePart(t.name, "theme")}.json`);
-                  }}
-                  className={SETTINGS_ICON_BUTTON_CLASS}
-                  title={localizeUi("settings.actions.exportTheme")}
-                  aria-label={`${localizeUi("settings.actions.exportTheme")}: ${t.name}`}
-                >
-                  <Upload size="0.75rem" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void (async () => {
-                      const confirmed = await showConfirmDialog({
-                        title: localizeUi("ui.panels.themessettings.deleteTheme"),
-                        message: localizeUi(
-                          "ui.panels.themessettings.deleteValue1ThisPermanentlyRemovesTheSavedThemeCss",
-                          { value1: t.name },
-                        ),
-                        confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-                        tone: "destructive",
-                      });
-                      if (!confirmed) return;
-                      try {
-                        await deleteTheme.mutateAsync(t.id);
-                        toast.success(localizeUi("ui.panels.themessettings.themeValue1Removed", { value1: t.name }));
-                      } catch (err) {
-                        console.error("[ThemesSettings] Failed to remove theme:", err);
-                        toast.error(localizeUi("ui.panels.themessettings.failedToRemoveTheme"));
-                      }
-                    })();
-                  }}
-                  className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger")}
-                  title={localizeUi("settings.actions.removeTheme")}
-                  aria-label={`${localizeUi("settings.actions.removeTheme")}: ${t.name}`}
-                >
-                  <Trash2 size="0.75rem" />
-                </button>
-              </div>
-            ))}
+            {/* Custom theme list: the person's own themes, then the starter themes (round 6) */}
+            {ownThemes.map((t) => renderThemeRow(t))}
+            {starterThemes.length ? (
+              <span className="mt-2 flex flex-col gap-0.5" data-starter-themes-heading="">
+                <span className="text-xs font-medium">
+                  {localizeUi("theming.starter.heading", { defaultValue: "Starter themes" })}
+                </span>
+                <span className="mari-chrome-text-muted text-[0.6875rem]">
+                  {localizeUi("theming.starter.help", {
+                    defaultValue: "Ready to use and read-only. Clone + Edit makes your own copy to change.",
+                  })}
+                </span>
+              </span>
+            ) : null}
+            {starterThemes.map((t) => renderThemeRow(t))}
 
             {isLoading && syncedThemes.length === 0 && (
               <p className="mari-chrome-text-muted py-2 text-center text-[0.625rem]">

@@ -21,7 +21,64 @@ export function normalizeThemeCss(css: string): string {
 }
 
 export function sanitizeAppCss(css: string): string {
-  return stripDangerousCss(normalizeThemeCss(css));
+  return scopeDialogSelectors(migrateFocusFrameOutset(stripDangerousCss(normalizeThemeCss(css))));
+}
+
+/** Splits a value at top-level slashes (not inside url(), strings or other brackets). */
+function splitSlashes(value: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let quote = "";
+  let start = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const ch = value[index]!;
+    if (quote) {
+      if (ch === "\\") index += 1;
+      else if (ch === quote) quote = "";
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === "(") depth += 1;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    else if (ch === "/" && depth === 0) {
+      parts.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+  parts.push(value.slice(start));
+  return parts;
+}
+
+/**
+ * Theming round 6: since v1.5 the focus frame reaches past its surface only through
+ * --mari-focus-frame-outset, so an outset written the old way, as the third part of
+ * --mari-focus-frame (source slice / width / outset repeat), was silently dropped and the ring sat
+ * on the text. When the theme doesn't set the outset token itself, that length moves into it.
+ */
+export function migrateFocusFrameOutset(css: string): string {
+  if (!/--mari-focus-frame\s*:/.test(css) || /--mari-focus-frame-outset\s*:/.test(css)) return css;
+  return css.replace(/(--mari-focus-frame\s*:)([^;{}]*)/g, (whole, prop: string, value: string) => {
+    const parts = splitSlashes(value);
+    if (parts.length < 3) return whole;
+    const tokens = parts[2]!.trim().split(/\s+/);
+    const lengths: string[] = [];
+    while (tokens.length && /^-?[\d.]+(px|rem|em)$|^0$/i.test(tokens[0]!)) lengths.push(tokens.shift()!);
+    const outset = lengths.find((length) => length !== "0");
+    if (!outset) return whole;
+    const repeat = tokens.join(" ");
+    const kept = `${parts[0]}/${parts[1]}${repeat ? ` ${repeat}` : ""}`.trim();
+    return `${prop} ${kept}; --mari-focus-frame-outset: ${outset}`;
+  });
+}
+
+/**
+ * Theming round 6: a rule on `[role="dialog"]` means a window. The app's full-screen overlays (the
+ * chat help spotlight) are dialogs too, so such a rule used to paint a window title across the
+ * whole screen and over the top bar. They carry data-mari-app-overlay and are left out of it.
+ */
+export function scopeDialogSelectors(css: string): string {
+  return css.replace(
+    /\[\s*role\s*=\s*(["']?)dialog\1\s*(?:[is]\s*)?\]/gi,
+    '[role="dialog"]:not([data-mari-app-overlay])',
+  );
 }
 
 /** Splits a declaration block at top-level semicolons (not inside strings or brackets). */

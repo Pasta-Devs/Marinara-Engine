@@ -113,8 +113,71 @@ import {
   useGenerateGameTurnStoryboard,
 } from "../../hooks/use-game-storyboards";
 
-/** The VN page each message was left on, for this session (message id → paragraph, -1 = last). */
+/** The VN page each message was left on (message id → paragraph, -1 = last), and the message each
+ *  chat was left on (chat id → message id, "" = the newest reply). Kept in localStorage (theming
+ *  round 6) so a reload or a chat switch opens where the reader was; the oldest entries drop off. */
+const VN_PLACES_KEY = "marinara-vn-reading-places";
+const VN_PLACES_LIMIT = 400;
 const vnReadingPlaces = new Map<string, number>();
+const vnChatPlaces = new Map<string, string>();
+let vnPlacesLoaded = false;
+function loadVnPlaces() {
+  if (vnPlacesLoaded) return;
+  vnPlacesLoaded = true;
+  try {
+    const stored = JSON.parse(localStorage.getItem(VN_PLACES_KEY) ?? "null") as {
+      pages?: Array<[string, number]>;
+      chats?: Array<[string, string]>;
+    } | null;
+    for (const [id, page] of stored?.pages ?? [])
+      if (typeof id === "string" && Number.isInteger(page)) vnReadingPlaces.set(id, page);
+    for (const [chat, id] of stored?.chats ?? [])
+      if (typeof chat === "string" && typeof id === "string") vnChatPlaces.set(chat, id);
+  } catch {
+    /* storage blocked or corrupt: places last for this session only */
+  }
+}
+function trimToLimit<V>(map: Map<string, V>) {
+  while (map.size > VN_PLACES_LIMIT) map.delete(map.keys().next().value as string);
+}
+let vnPlacesSaveTimer: number | undefined;
+function writeVnPlaces() {
+  window.clearTimeout(vnPlacesSaveTimer);
+  vnPlacesSaveTimer = undefined;
+  trimToLimit(vnReadingPlaces);
+  trimToLimit(vnChatPlaces);
+  try {
+    localStorage.setItem(VN_PLACES_KEY, JSON.stringify({ pages: [...vnReadingPlaces], chats: [...vnChatPlaces] }));
+  } catch {
+    /* storage full or blocked */
+  }
+}
+function saveVnPlaces() {
+  window.clearTimeout(vnPlacesSaveTimer);
+  vnPlacesSaveTimer = window.setTimeout(writeVnPlaces, 250);
+}
+// A reload right after a page turn still keeps it.
+if (typeof window !== "undefined")
+  window.addEventListener("pagehide", () => {
+    if (vnPlacesSaveTimer !== undefined) writeVnPlaces();
+  });
+function rememberVnPlace(map: Map<string, number> | Map<string, string>, key: string, value: number | string) {
+  // Re-insert so the most recent places are the last to drop off.
+  map.delete(key);
+  (map as Map<string, number | string>).set(key, value);
+  saveVnPlaces();
+}
+
+/** Whether a key press belongs to a text field, so VN paging keys leave it alone. */
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLInputElement && !["button", "checkbox", "radio", "range"].includes(target.type))
+  );
+}
 
 type ChatData = ComponentProps<typeof ChatCommonOverlays>["chat"];
 
@@ -1146,9 +1209,20 @@ export function ChatRoleplaySurface({
 
   // Whether the reader saw the current reply stream in, so its end keeps their place.
   const vnFollowedStream = useRef(false);
-  // Reset VN navigation when switching chats.
+  // Remember which message each chat was left on (theming round 6). Declared before the reset below
+  // so the commit that switches chats never writes the previous chat's message into the new one.
+  const vnStateChatRef = useRef<string | null>(null);
   useEffect(() => {
-    setVnSelectedMessageId(null);
+    if (!visualNovel || vnStateChatRef.current !== activeChatId || hasLiveStream) return;
+    const stored = vnChatPlaces.get(activeChatId);
+    const next = vnSelectedMessageId ?? "";
+    if (stored !== next) rememberVnPlace(vnChatPlaces, activeChatId, next);
+  }, [activeChatId, hasLiveStream, visualNovel, vnSelectedMessageId]);
+  // Switching chats (or reloading) opens the message and page the reader left that chat on.
+  useEffect(() => {
+    loadVnPlaces();
+    vnStateChatRef.current = activeChatId;
+    setVnSelectedMessageId(vnChatPlaces.get(activeChatId) || null);
     setVnParagraphIndex(null);
     setVnSpeech(null);
     pendingVnPrevious.current = null;
@@ -1214,7 +1288,8 @@ export function ChatRoleplaySurface({
   activeVnMessageIdRef.current = activeVnMessage?.id;
   useEffect(() => {
     const id = activeVnMessageIdRef.current;
-    if (id && vnParagraphIndex !== null && !hasLiveStream) vnReadingPlaces.set(id, vnParagraphIndex);
+    if (id && vnParagraphIndex !== null && !hasLiveStream && vnReadingPlaces.get(id) !== vnParagraphIndex)
+      rememberVnPlace(vnReadingPlaces, id, vnParagraphIndex);
   }, [vnParagraphIndex, hasLiveStream]);
 
   const [ttsState, setTtsState] = useState(ttsService.getState());
@@ -1282,6 +1357,34 @@ export function ChatRoleplaySurface({
     visibleVnMessages,
     vnParagraphCount,
   ]);
+  // VN paging keys (theming round 6): ←/→ and Page Up/Down turn the page while focus is in the VN
+  // box; Page Up/Down also work from anywhere outside a text field. Runs in the capture phase and
+  // marks the event handled, so the arrows don't also swipe the reply.
+  const vnKeyHandlers = useRef({ previous: handlePreviousParagraph, next: handleNextParagraph });
+  vnKeyHandlers.current = { previous: handlePreviousParagraph, next: handleNextParagraph };
+  useEffect(() => {
+    if (!visualNovel || vnHistoryOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const back = event.key === "ArrowLeft" || event.key === "PageUp";
+      const forward = event.key === "ArrowRight" || event.key === "PageDown";
+      if (!back && !forward) return;
+      if (isTypingTarget(event.target)) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const inVnBox = !!target?.closest("[data-roleplay-vn]");
+      if (!inVnBox) {
+        if (event.key.startsWith("Arrow")) return;
+        // Leave Page Up/Down to dialogs, drawers and lists that scroll on their own.
+        if (target && target !== document.body && target.closest('[role="dialog"], [data-component="Modal"]')) return;
+        if (document.querySelector('[data-component="Modal"]')) return;
+      }
+      event.preventDefault();
+      if (back) vnKeyHandlers.current.previous();
+      else vnKeyHandlers.current.next();
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [visualNovel, vnHistoryOpen]);
   const queryClient = useQueryClient();
   const automaticStoryboardMessageRef = useRef<string | undefined>(undefined);
   const initialLoadSettledRef = useRef(false);

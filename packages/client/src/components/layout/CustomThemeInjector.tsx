@@ -339,6 +339,20 @@ export function CustomThemeInjector() {
         "data-visual-theme",
       ],
     });
+    // Round 6: windows and the help overlay are portalled into <body>; a theme rule on them (a
+    // window title drawn on [role="dialog"]) only shows while one is open, so look then too.
+    const overlays = new MutationObserver((records) => {
+      const opened = records.some((record) =>
+        Array.from(record.addedNodes).some(
+          (node) =>
+            node instanceof Element &&
+            (node.matches('[role="dialog"], [data-mari-app-overlay]') ||
+              !!node.querySelector('[role="dialog"], [data-mari-app-overlay]')),
+        ),
+      );
+      if (opened) schedule(800);
+    });
+    overlays.observe(document.body, { childList: true });
     const onResize = () => schedule(500);
     window.addEventListener("resize", onResize);
     // A rule that waits (an animation delay of 13 s, say) is looked at when it starts or ends,
@@ -363,6 +377,7 @@ export function CustomThemeInjector() {
       clearTimeout(later);
       unsubscribe();
       observer.disconnect();
+      overlays.disconnect();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("animationstart", onAnimation, true);
       document.removeEventListener("animationend", onAnimation, true);

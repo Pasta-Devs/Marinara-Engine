@@ -66,10 +66,16 @@ export function ResultTypeIcon({
   const badged = Boolean(TypeIcon && (stacked || src));
   const badgeAccent = badged ? getValidatedCommandCenterAccent(accent) : undefined;
 
+  // Round 6: a character or persona with no picture is an avatar placeholder, so a theme's stock
+  // avatars (--mari-user-avatar-image, data-mari-part="avatar-placeholder") show here too.
+  const placeholderRole =
+    !src && !stacked ? (type === "character" ? "assistant" : type === "persona" ? "user" : null) : null;
   return (
     <span
       aria-hidden="true"
       data-result-type={type}
+      data-mari-part={placeholderRole ? "avatar-placeholder" : undefined}
+      data-role={placeholderRole ?? undefined}
       className={cn("result-type-icon relative inline-flex size-9 shrink-0", className)}
     >
       {stacked ? (
