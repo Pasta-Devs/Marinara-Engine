@@ -110,7 +110,11 @@ export function renderRulesetSheetBlock(
   // A score is only ever shown through the ruleset's own modifier rule, so an `identity` system
   // shows its one number and a 3d6 system shows what it adds. How it is SPELLED follows the
   // resolution kind: a pool ruleset's number is dice, not a bonus, and "+5" would read as one.
-  const checkValue = (value: number) => formatRulesetCheckValue(definition, value);
+  // A diceless ruleset (1.825) is never rolled: a score reads as itself and a skill as its rank's name.
+  const diceless = gm.diceless === true;
+  const checkValue = (value: number) => (diceless ? String(value) : formatRulesetCheckValue(definition, value));
+  const tierLabel = (tier: string | undefined) =>
+    definition.resolution.proficiencyTiers.find((entry) => entry.id === tier)?.label ?? tier ?? "";
   // Grouped under their section headings where the ruleset gives them some ("Physical: Strength 3;
   // Mental: Wits 2"); a sheet with no sections reads exactly as it always has.
   const grouped = <T extends { section?: string }>(entries: T[], text: (entry: T) => string) =>
@@ -132,7 +136,7 @@ export function renderRulesetSheetBlock(
       .filter((skill) => (evaluated.skillTiers[skill.id] ?? firstTier) !== firstTier)
       .map((skill) => ({
         section: skill.section,
-        text: `${skill.label} ${checkValue(evaluated.skillMods[skill.id] ?? 0)}`,
+        text: `${skill.label} ${diceless ? tierLabel(evaluated.skillTiers[skill.id]) : checkValue(evaluated.skillMods[skill.id] ?? 0)}`,
       })),
     ...sheet.saves
       .filter((save) => (evaluated.saveTiers[save.id] ?? firstTier) !== firstTier)

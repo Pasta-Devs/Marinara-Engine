@@ -437,7 +437,7 @@ export function rulesetFromBuilderDraft(draft: RulesetBuilderDraft, version = 1)
             label: field.label.trim().slice(0, 40),
             type: "number",
             min: 0,
-            max: 999,
+            max: 99999,
             default: 0,
             section: about,
           }
@@ -522,7 +522,7 @@ export function rulesetFromBuilderDraft(draft: RulesetBuilderDraft, version = 1)
       saves: false,
       sheet: true,
       resources: pools.length > 0 || tracks.length > 0,
-      rests: true,
+      rests: pools.length + tracks.length > 0,
       combat: false,
       summary: summary.slice(0, 300),
     },
@@ -548,16 +548,20 @@ export function rulesetFromBuilderDraft(draft: RulesetBuilderDraft, version = 1)
           }
         : {}),
     },
-    rests: [
-      {
-        id: "rest",
-        label: "Rest",
-        restore: [
-          ...pools.map((pool) => ({ pool: pool.id, to: "max" })),
-          ...tracks.map((track) => ({ track: track.id, to: "min" })),
-        ],
-      },
-    ],
+    // A rest refills the pools and empties the tracks; a sheet with neither has no rest to offer.
+    rests:
+      pools.length + tracks.length > 0
+        ? [
+            {
+              id: "rest",
+              label: "Rest",
+              restore: [
+                ...pools.map((pool) => ({ pool: pool.id, to: "max" })),
+                ...tracks.map((track) => ({ track: track.id, to: "min" })),
+              ],
+            },
+          ]
+        : [],
     ...(rulesReference ? { gmReference: rulesReference } : {}),
     gm: {
       // A diceless ruleset keeps a resolution, which the schema needs, and never rolls it.

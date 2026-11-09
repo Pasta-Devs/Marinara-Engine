@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   RULESET_BUILDER_MARK,
+  renderRulesetSheetBlock,
   parseRulesetDefinition,
   rulesetBuilderDraftFrom,
   rulesetBuilderStarter,
@@ -209,6 +210,31 @@ try {
     const reminder = buildRulesetRoleplayReminder({ ruleset: definition, sheetBlocks: [] });
     assert.ok(!reminder.includes("[skill_check: skill="), "no check tag is taught");
     assert.ok(reminder.includes("has no dice") && reminder.includes("OUTCOMES:"), reminder);
+    // The sheet reads in ranks, not roll modifiers, and a sheet with nothing to restore has no rest.
+    const ranked = rulesetBuilderStarter("diceless", "Ranked");
+    ranked.skills = [{ label: "Smithing", ability: "Body" }];
+    ranked.tracks = [];
+    ranked.fields = [{ label: "SP", type: "number" }];
+    const rankedDefinition = parsed(rulesetFromBuilderDraft(ranked));
+    assert.deepEqual(rankedDefinition.rests, [], "nothing to restore, no rest");
+    assert.deepEqual(rankedDefinition.sheet.advancement?.fields, ["sp"], "SP can be advanced");
+    const block = renderRulesetSheetBlock(
+      rankedDefinition,
+      {
+        name: "Blake",
+        build: {
+          abilities: { body: 3 },
+          skills: { smithing: "rank_2" },
+          saves: {},
+          bonuses: {},
+          fields: { sp: 35 },
+          lists: {},
+        } as any,
+      },
+      undefined,
+    );
+    assert.ok(block.includes("Smithing Adept"), block);
+    assert.ok(block.includes("BOD 3") && !block.includes("+3"), block);
     const withDice = buildRulesetRoleplayReminder({
       ruleset: parsed(rulesetFromBuilderDraft(rulesetBuilderStarter("d20", "Dice"))),
       sheetBlocks: [],

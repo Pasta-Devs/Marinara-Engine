@@ -807,6 +807,10 @@ export function GameRulesetSheet({
 
   const { fields: summaryFields, derived: summaryDerived } = rulesetSheetSummaryShown(definition, build);
   const untrainedTier = definition.resolution.proficiencyTiers[0]?.id;
+  // A diceless ruleset (1.825) is never rolled, so the sheet shows ranks by name and no roll modifiers.
+  const diceless = definition.gm.diceless === true;
+  const tierLabel = (tier: string | undefined) =>
+    definition.resolution.proficiencyTiers.find((entry) => entry.id === tier)?.label ?? tier ?? "";
   const trained = [
     ...definition.sheet.skills.map((skill) => ({
       id: skill.id,
@@ -1020,9 +1024,11 @@ export function GameRulesetSheet({
                         <span className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
                           {evaluated.abilityScores[ability.id] ?? ability.default}
                         </span>
-                        <span className="text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
-                          {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, localizeUi)}
-                        </span>
+                        {!diceless && (
+                          <span className="text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
+                            {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, localizeUi)}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1515,7 +1521,9 @@ export function GameRulesetSheet({
                         >
                           {text(entry.label)}{" "}
                           <span className="tabular-nums">
-                            {rulesetCheckValueText(definition, entry.modifier, localizeUi)}
+                            {diceless
+                              ? text(tierLabel(entry.tier))
+                              : rulesetCheckValueText(definition, entry.modifier, localizeUi)}
                           </span>
                         </span>
                       ))}
