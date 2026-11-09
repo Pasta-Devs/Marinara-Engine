@@ -153,6 +153,19 @@ export function drawWeatherTint(
 ) {
   if (look.flat || look.tint <= 0) return;
   ctx.globalAlpha = Math.min(1, look.tint);
+  if (config.type === "fog") {
+    // Fog: mist that thickens toward the ground instead of one flat grey layer.
+    const tone = look.kinds.fog?.color ?? FOG_TONE;
+    const mist = ctx.createLinearGradient(0, 0, 0, height);
+    mist.addColorStop(0, `rgba(${tone},0)`);
+    mist.addColorStop(0.45, `rgba(${tone},0.02)`);
+    mist.addColorStop(0.75, `rgba(${tone},0.1)`);
+    mist.addColorStop(1, `rgba(${tone},0.32)`);
+    ctx.fillStyle = mist;
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalAlpha = 1;
+    return;
+  }
   if (config.tint) {
     ctx.fillStyle = config.tint;
     ctx.fillRect(0, 0, width, height);
@@ -243,6 +256,17 @@ export function drawWeatherCelestial(
   else drawWeatherMoon(ctx, x, y, radius, frameCount, kindLook?.color, look.flat);
 }
 
+const FOG_TONE = "205,208,222";
+
+/**
+ * The most canvas pixels per CSS pixel the weather needs. Pixel style draws at its grid size. Fog is all soft
+ * shapes, so it draws at about a third of the resolution and the browser smooths it up: much less to paint.
+ */
+export function weatherCanvasScaleCap(config: Pick<WeatherRenderConfig, "type">, look: WeatherLook) {
+  if (look.pixel > 1) return 1 / look.pixel;
+  return config.type === "fog" ? 0.35 : Infinity;
+}
+
 function snap(value: number, look: WeatherLook) {
   return look.pixel > 1 ? Math.round(value / look.pixel) * look.pixel : value;
 }
@@ -300,7 +324,7 @@ function parseWeather(weather?: string | null): {
     return { type: "snow", count: 12, overlay: "rgba(180,210,240,0.06)", lightning: false };
   }
   if (w.includes("fog") || w.includes("mist") || w.includes("haze")) {
-    return { type: "fog", count: 12, overlay: "rgba(180,180,200,0.12)", lightning: false };
+    return { type: "fog", count: 14, overlay: "rgba(180,180,200,0.12)", lightning: false };
   }
   if (w.includes("sand") || w.includes("dust storm") || w.includes("sirocco")) {
     return { type: "sand", count: 65, overlay: "rgba(180,150,100,0.12)", lightning: false };
@@ -604,13 +628,19 @@ export function createWeatherParticle(
       base.maxLife = 400 + Math.random() * 400;
       base.y = Math.random() * h * 0.4; // upper portion
       break;
-    case "fog":
+    case "fog": {
+      // Slow banks low on the screen, drifting either way. Each starts where it won't drift off an edge
+      // before it fades, so none pops out.
       base.vy = 0;
-      base.vx = 0.2 + Math.random() * 0.4;
-      base.size = 60 + Math.random() * 80;
-      base.opacity = 0.03 + Math.random() * 0.04;
-      base.maxLife = 1000;
+      base.vx = (0.15 + Math.random() * 0.3) * (Math.random() < 0.3 ? -1 : 1);
+      base.size = Math.min(110 + Math.random() * 150, h * 0.4);
+      base.opacity = 0.45 + Math.random() * 0.35;
+      base.maxLife = 900 + Math.random() * 700;
+      const travel = Math.min(w, Math.abs(base.vx) * base.maxLife);
+      base.x = (base.vx > 0 ? 0 : travel) + Math.random() * Math.max(0, w - travel);
+      base.y = h * (0.62 + Math.random() * 0.38); // low, hugging the ground
       break;
+    }
     case "dust":
       base.vy = -0.1 + Math.random() * 0.2;
       base.vx = -0.1 + Math.random() * 0.2;
@@ -676,8 +706,10 @@ export function drawWeatherParticle(
   p: WeatherParticle,
   look: WeatherLook = STOCK_WEATHER_LOOK,
 ) {
-  const fadeIn = Math.min(p.life / 60, 1);
-  const fadeOut = Math.max(1 - p.life / p.maxLife, 0);
+  // Fog banks fade in and out slowly and stay full in between; everything else fades over its life.
+  const fadeIn = Math.min(p.life / (p.type === "fog" ? 240 : 60), 1);
+  const fadeOut =
+    p.type === "fog" ? Math.max(0, Math.min(1, (p.maxLife - p.life) / 240)) : Math.max(1 - p.life / p.maxLife, 0);
   const alpha = Math.min(1, p.opacity * fadeIn * fadeOut * Math.max(0.5, Math.min(1.5, look.strength)));
   if (alpha <= 0) return;
 
@@ -776,11 +808,27 @@ export function drawWeatherParticle(
       break;
     }
     case "fog": {
-      ctx.globalAlpha = alpha * 0.7;
-      ctx.fillStyle = `rgba(${tone ?? "200,200,220"},0.08)`;
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y, p.size * 1.5, p.size * 0.45, 0, 0, Math.PI * 2);
-      ctx.fill();
+      const fog = tone ?? FOG_TONE;
+      if (look.flat) {
+        // Reduced paint: one plain soft-edged shape, no gradient.
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.fillStyle = `rgba(${fog},0.12)`;
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, p.size * 2.2, p.size * 0.4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      // A wide, soft bank: a radial fade stretched sideways.
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.scale(2.4, 0.45);
+      const bank = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
+      bank.addColorStop(0, `rgba(${fog},0.32)`);
+      bank.addColorStop(0.55, `rgba(${fog},0.16)`);
+      bank.addColorStop(1, `rgba(${fog},0)`);
+      ctx.fillStyle = bank;
+      ctx.fillRect(-p.size, -p.size, p.size * 2, p.size * 2);
+      ctx.restore();
       break;
     }
     case "dust": {
@@ -898,7 +946,8 @@ function drawWeatherSprite(
   const w = image.width * scale;
   const h = image.height * scale;
   ctx.save();
-  ctx.globalAlpha = Math.min(1, alpha * 1.4);
+  // Pixel art reads crisp only when it's solid, so pixel style fades pictures in three hard steps.
+  ctx.globalAlpha = look.pixel > 1 ? Math.min(1, Math.ceil(alpha * 1.4 * 3) / 3) : Math.min(1, alpha * 1.4);
   ctx.translate(snap(p.x, look), snap(p.y, look));
   if (look.pixel === 1 && (p.type === "leaf" || p.type === "petal" || p.type === "ash"))
     ctx.rotate(Math.sin(p.wobble) * 1.2);
@@ -964,13 +1013,28 @@ function drawPixelParticle(ctx: WeatherCanvasContext, p: WeatherParticle, look: 
       ctx.fillRect(x, y, wide ? long : g * 2, wide ? g * 2 : long);
       break;
     }
-    case "fog":
+    case "fog": {
+      // Pixel fog: three nested stepped ellipses, so the bank thickens toward its middle in hard bands.
+      const big = g * 2;
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.fillStyle = `rgba(${tone},0.18)`;
+      for (const ring of [1, 0.68, 0.4]) {
+        const rx = p.size * 2.2 * ring;
+        const ry = p.size * 0.3 * ring;
+        for (let dy = -ry; dy <= ry; dy += big) {
+          const half = Math.round((rx * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2))) / big) * big;
+          if (half <= 0) continue;
+          ctx.fillRect(snap(p.x - half, look), snap(p.y + dy, look), half * 2, big);
+        }
+      }
+      break;
+    }
     case "aurora": {
       const big = g * 4;
-      ctx.globalAlpha = alpha * (p.type === "fog" ? 0.55 : 0.6);
-      ctx.fillStyle = `rgba(${tone},${p.type === "fog" ? 0.08 : 0.1})`;
-      const w = Math.round((p.size * (p.type === "fog" ? 3 : 1.2)) / big) * big;
-      const h = Math.round((p.size * (p.type === "fog" ? 0.9 : 2)) / big) * big;
+      ctx.globalAlpha = alpha * 0.6;
+      ctx.fillStyle = `rgba(${tone},0.1)`;
+      const w = Math.round((p.size * 1.2) / big) * big;
+      const h = Math.round((p.size * 2) / big) * big;
       ctx.fillRect(Math.round((p.x - w / 2) / big) * big, Math.round((p.y - h / 2) / big) * big, w, h);
       break;
     }
