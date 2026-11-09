@@ -127,6 +127,7 @@ import {
   nameColorStyle,
   type SpeakerAvatarInfo,
 } from "./GameNarrationVisuals";
+import { WindowTitle } from "../../lib/theme-slots";
 
 const GamePeekPromptButton = lazy(() => import("./GamePeekPromptButton"));
 
@@ -5359,6 +5360,14 @@ export function GameNarration({
             data-expression={active?.type === "dialogue" && active.sprite ? active.sprite : undefined}
             className="pointer-events-auto mari-chat-style-surface mari-game-narration-surface shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 p-3 shadow-[0_16px_38px_rgba(0,0,0,0.45)] backdrop-blur-md dark:border-white/15 dark:bg-black/50"
           >
+            <WindowTitle
+              title={
+                active?.type === "dialogue" && active.speaker
+                  ? active.speaker
+                  : localizeUi("ui.chat.chatmessage.narrator")
+              }
+              where="narration"
+            />
             {/* Scene preparation gate: wait for effects before showing narration */}
             {scenePreparing && (
               <div className="flex items-center gap-2 py-3">

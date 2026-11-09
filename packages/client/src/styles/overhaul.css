@@ -4016,7 +4016,7 @@ input.ov-edhead__title:focus {
   padding: 0;
   overflow: hidden;
   border-top: 1px solid transparent;
-  color: color-mix(in srgb, currentColor 62%, transparent);
+  color: var(--mari-message-actions, color-mix(in srgb, currentColor 62%, transparent));
   font-size: 0.75rem;
   opacity: 0;
   transition:
@@ -4066,6 +4066,8 @@ input.ov-edhead__title:focus {
   display: inline-flex !important;
   gap: 0.125rem;
   padding: 0 0.25rem;
+  /* "2 / 3" reads at AA on its own (theming round 5: it was 4.1:1 at 12.8 px). */
+  color: var(--mari-swipe-counter, color-mix(in srgb, var(--ov-text) 82%, transparent));
 }
 .ov-rpf__meta {
   overflow: hidden;
@@ -4189,6 +4191,8 @@ input.ov-edhead__title:focus {
 }
 .ov-rpf-menu .mari-message-actions button[title]::after {
   content: attr(title);
+  /* The label is text, so it takes the menu's text colour, not a chat-control fill (theming round 5). */
+  -webkit-text-fill-color: currentColor;
   overflow: hidden;
   font-size: 0.8125rem;
   text-overflow: ellipsis;
@@ -10493,6 +10497,23 @@ input.ov-edhead__title:focus {
 @media (hover: none) {
   .ov-chat-rename-btn {
     display: none;
+  }
+}
+/* With a mouse they take no width until the row is hovered or they have keyboard focus, so a chat's
+   title uses the whole row (theming round 5: "The Long Watch" no longer cut to "The Long …"). */
+@media (hover: hover) {
+  .ov-chat-rename-btn {
+    width: 0;
+    margin-left: -0.25rem; /* the row's gap-1 */
+    padding: 0;
+    overflow: hidden;
+  }
+  .group:hover .ov-chat-rename-btn,
+  .group:focus-within .ov-chat-rename-btn {
+    width: auto;
+    margin-left: 0;
+    padding: 0.125rem;
+    overflow: visible;
   }
 }
 

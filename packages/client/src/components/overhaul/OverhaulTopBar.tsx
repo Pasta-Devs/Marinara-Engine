@@ -497,17 +497,8 @@ function useWindowFullscreen() {
   return fullscreen;
 }
 
-export function OverhaulTopBar() {
-  const localize = useLocalizedUiText();
-  const mariEdgeGlow = useMariEdgeGlow();
-  const autoHide = useWindowFullscreen();
-  useEffect(() => {
-    document.documentElement.toggleAttribute("data-ov-topbar-autohide", autoHide);
-    return () => document.documentElement.removeAttribute("data-ov-topbar-autohide");
-  }, [autoHide]);
-  // --mari-top-bar-height: the bar's real height (themes can make it taller), for themes and for the
-  // room the page makes while the fullscreen bar is pinned open.
-  const barRef = useRef<HTMLElement | null>(null);
+/** Publishes --mari-top-bar-height on <html>: the bar's real height, desktop and phone (themes can make it taller). */
+export function usePublishTopBarHeight(barRef: { current: HTMLElement | null }) {
   useEffect(() => {
     const bar = barRef.current;
     if (!bar || typeof ResizeObserver === "undefined") return;
@@ -520,7 +511,21 @@ export function OverhaulTopBar() {
       observer.disconnect();
       root.style.removeProperty("--mari-top-bar-height");
     };
-  }, []);
+  }, [barRef]);
+}
+
+export function OverhaulTopBar() {
+  const localize = useLocalizedUiText();
+  const mariEdgeGlow = useMariEdgeGlow();
+  const autoHide = useWindowFullscreen();
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-ov-topbar-autohide", autoHide);
+    return () => document.documentElement.removeAttribute("data-ov-topbar-autohide");
+  }, [autoHide]);
+  // --mari-top-bar-height: the bar's real height (themes can make it taller), for themes and for the
+  // room the page makes while the fullscreen bar is pinned open.
+  const barRef = useRef<HTMLElement | null>(null);
+  usePublishTopBarHeight(barRef);
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);

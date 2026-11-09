@@ -56,7 +56,11 @@ export function swatch(id: string) {
 
 export function Thumb({ id, src }: { id: string; src?: string | null }) {
   return (
-    <span className="ov-thumb" style={src ? undefined : { background: swatch(id) }} aria-hidden="true">
+    <span
+      className="ov-thumb"
+      style={src ? undefined : { background: `var(--mari-card-art-placeholder, ${swatch(id)})` }}
+      aria-hidden="true"
+    >
       {src ? <img src={src} alt="" loading="lazy" /> : null}
     </span>
   );

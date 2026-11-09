@@ -315,18 +315,28 @@ function canvasDataUrl(canvas: HTMLCanvasElement, quality: number): Promise<stri
 
 /** The longest side a theme picture keeps; bigger ones are scaled down when shrunk. */
 export const THEME_IMAGE_MAX_SIDE = 2560;
+/** The widest a theme picture stays (theming round 5): a 1920 px backdrop fills a desktop window. */
+export const THEME_IMAGE_MAX_WIDTH = 1920;
 
 /**
- * A still PNG or JPEG as WebP, scaled down to at most 2560 px: small pictures (pixel art, 9-slice
- * frames) stay lossless so they keep crisp edges. Moving pictures, SVG and pictures that wouldn't
- * get smaller are left as they are.
+ * A still PNG or JPEG as WebP, scaled down to at most 1920 px wide and 2560 px on its longest side:
+ * small pictures (pixel art, 9-slice frames) stay lossless so they keep crisp edges. A WebP that is
+ * bigger than that is scaled down too. Moving pictures, SVG and pictures that wouldn't get smaller
+ * are left as they are.
  */
 export async function shrinkThemeImage(src: string): Promise<string> {
   const parts = dataUrlParts(src);
-  if (!parts || !/^image\/(png|jpeg|bmp)$/.test(parts.mime) || isAnimatedImage(parts.bytes, parts.mime)) return src;
+  if (!parts || !/^image\/(png|jpeg|bmp|webp)$/.test(parts.mime) || isAnimatedImage(parts.bytes, parts.mime))
+    return src;
   const image = await loadImage(src);
   if (!image || !image.naturalWidth) return src;
-  const scale = Math.min(1, THEME_IMAGE_MAX_SIDE / Math.max(image.naturalWidth, image.naturalHeight));
+  const scale = Math.min(
+    1,
+    THEME_IMAGE_MAX_SIDE / Math.max(image.naturalWidth, image.naturalHeight),
+    THEME_IMAGE_MAX_WIDTH / image.naturalWidth,
+  );
+  // A WebP is already compressed: only one that is too big is saved again.
+  if (parts.mime === "image/webp" && scale >= 1) return src;
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
   canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));

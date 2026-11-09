@@ -17,6 +17,7 @@ import { useOverhaulLook } from "../../stores/overhaul.store";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatModeIcon } from "./ChatModeIcon";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
+import { stripInlineMarkdown } from "../../lib/docs-command-search";
 
 const MODE_BADGE = {
   conversation: {
@@ -34,7 +35,13 @@ const MODE_BADGE = {
 } as const;
 
 function messagePreview(role: string, content: string, fallback: string, youLabel: string) {
-  const normalized = content.replace(/\s+/g, " ").trim();
+  // Plain text: no list numbers, headings, scene breaks or **bold** marks in a one-line preview.
+  const plain = content
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line))
+    .map((line) => stripInlineMarkdown(line.replace(/^\s*(?:[-*+]|\d+[.)]|#{1,6}|>)\s+/, "")))
+    .join(" ");
+  const normalized = plain.replace(/\s+/g, " ").trim();
   if (!normalized) return fallback;
   return role === "user" ? `${youLabel}: ${normalized}` : normalized;
 }

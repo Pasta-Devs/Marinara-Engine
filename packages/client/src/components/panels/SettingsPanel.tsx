@@ -84,6 +84,7 @@ import {
   type ThemePackage,
 } from "../../lib/theme-package";
 import { ThemeImportPreview, type ThemeInstallChoice } from "./settings/ThemeImportPreview";
+import { ThemeCreditsButton, ThemeLabels } from "./settings/ThemeCredits";
 import { AccessibilitySettings } from "./settings/AccessibilitySettings";
 import { getChatWidgetFontFamily } from "../../lib/font-family";
 import { forceRefreshSpa } from "@/lib/browser-runtime";
@@ -6672,11 +6673,13 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                           .join(" · ")}
                       </span>
                     ) : null}
+                    <ThemeLabels meta={t.meta} className="mt-0.5 flex flex-wrap gap-1" />
                   </span>
                   {activeCustomTheme?.id === t.id && (
                     <Check size="0.75rem" className="mari-chrome-accent-icon ml-auto shrink-0" />
                   )}
                 </button>
+                <ThemeCreditsButton name={t.name} meta={t.meta} />
                 <button
                   type="button"
                   onClick={() => openEditTheme(t)}

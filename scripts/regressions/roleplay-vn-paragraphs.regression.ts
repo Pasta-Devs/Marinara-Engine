@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  latestRoleplayParagraph,
-  splitRoleplayParagraphs,
-} from "../../packages/client/src/lib/roleplay-vn-paragraphs";
+import { latestRoleplayParagraph, splitRoleplayParagraphs } from "../../packages/client/src/lib/roleplay-vn-paragraphs";
 
 assert.equal(latestRoleplayParagraph(""), "");
 assert.equal(latestRoleplayParagraph("First line\nwrapped line.\n\nLast paragraph."), "Last paragraph.");
@@ -19,15 +16,22 @@ assert.equal(latestRoleplayParagraph("**Final** paragraph", false), "**Final** p
 
 // splitRoleplayParagraphs regressions
 assert.deepEqual(splitRoleplayParagraphs(""), []);
-assert.deepEqual(
-  splitRoleplayParagraphs("First paragraph\nwrapped.\n\nSecond paragraph.\n\nThird paragraph."),
-  ["First paragraph\nwrapped.", "Second paragraph.", "Third paragraph."],
-);
+assert.deepEqual(splitRoleplayParagraphs("First paragraph\nwrapped.\n\nSecond paragraph.\n\nThird paragraph."), [
+  "First paragraph\nwrapped.",
+  "Second paragraph.",
+  "Third paragraph.",
+]);
 assert.deepEqual(splitRoleplayParagraphs("First\n\nUnfinished", true), ["First"]);
 assert.deepEqual(splitRoleplayParagraphs("First\n\nSecond\n\n", true), ["First", "Second"]);
-assert.deepEqual(
-  splitRoleplayParagraphs("```ts\nconst x = 1;\n\nconst y = 2;\n```\n\nAfter code"),
-  ["```ts\nconst x = 1;\n\nconst y = 2;\n```", "After code"],
-);
+assert.deepEqual(splitRoleplayParagraphs("```ts\nconst x = 1;\n\nconst y = 2;\n```\n\nAfter code"), [
+  "```ts\nconst x = 1;\n\nconst y = 2;\n```",
+  "After code",
+]);
+// A scene break is never a page of its own: it opens the next page, or closes the last one.
+assert.deepEqual(splitRoleplayParagraphs("One.\n\n---\n\nTwo."), ["One.", "---\nTwo."]);
+assert.deepEqual(splitRoleplayParagraphs("One.\n\n* * *\n\nTwo."), ["One.", "* * *\nTwo."]);
+assert.deepEqual(splitRoleplayParagraphs("One.\n\n---"), ["One.\n\n---"]);
+assert.deepEqual(splitRoleplayParagraphs("---"), ["---"]);
+assert.deepEqual(splitRoleplayParagraphs("One.\n\n---\n\n", true), ["One."]);
+assert.deepEqual(splitRoleplayParagraphs("One.\n\n---\n\nTwo.\n\n", true), ["One.", "---\nTwo."]);
 console.log("Roleplay VN paragraph regression passed");
-

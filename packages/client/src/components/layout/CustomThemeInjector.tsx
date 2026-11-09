@@ -44,7 +44,30 @@ const THEME_FLAG_TOKENS: Array<[string, string]> = [
   ["--mari-user-avatar-image", "data-mari-user-avatar-image"],
   ["--mari-focus-frame", "data-mari-focus-frame"],
   ["--mari-window-title", "data-mari-window-titles"],
+  // Theming round 5: long replies (theme-tokens.css, hooks v1.5).
+  ["--mari-message-measure", "data-mari-message-measure"],
+  ["--mari-dialogue-weight", "data-mari-dialogue-weight"],
+  ["--mari-dialogue-color", "data-mari-dialogue-color"],
+  ["--mari-paragraph-gap", "data-mari-paragraph-gap"],
+  ["--mari-pinned-speaker", "data-mari-pinned-speaker"],
+  ["--mari-chat-line-height", "data-mari-chat-line-height"],
 ];
+
+/** Tokens whose keyword value is copied onto <html> (e.g. --mari-phone-avatar: hidden). */
+const THEME_VALUE_TOKENS: Array<[string, string, readonly string[]]> = [
+  ["--mari-phone-avatar", "data-mari-phone-avatar", ["hidden"]],
+];
+
+/** The last keyword the theme gives a token, if it is one of `allowed`. */
+function themeTokenKeyword(css: string, token: string, allowed: readonly string[]): string | null {
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let found: string | null = null;
+  for (const match of clean.matchAll(new RegExp(`(?:^|[\\s;{])${escaped}\\s*:\\s*([\\w-]+)`, "g"))) {
+    if (allowed.includes(match[1]!)) found = match[1]!;
+  }
+  return found;
+}
 
 /** Flags switched on by any of several tokens. */
 const THEME_FLAG_ANY: Array<[string[], string]> = [
@@ -154,6 +177,15 @@ export function CustomThemeInjector() {
       if (tokens.some((token) => themeSetsVariable(css, token))) document.documentElement.setAttribute(attribute, "");
       else document.documentElement.removeAttribute(attribute);
     }
+    // A focus frame that fills its middle gets no outset (theme-tokens.css), so it can't cover the chat.
+    if (/(?:^|[\s;{])--mari-focus-frame\s*:[^;}]*\bfill\b/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")))
+      document.documentElement.dataset.mariFocusFrameFill = "";
+    else delete document.documentElement.dataset.mariFocusFrameFill;
+    for (const [token, attribute, allowed] of THEME_VALUE_TOKENS) {
+      const value = themeTokenKeyword(css, token, allowed);
+      if (value) document.documentElement.setAttribute(attribute, value);
+      else document.documentElement.removeAttribute(attribute);
+    }
     detectThemeChatHooks(css, themeSetsVariable);
     // Slots the app renders only on request (lib/theme-slots.ts), and where the ambient layer sits.
     useThemeSlots.setState({ windowTitles: themeSetsVariable(css, "--mari-window-title") });
@@ -170,6 +202,8 @@ export function CustomThemeInjector() {
       delete document.documentElement.dataset.mariThemeMoves;
       for (const [, attribute] of THEME_FLAG_TOKENS) document.documentElement.removeAttribute(attribute);
       for (const [, attribute] of THEME_FLAG_ANY) document.documentElement.removeAttribute(attribute);
+      for (const [, attribute] of THEME_VALUE_TOKENS) document.documentElement.removeAttribute(attribute);
+      delete document.documentElement.dataset.mariFocusFrameFill;
       document.getElementById(NORMAL_ID)?.remove();
       document.getElementById(IMPORTANT_ID)?.remove();
       delete document.documentElement.dataset.customTheme;
@@ -179,6 +213,41 @@ export function CustomThemeInjector() {
       detectThemeChatHooks(null, themeSetsVariable);
     };
   }, [activeTheme, allowed, reduceMotion, stillsReady]);
+
+  // --mari-center-x: the middle of the centre pane, measured from the ambient layer's left edge, so
+  // --mari-gutter-mask keeps the chat column clear whichever sidebars are open (theme-tokens.css).
+  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!activeTheme || !allowed || root.dataset.mariAmbient === undefined) return;
+    let frame = 0;
+    const publish = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const center = document.querySelector('[data-component="CenterContent"]');
+        const ambient = document.querySelector('[data-mari-part="ambient"]');
+        if (!center || !ambient) return;
+        const box = center.getBoundingClientRect();
+        const x = Math.round(box.left + box.width / 2 - ambient.getBoundingClientRect().left);
+        if (root.style.getPropertyValue("--mari-center-x") !== `${x}px`)
+          root.style.setProperty("--mari-center-x", `${x}px`);
+      });
+    };
+    publish();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
+    const center = document.querySelector('[data-component="CenterContent"]');
+    if (center) observer?.observe(center);
+    window.addEventListener("resize", publish);
+    const settle = window.setTimeout(publish, 400);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
+      observer?.disconnect();
+      window.removeEventListener("resize", publish);
+      root.style.removeProperty("--mari-center-x");
+    };
+  }, [activeTheme, allowed, sidebarOpen, rightPanelOpen]);
 
   // The chrome guard: check after the theme lands, again at 2.5 s and 10 s (rules that wait), when a
   // side panel or Ctrl+K opens, when a chat opens or the colour scheme changes, and on resize.

@@ -113,6 +113,9 @@ import {
   useGenerateGameTurnStoryboard,
 } from "../../hooks/use-game-storyboards";
 
+/** The VN page each message was left on, for this session (message id → paragraph, -1 = last). */
+const vnReadingPlaces = new Map<string, number>();
+
 type ChatData = ComponentProps<typeof ChatCommonOverlays>["chat"];
 
 /** Each sprite list: null while loading, empty when it failed. Structurally shared by React Query, so an unchanged
@@ -1174,7 +1177,7 @@ export function ChatRoleplaySurface({
     if (index > 0) {
       pendingVnPrevious.current = null;
       setVnSelectedMessageId(visibleVnMessages[index - 1]!.id);
-      setVnParagraphIndex(null);
+      setVnParagraphIndex(-1);
     }
   }, [visibleVnMessages]);
 
@@ -1197,8 +1200,22 @@ export function ChatRoleplaySurface({
     useChatStore.getState().setPendingVnReply(activeChatId, null);
   }, [activeChatId, hasLiveStream, latestVnMessage, pendingVnReply]);
 
+  // A finished reply opens on its first page, or on the page the reader left it at (theming round 5);
+  // -1 stands for its last page, where paging back from the next message lands.
+  const requestedParagraphIndex =
+    vnParagraphIndex ?? (activeVnMessage ? vnReadingPlaces.get(activeVnMessage.id) : undefined) ?? 0;
   // The reply shown can hold fewer paragraphs than the place kept, as when an unsaved stream ends.
-  const currentParagraphIndex = Math.max(0, Math.min(vnParagraphIndex ?? Infinity, vnParagraphCount - 1));
+  const currentParagraphIndex =
+    requestedParagraphIndex < 0
+      ? Math.max(0, vnParagraphCount - 1)
+      : Math.max(0, Math.min(requestedParagraphIndex, vnParagraphCount - 1));
+  // Remember the page the reader turned to, per message, for when they come back to it.
+  const activeVnMessageIdRef = useRef<string | undefined>(undefined);
+  activeVnMessageIdRef.current = activeVnMessage?.id;
+  useEffect(() => {
+    const id = activeVnMessageIdRef.current;
+    if (id && vnParagraphIndex !== null && !hasLiveStream) vnReadingPlaces.set(id, vnParagraphIndex);
+  }, [vnParagraphIndex, hasLiveStream]);
 
   const [ttsState, setTtsState] = useState(ttsService.getState());
   useEffect(() => ttsService.subscribe((state) => setTtsState(state)), []);
@@ -1229,7 +1246,7 @@ export function ChatRoleplaySurface({
       const prevMsg = visibleVnMessages[activeVnMessageIndex - 1];
       if (prevMsg) {
         setVnSelectedMessageId(prevMsg.id);
-        setVnParagraphIndex(null); // defaults to last paragraph of previous message
+        setVnParagraphIndex(-1); // the previous message's last paragraph
       }
     } else if (!hasLiveStream && hasNextPage && !isFetchingNextPage && activeVnMessage) {
       pendingVnPrevious.current = activeVnMessage.id;
@@ -2343,7 +2360,7 @@ export function ChatRoleplaySurface({
                             visualNovel
                             visualNovelSpeech={vnSpeech}
                             onVisualNovelSpeechParagraph={setVnParagraphIndex}
-                            visualNovelParagraphIndex={vnParagraphIndex ?? undefined}
+                            visualNovelParagraphIndex={requestedParagraphIndex}
                             onVisualNovelParagraphCount={setVnParagraphCount}
                             visualNovelMediaTarget={vnMediaTarget}
                             chatMode="roleplay"
@@ -2374,13 +2391,15 @@ export function ChatRoleplaySurface({
                                 disabled={!canGoPreviousParagraph}
                                 onClick={handlePreviousParagraph}
                                 className="inline-flex items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] disabled:opacity-30 disabled:pointer-events-none"
+                                data-mari-part="vn-nav"
+                                data-direction="previous"
                                 aria-label={localizeUi("chat.roleplayVn.previousParagraph")}
                                 title={localizeUi("chat.roleplayVn.previousParagraph")}
                               >
                                 <ChevronLeft size="0.875rem" />
                                 <span>{localizeUi("chat.roleplayVn.previousParagraph")}</span>
                               </button>
-                              <span className="font-mono text-[0.6875rem] opacity-75">
+                              <span data-mari-part="vn-counter" className="text-xs tabular-nums opacity-75">
                                 {localizeUi(
                                   // More paragraphs may still arrive while the reply is written.
                                   hasLiveStream
@@ -2397,6 +2416,8 @@ export function ChatRoleplaySurface({
                                 disabled={!canGoNextParagraph}
                                 onClick={handleNextParagraph}
                                 className="inline-flex items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] disabled:opacity-30 disabled:pointer-events-none"
+                                data-mari-part="vn-nav"
+                                data-direction="next"
                                 aria-label={localizeUi("chat.roleplayVn.nextParagraph")}
                                 title={localizeUi("chat.roleplayVn.nextParagraph")}
                               >

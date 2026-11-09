@@ -42,6 +42,7 @@ import {
   goHome,
   useCurrentTab,
   useTabBookkeeping,
+  usePublishTopBarHeight,
 } from "./OverhaulTopBar";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
 import { useHorizontalSwipe, type SwipeDirection } from "./use-horizontal-swipe";
@@ -324,6 +325,8 @@ function AllTabsViewer({ chats, current }: { chats: Chat[]; current: OverhaulTab
 }
 
 export function OverhaulMobileTopBar() {
+  const barRef = useRef<HTMLElement | null>(null);
+  usePublishTopBarHeight(barRef);
   const localize = useLocalizedUiText();
   const { data: chats = [] } = useChats();
   const current = useCurrentTab();
@@ -380,7 +383,7 @@ export function OverhaulMobileTopBar() {
   };
 
   return (
-    <header data-component="TopBar" data-overhaul-topbar="mobile" className="ovm-topbar">
+    <header ref={barRef} data-component="TopBar" data-overhaul-topbar="mobile" className="ovm-topbar">
       {/* Three columns with equal sides, so the title sits in the true centre. */}
       <div className="ovm-topbar__side">
         <button

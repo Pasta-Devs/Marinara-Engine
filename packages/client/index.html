@@ -263,6 +263,11 @@
         :root[data-mari-ambient-behind] [data-mari-part="ambient"] {
           z-index: -1 !important;
         }
+        /* Window titles (round 5): the title row is the box its decorations are placed against, so
+           fixed or absolute window buttons stay inside their row instead of covering the chat. */
+        [data-mari-part="window-title"] {
+          contain: layout !important;
+        }
         /* Pseudo-element decorations (scanlines, grain, vignettes) never take clicks. */
         :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::before,
         :is(html, body, #root, [data-component="AppShell"], [data-component="OverhaulShellRow"], main)::after {

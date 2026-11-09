@@ -251,7 +251,14 @@ export function CardGallery({
               type="button"
               className="ov-card__art"
               onClick={() => onOpen(card.id)}
-              style={card.avatarPath ? undefined : { background: placeholderGradient(card.id) }}
+              // A card with no picture: --mari-card-art-placeholder (any background) replaces the gradient.
+              data-mari-part="card-art"
+              data-placeholder={card.avatarPath ? undefined : ""}
+              style={
+                card.avatarPath
+                  ? undefined
+                  : { background: `var(--mari-card-art-placeholder, ${placeholderGradient(card.id)})` }
+              }
               aria-label={card.name}
             >
               {card.avatarPath ? (

@@ -142,7 +142,11 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
                       style={avatarCropStyle}
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]">
+                    <div
+                      className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]"
+                      data-mari-part="avatar-placeholder"
+                      data-role={isUser ? "user" : "assistant"}
+                    >
                       {isUser ? <User size="1.125rem" /> : displayName[0]?.toUpperCase()}
                     </div>
                   )}
@@ -158,7 +162,11 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
                       style={avatarCropStyle}
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]">
+                    <div
+                      className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]"
+                      data-mari-part="avatar-placeholder"
+                      data-role={isUser ? "user" : "assistant"}
+                    >
                       {isUser ? <User size="1.125rem" /> : displayName[0]?.toUpperCase()}
                     </div>
                   )}

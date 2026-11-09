@@ -60,6 +60,7 @@ import {
   takeFloatingWindowOpener,
   useFloatingWindowStore,
 } from "../../stores/floating-window.store";
+import { WindowTitle } from "../../lib/theme-slots";
 
 export type FloatingWindowCloseReason = "close-button" | "escape" | "outside-pointer";
 
@@ -865,6 +866,7 @@ export function FloatingWindow({
         onFocusCapture={() => bringToFront(id)}
         onKeyDown={handleRootKeyDown}
       >
+        <WindowTitle title={title} where="window" />
         <div
           className={cn(
             "mari-window__header flex shrink-0 items-center justify-between gap-2",

@@ -63,6 +63,23 @@ export const themeFontSchema = z.object({
   ),
   weight: z.string().max(20).optional(),
   style: z.enum(["normal", "italic"]).optional(),
+  /** The font's licence, e.g. "OFL-1.1" (the app ships that text; theming round 5). */
+  license: z.string().max(60).optional(),
+  /** Its copyright holder or designer, as the licence asks to be kept with the font. */
+  credit: z.string().max(300).optional(),
+});
+
+/** One line of a theme's credits (theming round 5): who made a part of it and on what terms. */
+export const themeCreditSchema = z.object({
+  /** The part: "Backdrops", "Avatars", "Frames and icons". */
+  what: z.string().min(1).max(120),
+  by: z.string().min(1).max(300),
+  license: z.string().max(60).optional(),
+  url: z
+    .string()
+    .max(500)
+    .regex(/^https:\/\//i, "Credit links must start with https://")
+    .optional(),
 });
 
 /** A picture the theme's CSS uses as `url("theme:<name>")`. */
@@ -114,6 +131,12 @@ export const themeMetaSchema = z
      *  6 MiB package budget, not the 256 KiB CSS budget. */
     images: z.array(themeImageSchema).max(64).optional(),
     backgrounds: z.array(themeBackgroundSchema).max(12).optional(),
+    /** Who made the theme's pictures, frames and fonts (theming round 5), shown in the theme list. */
+    credits: z.array(themeCreditSchema).max(24).optional(),
+    /** The theme's own licence, e.g. "CC BY 4.0". */
+    license: z.string().max(60).optional(),
+    /** Short labels for the theme list, e.g. "High legibility", "No motion". */
+    labels: z.array(z.string().min(1).max(40)).max(4).optional(),
   })
   .strip()
   .refine((value) => utf8ByteLength(JSON.stringify(value)) <= MAX_THEME_META_BYTES, {
@@ -143,6 +166,7 @@ export const setActiveThemeSchema = z.object({
 
 export type ThemeSettings = z.infer<typeof themeSettingsSchema>;
 export type ThemeMeta = z.infer<typeof themeMetaSchema>;
+export type ThemeCredit = z.infer<typeof themeCreditSchema>;
 export type ThemeTemplates = NonNullable<ThemeMeta["templates"]>;
 export type CreateThemeInput = z.infer<typeof createThemeSchema>;
 export type UpdateThemeInput = z.infer<typeof updateThemeSchema>;

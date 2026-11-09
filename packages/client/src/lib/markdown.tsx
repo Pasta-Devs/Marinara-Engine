@@ -386,6 +386,35 @@ function renderTable(
 
 // ── Main block-level renderer ──
 
+const PARAGRAPH_GAP_RE = /(\n(?:[ \t]*\n)+)/;
+
+/**
+ * The blank lines between paragraphs, each run in its own span (data-mari-part="paragraph-gap") so a
+ * theme can size the gap with --mari-paragraph-gap (theme-tokens.css). Unstyled, the span is inline
+ * and holds the same newlines, so the text lays out exactly as before.
+ */
+function markParagraphGaps(nodes: ReactNode[]): ReactNode[] {
+  if (!nodes.some((node) => typeof node === "string" && PARAGRAPH_GAP_RE.test(node))) return nodes;
+  const out: ReactNode[] = [];
+  nodes.forEach((node, index) => {
+    if (typeof node !== "string" || !PARAGRAPH_GAP_RE.test(node)) {
+      out.push(node);
+      return;
+    }
+    node.split(PARAGRAPH_GAP_RE).forEach((part, partIndex) => {
+      if (!part) return;
+      if (partIndex % 2 === 0) out.push(part);
+      else
+        out.push(
+          <span key={`gap${index}_${partIndex}`} data-mari-part="paragraph-gap">
+            {part}
+          </span>,
+        );
+    });
+  });
+  return out;
+}
+
 /** Inline markdown with line breaks as `<br>`, for compact answers that are not laid out with `pre-wrap`. */
 export function renderCompactInline(text: string, keyPrefix: string): ReactNode[] {
   return text.split("\n").flatMap((line, index) => {
@@ -444,7 +473,9 @@ export function renderMarkdownBlocks(
     }
     const joined = textBuffer.join("\n");
     if (joined.trim()) {
-      segments.push(<span key={`${keyBase}t${key++}`}>{renderInline(joined, `${keyBase}t${key}`)}</span>);
+      segments.push(
+        <span key={`${keyBase}t${key++}`}>{markParagraphGaps(renderInline(joined, `${keyBase}t${key}`))}</span>,
+      );
     } else {
       // Preserve blank-line spacing
       segments.push(<span key={`${keyBase}t${key++}`}>{joined}</span>);

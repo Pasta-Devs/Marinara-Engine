@@ -2306,7 +2306,11 @@ export const ChatInput = memo(function ChatInput({
                         />
                       </span>
                     ) : (
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[0.6875rem] font-semibold text-foreground/45">
+                      <div
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[0.6875rem] font-semibold text-foreground/45"
+                        data-mari-part="avatar-placeholder"
+                        data-role="assistant"
+                      >
                         {avatarInitial(char.name)}
                       </div>
                     )}

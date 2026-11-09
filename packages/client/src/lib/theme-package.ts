@@ -306,7 +306,9 @@ function protectedHideAttempts(css: string) {
 export function addedTexts(css: string) {
   const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
   const texts = new Set<string>();
-  for (const match of clean.matchAll(/content\s*:\s*([^;{}]+)/gi)) {
+  // Declarations only (start of a block or after a `;`), so `.mari-message-content :is(…)` in a
+  // selector isn't read as a `content:` value (theming round 5).
+  for (const match of clean.matchAll(/(?:^|[;{])\s*content\s*:\s*([^;{}]+)/gi)) {
     const text = Array.from(match[1]!.matchAll(/"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g), (m) => m[1] ?? m[2] ?? "")
       .join("")
       .replace(/\\[0-9a-f]{1,6}\s?/gi, "")
