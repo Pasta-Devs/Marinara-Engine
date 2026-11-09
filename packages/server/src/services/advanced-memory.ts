@@ -252,16 +252,11 @@ const RECOLLECTION_SCENES_PER_RUN = 3;
 /**
  * Updating continuity halves a text (#8820), so its reply may be as long as that text and this much more, room for
  * a short thinking block a model writes although reasoning is set to "none". A longer reply is useless: one as long
- * as the text is not shorter. ponytail: a Helper that must reason past this is cut off at its limit, so its summaries
- * stay as they are and the log says so; upgrade by sizing this from the connection's reasoning settings.
+ * as the text is not shorter. A level chosen on the connection takes its own thinking room instead, when larger
+ * (#8983, memoryOutputBudget).
  */
 const COMPACTION_REASONING_ROOM = 1024;
 
-/**
- * The reasoning a memory call asks for (#8983): the level, or Off, chosen on its connection, as every agent call sends
- * it (#7131); otherwise none, so a short summary or decision does not spend its output allowance thinking, unless the
- * connection switched Reasoning Effort's Send off (then the provider's default stands).
- */
 /**
  * A memory call's output allowance (#8983): with the thinking room an agent call gets for the level chosen on its
  * connection, on providers that count thinking inside max tokens; unchanged when memory asks for none.
@@ -281,6 +276,11 @@ function memoryOutputBudget(
   });
 }
 
+/**
+ * The reasoning a memory call asks for (#8983): the level, or Off, chosen on its connection, as every agent call sends
+ * it (#7131); otherwise none, so a short summary or decision does not spend its output allowance thinking, unless the
+ * connection switched Reasoning Effort's Send off (then the provider's default stands).
+ */
 function memoryReasoning(resolved: {
   reasoning?: { reasoningEffort?: ChatOptions["reasoningEffort"]; enableThinking: boolean };
   enabledParameters?: ChatOptions["enabledParameters"];
@@ -288,6 +288,7 @@ function memoryReasoning(resolved: {
   if (resolved.reasoning) return resolved.reasoning;
   return resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" };
 }
+
 /** A part of a summary under this many tokens is kept as it is: halving it saves less than its request's prompt costs. */
 const COMPACTION_MIN_TOKENS = 64;
 /** A complete `{{…}}` macro or template tag. */

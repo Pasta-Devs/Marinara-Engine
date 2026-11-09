@@ -326,6 +326,13 @@ try {
       assert.equal(requests.length, 1);
       const [request] = requests;
       assert.equal(request!.maxTokens, Math.min(8196 + 4096, 2 * half(request!.messages[1]!.content) + 4096));
+      // At low the level's room (1,024 here: twice a short reply, at least 1,024) is no larger than the floor's.
+      await createConnectionsStorage(db).updateDefaultParameters(connection.id, { reasoningEffort: "low" });
+      requests.length = 0;
+      const low = await fixture("reasoned-low", [early, late]);
+      await update(low.chat.id);
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0]!.maxTokens, cap(requests[0]!.messages[1]!.content), "the 1,024 floor stands at low");
     } finally {
       await createConnectionsStorage(db).updateDefaultParameters(connection.id, null);
     }
