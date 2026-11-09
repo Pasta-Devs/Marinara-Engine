@@ -5,22 +5,24 @@
 import { useEffect, useRef, useMemo, useState } from "react";
 import { advanceWeatherFrameClock } from "../../lib/weather-frame-clock";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
+import { useSurfaceCovered } from "../../hooks/use-covered-surface-flag";
+import { useThemeWeatherLook } from "../../hooks/use-theme-weather";
+import { useUIStore } from "../../stores/ui.store";
 import {
   createWeatherParticle,
-  drawWeatherMoon,
+  drawWeatherCelestial,
+  drawWeatherLightning,
   drawWeatherParticle,
-  drawWeatherSun,
+  drawWeatherTint,
+  populateWeatherParticles,
   resolveWeatherRenderConfig,
-  weatherCelestialX,
-  weatherCelestialY,
+  type WeatherLook,
   type WeatherParticle,
 } from "../../lib/weather-renderer";
 
 const MAX_CANVAS_DPR = 1;
 const MAX_CANVAS_PIXELS = 1920 * 1080;
 const BASE_FRAME_MS = 1000 / 60;
-const FIREFLY_COUNT = 10;
-const STAR_COUNT = 18;
 
 interface WeatherEffectsProps {
   weather?: string | null;
@@ -34,9 +36,23 @@ interface WeatherEffectsProps {
 // Main component
 // ═══════════════════════════════════════════════
 
-export function WeatherEffects({ weather, timeOfDay, showCelestial = true, paused = false }: WeatherEffectsProps) {
+export function WeatherEffects({
+  weather,
+  timeOfDay,
+  showCelestial = true,
+  paused: pausedByCaller = false,
+}: WeatherEffectsProps) {
   const reduceAmbientEffects = useReducedAmbientEffects();
+  const reducedPaintEffects = useUIStore((state) => state.roleplayReducedPaintEffects);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Phone battery: no frames while a panel, an editor or Mari covers the chat (not only when the tab is hidden).
+  const covered = useSurfaceCovered(canvasRef, !reduceAmbientEffects);
+  const paused = pausedByCaller || covered;
+  const themeLook = useThemeWeatherLook(!reduceAmbientEffects);
+  const look = useMemo<WeatherLook>(
+    () => (reducedPaintEffects ? { ...themeLook, flat: true } : themeLook),
+    [themeLook, reducedPaintEffects],
+  );
   const particlesRef = useRef<WeatherParticle[]>([]);
   const frameRef = useRef<number>(0);
   const workerRef = useRef<Worker | null>(null);
@@ -54,8 +70,23 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
     return resolveWeatherRenderConfig(weather, timeOfDay);
   }, [weather, timeOfDay]);
 
+  // Weather-aware theme art: `<html data-mari-weather="rain" data-mari-sky="night">` while this chat's weather
+  // shows. Both are words from a fixed list (never the story's own text), so a theme can match its backdrop.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (config.category) root.dataset.mariWeather = config.category;
+    else delete root.dataset.mariWeather;
+    if (config.period) root.dataset.mariSky = config.period;
+    else delete root.dataset.mariSky;
+    return () => {
+      if (root.dataset.mariWeather === config.category) delete root.dataset.mariWeather;
+      if (root.dataset.mariSky === config.period) delete root.dataset.mariSky;
+    };
+  }, [config.category, config.period]);
+
   // Render when we have particles, celestial bodies, or time-based ambient effects
-  const shouldDrawCelestial = showCelestial && config.celestial !== "none";
+  const shouldDrawCelestial =
+    showCelestial && config.celestial !== "none" && (config.celestial === "sun" ? look.sun : look.moon);
   const shouldRender =
     !reduceAmbientEffects &&
     (config.count > 0 || config.addFireflies || config.addStars || shouldDrawCelestial || config.sunsetGlow);
@@ -93,7 +124,7 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
 
           const getScale = (width: number, height: number) => {
             const pixelBudgetScale = Math.sqrt(MAX_CANVAS_PIXELS / (width * height));
-            return Math.min(window.devicePixelRatio || 1, MAX_CANVAS_DPR, pixelBudgetScale);
+            return Math.min(window.devicePixelRatio || 1, MAX_CANVAS_DPR, pixelBudgetScale, 1 / look.pixel);
           };
           try {
             const offscreen = canvas.transferControlToOffscreen();
@@ -102,6 +133,7 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
                 type: "init",
                 canvas: offscreen,
                 config,
+                look,
                 showCelestial,
                 width: rect.width,
                 height: rect.height,
@@ -167,32 +199,22 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
       const rect = canvas.parentElement?.getBoundingClientRect();
       if (!rect || rect.width <= 0 || rect.height <= 0) return;
       const pixelBudgetScale = Math.sqrt(MAX_CANVAS_PIXELS / (rect.width * rect.height));
-      canvasScale = Math.min(window.devicePixelRatio || 1, MAX_CANVAS_DPR, pixelBudgetScale);
+      canvasScale = Math.min(window.devicePixelRatio || 1, MAX_CANVAS_DPR, pixelBudgetScale, 1 / look.pixel);
       canvas.width = Math.max(1, Math.round(rect.width * canvasScale));
       canvas.height = Math.max(1, Math.round(rect.height * canvasScale));
       ctx.setTransform(canvasScale, 0, 0, canvasScale, 0, 0);
+      ctx.imageSmoothingEnabled = look.pixel <= 1;
     };
     resize();
     window.addEventListener("resize", resize);
 
     // Initialize particles — use CSS pixel dimensions (not canvas resolution)
-    particlesRef.current = [];
-    const w = canvas.width / canvasScale;
-    const h = canvas.height / canvasScale;
-
-    for (let i = 0; i < config.count; i++) {
-      particlesRef.current.push(createWeatherParticle(config.type, w, h));
-    }
-    if (config.addFireflies) {
-      for (let i = 0; i < FIREFLY_COUNT; i++) {
-        particlesRef.current.push(createWeatherParticle("firefly", w, h));
-      }
-    }
-    if (config.addStars) {
-      for (let i = 0; i < STAR_COUNT; i++) {
-        particlesRef.current.push(createWeatherParticle("star", w, h));
-      }
-    }
+    particlesRef.current = populateWeatherParticles(
+      config,
+      look,
+      canvas.width / canvasScale,
+      canvas.height / canvasScale,
+    );
 
     const tick = (timestamp: number) => {
       if (!running) return;
@@ -216,15 +238,9 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
 
       ctx.clearRect(0, 0, canvas.width / canvasScale, canvas.height / canvasScale);
 
-      // Draw ambient overlay tint
-      if (config.tint) {
-        ctx.fillStyle = config.tint;
-        ctx.fillRect(0, 0, canvas.width / canvasScale, canvas.height / canvasScale);
-      }
-      if (config.overlay) {
-        ctx.fillStyle = config.overlay;
-        ctx.fillRect(0, 0, canvas.width / canvasScale, canvas.height / canvasScale);
-      }
+      const cw = canvas.width / canvasScale;
+      const ch = canvas.height / canvasScale;
+      drawWeatherTint(ctx, config, look, cw, ch);
 
       // Lightning flash (epilepsy-safe: capped alpha, gentle decay, long gap between flashes)
       frameCount += frameScale;
@@ -234,32 +250,14 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
           nextLightning = frameCount + 400 + Math.random() * 800; // next in ~7-20s at 60fps
         }
         if (lightningAlpha > 0) {
-          ctx.fillStyle = `rgba(220,230,255,${lightningAlpha})`;
-          ctx.fillRect(0, 0, canvas.width / canvasScale, canvas.height / canvasScale);
+          drawWeatherLightning(ctx, look, lightningAlpha, cw, ch);
           lightningAlpha *= Math.pow(0.88, frameScale); // gentle decay
           if (lightningAlpha < 0.01) lightningAlpha = 0;
         }
       }
 
       // ── Celestial bodies (sun / moon) ──
-      const cw = canvas.width / canvasScale;
-      const ch = canvas.height / canvasScale;
-      if (shouldDrawCelestial && config.isClearSky) {
-        const bodyRadius = Math.min(cw, ch) * 0.035; // ~3.5% of smallest dimension
-        const hour = config.hour >= 0 ? config.hour : 12;
-
-        if (config.celestial === "sun") {
-          const sx = weatherCelestialX(hour, cw);
-          const sy = weatherCelestialY(hour, ch, false);
-          drawWeatherSun(ctx, sx, sy, bodyRadius, cw, ch, config.sunRays, config.sunsetGlow, frameCount);
-        } else if (config.celestial === "moon") {
-          // Moon position: map 21h→left, 0h→center, 5h→right
-          const moonNorm = hour >= 12 ? ((hour - 21 + 24) % 24) / 10 : (hour + 3) / 10;
-          const mx = cw * 0.1 + Math.min(1, Math.max(0, moonNorm)) * cw * 0.8;
-          const my = weatherCelestialY(hour, ch, true);
-          drawWeatherMoon(ctx, mx, my, bodyRadius * 1.1, frameCount);
-        }
-      }
+      if (shouldDrawCelestial) drawWeatherCelestial(ctx, config, look, cw, ch, frameCount);
 
       const particles = particlesRef.current;
 
@@ -286,12 +284,12 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
           p.y += Math.cos(p.wobble * 0.7) * 0.4 * frameScale;
         }
 
-        drawWeatherParticle(ctx, p);
+        drawWeatherParticle(ctx, p, look);
 
         // Respawn if off-screen or expired
         const offScreen = p.y > ch + 20 || p.y < -20 || p.x > cw + 20 || p.x < -20;
         if (offScreen || p.life > p.maxLife) {
-          particles[i] = createWeatherParticle(p.type, cw, ch, true);
+          particles[i] = createWeatherParticle(p.type, cw, ch, true, look);
         }
       }
 
@@ -303,7 +301,7 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
       if (resizePending) {
         resize();
         particlesRef.current = particlesRef.current.map((particle) =>
-          createWeatherParticle(particle.type, canvas.width / canvasScale, canvas.height / canvasScale),
+          createWeatherParticle(particle.type, canvas.width / canvasScale, canvas.height / canvasScale, false, look),
         );
       }
       frameRef.current = requestAnimationFrame(tick);
@@ -321,15 +319,39 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [config, shouldDrawCelestial, shouldRender, showCelestial, workerFailed]);
+  }, [config, look, shouldDrawCelestial, shouldRender, showCelestial, workerFailed]);
+
+  // A new look needs a new canvas: a canvas handed to the worker can't be handed over again.
+  const lookKey = useMemo(() => {
+    const ids = new WeakMap<object, number>();
+    let next = 0;
+    return JSON.stringify(look, (_key, value) => {
+      if (typeof ImageBitmap !== "undefined" && value instanceof ImageBitmap) {
+        if (!ids.has(value)) ids.set(value, next++);
+        return `bitmap:${value.width}x${value.height}:${ids.get(value)}`;
+      }
+      return value;
+    });
+  }, [look]);
+  const lookVersion = useLookVersion(lookKey);
 
   if (!shouldRender) return null;
 
   return (
     <canvas
-      key={`${weather ?? ""}:${timeOfDay ?? ""}:${showCelestial ? "celestial" : "particles"}:${workerFailed ? "fallback" : "worker"}`}
+      key={`${weather ?? ""}:${timeOfDay ?? ""}:${showCelestial ? "celestial" : "particles"}:${workerFailed ? "fallback" : "worker"}:${lookVersion}`}
       ref={canvasRef}
+      data-mari-part="weather"
+      data-paused={paused ? "true" : undefined}
       className="pointer-events-none absolute inset-0 z-0 h-full w-full [contain:strict]"
+      style={look.pixel > 1 ? { imageRendering: "pixelated" } : undefined}
     />
   );
+}
+
+/** A number that goes up whenever the key changes (short canvas keys instead of the whole look). */
+function useLookVersion(key: string) {
+  const ref = useRef({ key, version: 0 });
+  if (ref.current.key !== key) ref.current = { key, version: ref.current.version + 1 };
+  return ref.current.version;
 }
