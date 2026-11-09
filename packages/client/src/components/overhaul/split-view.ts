@@ -32,6 +32,12 @@ const NOT_TABS = new Set(["home", "library", "docs"]);
 export const splitPageKey = (page: SplitPage | null) => (page ? `${page.kind}:${page.id}` : "home:main");
 export const isTabPage = (page: SplitPage) => !NOT_TABS.has(page.kind);
 
+/**
+ * Pages that stay on the main side. Settings: the second side keeps its own copy of the app's settings
+ * in memory, so changes made there would not be saved.
+ */
+export const canSplit = (page: SplitPage) => !(page.kind === "library" && page.id === "settings");
+
 export function pageOfTab(tab: OverhaulTab | null): SplitPage {
   if (!tab) return HOME_PAGE;
   if (tab.kind === "docs")
@@ -55,6 +61,7 @@ export function showPage(page: SplitPage) {
 export const loadSplitView = () => import("./SplitView");
 
 export function beginSplitDrag(page: SplitPage) {
+  if (!canSplit(page)) return;
   void loadSplitView();
   if (useOverhaulStore.getState().splitDrag !== page) useOverhaulStore.getState().setSplitDrag(page);
 }
@@ -82,6 +89,7 @@ export function dropSplitAt(x: number, y: number) {
 
 /** Drag props for things that can be dropped at a side to split (Library sections, the Docs button). */
 export function splitDragProps(page: () => SplitPage) {
+  if (!canSplit(page())) return {};
   return {
     draggable: true,
     onDragStart: (event: React.DragEvent) => {
@@ -98,6 +106,7 @@ export function splitDragProps(page: () => SplitPage) {
  * you were on, the main side shows what was on the second side (or the next tab, or Home).
  */
 export function openInSplit(page: SplitPage, side?: "left" | "right") {
+  if (!canSplit(page)) return false;
   const store = useOverhaulStore.getState();
   const before = store.split;
   const key = splitPageKey(page);
