@@ -96,6 +96,8 @@ export interface WeatherLook {
   moon: boolean;
   /** "r,g,b"; the flash strength stays the app's. */
   lightning: string | null;
+  /** Drawn lightning bolts during a storm's flash: 0 = flash only (stock), else the bolt's width, 0.5-3. */
+  bolt: number;
   /** Reduced paint effects: no tint, glow or sunset wash, and 60% of the particles. */
   flat: boolean;
   kinds: Partial<Record<WeatherLookKind, WeatherKindLook>>;
@@ -111,6 +113,7 @@ export const STOCK_WEATHER_LOOK: WeatherLook = {
   sun: true,
   moon: true,
   lightning: null,
+  bolt: 0,
   flat: false,
   kinds: {},
 };
@@ -188,6 +191,98 @@ export function drawWeatherLightning(
   if (alpha <= 0) return;
   ctx.fillStyle = `rgba(${look.lightning ?? "220,230,255"},${Math.min(0.6, alpha)})`;
   ctx.fillRect(0, 0, width, height);
+}
+
+export interface WeatherBolt {
+  /** The main channel, top to bottom, in CSS px. */
+  trunk: Array<[number, number]>;
+  /** One or two forks off the trunk. */
+  forks: Array<Array<[number, number]>>;
+}
+
+function jagged(x: number, y: number, dx: number, length: number, steps: number, random: () => number) {
+  const points: Array<[number, number]> = [[x, y]];
+  const step = length / steps;
+  for (let i = 0; i < steps; i += 1) {
+    x += dx * step + (random() - 0.5) * step * 1.1;
+    y += step * (0.75 + random() * 0.5);
+    points.push([x, y]);
+  }
+  return points;
+}
+
+/**
+ * A new forked bolt for one flash. It strikes down one SIDE of the screen (8-28% or 72-92% across), never the
+ * middle, so it doesn't cross the chat text, and it reaches 45-75% of the height.
+ */
+export function createWeatherBolt(width: number, height: number, random: () => number = Math.random): WeatherBolt {
+  const left = random() < 0.5;
+  const x = width * (left ? 0.08 + random() * 0.2 : 0.72 + random() * 0.2);
+  const length = height * (0.45 + random() * 0.3);
+  const lean = (left ? -1 : 1) * random() * 0.25;
+  const trunk = jagged(x, -4, lean, length, 9 + Math.floor(random() * 4), random);
+  const forks: WeatherBolt["forks"] = [];
+  const forkCount = 1 + Math.floor(random() * 2);
+  for (let f = 0; f < forkCount; f += 1) {
+    const from = trunk[2 + Math.floor(random() * (trunk.length - 5))]!;
+    const side = random() < 0.5 ? -1 : 1;
+    forks.push(jagged(from[0], from[1], side * (0.5 + random() * 0.4), length * (0.18 + random() * 0.17), 4, random));
+  }
+  return { trunk, forks };
+}
+
+function strokeBolt(
+  ctx: WeatherCanvasContext,
+  points: Array<[number, number]>,
+  look: WeatherLook,
+  width: number,
+  color: string,
+) {
+  if (look.pixel > 1) {
+    // Pixel style: step along each segment on the weather grid, blocks the size of the width.
+    const g = look.pixel;
+    const block = Math.max(g, Math.round(width / g) * g);
+    ctx.fillStyle = `rgb(${color})`;
+    for (let i = 1; i < points.length; i += 1) {
+      const [x0, y0] = points[i - 1]!;
+      const [x1, y1] = points[i]!;
+      const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / g));
+      for (let k = 0; k <= n; k += 1) {
+        ctx.fillRect(snap(x0 + ((x1 - x0) * k) / n, look), snap(y0 + ((y1 - y0) * k) / n, look), block, block);
+      }
+    }
+    return;
+  }
+  ctx.strokeStyle = `rgb(${color})`;
+  ctx.lineWidth = width;
+  ctx.lineJoin = "miter";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(points[0]![0], points[0]![1]);
+  for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i]![0], points[i]![1]);
+  ctx.stroke();
+}
+
+/**
+ * The bolt for the current flash, opted in by the theme (`--mari-weather-lightning-bolt`). It shows only while
+ * the app's own epilepsy-safe flash is up and fades with it, so a theme never adds flashes or speeds them up.
+ */
+export function drawWeatherBolt(ctx: WeatherCanvasContext, bolt: WeatherBolt | null, look: WeatherLook, alpha: number) {
+  if (!bolt || look.bolt <= 0 || alpha <= 0) return;
+  const color = look.lightning ?? "220,230,255";
+  const strength = Math.min(1, alpha * 1.7);
+  ctx.save();
+  if (!look.flat && look.pixel <= 1) {
+    // Soft glow first, then the bright core.
+    ctx.globalAlpha = strength * 0.35;
+    strokeBolt(ctx, bolt.trunk, look, 7 * look.bolt, color);
+    for (const fork of bolt.forks) strokeBolt(ctx, fork, look, 4 * look.bolt, color);
+  }
+  ctx.globalAlpha = strength;
+  strokeBolt(ctx, bolt.trunk, look, 2.2 * look.bolt, look.pixel > 1 ? color : "255,255,255");
+  ctx.globalAlpha = strength * 0.85;
+  for (const fork of bolt.forks) strokeBolt(ctx, fork, look, 1.3 * look.bolt, look.pixel > 1 ? color : "255,255,255");
+  ctx.restore();
 }
 
 /** Sun or moon, unless the theme's art already has one (`--mari-weather-sun: none`). */
