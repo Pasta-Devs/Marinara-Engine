@@ -11828,3 +11828,7 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-splitbar .ov-text-btn {
   min-width: 0;
 }
+/* A narrow second side shows the phone layout under this bar. */
+.ov-splitbar--phone {
+  height: var(--ov-topbar-height);
+}
