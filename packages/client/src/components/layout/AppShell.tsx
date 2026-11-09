@@ -129,6 +129,9 @@ const OverhaulDocsPage = lazy(() =>
 const OvRegexViewer = lazy(() =>
   import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvRegexViewer })),
 );
+const OvToolsViewer = lazy(() =>
+  import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvToolsViewer })),
+);
 const OvConnectionsViewer = lazy(() =>
   import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvConnectionsViewer })),
 );
@@ -1044,29 +1047,30 @@ export function AppShell({
   // (list on the left, the item's editor on the right), like the Preset editor.
   const ovOtherDetail = Boolean(
     personaDetailId ||
-    toolDetailId ||
     presetDetailId ||
     characterDetailId ||
     characterLibraryOpen ||
     agentCatalogOpen ||
     lorebookDetailId,
   );
-  const ovViewer: "regex" | "connections" | "agents" | null = !overhaulActive
+  const ovViewer: "regex" | "tools" | "connections" | "agents" | null = !overhaulActive
     ? null
     : regexDetailId
       ? "regex"
-      : connectionDetailId
-        ? "connections"
-        : agentDetailId
-          ? selectedFeatureAgent
-            ? null
-            : "agents"
-          : !ovOtherDetail &&
-              // Connections opens on its accounts table (board "ConnList"); a Model opens the viewer.
-              // Agents opens on the Agent Organizer (it lists installed agents too); an agent opens its settings.
-              overhaulLibraryPage === "regex"
-            ? overhaulLibraryPage
-            : null;
+      : toolDetailId
+        ? "tools"
+        : connectionDetailId
+          ? "connections"
+          : agentDetailId
+            ? selectedFeatureAgent
+              ? null
+              : "agents"
+            : !ovOtherDetail &&
+                // Connections opens on its accounts table (board "ConnList"); a Model opens the viewer.
+                // Agents opens on the Agent Organizer (it lists installed agents too); an agent opens its settings.
+                (overhaulLibraryPage === "regex" || overhaulLibraryPage === "tools")
+              ? overhaulLibraryPage
+              : null;
 
   const detailView =
     overhaulPages && overhaulSchedules ? (
@@ -1077,6 +1081,8 @@ export function AppShell({
       <OverhaulDocsPage key={overhaulDocsTab} tabId={overhaulDocsTab} />
     ) : ovViewer === "regex" ? (
       <OvRegexViewer>{regexDetailId ? <RegexScriptEditor key={regexDetailId} /> : null}</OvRegexViewer>
+    ) : ovViewer === "tools" ? (
+      <OvToolsViewer>{toolDetailId ? <ToolEditor key={toolDetailId} /> : null}</OvToolsViewer>
     ) : ovViewer === "connections" ? (
       <OvConnectionsViewer>
         {connectionDetailId ? <ConnectionEditor key={connectionDetailId} /> : null}

@@ -36,9 +36,16 @@ To export a preset, click the up-arrow icon in the top bar (tooltip **Export pre
 
 ## The Presets page
 
-**Library → Presets** lists your presets in a table with **Description**, **Sections**, **Author**, **Default** and **Updated** columns. Along the top are **Import** (load a `.json` file) and **New preset**. **All** / **Defaults** narrows the list, **List** / **Gallery** switches the view, and the sort menu offers **Recently edited**, **A to Z** and **Z to A**. Click a preset to open it.
+**Library → Presets** lists your presets in a table with **Description**, **Sections**, **Author**, **Default** and **Updated** columns. Along the top are **Import** (load a `.json` file) and **New preset**. **All** / **Defaults** narrows the list, **List** / **Gallery** switches the view, and the sort menu offers **Recently edited**, **A to Z**, **Z to A** and **My order**. Click a preset to open it.
 
-Regex scripts have their own page, [Library → Regex scripts](../extending/regex-scripts.md). Custom tools are made from a chat's **Chat Settings → Function Calling**; see [Custom Tools](../extending/custom-tools.md).
+To organize presets:
+
+- **⋯** at the end of a row (or right-click the row) has **Duplicate**, **Move to folder**, **Export**, **Select** and **Delete**. **Duplicate** makes an editable copy and opens it, which is how you customize a built-in preset. The default preset can't be deleted.
+- Drag a row above or below another to set your own order. The sort menu switches to **My order**.
+- **New folder** (the folder icon next to the title) groups presets. Drag a preset onto a folder, or use **Move to folder**.
+- **Select** (the check icon next to the title) lets you pick several presets, then **Move to folder**, **Export** (one `marinara-presets.zip`) or **Delete** them from the bar at the bottom.
+
+Regex scripts have their own page, [Library → Regex scripts](../extending/regex-scripts.md), and so do custom tools, [Library → Custom tools](../extending/custom-tools.md).
 
 ## In the classic layout: the Presets panel
 

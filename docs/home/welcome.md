@@ -27,7 +27,7 @@ Marinara has three fixed places, and they stay put whatever theme you use:
 
 - **The top bar.** At the left, the speech-bubble button shows or hides your chats. Next come **Home** and a tab for each chat, character or page you open. **+** (or <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>⌘</kbd>+<kbd>K</kbd> on a Mac) finds or opens anything: a chat, a character, a setting, a guide, or a question for Professor Mari. **Docs** opens these guides, and **Library** shows or hides the Library on the right.
 - **The chats sidebar** on the left, with the **Convo**, **Roleplay** and **Game** tabs. See [Managing Your Chat List](../chats/managing-chats.md).
-- **The Library** on the right: **Characters**, **Personas**, **Lorebooks**, **Presets**, **Regex scripts**, **Connections** and **Agents**, then **Settings** and **Extensions**. Pick one to open its page in the middle.
+- **The Library** on the right: **Characters**, **Personas**, **Lorebooks**, **Presets**, **Regex scripts**, **Connections**, **Agents** and **Custom tools**, then **Settings** and **Extensions**. Pick one to open its page in the middle.
 
 On a phone, the chats list is behind the speech-bubble button at the top left, and the Library is behind the stack button at the top right. Tap the title in the top bar to search, and the number button next to the Library to see your open tabs. See [Touch gestures](../chats/messages.md#touch-gestures).
 

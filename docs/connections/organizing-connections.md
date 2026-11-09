@@ -40,39 +40,36 @@ To unstar a model, click its star again. Marinara removes the model and shows **
 
 ## Editing and removing a model
 
-Click a model row to open **Edit model**, with all of its settings. **Remove** (the trash icon) deletes the model after you confirm; the confirmation lists what uses it. **Export model** saves it to a file (see [Export and import](#export-and-import)). To give a model a job, click that job in the **Defaults** box and pick it there.
+Click a model row to open **Edit model**, with all of its settings. **Export model** saves it to a file (see [Export and import](#export-and-import)). To give a model a job, click that job in the **Defaults** box and pick it there.
 
 On a computer, you can drag a model row onto a chat to use that model in the chat.
 
-## Classic layout only
+### Model actions
 
-These tools are still in the classic Connections panel. Switch to it with **New layout** in **Settings → Appearance → Theme**, use the tool, and switch back. The new layout uses the same accounts, so nothing is lost.
-
-### More model actions
-
-In the classic panel, **⋯** on a model row also has:
+Click **⋯** at the end of a model row, or right-click the row:
 
 | Action | What it does |
 | --- | --- |
-| **Make default for…** | Gives the model a job, the same as picking it in **Defaults**. |
+| **Edit model** | Opens the model's settings. |
+| **Make default for…** | Gives the model a job, the same as picking it in **Defaults**. A check mark shows the jobs it already has. |
 | **Move to account…** | Moves the model to another account. It then uses that account's key. Its name, picture, jobs, and chats move with it, and service options reset. |
-| **Folder** | Puts the model in a folder. |
-| **Duplicate** | Makes a full copy with the same settings. |
-| **Add to Shuffle** / **Remove from Shuffle** | See [Shuffle](#shuffle). |
-| **Change picture** | Opens the picture choices. |
+| **Move to folder** | Puts the model in a folder (see [Folders](#folders)). |
+| **Duplicate** | Makes a full copy with the same settings and opens it. |
+| **Add to Shuffle** / **Remove from Shuffle** | See [Shuffle](#shuffle). A model in the pool shows a **Shuffle** tag on its row. |
+| **Export** | Saves the model to a file. |
+| **Remove** | Deletes the model after you confirm. The confirmation lists what uses it. |
 
-**⋯** on an account there also has **Test**, **Select models** (move or delete several at once), **Duplicate** and **Turn off** / **Turn on**. **More actions** (three dots) at the top of the panel has **Fold all accounts**, **Open all accounts**, **Show only Off or Needs key**, **Show cost badges**, **Group by folder** / **Group by account**, **Import account** and **Export all accounts**.
+## Folders
 
-### Folders
+Folders group your models, for example **RP** and **Work**. A model sits in one folder.
 
-Folders group your models, for example **RP** and **Work**. Choose **Group by folder** in **More actions** to show them. A model sits in one folder.
-
-1. Click **⋯** on a model and choose **Folder**.
+1. Click **⋯** on a model and choose **Move to folder**.
 2. Pick a folder, or click **New folder…**, type a name, and click **Create**.
+3. To see your folders, change **By account** to **By folder** in the menu next to the sort menu.
 
-A folder can have an icon and a color. To rename or delete a folder, open its **⋯** menu. Deleting a folder keeps its models, under **Not in a folder**.
+In **By folder**, each folder lists its models with their account's name, and models in no folder are under **Not in a folder**. Click **⋯** on a folder, or right-click it, to rename or delete it. Deleting a folder keeps its models, under **Not in a folder**. The classic panel shows the same folders, and also lets you give a folder an icon and a color.
 
-### Shuffle
+## Shuffle
 
 Shuffle lets a chat pick a different model each time it writes a reply. Use it to spread requests across several services or models.
 
@@ -85,6 +82,14 @@ If the model a reply picked fails and **Main** has an **If it fails** model, tha
 
 A pick in **Model for this chat** changes only that chat. To change the model for new chats, set **Main** in the **Defaults** box.
 
+## In the classic layout
+
+The classic Connections panel has a few more tools. Switch to it with **New layout** in **Settings → Appearance → Theme**, and switch back the same way. Both layouts use the same accounts.
+
+- **⋯** on a model also has **Change picture**.
+- **⋯** on an account also has **Test**, **Select models** (move or delete several at once), **Duplicate** and **Turn off** / **Turn on**.
+- **More actions** (three dots) at the top of the panel has **Fold all accounts**, **Open all accounts**, **Show only Off or Needs key** and **Show cost badges**.
+
 ## Export and import
 
 You can export accounts to a file to back them up or move them to another install, then import them later.
@@ -92,7 +97,7 @@ You can export accounts to a file to back them up or move them to another instal
 > **Warning:** Exports never include API keys. After you import, open each account and enter its key again. Never share a key with anyone.
 
 - **Export one model:** open it with **Edit model** and click **Export model**.
-- **Export everything** (classic layout): open **More actions** and choose **Export all accounts**. Marinara reminds you that the file has no keys. Click **Export**.
+- **Export everything:** click **Export all accounts** (the upload icon next to **Import**) at the top of the Connections page. Marinara reminds you that the file has no keys. Click **Export**.
 - **Import:** click **Import** at the top of the Connections page. Drop one or more files (`.json`, `.jsonl`, or `.zip`) on the window, or click to browse. This includes the `marinara-connections.zip` you exported. Each imported account has an empty key until you fill it in.
 
 One model downloads as a `.connection.json` file. Several download together as `marinara-connections.zip`. Stars are included. The service's model catalog is not, so it loads again the first time you open the account's models.

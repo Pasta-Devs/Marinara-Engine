@@ -53,7 +53,7 @@ See [Remote Access](../REMOTE_ACCESS.md) for which option to pick.
 
 If it did not work: Home Assistant shows an error when it cannot reach Marinara. See [Troubleshooting](#troubleshooting).
 
-On success the integration registers a private webhook in Home Assistant, creates the tools in Marinara's **Functions** section pointed at that webhook, creates the **Home Assistant** agent listing every enabled tool, and creates the entities described below.
+On success the integration registers a private webhook in Home Assistant, creates the tools on Marinara's **Library → Custom tools** page pointed at that webhook, creates the **Home Assistant** agent listing every enabled tool, and creates the entities described below.
 
 ## Add the agent to a chat
 
@@ -174,7 +174,7 @@ http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 
 ## Uninstall
 
-Delete the integration in **Settings → Devices & Services → Marinara Engine** in Home Assistant. This removes the entities. The tools in Marinara's **Functions** section and the **Home Assistant** agent stay. Delete them by hand in Marinara if you no longer want them.
+Delete the integration in **Settings → Devices & Services → Marinara Engine** in Home Assistant. This removes the entities. The tools on Marinara's **Library → Custom tools** page and the **Home Assistant** agent stay. Delete them by hand in Marinara if you no longer want them.
 
 ## Related guides
 

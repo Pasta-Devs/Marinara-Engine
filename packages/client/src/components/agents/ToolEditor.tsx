@@ -37,6 +37,8 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { createFolderEntry } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useOverhaulLook } from "../../stores/overhaul.store";
+import { OvEditorHead } from "../overhaul/EditorChrome";
 
 const EXEC_TYPES = [
   { value: "static", label: "Static Result", icon: FileText, description: "Returns a fixed string when called." },
@@ -85,6 +87,7 @@ export function ToolEditor() {
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  const overhaulActive = useOverhaulLook();
 
   useEffect(() => {
     if (dbTool) {
@@ -333,74 +336,101 @@ export function ToolEditor() {
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="mari-editor-header">
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label={localizeUi("ui.agents.tooleditor.backToTools")}
-          className="mari-editor-action inline-flex"
-        >
-          <ArrowLeft size="1.125rem" />
-        </button>
-        <div className="mari-editor-icon-tile">
-          <Wrench size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
-        </div>
-        <input
-          value={localName}
-          onChange={(e) => {
-            setLocalName(e.target.value);
+      {overhaulActive ? (
+        <OvEditorHead
+          section="tools"
+          sectionLabel="Custom tools"
+          title={localName}
+          titlePlaceholder={localizeUi("ui.agents.tooleditor.toolName")}
+          onTitleChange={(next) => {
+            setLocalName(next);
             markDirty();
           }}
-          className="mari-editor-title-input min-w-0 flex-1 font-mono placeholder:text-[var(--marinara-editor-muted)]"
-          placeholder={localizeUi("ui.agents.tooleditor.toolName")}
+          meta={EXEC_TYPES.find((e) => e.value === localExecType)?.label}
+          save={{ dirty: dirty || isNew, saving: isPending, error: !!saveError, onSave: () => void handleSave() }}
+          actions={
+            dbTool ? (
+              <button type="button" className="ov-edbtn" onClick={() => void handleExport()}>
+                <Upload size={13} aria-hidden="true" />
+                {localizeUi("chat.advancedMemory.export")}
+              </button>
+            ) : null
+          }
+          menu={[
+            { label: "Back to Custom tools", onSelect: handleClose },
+            ...(dbTool ? [{ label: "Delete tool", danger: true, onSelect: () => void handleDelete() }] : []),
+          ]}
         />
-        <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
-          {saveError && (
-            <span className="mari-editor-status mr-2 text-red-400">
-              <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.tooleditor.error")}
-            </span>
-          )}
-          {savedFlash && !dirty && (
-            <span className="mari-editor-status mr-2 text-emerald-400">
-              <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
-            </span>
-          )}
-          {dirty && !saveError && (
-            <span className="mari-editor-status mr-2 text-amber-400">
-              {localizeUi("ui.agents.agenteditor.unsaved")}
-            </span>
-          )}
+      ) : (
+        <div className="mari-editor-header">
           <button
-            onClick={handleSave}
-            disabled={isPending}
-            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
-            title={localizeUi("ui.agents.tooleditor.saveTool")}
-            aria-label={localizeUi("ui.agents.tooleditor.saveTool")}
+            type="button"
+            onClick={handleClose}
+            aria-label={localizeUi("ui.agents.tooleditor.backToTools")}
+            className="mari-editor-action inline-flex"
           >
-            <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
+            <ArrowLeft size="1.125rem" />
           </button>
-          {dbTool && (
+          <div className="mari-editor-icon-tile">
+            <Wrench size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
+          </div>
+          <input
+            value={localName}
+            onChange={(e) => {
+              setLocalName(e.target.value);
+              markDirty();
+            }}
+            className="mari-editor-title-input min-w-0 flex-1 font-mono placeholder:text-[var(--marinara-editor-muted)]"
+            placeholder={localizeUi("ui.agents.tooleditor.toolName")}
+          />
+          <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
+            {saveError && (
+              <span className="mari-editor-status mr-2 text-red-400">
+                <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.tooleditor.error")}
+              </span>
+            )}
+            {savedFlash && !dirty && (
+              <span className="mari-editor-status mr-2 text-emerald-400">
+                <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
+              </span>
+            )}
+            {dirty && !saveError && (
+              <span className="mari-editor-status mr-2 text-amber-400">
+                {localizeUi("ui.agents.agenteditor.unsaved")}
+              </span>
+            )}
             <button
-              onClick={handleExport}
-              className="mari-editor-action inline-flex"
-              title={localizeUi("ui.agents.tooleditor.exportFunction")}
-              aria-label={localizeUi("ui.agents.tooleditor.exportFunction")}
+              onClick={handleSave}
+              disabled={isPending}
+              className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
+              title={localizeUi("ui.agents.tooleditor.saveTool")}
+              aria-label={localizeUi("ui.agents.tooleditor.saveTool")}
             >
-              <Upload size="0.9375rem" />
+              <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
             </button>
-          )}
-          {dbTool && (
-            <button
-              onClick={handleDelete}
-              className="mari-editor-action inline-flex"
-              title={localizeUi("ui.agents.tooleditor.deleteFunction")}
-              aria-label={localizeUi("ui.agents.tooleditor.deleteFunction")}
-            >
-              <Trash2 size="0.9375rem" />
-            </button>
-          )}
+            {dbTool && (
+              <button
+                onClick={handleExport}
+                className="mari-editor-action inline-flex"
+                title={localizeUi("ui.agents.tooleditor.exportFunction")}
+                aria-label={localizeUi("ui.agents.tooleditor.exportFunction")}
+              >
+                <Upload size="0.9375rem" />
+              </button>
+            )}
+            {dbTool && (
+              <button
+                onClick={handleDelete}
+                className="mari-editor-action inline-flex"
+                title={localizeUi("ui.agents.tooleditor.deleteFunction")}
+                aria-label={localizeUi("ui.agents.tooleditor.deleteFunction")}
+              >
+                <Trash2 size="0.9375rem" />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Unsaved warning */}
       {showUnsavedWarning && (
@@ -488,8 +518,8 @@ export function ToolEditor() {
                   key={idx}
                   className="flex items-start gap-2 rounded-xl bg-[var(--card)] p-3 ring-1 ring-[var(--border)]"
                 >
-                  <div className="flex-1 space-y-2">
-                    <div className="flex gap-2">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <input
                         value={param.name}
                         onChange={(e) => {

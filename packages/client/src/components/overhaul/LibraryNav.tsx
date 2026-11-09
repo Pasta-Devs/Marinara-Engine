@@ -14,6 +14,7 @@ import { useLorebooks } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
 import { useRegexScripts } from "../../hooks/use-regex-scripts";
+import { useCustomTools } from "../../hooks/use-custom-tools";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
@@ -70,6 +71,8 @@ export function LibraryNav() {
   const regexScripts = useRegexScripts();
   const agents = useOvAgentRows();
   const regexDetailId = useUIStore((s) => s.regexDetailId);
+  const toolDetailId = useUIStore((s) => s.toolDetailId);
+  const customTools = useCustomTools();
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
   const characterDetailId = useUIStore((s) => s.characterDetailId);
@@ -95,6 +98,7 @@ export function LibraryNav() {
     presets: Array.isArray(presets.data) ? presets.data.length : undefined,
     connections: Array.isArray(connections.data) ? connections.data.length : undefined,
     regex: Array.isArray(regexScripts.data) ? regexScripts.data.length : undefined,
+    tools: Array.isArray(customTools.data) ? customTools.data.length : undefined,
     agents: agents.ready ? agents.rows.length : undefined,
   };
 
@@ -127,7 +131,9 @@ export function LibraryNav() {
                 ? "agents"
                 : regexDetailId
                   ? "regex"
-                  : libraryPage;
+                  : toolDetailId
+                    ? "tools"
+                    : libraryPage;
 
   const pickTag = (section: TaggedSection, tag: string | null) => {
     tagState[section].set(tag);

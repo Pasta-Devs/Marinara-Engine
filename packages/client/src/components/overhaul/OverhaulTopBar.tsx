@@ -91,6 +91,7 @@ export function useCurrentTab(): OverhaulTab | null {
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const regexDetailId = useUIStore((s) => s.regexDetailId);
+  const toolDetailId = useUIStore((s) => s.toolDetailId);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
   const libraryPage = useOverhaulStore((s) => s.libraryPage);
@@ -105,6 +106,7 @@ export function useCurrentTab(): OverhaulTab | null {
     if (activeDocsTab) return { kind: "docs", id: activeDocsTab };
     // Regex scripts, Connections and Agents open in one viewer per section, so they share its Library tab.
     if (regexDetailId) return { kind: "library", id: "regex" };
+    if (toolDetailId) return { kind: "library", id: "tools" };
     if (real(personaDetailId)) return { kind: "persona", id: personaDetailId! };
     if (agentDetailId) return { kind: "library", id: "agents" };
     if (connectionDetailId) return { kind: "library", id: "connections" };
@@ -133,6 +135,7 @@ export function useCurrentTab(): OverhaulTab | null {
     personaDetailId,
     presetDetailId,
     regexDetailId,
+    toolDetailId,
   ]);
 }
 
