@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Hook: TTS Config & Voices
 // ──────────────────────────────────────────────
+import { useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 import type {
@@ -14,7 +15,7 @@ import type {
 } from "@marinara-engine/shared";
 import { TTS_API_KEY_MASK } from "@marinara-engine/shared";
 import type { ConnectionModelRow } from "../lib/connection-groups";
-import { voiceRowOf } from "../lib/connection-jobs";
+import { voiceJobMigration, voiceRowOf } from "../lib/connection-jobs";
 import { useConnections } from "./use-connections";
 
 const KEYS = {
@@ -31,7 +32,11 @@ const KEYS = {
 export function useTTSConfig() {
   return useQuery({
     queryKey: KEYS.config,
-    queryFn: () => api.get<TTSConfigResponse>("/tts/config"),
+    // A character with a voice of its own always speaks with it; everyone else uses the default voice or pool.
+    queryFn: () =>
+      api
+        .get<TTSConfigResponse>("/tts/config")
+        .then((config): TTSConfigResponse => ({ ...config, voiceMode: "per-character" })),
     staleTime: 60_000,
   });
 }
@@ -46,23 +51,68 @@ export function useUpdateTTSConfig() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (config: TTSConfig) => api.put<void>("/tts/config", config),
+    // The Voice job's switch is visible at once, so a card draft made before it is known to be out of date.
+    onMutate: ({ enabled, source, connectionId }) =>
+      qc.setQueryData<TTSConfigResponse>(KEYS.config, (old) => old && { ...old, enabled, source, connectionId }),
     onSuccess: () => invalidateTTSSettings(qc),
   });
 }
 
+/** Whether the Voice job turned voice on or off or moved its source or row after `draft` was made. */
+export function useVoiceJobMoved() {
+  const qc = useQueryClient();
+  return useCallback(
+    (draft: Pick<TTSConfig, "enabled" | "source" | "connectionId">) => {
+      const live = qc.getQueryData<TTSConfigResponse>(KEYS.config);
+      return (
+        !!live &&
+        (live.enabled !== draft.enabled || live.source !== draft.source || live.connectionId !== draft.connectionId)
+      );
+    },
+    [qc],
+  );
+}
+
 /**
- * Text to speech uses the TTS card's chosen Audio connection before the audio default (tts.routes.ts), so setting
- * the Voice job moves a card choice along. Returns an undo, or null when the card follows the default already.
+ * The Voice job is the switch: a Model turns text to speech on with that Audio connection, a built-in `source`
+ * (no connection) turns it on with that source, and `null` turns it off. The connection's own saved voices come
+ * along. Returns an undo, or null when nothing changed.
  */
 export function useFollowVoiceJob() {
   const { data: config } = useTTSConfig();
   const update = useUpdateTTSConfig();
-  return async (connectionId: string | null) => {
-    const previous = config?.connectionId;
-    if (!config || !previous || previous === connectionId) return null;
-    await update.mutateAsync({ ...config, connectionId: connectionId ?? "" });
-    return () => void update.mutateAsync({ ...config, connectionId: previous }).catch(() => {});
+  return async (connectionId: string | null, source?: TTSSource) => {
+    if (!config) return null;
+    const enabled = connectionId !== null || source !== undefined;
+    const nextSource = source ?? config.source;
+    if (config.enabled === enabled && config.connectionId === (connectionId ?? "") && config.source === nextSource) {
+      return null;
+    }
+    // While a row is chosen the top-level voice fields are the row's, so leaving it loads the source's own.
+    const leavesRow = !connectionId && Boolean(config.connectionId.trim());
+    const profile = connectionId
+      ? (config.connectionProfiles?.[connectionId] ?? { voice: "" })
+      : nextSource !== config.source || leavesRow
+        ? (config.sourceProfiles?.[nextSource] ?? { baseUrl: "", apiKey: "", model: "", voice: "" })
+        : {};
+    await update.mutateAsync({ ...config, ...profile, source: nextSource, connectionId: connectionId ?? "", enabled });
+    return () => void update.mutateAsync(config).catch(() => {});
   };
+}
+
+/** Saves settings from before the Voice job once (`voiceJobMigration`), after they and the rows have loaded. */
+export function useMigrateVoiceJob() {
+  const { data: config } = useTTSConfig();
+  const { data: rows } = useConnections();
+  const update = useUpdateTTSConfig();
+  const done = useRef(false);
+  useEffect(() => {
+    if (done.current || !config || !rows) return;
+    const next = voiceJobMigration(config, rows as ConnectionModelRow[]);
+    if (!next) return;
+    done.current = true;
+    update.mutate(next);
+  }, [config, rows, update]);
 }
 
 /** The id of the audio row Text to speech really uses (`voiceRowOf`), for the Voice badge. */

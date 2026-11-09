@@ -6,6 +6,26 @@ import { z } from "zod";
 export const ttsSourceSchema = z.enum(["openai", "elevenlabs", "pockettts", "xai"]);
 export type TTSSource = z.infer<typeof ttsSourceSchema>;
 
+export const TTS_SOURCE_DEFAULTS: Record<TTSSource, { baseUrl: string; model: string }> = {
+  openai: {
+    baseUrl: "https://api.openai.com/v1",
+    model: "tts-1",
+  },
+  elevenlabs: {
+    baseUrl: "https://api.elevenlabs.io",
+    model: "eleven_multilingual_v2",
+  },
+  pockettts: {
+    baseUrl: "http://localhost:8000",
+    model: "pocket-tts",
+  },
+  xai: {
+    baseUrl: "https://api.x.ai/v1",
+    model: "grok-tts",
+  },
+};
+export const TTS_SOURCES: readonly TTSSource[] = ["openai", "elevenlabs", "pockettts", "xai"];
+
 export const ttsAudioFormatSchema = z.enum(["mp3", "wav", "pcm"]);
 export type TTSAudioFormat = z.infer<typeof ttsAudioFormatSchema>;
 

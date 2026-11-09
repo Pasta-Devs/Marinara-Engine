@@ -4,7 +4,7 @@
 // that page. The server side of the flag is proved in tts-local-voice-server.regression.ts.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { voiceRowOf } from "../../packages/client/src/lib/connection-jobs.js";
+import { voiceJobMigration, voiceRowOf, voiceSources } from "../../packages/client/src/lib/connection-jobs.js";
 
 const rows = [
   { id: "flagged", provider: "audio", defaultForAgents: "true" },
@@ -40,7 +40,7 @@ assert.match(
 
 // #8921: a local voice server has a place in Connections to turn it off. The On this device row and the Voice row
 // decide with the same server flag, so the row always has a page to open.
-assert.match(read("../../packages/client/src/hooks/use-tts.ts"), /api\.get<TTSConfigResponse>\("\/tts\/config"\)/);
+assert.match(read("../../packages/client/src/hooks/use-tts.ts"), /api\s*\.get<TTSConfigResponse>\("\/tts\/config"\)/);
 const deviceDetail = read("../../packages/client/src/components/connections/DeviceDetail.tsx");
 assert.match(deviceDetail, /if \(setup\.tts\.setUp && tts\?\.local\)/);
 // A server on another source shows its address there, not a cloud name such as "OpenAI".
@@ -48,9 +48,10 @@ assert.match(
   deviceDetail,
   /detail: \(tts\.source !== "pockettts" && hostOf\(tts\.baseUrl\)\) \|\| t\(`connections\.device\.ttsSource\.\$\{tts\.source\}`\)/,
 );
+// A built-in source has no connection: its Voice row opens the picker, where it is listed On this device.
 assert.match(
   read("../../packages/client/src/components/connections/ConnectionDefaults.tsx"),
-  /role\.key === "voice" && tts\?\.enabled\)[\s\S]*?const device = tts\.local \? \("tts" as const\) : undefined;[\s\S]*?muted: true, device \}/,
+  /role\.key === "voice" && tts\?\.enabled\) \{\s*return \{ \.\.\.tile, value: t\(`connections\.device\.ttsSource\.\$\{tts\.source\}`\)/,
 );
 // Its page saves the Base URL as it is typed, so it stays open while text to speech is on, even when a half-typed
 // address takes its row off the list for a moment.
@@ -58,5 +59,57 @@ assert.match(
   read("../../packages/client/src/components/panels/ConnectionsPanel.tsx"),
   /const validKey = [\s\S]*?if \(key === "device:tts" && deviceSetup\.tts\.setUp\) return true;\s*if \(key\.startsWith\("device:"\)\)/,
 );
+
+// Settings from before the Voice job: on, no saved row, an audio default. The default becomes the job's saved row
+// with the voice the server speaks with today, so nothing changes for the user.
+const base = {
+  enabled: true,
+  connectionId: "",
+  source: "elevenlabs",
+  voice: "blob-voice",
+  sourceProfiles: { openai: { voice: "openai-voice", speed: 0.8 } },
+  connectionProfiles: {},
+} as unknown as Parameters<typeof voiceJobMigration>[0];
+const audioRows = [
+  { id: "eleven", provider: "audio", defaultForAgents: "true", audioSource: "elevenlabs", audioVoice: "" },
+];
+assert.deepEqual(voiceJobMigration(base, audioRows), { ...base, voice: "blob-voice", connectionId: "eleven" });
+// The row's own voice wins over the settings' voice, as on the server.
+assert.equal(voiceJobMigration(base, [{ ...audioRows[0], audioVoice: "row-voice" }])?.voice, "row-voice");
+// Another source reads that source's saved voice; a saved profile of the row itself is used whole.
+const otherSource = voiceJobMigration({ ...base, speed: 1.1 } as typeof base, [
+  { ...audioRows[0], audioSource: "openai" },
+]);
+assert.equal(otherSource?.voice, "openai-voice");
+// Only the voice came from that source; the other settings stay the top-level ones the server used.
+assert.equal(otherSource?.speed, 1.1);
+const own = { ...base, connectionProfiles: { eleven: { voice: "own-voice" } } } as typeof base;
+assert.equal(voiceJobMigration(own, audioRows)?.voice, "own-voice");
+// Nothing to move: voice off, a row already saved, or no audio default.
+assert.equal(voiceJobMigration({ ...base, enabled: false }, audioRows), null);
+assert.equal(voiceJobMigration({ ...base, connectionId: "eleven" }, audioRows), null);
+assert.equal(voiceJobMigration(base, [{ ...audioRows[0], defaultForAgents: "false" }]), null);
+
+// A custom address or model on the settings fills the row's blank one only while no row is saved; keep it working.
+const custom = { ...base, baseUrl: "http://10.0.0.5:9000" } as typeof base;
+assert.equal(voiceJobMigration(custom, audioRows), null);
+assert.equal(voiceJobMigration({ ...base, model: "eleven_v3" } as typeof base, audioRows), null);
+assert.ok(voiceJobMigration(custom, [{ ...audioRows[0], baseUrl: "https://api.elevenlabs.io" }]));
+assert.ok(voiceJobMigration({ ...base, baseUrl: "https://api.elevenlabs.io" } as typeof base, audioRows));
+
+// Voice job choices without a row: Local PocketTTS always, and every direct source with its own key or server,
+// also while voice is off.
+const off = {
+  ...base,
+  enabled: false,
+  source: "openai",
+  baseUrl: "http://localhost:5050/v1",
+  apiKey: "",
+  sourceProfiles: { elevenlabs: { baseUrl: "https://api.elevenlabs.io", apiKey: "••••", voice: "", model: "" } },
+} as unknown as typeof base;
+assert.deepEqual(voiceSources(off), ["openai", "elevenlabs", "pockettts"]);
+assert.deepEqual(voiceSources({ ...off, baseUrl: "https://api.openai.com/v1", sourceProfiles: {} } as typeof base), [
+  "pockettts",
+]);
 
 console.log("connection-voice-row regression passed");

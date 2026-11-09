@@ -49,7 +49,7 @@ test("Add models for ElevenLabs opens the audio editor instead of a blank modal"
   }
 });
 
-test("A voice job with Text to Speech off offers Turn on", async ({ page, request }) => {
+test("The Voice job turns Text to Speech on with a built-in source", async ({ page, request }) => {
   const response = await request.post("/api/connections", {
     data: {
       name: "ElevenLabs off regression",
@@ -79,8 +79,21 @@ test("A voice job with Text to Speech off offers Turn on", async ({ page, reques
       .locator("[data-connections-panel]")
       .filter({ visible: true })
       .locator('[data-defaults-role="voice"]');
-    await voice.getByRole("button", { name: "Turn on", exact: true }).click();
-    await expect.poll(async () => (await (await request.get("/api/tts/config")).json()).enabled).toBe(true);
+    // The Voice job is the switch: off reads "Off", and a built-in choice On this device turns text to speech on.
+    await expect(voice.getByRole("button", { name: "Turn on", exact: true })).toHaveCount(0);
+    await expect(voice).toContainText("Off");
+    await voice.locator("[data-defaults-tile]").click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: /This device/ })
+      .first()
+      .click();
+    await expect
+      .poll(async () => {
+        const config = await (await request.get("/api/tts/config")).json();
+        return [config.enabled, config.source, config.connectionId];
+      })
+      .toEqual([true, "pockettts", ""]);
   } finally {
     await request.put("/api/tts/config", { data: original });
     await request.delete(`/api/connections/${row.id}`);

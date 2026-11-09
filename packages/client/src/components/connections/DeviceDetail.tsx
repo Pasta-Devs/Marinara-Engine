@@ -45,8 +45,6 @@ import { cn } from "../../lib/utils";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { hostOf } from "../modals/create-connection/shared";
 import { ToggleSetting } from "../panels/settings/SettingControls";
-import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
-import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
 import { ProviderIcon } from "./ProviderIcon";
 
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
@@ -770,7 +768,10 @@ export function DeviceDetail({ item, onOpenDefaults }: { item: DeviceItem; onOpe
         )}
         <span>· {engine?.detail || t("connections.accounts.section.device")}</span>
       </DetailHero>
-      {item === "tts" ? <TTSConfigCard defaultExpanded /> : <SpeechToTextCard defaultExpanded />}
+      {/* ponytail: the Voice and Dictation settings live in their Jobs; S4 redesigns this page. */}
+      <button type="button" onClick={onOpenDefaults} className={cn(SMALL_ACTION, "self-start")}>
+        {t("connections.device.openJobSettings")}
+      </button>
       {item === "stt" && callsInstalled && !isLite && <LocalWhisper />}
     </div>
   );
