@@ -36,6 +36,7 @@ import { useFollowVoiceJob, useMigrateVoiceJob, useTTSConfig } from "../../hooks
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { i18n } from "../../localization/i18n";
 import { openAddConnection, type SetupItem } from "../../lib/add-connection";
 import { createLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
@@ -788,7 +789,7 @@ function DefaultsJobRow({
       {hasSettings && (
         <Modal
           open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => void closeIfClean(() => setSettingsOpen(false))}
           title={t("connections.defaults.settingsFor", { role: title })}
           width="max-w-xl"
         >
@@ -798,12 +799,7 @@ function DefaultsJobRow({
                 <JobRow tile={tile} onClick={() => setOpen(true)} aria-haspopup="dialog" trailing={chevron} />
               </JobSettingsSection>
             )}
-            {job.key === "voice" && <TTSConfigCard />}
-            {job.key === "voice" && tile.source?.provider === "audio" && (
-              <Suspense fallback={null}>
-                <ConnectionEditor connectionId={tile.source.id} part="voice" />
-              </Suspense>
-            )}
+            {job.key === "voice" && <VoiceJobSettings />}
             {job.key === "stt" && <DictationSettings />}
             {decision && <DecisionDefaultControl settings />}
             {decision && tile.source?.provider === "decision" && (
@@ -831,6 +827,38 @@ function DefaultsJobRow({
         </Modal>
       )}
     </div>
+  );
+}
+
+/** Closes a job settings window, asking first when a model part inside holds unsaved edits. */
+export async function closeIfClean(close: () => void) {
+  if (
+    useUIStore.getState().editorDirty &&
+    !(await showConfirmDialog({
+      title: i18n.t("ui.layout.chatsidebar.unsavedChanges"),
+      message: i18n.t("ui.layout.chatsidebar.youHaveUnsavedChangesDiscardAndContinue"),
+      confirmLabel: i18n.t("ui.agents.agenteditor.discard"),
+      tone: "destructive",
+    }))
+  )
+    return;
+  close();
+}
+
+/** Voice settings in both "Voice settings" windows: the card, then the Voice job's own row. */
+export function VoiceJobSettings() {
+  const connectionsList = (useConnections().data ?? []) as ConnectionRowData[];
+  const { data: tts } = useTTSConfig();
+  const row = voiceRowOf(connectionsList, tts?.connectionId).row;
+  return (
+    <>
+      <TTSConfigCard />
+      {row?.provider === "audio" && (
+        <Suspense fallback={null}>
+          <ConnectionEditor connectionId={row.id} part="voice" />
+        </Suspense>
+      )}
+    </>
   );
 }
 

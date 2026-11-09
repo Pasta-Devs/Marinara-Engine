@@ -46,9 +46,8 @@ import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { hostOf } from "../modals/create-connection/shared";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { ProviderIcon } from "./ProviderIcon";
-import { DictationSettings } from "./ConnectionDefaults";
+import { closeIfClean, DictationSettings, VoiceJobSettings } from "./ConnectionDefaults";
 import { Modal } from "../ui/Modal";
-import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
 
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
 
@@ -849,11 +848,11 @@ export function JobSettingsWindow({ job, onClose }: { job: "voice" | "stt"; onCl
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={() => void closeIfClean(onClose)}
       title={t("connections.defaults.settingsFor", { role: t(jobLabelKey(JOB[job])) })}
       width="max-w-xl"
     >
-      <div className="flex flex-col gap-3">{job === "voice" ? <TTSConfigCard /> : <DictationSettings />}</div>
+      <div className="flex flex-col gap-3">{job === "voice" ? <VoiceJobSettings /> : <DictationSettings />}</div>
     </Modal>
   );
 }

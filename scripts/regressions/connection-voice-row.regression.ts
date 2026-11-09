@@ -48,11 +48,11 @@ assert.match(
 // decide with the same server flag, so the row always has a page to open.
 assert.match(read("../../packages/client/src/hooks/use-tts.ts"), /api\s*\.get<TTSConfigResponse>\("\/tts\/config"\)/);
 const deviceDetail = read("../../packages/client/src/components/connections/DeviceDetail.tsx");
-assert.match(deviceDetail, /if \(setup\.tts\.setUp && tts\?\.local\)/);
+assert.match(deviceDetail, /const localVoice = setup\.tts\.setUp && !!tts\?\.local;/);
 // A server on another source shows its address there, not a cloud name such as "OpenAI".
 assert.match(
   deviceDetail,
-  /detail: \(tts\.source !== "pockettts" && hostOf\(tts\.baseUrl\)\) \|\| t\(`connections\.device\.ttsSource\.\$\{tts\.source\}`\)/,
+  /detail: \[t\(jobLabelKey\(JOB\.voice\)\), hostOf\(tts\.baseUrl\)\]\.filter\(Boolean\)\.join\(" · "\)/,
 );
 // A built-in source has no connection: its Voice row opens the picker, where it is listed On this device.
 assert.match(

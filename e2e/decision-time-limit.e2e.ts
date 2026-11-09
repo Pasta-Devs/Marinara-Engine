@@ -55,6 +55,8 @@ test("a Decision connection's time limit saves, and Test reports an answer slowe
       await limit.fill(value);
       await limit.blur();
       await part.getByRole("button", { name: "Save", exact: true }).click();
+      // The part's Save button goes away once the edit is stored.
+      await expect(part.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
       await page.keyboard.press("Escape");
       return limit;
     };

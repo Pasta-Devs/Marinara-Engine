@@ -423,6 +423,7 @@ export function ConnectionEditor({
   useEffect(() => {
     setEditorDirty(dirty);
   }, [dirty, setEditorDirty]);
+  useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -2599,19 +2600,20 @@ export function ConnectionEditor({
         </div>
       }
       footer={
-        <div className="mari-connection-scope flex w-full items-center gap-2">
+        <div className="mari-connection-scope flex w-full flex-wrap items-center gap-2">
           {canUnstar && (
             <button
               type="button"
               disabled={editorBusy}
-              onClick={() =>
+              onClick={() => {
+                if (dirty) return setShowUnsavedWarning(true);
                 void modelStar
                   .toggle(
                     { accountId: accountId!, anchorId: connectionDetailId, model: localModel, name: localName },
                     true,
                   )
-                  .then(closeEditor, () => {})
-              }
+                  .then(closeEditor, () => {});
+              }}
               className="mari-chrome-control px-3 text-xs disabled:opacity-50"
             >
               {t("connections.editor.unstar")}
@@ -2635,36 +2637,33 @@ export function ConnectionEditor({
           >
             <Trash2 size="0.9375rem" />
           </button>
-          {savedFlash && !dirty && (
-            <span className="ml-auto inline-flex items-center gap-1 text-xs text-emerald-400">
-              <Check size="0.75rem" aria-hidden="true" />
-              {localizeUi("chat.settings.inlineEditor.saved")}
-            </span>
-          )}
-          {dirty && !saveError && (
-            <span className="ml-auto text-xs text-amber-400">
-              {localizeUi("ui.connections.connectioneditor.unsaved")}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={editorBusy || !!swarmUiWorkflowError}
-            className={cn(
-              "mari-chrome-control px-3 text-xs disabled:opacity-50",
-              !(savedFlash && !dirty) && !(dirty && !saveError) && "ml-auto",
+          <div className="ml-auto flex items-center gap-2">
+            {savedFlash && !dirty && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                <Check size="0.75rem" aria-hidden="true" />
+                {localizeUi("chat.settings.inlineEditor.saved")}
+              </span>
             )}
-          >
-            {localizeUi("ui.noodle.noodlehome.save")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void done()}
-            disabled={editorBusy || !!swarmUiWorkflowError}
-            className="mari-chrome-control mari-chrome-control--primary text-xs disabled:opacity-50"
-          >
-            {t("connections.editor.done")}
-          </button>
+            {dirty && !saveError && (
+              <span className="text-xs text-amber-400">{localizeUi("ui.connections.connectioneditor.unsaved")}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={editorBusy || !!swarmUiWorkflowError}
+              className="mari-chrome-control px-3 text-xs disabled:opacity-50"
+            >
+              {localizeUi("ui.noodle.noodlehome.save")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void done()}
+              disabled={editorBusy || !!swarmUiWorkflowError}
+              className="mari-chrome-control mari-chrome-control--primary text-xs disabled:opacity-50"
+            >
+              {t("connections.editor.done")}
+            </button>
+          </div>
         </div>
       }
     >
@@ -2743,7 +2742,11 @@ export function ConnectionEditor({
             <ContextMenu
               x={useForMenu.x}
               y={useForMenu.y}
-              items={useFor}
+              // Save pending edits first: the job change reloads the row, which would reset them.
+              items={useFor.map((item) => ({
+                ...item,
+                onSelect: () => void (dirty ? save() : Promise.resolve(true)).then((ok) => ok && item.onSelect()),
+              }))}
               autoFocus={useForMenu.keyboard}
               onClose={() => setUseForMenu(null)}
             />
@@ -4079,6 +4082,10 @@ export function ConnectionEditor({
           )}
         </EditorSection>
 
+        {/* A row's own job fields; the job settings window shows the same part for the job's current model. */}
+        {decisionFields}
+        {isAudioProvider && voiceFields}
+
         <EditorSection title={t("connections.editor.section.advanced")} advanced>
           <div className="grid gap-6 empty:hidden sm:grid-cols-2">
             {/* ── Agent Parallel Jobs ── */}
@@ -4176,6 +4183,8 @@ export function ConnectionEditor({
               )}
             </div>
           )}
+          {isChatProvider(localProvider) && captioningFields}
+          {embeddingFields}
         </EditorSection>
 
         {testSection}
