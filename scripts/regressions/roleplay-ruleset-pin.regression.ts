@@ -6,6 +6,7 @@
  *   - A member the player removed (`roleplaySheetsDeclined`) is left out when the ruleset is pinned
  *     again, as Add missing sheets and a newer version both do, and the other sheets are kept.
  *   - Taking the removal back and pinning again gives that member a sheet once more.
+ *   - Two cards with the same name share one sheet: the first card in the chat keeps it.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -79,6 +80,21 @@ try {
   const back = await pinRoleplayRuleset(db, { chatId: chat!.id, rulesetId: "local/pin-test" });
   assert.ok(back.ok && back.added === 1, "taking the removal back gives the member a sheet again");
   assert.deepEqual(await names(), ["Mira", "The Narrator"]);
+
+  const twin = await characters.create({ ...card("Mira"), description: "the second Mira" } as any);
+  const twins = await chats.create({
+    name: "Twin test",
+    mode: "roleplay",
+    characterIds: [mira!.id, twin!.id],
+    connectionId: null,
+  } as any);
+  const twinPin = await pinRoleplayRuleset(db, { chatId: twins!.id, rulesetId: "local/pin-test" });
+  assert.ok(twinPin.ok && twinPin.added === 1, "two cards with one name get one sheet");
+  const twinCards = JSON.parse(String((await chats.getById(twins!.id))!.metadata ?? "{}")).gameCharacterCards;
+  assert.deepEqual(
+    twinCards.map((entry: { name: string }) => entry.name),
+    ["Mira"],
+  );
 
   console.log("roleplay-ruleset-pin regression passed");
 } finally {

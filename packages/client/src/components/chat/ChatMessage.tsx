@@ -3409,11 +3409,11 @@ export const ChatMessage = memo(function ChatMessage({
     const slots = new Map<string, ReactNode>();
     let markedText = text;
     for (const command of inlineRoleplayCommands) {
-      const marker = `${markerPrefix}${command.index}\uE001`;
+      const marker = `${markerPrefix}${command.kind}-${command.index}\uE001`;
       slots.set(marker, renderInlineRoleplayCommand(command));
     }
     for (const roll of [...inlineRoleplayCommands].reverse()) {
-      const marker = `${markerPrefix}${roll.index}\uE001`;
+      const marker = `${markerPrefix}${roll.kind}-${roll.index}\uE001`;
       markedText = markedText.slice(0, roll.offset) + marker + markedText.slice(roll.offset);
     }
     const prose = replaceRoleplayCommandMarkers(renderPart(markedText), slots);

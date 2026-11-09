@@ -67,7 +67,13 @@ async function loadRoleplaySheetSources(
     if (!row) continue;
     const data = readJson(row.data) as { name?: unknown; extensions?: { rulesetSheets?: Record<string, unknown> } };
     if (typeof data?.name !== "string" || !data.name.trim()) continue;
-    byName.set(normalizeCharacterLookupName(data.name), {
+    // Sheets are kept by name, so a second card with the same name would take the first one's sheet.
+    const key = normalizeCharacterLookupName(data.name);
+    if (byName.has(key)) {
+      logger.warn("[roleplay-ruleset] Two cards in chat are named %s; only the first gets a sheet", data.name);
+      continue;
+    }
+    byName.set(key, {
       name: data.name,
       stored: data.extensions?.rulesetSheets?.[rulesetId],
     });

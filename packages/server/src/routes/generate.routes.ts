@@ -5308,11 +5308,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         let roleplayRulesetReminder = "";
         // A Sheet Keeper: an agent of this chat whose result is ruleset sheet commands. While one runs,
         // it records the sheet changes from the finished reply and the narrator only asks for checks.
-        const rulesetSheetKeepers = roleplayRulesetTurn
+        // One keeper per chat: two would each apply their commands and double every change.
+        const sheetKeeperCandidates = roleplayRulesetTurn
           ? resolvedAgents
               .filter((agent) => resolveAgentResultType(agent) === "ruleset_sheet_commands")
               .map((agent) => agent.type)
           : [];
+        if (sheetKeeperCandidates.length > 1)
+          logger.warn(
+            "[generate] %d Sheet Keepers are on in chat %s; only %s keeps the sheets",
+            sheetKeeperCandidates.length,
+            input.chatId,
+            sheetKeeperCandidates[0],
+          );
+        const rulesetSheetKeepers = sheetKeeperCandidates.slice(0, 1);
         let rulesetSheetKeeperContext = "";
         if (roleplayRulesetTurn) {
           const pinned = resolveGameRuleset(chatMeta, await loadRulesetRegistry());
@@ -14423,6 +14432,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             if (
               result.success &&
               result.type === "ruleset_sheet_commands" &&
+              rulesetSheetKeepers.includes(result.agentType) &&
               chatMeta.gameRuleset != null &&
               customAgentCanApplyResult(result, resolvedAgents, builtInAgentTypes, "edit_trackers")
             ) {
