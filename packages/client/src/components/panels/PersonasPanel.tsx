@@ -50,6 +50,8 @@ import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
+import { PanelVirtualList } from "./PanelVirtualList";
+import { PanelListSkeleton } from "../ui/PanelStates";
 import {
   formatCardLibraryMeta,
   getCardLibrarySummary,
@@ -482,6 +484,8 @@ export function PersonasPanel() {
     () => list.filter((persona) => !folderedPersonaIds.has(persona.id)),
     [list, folderedPersonaIds],
   );
+  // Only the root cards near the viewport are in the DOM; a dragged card stays mounted (see PanelVirtualList).
+  const draggedRootIndex = draggedPersonaId ? visibleRootPersonas.findIndex((p) => p.id === draggedPersonaId) : -1;
   const personaOrder = useMemo(() => new Map(list.map((persona, index) => [persona.id, index])), [list]);
   const folderFilterActive = search.trim().length > 0 || activeTag !== null;
 
@@ -1063,13 +1067,7 @@ export function PersonasPanel() {
         })}
       </div>
 
-      {isLoading && (
-        <div className="flex flex-col gap-2 py-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="shimmer h-16 rounded-xl" />
-          ))}
-        </div>
-      )}
+      {isLoading && <PanelListSkeleton rows={2} rowClassName="h-16 rounded-xl" />}
 
       {!isLoading && list.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
@@ -1100,14 +1098,31 @@ export function PersonasPanel() {
         </div>
       )}
 
-      <div className="stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors">
-        {visibleRootPersonas.map((persona) => {
+      <PanelVirtualList
+        listKey="personas:root"
+        count={visibleRootPersonas.length}
+        getItemKey={(index) => visibleRootPersonas[index]!.id}
+        estimateSize={64}
+        gap={4}
+        pinnedIndex={draggedRootIndex}
+        paging={
+          clientOnlyPersonaFilterActive
+            ? undefined
+            : {
+                hasNextPage: personaPages.hasNextPage,
+                isFetchingNextPage: personaPages.isFetchingNextPage,
+                isFetchNextPageError: personaPages.isFetchNextPageError,
+                onNearEnd: () => void personaPages.fetchNextPage(),
+              }
+        }
+        className="min-h-8 rounded-xl transition-colors"
+        renderRow={(index) => {
+          const persona = visibleRootPersonas[index]!;
           const isBulkSelected = selectedPersonaIds.has(persona.id);
           const personaMetadata = getPersonaPreviewMetadata(persona);
 
           return (
             <div
-              key={persona.id}
               data-touch-drag-card="persona"
               data-drag-id={persona.id}
               aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
@@ -1135,7 +1150,7 @@ export function PersonasPanel() {
                 })
               }
               className={cn(
-                "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
+                "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-3 rounded-xl p-2.5 transition-[color,background-color,box-shadow,opacity] hover:bg-[var(--sidebar-accent)]",
                 selectionMode &&
                   isBulkSelected &&
                   "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
@@ -1296,14 +1311,14 @@ export function PersonasPanel() {
               )}
             </div>
           );
-        })}
-      </div>
+        }}
+      />
 
       {!clientOnlyPersonaFilterActive && personaPages.hasNextPage && (
         <PanelLoadMoreBar
           onLoadMore={() => void personaPages.fetchNextPage()}
           disabled={personaPages.isFetchingNextPage}
-          autoLoad={!personaPages.isFetchNextPageError}
+          autoLoad={false}
         >
           {personaPages.isFetchingNextPage
             ? localizeUi("ui.characters.characterlibraryview.loading")
