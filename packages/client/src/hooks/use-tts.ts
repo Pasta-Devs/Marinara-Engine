@@ -16,7 +16,7 @@ import type {
 import { TTS_API_KEY_MASK } from "@marinara-engine/shared";
 import type { ConnectionModelRow } from "../lib/connection-groups";
 import { voiceJobMigration, voiceRowOf } from "../lib/connection-jobs";
-import { useConnections } from "./use-connections";
+import { useConnections, useUpdateConnection } from "./use-connections";
 
 const KEYS = {
   config: ["tts", "config"] as const,
@@ -107,14 +107,19 @@ export function useMigrateVoiceJob() {
   const { data: config } = useTTSConfig();
   const { data: rows } = useConnections();
   const update = useUpdateTTSConfig();
+  const updateConnection = useUpdateConnection();
   const done = useRef(false);
   useEffect(() => {
     if (done.current || !config || !rows) return;
     const next = voiceJobMigration(config, rows as ConnectionModelRow[]);
     if (!next) return;
     done.current = true;
-    update.mutate(next);
-  }, [config, rows, update]);
+    // The row takes the old address or model first, so the job never runs without them.
+    void (async () => {
+      if (next.row) await updateConnection.mutateAsync(next.row);
+      await update.mutateAsync(next.config);
+    })().catch(() => {});
+  }, [config, rows, update, updateConnection]);
 }
 
 /** The id of the audio row Text to speech really uses (`voiceRowOf`), for the Voice badge. */

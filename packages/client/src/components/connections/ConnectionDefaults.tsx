@@ -18,6 +18,7 @@ import {
   useConnections,
   useMayReadImages,
   useDefaultEmbeddingConnection,
+  useModelLists,
   useUpdateConnection,
 } from "../../hooks/use-connections";
 import {
@@ -49,6 +50,7 @@ import {
   matchesKind,
   voiceRowOf,
   voiceSources,
+  foundForJob,
   type Job,
   type JobKey,
 } from "../../lib/connection-jobs";
@@ -57,7 +59,8 @@ import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
 import { SMALL_ACTION } from "./DeviceDetail";
 import type { ConnectionRowData } from "./ConnectionRow";
-import { JobRow } from "./JobRow";
+import { JobRow, isUnset } from "./JobRow";
+import { mediaSources } from "../../lib/media-source";
 
 function JobIcon({ job }: { job: JobKey }) {
   const Icon = JOB[job].icon;
@@ -97,6 +100,8 @@ export type DefaultsTile = {
   follows?: string;
   /** The engine this job needs is not set up: the tile leads to its set-up screen. */
   setup?: { item: SetupItem; text: string };
+  /** An empty job: how many models the accounts' catalogs offer for it (Pick), or none (Add). */
+  find?: { count: number; accounts: string[]; unknown?: boolean };
   /** A device job opens its engine's page instead of pickers. */
   device?: DeviceItem;
 };
@@ -413,7 +418,38 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   });
 
   const byKey = new Map([...tiles, embeddings, decision, stt, ...features].map((tile) => [tile.key, tile]));
-  return JOBS.map((job) => byKey.get(job.key)).filter((tile): tile is DefaultsTile => !!tile);
+  const all = JOBS.map((job) => byKey.get(job.key)).filter((tile): tile is DefaultsTile => !!tile);
+  // An empty job counts what the accounts' catalogs offer for it, so its row can say what to pick or that one is needed.
+  const notSet = t("connections.defaults.notSet");
+  const isEmpty = (tile: DefaultsTile) =>
+    !tile.device && !tile.setup && (isUnset(tile, notSet) || (tile.key === "decision" && !decisionSelected));
+  const anyEmpty = all.some(isEmpty);
+  const catalogRows = (accounts ?? []).flatMap((account) => {
+    const row =
+      account.state === "ok" &&
+      connectionsList.find((entry) => entry.accountId === account.id && entry.provider === account.provider);
+    return row ? [{ account, id: row.id }] : [];
+  });
+  const lists = useModelLists(anyEmpty ? catalogRows.map((entry) => entry.id) : []);
+  const catalogs = catalogRows.flatMap(({ account }, index) => {
+    const list = lists[index]?.data;
+    return list ? [{ name: account.name, provider: account.provider, models: list.models ?? [] }] : [];
+  });
+  // Accounts with no catalog list (a Decision account) still offer the Models saved under them.
+  const listed = new Set(catalogRows.filter((_, index) => lists[index]?.data).map(({ account }) => account.id));
+  // A list still loading or failed can hide models: then Pick (the picker shows its own state), never Add.
+  const unknown = !lists.every((list) => list.isSuccess);
+  const findFor = (job: Job) => {
+    const found = foundForJob(job, catalogs, (provider, kind) => mediaSources(provider, kind).length > 0);
+    const kind = job.kind;
+    const saved =
+      kind && job.key !== "embeddings"
+        ? connectionsList.filter((row) => !listed.has(row.accountId ?? "") && matchesKind(row, kind))
+        : [];
+    const names = saved.map((row) => accountOf(row)?.name ?? row.name);
+    return { count: found.count + saved.length, accounts: [...new Set([...found.accounts, ...names])], unknown };
+  };
+  return all.map((tile) => (isEmpty(tile) ? { ...tile, find: findFor(JOB[tile.key]) } : tile));
 }
 
 /** Voice job picker values for a built-in text to speech source, not a Model. */
@@ -662,6 +698,7 @@ function DefaultsJobRow({
   const title = t(jobLabelKey(job));
   const onClick = () => {
     if (tile.device) return onOpenDevice(tile.device);
+    if (tile.find?.count === 0 && !tile.find.unknown) return openAddConnection({ job: job.key as JobKey });
     if (tile.setup?.item) return openAddConnection({ category: "device", item: tile.setup.item });
     // Dictation has no Model to pick: its row opens its settings.
     if (job.device) return setSettingsOpen(true);
@@ -671,7 +708,8 @@ function DefaultsJobRow({
   return (
     <div className="relative" data-defaults-role={job.key}>
       <JobRow
-        tile={tile}
+        // Pick or Add is the fix, so an empty job's own warning chip would only repeat it.
+        tile={tile.find ? { ...tile, warning: null } : tile}
         data-defaults-tile={job.key}
         onClick={onClick}
         aria-haspopup={tile.device ? undefined : "dialog"}
@@ -681,20 +719,31 @@ function DefaultsJobRow({
         })}
         trailing={chevron}
         end={
-          hasSettings && (
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(true)}
-              aria-haspopup="dialog"
-              aria-label={t("connections.defaults.settingsFor", { role: title })}
-              className={cn(
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]",
-                FOCUS,
-              )}
-            >
-              <SlidersHorizontal size="0.875rem" aria-hidden />
-            </button>
-          )
+          <>
+            {tile.find && (
+              <button
+                type="button"
+                onClick={onClick}
+                className="mari-chrome-control mari-chrome-control--primary shrink-0 !min-h-7 !px-3 !py-1 !text-xs"
+              >
+                {t(tile.find.count || tile.find.unknown ? "connections.defaults.pick" : "connections.defaults.add")}
+              </button>
+            )}
+            {hasSettings && (
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                aria-haspopup="dialog"
+                aria-label={t("connections.defaults.settingsFor", { role: title })}
+                className={cn(
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]",
+                  FOCUS,
+                )}
+              >
+                <SlidersHorizontal size="0.875rem" aria-hidden />
+              </button>
+            )}
+          </>
         }
       />
       {model && (

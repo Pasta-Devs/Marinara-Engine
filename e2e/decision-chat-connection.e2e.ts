@@ -83,7 +83,8 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
     const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
     await actions.scrollIntoViewIfNeeded();
     await actions.click();
-    const shortcut = page.getByRole("menuitem", { name: "Use this model for decisions", exact: true });
+    await page.getByRole("menuitem", { name: "Use for…", exact: true }).click();
+    const shortcut = page.getByRole("menuitemradio", { name: "Decision", exact: true });
     await capture("decision-chat-shortcut");
     await shortcut.click();
 

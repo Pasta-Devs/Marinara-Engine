@@ -685,6 +685,20 @@ export function useConnectionModels(id: string | null | undefined, enabled = tru
   });
 }
 
+/** The saved model lists of these catalog rows, for counts; the server asks the provider only when none is saved. */
+export function useModelLists(ids: readonly string[]) {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: connectionKeys.models(id),
+      queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id)),
+      staleTime: MODEL_LIST_TTL,
+      gcTime: MODEL_LIST_TTL,
+      retry: false,
+      retryOnMount: false,
+    })),
+  });
+}
+
 /** How many models a provider offers, read once right after it is added. */
 export function useCountConnectionModels() {
   const qc = useQueryClient();

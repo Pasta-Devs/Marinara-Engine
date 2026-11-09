@@ -14,6 +14,10 @@ import type { ConnectionRowData } from "./ConnectionRow";
 import { viaName } from "../../lib/connection-groups";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { JOB_HINT_INSET } from "./connection-row-layout";
+import { JOB, type JobKey } from "../../lib/connection-jobs";
+
+/** Jobs whose found line names what the models do, not their kind. */
+const FOUND_KEY: Partial<Record<JobKey, string>> = { decision: "decision", embeddings: "embeddings" };
 
 /** The amber warning chip. NeedsModelChip draws it too. */
 export function WarningChip({ children, className }: { children: ReactNode; className?: string }) {
@@ -173,6 +177,15 @@ export function JobRow({
             // The state line stays grey; only a warning chip at the row end is amber.
             <span className="min-w-0 truncate text-xs text-[var(--muted-foreground)]">
               {tile.setup?.text ??
+                (tile.find &&
+                  (tile.find.count
+                    ? [
+                        t(`connections.defaults.found.${FOUND_KEY[tile.key] ?? JOB[tile.key].kind}`, {
+                          count: tile.find.count,
+                        }),
+                        t("connections.defaults.foundIn", { accounts: tile.find.accounts.join(", ") }),
+                      ].join(" · ")
+                    : t(tile.find.unknown ? "connections.defaults.chooseModel" : "connections.defaults.noneFound"))) ??
                 (unset
                   ? t(tile.warning ? "connections.defaults.chooseModel" : "connections.defaults.notSetUp")
                   : [tile.value, tile.hint].filter(Boolean).join(" · "))}

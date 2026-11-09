@@ -4,7 +4,13 @@
 // that page. The server side of the flag is proved in tts-local-voice-server.regression.ts.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { voiceJobMigration, voiceRowOf, voiceSources } from "../../packages/client/src/lib/connection-jobs.js";
+import {
+  JOB,
+  foundForJob,
+  voiceJobMigration,
+  voiceRowOf,
+  voiceSources,
+} from "../../packages/client/src/lib/connection-jobs.js";
 
 const rows = [
   { id: "flagged", provider: "audio", defaultForAgents: "true" },
@@ -73,29 +79,40 @@ const base = {
 const audioRows = [
   { id: "eleven", provider: "audio", defaultForAgents: "true", audioSource: "elevenlabs", audioVoice: "" },
 ];
-assert.deepEqual(voiceJobMigration(base, audioRows), { ...base, voice: "blob-voice", connectionId: "eleven" });
+assert.deepEqual(voiceJobMigration(base, audioRows)?.config, { ...base, voice: "blob-voice", connectionId: "eleven" });
 // The row's own voice wins over the settings' voice, as on the server.
-assert.equal(voiceJobMigration(base, [{ ...audioRows[0], audioVoice: "row-voice" }])?.voice, "row-voice");
+assert.equal(voiceJobMigration(base, [{ ...audioRows[0], audioVoice: "row-voice" }])?.config.voice, "row-voice");
 // Another source reads that source's saved voice; a saved profile of the row itself is used whole.
 const otherSource = voiceJobMigration({ ...base, speed: 1.1 } as typeof base, [
   { ...audioRows[0], audioSource: "openai" },
 ]);
-assert.equal(otherSource?.voice, "openai-voice");
+assert.equal(otherSource?.config.voice, "openai-voice");
 // Only the voice came from that source; the other settings stay the top-level ones the server used.
-assert.equal(otherSource?.speed, 1.1);
+assert.equal(otherSource?.config.speed, 1.1);
 const own = { ...base, connectionProfiles: { eleven: { voice: "own-voice" } } } as typeof base;
-assert.equal(voiceJobMigration(own, audioRows)?.voice, "own-voice");
+assert.equal(voiceJobMigration(own, audioRows)?.config.voice, "own-voice");
 // Nothing to move: voice off, a row already saved, or no audio default.
 assert.equal(voiceJobMigration({ ...base, enabled: false }, audioRows), null);
 assert.equal(voiceJobMigration({ ...base, connectionId: "eleven" }, audioRows), null);
 assert.equal(voiceJobMigration(base, [{ ...audioRows[0], defaultForAgents: "false" }]), null);
 
-// A custom address or model on the settings fills the row's blank one only while no row is saved; keep it working.
-const custom = { ...base, baseUrl: "http://10.0.0.5:9000" } as typeof base;
-assert.equal(voiceJobMigration(custom, audioRows), null);
-assert.equal(voiceJobMigration({ ...base, model: "eleven_v3" } as typeof base, audioRows), null);
-assert.ok(voiceJobMigration(custom, [{ ...audioRows[0], baseUrl: "https://api.elevenlabs.io" }]));
-assert.ok(voiceJobMigration({ ...base, baseUrl: "https://api.elevenlabs.io" } as typeof base, audioRows));
+// A custom address or model the server filled into the row's blank field moves onto the row, which a saved row reads.
+const custom = { ...base, baseUrl: "http://10.0.0.5:9000", model: "eleven_v3" } as typeof base;
+assert.deepEqual(voiceJobMigration(custom, audioRows)?.row, {
+  id: "eleven",
+  baseUrl: "http://10.0.0.5:9000",
+  model: "eleven_v3",
+});
+assert.equal(voiceJobMigration(custom, audioRows)?.config.connectionId, "eleven");
+// The row's own address stays; a default address or model needs nothing on the row.
+assert.deepEqual(voiceJobMigration(custom, [{ ...audioRows[0], baseUrl: "https://el.example" }])?.row, {
+  id: "eleven",
+  model: "eleven_v3",
+});
+assert.equal(
+  voiceJobMigration({ ...base, baseUrl: "https://api.elevenlabs.io" } as typeof base, audioRows)?.row,
+  undefined,
+);
 
 // Voice job choices without a row: Local PocketTTS always, and every direct source with its own key or server,
 // also while voice is off.
@@ -111,5 +128,26 @@ assert.deepEqual(voiceSources(off), ["openai", "elevenlabs", "pockettts"]);
 assert.deepEqual(voiceSources({ ...off, baseUrl: "https://api.openai.com/v1", sourceProfiles: {} } as typeof base), [
   "pockettts",
 ]);
+
+// An empty job counts what the accounts' catalogs offer it, and names those accounts.
+const catalogs = [
+  {
+    name: "NanoGPT",
+    provider: "nanogpt",
+    models: [
+      { id: "glm-5", name: "glm-5", outputModalities: ["text"], capabilities: { logprobs: true } },
+      { id: "veo-3", name: "veo-3", outputModalities: ["video"] },
+      { id: "text-embedding-3-small", name: "embed" },
+    ],
+  },
+  { name: "ComfyUI", provider: "comfyui", models: [{ id: "flux", name: "flux", outputModalities: ["image"] }] },
+];
+const drives = (provider: string, kind: string) => provider === "nanogpt" || kind === "image";
+assert.deepEqual(foundForJob(JOB.video, catalogs, drives), { count: 1, accounts: ["NanoGPT"] });
+assert.deepEqual(foundForJob(JOB.images, catalogs, drives), { count: 1, accounts: ["ComfyUI"] });
+assert.deepEqual(foundForJob(JOB.main, catalogs, drives), { count: 1, accounts: ["NanoGPT"] });
+assert.deepEqual(foundForJob(JOB.decision, catalogs, drives), { count: 1, accounts: ["NanoGPT"] });
+assert.deepEqual(foundForJob(JOB.embeddings, catalogs, drives), { count: 1, accounts: ["NanoGPT"] });
+assert.deepEqual(foundForJob(JOB.voice, catalogs, drives), { count: 0, accounts: [] });
 
 console.log("connection-voice-row regression passed");
