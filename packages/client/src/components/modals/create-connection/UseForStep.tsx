@@ -122,8 +122,12 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
     uses.unshift({ kind: "chat", job: "main", model: typed.trim(), typed: true });
   const currentOf = (use: Use) =>
     use.kind === "decision" ? (decisionOptions.data?.selected ?? null) : (modelFor(JOB[use.job])?.value ?? null);
-  const labelOf = (id: string) => {
+  const labelOf = (id: string, use: Use) => {
     if (id === LOCAL_SIDECAR_CONNECTION_ID) return serviceName("local_model");
+    // A built-in choice, such as a voice source, is named by the job's own option list.
+    const option =
+      use.kind === "decision" ? undefined : modelFor(JOB[use.job])?.extraOptions?.find((o) => o.value === id);
+    if (option) return option.label;
     const row = rows.find((candidate) => candidate.id === id);
     return row?.model?.trim() || row?.name || id;
   };
@@ -274,7 +278,7 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
                   <span className="text-xs text-[var(--muted-foreground)] [overflow-wrap:anywhere]">
                     {!use.typed && <>{use.name ?? use.model} · </>}
                     {current
-                      ? t("connections.add.nowUses", { model: labelOf(current) })
+                      ? t("connections.add.nowUses", { model: labelOf(current, use) })
                       : t("connections.add.nothingSet")}
                   </span>
                   {errors[use.job] && (

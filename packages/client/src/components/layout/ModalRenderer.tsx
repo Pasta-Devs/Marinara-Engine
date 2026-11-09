@@ -5,6 +5,7 @@ import { lazy, Suspense } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import type { ServiceId } from "../modals/CreateConnectionModal";
 import type { AddFor, ModelsFor } from "../../lib/add-connection";
+import { JOB, type JobKey } from "../../lib/connection-jobs";
 import {
   normalizeAvatarCrop,
   type LorebookCategory,
@@ -36,6 +37,9 @@ const STBulkImportModal = lazy(() =>
 );
 const ImportPersonaModal = lazy(() =>
   import("../modals/ImportPersonaModal").then((module) => ({ default: module.ImportPersonaModal })),
+);
+const JobPickerWindow = lazy(() =>
+  import("../connections/ConnectionDefaults").then((module) => ({ default: module.JobPickerWindow })),
 );
 const CreateConnectionModal = lazy(() =>
   import("../modals/CreateConnectionModal").then((module) => ({ default: module.CreateConnectionModal })),
@@ -167,6 +171,9 @@ export function ModalRenderer() {
       break;
     case "import-connection":
       content = <ImportConnectionModal open onClose={closeModal} />;
+      break;
+    case "job-picker":
+      content = <JobPickerWindow job={JOB[modal?.props?.job as JobKey]} onClose={closeModal} />;
       break;
     case "connection-account":
       content = (
