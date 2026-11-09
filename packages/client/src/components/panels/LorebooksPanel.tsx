@@ -1206,7 +1206,8 @@ export function LorebooksPanel() {
         <PanelLoadMoreBar
           onLoadMore={() => void lorebookPages.fetchNextPage()}
           disabled={lorebookPages.isFetchingNextPage}
-          autoLoad={false}
+          // The virtual list asks for pages near its end; with no rows shown (e.g. a tag filter) it is not mounted.
+          autoLoad={sorted.length === 0 && !lorebookPages.isFetchNextPageError}
         >
           {lorebookPages.isFetchingNextPage
             ? localizeUi("ui.characters.characterlibraryview.loading")
