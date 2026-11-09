@@ -171,6 +171,7 @@ import { createOmnibarResultActions } from "./omnibar/omnibar-result-actions";
 import { useOmnibarLocalResults } from "./omnibar/use-omnibar-local-results";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { WindowTitle } from "../../lib/theme-slots";
 // Each pane only renders once the user opens it, so they stay out of the
 // initial AppShell chunk.
 const OmnibarDetailPane = lazy(() =>
@@ -2135,6 +2136,10 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         {companionShape === "sheet" ? (
           <MariSheetHandle panelRef={dialogRef} snap={sheetSnap} setSnap={setSheetSnap} />
         ) : null}
+        <WindowTitle
+          title={mariSurface ? t("commandCenter.workTitle", "Professor Mari") : t("omnibar.title", "Search Marinara")}
+          where="omnibar"
+        />
         <h2 id="global-omnibar-title" className="sr-only">
           {mariSurface ? t("commandCenter.workTitle", "Professor Mari") : t("omnibar.title", "Search Marinara")}
         </h2>

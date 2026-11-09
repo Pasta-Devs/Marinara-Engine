@@ -1420,6 +1420,7 @@ export function ChatSidebar() {
                   loading="lazy"
                   decoding="async"
                   className="h-full w-full object-cover opacity-[0.14] saturate-50"
+                  data-mari-part="chat-row-art"
                 />
                 <span className="absolute inset-0 bg-gradient-to-r from-[var(--sidebar-background)]/80 to-[var(--sidebar-background)]/40" />
               </span>
@@ -1504,7 +1505,11 @@ export function ChatSidebar() {
                     </div>
                   ) : (
                     <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--secondary)] text-[0.625rem] font-bold text-[var(--muted-foreground)]">
+                      <div
+                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--secondary)] text-[0.625rem] font-bold text-[var(--muted-foreground)]"
+                        data-mari-part="avatar-placeholder"
+                        data-role="assistant"
+                      >
                         {a.name[0]}
                       </div>
                       {statusDot(a.conversationStatus)}
@@ -1538,6 +1543,8 @@ export function ChatSidebar() {
                             "absolute flex h-5 w-5 items-center justify-center rounded-md bg-[var(--secondary)] text-[0.5rem] font-bold text-[var(--muted-foreground)] ring-2 ring-[var(--sidebar-background)]",
                             i === 0 ? "top-0 left-0 z-10" : "bottom-0 right-0",
                           )}
+                          data-mari-part="avatar-placeholder"
+                          data-role="assistant"
                         >
                           {a.name[0]}
                         </div>

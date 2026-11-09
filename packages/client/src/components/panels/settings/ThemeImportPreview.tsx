@@ -28,6 +28,7 @@ import {
 } from "../../../lib/theme-package";
 import { SETTINGS_BUTTON_CLASS, SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS } from "./SettingControls";
 import { useUIStore } from "../../../stores/ui.store";
+import { ThemeCreditsSummary, ThemeLabels } from "./ThemeCredits";
 
 /** Variable names wrap at the comma, not at their own hyphens. */
 const keepTogether = (text: string) => text.replace(/-/g, "\u2011");
@@ -296,6 +297,7 @@ export function ThemeImportPreview({
               .filter(Boolean)
               .join(" · ")}
           </div>
+          <ThemeLabels meta={meta} className="mt-1 flex flex-wrap gap-1" />
           {meta.description ? (
             <p className="mt-1 line-clamp-3 text-[0.6875rem] text-[var(--muted-foreground)]">{meta.description}</p>
           ) : null}
@@ -307,6 +309,9 @@ export function ThemeImportPreview({
               })}
             </p>
           ) : null}
+          <div className="mt-1">
+            <ThemeCreditsSummary name={pkg.name} meta={meta} />
+          </div>
         </div>
       </div>
 

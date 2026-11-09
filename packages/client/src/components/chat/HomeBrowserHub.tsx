@@ -2488,6 +2488,8 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                         data-component="HomeBrowserHub.ProfessorWidget"
                         data-mari-part="home-widget"
                       >
+                        {/* At the widget's top edge like the other widgets' titles (theme-tokens.css). */}
+                        <WindowTitle title={t("home.shortcuts.professorMari")} where="home-widget" />
                         {/* The card does not clip, so Mari can stand in its bottom padding (#7032). The text column
                             clips instead, reaching into the card's vertical padding so a large UI font is cut at
                             the card's padding edge, as before, rather than further in. */}
@@ -2495,7 +2497,6 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                           className="relative z-[2] -my-(--mari-home-professor-pad) flex min-h-0 min-w-0 flex-col items-start justify-center overflow-y-clip py-(--mari-home-professor-pad)"
                           data-home-professor-content
                         >
-                          <WindowTitle title={t("home.shortcuts.professorMari")} where="home-widget" />
                           <p
                             data-mari-part="home-widget-eyebrow"
                             className="mari-chrome-accent-icon mari-accent-animated text-[length:var(--mari-home-widget-eyebrow-size,0.625rem)] font-extrabold uppercase tracking-[0.16em]"

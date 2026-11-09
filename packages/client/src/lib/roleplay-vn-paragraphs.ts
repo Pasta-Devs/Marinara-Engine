@@ -27,7 +27,32 @@ export function splitRoleplayParagraphs(content: string, streaming = false): str
     if (tail) paragraphs.push(tail);
   }
 
-  return paragraphs;
+  return mergeSceneBreaks(paragraphs, streaming);
+}
+
+const SCENE_BREAK_RE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+
+/**
+ * A paragraph that is only a scene break (---, ***, ___) opens the next page instead of being a
+ * page of its own; at the end it closes the last one. While a reply streams in, a trailing break
+ * waits for the paragraph it belongs to.
+ */
+function mergeSceneBreaks(paragraphs: string[], streaming: boolean): string[] {
+  const merged: string[] = [];
+  let pending = "";
+  for (const paragraph of paragraphs) {
+    if (SCENE_BREAK_RE.test(paragraph)) {
+      pending = pending ? `${pending}\n\n${paragraph}` : paragraph;
+      continue;
+    }
+    merged.push(pending ? `${pending}\n${paragraph}` : paragraph);
+    pending = "";
+  }
+  if (pending && !streaming) {
+    if (merged.length > 0) merged[merged.length - 1] = `${merged[merged.length - 1]}\n\n${pending}`;
+    else merged.push(pending);
+  }
+  return merged;
 }
 
 /** A blank line completes a VN paragraph; fenced code stays together. */

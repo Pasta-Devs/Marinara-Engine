@@ -154,6 +154,34 @@ These replace values that were fixed in the app, and fall back to the stock look
 The app also publishes `--mari-top-bar-height` on `<html>` (the top bar's real height, which
 changes when a theme makes the bar taller), so a theme can pad its own layers below it.
 
+### Theme tokens added in v1.5
+
+For long replies and the bits that took internal classes before. Each does nothing until a theme
+sets it, except where a stock value is given.
+
+| Token                                                      | Used for                                                                                                                                                            |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mari-chat-column`                                       | The roleplay column that messages and the message box share (stock 58rem). The reader's own Chat settings → Chat width still wins                                   |
+| `--mari-message-measure`                                   | The longest line of message text, for example `68ch` (roleplay and conversation)                                                                                    |
+| `--mari-chat-line-height`                                  | Line height of message text in every chat mode (stock 1.5). Accessibility → Line spacing still wins                                                                 |
+| `--mari-dialogue-weight`                                   | The weight of quoted speech (`[data-mari-part="dialogue"]`), for example `400` so a long speech isn't a bold slab                                                   |
+| `--mari-dialogue-color`                                    | Now also shows when the theme's `--mari-chat-*` colours switch on the chat colour paint, and so do the colours a theme gives italics and links                      |
+| `--mari-paragraph-gap`                                     | Space between paragraphs instead of one blank line, for example `0.85em`                                                                                            |
+| `--mari-pinned-speaker`, `--mari-pinned-speaker-bg`        | `on`: the name line of a tall roleplay reply stays at the top of the chat while you scroll through it (desktop and tablet). The background defaults to the bubble's |
+| `--mari-pinned-speaker-top`, `--mari-pinned-speaker-bleed` | Where the pinned line sits (stock: the top edge of the visible chat) and how far it reaches past the text (stock 1rem)                                              |
+| `--mari-phone-avatar`                                      | `hidden`: phones drop the avatar column in roleplay, so the reply gets the whole width                                                                              |
+| `--mari-vn-fade`                                           | The fade at the foot of the VN text box while more of the paragraph is below (stock 1.75rem, `0` turns it off)                                                      |
+| `--mari-message-actions`, `--mari-swipe-counter`           | The colour of the tools under a message and of its "2 / 5" swipe counter                                                                                            |
+| `--mari-card-art-placeholder`                              | A whole `background` for Library cards with no picture, instead of the random-hue gradient                                                                          |
+| `--mari-chat-row-art-opacity`                              | The open chat's picture behind its row in the chats sidebar (stock 0.14; `0` hides it)                                                                              |
+| `--mari-chrome-accent`, `--mari-chrome-accent-gradient`    | Now also reach the surfaces that read the accent from `<html>` (the Convo / Roleplay / Game tabs, chrome borders)                                                   |
+| `--mari-focus-frame-outset`                                | How far the focus frame reaches past its surface (a length, at most 2rem; see Slots)                                                                                |
+| `--mari-scrim`                                             | The dim layer behind dialogs                                                                                                                                        |
+
+The app also publishes `--mari-center-x` on `<html>` while a theme has an ambient overlay: the
+horizontal centre of the chat pane, so a mask can keep the reading column clear whether the sidebars
+are open or not. `--mari-gutter-mask` uses it.
+
 ## Pictures
 
 A theme carries its pictures in `images` in the theme file, and its CSS uses them by name:
@@ -313,6 +341,12 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 | `[data-mari-part="avatar-placeholder"]`                                                | The empty avatar circle; `data-role` is `user` or `assistant`                                                                                                                                                                                                                                                                                   |
 | `[data-mari-part="header"][data-placement]`                                            | On roleplay messages: `outside` (name above the bubble) or `inside`                                                                                                                                                                                                                                                                             |
 | `[data-mari-part="home-widget-glow"]`                                                  | The glow behind a Home widget's header                                                                                                                                                                                                                                                                                                          |
+| `[data-mari-part="dialogue"]`                                                          | Quoted speech in a message                                                                                                                                                                                                                                                                                                                      |
+| `[data-mari-part="paragraph-gap"]`                                                     | The blank line between two paragraphs (it becomes a block when `--mari-paragraph-gap` is set)                                                                                                                                                                                                                                                   |
+| `[data-mari-part="vn-text"]`, `vn-counter`, `vn-nav`                                   | The VN text box (`data-more-below` while it scrolls on), the "3 / 9" counter and the Previous / Next buttons (`data-direction`)                                                                                                                                                                                                                 |
+| `[data-mari-part="card-art"]`                                                          | A Library card's picture; `data-placeholder` when it has none                                                                                                                                                                                                                                                                                   |
+| `[data-mari-part="chat-row-art"]`                                                      | The open chat's picture behind its sidebar row                                                                                                                                                                                                                                                                                                  |
+| `[data-mari-part="avatar-placeholder"]`                                                | Now in every place an empty avatar shows: conversation lines, chat rows (initials), the persona switcher, the message box and Game                                                                                                                                                                                                              |
 | `.ov-lrow__dot[data-status]`                                                           | A lorebook entry dot: `constant`, `selective` or `normal`                                                                                                                                                                                                                                                                                       |
 | `[data-chat-row]`                                                                      | A row in the chats sidebar; `data-selected="true"` on the open chat                                                                                                                                                                                                                                                                             |
 | `[data-chat-mode]`                                                                     | The chat surface, by mode                                                                                                                                                                                                                                                                                                                       |
@@ -328,9 +362,15 @@ These appear only while the active theme asks for them, so the stock page carrie
   `url("theme:frame.png") 24 fill / 24px / 6px stretch`, and paints it on whatever has the
   reader's attention: the newest reply, Ctrl+K, an open dialog and Home's Recent chats. Add
   `data-mari-focus-surface` to any other element (in a message template) to frame it too.
+  Since v1.5 the frame only reaches past its surface through `--mari-focus-frame-outset` (at most
+  2rem), and not at all when the value has `fill`, so it can't paint over the chat; an outset written
+  inside `--mari-focus-frame` is ignored. The frame is a `border-image`: a `border` shorthand later in
+  your CSS on the same element resets it, so set `border-color`, `border-width` and `border-style`
+  there instead.
 - **Window titles.** Setting `--mari-window-title` (any value, such as `on`) adds a title row at the
   top of each message, Home widget and message box: `[data-mari-part="window-title"]` with
-  `data-window` (`message`, `home-widget`, `composer`), holding `window-title-text` (the speaker,
+  `data-window` (`message`, `home-widget`, `composer`, and since v1.5 `narration`, `omnibar`,
+  `window` and `dialog`), holding `window-title-text` (the speaker,
   the widget title, or "Message") and an empty `window-buttons` for your `_ [] X` decorations.
 - **Ambient behind cards.** `--mari-ambient-placement: behind-cards` moves the ambient layer under
   messages, Home widgets and panels (still over the backdrop) instead of over the chat.
@@ -444,6 +484,22 @@ Export writes one theme as one JSON file:
 }
 ```
 
+Credits (v1.5) go in the same file and show in the theme list (the (i) button) and the import
+preview:
+
+```json
+{
+  "license": "CC BY 4.0",
+  "labels": ["High legibility", "No motion"],
+  "credits": [{ "what": "Backdrops", "by": "Jane Doe", "license": "CC BY 4.0", "url": "https://example.com" }],
+  "fonts": [{ "family": "My Display", "src": "…", "license": "OFL-1.1", "credit": "Fraunces by Undercase Type" }]
+}
+```
+
+`labels` are up to four short tags (40 characters each) shown under the theme's name. A font or
+credit licensed `OFL-1.1` links to the SIL Open Font License text the app ships. Pictures larger
+than 1920 px wide (or 2560 px on the long side) are scaled down when the theme is imported.
+
 Only `kind`, `name` and `css` are required. `templates` is described under Message template. `settings` keys: `colorScheme` (`dark`, `light`, `time` or `system`), `dayStart`, `nightStart`, `visualStyle`, `accent`,
 `accentLight`, `background`, `backgroundLight`, `fontFamily`, `accentPulse`, `fontSize` (Display
 Size in px: 12, 14, 16, 17, 19, 22, 26, 30 or 34) and `reduceMotion` (true or false). Importing shows a
@@ -511,6 +567,10 @@ The import preview tells the user when a theme tries to change any of these.
   found on a pseudo-element, the tabs and icons get their plates as with `--mari-top-bar-bg`.
 - Contrast over art: when a picture is behind text, the guard reads the picture's colours instead
   of skipping the check.
+- Chat text (v1.5): the guard samples the last few lines on screen in the chat and switches the theme
+  off when it paints over half of them (a pseudo-element cover, a solid ambient behind the cards, or a
+  focus frame whose outset spills over the text). A line the theme's own layout moves off screen
+  doesn't count, and neither does a name line the theme pins over the reply.
 - Text a theme adds with `content:` is shown in the import preview. Added text in the chat or the
   message box that asks for keys, passwords or sign-ins switches the theme off.
 - "Keep this theme?" survives a reload or a closed tab: unanswered means going back. Hovering or
@@ -518,6 +578,15 @@ The import preview tells the user when a theme tries to change any of these.
   an Escape that closes Ctrl+K, a menu or a dialog doesn't count.
 
 ## Changes
+
+- **v1.5** (theming round 5, long replies): `--mari-chat-column`, `--mari-message-measure`,
+  `--mari-chat-line-height`, `--mari-dialogue-weight`, `--mari-paragraph-gap`, pinned speaker,
+  `--mari-phone-avatar`, VN text box parts and fade, `--mari-message-actions`,
+  `--mari-swipe-counter`, `--mari-card-art-placeholder`, `--mari-chat-row-art-opacity`,
+  `--mari-focus-frame-outset`, `--mari-scrim` and `--mari-center-x`; dialogue, paragraph-gap,
+  card-art and chat-row-art parts and avatar placeholders everywhere; window titles on narration,
+  Ctrl+K, windows and dialogs; the chrome accent reaches root-scoped chrome; guard checks chat text;
+  theme credits, licence and labels, with the OFL text shipped; big pictures shrink on import.
 
 - **v1.4** (theming round 4): guard v4 (layered backgrounds, painted area, strict top bar and
   message box, pseudo-element covers); `fontSize` and `reduceMotion` in theme files and the

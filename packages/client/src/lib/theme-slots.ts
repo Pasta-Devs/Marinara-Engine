@@ -3,7 +3,8 @@
 // for them, so the stock page carries no extra elements.
 //
 // Window titles: a theme that sets --mari-window-title (any value, e.g. `on`) gets a real title row
-// at the top of each message bubble, Home widget and message box:
+// at the top of each message bubble, Home widget and message box, and (round 5) the Game narration
+// box, Ctrl+K, windows such as Chat settings, and dialogs:
 //   [data-mari-part="window-title"]          the row (hidden from screen readers)
 //     [data-mari-part="window-title-text"]   who wrote it / the widget's title / "Message"
 //     [data-mari-part="window-buttons"]      empty, for the theme's _ [] X decorations
@@ -23,7 +24,13 @@ export function useWindowTitles() {
 }
 
 /** The window-title row, or nothing when the theme doesn't ask for it. */
-export function WindowTitle({ title, where }: { title?: ReactNode; where: "message" | "home-widget" | "composer" }) {
+export function WindowTitle({
+  title,
+  where,
+}: {
+  title?: ReactNode;
+  where: "message" | "home-widget" | "composer" | "narration" | "omnibar" | "window" | "dialog";
+}) {
   const on = useWindowTitles();
   const { t } = useTranslation();
   if (!on) return null;

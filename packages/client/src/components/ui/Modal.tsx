@@ -19,6 +19,7 @@ import { registerModalOverlay, type ModalOverlayRegistration } from "../../lib/m
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { WindowTitle } from "../../lib/theme-slots";
 
 interface ModalProps {
   open: boolean;
@@ -238,7 +239,7 @@ export function Modal({
       {!modeless && (
         <div
           data-backdrop-dismiss-surface="true"
-          className="mari-modal-backdrop absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+          className="mari-modal-backdrop absolute inset-0 bg-[var(--mari-scrim)] backdrop-blur-[2px]"
           style={{
             opacity: isEntering ? 1 : 0,
             transition: "opacity 150ms ease-out",
@@ -263,6 +264,7 @@ export function Modal({
           transition: "opacity 150ms ease-out, transform 150ms ease-out",
         }}
       >
+        <WindowTitle title={localizedTitle} where="dialog" />
         {/* Header */}
         <div className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER}`}>
           {titleSlot ?? <h2 className={NEUTRAL_PANEL_TITLE}>{localizedTitle}</h2>}

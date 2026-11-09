@@ -81,7 +81,11 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
             )}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-foreground/10 text-[0.75rem] font-semibold text-foreground/45">
+          <div
+            className="flex h-full w-full items-center justify-center rounded-full bg-foreground/10 text-[0.75rem] font-semibold text-foreground/45"
+            data-mari-part="avatar-placeholder"
+            data-role={activePersona ? "user" : "assistant"}
+          >
             {avatarInitial(activePersona?.name ?? activeCharacterName)}
           </div>
         )}

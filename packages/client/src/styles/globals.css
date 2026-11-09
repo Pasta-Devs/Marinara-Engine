@@ -327,7 +327,10 @@
     color-mix(in srgb, var(--marinara-chat-chrome-text) 58%, transparent)
   );
   --marinara-chat-chrome-panel-scrollbar: color-mix(in srgb, var(--marinara-chat-chrome-accent) 22%, transparent);
-  --marinara-chat-message-action-text: color-mix(in srgb, var(--marinara-chat-chrome-text) 40%, transparent);
+  --marinara-chat-message-action-text: var(
+    --mari-message-actions,
+    color-mix(in srgb, var(--marinara-chat-chrome-text) 40%, transparent)
+  );
   --marinara-chat-message-action-text-hover: color-mix(in srgb, var(--marinara-chat-chrome-text) 70%, transparent);
   --marinara-chat-message-action-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-text) 10%, transparent);
   --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--marinara-chat-chrome-accent) 9%, transparent);
@@ -6687,7 +6690,7 @@ strong {
      side of the column (AppShell sets it), so a pane too narrow for both narrows the column instead of
      squeezing the panel to a sliver. */
   --mari-roleplay-message-column-width: min(
-    var(--mari-roleplay-custom-column-width, 58rem),
+    var(--mari-roleplay-custom-column-width, var(--mari-chat-column, 58rem)),
     100cqw - 2 * var(--tracker-panel-column-room, 0px)
   );
   --mari-roleplay-row-gutter: clamp(0.25rem, 1.5vw, 1.5rem);

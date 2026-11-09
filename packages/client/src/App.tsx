@@ -171,8 +171,8 @@ function getRecoveryChromeStyle(): CSSProperties {
     "--ring": accent,
     "--marinara-app-accent-solid": accent,
     "--marinara-app-accent-gradient": accentGradient,
-    "--marinara-chat-chrome-accent": accent,
-    "--marinara-chat-chrome-accent-gradient": accentGradient,
+    "--marinara-chat-chrome-accent": `var(--mari-chrome-accent, ${accent})`,
+    "--marinara-chat-chrome-accent-gradient": `var(--mari-chrome-accent-gradient, ${accentGradient})`,
     "--marinara-chat-chrome-text": chromeText,
   } as CSSProperties;
 }
@@ -476,8 +476,8 @@ function applyAppAccentVariables({
   setRootVar("--glow-primary", getAccentGlow(surfaceAccent, theme));
   setRootVar("--marinara-app-accent-solid", accent);
   setRootVar("--marinara-app-accent-gradient", gradient);
-  setRootVar("--marinara-chat-chrome-accent", accent);
-  setRootVar("--marinara-chat-chrome-accent-gradient", gradient);
+  setRootVar("--marinara-chat-chrome-accent", `var(--mari-chrome-accent, ${accent})`);
+  setRootVar("--marinara-chat-chrome-accent-gradient", `var(--mari-chrome-accent-gradient, ${gradient})`);
   if (updateCursor) setAccentCursorVariable(root, accent, theme);
 }
 
@@ -1079,8 +1079,8 @@ export function App() {
         setRootVar("--ring", liveAccent);
         setRootVar("--marinara-app-accent-solid", liveAccent);
         setRootVar("--marinara-app-accent-gradient", liveGradient);
-        setRootVar("--marinara-chat-chrome-accent", liveAccent);
-        setRootVar("--marinara-chat-chrome-accent-gradient", liveGradient);
+        setRootVar("--marinara-chat-chrome-accent", `var(--mari-chrome-accent, ${liveAccent})`);
+        setRootVar("--marinara-chat-chrome-accent-gradient", `var(--mari-chrome-accent-gradient, ${liveGradient})`);
       }
       setAccentModeDataset();
     };

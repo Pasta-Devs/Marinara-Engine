@@ -81,7 +81,9 @@ function Avatar({ member }: { member: OvGamePaneMember }) {
       <img src={member.avatarUrl} alt="" style={getAvatarCropStyle(member.avatarCrop)} />
     </span>
   ) : (
-    <span className="ov-gpane__av">{avatarInitial(member.name)}</span>
+    <span className="ov-gpane__av" data-mari-part="avatar-placeholder" data-role="assistant">
+      {avatarInitial(member.name)}
+    </span>
   );
 }
 

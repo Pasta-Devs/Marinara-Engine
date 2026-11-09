@@ -84,6 +84,9 @@ interface SamplePoint {
   y: number;
   /** The control under the point; a hit must land on it (or inside it). Null = anywhere in the area. */
   control: Element | null;
+  /** Sample this far into the control's box instead of its centre (long message text, which may be
+   *  taller than the screen). */
+  offset?: { x: number; y: number };
 }
 
 // ── Colours ──
@@ -735,8 +738,8 @@ function pointFor(point: SamplePoint) {
   if (control) {
     const box = control.getBoundingClientRect();
     if (box.width < 4 || box.height < 4) return null;
-    x = box.left + box.width / 2;
-    y = box.top + box.height / 2;
+    x = box.left + (point.offset ? Math.min(point.offset.x, box.width / 2) : box.width / 2);
+    y = box.top + (point.offset ? Math.min(point.offset.y, box.height - 4) : box.height / 2);
   }
   if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return null;
   return { x, y };
@@ -846,6 +849,9 @@ function outsetCovers(
     }
     if (elements.length > 120) break;
   }
+  if (document.documentElement.hasAttribute("data-mari-focus-frame")) {
+    for (const element of Array.from(document.querySelectorAll(FOCUS_SURFACES)).slice(0, 30)) elements.push(element);
+  }
   for (const element of elements) {
     const style = getComputedStyle(element);
     if (!style.borderImageSource || style.borderImageSource === "none") continue;
@@ -944,8 +950,9 @@ const GENTLE_BLENDS = new Set(["normal", "screen", "overlay", "soft-light", "mul
 function ambientTooSolid() {
   const ambient = document.querySelector('[data-mari-part="ambient"]');
   if (!ambient) return false;
-  // Placed behind the cards it's part of the backdrop, not a layer over the text.
-  if (document.documentElement.hasAttribute("data-mari-ambient-behind")) return false;
+  // Placed behind the cards it's part of the backdrop, not a layer over the text, but a solid one
+  // blanks the whole chat area round the cards (names and times sit on it), so that still counts.
+  const behind = document.documentElement.hasAttribute("data-mari-ambient-behind");
   const style = getComputedStyle(ambient);
   if (style.display === "none" || style.visibility !== "visible") return false;
   const opacity = Number.parseFloat(style.opacity || "1") * filterOpacity(style.filter);
@@ -964,9 +971,62 @@ function ambientTooSolid() {
     if (!layer.content || layer.content === "none" || layer.content === "normal") continue;
     coverage = Math.max(coverage, solid(layer) * Number.parseFloat(layer.opacity || "1") * opacity);
   }
+  if (behind) return blend === "normal" && coverage >= 0.9;
   if (!GENTLE_BLENDS.has(blend)) return coverage > 0.5;
   if (blend !== "normal") return false;
   return coverage >= 0.6;
+}
+
+/** Surfaces the focus-frame slot paints (theme-tokens.css), checked for outsets like a theme's own border images. */
+const FOCUS_SURFACES = [
+  '[data-mari-part="message"][data-latest] .mari-message-bubble',
+  '[data-mari-part="message"][data-latest]:not(:has(.mari-message-bubble))',
+  '[data-component="GlobalOmnibar.Panel"]',
+  '[role="dialog"]',
+  '[data-home-widget-id="recent"] [data-mari-part="home-widget"]',
+  "[data-mari-focus-surface]",
+].join(",");
+
+/**
+ * Round 5: the chat itself. A point on the first line of each of the last few messages on screen;
+ * whatever paints over them (an overlay, a fixed strip, a border-image outset) makes the chat
+ * unreadable even though the bars still work.
+ */
+function chatTextPoints(): SamplePoint[] {
+  const points: SamplePoint[] = [];
+  const contents = Array.from(document.querySelectorAll(".mari-message-content")).slice(-8).reverse();
+  for (const content of contents) {
+    if (content.closest('[aria-hidden="true"], [inert]')) continue;
+    const rect = content.getBoundingClientRect();
+    if (rect.width < 24 || rect.height < 8 || !onScreen(rect)) continue;
+    // A line near the top of the part that's on screen (a long reply may start far above it).
+    const scroller = content.closest("[data-chat-scroll]")?.getBoundingClientRect();
+    // A name line the theme pins to the top of the reply (--mari-pinned-speaker) covers text by design.
+    const pinned = content.closest(".mari-rp-bubble")?.querySelector(".ov-rpmsg__head")?.getBoundingClientRect();
+    const visibleTop = Math.max(
+      rect.top,
+      scroller?.top ?? 0,
+      0,
+      pinned && pinned.bottom > rect.top ? pinned.bottom : 0,
+    );
+    const y = Math.min(visibleTop + 12, rect.top + rect.height / 2, rect.bottom - 4);
+    if (y < visibleTop - 1 || y > window.innerHeight) continue;
+    const x = rect.left + Math.min(rect.width / 2, 160);
+    points.push({ x, y, control: content, offset: { x: x - rect.left, y: y - rect.top } });
+    if (points.length >= 4) break;
+  }
+  return points;
+}
+
+/** Whether a chat sample point is inside the transcript's visible box (not scrolled under the top bar). */
+function chatPointInView(host: Element, point: SamplePoint) {
+  const at = pointFor(point);
+  if (!at) return false;
+  const inside = (box: DOMRect) => at.x >= box.left && at.x <= box.right && at.y >= box.top && at.y <= box.bottom;
+  if (!inside(host.getBoundingClientRect())) return false;
+  // Text that has scrolled up under the (protected) top bar is meant to be covered by it.
+  const bar = document.querySelector('[data-component="TopBar"]');
+  return !(bar && inside(bar.getBoundingClientRect()));
 }
 
 /**
@@ -1050,6 +1110,12 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
   if (targets.length === 0) return [];
   const hosts = overlayHosts(targets.map(({ element }) => element));
   const textElements = chatTextElements();
+  const chatPoints = chatTextPoints();
+  const chatHost = chatPoints[0]?.control?.closest("[data-chat-scroll], main") ?? null;
+  let chatSeenBefore: boolean[] = [];
+  let chatSeenAfter: boolean[] = [];
+  let chatOnScreen: boolean[] = [];
+  let chatInViewBefore: boolean[] = [];
 
   // The protected layer reveals an auto-hidden top bar and stops transitions while this attribute is set.
   // The page is measured as it is first (so rules that only kick in after a delay, which restart
@@ -1090,6 +1156,10 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
           const snap = before.get(element)!;
           snap.hitOk = snap.hitOk.map((ok, index) => ok && seen[index] !== false);
         }
+        if (chatHost) {
+          chatSeenBefore = seeTest(chatHost, chatPoints);
+          chatInViewBefore = chatPoints.map((point) => chatPointInView(chatHost, point));
+        }
       } finally {
         delete root.dataset.mariGuardPierce;
       }
@@ -1104,10 +1174,15 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
         const snap = after.get(element)!;
         snap.hitOk = snap.hitOk.map((ok, index) => ok && seen[index] !== false);
       }
+      if (chatHost) {
+        chatSeenAfter = seeTest(chatHost, chatPoints);
+        chatOnScreen = chatPoints.map((point) => chatPointInView(chatHost, point));
+      }
     } finally {
       delete root.dataset.mariGuardPierce;
     }
-    outset = outsetCovers(active, targets, points);
+    if (chatHost) points.set(chatHost, chatPoints);
+    outset = outsetCovers(active, chatHost ? [...targets, { area: "chat", element: chatHost }] : targets, points);
   } finally {
     delete root.dataset.mariGuardMeasure;
     if (tempPlates) delete root.dataset.mariTopBarArt;
@@ -1121,6 +1196,14 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
     problems.push({ area: "chat", kind: "fake-text", text: text.slice(0, 80) });
     break;
   }
+  // The chat's text: painted over at half the sampled lines that were readable without the theme.
+  const chatReadable = chatSeenBefore.filter((seen, index) => seen && chatInViewBefore[index]).length;
+  // A line the theme's own layout moved off screen (a narrower column, taller lines) isn't painted over.
+  const chatLost = chatSeenBefore.filter(
+    (seen, index) => seen && chatInViewBefore[index] && chatSeenAfter[index] === false && chatOnScreen[index],
+  ).length;
+  if (outset.has("chat") || (chatReadable > 0 && chatLost * 2 >= chatReadable))
+    problems.push({ area: "chat", kind: "unreadable" });
   for (const { area, element } of targets) {
     const was = before.get(element)!;
     const now = after.get(element)!;

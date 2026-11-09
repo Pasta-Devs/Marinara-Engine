@@ -113,10 +113,11 @@
 :root[data-mari-app-backdrop] {
   --mari-stage-empty-bg: transparent;
 }
+/* The phone and small-tablet Library sheet floats over the page, so it keeps its own paint. */
 :root[data-mari-app-backdrop]
   .mari-app
   :is(
-    .mari-app-background-paint:not([data-center-page]),
+    .mari-app-background-paint:not([data-center-page], .mari-mobile-detail-sheet),
     [data-mari-part="home"],
     .rpg-chat-area,
     .mari-chat-area[data-chat-mode="conversation"],
@@ -456,28 +457,47 @@
   ) !important;
 }
 :root[data-mari-min-ui-text] .text-\[0\.5rem\] {
-  font-size: max(0.5rem, var(--mari-min-ui-text)) !important;
+  font-size: max(0.5rem, var(--mari-min-ui-text));
 }
 :root[data-mari-min-ui-text] .text-\[0\.5625rem\] {
-  font-size: max(0.5625rem, var(--mari-min-ui-text)) !important;
+  font-size: max(0.5625rem, var(--mari-min-ui-text));
+}
+:root[data-mari-min-ui-text] .text-\[0\.6rem\] {
+  font-size: max(0.6rem, var(--mari-min-ui-text));
 }
 :root[data-mari-min-ui-text] .text-\[0\.625rem\] {
-  font-size: max(0.625rem, var(--mari-min-ui-text)) !important;
+  font-size: max(0.625rem, var(--mari-min-ui-text));
+}
+:root[data-mari-min-ui-text] .text-\[0\.65rem\] {
+  font-size: max(0.65rem, var(--mari-min-ui-text));
 }
 :root[data-mari-min-ui-text] .text-\[0\.6875rem\] {
-  font-size: max(0.6875rem, var(--mari-min-ui-text)) !important;
+  font-size: max(0.6875rem, var(--mari-min-ui-text));
 }
 :root[data-mari-min-ui-text] .text-\[0\.75rem\] {
-  font-size: max(0.75rem, var(--mari-min-ui-text)) !important;
+  font-size: max(0.75rem, var(--mari-min-ui-text));
+}
+:root[data-mari-min-ui-text] .text-\[9px\] {
+  font-size: max(9px, var(--mari-min-ui-text));
 }
 :root[data-mari-min-ui-text] .text-\[10px\] {
-  font-size: max(10px, var(--mari-min-ui-text)) !important;
+  font-size: max(10px, var(--mari-min-ui-text));
 }
 :root[data-mari-min-ui-text] .text-\[11px\] {
-  font-size: max(11px, var(--mari-min-ui-text)) !important;
+  font-size: max(11px, var(--mari-min-ui-text));
 }
 :root[data-mari-min-ui-text] .text-xs {
-  font-size: max(var(--text-xs), var(--mari-min-ui-text)) !important;
+  font-size: max(var(--text-xs), var(--mari-min-ui-text));
+}
+/* Round 5: the overhaul's own small type too (tab labels, mode counts, swipe counter, Game party
+   pane, the chat-mode switch). No !important: these sit in the app's layer, so a theme's own size
+   for any of them still wins, larger or smaller. */
+:root[data-mari-min-ui-text] :is(.ov-tab__label, .ov-rpf__count) {
+  font-size: max(1em, var(--mari-min-ui-text));
+}
+:root[data-mari-min-ui-text] :is(.ov-mode-count, .ov-gpane__label),
+:root[data-mari-min-ui-text][data-overhaul="on"] [data-component="ChatSidebar"] .mari-chrome-segmented__button {
+  font-size: max(0.6875rem, var(--mari-min-ui-text));
 }
 :root[data-mari-user-avatar-image] [data-mari-part="avatar-placeholder"][data-role="user"] {
   background: var(--mari-user-avatar-image) center / cover no-repeat !important;
@@ -485,12 +505,21 @@
 :root[data-mari-user-avatar-image] [data-mari-part="avatar-placeholder"][data-role="user"] > svg {
   display: none;
 }
+/* Placeholders that show an initial instead of an icon (round 5: conversation mode, the persona
+   button, the chat list) hide it under the picture. */
+:root[data-mari-user-avatar-image] [data-mari-part="avatar-placeholder"][data-role="user"] {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
 
 /* ─── Slots v1.2 (theming round 4) ───
    Focus frame: --mari-focus-frame takes a whole `border-image` value (source slice / width / outset
    repeat, e.g. url("theme:frame.png") 24 fill / 24px / 6px stretch) and the app paints it on the
    surface that has the reader's attention: the newest reply, Ctrl+K, an open dialog and the Recent
-   chats widget on Home. Mark any other element with data-mari-focus-surface to give it the frame. */
+   chats widget on Home. Mark any other element with data-mari-focus-surface to give it the frame.
+   Round 5: the frame reaches past the surface only through --mari-focus-frame-outset (a length,
+   at most 2rem), and not at all when the value fills its middle, so it can't paint over the chat;
+   an outset written inside --mari-focus-frame is ignored. */
 :root[data-mari-focus-frame]
   :is(
     [data-mari-part="message"][data-latest] .mari-message-bubble,
@@ -501,6 +530,18 @@
     [data-mari-focus-surface]
   ) {
   border-image: var(--mari-focus-frame);
+  border-image-outset: min(var(--mari-focus-frame-outset, 0px), 2rem);
+}
+:root[data-mari-focus-frame][data-mari-focus-frame-fill]
+  :is(
+    [data-mari-part="message"][data-latest] .mari-message-bubble,
+    [data-mari-part="message"][data-latest]:not(:has(.mari-message-bubble)),
+    [data-component="GlobalOmnibar.Panel"],
+    [role="dialog"],
+    [data-home-widget-id="recent"] [data-mari-part="home-widget"],
+    [data-mari-focus-surface]
+  ) {
+  border-image-outset: 0;
 }
 
 /* Window titles (--mari-window-title, lib/theme-slots.ts): the row is a plain flex line; the theme
@@ -511,8 +552,11 @@
   gap: 0.5rem;
   min-width: 0;
 }
-[data-home-professor-content] > [data-mari-part="window-title"] {
-  align-self: stretch;
+[data-component="HomeBrowserHub.ProfessorWidget"]:has(> [data-mari-part="window-title"]) {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+[data-component="HomeBrowserHub.ProfessorWidget"] > [data-mari-part="window-title"] {
+  grid-column: 1 / -1;
 }
 [data-mari-part="window-title-text"] {
   min-width: 0;
@@ -525,16 +569,17 @@
 /* Ambient layer extras: --mari-ambient-mask (a whole `mask` value) shapes where it shows, and
    --mari-gutter-mask is a ready-made one that keeps the middle of the window clear (rain in the
    side gutters, not over the text): `--mari-ambient-mask: var(--mari-gutter-mask)`. Its clear
-   half-width is --mari-gutter-clear (stock 26rem). --mari-ambient-placement: behind-cards puts the
+   half-width is --mari-gutter-clear (stock 26rem), centred on the chat pane (--mari-center-x, which
+   the app publishes while a theme has an ambient layer). --mari-ambient-placement: behind-cards puts the
    layer under messages, Home widgets and panels (over the backdrop) instead of over the chat. */
 :root {
   --mari-gutter-mask: linear-gradient(
     to right,
     #000 0,
-    #000 calc(50% - var(--mari-gutter-clear, 26rem) - 4rem),
-    transparent calc(50% - var(--mari-gutter-clear, 26rem)),
-    transparent calc(50% + var(--mari-gutter-clear, 26rem)),
-    #000 calc(50% + var(--mari-gutter-clear, 26rem) + 4rem),
+    #000 calc(var(--mari-center-x, 50%) - var(--mari-gutter-clear, 26rem) - 4rem),
+    transparent calc(var(--mari-center-x, 50%) - var(--mari-gutter-clear, 26rem)),
+    transparent calc(var(--mari-center-x, 50%) + var(--mari-gutter-clear, 26rem)),
+    #000 calc(var(--mari-center-x, 50%) + var(--mari-gutter-clear, 26rem) + 4rem),
     #000 100%
   );
 }
@@ -549,11 +594,100 @@
 :root[data-mari-ambient-behind]
   .mari-app
   :is(
-    .mari-app-background-paint:not([data-center-page]),
+    .mari-app-background-paint:not([data-center-page], .mari-mobile-detail-sheet),
     [data-mari-part="home"],
     .rpg-chat-area,
     .mari-chat-area[data-chat-mode="conversation"],
     [data-chat-mode="game"].mari-card-css
   ) {
   background: transparent !important;
+}
+
+/* ─── Long replies (theming round 5, hooks v1.5) ───
+   Every token here is off until a theme sets it (CustomThemeInjector puts a data-mari-* flag on
+   <html>), so the stock look doesn't change.
+   --mari-chat-column        the roleplay column that messages and the message box share (stock 58rem;
+                             Chat settings > Chat width still wins when the reader set one)
+   --mari-message-measure    the longest line of message text, e.g. 68ch (roleplay and conversation)
+   --mari-chat-line-height   message line height (stock 1.5; Accessibility > Line spacing still wins)
+   --mari-dialogue-weight    weight of quoted speech ([data-mari-part="dialogue"]), e.g. 400 or 600
+   --mari-paragraph-gap      space between paragraphs instead of one blank line, e.g. 0.85em
+   --mari-pinned-speaker     `on`: the name line stays at the top of a tall reply while it scrolls;
+                             --mari-pinned-speaker-bg paints behind it (stock: the bubble colour)
+   --mari-phone-avatar       `hidden`: phones drop the avatar column in roleplay so text gets the width */
+:root[data-mari-message-measure] :is([data-chat-mode="roleplay"], [data-chat-mode="conversation"]) .mari-message-content {
+  max-width: var(--mari-message-measure);
+}
+/* Roleplay text takes --mari-chat-line-height inline (ChatMessage); conversation lines keep their own
+   leading class, so they take it here. */
+:root[data-mari-chat-line-height] [data-chat-mode="conversation"] .mari-message-content {
+  line-height: var(--mari-chat-line-height);
+}
+:root[data-mari-dialogue-weight] [data-mari-part="dialogue"],
+:root[data-mari-dialogue-weight]
+  .mari-html-content
+  :is(strong, span):is(.mari-fallback-dialogue, .mari-character-color)[style^="color:"] {
+  font-weight: var(--mari-dialogue-weight);
+}
+/* The theme's dialogue colour shows even when its --mari-chat-* colours switch on the chat-colour
+   paint (which fills all message text with the chat text colour), and so do the colours a theme
+   gives italics and links. A preset's text gradient keeps its own paint. */
+:root[data-mari-dialogue-color][data-chat-widget-apply-colors="true"]
+  :is(.mari-chat-style-surface, .mari-chat-style-conversation)
+  :is([data-mari-part="dialogue"][style]:not(.mari-character-color), .mari-html-content .mari-fallback-dialogue) {
+  -webkit-text-fill-color: currentColor;
+}
+:root[data-custom-theme][data-chat-widget-apply-colors="true"]:not([data-chat-widget-colors~="text"])
+  .mari-message-content
+  :is(em, i, a) {
+  -webkit-text-fill-color: currentColor;
+}
+:root[data-mari-paragraph-gap] [data-mari-part="paragraph-gap"] {
+  display: block;
+  height: var(--mari-paragraph-gap);
+  white-space: normal;
+}
+/* The bubble clips without becoming a scroll box, so the name line can stick inside it. The sticky
+   offset counts from inside the transcript's top padding (the room ChatRoleplaySurface keeps for the
+   chat's button row), so minus that padding parks the line at the very top of the visible chat. */
+:root[data-mari-pinned-speaker] [data-chat-mode="roleplay"] .mari-messages-scroll {
+  /* The padding token doesn't inherit (globals.css), so pass it down under another name. */
+  --mari-pinned-speaker-auto-top: calc(-1 * var(--mari-roleplay-content-padding-top, 16px));
+}
+:root[data-mari-pinned-speaker] [data-chat-mode="roleplay"] .mari-rp-bubble {
+  overflow: clip;
+}
+:root[data-mari-pinned-speaker] [data-chat-mode="roleplay"] .mari-rp-bubble .ov-rpmsg__head {
+  position: sticky;
+  top: var(--mari-pinned-speaker-top, var(--mari-pinned-speaker-auto-top, 0px));
+  z-index: 3;
+  margin-inline: calc(-1 * var(--mari-pinned-speaker-bleed, 1rem));
+  padding-inline: var(--mari-pinned-speaker-bleed, 1rem);
+  background: var(--mari-pinned-speaker-bg, var(--mari-chat-surface-paint, var(--mari-rp-bubble-bg)));
+}
+@media (max-width: 767px) {
+  :root[data-mari-phone-avatar="hidden"]
+    [data-chat-mode="roleplay"]
+    .mari-roleplay-message-row
+    > :is(.mari-message-avatar, .mari-roleplay-avatar-spacer) {
+    display: none;
+  }
+  :root[data-mari-phone-avatar="hidden"] [data-chat-mode="roleplay"] .mari-roleplay-message-body {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* VN text box (theming round 5): a fade at the foot while more of the paragraph is below. Parts:
+   [data-mari-part="vn-text"] (the box, [data-more-below] while it scrolls on), "vn-counter" (the
+   "3 / 9" between the buttons) and "vn-nav" (Previous / Next, data-direction). --mari-vn-fade sets
+   the fade's height (0 turns it off). */
+[data-mari-part="vn-text"][data-more-below] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--mari-vn-fade, 1.75rem)), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--mari-vn-fade, 1.75rem)), transparent);
+}
+
+/* The selected chat's picture behind its row in the chats sidebar (round 5): stock 14 %. */
+[data-mari-part="chat-row-art"] {
+  opacity: var(--mari-chat-row-art-opacity, 0.14);
 }

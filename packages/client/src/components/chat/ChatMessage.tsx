@@ -1416,6 +1416,8 @@ function highlightDialogue(
     result.push(
       <DialogueTag
         key={`d${key++}`}
+        // Themes style speech through this part (--mari-dialogue-weight, theme-tokens.css).
+        data-mari-part="dialogue"
         // A character's or persona's own colour is kept; the default one follows --mari-dialogue-color.
         style={
           dialogueColor
@@ -2224,11 +2226,18 @@ export const ChatMessage = memo(function ChatMessage({
   const messageTextStyle = useMemo<React.CSSProperties>(
     () => ({
       fontSize: `var(--mari-chat-font-size, ${chatFontSize}px)`,
-      lineHeight: 1.5,
+      // Themes set reading line height with --mari-chat-line-height; Accessibility > Line spacing still wins.
+      lineHeight: "var(--mari-chat-line-height, 1.5)",
       ...(chatFontColor ? { color: `var(--mari-chat-resolved-text, ${chatFontColor})` } : {}),
       ...textStrokeStyle,
     }),
     [chatFontSize, chatFontColor, textStrokeStyle],
+  );
+  // The bubble around the text keeps the stock line height, so --mari-chat-line-height spaces the
+  // reply's lines without stretching its name row.
+  const bubbleTextStyle = useMemo<React.CSSProperties>(
+    () => ({ ...messageTextStyle, lineHeight: "1.5" }),
+    [messageTextStyle],
   );
   const roleplayAvatarScaleStyle = useMemo<React.CSSProperties>(
     () => ({ "--roleplay-avatar-scale": roleplayAvatarScale }) as React.CSSProperties,
@@ -3312,12 +3321,30 @@ export const ChatMessage = memo(function ChatMessage({
     }
   }, [onVisualNovelParagraphCount, visualNovel, vnParagraphs.length]);
 
+  // No index (or -1) shows the last paragraph.
   const activeVnParagraphIndex =
-    visualNovelParagraphIndex != null
+    visualNovelParagraphIndex != null && visualNovelParagraphIndex >= 0
       ? Math.max(0, Math.min(vnParagraphs.length - 1, visualNovelParagraphIndex))
       : vnParagraphs.length - 1;
 
   const text = visualNovel ? (vnParagraphs.length > 0 ? (vnParagraphs[activeVnParagraphIndex] ?? "") : "") : fullText;
+  // VN text box: a fade at its foot while more of the paragraph is below (theme-tokens.css).
+  const vnTextRef = useRef<HTMLDivElement>(null);
+  const [vnMoreBelow, setVnMoreBelow] = useState(false);
+  const updateVnMoreBelow = useCallback(() => {
+    const box = vnTextRef.current;
+    setVnMoreBelow(!!box && box.scrollHeight - box.scrollTop - box.clientHeight > 2);
+  }, []);
+  useEffect(() => {
+    const box = vnTextRef.current;
+    if (!visualNovel || !box) return;
+    updateVnMoreBelow();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateVnMoreBelow);
+    observer.observe(box);
+    if (box.firstElementChild) observer.observe(box.firstElementChild);
+    return () => observer.disconnect();
+  }, [visualNovel, text, updateVnMoreBelow]);
   const isHtmlContent = containsChatHtml(text);
   const htmlScopeClass = useMemo(() => {
     const suffix = message.id.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -4090,8 +4117,12 @@ export const ChatMessage = memo(function ChatMessage({
               )}
             </div>
             <div
+              ref={vnTextRef}
               className="mari-message-content max-h-[min(30dvh,18rem)] overflow-y-auto overscroll-contain whitespace-pre-wrap break-words pr-1"
               style={messageTextStyle}
+              data-mari-part="vn-text"
+              data-more-below={vnMoreBelow || undefined}
+              onScroll={updateVnMoreBelow}
               tabIndex={0}
               role="region"
               aria-label={localizeUi("chat.roleplayVn.currentParagraph")}
@@ -4663,7 +4694,7 @@ export const ChatMessage = memo(function ChatMessage({
               )}
               style={
                 {
-                  ...messageTextStyle,
+                  ...bubbleTextStyle,
                   // Pass the per-character/default color as a var rather than
                   // an inline `background` so card CSS can override the bubble
                   // (inline styles beat every selector). Applied by `.mari-rp-bubble`.
@@ -5027,7 +5058,7 @@ export const ChatMessage = memo(function ChatMessage({
               isHiddenFromAI && cn("ring-1 saturate-75", MESSAGE_CHROME_RING_CLASS),
               editing && "w-full",
             )}
-            style={{ ...messageTextStyle, ...(boxBgColor ? { backgroundColor: boxBgColor } : {}) }}
+            style={{ ...bubbleTextStyle, ...(boxBgColor ? { backgroundColor: boxBgColor } : {}) }}
           >
             {isHiddenCollapsed ? (
               <HiddenFromAIMessageSummary
