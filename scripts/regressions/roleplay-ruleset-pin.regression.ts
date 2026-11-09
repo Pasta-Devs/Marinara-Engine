@@ -3,7 +3,7 @@
  *
  * What is pinned here:
  *   - Pinning gives every member of the chat a sheet, the persona's first.
- *   - A member the player removed (`rulesetSheetsDeclined`) is left out when the ruleset is pinned
+ *   - A member the player removed (`roleplaySheetsDeclined`) is left out when the ruleset is pinned
  *     again, as Add missing sheets and a newer version both do, and the other sheets are kept.
  *   - Taking the removal back and pinning again gives that member a sheet once more.
  */
@@ -69,13 +69,13 @@ try {
     gameCharacterCards: (current.gameCharacterCards as Array<{ name: string }>).filter(
       (entry) => entry.name !== "The Narrator",
     ),
-    rulesetSheetsDeclined: ["the narrator"],
+    roleplaySheetsDeclined: ["the narrator"],
   }));
   const again = await pinRoleplayRuleset(db, { chatId: chat!.id, rulesetId: "local/pin-test" });
   assert.ok(again.ok && again.added === 0, "a removed sheet is not given back by pinning again");
   assert.deepEqual(await names(), ["Mira"]);
 
-  await chats.patchMetadata(chat!.id, () => ({ rulesetSheetsDeclined: [] }));
+  await chats.patchMetadata(chat!.id, () => ({ roleplaySheetsDeclined: [] }));
   const back = await pinRoleplayRuleset(db, { chatId: chat!.id, rulesetId: "local/pin-test" });
   assert.ok(back.ok && back.added === 1, "taking the removal back gives the member a sheet again");
   assert.deepEqual(await names(), ["Mira", "The Narrator"]);

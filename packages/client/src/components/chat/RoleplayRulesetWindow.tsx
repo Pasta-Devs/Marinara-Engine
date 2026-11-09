@@ -51,7 +51,7 @@ function readCards(metadata: Record<string, unknown>): StoredCard[] {
 
 /** The members whose sheets the player removed; pinning never gives them one again until put back. */
 function declinedNames(metadata: Record<string, unknown>): string[] {
-  const value = metadata.rulesetSheetsDeclined;
+  const value = metadata.roleplaySheetsDeclined;
   return Array.isArray(value) ? value.filter((name): name is string => typeof name === "string" && !!name.trim()) : [];
 }
 
@@ -104,7 +104,7 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
     const key = normalizeCharacterLookupName(name);
     await updateChatMetadata.mutateAsync({
       id: chatId,
-      rulesetSheetsDeclined: declined.filter((entry) => normalizeCharacterLookupName(entry) !== key),
+      roleplaySheetsDeclined: declined.filter((entry) => normalizeCharacterLookupName(entry) !== key),
     });
     if (pinnedId) await pin(pinnedId);
   };
@@ -343,7 +343,7 @@ function RoleplayRulesetSheets({ chatId, metadata }: { chatId: string; metadata:
       gameCharacterCards: readCards(metadata).filter(
         (card) => typeof card.name !== "string" || normalizeCharacterLookupName(card.name) !== key,
       ),
-      rulesetSheetsDeclined: declined.some((name) => normalizeCharacterLookupName(name) === key)
+      roleplaySheetsDeclined: declined.some((name) => normalizeCharacterLookupName(name) === key)
         ? declined
         : [...declined, cardName],
     });
