@@ -13,13 +13,14 @@
 // guard and the contrast checks can see art behind text.
 // ──────────────────────────────────────────────
 import type { ThemeMeta } from "@marinara-engine/shared";
+import { sanitizeSvg } from "./theme-svg";
 
 export type ThemeImage = NonNullable<ThemeMeta["images"]>[number];
 
 /** `url(theme:name)`, `url("theme:name")` or `url('theme:name')`. */
 const THEME_URL = /url\(\s*(["']?)\s*theme:([a-z0-9][a-z0-9._-]*)\s*\1\s*\)/gi;
 /** Inline pictures: `url("data:image/…")`, `url('data:image/…')` or `url(data:image/…)`. */
-const INLINE_IMAGE = /url\(\s*(?:"(data:image\/[^"]*)"|'(data:image\/[^']*)'|(data:image\/[^)\s"']*))\s*\)/gi;
+export const INLINE_IMAGE = /url\(\s*(?:"(data:image\/[^"]*)"|'(data:image\/[^']*)'|(data:image\/[^)\s"']*))\s*\)/gi;
 /** A transparent 1x1 GIF, shown while a still frame is being made. */
 const BLANK = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
@@ -61,6 +62,70 @@ export function dataUrlByteSize(dataUrl: string) {
   if (comma < 0) return dataUrl.length;
   const payload = dataUrl.length - comma - 1;
   return /;base64$/i.test(dataUrl.slice(0, comma)) ? Math.floor((payload * 3) / 4) : payload;
+}
+
+/** Whether bytes are an SVG (by type, or by content whatever the type says). */
+export function isSvgPicture(mime: string, bytes: Uint8Array) {
+  if (mime.includes("svg")) return true;
+  const head = new TextDecoder().decode(bytes.subarray(0, 512)).trimStart().toLowerCase();
+  return head.startsWith("<?xml") || head.startsWith("<svg") || head.startsWith("<!doctype") || head.startsWith("<");
+}
+
+/** The longest side and the most pixels a theme picture may decode to (a 40 MP bitmap is ~160 MB). */
+export const THEME_IMAGE_DECODE_MAX_SIDE = 8192;
+export const THEME_IMAGE_DECODE_MAX_PIXELS = 40_000_000;
+
+/** A raster picture's width and height from its header (PNG, GIF, JPEG, WebP), or null if unknown. */
+export function pictureSize(bytes: Uint8Array): { width: number; height: number } | null {
+  const u32 = (o: number) => ((bytes[o]! << 24) | (bytes[o + 1]! << 16) | (bytes[o + 2]! << 8) | bytes[o + 3]!) >>> 0;
+  if (bytes.length >= 24 && bytes[0] === 0x89 && ascii(bytes, 1, 3) === "PNG")
+    return { width: u32(16), height: u32(20) };
+  if (bytes.length >= 10 && ascii(bytes, 0, 3) === "GIF")
+    return { width: bytes[6]! | (bytes[7]! << 8), height: bytes[8]! | (bytes[9]! << 8) };
+  if (bytes.length >= 30 && ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WEBP") {
+    const kind = ascii(bytes, 12, 4);
+    if (kind === "VP8X")
+      return {
+        width: 1 + (bytes[24]! | (bytes[25]! << 8) | (bytes[26]! << 16)),
+        height: 1 + (bytes[27]! | (bytes[28]! << 8) | (bytes[29]! << 16)),
+      };
+    if (kind === "VP8 ")
+      return { width: (bytes[26]! | (bytes[27]! << 8)) & 0x3fff, height: (bytes[28]! | (bytes[29]! << 8)) & 0x3fff };
+    if (kind === "VP8L") {
+      const b = bytes;
+      return {
+        width: 1 + (((b[22]! & 0x3f) << 8) | b[21]!),
+        height: 1 + (((b[24]! & 0x0f) << 10) | (b[23]! << 2) | ((b[22]! & 0xc0) >> 6)),
+      };
+    }
+    return null;
+  }
+  if (bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let offset = 2;
+    while (offset + 9 < bytes.length) {
+      if (bytes[offset] !== 0xff) return null;
+      const marker = bytes[offset + 1]!;
+      const length = (bytes[offset + 2]! << 8) | bytes[offset + 3]!;
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc)
+        return {
+          height: (bytes[offset + 5]! << 8) | bytes[offset + 6]!,
+          width: (bytes[offset + 7]! << 8) | bytes[offset + 8]!,
+        };
+      offset += 2 + length;
+    }
+  }
+  return null;
+}
+
+/** False for a picture that would decode to a bitmap too big to hold (a "decompression bomb"). */
+export function pictureSizeAllowed(bytes: Uint8Array) {
+  const size = pictureSize(bytes);
+  if (!size) return true;
+  return (
+    size.width <= THEME_IMAGE_DECODE_MAX_SIDE &&
+    size.height <= THEME_IMAGE_DECODE_MAX_SIDE &&
+    size.width * size.height <= THEME_IMAGE_DECODE_MAX_PIXELS
+  );
 }
 
 function ascii(bytes: Uint8Array, start: number, length: number) {
@@ -140,6 +205,14 @@ export function imageEntry(src: string): Entry | null {
   if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") return null;
   const parts = dataUrlParts(src);
   if (!parts || !parts.mime.startsWith("image/")) return null;
+  // Security audit: an SVG is rebuilt without scripts or links first (it would run as Marinara if
+  // its blob: URL were opened as a page), and a picture that would decode to a huge bitmap is refused.
+  if (isSvgPicture(parts.mime, parts.bytes)) {
+    const clean = sanitizeSvg(new TextDecoder().decode(parts.bytes));
+    if (!clean) return null;
+    parts.bytes = new TextEncoder().encode(clean.svg);
+    parts.mime = "image/svg+xml";
+  } else if (!pictureSizeAllowed(parts.bytes)) return null;
   const blob = new Blob([parts.bytes as BlobPart], { type: parts.mime });
   const entry: Entry = {
     url: URL.createObjectURL(blob),
@@ -326,7 +399,12 @@ export const THEME_IMAGE_MAX_WIDTH = 1920;
  */
 export async function shrinkThemeImage(src: string): Promise<string> {
   const parts = dataUrlParts(src);
-  if (!parts || !/^image\/(png|jpeg|bmp|webp)$/.test(parts.mime) || isAnimatedImage(parts.bytes, parts.mime))
+  if (
+    !parts ||
+    !/^image\/(png|jpeg|bmp|webp)$/.test(parts.mime) ||
+    isAnimatedImage(parts.bytes, parts.mime) ||
+    !pictureSizeAllowed(parts.bytes)
+  )
     return src;
   const image = await loadImage(src);
   if (!image || !image.naturalWidth) return src;

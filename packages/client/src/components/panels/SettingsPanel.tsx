@@ -65,6 +65,7 @@ import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { extractImportantThemeCss, normalizeThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
 import { cssContrast, fixContrast } from "../../lib/color-contrast";
 import { checkProtectedChrome, checkThemeCssReady } from "../../lib/theme-guard";
+import { contentProblemsAsGuard } from "../../lib/theme-content-check";
 import { dataUrlByteSize, prepareThemeCss, shrinkThemeImage, themeImageName } from "../../lib/theme-images";
 import { ThemeEditorChecks } from "./settings/ThemeEditorChecks";
 import { useThemeSafetyStore, type ThemeGuardProblem } from "../../lib/theme-safety";
@@ -6059,7 +6060,12 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const setActiveTheme = useSetActiveTheme();
   const activateTheme = useActivateTheme();
   const queryClient = useQueryClient();
-  const activeCustomTheme = syncedThemes.find((theme) => theme.isActive) ?? null;
+  // A theme being tried shows as picked here, though only this tab has it until Keep.
+  const trialThemeId = useThemeSafetyStore((s) => s.pendingKeep?.themeId ?? null);
+  const activeCustomTheme =
+    (trialThemeId ? syncedThemes.find((theme) => theme.id === trialThemeId) : null) ??
+    syncedThemes.find((theme) => theme.isActive) ??
+    null;
   const isSavingTheme = createTheme.isPending || updateTheme.isPending || setActiveTheme.isPending;
 
   // Editor state
@@ -6104,6 +6110,16 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
         ...(themeMeta.images ?? []),
         ...(themeMeta.backgrounds ?? []),
       ]).css;
+      // Security audit: a preview that writes text pretending to be the app or points outside the
+      // theme is never shown (lib/theme-content-check.ts).
+      const contentProblems = contentProblemsAsGuard({ css, rawCss: themeCss, meta: themeMeta });
+      if (contentProblems.length) {
+        style.media = "not all";
+        style.textContent = "";
+        document.getElementById(`${previewStyleId}-important`)?.remove();
+        setPreviewProblems(contentProblems);
+        return;
+      }
       style.media = "";
       style.textContent = css;
       // Keep the preview after the active-theme injector's saved CSS.

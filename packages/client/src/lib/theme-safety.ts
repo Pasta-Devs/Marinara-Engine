@@ -24,8 +24,18 @@ export interface ThemeGuardProblem {
    *  the whole app (an overlay) or the chat (added text). */
   area: "topbar" | "chats" | "library" | "omnibar" | "composer" | "app" | "chat";
   /** What the theme did to it. */
-  kind: "hidden" | "moved" | "covered" | "unreadable" | "too-small" | "overlay" | "fake-text";
-  /** The text a theme added, for "fake-text". */
+  kind:
+    | "hidden"
+    | "moved"
+    | "covered"
+    | "unreadable"
+    | "too-small"
+    | "overlay"
+    | "fake-text"
+    | "long-text"
+    | "unsafe-url"
+    | "unsafe-picture";
+  /** The text a theme added ("fake-text", "long-text"), the address ("unsafe-url") or the picture. */
   text?: string;
 }
 
@@ -184,6 +194,19 @@ const ESCAPE_CLOSES =
   '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], [data-component="GlobalOmnibar.Panel"]';
 
 /**
+ * Something open that an Escape closes. Security audit: only the app's own, visible ones count, so a
+ * theme can't keep Escape x3 from working by drawing or adding a hidden role="dialog" (theme message
+ * templates can't add one at all; see lib/theme-template.ts).
+ */
+function escapeWouldClose() {
+  return Array.from(document.querySelectorAll(ESCAPE_CLOSES)).some(
+    (element) =>
+      !element.closest('[data-mari-part="message-extra"], [data-mari-part="message"]') &&
+      element.getClientRects().length > 0,
+  );
+}
+
+/**
  * Escape three times within 1.2 s turns custom themes off for this tab. A theme can hide every
  * button, but it cannot take the keyboard away. An Escape that closes something (Ctrl+K, a menu,
  * a dialog) doesn't count, so closing things quickly never switches a good theme off.
@@ -192,7 +215,7 @@ export function installSafeModeShortcut(): () => void {
   let presses: number[] = [];
   const onKey = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || event.repeat) return;
-    if (document.querySelector(ESCAPE_CLOSES)) {
+    if (escapeWouldClose()) {
       presses = [];
       return;
     }

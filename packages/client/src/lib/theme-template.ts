@@ -20,6 +20,7 @@ import DOMPurify from "dompurify";
 import { create } from "zustand";
 import type { ThemeMeta, ThemeTemplates } from "@marinara-engine/shared";
 import { looksLikeSecretRequest } from "./theme-guard";
+import { templateText } from "./theme-content-check";
 
 const TEMPLATE_TAGS = [
   "div",
@@ -118,13 +119,64 @@ export function renderMessageTemplate(template: string, fields: TemplateFields):
   const filled = template.replace(/\{\{\s*([a-z]+)\s*\}\}/gi, (_, key: string) =>
     escapeHtml(values[key.toLowerCase()] ?? ""),
   );
-  const clean = DOMPurify.sanitize(filled, {
-    ALLOWED_TAGS: TEMPLATE_TAGS,
-    ALLOWED_ATTR: TEMPLATE_ATTRS,
-    ALLOW_DATA_ATTR: true,
-    ALLOW_ARIA_ATTR: false,
-  }) as string;
+  DOMPurify.addHook("uponSanitizeAttribute", templateAttributeHook);
+  let clean: string;
+  try {
+    clean = DOMPurify.sanitize(filled, {
+      ALLOWED_TAGS: TEMPLATE_TAGS,
+      ALLOWED_ATTR: TEMPLATE_ATTRS,
+      ALLOW_DATA_ATTR: true,
+      ALLOW_ARIA_ATTR: false,
+    }) as string;
+  } finally {
+    DOMPurify.removeHook("uponSanitizeAttribute", templateAttributeHook);
+  }
   if (!clean.trim()) return "";
-  const text = clean.replace(/<[^>]*>/g, " ");
-  return looksLikeSecretRequest(text) ? "" : clean;
+  // The words and the tooltips (title="…") both count.
+  return looksLikeSecretRequest(templateText(clean)) ? "" : clean;
+}
+
+/**
+ * Security audit: a template may not pose as the app's own parts. Roles that make a dialog, menu or
+ * live announcement are dropped (a role="dialog" in every message would also have stopped Escape x3
+ * from reaching safe mode), and so are the data- attributes and class names the app and its theme
+ * guard use to find the top bar, the message box, windows and toasts.
+ */
+const TEMPLATE_ROLES = new Set([
+  "presentation",
+  "none",
+  "note",
+  "img",
+  "separator",
+  "group",
+  "list",
+  "listitem",
+  "figure",
+  "term",
+  "definition",
+  "meter",
+  "progressbar",
+  "table",
+  "row",
+  "cell",
+  "rowgroup",
+  "columnheader",
+  "rowheader",
+]);
+const APP_DATA_ATTRIBUTE =
+  /^data-(component|mari|sonner|radix|tour|tutorial|ov|overhaul|chat|composer|state|side|align|orientation|theme|custom|testid|home|vn|message|swipe|tab|panel|window|drawer|presentation)/i;
+const APP_CLASS = /^(mari|ov|overhaul|sonner|radix|toast|dialog|modal|window|drawer)[-_]/i;
+
+function templateAttributeHook(_node: Element, data: { attrName: string; attrValue: string; keepAttr: boolean }) {
+  const name = data.attrName.toLowerCase();
+  if (name === "role") {
+    if (!TEMPLATE_ROLES.has(data.attrValue.trim().toLowerCase())) data.keepAttr = false;
+  } else if (name.startsWith("data-")) {
+    if (APP_DATA_ATTRIBUTE.test(name)) data.keepAttr = false;
+  } else if (name === "class") {
+    data.attrValue = data.attrValue
+      .split(/\s+/)
+      .filter((token) => token && !APP_CLASS.test(token))
+      .join(" ");
+  }
 }

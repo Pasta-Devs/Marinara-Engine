@@ -386,6 +386,9 @@ export function stripDangerousCss(css: string): string {
   // tokens a browser would actually parse (e.g. `\75rl(` → `url(`, `po\73ition` → `position`).
   // Benign escapes in selectors (digits/punctuation) and string contents are preserved (#1989).
   out = canonicalizeKeywordEscapes(out);
+  // CSS Values 5's src("…") is url() with a string; browsers don't run it yet, but when they do it
+  // must meet the same allowlist (security audit, 2026-11-09).
+  out = out.replace(/(?<![-\w])src\s*\(/gi, "url(");
 
   // ── Network exfiltration prevention ──
   // Strip ALL url() except data: URIs for images and fonts (no external network requests), and
