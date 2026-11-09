@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { toast } from "sonner";
-import { useTTSConfig, useUpdateTTSConfig, useTTSModels, useTTSVoices } from "../../../hooks/use-tts";
+import { useTTSConfig, useUpdateTTSConfig, useTTSModels, useTTSVoices, useVoiceJobMoved } from "../../../hooks/use-tts";
 import { useCharacters, usePersonas } from "../../../hooks/use-characters";
 import { useConnections } from "../../../hooks/use-connections";
 import { ConnectionSelect } from "../../connections/ConnectionSelect";
@@ -58,6 +58,7 @@ import { HelpTooltip } from "../../ui/HelpTooltip";
 import { SettingsCheckbox } from "./SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ApiError } from "../../../lib/api-client";
+import { useUIStore } from "../../../stores/ui.store";
 
 // ── Sub-components ───────────────────────────────
 
@@ -962,6 +963,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
   const { t: localizeUi } = useUiTranslation();
   const { data: savedConfig, isLoading } = useTTSConfig();
   const updateConfig = useUpdateTTSConfig();
+  const openModal = useUIStore((s) => s.openModal);
   const { data: characters } = useCharacters();
   const { data: personas } = usePersonas();
   const { data: connections } = useConnections();
@@ -1015,6 +1017,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
   // Saves not answered yet. A refetch that lands meanwhile can be older than the draft.
   const savesInFlightRef = useRef(0);
   const { mutateAsync: putConfig } = updateConfig;
+  const voiceJobMoved = useVoiceJobMoved();
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sourceProfilesRef = useRef<TTSSourceProfiles>({});
   const connectionProfilesRef = useRef<Record<string, TTSConnectionProfile>>({});
@@ -1056,11 +1059,8 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
   // Populate draft from server on load. The refetch after an earlier save must not take back a newer edit that
   // is still waiting or being saved, such as the speaker picked right after "Add voice" saved its new row.
   useEffect(() => {
-    // The Voice job moved to another row: an unsaved edit belongs to the old one, so it is dropped, not saved here.
-    if (
-      savedConfig &&
-      savedConfig.connectionId !== (pendingSaveRef.current?.connectionId ?? savedConfig.connectionId)
-    ) {
+    // The Voice job moved (on/off, source or row): an unsaved edit belongs to the old choice, so it is dropped, not saved here.
+    if (savedConfig && pendingSaveRef.current && voiceJobMoved(pendingSaveRef.current)) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
       pendingSaveRef.current = null;
@@ -1108,7 +1108,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     sourceProfilesRef.current = savedConfig.sourceProfiles ?? {};
     connectionProfilesRef.current = savedConfig.connectionProfiles ?? {};
     setSaveStatus("idle");
-  }, [savedConfig]);
+  }, [savedConfig, voiceJobMoved]);
 
   // The chosen connection can change in its own editor; show the adapter, address and model it has now.
   useEffect(() => {
@@ -1135,10 +1135,10 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     () => () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       const pending = pendingSaveRef.current;
-      if (pending) void putConfig(pending).catch(() => undefined);
+      if (pending && !voiceJobMoved(pending)) void putConfig(pending).catch(() => undefined);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
     },
-    [putConfig],
+    [putConfig, voiceJobMoved],
   );
 
   useEffect(() => {
@@ -1210,6 +1210,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
       saveTimerRef.current = null;
     }
     pendingSaveRef.current = null;
+    if (voiceJobMoved(payload)) return;
     setSaveStatus("saving");
     savesInFlightRef.current += 1;
     try {
@@ -1325,7 +1326,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     }
   };
 
-  const voices = voicesData?.voices ?? [];
   const voiceOptions = useMemo(
     () =>
       buildTTSVoiceOptions(voicesData, source, [
@@ -1337,7 +1337,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
       ]),
     [narratorVoice, npcDefaultFemaleVoices, npcDefaultMaleVoices, source, voice, voiceAssignments, voicesData],
   );
-  const voicesFromProvider = voicesData?.fromProvider ?? false;
   const voicesErrorMessage = voicesError
     ? getTtsRequestErrorMessage(voicesRequestError, localizeUi("ui.panels.ttsconfigcard.couldNotRefreshVoices"))
     : null;
@@ -1453,9 +1452,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     characterOptions.length > 0 && characterOptions.every((option) => assignedCharacterIds.has(option.id));
   const selectedSource = TTS_SOURCE_DEFAULTS[source];
   const previewVoice = voice || voiceAssignments.find((assignment) => assignment.voice)?.voice || "";
-  const selectedLanguage =
-    ELEVENLABS_TTS_LANGUAGE_OPTIONS.find((option) => option.code === elevenLabsLanguageCode) ??
-    ELEVENLABS_TTS_LANGUAGE_OPTIONS[0];
   const speedMin = source === "elevenlabs" || source === "xai" ? 0.7 : 0.25;
   const speedMax = source === "elevenlabs" ? 1.2 : source === "xai" ? 1.5 : 4.0;
   const speedUnavailable = source === "elevenlabs" && !elevenLabsModelSupportsSpeed(model);
@@ -1642,36 +1638,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
             <RefreshCw size="0.75rem" className={cn(fetchingVoices && "animate-spin")} />
           </button>
         </div>
-        {!voicesFromProvider && source === "openai" && voices.length > 0 && (
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.ttsconfigcard.showingOpenaiBuiltInVoicesSaveEnableToLoad")}
-          </p>
-        )}
-        {!voicesFromProvider && source === "elevenlabs" && !fetchingVoices && !voicesError && (
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.ttsconfigcard.elevenlabsVoicesLoadAfterTheConnectionIsSavedWith")}
-          </p>
-        )}
-        {!voicesFromProvider && source === "pockettts" && voices.length > 0 && (
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.ttsconfigcard.showingPocketttsBuiltInFallbacksSaveAndRefreshTo")}
-          </p>
-        )}
-        {voicesFromProvider && source === "pockettts" && (
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("connections.device.pocketVoicesLoaded", { count: voices.length })}
-          </p>
-        )}
-        {voicesFromProvider && source === "elevenlabs" && (
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.ttsconfigcard.loadedVoiceCount", { count: voices.length })}
-          </p>
-        )}
-        {!voicesFromProvider && source === "xai" && voices.length > 0 && (
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.ttsconfigcard.showingXaiBuiltInVoicesSaveWithAnApi")}
-          </p>
-        )}
       </FieldRow>
 
       <FieldRow
@@ -1691,11 +1657,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
               <span>{localizeUi("ui.panels.ttsconfigcard.refresh")}</span>
             </button>
           </div>
-          {voiceAssignments.length === 0 && (
-            <p className="rounded-lg border border-dashed border-[var(--border)] px-2.5 py-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.addACharacterVoiceToRouteTtsBySpeaker")}
-            </p>
-          )}
           {voiceAssignments.map((assignment, index) => (
             <div
               key={`voice-assignment-${index}`}
@@ -1746,18 +1707,15 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
           ))}
           <button
             type="button"
-            onClick={handleAddVoiceAssignment}
-            disabled={characterOptions.length === 0 || allCharactersAssigned}
+            onClick={characterOptions.length === 0 ? () => openModal("create-character") : handleAddVoiceAssignment}
+            disabled={allCharactersAssigned}
             className="mari-chrome-control w-full text-xs"
           >
             <Plus size="0.75rem" />
-            {localizeUi("ui.panels.ttsconfigcard.addCharacterVoice")}
+            {characterOptions.length === 0
+              ? localizeUi("ui.modals.createcharactermodal.createCharacter")
+              : localizeUi("ui.panels.ttsconfigcard.addCharacterVoice")}
           </button>
-          {characterOptions.length === 0 && (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.addCharactersInTheCharactersTabBeforeAssigningCharacter")}
-            </p>
-          )}
         </div>
       </FieldRow>
 
@@ -1858,14 +1816,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
                 onToggle={(voiceId, checked) => toggleNpcDefaultVoice("female", voiceId, checked)}
                 note={femaleNpcVoiceFallbackNote}
               />
-              <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.ttsconfigcard.npcsWithUnclearGenderUseAStablePickFrom")}
-              </p>
-              {!voicesFromProvider && (
-                <p className="text-[0.625rem] leading-relaxed text-amber-300/80">
-                  {localizeUi("ui.panels.ttsconfigcard.saveAndEnableThisTtsProviderThenRefreshVoices")}
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -1938,12 +1888,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
               </option>
             ))}
           </select>
-          {elevenLabsLanguageCode && (
-            <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.forcing")} {selectedLanguage.label}
-              {localizeUi("ui.panels.ttsconfigcard.elevenlabsMayRejectThisIfTheSelectedModelDoes")}
-            </p>
-          )}
         </FieldRow>
       )}
 
@@ -1974,10 +1918,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
           </div>
         </FieldRow>
       )}
-
-      <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-        {localizeUi("connections.audioGeneration.speechSettingsHelp")}
-      </p>
 
       {/* Auto-play */}
       <div className="space-y-1">
@@ -2035,9 +1975,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
                 mark({ roleplaySpeakerExtractorEmotionsEnabled: value });
               }}
             />
-            <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.roleplaySpeakerExtractorHelp")}
-            </p>
           </div>
         )}
         <ToggleRow

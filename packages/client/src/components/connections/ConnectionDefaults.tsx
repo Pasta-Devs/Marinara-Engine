@@ -48,6 +48,7 @@ import {
   jobLabelKey,
   matchesKind,
   voiceRowOf,
+  voiceSources,
   type Job,
   type JobKey,
 } from "../../lib/connection-jobs";
@@ -504,7 +505,7 @@ function useJobModels(connectionsList: ConnectionRowData[]) {
     const isVoice = job.key === "voice";
     // The Voice job is the text to speech switch: no Model while it is off; a built-in source has no connection.
     const voiceValue = !tts?.enabled ? null : (primary?.id ?? `${DEVICE_VOICE}${tts.source}`);
-    const voiceSources = [...new Set<TTSSource>(["pockettts", ...(voiceValue && !primary ? [tts!.source] : [])])];
+    const sources = !tts ? [] : [...new Set([...voiceSources(tts), ...(voiceValue && !primary ? [tts.source] : [])])];
     return {
       kind: role.kind,
       value:
@@ -533,7 +534,7 @@ function useJobModels(connectionsList: ConnectionRowData[]) {
           ? t("connections.defaults.voiceOffChoice")
           : t("connections.defaults.none"),
       extraOptions: isVoice
-        ? voiceSources.map((source) => ({
+        ? sources.map((source) => ({
             value: `${DEVICE_VOICE}${source}`,
             label: t("connections.defaults.onThisDevice", { name: t(`connections.device.ttsSource.${source}`) }),
           }))
@@ -622,12 +623,11 @@ function DictationSettings() {
     <>
       <ToggleSetting
         label={t("settings.controls.speechToText.label")}
-        help={t("settings.controls.speechToText.help")}
         checked={speechToTextEnabled}
         onChange={setSpeechToTextEnabled}
       />
       {/* ponytail: the speech-to-text server keeps its own address and key here; an account for it comes in S4. */}
-      {callsInstalled && <SpeechToTextCard />}
+      {callsInstalled && <SpeechToTextCard inDictation />}
     </>
   );
 }

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Hook: TTS Config & Voices
 // ──────────────────────────────────────────────
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 import type {
@@ -51,8 +51,26 @@ export function useUpdateTTSConfig() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (config: TTSConfig) => api.put<void>("/tts/config", config),
+    // The Voice job's switch is visible at once, so a card draft made before it is known to be out of date.
+    onMutate: ({ enabled, source, connectionId }) =>
+      qc.setQueryData<TTSConfigResponse>(KEYS.config, (old) => old && { ...old, enabled, source, connectionId }),
     onSuccess: () => invalidateTTSSettings(qc),
   });
+}
+
+/** Whether the Voice job turned voice on or off or moved its source or row after `draft` was made. */
+export function useVoiceJobMoved() {
+  const qc = useQueryClient();
+  return useCallback(
+    (draft: Pick<TTSConfig, "enabled" | "source" | "connectionId">) => {
+      const live = qc.getQueryData<TTSConfigResponse>(KEYS.config);
+      return (
+        !!live &&
+        (live.enabled !== draft.enabled || live.source !== draft.source || live.connectionId !== draft.connectionId)
+      );
+    },
+    [qc],
+  );
 }
 
 /**

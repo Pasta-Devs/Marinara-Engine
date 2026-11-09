@@ -4,7 +4,7 @@
 // that page. The server side of the flag is proved in tts-local-voice-server.regression.ts.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { voiceJobMigration, voiceRowOf } from "../../packages/client/src/lib/connection-jobs.js";
+import { voiceJobMigration, voiceRowOf, voiceSources } from "../../packages/client/src/lib/connection-jobs.js";
 
 const rows = [
   { id: "flagged", provider: "audio", defaultForAgents: "true" },
@@ -89,5 +89,27 @@ assert.equal(voiceJobMigration(own, audioRows)?.voice, "own-voice");
 assert.equal(voiceJobMigration({ ...base, enabled: false }, audioRows), null);
 assert.equal(voiceJobMigration({ ...base, connectionId: "eleven" }, audioRows), null);
 assert.equal(voiceJobMigration(base, [{ ...audioRows[0], defaultForAgents: "false" }]), null);
+
+// A custom address or model on the settings fills the row's blank one only while no row is saved; keep it working.
+const custom = { ...base, baseUrl: "http://10.0.0.5:9000" } as typeof base;
+assert.equal(voiceJobMigration(custom, audioRows), null);
+assert.equal(voiceJobMigration({ ...base, model: "eleven_v3" } as typeof base, audioRows), null);
+assert.ok(voiceJobMigration(custom, [{ ...audioRows[0], baseUrl: "https://api.elevenlabs.io" }]));
+assert.ok(voiceJobMigration({ ...base, baseUrl: "https://api.elevenlabs.io" } as typeof base, audioRows));
+
+// Voice job choices without a row: Local PocketTTS always, and every direct source with its own key or server,
+// also while voice is off.
+const off = {
+  ...base,
+  enabled: false,
+  source: "openai",
+  baseUrl: "http://localhost:5050/v1",
+  apiKey: "",
+  sourceProfiles: { elevenlabs: { baseUrl: "https://api.elevenlabs.io", apiKey: "••••", voice: "", model: "" } },
+} as unknown as typeof base;
+assert.deepEqual(voiceSources(off), ["openai", "elevenlabs", "pockettts"]);
+assert.deepEqual(voiceSources({ ...off, baseUrl: "https://api.openai.com/v1", sourceProfiles: {} } as typeof base), [
+  "pockettts",
+]);
 
 console.log("connection-voice-row regression passed");

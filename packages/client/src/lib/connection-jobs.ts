@@ -22,6 +22,8 @@ import {
   isChatProvider,
   type ConnectionPickerKind,
   type FeatureModelConnections,
+  TTS_SOURCE_DEFAULTS,
+  TTS_SOURCES,
   type TTSConfig,
   type TTSSource,
 } from "@marinara-engine/shared";
@@ -220,7 +222,8 @@ export function voiceRowOf<R extends Pick<ConnectionModelRow, "id" | "provider" 
   return { row, missing: false };
 }
 
-type VoiceRow = Pick<ConnectionModelRow, "id" | "provider" | "defaultForAgents"> & {
+type VoiceRow = Pick<ConnectionModelRow, "id" | "provider" | "defaultForAgents" | "model"> & {
+  baseUrl?: string | null;
   audioSource?: string | null;
   audioVoice?: string | null;
 };
@@ -238,6 +241,19 @@ export function voiceJobMigration(config: TTSConfig, rows: readonly VoiceRow[]):
   if (own) return { ...config, ...own, connectionId: row.id };
   const source = (row.audioSource ?? "elevenlabs") as TTSSource;
   const profile = source === config.source ? config : config.sourceProfiles?.[source];
+  // The server fills a blank row address or model from these settings only while no row is saved; keep them working.
+  const lost = (field: "baseUrl" | "model") =>
+    !row[field]?.trim() && !!profile?.[field] && profile[field] !== TTS_SOURCE_DEFAULTS[source][field];
+  if (lost("baseUrl") || lost("model")) return null;
   // Only the voice came from the row's source; every other setting was the top-level one.
   return { ...config, voice: row.audioVoice || profile?.voice || "", connectionId: row.id };
+}
+
+/** Built-in sources the Voice job offers: Local PocketTTS, and each direct source with its own key or server. */
+export function voiceSources(config: TTSConfig): TTSSource[] {
+  return TTS_SOURCES.filter((source) => {
+    if (source === "pockettts") return true;
+    const profile = source === config.source && !config.connectionId.trim() ? config : config.sourceProfiles?.[source];
+    return !!profile?.apiKey || (!!profile?.baseUrl && profile.baseUrl !== TTS_SOURCE_DEFAULTS[source].baseUrl);
+  });
 }
