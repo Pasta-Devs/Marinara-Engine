@@ -1056,6 +1056,15 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
   // Populate draft from server on load. The refetch after an earlier save must not take back a newer edit that
   // is still waiting or being saved, such as the speaker picked right after "Add voice" saved its new row.
   useEffect(() => {
+    // The Voice job moved to another row: an unsaved edit belongs to the old one, so it is dropped, not saved here.
+    if (
+      savedConfig &&
+      savedConfig.connectionId !== (pendingSaveRef.current?.connectionId ?? savedConfig.connectionId)
+    ) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      pendingSaveRef.current = null;
+    }
     if (!savedConfig || pendingSaveRef.current || savesInFlightRef.current > 0) return;
     setEnabled(savedConfig.enabled);
     setSource(savedConfig.source ?? "openai");

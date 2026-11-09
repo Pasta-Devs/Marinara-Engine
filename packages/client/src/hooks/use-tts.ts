@@ -70,10 +70,12 @@ export function useFollowVoiceJob() {
     if (config.enabled === enabled && config.connectionId === (connectionId ?? "") && config.source === nextSource) {
       return null;
     }
+    // While a row is chosen the top-level voice fields are the row's, so leaving it loads the source's own.
+    const leavesRow = !connectionId && Boolean(config.connectionId.trim());
     const profile = connectionId
       ? (config.connectionProfiles?.[connectionId] ?? { voice: "" })
-      : source && source !== config.source
-        ? (config.sourceProfiles?.[source] ?? { baseUrl: "", apiKey: "", model: "", voice: "" })
+      : nextSource !== config.source || leavesRow
+        ? (config.sourceProfiles?.[nextSource] ?? { baseUrl: "", apiKey: "", model: "", voice: "" })
         : {};
     await update.mutateAsync({ ...config, ...profile, source: nextSource, connectionId: connectionId ?? "", enabled });
     return () => void update.mutateAsync(config).catch(() => {});

@@ -67,7 +67,7 @@ const base = {
   connectionId: "",
   source: "elevenlabs",
   voice: "blob-voice",
-  sourceProfiles: { openai: { voice: "openai-voice" } },
+  sourceProfiles: { openai: { voice: "openai-voice", speed: 0.8 } },
   connectionProfiles: {},
 } as unknown as Parameters<typeof voiceJobMigration>[0];
 const audioRows = [
@@ -77,7 +77,12 @@ assert.deepEqual(voiceJobMigration(base, audioRows), { ...base, voice: "blob-voi
 // The row's own voice wins over the settings' voice, as on the server.
 assert.equal(voiceJobMigration(base, [{ ...audioRows[0], audioVoice: "row-voice" }])?.voice, "row-voice");
 // Another source reads that source's saved voice; a saved profile of the row itself is used whole.
-assert.equal(voiceJobMigration(base, [{ ...audioRows[0], audioSource: "openai" }])?.voice, "openai-voice");
+const otherSource = voiceJobMigration({ ...base, speed: 1.1 } as typeof base, [
+  { ...audioRows[0], audioSource: "openai" },
+]);
+assert.equal(otherSource?.voice, "openai-voice");
+// Only the voice came from that source; the other settings stay the top-level ones the server used.
+assert.equal(otherSource?.speed, 1.1);
 const own = { ...base, connectionProfiles: { eleven: { voice: "own-voice" } } } as typeof base;
 assert.equal(voiceJobMigration(own, audioRows)?.voice, "own-voice");
 // Nothing to move: voice off, a row already saved, or no audio default.

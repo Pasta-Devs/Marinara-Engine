@@ -238,5 +238,6 @@ export function voiceJobMigration(config: TTSConfig, rows: readonly VoiceRow[]):
   if (own) return { ...config, ...own, connectionId: row.id };
   const source = (row.audioSource ?? "elevenlabs") as TTSSource;
   const profile = source === config.source ? config : config.sourceProfiles?.[source];
-  return { ...config, ...profile, voice: row.audioVoice || profile?.voice || "", connectionId: row.id };
+  // Only the voice came from the row's source; every other setting was the top-level one.
+  return { ...config, voice: row.audioVoice || profile?.voice || "", connectionId: row.id };
 }
