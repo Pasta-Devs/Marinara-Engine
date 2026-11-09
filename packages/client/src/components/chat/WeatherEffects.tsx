@@ -16,6 +16,7 @@ import {
   drawWeatherTint,
   populateWeatherParticles,
   resolveWeatherRenderConfig,
+  weatherCanvasScaleCap,
   type WeatherLook,
   type WeatherParticle,
 } from "../../lib/weather-renderer";
@@ -124,7 +125,12 @@ export function WeatherEffects({
 
           const getScale = (width: number, height: number) => {
             const pixelBudgetScale = Math.sqrt(MAX_CANVAS_PIXELS / (width * height));
-            return Math.min(window.devicePixelRatio || 1, MAX_CANVAS_DPR, pixelBudgetScale, 1 / look.pixel);
+            return Math.min(
+              window.devicePixelRatio || 1,
+              MAX_CANVAS_DPR,
+              pixelBudgetScale,
+              weatherCanvasScaleCap(config, look),
+            );
           };
           try {
             const offscreen = canvas.transferControlToOffscreen();
@@ -199,7 +205,12 @@ export function WeatherEffects({
       const rect = canvas.parentElement?.getBoundingClientRect();
       if (!rect || rect.width <= 0 || rect.height <= 0) return;
       const pixelBudgetScale = Math.sqrt(MAX_CANVAS_PIXELS / (rect.width * rect.height));
-      canvasScale = Math.min(window.devicePixelRatio || 1, MAX_CANVAS_DPR, pixelBudgetScale, 1 / look.pixel);
+      canvasScale = Math.min(
+        window.devicePixelRatio || 1,
+        MAX_CANVAS_DPR,
+        pixelBudgetScale,
+        weatherCanvasScaleCap(config, look),
+      );
       canvas.width = Math.max(1, Math.round(rect.width * canvasScale));
       canvas.height = Math.max(1, Math.round(rect.height * canvasScale));
       ctx.setTransform(canvasScale, 0, 0, canvasScale, 0, 0);
