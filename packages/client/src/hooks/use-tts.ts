@@ -55,9 +55,11 @@ export function useUpdateTTSConfig() {
  * the Voice job moves a card choice along. Returns an undo, or null when the card follows the default already.
  */
 export function useFollowVoiceJob() {
-  const { data: config } = useTTSConfig();
+  const qc = useQueryClient();
   const update = useUpdateTTSConfig();
   return async (connectionId: string | null) => {
+    // Read the config fresh: an Undo can run after the render that made this function.
+    const config = qc.getQueryData<ReturnType<typeof useTTSConfig>["data"]>(KEYS.config);
     const previous = config?.connectionId;
     if (!config || !previous || previous === connectionId) return null;
     await update.mutateAsync({ ...config, connectionId: connectionId ?? "" });

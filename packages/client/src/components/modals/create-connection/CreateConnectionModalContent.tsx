@@ -661,7 +661,7 @@ export function CreateConnectionModalContent({
                 ? { provider: "image_generation", imageGenerationSource: source, imageService: source }
                 : { provider: "video_generation", videoGenerationSource: source, videoService: source }),
         });
-        if (!forJob && !newChatMode) return openUseFor(current);
+        if (!forJob?.assign && !newChatMode) return openUseFor(current);
         await finishAdded(current);
         return;
       }
@@ -680,7 +680,7 @@ export function CreateConnectionModalContent({
         setStep(3);
         return;
       }
-      if (!forJob && !modelsFor) return openUseFor(current);
+      if (!forJob?.assign && !modelsFor) return openUseFor(current);
       await finishAdded(current);
     } catch (error) {
       await discardFreshAccount();
@@ -875,8 +875,8 @@ export function CreateConnectionModalContent({
     modelId;
   const mediaRow = mediaRowId ? allRows.find((row) => row.id === mediaRowId) : undefined;
   const isJobKind = setupKind === "decision" || setupKind === "voice";
-  // A new account without a job to fill ends on "Found in <account> — use it for:".
-  const useForStep = step === 3 && !newChatMode && !forJob && !modelsFor;
+  // A new account ends on "Found in <account> — use it for:" unless a job picker waits for it.
+  const useForStep = step === 3 && !newChatMode && !forJob?.assign && !modelsFor;
   // A chat service lists its own models for the job; the old Decision and Audio services keep theirs.
   const jobPicker = isJobKind && !!pickerRow && !!mediaRow && isChatProvider(pickerRow.provider ?? "");
   // The built-in model does the jobs a small local model can do; the rest need a real model.
@@ -1117,6 +1117,7 @@ export function CreateConnectionModalContent({
               service={service}
               accounts={accounts}
               accountName={targetName}
+              job={job}
               serviceName={serviceName}
               onFinish={finishUseFor}
             />

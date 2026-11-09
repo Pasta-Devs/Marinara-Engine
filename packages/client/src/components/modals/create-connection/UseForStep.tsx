@@ -8,7 +8,14 @@ import {
   type ConnectionAccountListItem,
   type ConnectionPickerKind,
 } from "@marinara-engine/shared";
-import { useConnectionModels, useConnections, useCreateConnection } from "../../../hooks/use-connections";
+import {
+  useConnectionModels,
+  useConnections,
+  useCreateConnection,
+  useDeleteConnection,
+  useTestConnection,
+} from "../../../hooks/use-connections";
+import { decisionConnectionTestMessage } from "../../../lib/decision-test-message";
 import { usePickModel } from "../../../hooks/use-connection-accounts";
 import { useDecisionOptions, useSelectDecisionModel } from "../../../hooks/use-decision-model";
 import { useJobModels } from "../../connections/ConnectionDefaults";
@@ -72,13 +79,15 @@ interface UseForStepProps {
   service: ServiceId;
   accounts: ConnectionAccountListItem[] | undefined;
   accountName: string;
+  /** The job the window was opened for: its row starts ticked even when the job is set. */
+  job?: JobKey | null;
   serviceName: (service: ServiceId) => string;
   /** Closes the window; `applied` is false when nothing was set, so it still says the account was added. */
   onFinish: (applied: boolean) => void;
 }
 
 /** Step 3 of a new account: "Found in <account> — use it for:", one row per job it can do. */
-export function UseForStep({ target, service, accounts, accountName, serviceName, onFinish }: UseForStepProps) {
+export function UseForStep({ target, service, accounts, accountName, job, serviceName, onFinish }: UseForStepProps) {
   const { t } = useTranslation();
   const { data: connections } = useConnections();
   const rows = (connections ?? []) as ConnectionRowData[];
@@ -88,6 +97,8 @@ export function UseForStep({ target, service, accounts, accountName, serviceName
   const selectDecision = useSelectDecisionModel();
   const pickModel = usePickModel();
   const createRow = useCreateConnection();
+  const deleteRow = useDeleteConnection();
+  const testRow = useTestConnection();
   const [ticked, setTicked] = useState<Set<JobKey> | null>(null);
   const [busy, setBusy] = useState(false);
   const account = accounts?.find((item) => item.id === target.accountId);
@@ -108,8 +119,8 @@ export function UseForStep({ target, service, accounts, accountName, serviceName
     const row = rows.find((candidate) => candidate.id === id);
     return row?.model?.trim() || row?.name || id;
   };
-  // Empty jobs start ticked; a job that already has a model waits for the user.
-  const isTicked = (use: Use) => (ticked ? ticked.has(use.job) : !currentOf(use));
+  // Empty jobs and the asked-for job start ticked; a job that already has a model waits for the user.
+  const isTicked = (use: Use) => (ticked ? ticked.has(use.job) : use.job === job || !currentOf(use));
   const toggle = (use: Use) =>
     setTicked(() => {
       const next = new Set(uses.filter(isTicked).map((item) => item.job));
@@ -132,17 +143,28 @@ export function UseForStep({ target, service, accounts, accountName, serviceName
       const existing = rows.find(
         (row) => row.provider === "decision" && row.accountId === account.id && row.model === use.model,
       );
-      if (existing) return existing.id;
-      const created = (await createRow.mutateAsync({
-        name: use.model,
-        provider: "decision",
-        apiKey: "",
-        baseUrl: account.baseUrl ?? "",
-        accountId: account.id,
-        decisionSource: "openai_compatible",
-        model: use.model,
-      })) as { id?: string };
-      return created.id;
+      const created =
+        existing ??
+        ((await createRow.mutateAsync({
+          name: use.model,
+          provider: "decision",
+          apiKey: "",
+          baseUrl: account.baseUrl ?? "",
+          accountId: account.id,
+          decisionSource: "openai_compatible",
+          model: use.model,
+        })) as { id?: string });
+      if (!created.id) return undefined;
+      // Like the Decision picker: a model is kept only when its test returns log-probabilities.
+      const result = await testRow.mutateAsync(created.id);
+      if (result.success && result.logprobs !== false) return created.id;
+      if (!existing) await deleteRow.mutateAsync(created.id).catch(() => undefined);
+      toast.error(
+        result.success && result.logprobs === false
+          ? t("connections.decision.noLogprobs")
+          : decisionConnectionTestMessage(t, result).message,
+      );
+      return undefined;
     }
     return mediaRowFor(use.kind, account, use.model, use.name, rows, (data) => createRow.mutateAsync(data));
   };
