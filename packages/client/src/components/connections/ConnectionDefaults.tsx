@@ -621,7 +621,7 @@ function JobSettingsSection({ title, children }: { title: string; children: Reac
 }
 
 /** Dictation: the chat microphone switch, and with Calls installed the speech-to-text server. */
-function DictationSettings() {
+export function DictationSettings() {
   const { t } = useTranslation();
   const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
   const setSpeechToTextEnabled = useUIStore((s) => s.setSpeechToTextEnabled);
