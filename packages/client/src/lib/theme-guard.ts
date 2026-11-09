@@ -23,6 +23,8 @@
 // ──────────────────────────────────────────────
 import type { ThemeGuardProblem } from "./theme-safety";
 import { extractImportantThemeCss, sanitizeAppCss } from "./theme-css";
+import { themeTextThreat } from "./theme-text-safety";
+import { contentProblemsAsGuard } from "./theme-content-check";
 import {
   cssImageUrls,
   peekImageSample,
@@ -1177,9 +1179,16 @@ function pseudoTexts(elements: Element[]) {
   return texts;
 }
 
-/** Text a theme adds that asks for keys, passwords or sign-ins. */
+/**
+ * Text a theme adds that asks for keys, passwords or sign-ins, or pretends to be the app: scare
+ * messages ("hacked", "RCE"), fake notices ("verified by Marinara"), phone numbers and web
+ * addresses. Look-alike letters, spacing and 1337 spelling are folded first (theme-text-safety.ts).
+ */
 export function looksLikeSecretRequest(text: string) {
-  return text.replace(/\s+/g, " ").trim().length >= 6 && SENSITIVE_TEXT.test(text);
+  if (text.replace(/\s+/g, " ").trim().length < 4) return false;
+  if (SENSITIVE_TEXT.test(text)) return true;
+  const threat = themeTextThreat(text, { lengthCap: null });
+  return threat === "secret" || threat === "scare" || threat === "contact";
 }
 
 /**
@@ -1375,9 +1384,14 @@ function injectableCss(css: string, images?: ThemeImage[] | null) {
  */
 export function checkThemeCss(css: string, images?: ThemeImage[] | null): ThemeGuardProblem[] {
   if (typeof document === "undefined") return [];
+  const injectable = injectableCss(css, images);
+  // Security audit: what the theme writes and points at is checked first; such a theme is never
+  // switched on, even for a measurement.
+  const content = contentProblemsAsGuard({ css: injectable[0] ?? "", rawCss: css, meta: { images: images ?? [] } });
+  if (content.length) return content;
   const sheets: HTMLStyleElement[] = [];
   try {
-    for (const text of injectableCss(css, images)) {
+    for (const text of injectable) {
       if (!text) continue;
       const style = document.createElement("style");
       style.dataset.mariCustomCss = "check";

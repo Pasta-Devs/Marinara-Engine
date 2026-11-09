@@ -7,12 +7,13 @@
 // Safe mode skips both, and the chrome guard switches a theme off for this tab when it hides,
 // moves, covers or blanks the top bar, a sidebar or Ctrl+K.
 // ──────────────────────────────────────────────
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useThemes } from "../../hooks/use-themes";
 import { extractImportantThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
 import { themeFontFaceCss } from "../../lib/theme-package";
 import { installSafeModeShortcut, useThemeSafetyStore } from "../../lib/theme-safety";
 import { checkProtectedChrome, topBarPseudoArt } from "../../lib/theme-guard";
+import { contentProblemsAsGuard } from "../../lib/theme-content-check";
 import { preloadImageSamples, prepareThemeCss } from "../../lib/theme-images";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { themeHasHtml, useThemeTemplates } from "../../lib/theme-template";
@@ -102,16 +103,40 @@ export function CustomThemeInjector() {
   const overrideId = useActiveThemeOverride();
   const globalTheme = syncedThemes.find((theme) => theme.isActive) ?? null;
   // A chat or its character can pick its own theme (Chat settings > Theme); "" means Default there.
+  // A theme being tried ("Keep this theme?") shows in this tab only, over everything else.
+  const trialId = useThemeSafetyStore((s) => s.pendingKeep?.themeId ?? null);
+  const trialTheme = trialId ? (syncedThemes.find((theme) => theme.id === trialId) ?? null) : null;
   const activeTheme =
-    overrideId === undefined ? globalTheme : (syncedThemes.find((theme) => theme.id === overrideId) ?? null);
+    trialTheme ??
+    (overrideId === undefined ? globalTheme : (syncedThemes.find((theme) => theme.id === overrideId) ?? null));
   const safeMode = useThemeSafetyStore((s) => s.safeMode);
   const blockedThemeId = useThemeSafetyStore((s) => s.blockedThemeId);
-  const allowed = !!activeTheme && !safeMode && blockedThemeId !== activeTheme.id;
+  const allowThemeHtml = useUIStore((s) => s.allowThemeHtml);
+  // Security audit: text that pretends to be the app, an address outside the theme, an SVG with
+  // code or a picture too big to open: the theme isn't applied at all (lib/theme-content-check.ts).
+  const contentProblems = useMemo(() => {
+    if (!activeTheme || safeMode) return [];
+    const prepared = prepareThemeCss(sanitizeAppCss(`${themeFontFaceCss(activeTheme.meta)}\n${activeTheme.css}`), [
+      ...(activeTheme.meta?.images ?? []),
+      ...(activeTheme.meta?.backgrounds ?? []),
+    ]);
+    return contentProblemsAsGuard({
+      css: prepared.css,
+      rawCss: activeTheme.css,
+      meta: activeTheme.meta,
+      templates: allowThemeHtml && themeHasHtml(activeTheme.meta),
+      name: activeTheme.name,
+    });
+  }, [activeTheme, safeMode, allowThemeHtml]);
+  const allowed = !!activeTheme && !safeMode && blockedThemeId !== activeTheme.id && contentProblems.length === 0;
+  useEffect(() => {
+    if (activeTheme && contentProblems.length)
+      useThemeSafetyStore.getState().blockTheme(activeTheme.id, activeTheme.name, contentProblems);
+  }, [activeTheme, contentProblems]);
 
   useEffect(() => installSafeModeShortcut(), []);
 
   // The theme's message templates, only when the user allows themes with HTML (lib/theme-template.ts).
-  const allowThemeHtml = useUIStore((s) => s.allowThemeHtml);
   const templates = allowed && allowThemeHtml && themeHasHtml(activeTheme?.meta) ? activeTheme!.meta!.templates! : null;
   useEffect(() => {
     useThemeTemplates.setState({ templates });

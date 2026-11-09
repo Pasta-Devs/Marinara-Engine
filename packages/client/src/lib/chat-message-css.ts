@@ -497,7 +497,13 @@ export function neutralizeUnsafeImageSets(css: string): string {
       else if (ch === "(") depth++;
       else if (ch === ")") depth--;
     }
-    if (depth !== 0) break;
+    if (depth !== 0) {
+      // An image-set( left open runs to the end of the stylesheet, and the browser closes it there
+      // and loads what it holds (security audit, 2026-11-09): drop it and everything after it.
+      result += `${css.slice(cursor, match.index)}url(about:invalid)`;
+      cursor = css.length;
+      break;
+    }
     const expression = css.slice(match.index, index);
     const sources = expression.match(/(?:url\s*\(\s*)?["']?data:image\/[^")'\s]+["']?\s*\)?/giu) ?? [];
     const remainder = expression

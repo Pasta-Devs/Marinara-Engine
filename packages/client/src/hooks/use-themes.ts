@@ -155,7 +155,10 @@ export function useActivateTheme() {
             keys: [...new Set([...(restoreSettings?.keys ?? []), ...chained.restoreSettings.keys])],
           }
         : restoreSettings;
-      await setActiveTheme.mutateAsync(theme?.id ?? null);
+      // Security audit: trying a theme happens in this tab only. Other devices (and anyone else on
+      // the network) only get it once the person presses Keep (ThemeSafetyHost); closing the tab
+      // before that leaves every other device as it was. Default (null) applies at once.
+      if (!theme) await setActiveTheme.mutateAsync(null);
       const safety = useThemeSafetyStore.getState();
       if (theme && safety.blockedThemeId === theme.id) safety.clearBlockedTheme();
       if (theme && safety.safeMode) safety.leaveSafeMode();

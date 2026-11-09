@@ -57,6 +57,9 @@ function useChromeCheck(css: string, images: ThemeImage[] | undefined) {
 
 const UNTICKED_SETTINGS = new Set<ThemeSettingKey>(["visualStyle", "accentPulse", "fontSize", "reduceMotion"]);
 
+/** Guard problems about what a theme writes or points at (lib/theme-content-check.ts). */
+const CONTENT_PROBLEM_KINDS = new Set(["fake-text", "long-text", "unsafe-url", "unsafe-picture"]);
+
 function preTickedSettings(keys: ThemeSettingKey[]) {
   return keys.filter((key) => !UNTICKED_SETTINGS.has(key));
 }
@@ -133,8 +136,16 @@ export function ThemeImportPreview({
   const allowThemeHtml = useUIStore((s) => s.allowThemeHtml);
   // A theme with HTML installs only after the user turned on "Allow themes with HTML".
   const htmlBlocked = !allowThemeHtml && issues.some((issue) => issue.kind === "has-html");
+  // Security audit: text that pretends to be the app or asks for secrets, an address outside the
+  // theme, or an unsafe picture: such a theme can't be installed at all.
+  const unsafeContent =
+    chromeProblems.some((problem) => CONTENT_PROBLEM_KINDS.has(problem.kind)) ||
+    issues.some((issue) => issue.kind === "asks-secrets");
   const blocking =
-    optimizing || htmlBlocked || issues.some((issue) => issue.kind === "css-too-big" || issue.kind === "meta-too-big");
+    optimizing ||
+    htmlBlocked ||
+    unsafeContent ||
+    issues.some((issue) => issue.kind === "css-too-big" || issue.kind === "meta-too-big");
   const meta = pkg.meta;
   const scheme = meta.colorScheme;
 
@@ -215,7 +226,7 @@ export function ThemeImportPreview({
       case "asks-secrets":
         return t(
           "theming.import.issue.asksSecrets",
-          "It writes text that asks for private details: “{{text}}”. Marinara switches it off when that text shows in a chat. Never paste keys or passwords because a theme asks.",
+          "It writes text that asks for private details or pretends to be Marinara: “{{text}}”. It can't be installed. Never paste keys or passwords because a theme asks.",
           { text: issue.text },
         );
       case "a11y":
@@ -379,7 +390,9 @@ export function ThemeImportPreview({
               <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0" />
               <span className="min-w-0 flex-1">
                 {chromeProblems.map((problem) => problemText(t, problem)).join(" ")}{" "}
-                {t("theming.import.issue.switchedOff", "It will be switched off as soon as it does.")}
+                {unsafeContent
+                  ? t("theming.import.issue.cantInstall", "It can't be installed.")
+                  : t("theming.import.issue.switchedOff", "It will be switched off as soon as it does.")}
               </span>
             </li>
           ) : null}

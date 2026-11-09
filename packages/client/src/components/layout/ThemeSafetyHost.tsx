@@ -87,6 +87,9 @@ function useCountdown(deadline: number | null) {
   return deadline === null ? 0 : Math.max(0, Math.ceil((deadline - now) / 1000));
 }
 
+/** Problems with what a theme writes or points at (lib/theme-content-check.ts). */
+const CONTENT_KINDS = new Set<ThemeGuardProblem["kind"]>(["fake-text", "long-text", "unsafe-url", "unsafe-picture"]);
+
 export function problemText(t: ReturnType<typeof useTranslation>["t"], problem: ThemeGuardProblem) {
   const area = {
     topbar: t("theming.safety.area.topbar", "the top bar"),
@@ -103,11 +106,27 @@ export function problemText(t: ReturnType<typeof useTranslation>["t"], problem: 
     case "fake-text":
       return t(
         "theming.safety.problem.fakeText",
-        "It added text to the chat that asks for private details: “{{text}}”.",
+        "It adds text that asks for private details or pretends to be the app: “{{text}}”.",
         {
           text: problem.text ?? "",
         },
       );
+    case "long-text":
+      return t(
+        "theming.safety.problem.longText",
+        "It writes a long message into the app (“{{text}}”). Themes can add a few words, not paragraphs.",
+        { text: problem.text ?? "" },
+      );
+    case "unsafe-url":
+      return t(
+        "theming.safety.problem.unsafeUrl",
+        "It points at something outside the theme ({{text}}). Themes can only use their own pictures and fonts.",
+        { text: problem.text ?? "" },
+      );
+    case "unsafe-picture":
+      return t("theming.safety.problem.unsafePicture", "Its picture “{{text}}” is too big to open safely.", {
+        text: problem.text ?? "",
+      });
     case "hidden":
       return t("theming.safety.problem.hidden", "It hid {{area}}.", { area });
     case "moved":
@@ -150,15 +169,21 @@ export function ThemeSafetyHost() {
           pending.restoreSettings.keys as ThemeSettingKey[],
         );
       }
-      // Picked something else meanwhile (here or on another device): nothing to go back from.
-      const current = themes.find((theme) => theme.isActive)?.id ?? null;
-      if (themes.length > 0 && current !== pending.themeId) return;
-      setActiveTheme.mutate(pending.previousId, {
-        onError: () => toast.error(t("theming.safety.revertFailed", "Couldn't switch the theme back.")),
-      });
+      // The try only ever lived in this tab (useActivateTheme), so there is nothing to switch back
+      // on the server or on other devices.
     },
-    [setActiveTheme, t, themes],
+    [],
   );
+
+  // Keep: now the theme is picked for real, on every device (or this device's own look).
+  const keep = () => {
+    const pending = useThemeSafetyStore.getState().pendingKeep;
+    if (!pending) return;
+    setActiveTheme.mutate(pending.themeId, {
+      onSuccess: () => useThemeSafetyStore.getState().settleKeep(),
+      onError: () => toast.error(t("theming.safety.keepFailed", "Couldn't keep the theme. Try again.")),
+    });
+  };
 
   // Nobody answered, or the guard caught the new theme breaking the chrome: go back to the one from before.
   useEffect(() => {
@@ -221,7 +246,7 @@ export function ThemeSafetyHost() {
           <button type="button" onClick={revert}>
             {t("theming.safety.goBack", "Go back")}
           </button>
-          <button type="button" className="primary" onClick={() => useThemeSafetyStore.getState().settleKeep()}>
+          <button type="button" className="primary" onClick={keep} disabled={setActiveTheme.isPending}>
             {t("theming.safety.keep", "Keep theme")}
           </button>
         </div>
@@ -238,10 +263,15 @@ export function ThemeSafetyHost() {
           </div>
           <div className="sub">
             {blockedProblems.map((problem) => problemText(t, problem)).join(" ")}{" "}
-            {t(
-              "theming.safety.blockedHint",
-              "Themes can restyle the top bar and sidebars, but not hide, move or cover them.",
-            )}
+            {blockedProblems.some((problem) => CONTENT_KINDS.has(problem.kind))
+              ? t(
+                  "theming.safety.contentHint",
+                  "Themes can't add text that pretends to be Marinara or asks for private details, and can't reach outside their own pictures and fonts.",
+                )
+              : t(
+                  "theming.safety.blockedHint",
+                  "Themes can restyle the top bar and sidebars, but not hide, move or cover them.",
+                )}
           </div>
         </div>
         <div className="actions">

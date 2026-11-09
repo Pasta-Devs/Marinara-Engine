@@ -571,11 +571,34 @@ The import preview tells the user when a theme tries to change any of these.
   off when it paints over half of them (a pseudo-element cover, a solid ambient behind the cards, or a
   focus frame whose outset spills over the text). A line the theme's own layout moves off screen
   doesn't count, and neither does a name line the theme pins over the reply.
-- Text a theme adds with `content:` is shown in the import preview. Added text in the chat or the
-  message box that asks for keys, passwords or sign-ins switches the theme off.
-- "Keep this theme?" survives a reload or a closed tab: unanswered means going back. Hovering or
-  focusing the bar pauses the countdown. Escape three times turns custom themes off in the tab;
-  an Escape that closes Ctrl+K, a menu or a dialog doesn't count.
+- Text a theme adds with `content:` is shown in the import preview.
+- Theme text rules (security audit, Nov 2026). Every string a theme can draw is checked before the
+  theme is applied, wherever it came from (a file, the editor, Mari, a backup, a per-chat pick):
+  `content:` and `quotes` strings, custom properties (so `content: var(--x)` counts),
+  `@counter-style` symbols, the message box placeholder, message templates (words and `title`) and
+  the text inside SVG pictures. Text that asks for keys, passwords, sign-ins or account details,
+  pretends to be the app ("hacked", "RCE", "security alert", "verified by Marinara", "call
+  support"), holds a phone number or a web address, or runs past 80 letters and digits in one
+  declaration is refused: the theme can't be installed, and an installed one isn't applied. Look-alike
+  letters, accents, zero-width characters, spacing and 1337 spelling are folded first. Strings in
+  selectors, `font-family` and grid area names don't count. The theme's name, author, description
+  and credits may not ask for secrets or claim to be official either (web addresses are fine there).
+- URLs: as well as the text sanitiser (url() allowlist, no `@import`, data: fonts only), the
+  stylesheet is parsed by the browser before it is applied, and any address other than the theme's
+  own pictures, embedded data: pictures and fonts, `#fragments` and `about:invalid` refuses the
+  theme. `src()` follows the url() rules, and an `image-set(` left open at the end is dropped.
+- Suggested colours in a theme file (`settings.accent`, `background` and their light twins) must be
+  plain colours or gradients: no `url()`, `image-set()` or anything that breaks out of the value.
+- SVG pictures are rebuilt from an allowlist before use: no `<script>`, `<foreignObject>`, `<a>`,
+  event attributes, outside links, `<?xml-stylesheet?>` or DOCTYPE entities, and their CSS is
+  cleaned like a theme's. Raster pictures that would decode past 8192 px a side or 40 megapixels
+  are refused.
+- Message templates can't use roles that make a dialog, menu or announcement, nor the app's own
+  `data-` attributes or `mari-`/`ov-` class names.
+- Trying a theme ("Keep this theme?") happens in that tab only: other devices get it only after
+  Keep. Unanswered means going back; hovering or focusing the bar pauses the countdown. Escape three
+  times turns custom themes off in the tab; an Escape that closes Ctrl+K, a menu or a dialog the
+  app shows doesn't count.
 
 ## Changes
 

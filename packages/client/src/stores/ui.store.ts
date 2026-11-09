@@ -16,6 +16,7 @@ import {
   IMAGE_STYLE_PROFILES_STORAGE_KEY,
   normalizeImageStyleProfileSettings,
   normalizeQuoteFormat,
+  SAFE_CSS_PAINT,
   type ImageStyleProfileSettings,
   type GenerateSpatialMapDraftResponse,
   type LorebookCategory,
@@ -548,13 +549,20 @@ function dismissChatFloatingUiForMobilePanel(open: boolean) {
   if (open && isMobileShellViewport()) announceChatFloatingUiDismiss();
 }
 
-function normalizeAppAccentColor(value: unknown) {
+/** Security audit: a colour setting that would load something (url(), image-set()) or break out of
+ *  its value is dropped; these values go straight into style properties. */
+function safePaint(value: unknown) {
   const normalized = typeof value === "string" ? value.trim() : "";
+  return SAFE_CSS_PAINT.test(normalized) ? normalized : "";
+}
+
+function normalizeAppAccentColor(value: unknown) {
+  const normalized = safePaint(value);
   return LEGACY_DEFAULT_APP_ACCENTS.has(normalized.toLowerCase()) ? "" : normalized;
 }
 
 function normalizeAppBackgroundColor(value: unknown) {
-  const normalized = typeof value === "string" ? value.trim() : "";
+  const normalized = safePaint(value);
   return DEFAULT_APP_BACKGROUNDS.has(normalized.toLowerCase()) ? "" : normalized;
 }
 
@@ -3839,8 +3847,8 @@ export const useUIStore = create<UIState>()(
           set((state) => {
             if (v) markAllModeWalkthroughsSeen();
             return {
-            chatHelpButtonHidden: v,
-            chatHelpSeenModes: v ? ["conversation", "roleplay", "game"] : state.chatHelpSeenModes,
+              chatHelpButtonHidden: v,
+              chatHelpSeenModes: v ? ["conversation", "roleplay", "game"] : state.chatHelpSeenModes,
             };
           }),
         dismissLinkApiBanner: () => set({ linkApiBannerDismissed: true }),

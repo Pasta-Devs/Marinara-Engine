@@ -7,6 +7,8 @@
 // "marinara.theme-folder" envelope that export used to write.
 // ──────────────────────────────────────────────
 import { looksLikeSecretRequest } from "./theme-guard";
+import { CONFUSABLES, cssTextThreat, firstThreat, themeTextThreat } from "./theme-text-safety";
+import { templateText } from "./theme-content-check";
 import {
   MAX_THEME_META_BYTES,
   MAX_USER_CSS_BYTES,
@@ -168,50 +170,6 @@ function readMeta(record: Record<string, unknown>): { meta: ThemeMeta; problems:
   return { meta: meta as ThemeMeta, problems };
 }
 
-/** Cyrillic and Greek letters that look like Latin ones, folded before the reserved-word check. */
-const CONFUSABLES: Record<string, string> = {
-  а: "a",
-  е: "e",
-  о: "o",
-  р: "p",
-  с: "c",
-  у: "y",
-  х: "x",
-  і: "i",
-  ј: "j",
-  ѕ: "s",
-  ԁ: "d",
-  һ: "h",
-  ӏ: "l",
-  А: "A",
-  В: "B",
-  Е: "E",
-  К: "K",
-  М: "M",
-  Н: "H",
-  О: "O",
-  Р: "P",
-  С: "C",
-  Т: "T",
-  Х: "X",
-  І: "I",
-  α: "a",
-  ε: "e",
-  ι: "i",
-  ο: "o",
-  ρ: "p",
-  ν: "v",
-  τ: "t",
-  κ: "k",
-  Ο: "O",
-  Ι: "I",
-  Α: "A",
-  Ε: "E",
-  ɡ: "g",
-  ı: "i",
-  ℓ: "l",
-};
-
 const RESERVED_LABEL =
   /\b(official|officially|verified|verify|certified|endorsed|approved|trusted|authentic|genuine|marinara|security|safe[\s-]?checked)\b|[\u2713\u2714\u2611\u2705\u{1F6E1}]/iu;
 
@@ -255,6 +213,16 @@ export async function readThemeFile(file: File): Promise<Array<ThemePackage & { 
 }
 
 // ── Validation ──
+
+/** Name, author, description or credit text that asks for secrets or pretends to be the app. A web
+ *  address there is fine: it is plain text, never a link. */
+function firstMetaThreat(texts: string[]) {
+  for (const text of texts) {
+    const threat = themeTextThreat(text, { lengthCap: null });
+    if (threat === "secret" || threat === "scare") return text;
+  }
+  return undefined;
+}
 
 const HSL_TRIPLET = /^\s*-?\d+(?:\.\d+)?(?:deg)?\s+\d+(?:\.\d+)?%\s+\d+(?:\.\d+)?%\s*(?:\/\s*[\d.]+%?\s*)?$/;
 const COLOR_TOKENS = new Set([
@@ -328,8 +296,35 @@ export function validateThemePackage(pkg: ThemePackage & { metaProblems?: string
   }
   for (const selector of protectedHideAttempts(pkg.css)) issues.push({ kind: "hides-protected", selector });
   const texts = addedTexts(pkg.css);
-  const secret = texts.find(looksLikeSecretRequest);
-  if (secret) issues.push({ kind: "asks-secrets", text: secret });
+  // Security audit: every string the theme could draw (not only `content:`), its templates and its
+  // name, author, description and credits must not ask for secrets or pretend to be the app.
+  const drawn = cssTextThreat(pkg.css);
+  const metaText = firstMetaThreat(
+    [
+      pkg.name,
+      pkg.meta.author,
+      pkg.meta.description,
+      pkg.meta.license,
+      ...(pkg.meta.labels ?? []),
+      ...(pkg.meta.credits ?? []).flatMap((credit) => [credit.what, credit.by, credit.license]),
+      ...(pkg.meta.fonts ?? []).flatMap((font) => [font.family, font.credit, font.license]),
+    ].filter((value): value is string => !!value),
+  );
+  const templateThreat = pkg.meta.templates
+    ? firstThreat(
+        Object.values(pkg.meta.templates)
+          .filter((value): value is string => typeof value === "string")
+          .map(templateText),
+        { lengthCap: 400 },
+      )
+    : null;
+  const secret =
+    texts.find(looksLikeSecretRequest) ??
+    (drawn && drawn.threat !== "long" ? drawn.text : undefined) ??
+    // A web address in a description is a credit, not a trick: it is plain text, never a link.
+    metaText ??
+    templateThreat?.text;
+  if (secret) issues.push({ kind: "asks-secrets", text: secret.slice(0, 120) });
   else if (texts.length) issues.push({ kind: "adds-text", texts: texts.slice(0, 3) });
   const a11y = accessibilityChanges(pkg.css);
   if (a11y.length) issues.push({ kind: "a11y", what: a11y });

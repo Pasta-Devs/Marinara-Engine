@@ -16,6 +16,16 @@ const dataUrl = (prefix: RegExp, message = "Must be a data: URL") =>
     .max(MAX_THEME_META_BYTES)
     .refine((value) => prefix.test(value), { message });
 
+/**
+ * A colour or gradient a theme may suggest for the accent or background (security audit,
+ * 2026-11-09). These land in style properties directly, past the theme CSS sanitiser, so a value
+ * like `url(https://tracker.example/x.png)` would load from the network: anything that can point at
+ * a resource, or break out of the value, is refused.
+ */
+export const SAFE_CSS_PAINT =
+  /^(?![\s\S]*(?:url\s*\(|image(?:-set)?\s*\(|src\s*\(|cross-fade|element\s*\(|paint\s*\(|attr\s*\(|expression|javascript|[\\;{}<>@!]))[\s\S]*$/i;
+const cssPaint = z.string().max(2000).regex(SAFE_CSS_PAINT, "Colours must be plain colours or gradients");
+
 /** Appearance settings a theme can suggest. The user picks which to apply when installing. */
 export const themeSettingsSchema = z
   .object({
@@ -30,11 +40,15 @@ export const themeSettingsSchema = z
       .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
       .optional(),
     visualStyle: z.enum(["default", "sillytavern", "stage"]).optional(),
-    accent: z.string().max(2000).optional(),
-    accentLight: z.string().max(2000).optional(),
-    background: z.string().max(2000).optional(),
-    backgroundLight: z.string().max(2000).optional(),
-    fontFamily: z.string().max(200).optional(),
+    accent: cssPaint.optional(),
+    accentLight: cssPaint.optional(),
+    background: cssPaint.optional(),
+    backgroundLight: cssPaint.optional(),
+    fontFamily: z
+      .string()
+      .max(200)
+      .regex(/^[^\\;{}<>()@!]*$/, "A font name can't hold CSS")
+      .optional(),
     accentPulse: z.boolean().optional(),
     /** Appearance > Display Size (px). Offered unticked: it's the user's call. */
     fontSize: z
