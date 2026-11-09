@@ -500,6 +500,7 @@ export function RulesetBuilderModal({
               {/* Lines up with the rows, which start with their grip. */}
               <span className="w-4 shrink-0" />
               <span className="flex-1">{localizeUi("rulesetBuilder.labelPlaceholder")}</span>
+              <span className="w-28">{localizeUi("rulesetBuilder.skillGroup")}</span>
               <span className="w-16">{localizeUi("rulesetBuilder.min")}</span>
               <span className="w-16">{localizeUi("rulesetBuilder.max")}</span>
               <span className="w-16">{localizeUi("rulesetBuilder.default")}</span>
@@ -513,8 +514,8 @@ export function RulesetBuilderModal({
             onReorder={(rows) => set({ abilities: rows })}
           >
             {(ability, index) => (
-              // On a phone the name takes its own line and each number carries its own caption, since the
-              // header row above only lines up on a wider screen.
+              // On a phone the name and group take the first line and each number carries its own caption on
+              // the second, since the header row above only lines up on a wider screen.
               <div className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
                 <input
                   value={ability.label}
@@ -522,8 +523,18 @@ export function RulesetBuilderModal({
                   onChange={(event) =>
                     set({ abilities: patchRow(draft.abilities, index, { ...ability, label: event.target.value }) })
                   }
-                  className={cn(INPUT, "basis-full sm:basis-0 sm:flex-1")}
+                  className={cn(INPUT, "basis-0 flex-1")}
                 />
+                <input
+                  value={ability.group ?? ""}
+                  placeholder={localizeUi("rulesetBuilder.skillGroup")}
+                  aria-label={localizeUi("rulesetBuilder.skillGroup")}
+                  onChange={(event) =>
+                    set({ abilities: patchRow(draft.abilities, index, { ...ability, group: event.target.value }) })
+                  }
+                  className={cn(INPUT, "w-24 shrink-0 sm:w-28")}
+                />
+                <div className="basis-full sm:hidden" />
                 {(["min", "max", "default"] as const).map((key) => (
                   <label key={key} className="flex min-w-0 flex-1 items-center gap-1 sm:flex-none">
                     <span className="text-[0.625rem] uppercase tracking-wider text-[var(--muted-foreground)] sm:hidden">

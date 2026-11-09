@@ -49,7 +49,7 @@ export interface RulesetBuilderDraft {
   /** Named difficulties, easiest first: a number to beat, or for a pool, successes needed. */
   ladder: Array<{ label: string; value: number }>;
   /** The stats a check adds (or, for a pool, the dice it throws). */
-  abilities: Array<{ label: string; short?: string; min: number; max: number; default: number }>;
+  abilities: Array<{ label: string; short?: string; min: number; max: number; default: number; group?: string }>;
   /** Skills by name, each rolled with one of the abilities (by its label). */
   skills: Array<{ label: string; ability: string; group?: string }>;
   /** A skill's ranks above untrained, lowest first, each with what it adds: to the total on a sum,
@@ -393,16 +393,15 @@ export const RULESET_BUILDER_DEFAULT_SHEET_GUIDANCE =
 export function rulesetFromBuilderDraft(draft: RulesetBuilderDraft, version = 1): Record<string, unknown> {
   const diceless = draft.dice.preset === "diceless";
   const used = new Set<string>();
-  const abilities = draft.abilities
-    .filter((ability) => ability.label.trim())
-    .map((ability) => ({
-      id: slug(ability.label, used, "stat"),
-      label: ability.label.trim().slice(0, 40),
-      short: (ability.short?.trim() || ability.label.trim().slice(0, 3)).toUpperCase().slice(0, 4),
-      min: ability.min,
-      max: ability.max,
-      default: Math.min(ability.max, Math.max(ability.min, ability.default)),
-    }));
+  const namedAbilities = draft.abilities.filter((ability) => ability.label.trim());
+  const abilities = namedAbilities.map((ability) => ({
+    id: slug(ability.label, used, "stat"),
+    label: ability.label.trim().slice(0, 40),
+    short: (ability.short?.trim() || ability.label.trim().slice(0, 3)).toUpperCase().slice(0, 4),
+    min: ability.min,
+    max: ability.max,
+    default: Math.min(ability.max, Math.max(ability.min, ability.default)),
+  }));
   const abilityByLabel = new Map(abilities.map((ability) => [ability.label.toLowerCase(), ability.id]));
   // Sections are one id space with everything else, and two groups that differ only in case are one.
   const sections: Array<{ id: string; label: string }> = [];
@@ -414,6 +413,12 @@ export function rulesetFromBuilderDraft(draft: RulesetBuilderDraft, version = 1)
     sections.push(section);
     return section.id;
   };
+  // Stats with the same group show under one heading (Verbs and Domains, Physical and Mental). Their ids
+  // were taken above, so a group never changes a stat's id.
+  const groupedAbilities = abilities.map((ability, index) => {
+    const group = namedAbilities[index]!.group?.trim();
+    return group ? { ...ability, section: sectionFor(group) } : ability;
+  });
   const skills = draft.skills
     .filter((skill) => skill.label.trim() && abilityByLabel.has(skill.ability.trim().toLowerCase()))
     .map((skill) => ({
@@ -525,12 +530,23 @@ export function rulesetFromBuilderDraft(draft: RulesetBuilderDraft, version = 1)
     sheet: {
       version: 1,
       sections,
-      abilities,
+      abilities: groupedAbilities,
       skills,
       fields,
       derived: [],
       lists,
       live: { pools, tracks, conditions: [], states: [] },
+      // The narrator (or a Sheet Keeper) may raise stats, set skill ranks and change fields as the story earns
+      // them; without this a builder ruleset's sheet could only spend and restore.
+      ...(abilities.length > 0 || skills.length > 0 || fields.length > 0
+        ? {
+            advancement: {
+              ...(abilities.length > 0 ? { abilities: true } : {}),
+              ...(skills.length > 0 ? { skills: true } : {}),
+              ...(fields.length > 0 ? { fields: fields.map((field) => field.id) } : {}),
+            },
+          }
+        : {}),
     },
     rests: [
       {
@@ -624,12 +640,13 @@ export function rulesetBuilderDraftFrom(definition: {
       }),
     ),
     abilities: (sheet.abilities ?? []).map(
-      (ability: { label: string; short?: string; min: number; max: number; default: number }) => ({
+      (ability: { label: string; short?: string; min: number; max: number; default: number; section?: string }) => ({
         label: ability.label,
         short: ability.short,
         min: ability.min,
         max: ability.max,
         default: ability.default,
+        ...(ability.section && sectionLabel.has(ability.section) ? { group: sectionLabel.get(ability.section) } : {}),
       }),
     ),
     skills: (sheet.skills ?? []).map((skill: { label: string; ability: string; section?: string }) => ({

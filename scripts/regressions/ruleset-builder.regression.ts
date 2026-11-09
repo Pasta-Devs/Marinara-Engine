@@ -71,6 +71,9 @@ try {
     );
     assert.equal(definition.sheet.live.pools.length, draft.pools.length, `${preset}: the pools`);
     assert.equal(definition.sheet.live.tracks.length, draft.tracks.length, `${preset}: the tracks`);
+    // The narrator can raise what the sheet holds, or a diceless sheet could never record a rank-up.
+    assert.equal(definition.sheet.advancement?.abilities, true, `${preset}: stats can be raised`);
+    assert.equal(definition.sheet.advancement?.skills, true, `${preset}: skill ranks can be set`);
     assert.equal((doc as { $comment?: string }).$comment, RULESET_BUILDER_MARK);
     const back = rulesetBuilderDraftFrom(definition as any);
     assert.ok(back, `${preset}: the builder can open what it wrote`);
@@ -135,6 +138,8 @@ try {
     draft.sheetGuidance = "Mark Stress on a push.";
     draft.rulesReference = "Rule one.\r\n\r\nRule two.";
     draft.worldGuidance = "No gunpowder.";
+    draft.abilities[0]!.group = "Physical";
+    draft.abilities[1]!.group = "Physical";
     const definition = parsed(rulesetFromBuilderDraft(draft));
     const moves = definition.sheet.sections.filter((section) => section.label === "Moves");
     assert.equal(moves.length, 1, "two groups that differ only in case are one section");
@@ -173,6 +178,22 @@ try {
     );
     assert.equal(back.rulesReference, "Rule one. Rule two.");
     assert.equal(back.worldGuidance, "No gunpowder.");
+    const physical = definition.sheet.sections.find((section) => section.label === "Physical")!;
+    assert.deepEqual(
+      definition.sheet.abilities.slice(0, 3).map((ability) => ability.section ?? null),
+      [physical.id, physical.id, null],
+      "stats with a group show under its heading",
+    );
+    assert.deepEqual(
+      back.abilities.slice(0, 3).map((ability) => ability.group ?? null),
+      ["Physical", "Physical", null],
+    );
+    assert.equal(
+      parsed(rulesetFromBuilderDraft({ ...draft, abilities: draft.abilities.map(({ group: _g, ...rest }) => rest) }))
+        .sheet.abilities[0]!.id,
+      definition.sheet.abilities[0]!.id,
+      "a group never changes a stat's id",
+    );
   }
 
   // Diceless (1.825): marked as such, read back as such, and the narrator is never asked for a check.

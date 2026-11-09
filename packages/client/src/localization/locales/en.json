@@ -6674,7 +6674,7 @@
   "roleplay.commands.whisper.revealedHint": "Only revealed on your screen. Other characters still cannot access it.",
   "roleplay.commands.whisper.to": "Whisper to {{character}}",
   "rulesetBuilder.abilities": "Stats",
-  "rulesetBuilder.abilitiesHelp": "The scores a check adds or rolls, with their range and starting value.",
+  "rulesetBuilder.abilitiesHelp": "The scores a check adds or rolls, with their range and starting value. Stats with the same group show under one heading on the sheet.",
   "rulesetBuilder.about": "About",
   "rulesetBuilder.add": "Add",
   "rulesetBuilder.addColumn": "Add column",
