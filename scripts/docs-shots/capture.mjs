@@ -87,7 +87,7 @@ const SHOTS = [
       { wait: 1200 },
       { click: 'button:has-text("Got it")', optional: true },
       { click: "text=Illustrator Settings", unless: 'label:text-is("Generated Selfies")' },
-      { click: 'label:text-is("Generated Selfies")' },
+      { click: 'label:text-is("Generated Selfies")', unless: ':text-is("Selfie model")' },
       { wait: 1200 },
       { scroll: "text=Illustrator Settings" },
     ],
@@ -154,11 +154,7 @@ const SHOTS = [
     guide: "prompts/presets.md",
     heading: "The Preset Editor's tabs",
     alt: "The Preset Editor with the prompt sections in order.",
-    steps: [
-      ...library("Presets"),
-      { click: ".ov-gallery [role=button], .ov-gallery button, .ov-table tbody tr" },
-      { wait: 1500 },
-    ],
+    steps: [...library("Presets"), { click: ':text("Marinara\'s Universal")' }, { wait: 1500 }],
     clip: CENTER,
   },
   {
@@ -226,6 +222,12 @@ for (const shot of SHOTS) {
     content: "[data-sonner-toaster]{display:none!important} *{caret-color:transparent!important}",
   });
   try {
+    // A fresh data folder starts the first-run tutorial; skip it before anything else.
+    const skip = page.locator('button:has-text("Skip Tutorial")');
+    if (await skip.count()) {
+      await skip.first().click();
+      await page.waitForTimeout(500);
+    }
     for (const step of shot.steps) {
       if (step.click) {
         const target = page.locator(step.click).first();
@@ -241,8 +243,8 @@ for (const shot of SHOTS) {
       }
       await page.waitForTimeout(step.wait ?? 500);
     }
-    // One-time hints ("Got it") and the chat help overlay.
-    for (const hint of ['button:has-text("Got it")']) {
+    // One-time hints ("Got it") and the first-run tutorial.
+    for (const hint of ['button:has-text("Got it")', 'button:has-text("Skip Tutorial")']) {
       const button = page.locator(hint);
       if (await button.count())
         await button
