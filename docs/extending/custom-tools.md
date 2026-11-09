@@ -8,19 +8,19 @@ Function calling means the AI asks the app to run an action and then uses the re
 
 ## Create a tool
 
-Before you start: in the new layout, you make a tool from a chat. Open any chat, then **Chat Settings → Function Calling → Add Functions**, and click **New Custom Function**. In the classic layout, tools also live in the **Presets** panel's **Functions** section (wrench icon), where you can open, edit and delete the ones you have. If you open Marinara from another device, save the admin secret first under **Settings → Advanced → Security**. It must match the server's `ADMIN_SECRET`; see the [Server Configuration Reference](../CONFIGURATION.md).
+Before you start: your tools live on the **Custom tools** page. Open **Library → Custom tools**. It lists your tools on the left and edits the selected one on the right. You can also start a tool from a chat with **Chat Settings → Function Calling → Add Functions → New Custom Function**. In the classic layout, tools are in the **Presets** panel's **Functions** section (wrench icon). If you open Marinara from another device, save the admin secret first under **Settings → Advanced → Security**. It must match the server's `ADMIN_SECRET`; see the [Server Configuration Reference](../CONFIGURATION.md).
 
 For a first try, pick **Static Result**: it needs nothing else.
 
 ### Creating a tool
 
-1. Open the tool editor: in a chat, **Chat Settings → Function Calling → Add Functions → New Custom Function**; or in the classic layout, **Presets → Functions → Create function** (plus icon). A blank tool editor opens.
-3. Type a name in lowercase snake_case, such as `check_weather`. This is the exact name the AI calls. It starts with a lowercase letter, then uses lowercase letters, numbers and underscores.
-4. Fill in **Description**. Write it as an instruction to the AI, because the AI reads it to decide when to call the tool. Example: `Get the current weather for a city the user names.`
-5. Add any parameters the tool needs (see [Add parameters](#add-parameters)).
-6. Pick an **Execution Type**: **Static Result**, **Webhook** or **Script**.
-7. Fill in the field for that type (see [Choose an execution type](#choose-an-execution-type)).
-8. Click **Save**. A green **Saved** flash appears near the button.
+1. Open **Library → Custom tools** and click **New tool**. A blank tool editor opens.
+2. Type a name in lowercase snake_case, such as `check_weather`. This is the exact name the AI calls. It starts with a lowercase letter, then uses lowercase letters, numbers and underscores.
+3. Fill in **Description**. Write it as an instruction to the AI, because the AI reads it to decide when to call the tool. Example: `Get the current weather for a city the user names.`
+4. Add any parameters the tool needs (see [Add parameters](#add-parameters)).
+5. Pick an **Execution Type**: **Static Result**, **Webhook** or **Script**.
+6. Fill in the field for that type (see [Choose an execution type](#choose-an-execution-type)).
+7. Click **Save**. A green **Saved** flash appears near the button.
 
 Rules for names and descriptions:
 
@@ -28,19 +28,16 @@ Rules for names and descriptions:
 - Two tools cannot share a name, and a tool cannot use a built-in name such as `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` or `update_about_me`. A clash shows a message such as `"your_name" is a reserved built-in tool name.`
 - If you leave the editor with unsaved changes, a banner offers **Keep editing**, **Discard** or **Save & close**.
 
-The **Functions** header has three icon buttons:
+## Manage your tools
 
-- **Create function** (plus icon)
-- **Import functions from ZIP or JSON**
-- **Export functions to ZIP** (greyed out when you have no tools)
+On the **Custom tools** page, each tool in the list shows its name, its type and how many parameters it has, with an on/off switch. Click a tool to edit it.
 
-Each tool in the list shows:
+- **Import** above the list loads tools from a `.zip` or `.json` file. Webhook and Script tools come in switched off, so you can check them before you turn them on.
+- **Export all** saves every tool to `marinara-functions.zip`. If a webhook address is included, Marinara warns you first, because the address can hold a key.
+- **⋯** on a tool (or right-click it) has **Export**, **Select** and **Delete**.
+- **Select** above the list lets you pick several tools, then **Export** or **Delete** them from the bar under the list.
 
-- its name, type, parameter count and description
-- an on/off switch
-- **Edit function** and **Delete Function**
-
-Drag a tool by its handle to reorder the list. The order is for display only. With no tools, the list reads **No functions yet**.
+In the classic layout, the **Functions** header has **Create function**, **Import functions from ZIP or JSON** and **Export functions to ZIP**, and each row has **Edit function** and **Delete Function**.
 
 ## Add parameters
 
@@ -152,7 +149,7 @@ Creating a tool does not make the AI use it. You also turn tool use on for the c
 3. Turn on **Enable Tool Use**. Its description reads **Allow AI to call functions (dice rolls, game state, etc.)**. It is off by default for a new chat.
 4. Check it works: ask the AI something your tool answers, such as "What are your store hours?" for the `store_hours` example. The reply should use the tool's text.
 
-With **Enable Tool Use** on and nothing added below it, the chat can use every globally enabled tool it supports: the built-in tools plus each custom tool whose switch is on in **Functions**. Game chats also need **Let the GM search lore** for `search_lorebook`.
+With **Enable Tool Use** on and nothing added below it, the chat can use every globally enabled tool it supports: the built-in tools plus each custom tool whose switch is on in **Library → Custom tools**. Game chats also need **Let the GM search lore** for `search_lorebook`.
 
 To limit a chat to a chosen set:
 
@@ -164,7 +161,7 @@ Once you add any tools, only those tools work in that chat. **New Custom Functio
 
 Game chats can use a separate connection for tool planning. See [Optional tool planning and lore searches](../game/getting-started.md#optional-tool-planning-and-lore-searches) for its cost and behavior.
 
-If it did not work: confirm **Enable Tool Use** is on, the tool is in the chat's list if you added specific tools, and the tool's switch in **Functions** is on. A clearer **Description** and clearer parameter descriptions help the AI decide when to call it.
+If it did not work: confirm **Enable Tool Use** is on, the tool is in the chat's list if you added specific tools, and the tool's switch in **Library → Custom tools** is on. A clearer **Description** and clearer parameter descriptions help the AI decide when to call it.
 
 ## Attach tools to an agent
 

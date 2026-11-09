@@ -160,12 +160,12 @@ Marinara swaps `editedText` into the reply. The `changes` notes show as a short 
 
 ## Import and export agents
 
-To export one agent, click **Export agent** (the upload icon) in the editor's top bar. The file holds the agent's prompt and settings, never custom-tool definitions. To export several at once, use **Select agents** in the classic layout's **Agents** panel.
+To export one agent, click **Export agent** (the upload icon) in the editor's top bar, or choose **Export** in its **⋯** menu under **Your agents** on **Library → Agents**. The file holds the agent's prompt and settings, never custom-tool definitions. To export several at once, click **Select** (the check icon next to the **Agents** title), pick agents under **Your agents**, and click **Export** in the bar at the bottom. The same **⋯** menu also has **Duplicate** and **Delete**.
 
 External imports are locked by default.
 
 1. Open **Settings → Advanced → Security** and turn on **Allow custom Agent imports**. No `.env` change is needed.
-2. Importing agent files is in the classic layout for now. Turn off **New layout** in **Settings → Appearance → Theme**, open the **Agents** panel, click **Import agents** and choose agent files or a folder. Turn **New layout** back on afterwards.
+2. Open **Library → Agents**, click **Import agents** (the download icon next to **Starter kits**), choose **Choose Files** or **Choose Folder**, and pick the agent files.
 3. Review the permission list Marinara shows. Approve only what the agent needs. Unchecked capabilities stay blocked.
 
 This lock affects only agents from files, folders or custom repositories. Agents you create and official agents from **Library → Agents** work normally. Each imported file gets a new custom identity, so it cannot replace an official agent.

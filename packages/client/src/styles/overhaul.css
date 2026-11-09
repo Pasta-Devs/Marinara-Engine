@@ -1313,6 +1313,204 @@
   flex-wrap: wrap;
 }
 
+/* ─── Library list tools: Select, "⋯", folders, My order (LibraryKit.tsx) ─── */
+.ov-kit-more {
+  display: inline-grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--ov-muted);
+  opacity: 0.55;
+}
+@media (hover: hover) {
+  .ov-kit-more:hover {
+    background: var(--ov-hover);
+    color: var(--ov-text);
+    opacity: 1;
+  }
+  .ov-table tbody tr:hover .ov-kit-more,
+  .ov-kit-folder:hover .ov-kit-more {
+    opacity: 1;
+  }
+}
+.ov-kit-more:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .ov-kit-more {
+    opacity: 1;
+  }
+}
+.ov-table__more {
+  width: 2.5rem;
+  padding: 0 0.375rem !important;
+  text-align: right;
+}
+.ov-table__check {
+  width: 2.25rem;
+  padding-right: 0 !important;
+}
+.ov-table__check button {
+  display: inline-flex;
+}
+.ov-kit-check {
+  display: inline-flex;
+  color: var(--ov-muted);
+}
+.ov-kit-check.is-on {
+  color: var(--ov-accent);
+}
+.ov-table tbody tr.is-selected td {
+  background: color-mix(in srgb, var(--ov-accent) 10%, transparent);
+}
+.ov-table tbody tr.ov-table__folder {
+  cursor: default;
+}
+.ov-table tbody tr.ov-table__folder td {
+  height: auto;
+  padding: 0;
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+.ov-table tbody tr.is-in-folder td:first-child {
+  padding-left: 1.75rem;
+}
+.ov-kit-folder {
+  display: flex;
+  height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.375rem 0 0.75rem;
+  color: var(--ov-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+.ov-kit-folder:focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: -2px;
+}
+.ov-kit-folder__arrow {
+  color: var(--ov-muted);
+  transition: transform 0.15s ease;
+}
+.ov-kit-folder__arrow.is-open {
+  transform: rotate(90deg);
+}
+.ov-kit-folder__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-kit-folder__count {
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.ov-kit-folder .ov-kit-more {
+  margin-left: auto;
+}
+.ov-kit-folder-cell {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+.ov-card__more {
+  position: absolute;
+  top: 0.375rem;
+  left: 0.375rem;
+  z-index: 1;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  opacity: 0;
+}
+.ov-card:hover .ov-card__more,
+.ov-card__more:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .ov-card__more {
+    opacity: 1;
+  }
+}
+.ov-card__check {
+  position: absolute;
+  bottom: 0.375rem;
+  left: 0.375rem;
+  display: grid;
+  width: 1.625rem;
+  height: 1.625rem;
+  place-items: center;
+  border-radius: 0.375rem;
+  background: rgb(0 0 0 / 0.6);
+}
+.ov-card__check .ov-kit-check {
+  color: #fff;
+}
+.ov-card.is-selected .ov-card__art {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: 2px;
+}
+.ov-kit-bulk {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 999px;
+  background: var(--popover);
+  box-shadow: 0 12px 32px -16px rgb(0 0 0 / 0.6);
+  translate: 0 1rem;
+}
+.ov-kit-bulk__count {
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ov-kit-bulk__spacer {
+  flex: 1;
+}
+.ov-btn--danger {
+  color: var(--destructive);
+}
+/* Rows dragged into My order: the insertion line sits on the row's edge (table rows take no margin). */
+.ov-table tr[data-drag-insert]::after {
+  display: none;
+}
+.ov-table tr[data-drag-insert="before"] td {
+  box-shadow: inset 0 3px 0 var(--ov-accent);
+}
+.ov-table tr[data-drag-insert="after"] td {
+  box-shadow: inset 0 -3px 0 var(--ov-accent);
+}
+.ov-kit-folder[data-drag-target="inside"] {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
+}
+.ovm .ov-kit-bulk,
+.ov-kit-bulk:has(.ov-btn:nth-of-type(6)) {
+  border-radius: 1rem;
+}
+@media (max-width: 640px) {
+  .ov-kit-bulk__label {
+    display: none;
+  }
+  .ov-kit-bulk .ov-btn:not(.ov-btn--icon) {
+    padding: 0 0.625rem;
+  }
+}
+
 /* ─── Settings ─── */
 .ov-settings {
   display: flex;
@@ -9014,6 +9212,7 @@ input.ov-edhead__title:focus {
   margin-bottom: 0.5rem;
 }
 .ov-org__count {
+  white-space: nowrap;
   margin-left: 0.75rem;
   color: var(--ov-muted);
   font: 400 0.875rem/1 var(--font-sans, inherit);
@@ -11390,4 +11589,87 @@ input.ov-edhead__title:not(#ov-x) {
 }
 :root[data-overhaul][data-mari-app-backdrop] [data-mari-part="chat-header"][data-chat-mode="conversation"] {
   background: var(--mari-chat-header-bg, none);
+}
+
+/* Library viewers (Regex): Select, ⋯ and the bulk bar in the left list */
+.ov-vw__tools .ov-vw__tools-end {
+  margin-left: auto;
+  color: var(--ov-muted);
+}
+.ov-vw__tools .ov-vw__tools-end.is-on {
+  color: var(--ov-accent);
+}
+.ov-vw__row .ov-kit-more {
+  flex: none;
+  margin-left: 0.125rem;
+}
+.ov-vw__row.is-selected {
+  background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
+}
+.ov-vw__row[data-drag-insert="before"] {
+  box-shadow: inset 0 2px 0 var(--ov-accent);
+}
+.ov-vw__row[data-drag-insert="after"] {
+  box-shadow: inset 0 -2px 0 var(--ov-accent);
+}
+.ov-vw__left .ov-kit-bulk {
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  margin: 0.5rem 0.75rem 0.75rem;
+  padding-left: 0.75rem;
+  translate: none;
+}
+.ov-vw__left .ov-kit-bulk .ov-btn {
+  padding-inline: 0.5rem;
+}
+.ov-vw__left .ov-kit-bulk__count {
+  white-space: nowrap;
+}
+.ov-vw__left .ov-kit-bulk .ov-kit-bulk__label {
+  display: none;
+}
+
+/* Agents page: Your agents can be selected, copied and exported */
+.ov-org-card__art--own {
+  position: relative;
+}
+.ov-org-card.is-selected {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: 2px;
+}
+.ov-org-card:hover .ov-card__more {
+  opacity: 1;
+}
+.ov-org__actcell .ov-kit-more {
+  margin-left: 0.25rem;
+  vertical-align: middle;
+}
+.ov-org__name .ov-kit-check {
+  margin-right: 0.25rem;
+}
+.ov-btn.is-muted {
+  opacity: 0.55;
+}
+
+/* Connections: Shuffle chip and a one-line count */
+.ov-conn__count {
+  white-space: nowrap;
+}
+.ov-conn__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Gallery: a quiet label between the folders and the cards in none */
+.ov-kit-folder-cell.ov-kit-loose {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  padding: 0.25rem 0.25rem 0;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }

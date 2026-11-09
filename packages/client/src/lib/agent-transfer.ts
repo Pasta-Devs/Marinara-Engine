@@ -242,3 +242,39 @@ export function createAgentFolderPackageFiles(agents: AgentTransferConfig[]): Zi
 export function createAgentFolderPackageFilename(name: string, fallback = "marinara-agent") {
   return `${sanitizeFolderSegment(name, fallback)}.agent.zip`;
 }
+
+function parseTransferSettings(value: unknown): Record<string, unknown> {
+  const isRecord = (input: unknown): input is Record<string, unknown> =>
+    !!input && typeof input === "object" && !Array.isArray(input);
+  if (isRecord(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return isRecord(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+/** An agent as an export file holds it (no connection, picture or enabled state of yours). */
+export function serializeAgentConfig(agent: AgentConfigRow): AgentTransferConfig {
+  const settings = sanitizeAgentSettingsForTransfer(parseTransferSettings(agent.settings));
+  if (typeof settings.author !== "string" || !settings.author.trim()) {
+    settings.author = "Unknown";
+  }
+  const resultType = typeof settings.resultType === "string" ? settings.resultType : undefined;
+  return {
+    type: agent.type,
+    name: agent.name,
+    description: agent.description,
+    phase: normalizeAgentPhaseForType(agent.type, agent.phase),
+    enabled: true,
+    connectionId: null,
+    imagePath: null,
+    promptTemplate: agent.promptTemplate,
+    settings,
+    ...(resultType ? { resultType } : {}),
+  };
+}

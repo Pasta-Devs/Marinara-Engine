@@ -24,11 +24,13 @@ The `{{user}}` macro is a placeholder. Marinara replaces it with the persona's n
 
 ## The Personas page
 
-Open **Library → Personas**. It works like the [Characters page](library-organization.md#the-characters-page): portrait cards, **Import**, **New persona** (blank or from a template), a search box, **Recently edited** and tag chips, the sort menu (**A to Z**, **Z to A**, **Newest**, **Oldest**) and three card sizes. Click a card to open the persona in the Persona Editor.
+Open **Library → Personas**. It works like the [Characters page](library-organization.md#the-characters-page): portrait cards, **Import**, **New persona** (blank or from a template), a search box, **Recently edited** and tag chips, the sort menu (**A to Z**, **Z to A**, **Newest**, **Oldest**, **My order**) and three card sizes. Click a card to open the persona in the Persona Editor.
+
+The same tools as on the Characters page work here: **⋯** on a card (**Duplicate**, **Move to folder**, **Export**, **Select**, **Delete**), dragging cards into **My order**, **New folder**, and **Select** to export or delete many personas at once as `marinara-personas.zip`. See [A card's actions](library-organization.md#a-cards-actions).
 
 ## In the classic layout: the Personas panel
 
-The classic **Personas** panel has folders, manual order and bulk select as well. Click a row to open that persona in the Persona Editor.
+The classic **Personas** panel shows the same folders and order as a list. Click a row to open that persona in the Persona Editor.
 
 | Control | What it does |
 | --- | --- |

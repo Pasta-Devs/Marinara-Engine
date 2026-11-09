@@ -38,7 +38,11 @@ If it did not work: a red error under **Find Pattern (Regex)** blocks saving. Th
 
 ### Manage your scripts
 
-On the **Regex scripts** page, each script in the list shows its name, its order (such as **Order 0 · runs 1st**) and whether it is **Enabled**. **Import** at the top loads scripts from a file, and **Export** in the editor saves the selected script.
+On the **Regex scripts** page, each script in the list shows its run number, its name, its pattern and an on/off switch. **Import** at the top loads scripts from a file, and **Export** in the editor saves the selected script.
+
+- Drag a script up or down the list to change its run order.
+- **⋯** on a script (or right-click it) has **Duplicate**, **Export**, **Select** and **Delete**. On a touch screen, press and hold the script.
+- **Select** above the list puts a check box on each script. Pick several, then use the bar under the list to turn them **On or off**, **Export** them to one file, or **Delete** them.
 
 In the classic layout, each row in the **Regexes** list shows the script name, an **AI** or **User** tag, the pattern as `/pattern/flags`, an on/off toggle (takes effect right away), **Edit regex** (pencil) and **Delete regex** (trash). With no scripts, the list reads "No regexes yet". Drag a row by its handle to change the run order.
 

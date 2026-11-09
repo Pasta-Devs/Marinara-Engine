@@ -73,13 +73,20 @@ Open **Library → Lorebooks**. Along the top are **Import** (see [Importing and
 
 - **All kinds** narrows the list to **Global**, **World**, **Character**, **NPC** or **Spellbook** lorebooks.
 - **List** and **Gallery** switch between a table and picture tiles.
-- The sort menu offers **Recently edited**, **A to Z** and **Z to A**.
+- The sort menu offers **Recently edited**, **A to Z**, **Z to A** and **My order**.
 
 Click a lorebook to open it.
 
+### Organize your lorebooks
+
+- **⋯** at the end of a row (or right-click the row) has **Duplicate**, **Move to folder**, **Export**, **Select** and **Delete**. On a touch screen, press and hold the row. **Duplicate** copies the lorebook with all its entries and opens the copy.
+- Drag a row above or below another to set your own order. The sort menu switches to **My order**.
+- **New folder** (the folder icon next to the title) adds a library folder. Drag a lorebook onto it, or use **Move to folder**. These folders are separate from the entry folders inside a lorebook. Click a folder to fold it, and use its **⋯** to rename or delete it. Deleting a folder keeps its lorebooks.
+- **Select** (the check icon next to the title) puts a check box on each row. Pick lorebooks, then use the bar at the bottom: **Move to folder**, **On or off**, **Export** (one `marinara-lorebooks.zip`) or **Delete**.
+
 ## In the classic layout: the Lorebooks panel
 
-The classic panel adds library folders, manual order, copy and bulk select. At the top of the panel, three icon buttons show their names when you hover over them.
+The classic panel shows the same folders and order as a list. At the top of the panel, three icon buttons show their names when you hover over them.
 
 - **New** opens the **Create Lorebook** window.
 - **Import** opens the **Import Lorebook** window. See [Importing and Exporting Lorebooks](import-export.md).

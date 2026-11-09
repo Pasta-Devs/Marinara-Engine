@@ -46,13 +46,13 @@ import {
   useUploadLorebookImage,
   type LorebookListItem,
 } from "../../hooks/use-lorebooks";
-import type { Lorebook, LorebookCategory, LorebookEntry, LorebookFolder } from "@marinara-engine/shared";
+import type { Lorebook, LorebookCategory } from "@marinara-engine/shared";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { getChatCharacterIds } from "../../lib/chat-macros";
-import { buildLorebookDuplicateInput } from "../../lib/lorebook-duplicate";
+import { duplicateLorebook } from "../../lib/lorebook-duplicate";
 import {
   getNextUnnamedLibraryFolderName,
   useCreateLibraryFolder,
@@ -108,21 +108,6 @@ function usePanelMobileOverlay() {
   }, []);
 
   return isMobileOverlay;
-}
-
-function remapLorebookEntryRelationships(
-  relationships: Record<string, string> | null | undefined,
-  entryIdMap: Map<string, string>,
-) {
-  const remapped: Record<string, string> = {};
-  if (!relationships) return remapped;
-
-  for (const [sourceEntryId, relationshipType] of Object.entries(relationships)) {
-    const clonedEntryId = entryIdMap.get(sourceEntryId);
-    if (clonedEntryId) remapped[clonedEntryId] = relationshipType;
-  }
-
-  return remapped;
 }
 
 export function LorebooksPanel() {
@@ -450,74 +435,7 @@ export function LorebooksPanel() {
   const handleDuplicateLorebook = useCallback(
     async (lorebook: Lorebook) => {
       try {
-        const [folders, entries] = await Promise.all([
-          api.get<LorebookFolder[]>(`/lorebooks/${lorebook.id}/folders`),
-          api.get<LorebookEntry[]>(`/lorebooks/${lorebook.id}/entries`),
-        ]);
-        const created = await createLorebook.mutateAsync(buildLorebookDuplicateInput(lorebook));
-        const createdId = created.id;
-        const folderIdMap = new Map<string, string>();
-        const pendingFolders = [...folders].sort((a, b) => a.order - b.order);
-
-        while (pendingFolders.length > 0) {
-          let createdInPass = false;
-          for (let index = pendingFolders.length - 1; index >= 0; index--) {
-            const folder = pendingFolders[index];
-            const parentFolderId = folder.parentFolderId ? folderIdMap.get(folder.parentFolderId) : null;
-            if (folder.parentFolderId && !parentFolderId) continue;
-
-            const createdFolder = await api.post<LorebookFolder>(`/lorebooks/${createdId}/folders`, {
-              name: folder.name,
-              enabled: folder.enabled,
-              parentFolderId,
-              order: folder.order,
-            });
-            folderIdMap.set(folder.id, createdFolder.id);
-            pendingFolders.splice(index, 1);
-            createdInPass = true;
-          }
-
-          if (!createdInPass) throw new Error("Could not copy lorebook folders");
-        }
-
-        if (entries.length > 0) {
-          const clonedEntries = entries.map((entry) => {
-            const clone: Partial<LorebookEntry> = { ...entry };
-            delete clone.id;
-            delete clone.lorebookId;
-            delete clone.createdAt;
-            delete clone.updatedAt;
-            delete clone.embedding;
-            clone.folderId = entry.folderId ? (folderIdMap.get(entry.folderId) ?? null) : null;
-            clone.relationships = {};
-            return clone;
-          });
-
-          const createdEntries = await api.post<LorebookEntry[]>(`/lorebooks/${createdId}/entries/bulk`, {
-            entries: clonedEntries,
-          });
-
-          const entryIdMap = new Map<string, string>();
-          entries.forEach((entry, index) => {
-            const createdEntry = createdEntries[index];
-            if (createdEntry) entryIdMap.set(entry.id, createdEntry.id);
-          });
-
-          const relationshipUpdates = entries
-            .map((entry, index) => {
-              const createdEntry = createdEntries[index];
-              if (!createdEntry) return null;
-
-              const relationships = remapLorebookEntryRelationships(entry.relationships, entryIdMap);
-              if (Object.keys(relationships).length === 0) return null;
-
-              return api.patch<LorebookEntry>(`/lorebooks/${createdId}/entries/${createdEntry.id}`, { relationships });
-            })
-            .filter((update): update is Promise<LorebookEntry> => Boolean(update));
-
-          await Promise.all(relationshipUpdates);
-        }
-
+        const createdId = await duplicateLorebook(lorebook, (input) => createLorebook.mutateAsync(input));
         toast.success(localizeUi("ui.panels.agentspanel.copiedValue1", { value1: lorebook.name }));
         openLorebookDetail(createdId);
       } catch (error) {
