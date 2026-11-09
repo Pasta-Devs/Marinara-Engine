@@ -55,6 +55,7 @@ import {
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { useCoveredSurfaceFlag } from "../../hooks/use-covered-surface-flag";
+import { useOffscreenFlag } from "../../hooks/use-offscreen-flag";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
@@ -1132,6 +1133,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const homePageRef = useRef<HTMLDivElement | null>(null);
   // Freeze Home's ambient animations while Professor Mari, an editor or a panel covers it (phone battery).
   useCoveredSurfaceFlag(homePageRef, "marinaraHomeCovered");
+  const professorArtRef = useOffscreenFlag<HTMLDivElement>();
   const feedShellRef = useRef<HTMLDivElement | null>(null);
   const mobileBookmarksRef = useRef<HTMLDivElement | null>(null);
   const mobileBookmarksTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -2541,6 +2543,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                           <div
                             className="group/home-mari relative z-[1] -mb-(--mari-home-professor-pad) h-[192px] w-[128px] self-end"
                             data-home-professor-art
+                            ref={professorArtRef}
                             aria-hidden="true"
                           >
                             <img
