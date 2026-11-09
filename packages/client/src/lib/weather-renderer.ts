@@ -212,15 +212,15 @@ function jagged(x: number, y: number, dx: number, length: number, steps: number,
 }
 
 /**
- * A new forked bolt for one flash. It strikes down one SIDE of the screen (8-28% or 72-92% across), never the
+ * A new forked bolt for one flash. It strikes down the outer edge of the screen (3-12% or 88-97% across), never the
  * middle, so it doesn't cross the chat text, and it reaches 55-90% of the height. Two to four forks branch off
  * the trunk, and a long fork can split once more, so it reads as a real branching strike, not a crack.
  */
 export function createWeatherBolt(width: number, height: number, random: () => number = Math.random): WeatherBolt {
   const left = random() < 0.5;
-  const x = width * (left ? 0.08 + random() * 0.2 : 0.72 + random() * 0.2);
+  const x = width * (left ? 0.03 + random() * 0.09 : 0.88 + random() * 0.09);
   const length = height * (0.55 + random() * 0.35);
-  const lean = (left ? -1 : 1) * random() * 0.25;
+  const lean = (left ? -1 : 1) * random() * 0.15;
   const trunk = jagged(x, -4, lean, length, 11 + Math.floor(random() * 4), random);
   const forks: WeatherBolt["forks"] = [];
   const forkCount = 2 + Math.floor(random() * 3);
