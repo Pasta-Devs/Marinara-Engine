@@ -185,7 +185,7 @@ export function JobRow({
                         }),
                         t("connections.defaults.foundIn", { accounts: tile.find.accounts.join(", ") }),
                       ].join(" · ")
-                    : t("connections.defaults.noneFound"))) ??
+                    : t(tile.find.unknown ? "connections.defaults.chooseModel" : "connections.defaults.noneFound"))) ??
                 (unset
                   ? t(tile.warning ? "connections.defaults.chooseModel" : "connections.defaults.notSetUp")
                   : [tile.value, tile.hint].filter(Boolean).join(" · "))}

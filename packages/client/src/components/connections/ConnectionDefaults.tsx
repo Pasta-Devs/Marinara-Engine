@@ -101,7 +101,7 @@ export type DefaultsTile = {
   /** The engine this job needs is not set up: the tile leads to its set-up screen. */
   setup?: { item: SetupItem; text: string };
   /** An empty job: how many models the accounts' catalogs offer for it (Pick), or none (Add). */
-  find?: { count: number; accounts: string[] };
+  find?: { count: number; accounts: string[]; unknown?: boolean };
   /** A device job opens its engine's page instead of pickers. */
   device?: DeviceItem;
 };
@@ -437,6 +437,8 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   });
   // Accounts with no catalog list (a Decision account) still offer the Models saved under them.
   const listed = new Set(catalogRows.filter((_, index) => lists[index]?.data).map(({ account }) => account.id));
+  // A list still loading or failed can hide models: then Pick (the picker shows its own state), never Add.
+  const unknown = !lists.every((list) => list.isSuccess);
   const findFor = (job: Job) => {
     const found = foundForJob(job, catalogs, (provider, kind) => mediaSources(provider, kind).length > 0);
     const kind = job.kind;
@@ -445,7 +447,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
         ? connectionsList.filter((row) => !listed.has(row.accountId ?? "") && matchesKind(row, kind))
         : [];
     const names = saved.map((row) => accountOf(row)?.name ?? row.name);
-    return { count: found.count + saved.length, accounts: [...new Set([...found.accounts, ...names])] };
+    return { count: found.count + saved.length, accounts: [...new Set([...found.accounts, ...names])], unknown };
   };
   return all.map((tile) => (isEmpty(tile) ? { ...tile, find: findFor(JOB[tile.key]) } : tile));
 }
@@ -696,7 +698,7 @@ function DefaultsJobRow({
   const title = t(jobLabelKey(job));
   const onClick = () => {
     if (tile.device) return onOpenDevice(tile.device);
-    if (tile.find?.count === 0) return openAddConnection({ job: job.key as JobKey });
+    if (tile.find?.count === 0 && !tile.find.unknown) return openAddConnection({ job: job.key as JobKey });
     if (tile.setup?.item) return openAddConnection({ category: "device", item: tile.setup.item });
     // Dictation has no Model to pick: its row opens its settings.
     if (job.device) return setSettingsOpen(true);
@@ -724,7 +726,7 @@ function DefaultsJobRow({
                 onClick={onClick}
                 className="mari-chrome-control mari-chrome-control--primary shrink-0 !min-h-7 !px-3 !py-1 !text-xs"
               >
-                {t(tile.find.count ? "connections.defaults.pick" : "connections.defaults.add")}
+                {t(tile.find.count || tile.find.unknown ? "connections.defaults.pick" : "connections.defaults.add")}
               </button>
             )}
             {hasSettings && (
