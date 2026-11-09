@@ -5,6 +5,7 @@ import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidec
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
 import { resolveStoredChatOptions } from "../generation/generation-parameters.js";
+import { resolveAgentConnectionParameters } from "../generation/agent-generation-parameters.js";
 
 type ConnectionsStorage = ReturnType<typeof createConnectionsStorage>;
 type ConnectionWithKey = NonNullable<Awaited<ReturnType<ConnectionsStorage["getWithKey"]>>>;
@@ -25,6 +26,11 @@ export type ResolvedChatSummaryConnection =
       warnings: string[];
       temperature?: number;
       enabledParameters?: ChatOptions["enabledParameters"];
+      /**
+       * The reasoning level (or Off) chosen on the connection, as every agent call reads it (#7131): present only when
+       * the connection chose one. A caller with its own default (Advanced Memory asks for none) lets it win (#8983).
+       */
+      reasoning?: { reasoningEffort?: ChatOptions["reasoningEffort"]; enableThinking: boolean };
     }
   | {
       ok: false;
@@ -146,6 +152,12 @@ export async function resolveChatSummaryConnection(args: {
     }
     const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
     const temperature = storedOptions.enabledParameters?.temperature === false ? undefined : storedOptions.temperature;
+    const { reasoning } = resolveAgentConnectionParameters({
+      provider: conn.provider,
+      model: conn.model,
+      maxContext: conn.maxContext,
+      defaultParameters: conn.defaultParameters,
+    }).generation;
 
     return {
       ok: true,
@@ -169,6 +181,7 @@ export async function resolveChatSummaryConnection(args: {
       warnings,
       ...(typeof temperature === "number" ? { temperature } : {}),
       ...(storedOptions.enabledParameters ? { enabledParameters: storedOptions.enabledParameters } : {}),
+      ...(reasoning ? { reasoning } : {}),
     };
   }
 
