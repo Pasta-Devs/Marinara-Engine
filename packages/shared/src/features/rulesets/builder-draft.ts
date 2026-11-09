@@ -84,26 +84,31 @@ export const RULESET_BUILDER_MARK = "Made with the Marinara Engine ruleset build
 /** The edition a builder-made ruleset names, which is what marks it once it has been read back. */
 export const RULESET_BUILDER_EDITION = "Made with the ruleset builder";
 
+/** Lowercase letters and digits from a name, every other run of characters one `separator`, held to
+ *  `max` with no separator at either end. The ends are trimmed by hand, not by an anchored regex,
+ *  which runs in polynomial time on a long run of separators in an untrusted name. */
+function idText(text: string, separator: string, max: number): string {
+  const joined = text
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, separator)
+    .slice(0, max + 1);
+  let start = 0;
+  let end = Math.min(joined.length, max + 1);
+  while (start < end && joined[start] === separator) start++;
+  const cut = joined.slice(start, start + max);
+  end = cut.length;
+  while (end > 0 && cut[end - 1] === separator) end--;
+  return cut.slice(0, end);
+}
+
 /** A ruleset id from a name: lowercase, dashes, nothing else. */
 export function rulesetBuilderId(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 48) || "my-ruleset"
-  );
+  return idText(name, "-", 48) || "my-ruleset";
 }
 
 function slug(label: string, used: Set<string>, fallback: string): string {
-  const base =
-    label
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 40) || fallback;
+  const base = idText(label, "_", 40) || fallback;
   const stem = /^[a-z]/.test(base) ? base : `${fallback}_${base}`;
   let id = stem;
   let n = 2;
