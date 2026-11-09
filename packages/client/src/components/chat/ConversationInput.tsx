@@ -2267,28 +2267,32 @@ export function ConversationInput({
             e.target.value = "";
           }}
         />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all active:scale-90 sm:h-8 sm:w-8",
-            attachments.length
-              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
-              : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
-          )}
-          title={t("chat.input.attachFiles")}
-          aria-label={t("chat.input.attachFiles")}
-        >
-          <Paperclip size="1rem" />
-        </button>
+        {/* Paperclip + quick switchers share one tight group, so the gap after the
+            paperclip matches the gap between the switchers (and emoji/send). */}
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all active:scale-90 sm:h-8 sm:w-8",
+              attachments.length
+                ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+                : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+            )}
+            title={t("chat.input.attachFiles")}
+            aria-label={t("chat.input.attachFiles")}
+          >
+            <Paperclip size="1rem" />
+          </button>
 
-        {/* Quick Switchers — desktop: inline, mobile: chevron */}
-        <div className="hidden shrink-0 items-center gap-1 sm:flex">
-          <QuickConnectionSwitcher contextBudget={showContextUsage ? contextBudget : null} />
-          <QuickPersonaSwitcher />
-        </div>
-        <div className="flex shrink-0 sm:hidden">
-          <QuickSwitcherMobile contextBudget={showContextUsage ? contextBudget : null} />
+          {/* Quick Switchers — desktop: inline, mobile: chevron */}
+          <div className="hidden shrink-0 items-center gap-1 sm:flex">
+            <QuickConnectionSwitcher contextBudget={showContextUsage ? contextBudget : null} />
+            <QuickPersonaSwitcher />
+          </div>
+          <div className="flex shrink-0 sm:hidden">
+            <QuickSwitcherMobile contextBudget={showContextUsage ? contextBudget : null} />
+          </div>
         </div>
 
         {/* Textarea */}
