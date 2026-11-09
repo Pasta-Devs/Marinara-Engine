@@ -4010,6 +4010,7 @@ export const ChatMessage = memo(function ChatMessage({
               multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
             )}
             data-message-id={message.id}
+            aria-busy={isStreaming || undefined}
             data-card-css={message.characterId ?? undefined}
             onClick={handleMobileTap}
             onDoubleClick={handleRoleplayDoubleClick}
@@ -4116,6 +4117,7 @@ export const ChatMessage = memo(function ChatMessage({
             multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
           )}
           data-message-id={message.id}
+          aria-busy={isStreaming || undefined}
           data-message-role={message.role}
           data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
@@ -4481,7 +4483,7 @@ export const ChatMessage = memo(function ChatMessage({
                 "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all [@media(pointer:fine)]:focus-within:opacity-100 group-hover:opacity-100 md:justify-start md:gap-x-2",
                 (showActions || editing) && "opacity-100",
                 showStreamingThinkingAction &&
-                  "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
+                  "opacity-100 [&>button:not([data-message-thinking-action])]:invisible [&>div]:invisible",
               )}
             >
               <ActionBtn
@@ -4640,6 +4642,7 @@ export const ChatMessage = memo(function ChatMessage({
         multiSelectMode && isSelected && MESSAGE_SELECTION_SURFACE_CLASS,
       )}
       data-message-id={message.id}
+      aria-busy={isStreaming || undefined}
       data-message-role={message.role}
       onClick={handleMobileTap}
     >
@@ -4936,7 +4939,7 @@ export const ChatMessage = memo(function ChatMessage({
               "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all [@media(pointer:fine)]:focus-within:opacity-100 group-hover:opacity-100 md:justify-start md:gap-x-2",
               (showActions || editing) && "opacity-100",
               showStreamingThinkingAction &&
-                "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
+                "opacity-100 [&>button:not([data-message-thinking-action])]:invisible [&>div]:invisible",
             )}
           >
             <ActionBtn
