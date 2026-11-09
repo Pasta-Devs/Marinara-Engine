@@ -32,6 +32,7 @@ import {
 import {
   HOME_PAGE,
   SPLIT_DIVIDER,
+  canSplit,
   clampSplitSize,
   closeSplit,
   endSplitDrag,
@@ -108,6 +109,16 @@ export function SplitSide({ split, size }: { split: OverhaulSplit; size: number 
       if (!current) return;
       if ("current" in data) {
         setReady(true);
+        // Settings stay on the main side: open them there, and send the second side back to its page.
+        if (!canSplit(data.current)) {
+          if (!canSplit(current.page)) closeSplit();
+          else {
+            pending.current = current.page;
+            post({ type: "ov-split", open: current.page });
+          }
+          openInMain(data.current);
+          return;
+        }
         frameKey.current = splitPageKey(data.current);
         if (pending.current) {
           // Still on the way to the page it was sent to: news from before that is stale.
