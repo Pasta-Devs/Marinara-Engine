@@ -230,6 +230,13 @@ try {
   await say(branch.id, "Two, again.");
   assert.equal(await turnsIn(branch.id), "8", "the branch counts on from there");
   assert.equal(await turnsIn(story.id), "7", "the source chat keeps its own values");
+  const clearBranch = await app.inject({
+    method: "POST",
+    url: `/api/chats/${branch.id}/messages/bulk-delete`,
+    payload: { messageIds: (await chats.listMessages(branch.id)).map((message) => message.id) },
+  });
+  assert.equal(clearBranch.statusCode, 200, clearBranch.body);
+  assert.equal(await turnsIn(branch.id), "10", "the copied reply keeps its changes to undo");
   const latest = await app.inject({ method: "POST", url: `/api/chats/${story.id}/branch`, payload: {} });
   assert.equal(latest.statusCode, 200, latest.body);
   assert.equal(await turnsIn((latest.json() as { id: string }).id), "7", "a branch from the end keeps them all");
