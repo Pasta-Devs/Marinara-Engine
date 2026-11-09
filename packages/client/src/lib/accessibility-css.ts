@@ -52,7 +52,9 @@ export function accessibilityCss(choices: AccessibilityChoices) {
   if (strength < 1) {
     rules.push(
       `[data-mari-part="app-backdrop"] { opacity: ${strength} !important; }` +
-        ` [data-mari-part="ambient"] { opacity: calc(min(var(--mari-ambient-opacity, 1), 1) * ${strength}) !important; }`,
+        ` [data-mari-part="ambient"] { opacity: calc(min(var(--mari-ambient-opacity, 1), 1) * ${strength}) !important; }` +
+        // A theme's weather look counts as theme art too (stock weather keeps its own strength).
+        ` :root[data-custom-theme] [data-mari-part="weather"] { opacity: ${strength} !important; }`,
     );
   }
 

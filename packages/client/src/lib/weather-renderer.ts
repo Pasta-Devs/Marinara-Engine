@@ -25,6 +25,8 @@ export interface WeatherParticle {
   maxLife: number;
   /** Pre-computed fill colour (ash, sand) to avoid Math.random() in draw */
   color: string;
+  /** Which of a theme's pictures this particle uses (0-3). */
+  variant?: number;
 }
 
 type WeatherCanvasContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -42,6 +44,231 @@ export interface WeatherRenderConfig {
   sunRays: boolean;
   sunsetGlow: boolean;
   isClearSky: boolean;
+  /** Coarse weather word for themes (`data-mari-weather`), from a fixed list; "" when there is no weather. */
+  category: WeatherCategory | "";
+  /** Coarse time of day for themes (`data-mari-sky`); "" when unknown. */
+  period: WeatherPeriod | "";
+}
+
+export const WEATHER_CATEGORIES = [
+  "clear",
+  "cloudy",
+  "rain",
+  "storm",
+  "snow",
+  "hail",
+  "fog",
+  "sand",
+  "ash",
+  "embers",
+  "wind",
+  "blossom",
+  "aurora",
+] as const;
+export type WeatherCategory = (typeof WEATHER_CATEGORIES)[number];
+export type WeatherPeriod = "dawn" | "day" | "dusk" | "night";
+
+// ── Theme look (theme weather tokens) ──
+// A theme restyles the weather with `--mari-weather-*` tokens (lib/theme-weather.ts reads and checks them).
+// The renderer only ever sees this plain object: numbers, "r,g,b" colours and decoded pictures.
+
+export type WeatherLookKind = WeatherParticle["type"] | "sun" | "moon";
+
+export interface WeatherKindLook {
+  /** "r,g,b" */
+  color?: string;
+  /** Size multiplier, 0.5-3. */
+  size?: number;
+  shape?: "round" | "square";
+  /** Up to 4 of the theme's own pictures, already decoded. */
+  images?: ImageBitmap[];
+}
+
+export interface WeatherLook {
+  /** 1 = smooth (stock); 2-6 = pixel style, the layer drawn at 1/pixel resolution. */
+  pixel: number;
+  speed: number;
+  amount: number;
+  strength: number;
+  tint: number;
+  rainLength: number;
+  sun: boolean;
+  moon: boolean;
+  /** "r,g,b"; the flash strength stays the app's. */
+  lightning: string | null;
+  /** Reduced paint effects: no tint, glow or sunset wash, and 60% of the particles. */
+  flat: boolean;
+  kinds: Partial<Record<WeatherLookKind, WeatherKindLook>>;
+}
+
+export const STOCK_WEATHER_LOOK: WeatherLook = {
+  pixel: 1,
+  speed: 1,
+  amount: 1,
+  strength: 1,
+  tint: 1,
+  rainLength: 1,
+  sun: true,
+  moon: true,
+  lightning: null,
+  flat: false,
+  kinds: {},
+};
+
+export const WEATHER_FIREFLY_COUNT = 10;
+export const WEATHER_STAR_COUNT = 18;
+
+/** How many particles of each type a weather gets, after the theme's amount and Reduced paint effects. */
+export function weatherPopulation(config: WeatherRenderConfig, look: WeatherLook = STOCK_WEATHER_LOOK) {
+  const factor = Math.max(0, Math.min(1, look.amount)) * (look.flat ? 0.6 : 1);
+  const scaled = (count: number) => (count > 0 ? Math.max(1, Math.round(count * factor)) : 0);
+  const out: Array<[WeatherParticle["type"], number]> = [];
+  if (config.count > 0) out.push([config.type, scaled(config.count)]);
+  if (config.addFireflies) out.push(["firefly", scaled(WEATHER_FIREFLY_COUNT)]);
+  if (config.addStars) out.push(["star", scaled(WEATHER_STAR_COUNT)]);
+  return out;
+}
+
+export function populateWeatherParticles(
+  config: WeatherRenderConfig,
+  look: WeatherLook,
+  width: number,
+  height: number,
+): WeatherParticle[] {
+  const particles: WeatherParticle[] = [];
+  for (const [type, count] of weatherPopulation(config, look)) {
+    for (let index = 0; index < count; index += 1)
+      particles.push(createWeatherParticle(type, width, height, false, look));
+  }
+  return particles;
+}
+
+/** The sky tint and weather overlay, scaled by the theme's tint strength (none with Reduced paint effects). */
+export function drawWeatherTint(
+  ctx: WeatherCanvasContext,
+  config: WeatherRenderConfig,
+  look: WeatherLook,
+  width: number,
+  height: number,
+) {
+  if (look.flat || look.tint <= 0) return;
+  ctx.globalAlpha = Math.min(1, look.tint);
+  if (config.tint) {
+    ctx.fillStyle = config.tint;
+    ctx.fillRect(0, 0, width, height);
+  }
+  if (config.overlay) {
+    ctx.fillStyle = config.overlay;
+    ctx.fillRect(0, 0, width, height);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/** The lightning flash. Its strength and timing stay the app's epilepsy-safe values; a theme picks only the colour. */
+export function drawWeatherLightning(
+  ctx: WeatherCanvasContext,
+  look: WeatherLook,
+  alpha: number,
+  width: number,
+  height: number,
+) {
+  if (alpha <= 0) return;
+  ctx.fillStyle = `rgba(${look.lightning ?? "220,230,255"},${Math.min(0.6, alpha)})`;
+  ctx.fillRect(0, 0, width, height);
+}
+
+/** Sun or moon, unless the theme's art already has one (`--mari-weather-sun: none`). */
+export function drawWeatherCelestial(
+  ctx: WeatherCanvasContext,
+  config: WeatherRenderConfig,
+  look: WeatherLook,
+  width: number,
+  height: number,
+  frameCount: number,
+) {
+  if (!config.isClearSky || config.celestial === "none") return;
+  const isSun = config.celestial === "sun";
+  if (isSun ? !look.sun : !look.moon) return;
+  const kindLook = look.kinds[isSun ? "sun" : "moon"];
+  const radius = Math.min(width, height) * 0.035 * (kindLook?.size ?? 1) * (isSun ? 1 : 1.1);
+  const hour = config.hour >= 0 ? config.hour : 12;
+  let x: number;
+  let y: number;
+  if (isSun) {
+    x = weatherCelestialX(hour, width);
+    y = weatherCelestialY(hour, height, false);
+  } else {
+    // Moon position: map 21h→left, 0h→center, 5h→right
+    const moonNorm = hour >= 12 ? ((hour - 21 + 24) % 24) / 10 : (hour + 3) / 10;
+    x = width * 0.1 + Math.min(1, Math.max(0, moonNorm)) * width * 0.8;
+    y = weatherCelestialY(hour, height, true);
+  }
+  const image = kindLook?.images?.[0];
+  if (image) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, 0.9 * look.strength);
+    const side = radius * 2.4;
+    const ratio = image.width / Math.max(1, image.height);
+    const w = ratio >= 1 ? side : side * ratio;
+    const h = ratio >= 1 ? side / ratio : side;
+    ctx.drawImage(image, snap(x - w / 2, look), snap(y - h / 2, look), w, h);
+    ctx.restore();
+    return;
+  }
+  if (look.pixel > 1) {
+    drawPixelDisc(
+      ctx,
+      x,
+      y,
+      radius,
+      look,
+      isSun ? (kindLook?.color ?? "255,236,170") : (kindLook?.color ?? "230,235,255"),
+      !isSun,
+    );
+    return;
+  }
+  if (isSun)
+    drawWeatherSun(
+      ctx,
+      x,
+      y,
+      radius,
+      width,
+      height,
+      config.sunRays && !look.flat,
+      config.sunsetGlow && !look.flat,
+      frameCount,
+      kindLook?.color,
+    );
+  else drawWeatherMoon(ctx, x, y, radius, frameCount, kindLook?.color, look.flat);
+}
+
+function snap(value: number, look: WeatherLook) {
+  return look.pixel > 1 ? Math.round(value / look.pixel) * look.pixel : value;
+}
+
+function drawPixelDisc(
+  ctx: WeatherCanvasContext,
+  x: number,
+  y: number,
+  radius: number,
+  look: WeatherLook,
+  color: string,
+  crescent: boolean,
+) {
+  const g = look.pixel;
+  const r = Math.max(g * 2, radius);
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, 0.85 * look.strength);
+  ctx.fillStyle = `rgb(${color})`;
+  for (let dy = -r; dy <= r; dy += g) {
+    for (let dx = -r; dx <= r; dx += g) {
+      if (dx * dx + dy * dy > r * r) continue;
+      if (crescent && (dx - r * 0.6) ** 2 + (dy + r * 0.15) ** 2 <= (r * 0.75) ** 2) continue;
+      ctx.fillRect(snap(x + dx, look), snap(y + dy, look), g, g);
+    }
+  }
+  ctx.restore();
 }
 
 // ── Map weather string → effect config ──
@@ -261,7 +488,53 @@ export function resolveWeatherRenderConfig(weather?: string | null, timeOfDay?: 
     !weather ||
     /clear|sunny|bright/i.test(weather) ||
     !/(rain|storm|snow|blizzard|fog|mist|haze|hail|sand|ash|smoke|overcast|cloud|grey|gray)/i.test(weather);
-  return { ...weatherConfig, ...timeConfig, isClearSky };
+  return {
+    ...weatherConfig,
+    ...timeConfig,
+    isClearSky,
+    category: weatherCategory(weather, weatherConfig),
+    period: weatherPeriod(timeConfig),
+  };
+}
+
+/** The story weather as one word from WEATHER_CATEGORIES (never the story's own text). */
+function weatherCategory(
+  weather: string | null | undefined,
+  parsed: ReturnType<typeof parseWeather>,
+): WeatherCategory | "" {
+  if (!weather) return "";
+  if (parsed.lightning) return "storm";
+  switch (parsed.type) {
+    case "rain":
+      return /storm|downpour/i.test(weather) ? "storm" : "rain";
+    case "snow":
+      return "snow";
+    case "hail":
+      return "hail";
+    case "fog":
+      return "fog";
+    case "sand":
+      return "sand";
+    case "ash":
+      return "ash";
+    case "ember":
+      return "embers";
+    case "leaf":
+      return "wind";
+    case "petal":
+      return "blossom";
+    case "aurora":
+      return "aurora";
+    default:
+      return /cloud|overcast|grey|gray/i.test(weather) ? "cloudy" : "clear";
+  }
+}
+
+function weatherPeriod(time: ReturnType<typeof parseTime>): WeatherPeriod | "" {
+  if (time.celestial === "moon") return "night";
+  if (time.sunsetGlow) return "dusk";
+  if (time.celestial === "sun") return time.tint && time.sunRays ? "dawn" : "day";
+  return "";
 }
 
 // ── Create particle ──
@@ -270,6 +543,7 @@ export function createWeatherParticle(
   w: number,
   h: number,
   fromTop = false,
+  look: WeatherLook = STOCK_WEATHER_LOOK,
 ): WeatherParticle {
   const base: WeatherParticle = {
     x: Math.random() * w,
@@ -283,6 +557,7 @@ export function createWeatherParticle(
     life: 0,
     maxLife: 600 + Math.random() * 400,
     color: "",
+    variant: Math.floor(Math.random() * 4),
   };
 
   switch (type) {
@@ -385,37 +660,68 @@ export function createWeatherParticle(
       break;
   }
 
+  if (look !== STOCK_WEATHER_LOOK) {
+    const speed = Math.max(0.5, Math.min(1.5, look.speed));
+    base.vx *= speed;
+    base.vy *= speed;
+    base.size *= Math.max(0.5, Math.min(3, look.kinds[type]?.size ?? 1));
+  }
+
   return base;
 }
 
 // ── Draw helpers ──
-export function drawWeatherParticle(ctx: WeatherCanvasContext, p: WeatherParticle) {
+export function drawWeatherParticle(
+  ctx: WeatherCanvasContext,
+  p: WeatherParticle,
+  look: WeatherLook = STOCK_WEATHER_LOOK,
+) {
   const fadeIn = Math.min(p.life / 60, 1);
   const fadeOut = Math.max(1 - p.life / p.maxLife, 0);
-  const alpha = p.opacity * fadeIn * fadeOut;
+  const alpha = Math.min(1, p.opacity * fadeIn * fadeOut * Math.max(0.5, Math.min(1.5, look.strength)));
   if (alpha <= 0) return;
 
+  const kindLook = look.kinds[p.type];
+  const images = kindLook?.images;
+  if (images && images.length > 0) {
+    drawWeatherSprite(ctx, p, images[(p.variant ?? 0) % images.length]!, look, alpha);
+    return;
+  }
+  if (look.pixel > 1) {
+    drawPixelParticle(ctx, p, look, alpha);
+    return;
+  }
+
   ctx.globalAlpha = alpha;
+  const tone = kindLook?.color;
+  if (kindLook?.shape === "square" && p.type !== "rain" && p.type !== "fog" && p.type !== "aurora") {
+    ctx.fillStyle = `rgba(${tone ?? stockTone(p)},0.9)`;
+    const side = Math.max(1, p.size * (p.type === "leaf" || p.type === "petal" ? 0.6 : 1.4));
+    ctx.fillRect(p.x - side / 2, p.y - side / 2, side, side);
+    ctx.globalAlpha = 1;
+    return;
+  }
 
   switch (p.type) {
     case "rain": {
-      ctx.strokeStyle = "rgba(180,210,255,0.8)";
+      ctx.strokeStyle = `rgba(${tone ?? "180,210,255"},0.8)`;
       ctx.lineWidth = p.size;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x + p.vx * 2, p.y + p.vy * 2);
+      const streak = 2 * Math.max(0.5, Math.min(3, look.rainLength));
+      ctx.lineTo(p.x + p.vx * streak, p.y + p.vy * streak);
       ctx.stroke();
       break;
     }
     case "snow": {
-      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.fillStyle = `rgba(${tone ?? "255,255,255"},0.82)`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
       break;
     }
     case "leaf": {
-      ctx.fillStyle = `hsl(${100 + Math.sin(p.wobble) * 30}, 60%, 45%)`;
+      ctx.fillStyle = tone ? `rgb(${tone})` : `hsl(${100 + Math.sin(p.wobble) * 30}, 60%, 45%)`;
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.wobble);
@@ -426,7 +732,7 @@ export function drawWeatherParticle(ctx: WeatherCanvasContext, p: WeatherParticl
       break;
     }
     case "petal": {
-      ctx.fillStyle = `hsl(${340 + Math.sin(p.wobble) * 15}, 80%, 80%)`;
+      ctx.fillStyle = tone ? `rgb(${tone})` : `hsl(${340 + Math.sin(p.wobble) * 15}, 80%, 80%)`;
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.wobble);
@@ -438,13 +744,15 @@ export function drawWeatherParticle(ctx: WeatherCanvasContext, p: WeatherParticl
     }
     case "firefly": {
       const pulse = Math.sin(p.life * 0.05) * 0.5 + 0.5;
-      ctx.globalAlpha = alpha * 0.28 * pulse;
-      ctx.fillStyle = "rgba(180,255,80,0.7)";
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
-      ctx.fill();
+      if (!look.flat) {
+        ctx.globalAlpha = alpha * 0.28 * pulse;
+        ctx.fillStyle = `rgba(${tone ?? "180,255,80"},0.7)`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.globalAlpha = alpha * (0.65 + pulse * 0.35);
-      ctx.fillStyle = "rgba(220,255,130,0.95)";
+      ctx.fillStyle = `rgba(${tone ?? "220,255,130"},0.95)`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
@@ -452,12 +760,12 @@ export function drawWeatherParticle(ctx: WeatherCanvasContext, p: WeatherParticl
     }
     case "star": {
       const twinkle = Math.sin(p.life * 0.04 + p.wobble) * 0.5 + 0.5;
-      ctx.fillStyle = `rgba(255,255,240,${twinkle * 0.7})`;
+      ctx.fillStyle = `rgba(${tone ?? "255,255,240"},${twinkle * 0.7})`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
       // cross sparkle
-      ctx.strokeStyle = `rgba(255,255,240,${twinkle * 0.3})`;
+      ctx.strokeStyle = `rgba(${tone ?? "255,255,240"},${twinkle * 0.3})`;
       ctx.lineWidth = 0.5;
       ctx.beginPath();
       ctx.moveTo(p.x - p.size * 2, p.y);
@@ -469,14 +777,14 @@ export function drawWeatherParticle(ctx: WeatherCanvasContext, p: WeatherParticl
     }
     case "fog": {
       ctx.globalAlpha = alpha * 0.7;
-      ctx.fillStyle = "rgba(200,200,220,0.08)";
+      ctx.fillStyle = `rgba(${tone ?? "200,200,220"},0.08)`;
       ctx.beginPath();
       ctx.ellipse(p.x, p.y, p.size * 1.5, p.size * 0.45, 0, 0, Math.PI * 2);
       ctx.fill();
       break;
     }
     case "dust": {
-      ctx.fillStyle = "rgba(255,240,220,0.6)";
+      ctx.fillStyle = `rgba(${tone ?? "255,240,220"},0.6)`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
@@ -484,20 +792,22 @@ export function drawWeatherParticle(ctx: WeatherCanvasContext, p: WeatherParticl
     }
     case "ember": {
       const emberPulse = Math.sin(p.life * 0.08) * 0.3 + 0.7;
-      ctx.globalAlpha = alpha * 0.32 * emberPulse;
-      ctx.fillStyle = "rgba(255,80,20,0.7)";
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * 2.5, 0, Math.PI * 2);
-      ctx.fill();
+      if (!look.flat) {
+        ctx.globalAlpha = alpha * 0.32 * emberPulse;
+        ctx.fillStyle = `rgba(${tone ?? "255,80,20"},0.7)`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.globalAlpha = alpha * emberPulse;
-      ctx.fillStyle = "rgba(255,205,70,0.92)";
+      ctx.fillStyle = `rgba(${tone ?? "255,205,70"},0.92)`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
       break;
     }
     case "ash": {
-      ctx.fillStyle = p.color;
+      ctx.fillStyle = tone ? `rgba(${tone},0.6)` : p.color;
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.wobble);
@@ -508,14 +818,14 @@ export function drawWeatherParticle(ctx: WeatherCanvasContext, p: WeatherParticl
       break;
     }
     case "sand": {
-      ctx.fillStyle = p.color;
+      ctx.fillStyle = tone ? `rgba(${tone},0.7)` : p.color;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
       break;
     }
     case "hail": {
-      ctx.fillStyle = "rgba(230,240,255,0.85)";
+      ctx.fillStyle = `rgba(${tone ?? "230,240,255"},0.85)`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
@@ -525,11 +835,17 @@ export function drawWeatherParticle(ctx: WeatherCanvasContext, p: WeatherParticl
       // Tall vertical ribbon of colour that sways gently
       const hue = (p.wobble * 60 + p.life * 0.3) % 360;
       const auroraGrad = ctx.createLinearGradient(p.x, p.y - p.size, p.x, p.y + p.size);
-      auroraGrad.addColorStop(0, `hsla(${hue},80%,60%,0)`);
-      auroraGrad.addColorStop(0.3, `hsla(${hue},80%,60%,0.08)`);
-      auroraGrad.addColorStop(0.5, `hsla(${(hue + 40) % 360},70%,55%,0.12)`);
-      auroraGrad.addColorStop(0.7, `hsla(${(hue + 80) % 360},80%,60%,0.08)`);
-      auroraGrad.addColorStop(1, `hsla(${(hue + 80) % 360},80%,60%,0)`);
+      if (tone) {
+        auroraGrad.addColorStop(0, `rgba(${tone},0)`);
+        auroraGrad.addColorStop(0.5, `rgba(${tone},0.12)`);
+        auroraGrad.addColorStop(1, `rgba(${tone},0)`);
+      } else {
+        auroraGrad.addColorStop(0, `hsla(${hue},80%,60%,0)`);
+        auroraGrad.addColorStop(0.3, `hsla(${hue},80%,60%,0.08)`);
+        auroraGrad.addColorStop(0.5, `hsla(${(hue + 40) % 360},70%,55%,0.12)`);
+        auroraGrad.addColorStop(0.7, `hsla(${(hue + 80) % 360},80%,60%,0.08)`);
+        auroraGrad.addColorStop(1, `hsla(${(hue + 80) % 360},80%,60%,0)`);
+      }
       ctx.fillStyle = auroraGrad;
       ctx.beginPath();
       const ribbonW = p.size * 0.6;
@@ -544,6 +860,144 @@ export function drawWeatherParticle(ctx: WeatherCanvasContext, p: WeatherParticl
     }
   }
 
+  ctx.globalAlpha = 1;
+}
+
+const STOCK_TONES: Partial<Record<WeatherParticle["type"], string>> = {
+  rain: "180,210,255",
+  snow: "255,255,255",
+  leaf: "110,170,70",
+  petal: "250,180,200",
+  firefly: "220,255,130",
+  star: "255,255,240",
+  fog: "200,200,220",
+  dust: "255,240,220",
+  ember: "255,205,70",
+  ash: "120,105,105",
+  sand: "215,185,120",
+  hail: "230,240,255",
+  aurora: "120,220,170",
+};
+
+function stockTone(p: WeatherParticle) {
+  return STOCK_TONES[p.type] ?? "255,255,255";
+}
+
+/** A theme picture for one particle. Leaves, petals and ash spin as they fall; the rest stay upright. */
+function drawWeatherSprite(
+  ctx: WeatherCanvasContext,
+  p: WeatherParticle,
+  image: ImageBitmap,
+  look: WeatherLook,
+  alpha: number,
+) {
+  // Pictures are drawn at their own size (times the theme's size), so pixel art keeps its pixels.
+  // Smooth style also varies them a little with the particle's random size.
+  const base = look.pixel > 1 ? 1 : 0.75 + (p.size / SPRITE_BASE_SIZE[p.type]) * 0.25;
+  const scale = (look.kinds[p.type]?.size ?? 1) * base;
+  const w = image.width * scale;
+  const h = image.height * scale;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, alpha * 1.4);
+  ctx.translate(snap(p.x, look), snap(p.y, look));
+  if (look.pixel === 1 && (p.type === "leaf" || p.type === "petal" || p.type === "ash"))
+    ctx.rotate(Math.sin(p.wobble) * 1.2);
+  ctx.drawImage(image, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+const SPRITE_BASE_SIZE: Record<WeatherParticle["type"], number> = {
+  rain: 1.5,
+  snow: 3.5,
+  leaf: 5.5,
+  petal: 4.5,
+  firefly: 3,
+  star: 1.75,
+  fog: 100,
+  dust: 2,
+  ember: 3,
+  ash: 3.5,
+  sand: 1.5,
+  hail: 3.5,
+  aurora: 140,
+};
+
+/** Pixel style: every particle lands on the theme's pixel grid as one or a few square cells. */
+function drawPixelParticle(ctx: WeatherCanvasContext, p: WeatherParticle, look: WeatherLook, alpha: number) {
+  const g = look.pixel;
+  const tone = look.kinds[p.type]?.color ?? stockTone(p);
+  const x = snap(p.x, look);
+  const y = snap(p.y, look);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = `rgb(${tone})`;
+  switch (p.type) {
+    case "rain":
+    case "hail": {
+      const cells = p.type === "hail" ? 1 : Math.max(2, Math.round(3 * Math.max(0.5, Math.min(3, look.rainLength))));
+      const side = p.type === "hail" ? g * 2 : g;
+      const speed = Math.hypot(p.vx, p.vy) || 1;
+      for (let index = 0; index < cells; index += 1) {
+        ctx.fillRect(
+          snap(p.x - (p.vx / speed) * g * index, look),
+          snap(p.y - (p.vy / speed) * g * index, look),
+          side,
+          side,
+        );
+      }
+      break;
+    }
+    case "snow": {
+      if (p.size > 3.5) {
+        ctx.fillRect(x - g * 2, y, g * 5, g);
+        ctx.fillRect(x, y - g * 2, g, g * 5);
+        ctx.fillRect(x - g, y - g, g, g);
+        ctx.fillRect(x + g, y - g, g, g);
+        ctx.fillRect(x - g, y + g, g, g);
+        ctx.fillRect(x + g, y + g, g, g);
+      } else ctx.fillRect(x, y, g * 2, g * 2);
+      break;
+    }
+    case "leaf":
+    case "petal": {
+      const wide = Math.sin(p.wobble) > 0;
+      const long = Math.max(2, Math.round(p.size / g)) * g;
+      ctx.fillRect(x, y, wide ? long : g * 2, wide ? g * 2 : long);
+      break;
+    }
+    case "fog":
+    case "aurora": {
+      const big = g * 4;
+      ctx.globalAlpha = alpha * (p.type === "fog" ? 0.55 : 0.6);
+      ctx.fillStyle = `rgba(${tone},${p.type === "fog" ? 0.08 : 0.1})`;
+      const w = Math.round((p.size * (p.type === "fog" ? 3 : 1.2)) / big) * big;
+      const h = Math.round((p.size * (p.type === "fog" ? 0.9 : 2)) / big) * big;
+      ctx.fillRect(Math.round((p.x - w / 2) / big) * big, Math.round((p.y - h / 2) / big) * big, w, h);
+      break;
+    }
+    case "star": {
+      const twinkle = Math.sin(p.life * 0.04 + p.wobble) * 0.5 + 0.5;
+      ctx.globalAlpha = Math.min(1, twinkle * 0.8 * look.strength);
+      ctx.fillRect(x, y, g, g);
+      if (twinkle > 0.6) {
+        ctx.fillRect(x - g, y, g, g);
+        ctx.fillRect(x + g, y, g, g);
+        ctx.fillRect(x, y - g, g, g);
+        ctx.fillRect(x, y + g, g, g);
+      }
+      break;
+    }
+    case "firefly":
+    case "ember": {
+      const pulse = Math.sin(p.life * (p.type === "ember" ? 0.08 : 0.05)) * 0.5 + 0.5;
+      ctx.globalAlpha = alpha * (0.55 + pulse * 0.45);
+      ctx.fillRect(x, y, g * (p.size > 3 ? 2 : 1), g * (p.size > 3 ? 2 : 1));
+      break;
+    }
+    default: {
+      const side = p.size > 2.5 ? g * 2 : g;
+      ctx.fillRect(x, y, side, side);
+    }
+  }
   ctx.globalAlpha = 1;
 }
 
@@ -580,6 +1034,7 @@ export function drawWeatherSun(
   sunRays: boolean,
   sunsetGlow: boolean,
   frameCount: number,
+  color?: string,
 ) {
   ctx.save();
 
@@ -610,6 +1065,10 @@ export function drawWeatherSun(
     discGrad.addColorStop(0, "rgba(255,200,100,0.9)");
     discGrad.addColorStop(0.7, "rgba(255,120,40,0.7)");
     discGrad.addColorStop(1, "rgba(255,80,20,0.3)");
+  } else if (color) {
+    discGrad.addColorStop(0, `rgba(${color},0.85)`);
+    discGrad.addColorStop(0.7, `rgba(${color},0.55)`);
+    discGrad.addColorStop(1, `rgba(${color},0.2)`);
   } else {
     discGrad.addColorStop(0, "rgba(255,250,220,0.8)");
     discGrad.addColorStop(0.7, "rgba(255,240,180,0.5)");
@@ -644,25 +1103,35 @@ export function drawWeatherSun(
   ctx.restore();
 }
 
-export function drawWeatherMoon(ctx: WeatherCanvasContext, x: number, y: number, radius: number, _frameCount: number) {
+export function drawWeatherMoon(
+  ctx: WeatherCanvasContext,
+  x: number,
+  y: number,
+  radius: number,
+  _frameCount: number,
+  color?: string,
+  flat = false,
+) {
   ctx.save();
 
   // Soft moonlight glow
-  const glow = ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 5);
-  glow.addColorStop(0, "rgba(180,200,255,0.10)");
-  glow.addColorStop(0.4, "rgba(150,180,255,0.04)");
-  glow.addColorStop(1, "rgba(150,180,255,0)");
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(x, y, radius * 5, 0, Math.PI * 2);
-  ctx.fill();
+  if (!flat) {
+    const glow = ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 5);
+    glow.addColorStop(0, `rgba(${color ?? "180,200,255"},0.10)`);
+    glow.addColorStop(0.4, `rgba(${color ?? "150,180,255"},0.04)`);
+    glow.addColorStop(1, `rgba(${color ?? "150,180,255"},0)`);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   // Moon disc (bright side)
   const discGrad = ctx.createRadialGradient(x - radius * 0.15, y - radius * 0.15, 0, x, y, radius);
-  discGrad.addColorStop(0, "rgba(230,235,255,0.85)");
-  discGrad.addColorStop(0.8, "rgba(200,210,240,0.6)");
-  discGrad.addColorStop(1, "rgba(180,190,220,0.3)");
+  discGrad.addColorStop(0, `rgba(${color ?? "230,235,255"},0.85)`);
+  discGrad.addColorStop(0.8, `rgba(${color ?? "200,210,240"},0.6)`);
+  discGrad.addColorStop(1, `rgba(${color ?? "180,190,220"},0.3)`);
   ctx.globalAlpha = 0.7;
   ctx.fillStyle = discGrad;
   ctx.beginPath();

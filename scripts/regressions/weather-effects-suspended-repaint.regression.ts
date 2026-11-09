@@ -6,7 +6,11 @@ import { runInNewContext } from "node:vm";
 import {
   createWeatherParticle,
   resolveWeatherRenderConfig,
+  STOCK_WEATHER_LOOK,
+  weatherPopulation,
+  type WeatherLook,
   type WeatherParticle,
+  type WeatherRenderConfig,
 } from "../../packages/client/src/lib/weather-renderer.js";
 
 let drawCalls = 0;
@@ -67,7 +71,7 @@ assert.match(
 );
 // Execute the component's fallback lifecycle with browser boundaries stubbed.
 const fallbackStart = fallback.indexOf('    const ctx = canvas.getContext("2d");');
-const fallbackEnd = fallback.indexOf("  }, [config, shouldDrawCelestial");
+const fallbackEnd = fallback.indexOf("  }, [config, look, shouldDrawCelestial");
 assert.ok(fallbackStart >= 0 && fallbackEnd > fallbackStart, "fallback lifecycle remains extractable");
 const constants = fallback.slice(
   fallback.indexOf("const MAX_CANVAS_DPR"),
@@ -97,10 +101,15 @@ for (const suspendedBy of ["paused", "hidden"]) {
       frameRef: { current: 0 },
       resumeFallbackRef: { current: null as (() => void) | null },
       config: resolveWeatherRenderConfig("clear", "night"),
+      look: STOCK_WEATHER_LOOK,
       createWeatherParticle: (...args: Parameters<typeof createWeatherParticle>) => {
         creationSizes.push([args[1], args[2]]);
         return createWeatherParticle(...args);
       },
+      populateWeatherParticles: (config: WeatherRenderConfig, look: WeatherLook, w: number, h: number) =>
+        weatherPopulation(config, look).flatMap(([type, count]) =>
+          Array.from({ length: count }, () => sandbox.createWeatherParticle(type, w, h, false, look)),
+        ),
       requestAnimationFrame: () => ++scheduledFrames,
       cancelAnimationFrame() {},
     };

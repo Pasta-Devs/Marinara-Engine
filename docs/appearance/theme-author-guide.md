@@ -314,6 +314,83 @@ img[data-mari-part="backdrop"][data-default-background] {
 }
 ```
 
+## Weather
+
+When the story has weather (Settings > Appearance > Effects > Dynamic weather effects, with the World State agent
+on), the app draws rain, snow, fog, petals, stars, a sun or a moon over the chat. A theme can restyle
+all of it with `--mari-weather-*` tokens, and change its own art to match the weather.
+
+```css
+:root {
+  --mari-weather-style: pixel; /* every drop and flake lands on a pixel grid */
+  --mari-weather-pixel-size: 3px;
+  --mari-weather-rain-color: #ffaacd;
+  --mari-weather-petal-image: url("theme:petal-a.png") url("theme:petal-b.png");
+  --mari-weather-petal-size: 3;
+  --mari-weather-tint-strength: 0.4;
+}
+:root[data-theme="dark"] {
+  --mari-weather-moon: none; /* the night backdrop already has a moon */
+}
+```
+
+The app still does all the drawing. It reads these tokens when the theme loads, when the colour
+scheme changes and when you edit the theme, checks each value and ignores anything it doesn't
+understand. So day and night (or per-chat) weather work like any other token.
+
+| Token                            | Values                                                                                                                                          |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mari-weather-style`           | `smooth` (default) or `pixel`: the layer is drawn at low resolution and scaled up crisp, and particles become square cells                      |
+| `--mari-weather-pixel-size`      | 2 to 6 (px per cell), default 3                                                                                                                 |
+| `--mari-weather-<kind>-color`    | A plain colour (`#hex`, a colour name, `rgb()`, `hsl()`), no gradients or pictures                                                              |
+| `--mari-weather-<kind>-image`    | Up to 4 of the theme's own pictures, `url("theme:a.png") url("theme:b.png")`; each particle picks one. Leaves, petals and ash spin as they fall |
+| `--mari-weather-<kind>-size`     | 0.5 to 3 times. In pixel style a picture is drawn at its own size times this, so pixel art keeps its pixels (art pixel = size x 1 px)           |
+| `--mari-weather-<kind>-shape`    | `round` or `square` (smooth style; squares for "data snow" or sparks)                                                                           |
+| `--mari-weather-amount`          | 0.25 to 1: a theme can thin the weather out, never add more                                                                                     |
+| `--mari-weather-speed`           | 0.5 to 1.5 times                                                                                                                                |
+| `--mari-weather-strength`        | 0.5 to 1.5 times how strongly particles show (thin rain on a dark city)                                                                         |
+| `--mari-weather-tint-strength`   | 0 to 1 times the stock sky tint (blue in rain, dark at night)                                                                                   |
+| `--mari-weather-rain-length`     | 0.5 to 3 times the length of rain streaks                                                                                                       |
+| `--mari-weather-sun`, `-moon`    | `none` when your backdrop paints its own sun or moon                                                                                            |
+| `--mari-weather-lightning-color` | The flash colour. Its strength and timing stay the app's gentle, epilepsy-safe values                                                           |
+
+Kinds: `rain`, `snow`, `hail`, `fog`, `dust`, `leaf` (windy weather), `petal` (blossom), `ember`, `ash`,
+`sand`, `firefly`, `star`, `aurora`, and `sun` and `moon` (colour, size and one picture).
+
+### Art that follows the weather
+
+While a chat's weather shows, `<html>` carries two words from fixed lists (never the story's own text):
+
+| Attribute           | Values                                                                                                          |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `data-mari-weather` | `clear`, `cloudy`, `rain`, `storm`, `snow`, `hail`, `fog`, `sand`, `ash`, `embers`, `wind`, `blossom`, `aurora` |
+| `data-mari-sky`     | `dawn`, `day`, `dusk`, `night`                                                                                  |
+
+They are set whether or not Reduce Ambient Animations is on (a backdrop swap doesn't move), and
+removed when the chat has no weather or the user turns weather off. Use them to grey a sunny
+backdrop over in the rain, or to step your own ambient layer aside so it doesn't double the weather:
+
+```css
+:root[data-mari-weather="rain"],
+:root[data-mari-weather="storm"] {
+  --mari-app-backdrop: url("theme:street-overcast.webp");
+}
+:root[data-mari-weather]:not([data-mari-weather="clear"], [data-mari-weather="cloudy"]) {
+  --mari-ambient: none;
+}
+```
+
+### What stays the user's
+
+- A theme can't turn weather on or off; the user's toggle decides.
+- Reduce Ambient Animations (or the device's reduce-motion setting) draws no weather at all.
+- Reduced paint effects drops the tint, glows and sunset wash and draws 60% of the particles.
+- Theme art strength fades a theme's weather like its backdrop, and High contrast keeps it at 25% or less.
+- On every device the weather stops drawing while a panel, an editor or Mari covers the chat.
+
+Petal OS (pixel weather and its own petals), NEON//GRID (cyan streak rain) and Lantern Path (painted
+leaves, backdrops that grey over in bad weather) are worked examples: **Clone + Edit** one to read its CSS.
+
 ## Accent effects
 
 Accent Pulse and RGB Mode animate a few accent spots in the new layout ("+ New", primary buttons,
@@ -346,6 +423,8 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 | `data-mari-a11y-focus`          | Present when strong focus rings are on                                                                   |
 | `data-mari-contrast`            | `more` when high contrast is on (the user's choice, or the device asks for it)                           |
 | `data-mari-cvd-safe`            | Present when colour-blind-safe colours are on                                                            |
+| `data-mari-weather`             | The story weather while it shows: `rain`, `snow`, `fog`… (see [Weather](#weather))                       |
+| `data-mari-sky`                 | `dawn`, `day`, `dusk` or `night` while the story weather shows                                           |
 
 ### Areas
 
@@ -629,6 +708,11 @@ The import preview tells the user when a theme tries to change any of these.
   event attributes, outside links, `<?xml-stylesheet?>` or DOCTYPE entities, and their CSS is
   cleaned like a theme's. Raster pictures that would decode past 8192 px a side or 40 megapixels
   are refused.
+- Weather tokens are read by an allowlist: known token names, numbers clamped to their ranges,
+  words from fixed lists and plain colours (no `url()`, gradients or functions past the colour ones).
+  Weather pictures must be the theme's own pictures (the same-origin addresses the app made for
+  them, after the SVG rebuild and the size cap); any other address is ignored. Nothing a theme writes
+  runs, and the lightning flash keeps the app's strength and timing.
 - Message templates can't use roles that make a dialog, menu or announcement, nor the app's own
   `data-` attributes or `mari-`/`ov-` class names.
 - Trying a theme ("Keep this theme?") happens in that tab only: other devices get it only after
@@ -637,6 +721,11 @@ The import preview tells the user when a theme tries to change any of these.
   app shows doesn't count.
 
 ## Changes
+
+- **Theme weather** (November 2026, contract still version 1): `--mari-weather-*` tokens (pixel
+  style, colours, pictures, size, speed, amount, strength, tint, sun and moon off),
+  `data-mari-weather` and `data-mari-sky` on `<html>`, and the weather pauses under covering panels.
+  Petal OS, NEON//GRID and Lantern Path use them.
 
 - **Round 6 and security audit** (November 2026, no new tokens, contract still version 1): the
   seven starter themes ship read-only, and **Clone + Edit** makes an editable copy; credits,
