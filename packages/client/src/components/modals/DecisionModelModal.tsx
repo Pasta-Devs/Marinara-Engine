@@ -21,6 +21,7 @@ import {
   useRemoveDecisionSidecar,
   useSetDecisionDevice,
   useSetDecisionStartPolicy,
+  decisionCannotRun,
   type DecisionSidecarModel,
 } from "../../hooks/use-decision-sidecar";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -90,12 +91,9 @@ export function DecisionModelModal() {
     sidecar.isFetching;
   // Where this machine cannot run any decision model, the way that still works is a
   // hosted decision service, so Add opens on the Decision job's services rather than naming one.
-  const nothingRuns =
-    !!data &&
-    (!data.supported ||
-      (models.length > 0 && models.every((model) => model.preflight.assessment.verdict === "unsupported")));
+  const nothingRuns = decisionCannotRun(data);
   const openDecisionConnection = () => {
-    openModal("create-connection", { forJob: { job: "decision" } });
+    openModal("job-picker", { job: "decision" });
   };
 
   /**
@@ -322,14 +320,16 @@ export function DecisionModelModal() {
           <div className="text-sm font-medium">{localizeUi("ui.modals.decisionmodelmodal.title")}</div>
           <div className="text-xs text-[var(--muted-foreground)]">
             {[
-              needsReinstall
-                ? localizeUi("ui.modals.decisionmodelmodal.needsReinstallBadge")
-                : hasInstall
-                  ? enabled
-                    ? localizeUi("ui.modals.decisionmodelmodal.installedBadge")
-                    : localizeUi("connections.accounts.state.off")
-                  : localizeUi("connections.device.state.notDownloaded"),
-              !hasInstall && selected ? formatBytes(selected.downloadSizeBytes) : installedLabel,
+              nothingRuns
+                ? localizeUi("ui.modals.decisionmodelmodal.notAvailable")
+                : needsReinstall
+                  ? localizeUi("ui.modals.decisionmodelmodal.needsReinstallBadge")
+                  : hasInstall
+                    ? enabled
+                      ? localizeUi("ui.modals.decisionmodelmodal.installedBadge")
+                      : localizeUi("connections.accounts.state.off")
+                    : localizeUi("connections.device.state.notDownloaded"),
+              !hasInstall && !nothingRuns && selected ? formatBytes(selected.downloadSizeBytes) : installedLabel,
             ]
               .filter(Boolean)
               .join(" · ")}

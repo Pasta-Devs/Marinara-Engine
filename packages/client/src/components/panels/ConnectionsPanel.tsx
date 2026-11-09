@@ -708,8 +708,14 @@ export function ConnectionsPanel() {
   const deviceOpen = !collapsedConnections.includes(DEVICE_FOLD_ID);
   const deviceTitle = t("connections.accounts.section.device");
   const deviceEngines = visible.engines;
-  // Found servers no account uses yet; hidden while a search narrows the list.
-  const servers = query ? [] : newLocalServers(localServers ?? [], accounts ?? []);
+  // Found servers no account or connection uses yet; hidden while a search narrows the list or before both lists load.
+  const servers =
+    query || !accountsQuery.isSuccess || !connectionsQuery.isSuccess
+      ? []
+      : newLocalServers(localServers ?? [], [
+          ...(accounts ?? []),
+          ...((connections as ConnectionRowData[] | undefined) ?? []),
+        ]);
   const [onlyEngine] = deviceEngines;
   const deviceGroup = deviceEngines.length + servers.length > 0 && (
     <div

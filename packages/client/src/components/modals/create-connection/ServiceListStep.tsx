@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../../lib/utils";
+import { decisionCannotRun, useDecisionSidecar } from "../../../hooks/use-decision-sidecar";
+import { useUIStore } from "../../../stores/ui.store";
 import { ListSearch, ListStatus } from "../../connections/ListFrame";
 import {
   DECISION_BUILTIN,
@@ -85,6 +87,20 @@ export function ServiceListStep({
     types: ModelType[];
   };
   const tiles: Tile[] = [];
+  // The Decision job can also run on this machine; the tile opens the built-in model's page, where it installs.
+  const decision = useDecisionSidecar(kind === "decision");
+  const builtInName = t("connections.add.device.local_model");
+  if (kind === "decision" && decision.data && !decisionCannotRun(decision.data) && matches(builtInName)) {
+    tiles.push({
+      id: DECISION_BUILTIN,
+      name: builtInName,
+      tag: t("connections.accounts.section.device"),
+      good: true,
+      icon: <ServiceTile service="local_model" />,
+      open: () => useUIStore.getState().openModal("device-detail", { item: "local-model" }),
+      types: ["text"],
+    });
+  }
   for (const group of SERVICE_GROUPS) {
     const groupTiles: Tile[] = [];
     for (const key of group.services) {
