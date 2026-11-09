@@ -254,14 +254,23 @@ try {
     draft.skills = [
       { label: "Smithing", ability: "Body" },
       { label: "Stealth", ability: "Body" },
+      { label: "History", ability: "Body", group: "Knowledge" },
     ];
     draft.practice = true;
+    draft.practiceExcept = ["knowledge"];
     const definition = parsed(rulesetFromBuilderDraft(draft));
-    assert.deepEqual(definition.sheet.progress, {}, "the builder turns the meter on");
-    assert.equal(rulesetBuilderDraftFrom(definition as any)!.practice, true, "and reads it back");
+    const knowledge = definition.sheet.sections.find((section) => section.label === "Knowledge")!.id;
+    assert.deepEqual(
+      definition.sheet.progress,
+      { except: [knowledge] },
+      "the builder turns the meter on, Knowledge aside",
+    );
+    const back = rulesetBuilderDraftFrom(definition as any)!;
+    assert.equal(back.practice, true, "and reads it back");
+    assert.deepEqual(back.practiceExcept, ["Knowledge"]);
     const build = {
       abilities: { body: 1 },
-      skills: { smithing: "rank_2" },
+      skills: { smithing: "rank_2", history: "rank_1" },
       saves: {},
       bonuses: {},
       fields: {},
@@ -273,6 +282,8 @@ try {
     assert.ok(first.ok && first.live.progress?.smithing === 60, JSON.stringify(first));
     const capped = practice(first.ok ? first.live : {}, { skill: "smithing", by: 75 });
     assert.ok(capped.ok && capped.live.progress?.smithing === 99, "practice stops at 99");
+    const excepted = practice({}, { skill: "History", by: 5 });
+    assert.ok(!excepted.ok && excepted.reason === "not-allowed", "a group without a meter takes no practice");
     const untrained = practice({}, { skill: "Stealth", by: 5 });
     assert.ok(!untrained.ok && untrained.reason === "not-allowed", "an untrained skill opens by a rank change");
     const live = capped.ok ? capped.live : {};
@@ -284,6 +295,10 @@ try {
     assert.deepEqual(tag.op, { op: "practice", skill: "Smithing", by: 5 });
     const block = renderRulesetSheetBlock(definition, { name: "Blake", build }, { progress: { smithing: 60 } });
     assert.ok(block.includes("Smithing Adept (60%)"), block);
+    assert.ok(
+      block.includes("History Novice") && !block.includes("History Novice ("),
+      "no meter shown where none is kept",
+    );
     const plain = parsed(rulesetFromBuilderDraft({ ...draft, practice: false }));
     const refused = applyRulesetSheetOp(plain, build, {}, { op: "practice", skill: "Smithing", by: 5 });
     assert.ok(!refused.ok && refused.reason === "not-allowed", "a ruleset without the meter refuses practice");

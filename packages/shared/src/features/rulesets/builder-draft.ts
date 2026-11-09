@@ -57,6 +57,8 @@ export interface RulesetBuilderDraft {
   ranks: Array<{ label: string; bonus: number }>;
   /** A practice meter on every trained skill (1.826): progress toward its next rank, started over on a rank-up. */
   practice?: boolean;
+  /** Skill groups that keep no practice (Knowledge bought rather than learned by use). */
+  practiceExcept?: string[];
   /** What play spends and gets back: hit points, willpower, luck. */
   pools: Array<{ label: string; max: number; bar?: boolean }>;
   /** What play fills: stress, harm, heat. `bar` draws it as a fill bar as well as a number. */
@@ -538,7 +540,17 @@ export function rulesetFromBuilderDraft(draft: RulesetBuilderDraft, version = 1)
       derived: [],
       lists,
       live: { pools, tracks, conditions: [], states: [] },
-      ...(draft.practice && skills.length > 0 ? { progress: {} } : {}),
+      ...(draft.practice && skills.length > 0
+        ? {
+            progress: (() => {
+              const except = (draft.practiceExcept ?? []).flatMap((group) => {
+                const section = sections.find((entry) => entry.label.toLowerCase() === group.trim().toLowerCase());
+                return section && skills.some((skill) => skill.section === section.id) ? [section.id] : [];
+              });
+              return except.length > 0 ? { except } : {};
+            })(),
+          }
+        : {}),
       // The narrator (or a Sheet Keeper) may raise stats, set skill ranks and change fields as the story earns
       // them; without this a builder ruleset's sheet could only spend and restore.
       ...(abilities.length > 0 || skills.length > 0 || fields.length > 0
@@ -662,6 +674,13 @@ export function rulesetBuilderDraftFrom(definition: {
       ...(skill.section && sectionLabel.has(skill.section) ? { group: sectionLabel.get(skill.section) } : {}),
     })),
     ...(sheet.progress ? { practice: true } : {}),
+    ...(sheet.progress?.except?.length
+      ? {
+          practiceExcept: sheet.progress.except.flatMap((id: string) =>
+            sectionLabel.has(id) ? [sectionLabel.get(id)!] : [],
+          ),
+        }
+      : {}),
     ranks: (resolution.proficiencyTiers ?? []).slice(1).map((tier: { label: string; flat?: number }) => ({
       label: tier.label,
       bonus: tier.flat ?? 0,

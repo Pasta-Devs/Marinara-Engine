@@ -18,7 +18,7 @@ import {
 } from "../../schemas/ruleset.schema.js";
 import { rulesetCheckSources, rulesetHideLines } from "./check-effects.js";
 import { rulesetItemEffectFacts, rulesetItemEffectText } from "./item-book.js";
-import { readRulesetLive, rulesetKeptCalls, rulesetKeptForm } from "./live-state.js";
+import { readRulesetLive, rulesetKeptCalls, rulesetKeptForm, rulesetSkillKeepsPractice } from "./live-state.js";
 import { rulesetCatalogEntriesByRef } from "./scaled-rows.js";
 import { rulesetItemAccess } from "./sheet-builder.js";
 import {
@@ -139,7 +139,7 @@ export function renderRulesetSheetBlock(
       ? (stored as { progress?: unknown }).progress
       : undefined;
   const practiceOf = (skillId: string) => {
-    if (!sheet.progress || evaluated.skillTiers[skillId] === topTier) return "";
+    if (!rulesetSkillKeepsPractice(definition, skillId) || evaluated.skillTiers[skillId] === topTier) return "";
     const value =
       storedProgress && typeof storedProgress === "object" ? (storedProgress as Record<string, unknown>)[skillId] : 0;
     return ` (${typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 99 ? value : 0}%)`;

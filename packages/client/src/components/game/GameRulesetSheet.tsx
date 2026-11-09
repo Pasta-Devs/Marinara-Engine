@@ -33,6 +33,7 @@ import {
   rulesetCheckSources,
   rulesetHideLines,
   rulesetSectionGroups,
+  rulesetSkillKeepsPractice,
   isRulesetItemHidden,
   isRulesetTextHidden,
   rulesetCatalogIdsForBuild,
@@ -811,8 +812,8 @@ export function GameRulesetSheet({
   const diceless = definition.gm.diceless === true;
   // Practice toward the next rank (1.826), on a trained skill below the top rank.
   const topTier = definition.resolution.proficiencyTiers.at(-1)?.id;
-  const practiceShown = (entry: { practice?: boolean; tier?: string }) =>
-    !!definition.sheet.progress && entry.practice === true && entry.tier !== topTier;
+  const practiceShown = (entry: { id: string; practice?: boolean; tier?: string }) =>
+    entry.practice === true && entry.tier !== topTier && rulesetSkillKeepsPractice(definition, entry.id);
   const tierLabel = (tier: string | undefined) =>
     definition.resolution.proficiencyTiers.find((entry) => entry.id === tier)?.label ?? tier ?? "";
   const trained = [

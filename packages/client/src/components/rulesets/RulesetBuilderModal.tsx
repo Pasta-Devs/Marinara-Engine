@@ -326,6 +326,11 @@ export function RulesetBuilderModal({
   const [draft, setDraft] = useState<RulesetBuilderDraft>(() => initial ?? rulesetBuilderStarter("d20"));
   const [saving, setSaving] = useState(false);
   const diceless = draft.dice.preset === "diceless";
+  // Each skill group once, as the author spelled it first, for the groups a practice meter may leave out.
+  const skillGroups = draft.skills.reduce<string[]>((groups, skill) => {
+    const group = skill.group?.trim();
+    return group && !groups.some((entry) => entry.toLowerCase() === group.toLowerCase()) ? [...groups, group] : groups;
+  }, []);
   // Without dice the check box says how outcomes are judged instead.
   const promptKey = (key: string) => (diceless && key === "checkGuidance" ? "outcomes" : key);
   const set = (patch: Partial<RulesetBuilderDraft>) => setDraft((current) => ({ ...current, ...patch }));
@@ -661,6 +666,29 @@ export function RulesetBuilderModal({
           <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
             {localizeUi("rulesetBuilder.practiceHelp")}
           </p>
+          {draft.practice && skillGroups.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--foreground)]">
+              <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                {localizeUi("rulesetBuilder.practiceExcept")}
+              </span>
+              {skillGroups.map((group) => (
+                <label key={group} className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={(draft.practiceExcept ?? []).some((entry) => entry.toLowerCase() === group.toLowerCase())}
+                    onChange={(event) =>
+                      set({
+                        practiceExcept: event.target.checked
+                          ? [...(draft.practiceExcept ?? []), group]
+                          : (draft.practiceExcept ?? []).filter((entry) => entry.toLowerCase() !== group.toLowerCase()),
+                      })
+                    }
+                  />
+                  {group}
+                </label>
+              ))}
+            </div>
+          )}
         </Group>
 
         <Group

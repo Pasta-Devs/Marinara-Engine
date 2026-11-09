@@ -526,6 +526,15 @@ export interface ResolvedRulesetLive {
 //   editing the sheet.
 
 /** Whether this track is a wound track rather than a bounded integer. */
+/** Whether a skill keeps practice toward its next rank (1.826): the sheet has a meter, and the skill's
+ *  section is not one the ruleset excepts (Knowledge bought on a Board, say). */
+export function rulesetSkillKeepsPractice(definition: RulesetDefinition, skillId: string): boolean {
+  const progress = definition.sheet.progress;
+  if (!progress) return false;
+  const skill = definition.sheet.skills.find((entry) => entry.id === skillId);
+  return !!skill && !(skill.section && progress.except?.includes(skill.section));
+}
+
 export function isRulesetWoundTrack(track: RulesetLiveTrack): boolean {
   return (!!track.levels || !!track.boxes) && !!track.kinds;
 }
@@ -2029,6 +2038,7 @@ export function applyRulesetSheetOp(
       definition.sheet.skills.find((entry) => sameName(entry.id, op.skill)) ??
       definition.sheet.skills.find((entry) => sameName(entry.label, op.skill));
     if (!skill) return { ok: false, reason: "unknown-skill" };
+    if (!rulesetSkillKeepsPractice(definition, skill.id)) return { ok: false, reason: "not-allowed" };
     // Practice is toward the next rank of a skill the character has; an untrained one opens by a rank change.
     const untrained = definition.resolution.proficiencyTiers[0]?.id;
     if ((build.skills[skill.id] ?? untrained) === untrained) return { ok: false, reason: "not-allowed" };

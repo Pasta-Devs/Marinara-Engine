@@ -6717,6 +6717,7 @@
   "rulesetBuilder.poolSides": "Die",
   "rulesetBuilder.poolTarget": "Success on",
   "rulesetBuilder.practice": "Practice meter",
+  "rulesetBuilder.practiceExcept": "No meter for:",
   "rulesetBuilder.practiceHelp": "Each trained skill shows how far it is toward its next rank, from 0 to 99%. Practice in the story raises it; a rank-up starts it over. Rank-ups still come only from a rank change.",
   "rulesetBuilder.presets.bands.help": "Roll 2d6 plus the stat: 10 or more is a strong hit, 7 to 9 a weak hit, 6 or less a miss.",
   "rulesetBuilder.presets.bands.label": "2d6 bands",
