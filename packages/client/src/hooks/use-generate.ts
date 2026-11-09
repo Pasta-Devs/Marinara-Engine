@@ -3734,7 +3734,7 @@ export function useGenerate() {
                   fetchEvenIfInactive: true,
                 }))
               ) {
-                await Promise.reject(new Error("history refetch failed")); // not a bare throw: no-unsafe-finally
+                await Promise.reject(new Error("history refetch failed")); // unknown history: use the cache-only fallback below
               }
               const stored = latestNewMessageByRole(
                 qc,
