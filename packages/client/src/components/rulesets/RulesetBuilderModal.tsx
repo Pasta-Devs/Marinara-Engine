@@ -334,8 +334,11 @@ export function RulesetBuilderModal({
 
   const choosePreset = (preset: RulesetBuilderDicePreset) => {
     // A new ruleset takes the family's usual stats with its dice; one being edited keeps its own.
-    if (editing) set({ dice: { ...rulesetBuilderStarter(preset).dice } });
-    else setDraft({ ...rulesetBuilderStarter(preset, draft.name), name: draft.name, id: draft.id });
+    if (editing) {
+      const starter = rulesetBuilderStarter(preset);
+      // Coming back from diceless, which keeps no difficulties, the family's usual ones return to pick from.
+      set({ dice: { ...starter.dice }, ...(draft.ladder.length === 0 ? { ladder: starter.ladder } : {}) });
+    } else setDraft({ ...rulesetBuilderStarter(preset, draft.name), name: draft.name, id: draft.id });
   };
 
   const save = async () => {
