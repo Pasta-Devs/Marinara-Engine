@@ -1024,9 +1024,17 @@ function chatPointInView(host: Element, point: SamplePoint) {
   if (!at) return false;
   const inside = (box: DOMRect) => at.x >= box.left && at.x <= box.right && at.y >= box.top && at.y <= box.bottom;
   if (!inside(host.getBoundingClientRect())) return false;
-  // Text that has scrolled up under the (protected) top bar is meant to be covered by it.
-  const bar = document.querySelector('[data-component="TopBar"]');
-  return !(bar && inside(bar.getBoundingClientRect()));
+  // Text that has scrolled up under the (protected) top bar is meant to be covered by it, and so is
+  // text under a panel the app slides over the chat (the chats sheet on phones, the Library, Ctrl+K).
+  const panels = AREAS.filter((area) => area.area !== "composer")
+    .map((area) => area.selector)
+    .join(", ");
+  for (const hit of document.elementsFromPoint(at.x, at.y)) {
+    if (host.contains(hit)) break;
+    const panel = hit.closest(panels);
+    if (panel && !panel.contains(host)) return false;
+  }
+  return true;
 }
 
 /**
