@@ -119,7 +119,13 @@ export function ChatRowPeek({ containerRef, activeChatId, disabled }: ChatRowPee
         "pointer-events-none fixed z-50 w-72 rounded-xl border border-[var(--border)] bg-[var(--popover)]/95 p-3 shadow-xl backdrop-blur-sm",
         pos.ready ? "animate-fade-in-up opacity-100" : "opacity-0",
       )}
-      style={{ top: pos.top, left: pos.left }}
+      // Until it's measured, sit beside the row and stay invisible (inline, so no theme rule can show
+      // it early): a first frame at 0,0 flashed the peek in the window's top-left corner.
+      style={
+        pos.ready
+          ? { top: pos.top, left: pos.left }
+          : { top: anchor.top, left: anchor.right + 8, visibility: "hidden", animation: "none" }
+      }
     >
       {isLoading ? (
         <p className="mari-chrome-accent-text-muted mari-accent-animated text-[0.6875rem]">

@@ -295,6 +295,20 @@
 .ov-sidepane .ov-libnav__title {
   display: none;
 }
+/* Chats view: one 0.5rem gutter down both sides (switch, buttons, modes, search, rows), instead of
+   three nested paddings that left the rows a third of the sidebar narrower than they need to be. */
+.ov-sidepane .ov-sideswitch {
+  margin-inline: 0.5rem;
+}
+:root[data-overhaul] .ov-sidepane [data-component="ChatSidebar"] .mari-sidebar-header {
+  padding-inline: 0.5rem;
+}
+:root[data-overhaul] [data-component="ChatSidebar"] :is(.ov-chats-modes, .ov-chats-tools, .ov-chats-list) {
+  padding-inline: 0.5rem;
+}
+:root[data-overhaul] [data-component="ChatSidebar"] .ov-chats-rows {
+  padding-inline: 0;
+}
 
 /* ─── Library pane (right) ─── */
 .ov-libnav {
@@ -12230,6 +12244,17 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-tagfilter__chev {
   margin-right: -0.25rem;
   opacity: 0.6;
+}
+/* Compact (the Chats list): just the tag icon, plus how many tags are picked. */
+.ov-tagfilter--compact :is(.ov-tagfilter__label, .ov-tagfilter__more, .ov-tagfilter__chev) {
+  display: none;
+}
+.ov-tagfilter--compact .ov-tagfilter__count {
+  display: inline;
+}
+.ov-tagfilter--compact.is-on {
+  color: var(--ov-accent);
+  border-color: color-mix(in srgb, var(--ov-accent) 45%, transparent);
 }
 .ov-tagpop {
   position: fixed;
