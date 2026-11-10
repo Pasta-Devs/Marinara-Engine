@@ -135,7 +135,7 @@ def features(text: str) -> dict[str, Counter]:
     body, held = strip_untouchable(text)
     proper = Counter(
         m.group(1) for m in PROPER.finditer(body)
-        if m.group(1) not in PROPER_STOP and not m.group(1).isupper() or len(m.group(1)) > 3
+        if m.group(1) not in PROPER_STOP and (not m.group(1).isupper() or len(m.group(1)) > 3)
     )
     return {
         "number": normalise_numbers(body),
@@ -215,7 +215,7 @@ def compare(src: str, dst: str, waive: set[str]) -> list[dict]:
 
 
 def git_show(path: str, ref: str) -> str:
-    return subprocess.run(["git", "show", f"{ref}:{path}"], capture_output=True,
+    return subprocess.run(["git", "show", f"{ref}:./{path}"], capture_output=True,
                           text=True, check=True).stdout
 
 
@@ -235,7 +235,10 @@ def main() -> int:
     if args.git:
         try:
             src = git_show(args.git, args.ref)
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as err:
+            if "does not exist in" not in err.stderr and "exists on disk, but not in" not in err.stderr:
+                print(f"git show {args.ref}:./{args.git} failed: {err.stderr.strip()}", file=sys.stderr)
+                return 2
             print(f"{args.git} is not in {args.ref} — new file, nothing to preserve")
             return 0
         if looks_like_html(src):
