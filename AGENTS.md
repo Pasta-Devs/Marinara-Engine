@@ -75,6 +75,11 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 - When preparing a PR, make the why explicit in the description so reviewers can see the user problem or rationale, not just the file changes.
 - Check `README.md`, `android/README.md`, `CONTRIBUTING.md`, `docs/CONFIGURATION.md`, `docs/TROUBLESHOOTING.md`, and `docs/FAQ.md` together when install, update, or release behavior changes.
 - When writing or editing user guides under `docs/`, follow `.agents/skills/docs-writing/SKILL.md`.
+- Before you post prose you wrote for people to read (PR and issue bodies, commit messages, review replies, docs, README text), give it the plain-prose pass in `.agents/skills/declauding/SKILL.md` (from oaustegard/claude-skills `declauding-v0.13.0`, MIT):
+  - Check the draft against `references/register.md` and `references/exceptions.md`.
+  - Run `python3 .agents/skills/declauding/scripts/declaude_lint.py <file>`, and `declaude_diff.py` too when you rewrite an existing text. Only those two scripts are vendored, so skip steps 2a and 2b, and do step 4a's newcomer read yourself unless delegation is already authorized.
+  - Repository rules win where they disagree. Keep template headings such as "What changed", checkbox text, `Closes #` lines, trailers and the attribution line, keep a "You can no longer …" line at the top of "What changed", and never drop a required section. Under `docs/`, the docs-writing skill wins (its word list, bold UI labels and exact headings).
+  - Never give the pass to model-facing text (prompt constants and templates, `packages/server/src/assets/mari-skills/`, image prompts), story or user-authored content, quoted text, UI copy and locale files, `CHANGELOG.md`, `docs-i18n` packs, or text someone else wrote.
 - When a change adds, renames, or edits user-facing docs under `docs/`, also update every translated language pack on the `docs-i18n` branch to match — or open a `[docs-i18n] <paths>` follow-up issue. Renames/deletions must be mirrored there or the translation is silently orphaned. See `CONTRIBUTING.md § Translated documentation`.
 
 ## AI-Generated Pull Request
