@@ -1358,14 +1358,35 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
     }
     // Text that was readable without the theme and isn't with it. The top bar and the message box
     // must keep 3:1 against the worst spot of any art behind them; elsewhere 1.5:1 on average.
+    // In the top bar one label dipping under 3:1 (an app-coloured "Online", a tab over the brightest
+    // spot of the art) is a theme to polish, not a bar that can't be read: it takes half the labels
+    // (at least two) under 3:1, or any one that's next to invisible.
     const strict = STRICT_CONTRAST.has(area);
-    let unreadable = false;
+    let invisible = false;
+    let weak = 0;
+    let judged = 0;
     for (const [sample, value] of now.contrast) {
       const before = was.contrast.get(sample) ?? (was.contrast.size ? null : 4.5);
       if (before === null) continue;
-      if ((value < 1.5 && before >= 2.5) || (strict && value < 3 && before >= 3)) unreadable = true;
+      if (value < 1.5 && before >= 2.5) invisible = true;
+      if (!strict || before < 3) continue;
+      judged += 1;
+      if (value < 3) weak += 1;
     }
-    if (unreadable) report("unreadable");
+    const tooWeak = area === "topbar" ? weak >= 2 && weak * 2 >= judged : weak > 0;
+    if (invisible || tooWeak) {
+      // Which labels failed, for a report from someone's own install.
+      console.warn(
+        "[theme-guard] unreadable",
+        area,
+        Array.from(now.contrast, ([sample, value]) => [
+          sample.textContent?.trim().slice(0, 30),
+          Number(value.toFixed(2)),
+          was.contrast.get(sample)?.toFixed(2) ?? null,
+        ]),
+      );
+      report("unreadable");
+    }
   }
   return problems;
 }
