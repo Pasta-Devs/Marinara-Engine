@@ -26,7 +26,7 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 ## Expected Completion and Authorization
 
 - Carry the requested work through implementation, appropriate validation, review fixes and the authorized publication steps. Do not stop at a plan, a clean local review, or a local commit when the user has asked for a PR.
-- Local CodeRabbit review, including uploading the relevant branch changes, is part of this repository's expected review workflow. Do not ask the maintainer for a separate confirmation on each run. Honor any explicit restriction on external uploads and the host's permission controls.
+- Do not run CodeRabbit locally or upload branch changes to an outside review service. Dottore Review on the pull request is the repository's review.
 - A request to publish or update a PR covers the necessary feature-branch commit/push, PR creation/update and transition to ready for review. Reuse that authorization across turns. Do not infer authorization to merge, promote to `main`, deploy or release.
 - Ask only for missing decisions that materially block the task or for actions outside its authorized scope. A previously agreed phase does not need another phase-approval question. Current maintainer instructions override default workflow or skill guidance within the platform's instruction hierarchy.
 - Report what was completed and verified, link the PR, and identify real remaining blockers. Do not imply that queued, skipped or pending checks passed.
@@ -80,12 +80,12 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 ## AI-Generated Pull Request
 
 1. Open a draft early while implementation is in progress, so issue ownership and work status are visible.
-2. Finish implementation and the required local checks. Run CodeRabbit locally; reproduce or trace each finding, fix legitimate defects and rerun review after substantive fixes. Record code-based reasons for rejecting false positives, non-regressions and purely pedantic suggestions. Do not claim zero findings when findings were dismissed.
-3. Once implementation, required local validation and substantive local review are complete, **push and mark the PR ready for review in the same workflow without asking again**, except when `.github/agents/chai-workflow.md` requires a maintainer decision first. If the first PR is only being created at that point, create it ready rather than draft. A user request to keep it draft is an exception.
-4. Keep a PR draft only for unfinished implementation, unresolved substantive local findings, blocked required local validation, a required maintainer decision, or an explicit maintainer instruction. Unchecked human checklist items and documented optional follow-ups are not automatic draft blockers. Pending GitHub CI and Dottore Review are merge gates, not reasons to leave completed local work in draft. If automatic review does not start, follow the [Dottore request fallback](.github/dottore-review/README.md#asking-for-a-review).
+2. Finish implementation and the required local checks.
+3. Once implementation and required local validation are complete, **push and mark the PR ready for review in the same workflow without asking again**, except when `.github/agents/chai-workflow.md` requires a maintainer decision first. If the first PR is only being created at that point, create it ready rather than draft. A user request to keep it draft is an exception.
+4. Keep a PR draft only for unfinished implementation, blocked required local validation, a required maintainer decision, or an explicit maintainer instruction. Unchecked human checklist items and documented optional follow-ups are not automatic draft blockers. Pending GitHub CI and Dottore Review are merge gates, not reasons to leave completed local work in draft. If automatic review does not start, follow the [Dottore request fallback](.github/dottore-review/README.md#asking-for-a-review).
 5. Inspect CI/review feedback when preparing a PR for review or shipping it. Address valid failures within scope. Never merge until all repository merge gates pass and merging is authorized.
 
-The local CodeRabbit review complements Dottore Review on GitHub. Use an existing PR rather than creating another for follow-up fixes.
+Use an existing PR rather than creating another for follow-up fixes.
 
 - **Never auto-check validation or test-plan checkboxes in a PR.** Those boxes are a to-do list for the human contributor, not evidence that work is done. If you generate a test plan, leave every box unchecked.
 - When preparing a PR description, list what needs manual verification clearly and explicitly. Write entries like "Manually verify X in browser" rather than "Works correctly."
