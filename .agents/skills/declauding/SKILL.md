@@ -106,8 +106,15 @@ the current draft is not.
 
 ## Workflow
 
-Script paths below are relative to this skill's directory. From any other
-working directory, prefix them with `/mnt/skills/user/declauding/`.
+Script paths below are relative to this skill's directory. From the
+repository root, prefix them with `.agents/skills/declauding/`.
+
+**Marinara's copy** ships only `scripts/declaude_lint.py` and
+`scripts/declaude_diff.py`. `declaude_rank.py`, `declaude_review.py` and
+`fresh_eyes.py` are left out: they need torch, send the draft to a model API,
+or read the session transcript. Skip steps 2a and 2b; steps 3 and 4 read the
+headers and closers by hand. Do step 4a's newcomer read yourself, as its
+fallback describes, or in a subagent when delegation is authorized.
 
 **1. Read the whole piece before editing anything.** Tics carry factual errors.
 A sentence written to sound important is disproportionately likely to be wrong,
