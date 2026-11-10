@@ -117,7 +117,17 @@ export function useSetActiveTheme() {
       }
       return api.put<Theme | null>("/themes/active", { id });
     },
-    onSuccess: () => {
+    onSuccess: (_result, id) => {
+      // Mark the new pick active in the cached list straight away. Without this, pressing Keep
+      // ends the try while the list still names the old theme as active, so the old theme flashes
+      // back for a moment until the refetch lands (the device-look path already updates in place).
+      if (!useDeviceLookStore.getState().enabled) {
+        qc.setQueryData<Theme[]>(themeKeys.list(), (themes) =>
+          themes?.map((theme) =>
+            theme.isActive === (theme.id === id) ? theme : { ...theme, isActive: theme.id === id },
+          ),
+        );
+      }
       qc.invalidateQueries({ queryKey: themeKeys.all });
     },
   });
