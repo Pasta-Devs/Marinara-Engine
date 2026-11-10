@@ -4566,3 +4566,29 @@
   display: block !important;
   flex: none;
 }
+
+/* Home: keep Conversation, Roleplay and Game on one row on phones. The pills
+   shrink instead of wrapping. When icon + label don't fit (big theme fonts,
+   small phones), HomeBrowserHub sets data-compact and the icons drop. */
+:root[data-overhaul="mobile"] .ov-home-modes {
+  flex-wrap: nowrap !important;
+  gap: 0.375rem !important;
+  width: 100%;
+}
+:root[data-overhaul="mobile"] .ov-home-modes > * {
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  justify-content: center;
+}
+:root[data-overhaul="mobile"] .ov-home-modes > * > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-overhaul="mobile"] .ov-home-modes[data-compact] > * {
+  flex: 1 1 auto !important;
+}
+:root[data-overhaul="mobile"] .ov-home-modes[data-compact] > * > :first-child:not(:last-child) {
+  display: none !important;
+}
