@@ -1830,6 +1830,9 @@ export function AppShell({
                   exit={shellOverlayMode ? { opacity: 0 } : undefined}
                   transition={{ type: "spring", damping: 30, stiffness: 360 }}
                   data-component={shellOverlayMode ? "MobileDetailSheet" : "DetailEditor"}
+                  // Every full page (Library pages, viewers, editors, Settings, Docs) sits in here, so a
+                  // theme paints one readable surface for all of them on this hook.
+                  data-mari-part="page"
                   aria-label={localizeUi("ui.layout.appshell.detailEditor")}
                   tabIndex={-1}
                   className={cn(

@@ -263,7 +263,9 @@ Home's decorations and the light scheme never hide it), and it shows behind chat
 conversation and game surfaces go transparent and the stock chat background steps aside. A
 background the user picked for a chat still shows on top of it. Panels keep `--card` and
 `--sidebar`, so make those translucent if you want the art to show behind them, and use
-`--mari-page-veil` to tint full pages.
+`--mari-page-veil` to tint full pages. To give pages a panel of their own, style
+`[data-mari-part="page"]` (see Hooks): it holds every Library page, editor, Settings and Docs, so
+Lorebooks gets the same panel as Characters.
 
 | Token                            | Default                                                                                                                                                                                                           |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -464,6 +466,7 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 | `[data-mari-part="paragraph-gap"]`                                                     | The blank line between two paragraphs (it becomes a block when `--mari-paragraph-gap` is set)                                                                                                                                                                                                                                                   |
 | `[data-mari-part="vn-text"]`, `vn-counter`, `vn-nav`                                   | The VN text box (`data-more-below` while it scrolls on), the "3 / 9" counter and the Previous / Next buttons (`data-direction`)                                                                                                                                                                                                                 |
 | `[data-mari-part="card-art"]`                                                          | A Library card's picture; `data-placeholder` when it has none                                                                                                                                                                                                                                                                                   |
+| `[data-mari-part="page"]`                                                              | The surface every full page sits on: each Library page (Characters, Lorebooks, Presets, Regex scripts, Connections, Agents, Custom tools), every editor, Settings and Docs. Paint a panel or sheet here, not on one page's own class, so every page gets the same readable surface. Chats and Home are not inside it |
 | `[data-mari-part="chat-row-art"]`                                                      | The open chat's picture behind its sidebar row                                                                                                                                                                                                                                                                                                  |
 | `[data-mari-part="avatar-placeholder"]`                                                | Now in every place an empty avatar shows: conversation lines, chat rows (initials), the persona switcher, the message box and Game                                                                                                                                                                                                              |
 | `.ov-lrow__dot[data-status]`                                                           | A lorebook entry dot: `constant`, `selective` or `normal`                                                                                                                                                                                                                                                                                       |
@@ -724,6 +727,10 @@ The import preview tells the user when a theme tries to change any of these.
   app shows doesn't count.
 
 ## Changes
+
+- **Page surface hook** (November 10 2026, contract still version 1): `[data-mari-part="page"]`
+  is the one surface every Library page, editor, Settings and Docs sits on, so a theme can give all of
+  them the same panel.
 
 - **Theme gallery and lightning bolts** (November 9 2026, contract still version 1): starter themes
   download on demand from the theme gallery; `--mari-weather-lightning-bolt` (`on`, `none` or a width
