@@ -89,6 +89,15 @@ for (const provider of ["google", "google_vertex"]) {
     assert.equal(unsaved.reasoningEffort, "medium", `${provider} ${model} helper level`);
     assert.equal(unsaved.enableThinking, true, `${provider} ${model} helper with nothing saved thinks`);
     assert.ok(unsaved.maxTokens! > 1200, `${provider} ${model} helper with nothing saved keeps room for thinking`);
+    // With Reasoning Effort's Send switch off the level is left out, but the model still thinks at medium: the room stays.
+    const unsent = gameGenOptions(
+      model,
+      { maxTokens: 1200 },
+      { enabledParameters: { reasoningEffort: false } },
+      provider,
+    );
+    assert.equal(unsent.reasoningEffort, undefined, `${provider} ${model} sends no level with the switch off`);
+    assert.ok(unsent.maxTokens! > 1200, `${provider} ${model} keeps room for its default thinking with the switch off`);
   }
   const gemini3 = gameGenOptions("gemini-3-pro-preview", { maxTokens: 1200 }, { reasoningEffort: "high" }, provider);
   assert.equal(gemini3.reasoningEffort, "high");

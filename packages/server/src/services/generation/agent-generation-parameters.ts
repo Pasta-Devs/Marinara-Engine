@@ -221,7 +221,13 @@ export function withConnectionThinkingHeadroom(args: {
  * gets; every other model keeps the budget its helper calls always had.
  */
 export function withAlwaysOnThinkingHeadroom(args: Parameters<typeof withConnectionThinkingHeadroom>[0]): number {
-  return thinksWithoutLevel(args.provider, args.model) ? withConnectionThinkingHeadroom(args) : args.maxTokens;
+  if (!thinksWithoutLevel(args.provider, args.model)) return args.maxTokens;
+  // They think at their default even when no level is sent (Reasoning Effort's Send switch off, or none), so the room
+  // is sized from that level; the request itself still leaves the level out.
+  const sent = args.reasoningEffort && args.reasoningEffort !== "none" ? args.reasoningEffort : null;
+  const effort =
+    sent ?? resolveProviderReasoningEffort({ provider: args.provider, model: args.model, reasoningEffort: null });
+  return withConnectionThinkingHeadroom({ ...args, reasoningEffort: effort });
 }
 
 type CapabilityChatOptions = Pick<
