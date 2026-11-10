@@ -9,6 +9,7 @@ import {
   personaRowNeedsCardMigration,
 } from "../../packages/server/src/db/persona-card-migration.js";
 import { MariDbService } from "../../packages/server/src/services/mari-db/mari-db.service.js";
+import { sanitizeProfileTableRows } from "../../packages/server/src/routes/backup.routes.js";
 import { projectPersona } from "../../packages/server/src/services/personas/persona-projector.js";
 import {
   completePersonaRow,
@@ -213,6 +214,20 @@ try {
     assert.equal(personaRowNeedsCardMigration(migrated), false);
     assert.equal(migrateLegacyPersonaRow(migrated), migrated, "the conversion is idempotent");
     assert.deepEqual(projectPersona(personaRowFromStored(migrated as StoredPersonaRow)), projectPersona(flat));
+  }
+
+  // 6b. A profile export writes personas flat, so a format-10 install can import it; importing it
+  // here converts it back to the same persona.
+  {
+    const stored = migrateLegacyPersonaRow(legacyRow("persona-export", "Export"));
+    const [exported] = sanitizeProfileTableRows("personas", [stored]);
+    assert.equal(exported!.data, undefined, "no card blob in the exported row");
+    assert.equal(exported!.name, "Export");
+    assert.equal(personaRowNeedsCardMigration(exported!), true, "the importer converts it like any legacy row");
+    assert.deepEqual(
+      projectPersona(personaRowFromStored(migrateLegacyPersonaRow(exported!) as StoredPersonaRow)),
+      projectPersona(personaRowFromStored(stored as StoredPersonaRow)),
+    );
   }
 
   // 7. This build refuses a newer format than its own, as shipped format-10 builds refuse 11.
