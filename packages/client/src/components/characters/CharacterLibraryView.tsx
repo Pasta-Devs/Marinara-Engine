@@ -227,7 +227,7 @@ function toPersonaLibraryCard(persona: Persona): LibraryCard {
   return {
     id: persona.id,
     name: getText(persona.name) || "Unnamed",
-    aliases: persona.nameAliases ?? [],
+    aliases: persona.nameAliases,
     title: getText(persona.comment) || null,
     meta: formatCardLibraryMeta(persona.creator, persona.personaVersion),
     summary: getPersonaSummary(persona),
