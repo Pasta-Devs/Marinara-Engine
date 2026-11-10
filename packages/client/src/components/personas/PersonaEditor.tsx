@@ -3843,6 +3843,7 @@ const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; la
   { key: "boxColor", label: "Box Color" },
   { key: "personaStats", label: "Persona Stats" },
   { key: "tags", label: "Tags" },
+  { key: "nameAliases", label: "Other names", labelKey: "ui.cards.otherNames.label" },
   { key: "savedStatusOptions", label: "Saved Status Options" },
   { key: "convoDisplayName", label: "Convo Display Name" },
   { key: "aboutMe", label: "About Me" },
@@ -3875,6 +3876,7 @@ function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnap
     personaStats: formData.personaStats ? JSON.stringify(formData.personaStats) : "",
     tags: JSON.stringify(formData.tags),
     savedStatusOptions: JSON.stringify(formData.savedStatusOptions),
+    nameAliases: JSON.stringify(formData.nameAliases),
     convoDisplayName: formData.convoDisplayName,
     aboutMe: formData.aboutMe,
     convoBehavior:
@@ -3910,7 +3912,13 @@ function formatPersonaVersionValue(data: PersonaCardSnapshot, key: keyof Persona
   // look unchanged against a new one that explicitly stores "false".
   if (key === "imageAppearanceEnabled") return value === "true" ? "On" : "Off";
   if (!value.trim()) return "";
-  if (key === "avatarCrop" || key === "trackerCardColors" || key === "personaStats" || key === "tags") {
+  if (
+    key === "avatarCrop" ||
+    key === "trackerCardColors" ||
+    key === "personaStats" ||
+    key === "tags" ||
+    key === "nameAliases"
+  ) {
     try {
       return JSON.stringify(JSON.parse(value), null, 2);
     } catch {

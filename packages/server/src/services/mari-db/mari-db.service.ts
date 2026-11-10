@@ -10884,7 +10884,9 @@ export class MariDbService {
   ): Promise<MariDbCommandResult> {
     const id = request.id;
     if (!id) throw new Error("persona mutation needs an id");
-    const base: PersonaStorageRow | null = request.kind === "insert" ? null : await this.personaViewById(id);
+    // One read gives both the flat view and the card base, so they come from the same stored row.
+    const storedRow = request.kind === "insert" ? null : await this.getRawById(getMeta("personas"), id);
+    const base: PersonaStorageRow | null = storedRow ? personaRowFromStored(storedRow as StoredPersonaRow) : null;
     if (request.kind !== "insert" && !base) {
       await this.requireRawById(getMeta("personas"), id);
     }
@@ -10892,8 +10894,7 @@ export class MariDbService {
     const view = completePersonaRow({ ...(base ?? {}), ...changes, id } as PersonaStorageRow);
     const { patch: _patch, ...rest } = request;
     // Overlay the stored card so extensions the flat view does not carry survive the replace.
-    const cardBase =
-      request.kind === "insert" ? undefined : storedCardBase((await this.getRawById(getMeta("personas"), id))?.data);
+    const cardBase = storedRow ? storedCardBase(storedRow.data) : undefined;
     const stored: ParsedMutationRequest = {
       ...rest,
       kind: request.kind === "insert" ? "insert" : "replace",

@@ -177,6 +177,7 @@ assert.equal(personaRowFromStored(storedRows.minimal).nameAliases, "[]");
 for (const [raw, expected] of [
   ['["  Kit  ", "", "   ", "Kit", 5, null, "Kat"]', ["Kit", "Kat"]],
   ['"Kit"', []],
+  ['["Kate", "kate", " KATE ", "Katie"]', ["Kate", "Katie"]],
   ["{not json", []],
   ['{"a":1}', []],
 ] as const) {

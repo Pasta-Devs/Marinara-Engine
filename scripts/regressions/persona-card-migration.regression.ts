@@ -419,6 +419,23 @@ try {
     assert.deepEqual(projectPersona(after!).nameAliases, ["Superman"], "persona.update replaces other names");
   }
 
+  // 14. Other names are versioned: changing them snapshots the card, and a restore brings them back.
+  {
+    const row = legacyRow("persona-versioned-aliases", "Versioned");
+    tempRoot();
+    const db = await createFileNativeDB();
+    await db.insert(personas).values(storedPersonaFromRow({ ...row, nameAliases: '["Old name"]' }));
+    const storage = createCharactersStorage(db);
+    await storage.updatePersona(row.id, { nameAliases: '["New name"]' });
+    const versions = await storage.listPersonaVersions(row.id);
+    const before = versions.find((version) => version.data.nameAliases === '["Old name"]');
+    assert.ok(before, "changing other names snapshots the earlier ones");
+    await storage.restorePersonaVersion(row.id, before!.id);
+    const after = await storage.getPersona(row.id);
+    await db._fileStore.close();
+    assert.deepEqual(projectPersona(after!).nameAliases, ["Old name"], "a restore brings back the other names");
+  }
+
   console.info("Persona card migration regression passed.");
 } finally {
   if (previousStorageDir === undefined) delete process.env.FILE_STORAGE_DIR;
