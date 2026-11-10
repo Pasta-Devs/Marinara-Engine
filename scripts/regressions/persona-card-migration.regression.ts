@@ -139,9 +139,15 @@ try {
     const check = await createFileNativeDB();
     const [noticeRow] = await check.select().from(appSettings).where(eq(appSettings.key, "storage-migration-notice"));
     await check._fileStore.close();
-    const notice = JSON.parse(String(noticeRow?.value ?? "{}")) as { fromFormat?: number; migratedTables?: string[] };
+    const notice = JSON.parse(String(noticeRow?.value ?? "{}")) as {
+      fromFormat?: number;
+      migratedTables?: string[];
+      convertedTables?: string[];
+    };
     assert.equal(notice.fromFormat, 10, "the migration notice names the old format");
-    assert.ok(notice.migratedTables?.includes("personas"), "the migration notice lists personas");
+    assert.deepEqual(notice.convertedTables, ["personas"], "the migration notice lists personas as converted");
+    // The popup shows the chat-split text only for sharded tables; personas were already sharded.
+    assert.deepEqual(notice.migratedTables, [], "the migration notice lists no newly sharded table");
 
     // 2. A second boot changes nothing and makes no new copies.
     const copiesBefore = preV11Files(root);

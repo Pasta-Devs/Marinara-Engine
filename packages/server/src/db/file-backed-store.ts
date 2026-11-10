@@ -2690,6 +2690,8 @@ class FileTableStore {
   private preMigrationManifestVersion: number | null = null;
   /** Tables migrated monolith -> shards THIS boot; feeds the #4756 notice. */
   private migratedTables: string[] = [];
+  /** Tables whose rows were rewritten into a new row format THIS boot (format 11: personas). */
+  private convertedTables: string[] = [];
   private shardDirsCreated = new Set<string>();
   /** Monotonic per-table write counters (#4705); bumped in markDirty, never rolled back. */
   private tableWriteGenerations = new Map<string, number>();
@@ -3291,6 +3293,13 @@ class FileTableStore {
     // manifest first so a crash before the flush can't leave them under a manifest an older build
     // accepts. The untouched monolith becomes `.pre-shard` below, so no `.pre-v11` copy is needed.
     if (table === "personas" && normalized.length > 0) await this.raiseManifestVersionBeforeRewrite();
+    if (
+      table === "personas" &&
+      source.some((row) => fileBackedRowNeedsMigration(table, row)) &&
+      !this.convertedTables.includes(table)
+    ) {
+      this.convertedTables.push(table);
+    }
     for (const [key, shardRows] of rowsByShard) {
       await atomicWriteFile(
         shardFilePath(this.rootDir, table, encodeShardKey(key)),
@@ -4999,26 +5008,29 @@ class FileTableStore {
    * migrate nothing and never write one.
    */
   private recordMigrationNotice() {
-    if (this.migratedTables.length === 0) return;
+    if (this.migratedTables.length === 0 && this.convertedTables.length === 0) return;
     const rows = this.tables.get("app_settings") ?? [];
     const existing = rows.find((row) => row.key === STORAGE_MIGRATION_NOTICE_SETTINGS_KEY);
     let fromFormat = this.preMigrationManifestVersion;
     let tables = [...this.migratedTables];
+    let converted = [...this.convertedTables];
+    const mergeStrings = (prior: unknown, current: string[]) =>
+      Array.isArray(prior)
+        ? [...new Set([...prior.filter((entry): entry is string => typeof entry === "string"), ...current])]
+        : current;
     if (existing && typeof existing.value === "string" && existing.value) {
       try {
-        const prior = JSON.parse(existing.value) as { fromFormat?: unknown; migratedTables?: unknown };
+        const prior = JSON.parse(existing.value) as {
+          fromFormat?: unknown;
+          migratedTables?: unknown;
+          convertedTables?: unknown;
+        };
         // The ORIGINAL fromFormat wins the merge — including an explicit null
         // (no manifest existed); only an absent/invalid property falls back
         // to this boot's value.
         if (prior.fromFormat === null || typeof prior.fromFormat === "number") fromFormat = prior.fromFormat;
-        if (Array.isArray(prior.migratedTables)) {
-          tables = [
-            ...new Set([
-              ...prior.migratedTables.filter((entry): entry is string => typeof entry === "string"),
-              ...tables,
-            ]),
-          ];
-        }
+        tables = mergeStrings(prior.migratedTables, tables);
+        converted = mergeStrings(prior.convertedTables, converted);
       } catch {
         /* unparseable prior value -> replace it */
       }
@@ -5027,6 +5039,7 @@ class FileTableStore {
       fromFormat,
       toFormat: STORAGE_VERSION,
       migratedTables: tables,
+      convertedTables: converted,
       migratedAt: new Date().toISOString(),
     };
     const value = JSON.stringify(notice);
@@ -5345,8 +5358,8 @@ class FileTableStore {
         if (needsRowMigration && table === "personas") {
           // The rewrite is semantic, so keep the pre-format-11 bytes for manual recovery.
           const copies = await preservePreV11Copies(path);
-          if (!this.migratedTables.includes(table)) {
-            this.migratedTables.push(table);
+          if (!this.convertedTables.includes(table)) {
+            this.convertedTables.push(table);
             await this.raiseManifestVersionBeforeRewrite();
           }
           if (copies.length > 0) {
