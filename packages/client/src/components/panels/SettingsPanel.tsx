@@ -87,6 +87,7 @@ import {
 } from "../../lib/theme-package";
 import { ThemeImportPreview, type ThemeInstallChoice } from "./settings/ThemeImportPreview";
 import { ThemeCreditsButton, ThemeLabels } from "./settings/ThemeCredits";
+import { ThemeGallery } from "./settings/ThemeGallery";
 import { AccessibilitySettings } from "./settings/AccessibilitySettings";
 import { getChatWidgetFontFamily } from "../../lib/font-family";
 import { forceRefreshSpa } from "@/lib/browser-runtime";
@@ -6297,16 +6298,22 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
       >
         <Upload size="0.75rem" />
       </button>
-      {t.builtIn ? null : (
+      {
         <button
           type="button"
           onClick={() => {
             void (async () => {
               const confirmed = await showConfirmDialog({
                 title: localizeUi("ui.panels.themessettings.deleteTheme"),
-                message: localizeUi("ui.panels.themessettings.deleteValue1ThisPermanentlyRemovesTheSavedThemeCss", {
-                  value1: t.name,
-                }),
+                message: t.builtIn
+                  ? localizeUi("theming.gallery.removeConfirm", {
+                      name: t.name,
+                      defaultValue:
+                        "Remove {{name}} from this install? You can download it again from the theme gallery any time.",
+                    })
+                  : localizeUi("ui.panels.themessettings.deleteValue1ThisPermanentlyRemovesTheSavedThemeCss", {
+                      value1: t.name,
+                    }),
                 confirmLabel: localizeUi("lorebook.editor.batch.delete"),
                 tone: "destructive",
               });
@@ -6326,7 +6333,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
         >
           <Trash2 size="0.75rem" />
         </button>
-      )}
+      }
     </div>
   );
 
@@ -6820,12 +6827,14 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                 </span>
                 <span className="mari-chrome-text-muted text-[0.6875rem]">
                   {localizeUi("theming.starter.help", {
-                    defaultValue: "Ready to use and read-only. Clone + Edit makes your own copy to change.",
+                    defaultValue:
+                      "Downloaded from the theme gallery. Read-only: Clone + Edit makes your own copy to change.",
                   })}
                 </span>
               </span>
             ) : null}
             {starterThemes.map((t) => renderThemeRow(t))}
+            <ThemeGallery starterThemes={starterThemes} />
 
             {isLoading && syncedThemes.length === 0 && (
               <p className="mari-chrome-text-muted py-2 text-center text-[0.625rem]">

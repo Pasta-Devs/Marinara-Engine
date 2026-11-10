@@ -1,11 +1,14 @@
 import {
   createWeatherParticle,
   drawWeatherCelestial,
+  createWeatherBolt,
+  drawWeatherBolt,
   drawWeatherLightning,
   drawWeatherParticle,
   drawWeatherTint,
   populateWeatherParticles,
   STOCK_WEATHER_LOOK,
+  type WeatherBolt,
   type WeatherLook,
   type WeatherParticle,
   type WeatherRenderConfig,
@@ -44,6 +47,7 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let previousTime = 0;
 let frameCount = 0;
 let lightningAlpha = 0;
+let bolt: WeatherBolt | null = null;
 let nextLightning = Infinity;
 
 function populateParticles() {
@@ -82,10 +86,12 @@ function drawFrame(now: number, advanceSimulation = true) {
   if (config.lightning) {
     if (frameCount >= nextLightning) {
       lightningAlpha = 0.45 + Math.random() * 0.15;
+      bolt = look.bolt > 0 ? createWeatherBolt(width, height) : null;
       nextLightning = frameCount + 400 + Math.random() * 800;
     }
     if (lightningAlpha > 0) {
       drawWeatherLightning(context, look, lightningAlpha, width, height);
+      drawWeatherBolt(context, bolt, look, lightningAlpha);
       lightningAlpha *= Math.pow(0.88, frameScale);
       if (lightningAlpha < 0.01) lightningAlpha = 0;
     }
