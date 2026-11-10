@@ -711,7 +711,7 @@ export function ConnectionsLanding() {
       onChange={(event) => setKind(event.target.value as KindFilter)}
       aria-label={localize("Kind")}
     >
-      <option value="all">{localize("All kinds")}</option>
+      <option value="all">{localize(ovMobile ? "All" : "All kinds")}</option>
       <option value="chat">{localize("Chat")}</option>
       <option value="image">{localize("Images")}</option>
       <option value="video">{localize("Video")}</option>
@@ -719,10 +719,23 @@ export function ConnectionsLanding() {
     </select>
   );
 
+  // Phones: the grouping sits beside the kind filter on the header line; search and sort share the next line.
+  const groupSelect = (
+    <select
+      className={cn("ov-select", ovMobile && "ovm-lp-filter ovm-conn-group")}
+      value={groupBy}
+      onChange={(event) => setGroupBy(event.target.value as "connection" | "folder")}
+      aria-label={localize("Group")}
+    >
+      <option value="connection">{localize("By account")}</option>
+      <option value="folder">{localize("By folder")}</option>
+    </select>
+  );
+
   return (
     <section className="ov-list ov-conn" data-component="OverhaulConnections">
       <header className="ov-gallery__head">
-        <h1>
+        <h1 data-mari-part="page-title">
           {localize("Connections")}
           <span className="ov-conn__count">
             {(accounts ?? []).length} {localize((accounts ?? []).length === 1 ? "account" : "accounts")} · {modelCount}{" "}
@@ -755,6 +768,7 @@ export function ConnectionsLanding() {
           {ovMobile ? localize("New") : localize("Add connection")}
         </button>
         {ovMobile && kindSelect}
+        {ovMobile && groupSelect}
       </header>
       {!ovMobile && (
         <div className="ov-gallery__tools">
@@ -782,15 +796,7 @@ export function ConnectionsLanding() {
           <option value="models">{localize("Sort: Most models")}</option>
           <option value="recent">{localize("Sort: Recently changed")}</option>
         </select>
-        <select
-          className="ov-select"
-          value={groupBy}
-          onChange={(event) => setGroupBy(event.target.value as "connection" | "folder")}
-          aria-label={localize("Group")}
-        >
-          <option value="connection">{localize("By account")}</option>
-          <option value="folder">{localize("By folder")}</option>
-        </select>
+        {!ovMobile && groupSelect}
       </div>
       <DefaultsGrid connectionsList={rows} />
       {visible.groups.length === 0 && visible.standalone.length === 0 && (needle || kind !== "all") ? (

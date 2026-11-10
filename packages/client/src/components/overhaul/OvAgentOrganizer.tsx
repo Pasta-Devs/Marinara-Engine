@@ -539,7 +539,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
   return (
     <section className="ov-list ov-org" data-component="OverhaulAgentOrganizer">
       <header className="ov-gallery__head">
-        <h1>
+        <h1 data-mari-part="page-title">
           {localize("Agents")}
           <span className="ov-org__count">
             {installedCount} {localize("installed")} · {all.length} {localize("available")}

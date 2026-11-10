@@ -327,7 +327,7 @@ export function CardGallery({
   return (
     <section className="ov-gallery" data-component="OverhaulCardGallery" data-kind={kind}>
       <header className="ov-gallery__head">
-        <h1>{title}</h1>
+        <h1 data-mari-part="page-title">{title}</h1>
         {extraHeader}
         <KitNewFolderButton folders={folders} />
         <KitSelectButton selection={selection} />
