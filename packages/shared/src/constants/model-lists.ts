@@ -210,11 +210,11 @@ export function resolveProviderReasoningEffort(args: {
   reasoningEffort: StoredReasoningEffort | undefined;
 }): ProviderReasoningEffort {
   const providerLower = args.provider.toLowerCase();
-  // Argon cannot turn thinking off; without a level it thinks at Google's default, medium, so name that level.
+  // Argon and Carbon cannot turn thinking off; without a level they think at Google's default, medium, so name that level.
   if (
     (!args.reasoningEffort || args.reasoningEffort === "none") &&
     (providerLower === "google" || providerLower === "google_vertex") &&
-    isGeminiArgonModel(args.model)
+    isGeminiArgonOrCarbonModel(args.model)
   ) {
     return "medium";
   }
@@ -266,13 +266,16 @@ export function isGeminiThinkingLevelModel(model: string): boolean {
 }
 
 /**
- * Gemini 4 Argon takes thinking levels low to high only and cannot turn thinking off. Its sampler, penalty and prefill
- * rules are shared with the newer Flash models (isGeminiStrictRequestModel).
+ * Gemini 4 Argon and Carbon take thinking levels low to high only and cannot turn thinking off. Their sampler, penalty
+ * and prefill rules are shared with the newer Flash models (isGeminiStrictRequestModel). Google's migration guide says
+ * moving from Argon to Carbon needs no request change, only the model id.
  * https://ai.google.dev/gemini-api/docs/models/gemini-4-argon
  * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-argon
+ * https://aistudio.google.com/docs/whats-new-gemini-4-carbon
+ * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-carbon
  */
-export function isGeminiArgonModel(model: string): boolean {
-  return /(?:^|\/)gemini-4-argon(?:$|-)/u.test(capabilityModelId(model));
+export function isGeminiArgonOrCarbonModel(model: string): boolean {
+  return /(?:^|\/)gemini-4-(?:argon|carbon)(?:$|-)/u.test(capabilityModelId(model));
 }
 
 /** Any Gemini model id, bare or with a router prefix such as OpenRouter's `google/`. */
@@ -282,14 +285,16 @@ export function isGeminiModel(model: string): boolean {
 
 /**
  * Gemini models that ignore temperature, top-p and top-k and reject frequency and presence penalties and a request
- * ending on a model turn (a prefill): Argon, 3.5 Flash-Lite and 3.6 to 3.8 Flash. OpenRouter variants such as
+ * ending on a model turn (a prefill): Argon, Carbon, 3.5 Flash-Lite and 3.6 to 3.8 Flash. OpenRouter variants such as
  * `:online` count too.
  * https://ai.google.dev/gemini-api/docs/whats-new-gemini-3.6
  * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-5-flash-lite
  * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-3-6-flash (also 3-7, 3-8)
  */
 export function isGeminiStrictRequestModel(model: string): boolean {
-  return /(?:^|\/)gemini-(?:4-argon|3\.5-flash-lite|3\.[6-8]-flash)(?:$|[-:])/u.test(capabilityModelId(model));
+  return /(?:^|\/)gemini-(?:4-(?:argon|carbon)|3\.5-flash-lite|3\.[6-8]-flash)(?:$|[-:])/u.test(
+    capabilityModelId(model),
+  );
 }
 
 export function isXaiConfigurableReasoningModel(model: string): boolean {
@@ -512,8 +517,9 @@ export const OPENAI_CHATGPT_MODELS: KnownModel[] = [
 export const GOOGLE_MODELS: KnownModel[] = [
   // Gemini 3.8. New Google and Vertex connections start on the first entry, so keep a widely available Flash here.
   { id: "gemini-3.8-flash", name: "gemini-3.8-flash", context: 1000000, maxOutput: 65536 },
-  // Gemini 4. Argon needs a paid tier and, on Vertex, the global, us or eu location.
+  // Gemini 4. Argon and Carbon need a paid tier and, on Vertex, the global, us or eu location.
   { id: "gemini-4-argon", name: "gemini-4-argon", context: 1000000, maxOutput: 65536 },
+  { id: "gemini-4-carbon", name: "gemini-4-carbon", context: 1000000, maxOutput: 65536 },
   // Gemini 3.7
   { id: "gemini-3.7-flash", name: "gemini-3.7-flash", context: 1000000, maxOutput: 65536 },
   // Gemini 3.6
