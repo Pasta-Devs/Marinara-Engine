@@ -3,7 +3,7 @@
 //
 // Title with Import and New, one toolbar row (search, quick filters, sort),
 // then a grid of portraits with the token count, name and tags. Clicking a
-// portrait opens its editor; the Library pane's tags filter the list.
+// portrait opens its editor; the tag selector beside search filters the list.
 // ──────────────────────────────────────────────
 import { placeholderArt } from "../../lib/placeholder-art";
 import { Fragment, useMemo, useState, type CSSProperties, type ReactNode } from "react";
@@ -56,6 +56,7 @@ import {
   useSuppressClick,
   type KitAction,
 } from "./LibraryKit";
+import { TagFilter, countItemTags, matchesPickedTags } from "./TagFilter";
 
 export type GalleryCard = {
   id: string;
@@ -118,16 +119,11 @@ export function CardGallery({
   const setCardSize = useOverhaulStore((state) => state.setGalleryCardSize);
   const [search, setSearch] = useState("");
   const [quick, setQuick] = useState<QuickFilter>(null);
-  // Phones: Favourites, Recently edited and the tags are one dropdown beside + New.
+  // Phones: Favourites and Recently edited are one dropdown beside + New.
   const mobile = useOverhaulMobile();
-  const [tag, setTag] = useState<string | null>(null);
-  const allTags = useMemo(
-    () =>
-      [...new Set(cards.flatMap((card) => card.tags.map((t) => t.trim()).filter(Boolean)))].sort((a, b) =>
-        a.localeCompare(b),
-      ),
-    [cards],
-  );
+  // The tag selector beside search (several tags narrow to cards with all of them).
+  const [pickedTags, setPickedTags] = useState<string[]>([]);
+  const tagCounts = useMemo(() => countItemTags(cards), [cards]);
   const [baseSort, setBaseSort] = useState<SortKey>("name-asc");
   const singular = kind === "characters" ? "character" : "persona";
   // My order: drag cards into your own order (shared with the classic panel's manual order).
@@ -146,7 +142,7 @@ export function CardGallery({
     const tagQuery = needle.startsWith("tag:") ? needle.slice(4).trim() : null;
     let list = cards.filter((card) => {
       if (quick === "favorites" && !card.favorite) return false;
-      if (tag && !card.tags.some((t) => t.trim().toLowerCase() === tag.toLowerCase())) return false;
+      if (!matchesPickedTags(card.tags, pickedTags)) return false;
       if (!needle) return true;
       if (tagQuery !== null) return card.tags.some((tag) => tag.toLowerCase().includes(tagQuery));
       return card.name.toLowerCase().includes(needle) || card.tags.some((tag) => tag.toLowerCase().includes(needle));
@@ -165,7 +161,7 @@ export function CardGallery({
       default:
         return list.sort((a, b) => a.name.localeCompare(b.name));
     }
-  }, [cards, order, quick, search, sort, tag]);
+  }, [cards, order, pickedTags, quick, search, sort]);
 
   // ── Select, ⋯ menus, folders and dragging (like the Lorebooks and Presets pages) ──
   const isCharacters = kind === "characters";
@@ -178,7 +174,7 @@ export function CardGallery({
   const duplicatePersona = useDuplicatePersona();
   const deleteCharacter = useDeleteCharacter();
   const deletePersona = useDeletePersona();
-  const filtering = !!search.trim() || !!quick || !!tag;
+  const filtering = !!search.trim() || !!quick || pickedTags.length > 0;
   const byId = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const exportBase = isCharacters ? "/characters" : "/characters/personas";
   const removeMany = async (ids: string[], names?: string) => {
@@ -363,31 +359,16 @@ export function CardGallery({
         {mobile ? (
           <select
             className="ov-select ovm-lp-filter"
-            value={tag ? `tag:${tag}` : (quick ?? "all")}
+            value={quick ?? "all"}
             onChange={(event) => {
               const value = event.target.value;
-              if (value.startsWith("tag:")) {
-                setTag(value.slice(4));
-                setQuick(null);
-              } else {
-                setTag(null);
-                setQuick(value === "all" ? null : (value as QuickFilter));
-              }
+              setQuick(value === "all" ? null : (value as QuickFilter));
             }}
             aria-label={localize("Filter")}
           >
             <option value="all">{localize("All")}</option>
             {kind === "characters" ? <option value="favorites">{localize("Favourites")}</option> : null}
             <option value="recent">{localize("Recently edited")}</option>
-            {allTags.length ? (
-              <optgroup label={localize("Tags")}>
-                {allTags.map((name) => (
-                  <option key={name} value={`tag:${name}`}>
-                    {name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
           </select>
         ) : null}
       </header>
@@ -400,6 +381,9 @@ export function CardGallery({
             placeholder={localize(kind === "characters" ? "Search characters or tag:name" : "Search personas")}
           />
         </label>
+        {tagCounts.tags.length || pickedTags.length ? (
+          <TagFilter tags={tagCounts.tags} untagged={tagCounts.untagged} picked={pickedTags} onChange={setPickedTags} />
+        ) : null}
         {kind === "characters" && !mobile ? (
           <button
             type="button"

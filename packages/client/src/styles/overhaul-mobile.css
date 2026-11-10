@@ -4593,6 +4593,60 @@
   display: none !important;
 }
 
+/* Tag selector (TagFilter.tsx) on phones and tablets: same height as the search line, roomier rows for fingers. */
+:root[data-overhaul="mobile"] .ov-gallery__tools > .ov-tagfilter:not(#ovm-x) {
+  height: 2.75rem;
+  flex: 0 0 auto;
+  font-size: 0.875rem;
+}
+:root[data-overhaul="mobile"] .ov-tagpop__row {
+  height: 2.5rem;
+  font-size: 0.9375rem;
+}
+:root[data-overhaul="mobile"] .ov-tagpop__search {
+  height: 2.5rem;
+}
+/* Phones: the search keeps its width, so the selector shows its icon (and how many tags are picked). */
+@media (max-width: 34rem) {
+  :root[data-overhaul="mobile"] .ov-gallery__tools > .ov-tagfilter:not(#ovm-x) {
+    width: 2.75rem;
+    justify-content: center;
+    gap: 0.125rem;
+    padding: 0;
+  }
+  :root[data-overhaul="mobile"] .ov-tagfilter :is(.ov-tagfilter__label, .ov-tagfilter__more, .ov-tagfilter__chev) {
+    display: none;
+  }
+  :root[data-overhaul="mobile"] .ov-tagfilter .ov-tagfilter__count {
+    display: inline;
+  }
+}
+/* Tablets: the card-size switch keeps its own width in the search line (the shared .ov-seg rule fills the
+   line, which squeezed search down to a square). */
+:root[data-overhaul="mobile"] .ov-gallery__tools > .ov-gallery__size:not(#ovm-x):not(#ovm-y) {
+  width: auto;
+  flex: 0 0 auto;
+}
+:root[data-overhaul="mobile"] .ov-gallery__tools > .ov-gallery__size > button:not(#ovm-x):not(#ovm-y) {
+  width: 2.5rem;
+  flex: 0 0 auto;
+}
+
+/* Phones: the landing-page header buttons beside + New (Import and the like) show only their icon, like
+   Browse online, so the filter dropdown and the List/Gallery switch fit on the same line (Lorebooks took
+   three lines). The text stays as the button's accessible name. */
+@media (max-width: 34rem) {
+  :root[data-overhaul="mobile"]
+    .ov-gallery__head
+    > .ov-btn:not(.ov-btn--primary):not(.ov-btn--icon):has(> svg):not(#ovm-x) {
+    width: 2.5rem;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    font-size: 0;
+  }
+}
+
 /* ─── The one sidebar as a page that slides over from the right (Library button) ─── */
 .ovm-sidepage {
   --ov-line: var(--ovm-line);

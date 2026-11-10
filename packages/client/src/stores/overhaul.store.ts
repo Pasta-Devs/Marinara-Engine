@@ -82,17 +82,9 @@ interface OverhaulState {
   tabs: OverhaulTab[];
   /** The Library landing page shown in the main area, when no editor is open. */
   libraryPage: LibrarySection | null;
-  /** Characters gallery filter picked from the tag list in the Library pane. */
-  characterTag: string | null;
-  /** Personas gallery / Lorebooks list filters from the same tag lists ("" = untagged). */
-  personaTag: string | null;
-  lorebookTag: string | null;
-  setPersonaTag: (tag: string | null) => void;
-  setLorebookTag: (tag: string | null) => void;
   /** Which of the overhaul's Settings tabs is open. */
   settingsTab: OverhaulSettingsTab;
   setSettingsTab: (tab: OverhaulSettingsTab) => void;
-  setCharacterTag: (tag: string | null) => void;
   setEnabled: (enabled: boolean) => void;
   setDesktop: (desktop: boolean) => void;
   touchTab: (tab: OverhaulTab) => void;
@@ -209,14 +201,8 @@ export const useOverhaulStore = create<OverhaulState>()(
       desktop: true,
       tabs: [],
       libraryPage: null,
-      characterTag: null,
-      personaTag: null,
-      lorebookTag: null,
-      setPersonaTag: (personaTag) => set({ personaTag }),
-      setLorebookTag: (lorebookTag) => set({ lorebookTag }),
       settingsTab: "general",
       setSettingsTab: (settingsTab) => set({ settingsTab }),
-      setCharacterTag: (characterTag) => set({ characterTag }),
       setEnabled: (enabled) => set({ enabled }),
       setDesktop: (desktop) => set({ desktop }),
       touchTab: (tab) =>
