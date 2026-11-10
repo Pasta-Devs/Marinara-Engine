@@ -4631,3 +4631,18 @@
   width: 2.5rem;
   flex: 0 0 auto;
 }
+
+/* Phones: the landing-page header buttons beside + New (Import and the like) show only their icon, like
+   Browse online, so the filter dropdown and the List/Gallery switch fit on the same line (Lorebooks took
+   three lines). The text stays as the button's accessible name. */
+@media (max-width: 34rem) {
+  :root[data-overhaul="mobile"]
+    .ov-gallery__head
+    > .ov-btn:not(.ov-btn--primary):not(.ov-btn--icon):has(> svg):not(#ovm-x) {
+    width: 2.5rem;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    font-size: 0;
+  }
+}
