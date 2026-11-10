@@ -10,8 +10,9 @@ import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 
 /**
- * One-time notice shown after the store migrated chat data to the per-chat
- * shard layout (#4756). Purely informational — the migration is automatic by
+ * One-time notice shown after a storage-format migration: chat data split
+ * into the per-chat shard layout (#4756), or persona rows converted to
+ * character cards (format 11, #8688). Purely informational — the migration is automatic by
  * design (#4708); this explains what changed, why disk usage grew, and where
  * the downgrade path lives. Dismissing acknowledges server-side, so the
  * notice never returns (until a future storage-format bump migrates again).
@@ -35,6 +36,12 @@ export function StorageMigrationNoticeModal({ presentationAllowed }: { presentat
   }, [dismissed, hasCompletedOnboarding, notice, open, presentationAllowed]);
 
   if (!notice) return null;
+
+  // Format 11 converts persona rows in place without sharding anything, so the chat-split text
+  // only shows when a table was actually split.
+  const shardedCount = notice.migratedTables.length;
+  const personasConverted = (notice.convertedTables ?? []).includes("personas");
+  const showChatSplit = shardedCount > 0 || !personasConverted;
 
   const handleDismiss = () => {
     setDismissed(true);
@@ -70,9 +77,18 @@ export function StorageMigrationNoticeModal({ presentationAllowed }: { presentat
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--sidebar)] text-[var(--primary)]">
             <Database size="1.25rem" aria-hidden="true" />
           </div>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-            {localizeUi("ui.modals.storagemigrationnoticemodal.marinaraReorganizedHowYourChatsAreSaved")}
-          </p>
+          <div className="space-y-4">
+            {showChatSplit ? (
+              <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+                {localizeUi("ui.modals.storagemigrationnoticemodal.marinaraReorganizedHowYourChatsAreSaved")}
+              </p>
+            ) : null}
+            {personasConverted ? (
+              <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+                {localizeUi("ui.modals.storagemigrationnoticemodal.personasNowUseTheCardFormat")}
+              </p>
+            ) : null}
+          </div>
         </div>
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">
           {localizeUi("ui.modals.storagemigrationnoticemodal.nothingWasLostBackupsWereKept")}
@@ -100,18 +116,30 @@ export function StorageMigrationNoticeModal({ presentationAllowed }: { presentat
         {showTechnical ? (
           <ul className="list-disc space-y-2 rounded-lg border border-[var(--border)] bg-[var(--sidebar)] py-3 pl-8 pr-4 text-sm leading-6 text-[var(--muted-foreground)]">
             <li>
-              {notice.fromFormat === null
-                ? localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormatsUnknownFrom", {
-                    to: notice.toFormat,
-                    count: notice.migratedTables.length,
-                  })
-                : localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormats", {
-                    from: notice.fromFormat,
-                    to: notice.toFormat,
-                    count: notice.migratedTables.length,
-                  })}
+              {shardedCount === 0
+                ? notice.fromFormat === null
+                  ? localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormatOnlyUnknownFrom", {
+                      to: notice.toFormat,
+                    })
+                  : localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormatOnly", {
+                      from: notice.fromFormat,
+                      to: notice.toFormat,
+                    })
+                : notice.fromFormat === null
+                  ? localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormatsUnknownFrom", {
+                      to: notice.toFormat,
+                      count: shardedCount,
+                    })
+                  : localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormats", {
+                      from: notice.fromFormat,
+                      to: notice.toFormat,
+                      count: shardedCount,
+                    })}
             </li>
-            <li>{localizeUi("ui.modals.storagemigrationnoticemodal.technicalBackups")}</li>
+            {shardedCount > 0 ? <li>{localizeUi("ui.modals.storagemigrationnoticemodal.technicalBackups")}</li> : null}
+            {personasConverted ? (
+              <li>{localizeUi("ui.modals.storagemigrationnoticemodal.technicalPersonaCards")}</li>
+            ) : null}
             <li>{localizeUi("ui.modals.storagemigrationnoticemodal.technicalDowngrade")}</li>
           </ul>
         ) : null}
