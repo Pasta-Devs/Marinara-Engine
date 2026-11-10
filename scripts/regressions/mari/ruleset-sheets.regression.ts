@@ -26,6 +26,8 @@ const { characters, personas } = await import("../../../packages/server/src/db/s
 const { createGameRulesetsStorage } =
   await import("../../../packages/server/src/services/storage/game-rulesets.storage.js");
 const { MariDbService } = await import("../../../packages/server/src/services/mari-db/mari-db.service.js");
+const { buildMariWorkspaceActionResult } =
+  await import("../../../packages/server/src/services/professor-mari/workspace-agent.service.js");
 const { personaRowFromStored, storedPersonaFromRow } =
   await import("../../../packages/server/src/services/personas/persona-card-storage.js");
 
@@ -335,6 +337,18 @@ try {
   assert.equal(rookPicks.tree, "auto");
   assert.deepEqual(rookPicks.strong, ["luck"]);
   assert.equal((await personaStats()).enabled, true, "the rest of personaStats is untouched");
+
+  // ── A persona change receipt names persona fields, not the stored card's keys ──
+  const backstoryEdit = await mari.executeAction({
+    action: "persona.update",
+    id: "rook",
+    patch: { backstory: "Grew up by the gate." },
+    apply: true,
+  });
+  assert.equal(backstoryEdit.ok, true, `persona.update: ${backstoryEdit.error ?? ""}`);
+  assert.equal(backstoryEdit.summary?.preview[0]?.after?.backstory, "Grew up by the gate.");
+  assert.equal(backstoryEdit.summary?.preview[0]?.after?.data, undefined, "the preview is the flat view");
+  assert.deepEqual(buildMariWorkspaceActionResult("persona.update", backstoryEdit)?.changedFields, ["backstory"]);
 } finally {
   await closeDB();
   if (previousDataDir === undefined) delete process.env.DATA_DIR;

@@ -1029,14 +1029,26 @@ function validationFromIssues(issues: MariDbValidationIssue[]): MariDbValidation
   return { status: errors.length > 0 ? "blocked" : "passed", errors, notices, infos };
 }
 
+/**
+ * A persona preview shows the flat persona view, like every other persona surface, so the change
+ * receipt and in-field review name persona fields (`backstory`, `creatorNotes`), not card keys
+ * (`extensions`, `creator_notes`). Restore works from `beforeRaw` / `afterRaw`, not from this.
+ */
+function personaPreviewRow(raw: Row | null | undefined, parsed: Row | null | undefined): Row | null {
+  const source = raw ?? parsed;
+  if (!source) return null;
+  const stored = isRecord(source.data) ? { ...source, data: JSON.stringify(source.data) } : source;
+  return parsePersonaView(personaRowFromStored(stored as StoredPersonaRow));
+}
+
 function summaryForChanges(changes: PlanChange[]): MariDbDiffSummary {
-  const preview = changes.slice(0, PREVIEW_LIMIT).map(({ table, id, action, before, after }) => ({
-    table,
-    id,
-    action,
-    before: before ?? null,
-    after: after ?? null,
-  }));
+  const preview = changes
+    .slice(0, PREVIEW_LIMIT)
+    .map(({ table, id, action, before, after, beforeRaw, afterRaw }) =>
+      table === "personas"
+        ? { table, id, action, before: personaPreviewRow(beforeRaw, before), after: personaPreviewRow(afterRaw, after) }
+        : { table, id, action, before: before ?? null, after: after ?? null },
+    );
   const affectedTables: Record<string, number> = {};
   for (const change of changes) affectedTables[change.table] = (affectedTables[change.table] ?? 0) + 1;
   return {
