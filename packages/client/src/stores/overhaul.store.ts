@@ -68,6 +68,12 @@ export function overhaulTabKey(tab: OverhaulTab) {
 interface OverhaulState {
   /** Card size in the Characters / Personas galleries (this device). */
   galleryCardSize: GalleryCardSize;
+  /** The one sidebar (right side): which view it shows, Chats or the Library sections. */
+  sidePane: OverhaulSidePane;
+  setSidePane: (sidePane: OverhaulSidePane) => void;
+  /** Phones and tablets: the sidebar as a page that slides over from the right (the Library button). */
+  mobileSidePageOpen: boolean;
+  setMobileSidePageOpen: (open: boolean) => void;
   setGalleryCardSize: (size: GalleryCardSize) => void;
   /** The person's choice; on by default on this branch. */
   enabled: boolean;
@@ -193,6 +199,8 @@ function withoutEmptyGroups(state: { tabs: OverhaulTab[]; tabGroups: Record<stri
   const tabs = state.tabs.map((tab) => (tab.group && !tabGroups[tab.group] ? { kind: tab.kind, id: tab.id } : tab));
   return { tabs, tabGroups };
 }
+
+export type OverhaulSidePane = "chats" | "library";
 
 export const useOverhaulStore = create<OverhaulState>()(
   persist(
@@ -397,6 +405,10 @@ export const useOverhaulStore = create<OverhaulState>()(
       setSplitDrag: (splitDrag) => set({ splitDrag }),
       galleryCardSize: "medium",
       setGalleryCardSize: (galleryCardSize) => set({ galleryCardSize }),
+      sidePane: "chats",
+      setSidePane: (sidePane) => set({ sidePane }),
+      mobileSidePageOpen: false,
+      setMobileSidePageOpen: (mobileSidePageOpen) => set({ mobileSidePageOpen }),
     }),
     {
       name: "marinara-overhaul-layout",
@@ -423,6 +435,7 @@ export const useOverhaulStore = create<OverhaulState>()(
         gamePaneOpen: state.gamePaneOpen,
         gamePaneTab: state.gamePaneTab,
         galleryCardSize: state.galleryCardSize,
+        sidePane: state.sidePane,
         split: state.split,
       }),
     },
