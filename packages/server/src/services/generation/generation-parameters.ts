@@ -45,7 +45,11 @@ export function resolveStoredMaxTokens(defaultParameters: unknown, calculatedMax
   return maxTokens.success ? maxTokens.data : calculatedMaxTokens;
 }
 
-/** Resolve the connection's standard generation defaults for non-preset generation paths. */
+/**
+ * Resolve the connection's standard generation defaults for non-preset generation paths. A caller that sends the
+ * reasoningEffort sizes its max tokens with withAlwaysOnThinkingHeadroom, so the medium named for Gemini 4 Argon and
+ * Carbon with nothing saved leaves room for the answer.
+ */
 export function resolveStoredChatOptions(
   defaultParameters: unknown,
   provider: string,
@@ -58,6 +62,11 @@ export function resolveStoredChatOptions(
     } catch {
       return {};
     }
+  }
+  if (parsed == null) {
+    // Nothing saved: Argon and Carbon still think at medium, so name that level as a saved Off would.
+    const reasoningEffort = resolveProviderReasoningEffort({ provider, model, reasoningEffort: null });
+    return reasoningEffort ? { reasoningEffort } : {};
   }
   const result = partialInput(generationParametersSchema).safeParse(parsed);
   if (!result.success) return {};

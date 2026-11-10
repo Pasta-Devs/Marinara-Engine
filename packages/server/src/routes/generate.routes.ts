@@ -990,6 +990,7 @@ import {
   resolveStoredMaxTokens,
 } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
+import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../services/llm/connection-fallback-provider.js";
 import { fitMessagesForModelAccess, resolveModelAccessPolicy } from "../services/generation/model-access-policy.js";
@@ -8629,17 +8630,23 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               model: selectorModel,
               maxContext: selectorConnection.maxContext,
             });
-            const selectorMaxTokens = clampGenerationMaxOutputTokens({
-              provider: selectorConnection.provider,
-              model: selectorModel,
-              maxTokens: resolveStoredMaxTokens(selectorConnection.defaultParameters, DEFAULT_AGENT_MAX_TOKENS),
-              maxTokensOverride: selectorConnection.maxTokensOverride,
-            });
             const selectorDefaults = resolveStoredChatOptions(
               selectorConnection.defaultParameters,
               selectorConnection.provider,
               selectorModel,
             );
+            const selectorMaxTokens = withAlwaysOnThinkingHeadroom({
+              provider: selectorConnection.provider,
+              model: selectorModel,
+              maxTokens: clampGenerationMaxOutputTokens({
+                provider: selectorConnection.provider,
+                model: selectorModel,
+                maxTokens: resolveStoredMaxTokens(selectorConnection.defaultParameters, DEFAULT_AGENT_MAX_TOKENS),
+                maxTokensOverride: selectorConnection.maxTokensOverride,
+              }),
+              reasoningEffort: selectorDefaults.reasoningEffort,
+              maxTokensOverride: selectorConnection.maxTokensOverride,
+            });
 
             const result = await withLlmRequestTimeout(chatGenerationTimeoutMs, () =>
               selectorProvider.chatComplete(selectionPrompt, {

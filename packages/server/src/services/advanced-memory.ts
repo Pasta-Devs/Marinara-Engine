@@ -278,7 +278,7 @@ function memoryOutputBudget(
 
 /**
  * The reasoning a memory call asks for (#8983): the level, or Off, chosen on its connection, as every agent call sends
- * it (#7131); otherwise none, so a short summary or decision does not spend its output allowance thinking, unless the
+ * it (#7131), or medium with none saved on Gemini 4 Argon and Carbon, which cannot turn thinking off; otherwise none, so a short summary or decision does not spend its output allowance thinking, unless the
  * connection switched Reasoning Effort's Send off (then the provider's default stands).
  */
 function memoryReasoning(resolved: {

@@ -28,7 +28,8 @@ export type ResolvedChatSummaryConnection =
       enabledParameters?: ChatOptions["enabledParameters"];
       /**
        * The reasoning level (or Off) chosen on the connection, as every agent call reads it (#7131): present only when
-       * the connection chose one. A caller with its own default (Advanced Memory asks for none) lets it win (#8983).
+       * the connection chose one, or saved none on a model that cannot turn thinking off (Gemini 4 Argon and Carbon).
+       * A caller with its own default (Advanced Memory asks for none) lets it win (#8983).
        */
       reasoning?: { reasoningEffort?: ChatOptions["reasoningEffort"]; enableThinking: boolean };
     }
