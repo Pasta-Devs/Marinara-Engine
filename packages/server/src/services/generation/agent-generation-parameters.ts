@@ -1,5 +1,6 @@
 import {
   relevantGenerationParameters,
+  resolveProviderReasoningEffort,
   type CapabilityLanguageModelCompletionOptions,
   type ChatOptions,
   type GenerationParameterSendMap,
@@ -28,7 +29,10 @@ export type AgentGenerationParameters = {
   serviceTier?: "flex" | "priority";
   /** The model rejects sampling parameters, so the agent's own temperature is not sent either. */
   omitTemperature?: true;
-  /** Present only when the connection chose a reasoning level or Off; it replaces the agent's own default. */
+  /**
+   * Present only when the connection chose a reasoning level or Off, or saved none on a model that thinks without one
+   * (Gemini 4 Argon and Carbon); it replaces the agent's own default.
+   */
   reasoning?: { reasoningEffort?: ChatOptions["reasoningEffort"]; enableThinking: boolean };
   /** The provider counts thinking inside max tokens, so a call that thinks needs room left for the answer. */
   thinkingHeadroom?: true;
@@ -117,12 +121,21 @@ function connectionSends(resolved: ResolvedGenerationParameters, key: keyof Gene
 
 /**
  * A level counts as chosen only when the connection saved one, sends it, and shows Reasoning Effort for this model.
- * Codex keeps its own level while the saved value is Default (null).
+ * Codex keeps its own level while the saved value is Default (null). With `unsetCountsAsOff`, no saved level counts as
+ * a saved Off when Off still names a level: Gemini 4 Argon and Carbon think at medium either way, so the call sends
+ * that level and gets room for it.
  */
-function connectionChoseReasoning(source: ConnectionParameterSource, resolved: ResolvedGenerationParameters): boolean {
-  if (resolved.parameterSources.reasoningEffort !== "connection" || !connectionSends(resolved, "reasoningEffort")) {
-    return false;
-  }
+function connectionChoseReasoning(
+  source: ConnectionParameterSource,
+  resolved: ResolvedGenerationParameters,
+  unsetCountsAsOff = false,
+): boolean {
+  const chosen =
+    resolved.parameterSources.reasoningEffort === "connection" ||
+    (unsetCountsAsOff &&
+      resolveProviderReasoningEffort({ provider: source.provider, model: source.model, reasoningEffort: null }) !==
+        null);
+  if (!chosen || !connectionSends(resolved, "reasoningEffort")) return false;
   if (source.provider.toLowerCase() === "openai_chatgpt" && resolved.reasoningEffort == null) return false;
   return relevantGenerationParameters({ provider: source.provider, model: source.model }).has("reasoningEffort");
 }
@@ -139,7 +152,7 @@ export function resolveAgentConnectionParameters(source: ConnectionParameterSour
   const resolved = resolveConnectionGenerationParameters(source);
   const sent = <T>(key: keyof GenerationParameterSendMap, value: T) =>
     connectionSends(resolved, key) ? value : undefined;
-  const reasoning = connectionChoseReasoning(source, resolved)
+  const reasoning = connectionChoseReasoning(source, resolved, true)
     ? { reasoningEffort: resolved.providerReasoningEffort, enableThinking: resolved.enableThinking }
     : undefined;
   return {

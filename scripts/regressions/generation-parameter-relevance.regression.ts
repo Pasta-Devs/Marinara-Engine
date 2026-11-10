@@ -71,9 +71,8 @@ try {
   const { relevantGenerationParameters, reasoningEffortChoices, verbosityChoices } =
     await import("../../packages/shared/src/constants/generation-parameter-relevance.js");
   const { readOpenRouterModelCapabilities } = await import("../../packages/server/src/routes/connections.routes.js");
-  const { supportsAssistantReasoningPrefill } = await import(
-    "../../packages/server/src/services/generation/generation-parameters.js"
-  );
+  const { resolveStoredChatOptions, supportsAssistantReasoningPrefill } =
+    await import("../../packages/server/src/services/generation/generation-parameters.js");
 
   assert.deepEqual(
     readOpenRouterModelCapabilities({
@@ -708,24 +707,43 @@ try {
       ["medium", "medium", "medium"],
       `${provider} ${model} without a level sends medium`,
     );
-    const agentOn = (reasoningEffort: string | null) => {
-      const resolved = resolveAgentConnectionParameters({
-        provider,
-        model,
-        defaultParameters: { reasoningEffort },
-      });
+    const agentOn = (defaultParameters: unknown, agentModel: string = model) => {
+      const resolved = resolveAgentConnectionParameters({ provider, model: agentModel, defaultParameters });
       return {
         reasoning: resolved.generation.reasoning,
         maxTokens: withThinkingHeadroom(4096, resolved.generation, resolved.enabledParameters),
       };
     };
     assert.deepEqual(
-      agentOn(null),
-      agentOn("medium"),
+      agentOn({ reasoningEffort: null }),
+      agentOn({ reasoningEffort: "medium" }),
       `${provider} an agent on a ${model} connection saved as Off gets medium and its thinking room`,
     );
-    assert.deepEqual(agentOn(null).reasoning, { reasoningEffort: "medium", enableThinking: true });
-    assert.ok(agentOn(null).maxTokens > 4096, `${provider} ${model} agent calls keep room for thinking`);
+    // A connection that never saved a level (the panel was never opened) thinks at medium too, so it gets the same.
+    for (const defaultParameters of [{ reasoningEffort: null }, null, {}]) {
+      const label = `${provider} ${model} saved as ${JSON.stringify(defaultParameters)}`;
+      assert.deepEqual(
+        agentOn(defaultParameters).reasoning,
+        { reasoningEffort: "medium", enableThinking: true },
+        `${label}: agent calls send medium`,
+      );
+      assert.ok(agentOn(defaultParameters).maxTokens > 4096, `${label}: agent calls keep room for thinking`);
+    }
+    assert.deepEqual(
+      resolveStoredChatOptions(null, provider, model),
+      { reasoningEffort: "medium" },
+      `${provider} ${model} helper calls on a connection with nothing saved send medium`,
+    );
+    assert.deepEqual(
+      agentOn(null, "gemini-3-pro-preview"),
+      { reasoning: undefined, maxTokens: 4096 },
+      `${provider} Gemini 3 with nothing saved still sends no level`,
+    );
+    assert.deepEqual(
+      resolveStoredChatOptions(null, provider, "gemini-3-pro-preview"),
+      {},
+      `${provider} Gemini 3 helper calls with nothing saved still send nothing`,
+    );
     assert.deepEqual(
       reasoningEffortChoices({ provider, model: "gemini-3-pro-preview" })[0],
       { value: null, label: null },

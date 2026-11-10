@@ -59,6 +59,11 @@ export function resolveStoredChatOptions(
       return {};
     }
   }
+  if (parsed == null) {
+    // Nothing saved: Argon and Carbon still think at medium, so name that level as a saved Off would.
+    const reasoningEffort = resolveProviderReasoningEffort({ provider, model, reasoningEffort: null });
+    return reasoningEffort ? { reasoningEffort } : {};
+  }
   const result = partialInput(generationParametersSchema).safeParse(parsed);
   if (!result.success) return {};
   const parameters = result.data;
