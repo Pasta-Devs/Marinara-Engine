@@ -12346,3 +12346,89 @@ input.ov-edhead__title:not(#ov-x) {
   outline: 2px solid var(--ov-accent);
   outline-offset: -2px;
 }
+
+/* ─── Narrow main side (split view, small windows): headers wrap instead of clipping ───
+   #mari-main is the page's container; when it is narrow (e.g. the main side of a split view),
+   page titles take their own line, the buttons wrap under them, and list + editor viewers stack. */
+#mari-main {
+  container-name: mari-main;
+}
+@container mari-main (max-width: 44rem) {
+  .ov-gallery {
+    padding: 1.25rem 1rem 2rem;
+  }
+  .ov-gallery__head {
+    flex-wrap: wrap;
+    row-gap: 0.625rem;
+  }
+  .ov-gallery__head h1 {
+    flex: 1 1 100%;
+    font-size: 1.875rem;
+  }
+  .ov-gallery__head > * {
+    min-width: 0;
+  }
+  .ov-gallery__tools {
+    flex-wrap: wrap;
+  }
+  /* No room for the detail columns: the name and the row's ⋯ stay in view. */
+  .ov-table :is(th, td):not(.ov-table__check, .ov-table__lead, .ov-table__name, .ov-table__more, [colspan]) {
+    display: none;
+  }
+  .ov-table td.ov-table__name {
+    width: 100%;
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ov-table td.ov-table__name .ov-table__title {
+    display: flex;
+    min-width: 0;
+  }
+  .ov-table td.ov-table__name .ov-table__title > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ov-conn-defaults__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ov-conn__devstate {
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+  }
+  .ov-settings__head {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+  .ov-settings__head h1 {
+    font-size: 1.875rem;
+  }
+  .ov-settings__head p {
+    flex: 1 1 100%;
+  }
+  .ov-settings__search {
+    flex: 1 1 100%;
+    width: auto;
+    margin-left: 0;
+  }
+  .ov-vw__top {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+    padding: 1.25rem 1rem 0.75rem;
+  }
+  .ov-vw {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(7rem, 38%) minmax(0, 1fr);
+  }
+  .ov-vw__left {
+    border-right: 0;
+    border-bottom: 1px solid var(--ov-line);
+  }
+}
+/* A very narrow editor (e.g. beside its list on a narrow split side): labels sit above their fields. */
+@container ov-ed (max-width: 30rem) {
+  .ov-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+}
