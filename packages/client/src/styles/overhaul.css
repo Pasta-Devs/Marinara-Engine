@@ -9018,6 +9018,9 @@ input.ov-edhead__title:focus {
   color: var(--ov-muted);
   font: 400 0.875rem/1 var(--font-sans, inherit);
   vertical-align: middle;
+  /* A theme's page-title caps and spacing are for the title, not this count. */
+  text-transform: none;
+  letter-spacing: normal;
 }
 .ov-conn__dim {
   color: var(--ov-muted);

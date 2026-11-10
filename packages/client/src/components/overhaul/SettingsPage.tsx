@@ -353,7 +353,7 @@ function OverhaulSettingsPhone() {
       {level === "root" ? (
         <>
           <header className="ov-settings__head">
-            <h1>{localize("Settings")}</h1>
+            <h1 data-mari-part="page-title">{localize("Settings")}</h1>
             <SettingsSearchField query={query} setQuery={setQuery} />
           </header>
           <div className="ovm-settings__rows">
@@ -507,7 +507,7 @@ function OverhaulSettingsSplit() {
       data-ovm-tab={tab.id}
     >
       <nav className="ovm-settings__side" aria-label={localize("Settings tabs")}>
-        <h1>{localize("Settings")}</h1>
+        <h1 data-mari-part="page-title">{localize("Settings")}</h1>
         <SettingsSearchField query={query} setQuery={setQuery} />
         {query.trim() ? (
           results.length ? (
@@ -609,7 +609,7 @@ function OverhaulSettingsDesktop() {
   return (
     <section className="ov-settings" data-component="OverhaulSettingsPage">
       <header className="ov-settings__head">
-        <h1>{localize("Settings")}</h1>
+        <h1 data-mari-part="page-title">{localize("Settings")}</h1>
         <p>{localize(tab.blurb)}</p>
         <div className="ov-settings__search">
           <label className="ov-search">
@@ -684,7 +684,7 @@ export function OverhaulExtensionsPage() {
   return (
     <section className="ov-settings ov-settings--extensions" data-component="OverhaulExtensionsPage">
       <header className="ov-settings__head">
-        <h1>{localize("Extensions")}</h1>
+        <h1 data-mari-part="page-title">{localize("Extensions")}</h1>
         <p>{localize("Personal Extensions: drafts Professor Mari writes for you, and packages you import")}</p>
       </header>
       <div className="ov-settings__scroll">
