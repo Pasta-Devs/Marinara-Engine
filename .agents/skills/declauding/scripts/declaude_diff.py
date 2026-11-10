@@ -37,12 +37,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
     from declaude_lint import html_to_lines, looks_like_html
-except ImportError:                                          # standalone copy
-    def looks_like_html(text: str) -> bool:
-        return "<html" in text[:4000].lower() or "<p>" in text[:4000].lower()
-
-    def html_to_lines(text: str) -> str:
-        return re.sub(r"<[^>]+>", " ", text)
+except ImportError as err:
+    # Marinara: no standalone copy. Its narrower HTML check missed doctype-only and headless pages, which were then
+    # compared as raw markup (Dottore on Marinara-Engine#9014). This script ships beside declaude_lint.py.
+    raise SystemExit(f"declaude_diff.py needs declaude_lint.py in the same folder: {err}") from err
 
 # Spans whose content is quoted material, code, or a link target. Prose edits do
 # not touch them, so a change inside one is reported as its own class rather
