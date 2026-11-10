@@ -37,7 +37,6 @@ Starter themes aren't part of the install, so they take no space until you want 
 | **Maple's Bramble Cottage** | A cozy cottage, with a reading column for long replies. |
 | **NEON//GRID** | Neon cyberpunk, made for long replies. |
 | **Petal OS** | A playful retro desktop with pixel fonts. |
-| **Rhumb Line** | A navigator's sea chart: each message is a fix on a plotted course. |
 | **Rosalind's Folio** | A storybook layout with visual novel touches. |
 | **Swiss Poster** | Quiet, clean poster design with no motion. |
 | **Velvet Casket** | Pastel goth by day and traditional goth by night, with coffin-shaped messages. |
