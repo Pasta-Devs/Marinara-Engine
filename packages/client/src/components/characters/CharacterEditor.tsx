@@ -2666,6 +2666,14 @@ function MetadataTab({
             if (key === "comment") updateCharacterComment(value);
             else if (key !== "phoneticName") updateField(key, value);
           }}
+          otherNames={
+            <NameAliasesSection
+              kind="character"
+              aliases={(formData.extensions.nameAliases as string[] | undefined) ?? []}
+              onChange={(next) => updateExtension("nameAliases", next)}
+              nameColor={(formData.extensions.nameColor as string | undefined) || undefined}
+            />
+          }
         />
         <div className="space-y-1.5" data-mari-field="character_version">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -6548,7 +6556,6 @@ function ColorsTab({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const nameColor = (formData.extensions.nameColor as string) ?? "";
-  const nameAliases = (formData.extensions.nameAliases as string[] | undefined) ?? [];
 
   return (
     <CardColors
@@ -6567,13 +6574,6 @@ function ColorsTab({
       dialogueColor={(formData.extensions.dialogueColor as string) ?? ""}
       boxColor={(formData.extensions.boxColor as string) ?? ""}
       onColorChange={(key, value) => updateExtension(key, value)}
-      aliases={
-        <NameAliasesSection
-          aliases={nameAliases}
-          onChange={(next) => updateExtension("nameAliases", next)}
-          nameColor={nameColor}
-        />
-      }
     />
   );
 }

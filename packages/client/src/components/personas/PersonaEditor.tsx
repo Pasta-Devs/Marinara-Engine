@@ -8,6 +8,7 @@ import { CardRpgFields, DEFAULT_RPG_STATS } from "../cards/CardRpgFields";
 import { CardColors } from "../cards/CardColors";
 import { useCardGallerySelection } from "../cards/use-card-gallery-selection";
 import { CardIdentityFields } from "../cards/CardIdentityFields";
+import { NameAliasesSection } from "../ui/NameAliasesSection";
 import {
   useSpriteLibrary,
   SpriteLibraryShell,
@@ -275,7 +276,7 @@ interface PersonaFormData {
   tags: string[];
   /** Saved Conversation mode activity/status options, kept decoded in form state. */
   savedStatusOptions: string[];
-  /** Other names the persona answers to; no editor control yet, carried so saves and card copies keep them. */
+  /** Other names the persona goes by (Metadata → Other names): inline name coloring in chats. */
   nameAliases: string[];
   /** Conversation-mode-only fields. */
   convoDisplayName: string;
@@ -3560,7 +3561,19 @@ function PersonaMetadataTab({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <CardIdentityFields kind="persona" fields={formData} onChange={updateField} />
+        <CardIdentityFields
+          kind="persona"
+          fields={formData}
+          onChange={updateField}
+          otherNames={
+            <NameAliasesSection
+              kind="persona"
+              aliases={formData.nameAliases}
+              onChange={(next) => updateField("nameAliases", next)}
+              nameColor={formData.nameColor || undefined}
+            />
+          }
+        />
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">

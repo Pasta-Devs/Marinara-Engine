@@ -30,7 +30,7 @@ Set each with the color field, or type a value:
 linear-gradient(90deg, #f59e0b, #ef4444)
 ```
 
-A character's **Colors** tab also has **Name Aliases**. Type extra names or nicknames, separated by commas, such as `Kate, Kitty, Katherine`. They get the character's name color when they appear in chat messages. The main name is always included. Turn it on per chat in **Chat Settings → Characters**.
+**Other names** (nicknames, full names or titles, such as `Clark Kent, Kal-El, Mr. Kent`) are on the **Metadata** tab, under **Name**. In Roleplay chats they get the name color in messages, like the main name. Turn it on per chat: **Color Character Names in Text** in **Chat Settings → Characters**, and **Color Persona Name in Text** in **Chat Settings → Persona**.
 
 To change transparency, use **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity**.
 
