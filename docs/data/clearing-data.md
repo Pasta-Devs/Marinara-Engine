@@ -47,7 +47,7 @@ More detail:
 - **Connections** also clears text-to-speech and speech-to-text settings, the models you chose for features, and a Tripo API key saved on the **3D Avatars** page.
 - **Automation & Addons** also deletes agent results, agent memory, agent folders and agent Home widgets.
 - **Media & Assets** also deletes the asset list and chat images.
-- Knowledge-source files are files you uploaded for knowledge agents. Synced themes are your custom themes saved in Marinara. The starter themes that come with Marinara come back the next time Marinara starts.
+- Knowledge-source files are files you uploaded for knowledge agents. Synced themes are your custom themes saved in Marinara, including starter themes you downloaded. You can download starter themes again from the theme gallery.
 
 Some categories reach into files outside their name. **Chats & Messages** deletes the whole `gallery` folder, including character and persona gallery images, even if you did not check **Characters** or **Personas**.
 

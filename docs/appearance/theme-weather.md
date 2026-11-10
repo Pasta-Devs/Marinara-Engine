@@ -77,7 +77,7 @@ Each kind of weather has a short name. You use that name in the token, such as `
 | When the story says | The app draws | Name in the tokens |
 | --- | --- | --- |
 | rain, downpour | Rain streaks | `rain` |
-| storm, thunder, lightning | Heavy rain with lightning flashes | `rain` (flash: `lightning-color`) |
+| storm, thunder, lightning | Heavy rain with lightning flashes | `rain` (flash: `lightning-color`, bolts: `lightning-bolt`) |
 | snow, sleet, blizzard, frost, cold | Snowflakes | `snow` |
 | hail | Hailstones | `hail` |
 | fog, mist, haze | Soft fog banks low on the screen over ground mist | `fog` |
@@ -202,8 +202,22 @@ These settings change the whole weather layer at once:
 | `--mari-weather-strength` | How strongly particles show | `0.5` (faint) to `1.5` (bold) |
 | `--mari-weather-tint-strength` | The coloured wash over the chat (blue in rain, dark at night) | `0` (none) to `1` (normal) |
 | `--mari-weather-lightning-color` | The colour of the lightning flash | A plain colour. The flash stays gentle and slow, so it's safe for people sensitive to flashing light. |
+| `--mari-weather-lightning-bolt` | Draws a forked lightning bolt with each flash, in the lightning colour | `on`, or a width from `0.5` to `3`. `none` (the default) keeps the flash only. |
 
 For a quiet reading theme, try `--mari-weather-amount: 0.5;` and `--mari-weather-tint-strength: 0.3;`.
+
+### Lightning bolts
+
+By default a storm only flashes the screen. Add `--mari-weather-lightning-bolt` to draw a real forked bolt with each flash:
+
+```css
+:root {
+  --mari-weather-lightning-color: #e8f2ff;
+  --mari-weather-lightning-bolt: 1.2;
+}
+```
+
+The bolt strikes down the left or right edge of the screen, never across the middle where the chat text is. It forks into several branches and glows in your lightning colour. It only shows while the app's own flash is up and fades with it, so a theme can't add flashes or make them faster. In pixel style the bolt is drawn in blocks on the pixel grid. Most starter themes use bolts: Apogee Lounge, Dewglass, Gutterlight, Under Sail and Velvet Casket. Granite Watch turns them off because it is set indoors.
 
 ## Make your backdrop follow the weather
 
@@ -270,11 +284,17 @@ Your theme changes how the weather looks, never whether people see it:
 
 ## Learn from the starter themes
 
-Three starter themes show off weather. Click **Clone + Edit** on one and scroll to the part of its CSS marked `Weather` to see how it's done.
+Every starter theme in the theme gallery shows off weather. Download one, click **Clone + Edit** and scroll to the part of its CSS marked `Weather` to see how it's done.
 
 - **NEON//GRID**: long cyan rain streaks, square "data snow", magenta sparks for leaves and petals. Its painted rain overlay steps aside when real weather falls.
 - **Petal OS**: pixel style on a 3 px grid, its own pixel petals, pale pink rain at night and deep berry rain by day, and a city that greys over in bad weather.
 - **Lantern Path**: its own painted leaves, warm fireflies, no app sun (the backdrop paints its own light) and backdrops that turn overcast or snowy with the weather.
+- **Dewglass**: its own soap bubbles for motes, code-drawn crystal snowflakes, aqua rain, cyan lightning bolts and lagoon backdrops that turn overcast, frozen or misty.
+- **Velvet Casket**: a different storm for day and night: pink bolts and lilac rain by day, violet-white bolts and silver rain over the cemetery at night, with its own bats and rose petals in the wind.
+- **Gutterlight**: cold comic-book rain, torn newsprint in the wind, sodium-yellow smog, and a storm backdrop with water pouring off the gargoyles as the bolts strike.
+- **Under Sail**: a squall at sea with white-blue bolts down the rigging, sea fog, snow on the rail and ratlines, and gull feathers in the wind.
+- **Apogee Lounge**: space weather seen through the lounge window. A storm becomes an ion storm in a nebula with violet plasma bolts, rain becomes micrometeor streaks, snow becomes an ice field and fog becomes nebula haze. A mask keeps all of it inside the glass.
+- **Granite Watch**: an indoor theme, so weather stays as faint as a theme allows. Rain reads as drips from the conduits, snow as plaster dust, bolts are off and the app's flash is tinted as a lamp flicker. Look here to see how to quiet weather for an indoor setting.
 
 ## Related guides
 
