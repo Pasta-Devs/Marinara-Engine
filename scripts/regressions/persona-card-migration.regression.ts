@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "../../packages/server/src/db/file-query.js";
@@ -273,6 +282,31 @@ try {
       "the next boot finishes the conversion",
     );
     assert.deepEqual(preV11Files(root), [`${encodeShardKey(row.id)}.json.pre-v11`], "still one copy");
+  }
+
+  // 8b. The same holds when a crash left only manifest.json.bak: the format guards read the version
+  //     from the backup, so the raise must not skip a missing primary.
+  {
+    const row = legacyRow("persona-bak-manifest", "BakManifest");
+    const root = await writeFormat10Profile([row]);
+    renameSync(join(root, "manifest.json"), join(root, "manifest.json.bak"));
+    let failed = false;
+    try {
+      const db = await createFileNativeDB({
+        beforeTableWrite: (table) => {
+          if (table.startsWith("personas")) throw new Error("injected persona write failure");
+        },
+      });
+      await db._fileStore.close();
+    } catch {
+      failed = true;
+    }
+    assert.equal(failed, true, "the injected write failure stops the first boot");
+    assert.equal(
+      existsSync(join(root, "manifest.json")) ? readManifest(root).version : null,
+      11,
+      "a primary manifest saying 11 exists before any persona shard is rewritten",
+    );
   }
 
   // 9. A shard's .bak gets its own byte-identical copy.

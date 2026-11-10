@@ -5072,9 +5072,12 @@ class FileTableStore {
    */
   private async raiseManifestVersionBeforeRewrite() {
     const path = manifestPath(this.rootDir);
-    if (!existsSync(path)) return;
+    // A crash can leave only manifest.json.bak, and the format guards read the version from it.
+    // parseJsonFile recovers it the same way, and the raised version lands in a fresh primary.
+    if (!existsSync(path) && !existsSync(`${path}.bak`)) return;
     const { value } = parseJsonFile<TableSnapshotManifest | null>(path, null);
-    if (!value || typeof value !== "object" || value.version === STORAGE_VERSION) return;
+    if (!value || typeof value !== "object") return;
+    if (typeof value.version === "number" && value.version >= STORAGE_VERSION) return;
     await atomicWriteFile(path, JSON.stringify({ ...value, version: STORAGE_VERSION }, null, 2));
   }
 
