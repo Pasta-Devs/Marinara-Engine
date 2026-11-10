@@ -1129,6 +1129,29 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const [gridColumns, setGridColumns] = useState<HomeGridColumns>(1);
   const [gridRowHeight, setGridRowHeight] = useState(HOME_WIDGET_MIN_ROW_HEIGHT);
   const contentRef = useRef<HTMLElement | null>(null);
+  // Phone Home keeps Conversation / Roleplay / Game on one row. When a theme's font or the phone
+  // is too narrow for icon + label, data-compact drops the icons (styles in overhaul-mobile.css).
+  const homeModesRef = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const row = homeModesRef.current;
+    if (!overhaulActive || !row || typeof ResizeObserver === "undefined") return;
+    const check = () => {
+      row.removeAttribute("data-compact");
+      const clipped =
+        row.scrollWidth > row.clientWidth ||
+        Array.from(row.children).some((pill) => {
+          const label = pill.lastElementChild as HTMLElement | null;
+          return !!label && label.scrollWidth > label.clientWidth;
+        });
+      if (clipped) row.setAttribute("data-compact", "");
+    };
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(row);
+    Array.from(row.children).forEach((pill) => observer.observe(pill));
+    void document.fonts?.ready.then(check);
+    return () => observer.disconnect();
+  }, [overhaulActive]);
   const heroRef = useRef<HTMLElement | null>(null);
   const homePageRef = useRef<HTMLDivElement | null>(null);
   // Freeze Home's ambient animations while Professor Mari, an editor or a panel covers it (phone battery).
@@ -2394,6 +2417,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     </p>
                   </div>
                   <div
+                    ref={homeModesRef}
                     className={overhaulActive ? "ov-home-modes" : "grid w-full max-w-md grid-cols-3 gap-2"}
                     aria-label={t("home.shortcuts.label")}
                   >

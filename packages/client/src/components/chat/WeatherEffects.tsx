@@ -11,12 +11,15 @@ import { useUIStore } from "../../stores/ui.store";
 import {
   createWeatherParticle,
   drawWeatherCelestial,
+  createWeatherBolt,
+  drawWeatherBolt,
   drawWeatherLightning,
   drawWeatherParticle,
   drawWeatherTint,
   populateWeatherParticles,
   resolveWeatherRenderConfig,
   weatherCanvasScaleCap,
+  type WeatherBolt,
   type WeatherLook,
   type WeatherParticle,
 } from "../../lib/weather-renderer";
@@ -187,6 +190,7 @@ export function WeatherEffects({
 
     let running = true;
     let lightningAlpha = 0; // for lightning flash
+    let bolt: WeatherBolt | null = null;
     let nextLightning = config.lightning ? 200 + Math.random() * 400 : Infinity;
     let frameCount = 0;
     let previousFrameTime = 0;
@@ -258,10 +262,12 @@ export function WeatherEffects({
       if (config.lightning) {
         if (frameCount >= nextLightning) {
           lightningAlpha = 0.45 + Math.random() * 0.15; // soft flash, max 0.6
+          bolt = look.bolt > 0 ? createWeatherBolt(cw, ch) : null; // theme opt-in: a drawn bolt on this flash
           nextLightning = frameCount + 400 + Math.random() * 800; // next in ~7-20s at 60fps
         }
         if (lightningAlpha > 0) {
           drawWeatherLightning(ctx, look, lightningAlpha, cw, ch);
+          drawWeatherBolt(ctx, bolt, look, lightningAlpha);
           lightningAlpha *= Math.pow(0.88, frameScale); // gentle decay
           if (lightningAlpha < 0.01) lightningAlpha = 0;
         }
