@@ -14,7 +14,7 @@ import { themeFontFaceCss } from "../../lib/theme-package";
 import { installSafeModeShortcut, useThemeSafetyStore } from "../../lib/theme-safety";
 import { checkProtectedChrome, topBarPseudoArt } from "../../lib/theme-guard";
 import { contentProblemsAsGuard } from "../../lib/theme-content-check";
-import { preloadImageSamples, prepareThemeCss } from "../../lib/theme-images";
+import { imageSamplesPending, preloadImageSamples, prepareThemeCss } from "../../lib/theme-images";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { themeHasHtml, useThemeTemplates } from "../../lib/theme-template";
 import { useUIStore } from "../../stores/ui.store";
@@ -284,6 +284,7 @@ export function CustomThemeInjector() {
     const themeName = activeTheme.name;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let retries = 0;
+    let pictureWaits = 0;
     let confirming = false;
     let cancelled = false;
     // Pictures are read (how see-through they are) before the first check, so a faint one isn't
@@ -321,6 +322,17 @@ export function CustomThemeInjector() {
         return;
       }
       retries = 0;
+      // The sheet can be rewritten after it lands (Reduce motion swaps moving pictures for still
+      // frames, with new blob: URLs). A picture not read yet counts as solid, so wait for this
+      // sheet's pictures (up to 10 s more) rather than take rain for a wall.
+      const current = sheets()
+        .map((sheet) => sheet.textContent ?? "")
+        .join("\n");
+      if (imageSamplesPending(current) && pictureWaits < 20) {
+        pictureWaits += 1;
+        schedule(500);
+        return;
+      }
       if (document.documentElement.dataset.mariTopBarArt === undefined && topBarPseudoArt())
         document.documentElement.dataset.mariTopBarArt = "";
       const problems = checkProtectedChrome(sheets());
