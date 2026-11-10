@@ -27,6 +27,7 @@ import { chatKeys, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { useGameStatePatcher } from "../../hooks/use-game-state-patcher";
 import { api } from "../../lib/api-client";
+import { parseChatMetadata } from "../../lib/chat-display";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
@@ -101,6 +102,7 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
   const resolved = useGameRuleset(metadata);
   const { pin, busy } = usePinRoleplayRuleset(chatId);
   const updateChatMetadata = useUpdateChatMetadata();
+  const queryClient = useQueryClient();
   const showSheet = useRoleplaySheetStore((state) => state.show);
   const pinnedId =
     metadata.gameRuleset && typeof metadata.gameRuleset === "object"
@@ -128,15 +130,20 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
       tone: "destructive",
     });
     if (!confirmed) return;
+    // Read the chat as it is now, not as it was when the dialog opened: sheets added while it was
+    // open (Add missing sheets, a sheet given back) must survive this write.
+    const cached = queryClient.getQueryData<{ metadata?: unknown }>(chatKeys.detail(chatId));
+    const current = cached ? parseChatMetadata(cached.metadata) : metadata;
+    const declinedNow = declinedNames(current);
     const key = normalizeCharacterLookupName(name);
     await updateChatMetadata.mutateAsync({
       id: chatId,
-      gameCharacterCards: readCards(metadata).filter(
+      gameCharacterCards: readCards(current).filter(
         (card) => typeof card.name !== "string" || normalizeCharacterLookupName(card.name) !== key,
       ),
-      roleplaySheetsDeclined: declined.some((entry) => normalizeCharacterLookupName(entry) === key)
-        ? declined
-        : [...declined, name],
+      roleplaySheetsDeclined: declinedNow.some((entry) => normalizeCharacterLookupName(entry) === key)
+        ? declinedNow
+        : [...declinedNow, name],
     });
     toast.success(localizeUi("chat.settings.ruleset.removed", { name }));
   };
@@ -257,7 +264,8 @@ export function RoleplayRulesetSheet({ chatId, metadata }: { chatId: string; met
   const { patchField } = useGameStatePatcher(chatId, "roleplay-ruleset-sheet");
   const gameState = useGameStateStore((state) => state.current);
 
-  if (!open || open.chatId !== chatId || metadata.gameRuleset == null) return null;
+  // Until the installed rulesets have loaded there is nothing to show; the sheet opens once they have.
+  if (!open || open.chatId !== chatId || metadata.gameRuleset == null || resolved.status === "loading") return null;
   const card = findCard(metadata, open.name);
   if (!card) return null;
   const name = open.name;
