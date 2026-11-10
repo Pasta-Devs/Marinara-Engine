@@ -19,7 +19,7 @@ import { activateTab, currentTabNow, goHome } from "./OverhaulTopBar";
 export const SPLIT_MIME = "application/x-marinara-split-page";
 /** The main side never gets narrower than this. */
 export const SPLIT_MIN_SIDE = 440;
-/** The second side can go down to phone width: below SPLIT_PANE_PHONE_WIDTH it shows the phone layout. */
+/** The second side can go down to phone width: below SPLIT_PANE_PHONE_WIDTH it shows the tablet or phone layout. */
 export const SPLIT_MIN_SECOND = 340;
 /** Room needed for two pages; with less, the page shows one side only. */
 export const SPLIT_MIN_ROOM = SPLIT_MIN_SIDE + SPLIT_MIN_SECOND + 6;

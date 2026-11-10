@@ -813,7 +813,7 @@ export function ConnectionsLanding() {
                 <th className="ov-conn__fill" aria-hidden="true" />
                 <th className="ov-conn__num">{localize("Models")}</th>
                 <th>{localize("Status")}</th>
-                <th>{localize("Balance")}</th>
+                <th className="ov-conn__bal">{localize("Balance")}</th>
                 <th className="ov-conn__act" aria-hidden="true" />
               </tr>
             </thead>
@@ -867,7 +867,7 @@ export function ConnectionsLanding() {
                           <td>
                             <AccountStatus account={account} />
                           </td>
-                          <td>
+                          <td className="ov-conn__bal">
                             <AccountBalance account={account} />
                           </td>
                           <td className="ov-conn__act">
