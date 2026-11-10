@@ -3697,6 +3697,8 @@ export class MariDbService {
             "creatorNotes",
             "creator_notes",
             "tags",
+            "nameAliases",
+            "name_aliases",
             "phoneticName",
             "phonetic_name",
             "convoDisplayName",
@@ -3748,6 +3750,8 @@ export class MariDbService {
             "creatorNotes",
             "creator_notes",
             "tags",
+            "nameAliases",
+            "name_aliases",
             "phoneticName",
             "phonetic_name",
             "convoDisplayName",
@@ -3793,9 +3797,10 @@ export class MariDbService {
           );
         }
         assignListField(patch, data, ["tags"], "tags");
+        assignListField(patch, data, ["nameAliases", "name_aliases"], "nameAliases");
         if (Object.keys(patch).length <= 1) {
           throw new Error(
-            'persona.update needs a patch field such as name, summary, mes_example, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, comment, creator, or creatorNotes (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
+            'persona.update needs a patch field such as name, summary, mes_example, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, nameAliases, comment, creator, or creatorNotes (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
           );
         }
         return this.executePersonaMutation(

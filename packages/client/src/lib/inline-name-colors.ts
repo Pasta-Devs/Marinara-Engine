@@ -1,3 +1,11 @@
+/**
+ * Whether the chat persona's names are colored: the chat's own persona switch when it is set,
+ * otherwise whatever the character switch resolved to, so a chat with coloring off is unchanged.
+ */
+export function resolvePersonaInlineNames(personaSetting: unknown, characterSetting: boolean): boolean {
+  return typeof personaSetting === "boolean" ? personaSetting : characterSetting;
+}
+
 /** A card whose names can be painted in its name color inside message text. */
 export interface InlineNameCard {
   name?: string | null;

@@ -131,13 +131,16 @@ export function storedPersonaFromRow(row: PersonaStorageRow, base?: CharacterDat
 /** The stored card to overlay on save; an unreadable or missing card means no base. */
 export function storedCardBase(data: unknown): CharacterData | undefined {
   if (typeof data !== "string") return undefined;
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(data);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+    parsed = JSON.parse(data);
   } catch {
     return undefined;
   }
-  return parseStoredCard(data);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+  const card = parsed as CharacterData;
+  const extensions = card.extensions && typeof card.extensions === "object" ? card.extensions : {};
+  return { ...card, extensions } as CharacterData;
 }
 
 function parseStoredCard(data: string): CharacterData {

@@ -393,6 +393,32 @@ try {
     assert.equal(after?.appearance, "from the gallery", "the third concurrent update survives");
   }
 
+  // 13. Mari's persona.create and persona.update carry other names (they used to drop the key).
+  {
+    tempRoot();
+    const db = await createFileNativeDB();
+    const mari = new MariDbService(db);
+    const created = await mari.executeAction({
+      action: "persona.create",
+      data: { name: "Clark", nameAliases: ["Kal-El", " Mr. Kent ", "Kal-El", "  "] },
+      apply: true,
+    });
+    assert.equal(created.ok, true, JSON.stringify(created));
+    const storage = createCharactersStorage(db);
+    const [made] = (await storage.listPersonas()).filter((persona) => persona.name === "Clark");
+    assert.deepEqual(projectPersona(made!).nameAliases, ["Kal-El", "Mr. Kent"], "persona.create keeps other names");
+    const updated = await mari.executeAction({
+      action: "persona.update",
+      personaId: made!.id,
+      data: { name_aliases: ["Superman"] },
+      apply: true,
+    });
+    assert.equal(updated.ok, true, JSON.stringify(updated));
+    const after = await storage.getPersona(made!.id);
+    await db._fileStore.close();
+    assert.deepEqual(projectPersona(after!).nameAliases, ["Superman"], "persona.update replaces other names");
+  }
+
   console.info("Persona card migration regression passed.");
 } finally {
   if (previousStorageDir === undefined) delete process.env.FILE_STORAGE_DIR;

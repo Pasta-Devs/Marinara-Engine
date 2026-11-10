@@ -2669,7 +2669,11 @@ function MetadataTab({
           otherNames={
             <NameAliasesSection
               kind="character"
-              aliases={(formData.extensions.nameAliases as string[] | undefined) ?? []}
+              aliases={
+                Array.isArray(formData.extensions.nameAliases)
+                  ? formData.extensions.nameAliases.filter((alias): alias is string => typeof alias === "string")
+                  : []
+              }
               onChange={(next) => updateExtension("nameAliases", next)}
               nameColor={(formData.extensions.nameColor as string | undefined) || undefined}
             />

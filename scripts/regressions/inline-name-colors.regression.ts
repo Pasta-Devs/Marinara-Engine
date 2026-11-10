@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildInlineNameColorMap } from "../../packages/client/src/lib/inline-name-colors.ts";
+import {
+  buildInlineNameColorMap,
+  resolvePersonaInlineNames,
+} from "../../packages/client/src/lib/inline-name-colors.ts";
 
 const kate = { name: "Kate", convoDisplayName: "Katie", nameAliases: ["Kitty", "  "], nameColor: "#ff0000" };
 const persona = { name: "Clark", convoDisplayName: "CK", nameAliases: ["Kal-El", "Mr. Kent"], nameColor: "#0000ff" };
@@ -98,20 +101,22 @@ assert.deepEqual(
   ["#111"],
 );
 
-// Wiring: ChatMessage builds the map from the chat persona, and the persona switch follows the character one while unset.
+// The persona switch: its own value when set, otherwise whatever the character switch resolved to.
+assert.equal(resolvePersonaInlineNames(undefined, true), true);
+assert.equal(resolvePersonaInlineNames(undefined, false), false);
+assert.equal(resolvePersonaInlineNames(false, true), false);
+assert.equal(resolvePersonaInlineNames(true, false), true);
+assert.equal(resolvePersonaInlineNames("yes", false), false);
+
+// Wiring: both the message renderer and the settings switch resolve the persona setting the same way.
+for (const file of ["ChatMessage.tsx", "ChatSettingsDrawer.tsx"]) {
+  const source = readFileSync(new URL("../../packages/client/src/components/chat/" + file, import.meta.url), "utf8");
+  assert.match(source, /resolvePersonaInlineNames\(/, file);
+}
 const chatMessage = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatMessage.tsx", import.meta.url),
   "utf8",
 );
-assert.match(chatMessage, /const colorPersonaInlineNames = chatColorPersonaInlineNames \?\? colorInlineNames;/);
 assert.match(chatMessage, /buildInlineNameColorMap\(\{[\s\S]*?persona: personaInfo,/);
-const drawer = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
-  "utf8",
-);
-assert.match(
-  drawer,
-  /typeof metadata\.colorPersonaInlineNames === "boolean" \? metadata\.colorPersonaInlineNames : colorInlineNames;/,
-);
 
 console.log("inline-name-colors regression passed");

@@ -30,7 +30,7 @@ import {
   replaceRoleplayCommandMarkers,
 } from "./RoleplayCommandResults";
 import { splitRoleplayParagraphs } from "../../lib/roleplay-vn-paragraphs";
-import { buildInlineNameColorMap } from "../../lib/inline-name-colors";
+import { buildInlineNameColorMap, resolvePersonaInlineNames } from "../../lib/inline-name-colors";
 import {
   notifyRoleplayTTSParagraph,
   withRoleplayTTSParagraphs,
@@ -2105,7 +2105,7 @@ export const ChatMessage = memo(function ChatMessage({
     })),
   );
   const colorInlineNames = chatColorInlineNames ?? legacyColorInlineNames;
-  const colorPersonaInlineNames = chatColorPersonaInlineNames ?? colorInlineNames;
+  const colorPersonaInlineNames = resolvePersonaInlineNames(chatColorPersonaInlineNames, !!colorInlineNames);
   const remoteImages = useRemoteImagePolicy();
   // Build reusable text style objects (memoized to avoid unnecessary DOM updates)
   const textStrokeStyle = useMemo<React.CSSProperties>(

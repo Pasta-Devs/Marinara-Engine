@@ -111,6 +111,7 @@ import { CombatStyleSection } from "../../features/chat-settings/sections/Combat
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { useHasDecisionModel } from "../../hooks/use-decision-model";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
+import { resolvePersonaInlineNames } from "../../lib/inline-name-colors";
 import { ConnectionSection, type ChatConnectionOption } from "../../features/chat-settings/sections/ConnectionSection";
 import { ConversationPromptSection } from "../../features/chat-settings/sections/ConversationPromptSection";
 import { DiscordMirrorControls } from "../../features/chat-settings/sections/DiscordMirrorSection";
@@ -1286,8 +1287,7 @@ export function ChatSettingsDrawer({
   const colorInlineNames =
     typeof metadata.colorInlineNames === "boolean" ? metadata.colorInlineNames : legacyColorInlineNames;
   // Unset follows the character switch, so a chat with coloring off stays unchanged.
-  const colorPersonaInlineNames =
-    typeof metadata.colorPersonaInlineNames === "boolean" ? metadata.colorPersonaInlineNames : colorInlineNames;
+  const colorPersonaInlineNames = resolvePersonaInlineNames(metadata.colorPersonaInlineNames, colorInlineNames);
   const activeCardsHaveCss = useMemo(() => {
     if (!allCharacters) return false;
     const byId = new Map((allCharacters as Array<{ id: string; data: unknown }>).map((c) => [c.id, c]));
