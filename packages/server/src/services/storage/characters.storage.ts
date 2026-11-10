@@ -25,6 +25,7 @@ import {
   PROFESSOR_MARI_ID,
   parseCardTagSearchTerms,
   matchesAllCardSearchTags,
+  normalizeNameAliases,
   applyCharacterCardFieldAlternatives,
   applyPersonaCardFieldAlternatives,
   cardEntityBelongsToChat,
@@ -293,6 +294,8 @@ function personaMatchesSearch(row: PersonaStorageRow, search: string | undefined
   const needle = search?.trim().toLowerCase();
   if (!needle) return true;
   if (PERSONA_SEARCH_COLUMNS.some((column) => row[column].toLowerCase().includes(needle))) return true;
+  // Other names (#9040) are stored as a JSON array, so match each name rather than the raw column text.
+  if (normalizeNameAliases(row.nameAliases).some((alias) => alias.toLowerCase().includes(needle))) return true;
   let tags: unknown;
   try {
     tags = JSON.parse(row.tags);

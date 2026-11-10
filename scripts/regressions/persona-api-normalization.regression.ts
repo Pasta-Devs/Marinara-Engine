@@ -253,6 +253,18 @@ try {
     nameAliases: ["Kit", "Kat"],
   });
   assert.deepEqual(aliasPatched.nameAliases, ["Kit", "Kat"]);
+  // #9040: library search finds a persona by one of its other names (any case, part of a name).
+  const searchPersonaIds = async (search: string) =>
+    (
+      (await requestJson(
+        "GET",
+        `/api/characters/personas/list?limit=100&offset=0&search=${encodeURIComponent(search)}`,
+        200,
+      )) as { items: Array<{ id: string }> }
+    ).items.map((item) => item.id);
+  for (const search of ["kat", "KA"]) {
+    assert.ok((await searchPersonaIds(search)).includes(aliasPersona.id), `search "${search}" matches an other name`);
+  }
   await requestJson("PATCH", `/api/characters/personas/${aliasPersona.id}`, 200, { description: "Aliased" });
   const aliasKept = await requestJson("GET", `/api/characters/personas/${aliasPersona.id}`, 200);
   assert.deepEqual(aliasKept.nameAliases, ["Kit", "Kat"], "an omitted nameAliases keeps the old value");
@@ -261,6 +273,32 @@ try {
     nameAliases: [],
   });
   assert.deepEqual(aliasCleared.nameAliases, []);
+  assert.ok(!(await searchPersonaIds("kat")).includes(aliasPersona.id), "a cleared other name no longer matches");
+
+  // #9040: the legacy profile import (`data.personas`) restores other names, normalized like a native
+  // import, whether the backup holds an array or the serialized column.
+  {
+    const imported = await request("POST", "/api/backup/import-profile", 200, {
+      type: "marinara_profile",
+      version: 1,
+      data: {
+        personas: [
+          { name: "Legacy Alias Array", nameAliases: [" Clark ", "clark", "Kal-El", 5, ""] },
+          { name: "Legacy Alias Column", nameAliases: JSON.stringify(["Mr. Kent"]) },
+          { name: "Legacy Alias None" },
+        ],
+      },
+    });
+    assert.equal(imported.json().imported?.personas, 3, imported.body);
+    const all = (await requestJson("GET", "/api/characters/personas/list", 200)) as Array<{
+      name: string;
+      nameAliases: string[];
+    }>;
+    const aliasesOf = (name: string) => all.find((persona) => persona.name === name)?.nameAliases;
+    assert.deepEqual(aliasesOf("Legacy Alias Array"), ["Clark", "Kal-El"], "legacy import normalizes an alias array");
+    assert.deepEqual(aliasesOf("Legacy Alias Column"), ["Mr. Kent"], "legacy import decodes the serialized column");
+    assert.deepEqual(aliasesOf("Legacy Alias None"), [], "a legacy persona without aliases imports with none");
+  }
 
   // A card extension the persona mapping does not know survives a normal save (foreign data kept).
   {

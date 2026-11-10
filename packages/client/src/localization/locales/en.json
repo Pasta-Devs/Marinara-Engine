@@ -8880,7 +8880,7 @@
   "ui.cardFields.seedPlaceholder": "Anything prewritten here will be used as a base for the AI generation with the wand button above.",
   "ui.cardLibrary.sections.openingMessage": "Opening Message",
   "ui.cards.otherNames.add": "Add",
-  "ui.cards.otherNames.helpCharacter": "Nicknames, full names or titles this character also goes by, such as Clark Kent, Kal-El or Mr. Kent. The main name always counts. Chats paint them in the name color when Color Character Names in Text is on (Chat Settings → Characters), and the Character Tracker uses them to find this card.",
+  "ui.cards.otherNames.helpCharacter": "Nicknames, full names or titles this character also goes by, such as Clark Kent, Kal-El or Mr. Kent. The main name always counts. Chats paint them in the name color when Color Character Names in Text is on (Chat Settings → Characters).",
   "ui.cards.otherNames.helpPersona": "Nicknames, full names or titles this persona also goes by, such as Clark Kent, Kal-El or Mr. Kent. The main name always counts. Chats paint them in the name color when Color Persona Name in Text is on (Chat Settings → Persona).",
   "ui.cards.otherNames.label": "Other names",
   "ui.cards.otherNames.placeholder": "Separate with commas, e.g. Clark Kent, Kal-El, Mr. Kent",

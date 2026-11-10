@@ -427,6 +427,7 @@ export function PersonasPanel() {
       return matchesCardLibrarySearch(
         {
           name: p.name,
+          aliases: p.nameAliases,
           title: p.comment,
           meta: formatCardLibraryMeta(p.creator, p.personaVersion),
           summary: getCardLibrarySummary([p.summary, p.creatorNotes, p.description, p.personality, p.backstory]),
