@@ -62,7 +62,7 @@ try {
   const {
     MODEL_LISTS,
     isClaudeAdaptiveOnlyNoSamplingModel,
-    isGeminiArgonModel,
+    isGeminiArgonOrCarbonModel,
     resolveProviderReasoningEffort,
     shouldSuppressUnknownModelParameters,
   } = await import("../../packages/shared/src/constants/model-lists.js");
@@ -253,6 +253,7 @@ try {
         "google/gemini-3.5-flash",
         "google/gemini-4-argon",
         "google/gemini-4-argon:online",
+        "google/gemini-4-carbon",
         "google/gemini-3.8-flash",
       ],
       make: registry("openrouter", `${base}/openrouter.ai/api/v1`),
@@ -267,6 +268,7 @@ try {
         "deepseek-v4-pro",
         "claude-opus-5",
         "google/gemini-4-argon",
+        "google/gemini-4-carbon",
         "gemini-3.7-flash",
       ],
       make: registry("nanogpt", `${base}/nano-gpt.com/api/v1`),
@@ -343,6 +345,7 @@ try {
         "gemini-2.5-flash",
         "gemini-3-pro-preview",
         "gemini-4-argon",
+        "gemini-4-carbon",
         "gemini-3.6-flash",
         "gemini-3.5-flash-lite",
         "gemini-2.0-flash",
@@ -354,7 +357,14 @@ try {
     {
       provider: "google_vertex",
       baseUrl: `${base}/v1/projects/p/locations/global`,
-      models: ["gemini-2.5-flash", "gemini-3-pro-preview", "gemini-4-argon", "gemini-3.8-flash", "gemini-unknown"],
+      models: [
+        "gemini-2.5-flash",
+        "gemini-3-pro-preview",
+        "gemini-4-argon",
+        "gemini-4-carbon",
+        "gemini-3.8-flash",
+        "gemini-unknown",
+      ],
       make: registry("google_vertex", `${base}/v1/projects/p/locations/global`),
     },
     {
@@ -668,11 +678,13 @@ try {
     ],
     "ChatGPT offers its own levels plus the model default instead of an Off it cannot honour",
   );
-  // Argon cannot turn thinking off. A saved Off or no level sends its default, medium, everywhere: in the request, in
-  // the agent's thinking room and in the panel, so the panel offers only its three levels.
-  for (const provider of ["google", "google_vertex"]) {
+  // Argon and Carbon cannot turn thinking off. A saved Off or no level sends their default, medium, everywhere: in the
+  // request, in the agent's thinking room and in the panel, so the panel offers only their three levels.
+  for (const [provider, model] of ["google", "google_vertex"].flatMap((provider) =>
+    ["gemini-4-argon", "gemini-4-carbon"].map((model) => [provider, model] as const),
+  )) {
     assert.deepEqual(
-      reasoningEffortChoices({ provider, model: "gemini-4-argon" }).map((choice) => [
+      reasoningEffortChoices({ provider, model }).map((choice) => [
         choice.value,
         choice.label,
         choice.kind ?? "",
@@ -683,23 +695,23 @@ try {
         ["medium", "medium", "", ""],
         ["high", "high", "", ""],
       ],
-      `${provider} Argon offers no Off it cannot honour`,
+      `${provider} ${model} offers no Off it cannot honour`,
     );
     assert.deepEqual(
       [null, undefined, "none"].map((reasoningEffort) =>
         resolveProviderReasoningEffort({
           provider,
-          model: "gemini-4-argon",
+          model,
           reasoningEffort: reasoningEffort as never,
         }),
       ),
       ["medium", "medium", "medium"],
-      `${provider} Argon without a level sends medium`,
+      `${provider} ${model} without a level sends medium`,
     );
     const agentOn = (reasoningEffort: string | null) => {
       const resolved = resolveAgentConnectionParameters({
         provider,
-        model: "gemini-4-argon",
+        model,
         defaultParameters: { reasoningEffort },
       });
       return {
@@ -710,26 +722,36 @@ try {
     assert.deepEqual(
       agentOn(null),
       agentOn("medium"),
-      `${provider} an agent on an Argon connection saved as Off gets medium and its thinking room`,
+      `${provider} an agent on a ${model} connection saved as Off gets medium and its thinking room`,
     );
     assert.deepEqual(agentOn(null).reasoning, { reasoningEffort: "medium", enableThinking: true });
-    assert.ok(agentOn(null).maxTokens > 4096, `${provider} Argon agent calls keep room for thinking`);
+    assert.ok(agentOn(null).maxTokens > 4096, `${provider} ${model} agent calls keep room for thinking`);
     assert.deepEqual(
       reasoningEffortChoices({ provider, model: "gemini-3-pro-preview" })[0],
       { value: null, label: null },
       `${provider} Gemini 3 keeps its Off choice`,
     );
   }
-  // Aggregators list google/gemini-4-argon too; the request leaves out what Argon ignores or rejects (#7534).
+  // Aggregators list google/gemini-4-argon and -carbon too; the request leaves out what they ignore or reject (#7534).
   for (const provider of ["openrouter", "nanogpt"]) {
-    const shown = relevantGenerationParameters({ provider, model: "google/gemini-4-argon", reasoningEffort: "high" });
-    for (const key of ["temperature", "topP", "topK", "frequencyPenalty", "presencePenalty"] as const) {
-      assert.ok(!shown.has(key), `${provider} Argon must not offer ${key}`);
+    for (const model of ["google/gemini-4-argon", "google/gemini-4-carbon"]) {
+      const shown = relevantGenerationParameters({ provider, model, reasoningEffort: "high" });
+      for (const key of ["temperature", "topP", "topK", "frequencyPenalty", "presencePenalty"] as const) {
+        assert.ok(!shown.has(key), `${provider} ${model} must not offer ${key}`);
+      }
     }
   }
-  // New Google and Vertex connections start on the first listed model; Argon needs a paid key and a global location.
+  // New Google and Vertex connections start on the first listed model; Argon and Carbon need a paid key and a global
+  // location. Carbon is listed, so it can be picked.
   for (const provider of ["google", "google_vertex"] as const) {
-    assert.ok(!isGeminiArgonModel(MODEL_LISTS[provider][0]!.id), `${provider} new connections must not start on Argon`);
+    assert.ok(
+      !isGeminiArgonOrCarbonModel(MODEL_LISTS[provider][0]!.id),
+      `${provider} new connections must not start on Argon or Carbon`,
+    );
+    assert.ok(
+      MODEL_LISTS[provider].some((known) => known.id === "gemini-4-carbon"),
+      `${provider} lists Gemini 4 Carbon`,
+    );
   }
   assert.deepEqual(
     verbosityChoices({
