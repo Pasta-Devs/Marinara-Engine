@@ -153,6 +153,8 @@ import { MessageThinkingModal } from "./MessageThinkingModal";
 import { MESSAGE_ACTION_ICON_SIZE, MessageActionButton } from "./MessageActionButton";
 import { MessageMarkIndicators, MessageMarksAction, type MessageNoteSharing } from "./MessageMarks";
 import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia";
+import { RoleplayRulesetCheckCard } from "./RoleplayRulesetCheckCard";
+import { extractRoleplayRulesetRecords } from "../../lib/roleplay-ruleset-records";
 
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
@@ -3143,7 +3145,16 @@ export const ChatMessage = memo(function ChatMessage({
   );
 
   // Render content with dialogue highlighting (or HTML rendering)
-  const fullText = typeof displayContent === "string" ? displayContent : message.content;
+  // A Roleplay chat that plays by a ruleset saves the Engine's check records and sheet commands in the
+  // reply: the checks become dice cards where they happened, and the commands are not shown.
+  const rulesetRecords = useMemo(
+    () =>
+      isRoleplay && !isUser && typeof displayContent === "string" && displayContent.includes("[")
+        ? extractRoleplayRulesetRecords(displayContent)
+        : null,
+    [displayContent, isRoleplay, isUser],
+  );
+  const fullText = rulesetRecords?.text ?? (typeof displayContent === "string" ? displayContent : message.content);
   const vnParagraphs = useMemo(
     () => (visualNovel ? splitRoleplayParagraphs(fullText, isStreaming) : []),
     [fullText, isStreaming, visualNovel],
@@ -3190,6 +3201,12 @@ export const ChatMessage = memo(function ChatMessage({
     const commands = isRoleplay
       ? [
           ...(isUser ? [] : readRoleplayDiceRolls(fullText, extra).map((roll) => ({ ...roll, kind: "roll" as const }))),
+          ...(rulesetRecords?.checks ?? []).map((check, index) => ({
+            kind: "check" as const,
+            index,
+            offset: check.offset,
+            result: check.result,
+          })),
           ...getRoleplayWhispers(extra).map((whisper) => ({
             ...whisper,
             kind: "whisper" as const,
@@ -3245,6 +3262,7 @@ export const ChatMessage = memo(function ChatMessage({
     isUser,
     fullText,
     extra,
+    rulesetRecords,
     illustrationsByCommand,
     visualNovel,
     activeVnParagraphIndex,
@@ -3326,6 +3344,11 @@ export const ChatMessage = memo(function ChatMessage({
           html={command.html}
           scopeClass={`${htmlScopeClass}-artifact-${message.activeSwipeIndex}-${command.index}`}
         />
+      ) : command.kind === "check" ? (
+        <RoleplayRulesetCheckCard
+          key={`check-${message.id}-${message.activeSwipeIndex}-${command.index}`}
+          result={command.result}
+        />
       ) : command.kind === "whisper" ? (
         <RoleplayWhisper
           // The original command text identifies the whisper, so an open editor never saves over a replacement.
@@ -3386,11 +3409,11 @@ export const ChatMessage = memo(function ChatMessage({
     const slots = new Map<string, ReactNode>();
     let markedText = text;
     for (const command of inlineRoleplayCommands) {
-      const marker = `${markerPrefix}${command.index}\uE001`;
+      const marker = `${markerPrefix}${command.kind}-${command.index}\uE001`;
       slots.set(marker, renderInlineRoleplayCommand(command));
     }
     for (const roll of [...inlineRoleplayCommands].reverse()) {
-      const marker = `${markerPrefix}${roll.index}\uE001`;
+      const marker = `${markerPrefix}${roll.kind}-${roll.index}\uE001`;
       markedText = markedText.slice(0, roll.offset) + marker + markedText.slice(roll.offset);
     }
     const prose = replaceRoleplayCommandMarkers(renderPart(markedText), slots);

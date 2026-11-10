@@ -34,6 +34,10 @@ import {
 } from "../../../hooks/use-capability-packages";
 import { CapabilityElement } from "../../../components/capabilities/CapabilityElement";
 import { RoleplayTrackerCapability, selectRoleplayTrackerPackages } from "../../../components/chat/RoleplayHUD";
+import { roleplaySheetNames } from "../../../components/chat/RoleplayRuleset";
+import { parseChatMetadata } from "../../../lib/chat-display";
+import { useRoleplaySheetStore } from "../../../stores/roleplay-sheet.store";
+import { ScrollText } from "lucide-react";
 
 const TRACKER_PANEL_NEUTRAL_VARS =
   "[--accent:rgb(39_39_42)] [--accent-foreground:rgb(244_244_245)] [--background:rgb(18_18_21)] [--border:rgb(63_63_70)] [--card:rgb(24_24_27)] [--foreground:rgb(244_244_245)] [--input:rgb(63_63_70)] [--muted:rgb(39_39_42)] [--muted-foreground:rgb(161_161_170)] [--popover:rgb(24_24_27)] [--popover-foreground:rgb(244_244_245)] [--primary:rgb(212_212_216)] [--primary-foreground:rgb(18_18_21)] [--ring:rgb(161_161_170)] [--secondary:rgb(39_39_42)] [--tracker-panel-card-background:color-mix(in_srgb,var(--background)_22%,transparent)] [--tracker-panel-section-background:color-mix(in_srgb,var(--card)_6%,transparent)]";
@@ -84,6 +88,13 @@ export function TrackerDataSidebar({
   const { t: localizeUi } = useUiTranslation();
   useRenderTimer("tracker-panel"); // [#3104 diagnostic]
   const activeChatId = useChatStore((s) => s.activeChatId);
+  // A Roleplay chat played by a ruleset gets a button for the first sheet (the persona's) beside the
+  // package launchers, so the sheets are a click away from the trackers rather than only in Chat Settings.
+  const firstSheet = useChatStore((s) => {
+    if (s.activeChat?.id !== activeChatId || s.activeChat?.mode !== "roleplay") return null;
+    const metadata = parseChatMetadata(s.activeChat?.metadata);
+    return metadata.gameRuleset != null ? (roleplaySheetNames(metadata)[0] ?? null) : null;
+  });
   const { patchField, patchPlayerStats, patchPlayerStatsMany, flushPatch } = useGameStatePatcher(
     activeChatId,
     "tracker-data-sidebar",
@@ -263,16 +274,37 @@ export function TrackerDataSidebar({
               : undefined
           }
           launchers={
-            activeChatId && launcherPackages.length > 0
-              ? launcherPackages.map((item) => (
+            activeChatId && (launcherPackages.length > 0 || firstSheet) ? (
+              <>
+                {firstSheet && (
+                  <Translation>
+                    {(localizeUi) => (
+                      <button
+                        type="button"
+                        aria-label={localizeUi("chat.settings.ruleset.openSheetOf", { name: firstSheet })}
+                        title={localizeUi("chat.settings.ruleset.openSheetOf", { name: firstSheet })}
+                        onClick={() =>
+                          useRoleplaySheetStore
+                            .getState()
+                            .show({ chatId: activeChatId, name: firstSheet, build: false })
+                        }
+                        className={TRACKER_HEADER_PACKAGE_BUTTON_CLASS}
+                      >
+                        <ScrollText size="0.875rem" aria-hidden="true" />
+                      </button>
+                    )}
+                  </Translation>
+                )}
+                {launcherPackages.map((item) => (
                   <RoleplayTrackerCapability
                     key={item.id}
                     packageId={item.id}
                     chatId={activeChatId}
                     buttonClassName={TRACKER_HEADER_PACKAGE_BUTTON_CLASS}
                   />
-                ))
-              : null
+                ))}
+              </>
+            ) : null
           }
         />
 
