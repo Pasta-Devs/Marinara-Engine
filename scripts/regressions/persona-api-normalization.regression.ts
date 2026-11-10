@@ -55,11 +55,13 @@ try {
   process.env.NODE_ENV = "test";
   process.env.MARINARA_LITE = "true";
 
-  const [{ buildApp }, { getDB }, { personas }] = await Promise.all([
-    import("../../packages/server/src/app.js"),
-    import("../../packages/server/src/db/connection.js"),
-    import("../../packages/server/src/db/schema/index.js"),
-  ]);
+  const [{ buildApp }, { getDB }, { personas }, { completePersonaRow, personaRowFromStored, storedPersonaFromRow }] =
+    await Promise.all([
+      import("../../packages/server/src/app.js"),
+      import("../../packages/server/src/db/connection.js"),
+      import("../../packages/server/src/db/schema/index.js"),
+      import("../../packages/server/src/services/personas/persona-card-storage.js"),
+    ]);
 
   app = await buildApp();
   await app.ready();
@@ -86,29 +88,32 @@ try {
   }
 
   async function rawPersonaRow(id: string) {
-    return (await db.select().from(personas)).find((row) => row.id === id)!;
+    // The table stores card JSON; compare and inspect the decoded flat view.
+    return personaRowFromStored((await db.select().from(personas)).find((row) => row.id === id)!);
   }
 
   const baseRawPersona = {
     isActive: "false",
     createdAt: "2099-01-01T00:00:00.000Z",
   };
-  await db.insert(personas).values([
-    {
-      ...baseRawPersona,
-      id: inactivePersonaId,
-      name: "Existing Persona",
-      updatedAt: "2099-01-03T00:00:00.000Z",
-    },
-    {
-      ...baseRawPersona,
-      id: legacyAvatarCropPersonaId,
-      name: "Legacy avatar crop",
-      avatarCrop: JSON.stringify(serializedLegacyAvatarCrop),
-      trackerCardColors: JSON.stringify(serializedTrackerCardColors),
-      updatedAt: "2098-12-31T00:00:00.000Z",
-    },
-  ]);
+  await db.insert(personas).values(
+    [
+      {
+        ...baseRawPersona,
+        id: inactivePersonaId,
+        name: "Existing Persona",
+        updatedAt: "2099-01-03T00:00:00.000Z",
+      },
+      {
+        ...baseRawPersona,
+        id: legacyAvatarCropPersonaId,
+        name: "Legacy avatar crop",
+        avatarCrop: JSON.stringify(serializedLegacyAvatarCrop),
+        trackerCardColors: JSON.stringify(serializedTrackerCardColors),
+        updatedAt: "2098-12-31T00:00:00.000Z",
+      },
+    ].map((row) => storedPersonaFromRow(completePersonaRow(row))),
+  );
 
   // Each invalid known-field shape must reject without mutating any part of the raw row.
   const rawInactiveBeforeRejectedPatches = await rawPersonaRow(inactivePersonaId);
@@ -384,7 +389,11 @@ try {
     "true",
     "the persona override toggle must survive export -> import",
   );
-  assert.equal(nativeOverrideRow.imageAppearance, overrideText, "the persona override text must survive export -> import");
+  assert.equal(
+    nativeOverrideRow.imageAppearance,
+    overrideText,
+    "the persona override text must survive export -> import",
+  );
   assert.equal(nativeOverrideRow.appearance, "Prose appearance that image models should not receive.");
 
   // Exports from before this feature carry neither field; those must still import
@@ -511,30 +520,32 @@ try {
   // Insert a raw row with over-max pools (tolerated by projection but rejected
   // by the strict create schema) so the export path must canonicalize it.
   const legacyExportId = "persona-legacy-export";
-  await db.insert(personas).values([
-    {
-      ...baseRawPersona,
-      id: legacyExportId,
-      name: "Legacy Export Row",
-      // #7053: the image-appearance toggle is a TEXT column in storage but a
-      // BOOLEAN in the public export contract. The export path spreads the raw
-      // row, so this is the regression that catches "true"/"false" leaking into
-      // a payload the strict create schema then rejects.
-      imageAppearanceEnabled: "true",
-      imageAppearance: "1girl, silver hair, green eyes",
-      personaStats: JSON.stringify({
-        enabled: true,
-        bars: [{ name: "Energy", value: 4, max: 10, color: "#0c0" }],
-        rpgStats: {
+  await db.insert(personas).values(
+    [
+      {
+        ...baseRawPersona,
+        id: legacyExportId,
+        name: "Legacy Export Row",
+        // #7053: the image-appearance toggle is a TEXT column in storage but a
+        // BOOLEAN in the public export contract. The export path spreads the raw
+        // row, so this is the regression that catches "true"/"false" leaking into
+        // a payload the strict create schema then rejects.
+        imageAppearanceEnabled: "true",
+        imageAppearance: "1girl, silver hair, green eyes",
+        personaStats: JSON.stringify({
           enabled: true,
-          attributes: [{ name: "STR", value: 10 }],
-          hp: { value: 100, max: 100 },
-          pools: [{ name: "HP", value: 150, max: 100, color: "#f00" }],
-        },
-      }),
-      updatedAt: "2099-01-04T00:00:00.000Z",
-    },
-  ]);
+          bars: [{ name: "Energy", value: 4, max: 10, color: "#0c0" }],
+          rpgStats: {
+            enabled: true,
+            attributes: [{ name: "STR", value: 10 }],
+            hp: { value: 100, max: 100 },
+            pools: [{ name: "HP", value: 150, max: 100, color: "#f00" }],
+          },
+        }),
+        updatedAt: "2099-01-04T00:00:00.000Z",
+      },
+    ].map((row) => storedPersonaFromRow(completePersonaRow(row))),
+  );
 
   // Native export canonicalizes the row so re-import succeeds.
   const nativeExportLegacy = await requestJson("GET", `/api/characters/personas/${legacyExportId}/export`, 200);
@@ -582,19 +593,21 @@ try {
 
   // Unknown extension metadata in trackerCardColors is preserved through export canonicalization.
   const extensionExportId = "persona-extension-export";
-  await db.insert(personas).values([
-    {
-      ...baseRawPersona,
-      id: extensionExportId,
-      name: "Extension Export Row",
-      trackerCardColors: JSON.stringify({
-        mode: "custom",
-        nameColor: "#c00",
-        unknownExtensionKey: { keep: "me" },
-      }),
-      updatedAt: "2099-01-05T00:00:00.000Z",
-    },
-  ]);
+  await db.insert(personas).values(
+    [
+      {
+        ...baseRawPersona,
+        id: extensionExportId,
+        name: "Extension Export Row",
+        trackerCardColors: JSON.stringify({
+          mode: "custom",
+          nameColor: "#c00",
+          unknownExtensionKey: { keep: "me" },
+        }),
+        updatedAt: "2099-01-05T00:00:00.000Z",
+      },
+    ].map((row) => storedPersonaFromRow(completePersonaRow(row))),
+  );
   const extensionExport = await requestJson("GET", `/api/characters/personas/${extensionExportId}/export`, 200);
   const extensionReimport = await requestJson("POST", "/api/import/marinara", 200, {
     type: "marinara_persona",
@@ -612,19 +625,21 @@ try {
   // ── R2b: Recoverable Persona self-export normalization ───────────────────
 
   const blankNameExportId = "persona-blank-name-export";
-  await db.insert(personas).values([
-    {
-      ...baseRawPersona,
-      id: blankNameExportId,
-      name: "   ",
-      trackerCardColors: JSON.stringify({
-        mode: "custom",
-        dialogueColor: "#0c0",
-        unknownExtensionKey: { keep: "me" },
-      }),
-      updatedAt: "2099-01-07T00:00:00.000Z",
-    },
-  ]);
+  await db.insert(personas).values(
+    [
+      {
+        ...baseRawPersona,
+        id: blankNameExportId,
+        name: "   ",
+        trackerCardColors: JSON.stringify({
+          mode: "custom",
+          dialogueColor: "#0c0",
+          unknownExtensionKey: { keep: "me" },
+        }),
+        updatedAt: "2099-01-07T00:00:00.000Z",
+      },
+    ].map((row) => storedPersonaFromRow(completePersonaRow(row))),
+  );
   const rawBlankNameBeforeExports = await rawPersonaRow(blankNameExportId);
 
   // A blank name uses a safe native-copy fallback without mutating the historical stored row.
@@ -712,7 +727,6 @@ try {
     typeof firstPoolIssue?.message === "string" && firstPoolIssue.message.length > 0,
     "the first issue must have a message",
   );
-
 } finally {
   await app?.close();
   if (previousFileStorageDir === undefined) {

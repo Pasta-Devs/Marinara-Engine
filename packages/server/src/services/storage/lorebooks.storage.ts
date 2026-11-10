@@ -43,6 +43,7 @@ import { toPaginatedList } from "../../utils/list-pagination.js";
 import { createChatsStorage } from "./chats.storage.js";
 import { createLibraryFoldersStorage } from "./library-folders.storage.js";
 import { parseSourceMessageRefs } from "./lorebook-provenance.js";
+import { personaRowFromStored } from "../personas/persona-card-storage.js";
 
 function normalizeLorebookEntryLimit(value: unknown): number {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -362,7 +363,7 @@ async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { inclu
     for (const character of linkedCharacters) {
       characterNameById.set(character.id, parseCharacterName(character));
     }
-    for (const persona of linkedPersonas) {
+    for (const persona of linkedPersonas.map(personaRowFromStored)) {
       personaNameById.set(persona.id, persona.comment ? `${persona.name} - ${persona.comment}` : persona.name);
     }
   }
