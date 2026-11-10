@@ -102,6 +102,7 @@ import { PersonaHistoryReassignDropdown } from "../../features/chat-settings/sec
 import { ChatSettingsSection as Section } from "../../features/chat-settings/ChatSettingsSection";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
+import { CardFieldAlternativesSection } from "../../features/chat-settings/sections/CardFieldAlternativesSection";
 import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameSection";
 import { ChatVariablesSection } from "../../features/chat-settings/sections/ChatVariablesSection";
 import { CombatStyleSection } from "../../features/chat-settings/sections/CombatStyleSection";
@@ -739,6 +740,7 @@ const CHAT_SETTINGS_ORDER = {
   combatStyle: -475,
   persona: -1000,
   characters: -900,
+  cardFieldAlternatives: -890,
   groupChat: -800,
   scopedRegex: -750,
   chatVariables: -740,
@@ -6660,6 +6662,14 @@ export function ChatSettingsDrawer({
               {cardThemingControls}
             </Section>
           )}
+
+          {/* Card field alternatives — hidden when no card in this chat has any */}
+          <CardFieldAlternativesSection
+            chat={chat}
+            characters={characters}
+            personas={personas}
+            style={{ order: CHAT_SETTINGS_ORDER.cardFieldAlternatives }}
+          />
 
           {/* Scoped Regex Scripts — only shown when a chat character has scoped scripts */}
           {chatScopedRegexGroups.length > 0 && (

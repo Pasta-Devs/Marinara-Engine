@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   applyCharacterCardFieldAlternatives,
+  assignCardFieldAlternative,
   cardEntityBelongsToChat,
   cardFieldAlternativesSchema,
 } from "../../packages/shared/src/index.js";
@@ -15,6 +16,28 @@ assert.equal(
   ).success,
   true,
 );
+// Names are trimmed and optional; an over-long imported name is cut instead of dropping the whole list.
+assert.equal(cardFieldAlternativesSchema.parse([{ ...alternative, label: "  Young  " }])[0].label, "Young");
+assert.equal(Object.hasOwn(cardFieldAlternativesSchema.parse([{ ...alternative, label: "   " }])[0], "label"), true);
+assert.equal(cardFieldAlternativesSchema.parse([{ ...alternative, label: "   " }])[0].label, undefined);
+assert.equal(cardFieldAlternativesSchema.parse([{ ...alternative, label: "x".repeat(80) }])[0].label, "x".repeat(60));
+// The Chat Settings picker moves one chat between a field's alternatives and leaves other chats and fields alone.
+const pickerAlternatives = [
+  { id: "young", field: "backstory" as const, value: "Y", chatIds: ["chat-a", "chat-b"] },
+  { id: "old", field: "backstory" as const, value: "O", chatIds: ["chat-c"] },
+  { id: "look", field: "appearance" as const, value: "L", chatIds: ["chat-a"] },
+];
+const moved = assignCardFieldAlternative(pickerAlternatives, "backstory", "chat-a", "old");
+assert.deepEqual(
+  moved.map((entry) => entry.chatIds),
+  [["chat-b"], ["chat-c", "chat-a"], ["chat-a"]],
+);
+assert.equal(cardFieldAlternativesSchema.safeParse(moved).success, true);
+assert.deepEqual(
+  assignCardFieldAlternative(moved, "backstory", "chat-a", null).map((entry) => entry.chatIds),
+  [["chat-b"], ["chat-c"], ["chat-a"]],
+);
+assert.deepEqual(assignCardFieldAlternative(moved, "backstory", "chat-a", "old"), moved);
 const card = {
   name: "A",
   description: "BASE",
@@ -106,7 +129,7 @@ try {
   });
   const unrelated = await request("POST", "/api/chats", { name: "Unrelated", mode: "roleplay", characterIds: [] });
   const characterAlternatives = [
-    { ...alternative, chatIds: [firstChat.id] },
+    { ...alternative, label: "After the war", chatIds: [firstChat.id] },
     { id: "second", field: "appearance", value: "SECOND APPEARANCE", chatIds: [secondChat.id] },
   ];
   await request("PATCH", `/api/characters/${character.id}`, {
@@ -114,7 +137,7 @@ try {
   });
   await request("PATCH", `/api/characters/personas/${persona.id}`, {
     cardFieldAlternatives: [
-      { id: "persona-alt", field: "description", value: "CHAT PERSONA", chatIds: [firstChat.id] },
+      { id: "persona-alt", field: "description", label: " Disguised ", value: "CHAT PERSONA", chatIds: [firstChat.id] },
     ],
   });
   assert.deepEqual(
@@ -156,6 +179,42 @@ try {
   );
   const duplicatePersona = await request("POST", `/api/characters/personas/${persona.id}/duplicate`);
   assert.equal(duplicatePersona.cardFieldAlternatives[0].chatIds.length, 0);
+  // Names survive saving and duplication; the server trims them.
+  assert.equal(
+    JSON.parse((await storage.getById(character.id))!.data).extensions.cardFieldAlternatives[0].label,
+    "After the war",
+  );
+  assert.equal(
+    JSON.parse((await storage.getById(duplicated.id))!.data).extensions.cardFieldAlternatives[0].label,
+    "After the war",
+  );
+  assert.equal(JSON.parse((await storage.getPersona(persona.id))!.cardFieldAlternatives)[0].label, "Disguised");
+  assert.equal(duplicatePersona.cardFieldAlternatives[0].label, "Disguised");
+  // The picker's save: move this chat to another alternative without a version snapshot.
+  const personaVersionsBefore = (await request("GET", `/api/characters/personas/${persona.id}/versions`)).length;
+  const pickerPersonaAlternatives = [
+    { id: "persona-alt", field: "description", label: "Disguised", value: "CHAT PERSONA", chatIds: [firstChat.id] },
+    { id: "persona-alt-2", field: "description", value: "SECOND PERSONA", chatIds: [] },
+  ] as const;
+  await request("PATCH", `/api/characters/personas/${persona.id}`, {
+    cardFieldAlternatives: pickerPersonaAlternatives,
+    skipVersionSnapshot: true,
+  });
+  await request("PATCH", `/api/characters/personas/${persona.id}`, {
+    cardFieldAlternatives: assignCardFieldAlternative(
+      pickerPersonaAlternatives.map((entry) => ({ ...entry, chatIds: [...entry.chatIds] })),
+      "description",
+      firstChat.id,
+      "persona-alt-2",
+    ),
+    skipVersionSnapshot: true,
+  });
+  assert.equal((await storage.getPersona(persona.id, firstChat.id))!.description, "SECOND PERSONA");
+  assert.equal(
+    (await request("GET", `/api/characters/personas/${persona.id}/versions`)).length,
+    personaVersionsBefore,
+    "picker saves must not snapshot a persona version",
+  );
   // The real assembler reads the same scoped cards for normal markers,
   // custom macros, and referenced cards. Summary stays library metadata.
   const { CARD_FIELD_KEYS } = await import("../../packages/shared/src/index.js");
@@ -167,12 +226,14 @@ try {
   const allCharacterAlternatives = CARD_FIELD_KEYS.map((field) => ({
     id: `character-${field}`,
     field,
+    label: `Character name ${field}`,
     value: `CHARACTER ALTERNATIVE ${field}`,
     chatIds: [firstChat.id],
   }));
   const allPersonaAlternatives = CARD_FIELD_KEYS.map((field) => ({
     id: `persona-${field}`,
     field,
+    label: `Persona name ${field}`,
     value: `PERSONA ALTERNATIVE ${field}`,
     chatIds: [firstChat.id],
   }));
