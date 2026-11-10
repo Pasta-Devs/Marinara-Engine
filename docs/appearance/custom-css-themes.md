@@ -29,8 +29,11 @@ Starter themes aren't part of the install, so they take no space until you want 
 
 | Theme | Look |
 | --- | --- |
+| **Apogee Lounge** | The observation lounge of a 1970s space liner, with a gas giant through the window and messages on moulded panels. |
 | **Copperplate Engine** | A Victorian calculating engine: replies are punched cream cards on a brass rail. |
 | **Dewglass** | Glossy 2000s glass: messages are gel droplets over a sunny lagoon or an aurora night. |
+| **Dustwire** | A sun-bleached wasteland where every message is a salvage tag tied to a twisted wire. |
+| **Granite Watch** | A Cold War command post under the mountain: replies print as teleprinter paper and widgets hang on clipboards. |
 | **Gutterlight** | A rainy gothic city drawn as a crime comic, with inked panels and caption boxes. |
 | **Lantern Meadow** | Calm and very readable, with no motion. |
 | **Lantern Path** | A reading column with gentle motion. |
@@ -39,6 +42,7 @@ Starter themes aren't part of the install, so they take no space until you want 
 | **Petal OS** | A playful retro desktop with pixel fonts. |
 | **Rosalind's Folio** | A storybook layout with visual novel touches. |
 | **Swiss Poster** | Quiet, clean poster design with no motion. |
+| **Under Sail** | The deck of a sailing ship at sea: every message is a canvas sail hung from a timber yard. |
 | **Velvet Casket** | Pastel goth by day and traditional goth by night, with coffin-shaped messages. |
 
 Every starter theme has a Dark and a Light version. The small tags under each name, such as **No motion** or **High legibility**, tell you what to expect.
