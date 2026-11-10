@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner";
 import { BUILT_IN_AGENTS, isAgentConfigDeleted, isRetiredBuiltInAgentId, type Lorebook } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
-import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulMobile } from "../../stores/overhaul.store";
 import {
   useCreateLorebook,
   useDeleteLorebook,
@@ -79,6 +79,7 @@ import {
   type KitFolders,
   type KitSelection,
 } from "./LibraryKit";
+import { TagFilter, countItemTags, matchesPickedTags } from "./TagFilter";
 
 // ── Shared pieces ──
 
@@ -161,6 +162,7 @@ function ListPage<T extends { id: string }>({
   searchPlaceholder,
   search,
   onSearch,
+  searchExtra,
   chips,
   chip,
   onChip,
@@ -179,6 +181,8 @@ function ListPage<T extends { id: string }>({
   searchPlaceholder: string;
   search: string;
   onSearch: (value: string) => void;
+  /** Right after the search box, such as the tag selector. */
+  searchExtra?: ReactNode;
   chips?: Chip[];
   chip?: string;
   onChip?: (id: string) => void;
@@ -320,6 +324,7 @@ function ListPage<T extends { id: string }>({
           <Search size={14} aria-hidden="true" />
           <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder={searchPlaceholder} />
         </label>
+        {searchExtra}
         {!mobile && chipsAsSelect ? chipSelect : null}
         {(chipsAsSelect ? [] : (chips ?? [])).map((item) => (
           <button
@@ -598,18 +603,18 @@ export function LorebooksLanding() {
   const folders = useScopeFolders("lorebooks", localize("lorebooks"));
   const menu = useKitMenu();
 
-  const tagFilter = useOverhaulStore((s) => s.lorebookTag);
+  // The tag selector beside search (several tags narrow to books with all of them).
+  const [pickedTags, setPickedTags] = useState<string[]>([]);
+  const tagCounts = useMemo(() => countItemTags((data ?? []).map((book) => ({ tags: book.tags ?? [] }))), [data]);
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    const wantedTag = tagFilter?.toLowerCase() ?? null;
+    const tagQuery = needle.startsWith("tag:") ? needle.slice(4).trim() : null;
     const list = (data ?? []).filter((book) => {
-      if (wantedTag !== null) {
-        const tags = (book.tags ?? []).filter((tag) => tag.trim());
-        if (wantedTag === "" ? tags.length > 0 : !tags.some((tag) => tag.toLowerCase() === wantedTag)) return false;
-      }
+      if (!matchesPickedTags(book.tags ?? [], pickedTags)) return false;
       if (chip === "global" && !book.isGlobal) return false;
       if (chip !== "all" && chip !== "global" && book.category !== chip) return false;
       if (!needle) return true;
+      if (tagQuery !== null) return (book.tags ?? []).some((tag) => tag.toLowerCase().includes(tagQuery));
       return (
         book.name.toLowerCase().includes(needle) ||
         book.description?.toLowerCase().includes(needle) ||
@@ -617,7 +622,7 @@ export function LorebooksLanding() {
       );
     });
     return sort === "custom" ? order.orderItems(sortRows(list, "name-asc")) : sortRows(list, sort);
-  }, [chip, data, order, search, sort, tagFilter]);
+  }, [chip, data, order, pickedTags, search, sort]);
   const selection = useKitSelection(rows.map((row) => row.id));
   const duplicate = async (book: Lorebook) => {
     try {
@@ -641,7 +646,7 @@ export function LorebooksLanding() {
     selection,
     menu,
     folders,
-    filtering: !!search.trim() || chip !== "all" || tagFilter !== null,
+    filtering: !!search.trim() || chip !== "all" || pickedTags.length > 0,
     drag: { kind: "lorebook", reorder: order.reorder },
     rowTitle: (book) => book.name,
     rowActions: (book) => [
@@ -707,6 +712,11 @@ export function LorebooksLanding() {
       searchPlaceholder={localize("Search lorebooks")}
       search={search}
       onSearch={setSearch}
+      searchExtra={
+        tagCounts.tags.length || pickedTags.length ? (
+          <TagFilter tags={tagCounts.tags} untagged={tagCounts.untagged} picked={pickedTags} onChange={setPickedTags} />
+        ) : null
+      }
       chips={[
         { id: "all", label: "All" },
         { id: "global", label: "Global" },
