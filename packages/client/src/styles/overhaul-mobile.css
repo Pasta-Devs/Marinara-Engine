@@ -737,7 +737,8 @@
 
 /* ─── Overhaul pages at phone width: one column, wrapping headers ─── */
 @media (max-width: 767px) {
-  :root[data-overhaul="mobile"] :is(.ov-gallery, .ov-settings) {
+  /* Lists (Lorebooks, Presets, Regex, Connections, Agents) use the same page margins as the galleries. */
+  :root[data-overhaul="mobile"] :is(.ov-gallery, .ov-settings, .ov-list) {
     padding: 1rem 1rem 2rem;
   }
   :root[data-overhaul="mobile"] .ov-gallery__head {
@@ -4719,4 +4720,16 @@
   margin: 0 0.75rem;
   padding: 0.375rem 0 max(0.5rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--ov-line);
+}
+
+/* Phones and tablets: every Library page spaces its rows alike. Connections and Agents had their own,
+   tighter gaps above and below the search line, unlike Characters, Lorebooks, Presets and Regex. */
+:root[data-overhaul="mobile"] :is(.ov-conn, .ov-org) > .ov-gallery__head + .ov-gallery__tools:not(#ovm-x):not(#ovm-y) {
+  margin-top: 1rem;
+}
+:root[data-overhaul="mobile"] :is(.ov-conn, .ov-org) > .ov-gallery__tools:not(:has(~ .ov-gallery__tools)):not(#ovm-x):not(#ovm-y) {
+  margin-bottom: 1.25rem;
+}
+:root[data-overhaul="mobile"] :is(.ov-conn, .ov-org) > .ov-gallery__tools + *:not(.ov-gallery__tools):not(#ovm-x):not(#ovm-y) {
+  margin-top: 0;
 }
