@@ -82,6 +82,13 @@ export function createCapabilityResourceHost(db: DB, permissions: readonly strin
       if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
         throw new Error("[capability] updateCharacterExtensions takes an object of extension keys");
       }
+      // An undefined value would silently delete the key once the card is stored as JSON.
+      const undefinedKey = Object.keys(patch).find((key) => patch[key] === undefined);
+      if (undefinedKey) {
+        throw new Error(
+          `[capability] updateCharacterExtensions: "${undefinedKey}" has no value; send null to clear it`,
+        );
+      }
       const result = await characters.updateExtensions(characterId, patch, { versionSource: "capability-package" });
       return result ? characterRow(result.row) : null;
     },

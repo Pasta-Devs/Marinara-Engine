@@ -786,7 +786,8 @@ export function createCharactersStorage(db: DB) {
     },
 
     /**
-     * Merge top-level keys into `data.extensions` on the character's update queue, with no card version. With
+     * Set top-level keys of `data.extensions` on the character's update queue, with no card version. Each key's value
+     * replaces the stored one whole (no nested merge); other keys stay. With
      * `onlyMissingKeys`, a key the card already has (null included) is left alone. Resolves null for an unknown id,
      * else the row and the keys actually written.
      */
@@ -806,11 +807,16 @@ export function createCharactersStorage(db: DB) {
         );
         const changedKeys = Object.keys(extensions);
         if (changedKeys.length === 0) return { row: existing, changedKeys };
-        const row = await this.update(id, { extensions } as CharacterDataUpdate, undefined, {
-          skipVersionSnapshot: true,
-          mergeExtensions: true,
-          versionSource: options.versionSource ?? "extensions",
-        });
+        const row = await this.update(
+          id,
+          { extensions: { ...currentExtensions, ...extensions } } as CharacterDataUpdate,
+          undefined,
+          {
+            skipVersionSnapshot: true,
+            mergeExtensions: false,
+            versionSource: options.versionSource ?? "extensions",
+          },
+        );
         return row ? { row, changedKeys } : null;
       });
     },

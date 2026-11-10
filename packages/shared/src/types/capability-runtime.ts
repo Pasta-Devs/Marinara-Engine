@@ -239,8 +239,8 @@ export interface CapabilityResourceHost {
   listCharactersPage?(options: CapabilityCharacterPageOptions): Promise<CapabilityCharacterPage>;
   listCharacterSummaries?(characterIds: string[]): Promise<CapabilityCharacterSummary[]>;
   /**
-   * Merge top-level keys into a character's `data.extensions`; other keys and the card's authored fields stay as
-   * they are, and no card version is taken. Queued behind the Engine's own saves of that character. Requires the
+   * Set top-level keys of a character's `data.extensions`: each value replaces the stored one whole, other keys and
+   * the card's authored fields stay as they are, and no card version is taken. An undefined value is refused. Queued behind the Engine's own saves of that character. Requires the
    * `character-write` permission. Resolves the updated row, or null for an unknown id.
    */
   updateCharacterExtensions?(

@@ -93,13 +93,30 @@ try {
   assert.equal((await storage.listVersions(ada.id)).length, versionsBefore);
   assert.equal(await writer.updateCharacterExtensions!("missing", { x: 1 }), null);
 
-  // Queued behind an Engine save of the same card: both writes land.
-  let releaseRouteSave!: () => void;
-  const routeSave = withCharacterUpdateQueue(ada.id, async () => {
-    await new Promise<void>((resolve) => (releaseRouteSave = resolve));
-    const current = JSON.parse((await storage.getById(ada.id))!.data) as { extensions: Record<string, unknown> };
-    await storage.update(ada.id, { extensions: { ...current.extensions, fromRoute: true } } as never);
+  // A key's value replaces the stored one whole, no nested merge (a regenerated schedule drops yesterday's days).
+  await writer.updateCharacterExtensions!(ada.id, { schedule: { monday: "work", tuesday: "rest" } });
+  const replaced = await writer.updateCharacterExtensions!(ada.id, { schedule: { monday: "gym" } });
+  assert.deepEqual((JSON.parse(replaced!.data) as { extensions: Record<string, unknown> }).extensions.schedule, {
+    monday: "gym",
   });
+  // An undefined value would delete the key once stored as JSON, so it is refused.
+  await assert.rejects(writer.updateCharacterExtensions!(ada.id, { keep: undefined }), /"keep" has no value/);
+
+  // Queued behind an Engine save of the same card: both writes land. The route save reads its snapshot before it
+  // waits, so without the shared queue the package write would land in between and be overwritten.
+  let releaseRouteSave!: () => void;
+  let routeHasSnapshot!: () => void;
+  const snapshotTaken = new Promise<void>((resolve) => (routeHasSnapshot = resolve));
+  const routeSave = withCharacterUpdateQueue(ada.id, async () => {
+    const snapshot = JSON.parse((await storage.getById(ada.id))!.data) as { extensions: Record<string, unknown> };
+    const released = new Promise<void>((resolve) => (releaseRouteSave = resolve));
+    routeHasSnapshot();
+    await released;
+    await storage.update(ada.id, { extensions: { ...snapshot.extensions, fromRoute: true } } as never, undefined, {
+      mergeExtensions: false,
+    });
+  });
+  await snapshotTaken;
   const packageWrite = writer.updateCharacterExtensions!(ada.id, { fromPackage: true });
   releaseRouteSave();
   await Promise.all([routeSave, packageWrite]);
@@ -132,14 +149,15 @@ try {
     /character-write\W+ permission requires schemaVersion 2 and capabilityApi 1\.819 or newer/,
   );
 
-  // A package bundles chats and lorebooks storage; they must not read the character tables behind the storage's back.
+  // A package bundles chats and lorebooks storage; they must not reach the character tables behind the storage's
+  // back, so neither imports those table declarations at all.
   for (const file of ["chats.storage.ts", "lorebooks.storage.ts"]) {
     const source = readFileSync(join(import.meta.dirname, "../../packages/server/src/services/storage", file), "utf8");
-    assert.doesNotMatch(
-      source,
-      /\.(?:from|update)\((?:characters|personas)\)/,
-      `${file} reads a character table directly`,
-    );
+    const schemaImports = [...source.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*"[./]*db\/schema[^"]*"/g)];
+    assert.ok(schemaImports.length > 0, `${file}: expected a db/schema import to check`);
+    for (const [, names] of schemaImports) {
+      assert.doesNotMatch(names!, /\b(?:characters|personas)\b/, `${file} imports a character table declaration`);
+    }
   }
 } finally {
   await closeDB();

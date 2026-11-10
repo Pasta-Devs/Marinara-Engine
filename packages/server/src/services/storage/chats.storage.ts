@@ -1406,13 +1406,17 @@ export function createChatsStorage(db: DB) {
       return (result?.changedKeys.length ?? 0) > 0;
     } catch (error) {
       // An unreadable card stays as it is, the way the hoist always left it.
+      if (!(error instanceof SyntaxError)) {
+        logger.warn(error, "[chats] Could not hoist a chat-cached %s onto character %s", key, characterId);
+        return false;
+      }
       // Parse errors can quote private card text; log only a fixed category.
       logger.debug(
         {
           event: "storage.legacy-chat-hoist",
           characterId,
           key,
-          errorCategory: error instanceof SyntaxError ? "invalid-json" : "write-failed",
+          errorCategory: "invalid-json",
           outcome: "skipped",
         },
         "Could not hoist a chat-cached value onto a card",
