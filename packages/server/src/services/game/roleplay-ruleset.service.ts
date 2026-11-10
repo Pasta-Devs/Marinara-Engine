@@ -126,6 +126,15 @@ export async function pinRoleplayRuleset(
       code: "not_roleplay",
     };
   }
+  // A multiplayer room keeps its own command allowlist, so a ruleset never runs there (see generate.routes).
+  if (input.rulesetId !== null && readMetadata(chat.metadata).multiplayer) {
+    return {
+      ok: false,
+      status: 409,
+      error: "A multiplayer room cannot play by a ruleset.",
+      code: "multiplayer_not_supported",
+    };
+  }
 
   if (input.rulesetId === null) {
     await chats.patchMetadata(input.chatId, () => ({ gameRuleset: null }));
@@ -172,7 +181,11 @@ export async function pinRoleplayRuleset(
     // protect, and its sheets are read tolerantly against the newer version.
     pinned =
       sameRuleset && previous
-        ? { ...previous, version: Math.max(previous.version, definition.version) }
+        ? {
+            ...previous,
+            version: Math.max(previous.version, definition.version),
+            ...(input.options ? { options } : {}),
+          }
         : { ...createRulesetRef(registered), options };
     const kept =
       sameRuleset && Array.isArray(current.gameCharacterCards)

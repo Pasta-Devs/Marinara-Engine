@@ -2763,8 +2763,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         for (const message of mappedMessages) {
           if (message.role !== "user") message.content = checkRecordsAsHistoryNotes(message.content);
         }
-      } else if (chatMode === "roleplay" && chatMeta.gameRuleset != null) {
-        // A Roleplay chat that plays by a ruleset saves its checks the way a game does.
+      } else if (chatMode === "roleplay" && chatMeta.gameRuleset != null && !chatMeta.multiplayer) {
+        // A Roleplay chat that plays by a ruleset saves its checks the way a game does (never a room,
+        // where the ruleset does not run).
         for (const message of mappedMessages) {
           if (message.role !== "user") message.content = checkRecordsAsHistoryNotes(message.content);
         }

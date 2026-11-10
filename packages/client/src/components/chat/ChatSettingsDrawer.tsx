@@ -6666,7 +6666,7 @@ export function ChatSettingsDrawer({
           )}
 
           {/* Ruleset — a Roleplay chat played by a Game Mode ruleset */}
-          {isRoleplayMode && (
+          {isRoleplayMode && !metadata.multiplayer && (
             <Section
               id="roleplay-ruleset"
               style={{ order: CHAT_SETTINGS_ORDER.characters + 1 }}

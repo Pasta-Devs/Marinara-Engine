@@ -100,7 +100,14 @@ try {
       "pairs beside double",
     );
     assert.ok(v5.resolution.kind === "dice-pool");
-    assert.equal(rulesetPoolMaxSuccesses(v5.resolution), 30, "a pair raises the ceiling as doubling does");
+    refuses(
+      doc((d) => (d.resolution.hunger.max = d.resolution.pool.max + 1)),
+      /Hunger dice come from the pool/,
+      "more hunger dice than the pool holds",
+    );
+    // 15 dice: seven pairs of 4 and one die left over, which counts one.
+    assert.equal(v5.resolution.pool.max, 15);
+    assert.equal(rulesetPoolMaxSuccesses(v5.resolution), 29, "an odd die left over counts one, not half a pair");
   }
 
   // ── The roll ──

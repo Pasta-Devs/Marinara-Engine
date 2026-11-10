@@ -18523,6 +18523,12 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         issue(["resolution", "pairs"], "Pairs count the faces that succeed once each, so leave double and stances out");
       }
     }
+    // Hunger dice (1.820) are dice of the pool, so there are never more of them than the pool holds.
+    if (resolution.hunger && resolution.hunger.max > resolution.pool.max)
+      issue(
+        ["resolution", "hunger", "max"],
+        `Hunger dice come from the pool, so max is at most ${resolution.pool.max}`,
+      );
     // Dice groups (1.821): one group per source, and the skill's group takes what is left of the pool.
     if (resolution.groups) {
       unique(resolution.groups, ["resolution", "groups"], "group");
@@ -21646,9 +21652,10 @@ export type RulesetDicePoolResolution = Extract<RulesetResolution, { kind: "dice
 export function rulesetPoolMaxSuccesses(
   resolution: Pick<RulesetDicePoolResolution, "pool" | "explode" | "double" | "pairs">,
 ): number {
-  // A pair (1.820) is worth at most `successes` for two dice, so it raises the ceiling as doubling does.
-  const perDie = resolution.double ? 2 : resolution.pairs ? Math.max(1, resolution.pairs.successes / 2) : 1;
-  return Math.floor((resolution.pool.max + (resolution.explode ? resolution.pool.max : 0)) * perDie);
+  const dice = resolution.pool.max + (resolution.explode ? resolution.pool.max : 0);
+  // A pair (1.820) is worth `successes` for two dice; an odd die left over counts one.
+  if (resolution.pairs) return Math.floor(dice / 2) * resolution.pairs.successes + (dice % 2);
+  return dice * (resolution.double ? 2 : 1);
 }
 export type RulesetSheetSchema = RulesetDefinition["sheet"];
 /** A party sheet uses the existing sheet math and renderer with its own field namespace. */

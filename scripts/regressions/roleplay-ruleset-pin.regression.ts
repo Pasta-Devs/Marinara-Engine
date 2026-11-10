@@ -7,6 +7,7 @@
  *     again, as Add missing sheets and a newer version both do, and the other sheets are kept.
  *   - Taking the removal back and pinning again gives that member a sheet once more.
  *   - Two cards with the same name share one sheet: the first card in the chat keeps it.
+ *   - A multiplayer room is refused: the ruleset never runs there.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -95,6 +96,16 @@ try {
     twinCards.map((entry: { name: string }) => entry.name),
     ["Mira"],
   );
+
+  const room = await chats.create({
+    name: "Room test",
+    mode: "roleplay",
+    characterIds: [mira!.id],
+    connectionId: null,
+  } as any);
+  await chats.patchMetadata(room!.id, () => ({ multiplayer: { role: "host" } }));
+  const roomPin = await pinRoleplayRuleset(db, { chatId: room!.id, rulesetId: "local/pin-test" });
+  assert.ok(!roomPin.ok && roomPin.code === "multiplayer_not_supported", JSON.stringify(roomPin));
 
   console.log("roleplay-ruleset-pin regression passed");
 } finally {
