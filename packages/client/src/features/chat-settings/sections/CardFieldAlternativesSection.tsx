@@ -101,40 +101,47 @@ export function CardFieldAlternativesSection({ chat, characters, personas, style
       help={t("ui.chatSettings.cardFieldAlternatives.help")}
     >
       <div className="space-y-3">
-        {entities.map((entity) => (
-          <div key={`${entity.kind}:${entity.id}`} className="space-y-1.5">
-            <p className="mari-chrome-text-strong truncate text-xs font-semibold">{entity.name}</p>
-            {CARD_FIELD_KEYS.filter((field) => entity.alternatives.some((entry) => entry.field === field)).map(
-              (field) => {
-                const key = `${entity.kind}:${entity.id}:${field}`;
-                const options = entity.alternatives.filter((entry) => entry.field === field);
-                const saved = options.find((entry) => entry.chatIds.includes(chat.id))?.id ?? "";
-                return (
-                  <label key={field} className="flex items-center gap-2 text-xs">
-                    <span className="w-24 shrink-0 truncate text-[var(--muted-foreground)]">{fieldLabels[field]}</span>
-                    <select
-                      value={pending[key] ?? saved}
-                      disabled={pending[key] !== undefined}
-                      onChange={(event) => void choose(entity, field, event.target.value)}
-                      aria-label={t("ui.chatSettings.cardFieldAlternatives.selectLabel", {
-                        field: fieldLabels[field],
-                        name: entity.name,
-                      })}
-                      className="mari-preset-native-select min-w-0 flex-1 truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
-                    >
-                      <option value="">{t("ui.chatSettings.cardFieldAlternatives.original")}</option>
-                      {options.map((entry) => (
-                        <option key={entry.id} value={entry.id}>
-                          {cardFieldAlternativeName(t, entity.alternatives, entry, fieldLabels[field])}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                );
-              },
-            )}
-          </div>
-        ))}
+        {entities.map((entity) => {
+          // Each save sends the card's whole list, so a second pick on the same card waits for the first
+          // to reach the cache; otherwise it would be built from the old list and undo the first pick.
+          const saving = Object.keys(pending).some((key) => key.startsWith(`${entity.kind}:${entity.id}:`));
+          return (
+            <div key={`${entity.kind}:${entity.id}`} className="space-y-1.5">
+              <p className="mari-chrome-text-strong truncate text-xs font-semibold">{entity.name}</p>
+              {CARD_FIELD_KEYS.filter((field) => entity.alternatives.some((entry) => entry.field === field)).map(
+                (field) => {
+                  const key = `${entity.kind}:${entity.id}:${field}`;
+                  const options = entity.alternatives.filter((entry) => entry.field === field);
+                  const saved = options.find((entry) => entry.chatIds.includes(chat.id))?.id ?? "";
+                  return (
+                    <label key={field} className="flex items-center gap-2 text-xs">
+                      <span className="w-24 shrink-0 truncate text-[var(--muted-foreground)]">
+                        {fieldLabels[field]}
+                      </span>
+                      <select
+                        value={pending[key] ?? saved}
+                        disabled={saving}
+                        onChange={(event) => void choose(entity, field, event.target.value)}
+                        aria-label={t("ui.chatSettings.cardFieldAlternatives.selectLabel", {
+                          field: fieldLabels[field],
+                          name: entity.name,
+                        })}
+                        className="mari-preset-native-select min-w-0 flex-1 truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+                      >
+                        <option value="">{t("ui.chatSettings.cardFieldAlternatives.original")}</option>
+                        {options.map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            {cardFieldAlternativeName(t, entity.alternatives, entry, fieldLabels[field])}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                },
+              )}
+            </div>
+          );
+        })}
       </div>
     </ChatSettingsSection>
   );
