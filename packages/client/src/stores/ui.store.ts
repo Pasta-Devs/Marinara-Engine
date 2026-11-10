@@ -67,7 +67,7 @@ export type HomeRequest = { kind: "faq" | "widgets" | "credits" } | { kind: "tab
 export const CHARACTER_LIBRARY_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const;
 export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[number];
 export type CardLibraryKind = "characters" | "personas";
-// Split view: the second side takes the phone layout only when its side is narrow (not because of touch).
+// Split view: the second side takes the touch (tablet/phone) layout only when its side is narrow (not because of touch).
 const SPLIT_PANE_PHONE_QUERY = `(max-width: ${SPLIT_PANE_PHONE_WIDTH - 1}px)`;
 export const MOBILE_SHELL_MEDIA_QUERY = SPLIT_PANE
   ? SPLIT_PANE_PHONE_QUERY

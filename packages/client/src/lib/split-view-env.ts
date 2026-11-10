@@ -28,10 +28,11 @@ function readSplitPane(): SplitPage | null {
 }
 
 /**
- * Below this width the second side switches to the phone layout (its own top bar, chat list and Library
- * stack), which fits a narrow side better than a squeezed computer layout.
+ * Below this width the second side switches to the touch layout, which fits a narrow side better than a
+ * squeezed computer layout: the tablet look from 600 px, the phone look below that (minus the phone top bar,
+ * so the side stays on its page).
  */
-export const SPLIT_PANE_PHONE_WIDTH = 560;
+export const SPLIT_PANE_PHONE_WIDTH = 900;
 
 /** Set inside the second side's frame: the page it opened on. Null in the main window. */
 export const SPLIT_PANE: SplitPage | null = readSplitPane();
