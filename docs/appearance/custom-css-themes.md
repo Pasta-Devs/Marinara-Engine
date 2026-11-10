@@ -29,13 +29,18 @@ Starter themes aren't part of the install, so they take no space until you want 
 
 | Theme | Look |
 | --- | --- |
+| **Copperplate Engine** | A Victorian calculating engine: replies are punched cream cards on a brass rail. |
+| **Dewglass** | Glossy 2000s glass: messages are gel droplets over a sunny lagoon or an aurora night. |
+| **Gutterlight** | A rainy gothic city drawn as a crime comic, with inked panels and caption boxes. |
 | **Lantern Meadow** | Calm and very readable, with no motion. |
 | **Lantern Path** | A reading column with gentle motion. |
 | **Maple's Bramble Cottage** | A cozy cottage, with a reading column for long replies. |
 | **NEON//GRID** | Neon cyberpunk, made for long replies. |
 | **Petal OS** | A playful retro desktop with pixel fonts. |
+| **Rhumb Line** | A navigator's sea chart: each message is a fix on a plotted course. |
 | **Rosalind's Folio** | A storybook layout with visual novel touches. |
 | **Swiss Poster** | Quiet, clean poster design with no motion. |
+| **Velvet Casket** | Pastel goth by day and traditional goth by night, with coffin-shaped messages. |
 
 Every starter theme has a Dark and a Light version. The small tags under each name, such as **No motion** or **High legibility**, tell you what to expect.
 

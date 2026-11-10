@@ -217,7 +217,7 @@ By default a storm only flashes the screen. Add `--mari-weather-lightning-bolt` 
 }
 ```
 
-The bolt strikes down the left or right side of the screen, never across the middle where the chat text is. It only shows while the app's own flash is up and fades with it, so a theme can't add flashes or make them faster. In pixel style the bolt is drawn in blocks on the pixel grid. Saltwind Harbor and Sodium Row use bolts.
+The bolt strikes down the left or right edge of the screen, never across the middle where the chat text is. It forks into several branches and glows in your lightning colour. It only shows while the app's own flash is up and fades with it, so a theme can't add flashes or make them faster. In pixel style the bolt is drawn in blocks on the pixel grid. Every new starter theme uses bolts: Dewglass, Velvet Casket, Rhumb Line, Copperplate Engine and Gutterlight.
 
 ## Make your backdrop follow the weather
 
@@ -289,6 +289,11 @@ Every starter theme in the theme gallery shows off weather. Download one, click 
 - **NEON//GRID**: long cyan rain streaks, square "data snow", magenta sparks for leaves and petals. Its painted rain overlay steps aside when real weather falls.
 - **Petal OS**: pixel style on a 3 px grid, its own pixel petals, pale pink rain at night and deep berry rain by day, and a city that greys over in bad weather.
 - **Lantern Path**: its own painted leaves, warm fireflies, no app sun (the backdrop paints its own light) and backdrops that turn overcast or snowy with the weather.
+- **Dewglass**: its own soap bubbles for motes, code-drawn crystal snowflakes, aqua rain, cyan lightning bolts and lagoon backdrops that turn overcast, frozen or misty.
+- **Velvet Casket**: a different storm for day and night: pink bolts and lilac rain by day, violet-white bolts and silver rain over the cemetery at night, with its own bats and rose petals in the wind.
+- **Rhumb Line**: no sun or moon (you're below deck at the chart table). Rain and fog swap in a wet or fog-covered chart, and warm white bolts split the storm.
+- **Copperplate Engine**: fog turns into warm engine steam, wind blows punched-card chads, and violet galvanic bolts strike down the side gutters.
+- **Gutterlight**: cold comic-book rain, torn newsprint in the wind, sodium-yellow smog, and a storm backdrop with water pouring off the gargoyles as the bolts strike.
 
 ## Related guides
 
