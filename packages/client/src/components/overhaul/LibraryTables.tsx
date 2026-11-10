@@ -241,7 +241,7 @@ function ListPage<T extends { id: string }>({
     >
       {chips.map((item) => (
         <option key={item.id} value={item.id}>
-          {item.id === "all" ? localize("All kinds") : localize(item.label)}
+          {item.id === "all" ? localize(mobile ? "All" : "All kinds") : localize(item.label)}
         </option>
       ))}
     </select>
