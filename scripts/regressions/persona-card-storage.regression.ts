@@ -6,6 +6,7 @@ import {
   personaRowFromStored,
   storedPersonaFromRow,
 } from "../../packages/server/src/services/personas/persona-card-storage.js";
+import { migrateLegacyPersonaRow } from "../../packages/server/src/db/persona-card-migration.js";
 import { encodePersonaUpdate, projectPersona } from "../../packages/server/src/services/personas/persona-projector.js";
 import type { PersonaStorageRow } from "../../packages/server/src/services/storage/characters.storage.js";
 
@@ -170,3 +171,27 @@ assert.equal(unreadable.id, canonicalRow.id);
 assert.equal(unreadable.avatarPath, canonicalRow.avatarPath);
 assert.equal(unreadable.name, "");
 assert.equal(personaRowFromStored({ ...storedRows.canonical, data: "[]" }).name, "");
+
+// Game data written before the status bars ever were (Mari's sheet and MRPG actions on a fresh
+// persona, staging rows Mari already wrote) has no `enabled` / `bars`. It must survive the codec
+// and the migration with the bars off, not be dropped as "no stats".
+for (const gameOnly of [
+  { rulesetSheets: { "local/gravewatch": { values: { harm: 2 } } } },
+  { classic: { tree: "guard", strong: ["defense"], built: true } },
+  { combatIcon: { emoji: "🛡️" } },
+]) {
+  const flat = { ...minimalRow, id: "persona-game-only", personaStats: JSON.stringify(gameOnly) };
+  const expected = { ...gameOnly, enabled: false, bars: [] };
+  const viaCodec = personaRowFromStored(storedPersonaFromRow(flat));
+  assert.deepEqual(JSON.parse(viaCodec.personaStats), expected, `codec keeps ${Object.keys(gameOnly)[0]}`);
+  const migrated = personaRowFromStored(
+    migrateLegacyPersonaRow(flat as unknown as Record<string, unknown>) as unknown as Parameters<
+      typeof personaRowFromStored
+    >[0],
+  );
+  assert.deepEqual(JSON.parse(migrated.personaStats), expected, `migration keeps ${Object.keys(gameOnly)[0]}`);
+}
+// An empty object and wrong types still mean "no stats".
+for (const none of ["{}", '{"enabled":"yes","bars":[]}', '{"enabled":true,"bars":{}}']) {
+  assert.equal(personaRowFromStored(storedPersonaFromRow({ ...minimalRow, personaStats: none })).personaStats, "");
+}
