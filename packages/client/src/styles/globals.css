@@ -3153,6 +3153,22 @@ html[data-mari-ios-webkit] :is(.mari-modal, .mari-right-panel-content) [class*="
   backdrop-filter: none !important;
 }
 
+/* The full-screen modal layer carries role="dialog" for screen readers, but it is a layer, not a surface:
+   theme rules aimed at dialog panels ([role="dialog"]) must not paint it, or a light theme washes the whole
+   screen out behind every pop-up. Only the backdrop child (--mari-scrim / --mari-confirm-scrim) dims it.
+   mari-protected, because a theme's !important rules otherwise beat the app's. */
+@layer mari-protected {
+  .mari-modal[role="dialog"] {
+    background: transparent !important;
+    border: 0 !important;
+    border-image: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
 /* Resolve the app background before the panel remaps its neutral-surface tokens.
    An opaque backing keeps covered settings from showing through without blur. */
 html[data-mari-ios-webkit] .mari-modal {

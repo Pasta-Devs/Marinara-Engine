@@ -2410,6 +2410,7 @@ export function ChatSidebar() {
         onClose={() => setDeleteTarget(null)}
         title={localizeUi("ui.layout.chatsidebar.deleteChat")}
         width="max-w-sm"
+        confirm
       >
         {deleteTarget && (
           <div className="flex flex-col gap-4">
