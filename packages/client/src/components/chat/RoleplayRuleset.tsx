@@ -4,11 +4,11 @@
 // A Roleplay chat can pin one of the installed Game Mode rulesets. The server copies each member's
 // library sheet onto the chat's own cards (`gameCharacterCards`), and from then on the narrator asks
 // for checks and keeps the sheets the way a game's Game Master does. This file is the chat's side of
-// it: choosing the ruleset, the members and their sheets, and Game Mode's own character sheet to show
-// one, with a sheet nobody has built yet opening in the ruleset's sheet builder.
+// it: choosing the ruleset, the members and their sheets. Game Mode's character sheet that shows one
+// (a sheet nobody has built yet opens in the ruleset's sheet builder) is in RoleplayRulesetSheet.tsx,
+// so Chat Settings and the tracker panel, which import this file, do not load Game Mode's screen.
 // ──────────────────────────────────────────────
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Dices, Hammer, ScrollText, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
@@ -18,18 +18,13 @@ import {
   normalizeCharacterLookupName,
   readRulesetSheetEnvelope,
   type RulesetDefinition,
-  type RulesetLiveState,
-  type RulesetSheetEnvelope,
 } from "@marinara-engine/shared";
-import { GameCharacterSheet, type GameCharacterSheetRuleset } from "../game/GameCharacterSheet";
 import { useInstalledRulesets } from "../../hooks/use-capability-packages";
 import { chatKeys, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
-import { useGameStatePatcher } from "../../hooks/use-game-state-patcher";
 import { api } from "../../lib/api-client";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { showConfirmDialog } from "../../lib/app-dialogs";
-import { useGameStateStore } from "../../stores/game-state.store";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
 
 interface StoredCard {
@@ -37,11 +32,11 @@ interface StoredCard {
   rulesetSheet?: unknown;
 }
 
-function readCards(metadata: Record<string, unknown>): StoredCard[] {
+export function readCards(metadata: Record<string, unknown>): StoredCard[] {
   return Array.isArray(metadata.gameCharacterCards) ? (metadata.gameCharacterCards as StoredCard[]) : [];
 }
 
-function findCard(metadata: Record<string, unknown>, name: string): StoredCard | undefined {
+export function findCard(metadata: Record<string, unknown>, name: string): StoredCard | undefined {
   const key = normalizeCharacterLookupName(name);
   return readCards(metadata).find(
     (card) => typeof card.name === "string" && normalizeCharacterLookupName(card.name) === key,
@@ -251,86 +246,5 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
         </>
       )}
     </div>
-  );
-}
-
-/** Game Mode's character sheet for the Roleplay member Chat Settings or the tracker panel opened. */
-export function RoleplayRulesetSheet({ chatId, metadata }: { chatId: string; metadata: Record<string, unknown> }) {
-  const { t: localizeUi } = useUiTranslation();
-  const open = useRoleplaySheetStore((state) => state.open);
-  const close = useRoleplaySheetStore((state) => state.close);
-  const resolved = useGameRuleset(metadata);
-  const updateChatMetadata = useUpdateChatMetadata();
-  const { patchField } = useGameStatePatcher(chatId, "roleplay-ruleset-sheet");
-  const gameState = useGameStateStore((state) => state.current);
-
-  // Until the installed rulesets have loaded there is nothing to show; the sheet opens once they have.
-  if (!open || open.chatId !== chatId || metadata.gameRuleset == null || resolved.status === "loading") return null;
-  const card = findCard(metadata, open.name);
-  if (!card) return null;
-  const name = open.name;
-  const key = normalizeCharacterLookupName(name);
-
-  const saveEnvelope = async (next: RulesetSheetEnvelope) => {
-    const current = readCards(metadata);
-    const at = current.findIndex(
-      (entry) => typeof entry.name === "string" && normalizeCharacterLookupName(entry.name) === key,
-    );
-    if (at < 0) {
-      const message = localizeUi("game.ruleset.sheet.noCard", { name });
-      toast.error(message);
-      throw new Error(message);
-    }
-    await updateChatMetadata.mutateAsync({
-      id: chatId,
-      gameCharacterCards: current.map((entry, index) => (index === at ? { ...entry, rulesetSheet: next } : entry)),
-    });
-    toast.success(localizeUi("game.ruleset.sheet.saved", { name }));
-  };
-
-  const changeLive = (next: RulesetLiveState) => {
-    // Read at click time: this turn's own sheet commands may have landed since the sheet rendered.
-    const now = useGameStateStore.getState().current;
-    if (now?.chatId !== chatId) {
-      toast.error(localizeUi("game.ruleset.sheet.stateNotReady"));
-      return;
-    }
-    const { [key]: _previous, ...others } = now.rulesetLive ?? {};
-    patchField("rulesetLive", Object.keys(next).length > 0 ? { ...others, [key]: next } : others);
-  };
-
-  let ruleset: GameCharacterSheetRuleset | undefined;
-  if (resolved.status === "unavailable") ruleset = { status: "unavailable" };
-  else if (resolved.status === "ok") {
-    const envelope = readRulesetSheetEnvelope(resolved.definition, card.rulesetSheet);
-    ruleset =
-      !envelope && card.rulesetSheet != null
-        ? { status: "unreadable" }
-        : {
-            status: "ok",
-            definition: resolved.definition,
-            layers: resolved.layers,
-            layerOptions: resolved.layerOptions,
-            envelope: envelope ?? undefined,
-            live: (gameState?.chatId === chatId ? gameState : null)?.rulesetLive?.[key],
-            onLiveChange: changeLive,
-            onEnvelopeSave: saveEnvelope,
-            startEditing: open.build,
-          };
-  }
-
-  // In a portal on the modal layer, as the app's dialogs are: Chat Settings and its popped-out
-  // sections are floating windows, and the sheet is opened from them, so it has to stand above them.
-  return createPortal(
-    <div className="relative z-[10000]">
-      <GameCharacterSheet
-        key={`${chatId}:${key}`}
-        card={{ title: name }}
-        onClose={close}
-        ruleset={ruleset}
-        rulesetPinned
-      />
-    </div>,
-    document.body,
   );
 }
