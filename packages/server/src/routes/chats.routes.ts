@@ -83,6 +83,7 @@ import {
   omitChatMetadataLocalDestinations,
   rulesetAllowsCombatStyle,
   rulesetCombatStyles,
+  undoChatVariableChanges,
 } from "@marinara-engine/shared";
 import type {
   Chat,
@@ -5633,6 +5634,19 @@ export async function chatsRoutes(app: FastifyInstance) {
     const sourceMessagesToCopy = msgs.slice(0, sourceCutoffIndex + 1);
     const copiedSourceMessageIds = new Set(sourceMessagesToCopy.map((msg) => msg.id));
     const firstOmittedMessage = msgs[sourceCutoffIndex + 1];
+    // The branch starts from the chat variables at its cutoff (#8990): undo what the omitted
+    // replies' shown swipes changed, newest first, as deleting them would.
+    const omittedMessages = msgs.slice(sourceCutoffIndex + 1);
+    const swipesByMessageId = await storage.getSwipesByMessageId(msgs.map((msg) => msg.id));
+    const omittedVariableChanges = omittedMessages
+      .map((msg) => {
+        const shown = swipesByMessageId.get(msg.id)?.find((swipe) => swipe.index === msg.activeSwipeIndex);
+        return parseExportMetadata(shown?.extra).macroVariableChanges;
+      })
+      .reverse();
+    if (omittedVariableChanges.some(Boolean)) {
+      settingsToKeep.macroVariables = undoChatVariableChanges(sourceMeta.macroVariables, omittedVariableChanges);
+    }
     if (sourceChat.mode === "game" && firstOmittedMessage) {
       if (settingsToKeep.gameJournal) {
         settingsToKeep.gameJournal = trimJournalForBranch(
@@ -5668,7 +5682,6 @@ export async function chatsRoutes(app: FastifyInstance) {
     const copiedSourceMessages: typeof msgs = [];
     const copiedMessageInputs: Parameters<typeof storage.createMessagesBatch>[1] = [];
 
-    const swipesByMessageId = await storage.getSwipesByMessageId(sourceMessagesToCopy.map((msg) => msg.id));
     for (const msg of sourceMessagesToCopy) {
       const swipes = swipesByMessageId.get(msg.id) ?? [];
       const messageExtra = await storage.prepareRoleplayInterruptionExtraForCopy(
@@ -5725,7 +5738,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     // A branch ending before the interrupting response keeps the full preceding message.
     // Copy only; never restore or otherwise mutate the source chat while branching.
-    for (const omittedMessage of msgs.slice(sourceCutoffIndex + 1)) {
+    for (const omittedMessage of omittedMessages) {
       const omittedActivity = (
         await storage.prepareRoleplayInterruptionExtraForCopy(parseExportMetadata(omittedMessage.extra))
       ).roleplayCommandActivity;

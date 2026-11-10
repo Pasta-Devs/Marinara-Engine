@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useUIStore } from "../stores/ui.store";
 import { getLibraryDragRows, insertLibraryItems, readLibraryOrder, type InsertEdge } from "../lib/library-order";
 
+// Rows of a virtual list are each wrapped by the list, so siblings are scoped to the list, not the row's parent.
+const siblingScope = (el: HTMLElement) => el.closest<HTMLElement>("[data-virtual-list]") ?? el.parentElement;
+
 export function useLibraryOrder(
   kind: string,
   onKeyboardReorder?: (ids: string[], target: string, edge: InsertEdge, visibleIds: string[]) => void,
@@ -49,11 +52,11 @@ export function useLibraryOrder(
       )
         return;
       const siblings = Array.from(
-        row.parentElement?.querySelectorAll<HTMLElement>(`[data-drag-kind="${kind}"]`) ?? [],
+        siblingScope(row)?.querySelectorAll<HTMLElement>(`[data-drag-kind="${kind}"]`) ?? [],
       ).filter(
         (element) =>
           element.getClientRects().length > 0 &&
-          (element.parentElement === row.parentElement ||
+          (siblingScope(element) === siblingScope(row) ||
             ((kind === "connection" || kind === "connection-folder") &&
               element.parentElement?.parentElement === row.parentElement)),
       );

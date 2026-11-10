@@ -130,7 +130,7 @@ const settings = {
   maxContextTokens: 16_384,
   summaryBudgetTokens: 512,
 };
-async function createChat(name: string, hardCap?: number, omitReasoning = false) {
+async function createChat(name: string, hardCap?: number, omitReasoning = false, reasoningEffort?: string) {
   const connection = await connections.create(
     createConnectionSchema.parse({
       name,
@@ -148,6 +148,7 @@ async function createChat(name: string, hardCap?: number, omitReasoning = false)
   assert(connection);
   if (omitReasoning)
     await connections.updateDefaultParameters(connection.id, { enabledParameters: { reasoningEffort: false } });
+  if (reasoningEffort) await connections.updateDefaultParameters(connection.id, { reasoningEffort });
   const chat = await chats.create({ name, mode: "roleplay", characterIds: [], connectionId: connection.id });
   assert(chat);
   await chats.patchMetadata(chat.id, {
@@ -1326,6 +1327,24 @@ try {
     )?.timeline,
     null,
   );
+
+  // #8983: a level chosen on the connection wins over memory's own "none", in scene checks and summaries alike.
+  const chosenReasoning = await createChat("Connection reasoning chosen", undefined, false, "medium");
+  const chosenStart = requests.length;
+  await memory.initialize(chosenReasoning.id);
+  const chosenRequests = requests.slice(chosenStart);
+  assert(chosenRequests.some((item) => item.instructions?.startsWith("Identify scene transitions")));
+  assert(chosenRequests.some((item) => !item.instructions?.startsWith("Identify scene transitions")));
+  assert(
+    chosenRequests.every((item) => item.reasoning?.effort === "medium"),
+    `the connection's reasoning level is sent: ${JSON.stringify(chosenRequests.map((item) => item.reasoning))}`,
+  );
+  // And each call gets that level's thinking room on top of its own allowance (4096 at medium), so thinking cannot
+  // take the whole reply.
+  const sceneChosen = chosenRequests.find((item) => item.instructions?.startsWith("Identify scene transitions"))!;
+  assert.equal(sceneChosen.max_output_tokens, 4096 + 4096, "the scene check: Chat Summary's 4096 plus medium's room");
+  const summaryChosen = chosenRequests.find((item) => !item.instructions?.startsWith("Identify scene transitions"))!;
+  assert.equal(summaryChosen.max_output_tokens, 8196 + 4096, "the summary: its 8196 floor plus medium's room");
 
   const withoutReasoning = await createChat("Explicitly omitted reasoning parameter", undefined, true);
   const withoutReasoningStart = requests.length;
