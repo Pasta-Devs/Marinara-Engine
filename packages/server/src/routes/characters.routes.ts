@@ -2796,6 +2796,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const versionOptions = {
       versionSource: typeof rawBody.versionSource === "string" ? rawBody.versionSource : undefined,
       versionReason: typeof rawBody.versionReason === "string" ? rawBody.versionReason : undefined,
+      skipVersionSnapshot: rawBody.skipVersionSnapshot === true,
     };
     if (Object.keys(body).length === 0 && !hasCharacterSheetImageId && !hasUseCharacterSheetAsReference) {
       const current = await storage.getPersona(req.params.id);
