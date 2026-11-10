@@ -133,7 +133,7 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
     // Read the chat as it is now, not as it was when the dialog opened: sheets added while it was
     // open (Add missing sheets, a sheet given back) must survive this write.
     const cached = queryClient.getQueryData<{ metadata?: unknown }>(chatKeys.detail(chatId));
-    const current = cached ? parseChatMetadata(cached.metadata) : metadata;
+    const current = cached?.metadata != null ? parseChatMetadata(cached.metadata) : metadata;
     const declinedNow = declinedNames(current);
     const key = normalizeCharacterLookupName(name);
     await updateChatMetadata.mutateAsync({
