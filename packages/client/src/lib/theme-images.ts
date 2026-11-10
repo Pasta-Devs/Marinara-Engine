@@ -620,6 +620,13 @@ export function cssImageUrls(value: string): string[] {
   return Array.from(value.matchAll(/url\(\s*(["']?)(.*?)\1\s*\)/g), (match) => match[2]!).filter(Boolean);
 }
 
+/** Whether any picture in some CSS is still being read (starts reading the ones not seen yet). */
+export function imageSamplesPending(css: string): boolean {
+  return cssImageUrls(css)
+    .filter((url) => /^(blob:|data:image\/)/.test(url))
+    .some((url) => peekImageSample(url) === undefined);
+}
+
 /** Starts sampling every picture in some CSS, and resolves when they're all read (or after 1.5 s). */
 export function preloadImageSamples(css: string): Promise<void> {
   const urls = cssImageUrls(css).filter((url) => /^(blob:|data:image\/)/.test(url));
