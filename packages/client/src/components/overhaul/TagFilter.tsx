@@ -50,11 +50,17 @@ export function TagFilter({
   untagged,
   picked,
   onChange,
+  compact = false,
+  className,
 }: {
   tags: TagCount[];
   untagged: number;
   picked: string[];
   onChange: (next: string[]) => void;
+  /** Icon (plus picked count) only, for narrow toolbars such as the Chats list in the sidebar. */
+  compact?: boolean;
+  /** Replaces the default `ov-btn` look, so the button can match its neighbours. */
+  className?: string;
 }) {
   const localize = useLocalizedUiText();
   const [open, setOpen] = useState(false);
@@ -134,7 +140,7 @@ export function TagFilter({
       <button
         ref={buttonRef}
         type="button"
-        className={cn("ov-btn ov-tagfilter", active && "is-on")}
+        className={cn(className ?? "ov-btn", "ov-tagfilter", compact && "ov-tagfilter--compact", active && "is-on")}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={localize("Filter by tag")}
