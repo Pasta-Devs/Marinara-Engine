@@ -14,7 +14,7 @@ import {
 import { X, Users, BookOpen, FileText, Link, Sparkles, Settings, VenetianMask, Bot, Puzzle } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulActive } from "../../stores/overhaul.store";
-import { LibraryNav } from "../overhaul/LibraryNav";
+import { OverhaulSidePane } from "../overhaul/SidePane";
 import { cn } from "../../lib/utils";
 import { usePersonalExtensionContributions } from "../../lib/personal-extension-contributions";
 import { PersonalExtensionContributionIcon } from "../extensions/PersonalExtensionContributionIcon";
@@ -134,9 +134,9 @@ function PanelFallback() {
 }
 
 export function RightPanel() {
-  // UI overhaul preview: the right pane is the Library section list.
+  // UI overhaul: the right pane is the one sidebar (Chats | Library).
   const overhaulActive = useOverhaulActive();
-  return overhaulActive ? <LibraryNav /> : <StandardRightPanel />;
+  return overhaulActive ? <OverhaulSidePane /> : <StandardRightPanel />;
 }
 
 function StandardRightPanel() {

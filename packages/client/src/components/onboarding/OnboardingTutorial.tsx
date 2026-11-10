@@ -222,7 +222,7 @@ const STEPS: TourStep[] = [
 ];
 
 /**
- * The tour for the new layout: chats on the left, the Library on the right, tabs and search in the top bar.
+ * The tour for the new layout: Chats and the Library share one sidebar on the right, tabs and search in the top bar.
  * It explains the three chat modes once, points at the Docs, and never points at old-layout controls.
  */
 const OVERHAUL_STEPS: TourStep[] = [
@@ -239,7 +239,7 @@ const OVERHAUL_STEPS: TourStep[] = [
     titleKey: "onboarding.overhaul.chats.title",
     bodyKey: "onboarding.overhaul.chats.body",
     phoneBodyKey: "onboarding.overhaul.chats.phoneBody",
-    side: "right",
+    side: "left",
     besideTarget: true,
     openSidebar: true,
     sprite: { pose: "point-middle" },
@@ -248,7 +248,7 @@ const OVERHAUL_STEPS: TourStep[] = [
     target: "chat-modes",
     titleKey: "onboarding.overhaul.modes.title",
     bodyKey: "onboarding.overhaul.modes.body",
-    side: "right",
+    side: "left",
     besideTarget: true,
     openSidebar: true,
     sprite: { pose: "explaining" },
@@ -839,6 +839,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
       setActiveChatId(null);
       closeRightPanel();
       setSidebarOpen(false);
+      useOverhaulStore.getState().setMobileSidePageOpen(false);
       return;
     }
 
@@ -856,6 +857,10 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
 
     if (currentStep.openPanel) {
       setSidebarOpen(false);
+      // New layout: the right sidebar shows its Library view for these steps (phones: the page closes, the
+      // section's own page shows).
+      useOverhaulStore.getState().setSidePane("library");
+      useOverhaulStore.getState().setMobileSidePageOpen(false);
       openRightPanel(currentStep.openPanel);
       if (currentStep.settingsTab) {
         setSettingsTab(currentStep.settingsTab);
@@ -903,6 +908,8 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
   }, [updateRect]);
 
   const finish = useCallback(() => {
+    // Phones and tablets: a step may have slid the sidebar page open; the tour leaves the screen clear.
+    useOverhaulStore.getState().setMobileSidePageOpen(false);
     if (tourSettingsTabRef.current) {
       useOverhaulStore.getState().setSettingsTab(tourSettingsTabRef.current);
       tourSettingsTabRef.current = null;
