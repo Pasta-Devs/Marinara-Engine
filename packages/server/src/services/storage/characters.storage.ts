@@ -1331,7 +1331,9 @@ export function createCharactersStorage(db: DB) {
         await writePersonaRow(database, { ...current, ...sets } as PersonaStorageRow);
         return selectPersonaRow(database, id);
       };
-      return updates.avatarPath !== undefined ? db.transaction(persistUpdate) : persistUpdate(db);
+      // The whole card is rewritten from the row read above, so every update runs in a transaction:
+      // two concurrent saves of different fields must not drop each other's change.
+      return db.transaction(persistUpdate);
     },
 
     async restorePersonaVersion(personaId: string, versionId: string) {

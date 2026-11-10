@@ -11,6 +11,7 @@ import {
 import { MariDbService } from "../../packages/server/src/services/mari-db/mari-db.service.js";
 import { sanitizeProfileTableRows } from "../../packages/server/src/routes/backup.routes.js";
 import { projectPersona } from "../../packages/server/src/services/personas/persona-projector.js";
+import { createCharactersStorage } from "../../packages/server/src/services/storage/characters.storage.js";
 import {
   completePersonaRow,
   personaRowFromStored,
@@ -330,6 +331,25 @@ try {
       row.description,
       "Restore of a pre-upgrade review brings back the authored description",
     );
+  }
+
+  // 12. Each update rewrites the whole card, so concurrent updates of different fields must both land.
+  {
+    const row = legacyRow("persona-concurrent", "Concurrent");
+    tempRoot();
+    const db = await createFileNativeDB();
+    await db.insert(personas).values(storedPersonaFromRow(row));
+    const storage = createCharactersStorage(db);
+    await Promise.all([
+      storage.updatePersona(row.id, { description: "from the editor" }),
+      storage.updatePersona(row.id, { backstory: "from Mari" }),
+      storage.updatePersona(row.id, { appearance: "from the gallery" }),
+    ]);
+    const after = await storage.getPersona(row.id);
+    await db._fileStore.close();
+    assert.equal(after?.description, "from the editor", "the first concurrent update survives");
+    assert.equal(after?.backstory, "from Mari", "the second concurrent update survives");
+    assert.equal(after?.appearance, "from the gallery", "the third concurrent update survives");
   }
 
   console.info("Persona card migration regression passed.");
