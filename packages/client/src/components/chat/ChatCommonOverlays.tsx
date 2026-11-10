@@ -159,6 +159,7 @@ function DeleteConfirmationDialog({
       width="max-w-sm"
       panelClassName="mari-chat-style-surface mari-chat-action-panel"
       chatFloatingPanel
+      confirm
     >
       <p className="mb-4 text-sm leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
         {t("chat.delete.dialog.description")}
