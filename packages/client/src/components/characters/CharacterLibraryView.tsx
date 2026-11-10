@@ -41,7 +41,7 @@ import {
   type CharacterLibrarySort,
   type ResourcePanelSort,
 } from "../../stores/ui.store";
-import { useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { CardGallery } from "../overhaul/CardGallery";
 
 const libraryToolbarButtonClass =
@@ -437,21 +437,12 @@ export function CharacterLibraryView() {
     return rows;
   }, [characters, initialCharacter.data, isPersonaLibrary, personas]);
 
-  // UI overhaul: the Library pane's tag list filters the Characters gallery.
+  // UI overhaul: the gallery's own tag selector (beside its search) filters by tag.
   const overhaulActive = useOverhaulLook();
-  const overhaulTag = useOverhaulStore((s) =>
-    s.enabled && s.desktop ? (isPersonaLibrary ? s.personaTag : s.characterTag) : null,
-  );
   const filteredCards = useMemo(() => {
     const query = parseCardLibrarySearchQuery(search);
-    const wantedTag = overhaulTag?.toLowerCase() ?? null;
-    return cards.filter(
-      (card) =>
-        matchesCardLibrarySearch(card, query) &&
-        (wantedTag === null ||
-          (wantedTag === "" ? card.tags.length === 0 : card.tags.some((tag) => tag.toLowerCase() === wantedTag))),
-    );
-  }, [cards, overhaulTag, search]);
+    return cards.filter((card) => matchesCardLibrarySearch(card, query));
+  }, [cards, search]);
 
   const sortedCards = useMemo(() => {
     const list = [...filteredCards];
@@ -598,6 +589,7 @@ export function CharacterLibraryView() {
   if (overhaulActive) {
     return (
       <CardGallery
+        key={kind}
         kind={kind}
         title={localize(isPersonaLibrary ? "Personas" : "Characters")}
         cards={filteredCards.map((card) => ({
