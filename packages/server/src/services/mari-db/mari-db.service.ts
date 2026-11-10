@@ -3943,7 +3943,8 @@ export class MariDbService {
       owner === "character"
         ? requiredString(args, ["characterId", "id"], "character id")
         : requiredString(args, ["personaId", "id"], "persona id");
-    const existing = await this.getRawById(getMeta(table), id);
+    const existing: Row | null =
+      owner === "character" ? await this.getRawById(getMeta(table), id) : await this.personaViewById(id);
     if (!existing) throw new Error(`${owner === "character" ? "Character" : "Persona"} ${id} not found`);
     const column = owner === "character" ? "data" : "personaStats";
     const rawColumn = existing[column];
@@ -4013,8 +4014,12 @@ export class MariDbService {
       cwd: context.cwd,
     };
     if (owner === "persona") {
-      const row: Row = { ...parseRow("personas", existing), personaStats: { ...holder, classic }, updatedAt: now() };
-      return this.executeMutation({ kind: "replace", table, id, row, ...mutation }, context.command, context.sessionId);
+      const row: Row = { ...existing, personaStats: { ...holder, classic }, updatedAt: now() };
+      return this.executePersonaMutation(
+        { kind: "replace", table, id, row, ...mutation },
+        context.command,
+        context.sessionId,
+      );
     }
     const name = typeof holder.name === "string" ? holder.name : "";
     const row: Row = {
