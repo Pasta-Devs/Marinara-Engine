@@ -53,6 +53,9 @@ interface ModalProps {
   modeless?: boolean;
   /** Always open on the omnibar's layer, above every other app overlay (app dialogs, even over a package screen). */
   topLayer?: boolean;
+  /** A short "are you sure" question: a light, unblurred see-through backdrop (`--mari-confirm-scrim`)
+   *  so the app stays visible behind it and bright themes don't wash the screen out. */
+  confirm?: boolean;
 }
 
 export function Modal({
@@ -77,6 +80,7 @@ export function Modal({
   dragThrough = false,
   modeless = false,
   topLayer = false,
+  confirm = false,
 }: ModalProps) {
   const sidebarOpen = useUIStore((s) => modeless && s.sidebarOpen);
   const sidebarWidth = useUIStore((s) => (modeless ? s.sidebarWidth : 0));
@@ -239,7 +243,10 @@ export function Modal({
       {!modeless && (
         <div
           data-backdrop-dismiss-surface="true"
-          className="mari-modal-backdrop absolute inset-0 bg-[var(--mari-scrim)] backdrop-blur-[2px]"
+          data-mari-modal-kind={confirm ? "confirm" : undefined}
+          className={`mari-modal-backdrop absolute inset-0 ${
+            confirm ? "bg-[var(--mari-confirm-scrim)]" : "bg-[var(--mari-scrim)] backdrop-blur-[2px]"
+          }`}
           style={{
             opacity: isEntering ? 1 : 0,
             transition: "opacity 150ms ease-out",

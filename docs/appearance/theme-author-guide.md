@@ -214,6 +214,7 @@ sets it, except where a stock value is given.
 | `--mari-chrome-accent`, `--mari-chrome-accent-gradient`    | Now also reach the surfaces that read the accent from `<html>` (the Convo / Roleplay / Game tabs, chrome borders)                                                   |
 | `--mari-focus-frame-outset`                                | How far the focus frame reaches past its surface (a length, at most 2rem; see Slots)                                                                                |
 | `--mari-scrim`                                             | The dim layer behind dialogs                                                                                                                                        |
+| `--mari-confirm-scrim`                                     | The light see-through layer behind short "are you sure" dialogs (keep it faint so bright themes stay calm)                                                          |
 
 The app also publishes `--mari-center-x` on `<html>` while a theme has an ambient overlay: the
 horizontal centre of the chat pane, so a mask can keep the reading column clear whether the sidebars
