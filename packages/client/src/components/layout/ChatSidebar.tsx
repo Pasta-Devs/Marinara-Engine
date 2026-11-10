@@ -117,6 +117,7 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { MobileChatsHomeButton, MobileLibraryButton } from "../overhaul/MobileTopBar";
 import { SwipeActionsRow, type SwipeAction } from "../overhaul/SwipeActionsRow";
 import { RowActionSheet } from "../overhaul/RowActionSheet";
+import { TagFilter, countItemTags, matchesPickedTags } from "../overhaul/TagFilter";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
@@ -349,7 +350,10 @@ export function ChatSidebar() {
   const manualOrder = useLibraryOrder("chat");
   const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
   const [sort, setSort] = useState<ChatSortOption>("recent");
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  // Picked tags: the classic layout picks one chip at a time, the new layout's Tags selector several
+  // (chats carrying all of them, or "Untagged").
+  const [pickedTags, setPickedTags] = useState<string[]>([]);
+  const activeTag = pickedTags[0] ?? null;
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<"conversation" | "roleplay" | "game">("conversation");
   const [scheduleManagerOpen, setScheduleManagerOpen] = useState(false);
@@ -396,7 +400,7 @@ export function ChatSidebar() {
     if (!chatModeShortcutRequest) return;
     setActiveTab(chatModeShortcutRequest.mode);
     setSearchQuery("");
-    setActiveTag(null);
+    setPickedTags([]);
     setTagsExpanded(false);
     exitMultiSelect();
   }, [chatModeShortcutRequest, exitMultiSelect]);
@@ -404,13 +408,13 @@ export function ChatSidebar() {
   // Exit multi-select when switching tabs
   useEffect(() => {
     exitMultiSelect();
-    setActiveTag(null);
+    setPickedTags([]);
     setTagsExpanded(false);
   }, [activeTab, exitMultiSelect]);
 
   useEffect(() => {
     setVisibleChatLimit(CHAT_LIST_PAGE_SIZE);
-  }, [activeTab, searchQuery, activeTag, sort]);
+  }, [activeTab, searchQuery, pickedTags, sort]);
 
   const modeChats = useMemo(
     () =>
@@ -459,18 +463,32 @@ export function ChatSidebar() {
     return [...tags].sort((a, b) => a.localeCompare(b));
   }, [modeChats]);
 
-  useEffect(() => {
-    if (activeTag && !allTags.includes(activeTag)) {
-      setActiveTag(null);
+  // Counted per row the list shows: a chat's branches share one row, so they count once.
+  const tagCounts = useMemo(() => {
+    const threads = new Map<string, Set<string>>();
+    for (const chat of modeChats) {
+      const key = chat.groupId ?? chat.id;
+      const tags = threads.get(key) ?? new Set<string>();
+      for (const tag of getChatTags(chat)) tags.add(tag);
+      threads.set(key, tags);
     }
-  }, [activeTag, allTags]);
+    return countItemTags([...threads.values()].map((tags) => ({ tags: [...tags] })));
+  }, [modeChats]);
+
+  // Drop picked tags no chat in this mode carries any more ("Untagged" stays while it still matches).
+  useEffect(() => {
+    if (!pickedTags.length) return;
+    const known = new Set(allTags.map((tag) => tag.toLowerCase()));
+    const kept = pickedTags.filter((tag) => (tag ? known.has(tag.toLowerCase()) : tagCounts.untagged > 0));
+    if (kept.length !== pickedTags.length) setPickedTags(kept);
+  }, [pickedTags, allTags, tagCounts.untagged]);
 
   const filtered = useMemo(() => {
     const query = normalizeTextForMatch(searchQuery);
 
     return modeChats.filter((chat) => {
       const tags = getChatTags(chat);
-      if (activeTag && !tags.includes(activeTag)) return false;
+      if (!matchesPickedTags(tags, pickedTags)) return false;
       if (!query) return true;
 
       const characterNames = normalizeChatCharacterIds((chat as { characterIds?: unknown }).characterIds)
@@ -486,7 +504,7 @@ export function ChatSidebar() {
         characterNames.some((name) => includesTextForMatch(name, query))
       );
     });
-  }, [modeChats, searchQuery, activeTag, charLookup]);
+  }, [modeChats, searchQuery, pickedTags, charLookup]);
 
   // ── Branch trees ──
   // A group's branches already know their parents (metadata.branchParentChatId), so this only decides
@@ -655,7 +673,7 @@ export function ChatSidebar() {
     }
     return new Map(Array.from(map, ([folderId, ids]) => [folderId, ids.size]));
   }, [modeChats]);
-  const chatListFilterActive = searchQuery.trim().length > 0 || activeTag !== null;
+  const chatListFilterActive = searchQuery.trim().length > 0 || pickedTags.length > 0;
 
   const [localFolderOrder, setLocalFolderOrder] = useState<string[]>([]);
   useEffect(() => {
@@ -748,7 +766,7 @@ export function ChatSidebar() {
       // user is actively browsing search results and shouldn't lose them).
       if (!internalNavRef.current) {
         setSearchQuery("");
-        setActiveTag(null);
+        setPickedTags([]);
         setTagsExpanded(false);
       }
       internalNavRef.current = false;
@@ -1136,6 +1154,7 @@ export function ChatSidebar() {
           onSelect={() => void openChat(row.chat.id)}
           onToggleSelect={() => toggleSelectChat(row.chat.id)}
           onDelete={() => void confirmDeleteChat(row.chat.id, name)}
+          showDelete={!overhaulActive}
         />,
       );
       if (subtree.length > 0) {
@@ -1217,9 +1236,11 @@ export function ChatSidebar() {
     const isBranchRoot = Boolean(branchRows && branchRows.length > 1);
     const displayName = chat.name;
     // Searching matches branch display names too, so a hit can be a branch below the fold: open the
-    // group while a filter is active, the way folder rows force themselves open for a search hit.
+    // group while a search is active, the way folder rows force themselves open for a search hit.
+    // A tag filter matches the whole thread, so its branches stay folded.
     const isExpanded =
-      isBranchRoot && (chatListFilterActive || (chat.groupId != null && expandedBranchGroups.has(chat.groupId)));
+      isBranchRoot &&
+      (searchQuery.trim().length > 0 || (chat.groupId != null && expandedBranchGroups.has(chat.groupId)));
     // Collapsed, the group row stands in for whichever branch is active. Expanded, exactly one row
     // may look current — otherwise every sibling lights up at once.
     const isGroupActive = !isExpanded && chat.groupId != null && chat.groupId === activeGroupId;
@@ -1735,7 +1756,9 @@ export function ChatSidebar() {
             )}
 
             {/* Delete button (phones with swipe gestures delete from the row swipe instead) */}
-            {!multiSelectMode && !swipeRows && (
+            {/* The new layout has no row trash can: one stray click shouldn't delete a chat. Delete
+                lives in Select chats, the right-click menu and the phone's swipe/long-press. */}
+            {!multiSelectMode && !swipeRows && !overhaulActive && (
               <button
                 aria-label={localizeUi("chat.branches.deleteLabel", { name: displayName })}
                 onClick={async (e) => {
@@ -1891,7 +1914,7 @@ export function ChatSidebar() {
       />
 
       {/* Tabs */}
-      <div className="px-3 pt-3">
+      <div className="ov-chats-modes px-3 pt-3">
         <div className="mari-chrome-segmented" data-tour="chat-modes">
           {(["conversation", "roleplay", "game"] as const).map((tab) => {
             const cfg = MODE_CONFIG[tab];
@@ -1983,7 +2006,7 @@ export function ChatSidebar() {
       </div>
 
       {/* Search + filters */}
-      <div className="space-y-1.5 px-3 py-2">
+      <div className="ov-chats-tools space-y-1.5 px-3 py-2">
         <div className="flex gap-1.5">
           <div className="relative min-w-0 flex-1">
             <Search
@@ -2034,13 +2057,25 @@ export function ChatSidebar() {
             onClick={() => openGlobalSearch(searchQuery.trim())}
             className={cn(
               "mari-chrome-control mari-chrome-control--small h-10 w-10 shrink-0 justify-center p-0! md:h-9 md:w-9",
-              overhaulMobile && "!hidden",
+              overhaulActive && "!hidden",
             )}
             title={localizeUi("chatInsights.search.open")}
             aria-label={localizeUi("chatInsights.search.open")}
           >
             <TextSearch size="0.875rem" />
           </button>
+          {/* New layout: one search box; the second button is the same Tags selector as the Library
+              pages (message search stays on Ctrl+Shift+F, the omnibar and the phone's ⋯ menu). */}
+          {overhaulActive ? (
+            <TagFilter
+              tags={tagCounts.tags}
+              untagged={tagCounts.untagged}
+              picked={pickedTags}
+              onChange={setPickedTags}
+              compact
+              className="mari-chrome-control mari-chrome-control--small h-10 min-w-10 shrink-0 justify-center gap-1 px-2.5 md:h-9 md:min-w-9"
+            />
+          ) : null}
           {overhaulMobile ? (
             // "+ New" lives with the list's own tools, as on the Library pages (panel 3, PV7).
             <button
@@ -2159,7 +2194,7 @@ export function ChatSidebar() {
           ) : null}
         </div>
 
-        {allTags.length > 0 && (
+        {!overhaulActive && allTags.length > 0 && (
           <div className="flex max-w-full flex-wrap items-center gap-1">
             <button
               onClick={() => setTagsExpanded((prev) => !prev)}
@@ -2185,7 +2220,7 @@ export function ChatSidebar() {
             </button>
             {activeTag && (
               <button
-                onClick={() => setActiveTag(null)}
+                onClick={() => setPickedTags([])}
                 className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--danger"
               >
                 {localize("Clear")}
@@ -2194,7 +2229,7 @@ export function ChatSidebar() {
             {(tagsExpanded ? allTags : allTags.slice(0, 4)).map((tag) => (
               <button
                 key={tag}
-                onClick={() => setActiveTag((prev) => (prev === tag ? null : tag))}
+                onClick={() => setPickedTags((prev) => (prev[0] === tag ? [] : [tag]))}
                 className={cn(
                   "max-w-full truncate rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
                   activeTag === tag
@@ -2223,7 +2258,7 @@ export function ChatSidebar() {
         ref={chatListRef}
         data-chat-root-drop-zone
         className={cn(
-          "flex-1 overflow-y-auto px-2 pb-1 pt-0.5 transition-colors",
+          "ov-chats-list flex-1 overflow-y-auto px-2 pb-1 pt-0.5 transition-colors",
           isRootDropTarget && "bg-[var(--marinara-chat-chrome-highlight-bg)]",
         )}
         onDragEnter={(event) => {
@@ -2277,7 +2312,7 @@ export function ChatSidebar() {
             </div>
             <p className="mari-chrome-text-muted text-xs">
               {t(
-                `navigation.chatSidebar.empty.${searchQuery.trim() || activeTag ? "filtered" : "initial"}.${activeTab}`,
+                `navigation.chatSidebar.empty.${searchQuery.trim() || pickedTags.length ? "filtered" : "initial"}.${activeTab}`,
               )}
             </p>
             <button
@@ -2294,7 +2329,7 @@ export function ChatSidebar() {
           </div>
         )}
 
-        <div className="stagger-children flex flex-col gap-0.5 px-1">
+        <div className="ov-chats-rows stagger-children flex flex-col gap-0.5 px-1">
           {activeModeHasChats && !overhaulActive && (
             <div className="flex items-center gap-1">
               <button
@@ -2493,6 +2528,7 @@ function BranchRow({
   onSelect,
   onToggleSelect,
   onDelete,
+  showDelete = true,
 }: {
   chatId: string;
   name: string;
@@ -2506,6 +2542,7 @@ function BranchRow({
   onSelect: () => void;
   onToggleSelect: () => void;
   onDelete: () => void;
+  showDelete?: boolean;
 }) {
   // Same click semantics as every other row: multi-select selects, otherwise it opens the chat.
   const handleClick = multiSelectMode ? onToggleSelect : onSelect;
@@ -2553,7 +2590,7 @@ function BranchRow({
       {relativeTime && (
         <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">{relativeTime}</span>
       )}
-      {!multiSelectMode && (
+      {!multiSelectMode && showDelete && (
         <button
           type="button"
           aria-label={deleteLabel}
