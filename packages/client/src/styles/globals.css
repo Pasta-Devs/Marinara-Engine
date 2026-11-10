@@ -1578,7 +1578,7 @@
   overflow: hidden;
   /* Concentric with the card: 1rem card radius - 0.5rem padding. */
   border-radius: 0.5rem;
-  /* The panel's own paint (:where(.mari-sidebar, .mari-right-panel)), not the app background, which is navy in dark. */
+  /* The panel's own paint (--sidebar, as on .mari-sidebar and .mari-right-panel), not the app background, navy in dark. */
   background: var(--sidebar);
 }
 
