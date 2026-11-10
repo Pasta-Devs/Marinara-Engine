@@ -130,6 +130,7 @@ import { getProfessorMariWorkspaceSkillsService } from "../professor-mari/worksp
 import {
   completePersonaRow,
   personaRowFromStored,
+  storedCardBase,
   storedPersonaFromRow,
   type PersonaStorageRow,
   type StoredPersonaRow,
@@ -657,6 +658,7 @@ const PERSONA_VIEW_JSON_COLUMNS = [
   "personaStats",
   "tags",
   "savedStatusOptions",
+  "nameAliases",
   "convoBehavior",
   "cardFieldAlternatives",
 ] as const;
@@ -1793,6 +1795,7 @@ export function buildPersonaCreateRow(data: Row, id: string, timestamp: string):
     personaStats: "",
     tags: firstStringList(data, ["tags"]) ?? [],
     savedStatusOptions: [],
+    nameAliases: firstStringList(data, ["nameAliases", "name_aliases"]) ?? [],
     avatarCrop: "",
     convoDisplayName: firstString(data, ["convoDisplayName", "convo_display_name", "convo-display-name"]) ?? "",
     aboutMe: firstString(data, ["aboutMe", "about_me", "about-me"]) ?? "",
@@ -3694,6 +3697,8 @@ export class MariDbService {
             "creatorNotes",
             "creator_notes",
             "tags",
+            "nameAliases",
+            "name_aliases",
             "phoneticName",
             "phonetic_name",
             "convoDisplayName",
@@ -3745,6 +3750,8 @@ export class MariDbService {
             "creatorNotes",
             "creator_notes",
             "tags",
+            "nameAliases",
+            "name_aliases",
             "phoneticName",
             "phonetic_name",
             "convoDisplayName",
@@ -3790,9 +3797,10 @@ export class MariDbService {
           );
         }
         assignListField(patch, data, ["tags"], "tags");
+        assignListField(patch, data, ["nameAliases", "name_aliases"], "nameAliases");
         if (Object.keys(patch).length <= 1) {
           throw new Error(
-            'persona.update needs a patch field such as name, summary, mes_example, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, comment, creator, or creatorNotes (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
+            'persona.update needs a patch field such as name, summary, mes_example, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, nameAliases, comment, creator, or creatorNotes (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
           );
         }
         return this.executePersonaMutation(
@@ -10876,17 +10884,21 @@ export class MariDbService {
   ): Promise<MariDbCommandResult> {
     const id = request.id;
     if (!id) throw new Error("persona mutation needs an id");
-    const base: PersonaStorageRow | null = request.kind === "insert" ? null : await this.personaViewById(id);
+    // One read gives both the flat view and the card base, so they come from the same stored row.
+    const storedRow = request.kind === "insert" ? null : await this.getRawById(getMeta("personas"), id);
+    const base: PersonaStorageRow | null = storedRow ? personaRowFromStored(storedRow as StoredPersonaRow) : null;
     if (request.kind !== "insert" && !base) {
       await this.requireRawById(getMeta("personas"), id);
     }
     const changes = serializePersonaView((request.kind === "patch" ? request.patch : request.row) ?? {});
     const view = completePersonaRow({ ...(base ?? {}), ...changes, id } as PersonaStorageRow);
     const { patch: _patch, ...rest } = request;
+    // Overlay the stored card so extensions the flat view does not carry survive the replace.
+    const cardBase = storedRow ? storedCardBase(storedRow.data) : undefined;
     const stored: ParsedMutationRequest = {
       ...rest,
       kind: request.kind === "insert" ? "insert" : "replace",
-      row: storedPersonaFromRow(view) as unknown as Row,
+      row: storedPersonaFromRow(view, cardBase) as unknown as Row,
     };
     return this.executeMutation(stored, command, sessionId);
   }

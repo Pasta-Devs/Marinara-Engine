@@ -82,6 +82,7 @@ function legacyRow(id: string, name: string): PersonaStorageRow {
     personaStats: JSON.stringify({ enabled: false, bars: [] }),
     tags: JSON.stringify(["hero", "test"]),
     savedStatusOptions: JSON.stringify(["online"]),
+    nameAliases: JSON.stringify(["Alias One", "Alias Two"]),
     convoDisplayName: `${name} (convo)`,
     aboutMe: "about me",
     convoBehavior: "chatty",
@@ -239,10 +240,16 @@ try {
     const [exported] = sanitizeProfileTableRows("personas", [stored]);
     assert.equal(exported!.data, undefined, "no card blob in the exported row");
     assert.equal(exported!.name, "Export");
+    assert.equal(exported!.nameAliases, JSON.stringify(["Alias One", "Alias Two"]), "aliases leave in the flat row");
     assert.equal(personaRowNeedsCardMigration(exported!), true, "the importer converts it like any legacy row");
     assert.deepEqual(
       projectPersona(personaRowFromStored(migrateLegacyPersonaRow(exported!) as StoredPersonaRow)),
       projectPersona(personaRowFromStored(stored as StoredPersonaRow)),
+    );
+    assert.deepEqual(
+      projectPersona(personaRowFromStored(migrateLegacyPersonaRow(exported!) as StoredPersonaRow)).nameAliases,
+      ["Alias One", "Alias Two"],
+      "aliases survive the profile import",
     );
   }
 
@@ -384,6 +391,49 @@ try {
     assert.equal(after?.description, "from the editor", "the first concurrent update survives");
     assert.equal(after?.backstory, "from Mari", "the second concurrent update survives");
     assert.equal(after?.appearance, "from the gallery", "the third concurrent update survives");
+  }
+
+  // 13. Mari's persona.create and persona.update carry other names (they used to drop the key).
+  {
+    tempRoot();
+    const db = await createFileNativeDB();
+    const mari = new MariDbService(db);
+    const created = await mari.executeAction({
+      action: "persona.create",
+      data: { name: "Clark", nameAliases: ["Kal-El", " Mr. Kent ", "Kal-El", "  "] },
+      apply: true,
+    });
+    assert.equal(created.ok, true, JSON.stringify(created));
+    const storage = createCharactersStorage(db);
+    const [made] = (await storage.listPersonas()).filter((persona) => persona.name === "Clark");
+    assert.deepEqual(projectPersona(made!).nameAliases, ["Kal-El", "Mr. Kent"], "persona.create keeps other names");
+    const updated = await mari.executeAction({
+      action: "persona.update",
+      personaId: made!.id,
+      data: { name_aliases: ["Superman"] },
+      apply: true,
+    });
+    assert.equal(updated.ok, true, JSON.stringify(updated));
+    const after = await storage.getPersona(made!.id);
+    await db._fileStore.close();
+    assert.deepEqual(projectPersona(after!).nameAliases, ["Superman"], "persona.update replaces other names");
+  }
+
+  // 14. Other names are versioned: changing them snapshots the card, and a restore brings them back.
+  {
+    const row = legacyRow("persona-versioned-aliases", "Versioned");
+    tempRoot();
+    const db = await createFileNativeDB();
+    await db.insert(personas).values(storedPersonaFromRow({ ...row, nameAliases: '["Old name"]' }));
+    const storage = createCharactersStorage(db);
+    await storage.updatePersona(row.id, { nameAliases: '["New name"]' });
+    const versions = await storage.listPersonaVersions(row.id);
+    const before = versions.find((version) => version.data.nameAliases === '["Old name"]');
+    assert.ok(before, "changing other names snapshots the earlier ones");
+    await storage.restorePersonaVersion(row.id, before!.id);
+    const after = await storage.getPersona(row.id);
+    await db._fileStore.close();
+    assert.deepEqual(projectPersona(after!).nameAliases, ["Old name"], "a restore brings back the other names");
   }
 
   console.info("Persona card migration regression passed.");

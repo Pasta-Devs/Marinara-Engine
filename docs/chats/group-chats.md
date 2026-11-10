@@ -123,4 +123,4 @@ A hint under the setting tells you when something is missing: no Decision model 
 - **Nobody active is ignored.** A result that would turn everyone off is not applied.
 - **A Character Activity agent wins.** A chat with a custom agent using the **Character Activity** result type keeps that agent in charge.
 
-The Character Tracker writes its own name for each character. Marinara matches it to a card by card id, then name, then the name aliases on the **Colors** tab. A tracker list that names none of the chat's characters keeps the current list. Automation runs before every reply, swipe and regenerate, and skips **Continue** and impersonation. The setting is saved in settings profiles. Pins stay with the one chat.
+The Character Tracker writes its own name for each character. Marinara matches it to a card by card id, then name, then the **Other names** on the card's **Metadata** tab. A tracker list that names none of the chat's characters keeps the current list. Automation runs before every reply, swipe and regenerate, and skips **Continue** and impersonation. The setting is saved in settings profiles. Pins stay with the one chat.

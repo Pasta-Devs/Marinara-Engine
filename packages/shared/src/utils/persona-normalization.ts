@@ -43,6 +43,23 @@ export function normalizePersonaStringArray(value: unknown): string[] {
   return Array.isArray(decoded) ? decoded.filter((item): item is string => typeof item === "string") : [];
 }
 
+/**
+ * Name aliases: trimmed, non-empty strings, unique ignoring case (the first spelling wins, as in
+ * the editor); anything else reads as none.
+ */
+export function normalizeNameAliases(value: unknown): string[] {
+  const seen = new Set<string>();
+  const aliases: string[] = [];
+  for (const item of normalizePersonaStringArray(value)) {
+    const alias = item.trim();
+    const key = alias.toLowerCase();
+    if (!alias || seen.has(key)) continue;
+    seen.add(key);
+    aliases.push(alias);
+  }
+  return aliases;
+}
+
 /** Canonicalize serialized or decoded tracker configuration without UI presentation concerns. */
 export function normalizeTrackerCardColorConfig(value: unknown): TrackerCardColorConfig & UnknownRecord {
   const config = decodeJsonValue(value);

@@ -44,6 +44,7 @@ const LEGACY_PERSONA_COLUMNS: Record<keyof PersonaStorageRow, string> = {
   personaStats: "persona_stats",
   tags: "tags",
   savedStatusOptions: "saved_status_options",
+  nameAliases: "name_aliases",
   convoDisplayName: "convo_display_name",
   aboutMe: "about_me",
   convoBehavior: "convo_behavior",

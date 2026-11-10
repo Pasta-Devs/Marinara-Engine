@@ -111,6 +111,7 @@ import { CombatStyleSection } from "../../features/chat-settings/sections/Combat
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { useHasDecisionModel } from "../../hooks/use-decision-model";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
+import { resolvePersonaInlineNames } from "../../lib/inline-name-colors";
 import { ConnectionSection, type ChatConnectionOption } from "../../features/chat-settings/sections/ConnectionSection";
 import { ConversationPromptSection } from "../../features/chat-settings/sections/ConversationPromptSection";
 import { DiscordMirrorControls } from "../../features/chat-settings/sections/DiscordMirrorSection";
@@ -1285,6 +1286,8 @@ export function ChatSettingsDrawer({
   const legacyColorInlineNames = useUIStore((s) => s.colorInlineNames);
   const colorInlineNames =
     typeof metadata.colorInlineNames === "boolean" ? metadata.colorInlineNames : legacyColorInlineNames;
+  // Unset follows the character switch, so a chat with coloring off stays unchanged.
+  const colorPersonaInlineNames = resolvePersonaInlineNames(metadata.colorPersonaInlineNames, colorInlineNames);
   const activeCardsHaveCss = useMemo(() => {
     if (!allCharacters) return false;
     const byId = new Map((allCharacters as Array<{ id: string; data: unknown }>).map((c) => [c.id, c]));
@@ -6460,6 +6463,22 @@ export function ChatSettingsDrawer({
                     : (personas.find((persona) => persona.id === chat.personaId)?.name ?? null)
                 }
               />
+              {isRoleplayMode && (
+                <SettingsSwitch
+                  label={localizeUi("ui.chat.chatsettingsdrawer.colorPersonaNameInText")}
+                  description={localizeUi("ui.chat.chatsettingsdrawer.colorPersonaNameInTextDescription")}
+                  checked={colorPersonaInlineNames}
+                  onChange={(checked) => updateMeta.mutate({ id: chat.id, colorPersonaInlineNames: checked })}
+                  labelPosition="start"
+                  className={cn(
+                    "mt-2 justify-between rounded-md px-3 py-2.5 text-left",
+                    colorPersonaInlineNames
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                  )}
+                  labelClassName="text-[0.6875rem] font-medium"
+                />
+              )}
             </Section>
           )}
 

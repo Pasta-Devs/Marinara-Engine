@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { personaCreateInputSchema } from "../../packages/shared/src/schemas/persona.schema.js";
+import { eq } from "../../packages/server/src/db/file-query.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-persona-api-"));
 const previousFileStorageDir = process.env.FILE_STORAGE_DIR;
@@ -244,6 +245,40 @@ try {
     "Edited description",
     "clearing avatarCrop and tags must preserve the edited description",
   );
+
+  // Name aliases: PATCH, read back, keep when omitted, clear with [].
+  const aliasPersona = await requestJson("POST", "/api/characters/personas", 200, { name: "Alias Persona" });
+  assert.deepEqual(aliasPersona.nameAliases, []);
+  const aliasPatched = await requestJson("PATCH", `/api/characters/personas/${aliasPersona.id}`, 200, {
+    nameAliases: ["Kit", "Kat"],
+  });
+  assert.deepEqual(aliasPatched.nameAliases, ["Kit", "Kat"]);
+  await requestJson("PATCH", `/api/characters/personas/${aliasPersona.id}`, 200, { description: "Aliased" });
+  const aliasKept = await requestJson("GET", `/api/characters/personas/${aliasPersona.id}`, 200);
+  assert.deepEqual(aliasKept.nameAliases, ["Kit", "Kat"], "an omitted nameAliases keeps the old value");
+  await requestStatus("PATCH", `/api/characters/personas/${aliasPersona.id}`, 400, { nameAliases: "Kit" });
+  const aliasCleared = await requestJson("PATCH", `/api/characters/personas/${aliasPersona.id}`, 200, {
+    nameAliases: [],
+  });
+  assert.deepEqual(aliasCleared.nameAliases, []);
+
+  // A card extension the persona mapping does not know survives a normal save (foreign data kept).
+  {
+    const [storedRow] = await db.select().from(personas).where(eq(personas.id, aliasPersona.id));
+    const card = JSON.parse(storedRow!.data);
+    card.extensions.someoneElsesKey = { x: 1 };
+    card.first_mes = "Kept greeting";
+    await db
+      .update(personas)
+      .set({ data: JSON.stringify(card) })
+      .where(eq(personas.id, aliasPersona.id));
+    await requestJson("PATCH", `/api/characters/personas/${aliasPersona.id}`, 200, { description: "x" });
+    const [after] = await db.select().from(personas).where(eq(personas.id, aliasPersona.id));
+    const afterCard = JSON.parse(after!.data);
+    assert.deepEqual(afterCard.extensions.someoneElsesKey, { x: 1 }, "a save keeps foreign card extensions");
+    assert.equal(afterCard.first_mes, "Kept greeting", "a save keeps the card's greeting");
+    assert.equal(afterCard.description, "x");
+  }
 
   const statIconsClearPatch = await requestJson("PATCH", `/api/characters/personas/${decodedPersona.id}`, 200, {
     trackerCardColors: { mode: "custom", statIcons: [] },

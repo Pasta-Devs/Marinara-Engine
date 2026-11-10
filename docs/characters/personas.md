@@ -72,6 +72,7 @@ The **Metadata** tab shows:
 - **Persona ID**, with **Copy**.
 - The avatar crop.
 - **Name** and **Creator**.
+- **Other names**, nicknames, full names or titles the persona also goes by. Roleplay chats can paint them in the name color, see [Color your name in messages](choosing-your-persona.md#color-your-name-in-messages).
 - **Phonetic name**, used only when text-to-speech reads your name.
 - **Title / Comment**, a short label.
 - **Version**, default `1.0`, with an **Automatic versioning** switch.

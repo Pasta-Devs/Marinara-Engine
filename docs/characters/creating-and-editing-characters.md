@@ -56,6 +56,7 @@ The **Metadata** tab holds identity and organization details. They help you sort
 
 - **Character ID**. Read-only. It appears after the card is saved. Click **Copy** to copy it.
 - **Name**. The display name. It is `{{char}}` in prompts, a placeholder that Marinara replaces with the character's name.
+- **Other names**. Nicknames, full names or titles the character also goes by, such as `Clark Kent, Kal-El, Mr. Kent`. Type several separated by commas and press <kbd>Enter</kbd> or click **Add**. Roleplay chats can paint them in the name color, and the Character Tracker uses them to find the card. See [Character Colors](colors-and-stats.md#the-three-colors).
 - **Creator**. Who made the card, for credit when you share it.
 - **Version**. A version number you set, such as `1.0`. The **Automatic versioning** switch next to it keeps earlier versions and raises this number when the card changes. Version history only saves snapshots while this switch is on.
 - **Talkativeness**. A slider from 0 to 100 percent. It sets how often this character speaks in group chats. The default is 50 percent.
