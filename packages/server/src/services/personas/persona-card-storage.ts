@@ -40,6 +40,7 @@ export type PersonaStorageRow = {
   personaStats: string;
   tags: string;
   savedStatusOptions: string;
+  nameAliases: string;
   convoDisplayName: string;
   aboutMe: string;
   convoBehavior: string;
@@ -75,6 +76,7 @@ const PERSONA_COLUMN_DEFAULTS = {
   personaStats: "",
   tags: "[]",
   savedStatusOptions: "[]",
+  nameAliases: "[]",
   convoDisplayName: "",
   aboutMe: "",
   convoBehavior: "",
@@ -99,8 +101,12 @@ export function completePersonaRow(
   } as PersonaStorageRow;
 }
 
-/** Fold a flat persona row into record metadata plus one serialized CharacterData card. */
-export function storedPersonaFromRow(row: PersonaStorageRow): StoredPersonaRow {
+/**
+ * Fold a flat persona row into record metadata plus one serialized CharacterData card. Pass the
+ * currently stored card as `base` when updating, so greetings, lore and extensions the persona
+ * view does not know survive the save.
+ */
+export function storedPersonaFromRow(row: PersonaStorageRow, base?: CharacterData): StoredPersonaRow {
   const {
     id: _id,
     comment: _comment,
@@ -112,7 +118,7 @@ export function storedPersonaFromRow(row: PersonaStorageRow): StoredPersonaRow {
   } = projectPersona(row);
   return {
     id: row.id,
-    data: JSON.stringify(cardFromPersona(authored)),
+    data: JSON.stringify(cardFromPersona(authored, base)),
     comment: row.comment,
     avatarPath: row.avatarPath,
     isActive: row.isActive,
@@ -120,6 +126,18 @@ export function storedPersonaFromRow(row: PersonaStorageRow): StoredPersonaRow {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+/** The stored card to overlay on save; an unreadable or missing card means no base. */
+export function storedCardBase(data: unknown): CharacterData | undefined {
+  if (typeof data !== "string") return undefined;
+  try {
+    const parsed: unknown = JSON.parse(data);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+  } catch {
+    return undefined;
+  }
+  return parseStoredCard(data);
 }
 
 function parseStoredCard(data: string): CharacterData {
@@ -194,6 +212,7 @@ export function personaRowFromStored(stored: StoredPersonaRow): PersonaStorageRo
     personaStats: encoded.personaStats ?? PERSONA_COLUMN_DEFAULTS.personaStats,
     tags: encoded.tags ?? PERSONA_COLUMN_DEFAULTS.tags,
     savedStatusOptions: encoded.savedStatusOptions ?? PERSONA_COLUMN_DEFAULTS.savedStatusOptions,
+    nameAliases: encoded.nameAliases ?? PERSONA_COLUMN_DEFAULTS.nameAliases,
     convoDisplayName: encoded.convoDisplayName ?? PERSONA_COLUMN_DEFAULTS.convoDisplayName,
     aboutMe: encoded.aboutMe ?? PERSONA_COLUMN_DEFAULTS.aboutMe,
     convoBehavior: encoded.convoBehavior ?? PERSONA_COLUMN_DEFAULTS.convoBehavior,

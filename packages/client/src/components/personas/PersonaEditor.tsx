@@ -275,6 +275,8 @@ interface PersonaFormData {
   tags: string[];
   /** Saved Conversation mode activity/status options, kept decoded in form state. */
   savedStatusOptions: string[];
+  /** Other names the persona answers to; no editor control yet, carried so saves and card copies keep them. */
+  nameAliases: string[];
   /** Conversation-mode-only fields. */
   convoDisplayName: string;
   aboutMe: string;
@@ -389,6 +391,7 @@ function personaFormFromPersona(persona: Persona): PersonaFormData {
     personaStats: persona.personaStats ?? null,
     tags: persona.tags ?? [],
     savedStatusOptions: persona.savedStatusOptions ?? [],
+    nameAliases: persona.nameAliases ?? [],
     convoDisplayName: persona.convoDisplayName ?? "",
     aboutMe: persona.aboutMe ?? "",
     convoBehavior: persona.convoBehavior ?? null,

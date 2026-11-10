@@ -130,6 +130,7 @@ import { getProfessorMariWorkspaceSkillsService } from "../professor-mari/worksp
 import {
   completePersonaRow,
   personaRowFromStored,
+  storedCardBase,
   storedPersonaFromRow,
   type PersonaStorageRow,
   type StoredPersonaRow,
@@ -657,6 +658,7 @@ const PERSONA_VIEW_JSON_COLUMNS = [
   "personaStats",
   "tags",
   "savedStatusOptions",
+  "nameAliases",
   "convoBehavior",
   "cardFieldAlternatives",
 ] as const;
@@ -1793,6 +1795,7 @@ export function buildPersonaCreateRow(data: Row, id: string, timestamp: string):
     personaStats: "",
     tags: firstStringList(data, ["tags"]) ?? [],
     savedStatusOptions: [],
+    nameAliases: firstStringList(data, ["nameAliases", "name_aliases"]) ?? [],
     avatarCrop: "",
     convoDisplayName: firstString(data, ["convoDisplayName", "convo_display_name", "convo-display-name"]) ?? "",
     aboutMe: firstString(data, ["aboutMe", "about_me", "about-me"]) ?? "",
@@ -10883,10 +10886,13 @@ export class MariDbService {
     const changes = serializePersonaView((request.kind === "patch" ? request.patch : request.row) ?? {});
     const view = completePersonaRow({ ...(base ?? {}), ...changes, id } as PersonaStorageRow);
     const { patch: _patch, ...rest } = request;
+    // Overlay the stored card so extensions the flat view does not carry survive the replace.
+    const cardBase =
+      request.kind === "insert" ? undefined : storedCardBase((await this.getRawById(getMeta("personas"), id))?.data);
     const stored: ParsedMutationRequest = {
       ...rest,
       kind: request.kind === "insert" ? "insert" : "replace",
-      row: storedPersonaFromRow(view) as unknown as Row,
+      row: storedPersonaFromRow(view, cardBase) as unknown as Row,
     };
     return this.executeMutation(stored, command, sessionId);
   }

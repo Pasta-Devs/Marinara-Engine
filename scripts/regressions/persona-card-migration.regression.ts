@@ -82,6 +82,7 @@ function legacyRow(id: string, name: string): PersonaStorageRow {
     personaStats: JSON.stringify({ enabled: false, bars: [] }),
     tags: JSON.stringify(["hero", "test"]),
     savedStatusOptions: JSON.stringify(["online"]),
+    nameAliases: JSON.stringify(["Alias One", "Alias Two"]),
     convoDisplayName: `${name} (convo)`,
     aboutMe: "about me",
     convoBehavior: "chatty",
@@ -239,10 +240,16 @@ try {
     const [exported] = sanitizeProfileTableRows("personas", [stored]);
     assert.equal(exported!.data, undefined, "no card blob in the exported row");
     assert.equal(exported!.name, "Export");
+    assert.equal(exported!.nameAliases, JSON.stringify(["Alias One", "Alias Two"]), "aliases leave in the flat row");
     assert.equal(personaRowNeedsCardMigration(exported!), true, "the importer converts it like any legacy row");
     assert.deepEqual(
       projectPersona(personaRowFromStored(migrateLegacyPersonaRow(exported!) as StoredPersonaRow)),
       projectPersona(personaRowFromStored(stored as StoredPersonaRow)),
+    );
+    assert.deepEqual(
+      projectPersona(personaRowFromStored(migrateLegacyPersonaRow(exported!) as StoredPersonaRow)).nameAliases,
+      ["Alias One", "Alias Two"],
+      "aliases survive the profile import",
     );
   }
 

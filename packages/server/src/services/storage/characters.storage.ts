@@ -4,6 +4,7 @@
 import { and, asc, desc, eq, inArray, jsonStringArrayContainsAll, like, ne, or } from "../../db/file-query.js";
 import {
   personaRowFromStored,
+  storedCardBase,
   storedPersonaFromRow,
   type PersonaStorageRow,
 } from "../personas/persona-card-storage.js";
@@ -205,6 +206,7 @@ export type PersonaStorageWriteFields = Pick<
   | "personaStats"
   | "tags"
   | "savedStatusOptions"
+  | "nameAliases"
   | "convoDisplayName"
   | "aboutMe"
   | "convoBehavior"
@@ -329,7 +331,10 @@ async function selectPersonaRow(database: DB, id: string) {
 
 /** Write a full flat persona view back as its stored row. */
 async function writePersonaRow(database: DB, row: PersonaStorageRow) {
-  const { id: _id, createdAt: _createdAt, ...stored } = storedPersonaFromRow(row);
+  // Overlay the stored card so extensions the flat view does not carry survive the save.
+  const [current] = await database.select().from(personas).where(eq(personas.id, row.id));
+  const base = storedCardBase(current?.data);
+  const { id: _id, createdAt: _createdAt, ...stored } = storedPersonaFromRow(row, base);
   await database.update(personas).set(stored).where(eq(personas.id, row.id));
 }
 
@@ -1134,6 +1139,7 @@ export function createCharactersStorage(db: DB) {
         personaStats: extra?.personaStats ?? "",
         tags: extra?.tags ?? "[]",
         savedStatusOptions: extra?.savedStatusOptions ?? "[]",
+        nameAliases: extra?.nameAliases ?? "[]",
         convoDisplayName: extra?.convoDisplayName ?? "",
         aboutMe: extra?.aboutMe ?? "",
         convoBehavior: extra?.convoBehavior ?? "",
@@ -1202,6 +1208,7 @@ export function createCharactersStorage(db: DB) {
           personaStats: source.personaStats ?? "",
           tags: source.tags ?? "[]",
           savedStatusOptions: source.savedStatusOptions ?? "[]",
+          nameAliases: source.nameAliases ?? "[]",
           convoDisplayName: source.convoDisplayName ?? "",
           aboutMe: source.aboutMe ?? "",
           convoBehavior: source.convoBehavior ?? "",
@@ -1261,6 +1268,7 @@ export function createCharactersStorage(db: DB) {
       if (updates.personaStats !== undefined) sets.personaStats = updates.personaStats;
       if (updates.tags !== undefined) sets.tags = updates.tags;
       if (updates.savedStatusOptions !== undefined) sets.savedStatusOptions = updates.savedStatusOptions;
+      if (updates.nameAliases !== undefined) sets.nameAliases = updates.nameAliases;
       if (updates.convoDisplayName !== undefined) sets.convoDisplayName = updates.convoDisplayName;
       if (updates.aboutMe !== undefined) sets.aboutMe = updates.aboutMe;
       if (updates.convoBehavior !== undefined) sets.convoBehavior = updates.convoBehavior;
