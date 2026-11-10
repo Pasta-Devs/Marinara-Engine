@@ -4650,6 +4650,7 @@
 :root[data-overhaul="mobile"] .ov-gallery__head > .ovm-lp-filter.ovm-conn-group:not(#ovm-x) {
   flex: 0 0 auto;
   max-width: none;
+}
 
 /* ─── The one sidebar as a page that slides over from the right (Library button) ─── */
 .ovm-sidepage {
