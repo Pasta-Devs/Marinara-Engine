@@ -12377,10 +12377,13 @@ input.ov-edhead__title:not(#ov-x) {
   }
   /* Every toolbar row spans the full width, so the rows' right edges line up instead of
      ending at different points: search gets its own line, the rest share a line evenly. */
-  .ov-gallery__head > .ov-btn:not(.ov-btn--icon),
-  .ov-gallery__tools > .ov-btn:not(.ov-btn--icon) {
+  .ov-gallery__head > .ov-btn:not(.ov-btn--icon) {
     flex: 1 1 auto;
     justify-content: center;
+  }
+  /* Sort buttons (Favourites, Recently edited) share the row evenly. */
+  .ov-gallery__tools > .ov-btn:not(.ov-btn--icon) {
+    flex: 1 1 0;
   }
   .ov-gallery__spacer {
     display: none;
@@ -12504,4 +12507,10 @@ input.ov-edhead__title:not(#ov-x) {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.25rem;
   }
+}
+
+/* Sort buttons in a gallery toolbar (Favourites, Recently edited) are one set: same width. */
+.ov-gallery__tools > .ov-btn:not(.ov-btn--icon) {
+  min-width: 9.5rem;
+  justify-content: center;
 }
