@@ -217,7 +217,7 @@ By default a storm only flashes the screen. Add `--mari-weather-lightning-bolt` 
 }
 ```
 
-The bolt strikes down the left or right edge of the screen, never across the middle where the chat text is. It forks into several branches and glows in your lightning colour. It only shows while the app's own flash is up and fades with it, so a theme can't add flashes or make them faster. In pixel style the bolt is drawn in blocks on the pixel grid. Most starter themes use bolts: Apogee Lounge, Copperplate Engine, Dewglass, Dustwire, Gutterlight, Under Sail and Velvet Casket. Granite Watch turns them off because it is set indoors.
+The bolt strikes down the left or right edge of the screen, never across the middle where the chat text is. It forks into several branches and glows in your lightning colour. It only shows while the app's own flash is up and fades with it, so a theme can't add flashes or make them faster. In pixel style the bolt is drawn in blocks on the pixel grid. Most starter themes use bolts: Apogee Lounge, Dewglass, Gutterlight, Under Sail and Velvet Casket. Granite Watch turns them off because it is set indoors.
 
 ## Make your backdrop follow the weather
 
@@ -291,10 +291,8 @@ Every starter theme in the theme gallery shows off weather. Download one, click 
 - **Lantern Path**: its own painted leaves, warm fireflies, no app sun (the backdrop paints its own light) and backdrops that turn overcast or snowy with the weather.
 - **Dewglass**: its own soap bubbles for motes, code-drawn crystal snowflakes, aqua rain, cyan lightning bolts and lagoon backdrops that turn overcast, frozen or misty.
 - **Velvet Casket**: a different storm for day and night: pink bolts and lilac rain by day, violet-white bolts and silver rain over the cemetery at night, with its own bats and rose petals in the wind.
-- **Copperplate Engine**: fog turns into warm engine steam, wind blows punched-card chads, and violet galvanic bolts strike down the side gutters.
 - **Gutterlight**: cold comic-book rain, torn newsprint in the wind, sodium-yellow smog, and a storm backdrop with water pouring off the gargoyles as the bolts strike.
 - **Under Sail**: a squall at sea with white-blue bolts down the rigging, sea fog, snow on the rail and ratlines, and gull feathers in the wind.
-- **Dustwire**: the world's own weather: pale sulphur acid rain, dry amber lightning in a dust storm, grey ash instead of snow, and torn tags and rust flakes in the wind.
 - **Apogee Lounge**: space weather seen through the lounge window. A storm becomes an ion storm in a nebula with violet plasma bolts, rain becomes micrometeor streaks, snow becomes an ice field and fog becomes nebula haze. A mask keeps all of it inside the glass.
 - **Granite Watch**: an indoor theme, so weather stays as faint as a theme allows. Rain reads as drips from the conduits, snow as plaster dust, bolts are off and the app's flash is tinted as a lamp flicker. Look here to see how to quiet weather for an indoor setting.
 
