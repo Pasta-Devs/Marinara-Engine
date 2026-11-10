@@ -93,7 +93,7 @@ import {
   UserRound,
   Dices,
 } from "lucide-react";
-import { RoleplayRulesetSettings } from "./RoleplayRulesetWindow";
+import { RoleplayRulesetSettings } from "./RoleplayRuleset";
 import { NEUTRAL_PANEL_SCROLL_AREA, SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { FloatingWindow } from "../ui/FloatingWindow";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";

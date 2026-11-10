@@ -18,7 +18,7 @@ import {
 } from "../../schemas/ruleset.schema.js";
 import { rulesetCheckSources, rulesetHideLines } from "./check-effects.js";
 import { rulesetItemEffectFacts, rulesetItemEffectText } from "./item-book.js";
-import { readRulesetLive, rulesetKeptCalls, rulesetKeptForm, rulesetSkillKeepsPractice } from "./live-state.js";
+import { readRulesetLive, rulesetKeptCalls, rulesetKeptForm } from "./live-state.js";
 import { rulesetCatalogEntriesByRef } from "./scaled-rows.js";
 import { rulesetItemAccess } from "./sheet-builder.js";
 import {
@@ -110,11 +110,7 @@ export function renderRulesetSheetBlock(
   // A score is only ever shown through the ruleset's own modifier rule, so an `identity` system
   // shows its one number and a 3d6 system shows what it adds. How it is SPELLED follows the
   // resolution kind: a pool ruleset's number is dice, not a bonus, and "+5" would read as one.
-  // A diceless ruleset (1.825) is never rolled: a score reads as itself and a skill as its rank's name.
-  const diceless = gm.diceless === true;
-  const checkValue = (value: number) => (diceless ? String(value) : formatRulesetCheckValue(definition, value));
-  const tierLabel = (tier: string | undefined) =>
-    definition.resolution.proficiencyTiers.find((entry) => entry.id === tier)?.label ?? tier ?? "";
+  const checkValue = (value: number) => formatRulesetCheckValue(definition, value);
   // Grouped under their section headings where the ruleset gives them some ("Physical: Strength 3;
   // Mental: Wits 2"); a sheet with no sections reads exactly as it always has.
   const grouped = <T extends { section?: string }>(entries: T[], text: (entry: T) => string) =>
@@ -131,25 +127,12 @@ export function renderRulesetSheetBlock(
   // "Trained" is whatever the ruleset's first tier is not: the first tier is the untrained default
   // every unmentioned skill takes, so listing it would list the whole sheet.
   const firstTier = definition.resolution.proficiencyTiers[0]!.id;
-  // Practice toward the next rank (1.826), as the keeper of the sheet reads it: every trained skill below the
-  // top rank shows its percent, 0 included, so a practice command has a number to add to.
-  const topTier = definition.resolution.proficiencyTiers.at(-1)!.id;
-  const storedProgress =
-    sheet.progress && stored && typeof stored === "object" && !Array.isArray(stored)
-      ? (stored as { progress?: unknown }).progress
-      : undefined;
-  const practiceOf = (skillId: string) => {
-    if (!rulesetSkillKeepsPractice(definition, skillId) || evaluated.skillTiers[skillId] === topTier) return "";
-    const value =
-      storedProgress && typeof storedProgress === "object" ? (storedProgress as Record<string, unknown>)[skillId] : 0;
-    return ` (${typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 99 ? value : 0}%)`;
-  };
   const trained = [
     ...sheet.skills
       .filter((skill) => (evaluated.skillTiers[skill.id] ?? firstTier) !== firstTier)
       .map((skill) => ({
         section: skill.section,
-        text: `${skill.label} ${diceless ? tierLabel(evaluated.skillTiers[skill.id]) : checkValue(evaluated.skillMods[skill.id] ?? 0)}${practiceOf(skill.id)}`,
+        text: `${skill.label} ${checkValue(evaluated.skillMods[skill.id] ?? 0)}`,
       })),
     ...sheet.saves
       .filter((save) => (evaluated.saveTiers[save.id] ?? firstTier) !== firstTier)

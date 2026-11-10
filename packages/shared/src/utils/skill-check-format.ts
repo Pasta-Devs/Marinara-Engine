@@ -100,31 +100,7 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
     : "";
   // A roll at most a target (1.139) says so, because "DC 45" would read as needing 45 or more.
   const needed = result.against === "at-most" ? `at most ${result.dc}` : `DC ${result.dc}`;
-  // Two named dice (1.819), special dice (1.820), groups and a push (1.821), the plot die (1.822) and a
-  // moved band (1.823), each said only where the record carries it.
-  const duality = result.duality
-    ? result.duality === "tie"
-      ? " The two named dice tied."
-      : ` With ${result.duality}.`
-    : "";
-  const hunger = result.hunger
-    ? ` ${result.hunger} ${result.hungerLabel ?? "special"} ${result.hunger === 1 ? "die" : "dice"} (the first ${result.hunger === 1 ? "one" : result.hunger})${
-        result.messy ? "; a messy critical" : result.bestial ? "; a bestial failure" : ""
-      }.`
-    : "";
-  const groups = result.groups?.length
-    ? ` ${result.groups.map((group) => `${group.label} ${group.dice}${group.banes ? ` (${group.banes} showing 1)` : ""}`).join(", ")}.`
-    : "";
-  const pushed = result.pushed ? ` Pushed: ${result.pushed} ${result.pushed === 1 ? "die" : "dice"} thrown again.` : "";
-  const plot = result.plotFace
-    ? ` ${result.plotLabel ?? "Plot die"} ${result.plotFace}${result.plotSymbol ? `: ${result.plotSymbol}` : ": blank"}${
-        result.plotBonus ? ` (${result.plotBonus > 0 ? "+" : ""}${result.plotBonus})` : ""
-      }.`
-    : "";
-  const shift = result.shift
-    ? ` Moved ${Math.abs(result.shift)} ${Math.abs(result.shift) === 1 ? "band" : "bands"} ${result.shift > 0 ? "better" : "worse"}.`
-    : "";
-  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}${hunger}${groups}${pushed}${plot}${shift}`;
+  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}`;
 }
 
 function serializeSkillCheckAttribute(value: string): string {
@@ -231,27 +207,6 @@ export interface SkillCheckTagExtras {
   criticalFailure?: boolean;
   /** `for="climb"` (1.752): what the check was made for, which a change narrowed to it read. */
   for?: string;
-  /** `duality="Hope"` (1.819): the named die that showed more, or "tie". */
-  duality?: string;
-  /** `hunger="2" hungerLabel="Hunger" messy="true" bestial="true"` (1.820), on an ask the count alone. */
-  hunger?: number;
-  hungerLabel?: string;
-  messy?: boolean;
-  bestial?: boolean;
-  /** `gear="1"` and `push="true"`, the ask (1.821); `groups="Base:3:1|Skill:2"` and `pushed="2"`, the record. */
-  gear?: number;
-  push?: boolean;
-  groups?: { label: string; dice: number; banes?: number }[];
-  pushed?: number;
-  /** `plot="true"`, the ask; `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`,
-   *  the record (1.822). */
-  plot?: boolean;
-  plotFace?: number;
-  plotSymbol?: "complication" | "opportunity";
-  plotBonus?: number;
-  plotLabel?: string;
-  /** `shift="+1"` (1.823): bands the outcome moved, or the ask to move it. */
-  shift?: number;
 }
 
 /** A name in `from=`: no brackets, which would end the tag, and no semicolons, which part the names. */
@@ -342,36 +297,6 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
     if (extras.darkHighest) parts.push(`darkHighest="true"`);
   }
   if (extras.for) parts.push(`for="${serializeSkillCheckAttribute(extras.for)}"`);
-  if (extras.duality) parts.push(`duality="${serializeSkillCheckAttribute(extras.duality)}"`);
-  if (extras.hunger != null && Number.isInteger(extras.hunger) && extras.hunger > 0) {
-    parts.push(`hunger="${extras.hunger}"`);
-    if (extras.hungerLabel) parts.push(`hungerLabel="${serializeSkillCheckAttribute(extras.hungerLabel)}"`);
-    if (extras.messy) parts.push(`messy="true"`);
-    if (extras.bestial) parts.push(`bestial="true"`);
-  }
-  if (extras.gear != null && Number.isInteger(extras.gear) && extras.gear > 0) parts.push(`gear="${extras.gear}"`);
-  if (extras.push) parts.push(`push="true"`);
-  if (extras.groups?.length) {
-    // A label may not hold the separators the reader splits on.
-    const groupLabel = (text: string) => serializeSkillCheckAttribute(text.replace(/[:|[\]]/g, " "));
-    parts.push(
-      `groups="${extras.groups
-        .map((group) => `${groupLabel(group.label)}:${group.dice}${group.banes !== undefined ? `:${group.banes}` : ""}`)
-        .join("|")}"`,
-    );
-  }
-  if (extras.pushed != null && Number.isInteger(extras.pushed) && extras.pushed > 0)
-    parts.push(`pushed="${extras.pushed}"`);
-  if (extras.plot) parts.push(`plot="true"`);
-  if (extras.plotFace != null && Number.isInteger(extras.plotFace) && extras.plotFace > 0) {
-    parts.push(`plotFace="${extras.plotFace}"`);
-    if (extras.plotSymbol) parts.push(`plotSymbol="${extras.plotSymbol}"`);
-    if (extras.plotBonus) parts.push(`plotBonus="${extras.plotBonus}"`);
-    if (extras.plotLabel) parts.push(`plotLabel="${serializeSkillCheckAttribute(extras.plotLabel)}"`);
-  }
-  if (extras.shift != null && Number.isInteger(extras.shift) && extras.shift !== 0) {
-    parts.push(`shift="${extras.shift > 0 ? "+" : ""}${extras.shift}"`);
-  }
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
@@ -443,26 +368,6 @@ export function serializeResolvedSkillCheckTag(result: SkillCheckResult, extras?
     ...(result.tens ? { tens: result.tens } : {}),
     ...(result.highest ? { highest: result.highest, ...(result.zeroDice ? { zeroDice: true } : {}) } : {}),
     ...(result.darkOutcome ? { darkOutcome: result.darkOutcome } : {}),
-    ...(result.duality ? { duality: result.duality } : {}),
-    ...(result.hunger
-      ? {
-          hunger: result.hunger,
-          ...(result.hungerLabel ? { hungerLabel: result.hungerLabel } : {}),
-          ...(result.messy ? { messy: true } : {}),
-          ...(result.bestial ? { bestial: true } : {}),
-        }
-      : {}),
-    ...(result.groups?.length ? { groups: result.groups } : {}),
-    ...(result.pushed ? { pushed: result.pushed } : {}),
-    ...(result.plotFace
-      ? {
-          plotFace: result.plotFace,
-          ...(result.plotSymbol ? { plotSymbol: result.plotSymbol } : {}),
-          ...(result.plotBonus ? { plotBonus: result.plotBonus } : {}),
-          ...(result.plotLabel ? { plotLabel: result.plotLabel } : {}),
-        }
-      : {}),
-    ...(result.shift ? { shift: result.shift } : {}),
     ...(result.dark
       ? {
           dark: result.dark,

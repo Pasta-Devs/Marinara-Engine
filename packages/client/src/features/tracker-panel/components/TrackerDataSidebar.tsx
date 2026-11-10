@@ -34,9 +34,9 @@ import {
 } from "../../../hooks/use-capability-packages";
 import { CapabilityElement } from "../../../components/capabilities/CapabilityElement";
 import { RoleplayTrackerCapability, selectRoleplayTrackerPackages } from "../../../components/chat/RoleplayHUD";
-import { ROLEPLAY_RULESET_WINDOW_ID } from "../../../components/chat/RoleplayRulesetWindow";
+import { roleplaySheetNames } from "../../../components/chat/RoleplayRuleset";
 import { parseChatMetadata } from "../../../lib/chat-display";
-import { useFloatingWindowStore } from "../../../stores/floating-window.store";
+import { useRoleplaySheetStore } from "../../../stores/roleplay-sheet.store";
 import { ScrollText } from "lucide-react";
 
 const TRACKER_PANEL_NEUTRAL_VARS =
@@ -88,15 +88,13 @@ export function TrackerDataSidebar({
   const { t: localizeUi } = useUiTranslation();
   useRenderTimer("tracker-panel"); // [#3104 diagnostic]
   const activeChatId = useChatStore((s) => s.activeChatId);
-  // A Roleplay chat played by a ruleset gets a button for its Character sheets window beside the package
-  // launchers, so the sheets are a click away from the trackers rather than only in Chat Settings.
-  const rulesetSheets = useChatStore(
-    (s) =>
-      s.activeChat?.id === activeChatId &&
-      s.activeChat?.mode === "roleplay" &&
-      parseChatMetadata(s.activeChat?.metadata).gameRuleset != null,
-  );
-  const sheetsOpen = useFloatingWindowStore((state) => state.open[ROLEPLAY_RULESET_WINDOW_ID] === true);
+  // A Roleplay chat played by a ruleset gets a button for the first sheet (the persona's) beside the
+  // package launchers, so the sheets are a click away from the trackers rather than only in Chat Settings.
+  const firstSheet = useChatStore((s) => {
+    if (s.activeChat?.id !== activeChatId || s.activeChat?.mode !== "roleplay") return null;
+    const metadata = parseChatMetadata(s.activeChat?.metadata);
+    return metadata.gameRuleset != null ? (roleplaySheetNames(metadata)[0] ?? null) : null;
+  });
   const { patchField, patchPlayerStats, patchPlayerStatsMany, flushPatch } = useGameStatePatcher(
     activeChatId,
     "tracker-data-sidebar",
@@ -276,20 +274,19 @@ export function TrackerDataSidebar({
               : undefined
           }
           launchers={
-            activeChatId && (launcherPackages.length > 0 || rulesetSheets) ? (
+            activeChatId && (launcherPackages.length > 0 || firstSheet) ? (
               <>
-                {rulesetSheets && (
+                {firstSheet && (
                   <Translation>
                     {(localizeUi) => (
                       <button
                         type="button"
-                        aria-pressed={sheetsOpen}
-                        aria-label={localizeUi("chat.settings.ruleset.openSheets")}
-                        title={localizeUi("chat.settings.ruleset.openSheets")}
-                        onClick={(event) =>
-                          useFloatingWindowStore
+                        aria-label={localizeUi("chat.settings.ruleset.openSheetOf", { name: firstSheet })}
+                        title={localizeUi("chat.settings.ruleset.openSheetOf", { name: firstSheet })}
+                        onClick={() =>
+                          useRoleplaySheetStore
                             .getState()
-                            .toggleWindow(ROLEPLAY_RULESET_WINDOW_ID, event.currentTarget)
+                            .show({ chatId: activeChatId, name: firstSheet, build: false })
                         }
                         className={TRACKER_HEADER_PACKAGE_BUTTON_CLASS}
                       >

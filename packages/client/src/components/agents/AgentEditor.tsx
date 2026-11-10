@@ -470,12 +470,6 @@ const CUSTOM_AGENT_RESULT_TYPE_OPTIONS: Array<{
     requiredCapability: "edit_trackers",
   },
   {
-    id: "ruleset_sheet_commands",
-    label: "settings.agentImports.results.ruleset_sheet_commands.label",
-    description: "settings.agentImports.results.ruleset_sheet_commands.description",
-    requiredCapability: "edit_trackers",
-  },
-  {
     id: "game_state_update",
     label: "Game State",
     description: "Expects structured game-state JSON for world-state style tracker updates.",

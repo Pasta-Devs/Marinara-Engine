@@ -6,8 +6,7 @@
  *     each settled check is lifted out with its place in what is left, so it shows as a dice card where
  *     it happened. A sparse check the Engine never settled simply goes.
  *   - The narrator of a ruleset chat is taught the ruleset's checks and sheet commands, with the
- *     sheets; with a Sheet Keeper running it is taught the checks and shown the sheets, but not the
- *     sheet or clock commands, which the keeper's own context teaches instead.
+ *     sheets, and the rest command when the player asks for a rest by name.
  *   - Roleplay's [roll] stays for plain dice in a ruleset chat, never for a character's attempt.
  */
 import assert from "node:assert/strict";
@@ -29,7 +28,7 @@ process.env.DATA_DIR = dataDir;
 try {
   const [
     { buildSkillCheckRulesetContext, resolveSkillCheckWithContext },
-    { buildRulesetRoleplayReminder, buildRulesetSheetKeeperContext },
+    { buildRulesetRoleplayReminder },
     { buildRoleplayCommandsReminder },
   ] = await Promise.all([
     import("../../packages/server/src/services/game/skill-check-resolution.service.js"),
@@ -83,7 +82,7 @@ try {
     assert.deepEqual(extractRoleplayRulesetRecords(plain), { text: plain, checks: [] });
   }
 
-  // ── The narrator and the Sheet Keeper ──
+  // ── The narrator ──
   {
     const sheetBlocks = [`<character_sheets>\n<sheet name="Blake">Grit 2/3</sheet>\n</character_sheets>`];
     const narrator = buildRulesetRoleplayReminder({ ruleset: ember, sheetBlocks });
@@ -91,19 +90,9 @@ try {
     assert.match(narrator, /\[skill_check: /, "the narrator is taught the ruleset's checks");
     assert.match(narrator, /\[sheet: who="Name" op="spend"/, "and the sheet commands");
     assert.match(narrator, /Grit 2\/3/, "and sees the sheets");
-
-    const withKeeper = buildRulesetRoleplayReminder({ ruleset: ember, sheetBlocks, keeper: true, playerAsksRest: "Long rest" });
-    assert.match(withKeeper, /\[skill_check: /, "a keeper leaves the checks with the narrator");
-    assert.doesNotMatch(withKeeper, /\[sheet: who="Name" op=/, "but takes the sheet commands");
-    assert.doesNotMatch(withKeeper, /THE PLAYER ASKS TO REST/, "and the rest command");
-    assert.match(withKeeper, /Grit 2\/3/, "the narrator still sees the sheets");
-    assert.match(withKeeper, /Do not write \[sheet: \.\.\.\]/);
-
-    const keeper = buildRulesetSheetKeeperContext({ ruleset: ember, sheetBlocks });
-    assert.match(keeper, /^<ruleset_sheet_keeper>/);
-    assert.match(keeper, /\[sheet: who="Name" op="spend"/, "the keeper is taught the sheet commands");
-    assert.match(keeper, /Grit 2\/3/, "and given the sheets as the turn began");
-    assert.match(keeper, /<\/ruleset_sheet_keeper>$/);
+    assert.doesNotMatch(narrator, /THE PLAYER ASKS TO REST/, "no rest is asked for unprompted");
+    const resting = buildRulesetRoleplayReminder({ ruleset: ember, sheetBlocks, playerAsksRest: "Long rest" });
+    assert.match(resting, /op="rest" rest="Long rest"/, "a rest the player names gets its command");
   }
 
   // ── Roleplay's own [roll] ──

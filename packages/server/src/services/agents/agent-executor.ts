@@ -3248,19 +3248,6 @@ function buildAgentExtras(
     }
   }
 
-  // A Sheet Keeper (an agent whose result is ruleset sheet commands) is given the ruleset's commands
-  // and the sheets as the turn began, from the turn that pinned it (see generate.routes).
-  const sheetKeepers = context.memory._rulesetSheetAgents;
-  const sheetKeeperContext = context.memory._rulesetSheetContext;
-  if (
-    typeof sheetKeeperContext === "string" &&
-    sheetKeeperContext &&
-    Array.isArray(sheetKeepers) &&
-    agentTypes.some((type) => sheetKeepers.includes(type))
-  ) {
-    parts.push(sheetKeeperContext);
-  }
-
   // Card Evolution Auditor needs the FULL character card (not just description)
   // so it can emit exact-match oldText edits. Gated on agent type because
   // forwarding every field would bloat context for agents that don't need it.
@@ -3649,7 +3636,7 @@ const AGENT_RESULT_TYPE_MAP: Record<string, AgentResultType> = {
 
 const AGENT_RESULT_TYPES = new Set<AgentResultType>(AGENT_RESULT_TYPE_VALUES);
 
-const TEXT_RESULT_TYPES = new Set<AgentResultType>(["context_injection", "director_event", "ruleset_sheet_commands"]);
+const TEXT_RESULT_TYPES = new Set<AgentResultType>(["context_injection", "director_event"]);
 
 export function resolveAgentResultType(config: Pick<AgentExecConfig, "type" | "settings">): AgentResultType {
   if (musicDjUsesYoutube(config)) return "youtube_control";

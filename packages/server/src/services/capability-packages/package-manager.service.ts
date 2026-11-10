@@ -9368,40 +9368,6 @@ function capabilityPackageInstallIssueFor(
   if (!declaresApi(150) && diceSettings.some((setting) => setting?.allowOwnUpgrade !== undefined)) {
     return "A ruleset that declares own dice upgrades requires schemaVersion 2 and capabilityApi 1.150 or newer";
   }
-  // Dice of the systems after them, 1.819-1.823: strict keys, including per-check overrides.
-  const declaresDice = (keys: string[]) =>
-    diceSettings.some((setting) => keys.some((key) => setting?.[key] !== undefined));
-  if (!declaresApi(819) && declaresDice(["duality"])) {
-    return "A ruleset that throws two named dice requires schemaVersion 2 and capabilityApi 1.819 or newer";
-  }
-  if (!declaresApi(820) && declaresDice(["hunger", "pairs"])) {
-    return "A ruleset whose pool has special dice or paired faces requires schemaVersion 2 and capabilityApi 1.820 or newer";
-  }
-  if (!declaresApi(821) && declaresDice(["groups", "push"])) {
-    return "A ruleset whose pool is told apart by groups or may be pushed requires schemaVersion 2 and capabilityApi 1.821 or newer";
-  }
-  if (!declaresApi(822) && declaresDice(["plotDie"])) {
-    return "A ruleset with a plot die requires schemaVersion 2 and capabilityApi 1.822 or newer";
-  }
-  if (!declaresApi(823) && declaresDice(["naturalTotal", "tierShift"])) {
-    return "A ruleset whose natural total is a critical or whose bands may be shifted requires schemaVersion 2 and capabilityApi 1.823 or newer";
-  }
-  {
-    const live = plainRecord(plainRecord(ruleset?.sheet)?.live);
-    const drawn = [
-      ...(Array.isArray(live?.pools) ? live.pools : []),
-      ...(Array.isArray(live?.tracks) ? live.tracks : []),
-    ];
-    if (!declaresApi(824) && drawn.some((entry) => plainRecord(entry)?.display !== undefined)) {
-      return "A ruleset that chooses how a pool or track is drawn requires schemaVersion 2 and capabilityApi 1.824 or newer";
-    }
-  }
-  if (!declaresApi(826) && plainRecord(ruleset?.sheet)?.progress !== undefined) {
-    return "A ruleset whose skills keep practice progress requires schemaVersion 2 and capabilityApi 1.826 or newer";
-  }
-  if (!declaresApi(825) && plainRecord(ruleset?.gm)?.diceless !== undefined) {
-    return "A diceless ruleset requires schemaVersion 2 and capabilityApi 1.825 or newer";
-  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||

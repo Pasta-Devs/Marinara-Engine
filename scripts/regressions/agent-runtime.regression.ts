@@ -208,7 +208,6 @@ const EXPECTED_AGENT_RESULT_TYPE_VALUES = [
   "frontend_theme_update",
   "about_me_update",
   "memory_nag",
-  "ruleset_sheet_commands",
 ] as const;
 
 assert.deepEqual(

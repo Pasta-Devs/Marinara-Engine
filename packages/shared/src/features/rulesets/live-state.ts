@@ -76,9 +76,6 @@ export interface RulesetLiveWounds {
 export interface RulesetLiveState {
   pools?: Record<string, RulesetLivePoolValue>;
   tracks?: Record<string, number>;
-  /** Practice toward each skill's next rank, 0 to 99, by skill id (1.826), on a sheet with `progress`.
-   *  Kept with the message like a track, so a swipe or a regeneration takes its practice back with it. */
-  progress?: Record<string, number>;
   /** Wound tracks only, keyed by track id. A plain track's number stays in `tracks`. */
   wounds?: Record<string, RulesetLiveWounds>;
   text?: Record<string, string>;
@@ -174,10 +171,6 @@ const MAX_LIVE_CHARACTERS = 64;
 const MAX_LIVE_POOLS = 600;
 const MAX_LIVE_KEY_LENGTH = 200;
 const MAX_LIVE_TRACKS = 30;
-/** How many skills may carry practice: as many as a sheet may have. */
-const MAX_LIVE_PROGRESS = 120;
-/** Practice stops one short of the next rank, which only a rank change crosses. */
-export const RULESET_PROGRESS_MAX = 99;
 const MAX_LIVE_TEXTS = 12;
 const MAX_LIVE_TEXT_LENGTH = 500;
 // As many as a sheet may declare (320 since Capability API 1.269, 160 from 1.188).
@@ -284,11 +277,6 @@ export const rulesetLiveStateSchema = z
   .object({
     pools: boundedRecord(rulesetLivePoolValueSchema, MAX_LIVE_POOLS, "pools").optional(),
     tracks: boundedRecord(liveNumber, MAX_LIVE_TRACKS, "tracks").optional(),
-    progress: boundedRecord(
-      z.number().int().min(0).max(RULESET_PROGRESS_MAX),
-      MAX_LIVE_PROGRESS,
-      "skill progress",
-    ).optional(),
     wounds: boundedRecord(rulesetLiveWoundsSchema, MAX_LIVE_TRACKS, "wound tracks").optional(),
     text: boundedRecord(liveTextValue, MAX_LIVE_TEXTS, "text fields").optional(),
     conditions: z.array(z.string().max(MAX_LIVE_CONDITION_LENGTH)).max(MAX_LIVE_CONDITIONS).optional(),
@@ -526,15 +514,6 @@ export interface ResolvedRulesetLive {
 //   editing the sheet.
 
 /** Whether this track is a wound track rather than a bounded integer. */
-/** Whether a skill keeps practice toward its next rank (1.826): the sheet has a meter, and the skill's
- *  section is not one the ruleset excepts (Knowledge bought on a Board, say). */
-export function rulesetSkillKeepsPractice(definition: RulesetDefinition, skillId: string): boolean {
-  const progress = definition.sheet.progress;
-  if (!progress) return false;
-  const skill = definition.sheet.skills.find((entry) => entry.id === skillId);
-  return !!skill && !(skill.section && progress.except?.includes(skill.section));
-}
-
 export function isRulesetWoundTrack(track: RulesetLiveTrack): boolean {
   return (!!track.levels || !!track.boxes) && !!track.kinds;
 }
@@ -873,8 +852,6 @@ function readStoredLiveStateAsIs(stored: unknown): RulesetLiveState {
   if (pools) state.pools = pools;
   const tracks = keepValid(source.tracks, liveNumber, MAX_LIVE_TRACKS);
   if (tracks) state.tracks = tracks;
-  const progress = keepValid(source.progress, z.number().int().min(0).max(RULESET_PROGRESS_MAX), MAX_LIVE_PROGRESS);
-  if (progress) state.progress = progress;
   const wounds = keepValid(source.wounds, rulesetLiveWoundsSchema, MAX_LIVE_TRACKS);
   if (wounds) state.wounds = wounds;
   const text = keepValid(source.text, liveTextValue, MAX_LIVE_TEXTS);
@@ -926,8 +903,6 @@ function normalizeLiveState(state: RulesetLiveState): RulesetLiveState {
   const normalized: RulesetLiveState = {};
   if (state.pools && Object.keys(state.pools).length > 0) normalized.pools = state.pools;
   if (state.tracks && Object.keys(state.tracks).length > 0) normalized.tracks = state.tracks;
-  // Practice toward the next rank (1.826), kept through every other change to the sheet.
-  if (state.progress && Object.keys(state.progress).length > 0) normalized.progress = state.progress;
   if (state.wounds && Object.keys(state.wounds).length > 0) normalized.wounds = state.wounds;
   if (state.text && Object.keys(state.text).length > 0) normalized.text = state.text;
   if (state.conditions && state.conditions.length > 0) normalized.conditions = state.conditions;
@@ -1387,8 +1362,6 @@ export type RulesetSheetOp =
   /** `upTo` (1.364) stops a `by` move there: it never carries the track past it, and never moves one
    *  already beyond it. */
   | { op: "track"; track: string; to?: number; by?: number; upTo?: number }
-  /** Practice toward a skill's next rank (1.826): `by` adds, `to` sets, held to 0..99. */
-  | { op: "practice"; skill: string; to?: number; by?: number }
   | { op: "condition"; condition: string; active: boolean }
   /** Health's maximum raised by `amount` while `condition` is held, and health with it (1.473), in
    *  place of what it raised it by before. */
@@ -1508,7 +1481,6 @@ export const RULESET_SHEET_OP_NAMES = Object.freeze([
   "damage",
   "temp",
   "track",
-  "practice",
   "condition",
   "state",
   "note",
@@ -1643,7 +1615,6 @@ function advanceBuild(
   const find = <T extends { id: string; label: string }>(entries: T[], name: string) =>
     entries.find((entry) => sameName(entry.id, name)) ?? entries.find((entry) => sameName(entry.label, name));
   let now: string;
-  let restartedPractice: string | undefined;
   if ("skill" in op || "save" in op) {
     const skill = "skill" in op;
     const group = skill ? "skills" : "saves";
@@ -1652,8 +1623,6 @@ function advanceBuild(
     if (!entry) return { ok: false, reason: skill ? "unknown-skill" : "unknown-save" };
     const tier = find(definition.resolution.proficiencyTiers, op.tier);
     if (!tier) return { ok: false, reason: "unknown-tier" };
-    // A new rank starts its practice over (1.826); the same rank written again keeps it.
-    if (skill && definition.sheet.progress && next[group][entry.id] !== tier.id) restartedPractice = entry.id;
     next[group][entry.id] = tier.id;
     now = tier.label;
   } else {
@@ -1700,12 +1669,7 @@ function advanceBuild(
       .success
   )
     return { ok: false, reason: "malformed" };
-  const live = readStoredLiveState(definition, parsed.data, stored);
-  if (restartedPractice && live.progress) {
-    delete live.progress[restartedPractice];
-    if (Object.keys(live.progress).length === 0) delete live.progress;
-  }
-  return { ok: true, build: parsed.data, live, now };
+  return { ok: true, build: parsed.data, live: readStoredLiveState(definition, parsed.data, stored), now };
 }
 
 /** Apply one command to one character's live state. Pure: the input blob is never touched, and the
@@ -2030,31 +1994,6 @@ export function applyRulesetSheetOp(
     if (kept && sealed > pool.sealed)
       next.lowered = { ...next.lowered, [op.keptBy!]: (own(next.lowered, op.keptBy!) ?? 0) + sealed - pool.sealed };
     return done(poolNow(pool, value, temp));
-  }
-
-  if (op.op === "practice") {
-    if (!definition.sheet.progress) return { ok: false, reason: "not-allowed" };
-    const skill =
-      definition.sheet.skills.find((entry) => sameName(entry.id, op.skill)) ??
-      definition.sheet.skills.find((entry) => sameName(entry.label, op.skill));
-    if (!skill) return { ok: false, reason: "unknown-skill" };
-    if (!rulesetSkillKeepsPractice(definition, skill.id)) return { ok: false, reason: "not-allowed" };
-    // Practice is toward the next rank of a skill the character has; an untrained one opens by a rank change.
-    const untrained = definition.resolution.proficiencyTiers[0]?.id;
-    if ((build.skills[skill.id] ?? untrained) === untrained) return { ok: false, reason: "not-allowed" };
-    if ((op.to === undefined) === (op.by === undefined)) return { ok: false, reason: "malformed" };
-    if (!Number.isInteger(op.to ?? op.by) || Math.abs(op.to ?? op.by!) > MAX_LIVE_NUMBER) {
-      return { ok: false, reason: "bad-amount" };
-    }
-    const was = own(next.progress, skill.id) ?? 0;
-    const value = clamp(op.to ?? was + op.by!, 0, RULESET_PROGRESS_MAX);
-    const progress = { ...next.progress };
-    // Back at 0 the entry goes away, as a track back at its default does.
-    if (value === 0) delete progress[skill.id];
-    else progress[skill.id] = value;
-    if (Object.keys(progress).length > 0) next.progress = progress;
-    else delete next.progress;
-    return done(`${skill.label} ${value}%`);
   }
 
   if (op.op === "track") {

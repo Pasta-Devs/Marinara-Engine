@@ -248,12 +248,6 @@ export interface SkillCheckRequest {
   /** Independent setback dice and optional own-pool upgrades (1.150). */
   setback?: number;
   upgradeOwn?: number;
-  /** `hunger=` (1.820), `gear=` and `push=` (1.821), `plot=` (1.822) and `shift=` (1.823). */
-  hunger?: number;
-  gear?: number;
-  push?: boolean;
-  plot?: boolean;
-  shift?: number;
   /** `spend=`: what the player said they were spending on this check, where the ruleset offers
    *  such a purchase. The Engine decides what it costs and what it buys. */
   spend?: { pool: string; amount: number };
@@ -1111,18 +1105,6 @@ export function rulesetRefusesUntrained(ruleset: SkillCheckRulesetContext, reque
   return rulesetUntrainedFor(ruleset, request) === "refuse";
 }
 
-/** The asks of 1.820-1.823 a tag carried, under the same names on a request and on a sparse ask's
- *  extras, so every path that copies a tag's freedoms copies these in one place. */
-function diceAsk(tag: SkillCheckTag) {
-  return {
-    ...(tag.hunger != null ? { hunger: tag.hunger } : {}),
-    ...(tag.gear != null ? { gear: tag.gear } : {}),
-    ...(tag.push ? { push: true } : {}),
-    ...(tag.plot ? { plot: true } : {}),
-    ...(tag.shift != null ? { shift: tag.shift } : {}),
-  };
-}
-
 /** One of the ruleset's standing re-throws, by the id the Game Master named with `reroll=`, matched
  *  without case. Null for a name nothing answers to, and on a summed ruleset, which has none. */
 export function rulesetStandingReroll(
@@ -1454,12 +1436,6 @@ function resolveRulesetSkillCheck(
         bonusDice: request.bonusDice,
         explode: request.explode,
         double: request.double,
-        hunger: request.hunger,
-        push: request.push,
-        // Dice groups (1.821) need the ability's own dice apart from the rest of the pool.
-        ...(resolution.groups && rollerSheet
-          ? { ability: rulesetSymbolPoolRatings(definition, rollerSheet, target).ability, gear: request.gear }
-          : {}),
         ...(sheetTarget !== undefined ? { sheetTarget } : {}),
         ...(stance ? { stance: stance.count } : {}),
         ...(bought ? { bought } : {}),
@@ -1484,7 +1460,6 @@ function resolveRulesetSkillCheck(
       complication: rolled.complication || undefined,
       exact: rolled.exact || undefined,
       exactLabel: rolled.exact && resolution.exact ? resolution.exact.label : undefined,
-      hungerLabel: rolled.hunger && resolution.hunger ? resolution.hunger.label : undefined,
       // Named only when it was the standing one that was thrown, and it actually threw something.
       reroll: standing && reroll === standing && rolled.rerolled > 0 ? standing.id : undefined,
       ...applied,
@@ -1607,29 +1582,16 @@ function resolveRulesetSkillCheck(
           : undefined,
       ...("faceFloor" in floors && floors.faceFloor !== undefined ? { faceFloor: floors.faceFloor } : {}),
       ...("totalFloor" in floors && floors.totalFloor !== undefined ? { totalFloor: floors.totalFloor } : {}),
-      plot: request.plot,
-      shift: request.shift,
     },
     rollDie,
   );
   const floored = floors.from.filter((name) => !effected.from?.includes(name));
-  const { plot, ...summedRoll } = rolled;
   return {
     skill: request.skill,
     dc: askedDc,
-    // The plot die's bonus (1.822) is added like any other number, so the record's dice and modifier
-    // still add up to its total; the die itself is said apart, not as one of the rolls.
-    modifier: summed + (plot?.bonus ?? 0),
+    modifier: summed,
     resolution: "sum",
-    ...summedRoll,
-    ...(plot
-      ? {
-          plotFace: plot.face,
-          ...(plot.symbol ? { plotSymbol: plot.symbol } : {}),
-          ...(plot.bonus ? { plotBonus: plot.bonus } : {}),
-          plotLabel: plot.label,
-        }
-      : {}),
+    ...rolled,
     ...applied,
     ...effected,
     ...(floored.length ? { from: [...(effected.from ?? []), ...floored] } : {}),
@@ -2304,7 +2266,6 @@ export async function resolveSkillCheckTagsInContent(
       ...(tag.upgrades != null ? { upgrade: tag.upgrades } : {}),
       ...(tag.setback != null ? { setback: tag.setback } : {}),
       ...(tag.upgradeOwn != null ? { upgradeOwn: tag.upgradeOwn } : {}),
-      ...diceAsk(tag),
       ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
       ...(tag.explode != null ? { explode: tag.explode } : {}),
       ...(tag.double != null ? { double: tag.double } : {}),
@@ -2336,7 +2297,6 @@ export async function resolveSkillCheckTagsInContent(
         ...(tag.upgrades != null ? { upgrades: tag.upgrades } : {}),
         ...(tag.setback != null ? { setback: tag.setback } : {}),
         ...(tag.upgradeOwn != null ? { upgradeOwn: tag.upgradeOwn } : {}),
-        ...diceAsk(tag),
         ...(tag.spend ? { spend: tag.spend } : {}),
         ...(tag.useEntry ? { useEntry: tag.useEntry } : {}),
         ...(tag.apply?.length ? { apply: tag.apply } : {}),
@@ -2865,7 +2825,6 @@ export function boundPoolCheckRequest(tag: SkillCheckTag): SkillCheckRequest | n
     ...(tag.upgrades != null ? { upgrades: tag.upgrades } : {}),
     ...(tag.setback != null ? { setback: tag.setback } : {}),
     ...(tag.upgradeOwn != null ? { upgradeOwn: tag.upgradeOwn } : {}),
-    ...diceAsk(tag),
     // The step a difficulty was named by still sets a pool's target, and the faces a check moved
     // are the same ask, so whichever path rolls it rolls what the tag asked for.
     ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),

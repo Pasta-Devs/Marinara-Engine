@@ -914,7 +914,6 @@ import { updateJournal } from "../services/generation/game-journal-runtime.js";
 import {
   buildGmFormatReminder,
   buildRulesetRoleplayReminder,
-  buildRulesetSheetKeeperContext,
   buildGmSceneState,
   insertStableGmInstructions,
   rulesetRestAskedFor,
@@ -5307,23 +5306,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const roleplayRulesetTurn =
           chatMode === "roleplay" && chatMeta.gameRuleset != null && !chatMeta.multiplayer && !input.impersonate;
         let roleplayRulesetReminder = "";
-        // A Sheet Keeper: an agent of this chat whose result is ruleset sheet commands. While one runs,
-        // it records the sheet changes from the finished reply and the narrator only asks for checks.
-        // One keeper per chat: two would each apply their commands and double every change.
-        const sheetKeeperCandidates = roleplayRulesetTurn
-          ? resolvedAgents
-              .filter((agent) => resolveAgentResultType(agent) === "ruleset_sheet_commands")
-              .map((agent) => agent.type)
-          : [];
-        if (sheetKeeperCandidates.length > 1)
-          logger.warn(
-            "[generate] %d Sheet Keepers are on in chat %s; only %s keeps the sheets",
-            sheetKeeperCandidates.length,
-            input.chatId,
-            sheetKeeperCandidates[0],
-          );
-        const rulesetSheetKeepers = sheetKeeperCandidates.slice(0, 1);
-        let rulesetSheetKeeperContext = "";
         if (roleplayRulesetTurn) {
           const pinned = resolveGameRuleset(chatMeta, await loadRulesetRegistry());
           turnGameRuleset = pinned;
@@ -5370,15 +5352,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 sheetBlocks,
                 clocks,
                 playerAsksRest: rulesetRestAskedFor(definition, String(latestUserText).trimStart()),
-                keeper: rulesetSheetKeepers.length > 0,
               });
-              if (rulesetSheetKeepers.length > 0) {
-                rulesetSheetKeeperContext = buildRulesetSheetKeeperContext({
-                  ruleset: definition,
-                  sheetBlocks,
-                  clocks,
-                });
-              }
             } catch (err) {
               logger.warn(err, "[generate/roleplay] Could not build the ruleset reminder for chat %s", input.chatId);
             }
@@ -7018,12 +6992,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             aboutMeState.push({ characterId: char.id, name: char.name, publicAboutMe, chatAboutMe });
           }
           agentContext.memory._aboutMeState = aboutMeState;
-        }
-
-        // The Sheet Keeper's ruleset and sheets, read only by the agents whose result is sheet commands.
-        if (rulesetSheetKeeperContext) {
-          agentContext.memory._rulesetSheetAgents = rulesetSheetKeepers;
-          agentContext.memory._rulesetSheetContext = rulesetSheetKeeperContext;
         }
 
         // If the background agent is enabled, load available backgrounds + tags into context
@@ -10301,9 +10269,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           // Resolve this new segment before content_replace and persistence.
           // A continuation's already-saved segment is never rolled again.
-          // A diceless ruleset (1.825) is never rolled, not even a check the model wrote anyway.
-          const turnDiceless = turnGameRuleset?.status === "ok" && turnGameRuleset.definition.gm.diceless === true;
-          if ((chatMode === "game" || roleplayRulesetTurn) && !input.impersonate && !turnDiceless) {
+          if ((chatMode === "game" || roleplayRulesetTurn) && !input.impersonate) {
             // The sighted pool is handed to BOTH readers and to nobody else. It is what tells
             // a record the model just wrote apart from one read back out of a saved message:
             // the two are the same bytes, so the distinction is carried out of band rather
@@ -14426,70 +14392,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               } catch (err) {
                 logger.error(err, "[generate] Failed to apply custom tracker update");
-              }
-            }
-
-            // Sheet Keeper → apply its sheet and clock commands to this turn's row, as a Game Master's are
-            if (
-              result.success &&
-              result.type === "ruleset_sheet_commands" &&
-              rulesetSheetKeepers.includes(result.agentType) &&
-              chatMeta.gameRuleset != null &&
-              customAgentCanApplyResult(result, resolvedAgents, builtInAgentTypes, "edit_trackers")
-            ) {
-              try {
-                const commands = String((result.data as { text?: unknown } | null)?.text ?? "").trim();
-                const sheetContext = commands
-                  ? await loadGameRulesetSheetContext(app.db, input.chatId, turnGameRuleset, input.regenerateMessageId)
-                  : null;
-                if (sheetContext) {
-                  // What this turn already left on the sheets (the narrator's checks and any commands it
-                  // wrote), so the keeper's changes land on top of them and never start the turn again.
-                  let snap = await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex);
-                  if (!snap) {
-                    await gameStateStore.updateByMessage(messageId, targetSwipeIndex, input.chatId, {}, undefined, {
-                      baseSnapshot: trackerBaseGameStateSnapshot,
-                    });
-                    snap = await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex);
-                  }
-                  const keeperTurn = applyGameRulesetSheetTurn(
-                    sheetContext,
-                    commands,
-                    parseStoredRulesetLive(snap?.rulesetLive),
-                    await loadTurnRulesetCatalogs(sheetContext, commands),
-                  );
-                  const keeperClocks = sheetContext.definition.clocks
-                    ? applyClockCommandTags(
-                        keeperTurn.content,
-                        sheetContext.definition,
-                        parseStoredRulesetClocks(snap?.rulesetClocks),
-                      ).clocks
-                    : undefined;
-                  const keeperPatch = {
-                    ...(keeperTurn.live ? { rulesetLive: keeperTurn.live } : {}),
-                    ...(keeperClocks !== undefined ? { rulesetClocks: keeperClocks } : {}),
-                  };
-                  if (Object.keys(keeperPatch).length > 0) {
-                    await gameStateStore.updateByMessage(messageId, targetSwipeIndex, input.chatId, keeperPatch);
-                    sendSseEvent(reply, { type: "game_state_patch", data: keeperPatch });
-                  }
-                  // Permanent changes (a level, a new feature) and their undo record, as a turn saves them.
-                  await saveGameRulesetAdvancement(
-                    app.db,
-                    input.chatId,
-                    messageId,
-                    targetSwipeIndex,
-                    sheetContext.definition,
-                    keeperTurn,
-                  );
-                  logger.debug(
-                    "[roleplay/sheet-keeper] Applied commands for chat %s: %s",
-                    input.chatId,
-                    keeperTurn.content,
-                  );
-                }
-              } catch (err) {
-                logger.error(err, "[generate] Failed to apply the Sheet Keeper's commands");
               }
             }
 

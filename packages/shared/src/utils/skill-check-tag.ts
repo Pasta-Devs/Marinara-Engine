@@ -118,14 +118,6 @@ export interface SkillCheckTag {
   /** Independent setback dice and optional own-pool upgrades (1.150). */
   setback?: number;
   upgradeOwn?: number;
-  /** `hunger="2"`: special dice among a pool (1.820); `gear="1"`: gear dice added to it, and
-   *  `push="true"`: the roll pushed (1.821); `plot="true"`: the plot die thrown (1.822); `shift="+1"`:
-   *  bands to move the outcome (1.823). Carried, never judged: the resolver holds each to the ruleset. */
-  hunger?: number;
-  gear?: number;
-  push?: boolean;
-  plot?: boolean;
-  shift?: number;
   /**
    * `spend="willpower:1"` as the GM wrote it, read into a pool name and a whole number of points.
    *
@@ -516,14 +508,6 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     const dark = Number(darkValue);
     if (Number.isInteger(dark) && dark >= 0) tag.darkDice = dark;
   }
-  for (const key of ["hunger", "gear"] as const) {
-    const value = values.get(key)?.trim();
-    if (value && Number.isInteger(Number(value)) && Number(value) >= 0) tag[key] = Number(value);
-  }
-  const shiftValue = values.get("shift")?.trim();
-  if (shiftValue && Number.isInteger(Number(shiftValue)) && Number(shiftValue) !== 0) tag.shift = Number(shiftValue);
-  if (values.get("push")?.trim().toLowerCase() === "true") tag.push = true;
-  if (values.get("plot")?.trim().toLowerCase() === "true") tag.plot = true;
   const rerollName = values.get("reroll")?.trim();
   if (rerollName) tag.reroll = rerollName.slice(0, 40);
   const reason = values.get("reason")?.trim().toLowerCase();
@@ -617,27 +601,6 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const againstValue: SkillCheckResult["against"] =
     againstRaw === "at-most" || againstRaw === "at-least" ? againstRaw : undefined;
   const tensCount = Number(values.get("tens"));
-  // Two named dice (1.819), special dice (1.820), dice groups and a push (1.821), the plot die (1.822)
-  // and a moved band (1.823), said by the Engine's own record and read back so a reloaded card says them.
-  const dualityLabel = values.get("duality")?.trim().slice(0, 80);
-  const hungerLabel = values.get("hungerlabel")?.trim().slice(0, 40);
-  const groupList = (values.get("groups") ?? "")
-    .split("|")
-    .map((entry) => /^([^:|]{1,80}):(\d{1,3})(?::(\d{1,3}))?$/.exec(entry.trim()))
-    .filter((match): match is RegExpExecArray => !!match)
-    .slice(0, 3)
-    .map((match) => ({
-      label: match[1]!.trim(),
-      dice: Number(match[2]),
-      ...(match[3] !== undefined ? { banes: Number(match[3]) } : {}),
-    }));
-  const pushedCount = Number(values.get("pushed"));
-  const plotFace = Number(values.get("plotface"));
-  const plotSymbolRaw = values.get("plotsymbol")?.trim().toLowerCase();
-  const plotSymbol: SkillCheckResult["plotSymbol"] =
-    plotSymbolRaw === "complication" || plotSymbolRaw === "opportunity" ? plotSymbolRaw : undefined;
-  const plotBonus = Number(values.get("plotbonus"));
-  const plotLabel = values.get("plotlabel")?.trim().slice(0, 40);
   const symbolRecord = readSymbolRecord(values);
   if (values.has("symbols") && !symbolRecord) return tag;
   const effected = {
@@ -666,26 +629,6 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     ...(Number.isInteger(darkCount) && darkCount > 0 && darkCount <= 10
       ? { dark: darkCount, ...(darkLabel ? { darkLabel } : {}), ...(darkHighest ? { darkHighest: true } : {}) }
       : {}),
-    ...(dualityLabel ? { duality: dualityLabel } : {}),
-    ...(tag.hunger
-      ? {
-          hunger: tag.hunger,
-          ...(hungerLabel ? { hungerLabel } : {}),
-          ...(values.get("messy")?.trim().toLowerCase() === "true" ? { messy: true } : {}),
-          ...(values.get("bestial")?.trim().toLowerCase() === "true" ? { bestial: true } : {}),
-        }
-      : {}),
-    ...(groupList.length > 0 ? { groups: groupList } : {}),
-    ...(Number.isInteger(pushedCount) && pushedCount > 0 ? { pushed: pushedCount } : {}),
-    ...(Number.isInteger(plotFace) && plotFace > 0 && plotFace <= 20
-      ? {
-          plotFace,
-          ...(plotSymbol ? { plotSymbol } : {}),
-          ...(Number.isInteger(plotBonus) && plotBonus !== 0 ? { plotBonus } : {}),
-          ...(plotLabel ? { plotLabel } : {}),
-        }
-      : {}),
-    ...(tag.shift ? { shift: tag.shift } : {}),
   };
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);

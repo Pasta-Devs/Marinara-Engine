@@ -10,10 +10,10 @@
  *   - A multiplayer room is refused: the ruleset never runs there.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { rulesetBuilderStarter, rulesetFromBuilderDraft } from "../../packages/shared/src/index.js";
+import { fileURLToPath } from "node:url";
 
 const directory = mkdtempSync(join(tmpdir(), "marinara-roleplay-pin-"));
 process.env.DATA_DIR = directory;
@@ -30,7 +30,14 @@ try {
 
   const db = await createFileNativeDB();
   await setCustomAgentImportsEnabled(db, true);
-  const definition = rulesetFromBuilderDraft(rulesetBuilderStarter("diceless", "Pin Test"));
+  // Ember Roads under a local id of its own, as an imported ruleset is stored.
+  const definition = {
+    ...JSON.parse(
+      readFileSync(fileURLToPath(new URL("../../docs/examples/rulesets/ember-roads.json", import.meta.url)), "utf8"),
+    ),
+    id: "pin-test",
+    version: 1,
+  };
   await createGameRulesetsStorage(db).put({
     rulesetId: "local/pin-test",
     version: 1,

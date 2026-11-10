@@ -19,7 +19,7 @@ import { useMatchMedia } from "../../hooks/use-match-media";
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { getChatSettingsWindowProps } from "./chat-settings-window";
 import { ChatBranchGraphWindow } from "./ChatBranchGraphWindow";
-import { RoleplayRulesetWindow } from "./RoleplayRulesetWindow";
+import { RoleplayRulesetSheet } from "./RoleplayRuleset";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 
@@ -388,7 +388,7 @@ export function ChatCommonOverlays({
       )}
       {chat && <ChatBranchGraphWindow chatId={chat.id} groupId={chat.groupId ?? null} />}
       {chat?.mode === "roleplay" && (
-        <RoleplayRulesetWindow chatId={chat.id} metadata={parseChatMetadata(chat.metadata)} />
+        <RoleplayRulesetSheet chatId={chat.id} metadata={parseChatMetadata(chat.metadata)} />
       )}
       {chat && (
         <Suspense fallback={null}>{wizardOpen && <ChatSetupWizard chat={chat} onFinish={onWizardFinish} />}</Suspense>

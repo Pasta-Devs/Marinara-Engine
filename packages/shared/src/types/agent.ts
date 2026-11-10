@@ -70,9 +70,6 @@ export const AGENT_RESULT_TYPE_VALUES = [
   "frontend_theme_update",
   "about_me_update",
   "memory_nag",
-  /** Plain text holding `[sheet: ...]` and `[clock: ...]` commands for a chat played by a ruleset,
-   *  applied by the Engine to the turn's sheets as a Game Master's are (the Sheet Keeper). */
-  "ruleset_sheet_commands",
 ] as const;
 
 /** The result type an agent can produce. */
@@ -718,7 +715,6 @@ const CUSTOM_AGENT_RESULT_CAPABILITY: Partial<Record<AgentResultType, CustomAgen
   inventory_tracker_update: "edit_trackers",
   quest_update: "edit_trackers",
   game_state_update: "edit_trackers",
-  ruleset_sheet_commands: "edit_trackers",
   image_prompt: "trigger_image_generation",
   prompt_patch: "edit_main_prompt",
   character_activity_update: "manage_chat_characters",

@@ -177,7 +177,7 @@ export async function pinRoleplayRuleset(
     const previous = readMetadata(current).gameRuleset as RulesetRef | null | undefined;
     const sameRuleset = previous?.id === definition.id && previous?.packageId === registered.packageId;
     // Re-pinning keeps the chat's layers and moves it onto the newest version installed, which is how a
-    // ruleset edited in the builder reaches the chats that play it. A Roleplay chat has no setup to
+    // newer version of the ruleset reaches the chats that play it. A Roleplay chat has no setup to
     // protect, and its sheets are read tolerantly against the newer version.
     pinned =
       sameRuleset && previous

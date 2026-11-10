@@ -22,7 +22,6 @@ export const CUSTOM_AGENT_RESULT_TYPE_IDS = [
   "haptic_command",
   "about_me_update",
   "cyoa_choices",
-  "ruleset_sheet_commands",
 ] as const satisfies readonly AgentResultType[];
 
 export type CustomAgentResultType = (typeof CUSTOM_AGENT_RESULT_TYPE_IDS)[number];
@@ -37,11 +36,6 @@ function jsonExample(value: unknown): CustomAgentResultExample {
 }
 
 export const CUSTOM_AGENT_RESULT_EXAMPLES: Record<CustomAgentResultType, CustomAgentResultExample> = {
-  ruleset_sheet_commands: {
-    format: "text",
-    value:
-      '[sheet: who="Blake" op="damage" pool="Hit points" amount="4"]\n[sheet: who="Blake" op="spend" pool="Willpower" amount="1"]',
-  },
   context_injection: {
     format: "text",
     value: "Plain text to inject into the main prompt or save as this agent's informational result.",
