@@ -399,6 +399,13 @@ export function SplitDropOverlay() {
 const PLACE_FIELD =
   /DetailId$|DetailChatId$|Open$|^sidebar|^rightPanel|LibrarySelectedId$|LibraryKind$|^noodle|settingsTab/;
 
+function mergeKeepingPlace(persisted: unknown, current: ReturnType<typeof useUIStore.getState>) {
+  const settings = Object.fromEntries(
+    Object.entries((persisted ?? {}) as Record<string, unknown>).filter(([key]) => !PLACE_FIELD.test(key)),
+  );
+  return { ...current, ...settings };
+}
+
 /** Runs in the frame before its first paint: open the page it was made for, without the side panes. */
 export function startSplitPane() {
   if (!SPLIT_PANE) return;
@@ -418,13 +425,14 @@ export function startSplitPane() {
     if (event.storageArea !== window.localStorage || !event.key) return;
     if (event.key === "marinara-device-look") void useDeviceLookStore.persist.rehydrate();
     if (event.key !== "marinara-engine-ui") return;
-    const state = useUIStore.getState() as unknown as Record<string, unknown>;
-    const place = Object.fromEntries(
-      Object.entries(state).filter(([key, value]) => typeof value !== "function" && PLACE_FIELD.test(key)),
-    );
     forgetSplitPaneCopy("marinara-engine-ui");
     forgetSplitPaneCopy("marinara-engine-ui:host");
-    void Promise.resolve(useUIStore.persist.rehydrate()).then(() => useUIStore.setState(place));
+    // Take the main window's settings in one update that leaves this side's place out. (Restoring the
+    // place afterwards let a render in between move this side to the main side's page.)
+    useUIStore.persist.setOptions({ merge: mergeKeepingPlace });
+    void Promise.resolve(useUIStore.persist.rehydrate()).finally(() =>
+      useUIStore.persist.setOptions({ merge: undefined }),
+    );
   });
 }
 
