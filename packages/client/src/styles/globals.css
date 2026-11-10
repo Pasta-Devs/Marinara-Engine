@@ -324,7 +324,8 @@
   --marinara-editor-surface-bg: var(--marinara-chat-chrome-panel-bg);
   --marinara-editor-surface-bg-hover: var(--marinara-chat-chrome-surface-bg-hover);
   --marinara-editor-surface-bg-active: var(--marinara-chat-chrome-surface-bg-active);
-  --marinara-editor-control-bg: color-mix(in srgb, var(--marinara-editor-surface-bg) 78%, var(--background) 22%);
+  /* Mixed with the editor's own background: in dark that is the grey shell, where --background is navy. */
+  --marinara-editor-control-bg: color-mix(in srgb, var(--marinara-editor-surface-bg) 78%, var(--marinara-editor-bg) 22%);
   --marinara-editor-control-bg-hover: color-mix(
     in srgb,
     var(--marinara-editor-surface-bg-hover) 86%,
@@ -1577,7 +1578,8 @@
   overflow: hidden;
   /* Concentric with the card: 1rem card radius - 0.5rem padding. */
   border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--background) 45%, transparent);
+  /* The panel's own paint (:where(.mari-sidebar, .mari-right-panel)), not the app background, which is navy in dark. */
+  background: var(--sidebar);
 }
 
 @media (width < 48rem) {
@@ -1585,7 +1587,7 @@
     border-radius: 0.75rem;
   }
 }
-/* The "+ Add" blue (#38bdf8 → #3b82f6) tints the Defaults box and the "via" headings. */
+/* The "+ Add" blue (#38bdf8 → #3b82f6) tints the "via" headings. */
 :root {
   --mari-connection-blue: #38bdf8;
 }
@@ -1599,10 +1601,6 @@
 .mari-connection-model-slot + .mari-connection-model-slot,
 .mari-connection-model-section-head + .mari-connection-model-slot {
   border-block-start: 1px solid color-mix(in srgb, var(--foreground) 5%, transparent);
-}
-/* The Defaults box is the one blue box: the same box as a card, in a flat connection-blue tint. */
-.mari-connection-group.mari-connection-defaults-box {
-  background-color: color-mix(in srgb, var(--mari-connection-blue) 10%, transparent);
 }
 /* The empty state wears the connections tint, like .mari-suggestion-chip. A tint, no frame. */
 .mari-connection-empty {
@@ -3276,7 +3274,7 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
 .mari-editor-panel {
   border: 1px solid var(--marinara-editor-border);
   border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--marinara-editor-surface-bg) 74%, var(--background) 26%);
+  background: color-mix(in srgb, var(--marinara-editor-surface-bg) 74%, var(--marinara-editor-bg) 26%);
   box-shadow: inset 0 1px color-mix(in srgb, var(--foreground) 7%, transparent);
 }
 
@@ -3414,6 +3412,13 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
 .mari-editor-legacy-bridge input::placeholder,
 .mari-editor-legacy-bridge textarea::placeholder {
   color: var(--marinara-editor-muted);
+}
+
+/* The ID boxes, switch knobs and a few chips paint the app background, which is navy in dark: use the editor's. */
+.mari-editor-legacy-bridge [class~="bg-[var(--background)]"],
+.mari-editor-legacy-bridge [class~="bg-[var(--background)]/70"],
+.mari-editor-legacy-bridge [class~="bg-[var(--background)]/55"] {
+  background: var(--marinara-editor-bg);
 }
 
 .mari-editor-legacy-bridge [class~="bg-[var(--secondary)]"],
