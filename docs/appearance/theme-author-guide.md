@@ -9,7 +9,7 @@ This guide is for people who make or share their own themes. The first part walk
 A theme is a short list of settings written in CSS, the language web pages use for colours and fonts. You don't need to know CSS to start. Each line looks like `--name: value;`: a **token** (a named setting that starts with `--`), a colon, the value, and a semicolon.
 
 1. Open **Library → Settings → Appearance** and click **CSS Themes** in the row of sections.
-2. To change a starter theme, find one you like under **Starter themes** and click **Clone + Edit** (the copy icon). Marinara makes your own copy, named for example "Petal OS (my copy)", and opens it in the editor. Starter themes stay read-only, so the original is always there. To start from scratch instead, click **Create Theme**. Its template has lines between `/*` and `*/`, which are switched off. Delete those marks around a line to switch it on.
+2. To change a starter theme, download one you like from **Browse the theme gallery**, find it under **Starter themes** and click **Clone + Edit** (the copy icon). Marinara makes your own copy, named for example "Petal OS (my copy)", and opens it in the editor. Starter themes stay read-only, so the original is always there. To start from scratch instead, click **Create Theme**. Its template has lines between `/*` and `*/`, which are switched off. Delete those marks around a line to switch it on.
 3. Type a name in the name box.
 4. Change a colour. Find a line such as `--primary: #3fae7a;` and replace the colour. `#3fae7a` is a hex colour code. Any colour picker on the web gives you one. Names such as `teal` work too.
 5. Leave **Preview** on. The app changes as you type, so you see each change at once.
@@ -355,6 +355,7 @@ understand. So day and night (or per-chat) weather work like any other token.
 | `--mari-weather-rain-length`     | 0.5 to 3 times the length of rain streaks                                                                                                       |
 | `--mari-weather-sun`, `-moon`    | `none` when your backdrop paints its own sun or moon                                                                                            |
 | `--mari-weather-lightning-color` | The flash colour. Its strength and timing stay the app's gentle, epilepsy-safe values                                                           |
+| `--mari-weather-lightning-bolt`  | `on`, `none` or 0.5-3 (width): a forked bolt down the left or right side with each flash, fading with it                                         |
 
 Kinds: `rain`, `snow`, `hail`, `fog`, `dust`, `leaf` (windy weather), `petal` (blossom), `ember`, `ash`,
 `sand`, `firefly`, `star`, `aurora`, and `sun` and `moon` (colour, size and one picture).
@@ -724,13 +725,18 @@ The import preview tells the user when a theme tries to change any of these.
 
 ## Changes
 
+- **Theme gallery and lightning bolts** (November 9 2026, contract still version 1): starter themes
+  download on demand from the theme gallery; `--mari-weather-lightning-bolt` (`on`, `none` or a width
+  from 0.5 to 3) draws a forked bolt down one side of the screen with each storm flash.
+
 - **Theme weather** (November 2026, contract still version 1): `--mari-weather-*` tokens (pixel
   style, colours, pictures, size, speed, amount, strength, tint, sun and moon off),
   `data-mari-weather` and `data-mari-sky` on `<html>`, and the weather pauses under covering panels.
   Petal OS, NEON//GRID and Lantern Path use them.
 
 - **Round 6 and security audit** (November 2026, no new tokens, contract still version 1): the
-  seven starter themes ship read-only, and **Clone + Edit** makes an editable copy; credits,
+  starter themes are read-only, and **Clone + Edit** makes an editable copy (since November 9 they
+  download on demand from the theme gallery instead of shipping in the install); credits,
   licence and labels show in the import preview and behind the (i) button; trying a theme happens
   in that tab only until **Keep theme**; the theme text rules, URL check, SVG rebuild and suggested
   colour check described under [Safety](#safety).

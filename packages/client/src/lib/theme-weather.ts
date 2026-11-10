@@ -44,6 +44,8 @@ export interface ThemeWeatherTokens {
   sun: boolean;
   moon: boolean;
   lightning: string | null;
+  /** 0 = flash only; else the drawn bolt's width, 0.5-3 (`--mari-weather-lightning-bolt: on | none | 0.5-3`). */
+  bolt: number;
   kinds: Partial<
     Record<WeatherLookKind, { color?: string; size?: number; shape?: "round" | "square"; images?: string[] }>
   >;
@@ -101,6 +103,7 @@ export function readThemeWeatherTokens(
     sun: true,
     moon: true,
     lightning: null,
+    bolt: 0,
     kinds: {},
   };
   let any = false;
@@ -137,6 +140,12 @@ export function readThemeWeatherTokens(
   if (lightning) {
     tokens.lightning = parseWeatherColor(lightning);
     any ||= tokens.lightning !== null;
+  }
+  const bolt = get("lightning-bolt").toLowerCase();
+  if (bolt) {
+    if (bolt === "on") tokens.bolt = 1;
+    else if (bolt !== "none" && bolt !== "off") tokens.bolt = clampNumber(bolt, 0.5, 3, 0);
+    any ||= tokens.bolt > 0;
   }
   for (const kind of WEATHER_LOOK_KINDS) {
     const entry: NonNullable<ThemeWeatherTokens["kinds"][WeatherLookKind]> = {};

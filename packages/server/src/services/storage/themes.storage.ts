@@ -13,7 +13,7 @@ import {
   type ThemeMeta,
   type UpdateThemeInput,
 } from "@marinara-engine/shared";
-import { isStarterThemeId, loadStarterThemes } from "./starter-themes.js";
+import { isStarterThemeId } from "./starter-themes.js";
 
 type ThemeRow = typeof customThemes.$inferSelect;
 
@@ -45,63 +45,40 @@ function mapTheme(row: ThemeRow): Theme {
   };
 }
 
-/** One seeding pass per process: starter rows are added, or refreshed when their file changed. */
-const seeded = new WeakSet<object>();
-
 export function createThemesStorage(db: DB) {
-  async function ensureStarterThemes() {
-    if (seeded.has(db)) return;
-    seeded.add(db);
-    try {
-      const rows = await db.select().from(customThemes);
-      const byId = new Map(rows.map((row) => [row.id, row] as const));
-      for (const starter of loadStarterThemes()) {
-        const meta = serializeMeta(starter.meta);
-        const existing = byId.get(starter.id);
-        const timestamp = now();
-        if (!existing) {
-          await db.insert(customThemes).values({
-            id: starter.id,
-            name: starter.name,
-            css: starter.css,
-            installedAt: timestamp,
-            createdAt: timestamp,
-            // Oldest first in a list sorted by last change, so the person's own themes lead.
-            updatedAt: "1970-01-01T00:00:00.000Z",
-            isActive: "false",
-            meta,
-          });
-        } else if (existing.name !== starter.name || existing.css !== starter.css || existing.meta !== meta) {
-          await db
-            .update(customThemes)
-            .set({ name: starter.name, css: starter.css, meta })
-            .where(eq(customThemes.id, starter.id));
-        }
-      }
-    } catch (error) {
-      seeded.delete(db);
-      throw error;
-    }
-  }
-
   return {
-    ensureStarterThemes,
-
     async list() {
-      await ensureStarterThemes();
-      let rows = await db.select().from(customThemes).orderBy(desc(customThemes.updatedAt));
-      // All themes deleted at once (Data > Delete): put the starters back.
-      const ids = new Set(rows.map((row) => row.id));
-      if (loadStarterThemes().some((starter) => !ids.has(starter.id))) {
-        seeded.delete(db);
-        await ensureStarterThemes();
-        rows = await db.select().from(customThemes).orderBy(desc(customThemes.updatedAt));
-      }
+      const rows = await db.select().from(customThemes).orderBy(desc(customThemes.updatedAt));
       return rows.map(mapTheme);
     },
 
+    /** A starter theme downloaded from the theme gallery: added, or replaced in place by a newer version
+     *  (it keeps being the active theme if it was). */
+    async saveStarter(starter: { id: string; name: string; css: string; meta: ThemeMeta }) {
+      if (!isStarterThemeId(starter.id)) throw new Error("Not a starter theme id");
+      const meta = serializeMeta(starter.meta);
+      const css = normalizeThemeCss(starter.css);
+      const rows = await db.select().from(customThemes).where(eq(customThemes.id, starter.id));
+      if (rows[0]) {
+        await db.update(customThemes).set({ name: starter.name, css, meta }).where(eq(customThemes.id, starter.id));
+      } else {
+        const timestamp = now();
+        await db.insert(customThemes).values({
+          id: starter.id,
+          name: starter.name,
+          css,
+          installedAt: timestamp,
+          createdAt: timestamp,
+          // Oldest first in a list sorted by last change, so the person's own themes lead.
+          updatedAt: "1970-01-01T00:00:00.000Z",
+          isActive: "false",
+          meta,
+        });
+      }
+      return this.getById(starter.id);
+    },
+
     async getById(id: string) {
-      if (isStarterThemeId(id)) await ensureStarterThemes();
       const rows = await db.select().from(customThemes).where(eq(customThemes.id, id));
       const row = rows[0];
       return row ? mapTheme(row) : null;
