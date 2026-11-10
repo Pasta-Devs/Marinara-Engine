@@ -1,26 +1,14 @@
 // ──────────────────────────────────────────────
 // UI overhaul, phones and tablets: the top bar, the Stack menu and All Tabs
 //
-// Same sides as the desktop bar: Chats on the left; Chat settings and the
-// Library Stack on the right. The bottom of the screen stays free for the
+// Home on the left; Chat settings, All Tabs and the Library on the right. The
+// Library button opens the one sidebar (Chats | Library) as a slide-over page. The bottom of the screen stays free for the
 // message composer. Tabs are not shown in the bar; they live in a
 // Safari-style All Tabs viewer, opened from the Stack menu.
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  ArrowUp,
-  BookOpen,
-  Check,
-  Home,
-  Layers,
-  MessageCircle,
-  Plus,
-  Search,
-  Settings,
-  Settings2,
-  X,
-} from "lucide-react";
+import { ArrowUp, Check, Home, Layers, Plus, Search, Settings2, X } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -30,7 +18,6 @@ import { useChats } from "../../hooks/use-chats";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { preloadChatSettingsDrawer } from "../chat/ChatCommonOverlays";
-import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import {
   ChatSettingsSummary,
   TabIcon,
@@ -45,6 +32,7 @@ import {
   usePublishTopBarHeight,
 } from "./OverhaulTopBar";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
+import { MobileSidePage } from "./SidePane";
 import { useHorizontalSwipe, type SwipeDirection } from "./use-horizontal-swipe";
 
 /** Leave the Chats list or a mobile side panel before showing something else in the main area. */
@@ -64,100 +52,6 @@ function useWideEnoughForLabel() {
     return () => mq.removeEventListener("change", update);
   }, []);
   return wide;
-}
-
-/** Safari's ⋯ menu, as the Library: sections as rows, then Settings, Docs and All Tabs. */
-function StackMenu({ onClose, anchor }: { onClose: () => void; anchor: HTMLElement | null }) {
-  const localize = useLocalizedUiText();
-  const tabCount = useOverhaulStore((s) => s.tabs.length);
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [top, setTop] = useState(0);
-  useLayoutEffect(() => {
-    if (anchor) setTop(anchor.getBoundingClientRect().bottom + 6);
-  }, [anchor]);
-  useEffect(() => {
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (ref.current?.contains(target) || anchor?.contains(target)) return;
-      onClose();
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("pointerdown", onPointer, true);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointer, true);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [anchor, onClose]);
-  const pick = (run: () => void) => () => {
-    onClose();
-    closeMobilePanels();
-    run();
-  };
-  const rows = LIBRARY_SECTIONS.filter((entry) => entry.id !== "settings");
-  return createPortal(
-    <>
-      <div className="ovm-scrim" aria-hidden="true" />
-      <div ref={ref} className="ovm-stack-menu" role="menu" aria-label={localize("Library")} style={{ top }}>
-        {rows.map((entry) => {
-          const Icon = entry.icon;
-          return (
-            <button
-              key={entry.id}
-              type="button"
-              role="menuitem"
-              className="ovm-stack-menu__row"
-              onClick={pick(() => openLibrarySection(entry.id))}
-            >
-              <Icon size={20} aria-hidden="true" />
-              <span>{localize(entry.label)}</span>
-            </button>
-          );
-        })}
-        <div className="ovm-stack-menu__sep" aria-hidden="true" />
-        <div className="ovm-stack-menu__tiles">
-          <button
-            type="button"
-            role="menuitem"
-            className="ovm-stack-menu__tile"
-            onClick={pick(() => openLibrarySection("settings"))}
-          >
-            <Settings size={22} aria-hidden="true" />
-            <span>{localize("Settings")}</span>
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className="ovm-stack-menu__tile"
-            onClick={pick(() => {
-              useUIStore.getState().closeAllDetails();
-              useOverhaulStore.getState().openDocs(null);
-            })}
-          >
-            <BookOpen size={22} aria-hidden="true" />
-            <span>{localize("Docs")}</span>
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className="ovm-stack-menu__tile"
-            onClick={() => {
-              onClose();
-              useOverhaulStore.getState().setAllTabsOpen(true);
-            }}
-          >
-            <span className="ovm-tabs-icon" aria-hidden="true">
-              {tabCount + 1}
-            </span>
-            <span>{localize("All Tabs")}</span>
-          </button>
-        </div>
-      </div>
-    </>,
-    document.body,
-  );
 }
 
 /** One tab as a card in the All Tabs grid. */
@@ -370,11 +264,6 @@ export function OverhaulMobileTopBar() {
     ? localize(activeChat.mode === "conversation" ? "Conversation" : activeChat.mode === "game" ? "Game" : "Roleplay")
     : "";
 
-  const toggleChats = () => {
-    const ui = useUIStore.getState();
-    if (ui.rightPanelOpen) ui.closeRightPanel();
-    ui.setSidebarOpen(!ui.sidebarOpen);
-  };
   const toggleChatSettings = (button: HTMLButtonElement) => {
     void preloadChatSettingsDrawer();
     const windows = useFloatingWindowStore.getState();
@@ -386,17 +275,6 @@ export function OverhaulMobileTopBar() {
     <header ref={barRef} data-component="TopBar" data-overhaul-topbar="mobile" className="ovm-topbar">
       {/* Three columns with equal sides, so the title sits in the true centre. */}
       <div className="ovm-topbar__side">
-        <button
-          type="button"
-          className={cn("ovm-icon-btn", sidebarOpen && "is-on")}
-          aria-pressed={sidebarOpen}
-          aria-label={localize(sidebarOpen ? "Hide chat list" : "Show chat list")}
-          title={localize("Chats")}
-          onClick={toggleChats}
-          data-tour="sidebar-toggle"
-        >
-          <MessageCircle size={22} />
-        </button>
         <button
           type="button"
           className={cn("ovm-icon-btn", !current && !sidebarOpen && "is-on")}
@@ -477,6 +355,7 @@ export function OverhaulMobileTopBar() {
         <MobileLibraryButton />
       </div>
       {allTabsOpen ? <AllTabsViewer chats={chats} current={current} /> : null}
+      <MobileSidePage />
       <JumpToTop />
     </header>
   );
@@ -488,27 +367,25 @@ export function OverhaulMobileTopBar() {
  */
 export function MobileLibraryButton({ tour = true }: { tour?: boolean }) {
   const localize = useLocalizedUiText();
-  const [stackOpen, setStackOpen] = useState(false);
-  const stackRef = useRef<HTMLButtonElement | null>(null);
+  const open = useOverhaulStore((s) => s.mobileSidePageOpen);
   const wide = useWideEnoughForLabel();
   return (
-    <>
-      <button
-        ref={stackRef}
-        type="button"
-        className={cn("ovm-stack-btn", stackOpen && "is-on", wide && "has-label")}
-        aria-expanded={stackOpen}
-        aria-haspopup="menu"
-        aria-label={localize("Library")}
-        title={localize("Library")}
-        onClick={() => setStackOpen((open) => !open)}
-        data-tour={tour ? "panel-buttons" : undefined}
-      >
-        <Layers size={22} aria-hidden="true" />
-        {wide ? <span>{localize("Library")}</span> : null}
-      </button>
-      {stackOpen ? <StackMenu anchor={stackRef.current} onClose={() => setStackOpen(false)} /> : null}
-    </>
+    <button
+      type="button"
+      className={cn("ovm-stack-btn", open && "is-on", wide && "has-label")}
+      aria-expanded={open}
+      aria-label={localize("Library")}
+      title={localize("Library")}
+      onClick={() => {
+        const ui = useUIStore.getState();
+        if (ui.sidebarOpen) ui.setSidebarOpen(false);
+        useOverhaulStore.getState().setMobileSidePageOpen(!open);
+      }}
+      data-tour={tour ? "panel-buttons" : undefined}
+    >
+      <Layers size={22} aria-hidden="true" />
+      {wide ? <span>{localize("Library")}</span> : null}
+    </button>
   );
 }
 
