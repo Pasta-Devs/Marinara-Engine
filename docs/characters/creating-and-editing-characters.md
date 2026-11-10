@@ -159,13 +159,16 @@ The **Regex Scripts** section holds find-and-replace scripts for this one charac
 An alternative field gives the same character a different description, appearance, backstory or other detail in chosen chats, while everyone else keeps the original. Each of the seven card fields has **Add Alternative Field** below it.
 
 1. Click **Add Alternative Field** under the field you want to vary. Marinara copies the field's text into a new alternative.
-2. Edit the alternative. It has its own wand, which uses the alternative's text as the starting details and does not change the original field.
-3. Open **Active in 0 chats** and tick the chats that should use it. Only chats that include this character are listed.
-4. Click **Save**.
+2. Optional: click its title, such as **Backstory alternative 1**, and type a name such as `Young`. Names are up to 60 characters. Leave the name empty to keep the numbered title.
+3. Edit the alternative. It has its own wand, which uses the alternative's text as the starting details and does not change the original field.
+4. Open **Active in 0 chats** and tick the chats that should use it. Only chats that include this character are listed.
+5. Click **Save**.
+
+You can also choose from inside a chat. Open **Chat Settings** and expand **Card Field Alternatives**. It lists the chat's persona and each character in the chat that has alternatives, with one menu per field. Pick **Original** or an alternative by name. The card is saved right away, and the choice applies from the next reply. The section is hidden when nothing in the chat has alternatives.
 
 Rules:
 
-- A chat can use only one alternative per field. Ticking a chat in another alternative moves it there.
+- A chat can use only one alternative per field. Ticking a chat in another alternative, or picking another one in Chat Settings, moves it there.
 - With no chats ticked, the alternative stays inactive for later.
 - An empty alternative clears that field in its chats.
 - Chat-specific scenario and image appearance overrides still win.
