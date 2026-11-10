@@ -597,7 +597,10 @@ export function AppShell({
   // Split view (desktop only): a second page beside the main one, when both fit.
   const split = useOverhaulStore((s) => s.split);
   const splitDragging = useOverhaulStore((s) => s.splitDrag !== null);
-  const splitRoom = useSplitRoom(sidebarOpen ? liveSidebarWidth : 0, rightPanelOpen ? liveRightPanelWidth : 0);
+  const splitRoom = useSplitRoom(
+    sidebarOpen && !overhaulActive ? liveSidebarWidth : 0,
+    rightPanelOpen ? liveRightPanelWidth : 0,
+  );
   const splitFits = overhaulActive && !SPLIT_PANE && splitRoom >= SPLIT_MIN_ROOM;
   const splitOn = splitFits && split !== null;
   const splitSize = split ? clampSplitSize(split.size, splitRoom) : 0.5;
@@ -690,7 +693,7 @@ export function AppShell({
   const mobileNavigationPanel = shellOverlayMode
     ? rightPanelOpen && !overhaulMobile
       ? "right"
-      : sidebarOpen
+      : sidebarOpen && !overhaulMobile
         ? "chats"
         : null
     : null;
@@ -699,7 +702,23 @@ export function AppShell({
     if (rightPanelOpen) setRightPanelEverOpened(true);
   }, [rightPanelOpen]);
 
-  const layoutSidebarOpen = sidebarOpen;
+  // New layout: Chats live in the one sidebar on the right, so the left chat list never shows. Anything
+  // that opens it (shortcuts, Home, the tour) opens that sidebar on its Chats view instead: the right
+  // pane on a computer, the slide-over page on phones and tablets.
+  useEffect(() => {
+    if (!sidebarOpen || (!overhaulActive && !overhaulMobile)) return;
+    const ui = useUIStore.getState();
+    ui.setSidebarOpen(false);
+    const overhaul = useOverhaulStore.getState();
+    overhaul.setSidePane("chats");
+    if (overhaulMobile) overhaul.setMobileSidePageOpen(true);
+    else if (!ui.rightPanelOpen) ui.openRightPanel(ui.rightPanel === "chat" ? "characters" : ui.rightPanel);
+  }, [sidebarOpen, overhaulActive, overhaulMobile]);
+  // The phone page belongs to the phone layout: leaving it (a wider window) closes the page.
+  useEffect(() => {
+    if (!overhaulMobile) useOverhaulStore.getState().setMobileSidePageOpen(false);
+  }, [overhaulMobile]);
+  const layoutSidebarOpen = sidebarOpen && !overhaulActive;
   const layoutRightPanelOpen = rightPanelOpen;
   const desktopReservedSidebarWidth = layoutSidebarOpen ? liveSidebarWidth : 0;
   const desktopReservedRightPanelWidth = layoutRightPanelOpen ? liveRightPanelWidth : 0;
@@ -1684,8 +1703,8 @@ export function AppShell({
           />
         )}
 
-        {/* Left sidebar - Chat list */}
-        {!shellOverlayMode && (
+        {/* Left sidebar - Chat list (the new layout keeps Chats in the right sidebar instead) */}
+        {!shellOverlayMode && !overhaulActive && (
           <aside
             data-tour="sidebar"
             data-component="ChatSidebarSlot"
@@ -1716,7 +1735,7 @@ export function AppShell({
             </div>
           </aside>
         )}
-        {!shellOverlayMode && sidebarOpen && (
+        {!shellOverlayMode && !overhaulActive && sidebarOpen && (
           <div
             role="separator"
             aria-orientation="vertical"

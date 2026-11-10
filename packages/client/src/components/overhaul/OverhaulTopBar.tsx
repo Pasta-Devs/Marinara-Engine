@@ -16,7 +16,6 @@ import {
   GraduationCap,
   Layers,
   Link,
-  MessageCircle,
   Plus,
   Regex,
   Settings2,
@@ -596,8 +595,6 @@ export function OverhaulTopBar() {
   // room the page makes while the fullscreen bar is pinned open.
   const barRef = useRef<HTMLElement | null>(null);
   usePublishTopBarHeight(barRef);
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
-  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const setOmnibarOpen = useUIStore((s) => s.setOmnibarOpen);
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -644,17 +641,6 @@ export function OverhaulTopBar() {
         className={cn("ov-topbar", autoHide && "is-autohide")}
       >
         {mariEdgeGlow ? <span aria-hidden="true" data-state={mariEdgeGlow} className="mari-topbar-edge-glow" /> : null}
-        <button
-          type="button"
-          className={cn("ov-icon-btn", sidebarOpen && "is-on")}
-          aria-pressed={sidebarOpen}
-          onClick={toggleSidebar}
-          title={localize(sidebarOpen ? "Hide chat list" : "Show chat list")}
-          aria-label={localize(sidebarOpen ? "Hide chat list" : "Show chat list")}
-          data-tour="sidebar-toggle"
-        >
-          <MessageCircle size={16} />
-        </button>
         <img
           className="ov-mark"
           src="/favicon.png"

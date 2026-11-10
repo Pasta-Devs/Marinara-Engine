@@ -231,6 +231,71 @@
   outline-offset: 1px;
 }
 
+/* ─── The one sidebar (right): Chats | Library switch ─── */
+.ov-sidepane {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  min-height: 0;
+}
+.ov-sidepane__body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.ov-sidepane__body > * {
+  min-height: 0;
+  flex: 1;
+}
+.ov-sideswitch {
+  display: flex;
+  flex: none;
+  gap: 0.1875rem;
+  margin: 0.625rem 0.625rem 0.25rem;
+  padding: 0.1875rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.625rem;
+}
+.ov-sideswitch__btn {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4375rem;
+  height: 1.875rem;
+  border-radius: 0.4375rem;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .ov-sideswitch__btn:not(.is-on):hover {
+    color: var(--ov-text);
+    background: var(--ov-hover);
+  }
+}
+.ov-sideswitch__btn.is-on {
+  color: var(--ov-accent);
+  background: var(--ov-active-bg);
+}
+.ov-sideswitch__btn:focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: -2px;
+}
+/* The switch already names each view: the Chats header keeps only its buttons, the Library list its sections. */
+:root[data-overhaul] .ov-sidepane [data-component="ChatSidebar"] .mari-sidebar-header > .gap-2\.5 {
+  display: none;
+}
+:root[data-overhaul] .ov-sidepane .ov-sidepane__body [data-component="ChatSidebar"] .mari-sidebar-header {
+  min-height: 2.25rem;
+  justify-content: flex-end;
+  padding-block: 0.125rem;
+}
+.ov-sidepane .ov-libnav__title {
+  display: none;
+}
+
 /* ─── Library pane (right) ─── */
 .ov-libnav {
   display: flex;
