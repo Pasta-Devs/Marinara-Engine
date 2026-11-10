@@ -2,6 +2,7 @@ import { debugJson } from "../../lib/logger.js";
 import type { ChatMessage, LLMToolDefinition } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import type { createConnectionsStorage } from "../storage/connections.storage.js";
+import { withAlwaysOnThinkingHeadroom } from "./agent-generation-parameters.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "./generation-parameters.js";
 import { fitMessagesForModelAccess, resolveModelAccessPolicy } from "./model-access-policy.js";
 
@@ -31,6 +32,7 @@ export async function planGameToolCalls(args: {
     conn.defaultParameters,
   );
   const policy = resolveModelAccessPolicy(conn);
+  const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
   // ponytail: one planning round cannot chain lookups; use Same as narrator for
   // multi-round tool reasoning. Keep this opt-in pass independent and bounded.
   const fit = fitMessagesForModelAccess({
@@ -45,11 +47,16 @@ export async function planGameToolCalls(args: {
       },
     ],
     policy,
-    maxTokens: Math.min(conn.maxTokensOverride ?? Infinity, resolveStoredMaxTokens(conn.defaultParameters, 2048)),
+    maxTokens: withAlwaysOnThinkingHeadroom({
+      provider: conn.provider,
+      model: conn.model,
+      maxTokens: Math.min(conn.maxTokensOverride ?? Infinity, resolveStoredMaxTokens(conn.defaultParameters, 2048)),
+      reasoningEffort: storedOptions.reasoningEffort,
+      maxTokensOverride: conn.maxTokensOverride,
+    }),
     tools: args.tools,
   });
   args.debugLog("[game/tools] Planning prompt sent to %s (%s):\n%s", conn.name, conn.model, debugJson(fit.messages));
-  const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
   return provider.chatComplete(fit.messages, {
     model: conn.model,
     ...storedOptions,

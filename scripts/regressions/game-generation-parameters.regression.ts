@@ -81,6 +81,19 @@ const noReasoning = gameGenOptions("gpt-5.5", {}, { reasoningEffort: null, verbo
 assert.equal(noReasoning.reasoningEffort, "none");
 assert.equal(noReasoning.enableThinking, false);
 assert.equal(noReasoning.verbosity, undefined);
+// Gemini 4 Argon and Carbon think at medium with nothing saved: their helpers send it, think with it and keep room
+// for it, while another model's helper keeps its budget.
+for (const provider of ["google", "google_vertex"]) {
+  for (const model of ["gemini-4-argon", "gemini-4-carbon"]) {
+    const unsaved = gameGenOptions(model, { maxTokens: 1200, enableThinking: false }, null, provider);
+    assert.equal(unsaved.reasoningEffort, "medium", `${provider} ${model} helper level`);
+    assert.equal(unsaved.enableThinking, true, `${provider} ${model} helper with nothing saved thinks`);
+    assert.ok(unsaved.maxTokens! > 1200, `${provider} ${model} helper with nothing saved keeps room for thinking`);
+  }
+  const gemini3 = gameGenOptions("gemini-3-pro-preview", { maxTokens: 1200 }, { reasoningEffort: "high" }, provider);
+  assert.equal(gemini3.reasoningEffort, "high");
+  assert.equal(gemini3.maxTokens, 1200, `${provider} Gemini 3 helper keeps its budget`);
+}
 const claude = gameGenOptions("claude-opus-4-7", {}, { temperature: 0.3, topP: 0.6 }, "anthropic");
 assert.equal(claude.temperature, undefined, "provider sampling restrictions still apply");
 assert.equal(claude.topP, undefined);

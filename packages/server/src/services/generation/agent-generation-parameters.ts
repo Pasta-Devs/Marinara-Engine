@@ -119,6 +119,11 @@ function connectionSends(resolved: ResolvedGenerationParameters, key: keyof Gene
   return resolved.enabledParameters?.[key] !== false;
 }
 
+/** Gemini 4 Argon and Carbon on Google and Vertex think at medium even when asked for no level or Off. */
+function thinksWithoutLevel(provider: string, model: string): boolean {
+  return resolveProviderReasoningEffort({ provider, model, reasoningEffort: null }) !== null;
+}
+
 /**
  * A level counts as chosen only when the connection saved one, sends it, and shows Reasoning Effort for this model.
  * Codex keeps its own level while the saved value is Default (null). With `unsetCountsAsOff`, no saved level counts as
@@ -132,9 +137,7 @@ function connectionChoseReasoning(
 ): boolean {
   const chosen =
     resolved.parameterSources.reasoningEffort === "connection" ||
-    (unsetCountsAsOff &&
-      resolveProviderReasoningEffort({ provider: source.provider, model: source.model, reasoningEffort: null }) !==
-        null);
+    (unsetCountsAsOff && thinksWithoutLevel(source.provider, source.model));
   if (!chosen || !connectionSends(resolved, "reasoningEffort")) return false;
   if (source.provider.toLowerCase() === "openai_chatgpt" && resolved.reasoningEffort == null) return false;
   return relevantGenerationParameters({ provider: source.provider, model: source.model }).has("reasoningEffort");
@@ -210,6 +213,15 @@ export function withConnectionThinkingHeadroom(args: {
       maxTokensOverride: args.maxTokensOverride,
     }),
   );
+}
+
+/**
+ * The answer budget for a helper call that sends resolveStoredChatOptions' level. On a model that thinks without a
+ * level (Gemini 4 Argon and Carbon) that level is there even with nothing saved, so the call gets the room an agent
+ * gets; every other model keeps the budget its helper calls always had.
+ */
+export function withAlwaysOnThinkingHeadroom(args: Parameters<typeof withConnectionThinkingHeadroom>[0]): number {
+  return thinksWithoutLevel(args.provider, args.model) ? withConnectionThinkingHeadroom(args) : args.maxTokens;
 }
 
 type CapabilityChatOptions = Pick<

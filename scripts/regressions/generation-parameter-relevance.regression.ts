@@ -66,7 +66,7 @@ try {
     resolveProviderReasoningEffort,
     shouldSuppressUnknownModelParameters,
   } = await import("../../packages/shared/src/constants/model-lists.js");
-  const { resolveAgentConnectionParameters, withThinkingHeadroom } =
+  const { resolveAgentConnectionParameters, withAlwaysOnThinkingHeadroom, withThinkingHeadroom } =
     await import("../../packages/server/src/services/generation/agent-generation-parameters.js");
   const { relevantGenerationParameters, reasoningEffortChoices, verbosityChoices } =
     await import("../../packages/shared/src/constants/generation-parameter-relevance.js");
@@ -733,6 +733,24 @@ try {
       resolveStoredChatOptions(null, provider, model),
       { reasoningEffort: "medium" },
       `${provider} ${model} helper calls on a connection with nothing saved send medium`,
+    );
+    // Helper calls size their answer with that medium in mind, as agents do; another model's helper budget stays.
+    const helperMaxTokens = (helperModel: string, defaultParameters: unknown) =>
+      withAlwaysOnThinkingHeadroom({
+        provider,
+        model: helperModel,
+        maxTokens: 4096,
+        reasoningEffort: resolveStoredChatOptions(defaultParameters, provider, helperModel).reasoningEffort,
+      });
+    assert.equal(
+      helperMaxTokens(model, null),
+      agentOn(null).maxTokens,
+      `${provider} ${model} helper calls with nothing saved keep an agent's room for thinking`,
+    );
+    assert.equal(
+      helperMaxTokens("gemini-3-pro-preview", { reasoningEffort: "high" }),
+      4096,
+      `${provider} Gemini 3 helper calls keep the budget they always had`,
     );
     assert.deepEqual(
       agentOn(null, "gemini-3-pro-preview"),
