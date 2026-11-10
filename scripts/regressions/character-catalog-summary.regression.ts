@@ -22,6 +22,7 @@ const full: CharacterCatalogEntry & { searchText: string; cardSpec: string; card
   creatorNotes: "private creator notes",
   tokenEstimate: 45,
   hasOnboarding: true,
+  nameAliases: ["Doc"],
   nameColor: "red",
   avatarPath: "/avatar.png",
   avatarCrop: { x: 1 },
@@ -40,6 +41,7 @@ assert.deepEqual(
   [
     "id",
     "name",
+    "nameAliases",
     "comment",
     "creator",
     "version",
@@ -77,7 +79,7 @@ try {
         name: `Character ${index}`,
         tags: index === 104 ? ["only-last"] : index === 103 ? ["ＲＰＧ", "Science  Fiction"] : [],
         description: index === 104 ? "needle hidden in long description" : "long card text ".repeat(200),
-        extensions: { fav: index === 104 },
+        extensions: { fav: index === 104, ...(index === 102 ? { nameAliases: ["Kal-El", 7] } : {}) },
       }),
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -118,6 +120,13 @@ try {
   assert.equal(matched.total, 1);
   assert.equal(matched.items[0]?.description, undefined, "search matches full text before slimming");
   assert.deepEqual((await get("view=summary&search=needle&folder=none")).items, []);
+  // #9040: search finds a card by its other names, and the list rows carry them for the client filter.
+  const byAlias = await get("view=summary&search=kal-el");
+  assert.deepEqual(
+    byAlias.items.map((item) => item.id),
+    ["summary-102"],
+  );
+  assert.deepEqual((byAlias.items[0] as { nameAliases?: string[] }).nameAliases, ["Kal-El"]);
   // Typed exclusions arrive normalized, so stored tags must be normalized the same way (NFKC, case, spaces).
   for (const tag of ["rpg", "science fiction"]) {
     const excluded = await get(`view=summary&excludeTag=${encodeURIComponent(tag)}`);

@@ -59,6 +59,7 @@ import {
   type ExportEnvelope,
   parseLorebookDecisionActivation,
   restoreBakedGreetingImages,
+  normalizeNameAliases,
 } from "@marinara-engine/shared";
 import { getDataDir } from "../utils/data-dir.js";
 import { uniqueExportName } from "../utils/export-stream.js";
@@ -4264,6 +4265,7 @@ export async function backupRoutes(app: FastifyInstance) {
                     typeof p.savedStatusOptions === "string"
                       ? p.savedStatusOptions
                       : JSON.stringify(p.savedStatusOptions ?? []),
+                  nameAliases: JSON.stringify(normalizeNameAliases(p.nameAliases)),
                   convoDisplayName: typeof p.convoDisplayName === "string" ? p.convoDisplayName : "",
                   aboutMe: typeof p.aboutMe === "string" ? p.aboutMe : "",
                   convoBehavior: typeof p.convoBehavior === "string" ? p.convoBehavior : "",
