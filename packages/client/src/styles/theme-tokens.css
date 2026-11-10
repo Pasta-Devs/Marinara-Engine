@@ -37,6 +37,8 @@
   /* Surfaces. */
   --mari-stage-empty-bg: #000;
   --mari-scrim: rgb(0 0 0 / 0.55);
+  /* Behind short "are you sure" dialogs: light and see-through, never a bright wash. */
+  --mari-confirm-scrim: rgb(0 0 0 / 0.16);
   --mari-user-avatar-placeholder: linear-gradient(to bottom right in oklab, oklch(0.556 0 0), oklch(0.439 0 0));
   /* --mari-art-saturation-1/-2 and --mari-art-lightness-1/-2 tune the placeholder gradients on
      cards without a picture. They have no value here on purpose (see lib/placeholder-art.ts). */
