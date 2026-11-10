@@ -136,6 +136,20 @@ function parseStoredCard(data: string): CharacterData {
   return { name: "", extensions: {} } as unknown as CharacterData;
 }
 
+/**
+ * Every flat column is text (or null where its default is null). A card value of another type (a
+ * hand edit or a raw `mari db` write such as `"name": 5`) reads as the column default, so one bad
+ * row cannot throw inside a list's search or sort.
+ */
+function withTextColumns(row: PersonaStorageRow): PersonaStorageRow {
+  const out = { ...row } as Record<string, unknown>;
+  for (const [key, fallback] of Object.entries(PERSONA_COLUMN_DEFAULTS)) {
+    const value = out[key];
+    if (typeof value !== "string" && !(value === null && fallback === null)) out[key] = fallback;
+  }
+  return out as unknown as PersonaStorageRow;
+}
+
 /** Rebuild every flat persona column from record metadata and the serialized CharacterData card. */
 export function personaRowFromStored(stored: StoredPersonaRow): PersonaStorageRow {
   // A row without `data` is a pre-format-11 flat row the migration has not converted (a raw
@@ -145,7 +159,7 @@ export function personaRowFromStored(stored: StoredPersonaRow): PersonaStorageRo
   }
   const persona = personaFromCard(parseStoredCard(stored.data));
   const encoded = encodePersonaUpdate(persona);
-  return {
+  return withTextColumns({
     id: stored.id,
     comment: stored.comment,
     avatarPath: stored.avatarPath,
@@ -183,7 +197,7 @@ export function personaRowFromStored(stored: StoredPersonaRow): PersonaStorageRo
     convoDisplayName: encoded.convoDisplayName ?? PERSONA_COLUMN_DEFAULTS.convoDisplayName,
     aboutMe: encoded.aboutMe ?? PERSONA_COLUMN_DEFAULTS.aboutMe,
     convoBehavior: encoded.convoBehavior ?? PERSONA_COLUMN_DEFAULTS.convoBehavior,
-  };
+  });
 }
 
 /** List the flat columns that change after a row is folded into a stored row and rebuilt. */

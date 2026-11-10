@@ -3287,6 +3287,10 @@ class FileTableStore {
       if (bucket) bucket.push(row);
       else rowsByShard.set(key, [row]);
     }
+    // Persona rows were converted to the format-11 card above. As on the sharded path, raise the
+    // manifest first so a crash before the flush can't leave them under a manifest an older build
+    // accepts. The untouched monolith becomes `.pre-shard` below, so no `.pre-v11` copy is needed.
+    if (table === "personas" && normalized.length > 0) await this.raiseManifestVersionBeforeRewrite();
     for (const [key, shardRows] of rowsByShard) {
       await atomicWriteFile(
         shardFilePath(this.rootDir, table, encodeShardKey(key)),

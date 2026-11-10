@@ -195,3 +195,14 @@ for (const gameOnly of [
 for (const none of ["{}", '{"enabled":"yes","bars":[]}', '{"enabled":true,"bars":{}}']) {
   assert.equal(personaRowFromStored(storedPersonaFromRow({ ...minimalRow, personaStats: none })).personaStats, "");
 }
+
+// A card value of the wrong type (a raw `mari db` write such as `"name": 5`) reads as the column
+// default instead of breaking a whole list's search and sort.
+const wrongTypes = personaRowFromStored({
+  ...storedRows.canonical,
+  data: JSON.stringify({ name: 5, description: ["x"], creator: null, extensions: { backstory: 7 } }),
+});
+for (const column of ["name", "description", "creator", "backstory"] as const) {
+  assert.equal(typeof wrongTypes[column], "string", `${column} reads as text`);
+}
+assert.equal(wrongTypes.name.toLowerCase(), "");
