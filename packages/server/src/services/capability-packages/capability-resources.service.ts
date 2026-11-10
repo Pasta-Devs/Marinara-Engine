@@ -1,5 +1,10 @@
 import type {
+  CapabilityCharacterGroupRecord,
+  CapabilityCharacterPage,
+  CapabilityCharacterPageOptions,
   CapabilityCharacterRecord,
+  CapabilityCharacterRow,
+  CapabilityCharacterSummary,
   CapabilityLorebookCreateInput,
   CapabilityLorebookEntryInput,
   CapabilityLorebookEntryRecord,
@@ -27,10 +32,60 @@ function uniqueStrings(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)));
 }
 
-export function createCapabilityResourceHost(db: DB): CapabilityResourceHost {
+function characterRow(row: CapabilityCharacterRow): CapabilityCharacterRow {
+  return {
+    id: row.id,
+    data: row.data,
+    comment: row.comment ?? "",
+    avatarPath: row.avatarPath ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/** `permissions` are the package's declared ones; reads need none, `updateCharacterExtensions` needs `character-write`. */
+export function createCapabilityResourceHost(db: DB, permissions: readonly string[] = []): CapabilityResourceHost {
   const characters = createCharactersStorage(db);
   const lorebooks = createLorebooksStorage(db);
+  const canWriteCharacters = permissions.includes("character-write");
   return {
+    async getCharacters(characterIds): Promise<CapabilityCharacterRow[]> {
+      const rows = characterIds ? await characters.getByIds(characterIds) : await characters.list();
+      return rows.map(characterRow);
+    },
+
+    async listCharacterGroups(): Promise<CapabilityCharacterGroupRecord[]> {
+      return (await characters.listGroups()).map((group) => ({
+        id: group.id,
+        name: group.name,
+        description: group.description ?? "",
+        avatarPath: group.avatarPath ?? null,
+        characterIds: group.characterIds,
+        createdAt: group.createdAt,
+        updatedAt: group.updatedAt,
+      }));
+    },
+
+    async listCharactersPage(options: CapabilityCharacterPageOptions): Promise<CapabilityCharacterPage> {
+      const page = await characters.listPage(options);
+      return { ...page, items: page.items.map(characterRow) };
+    },
+
+    async listCharacterSummaries(characterIds: string[]): Promise<CapabilityCharacterSummary[]> {
+      return characters.listSummariesByIds(characterIds);
+    },
+
+    async updateCharacterExtensions(characterId: string, patch: Record<string, unknown>) {
+      if (!canWriteCharacters) {
+        throw new Error('Writing a character requires the "character-write" permission.');
+      }
+      if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+        throw new Error("[capability] updateCharacterExtensions takes an object of extension keys");
+      }
+      const result = await characters.updateExtensions(characterId, patch, { versionSource: "capability-package" });
+      return result ? characterRow(result.row) : null;
+    },
+
     async listCharacters(characterIds): Promise<CapabilityCharacterRecord[]> {
       const requestedIds = characterIds ? uniqueStrings(characterIds) : null;
       const records = requestedIds
