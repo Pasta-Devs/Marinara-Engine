@@ -1710,13 +1710,6 @@ export function ChatSidebar() {
               )}
             </div>
 
-            {/* Last-activity time — conversation chats only */}
-            {relativeTime && (
-              <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">
-                {relativeTime}
-              </span>
-            )}
-
             {/* Branch count badge. With recorded lineage it is also the toggle for the tree: the badge
               is already the row's "this has branches" signal, so it opens them rather than a separate
               chevron gutter that would cost every row in the list its width. */}
@@ -1753,6 +1746,13 @@ export function ChatSidebar() {
                   {branchCount}
                 </span>
               )
+            )}
+
+            {/* Last-activity time, after the branch badge so the dates line up down the list. */}
+            {relativeTime && (
+              <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">
+                {relativeTime}
+              </span>
             )}
 
             {/* Delete button (phones with swipe gestures delete from the row swipe instead) */}
@@ -2027,6 +2027,18 @@ export function ChatSidebar() {
               className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
             />
           </div>
+          {/* New layout: one search box, then the same Tags selector as the Library pages, right beside it
+              on every screen size (message search stays on Ctrl+Shift+F, the omnibar and the phone's ⋯ menu). */}
+          {overhaulActive ? (
+            <TagFilter
+              tags={tagCounts.tags}
+              untagged={tagCounts.untagged}
+              picked={pickedTags}
+              onChange={setPickedTags}
+              compact
+              className="mari-chrome-control mari-chrome-control--small h-10 min-w-10 shrink-0 justify-center gap-1 px-2.5 md:h-9 md:min-w-9"
+            />
+          ) : null}
           <div className={cn("relative", overhaulMobile && "hidden")}>
             <select
               value={manualOrderActive ? "manual" : sort}
@@ -2064,18 +2076,6 @@ export function ChatSidebar() {
           >
             <TextSearch size="0.875rem" />
           </button>
-          {/* New layout: one search box; the second button is the same Tags selector as the Library
-              pages (message search stays on Ctrl+Shift+F, the omnibar and the phone's ⋯ menu). */}
-          {overhaulActive ? (
-            <TagFilter
-              tags={tagCounts.tags}
-              untagged={tagCounts.untagged}
-              picked={pickedTags}
-              onChange={setPickedTags}
-              compact
-              className="mari-chrome-control mari-chrome-control--small h-10 min-w-10 shrink-0 justify-center gap-1 px-2.5 md:h-9 md:min-w-9"
-            />
-          ) : null}
           {overhaulMobile ? (
             // "+ New" lives with the list's own tools, as on the Library pages (panel 3, PV7).
             <button
