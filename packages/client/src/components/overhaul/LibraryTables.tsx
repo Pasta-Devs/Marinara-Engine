@@ -312,7 +312,7 @@ function ListPage<T extends { id: string }>({
   return (
     <section className="ov-list" data-component="OverhaulLibraryList">
       <header className="ov-gallery__head">
-        <h1>{title}</h1>
+        <h1 data-mari-part="page-title">{title}</h1>
         {kit?.folders ? <KitNewFolderButton folders={kit.folders} /> : null}
         {kit ? <KitSelectButton selection={kit.selection} /> : null}
         {actions}

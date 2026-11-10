@@ -4646,3 +4646,8 @@
     font-size: 0;
   }
 }
+/* Connections on phones: "By account" / "By folder" keeps its whole label beside the kind filter. */
+:root[data-overhaul="mobile"] .ov-gallery__head > .ovm-lp-filter.ovm-conn-group:not(#ovm-x) {
+  flex: 0 0 auto;
+  max-width: none;
+}
