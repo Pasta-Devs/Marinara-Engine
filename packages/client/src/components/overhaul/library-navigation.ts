@@ -53,6 +53,8 @@ const CLOSED_EDITORS = {
 function showLibrarySection(section: LibrarySection) {
   const ui = useUIStore.getState();
   const overhaul = useOverhaulStore.getState();
+  // The one sidebar flips to its Library view, so the open section is highlighted there.
+  overhaul.setSidePane("library");
   if (section === "characters") {
     overhaul.setLibraryPage(null);
     ui.openCharacterLibrary();
