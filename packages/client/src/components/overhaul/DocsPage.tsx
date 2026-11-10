@@ -286,7 +286,7 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
         {path === null ? (
           <div className="ov-docs__empty">
             <BookOpen size={28} aria-hidden="true" />
-            <h1>{localize("Docs")}</h1>
+            <h1 data-mari-part="page-title">{localize("Docs")}</h1>
             <p>{localize("Pick a guide on the right, or search all guides.")}</p>
             <div className="ov-docs__landing">
               {groups.map((group) => (

@@ -104,7 +104,7 @@ export function LibraryLandingPage({ section }: { section: LibrarySection }) {
       aria-label={entry ? localize(entry.label) : undefined}
     >
       <header className="ov-libpage__head" style={{ maxWidth: width }}>
-        <h1>{entry ? localize(entry.label) : section}</h1>
+        <h1 data-mari-part="page-title">{entry ? localize(entry.label) : section}</h1>
         {surface ? <PersonalExtensionContributionSlot surface={surface} position="header" /> : null}
       </header>
       <div
