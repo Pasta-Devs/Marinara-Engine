@@ -62,11 +62,11 @@ The narrator reads the sheets on every turn and changes them with sheet commands
 
 ## Troubleshooting
 
-| Symptom                                                                             | Fix                                                                        |
-| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **This chat's ruleset is not installed here, so its checks and sheets are paused.** | Install the ruleset again, or pick another one.                            |
-| The narrator never asks for checks.                                                 | Use a stronger model for the chat. Some models skip the check instruction. |
-| A new character has no sheet.                                                       | Click **Add missing sheets**.                                              |
+| Symptom | Fix |
+| --- | --- |
+| **This chat's ruleset is not installed here, so its checks and sheets are paused.** | Install the ruleset again, or pick another one. |
+| The narrator never asks for checks. | Use a stronger model for the chat. Some models skip the check instruction. |
+| A new character has no sheet. | Click **Add missing sheets**. |
 
 ## Related guides
 

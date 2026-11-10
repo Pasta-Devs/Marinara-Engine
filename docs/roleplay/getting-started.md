@@ -31,13 +31,13 @@ When you finish, you see the chat with a message box. Type your first message an
 
 Open **Chat Settings** (the sliders button in the chat), go to **Agents**, and find the **Expression Engine** card. This is the agent that picks sprite expressions. These controls appear once at least one character has sprites enabled.
 
-| Control                                       | What it does                                                            |
-| --------------------------------------------- | ----------------------------------------------------------------------- |
-| **Sprite Source**                             | Choose **Expressions**, **Full-body**, or both. One must stay on.       |
-| **Expression Size**, **Full-body Size**       | Set how big each kind of sprite is.                                     |
-| **Expression Opacity**, **Full-body Opacity** | Set how see-through each kind is.                                       |
-| **Default Side**                              | **Left** or **Right**: the side new sprites start on.                   |
-| **Expression Avatars**                        | When on, message avatars use the character's current expression sprite. |
+| Control | What it does |
+| --- | --- |
+| **Sprite Source** | Choose **Expressions**, **Full-body**, or both. One must stay on. |
+| **Expression Size**, **Full-body Size** | Set how big each kind of sprite is. |
+| **Expression Opacity**, **Full-body Opacity** | Set how see-through each kind is. |
+| **Default Side** | **Left** or **Right**: the side new sprites start on. |
+| **Expression Avatars** | When on, message avatars use the character's current expression sprite. |
 
 The four size and opacity sliders are saved in this browser only. They do not sync to other devices.
 
@@ -181,12 +181,12 @@ CYOA means Choose Your Own Adventure. The CYOA Choices agent is off by default, 
 
 ## Troubleshooting
 
-| Symptom                                        | Fix                                                                                                                                                                     |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A HUD value is wrong.                          | Edit it by hand and lock it so the next run leaves it alone. See [Roleplay HUD and Trackers](hud-and-trackers.md). If values keep drifting, use a stronger agent model. |
-| Sprites do not change.                         | Check that the character has a sprite library. You can also use `/emote`.                                                                                               |
-| The background never changes.                  | The **Background** agent picks from your library, so add more backgrounds. See [Roleplay Backgrounds](backgrounds.md).                                                  |
-| A regenerated reply keeps the wrong direction. | Turn on **Debug mode**, open **Agent activity → Injections**, then edit or re-run the saved snippet before you regenerate.                                              |
+| Symptom | Fix |
+| --- | --- |
+| A HUD value is wrong. | Edit it by hand and lock it so the next run leaves it alone. See [Roleplay HUD and Trackers](hud-and-trackers.md). If values keep drifting, use a stronger agent model. |
+| Sprites do not change. | Check that the character has a sprite library. You can also use `/emote`. |
+| The background never changes. | The **Background** agent picks from your library, so add more backgrounds. See [Roleplay Backgrounds](backgrounds.md). |
+| A regenerated reply keeps the wrong direction. | Turn on **Debug mode**, open **Agent activity → Injections**, then edit or re-run the saved snippet before you regenerate. |
 
 For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 

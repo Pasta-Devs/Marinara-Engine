@@ -52,11 +52,11 @@ A shared setup file remembers its ruleset. If you import one and do not have tha
 
 What a ruleset does in a fight depends on how it was written. The wizard's line under the ruleset says which row applies.
 
-| The ruleset                                   | Battles                                                                                                           |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| The ruleset | Battles |
+| --- | --- |
 | Resolves its own fights, such as 5e (SRD 5.1) | Fought by the ruleset's own rules, on its own battle screen. See [Fights on a Ruleset](fighting-on-a-ruleset.md). |
-| Lends its sheet to battles                    | Marinara's own combat, using the sheet's health, spell slots and abilities (see below).                           |
-| Says nothing about battles                    | Marinara's own combat, exactly as with no ruleset. See [Combat](combat.md).                                       |
+| Lends its sheet to battles | Marinara's own combat, using the sheet's health, spell slots and abilities (see below). |
+| Says nothing about battles | Marinara's own combat, exactly as with no ruleset. See [Combat](combat.md). |
 
 When a ruleset lends its sheet, Marinara's combat uses the sheet like this:
 
@@ -80,12 +80,12 @@ Marinara does not trust numbers the GM writes. A finished-looking tag is rolled 
 
 ### What the GM can add to a check
 
-| The GM writes       | Effect                                                                                                                                                                                                                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `who="Name"`        | The check uses that party member's sheet. Without it, the player is checked. A member with no sheet rolls on a blank one. A name that matches nobody, or that two members share, rolls with no modifier. If a member shares your own character's name, that name still means you. Marinara never borrows someone else's sheet. |
-| `with="Ability"`    | Rolls the skill or save with a different ability. Only an ability the ruleset declares counts. Anything else is ignored.                                                                                                                                                                                                       |
-| `difficulty="Hard"` | Names a step of the ladder instead of a number. Marinara rolls against that step's number, and the saved check shows the number. An unknown name is ignored.                                                                                                                                                                   |
-| Roll placeholders   | Can name the ruleset's abilities, skills and saves, and `PROF` for the proficiency bonus when the ruleset has one.                                                                                                                                                                                                             |
+| The GM writes | Effect |
+| --- | --- |
+| `who="Name"` | The check uses that party member's sheet. Without it, the player is checked. A member with no sheet rolls on a blank one. A name that matches nobody, or that two members share, rolls with no modifier. If a member shares your own character's name, that name still means you. Marinara never borrows someone else's sheet. |
+| `with="Ability"` | Rolls the skill or save with a different ability. Only an ability the ruleset declares counts. Anything else is ignored. |
+| `difficulty="Hard"` | Names a step of the ladder instead of a number. Marinara rolls against that step's number, and the saved check shows the number. An unknown name is ignored. |
+| Roll placeholders | Can name the ruleset's abilities, skills and saves, and `PROF` for the proficiency bonus when the ruleset has one. |
 
 A die you rolled yourself before the check is used only when the ruleset rolls a single d20. A ruleset that rolls other dice, such as 2d6 or a pool, ignores it.
 
@@ -127,15 +127,15 @@ Marinara still throws the dice, and the dice card follows the ruleset:
 
 In a game on a ruleset, each character sheet starts with a **Ruleset sheet** block. Its layout comes from the ruleset, so a 5e sheet and another system's sheet look different. A game with no ruleset has no such block. See also [Character Profiles](party-and-npcs.md#character-profiles).
 
-| Part             | How it works                                                                                                                                                                                                                                                                                                   |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Resources**    | Hit points, spell slots or a class resource show what is left of the maximum. Use the minus and plus buttons, or type a number. A resource with a temporary buffer also shows **Temp**.                                                                                                                        |
-| **Tracks**       | Such as exhaustion. Step up and down within their range.                                                                                                                                                                                                                                                       |
-| **Notes**        | Short text boxes, such as what a character is concentrating on.                                                                                                                                                                                                                                                |
-| **Conditions**   | Buttons you switch on and off.                                                                                                                                                                                                                                                                                 |
-| **States**       | A form or stance: one value from a list at a time. A state can change numbers that follow it, such as dice added to rolls, and a rest may reset it.                                                                                                                                                            |
+| Part | How it works |
+| --- | --- |
+| **Resources** | Hit points, spell slots or a class resource show what is left of the maximum. Use the minus and plus buttons, or type a number. A resource with a temporary buffer also shows **Temp**. |
+| **Tracks** | Such as exhaustion. Step up and down within their range. |
+| **Notes** | Short text boxes, such as what a character is concentrating on. |
+| **Conditions** | Buttons you switch on and off. |
+| **States** | A form or stance: one value from a list at a time. A state can change numbers that follow it, such as dice added to rolls, and a rest may reset it. |
 | **Rest buttons** | Apply one of the ruleset's rests. The ruleset defines what a rest restores. It can also bring back item charges, such as a wand's, and the line under the buttons says what came back. Under 5e (SRD 5.1), a long rest restores hit points and spell slots and brings back half of the hit dice, at least one. |
-| Build summary    | Ability modifiers, trained skills and saves, and values the ruleset picks, such as armor class.                                                                                                                                                                                                                |
+| Build summary | Ability modifiers, trained skills and saves, and values the ruleset picks, such as armor class. |
 
 **Wound tracks** are a row of boxes instead of a number, for systems that mark harm rather than count it. Each box names that level of hurt and says what it takes off your rolls.
 
