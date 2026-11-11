@@ -12999,9 +12999,9 @@ input.ov-edhead__title:not(#ov-x) {
 }
 
 /* ─── Theme nitpick audit, batch 4: sheets, menus and editors ─── */
-/* An editor's "⋯" menu lists its rows from the left edge at full width (DM17). The narrow-screen
-   editor header rule (globals.css) right-aligns the action row and draws a rule above it; neither
-   belongs inside a menu. */
+/* An editor's "⋯" menu (DM17): the narrow-screen editor header rule (globals.css) right-aligns the
+   action row and draws a rule above it, which pushed the list against the right edge of the phone
+   menu. The rows fill the menu from its left edge, with no rule. */
 :is(.ov-rail__more, .ov-menu) .mari-editor-actions {
   grid-template-columns: minmax(0, 1fr);
   justify-content: stretch !important;
@@ -13083,18 +13083,29 @@ input.ov-edhead__title:not(#ov-x) {
     overflow: visible;
     padding: 0.5rem 1rem 3rem;
   }
+  /* The name gets its own line; the editor's buttons (Chat), Save and ⋯ share the next one. */
+  :root[data-overhaul="on"] .ov-edhead__row.is-split .ov-edhead__title {
+    flex: 1 0 100%;
+  }
+  :root[data-overhaul="on"] .ov-edhead__row.is-split .ov-edhead__secondary {
+    order: 1;
+    flex: none;
+    margin-left: auto;
+  }
+  :root[data-overhaul="on"] .ov-edhead__row.is-split .ov-edhead__primary {
+    order: 2;
+    margin-left: 0;
+  }
 }
 /* Game narration card: when the tools (Logs, Inventory, Combat) and the turn controls (⌄, stop,
-   play, Next) don't fit on one line, the controls wrap to a second line, right-aligned, instead of
-   running past the card (SV2). */
+   play, Next) don't fit on one line, the controls wrap to a second line that starts at the same
+   left edge, instead of running past the card (SV2). On one line, the controls stay at the right. */
 :root[data-overhaul] [data-game-narration] div:has(> [data-mari-part="game-tools"]) {
   flex-wrap: wrap;
+  justify-content: space-between;
   row-gap: 0.375rem;
 }
 :root[data-overhaul] [data-game-narration] [data-mari-part="game-tools"] {
   min-width: 0;
   flex-wrap: wrap;
-}
-:root[data-overhaul] [data-game-narration] [data-mari-part="game-tools"] + * {
-  margin-left: auto;
 }
