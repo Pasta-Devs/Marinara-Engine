@@ -8,7 +8,14 @@ import { api, ApiError } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import { useDeviceLookStore } from "../stores/device-look.store";
 import { useThemeSafetyStore } from "../lib/theme-safety";
-import type { CreateThemeInput, Theme, UpdateThemeInput } from "@marinara-engine/shared";
+import type { CreateThemeInput, Theme, ThemeSettings, UpdateThemeInput } from "@marinara-engine/shared";
+import {
+  applyThemeSettings,
+  putBackOwnLook,
+  snapshotThemeSettings,
+  themeSettingKeys,
+  type ThemeSettingKey,
+} from "../lib/theme-package";
 
 export const themeKeys = {
   all: ["themes"] as const,
@@ -142,9 +149,17 @@ export function useActivateTheme() {
   const setActiveTheme = useSetActiveTheme();
   const qc = useQueryClient();
   return useCallback(
+    /**
+     * Switches to `theme` (null = Default Theme). `apply` holds the Appearance settings the theme
+     * brings (a starter theme's suggestions, or the ones picked when installing).
+     *
+     * Consistency audit batch 1: the theme being replaced comes off cleanly first. Its settings go
+     * back to the person's own (lib/theme-package.ts putBackOwnLook), then the new theme's go on,
+     * and the person's own values for those are saved so switching this one off later puts them back.
+     */
     async (
       theme: Pick<Theme, "id" | "name"> | null,
-      restoreSettings?: { settings: Record<string, unknown>; keys: string[] } | null,
+      apply?: { settings: ThemeSettings; keys: ThemeSettingKey[] } | null,
     ) => {
       const themes = qc.getQueryData<Theme[]>(themeKeys.list()) ?? [];
       const device = useDeviceLookStore.getState();
@@ -152,28 +167,58 @@ export function useActivateTheme() {
         device.enabled && device.customThemeId !== undefined
           ? device.customThemeId
           : (themes.find((item) => item.isActive)?.id ?? null);
-      if ((theme?.id ?? null) === previousId) return;
       // Round 6: trying another theme while the last one still asks "Keep this theme?" chains the
       // tries. Going back then returns to the theme and settings from before the first try (the
       // last ones the person kept), not to the untried theme in between.
       const waiting = useThemeSafetyStore.getState().pendingKeep;
-      const chained = theme && waiting && waiting.themeId === previousId ? waiting : null;
+      const chained = waiting && waiting.themeId !== previousId ? waiting : null;
+      const showing = chained ? chained.themeId : previousId;
+      if ((theme?.id ?? null) === showing) return;
       const backTo = chained ? chained.previousId : previousId;
-      const restore = chained?.restoreSettings
-        ? {
-            settings: { ...(restoreSettings?.settings ?? {}), ...chained.restoreSettings.settings },
-            keys: [...new Set([...(restoreSettings?.keys ?? []), ...chained.restoreSettings.keys])],
-          }
-        : restoreSettings;
       // Security audit: trying a theme happens in this tab only. Other devices (and anyone else on
       // the network) only get it once the person presses Keep (ThemeSafetyHost); closing the tab
       // before that leaves every other device as it was. Default (null) applies at once.
       if (!theme) await setActiveTheme.mutateAsync(null);
+      const ui = useUIStore.getState();
+      // Undo the untried theme first, so everything below starts from the look the person kept.
+      if (chained) {
+        if (chained.restoreSettings?.keys.length)
+          applyThemeSettings(
+            chained.restoreSettings.settings as ThemeSettings,
+            chained.restoreSettings.keys as ThemeSettingKey[],
+          );
+        if (chained.previousOwnLook !== undefined) ui.setThemeOwnLook(chained.previousOwnLook);
+      }
+      const safetyNow = useThemeSafetyStore.getState();
+      // Picking the kept theme again while another is being tried is the same as Go back.
+      if (chained && theme && theme.id === backTo) {
+        safetyNow.settleKeep();
+        return;
+      }
+      const keptTheme = backTo ? (themes.find((item) => item.id === backTo) ?? null) : null;
+      const ownBefore = useUIStore.getState().themeOwnLook;
+      const applyKeys = theme && apply ? apply.keys : [];
+      // What Go back puts back: the kept look as it is right now.
+      const touched = new Set<ThemeSettingKey>([...((ownBefore?.keys ?? []) as ThemeSettingKey[]), ...applyKeys]);
+      if (keptTheme?.builtIn) for (const key of themeSettingKeys(keptTheme.meta?.settings)) touched.add(key);
+      const restore = theme && touched.size ? snapshotThemeSettings([...touched]) : null;
+      putBackOwnLook(keptTheme);
+      if (theme && apply && applyKeys.length) {
+        const own = snapshotThemeSettings(applyKeys);
+        applyThemeSettings(apply.settings, applyKeys);
+        useUIStore.getState().setThemeOwnLook(own as { settings: Record<string, unknown>; keys: string[] });
+      }
       const safety = useThemeSafetyStore.getState();
       if (theme && safety.blockedThemeId === theme.id) safety.clearBlockedTheme();
       if (theme && safety.safeMode) safety.leaveSafeMode();
       if (theme)
-        safety.askToKeep({ themeId: theme.id, themeName: theme.name, previousId: backTo, restoreSettings: restore });
+        safety.askToKeep({
+          themeId: theme.id,
+          themeName: theme.name,
+          previousId: backTo,
+          restoreSettings: restore as { settings: Record<string, unknown>; keys: string[] } | null,
+          previousOwnLook: ownBefore,
+        });
       else safety.settleKeep();
     },
     [qc, setActiveTheme],

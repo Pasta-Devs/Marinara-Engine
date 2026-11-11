@@ -50,6 +50,8 @@ interface PendingKeep {
   pausedRemaining?: number | null;
   /** Appearance settings the theme changed, as they were before: Go back puts them back. */
   restoreSettings?: { settings: Record<string, unknown>; keys: string[] } | null;
+  /** The saved "own look" from before the try (ui.store themeOwnLook): Go back puts it back too. */
+  previousOwnLook?: { settings: Record<string, unknown>; keys: string[] } | null;
 }
 
 interface ThemeSafetyState {
@@ -87,6 +89,16 @@ function readPendingKeep(): PendingKeep | null {
         value.restoreSettings && typeof value.restoreSettings === "object" && Array.isArray(value.restoreSettings.keys)
           ? value.restoreSettings
           : null,
+      ...("previousOwnLook" in value
+        ? {
+            previousOwnLook:
+              value.previousOwnLook &&
+              typeof value.previousOwnLook === "object" &&
+              Array.isArray(value.previousOwnLook.keys)
+                ? value.previousOwnLook
+                : null,
+          }
+        : {}),
     };
   } catch {
     return null;

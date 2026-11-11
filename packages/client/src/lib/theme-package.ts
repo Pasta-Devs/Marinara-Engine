@@ -558,8 +558,25 @@ export function applyThemeSettings(settings: ThemeSettings, keys: ThemeSettingKe
 }
 
 /** The touched settings as they are now, so Go back (or no answer) can put them back. */
-export function snapshotThemeSettings(keys: ThemeSettingKey[]): { settings: ThemeSettings; keys: ThemeSettingKey[] } {
-  const ui = useUIStore.getState();
+export function snapshotThemeSettings(
+  keys: ThemeSettingKey[],
+  ui: Pick<
+    ReturnType<typeof useUIStore.getState>,
+    | "themeAuto"
+    | "themeDayStart"
+    | "themeNightStart"
+    | "theme"
+    | "visualTheme"
+    | "appAccentColor"
+    | "appAccentColorLight"
+    | "appBackgroundColor"
+    | "appBackgroundColorLight"
+    | "fontFamily"
+    | "appAccentPulseMode"
+    | "fontSize"
+    | "reduceAmbientEffects"
+  > = useUIStore.getState(),
+): { settings: ThemeSettings; keys: ThemeSettingKey[] } {
   const settings: ThemeSettings = {};
   for (const key of keys) {
     switch (key) {
@@ -600,6 +617,51 @@ export function snapshotThemeSettings(keys: ThemeSettingKey[]): { settings: Them
     }
   }
   return { settings, keys };
+}
+
+type OwnLook = { settings: Record<string, unknown>; keys: string[] };
+
+function sameSetting(a: unknown, b: unknown) {
+  if (typeof a === "string" && typeof b === "string") return a.trim().toLowerCase() === b.trim().toLowerCase();
+  return a === b;
+}
+
+/**
+ * Consistency audit batch 1: switching a theme off (Default Theme, or another theme) puts back the
+ * person's own Appearance values for everything the theme changed. Those were saved in
+ * `themeOwnLook` when the theme went on. A setting the person changed by hand while the theme was
+ * on stays as they set it.
+ *
+ * `previous` is the theme being switched off. When nothing was saved (a theme kept before this
+ * existed), a starter theme's suggestions that are still in place go back to the app defaults.
+ */
+export function putBackOwnLook(previous?: { builtIn?: boolean; meta?: { settings?: ThemeSettings } | null } | null) {
+  const ui = useUIStore.getState();
+  const own = ui.themeOwnLook as OwnLook | null;
+  const themeSettings = previous?.meta?.settings;
+  const keys = new Set<ThemeSettingKey>((own?.keys ?? []) as ThemeSettingKey[]);
+  if (!own && previous?.builtIn) for (const key of themeSettingKeys(themeSettings)) keys.add(key);
+  if (keys.size === 0) {
+    if (own) ui.setThemeOwnLook(null);
+    return;
+  }
+  const now = snapshotThemeSettings([...keys]).settings;
+  const defaults = snapshotThemeSettings([...keys], useUIStore.getInitialState()).settings;
+  const target: ThemeSettings = {};
+  const apply: ThemeSettingKey[] = [];
+  for (const key of keys) {
+    const themeValue = themeSettings?.[key];
+    if (themeValue !== undefined && !sameSetting(now[key], themeValue)) continue;
+    const source = own && own.keys.includes(key) ? (own.settings as ThemeSettings) : defaults;
+    (target as Record<string, unknown>)[key] = source[key];
+    if (key === "colorScheme") {
+      target.dayStart = source.dayStart;
+      target.nightStart = source.nightStart;
+    }
+    apply.push(key);
+  }
+  applyThemeSettings(target, apply);
+  ui.setThemeOwnLook(null);
 }
 
 /** The current Appearance values, for "Include my Appearance settings" when packaging a theme. */
