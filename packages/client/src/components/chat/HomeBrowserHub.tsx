@@ -849,7 +849,7 @@ function FeedModule({
         <div className="min-w-0">
           <p
             data-mari-part="home-widget-eyebrow"
-            className="text-[length:var(--mari-home-widget-eyebrow-size,0.625rem)] font-extrabold uppercase tracking-[0.16em] text-[var(--home-module-accent)]"
+            className="text-[length:var(--mari-home-widget-eyebrow-size,0.625rem)] font-extrabold uppercase tracking-[0.16em] text-[var(--home-module-accent-text,var(--home-module-accent))]"
           >
             {eyebrow}
           </p>
@@ -2680,7 +2680,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             <button
                               type="button"
                               onClick={() => useUIStore.getState().requestWhatsNew()}
-                              className="mt-2 inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                              className="mt-2 inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                             >
                               {t("home.whatsNew.open")}
                             </button>
@@ -2688,7 +2688,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                               href={ENGINE_RELEASE_URL}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                              className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                             >
                               {t("home.whatsNew.releaseNotes")} <ExternalLink size="0.7rem" />
                             </a>
@@ -2707,7 +2707,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                           <button
                             type="button"
                             onClick={() => useUIStore.getState().openAgentCatalog()}
-                            className="min-h-8 shrink-0 text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                            className="min-h-8 shrink-0 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                           >
                             {t("home.discovery.browse")}
                           </button>
@@ -2719,7 +2719,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                               <button
                                 type="button"
                                 onClick={() => moveDiscovery(-1)}
-                                className="absolute -left-1 top-1/2 z-[2] flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--home-module-accent)] transition-[background-color,transform] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                                className="absolute -left-1 top-1/2 z-[2] flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--home-module-accent-text,var(--home-module-accent))] transition-[background-color,transform] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                                 aria-label={t("home.discovery.previous")}
                               >
                                 <ChevronLeft size="1rem" />
@@ -2731,7 +2731,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                               onClick={() => useUIStore.getState().openAgentCatalog(activeRecommendation.manifest.id)}
                               className="mari-home-discovery-card flex min-h-24 w-full items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--home-module-accent)_20%,var(--border))] bg-[color-mix(in_srgb,var(--home-module-accent)_5%,var(--secondary))] p-3 text-left transition-colors hover:border-[color-mix(in_srgb,var(--home-module-accent)_48%,var(--border))] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_10%,var(--secondary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                             >
-                              <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[color-mix(in_srgb,var(--home-module-accent)_14%,var(--accent))] text-[var(--home-module-accent)]">
+                              <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[color-mix(in_srgb,var(--home-module-accent)_14%,var(--accent))] text-[var(--home-module-accent-text,var(--home-module-accent))]">
                                 {activeRecommendation.iconUrl ? (
                                   <img
                                     src={activeRecommendation.iconUrl}
@@ -2752,7 +2752,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                                     activeRecommendation.manifest.description}
                                 </span>
                                 {recommendations.length > 1 ? (
-                                  <span className="mt-1.5 block text-[0.58rem] font-bold uppercase tracking-[0.12em] text-[var(--home-module-accent)]">
+                                  <span className="mt-1.5 block text-[0.58rem] font-bold uppercase tracking-[0.12em] text-[var(--home-module-accent-text,var(--home-module-accent))]">
                                     {t("home.discovery.position", {
                                       current: (discoveryIndex % recommendations.length) + 1,
                                       total: recommendations.length,
@@ -2765,7 +2765,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                               <button
                                 type="button"
                                 onClick={() => moveDiscovery(1)}
-                                className="absolute -right-1 top-1/2 z-[2] flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--home-module-accent)] transition-[background-color,transform] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                                className="absolute -right-1 top-1/2 z-[2] flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--home-module-accent-text,var(--home-module-accent))] transition-[background-color,transform] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                                 aria-label={t("home.discovery.next")}
                               >
                                 <ChevronRight size="1rem" />
@@ -2774,7 +2774,10 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                           </div>
                         ) : (
                           <div className="flex h-full min-h-20 items-center gap-3 rounded-xl border border-dashed border-[var(--border)]/70 p-3 text-xs text-[var(--muted-foreground)]">
-                            <Compass size="1rem" className="text-[var(--home-module-accent)]" />{" "}
+                            <Compass
+                              size="1rem"
+                              className="text-[var(--home-module-accent-text,var(--home-module-accent))]"
+                            />{" "}
                             {t("home.discovery.empty")}
                           </div>
                         )}
@@ -2797,7 +2800,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                               className="relative h-24 w-24 shrink-0 sm:h-32 sm:w-32"
                               data-component="HomeBrowserHub.CharacterOfDayAvatar"
                             >
-                              <span className="absolute inset-[15%] flex items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--secondary))] text-2xl font-black text-[var(--home-module-accent)]">
+                              <span className="absolute inset-[15%] flex items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--secondary))] text-2xl font-black text-[var(--home-module-accent-text,var(--home-module-accent))]">
                                 {characterOfDay.avatarPath ? (
                                   <img
                                     src={characterOfDay.avatarPath}
@@ -2846,7 +2849,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                                 <button
                                   type="button"
                                   onClick={() => useUIStore.getState().openCharacterDetail(characterOfDay.id)}
-                                  className="inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                                  className="inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                                 >
                                   {t("home.characterOfDay.open")}
                                 </button>
@@ -2858,7 +2861,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                           // justify-end, bottom-aligns it: when nothing fits, it overflows below the title, never over it.
                           <div className="-mt-3 flex h-[calc(100%+0.75rem)] min-h-0 flex-col">
                             <LibraryBig
-                              className="mb-2 mt-auto min-h-0 text-[var(--home-module-accent)]"
+                              className="mb-2 mt-auto min-h-0 text-[var(--home-module-accent-text,var(--home-module-accent))]"
                               size="1.1rem"
                             />
                             <p className="text-sm font-bold text-[var(--foreground)]">
@@ -2867,7 +2870,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             <button
                               type="button"
                               onClick={() => useUIStore.getState().openCharacterLibrary()}
-                              className="mt-1 self-start text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                              className="mt-1 self-start text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                             >
                               {t("home.characterOfDay.emptyAction")}
                             </button>
@@ -2986,7 +2989,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             className="h-full"
                           >
                             <div className="flex h-full min-h-0 items-center gap-3">
-                              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[color-mix(in_srgb,var(--home-module-accent)_38%,var(--border))] bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--card))] text-[var(--home-module-accent)]">
+                              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[color-mix(in_srgb,var(--home-module-accent)_38%,var(--border))] bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--card))] text-[var(--home-module-accent-text,var(--home-module-accent))]">
                                 <Icon size="1.25rem" aria-hidden="true" />
                               </span>
                               <p className="line-clamp-6 min-w-0 text-xs leading-relaxed text-[var(--muted-foreground)]">

@@ -315,7 +315,7 @@
    (stock: 65% of the card colour). With Display Size 19 or more, widget titles and the Professor's
    blurb aren't cut off: the card grows instead. */
 [data-mari-part="home-widget"] [data-mari-part="home-widget-eyebrow"] {
-  color: var(--mari-home-widget-eyebrow-color, var(--home-module-accent));
+  color: var(--mari-home-widget-eyebrow-color, var(--home-module-accent-text, var(--home-module-accent)));
 }
 .mari-home-professor-widget [data-mari-part="home-widget-eyebrow"] {
   color: var(--mari-home-widget-eyebrow-color, var(--marinara-chat-chrome-button-text-active));
