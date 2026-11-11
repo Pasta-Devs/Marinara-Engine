@@ -2664,28 +2664,35 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                         artClassName={HOME_CARD_ART_CLASS}
                         className="h-full"
                       >
-                        <div className="max-w-[68%]">
-                          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-                            {t("home.whatsNew.description")}
-                          </p>
-                        </div>
-                        {/* Full card width: on phones the 68% text column is too narrow for both actions on one line. */}
-                        <div className="flex items-center gap-x-3">
-                          <button
-                            type="button"
-                            onClick={() => useUIStore.getState().requestWhatsNew()}
-                            className="mt-2 inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
-                          >
-                            {t("home.whatsNew.open")}
-                          </button>
-                          <a
-                            href={ENGINE_RELEASE_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
-                          >
-                            {t("home.whatsNew.releaseNotes")} <ExternalLink size="0.7rem" />
-                          </a>
+                        {/* Text at the top, links pinned to the bottom, so a taller row (big theme text in the
+                            next card) leaves its space between them instead of under the links. */}
+                        <div className="flex h-full min-h-0 flex-col">
+                          <div className="max-w-[68%]">
+                            <p
+                              data-mari-part="home-widget-text"
+                              className="text-[length:var(--mari-home-widget-text-size,0.75rem)] leading-relaxed text-[var(--mari-home-widget-muted,var(--muted-foreground))]"
+                            >
+                              {t("home.whatsNew.description")}
+                            </p>
+                          </div>
+                          {/* Full card width: on phones the 68% text column is too narrow for both actions on one line. */}
+                          <div className="mt-auto flex items-center gap-x-3">
+                            <button
+                              type="button"
+                              onClick={() => useUIStore.getState().requestWhatsNew()}
+                              className="mt-2 inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                            >
+                              {t("home.whatsNew.open")}
+                            </button>
+                            <a
+                              href={ENGINE_RELEASE_URL}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                            >
+                              {t("home.whatsNew.releaseNotes")} <ExternalLink size="0.7rem" />
+                            </a>
+                          </div>
                         </div>
                       </FeedModule>
                     </HomeWidgetFrame>
