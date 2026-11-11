@@ -849,6 +849,19 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section of `
 
 These are documented translation choices from this sync, not an independent native-reader review.
 
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives** is glossed (альтернативы полей карточки) at its first bold use in `creating-and-editing-characters.md` and again in the personas bullet, inside the combined **Chat Settings → Card Field Alternatives** (настройки чата → альтернативы полей карточки) pair. The first rule never names the label; it writes **Chat Settings** bare. It reuses the file's **поле карточки** and its **альтернатива**.
+- **Original** is glossed (исходный вариант) once, in the paragraph: the picker returns a field to the original version, and a bare **оригинал** would read as the original card rather than the original text.
+- Step 2's example title, **Backstory alternative 1**, is the app's own string: `ui/ru.json` `ui.cardFields.alternativeTitle` is **{{field}}: альтернатива {{index}}** with `chat.settings.inlineEditor.fields.backstory` = Предыстория, hence (Предыстория: альтернатива 1), keeping the template's colon. *Optional* opens the step as **Необязательно:**, the pack's form in `agents/custom-agents.md:184` (not **При желании** of the task-style steps).
+- *Its title* is **ее заголовок**, feminine for **альтернатива**. *Up to 60 characters* is **до 60 символов**, with an en dash before it (тире, §3), never an em dash. *Leave the name empty to keep the numbered title* is **Оставьте название пустым, чтобы сохранить заголовок с номером**, with **заголовок** as in the pack's **заголовок** for a heading/title and **сохранить** for a kept value.
+- *Pick* in the new paragraph is **Выберите**; *applies from the next reply* is **действует со следующего ответа**, after `home/professor-mari.md:262` **со следующего ответа**. *The section is hidden* is **раздел скрыт**, with **раздел** for a section and the pack's **скрыт** for something not shown.
+- The first rule keeps **Чат может использовать только одну альтернативу для каждого поля** and adds the parallel **или выбрать другую альтернативу в Chat Settings**; **Chat Settings** runs bare after its gloss, as throughout the file.
+- In the personas bullet, *name the alternatives* is **Альтернативам можно давать названия** and *switch between them* is **переключаться между ними**; the path is **Chat Settings → Card Field Alternatives** (настройки чата → альтернативы полей карточки), one gloss pair for the bold span.
+
+These are documented translation choices from this sync, not an independent native-reader review.
 ## Rulesets in Roleplay (2026-11-11, #8999)
 
 Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):

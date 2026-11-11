@@ -167,13 +167,16 @@ La sección **Regex Scripts** contiene scripts de buscar y reemplazar para este 
 Un campo alternativo da al mismo personaje otra descripción, apariencia, historia u otro detalle en los chats que elijas, mientras todos los demás conservan el original. Cada uno de los siete campos de la tarjeta tiene **Add Alternative Field** (Añadir campo alternativo) debajo.
 
 1. Haz clic en **Add Alternative Field** debajo del campo que quieras variar. Marinara copia el texto del campo en una nueva alternativa.
-2. Edita la alternativa. Tiene su propia varita, que usa el texto de la alternativa como detalles de partida y no cambia el campo original.
-3. Abre **Active in 0 chats** (Activo en 0 chats) y marca los chats que deben usarla. Solo aparecen los chats que incluyen a este personaje.
-4. Haz clic en **Save**.
+2. Opcional: haz clic en su título, como **Backstory alternative 1** (Alternativa 1 de Trasfondo), y escribe un nombre como `Young`. Los nombres admiten hasta 60 caracteres. Deja el nombre vacío para conservar el título numerado.
+3. Edita la alternativa. Tiene su propia varita, que usa el texto de la alternativa como detalles de partida y no cambia el campo original.
+4. Abre **Active in 0 chats** (Activo en 0 chats) y marca los chats que deben usarla. Solo aparecen los chats que incluyen a este personaje.
+5. Haz clic en **Save**.
+
+También puedes elegir desde dentro de un chat. Abre **Chat Settings** (Ajustes del chat) y despliega **Card Field Alternatives** (Alternativas de campos de la tarjeta). Muestra la persona del chat y cada personaje del chat que tenga alternativas, con un menú por campo. Elige **Original** o una alternativa por su nombre. La tarjeta se guarda de inmediato, y la elección se aplica desde la siguiente respuesta. La sección está oculta cuando nada en el chat tiene alternativas.
 
 Reglas:
 
-- Un chat solo puede usar una alternativa por campo. Marcar un chat en otra alternativa lo traslada allí.
+- Un chat solo puede usar una alternativa por campo. Marcar un chat en otra alternativa, o elegir otra en Chat Settings, lo traslada allí.
 - Sin chats marcados, la alternativa queda inactiva para más adelante.
 - Una alternativa vacía borra ese campo en sus chats.
 - Las sustituciones de escenario y de apariencia para imágenes específicas del chat siguen teniendo prioridad.

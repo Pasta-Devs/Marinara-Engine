@@ -167,13 +167,16 @@ La section **Regex Scripts** contient les scripts de recherche-remplacement de c
 Un champ alternatif donne au même personnage une autre description, apparence, histoire ou autre détail dans les chats choisis, tandis que partout ailleurs l'original reste en place. Chacun des sept champs de la fiche possède **Add Alternative Field** (ajouter un champ alternatif) en dessous.
 
 1. Clique sur **Add Alternative Field** sous le champ à varier. Marinara copie le texte du champ dans une nouvelle alternative.
-2. Modifie l'alternative. Elle a sa propre baguette, qui prend le texte de l'alternative comme point de départ et ne modifie pas le champ d'origine.
-3. Ouvre **Active in 0 chats** (actif dans 0 chats) et coche les chats qui doivent l'utiliser. Seuls les chats incluant ce personnage sont proposés.
-4. Clique sur **Save**.
+2. Facultatif : clique sur son titre, par exemple **Backstory alternative 1** (alternative 1 du passé), et saisis un nom comme `Young`. Un nom compte au plus 60 caractères. Laisse le nom vide pour garder le titre numéroté.
+3. Modifie l'alternative. Elle a sa propre baguette, qui prend le texte de l'alternative comme point de départ et ne modifie pas le champ d'origine.
+4. Ouvre **Active in 0 chats** (actif dans 0 chats) et coche les chats qui doivent l'utiliser. Seuls les chats incluant ce personnage sont proposés.
+5. Clique sur **Save**.
+
+Tu peux aussi faire ce choix depuis un chat. Ouvre **Chat Settings** (réglages du chat) et déplie **Card Field Alternatives** (alternatives des champs de la fiche). La section liste la persona du chat et chaque personnage du chat qui a des alternatives, avec un menu par champ. Choisis **Original** (original) ou une alternative par son nom. La fiche est enregistrée aussitôt, et le choix s'applique dès la prochaine réponse. La section est masquée quand rien dans le chat n'a d'alternatives.
 
 Règles :
 
-- Un chat ne peut utiliser qu'une seule alternative par champ. Cocher un chat dans une autre alternative l'y déplace.
+- Un chat ne peut utiliser qu'une seule alternative par champ. Cocher un chat dans une autre alternative, ou en choisir une autre dans Chat Settings, l'y déplace.
 - Sans chat coché, l'alternative reste inactive pour plus tard.
 - Une alternative vide efface ce champ dans ses chats.
 - Les remplacements de scénario et d'apparence pour les images propres au chat restent prioritaires.

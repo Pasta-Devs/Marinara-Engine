@@ -124,8 +124,8 @@
     },
     {
       "path": "characters/creating-and-editing-characters.md",
-      "sha256": "148b72d53a8b1e8ee550bdaa76e5f794bf27bf3de51a488694c96d3725ebc893",
-      "bytes": 24031
+      "sha256": "25b59b103e3625ce88219ce9f52820ff7d5729b9f0b2b94705ae277f633b9884",
+      "bytes": 24982
     },
     {
       "path": "characters/galleries.md",
@@ -149,8 +149,8 @@
     },
     {
       "path": "characters/personas.md",
-      "sha256": "4fef803e8c86da9b19505899a1fcdc96fa33b9a9275d99bb98670b4ca5dfe2da",
-      "bytes": 15423
+      "sha256": "84a8d22c343d383cde8386e6b1d9da35aa8418e94926aa0207c5bfe3b3cb086d",
+      "bytes": 15601
     },
     {
       "path": "characters/sprites.md",

@@ -713,6 +713,18 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 developer-do
 
 These are translation choices, not a new native-reader review.
 
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives** is glossed (カード項目の代替) at its first bold use in `creating-and-editing-characters.md` as **Card Field Alternatives**(カード項目の代替) and again in the personas bullet, inside the combined **Chat Settings → Card Field Alternatives**(チャット設定 → カード項目の代替) pair. The first rule never names the label; it writes **Chat Settings** bare. Both カード項目の代替 and 代替項目のタイトル are new coinages in this commit, built from the attested 代替項目 (12 occurrences in this file before it), so the section label extends the field term to card fields rather than introducing a second word for *alternative*.
+- **Original**(元の項目) is glossed once, in the paragraph: the picker row returns a field to its original text, and a bare オリジナル would read as a copy.
+- Step 2's example title, **Backstory alternative 1**, is the app's own string: `ui/ja.json` `ui.cardFields.alternativeTitle` is **{{field}}の代替版{{index}}** with `chat.settings.inlineEditor.fields.backstory` = 経歴, hence **Backstory alternative 1**(経歴の代替版1). *Optional* opens the step as **任意:** with the half-width colon, as the pack's other optional steps do (`agents/custom-agents.md:184`, `agents/hierarchical-maps.md:61`). *Up to 60 characters* is **60文字まで**; *leave the name empty to keep the numbered title* is **名前を空のままにすると、番号付きのタイトルのままになります**, keeping the まま frame of the English.
+- *Pick* is **選びます**; *the choice applies from the next reply* is **選んだ内容は次の返信から使われます**, after 次の返信 in `agents/built-in-agents.md:104`. *The section is hidden* is **このセクションは表示されません**, the pack's way of saying a panel does not appear.
+- The first rule keeps **1つのチャットで使える代替は、1つの項目につき1つだけです** and adds the parallel **別の代替でそのチャットにチェックを入れるか、Chat Settingsで別の代替を選ぶと、割り当てがそちらに移ります**. **Chat Settings** runs bare after its gloss in the paragraph, as elsewhere in the file.
+- In the personas bullet, *name each alternative* is **代替項目にはそれぞれ名前を付けられ** and *switch between them* is **切り替えられます**; the path is **Chat Settings → Card Field Alternatives**(チャット設定 → カード項目の代替), one tight gloss pair for the bold span, no space around the parentheses (§3).
+
+These are translation choices, not a new native-reader review.
 ## Rulesets in Roleplay (2026-11-11, #8999)
 
 Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):

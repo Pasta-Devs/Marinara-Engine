@@ -1117,6 +1117,37 @@ Precedents from the #8954 sync (`CONFIGURATION.md`) and the #8951 developer-docs
 
 - The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (Oberflächen-Editor), **Whole app** as (ganze App) and **Choose what to change…** as (Was soll geändert werden); the heading is „App-Hintergrund und Accent Color“ and the prose „Hintergrund der Grundfläche der App“, following the old **Background Color** row's „Die Grundfläche der App“. The steps use the pack's „klick auf“ and „Dropdown-Menü“.
 
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives** is glossed (Alternativen für Kartenfelder) at its first bold use in
+  `creating-and-editing-characters.md`, in the file's usual bold-plus-parentheses form, and again
+  in the personas bullet, inside the combined **Chat Settings → Card Field Alternatives**
+  (Chat-Einstellungen → Alternativen für Kartenfelder) pair. The first rule never names the label;
+  it writes **Chat Settings** bare. **Original** stays unglossed in the paragraph, because
+  „beim Original“ (`:167`) and „Originalfeld“ already carry the word in German, so a parenthetical
+  would only repeat it.
+- The title in step 2, **Backstory alternative 1**, is the app's own string:
+  `ui/de.json` `ui.cardFields.alternativeTitle` is **{{field}} – Alternative {{index}}** with
+  `chat.settings.inlineEditor.fields.backstory` = Hintergrundgeschichte, hence
+  (Hintergrundgeschichte – Alternative 1), keeping the template's en dash.
+- *Optional* opens step 2 as „Optional:“, the form the pack already uses for optional steps
+  (`agents/custom-agents.md:184`). *Its title* is „ihren Titel“ for die Alternative. *Type a name
+  such as* is „gib einen Namen wie … ein“; *names are up to 60 characters* is „Namen dürfen bis zu
+  60 Zeichen lang sein“; *leave the name empty to keep the numbered title* is „Lässt du den Namen
+  leer, bleibt der nummerierte Titel“, the pack's „bleibt“ for a state that persists.
+- *Pick* in the new paragraph is „Wähl“, as in the section's other steps. *Right away* is „sofort“;
+  *applies from the next reply* is „gilt ab der nächsten Antwort“, after `home/professor-mari.md:262`.
+  *The section is hidden* is „ist der Abschnitt ausgeblendet“, reordered so the condition comes first.
+- The first rule keeps „Ein Chat kann pro Feld nur eine Alternative verwenden“ and adds the
+  parallel „oder wählst du in Chat Settings eine andere“ before „wandert er dorthin“.
+- In the personas bullet, *name each alternative* is „jede Alternative benennen“ and *switch
+  between them* is „zwischen ihnen wechseln“; the path is written **Chat Settings → Card Field
+  Alternatives** (Chat-Einstellungen → Alternativen für Kartenfelder), glossing both labels of the
+  bold span in one pair, as the pack does for `**Settings → General**` paths.
+
+These are translation choices, not a new native-reader review.
 ## Rulesets in Roleplay (2026-11-11, #8999)
 
 Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md`

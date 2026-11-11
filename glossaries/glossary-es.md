@@ -561,6 +561,18 @@ Precedents from the #8954 sync (`CONFIGURATION.md`) and the #8951 developer-docs
 
 - The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (editor de interfaz), **Whole app** as (toda la app) and **Choose what to change…** as (Elegir qué cambiar), capitalized like the other button glosses; the heading is "Fondo de la app y Accent Color". The steps use the pack's "Haz clic en" and "menú desplegable".
 
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives** is glossed (Alternativas de campos de la tarjeta) at its first bold use in `creating-and-editing-characters.md` and again in the personas bullet, inside the combined **Chat Settings → Card Field Alternatives** (Ajustes del chat → Alternativas de campos de la tarjeta) pair. The first rule never names the label; it writes **Chat Settings** bare. **Original** stays unglossed in the paragraph: the file already writes **el campo original** (`:171`, `:187`) and **original** bare at `:147`, so a parenthetical would only repeat the surrounding Spanish.
+- The title in step 2, **Backstory alternative 1**, follows the app's `ui.cardFields.alternativeTitle` (**Alternativa {{index}} de {{field}}**) with `chat.settings.inlineEditor.fields.backstory` = Trasfondo, so the gloss reads (Alternativa 1 de Trasfondo) instead of leaving the example untranslated.
+- *Optional* opens step 2 as **Opcional:** (`agents/custom-agents.md:184`). *Up to 60 characters* is **hasta 60 caracteres**, used in place of the usual "máximo"; *leave the name empty to keep the numbered title* is **Deja el nombre vacío para conservar el título numerado**, with **conservar** as in `settings/settings-overview.md:138`.
+- *Pick* in the new paragraph is **Elige**, as in the section's steps; **la elección** is the noun. *Applies from the next reply* is **se aplica desde la siguiente respuesta**. **Persona del chat** stays unglossed: the file glosses **Persona** at its first use. *Is hidden* is **está oculta**, the form `TROUBLESHOOTING.md:493` uses for a section that stays hidden (**La sección permanece oculta**).
+- The first rule keeps **Un chat solo puede usar una alternativa por campo** and adds **o elegir otra en Chat Settings**, with Chat Settings bare as in the rest of the file.
+- In the personas bullet, *name each alternative* is **poner nombre a cada alternativa**, extending the pack's **poner(le) nombre a …** at `connections/local-self-hosted.md:14` (**ponerle nombre a la cuenta**); *switch between them* is **cambiar entre ellas**; the path is **Chat Settings → Card Field Alternatives** (Ajustes del chat → Alternativas de campos de la tarjeta), one gloss pair covering both labels of the bold span.
+
+These are translation choices, not a new native-reader review.
 ## Rulesets in Roleplay (2026-11-11, #8999)
 
 Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):

@@ -99,7 +99,7 @@ A aba **Card** guarda os campos que descrevem você para a IA. Cada um tem uma e
 Estes recursos funcionam como nos personagens, com a persona como assunto:
 
 - O botão de varinha acima de cada campo escreve o campo para você. Veja [Escreva um campo do card com a varinha](creating-and-editing-characters.md#write-a-card-field-with-the-wand).
-- **Add Alternative Field** (adicionar campo alternativo), abaixo de cada campo, dá a chats selecionados uma versão diferente. A lista **Active in** (ativo em) mostra só os chats que usam esta persona, e as atribuições ficam suspensas quando um chat escolhe outra persona. Veja [Use um campo alternativo em chats selecionados](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
+- **Add Alternative Field** (adicionar campo alternativo), abaixo de cada campo, dá a chats selecionados uma versão diferente. A lista **Active in** (ativo em) mostra só os chats que usam esta persona, e as atribuições ficam suspensas quando um chat escolhe outra persona. Você pode dar um nome a cada alternativa e trocar entre elas em **Chat Settings → Card Field Alternatives** (configurações do chat → alternativas dos campos do card). Veja [Use um campo alternativo em chats selecionados](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
 - **Version history** (histórico de versões) fica na aba **Metadata**. Antes da sua primeira edição, ele mostra `Previous persona states will appear here after the next edit.` **Reset** exclui todos os instantâneos e define a versão como 1.0. Veja [Histórico de versões](creating-and-editing-characters.md#version-history).
 
 <a id="stats-tab"></a>

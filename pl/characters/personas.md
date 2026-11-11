@@ -99,7 +99,7 @@ Zakładka **Card** zawiera pola, które opisują cię dla AI. Każde ma szacunek
 Te funkcje działają tak samo jak u postaci, tylko ich przedmiotem jest persona:
 
 - Przycisk z różdżką nad każdym polem pisze je za ciebie. Zobacz [Generowanie pola karty różdżką](creating-and-editing-characters.md#write-a-card-field-with-the-wand).
-- **Add Alternative Field** (dodaj alternatywne pole) pod każdym polem daje wybranym czatom inną wersję tego pola. Lista **Active in** (aktywne w) pokazuje tylko czaty, które używają tej persony, a przypisania są wstrzymywane, gdy czat wybierze inną personę. Zobacz [Alternatywne pola w wybranych czatach](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
+- **Add Alternative Field** (dodaj alternatywne pole) pod każdym polem daje wybranym czatom inną wersję tego pola. Lista **Active in** (aktywne w) pokazuje tylko czaty, które używają tej persony, a przypisania są wstrzymywane, gdy czat wybierze inną personę. Każdy wariant można nazwać, a między wariantami przełączać się w **Chat Settings → Card Field Alternatives** (ustawienia czatu → alternatywne pola karty). Zobacz [Alternatywne pola w wybranych czatach](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
 - **Version history** (historia wersji) jest w zakładce **Metadata**. Przed pierwszą edycją wyświetla `Previous persona states will appear here after the next edit.` **Reset** usuwa wszystkie migawki i ustawia wersję na 1.0. Zobacz [Historia wersji](creating-and-editing-characters.md#version-history).
 
 <a id="stats-tab"></a>

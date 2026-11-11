@@ -774,6 +774,18 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 developer-do
 
 - The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (UI 편집기), **Whole app** as (앱 전체) and **Choose what to change…** as (변경할 대상 선택); the heading is "앱 배경과 강조 색상". New label references take "항목" instead of a particle so none has to follow the Latin reading, while "**Save**(저장)를" keeps the pack's 21 existing uses.
 
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives**(카드 대체 필드) is glossed at its first bold use in `creating-and-editing-characters.md` and again in the personas bullet, inside the combined **Chat Settings → Card Field Alternatives**(채팅 설정 → 카드 대체 필드) pair. The first rule never names the label; it writes **Chat Settings** bare. The pack's term for an alternative field is **대체 필드** (`ui.cardFields.alternativeTitle` = **{{field}} 대체 필드 {{index}}**), so the section label is 카드 대체 필드, not a new coinage for "card field alternatives".
+- **Original**(원본) is glossed once, in the paragraph, matching `ui.ui.spritegenerationmodal.useOriginal` (원본 사용); the pack otherwise uses 원본 for "the original" of a card or copy.
+- Step 2's example title, **Backstory alternative 1**, expands the app's string with `chat.settings.inlineEditor.fields.backstory` = 배경 이야기: **Backstory alternative 1**(배경 이야기 대체 필드 1). *Optional* opens the step as **선택 사항:** with the pack's colon (`agents/custom-agents.md:184`, `agents/hierarchical-maps.md:61`). *Up to 60 characters* is **최대 60자입니다**; *leave the name empty to keep the numbered title* is **이름을 비워 두면 번호가 붙은 제목이 유지됩니다**, with **유지됩니다** for a value that stays.
+- *Its title* is **대체 필드의 제목**: the component renders `ui.cardFields.alternativeTitle` as the title, and the pack calls the numbered string a 제목. *Applies from the next reply* is **다음 답변부터 적용됩니다**, after 다음 답변 in `home/professor-mari.md:262`. *The section is hidden* is **이 섹션은 표시되지 않습니다**, the pack's **표시되지 않습니다** for something that does not appear.
+- The first rule keeps **한 채팅은 필드마다 대체 필드를 하나만 쓸 수 있습니다** and adds the parallel **또는 Chat Settings에서 다른 대체 필드를 고르면**; **Chat Settings** runs bare after its gloss in the paragraph.
+- In the personas bullet, *name each alternative* is **각 대체 필드에 이름을 붙일 수 있고** and *switch between them* is **서로 전환할 수 있습니다**; the path is **Chat Settings → Card Field Alternatives**(채팅 설정 → 카드 대체 필드), one gloss pair for the bold span.
+
+§A-2 applies to the new labels: **Chat Settings**(채팅 설정)를 (세팅스), **Card Field Alternatives**(카드 대체 필드)를 (얼터너티브스), **Original**(원본)을 (오리지널), **Backstory alternative 1**(배경 이야기 대체 필드 1)을 (원), and `Young`을 (영). The first rule writes Chat Settings bare before 에서. These are translation choices, not a new native-reader review.
 ## Rulesets in Roleplay (2026-11-11, #8999)
 
 Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):

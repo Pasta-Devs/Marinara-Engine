@@ -781,6 +781,18 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section of `
 
 - The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (editor de interface), **Whole app** as (aplicativo inteiro) and **Choose what to change…** as (escolher o que mudar); the heading is "Plano de fundo do aplicativo e Accent Color". The steps use "Clique em" and "menu suspenso".
 
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives** is glossed (alternativas dos campos do card) at its first bold use in `creating-and-editing-characters.md` and again in the personas bullet, inside the combined **Chat Settings → Card Field Alternatives** (configurações do chat → alternativas dos campos do card) pair. The first rule never names the label; it writes **Chat Settings** bare. **Card** stays the pack's English loanword (§3) and does not become *cartão*, which the pack reserves for other things.
+- **Original** runs unglossed in the paragraph: the same file already writes **o original** and **o campo original** (`characters/creating-and-editing-characters.md:147`, `:187`), so a parenthetical would only repeat the surrounding Portuguese.
+- Step 2's example title, **Backstory alternative 1**, expands the app's string: `ui/pt-BR.json` `ui.cardFields.alternativeTitle` is **Alternativa {{index}} de {{field}}** with `chat.settings.inlineEditor.fields.backstory` = História do personagem, hence (Alternativa 1 de História do personagem). *Optional* opens the step as **Opcional:** (`agents/custom-agents.md:184`). *Up to 60 characters* is **até 60 caracteres**; *leave the name empty to keep the numbered title* is **Deixe o nome vazio para manter o título numerado**, with **manter** for a value that is kept.
+- *Its title* is **o título dela**, feminine for **a alternativa**. *Pick* in the new paragraph is **Escolha**, as in the section's steps. *Applies from the next reply* is **vale a partir da próxima resposta**, after `home/professor-mari.md:262` **A mudança vale a partir da próxima resposta dela**. *The section is hidden* is **A seção fica escondida**, after `TROUBLESHOOTING.md:493` **A seção fica escondida até que…**.
+- The first rule keeps **Um chat só pode usar uma alternativa por campo** and adds **ou escolher outra em Chat Settings**; **Chat Settings** runs bare after its gloss, as elsewhere in the file.
+- In the personas bullet, *name each alternative* is **dar um nome a cada alternativa** and *switch between them* is **trocar entre elas**; the path is **Chat Settings → Card Field Alternatives** (configurações do chat → alternativas dos campos do card), one gloss pair for the bold span.
+
+These are translation choices, not a new native-reader review.
 ## Rulesets in Roleplay (2026-11-11, #8999)
 
 Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):

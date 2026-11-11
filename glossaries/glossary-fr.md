@@ -573,6 +573,18 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`, #8954; `development/option
 
 - The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (éditeur d'interface), **Whole app** as (toute l'application) and **Choose what to change…** as (choisir quoi modifier); the heading is "Arrière-plan de l'application et Accent Color". The sentence introducing the list keeps a plain ASCII space before the colon ("dans **App Style** :").
 
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives** is glossed (alternatives des champs de la fiche) at its first bold use in `creating-and-editing-characters.md` and again in the personas bullet, inside the combined **Chat Settings → Card Field Alternatives** (réglages du chat → alternatives des champs de la fiche) pair. The first rule never names the label; it writes **Chat Settings** bare. **Original** is glossed (original) once, in the paragraph, because it is a picker row and not a word the surrounding French carries.
+- Step 2's example title, **Backstory alternative 1**, is the app's own string: `ui/fr.json` `ui.cardFields.alternativeTitle` is **Alternative {{index}} de {{field}}** and `chat.settings.inlineEditor.fields.backstory` is Passé, hence (alternative 1 du passé). *Optional* opens the step as **Facultatif :** with the pack's ASCII space before the colon (`agents/custom-agents.md:184`).
+- *Up to 60 characters* is **au plus 60 caractères**, the pack's form for a cap (`extending/writing-story-scripts.md:139` **Au plus 12**); *saisis un nom* keeps the file's **Saisis un nom** from step 3 of "Create a character" (`:9`). *Leave the name empty to keep the numbered title* is **Laisse le nom vide pour garder le titre numéroté**, with **laisser … pour** as in the **Voice** bullet's *Laisse le champ vide pour utiliser…* (`:147`).
+- *Pick* is **Choisis**, as in the section's other steps; *the choice applies from the next reply* is **le choix s'applique dès la prochaine réponse**. *Is masked* takes **masquée**, the pack's word for a hidden panel (`chats/chat-settings.md:17` **Elle reste masquée**), and *when nothing in the chat has alternatives* keeps **rien dans le chat n'a d'alternatives** so the negation stays in one clause.
+- The **Card Field Alternatives** label is *les alternatives des champs de la fiche*: **fiche** is the pack's term for a character card (§6.9), and the section lists character and persona fields, which the same word covers.
+- In the personas bullet, *name each alternative* is **nommer chaque alternative** and *switch between them* is **passer de l'une à l'autre**; the path is **Chat Settings → Card Field Alternatives** (réglages du chat → alternatives des champs de la fiche), one gloss pair for the whole bold span.
+
+These are translation choices, not a new native-reader review.
 ## Rulesets in Roleplay (2026-11-11, #8999)
 
 Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):

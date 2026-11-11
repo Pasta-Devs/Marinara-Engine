@@ -99,7 +99,7 @@ Der Tab **Card** enthält die Felder, die dich der KI beschreiben. Jedes zeigt e
 Diese Funktionen arbeiten wie bei Charakteren, nur mit der Persona als Gegenstand:
 
 - Die Zauberstab-Schaltfläche über jedem Feld schreibt es für dich. Siehe [Ein Kartenfeld mit dem Zauberstab schreiben](creating-and-editing-characters.md#write-a-card-field-with-the-wand).
-- **Add Alternative Field** (alternatives Feld hinzufügen) unter jedem Feld gibt ausgewählten Chats eine andere Fassung. Die Liste **Active in** zeigt nur Chats, die diese Persona verwenden, und Zuordnungen pausieren, wenn ein Chat eine andere Persona wählt. Siehe [Ein alternatives Feld in ausgewählten Chats verwenden](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
+- **Add Alternative Field** (alternatives Feld hinzufügen) unter jedem Feld gibt ausgewählten Chats eine andere Fassung. Die Liste **Active in** zeigt nur Chats, die diese Persona verwenden, und Zuordnungen pausieren, wenn ein Chat eine andere Persona wählt. Du kannst jede Alternative benennen und unter **Chat Settings → Card Field Alternatives** (Chat-Einstellungen → Alternativen für Kartenfelder) zwischen ihnen wechseln. Siehe [Ein alternatives Feld in ausgewählten Chats verwenden](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
 - **Version history** (Versionsverlauf) liegt im Tab **Metadata**. Vor deiner ersten Bearbeitung steht dort `Previous persona states will appear here after the next edit.` **Reset** (Zurücksetzen) löscht jede Momentaufnahme und setzt die Version auf 1.0. Siehe [Versionsverlauf](creating-and-editing-characters.md#version-history).
 
 <a id="stats-tab"></a>
