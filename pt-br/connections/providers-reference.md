@@ -71,7 +71,7 @@ Um agregador é um serviço em que uma única chave dá acesso a modelos de muit
 2. Um token de acesso OAuth, por exemplo o gerado por `gcloud auth print-access-token`.
 3. Uma chave de API da Vertex.
 
-**Gemini 4 Argon** só roda nas localizações `global`, `us` e `eu`, e não em uma única região como `us-central1`, segundo uma nota no código do Marinara que segue a documentação do Google. Para usá-lo, defina o endereço como `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. Com outra localização, o Google devolve um erro e Marinara mostra esse erro.
+**Gemini 4 Argon** e **Gemini 4 Carbon** só rodam nas localizações `global`, `us` e `eu`, e não em uma única região como `us-central1`, segundo uma nota no código do Marinara que segue a documentação do Google. Para usar qualquer um dos dois, defina o endereço como `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. Com outra localização, o Google devolve um erro e Marinara mostra esse erro.
 
 ### Cohere
 

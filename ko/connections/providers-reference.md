@@ -71,7 +71,7 @@
 2. OAuth 접근 토큰. 예를 들어 `gcloud auth print-access-token`으로 얻은 토큰입니다.
 3. Vertex API 키.
 
-Google 문서를 따른 Marinara 코드의 주석에 따르면, **Gemini 4 Argon**은 `us-central1` 같은 단일 리전이 아닌 `global`, `us`, `eu` 위치에서만 실행됩니다. 사용하려면 주소를 `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`로 설정하세요. 다른 위치를 쓰면 Google이 오류를 돌려주고 Marinara가 그 오류를 표시합니다.
+Google 문서를 따른 Marinara 코드의 주석에 따르면, **Gemini 4 Argon**과 **Gemini 4 Carbon**은 `us-central1` 같은 단일 리전이 아닌 `global`, `us`, `eu` 위치에서만 실행됩니다. 둘 중 하나를 사용하려면 주소를 `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`로 설정하세요. 다른 위치를 쓰면 Google이 오류를 돌려주고 Marinara가 그 오류를 표시합니다.
 
 ### Cohere
 

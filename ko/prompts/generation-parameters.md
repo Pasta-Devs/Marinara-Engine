@@ -161,8 +161,8 @@ Marinara는 각 파라미터를 다음 목록 순서로 결정합니다. 뒤의 
 - **에이전트에 전송하는 설정:** Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, 사용자 지정 헤더, 그리고 **Settings**(설정), **Advanced**(고급), **Parameters** 순서로 열어 추가한 추가 파라미터(Top A나 시드 등)입니다. 전송 스위치가 꺼진 파라미터는 전송하지 않습니다.
 - **에이전트에 전송하지 않는 설정:** Max Output Tokens, 정지 시퀀스, 프리필, Thinking Tags와 그 밖의 프롬프트 형식 설정입니다. 각 에이전트는 자신의 **Max Output Tokens**를 유지합니다.
 - **Temperature:** 에이전트는 계정의 온도를 쓰며, 저장된 값이 없으면 0.7을 씁니다. Beholder는 항상 0을 쓰고, Illustrator의 프롬프트 작성기는 자체 값을 씁니다. 채팅 답변 중에는 채팅 계정을 쓰는 에이전트가 채팅에서 결정된 온도와 전송 스위치를 따릅니다. 재시도에는 계정에 저장된 값을 씁니다.
-- **Reasoning Effort:** 고른 단계나 **Off**는 그 계정에서 이 설정을 받는 모델을 쓰는 모든 에이전트에 적용됩니다. **Use custom defaults for this model**(이 연결에 사용자 지정 기본값 사용)을 쓰면 대부분의 계정에서 Reasoning Effort가 **Maximum**으로 시작합니다(Codex에서는 **Default**). 그래서 에이전트가 가장 높은 단계로 사고하며, 시간이 더 걸리고 비용도 더 듭니다. 사고를 줄이려면 더 낮은 단계를 고르거나 전송 스위치를 끄세요. 저장된 단계가 없으면 JSON으로 답하는 에이전트는 사고를 끄도록 요청하고, 다른 에이전트는 모델 기본값을 그대로 둡니다.
-- **추론용 여유 공간:** 계정에 Reasoning Effort가 저장되어 있으면, Marinara는 계정의 출력 상한, 모델 한도, 남은 컨텍스트 범위 안에서 에이전트의 **Max Output Tokens**에 추론용 여유를 더합니다. 사용자 지정 엔드포인트는 단계를 전송하지 않을 때도 이 여유를 받습니다.
+- **Reasoning Effort:** 고른 단계나 **Off**는 그 계정에서 이 설정을 받는 모델을 쓰는 모든 에이전트에 적용됩니다. **Use custom defaults for this model**(이 연결에 사용자 지정 기본값 사용)을 쓰면 대부분의 계정에서 Reasoning Effort가 **Maximum**으로 시작합니다(Codex에서는 **Default**). 그래서 에이전트가 가장 높은 단계로 사고하며, 시간이 더 걸리고 비용도 더 듭니다. 사고를 줄이려면 더 낮은 단계를 고르거나 전송 스위치를 끄세요. 저장된 단계가 없으면 JSON으로 답하는 에이전트는 사고를 끄도록 요청하고, 다른 에이전트는 모델 기본값을 그대로 둡니다. Gemini 4 Argon과 Carbon은 사고를 끌 수 없으므로 Google AI Studio와 Vertex에서는 해당 에이전트가 대신 **Medium**을 전송합니다.
+- **추론용 여유 공간:** 계정에 Reasoning Effort가 저장되어 있거나 모델이 Gemini 4 Argon 또는 Carbon이면, Marinara는 계정의 출력 상한, 모델 한도, 남은 컨텍스트 범위 안에서 에이전트의 **Max Output Tokens**에 추론용 여유를 더합니다. 사용자 지정 엔드포인트는 단계를 전송하지 않을 때도 이 여유를 받습니다.
 
 설치한 에이전트 패키지도 같은 계정 값을 따릅니다. 계정이 저장하고 전송하는 값은 패키지가 요청한 값을 대신하며, 설정하지 않은 항목은 패키지 자체 설정을 유지합니다. 계정에서 꺼 둔 **Reasoning Effort**나 **Max Output Tokens**는 패키지가 요청해도 전송하지 않습니다. Temperature와 Verbosity는 꺼진 상태로 시작하므로 패키지 자체 값이 유지됩니다.
 

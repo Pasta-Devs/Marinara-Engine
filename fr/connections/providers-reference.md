@@ -70,7 +70,7 @@ Un agrégateur est un service où une seule clé donne accès aux modèles de no
 2. Un jeton d'accès OAuth, par exemple issu de `gcloud auth print-access-token`.
 3. Une clé API Vertex.
 
-**Gemini 4 Argon** ne fonctionne que dans les emplacements `global`, `us` et `eu`, pas dans une région unique comme `us-central1`, d'après une note du code de Marinara qui suit la documentation de Google. Pour l'utiliser, règle l'adresse sur `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. Avec un autre emplacement, Google renvoie une erreur, et Marinara l'affiche.
+**Gemini 4 Argon** et **Gemini 4 Carbon** ne fonctionnent que dans les emplacements `global`, `us` et `eu`, pas dans une région unique comme `us-central1`, d'après une note du code de Marinara qui suit la documentation de Google. Pour utiliser l'un ou l'autre, règle l'adresse sur `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. Avec un autre emplacement, Google renvoie une erreur, et Marinara l'affiche.
 
 ### Cohere
 

@@ -71,7 +71,7 @@ Agregator to usługa, w której jeden klucz daje dostęp do modeli wielu firm. A
 2. Token dostępu OAuth, na przykład z `gcloud auth print-access-token`.
 3. Klucz API Vertex.
 
-**Gemini 4 Argon** działa tylko w lokalizacjach `global`, `us` i `eu`, a nie w pojedynczym regionie, takim jak `us-central1`, według uwagi w kodzie aplikacji Marinara, która opiera się na dokumentacji Google. Żeby z niego korzystać, ustaw adres `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. Przy innej lokalizacji Google zwraca błąd, a Marinara go pokazuje.
+**Gemini 4 Argon** i **Gemini 4 Carbon** działają tylko w lokalizacjach `global`, `us` i `eu`, a nie w pojedynczym regionie, takim jak `us-central1`, według uwagi w kodzie aplikacji Marinara, która opiera się na dokumentacji Google. Żeby skorzystać z któregokolwiek z nich, ustaw adres `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. Przy innej lokalizacji Google zwraca błąd, a Marinara go pokazuje.
 
 ### Cohere
 

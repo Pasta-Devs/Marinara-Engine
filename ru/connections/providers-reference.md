@@ -71,7 +71,7 @@
 2. Токен доступа OAuth, например полученный командой `gcloud auth print-access-token`.
 3. Ключ Vertex API.
 
-**Gemini 4 Argon** работает только в локациях `global`, `us` и `eu`, а не в отдельном регионе вроде `us-central1`. Так сказано в примечании в коде Marinara, которое следует документации Google. Чтобы использовать эту модель, задайте адрес `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. С другой локацией Google возвращает ошибку, и Marinara ее показывает.
+**Gemini 4 Argon** и **Gemini 4 Carbon** работают только в локациях `global`, `us` и `eu`, а не в отдельном регионе вроде `us-central1`. Так сказано в примечании в коде Marinara, которое следует документации Google. Чтобы использовать любую из этих моделей, задайте адрес `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. С другой локацией Google возвращает ошибку, и Marinara ее показывает.
 
 ### Cohere
 
