@@ -70,6 +70,6 @@ Roleplay 聊天可以按桌面规则集游玩，和 Game Mode 用的是同一类
 
 ## 相关指南
 
-- [Game Mode：按规则集游玩](../game/rulesets.md)
+- [Game Mode：使用规则集游玩](../game/rulesets.md)
 - [Game Mode：骰子与技能检定](../game/dice-and-skill-checks.md)
 - [Roleplay 模式：入门](getting-started.md)

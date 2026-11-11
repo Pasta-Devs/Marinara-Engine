@@ -53,7 +53,7 @@ Dla tur **Impersonate** (podszywanie się) nie rzuca się testów. Pokój gry wi
 
 ## Korzystanie z arkuszy postaci
 
-Kliknij **Open sheet** (otwórz arkusz) obok członka w sekcji **Ruleset**. Arkusz jest tym samym, który pokazuje Game Mode. Przycisk przewijania u góry Tracker Panel otwiera arkusz twojej persony.
+Kliknij **Open sheet** (otwórz arkusz) obok członka w sekcji **Ruleset**. Arkusz jest tym samym, który pokazuje Game Mode. Przycisk ze zwojem u góry Tracker Panel otwiera arkusz twojej persony.
 
 - Kliknij **−** i **+** obok puli lub licznika, na przykład punktów życia albo stresu, aby go zmienić. Zmiana jest zapisywana z bieżącą wiadomością, więc podąża za swipe'ami (alternatywnymi odpowiedziami) i gałęziami.
 - Kliknij **Edit ruleset sheet** (edycja arkusza zestawu zasad), aby zmienić wartości, rangi umiejętności, pola i listy, a potem **Save sheet** (zapisz arkusz).

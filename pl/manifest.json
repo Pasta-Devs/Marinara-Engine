@@ -164,8 +164,8 @@
     },
     {
       "path": "chats/chat-settings.md",
-      "sha256": "e55d3d32d2dae1c9e7bca3153f48a9239c0896d47d86217662182f9f5d322d89",
-      "bytes": 19751
+      "sha256": "e0080eee2bc12d0957fc5ed754c3795a1305972a1d1e8c6e1b483291d5856b9c",
+      "bytes": 19779
     },
     {
       "path": "chats/connected-chats.md",
@@ -744,8 +744,8 @@
     },
     {
       "path": "roleplay/rulesets.md",
-      "sha256": "77d3f474304ab1be7734174bcd8d6f56aaf155ec99a283e9c078d7a92d8a5125",
-      "bytes": 5507
+      "sha256": "16be27072d28d3a8475658e549bc106cda0110a4d94f20e118629864c563d322",
+      "bytes": 5505
     },
     {
       "path": "roleplay/scenes.md",

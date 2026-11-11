@@ -29,7 +29,7 @@ To, które sekcje widać, zależy od trybu czatu. Sekcję **Impersonate** opisuj
 - **Advanced Parameters** (parametry zaawansowane): nadpisuje w tym czacie ustawienia generowania, takie jak temperatura. Zobacz [Parametry generowania](../prompts/generation-parameters.md).
 - **Persona**: postać, w którą się wcielasz. Zobacz [Wybór persony w czacie](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
 - **Characters** (postacie): postacie w czacie. (Conversation, Roleplay.)
-- **Ruleset** (zestaw zasad): rozgrywa czat według zestawu zasad stołowych, z testami kośćmi i arkuszami postaci. Zobacz [Roleplay: gra z zestawem zasad](../roleplay/rulesets.md). (Roleplay.)
+- **Ruleset** (zestaw zasad): rozgrywa czat według zestawu zasad stołowych, z rzutami kośćmi i testami umiejętności oraz arkuszami postaci. Zobacz [Roleplay: gra z zestawem zasad](../roleplay/rulesets.md). (Roleplay.)
 - **Party** (drużyna): zastępuje sekcje **Persona** i **Characters**, łącząc je w jednym miejscu. (Game.)
 - **Group Chat** (czat grupowy): kto zabiera głos w grupie. Zobacz [Czaty grupowe](group-chats.md). (Czaty z więcej niż jedną postacią.)
 - **Scoped Regex Scripts**: osobne dla każdego czatu ustawienie skryptów regex należących do postaci. Zobacz [Skrypty regex](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting). (Widoczne tylko wtedy, gdy postać w czacie ma przypisane skrypty.)
