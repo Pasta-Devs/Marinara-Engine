@@ -2329,7 +2329,8 @@ export async function resolveRetryAgents(args: {
     warnings.push(buildLocalSidecarUnavailableWarning(skippedLocalSidecarAgents));
   }
 
-  if (defaultAgentConn && defaultAgentConnectionAgents.length > 0) {
+  // A saved row is a paid-by-default risk; the built-in model bills nothing, so it is never worth a warning.
+  if (defaultAgentConn && !isLocalSidecarConnectionId(defaultAgentConn.id) && defaultAgentConnectionAgents.length > 0) {
     warnings.push(
       buildDefaultAgentConnectionWarning({
         agentNames: defaultAgentConnectionAgents,
