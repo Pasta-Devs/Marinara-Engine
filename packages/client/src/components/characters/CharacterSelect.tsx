@@ -401,7 +401,8 @@ function CharacterSelectWindow({
         title={title}
         width="max-w-md"
         restoreFocusRef={anchorRef}
-        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none"
+        // Same accent tint over the panel colour as the desktop window below.
+        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary))]"
         contentClassName="flex flex-col !overflow-hidden !p-0"
       >
         {children}
