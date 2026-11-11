@@ -380,6 +380,100 @@ function WizardPresetSelect({
   );
 }
 
+// The lorebook step: a trigger that opens the shared picker window with search, checkboxes
+// and the Lorebooks panel's folders ("Add all" per folder). It stays open while picking;
+// the picked lorebooks stay listed under the trigger with a remove button each.
+function WizardLorebookPicker({
+  lorebooks,
+  loaded,
+  activeIds,
+  onToggle,
+  onAdd,
+}: {
+  lorebooks: Array<{ id: string; name: string }>;
+  loaded: boolean;
+  activeIds: readonly string[];
+  onToggle: (id: string) => void;
+  onAdd: (ids: string[]) => void;
+}) {
+  const { t } = useUiTranslation();
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { data: folders } = useLibraryFolders("lorebooks");
+  const items = useMemo(() => lorebooks.map((lb) => ({ id: lb.id, label: lb.name })), [lorebooks]);
+  const active = activeIds
+    .map((id) => lorebooks.find((lb) => lb.id === id))
+    .filter((lb): lb is { id: string; name: string } => Boolean(lb));
+  const baseTitle = t("navigation.topbar.lorebooks");
+  const title = active.length > 0 ? baseTitle + " · " + active.length : baseTitle;
+
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  return (
+    <div className="space-y-2">
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        disabled={!loaded}
+        onClick={() => (open ? close() : setOpen(true))}
+        className={cn(WIZARD_INPUT_CLASS, "flex items-center justify-between gap-2 pr-3 text-left")}
+      >
+        <BookOpen size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />
+        <span className="min-w-0 flex-1 truncate text-[var(--muted-foreground)]">
+          {t("ui.chat.roleplaysetupwizard.chooseLorebooks")}
+        </span>
+        <ChevronDown
+          size="0.75rem"
+          aria-hidden="true"
+          className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
+        />
+      </button>
+      {active.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {active.map((lb) => (
+            <div
+              key={lb.id}
+              className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
+            >
+              <BookOpen size="0.875rem" className="text-[var(--primary)]" />
+              <span className="flex-1 truncate text-xs">{lb.name}</span>
+              <button
+                type="button"
+                onClick={() => onToggle(lb.id)}
+                className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                title={t("settings.notifications.customSound.actions.remove")}
+                aria-label={t("settings.notifications.customSound.actions.remove")}
+              >
+                <Trash2 size="0.6875rem" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {open && (
+        <PickerWindow title={title} anchorRef={triggerRef} onClose={close}>
+          <PickerFolderList
+            items={items}
+            folders={folders ?? []}
+            selectedIds={activeIds}
+            multiple
+            onToggle={onToggle}
+            onPickGroup={onAdd}
+            searchLabel={t("ui.chat.roleplaysetupwizard.searchLorebooks")}
+            emptyLabel={t("ui.panels.lorebookspanel.noLorebooksYet")}
+            noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
+          />
+        </PickerWindow>
+      )}
+    </div>
+  );
+}
+
 function readChatActiveAgentIds(chat: Chat): string[] {
   const metadata = readChatMetadata(chat);
   const activeIds = metadata.activeAgentIds;
@@ -2304,6 +2398,13 @@ function RoleplaySetupWizard({
     },
     [chat.id, activeLorebookIds, updateMeta],
   );
+  const addLorebooks = useCallback(
+    (ids: string[]) => {
+      const next = [...activeLorebookIds, ...ids.filter((id) => !activeLorebookIds.includes(id))];
+      updateMeta.mutate({ id: chat.id, activeLorebookIds: next });
+    },
+    [chat.id, activeLorebookIds, updateMeta],
+  );
 
   // Default the shortcut dropdown once profiles load. Prefer (in order):
   //  1) the profile already applied to this chat,
@@ -2385,8 +2486,7 @@ function RoleplaySetupWizard({
     }
   }, [shortcutPresetId, shortcutPersonaPicked, chat.id, applyChatPreset, onFinish, seedInitialGreetingsIfEmpty]);
 
-  // Search state for character & lorebook pickers
-  const [lbSearch, setLbSearch] = useState("");
+  // Search state for the agent picker
   const [agentSearch, setAgentSearch] = useState("");
   const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
   const [addingAgentToChat, setAddingAgentToChat] = useState(false);
@@ -2498,7 +2598,6 @@ function RoleplaySetupWizard({
         return;
       }
       setStep((s) => s + 1);
-      setLbSearch("");
       setAgentSearch("");
       setAgentAddPreview(null);
     }
@@ -2561,7 +2660,6 @@ function RoleplaySetupWizard({
       setOnboardingCharacterId(null);
       setShowOnboarding(false);
       setStep((s) => s + 1);
-      setLbSearch("");
       setAgentSearch("");
       setAgentAddPreview(null);
     },
@@ -2570,7 +2668,6 @@ function RoleplaySetupWizard({
 
   const previous = useCallback(() => {
     setStep((s) => Math.max(0, s - 1));
-    setLbSearch("");
     setAgentSearch("");
     setAgentAddPreview(null);
   }, []);
@@ -2933,74 +3030,14 @@ function RoleplaySetupWizard({
   }
 
   function renderLorebooks() {
-    const available = ((lorebooks ?? []) as Array<{ id: string; name: string }>).filter(
-      (lb) => !activeLorebookIds.includes(lb.id) && lb.name.toLowerCase().includes(lbSearch.toLowerCase()),
-    );
-
     return (
-      <div className="space-y-2">
-        {/* Active lorebooks */}
-        {activeLorebookIds.length > 0 && (
-          <div className="flex flex-col gap-1">
-            {activeLorebookIds.map((lbId) => {
-              const lb = ((lorebooks ?? []) as Array<{ id: string; name: string }>).find((l) => l.id === lbId);
-              if (!lb) return null;
-              return (
-                <div
-                  key={lb.id}
-                  className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
-                >
-                  <BookOpen size="0.875rem" className="text-[var(--primary)]" />
-                  <span className="flex-1 truncate text-xs">{lb.name}</span>
-                  <button
-                    onClick={() => toggleLorebook(lb.id)}
-                    className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                    title={localizeUi("settings.notifications.customSound.actions.remove")}
-                  >
-                    <Trash2 size="0.6875rem" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Search + add */}
-        <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--secondary)]">
-          <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2 max-md:min-h-11">
-            <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
-            <input
-              value={lbSearch}
-              onChange={(e) => setLbSearch(e.target.value)}
-              placeholder={localizeUi("ui.chat.roleplaysetupwizard.searchLorebooks")}
-              className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-            />
-          </div>
-          <div className="max-h-32 overflow-y-auto p-1">
-            {available.map((lb) => (
-              <button
-                key={lb.id}
-                onClick={() => toggleLorebook(lb.id)}
-                className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-xs text-[var(--foreground)] hover:bg-[var(--accent)] max-md:min-h-11"
-              >
-                <BookOpen size="0.875rem" className="text-[var(--muted-foreground)]" />
-                <span className="flex-1 truncate text-xs">{lb.name}</span>
-                <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-              </button>
-            ))}
-            {available.length === 0 && lorebooks !== undefined && (
-              <p className="px-2.5 py-2 text-xs text-[var(--muted-foreground)]">
-                {(lorebooks ?? []).length === 0
-                  ? localizeUi("ui.panels.lorebookspanel.noLorebooksYet")
-                  : ((lorebooks ?? []) as Array<{ id: string }>).filter((lb) => !activeLorebookIds.includes(lb.id))
-                        .length === 0
-                    ? localizeUi("ui.chat.roleplaysetupwizard.allLorebooksAlreadyAdded")
-                    : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+      <WizardLorebookPicker
+        lorebooks={(lorebooks ?? []) as Array<{ id: string; name: string }>}
+        loaded={lorebooks !== undefined}
+        activeIds={activeLorebookIds}
+        onToggle={toggleLorebook}
+        onAdd={addLorebooks}
+      />
     );
   }
 
@@ -3442,7 +3479,6 @@ function RoleplaySetupWizard({
         onClose={() => {
           setShowChoiceModal(false);
           setStep((s) => s + 1);
-          setLbSearch("");
           setAgentSearch("");
           setAgentAddPreview(null);
         }}
