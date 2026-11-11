@@ -1,20 +1,18 @@
 // ──────────────────────────────────────────────
 // CharacterSelect — picks characters or personas. One component for every screen, like
 // ConnectionSelect: a field (`picker`), a Settings label/value row (`menu`), or no trigger at
-// all (`controlled`, the caller's button opens it). Desktop opens a popover at the trigger;
-// a phone opens a bottom sheet. Multiple picks apply on each tap; Done only closes.
+// all (`controlled`, the caller's button opens it). The window is the shared PickerWindow
+// (popover on desktop, bottom sheet on a phone). Multiple picks apply on each tap.
 // ──────────────────────────────────────────────
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { createPortal } from "react-dom";
+import { useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { Persona } from "@marinara-engine/shared";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import type { CharacterIdentityChoice } from "../../lib/character-identity-groups";
-import { Modal } from "../ui/Modal";
+import { PickerWindow } from "../ui/PickerWindow";
 import { CharacterPickerList, type CharacterPickerListProps } from "./CharacterPickerList";
 
 /** A persona pick: a persona, a character played as the persona, or `null` for None. */
@@ -78,33 +76,12 @@ export type CharacterSelectProps = CommonProps &
       }
   );
 
-const PHONE_QUERY = "(max-width: 767px)";
-
 /** The one id a multiple pick added or removed. */
 export const changedId = (prev: readonly string[], next: readonly string[]) =>
   next.find((id) => !prev.includes(id)) ?? prev.find((id) => !next.includes(id));
 
 const toggleId = (ids: readonly string[], id: string) =>
   ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
-
-type Placement = { left: number; width: number; maxHeight: number; top?: number; bottom?: number };
-
-/** Popover next to the anchor: below it, or above when there is more room there. */
-function place(anchor: HTMLElement): Placement {
-  const rect = anchor.getBoundingClientRect();
-  const viewport = window.visualViewport;
-  const top = viewport?.offsetTop ?? 0;
-  const bottom = top + (viewport?.height ?? window.innerHeight);
-  const width = Math.min(Math.max(rect.width, 352), window.innerWidth - 16);
-  const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
-  const below = bottom - rect.bottom - 12;
-  const above = rect.top - top - 12;
-  const openAbove = below < 320 && above > below;
-  const maxHeight = Math.max(160, Math.min(448, openAbove ? above : below));
-  return openAbove
-    ? { left, width, maxHeight, bottom: window.innerHeight - rect.top + 4 }
-    : { left, width, maxHeight, top: rect.bottom + 4 };
-}
 
 function TriggerAvatars({
   items,
@@ -331,7 +308,7 @@ export function CharacterSelect(props: CharacterSelectProps) {
         </button>
       ) : null}
       {open && (
-        <CharacterSelectWindow
+        <PickerWindow
           title={windowTitle}
           anchorRef={anchorRef ?? triggerRef}
           onClose={close}
@@ -339,122 +316,8 @@ export function CharacterSelect(props: CharacterSelectProps) {
         >
           {props.header}
           {list}
-        </CharacterSelectWindow>
+        </PickerWindow>
       )}
     </>
-  );
-}
-
-function CharacterSelectWindow({
-  title,
-  anchorRef,
-  onClose,
-  className,
-  children,
-}: {
-  title: string;
-  anchorRef: RefObject<HTMLElement | null>;
-  onClose: () => void;
-  className?: string;
-  children: ReactNode;
-}) {
-  const [phone] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(PHONE_QUERY).matches);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<Placement | null>(null);
-
-  useLayoutEffect(() => {
-    if (phone) return;
-    const update = () => anchorRef.current && setPos(place(anchorRef.current));
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
-    window.visualViewport?.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
-      window.visualViewport?.removeEventListener("resize", update);
-    };
-  }, [phone, anchorRef]);
-
-  // Close on a click outside the popover or its trigger, and on Escape.
-  useEffect(() => {
-    if (phone) return;
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (panelRef.current?.contains(target) || anchorRef.current?.contains(target)) return;
-      onClose();
-    };
-    document.addEventListener("pointerdown", onPointer);
-    return () => document.removeEventListener("pointerdown", onPointer);
-  }, [phone, anchorRef, onClose]);
-
-  // autoFocus misses the search box while the popover is still hidden, so focus it once placed.
-  const placed = pos !== null;
-  useEffect(() => {
-    const panel = panelRef.current;
-    if (!placed || !panel || panel.contains(document.activeElement)) return;
-    const search = window.matchMedia?.("(pointer: fine)").matches ? panel.querySelector("input") : null;
-    (search ?? panel).focus();
-  }, [placed]);
-
-  if (phone) {
-    return (
-      <Modal
-        open
-        onClose={onClose}
-        title={title}
-        width="max-w-md"
-        restoreFocusRef={anchorRef}
-        // Same accent tint over the panel colour as the desktop window below. Important, because the
-        // opaque-modal rule (.mari-modal--opaque .mari-modal-panel) sets its own background-image.
-        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!"
-        contentClassName="flex flex-col !overflow-hidden !p-0"
-      >
-        {children}
-      </Modal>
-    );
-  }
-
-  return createPortal(
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-modal="true"
-      tabIndex={-1}
-      aria-label={title}
-      data-chat-floating-panel
-      onPointerDown={(event) => event.stopPropagation()}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
-        event.stopPropagation();
-        onClose();
-      }}
-      className={cn(
-        // Portaled to <body>, so it re-applies the neutral chrome tokens its host (wizard, drawer) sits in;
-        // without them --secondary falls back to the theme's raw navy. That tint is translucent (it is
-        // made to sit on a panel, like the preset dropdown), so it is layered over the panel colour, blurred like
-        // every neutral panel shell. The panel colour is stacked twice (~98% opaque) so sharp lines underneath,
-        // like the wizard's footer divider, don't show through.
-        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] text-[var(--foreground)] shadow-2xl backdrop-blur-md",
-        NEUTRAL_SURFACE_VARIABLES,
-        className,
-      )}
-      style={
-        pos
-          ? {
-              left: pos.left,
-              width: pos.width,
-              maxHeight: pos.maxHeight,
-              ...(pos.top !== undefined ? { top: pos.top } : { bottom: pos.bottom }),
-            }
-          : { visibility: "hidden" }
-      }
-    >
-      <div className="flex h-10 shrink-0 items-center px-3.5">
-        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</h2>
-      </div>
-      {children}
-    </div>,
-    document.body,
   );
 }
