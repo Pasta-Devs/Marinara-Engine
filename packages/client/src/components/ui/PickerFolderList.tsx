@@ -117,7 +117,9 @@ export function PickerFolderList({
     } else if (event.key === "Enter" && query) {
       // Only with a search: then the list is flat and the first match is the first row the user sees.
       event.preventDefault();
-      const first = visibleLeading[0] ?? visibleItems[0];
+      // Multiple: Enter adds the first match not yet picked, and never removes one.
+      const visible = [...visibleLeading, ...visibleItems];
+      const first = multiple ? visible.find((item) => !selectedSet.has(item.id)) : visible[0];
       if (first) onToggle(first.id);
     }
   };
