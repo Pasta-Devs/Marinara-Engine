@@ -14,7 +14,7 @@ import { useThemeSafetyStore, type ThemeGuardProblem } from "../../lib/theme-saf
 import { executeStateNavigation } from "../../lib/state-navigation";
 import { requestThemeEdit } from "../../lib/theme-edit-request";
 import { useUIStore } from "../../stores/ui.store";
-import { applyThemeSettings, type ThemeSettingKey } from "../../lib/theme-package";
+import { applyThemeSettings, putBackOwnLook, type ThemeSettingKey } from "../../lib/theme-package";
 import type { ThemeSettings } from "@marinara-engine/shared";
 
 const SHADOW_CSS = `
@@ -156,6 +156,8 @@ export function ThemeSafetyHost() {
   const secondsLeft = paused ? Math.ceil((pendingKeep?.pausedRemaining ?? 0) / 1000) : countdown;
   const [blockedDismissed, setBlockedDismissed] = useState<string | null>(null);
   const activeTheme = themes.find((theme) => theme.isActive) ?? null;
+  const touchOnly =
+    typeof window !== "undefined" && window.matchMedia?.("(hover: none) and (pointer: coarse)").matches === true;
 
   const revert = useMemo(
     () => () => {
@@ -169,6 +171,7 @@ export function ThemeSafetyHost() {
           pending.restoreSettings.keys as ThemeSettingKey[],
         );
       }
+      if (pending.previousOwnLook !== undefined) useUIStore.getState().setThemeOwnLook(pending.previousOwnLook);
       // The try only ever lived in this tab (useActivateTheme), so there is nothing to switch back
       // on the server or on other devices.
     },
@@ -196,6 +199,7 @@ export function ThemeSafetyHost() {
   const turnOffEverywhere = () => {
     setActiveTheme.mutate(null, {
       onSuccess: () => {
+        putBackOwnLook(activeTheme);
         const state = useThemeSafetyStore.getState();
         state.clearBlockedTheme();
         if (state.safeMode) state.leaveSafeMode();
@@ -239,7 +243,13 @@ export function ThemeSafetyHost() {
               : t("theming.safety.keepCountdown", "Going back in {{seconds}} s unless you keep it.", {
                   seconds: secondsLeft,
                 })}{" "}
-            {t("theming.safety.escHint", "Press Esc three times any time to switch themes off in this tab.")}
+            {/* Consistency audit P13/T12: phones and tablets have no Esc key. */}
+            {touchOnly
+              ? t(
+                  "theming.safety.touchHint",
+                  "If the app gets hard to use, add ?safe to the address and reload to switch themes off in this tab.",
+                )
+              : t("theming.safety.escHint", "Press Esc three times any time to switch themes off in this tab.")}
           </div>
         </div>
         <div className="actions">

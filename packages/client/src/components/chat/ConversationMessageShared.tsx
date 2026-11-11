@@ -223,18 +223,16 @@ export function nameColorStyle(color?: string): CSSProperties | undefined {
   return { color };
 }
 
+// Consistency audit C1/D11: the transcript already has a day divider ("Today", "Yesterday", a date)
+// above each day's messages, so a message shows only its time, formatted the same way as Roleplay.
+let conversationTimeFormat: Intl.DateTimeFormat | null = null;
+
 export function formatTimestamp(dateStr: string): string {
   try {
     const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / 86_400_000);
-    const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    if (diffDays === 0 && date.getDate() === now.getDate()) return `Today at ${time}`;
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (diffDays <= 1 && date.getDate() === yesterday.getDate()) return `Yesterday at ${time}`;
-    return `${date.toLocaleDateString()} ${time}`;
+    if (Number.isNaN(date.getTime())) return "";
+    conversationTimeFormat ??= new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+    return conversationTimeFormat.format(date);
   } catch {
     return "";
   }

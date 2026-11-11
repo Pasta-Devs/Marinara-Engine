@@ -349,7 +349,7 @@ export function DesktopTabStrip({
       >
         <TabIcon tab={entry.tab} chats={chats} />
         <TabLabel tab={entry.tab} chats={chats} />
-        {extra?.compact ? null : <TabPresence tab={entry.tab} chats={chats} />}
+        {extra?.compact ? null : <TabPresence tab={entry.tab} chats={chats} dotOnly />}
       </button>
       <button
         type="button"

@@ -10,6 +10,7 @@ import type { OmnibarResult } from "../../../lib/omnibar-search";
 import { buildOmnibarControlResults, buildOmnibarChatControlResults } from "../../../lib/omnibar-results";
 import type { useUpdateChat, useUpdateChatMetadata } from "../../../hooks/use-chats";
 import { useActivateTheme, useSetActiveTheme, useThemes } from "../../../hooks/use-themes";
+import { putBackOwnLook } from "../../../lib/theme-package";
 import { useThemeSafetyStore } from "../../../lib/theme-safety";
 
 /** Every row the omnibar can rank without a server search: setting controls, the open chat's controls, commands and records. */
@@ -82,6 +83,7 @@ export function useOmnibarLocalResults({
           const safety = useThemeSafetyStore.getState();
           if (next !== true) {
             void setThemeActive(null).then(() => {
+              putBackOwnLook(activeTheme);
               safety.clearBlockedTheme();
               if (safety.safeMode) safety.leaveSafeMode();
             });

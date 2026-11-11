@@ -546,6 +546,9 @@ export function isMobileShellViewport(): boolean {
     mobileShellQueries.set(query, mobileShellQuery);
   }
   if (mobileShellQuery.matches) return true;
+  // Consistency audit T4: the new layout has one sidebar, and its switch points are the fixed widths in
+  // the media query. A sidebar width setting must never flip the whole app to the phone layout.
+  if (isOverhaulLook()) return false;
   const { sidebarWidth, rightPanelWidth } = useUIStore.getState();
   // Reserve both docked widths plus room for the topbar controls. Checking
   // capacity, not open panels, avoids layout flips while switching sidebars.
@@ -818,6 +821,9 @@ interface UIState {
   appBackgroundColorLight: string;
   /** Light mode's own accent ("" = use appAccentColor). */
   appAccentColorLight: string;
+  /** The person's own Appearance values for the settings the picked theme changed, so switching the
+   *  theme off (or to another theme) puts them back. Null while no theme has changed anything. */
+  themeOwnLook: { settings: Record<string, unknown>; keys: string[] } | null;
   /** A character's default custom theme for its chats (character id → theme id, "" = Default). */
   characterThemeDefaults: Record<string, string>;
   /** Show a chat's background behind the side panels too (they turn translucent). */
@@ -1435,6 +1441,7 @@ interface UIState {
   setAppAccentColor: (color: string) => void;
   setAppBackgroundColorLight: (color: string) => void;
   setAppAccentColorLight: (color: string) => void;
+  setThemeOwnLook: (look: { settings: Record<string, unknown>; keys: string[] } | null) => void;
   setCharacterThemeDefault: (characterId: string, themeId: string | null) => void;
   setChatArtBehindPanels: (enabled: boolean) => void;
   setA11yLineHeight: (value: number) => void;
@@ -1831,6 +1838,7 @@ export function pickSyncedSettings(state: UIState) {
     appAccentColor: state.appAccentColor,
     appBackgroundColorLight: state.appBackgroundColorLight,
     appAccentColorLight: state.appAccentColorLight,
+    themeOwnLook: state.themeOwnLook,
     characterThemeDefaults: state.characterThemeDefaults,
     chatArtBehindPanels: state.chatArtBehindPanels,
     a11yLineHeight: state.a11yLineHeight,
@@ -2099,6 +2107,7 @@ export function pickPersistedUIState(state: UIState) {
     appAccentColor: state.appAccentColor,
     appBackgroundColorLight: state.appBackgroundColorLight,
     appAccentColorLight: state.appAccentColorLight,
+    themeOwnLook: state.themeOwnLook,
     characterThemeDefaults: state.characterThemeDefaults,
     chatArtBehindPanels: state.chatArtBehindPanels,
     a11yLineHeight: state.a11yLineHeight,
@@ -2393,6 +2402,7 @@ export const useUIStore = create<UIState>()(
         appAccentColor: "",
         appBackgroundColorLight: "",
         appAccentColorLight: "",
+        themeOwnLook: null,
         characterThemeDefaults: {},
         chatArtBehindPanels: false,
         a11yLineHeight: 1,
@@ -2838,6 +2848,7 @@ export const useUIStore = create<UIState>()(
         setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
         setAppBackgroundColorLight: (color) => set({ appBackgroundColorLight: normalizeAppBackgroundColor(color) }),
         setAppAccentColorLight: (color) => set({ appAccentColorLight: normalizeAppAccentColor(color) }),
+        setThemeOwnLook: (look) => set({ themeOwnLook: look }),
         setCharacterThemeDefault: (characterId, themeId) =>
           set((state) => {
             const next = { ...state.characterThemeDefaults };
@@ -3689,6 +3700,7 @@ export const useUIStore = create<UIState>()(
             appAccentColor: "",
             appBackgroundColorLight: "",
             appAccentColorLight: "",
+            themeOwnLook: null,
             chatArtBehindPanels: false,
             a11yLineHeight: 1,
             a11yLetterSpacing: 0,
