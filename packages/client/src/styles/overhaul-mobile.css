@@ -2232,6 +2232,8 @@
   :is([data-macro-field] > [data-macro-tools], .relative > textarea + .absolute.flex-col):not(#ovm-x):not(#ovm-y) {
   position: static;
   order: -1;
+  translate: none;
+  transform: none;
   flex-direction: row;
   justify-content: flex-end;
   gap: 0.25rem;
@@ -2446,6 +2448,7 @@
 /* Lorebook entries: search and sort are the same height, with the sort icon centred. */
 :root[data-overhaul="mobile"] .ov-lv-tools__sort:not(#ovm-x) {
   height: 2.5rem;
+  --ov-sort-icon-room: 2rem;
   align-self: center;
 }
 :root[data-overhaul="mobile"] .ov-lv-tools__sort select:not(#ovm-x) {
@@ -3009,6 +3012,9 @@
   width: auto;
   min-width: 0;
   flex: 1 1 0;
+  /* Same height as the sort dropdown and the card-size switch beside it (tablets kept the
+     desktop 2.125rem search next to 2.75rem dropdowns). */
+  height: 2.75rem;
 }
 :root[data-overhaul="mobile"] .ov-gallery__tools > .ov-gallery__spacer {
   display: none;
