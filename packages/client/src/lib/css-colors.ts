@@ -25,13 +25,25 @@ export function getCssBackgroundStyle(value: string) {
   return isCssGradient(value) ? { background: value } : { backgroundColor: value };
 }
 
-/** Replace authored alpha without changing the color channels or gradient geometry. */
-export function withCssPaintAlpha(value: string, alpha: string): string {
-  const colorWithAlpha = (color: string) => `rgb(from ${color} r g b / ${alpha})`;
-  if (!isCssGradient(value)) return colorWithAlpha(value);
+/**
+ * Scale a paint's own alpha by `factor` (0-1), keeping the color channels and gradient geometry, so an
+ * authored `rgba(…, 0.25)` stays a quarter as strong as an opaque color. The Roleplay opacity slider
+ * and an authored alpha then both apply instead of one silently replacing the other (#9063).
+ */
+export function withCssPaintAlpha(value: string, factor: string): string {
+  return mapCssPaintColors(value, (color) => `rgb(from ${color} r g b / calc(alpha * ${factor}))`);
+}
+
+/** Replace a paint's own alpha outright, keeping its channels and gradient geometry. */
+export function replacedCssPaintAlpha(value: string, alpha: string): string {
+  return mapCssPaintColors(value, (color) => `rgb(from ${color} r g b / ${alpha})`);
+}
+
+function mapCssPaintColors(value: string, paint: (color: string) => string): string {
+  if (!isCssGradient(value)) return paint(value);
 
   const layers = splitTopLevelCommas(value);
-  if (layers.length > 1) return layers.map((layer) => withCssPaintAlpha(layer, alpha)).join(", ");
+  if (layers.length > 1) return layers.map((layer) => mapCssPaintColors(layer, paint)).join(", ");
 
   const open = value.indexOf("(");
   const close = value.lastIndexOf(")");
@@ -39,7 +51,7 @@ export function withCssPaintAlpha(value: string, alpha: string): string {
     const color = readFunctionColor(stop, true) ?? stop.match(/^(?:#[0-9a-f]{3,8}\b|[a-z][a-z-]*)/i)?.[0];
     // Keep directions, interpolation spaces, positions and transition hints intact.
     if (!color || !CSS.supports("color", color)) return stop;
-    return colorWithAlpha(color) + stop.slice(color.length);
+    return paint(color) + stop.slice(color.length);
   });
   return `${value.slice(0, open + 1)}${stops.join(", ")})`;
 }

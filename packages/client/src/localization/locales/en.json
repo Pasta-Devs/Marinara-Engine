@@ -7203,7 +7203,7 @@
   "settings.controls.roleplayChatWidth.enabled": "Custom chat width",
   "settings.controls.roleplayChatWidth.help": "Set text width while leaving room for avatars and Tracker Panel, or turn this off to restore the default.",
   "settings.controls.roleplayChatWidth.label": "Chat area width",
-  "settings.controls.roleplayMessageOpacity.help": "Overrides transparency in character, persona, and applied preset background colors.",
+  "settings.controls.roleplayMessageOpacity.help": "Scales the transparency saved in a character's or persona's message box color. Saved values stay as they are.",
   "settings.controls.scrollableAvatars.help": "When enabled, roleplay avatars stay visible while you scroll through long messages and stop at the bottom of their own message.",
   "settings.controls.scrollableAvatars.label": "Scrollable Avatars",
   "settings.controls.selfies.help": "Default selfie size for Roleplay and Conversation, unless a chat sets its own.",
