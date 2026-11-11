@@ -43,6 +43,9 @@ import {
   storyObjectives,
   storyScriptSchema,
   gameIntroChoiceSchema,
+  gameIntroFor,
+  readGameIntro,
+  readGameIntroChoice,
   type GameIntro,
   storyPlaceSeasons,
   storyState,
@@ -7782,6 +7785,16 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         ? meta.gameSpecialInstructions
         : setupConfig.gameSpecialInstructions;
 
+    // How the game opens (1.339), read as the first narration reads it: the Experience's locked intro,
+    // else what the setup chose, else the Experience's or its story's own. Without it the story arc could
+    // start somewhere the first scene then contradicts (#9084).
+    const setupWorld = await loadGameWorld(app.db, chatId, meta);
+    const setupIntro = gameIntroFor(
+      readGameIntro(meta.gameExperienceIntro) ??
+        (setupWorld ? gameStoryFromMetadata(meta, setupWorld)?.intro : undefined),
+      readGameIntroChoice(meta.gameIntro),
+    );
+
     const messages: ChatMessage[] = [
       {
         role: "system",
@@ -7801,10 +7814,11 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           lorebookContext: setupLorebookContext,
           rulesetWorldGuidance,
           worldKit: gameWorldKitFromMetadata(meta),
-          world: await loadGameWorld(app.db, chatId, meta),
+          world: setupWorld,
           language: setupConfig.language,
           gameSystemPrompt: setupGameSystemPrompt,
           gameSpecialInstructions: setupGameSpecialInstructions,
+          intro: setupIntro,
         }),
       },
       {
