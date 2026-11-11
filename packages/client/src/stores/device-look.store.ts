@@ -32,6 +32,7 @@ export const DEVICE_LOOK_KEYS = [
   "a11yColorBlindSafe",
   "appBackgroundColorLight",
   "fontFamily",
+  "themeOwnLook",
 ] as const;
 export type DeviceLookKey = (typeof DEVICE_LOOK_KEYS)[number];
 export type LookValues = Partial<Record<DeviceLookKey, unknown>>;

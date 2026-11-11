@@ -6822,6 +6822,13 @@ strong {
     padding-right: 0;
   }
 
+  /* Consistency audit T3/H4: once the pane is narrower than the column (1280 with the sidebar open,
+     iPad landscape, Chat settings docked) the composer keeps the transcript's side gutter instead of
+     running to the window edge. */
+  [data-chat-mode="roleplay"]:not([data-chat-position]) .mari-roleplay-input-column {
+    width: min(100% - 2 * var(--mari-roleplay-transcript-gutter, 0.75rem), var(--mari-roleplay-message-column-width));
+  }
+
   [data-chat-mode="roleplay"] .mari-roleplay-message-row {
     display: grid;
     grid-template-columns:
@@ -7803,6 +7810,12 @@ strong {
   select,
   textarea {
     font-size: max(1rem, 16px); /* prevents iOS zoom on focus, even at a smaller Font Size setting */
+  }
+
+  /* Consistency audit T5: a touch tablet held sideways gets the computer layout, whose small selects
+     (the Chats sort, Settings dropdowns) keep their own size. Selects open a picker there, not a zoom. */
+  :root[data-overhaul="on"] select {
+    font-size: revert-layer;
   }
 }
 

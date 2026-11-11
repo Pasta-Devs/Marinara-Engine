@@ -27,8 +27,22 @@ export function useChatOpeningScroll(
       align();
     });
     const inputEvents = ["wheel", "touchmove", "pointerdown", "keydown"] as const;
+    // Consistency audit P1/H15: in some themes the browser moves the view on its own once the opening
+    // scroll is done (scroll anchoring while the theme's fonts and composer settle), leaving the newest
+    // reply under the composer with nothing resized. Until the reader takes over, any scroll that
+    // leaves the bottom goes back to it.
+    let scrollFrame = 0;
+    const onScroll = () => {
+      if (!following || scrollFrame) return;
+      scrollFrame = requestAnimationFrame(() => {
+        scrollFrame = 0;
+        if (element.scrollHeight - element.scrollTop - element.clientHeight > 1) align();
+      });
+    };
     const stop = () => {
       following = false;
+      if (scrollFrame) cancelAnimationFrame(scrollFrame);
+      element.removeEventListener("scroll", onScroll);
       observer.disconnect();
       rows.disconnect();
       for (const event of inputEvents) window.removeEventListener(event, stop, true);
@@ -43,6 +57,8 @@ export function useChatOpeningScroll(
     rows.observe(element, { childList: true });
     for (const event of inputEvents) window.addEventListener(event, stop, { capture: true, passive: true });
     document.addEventListener("selectionchange", align);
+    element.addEventListener("scroll", onScroll, { passive: true });
+    void document.fonts?.ready.then(align);
     align();
   }, [chatId, scrollRef, scrollToBottom]);
 }

@@ -393,7 +393,7 @@ function useTabLabelText(tab: OverhaulTab, chats: Chat[]): string {
 const PRESENCE_LABEL: Record<string, string> = { online: "Online", idle: "Idle", dnd: "Busy", offline: "Offline" };
 
 /** Convo tabs show the character's presence ("Online"), which used to float over the chat. */
-export function TabPresence({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
+export function TabPresence({ tab, chats, dotOnly = false }: { tab: OverhaulTab; chats: Chat[]; dotOnly?: boolean }) {
   const chat = tab.kind === "chat" ? chats.find((entry) => entry.id === tab.id) : undefined;
   const firstId = chat?.mode === "conversation" ? chat.characterIds?.[0] : undefined;
   const character = useCharacter(firstId ?? null);
@@ -404,9 +404,14 @@ export function TabPresence({ tab, chats }: { tab: OverhaulTab; chats: Chat[] })
   const raw = resolveLiveConversationStatus(meta, firstId, new Date())?.status ?? snapshot?.status ?? stored;
   const status = typeof raw === "string" && raw in PRESENCE_LABEL ? raw : "online";
   return (
-    <small className={cn("ov-tab__presence", `is-${status}`)}>
+    <small
+      className={cn("ov-tab__presence", `is-${status}`)}
+      title={dotOnly ? PRESENCE_LABEL[status] : undefined}
+      aria-label={dotOnly ? PRESENCE_LABEL[status] : undefined}
+    >
       <i aria-hidden="true" />
-      {PRESENCE_LABEL[status]}
+      {/* Consistency audit H12: in the tab strip the dot is enough, so the name keeps the room. */}
+      {dotOnly ? null : PRESENCE_LABEL[status]}
     </small>
   );
 }
@@ -629,12 +634,24 @@ export function OverhaulTopBar() {
   // The docked Chat settings pane and the Library pane share the right edge: opening one closes the other.
   const chatSettingsFloating = useOverhaulStore((s) => s.chatSettingsFloating);
   const sidePanesRef = useRef({ library: rightPanelOpen, settings: chatSettingsOpen });
+  // Consistency audit H3: the sidebar Chat settings pushed aside comes back when Chat settings closes.
+  const reopenLibraryRef = useRef(false);
   useEffect(() => {
     const before = sidePanesRef.current;
     sidePanesRef.current = { library: rightPanelOpen, settings: chatSettingsOpen };
+    if (before.settings && !chatSettingsOpen && reopenLibraryRef.current) {
+      reopenLibraryRef.current = false;
+      if (!rightPanelOpen) useUIStore.setState({ rightPanelOpen: true });
+      return;
+    }
+    // The person opened the sidebar themselves: nothing to bring back later.
+    if (rightPanelOpen && !before.library) reopenLibraryRef.current = false;
     if (chatSettingsFloating || !rightPanelOpen || !chatSettingsOpen) return;
-    if (!before.settings) useUIStore.getState().closeRightPanel();
-    else if (!before.library) useFloatingWindowStore.getState().dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
+    if (!before.settings) {
+      reopenLibraryRef.current = true;
+      useUIStore.getState().closeRightPanel();
+    } else if (!before.library)
+      useFloatingWindowStore.getState().dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
   }, [chatSettingsFloating, chatSettingsOpen, rightPanelOpen]);
 
   useTabBookkeeping(current, chats);

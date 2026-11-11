@@ -56,7 +56,7 @@ export function ThemeGallery({ starterThemes }: { starterThemes: Theme[] }) {
       toast.success(
         localizeUi("theming.gallery.downloaded", {
           name: entry.name,
-          defaultValue: "Downloaded {{name}}. Pick it in the list above to try it.",
+          defaultValue: "Downloaded {{name}}. Pick it under Starter themes to try it.",
         }),
       );
     },
@@ -110,7 +110,7 @@ export function ThemeGallery({ starterThemes }: { starterThemes: Theme[] }) {
               .then((data) => qc.setQueryData([...themeKeys.all, "gallery"], data))
               .catch(() => void gallery.refetch());
           }}
-          className="mari-chrome-text-muted ml-auto inline-flex items-center gap-1 text-[0.6875rem] hover:underline"
+          className="mari-chrome-text-muted ml-auto inline-flex flex-row items-center gap-1 whitespace-nowrap text-[0.6875rem] hover:underline"
         >
           <RefreshCw size="0.6875rem" className={gallery.isFetching ? "animate-spin" : undefined} />
           {localizeUi("theming.gallery.refresh", { defaultValue: "Refresh" })}
@@ -171,14 +171,20 @@ export function ThemeGallery({ starterThemes }: { starterThemes: Theme[] }) {
                   type="button"
                   onClick={() => download.mutate(entry)}
                   disabled={download.isPending}
-                  className={cn(SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, "shrink-0 disabled:opacity-50")}
+                  className={cn(
+                    SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS,
+                    "inline-flex shrink-0 flex-row items-center gap-1 whitespace-nowrap disabled:opacity-50",
+                  )}
                   aria-label={`${update ? localizeUi("theming.gallery.update", { defaultValue: "Update" }) : localizeUi("theming.gallery.download", { defaultValue: "Download" })}: ${entry.name}`}
                   data-theme-gallery-download={entry.id}
                 >
                   {busy ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
-                  {update
-                    ? localizeUi("theming.gallery.update", { defaultValue: "Update" })
-                    : localizeUi("theming.gallery.download", { defaultValue: "Download" })}
+                  {/* Consistency audit P19: icon only on a phone, so the theme name keeps the room. */}
+                  <span className="max-sm:sr-only">
+                    {update
+                      ? localizeUi("theming.gallery.update", { defaultValue: "Update" })
+                      : localizeUi("theming.gallery.download", { defaultValue: "Download" })}
+                  </span>
                 </button>
               </span>
               {entry.description ? (
