@@ -244,7 +244,8 @@ export function ModelRow({
             {titleNote && (
               <>
                 {" "}
-                <span className="inline-block max-w-full text-[0.6875rem] font-normal text-[var(--muted-foreground)]">
+                {/* One line: it moves under the name whole when it does not fit beside it, then truncates. */}
+                <span className="inline-block max-w-full truncate align-bottom text-[0.6875rem] font-normal text-[var(--muted-foreground)]">
                   {titleNote}
                 </span>
               </>
