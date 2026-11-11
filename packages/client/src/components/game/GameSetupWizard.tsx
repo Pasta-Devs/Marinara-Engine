@@ -1,7 +1,11 @@
+import { GameStoryBoundariesFields } from "./GameStoryBoundariesFields";
 import {
   audioConnectionSupportsGeneration,
   defaultGameRatingGuidelines,
+  defaultGameViolenceLevel,
   GAME_RATING_GUIDELINES_MAX_CHARS,
+  type GameStoryStyle,
+  type GameViolenceLevel,
   storedGameRatingGuidelines,
   compileGameWorld,
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -673,6 +677,11 @@ export function GameSetupWizard({
   const [rating, setRating] = useState<"sfw" | "nsfw">("sfw");
   // The player's own rating guidelines; null follows the built-in text for the rating.
   const [ratingGuidelinesDraft, setRatingGuidelinesDraft] = useState<string | null>(null);
+  // Gentle storytelling (game-story-style.ts). A null violence follows the rating, as it always has.
+  const [storyStyle, setStoryStyle] = useState<GameStoryStyle>("standard");
+  const [violence, setViolence] = useState<GameViolenceLevel | null>(null);
+  const [contentBoundaries, setContentBoundaries] = useState("");
+  const ratingOptions = { violence: violence ?? defaultGameViolenceLevel(rating), storyStyle };
   const [useLocalScene, setUseLocalScene] = useState(true);
   const [enableSpriteGeneration, setEnableSpriteGeneration] = useState(false);
   const [gameImageDynamicPromptEnabled, setGameImageDynamicPromptEnabled] = useState(false);
@@ -1394,6 +1403,9 @@ export function GameSetupWizard({
     setCompanionsOnTheirOwn(config.playerRunsCompanions !== true);
     setRating(config.rating);
     setRatingGuidelinesDraft(config.ratingGuidelines?.trim() ? config.ratingGuidelines : null);
+    setStoryStyle(config.storyStyle === "gentle" ? "gentle" : "standard");
+    setViolence(config.violence ?? null);
+    setContentBoundaries(config.contentBoundaries ?? "");
     setLanguage(config.language?.trim() || "English");
     setAutoTranslate(config.autoTranslate === true);
     setTranslationLanguage(config.translationOutputTargetLang?.trim() || "en");
@@ -1588,7 +1600,10 @@ export function GameSetupWizard({
       ratingGuidelines:
         ratingGuidelinesDraft === null
           ? undefined
-          : (storedGameRatingGuidelines(ratingGuidelinesDraft, rating) ?? undefined),
+          : (storedGameRatingGuidelines(ratingGuidelinesDraft, rating, ratingOptions) ?? undefined),
+      ...(storyStyle === "gentle" ? { storyStyle } : {}),
+      ...(violence ? { violence } : {}),
+      ...(contentBoundaries.trim() ? { contentBoundaries: contentBoundaries.trim() } : {}),
       gmMode,
       gmCharacterId: gmMode === "character" && gmCharacterId ? gmCharacterId : undefined,
       ...(gameIntroForSetup(gameIntro) ? { gameIntro: gameIntroForSetup(gameIntro) } : {}),
@@ -2520,12 +2535,23 @@ export function GameSetupWizard({
                           ? localizeUi("ui.game.gamesetupwizard.anythingGoesViolenceDarkThemesAndExplicitContentAre")
                           : localizeUi("ui.game.gamesetupwizard.darkThemesAndProfanityAllowedButExplicitScenesCut")}
                       </p>
+                      <div className="mt-3">
+                        <GameStoryBoundariesFields
+                          compact
+                          value={{ storyStyle, violence: ratingOptions.violence, contentBoundaries }}
+                          onChange={(patch) => {
+                            if (patch.storyStyle) setStoryStyle(patch.storyStyle);
+                            if (patch.violence) setViolence(patch.violence);
+                            if (patch.contentBoundaries !== undefined) setContentBoundaries(patch.contentBoundaries);
+                          }}
+                        />
+                      </div>
                       <details className="mt-1.5">
                         <summary className="cursor-pointer text-[0.625rem] text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
                           {localizeUi("ui.game.gamesetupwizard.editRatingGuidelines")}
                         </summary>
                         <textarea
-                          value={ratingGuidelinesDraft ?? defaultGameRatingGuidelines(rating)}
+                          value={ratingGuidelinesDraft ?? defaultGameRatingGuidelines(rating, ratingOptions)}
                           onChange={(e) => setRatingGuidelinesDraft(e.target.value)}
                           aria-label={localizeUi("ui.game.gamesetupwizard.editRatingGuidelines")}
                           maxLength={GAME_RATING_GUIDELINES_MAX_CHARS}
