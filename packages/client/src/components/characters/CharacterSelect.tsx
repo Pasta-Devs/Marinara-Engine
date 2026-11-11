@@ -401,8 +401,9 @@ function CharacterSelectWindow({
         title={title}
         width="max-w-md"
         restoreFocusRef={anchorRef}
-        // Same accent tint over the panel colour as the desktop window below.
-        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary))]"
+        // Same accent tint over the panel colour as the desktop window below. Important, because the
+        // opaque-modal rule (.mari-modal--opaque .mari-modal-panel) sets its own background-image.
+        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!"
         contentClassName="flex flex-col !overflow-hidden !p-0"
       >
         {children}
