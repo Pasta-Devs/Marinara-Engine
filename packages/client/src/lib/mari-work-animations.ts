@@ -98,7 +98,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
   },
   {
     id: "dottore",
-    label: "Prof. Mari loves Dottore",
+    label: "Professor Mari loves Dottore",
     description: "A cyan heart pin and a Dottore plush.",
     portraits: {
       idle: sprite("dottore/portrait-idle.webp"),
@@ -113,7 +113,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
   },
   {
     id: "golden",
-    label: "Golden Prof. Mari",
+    label: "Golden Professor Mari",
     description: "A gold outfit and a confident grin.",
     portraits: {
       idle: sprite("golden/portrait-idle.webp"),
@@ -129,7 +129,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
   },
   {
     id: "safari",
-    label: "Safari Prof. Mari",
+    label: "Safari Professor Mari",
     description: "Safari gear for jungle trips.",
     portraits: {
       idle: sprite("safari/portrait-idle.webp"),
@@ -144,7 +144,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
   },
   {
     id: "raccoon",
-    label: "Feral Raccoon Prof. Mari",
+    label: "Feral Raccoon Professor Mari",
     description: "A raccoon onesie, slightly chewed.",
     portraits: {
       idle: sprite("raccoon/portrait-idle.webp"),
@@ -160,7 +160,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
   },
   {
     id: "party",
-    label: "Party Prof. Mari",
+    label: "Party Professor Mari",
     description: "A sparkly sweater, a paper party hat and a red cup.",
     portraits: {
       idle: sprite("party/portrait-idle.webp"),
@@ -176,7 +176,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
   },
   {
     id: "hungover",
-    label: "Hungover Prof. Mari",
+    label: "Hungover Professor Mari",
     description: "Slept in her clothes. Needs water.",
     portraits: {
       idle: sprite("hungover/portrait-idle.webp"),

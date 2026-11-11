@@ -667,7 +667,7 @@ export function OmnibarSettingsSheet({
                   ? [
                       {
                         value: MARI_QUICK_CONNECTION,
-                        label: t("omnibar.settings.aside.connection.mari", "Same as Prof. Mari ({{name}})", {
+                        label: t("omnibar.settings.aside.connection.mari", "Same as Professor Mari ({{name}})", {
                           name: marisConnectionName,
                         }),
                       },

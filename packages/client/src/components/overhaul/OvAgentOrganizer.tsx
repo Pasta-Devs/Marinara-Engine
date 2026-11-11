@@ -58,6 +58,7 @@ import {
   KitBulkBar,
   KitCheck,
   KitMoreButton,
+  KitEmpty,
   KitSelectButton,
   kitDelete,
   useKitMenu,
@@ -155,7 +156,7 @@ type Tab = "installed" | "available" | "updates";
 type SortKey = "section" | "name" | "featured";
 type Kit = CapabilityStoreKit & { entries: readonly OrganizerEntry[] };
 
-const MODE_WORD: Record<CatalogMode, string> = { conversation: "Convo", roleplay: "Roleplay", game: "Game" };
+const MODE_WORD: Record<CatalogMode, string> = { conversation: "Conversation", roleplay: "Roleplay", game: "Game" };
 
 function readGallery() {
   try {
@@ -539,22 +540,20 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
   return (
     <section className="ov-list ov-org" data-component="OverhaulAgentOrganizer">
       <header className="ov-gallery__head">
-        <h1 data-mari-part="page-title">
-          {localize("Agents")}
-          <span className="ov-org__count">
-            {installedCount} {localize("installed")} · {all.length} {localize("available")}
-          </span>
-        </h1>
+        {/* The Installed / Available tabs carry the counts, so the title doesn't repeat them (audit C7). */}
+        <h1 data-mari-part="page-title">{localize("Agents")}</h1>
         {own.count > 0 ? <KitSelectButton selection={own.tools.selection} /> : null}
         <KitsMenu kits={props.kits} onInstallKit={props.onInstallKit} />
         <button
           type="button"
-          className={cn("ov-btn ov-btn--icon", !agentImport.enabled && "is-muted")}
+          className={cn("ov-btn", !agentImport.enabled && "is-muted")}
           aria-label={localize("Import agents")}
           title={agentImport.enabled ? localize("Import agents") : agentImport.disabledHelp}
           onClick={() => void agentImport.choose()}
         >
-          <Download size={15} aria-hidden="true" />
+          {/* Icon + "Import", like the other Library pages (audit D8). */}
+          <Download size={14} aria-hidden="true" />
+          {localize("Import")}
         </button>
         <button
           type="button"
@@ -644,9 +643,9 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
             onChange={(event) => setSort(event.target.value as SortKey)}
             aria-label={localize("Sort")}
           >
-            <option value="section">{localize("Sort: Section")}</option>
-            <option value="name">{localize("Sort: Name")}</option>
-            <option value="featured">{localize("Sort: Featured")}</option>
+            <option value="section">{localize("By section")}</option>
+            <option value="name">{localize("A to Z")}</option>
+            <option value="featured">{localize("Featured")}</option>
           </select>
           {!ovMobile && <ViewSwitch gallery={gallery} onChange={setGallery} />}
         </div>
@@ -673,13 +672,22 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
       ) : tab === "updates" ? (
         <div className="ov-org__updates-page">{props.updatesPage}</div>
       ) : visible.length === 0 && visibleOwn.length === 0 ? (
-        <p className="ov-list__empty">
-          {needle
-            ? localizeUi("ui.agents.agentcatalogview.noMatchingAgents")
-            : tab === "installed"
-              ? localizeUi("ui.overhaul.text.noAgentsInstalled")
-              : localize("Nothing here yet.")}
-        </p>
+        <KitEmpty
+          title={
+            needle
+              ? localizeUi("ui.agents.agentcatalogview.noMatchingAgents")
+              : tab === "installed"
+                ? localizeUi("ui.overhaul.text.noAgentsInstalled")
+                : localize("Nothing here yet.")
+          }
+          action={
+            !needle && tab === "installed" && all.length > 0 ? (
+              <button type="button" className="ov-btn" onClick={() => setTab("available")}>
+                {localize("Browse available agents")}
+              </button>
+            ) : undefined
+          }
+        />
       ) : gallery ? (
         <div className="ov-org-gallery">
           {visibleOwn.length > 0 ? (

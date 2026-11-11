@@ -2540,11 +2540,16 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             data-mari-part="home-widget-text"
                             data-home-professor-description
                           >
-                            {mariPackSeason
-                              ? t(`home.professorMari.${mariPackId}.widgetDescription`, {
-                                  mod: formatShortcutKey("Mod"),
-                                })
-                              : t("home.professorMari.widgetDescription", { mod: formatShortcutKey("Mod") })}
+                            {(() => {
+                              // Phones and tablets have no Ctrl+K: their copy says to tap the title (audit C22).
+                              const key = mariPackSeason
+                                ? `home.professorMari.${mariPackId}.widgetDescription`
+                                : "home.professorMari.widgetDescription";
+                              const touchKey = `${key}Touch`;
+                              return t(mobileShell && i18n.exists(touchKey) ? touchKey : key, {
+                                mod: formatShortcutKey("Mod"),
+                              });
+                            })()}
                           </p>
                           <button
                             type="button"

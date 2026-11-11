@@ -2202,7 +2202,7 @@ export function LorebookEditor() {
   const ovSummary = [
     formIsGlobal ? "Global" : ovLinkedCount ? `${ovLinkedCount} linked` : "Not linked",
     `scan depth ${formScanDepth}`,
-    `budget ${formTokenBudget.toLocaleString()} tk`,
+    `budget ${formTokenBudget.toLocaleString()} tokens`,
     formExcludeFromVectorization ? "vectors off" : "vectors on",
   ].join(" · ");
   const ovNumber = (
@@ -2529,7 +2529,7 @@ export function LorebookEditor() {
               localizeUi("ui.lorebooks.lorebookeditor.tokenBudget"),
               formTokenBudget,
               setFormTokenBudget,
-              "tk",
+              "tokens",
               localizeUi("ui.lorebooks.lorebookeditor.maximumNumberOfTokensThisLorebookCanInjectPer"),
               { min: 0 },
             )}
@@ -3463,13 +3463,8 @@ export function LorebookEditor() {
                               </button>
                             ))}
                           </div>
-                          <p className="ov-vw__label">
-                            {localizeUi("Entries")}
-                            <small>
-                              {entries.length} · ~{ovTotalTokens.toLocaleString()}{" "}
-                              {localizeUi("ui.lorebooks.lorebookeditor.tk")}
-                            </small>
-                          </p>
+                          {/* The header already says "4 entries · ~25 tokens"; the list label doesn't repeat it (audit C7). */}
+                          <p className="ov-vw__label">{localizeUi("Entries")}</p>
                           <div className="ov-lv__entries">{ovEntriesBody}</div>
                         </aside>
                         <div className="ov-lv__right">

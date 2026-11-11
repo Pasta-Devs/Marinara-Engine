@@ -117,7 +117,7 @@ function MobileLibraryList() {
           <span className="ovm-tabs-icon" aria-hidden="true">
             {tabCount + 1}
           </span>
-          <span>{localize("All Tabs")}</span>
+          <span>{localize("All tabs")}</span>
         </button>
       </div>
     </div>

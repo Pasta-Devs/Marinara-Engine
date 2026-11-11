@@ -115,7 +115,7 @@ interface ChatSummaryPanelProps {
   semanticSummaryMinSimilarity?: number;
   activeAgentIds?: string[];
   summaryRunInterval?: number;
-  /** Per-chat persisted "Hide summarised messages" preference (metadata-backed). Undefined/false means off (opt-in default). */
+  /** Per-chat persisted "Hide summarized messages" preference (metadata-backed). Undefined/false means off (opt-in default). */
   hideSummarisedMessages?: boolean;
   /** How many recent messages stay visible when summarised messages are auto-hidden (roleplay tail). Default 10. */
   summaryTailMessages?: number;

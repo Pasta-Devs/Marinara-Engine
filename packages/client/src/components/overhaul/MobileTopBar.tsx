@@ -162,7 +162,7 @@ function AllTabsViewer({ chats, current }: { chats: Chat[]; current: OverhaulTab
   }, [setOpen]);
   const count = tabs.length + 1;
   return createPortal(
-    <div className="ovm-alltabs" role="dialog" aria-modal="true" aria-label={localize("All Tabs")}>
+    <div className="ovm-alltabs" role="dialog" aria-modal="true" aria-label={localize("All tabs")}>
       <header className="ovm-alltabs__head">
         {count} {localize(count === 1 ? "Tab" : "Tabs")}
       </header>
@@ -344,8 +344,8 @@ export function OverhaulMobileTopBar() {
         <button
           type="button"
           className={cn("ovm-icon-btn", allTabsOpen && "is-on")}
-          aria-label={localize("All Tabs")}
-          title={localize("All Tabs")}
+          aria-label={localize("All tabs")}
+          title={localize("All tabs")}
           onClick={() => useOverhaulStore.getState().setAllTabsOpen(!allTabsOpen)}
         >
           <span className="ovm-tabs-icon" aria-hidden="true">
