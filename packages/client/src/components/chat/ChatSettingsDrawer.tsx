@@ -155,6 +155,8 @@ import {
   normalizeSemanticSummaryRetrievalSettings,
   resolveScopedRegexMode,
   isConversationCommandToggleOn,
+  resolveGameStoryStyle,
+  resolveGameViolenceLevel,
 } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { showAlertDialog, showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
@@ -6052,6 +6054,24 @@ export function ChatSettingsDrawer({
                 }
                 onRatingGuidelinesCommit={(ratingGuidelines) =>
                   updateMeta.mutate({ id: chat.id, gameSetupConfig: { ...gameSetupConfig, ratingGuidelines } })
+                }
+                storySettings={{
+                  storyStyle: resolveGameStoryStyle(gameSetupConfig),
+                  violence: resolveGameViolenceLevel(gameSetupConfig),
+                  contentBoundaries:
+                    typeof gameSetupConfig.contentBoundaries === "string" ? gameSetupConfig.contentBoundaries : "",
+                }}
+                onStorySettingsCommit={(patch) =>
+                  updateMeta.mutate({
+                    id: chat.id,
+                    gameSetupConfig: {
+                      ...gameSetupConfig,
+                      ...patch,
+                      ...(patch.contentBoundaries !== undefined
+                        ? { contentBoundaries: patch.contentBoundaries || null }
+                        : {}),
+                    },
+                  })
                 }
               />
             </div>
