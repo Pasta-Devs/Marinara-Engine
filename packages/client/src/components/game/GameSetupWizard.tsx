@@ -2535,17 +2535,6 @@ export function GameSetupWizard({
                           ? localizeUi("ui.game.gamesetupwizard.nsfwSexualContentOnlyHelp")
                           : localizeUi("ui.game.gamesetupwizard.sfwSexualContentOnlyHelp")}
                       </p>
-                      <div className="mt-3">
-                        <GameStoryBoundariesFields
-                          compact
-                          value={{ storyStyle, violence: ratingOptions.violence, contentBoundaries }}
-                          onChange={(patch) => {
-                            if (patch.storyStyle) setStoryStyle(patch.storyStyle);
-                            if (patch.violence) setViolence(patch.violence);
-                            if (patch.contentBoundaries !== undefined) setContentBoundaries(patch.contentBoundaries);
-                          }}
-                        />
-                      </div>
                       <details className="mt-1.5">
                         <summary className="cursor-pointer text-[0.625rem] text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
                           {localizeUi("ui.game.gamesetupwizard.editRatingGuidelines")}
@@ -2575,6 +2564,17 @@ export function GameSetupWizard({
                         </div>
                       </details>
                     </div>
+
+                    {/* Story style, violence and content boundaries */}
+                    <GameStoryBoundariesFields
+                      compact
+                      value={{ storyStyle, violence: ratingOptions.violence, contentBoundaries }}
+                      onChange={(patch) => {
+                        if (patch.storyStyle) setStoryStyle(patch.storyStyle);
+                        if (patch.violence) setViolence(patch.violence);
+                        if (patch.contentBoundaries !== undefined) setContentBoundaries(patch.contentBoundaries);
+                      }}
+                    />
 
                     {/* Language */}
                     <div>

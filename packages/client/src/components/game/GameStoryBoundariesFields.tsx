@@ -47,11 +47,18 @@ export function GameStoryBoundariesFields({ value, onChange, compact }: GameStor
         : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
     );
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1.5">
-        <span className={label}>{localizeUi("ui.game.storyStyle.label")}</span>
-        <div className="flex gap-1.5" role="radiogroup" aria-label={localizeUi("ui.game.storyStyle.label")}>
+  // In the setup wizard each field is its own row, label first, like the content rating above it, so a
+  // layout that puts labels in a column of their own lines these up with the rest.
+  const row = compact ? "" : "flex flex-col gap-1.5";
+  const rowLabel = compact ? cn(label, "mb-1.5") : label;
+  const rowHelp = compact ? cn(help, "mt-1") : help;
+  const fields = (
+    <>
+      <div className={row}>
+        <label id="game-story-style-label" className={rowLabel}>
+          {localizeUi("ui.game.storyStyle.label")}
+        </label>
+        <div className="flex gap-1.5" role="radiogroup" aria-labelledby="game-story-style-label">
           {STYLES.map((style) => (
             <button
               key={style}
@@ -65,12 +72,14 @@ export function GameStoryBoundariesFields({ value, onChange, compact }: GameStor
             </button>
           ))}
         </div>
-        <span className={help}>{localizeUi(`ui.game.storyStyle.${value.storyStyle}Help`)}</span>
+        <p className={cn(rowHelp, "m-0")}>{localizeUi(`ui.game.storyStyle.${value.storyStyle}Help`)}</p>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className={label}>{localizeUi("ui.game.violence.label")}</span>
-        <div className="flex gap-1.5" role="radiogroup" aria-label={localizeUi("ui.game.violence.label")}>
+      <div className={row}>
+        <label id="game-violence-label" className={rowLabel}>
+          {localizeUi("ui.game.violence.label")}
+        </label>
+        <div className="flex gap-1.5" role="radiogroup" aria-labelledby="game-violence-label">
           {VIOLENCE.map((level) => (
             <button
               key={level}
@@ -84,26 +93,36 @@ export function GameStoryBoundariesFields({ value, onChange, compact }: GameStor
             </button>
           ))}
         </div>
-        <span className={help}>{localizeUi("ui.game.violence.help")}</span>
+        <p className={cn(rowHelp, "m-0")}>{localizeUi("ui.game.violence.help")}</p>
       </div>
 
-      <label className="flex flex-col gap-1.5">
-        <span className={label}>{localizeUi("ui.game.contentBoundaries.label")}</span>
-        <textarea
-          value={boundariesDraft}
-          onChange={(event) => setBoundariesDraft(event.target.value)}
-          onBlur={() => {
-            if (boundariesDraft.trim() !== value.contentBoundaries.trim()) {
-              onChange({ contentBoundaries: boundariesDraft.trim() });
+      <div className={row}>
+        <label htmlFor="game-content-boundaries" className={rowLabel}>
+          {localizeUi("ui.game.contentBoundaries.label")}
+        </label>
+        <div>
+          <textarea
+            id="game-content-boundaries"
+            value={boundariesDraft}
+            onChange={(event) => setBoundariesDraft(event.target.value)}
+            onBlur={() => {
+              if (boundariesDraft.trim() !== value.contentBoundaries.trim()) {
+                onChange({ contentBoundaries: boundariesDraft.trim() });
+              }
+            }}
+            maxLength={GAME_CONTENT_BOUNDARIES_MAX_CHARS}
+            rows={3}
+            placeholder={localizeUi("ui.game.contentBoundaries.placeholder")}
+            className={
+              compact
+                ? "w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
+                : "mari-chrome-field min-h-[5rem] w-full resize-y !rounded-md px-3 py-2 text-xs leading-relaxed"
             }
-          }}
-          maxLength={GAME_CONTENT_BOUNDARIES_MAX_CHARS}
-          rows={3}
-          placeholder={localizeUi("ui.game.contentBoundaries.placeholder")}
-          className="w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
-        />
-        <span className={help}>{localizeUi("ui.game.contentBoundaries.help")}</span>
-      </label>
-    </div>
+          />
+          <p className={cn(rowHelp, "m-0")}>{localizeUi("ui.game.contentBoundaries.help")}</p>
+        </div>
+      </div>
+    </>
   );
+  return compact ? fields : <div className="flex flex-col gap-3">{fields}</div>;
 }
