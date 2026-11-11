@@ -35,8 +35,8 @@ Memory Recall needs a model that makes fingerprints. If you set nothing, Marinar
 
 Before you start: you need an account that offers embeddings. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-1. Open **Connections** and edit the account.
-2. Find the **Semantic search (embeddings)** section.
+1. Open **Connections** and click the model to open **Edit model**.
+2. Click **More** and find **Semantic search (embeddings)**.
 3. Enter an embedding model name, for example `text-embedding-3-small`.
 4. Optional: set **Embedding endpoint URL** to change the address.
 5. Optional: use **Embedding provider** to borrow another account's key and address. **Same as this provider** keeps this account's own.

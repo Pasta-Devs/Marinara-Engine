@@ -65,9 +65,9 @@ PocketTTS is not built into Marinara. Install [the official PocketTTS server](ht
 
 ### Request timeout
 
-Marinara waits up to 60 seconds for each spoken line. A voice server on your own computer, especially a laptop, can need longer for a long line. Raise **Request timeout (seconds)** below **Model**. The range is 10 to 3,600 seconds.
+Marinara waits up to 60 seconds for each spoken line. A voice server on your own computer, especially a laptop, can need longer for a long line. Raise **Request timeout (seconds)** under **More** in **Voice settings** (the gear on the **Voice** row in the **Jobs** box). The range is 10 to 3,600 seconds.
 
-An Audio account has its own **Request timeout (seconds)**, below **Default voice** in its editor. Chats that speak through an Audio account, including one picked for the **Voice** job, use that limit. The card's limit covers speech from the card's own settings, including **Preview**. If a line takes too long, the error says how many seconds Marinara waited and which setting to raise.
+An Audio account has its own **Request timeout (seconds)**, below **Default voice** in its model's **Edit model** window and in **Voice settings**. Chats that speak through an Audio account, including one picked for the **Voice** job, use that limit. The card's limit covers speech from the card's own settings, including **Preview**. If a line takes too long, the error says how many seconds Marinara waited and which setting to raise.
 
 ## Choose voices
 
