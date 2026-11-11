@@ -2053,6 +2053,14 @@
   margin: -1rem -1.75rem 0.5rem;
   padding: 0 1.25rem;
 }
+/* Split view's narrow side: the trail takes the top edge, the page's head sits under it. */
+:root[data-overhaul="mobile"] .ov-ed.ov-agented .ovm-drill-page > .ov-subcrumbs:not(#ovm-x) {
+  margin: -1rem -1.75rem 0;
+  padding: 0.625rem 1rem 0.25rem;
+}
+.ov-ed.ov-agented .ov-subcrumbs + .ovm-drill-page__head {
+  margin-top: 0;
+}
 :root[data-overhaul="mobile"] .ov-agented .ov-row {
   grid-template-columns: minmax(0, 1fr) !important;
   gap: 0.375rem;
@@ -4550,15 +4558,13 @@
   margin: 0;
 }
 :root[data-overhaul="mobile"] .ov-subcrumbs:not(#ovm-x) {
+  flex: none;
   flex-wrap: nowrap;
   min-width: 0;
   margin: 0;
   padding: 0.625rem 1rem 0;
   overflow: hidden;
   white-space: nowrap;
-}
-:root[data-overhaul="mobile"] .ov-lv__right > .ov-subcrumbs:not(#ovm-x) {
-  padding-left: 0.25rem;
 }
 :root[data-overhaul="mobile"] .ov-subcrumbs .ov-crumbs__item:last-child:not(#ovm-x) {
   min-width: 0;
@@ -4567,12 +4573,6 @@
 :root[data-overhaul="mobile"] .ov-subcrumbs .ov-crumbs__item:last-child > span:not(#ovm-x) {
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* A lorebook entry open under the book's header: the entry's trail (Library › Lorebooks › Book › Entry)
-   says it all, so the book header's own trail steps aside instead of repeating it. */
-:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv="detail"]:has(.ov-subcrumbs) .ov-edhead--m > .ov-crumbs:not(#ovm-x) {
-  display: none;
 }
 
 /* Preset drill pages keep Save in the corner (Saved when nothing waits), like the editor header. */

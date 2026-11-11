@@ -33,7 +33,7 @@ import { ProviderIcon } from "../connections/ProviderIcon";
 import type { DeviceItem } from "../../hooks/use-device-setup";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { DECISION_DEVICE_ID, useDecisionEngine } from "./decision-engine";
-import { EditorCrumbs, type RailCrumb } from "./EditorRail";
+import { EditorCrumbs, useSplitTouchCrumbs, type RailCrumb } from "./EditorRail";
 import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { OvEditorHeadSlot } from "./EditorChrome";
 import {
@@ -842,6 +842,7 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
   const selectedId = useUIStore((s) => s.connectionDetailId);
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
   const decisionEngine = useDecisionEngine();
+  const splitCrumbs = useSplitTouchCrumbs();
   const accountPage = selectedId?.startsWith(ACCOUNT_PREFIX)
     ? { id: selectedId.slice(ACCOUNT_PREFIX.length), replaceKey: false }
     : selectedId?.startsWith(ACCOUNT_KEY_PREFIX)
@@ -859,6 +860,17 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
       : (decisionEngine?.name ?? localize("Built-in model (decisions)"));
   return (
     <section className="ov-ed ovm-connpage" data-component="OverhaulConnectionPage">
+      {/* Split view's narrow side: Library › Connections › page at the top, like every other Library page. */}
+      {splitCrumbs && !accountPage ? (
+        <EditorCrumbs
+          className="ov-subcrumbs"
+          items={[
+            { label: "Library", onClick: openLibraryPane },
+            { label: "Connections", onClick: () => openLibrarySection("connections") },
+            { label: title },
+          ]}
+        />
+      ) : null}
       {/* An account page brings the shared editor header (‹ back, name, Save). */}
       <div className="ovm-drill-page__head" hidden={!!accountPage}>
         <button

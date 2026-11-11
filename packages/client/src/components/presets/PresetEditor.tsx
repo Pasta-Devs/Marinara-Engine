@@ -86,6 +86,7 @@ import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
 import { useOverhaulLook, useOverhaulMobile, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvEditorHead, OvSaveButton, OvSplitSubCrumbs } from "../overhaul/EditorChrome";
+import { useSplitTouchCrumbs } from "../overhaul/EditorRail";
 import { openConnectionsPage } from "../overhaul/library-navigation";
 import { OvSeg } from "../overhaul/LoreEntryParts";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -243,10 +244,16 @@ export function PresetEditor() {
   const localize = useLocalizedUiText();
   const overhaulActive = useOverhaulLook();
   const overhaulMobileShell = useOverhaulMobile();
+  const splitCrumbs = useSplitTouchCrumbs();
   // Phones: the preset is a page of rows; each row opens as its own page.
   const [ovmPage, setOvmPage] = useState<
     null | "order" | "overview" | "prompts" | "variables" | "parameters" | "regex"
   >(null);
+  // A page opens from its top (its crumb trail and title), not at the rows list's scroll position.
+  const ovmTopRef = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    if (ovmPage) ovmTopRef.current?.scrollIntoView({ block: "start" });
+  }, [ovmPage]);
   const [ovPage, setOvPage] = useState<"overview" | "prompts" | "variables" | "parameters" | "regex">("overview");
   const [ovSelected, setOvSelected] = useState<string | null>(null);
   const [ovResetKey, setOvResetKey] = useState(0);
@@ -885,26 +892,30 @@ export function PresetEditor() {
     />
   );
 
-  const withStockBar = (editor: ReactNode) =>
+  const stockBar = stockPreset ? (
+    <div className="ov-stock-bar" role="status">
+      <span className="ov-stock-bar__text">{localizeUi("ui.presets.preseteditor.stockPresetReadOnlyBar")}</span>
+      {stockCopyError ? <span className="ov-stock-bar__error">{stockCopyError}</span> : null}
+      <button
+        type="button"
+        className="ov-btn ov-btn--primary"
+        onClick={() => void handleCreateStockCopy()}
+        disabled={stockCopyPending}
+      >
+        {stockCopyPending ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />}
+        {localizeUi(
+          stockCopyPending
+            ? "ui.presets.preseteditor.creatingEditableCopy"
+            : "ui.presets.preseteditor.makeEditableCopy",
+        )}
+      </button>
+    </div>
+  ) : null;
+  // Split view's narrow side puts the bar under the crumb trail (barInside), so the trail stays at the top.
+  const withStockBar = (editor: ReactNode, barInside = false) =>
     stockPreset ? (
       <div ref={stockReadOnlyRef} className="ov-stock-preset flex min-h-0 flex-1 flex-col" data-ov-readonly="true">
-        <div className="ov-stock-bar" role="status">
-          <span className="ov-stock-bar__text">{localizeUi("ui.presets.preseteditor.stockPresetReadOnlyBar")}</span>
-          {stockCopyError ? <span className="ov-stock-bar__error">{stockCopyError}</span> : null}
-          <button
-            type="button"
-            className="ov-btn ov-btn--primary"
-            onClick={() => void handleCreateStockCopy()}
-            disabled={stockCopyPending}
-          >
-            {stockCopyPending ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />}
-            {localizeUi(
-              stockCopyPending
-                ? "ui.presets.preseteditor.creatingEditableCopy"
-                : "ui.presets.preseteditor.makeEditableCopy",
-            )}
-          </button>
-        </div>
+        {barInside ? null : stockBar}
         {editor}
       </div>
     ) : (
@@ -954,6 +965,7 @@ export function PresetEditor() {
       );
       return withStockBar(
         <div
+          ref={ovmTopRef}
           className="mari-editor-shell ov-preset ovm-preset flex flex-1 flex-col"
           data-component="OverhaulPresetEditor"
           data-ovm-preset={ovmPage ?? "hub"}
@@ -998,6 +1010,7 @@ export function PresetEditor() {
               save={{ dirty, saving: savingPreset, onSave: handleSave }}
             />
           )}
+          {splitCrumbs ? stockBar : null}
           <div className="ovm-preset__body">
             {!ovmPage ? (
               <>
@@ -1043,6 +1056,7 @@ export function PresetEditor() {
             {ovmPage === "regex" ? ov_regex : null}
           </div>
         </div>,
+        splitCrumbs,
       );
     }
     return withStockBar(

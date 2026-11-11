@@ -11,6 +11,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { SplitPageCrumbs } from "./EditorRail";
 
 export function OvmDrill({
   title,
@@ -53,6 +54,7 @@ export function OvmDrill({
   }
   return (
     <div ref={pageRef} className={className ? `ovm-drill-page ${className}` : "ovm-drill-page"}>
+      <SplitPageCrumbs title={title} onItem={() => setOpen(false)} />
       <div className="ovm-drill-page__head">
         <button
           type="button"

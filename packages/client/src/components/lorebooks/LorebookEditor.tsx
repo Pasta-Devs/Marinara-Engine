@@ -119,7 +119,8 @@ import {
   type LorebookEntryDraft,
   type LorebookEntryDrafts,
 } from "./LorebookEntryRow";
-import { OvEditorHead, OvSplitSubCrumbs } from "../overhaul/EditorChrome";
+import { OvEditorHead } from "../overhaul/EditorChrome";
+import { openLibraryPane, openLibrarySection } from "../overhaul/library-navigation";
 import { LorebookFolderRow } from "./LorebookFolderRow";
 import { LorebookLintPanel } from "./LorebookLintPanel";
 import { LorebookBulkEditPanel } from "./LorebookBulkEditPanel";
@@ -2251,11 +2252,38 @@ export function LorebookEditor() {
     </div>
   );
 
+  // Phones and tablets: the page open inside the book (an entry, Book settings), for the crumb trail.
+  const ovmDetailTitle =
+    ovPanel === "book"
+      ? localizeUi("Book settings")
+      : ovPanel === "check"
+        ? localizeUi("Check lorebook")
+        : ovPanel === "keyword"
+          ? localizeUi("ui.lorebooks.lorebookeditor.keywordTest")
+          : (entries.find((entry) => entry.id === expandedEntryId)?.name ?? "");
   const overhaulHeader = overhaulActive ? (
     <OvEditorHead
       section="lorebooks"
       sectionLabel="Lorebooks"
       onBack={handleClose}
+      // Split view's narrow side shows crumbs on phones' layout: with a page open inside the book, the trail
+      // at the top goes one step further (Library › Lorebooks › Book › Entry), and the book goes back to its list.
+      crumbs={
+        overhaulMobile && ovmDetail
+          ? [
+              { label: localizeUi("ui.overhaul.oveditorhead.library"), onClick: openLibraryPane },
+              { label: "Lorebooks", onClick: () => openLibrarySection("lorebooks") },
+              {
+                label: lorebook.name,
+                onClick: () => {
+                  setOvmDetail(false);
+                  setOvPanel(null);
+                },
+              },
+              { label: ovmDetailTitle },
+            ]
+          : undefined
+      }
       title={lorebook.name}
       meta={
         <>
@@ -3469,26 +3497,6 @@ export function LorebookEditor() {
                         </aside>
                         <div className="ov-lv__right">
                           {overhaulMobile ? (
-                            <OvSplitSubCrumbs
-                              section="lorebooks"
-                              sectionLabel="Lorebooks"
-                              item={lorebook.name}
-                              onItem={() => {
-                                setOvmDetail(false);
-                                setOvPanel(null);
-                              }}
-                              page={
-                                ovPanel === "book"
-                                  ? localizeUi("Book settings")
-                                  : ovPanel === "check"
-                                    ? localizeUi("Check lorebook")
-                                    : ovPanel === "keyword"
-                                      ? localizeUi("ui.lorebooks.lorebookeditor.keywordTest")
-                                      : (entries.find((entry) => entry.id === expandedEntryId)?.name ?? "")
-                              }
-                            />
-                          ) : null}
-                          {overhaulMobile ? (
                             <div className="ovm-drill-page__head ovm-lv-head">
                               <button
                                 type="button"
@@ -3501,15 +3509,7 @@ export function LorebookEditor() {
                               >
                                 <ChevronLeft size={26} aria-hidden="true" />
                               </button>
-                              <span className="ovm-drill-page__title">
-                                {ovPanel === "book"
-                                  ? localizeUi("Book settings")
-                                  : ovPanel === "check"
-                                    ? localizeUi("Check lorebook")
-                                    : ovPanel === "keyword"
-                                      ? localizeUi("ui.lorebooks.lorebookeditor.keywordTest")
-                                      : (entries.find((entry) => entry.id === expandedEntryId)?.name ?? "")}
-                              </span>
+                              <span className="ovm-drill-page__title">{ovmDetailTitle}</span>
                               {/* The book header (with Save) scrolls away; this header stays, so Save comes along. */}
                               {editorDirty ? (
                                 <button
