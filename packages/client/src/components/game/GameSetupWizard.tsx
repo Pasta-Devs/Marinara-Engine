@@ -3,6 +3,8 @@ import {
   audioConnectionSupportsGeneration,
   defaultGameRatingGuidelines,
   defaultGameViolenceLevel,
+  mergeGameContentBoundaries,
+  parseGamePresetStorySettings,
   GAME_RATING_GUIDELINES_MAX_CHARS,
   type GameStoryStyle,
   type GameViolenceLevel,
@@ -909,6 +911,7 @@ export function GameSetupWizard({
         id: string;
         name: string;
         gamePrompt?: string;
+        gameStorySettings?: string;
         isDefault?: boolean | string;
       }>) ?? [],
     [promptPresetsList],
@@ -1102,11 +1105,22 @@ export function GameSetupWizard({
     }
   }, [enableSpriteGeneration, imageConnectionId, preferredImageConnectionId]);
 
+  // A preset that carries story settings brings its style and violence, and adds its boundaries to
+  // the ones already written here.
+  const applyPresetStorySettings = useCallback((stored: unknown) => {
+    const carried = parseGamePresetStorySettings(stored);
+    if (!carried) return;
+    setStoryStyle(carried.storyStyle);
+    setViolence(carried.violence);
+    setContentBoundaries((current) => mergeGameContentBoundaries(current, carried.contentBoundaries));
+  }, []);
+
   useEffect(() => {
     if (!promptPresetTouched && !promptPresetId && defaultPreset?.id) {
       setPromptPresetId(defaultPreset.id);
+      applyPresetStorySettings((defaultPreset as { gameStorySettings?: unknown }).gameStorySettings);
     }
-  }, [defaultPreset?.id, promptPresetId, promptPresetTouched]);
+  }, [applyPresetStorySettings, defaultPreset, promptPresetId, promptPresetTouched]);
 
   useEffect(() => {
     if (!gameSystemPromptEdited) {
@@ -1171,10 +1185,16 @@ export function GameSetupWizard({
     [localizeUi],
   );
 
-  const handlePromptPresetChange = useCallback((presetId: string | null) => {
-    setPromptPresetTouched(true);
-    setPromptPresetId(presetId);
-  }, []);
+  const handlePromptPresetChange = useCallback(
+    (presetId: string | null) => {
+      setPromptPresetTouched(true);
+      setPromptPresetId(presetId);
+      if (presetId) {
+        applyPresetStorySettings(promptPresets.find((preset) => preset.id === presetId)?.gameStorySettings);
+      }
+    },
+    [applyPresetStorySettings, promptPresets],
+  );
 
   const spatialMapTargetLocationCountValid =
     normalizeSpatialMapTargetLocationCount(spatialMapTargetLocationCountInput) !== null;

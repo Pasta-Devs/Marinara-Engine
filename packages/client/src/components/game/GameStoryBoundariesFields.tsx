@@ -10,7 +10,8 @@ import {
 
 export interface GameStorySettings {
   storyStyle: GameStoryStyle;
-  violence: GameViolenceLevel;
+  /** Null follows the game's rating (offered only with `followRatingOption`). */
+  violence: GameViolenceLevel | null;
   contentBoundaries: string;
 }
 
@@ -19,6 +20,8 @@ interface GameStoryBoundariesFieldsProps {
   /** Called with what changed. The boundaries text is sent when its box loses focus. */
   onChange: (patch: Partial<GameStorySettings>) => void;
   compact?: boolean;
+  /** Offer "Follow rating" for violence, for a prompt preset that is used with either rating. */
+  followRatingOption?: boolean;
 }
 
 const STYLES: GameStoryStyle[] = ["standard", "gentle"];
@@ -28,7 +31,12 @@ const VIOLENCE: GameViolenceLevel[] = ["mild", "serious", "graphic"];
  * Story style, violence level and the player's content boundaries: the setup wizard and the game's
  * prompt settings show the same three fields.
  */
-export function GameStoryBoundariesFields({ value, onChange, compact }: GameStoryBoundariesFieldsProps) {
+export function GameStoryBoundariesFields({
+  value,
+  onChange,
+  compact,
+  followRatingOption,
+}: GameStoryBoundariesFieldsProps) {
   const { t: localizeUi } = useUiTranslation();
   const [boundariesDraft, setBoundariesDraft] = useState(value.contentBoundaries);
   useEffect(() => setBoundariesDraft(value.contentBoundaries), [value.contentBoundaries]);
@@ -86,6 +94,17 @@ export function GameStoryBoundariesFields({ value, onChange, compact }: GameStor
           {localizeUi("ui.game.violence.label")}
         </label>
         <div className="flex gap-1.5" role="radiogroup" aria-labelledby="game-violence-label">
+          {followRatingOption && (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={value.violence === null}
+              onClick={() => value.violence !== null && onChange({ violence: null })}
+              className={pill(value.violence === null)}
+            >
+              {localizeUi("ui.game.violence.followRating")}
+            </button>
+          )}
           {VIOLENCE.map((level) => (
             <button
               key={level}
