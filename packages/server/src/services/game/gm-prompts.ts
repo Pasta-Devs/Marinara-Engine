@@ -15,6 +15,14 @@ import {
   COMBAT_PARTY_TEMPERAMENTS,
   DEFAULT_GAME_SYSTEM_PROMPT,
   gameInventoryBagKey,
+  resolveGameRatingGuidelines,
+  gameContentBoundariesBlock,
+  gameContentBoundariesReminder,
+  gentleGameInstructions,
+  GENTLE_CAMPAIGN_RULES,
+  GENTLE_GM_TURN_RULES,
+  type GameStoryStyle,
+  type GameViolenceLevel,
   rulesetDefenseLabel,
   rulesetItemStatsRead,
   rulesetLayeredCurrencies,
@@ -27,6 +35,7 @@ import {
   worldOverviewPromptText,
   storyScriptPromptText,
   type StoryScript,
+  type GameIntro,
 } from "@marinara-engine/shared";
 import type { CharacterSpriteInfo } from "./sprite.service.js";
 import { TTS_EMOTION_CUE_GUIDANCE } from "../tts-emotion-guidance.js";
@@ -53,6 +62,8 @@ export interface GameSkillModifierView {
 
 export interface GmPromptContext {
   gameActiveState: GameActiveState;
+  /** The world overview setup wrote, which the player was shown (#9084). Absent or null sends none. */
+  worldOverview?: string | null;
   storyArc: string | null;
   plotTwists: string[] | null;
   campaignPlan?: GameCampaignPlan | null;
@@ -94,6 +105,14 @@ export interface GmPromptContext {
   hudWidgets?: HudWidget[];
   /** Content rating: sfw or nsfw */
   rating?: "sfw" | "nsfw";
+  /** The player's own rating guidelines, used instead of the built-in text for `rating`. */
+  ratingGuidelines?: string | null;
+  /** Gentle storytelling (game-story-style.ts): "gentle" softens the GM's own rules. Absent is standard. */
+  storyStyle?: GameStoryStyle;
+  /** How violence is shown, apart from the rating. Absent is what the rating has always meant. */
+  violence?: GameViolenceLevel;
+  /** Subjects the player never wants in the story: hard limits in every prompt that writes story. */
+  contentBoundaries?: string[];
   /** Whether the GM may emit timed reaction prompts. Defaults to true. */
   enableQuickTimeEvents?: boolean;
   /** Whether a separate scene model handles bg, music, sfx, ambient, widgets, expressions */
@@ -699,7 +718,11 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   const storyScript = ctx.story ? storyScriptPromptText(ctx.story) : "";
   if (storyScript) sections.push(`<story_script>`, storyScript, `</story_script>`);
 
-  sections.push(wrapGameInstructions(normalizePromptText(ctx.gameSystemPrompt) || DEFAULT_GAME_SYSTEM_PROMPT));
+  const instructions = normalizePromptText(ctx.gameSystemPrompt) || DEFAULT_GAME_SYSTEM_PROMPT;
+  // A gentle game swaps the built-in instructions for the gentle ones; a prompt the player wrote stays.
+  sections.push(
+    wrapGameInstructions(ctx.storyStyle === "gentle" ? gentleGameInstructions(instructions) : instructions),
+  );
 
   if (ctx.ruleset?.gmReference) {
     sections.push(
@@ -711,28 +734,19 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   }
 
   // ── Rating Guidelines ──
-  if (ctx.rating === "nsfw") {
-    sections.push(
-      `<rating_guidelines>`,
-      `Anything goes in this mature NSFW fiction. The player has confirmed that they are an adult and has agreed to the terms below. Do not sanitize content, language, cruelty, sex, or violence:`,
-      `- All characters and the player may touch dark themes, corrupt, torture, curse, lie, harm, use, fear, betray, dominate, love, ruin, mutilate, assault, kill themselves or others (the player's protagonist included). It makes sense for villains to disregard boundaries and play dirty, but even heroes can have a dark side or break down under pressure.`,
-      `- Intimacy, romance, flirtation, desire, jealousy, possessiveness, seduction, and messy attachment are allowed. Let those escalate naturally; handholding, pinning, charged proximity, touches, kisses, groping, holding, physical contact mustn't trigger an out-of-character pause. Do not wait for the player to initiate.`,
-      `- Sex between involved characters should be explicit, anatomically grounded, emotionally reactive, and detailed when portrayed in the scene. Take consent for granted, assuming some lie, resist, or fight back based on their personality.`,
-      `- Violence should be graphic, gory, and consequential.`,
-      `- Stay true to motive, tone, and fallout; never soften outcomes for comfort. Let mature themes have weight, cost, ugliness, and aftermath instead of treating them as decorative edge.`,
-      `</rating_guidelines>`,
-    );
-  } else {
-    sections.push(
-      `<rating_guidelines>`,
-      `This is mature SFW fiction. The player has confirmed that they are an adult and has agreed to the terms below. Profanity, dark themes, danger, and death are allowed; explicit sex is not:`,
-      `- Romance, flirtation, longing, jealousy, possessiveness, tenderness, handholding, charged proximity, touches, kisses, and embraces are allowed. Do not refuse or over-explain ordinary affection; infer willingness from context, then portray the emotional reaction.`,
-      `- Sexual content fades to black and resumes in the aftermath. Treat boundaries as part of characterization and scene dynamics, not as repetitive legal disclaimers.`,
-      `- Violence may be serious and consequential, but not graphic or pornographic. Injuries, death, intimidation, cruelty, exploitation, addiction, trauma, corruption, betrayal, and moral compromise may be central to the story when appropriate.`,
-      `- Profanity, menace, fear, grief, ugly motives, and uncomfortable choices are allowed. Keep stakes, fallout, and character behavior real; do not soften danger or rush to reassure the player.`,
-      `</rating_guidelines>`,
-    );
-  }
+  sections.push(
+    `<rating_guidelines>`,
+    resolveGameRatingGuidelines({
+      rating: ctx.rating,
+      ratingGuidelines: ctx.ratingGuidelines,
+      violence: ctx.violence,
+      storyStyle: ctx.storyStyle,
+    }),
+    `</rating_guidelines>`,
+  );
+  // The player's boundaries sit apart from the rating text, so their own rating text never drops them.
+  const boundariesBlock = gameContentBoundariesBlock(ctx.contentBoundaries ?? []);
+  if (boundariesBlock) sections.push(boundariesBlock);
 
   // ── Current State ──
   // Moved to buildGmFormatReminder() so the model sees the latest
@@ -744,6 +758,14 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   // ── Active HUD Widgets ──
   // Moved to buildGmFormatReminder() so they sit next to <widget_commands>
   // in the last user message, keeping current state closest to generation.
+
+  // ── World Overview (what the player was shown at setup) ──
+  // Setup writes it for the player; without it the Game Master opened the game knowing the secret arc
+  // but not the world the player had just read about (#9084).
+  const worldOverview = ctx.worldOverview?.trim();
+  if (worldOverview) {
+    sections.push(`<world_overview>`, worldOverview, `</world_overview>`);
+  }
 
   // ── Story Arc (GM SECRET — never shared with party agent) ──
   if (ctx.storyArc) {
@@ -1838,6 +1860,8 @@ export function buildGmFormatReminder(
     | "rulesetLayerOptions"
     | "language"
     | "rating"
+    | "storyStyle"
+    | "contentBoundaries"
     | "enableQuickTimeEvents"
     | "gameSpecialInstructions"
   > & {
@@ -1918,6 +1942,8 @@ export function buildGmFormatReminder(
     };
   }
   const S = part === "whole" || part === "stable";
+  const gentle = ctx.storyStyle === "gentle";
+  const boundariesReminder = gameContentBoundariesReminder(ctx.contentBoundaries ?? []);
   const T = part === "whole" || part === "turn";
   const splitTurn = part === "turn";
   const lines: string[] = [];
@@ -2122,8 +2148,10 @@ export function buildGmFormatReminder(
       `- Commands: [tag: params].`,
       `- NEVER mix narration and dialogue in the same line; output them separately.`,
       ...(ctx.rating === "nsfw"
-        ? [`- Adult mode enabled. Explicit content is allowed. No plot armor. Abandon moral biases.`]
+        ? [`- Adult rating: explicit content is allowed when the story calls for it.${gentle ? "" : " No plot armor."}`]
         : []),
+      // The player's hard limits, said again closest to generation (the full block is in the system prompt).
+      ...(boundariesReminder ? [boundariesReminder] : []),
       `- Keep each character's vocabulary, grammar, and cadence distinct, shaped by personality and mood.`,
       `- ZERO TOLERANCE FOR LAZY AI WRITING! Absolutely NO: “doesn’t X, doesn’t Y”, “not X, not Y,” “jaw working,” “mechanical precision,” “ozone,” “somewhere outside,” and negative parallelisms in your narrative prose. Replace them with human cadence and affirmative forms. State what happens instead of what doesn’t (for example, describe something as just “still” instead of “not moving”).`,
       ``,
@@ -2150,7 +2178,11 @@ export function buildGmFormatReminder(
             `[${ctx.playerName ?? "Player"}] [thought] [smirk]: You think to yourself that you're the best.`,
           ]),
       `- CRITICAL: NEVER echo dialogue, especially not after the player. NO PARROTING!`,
-      `- Player agency is not player immunity: the player controls intent, not the world's response. Let successes earned through effort, luck, or cleverness and failures caused by mistakes, bad luck, or poor decisions land with consequences; both good and bad ends can be earned.`,
+      ...(gentle
+        ? GENTLE_GM_TURN_RULES.slice(0, 1)
+        : [
+            `- Player agency is not player immunity: the player controls intent, not the world's response. Let successes earned through effort, luck, or cleverness and failures caused by mistakes, bad luck, or poor decisions land with consequences; both good and bad ends can be earned.`,
+          ]),
       `- Keep turn length flexible. If player agency is low (exploration, travel/rest), go longer; if high (combat, dialogue, intense danger), stay concise. Sometimes one line of dialogue or narrative beat is enough.`,
       `- End naturally when it's the player's turn to act or speak.`,
       ``,
@@ -2252,6 +2284,8 @@ export function buildGmFormatReminder(
           ]),
       // A playtest GM narrated a sneak and a search as successes with no check at all.
       `- Never skip a check the action calls for. Sneaking, searching, spotting, persuading, climbing or anything else whose outcome is uncertain gets its check tag, for each character who attempts it; never narrate such an attempt succeeding or failing without one.`,
+      // A gentle game: what is worth a roll, and what a failure may cost.
+      ...(gentle ? GENTLE_GM_TURN_RULES.slice(1) : []),
       // The stop-at-the-attempt line is exactly the instruction the second request exists to
       // serve, so it is dropped while the turn has to finish itself.
       ...(oneRequestDice
@@ -2656,6 +2690,12 @@ export function insertStableGmInstructions<M extends { role: string; content: st
 /** Build the setup prompt for initial game creation. */
 export interface SetupPromptContext {
   rating?: "sfw" | "nsfw";
+  /** The player's own rating guidelines, used instead of the built-in text for `rating`. */
+  ratingGuidelines?: string | null;
+  /** Gentle storytelling, violence level and the player's hard limits (game-story-style.ts). */
+  storyStyle?: GameStoryStyle;
+  violence?: GameViolenceLevel;
+  contentBoundaries?: string[];
   /** Full persona card text (player character) */
   personaCard?: string | null;
   /** Exact player persona name, when known */
@@ -2686,6 +2726,28 @@ export interface SetupPromptContext {
   gameSystemPrompt?: string | null;
   /** Additional game-mode generation instructions that will be used after setup. */
   gameSpecialInstructions?: string | null;
+  /** How the game opens (Capability API 1.339): the setup's or the Experience's intro, so the world and
+   *  the story arc start where the first scene will (#9084). Absent or null is none. */
+  intro?: GameIntro | null;
+}
+
+/** The setup prompt's block for the game's opening: the world, story arc and starting map must agree
+ *  with it, so the first scene and the setup behind it tell the same start (#9084). */
+export function setupIntroPromptText(intro: GameIntro | null | undefined): string {
+  const text = intro?.text.trim();
+  if (!intro || !text) return "";
+  const what =
+    intro.mode === "defined"
+      ? `The game's first message is already written. It is shown to the player exactly as below:`
+      : `The game's opening scene is set. The first narration will follow this guidance:`;
+  return [
+    `<game_opening>`,
+    what,
+    text,
+    ``,
+    `Build the world so it starts here. The storyArc begins from this situation and does not replace it with a different premise or starting scenario. The startingMap includes where it happens, and the startingNpcs include anyone it names. Do not write the opening scene itself.`,
+    `</game_opening>`,
+  ].join("\n");
 }
 
 /** The temperaments a party member's card may have, as the model writes them. */
@@ -2710,27 +2772,18 @@ export function buildSetupPrompt(ctx: SetupPromptContext = {}): string {
   const playerName = ctx.playerName?.trim() || (ctx.personaCard ? "the player character named in <user_player>" : null);
   const partyNames = (ctx.partyNames ?? []).map((name) => name.trim()).filter((name) => name.length > 0);
   const characterCardTargets = [...(playerName ? [playerName] : []), ...partyNames];
-  const ratingBlock =
-    rating === "nsfw"
-      ? [
-          `<rating>`,
-          `Anything goes in this NSFW work of fiction intended for mature audiences. The user has confirmed they are over 18 and understand what they're getting into. No holding back:`,
-          ` - Profanities, toxicity, and dark themes will be present. Every character, the user's included, can be raped, harmed, killed, betrayed, dominated, or emotionally/physically used. This goes both ways; they can also be the ones doing those things for personal gain, convictions, or pleasure.`,
-          ` - To maintain the integrity of the story, you may be as kind or as cruel as necessary when performing different roles. A good villain is a terrifying one, and a good hero sometimes has to make difficult choices.`,
-          ` - Romance and intimate contact should not stall on repetitive approval beats. Handholding, charged proximity, touches, kisses, embraces, jealousy, seduction, and messy attachment can happen naturally when chemistry, body language, or player intent supports them.`,
-          ` - During sex between involved adult characters, get kinky and slow down the pace. Apply anatomical (position fatigue, physical consequences) and emotional (experience, communication, aftercare) aspects to craft sensually pornographic erotica. Include foreplay and sexual acts described in great detail; the build-up is as important as the climax. Take consent for granted, assuming some lie, resist, or fight back based on their personality.`,
-          ` - Portray violence in gory detail, blood squirting around like in a slasher movie.`,
-          `</rating>`,
-        ].join("\n")
-      : [
-          `<rating>`,
-          `This SFW work of fiction is intended for mature audiences, and the user dictates the boundaries:`,
-          ` - Profanity and dark themes may be present, and every character, including the user's, may be harmed or killed. However, no explicit content will be present.`,
-          ` - Romance and affectionate contact should not stall on repetitive approval beats: handholding, charged proximity, touches, kisses, embraces, jealousy, longing, tenderness, and messy attachment can happen naturally when chemistry, body language, or player intent supports them.`,
-          ` - During a sex scene, cut to black and progress to the aftermath, and when portraying violence, do realistic descriptions without getting into gory details.`,
-          ` - Treat boundaries as part of characterization and scene dynamics, not as repetitive legal disclaimers.`,
-          `</rating>`,
-        ].join("\n");
+  const ratingBlock = [
+    `<rating>`,
+    resolveGameRatingGuidelines({
+      rating,
+      ratingGuidelines: ctx.ratingGuidelines,
+      violence: ctx.violence,
+      storyStyle: ctx.storyStyle,
+    }),
+    `</rating>`,
+    ...(ctx.storyStyle === "gentle" ? [GENTLE_CAMPAIGN_RULES] : []),
+    ...(ctx.contentBoundaries?.length ? [gameContentBoundariesBlock(ctx.contentBoundaries, true)] : []),
+  ].join("\n");
 
   // Build persona + party sections for the system prompt
   const contextSections: string[] = [];
@@ -2789,6 +2842,8 @@ export function buildSetupPrompt(ctx: SetupPromptContext = {}): string {
       `This world already exists: set the story among its places and do not rename them. The party starts in ${start?.name ?? "its starting place"}; the starting map is of that place.`,
     );
   }
+  const setupIntro = setupIntroPromptText(ctx.intro);
+  if (setupIntro) contextSections.push(setupIntro);
   if (ctx.customHudWidgets?.length) {
     contextSections.push(
       `<user_hud_widgets>`,
@@ -3012,9 +3067,13 @@ export function buildSessionSummaryPrompt(language?: string | null): string {
 export function buildSessionConclusionPrompt(args: {
   language?: string | null;
   includeCharacterCards: boolean;
+  /** The player's hard limits: no new twist, arc or plan may be built on them. */
+  contentBoundaries?: string[];
 }): string {
   const normalizedLanguage = normalizePromptLanguage(args.language);
+  const boundaries = gameContentBoundariesBlock(args.contentBoundaries ?? [], true);
   return [
+    ...(boundaries ? [boundaries, ``] : []),
     `Review this completed game session and return all end-of-session continuity updates in one JSON object.`,
     `Return JSON with exactly these top-level keys and no others: summary, campaignProgression, nextSessionPlan, characterCards.`,
     ``,
@@ -3099,11 +3158,13 @@ export function buildCardAdjustmentPrompt(): string {
 }
 
 /** Build the prompt for adjusting campaign progression at session end. */
-export function buildCampaignProgressionPrompt(language?: string | null): string {
+export function buildCampaignProgressionPrompt(language?: string | null, contentBoundaries: string[] = []): string {
   const normalizedLanguage = normalizePromptLanguage(language);
+  const boundaries = gameContentBoundariesBlock(contentBoundaries, true);
   return [
     `You are the Game Master reviewing what happened during this session to update the campaign's ongoing progression state.`,
     ``,
+    ...(boundaries ? [boundaries, ``] : []),
     ...(normalizedLanguage
       ? [
           `Language: write every natural-language value in ${normalizedLanguage}. Keep the JSON keys and booleans in English.`,

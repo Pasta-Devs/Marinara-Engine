@@ -1,5 +1,14 @@
+import { GameStoryBoundariesFields } from "./GameStoryBoundariesFields";
 import {
   audioConnectionSupportsGeneration,
+  defaultGameRatingGuidelines,
+  defaultGameViolenceLevel,
+  mergeGameContentBoundaries,
+  parseGamePresetStorySettings,
+  GAME_RATING_GUIDELINES_MAX_CHARS,
+  type GameStoryStyle,
+  type GameViolenceLevel,
+  storedGameRatingGuidelines,
   compileGameWorld,
   LOCAL_SIDECAR_CONNECTION_ID,
   gameWorldFromSnapshot,
@@ -669,6 +678,13 @@ export function GameSetupWizard({
   const [generationParameters, setGenerationParameters] =
     useState<EditableGenerationParameters>(ROLEPLAY_PARAMETER_DEFAULTS);
   const [rating, setRating] = useState<"sfw" | "nsfw">("sfw");
+  // The player's own rating guidelines; null follows the built-in text for the rating.
+  const [ratingGuidelinesDraft, setRatingGuidelinesDraft] = useState<string | null>(null);
+  // Gentle storytelling (game-story-style.ts). A null violence follows the rating, as it always has.
+  const [storyStyle, setStoryStyle] = useState<GameStoryStyle>("standard");
+  const [violence, setViolence] = useState<GameViolenceLevel | null>(null);
+  const [contentBoundaries, setContentBoundaries] = useState("");
+  const ratingOptions = { violence: violence ?? defaultGameViolenceLevel(rating), storyStyle };
   const [useLocalScene, setUseLocalScene] = useState(true);
   const [enableSpriteGeneration, setEnableSpriteGeneration] = useState(false);
   const [gameImageDynamicPromptEnabled, setGameImageDynamicPromptEnabled] = useState(false);
@@ -896,6 +912,7 @@ export function GameSetupWizard({
         id: string;
         name: string;
         gamePrompt?: string;
+        gameStorySettings?: string;
         isDefault?: boolean | string;
       }>) ?? [],
     [promptPresetsList],
@@ -1089,11 +1106,22 @@ export function GameSetupWizard({
     }
   }, [enableSpriteGeneration, imageConnectionId, preferredImageConnectionId]);
 
+  // A preset that carries story settings brings its style and violence, and adds its boundaries to
+  // the ones already written here.
+  const applyPresetStorySettings = useCallback((stored: unknown) => {
+    const carried = parseGamePresetStorySettings(stored);
+    if (!carried) return;
+    setStoryStyle(carried.storyStyle);
+    setViolence(carried.violence);
+    setContentBoundaries((current) => mergeGameContentBoundaries(current, carried.contentBoundaries));
+  }, []);
+
   useEffect(() => {
     if (!promptPresetTouched && !promptPresetId && defaultPreset?.id) {
       setPromptPresetId(defaultPreset.id);
+      applyPresetStorySettings((defaultPreset as { gameStorySettings?: unknown }).gameStorySettings);
     }
-  }, [defaultPreset?.id, promptPresetId, promptPresetTouched]);
+  }, [applyPresetStorySettings, defaultPreset, promptPresetId, promptPresetTouched]);
 
   useEffect(() => {
     if (!gameSystemPromptEdited) {
@@ -1158,10 +1186,16 @@ export function GameSetupWizard({
     [localizeUi],
   );
 
-  const handlePromptPresetChange = useCallback((presetId: string | null) => {
-    setPromptPresetTouched(true);
-    setPromptPresetId(presetId);
-  }, []);
+  const handlePromptPresetChange = useCallback(
+    (presetId: string | null) => {
+      setPromptPresetTouched(true);
+      setPromptPresetId(presetId);
+      if (presetId) {
+        applyPresetStorySettings(promptPresets.find((preset) => preset.id === presetId)?.gameStorySettings);
+      }
+    },
+    [applyPresetStorySettings, promptPresets],
+  );
 
   const spatialMapTargetLocationCountValid =
     normalizeSpatialMapTargetLocationCount(spatialMapTargetLocationCountInput) !== null;
@@ -1389,6 +1423,10 @@ export function GameSetupWizard({
     setPermadeath(config.permadeath === true);
     setCompanionsOnTheirOwn(config.playerRunsCompanions !== true);
     setRating(config.rating);
+    setRatingGuidelinesDraft(config.ratingGuidelines?.trim() ? config.ratingGuidelines : null);
+    setStoryStyle(config.storyStyle === "gentle" ? "gentle" : "standard");
+    setViolence(config.violence ?? null);
+    setContentBoundaries(config.contentBoundaries ?? "");
     setLanguage(config.language?.trim() || "English");
     setAutoTranslate(config.autoTranslate === true);
     setTranslationLanguage(config.translationOutputTargetLang?.trim() || "en");
@@ -1580,6 +1618,13 @@ export function GameSetupWizard({
       spatialMapGroundingMode:
         enableAgents && hierarchicalMapsInstalled && draftSpatialMap ? spatialMapGroundingMode : undefined,
       rating,
+      ratingGuidelines:
+        ratingGuidelinesDraft === null
+          ? undefined
+          : (storedGameRatingGuidelines(ratingGuidelinesDraft, rating, ratingOptions) ?? undefined),
+      ...(storyStyle === "gentle" ? { storyStyle } : {}),
+      ...(violence ? { violence } : {}),
+      ...(contentBoundaries.trim() ? { contentBoundaries: contentBoundaries.trim() } : {}),
       gmMode,
       gmCharacterId: gmMode === "character" && gmCharacterId ? gmCharacterId : undefined,
       ...(gameIntroForSetup(gameIntro) ? { gameIntro: gameIntroForSetup(gameIntro) } : {}),
@@ -2476,7 +2521,7 @@ export function GameSetupWizard({
                     {/* Content Rating */}
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
-                        {localizeUi("ui.game.gamesetupwizard.contentRating")}
+                        {localizeUi("ui.game.gamesetupwizard.sexualContentRating")}
                       </label>
                       <div className="flex gap-1.5">
                         <button
@@ -2508,10 +2553,57 @@ export function GameSetupWizard({
                       </div>
                       <p className="mt-1 text-[0.575rem] text-[var(--muted-foreground)]">
                         {rating === "nsfw"
-                          ? localizeUi("ui.game.gamesetupwizard.anythingGoesViolenceDarkThemesAndExplicitContentAre")
-                          : localizeUi("ui.game.gamesetupwizard.darkThemesAndProfanityAllowedButExplicitScenesCut")}
+                          ? localizeUi("ui.game.gamesetupwizard.nsfwSexualContentOnlyHelp")
+                          : localizeUi("ui.game.gamesetupwizard.sfwSexualContentOnlyHelp")}
                       </p>
+                      <details className="mt-1.5">
+                        <summary className="cursor-pointer text-[0.625rem] text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+                          {localizeUi("ui.game.gamesetupwizard.editRatingGuidelines")}
+                        </summary>
+                        <textarea
+                          value={ratingGuidelinesDraft ?? defaultGameRatingGuidelines(rating, ratingOptions)}
+                          onChange={(e) =>
+                            // Text that matches the built-in guidelines stays unset, so it keeps
+                            // following the rating, violence and story style if they change later.
+                            setRatingGuidelinesDraft(
+                              e.target.value === defaultGameRatingGuidelines(rating, ratingOptions)
+                                ? null
+                                : e.target.value,
+                            )
+                          }
+                          aria-label={localizeUi("ui.game.gamesetupwizard.editRatingGuidelines")}
+                          maxLength={GAME_RATING_GUIDELINES_MAX_CHARS}
+                          rows={7}
+                          spellCheck={false}
+                          className="mt-1.5 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
+                        />
+                        <div className="mt-1 flex items-center justify-between gap-2">
+                          <span className="text-[0.575rem] text-[var(--muted-foreground)]">
+                            {localizeUi("ui.game.gamesetupwizard.ratingGuidelinesHelp")}
+                          </span>
+                          {ratingGuidelinesDraft !== null && (
+                            <button
+                              type="button"
+                              onClick={() => setRatingGuidelinesDraft(null)}
+                              className="shrink-0 rounded-md bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                            >
+                              {localizeUi("ui.game.gamesetupwizard.resetRatingGuidelines")}
+                            </button>
+                          )}
+                        </div>
+                      </details>
                     </div>
+
+                    {/* Story style, violence and content boundaries */}
+                    <GameStoryBoundariesFields
+                      compact
+                      value={{ storyStyle, violence: ratingOptions.violence, contentBoundaries }}
+                      onChange={(patch) => {
+                        if (patch.storyStyle) setStoryStyle(patch.storyStyle);
+                        if (patch.violence) setViolence(patch.violence);
+                        if (patch.contentBoundaries !== undefined) setContentBoundaries(patch.contentBoundaries);
+                      }}
+                    />
 
                     {/* Language */}
                     <div>
