@@ -18,14 +18,14 @@ A theme is a short list of settings written in CSS, the language web pages use f
 
 The tokens most people change first:
 
-| Token | What it colours |
-| --- | --- |
-| `--background` | The page behind everything |
-| `--foreground` | Main text |
-| `--primary` | Buttons, links and highlights |
-| `--card` | Cards and panels |
-| `--sidebar` | The chats and Library sidebars |
-| `--border` | Lines around things |
+| Token            | What it colours                              |
+| ---------------- | -------------------------------------------- |
+| `--background`   | The page behind everything                   |
+| `--foreground`   | Main text                                    |
+| `--primary`      | Buttons, links and highlights                |
+| `--card`         | Cards and panels                             |
+| `--sidebar`      | The chats and Library sidebars               |
+| `--border`       | Lines around things                          |
 | `--mari-font-ui` | The app font, for example `"Georgia", serif` |
 
 A small theme:
@@ -177,16 +177,17 @@ Like the v1.1 tokens, the first group does nothing until a theme sets it.
 
 These replace values that were fixed in the app, and fall back to the stock look:
 
-| Token                                                                               | Used for                                                                                                                                      |
-| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--mari-chrome-accent`                                                              | The active tab underline, editor shells, selects and connection screens                                                                       |
-| `--mari-chrome-muted`                                                               | Grey secondary text in panels, sidebars and Home (stock: 58% of the chrome text)                                                              |
-| `--mari-resource-accent`, `--mari-resource-<type>`                                  | The Library colours per type: `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents`, `settings`, `backgrounds`, `browser` |
-| `--mari-ctrlk-conversation`, `--mari-ctrlk-roleplay`, `--mari-ctrlk-game`           | Ctrl+K row colours per mode                                                                                                                   |
-| `--mari-game-combat-bg`, `--mari-game-combat-bg-hover`, `--mari-game-combat-border` | The Game Combat button                                                                                                                        |
-| `--mari-top-bar-plate-active`                                                       | The plate behind an active top-bar control when the bar has art (stock: the plate mixed with 20% accent)                                      |
-| `--mari-chat-header-bg`                                                             | The fade behind the conversation header (stock: the page colour at 88% fading out; `none` under an app backdrop)                              |
-| `--mari-home-hero-padding`, `--mari-home-widget-glow`                               | Home's greeting padding and the glow behind a Home widget header                                                                              |
+| Token                                                                               | Used for                                                                                                                                                         |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mari-chrome-accent`                                                              | The active tab underline, editor shells, selects and connection screens                                                                                          |
+| `--mari-chrome-muted`                                                               | Grey secondary text in panels, sidebars and Home (stock: 58% of the chrome text)                                                                                 |
+| `--mari-resource-accent`, `--mari-resource-<type>`                                  | The Library colours per type: `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents`, `settings`, `backgrounds`, `browser`                    |
+| `--mari-ctrlk-conversation`, `--mari-ctrlk-roleplay`, `--mari-ctrlk-game`           | Ctrl+K row colours per mode                                                                                                                                      |
+| `--mari-game-combat-bg`, `--mari-game-combat-bg-hover`, `--mari-game-combat-border` | The Game Combat button (the two backgrounds are a whole `background`, so a gradient works; give it a solid colour layer too)                                     |
+| `--mari-accent-text`                                                                | The accent when it is small text or an icon (active tabs, section labels, links). Stock: the accent, darkened in Light and lightened in Dark just enough to read |
+| `--mari-top-bar-plate-active`                                                       | The plate behind an active top-bar control when the bar has art (stock: the plate mixed with 20% accent)                                                         |
+| `--mari-chat-header-bg`                                                             | The fade behind the conversation header (stock: the page colour at 88% fading out; `none` under an app backdrop)                                                 |
+| `--mari-home-hero-padding`, `--mari-home-widget-glow`                               | Home's greeting padding and the glow behind a Home widget header                                                                                                 |
 
 The app also publishes `--mari-top-bar-height` on `<html>` (the top bar's real height, which
 changes when a theme makes the bar taller), so a theme can pad its own layers below it.
@@ -343,22 +344,22 @@ The app still does all the drawing. It reads these tokens when the theme loads, 
 scheme changes and when you edit the theme, checks each value and ignores anything it doesn't
 understand. So day and night (or per-chat) weather work like any other token.
 
-| Token                            | Values                                                                                                                                          |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--mari-weather-style`           | `smooth` (default) or `pixel`: the layer is drawn at low resolution and scaled up crisp, and particles become square cells                      |
-| `--mari-weather-pixel-size`      | 2 to 6 (px per cell), default 3                                                                                                                 |
-| `--mari-weather-<kind>-color`    | A plain colour (`#hex`, a colour name, `rgb()`, `hsl()`), no gradients or pictures                                                              |
+| Token                            | Values                                                                                                                                                          |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mari-weather-style`           | `smooth` (default) or `pixel`: the layer is drawn at low resolution and scaled up crisp, and particles become square cells                                      |
+| `--mari-weather-pixel-size`      | 2 to 6 (px per cell), default 3                                                                                                                                 |
+| `--mari-weather-<kind>-color`    | A plain colour (`#hex`, a colour name, `rgb()`, `hsl()`), no gradients or pictures                                                                              |
 | `--mari-weather-<kind>-image`    | Up to 4 of the theme's own pictures, `url("theme:a.png") url("theme:b.png")`; each particle picks one. In smooth style leaves, petals and ash spin as they fall |
-| `--mari-weather-<kind>-size`     | 0.5 to 3 times. In pixel style a picture is drawn at its own size times this, so pixel art keeps its pixels (art pixel = size x 1 px)           |
-| `--mari-weather-<kind>-shape`    | `round` or `square` (smooth style; squares for "data snow" or sparks)                                                                           |
-| `--mari-weather-amount`          | 0.25 to 1: a theme can thin the weather out, never add more                                                                                     |
-| `--mari-weather-speed`           | 0.5 to 1.5 times                                                                                                                                |
-| `--mari-weather-strength`        | 0.5 to 1.5 times how strongly particles show (thin rain on a dark city)                                                                         |
-| `--mari-weather-tint-strength`   | 0 to 1 times the stock sky tint (blue in rain, dark at night)                                                                                   |
-| `--mari-weather-rain-length`     | 0.5 to 3 times the length of rain streaks                                                                                                       |
-| `--mari-weather-sun`, `-moon`    | `none` when your backdrop paints its own sun or moon                                                                                            |
-| `--mari-weather-lightning-color` | The flash colour. Its strength and timing stay the app's gentle, epilepsy-safe values                                                           |
-| `--mari-weather-lightning-bolt`  | `on`, `none` or 0.5-3 (width): a forked bolt down the left or right side with each flash, fading with it                                         |
+| `--mari-weather-<kind>-size`     | 0.5 to 3 times. In pixel style a picture is drawn at its own size times this, so pixel art keeps its pixels (art pixel = size x 1 px)                           |
+| `--mari-weather-<kind>-shape`    | `round` or `square` (smooth style; squares for "data snow" or sparks)                                                                                           |
+| `--mari-weather-amount`          | 0.25 to 1: a theme can thin the weather out, never add more                                                                                                     |
+| `--mari-weather-speed`           | 0.5 to 1.5 times                                                                                                                                                |
+| `--mari-weather-strength`        | 0.5 to 1.5 times how strongly particles show (thin rain on a dark city)                                                                                         |
+| `--mari-weather-tint-strength`   | 0 to 1 times the stock sky tint (blue in rain, dark at night)                                                                                                   |
+| `--mari-weather-rain-length`     | 0.5 to 3 times the length of rain streaks                                                                                                                       |
+| `--mari-weather-sun`, `-moon`    | `none` when your backdrop paints its own sun or moon                                                                                                            |
+| `--mari-weather-lightning-color` | The flash colour. Its strength and timing stay the app's gentle, epilepsy-safe values                                                                           |
+| `--mari-weather-lightning-bolt`  | `on`, `none` or 0.5-3 (width): a forked bolt down the left or right side with each flash, fading with it                                                        |
 
 Kinds: `rain`, `snow`, `hail`, `fog`, `dust`, `leaf` (windy weather), `petal` (blossom), `ember`, `ash`,
 `sand`, `firefly`, `star`, `aurora`, and `sun` and `moon` (colour, size and one picture).
@@ -455,6 +456,7 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 | `[data-mari-part="message"][data-game-narration]`                                      | The Game narration box. `data-message-role` is `narrator`, or `assistant` with `data-character` and `data-character-name` while a character speaks; `data-segment-type` and `data-expression` describe the current line                                                                                                                         |
 | `[data-mari-part="app-backdrop"]`, `[data-mari-part="ambient"]`                        | The backdrop and ambient layers. Their place in the page is fixed; style them with the tokens                                                                                                                                                                                                                                                   |
 | `[data-mari-part="home-widget"]`                                                       | A Home widget card, Professor Mari included. Its frame has `data-home-widget-id` (`recent`, `professor`, `whats-new`, `character-library`, …). Inside: `home-widget-eyebrow`, `home-widget-title`, `home-widget-text`                                                                                                                           |
+| `[data-mari-part="top-bar"]`                                                           | The top bar on every device. Split view's second side has its own slim bar with the same hooks (`[data-component="TopBar"]`, `.ov-tab`, `.ov-tab__label`, `.ov-icon-btn`), marked `[data-split-bar]`, so top-bar art and fonts reach it too                                                                                                     |
 | `[data-mari-part="page-title"]`                                                        | The big title of a main page: every Library section (Characters, Lorebooks, Connections, Agents…), Settings, Extensions and Docs. Style page titles with this one hook so they match on every page                                                                                                                                              |
 | `[data-mari-part="backdrop"]`                                                          | A chat's background image (see Backdrops)                                                                                                                                                                                                                                                                                                       |
 | `[data-mari-part="stage-empty"]`                                                       | The game stage with no scene image                                                                                                                                                                                                                                                                                                              |
@@ -468,7 +470,7 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 | `[data-mari-part="paragraph-gap"]`                                                     | The blank line between two paragraphs (it becomes a block when `--mari-paragraph-gap` is set)                                                                                                                                                                                                                                                   |
 | `[data-mari-part="vn-text"]`, `vn-counter`, `vn-nav`                                   | The VN text box (`data-more-below` while it scrolls on), the "3 / 9" counter and the Previous / Next buttons (`data-direction`)                                                                                                                                                                                                                 |
 | `[data-mari-part="card-art"]`                                                          | A Library card's picture; `data-placeholder` when it has none                                                                                                                                                                                                                                                                                   |
-| `[data-mari-part="page"]`                                                              | The surface every full page sits on: each Library page (Characters, Lorebooks, Presets, Regex scripts, Connections, Agents, Custom tools), every editor, Settings and Docs. Paint a panel or sheet here, not on one page's own class, so every page gets the same readable surface. Chats and Home are not inside it |
+| `[data-mari-part="page"]`                                                              | The surface every full page sits on: each Library page (Characters, Lorebooks, Presets, Regex scripts, Connections, Agents, Custom tools), every editor, Settings and Docs. Paint a panel or sheet here, not on one page's own class, so every page gets the same readable surface. Chats and Home are not inside it                            |
 | `[data-mari-part="chat-row-art"]`                                                      | The open chat's picture behind its sidebar row                                                                                                                                                                                                                                                                                                  |
 | `[data-mari-part="avatar-placeholder"]`                                                | Now in every place an empty avatar shows: conversation lines, chat rows (initials), the persona switcher, the message box and Game                                                                                                                                                                                                              |
 | `.ov-lrow__dot[data-status]`                                                           | A lorebook entry dot: `constant`, `selective` or `normal`                                                                                                                                                                                                                                                                                       |
@@ -735,6 +737,14 @@ The import preview tells the user when a theme tries to change any of these.
   app shows doesn't count.
 
 ## Changes
+
+- **Readable accent text and split bar hook** (November 11 2026, contract still version 1): the
+  accent used as small text darkens a little in Light and lightens a little in Dark so labels read,
+  while buttons keep the full accent; `--mari-accent-text` sets that text colour yourself.
+  `[data-mari-part="top-bar"]` is the top bar on every device, and split view's second side has its
+  own bar with the same `[data-component="TopBar"]` hooks (plus `[data-split-bar]`), so a theme's
+  top-bar art, fonts and tab colours reach it. `--mari-game-combat-bg` and `-bg-hover` are a whole
+  `background`, so gradients work.
 
 - **Page surface hook** (November 10 2026, contract still version 1): `[data-mari-part="page"]`
   is the one surface every Library page, editor, Settings and Docs sits on, so a theme can give all of

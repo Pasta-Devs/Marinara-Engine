@@ -21,6 +21,10 @@
   --ov-muted: var(--muted-foreground);
   --ov-dim: color-mix(in srgb, var(--muted-foreground) 85%, transparent);
   --ov-accent: var(--primary);
+  /* The accent when it is TEXT or an icon (small labels, active tabs, links). Fills keep --ov-accent.
+     Light looks darken it and dark looks lighten it just enough to read (theme nitpick audit DD4/DD5/DD7),
+     so a bright accent can stay bright on buttons. A theme can set its own with --mari-accent-text. */
+  --ov-accent-text: var(--mari-accent-text, var(--ov-accent));
   --ov-hover: color-mix(in srgb, var(--foreground) 7%, transparent);
   --ov-active-bg: color-mix(in srgb, var(--foreground) 9%, var(--background));
   /* Selected rows, pills and toggles take this neutral tint, not the accent (theming panel batch 2).
@@ -28,6 +32,16 @@
   --mari-selected-tint: var(--foreground);
   --mari-selected-bg: color-mix(in srgb, var(--mari-selected-tint) 10%, transparent);
   --mari-selected-ring: color-mix(in srgb, var(--mari-selected-tint) 18%, transparent);
+}
+@supports (color: oklch(from red l c h)) {
+  /* OKLCH lightness caps: 0.52 reads at about 5:1 on a light page, 0.68 at about 5:1 on a dark one.
+     Accents already inside the cap are unchanged. */
+  :root[data-theme="light"] {
+    --ov-accent-text: var(--mari-accent-text, oklch(from var(--ov-accent) min(l, 0.52) c h));
+  }
+  :root[data-theme="dark"] {
+    --ov-accent-text: var(--mari-accent-text, oklch(from var(--ov-accent) max(l, 0.68) c h));
+  }
 }
 
 /* ─── Top bar ─── */
@@ -75,7 +89,7 @@
   }
 }
 .ov-icon-btn.is-on {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   background: var(--mari-selected-bg);
 }
 .ov-tabs {
@@ -234,10 +248,10 @@
   background: var(--ov-active-bg);
 }
 .ov-text-btn--library {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-text-btn--library.is-on {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   border-color: color-mix(in srgb, var(--ov-accent) 35%, var(--ov-line));
 }
 .ov-topbar button:focus-visible {
@@ -290,7 +304,7 @@
   }
 }
 .ov-sideswitch__btn.is-on {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   background: var(--ov-active-bg);
 }
 .ov-sideswitch__btn:focus-visible {
@@ -338,7 +352,7 @@
   margin: 0;
   padding: 0.125rem 0.375rem 0.625rem;
   font: 600 1.375rem/1 var(--ov-serif);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-libnav__group {
   display: grid;
@@ -497,6 +511,9 @@
   color: var(--ov-dim);
   font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
+}
+[aria-pressed="true"] > .ov-mode-count {
+  color: color-mix(in srgb, var(--ov-text) 72%, transparent);
 }
 :root[data-overhaul="on"] [data-component="ChatSidebar"] .mari-chrome-segmented__button {
   padding-inline: 0.25rem;
@@ -834,7 +851,7 @@
 .ov-rail__eyebrow {
   margin: 0.25rem 0 0;
   padding-left: 0.5rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -907,7 +924,7 @@
   height: 1.625rem;
   padding: 0 0.5rem;
   border-radius: 0.4375rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.8125rem;
   white-space: nowrap;
 }
@@ -1013,7 +1030,7 @@
   margin-bottom: 0.375rem;
 }
 .ov-ed .mari-editor-panel > .mb-4 :is(h2, h3) {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-family: inherit;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1290,7 +1307,7 @@
   height: 2.375rem;
   padding: 0 0.75rem;
   border-bottom: 1px solid var(--ov-line);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -1466,7 +1483,7 @@
   color: var(--ov-muted);
 }
 .ov-kit-check.is-on {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-table tbody tr.is-selected td {
   background: color-mix(in srgb, var(--ov-accent) 10%, transparent);
@@ -1804,7 +1821,7 @@
 }
 [data-ov-settings-sections] section[id^="settings-section-"] > div:first-child > div:first-of-type > div:first-child {
   flex: none;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -1929,7 +1946,7 @@
   outline: none;
 }
 .ov-attr__name {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -1965,7 +1982,7 @@
   align-items: center;
   gap: 0.25rem;
   margin-top: 0.5rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.8125rem;
 }
 .ov-sheet__foot {
@@ -1991,7 +2008,7 @@
 .ov-sheet__table th {
   padding: 0.5rem 0.625rem;
   border-bottom: 1px solid var(--ov-line);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -2302,7 +2319,7 @@
   align-items: center;
   gap: 0.75rem;
   margin: 0.375rem 0 0;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -2418,7 +2435,7 @@
   align-items: baseline;
   justify-content: space-between;
   margin: 0.75rem 0 0.5rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -2629,7 +2646,7 @@
 .ov-docs__content th {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--ov-line);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -2904,7 +2921,7 @@
 }
 @media (hover: hover) {
   .ov-docs__landing button:hover {
-    color: var(--ov-accent);
+    color: var(--ov-accent-text);
   }
 }
 .ov-docs__nav {
@@ -2920,7 +2937,7 @@
 .ov-docs__eyebrow {
   margin: 0 0 0.375rem;
   padding-left: 0.5rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -3231,7 +3248,7 @@
   color: var(--ov-muted);
 }
 .ov-lrow__check.is-on {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-lrow .ov-switch {
   flex: none;
@@ -3424,7 +3441,7 @@
   align-items: center;
   gap: 0.75rem;
   margin: 0.375rem 0 0;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -3587,7 +3604,7 @@
   height: 1.625rem;
   border: 0;
   background: transparent;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   cursor: pointer;
 }
 .ov-lentry__cond {
@@ -3603,7 +3620,7 @@
 }
 .ov-lentry__add {
   justify-self: start;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.8125rem;
 }
 .ov-lentry__foot {
@@ -3631,7 +3648,7 @@
   color: var(--ov-text);
 }
 .ov-lentry__foot button {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.75rem;
 }
 .ov-lentry__foot button.is-danger {
@@ -3680,7 +3697,7 @@
   gap: 0.625rem;
   padding: 0 0.625rem 0.375rem calc(0.625rem + 1rem + 0.625rem + 2.125rem + 0.625rem);
   border-bottom: 1px solid var(--ov-line);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -3917,7 +3934,7 @@ input.ov-edhead__title:focus {
   align-items: center;
   gap: 0.75rem;
   margin: 1rem 0 0.25rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -4050,7 +4067,7 @@ input.ov-edhead__title:focus {
   color: var(--ov-muted);
 }
 .ov-ed__link {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.8125rem;
 }
 @media (hover: hover) {
@@ -4373,7 +4390,7 @@ input.ov-edhead__title:focus {
   white-space: nowrap;
 }
 .ov-cs__hidden {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.8125rem;
   white-space: nowrap;
 }
@@ -4495,7 +4512,7 @@ input.ov-edhead__title:focus {
   display: grid;
   flex: none;
   place-items: center;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-cs-edit__label {
   flex: 1;
@@ -4721,7 +4738,9 @@ input.ov-edhead__title:focus {
   padding: 0;
   overflow: hidden;
   border-top: 1px solid transparent;
-  color: var(--mari-message-actions, color-mix(in srgb, currentColor 62%, transparent));
+  /* The theme text colour, not currentColor: roleplay bubbles inherit a hard-coded white, which vanished
+     on light bubbles (theme nitpick audit DD2). */
+  color: var(--mari-message-actions, color-mix(in srgb, var(--ov-text) 62%, transparent));
   font-size: 0.75rem;
   opacity: 0;
   transition:
@@ -4793,7 +4812,7 @@ input.ov-edhead__title:focus {
   border-radius: 0.375rem;
 }
 .ov-rpf__btn.is-accent {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-rpf__btn.is-on {
   background: color-mix(in srgb, currentColor 14%, transparent);
@@ -4864,7 +4883,7 @@ input.ov-edhead__title:focus {
   gap: 0.25rem;
   padding: 0.25rem 0.5rem;
   border-radius: 0.375rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 @media (hover: hover) {
   .ov-rpf-pop__foot button:hover {
@@ -4940,7 +4959,7 @@ input.ov-edhead__title:focus {
   font-variant-numeric: tabular-nums;
 }
 .ov-rpf-swipe.is-on .ov-rpf-swipe__n {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-weight: 700;
 }
 .ov-rpf-swipe__t {
@@ -5163,7 +5182,7 @@ input.ov-edhead__title:focus {
 }
 .ov-gsw__steps button.is-on {
   background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-gsw__hint {
   margin: -0.25rem 0 0.75rem !important;
@@ -5403,7 +5422,7 @@ input.ov-edhead__title:focus {
 }
 .ov-gpane__tabs button.is-on {
   background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-gpane__body {
   min-height: 0;
@@ -5717,7 +5736,7 @@ input.ov-edhead__title:focus {
 }
 .ov-sched__bulk button.is-link {
   border: 0;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-sched__bulk button:disabled {
   opacity: 0.5;
@@ -5915,7 +5934,7 @@ input.ov-edhead__title:focus {
   }
 }
 .ov-week__dh.is-today {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-week__dh.is-on {
   background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
@@ -6307,7 +6326,7 @@ input.ov-edhead__title:focus {
   align-items: baseline;
   justify-content: space-between;
   margin: 0.875rem 1rem 0.375rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -6335,7 +6354,7 @@ input.ov-edhead__title:focus {
 }
 @media (hover: hover) {
   .ov-vw__tools button:hover {
-    color: var(--ov-accent);
+    color: var(--ov-accent-text);
   }
 }
 .ov-vw__find {
@@ -6471,7 +6490,7 @@ input.ov-edhead__title:focus {
   padding: 0.0625rem 0.375rem;
   border-radius: 0.25rem;
   background: color-mix(in srgb, var(--ov-accent) 16%, transparent);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.625rem;
   font-weight: 600;
 }
@@ -6503,7 +6522,7 @@ input.ov-edhead__title:focus {
   padding-bottom: 0.5rem;
 }
 .ov-vw__tools--list .is-new {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 
 /* ─── Lorebook viewer: entries on the left, the open entry on the right (mockup) ─── */
@@ -6536,7 +6555,7 @@ input.ov-edhead__title:focus {
   border-right: 1px solid var(--ov-line);
 }
 .ov-lv__left .ov-vw__tools button.is-on {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 /* The entry list lines up with its toolbar: search, Select / New folder / New entry, folders and the
    selected entry's highlight all share one left and right edge. */
@@ -6859,7 +6878,7 @@ input.ov-edhead__title:focus {
 }
 .ov-dl__link {
   margin-top: 0.375rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.8125rem;
 }
 .ov-dl__detail {
@@ -6962,7 +6981,7 @@ input.ov-edhead__title:focus {
   align-items: center;
   gap: 0.625rem;
   margin: 1.25rem 0 0.5rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -7133,7 +7152,7 @@ input.ov-edhead__title:focus {
   }
 }
 :is(.ov-lv-tools__acts, .ov-po-tools) button.mari-editor-action--primary {
-  color: var(--ov-accent) !important;
+  color: var(--ov-accent-text) !important;
 }
 :root[data-overhaul] .ov-po-tools {
   gap: 0.25rem 0.875rem !important;
@@ -7685,7 +7704,7 @@ input.ov-edhead__title:focus {
 .ov-edbtn.ov-edbtn--tint {
   border-color: color-mix(in srgb, var(--ov-accent) 45%, transparent);
   background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-weight: 600;
 }
 @media (hover: hover) {
@@ -7738,14 +7757,14 @@ input.ov-edhead__title:focus {
   padding: 0 0.75rem 0 0.625rem;
   border: 1px solid color-mix(in srgb, var(--ov-accent) 45%, transparent);
   background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-weight: 500;
 }
 @media (hover: hover) {
   .ov-addchip:hover {
     border-color: var(--ov-accent);
     background: color-mix(in srgb, var(--ov-accent) 22%, transparent);
-    color: var(--ov-accent);
+    color: var(--ov-accent-text);
   }
 }
 .ov-ed [data-editor-section]:has(.ov-addchips) + [data-editor-section] {
@@ -7775,7 +7794,7 @@ input.ov-edhead__title:focus {
   border: 1px solid color-mix(in srgb, var(--ov-accent) 45%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.8125rem;
   font-weight: 500;
 }
@@ -7821,7 +7840,7 @@ input.ov-edhead__title:focus {
 @media (hover: hover) {
   .ov-idline__copy:hover {
     background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
-    color: var(--ov-accent);
+    color: var(--ov-accent-text);
   }
 }
 
@@ -7941,7 +7960,7 @@ input.ov-edhead__title:focus {
   padding: 0.625rem 0 0.375rem;
   border-bottom: 1px solid var(--ov-line);
   background: var(--sidebar, var(--background));
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -7986,7 +8005,7 @@ input.ov-edhead__title:focus {
 }
 .ov-mref__code {
   white-space: pre-wrap;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-family: var(--ov-mono, ui-monospace, monospace);
   font-size: 0.78rem;
 }
@@ -8041,7 +8060,7 @@ input.ov-edhead__title:focus {
 [data-overhaul] button[data-random-on],
 [data-overhaul] button[data-switcher-shuffle][aria-pressed="true"] {
   background: color-mix(in srgb, var(--ov-accent) 16%, transparent);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ov-accent) 45%, transparent);
 }
 
@@ -8108,7 +8127,7 @@ input.ov-edhead__title:focus {
   border-radius: 0.4375rem;
   background: transparent;
   box-shadow: none;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   white-space: nowrap;
 }
 [data-overhaul] [data-schedule-io] .ov-sched-io__btn:first-of-type {
@@ -8372,7 +8391,7 @@ input.ov-edhead__title:focus {
   align-items: center;
   gap: 0.3125rem;
   margin-right: 0.375rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -8660,7 +8679,7 @@ input.ov-edhead__title:focus {
   margin-top: 0.125rem;
 }
 .ov-rpf-menu .mari-message-actions .ov-marks-row.is-on svg {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 
 /* Import Character (desktop): one dashed drop row, then label-left pickers with the chosen option explained. */
@@ -9057,7 +9076,7 @@ input.ov-edhead__title:focus {
 }
 .ov-peek__note .ov-peek__link {
   display: inline;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-peek__transcript {
   min-width: 0;
@@ -9228,7 +9247,7 @@ input.ov-edhead__title:focus {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.75rem;
 }
 .ov-cs .ov-persona-reassign span {
@@ -9451,6 +9470,10 @@ input.ov-edhead__title:focus {
   background: color-mix(in srgb, var(--ov-mode-game) 18%, transparent);
   color: var(--ov-mode-game);
 }
+/* Gold on pale gold fell to 2:1 in Light mode (theme nitpick audit DD6). */
+:root[data-theme="light"] .ov-conn__chip.is-main {
+  color: color-mix(in srgb, var(--ov-mode-game) 45%, var(--ov-text));
+}
 .ov-conn__status {
   display: inline-flex;
   align-items: center;
@@ -9494,7 +9517,7 @@ input.ov-edhead__title:focus {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font: inherit;
   cursor: pointer;
 }
@@ -9947,7 +9970,7 @@ input.ov-edhead__title:focus {
   border: 1px solid var(--ov-accent);
   border-radius: 0.375rem;
   background: transparent;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
@@ -10335,7 +10358,7 @@ input.ov-edhead__title:focus {
   align-items: center;
   gap: 0.25rem;
   margin-top: 0.375rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-agentpage__body h3,
 .ov-agentpage__body section > h3 {
@@ -10646,10 +10669,10 @@ input.ov-edhead__title:focus {
 }
 .ov-classic__choice svg {
   flex: none;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-classic__choice em {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.625rem;
   font-style: normal;
   font-weight: 600;
@@ -10754,7 +10777,7 @@ input.ov-edhead__title:focus {
   border-color: color-mix(in srgb, var(--ov-accent) 55%, transparent);
 }
 .ov-classic__stat.is-strong em {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-classic__stat.is-weak {
   border-color: color-mix(in srgb, var(--ov-mode-game) 55%, transparent);
@@ -11505,7 +11528,7 @@ input.ov-edhead__title:not(#ov-x) {
   gap: 0.5rem;
 }
 .ov-gpane__link {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.75rem;
   white-space: nowrap;
 }
@@ -12164,15 +12187,28 @@ input.ov-edhead__title:not(#ov-x) {
   min-width: 0;
 }
 :root[data-overhaul] [data-tour="chat-modes"] [data-fit-part="short-label"],
-:root[data-overhaul] [data-tour="chat-modes"]:is([data-fit="1"], [data-fit="2"], [data-fit="3"])
+:root[data-overhaul]
+  [data-tour="chat-modes"]:is([data-fit="1"], [data-fit="2"], [data-fit="3"])
   [data-fit-part="label"]:has(+ [data-fit-part="short-label"]),
 :root[data-overhaul] [data-tour="chat-modes"]:is([data-fit="2"], [data-fit="3"]) [data-fit-part="count"],
 :root[data-overhaul] [data-tour="chat-modes"][data-fit="3"] [data-fit-part="icon"] {
   display: none;
 }
-:root[data-overhaul] [data-tour="chat-modes"]:is([data-fit="1"], [data-fit="2"], [data-fit="3"])
+:root[data-overhaul]
+  [data-tour="chat-modes"]:is([data-fit="1"], [data-fit="2"], [data-fit="3"])
   [data-fit-part="short-label"] {
   display: inline-flex;
+}
+/* The selected mode reads in the normal text colour with an accent icon: accent text on the grey
+   selected fill fell to 1.9-2.6:1 (theme nitpick audit DD3). */
+:root[data-overhaul] [data-tour="chat-modes"] .mari-chrome-segmented__button[aria-pressed="true"] {
+  color: var(--ov-text);
+}
+:root[data-overhaul]
+  [data-tour="chat-modes"]
+  .mari-chrome-segmented__button[aria-pressed="true"]
+  [data-fit-part="icon"] {
+  color: var(--ov-accent-text);
 }
 /* Keyboard focus: the accent ring inside the pill, not the browser's black-and-white default. */
 :root[data-overhaul] [data-tour="chat-modes"] .mari-chrome-segmented__button:focus-visible {
@@ -12205,7 +12241,7 @@ input.ov-edhead__title:not(#ov-x) {
   color: var(--ov-muted);
 }
 .ov-vw__tools .ov-vw__tools-end.is-on {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ov-vw__row .ov-kit-more {
   flex: none;
@@ -12316,6 +12352,12 @@ input.ov-edhead__title:not(#ov-x) {
   outline: none;
   background: color-mix(in srgb, var(--ov-accent) 28%, transparent);
 }
+/* The custom cursor (Appearance, globals.css) and a theme's cursor (theme-tokens.css) are !important on
+   every element; the divider keeps its resize cursor over both (theme nitpick audit SV12). */
+.ov-split-divider,
+:root[data-mari-theme-cursor] body .ov-split-divider {
+  cursor: col-resize !important;
+}
 @media (hover: hover) {
   .ov-split-divider:hover {
     background: color-mix(in srgb, var(--ov-accent) 22%, transparent);
@@ -12425,14 +12467,29 @@ input.ov-edhead__title:not(#ov-x) {
   font-size: 0.8125rem;
   user-select: none;
 }
-.ov-splitbar__page {
+/* The page label also carries .ov-tab, so a theme's top-bar tab font, case and colour reach it
+   (theme nitpick audit SV11); it keeps its own size and no tab box. */
+.ov-splitbar__page,
+.ov-splitbar__page.ov-tab {
   display: inline-flex;
   min-width: 0;
+  max-width: none;
+  height: auto;
+  min-height: 1.625rem;
   align-items: center;
   gap: 0.4375rem;
   margin-right: 0.375rem;
+  padding: 0 0.375rem;
+  background: none;
+  box-shadow: none;
   color: var(--ov-text);
   font-weight: 600;
+}
+@media (hover: hover) {
+  .ov-splitbar__page.ov-tab:hover {
+    background: none;
+    color: var(--ov-text);
+  }
 }
 /* An open Library item's crumb trail sits in the bar (the page itself starts at its title). Long names
    shorten with an ellipsis, the page's own name first. */
@@ -12513,7 +12570,7 @@ input.ov-edhead__title:not(#ov-x) {
   display: inline;
 }
 .ov-tagfilter--compact.is-on {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   border-color: color-mix(in srgb, var(--ov-accent) 45%, transparent);
 }
 .ov-tagpop {
@@ -13125,4 +13182,14 @@ input.ov-edhead__title:not(#ov-x) {
   :root[data-overhaul] [data-game-narration] div:has(> [data-mari-part="game-tools"]) button {
     padding-inline: 0.5rem;
   }
+}
+
+/* Keyboard focus on Home (recent chats, Professor/Widgets, widget links): the app's accent ring, not the
+   browser's thin black outline that vanished on dark backgrounds (theme nitpick audit GVn). Kept at low
+   specificity so controls that draw their own focus ring keep it. */
+:where(
+  :root[data-overhaul] [data-component="HomeBrowserHub"] :is(a, button, [role="button"], [tabindex="0"])
+):focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: 2px;
 }

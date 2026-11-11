@@ -273,7 +273,13 @@ export function OverhaulMobileTopBar() {
   };
 
   return (
-    <header ref={barRef} data-component="TopBar" data-overhaul-topbar="mobile" className="ovm-topbar">
+    <header
+      ref={barRef}
+      data-component="TopBar"
+      data-mari-part="top-bar"
+      data-overhaul-topbar="mobile"
+      className="ovm-topbar"
+    >
       <DocumentTitle tab={current} chats={chats} />
       {/* Three columns with equal sides, so the title sits in the true centre. */}
       <div className="ovm-topbar__side">
