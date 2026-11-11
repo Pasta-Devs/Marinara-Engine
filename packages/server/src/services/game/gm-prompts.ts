@@ -1829,6 +1829,10 @@ export function buildGmFormatReminder(
     mrpgRoom?: { away: string[]; newcomers: string[]; partyLevel: number; underWay: boolean };
     /** Special non-scene-advancing address mode inferred from the current player turn prefix. */
     addressMode?: "party" | "gm";
+    /** The model is Claude and thinks natively (adaptive or extended thinking). It is not told to write
+     *  its planning into a <think> block: Claude can refuse that as an attempt to extract its reasoning
+     *  (#9092). Its own thinking channel already keeps the plan out of the reply. */
+    thinksNatively?: boolean;
     /** Whether the current player turn already includes a resolved [dice: ...] roll. */
     playerDiceRollSubmitted?: boolean;
     /** The ruleset rest the player's turn asks for by name (`rulesetRestAskedFor`). */
@@ -2066,7 +2070,9 @@ export function buildGmFormatReminder(
       // The player sees every word of the reply, so planning written out in the open would be shown as narration.
       // A model that plans on the page has to do it inside a leading thinking block, which the Engine lifts out.
       `Before you write, decide the next turn privately: current location and time, the story up to this point, character behavior, dynamics, known vs. hidden information, stakes, cause and effect, sensory tone, and the next point at which player agency returns.`,
-      `The player sees everything you write. If you plan in writing, put all of it inside one <think>...</think> block at the very start of the reply and never outside it. After that, output only ${ctx.addressMode === "gm" ? "your out-of-character answer to the player" : "the VN scene text"}: no notes, analysis, headings or plan. Never open with a planning paragraph such as "Opening scene: ...", "Location: ..." or "Plan: ...": the first words the player reads belong to the scene.`,
+      ctx.thinksNatively
+        ? `The player sees everything you write, so the reply holds only ${ctx.addressMode === "gm" ? "your out-of-character answer to the player" : "the VN scene text"}: no notes, analysis, headings or plan. Never open with a planning paragraph such as "Opening scene: ...", "Location: ..." or "Plan: ...": the first words the player reads belong to the scene.`
+        : `The player sees everything you write. If you plan in writing, put all of it inside one <think>...</think> block at the very start of the reply and never outside it. After that, output only ${ctx.addressMode === "gm" ? "your out-of-character answer to the player" : "the VN scene text"}: no notes, analysis, headings or plan. Never open with a planning paragraph such as "Opening scene: ...", "Location: ..." or "Plan: ...": the first words the player reads belong to the scene.`,
       ...(normalizedLanguage && normalizedLanguage.toLowerCase() !== "english"
         ? [
             `LANGUAGE:`,
