@@ -712,3 +712,14 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 developer-do
 - The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (UIエディター), **Whole app** as (アプリ全体) and **Choose what to change…** as (変更する対象を選ぶ); the heading is 「アプリの背景とAccent Color」. The sentence before the list ends with 。, not a colon, since the pack has no full-width colon.
 
 These are translation choices, not a new native-reader review.
+
+## Rulesets in Roleplay (2026-11-11, #8999)
+
+Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):
+
+- The new page reuses the Game Mode words: *ruleset* ルールセット, *sheet* シート, *check* 判定, *skill* スキル, *difficulty* 難易度, *turn* ターン, *swipe* スワイプ, *branch* 分岐. *Dice card* is ダイスカード (`game/dice-and-skill-checks.md`); *tracker panel* keeps Latin **Tracker Panel**, as `roleplay/hud-and-trackers.md` writes it; a sheet *resource* is リソース, the word `game/rulesets.md` uses.
+- Its labels use the pack's gloss form (English bold, Japanese in half-width parentheses, no space): **Chat Settings**(チャット設定), **Ruleset**(ルールセット), **Build sheet**(シートを作成), **Open sheet**(シートを開く), **Remove sheet**(シートを削除), **Add missing sheets**(足りないシートを追加), **Edit ruleset sheet**(ルールセットのシートを編集), **Save sheet**(シートを保存), **Rest**(休息), **Success**(成功), **Failure**(失敗). **No sheet:** is glossed (シートなし) after the colon, and **None** (なし) matches the UI string `chat.settings.ruleset.none`.
+- **Give Mira a sheet** is split so the name reads naturally: **Give Mira a sheet**(Miraにシートを与える). The example name stays Latin, as `Marinara` and other product names do; no transcription is added.
+- UI cross-references quote the pack's own translated label in 「」 and point with **→**: `chat.settings.ruleset.noMembers` says 「足りないシートを追加」 and `removeMessage` says チャット設定 → ルールセット. The three labels agree with the prose page's own wording. Key names stay English.
+- `game/rulesets.md` gains the Roleplay sentence after the Official/Community bullets and, with it, `<a id="get-a-ruleset"></a>` above ルールセットを入手する: the new page links `#get-a-ruleset`, and a translated heading yields no English slug. The anchor follows the file's other Capability API and prose anchors in shape.
+- **Scroll button** is **巻物のボタン**, not スクロールのボタン: *Use the character sheets* in `roleplay/rulesets.md` describes the parchment-scroll control (`ScrollText` in `TrackerDataSidebar.tsx`) that opens your persona's sheet, and the pack's word for a parchment scroll is 巻物 at `chats/guided-and-impersonate.md:42` (巻物の形をした). スクロール stays reserved for actual scrolling, as in 無限スクロール (`development/frontend.md:148`).

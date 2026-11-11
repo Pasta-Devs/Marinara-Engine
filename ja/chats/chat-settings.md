@@ -29,6 +29,7 @@ Chat Settingsは、チャットを作成すると自動で開きます。閉じ�
 - **Advanced Parameters**(詳細パラメーター): temperatureなどの生成設定を、このチャットだけ上書きします。[生成パラメーター](../prompts/generation-parameters.md)を参照してください。
 - **Persona**(ペルソナ): 自分が演じる人物です。[チャットで使うペルソナの選択](../characters/choosing-your-persona.md)を参照してください。(Conversation、Roleplay)
 - **Characters**(キャラクター): チャットに登場するキャラクターです。(Conversation、Roleplay)
+- **Ruleset**(ルールセット): 卓上ルールセットでチャットを遊びます。ダイス判定とキャラクターシートを使います。[Roleplay: ルールセットで遊ぶ](../roleplay/rulesets.md)を参照してください。(Roleplay)
 - **Party**(パーティー): **Persona**と**Characters**の代わりに、両方を1か所にまとめたものです。(Game)
 - **Group Chat**(グループチャット): グループで誰が発言するかを決めます。[グループチャット](group-chats.md)を参照してください。(キャラクターが2人以上いるチャット)
 - **Scoped Regex Scripts**(範囲限定の正規表現スクリプト): キャラクターに属する正規表現スクリプトを、チャットごとに制御します。[正規表現スクリプト](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting)を参照してください。(チャットのキャラクターが範囲限定のスクリプトを持つ場合にだけ表示)

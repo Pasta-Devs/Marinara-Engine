@@ -29,6 +29,7 @@
 - **Advanced Parameters** (дополнительные параметры): переопределяет для этого чата настройки генерации, например температуру. См. [Параметры генерации](../prompts/generation-parameters.md).
 - **Persona** (персона): за кого вы играете. См. [Выбор персоны в чате](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
 - **Characters** (персонажи): персонажи в чате. (Conversation, Roleplay.)
+- **Ruleset** (набор правил): ведет чат по настольному набору правил, с проверками на костях и листами персонажей. См. [Roleplay: игра с набором правил](../roleplay/rulesets.md). (Roleplay.)
 - **Party** (отряд): заменяет **Persona** и **Characters**, объединяя их в одном месте. (Game.)
 - **Group Chat** (групповой чат): кто говорит в группе. См. [Групповые чаты в режимах Conversation и Roleplay](group-chats.md). (Чаты, где больше одного персонажа.)
 - **Scoped Regex Scripts** (ограниченные regex-скрипты): управление для каждого чата regex-скриптами, которые принадлежат персонажу. См. [Скрипты регулярных выражений](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting). (Показывается, только если у персонажа чата есть привязанные скрипты.)

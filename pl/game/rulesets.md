@@ -2,6 +2,8 @@
 
 Zestaw zasad mówi trybowi Game Mode, jak działa system stołowy: jakimi kośćmi rzuca test, co jest w arkuszu postaci, jakie zasoby się wydaje, co daje odpoczynek, a w niektórych zestawach także jak rozgrywa się całą walkę. Ten przewodnik opisuje, jak zdobyć zestaw zasad, wybrać go dla gry i co zmienia się w rozgrywce. Gra bez zestawu zasad korzysta z własnych zasad aplikacji Marinara Engine, opisanych w pozostałych przewodnikach po trybie Game Mode.
 
+<a id="get-a-ruleset"></a>
+
 ## Uzyskanie zestawu zasad
 
 Żeby zainstalować oficjalny zestaw zasad, na przykład 5e (SRD 5.1):
@@ -15,6 +17,8 @@ Potem rozpocznij nową grę i wybierz zestaw (zobacz niżej). Zestawy zasad poch
 
 - Zestawy **Official** (oficjalne) instaluje się tak, jak opisano wyżej.
 - Zestawy **Community** (społeczność) importuje się z pliku albo z repozytorium GitHub autora. Są zapisywane według pochodzenia, na przykład `local/ember-roads` albo `alice/v20`.
+
+Każdy z tych zestawów działa też w czacie Roleplay. Zobacz [Roleplay: gra z zestawem zasad](../roleplay/rulesets.md).
 
 Import korzysta z tego samego przełącznika **Allow custom Agent imports** (zezwolenie na import własnych agentów) co importowani agenci. Gdy jest wyłączony, zaimportowane zestawy są pomijane w nowych grach, a gry, które już z nich korzystają, działają dalej. Gra na zaimportowanym zestawie zawsze korzysta z dokładnie tej wersji, z którą powstała. Pisanie własnego zestawu opisuje przewodnik [Pisanie zestawów zasad Game Mode](../extending/writing-rulesets.md).
 

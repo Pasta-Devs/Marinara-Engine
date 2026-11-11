@@ -773,3 +773,13 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 developer-do
 §A-2 has nothing new to check: no glossed labels were added. Particles after Latin and code follow their Korean readings: `chatBranched({ chatId, parentChatId })`를 (아이디), `8.8.8.8`과 (팔), [아웃바운드 프록시](#outbound-http-proxy)가. These are translation choices, not a new native-reader review.
 
 - The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (UI 편집기), **Whole app** as (앱 전체) and **Choose what to change…** as (변경할 대상 선택); the heading is "앱 배경과 강조 색상". New label references take "항목" instead of a particle so none has to follow the Latin reading, while "**Save**(저장)를" keeps the pack's 21 existing uses.
+
+## Rulesets in Roleplay (2026-11-11, #8999)
+
+Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):
+
+- The new page reuses the Game Mode words: *ruleset* 규칙 집합, *sheet* 시트, *check* 판정, *skill* 기술, *difficulty* 난이도, *turn* 턴, *swipe* 스와이프, *branch* 분기. *Dice card* is 주사위 카드 (`game/dice-and-skill-checks.md`); *tracker panel* keeps Latin **Tracker Panel**, as `roleplay/hud-and-trackers.md` writes it; a sheet *resource* is 자원, the word `game/rulesets.md` uses.
+- Its labels use the pack's gloss form (English bold, Korean in half-width parentheses, no space): **Chat Settings**(채팅 설정), **Ruleset**(규칙 집합), **Build sheet**(시트 만들기), **Open sheet**(시트 열기), **Remove sheet**(시트 제거), **Add missing sheets**(빠진 시트 추가), **Edit ruleset sheet**(규칙 집합 시트 편집), **Save sheet**(시트 저장), **Rest**(휴식), **Success**(성공), **Failure**(실패). **No sheet:** is glossed (시트 없음) after the colon, and **None**(없음) matches `chat.settings.ruleset.none`.
+- UI cross-references quote the pack's own translated label in straight ASCII double quotes, as the pack's 1,500 straight and 0 curly quotes require, and point with **→**: `chat.settings.ruleset.noMembers` says "빠진 시트 추가" and `removeMessage` says 채팅 설정 → 규칙 집합. Key names stay English.
+- `game/rulesets.md` gains the Roleplay sentence after the Official/Community bullets and, with it, `<a id="get-a-ruleset"></a>` above 규칙 집합 구하기: the new page links `#get-a-ruleset`, and a translated heading yields no English slug.
+- **Scroll button** is **두루마리 버튼**, not 스크롤 버튼: *Use the character sheets* in `roleplay/rulesets.md` describes the parchment-scroll control (`ScrollText` in `TrackerDataSidebar.tsx`) that opens your persona's sheet, and the pack's word for a parchment scroll is 두루마리 at `chats/guided-and-impersonate.md:42` (아이콘(두루마리)). 스크롤 is reserved for actual scrolling.

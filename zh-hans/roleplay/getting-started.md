@@ -83,6 +83,7 @@ Roleplay(角色扮演) 是用来讲故事的聊天模式。它会在消息背后
 - Roleplay 带一层轻量的战斗。添加 Combat 智能体，然后点输入框上方的 **Encounter**(遭遇战)。见[战斗遭遇战（Roleplay）](combat-encounters.md)。
 - 场景是一条侧分支，用来插一段闪回或去一个支线地点。见[场景：分支出一段角色扮演](scenes.md)。
 - 想引导剧情，见 [Narrative Director 与 Secret Plot](narrative-director.md)。
+- 想按桌面规则游玩、带掷骰检定和人物卡，见[Roleplay：按规则集游玩](rulesets.md)。
 
 ## 挑选模型
 
@@ -205,6 +206,7 @@ CYOA 是 Choose Your Own Adventure(自选冒险) 的缩写。CYOA Choices 智能
 - [Roleplay 的 HUD 与追踪器](hud-and-trackers.md)
 - [战斗遭遇战（Roleplay）](combat-encounters.md)
 - [Narrative Director 与 Secret Plot](narrative-director.md)
+- [Roleplay：按规则集游玩](rulesets.md)
 - [场景：分支出一段角色扮演](scenes.md)
 - [角色立绘](../characters/sprites.md)
 - [把 Conversation 聊天连接到 Roleplay 或 Game](../chats/connected-chats.md)

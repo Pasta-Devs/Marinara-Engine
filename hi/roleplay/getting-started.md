@@ -85,6 +85,7 @@ Roleplay कहानियों के लिए बना चैट मोड
 - Roleplay में एक हल्की कॉम्बैट लेयर है। Combat एजेंट जोड़ें, फिर चैट बॉक्स के ऊपर **Encounter** पर क्लिक करें। देखें [कॉम्बैट एनकाउंटर (Roleplay)](combat-encounters.md)।
 - सीन किसी फ़्लैशबैक या अलग जगह के लिए एक साइड ब्रांच है। देखें [सीन: Roleplay की ब्रांच बनाना](scenes.md)।
 - कहानी को दिशा देने के लिए देखें [Narrative Director और Secret Plot](narrative-director.md)।
+- टेबलटॉप नियमों से खेलने के लिए, डाइस चेक और कैरेक्टर शीट के साथ, देखें [Roleplay: नियमसेट से खेलना](rulesets.md)।
 
 ## मॉडल चुनना
 
@@ -207,6 +208,7 @@ CYOA का मतलब है Choose Your Own Adventure। CYOA Choices एज
 - [Roleplay HUD और ट्रैकर](hud-and-trackers.md)
 - [कॉम्बैट एनकाउंटर (Roleplay)](combat-encounters.md)
 - [Narrative Director और Secret Plot](narrative-director.md)
+- [Roleplay: नियमसेट से खेलना](rulesets.md)
 - [सीन: Roleplay की ब्रांच बनाना](scenes.md)
 - [कैरेक्टर स्प्राइट](../characters/sprites.md)
 - [Conversation को Roleplay या Game से जोड़ना](../chats/connected-chats.md)

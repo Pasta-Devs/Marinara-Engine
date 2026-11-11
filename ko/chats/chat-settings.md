@@ -29,6 +29,7 @@
 - **Advanced Parameters**(고급 매개변수): temperature 같은 생성 설정을 이 채팅에서만 다르게 지정합니다. [생성 파라미터](../prompts/generation-parameters.md)를 참고하세요.
 - **Persona**(페르소나): 내가 연기할 인물입니다. [채팅에서 페르소나 선택하기](../characters/choosing-your-persona.md)를 참고하세요. Conversation과 Roleplay에 있습니다.
 - **Characters**(캐릭터): 채팅에 있는 캐릭터입니다. Conversation과 Roleplay에 있습니다.
+- **Ruleset**(규칙 집합): 탁상용 규칙 집합으로 채팅을 플레이하며, 주사위 판정과 캐릭터 시트를 씁니다. [Roleplay: 규칙 집합으로 플레이하기](../roleplay/rulesets.md)를 참고하세요. (Roleplay)
 - **Party**(파티): **Persona**와 **Characters**를 한곳에 모아 대신합니다. Game에 있습니다.
 - **Group Chat**(그룹 채팅): 그룹에서 누가 말할지 정합니다. [그룹 채팅과 여럿이 나누는 대화](group-chats.md)를 참고하세요. 캐릭터가 둘 이상인 채팅에 있습니다.
 - **Scoped Regex Scripts**(범위 지정 정규식 스크립트): 캐릭터에 속한 정규식 스크립트를 채팅별로 제어합니다. [정규식 스크립트](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting)를 참고하세요. 채팅의 캐릭터에게 범위 스크립트가 있을 때만 표시됩니다.

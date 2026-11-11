@@ -85,6 +85,7 @@ Roleplayは物語のためのチャットモードです。メッセージの背
 - Roleplayには軽量な戦闘の仕組みがあります。Combatエージェントを追加してから、チャット入力欄の上にある**Encounter**(エンカウント)をクリックします。[戦闘エンカウント(Roleplay)](combat-encounters.md)を参照してください。
 - シーンとは、回想や別の場所を描くための脇道の分岐です。[シーン: Roleplayを枝分かれさせる](scenes.md)を参照してください。
 - 話の流れを導くには、[Narrative DirectorとSecret Plot](narrative-director.md)を参照してください。
+- 卓上ルールで、ダイス判定とキャラクターシートを使って遊ぶには、[Roleplay: ルールセットで遊ぶ](rulesets.md)を参照してください。
 
 ## モデルの選び方
 
@@ -207,6 +208,7 @@ CYOAはChoose Your Own Adventureの略です。CYOA Choicesエージェントは
 - [Roleplay HUDとトラッカー](hud-and-trackers.md)
 - [戦闘エンカウント(Roleplay)](combat-encounters.md)
 - [Narrative DirectorとSecret Plot](narrative-director.md)
+- [Roleplay: ルールセットで遊ぶ](rulesets.md)
 - [シーン: Roleplayを枝分かれさせる](scenes.md)
 - [キャラクターのスプライト(表情と全身)](../characters/sprites.md)
 - [ConversationをRoleplayやGameにつなぐ](../chats/connected-chats.md)
