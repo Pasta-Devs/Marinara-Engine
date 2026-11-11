@@ -213,14 +213,17 @@ export function CustomThemeInjector() {
     }
     detectThemeChatHooks(css, themeSetsVariable);
     // Slots the app renders only on request (lib/theme-slots.ts), and where the ambient layer sits.
-    useThemeSlots.setState({ windowTitles: themeSetsVariable(css, "--mari-window-title") });
+    useThemeSlots.setState({
+      windowTitles: themeSetsVariable(css, "--mari-window-title"),
+      chatRowPreviews: themeSetsVariable(css, "--mari-chat-row-preview"),
+    });
     if (/(^|[\s;{])--mari-ambient-placement\s*:\s*behind-cards\b/.test(css))
       document.documentElement.dataset.mariAmbientBehind = "";
     else delete document.documentElement.dataset.mariAmbientBehind;
 
     return () => {
       cancelAnimationFrame(barArtFrame);
-      useThemeSlots.setState({ windowTitles: false });
+      useThemeSlots.setState({ windowTitles: false, chatRowPreviews: false });
       delete document.documentElement.dataset.mariAmbientBehind;
       cancelled = true;
       delete document.documentElement.dataset.mariAmbient;

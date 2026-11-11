@@ -69,6 +69,8 @@ export const chatKeys = {
   messageCount: (chatId: string) => [...chatKeys.all, "messageCount", chatId] as const,
   trash: (chatId: string) => [...chatKeys.all, "trash", chatId] as const,
   messagePeek: (chatId: string) => [...chatKeys.all, "messagePeek", chatId] as const,
+  /** Under `chats`, keyed by the list's newest activity, so a new line anywhere refreshes the previews. */
+  rowPreviews: (activityKey: string) => [...chatKeys.all, "rowPreviews", activityKey] as const,
   messageSearch: (chatId: string) => [...chatKeys.all, "messageSearch", chatId] as const,
   professorMari: () => [...chatKeys.all, "professorMari"] as const,
   personaAttributions: (chatId: string) => [...chatKeys.all, "personaAttributions", chatId] as const,
@@ -278,6 +280,28 @@ export function useChats(options: { enabled?: boolean; refetchOnMount?: boolean 
       return failureCount < 10;
     },
     retryDelay: (attempt) => Math.min(750 * 2 ** attempt, 5_000),
+  });
+}
+
+export interface ChatRowPreview {
+  role: string;
+  characterId: string | null;
+  text: string;
+}
+
+/** Newest line per chat, for the theme slot --mari-chat-row-preview. Off unless a theme asks for it. */
+export function useChatRowPreviews(chats: Chat[] | undefined, enabled: boolean) {
+  const activityKey =
+    (chats ?? []).reduce((latest, chat) => {
+      const at = chat.lastMessageAt ?? "";
+      return at > latest ? at : latest;
+    }, "") + `:${chats?.length ?? 0}`;
+  return useQuery({
+    queryKey: chatKeys.rowPreviews(activityKey),
+    queryFn: () => api.get<Record<string, ChatRowPreview>>("/chats/row-previews"),
+    enabled: enabled && Boolean(chats),
+    placeholderData: (previousData) => previousData,
+    staleTime: 30_000,
   });
 }
 

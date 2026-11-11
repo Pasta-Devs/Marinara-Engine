@@ -260,6 +260,7 @@ type EntryStateOverrides = Record<string, { ephemeral?: number | null; enabled?:
 const MEMORY_RECALL_IMPORT_BODY_LIMIT_BYTES = 25 * 1024 * 1024;
 const MEMORY_RECALL_IMPORT_BATCH_SIZE = 500;
 const PROFESSOR_MARI_INTERNAL_CHAT_MARKER = "professor-mari";
+const CHAT_ROW_PREVIEW_MAX_LENGTH = 140;
 const SUMMARY_COMBINE_DEFAULT_CONTEXT_TOKENS = 32_768;
 const SUMMARY_COMBINE_MESSAGE_OVERHEAD_TOKENS = 64;
 
@@ -1092,6 +1093,23 @@ export async function chatsRoutes(app: FastifyInstance) {
         } satisfies Omit<Chat, "metadata"> & { metadata: Record<string, unknown> };
       });
     return prepareJsonResponse(req, reply, response);
+  });
+
+  // Chat row previews (theme slot --mari-chat-row-preview): the newest visible line of each chat,
+  // one short string per chat, so a theme can show "who: what" under the name. The client only asks
+  // while the active theme wants the line.
+  app.get("/row-previews", async (req, reply) => {
+    const chats = await storage.list();
+    const previews: Record<string, { role: string; characterId: string | null; text: string }> = {};
+    for (const chat of chats) {
+      if (shouldHideProfessorMariChat(chat)) continue;
+      const [latest] = await storage.listMessagePreviews(chat.id, 1);
+      if (!latest) continue;
+      const text = latest.content.trim().replace(/\s+/gu, " ").slice(0, CHAT_ROW_PREVIEW_MAX_LENGTH);
+      if (!text) continue;
+      previews[chat.id] = { role: latest.role, characterId: latest.characterId ?? null, text };
+    }
+    return prepareJsonResponse(req, reply, previews);
   });
 
   // Bounded Home data. This deliberately returns one short visible-message

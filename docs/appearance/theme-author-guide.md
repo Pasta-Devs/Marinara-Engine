@@ -496,6 +496,12 @@ These appear only while the active theme asks for them, so the stock page carrie
   `data-window` (`message`, `home-widget`, `composer`, and since v1.5 `narration`, `omnibar`,
   `window` and `dialog`), holding `window-title-text` (the speaker,
   the widget title, or "Message") and an empty `window-buttons` for your `_ [] X` decorations.
+- **Chat row previews.** Setting `--mari-chat-row-preview` (any value, such as `on`) adds the newest
+  line of each chat under its name in the Chats list: `[data-mari-part="chat-row-preview"]` with
+  `data-role` (`user`, `assistant`, `narrator`…), starting with `[data-mari-part="chat-row-preview-who"]`
+  ("You:" for your own lines, or the speaker's name in a group chat). It gives way to the row's live
+  line ("typing…", "Unsent draft"), so a row never shows two. Without the token the line isn't fetched
+  or drawn.
 - **Ambient behind cards.** `--mari-ambient-placement: behind-cards` moves the ambient layer under
   messages, Home widgets and panels (still over the backdrop) instead of over the chat.
   `--mari-ambient-mask` (a whole `mask` value) shapes where it shows, and
