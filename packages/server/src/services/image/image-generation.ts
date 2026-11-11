@@ -54,6 +54,7 @@ import { debugJson, logger, logDebugOverride } from "../../lib/logger.js";
 import {
   assertInsideDir,
   normalizeLoopbackUrl,
+  parseImageDataUrl,
   safeFetch,
   validateOutboundUrl,
   type SafeFetchOptions,
@@ -1048,14 +1049,15 @@ function imageResultMetadata(
 }
 
 function decodeImageDataUrl(imageUrl: string): ImageGenResult {
-  const match = imageUrl.trim().match(/^data:(image\/(?:png|jpe?g|webp|gif|avif|bmp));base64,([\s\S]+)$/i);
-  if (!match) {
+  const dataUrl = parseImageDataUrl(imageUrl);
+  if (!dataUrl) {
     throw new Error("Generated image data URL was not a supported image format");
   }
 
-  const declaredMimeType = match[1]!.toLowerCase().replace("image/jpg", "image/jpeg");
-  const encoded = match[2]!.replace(/\s+/g, "");
-  if (!encoded || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) {
+  const declaredMimeType = dataUrl.mimeType;
+  const encoded = dataUrl.encoded.replace(/\s+/g, "");
+  const unpadded = encoded.replace(/=+$/, "");
+  if (!unpadded || encoded.length - unpadded.length > 2 || /[^A-Za-z0-9+/]/.test(unpadded)) {
     throw new Error("Generated image data URL was not valid base64 image data");
   }
 
@@ -1160,11 +1162,10 @@ function normalizeBase64ImagePayload(value: string, label = "Reference image"): 
 }
 
 function decodeReferenceImage(reference: string): { base64: string; mimeType: string; ext: string } {
-  const dataUrlMatch = reference.trim().match(/^data:(image\/(?:png|jpe?g|webp|gif|avif|bmp));base64,([\s\S]+)$/i);
-  if (dataUrlMatch) {
-    const mimeType = dataUrlMatch[1]!.toLowerCase().replace("image/jpg", "image/jpeg");
-    const base64 = normalizeBase64ImagePayload(dataUrlMatch[2]!);
-    return { base64, mimeType, ext: imageExtensionFromMimeType(mimeType) };
+  const dataUrl = parseImageDataUrl(reference);
+  if (dataUrl) {
+    const base64 = normalizeBase64ImagePayload(dataUrl.encoded);
+    return { base64, mimeType: dataUrl.mimeType, ext: imageExtensionFromMimeType(dataUrl.mimeType) };
   }
 
   const base64 = normalizeBase64ImagePayload(reference);
