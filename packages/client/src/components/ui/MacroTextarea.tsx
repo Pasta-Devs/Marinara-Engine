@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -581,6 +582,53 @@ export function MacroTextarea({
     onBlur?.();
   }, [clearCompletion, onBlur]);
 
+  // Short boxes (one or two lines) can't fit the buttons stacked: the second one spilled out
+  // under the box onto its resize grip. There they sit in one row, centred on the first line.
+  const toolCount =
+    (showMarkdownPreview ? 1 : 0) + (showExpand ? 1 : 0) + (showMacroReference ? 1 : 0) + (toolbarExtra ? 1 : 0);
+  const compactTools = rows <= 2 && toolCount > 1;
+  const hasTools = toolCount > 0;
+  const fieldRef = useRef<HTMLDivElement | null>(null);
+  const toolsRef = useRef<HTMLDivElement | null>(null);
+  // The text keeps clear of the buttons: --macro-tools-room is the measured room they take from
+  // the box's right edge (overhaul.css keeps it as the box's right padding even when a theme or a
+  // page style pads the box), and --macro-tools-mid centres a one-row toolbar on the first line.
+  useLayoutEffect(() => {
+    const wrapper = fieldRef.current;
+    const tools = toolsRef.current;
+    if (!hasTools || !wrapper || !tools || typeof ResizeObserver === "undefined") return;
+    const box = wrapper.firstElementChild as HTMLElement | null;
+    if (!box || box === tools) return;
+    const place = () => {
+      const style = getComputedStyle(box);
+      if (compactTools) {
+        const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.5 || 24;
+        const firstLineMiddle =
+          (Number.parseFloat(style.borderTopWidth) || 0) + (Number.parseFloat(style.paddingTop) || 0) + lineHeight / 2;
+        wrapper.style.setProperty("--macro-tools-mid", `${Math.round(firstLineMiddle)}px`);
+      }
+      if (getComputedStyle(tools).position !== "absolute") {
+        wrapper.style.removeProperty("--macro-tools-room");
+        return;
+      }
+      const room = box.getBoundingClientRect().right - tools.getBoundingClientRect().left + 6;
+      if (room > 0 && room < box.clientWidth / 2)
+        wrapper.style.setProperty("--macro-tools-room", `${Math.ceil(room)}px`);
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(box);
+    observer.observe(tools);
+    return () => observer.disconnect();
+  }, [hasTools, compactTools, showPreview]);
+  const defaultControlPadding = compactTools
+    ? toolCount >= 3
+      ? "pr-[4.75rem]"
+      : "pr-14"
+    : toolbarExtra
+      ? "pr-12"
+      : "pr-8";
+
   const affordanceButtonClassName = cn(
     "rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
     buttonClassName,
@@ -588,7 +636,7 @@ export function MacroTextarea({
 
   return (
     <>
-      <div className={cn("relative", wrapperClassName)} data-macro-field>
+      <div ref={fieldRef} className={cn("relative", wrapperClassName)} data-macro-field>
         {showMarkdownPreview && showPreview ? (
           <div
             role="region"
@@ -597,7 +645,7 @@ export function MacroTextarea({
             className={cn(
               "mari-message-content w-full overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--secondary)] p-2.5 text-sm leading-6 text-[var(--foreground)] ring-1 ring-[var(--border)]",
               className,
-              controlPaddingClassName ?? (toolbarExtra ? "pr-12" : "pr-8"),
+              controlPaddingClassName ?? defaultControlPadding,
             )}
           >
             {value.trim() ? (
@@ -626,13 +674,23 @@ export function MacroTextarea({
             className={cn(
               "w-full resize-y rounded-lg bg-[var(--secondary)] p-2.5 text-sm leading-6 text-[var(--foreground)] ring-1 ring-[var(--border)] transition placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
               className,
-              controlPaddingClassName ?? (toolbarExtra ? "pr-12" : "pr-8"),
+              controlPaddingClassName ?? defaultControlPadding,
             )}
           />
         )}
         <MacroCompletionGhost completion={completion} onAccept={insertCompletion} />
         {(showExpand || showMacroReference || showMarkdownPreview || toolbarExtra) && (
-          <div className={cn("absolute right-1.5 top-1.5 flex flex-col gap-0.5", toolbarClassName)} data-macro-tools>
+          <div
+            ref={toolsRef}
+            className={cn(
+              compactTools
+                ? "absolute right-1.5 top-[var(--macro-tools-mid,1.375rem)] flex -translate-y-1/2 flex-row items-center gap-0.5"
+                : "absolute right-1.5 top-1.5 flex flex-col gap-0.5",
+              toolbarClassName,
+            )}
+            data-macro-tools
+            data-macro-tools-row={compactTools || undefined}
+          >
             {showMarkdownPreview ? (
               <button
                 type="button"

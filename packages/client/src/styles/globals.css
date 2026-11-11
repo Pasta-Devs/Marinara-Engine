@@ -3179,6 +3179,16 @@ html[data-mari-ios-webkit] :is(.mari-modal, .mari-right-panel-content) [class*="
   }
 }
 
+/* Text boxes with Preview / Expand / Macro buttons inside them: the text never runs under the
+   buttons. MacroTextarea measures the room the buttons take (--macro-tools-room); page styles and
+   theme rules that pad every textarea used to drop the right padding to ~10px, so long lines slid
+   under the icons. Phones move the buttons above the box instead (overhaul-mobile.css). */
+@layer mari-protected {
+  :root:not([data-overhaul="mobile"]) [data-macro-field]:has(> [data-macro-tools]) > :is(textarea, [role="region"]) {
+    padding-right: var(--macro-tools-room, 2rem) !important;
+  }
+}
+
 /* Resolve the app background before the panel remaps its neutral-surface tokens.
    An opaque backing keeps covered settings from showing through without blur. */
 html[data-mari-ios-webkit] .mari-modal {
