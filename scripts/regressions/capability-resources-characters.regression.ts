@@ -102,6 +102,7 @@ try {
   const bounded = await reader.listCharactersPage!({ limit: 10_000, offset: -5 });
   assert.equal(bounded.limit, 100);
   assert.equal(bounded.offset, 0);
+  assert.equal((await reader.listCharactersPage!({ limit: 0.5, offset: 0 })).limit, 1);
 
   // A key's value replaces the stored one whole, no nested merge (a regenerated schedule drops yesterday's days).
   await writer.updateCharacterExtensions!(ada.id, { schedule: { monday: "work", tuesday: "rest" } });

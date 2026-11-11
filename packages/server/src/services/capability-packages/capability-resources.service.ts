@@ -71,7 +71,7 @@ export function createCapabilityResourceHost(db: DB, permissions: readonly strin
       // The same bounds the library route puts on a page.
       const limit =
         Number.isFinite(options.limit) && options.limit > 0
-          ? Math.min(LIBRARY_PAGE_LIMIT, Math.trunc(options.limit))
+          ? Math.min(LIBRARY_PAGE_LIMIT, Math.max(1, Math.trunc(options.limit)))
           : LIBRARY_PAGE_LIMIT;
       const offset = Number.isFinite(options.offset) && options.offset > 0 ? Math.trunc(options.offset) : 0;
       const page = await characters.listPage({ ...options, limit, offset });
