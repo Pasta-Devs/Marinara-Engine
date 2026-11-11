@@ -2,6 +2,8 @@
 
 Ein Regelsatz erklärt Game Mode, wie ein Tischrollenspiel funktioniert: welche Würfel eine Probe wirft, was auf dem Charakterbogen steht, welche Ressourcen verbraucht werden, was eine Rast wiederherstellt und bei manchen Regelsätzen auch, wie ein ganzer Kampf abläuft. In dieser Anleitung erfährst du, wie du einen Regelsatz bekommst, ihn für ein Spiel auswählst und was sich im Spiel ändert. Ein Spiel ohne Regelsatz läuft mit Marinaras eigenen Regeln, die in den anderen Anleitungen zu Game Mode beschrieben sind.
 
+<a id="get-a-ruleset"></a>
+
 ## Einen Regelsatz bekommen
 
 So installierst du einen offiziellen Regelsatz wie 5e (SRD 5.1):
@@ -15,6 +17,8 @@ Starte dann ein neues Spiel und wähl ihn aus (siehe unten). Regelsätze kommen 
 
 - **Offizielle** Regelsätze installierst du wie oben beschrieben.
 - **Community**-Regelsätze importierst du aus einer Datei oder aus dem GitHub-Repository eines Autors. Sie werden nach ihrer Herkunft abgelegt, etwa `local/ember-roads` oder `alice/v20`.
+
+Jeder dieser Regelsätze funktioniert auch in einem Roleplay-Chat. Siehe [Roleplay: Mit einem Regelsatz spielen](../roleplay/rulesets.md).
 
 Der Import nutzt denselben Schalter **Allow custom Agent imports** (Import eigener Agenten erlauben) wie importierte Agenten. Solange er aus ist, bleiben importierte Regelsätze bei neuen Spielen außen vor, und Spiele, die bereits einen nutzen, funktionieren weiter. Ein Spiel mit einem importierten Regelsatz läuft immer mit genau der Version, mit der es angelegt wurde. Wie du einen eigenen schreibst, steht unter [Regelsätze für Game Mode schreiben](../extending/writing-rulesets.md).
 

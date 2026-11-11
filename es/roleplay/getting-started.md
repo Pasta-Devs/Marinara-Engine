@@ -83,6 +83,7 @@ Para todos los agentes, consulta [Agentes: ayudantes de IA para tus chats](../ag
 - Roleplay tiene una capa de combate ligera. Añade el agente Combat y luego haz clic en **Encounter** (Encuentro) encima del cuadro de chat. Consulta [Encuentros de combate (Roleplay)](combat-encounters.md).
 - Una escena es una rama lateral para un flashback o una ubicación secundaria. Consulta [Escenas: ramificar un roleplay](scenes.md).
 - Para dirigir la trama, consulta [Narrative Director y Secret Plot](narrative-director.md).
+- Para jugar con reglas de mesa, con pruebas de dados y fichas de personaje, consulta [Roleplay: jugar con un conjunto de reglas](rulesets.md).
 
 ## Elegir modelos
 
@@ -205,6 +206,7 @@ Para más ayuda, consulta [Solución de problemas de Marinara Engine](../TROUBLE
 - [HUD y trackers de Roleplay](hud-and-trackers.md)
 - [Encuentros de combate (Roleplay)](combat-encounters.md)
 - [Narrative Director y Secret Plot](narrative-director.md)
+- [Roleplay: jugar con un conjunto de reglas](rulesets.md)
 - [Escenas: ramificar un roleplay](scenes.md)
 - [Sprites de personaje](../characters/sprites.md)
 - [Conectar una Conversation a un Roleplay o Game](../chats/connected-chats.md)

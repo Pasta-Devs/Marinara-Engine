@@ -1424,3 +1424,12 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`, #8954; `development/option
   raz i czeka na jej zakończenie"; "logged and ignored" is "zapisywane w logach i ignorowane",
   after "jest zapisywany w logach" (`:344`); "soft seam" keeps **miękki interfejs**; "must
   still cope when it is missing" is "musi sobie radzić także bez tego wywołania".
+
+## Rulesets in Roleplay (2026-11-11, #8999)
+
+Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):
+
+- The new page reuses the Game Mode vocabulary: *ruleset* **zestaw zasad**, *sheet* **arkusz** (postaci), *check* **test**, *skill* **umiejętność**, *difficulty* **trudność**, *turn* **tura**, *swipe* **swipe** (kept Latin, in the inflected forms the pack already uses: "swipe'ami", "swipe'a"), *branch* **gałąź**. *Dice card* is **karta rzutu**, the form `game/dice-and-skill-checks.md` uses; *tracker panel* keeps Latin **Tracker Panel**, as `roleplay/hud-and-trackers.md` writes it; a sheet *resource* is **zasoby**, the word `game/rulesets.md` uses.
+- Its labels use the pack's gloss form (English bold, Polish in parentheses): **Chat Settings** (ustawienia czatu), **Ruleset** (zestaw zasad), **Build sheet** (utwórz arkusz), **Open sheet** (otwórz arkusz), **Remove sheet** (usuń arkusz), **Add missing sheets** (dodaj brakujące arkusze), **No sheet:** (brak arkusza), **Give Mira a sheet** (daj Mirze arkusz), **Edit ruleset sheet** (edycja arkusza zestawu zasad), **Save sheet** (zapisz arkusz), **Rest** (odpoczynek), **Success** (sukces), **Failure** (porażka). **None** in the picker is (brak), and the UI string `chat.settings.ruleset.none` capitalises it as **Brak** for a bare list entry.
+- UI cross-references quote the pack's own translated label in straight double quotes and point with **→**: `chat.settings.ruleset.noMembers` says "Dodaj brakujące arkusze" and `removeMessage` says `Ustawienia czatu → Zestaw zasad`. The strings use the pack's second-person "ty" imperatives (Dodaj, Daj, Usuń, Otwórz) and undeclined product names.
+- `game/rulesets.md` gains the Roleplay sentence after the Official/Community bullets and, with it, `<a id="get-a-ruleset"></a>` above **Uzyskanie zestawu zasad**: the new page links `#get-a-ruleset`, and a translated heading yields no English slug.

@@ -710,3 +710,13 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 developer-do
 - **Capability API 1.817.** Heading `### Capability API 1.817: チャットの分岐が作られたことをパッケージに伝える`, a plain-form verb like the 1.814 and 1.815 siblings, under `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`, since every Capability API heading in the file has one (nothing links to it yet). A branched chat is チャットの分岐が作られる, chat-sense 分岐 (never ブランチ) after `chats/branches.md` 分岐の作成; the copy is コピー, as there. "awaits it once" = 1回呼び出して完了を待ちます, after the file's `ensureMarinaraHost()`の完了を待ちます; branch route = 分岐のルート, after 生成ルート; "logged and ignored" = ログに記録して無視します; soft seam = ソフトなインターフェース and optional method = 省略可能な…メソッド, as in 1.391.
 
 These are translation choices, not a new native-reader review.
+
+## Rulesets in Roleplay (2026-11-11, #8999)
+
+Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):
+
+- The new page reuses the Game Mode words: *ruleset* ルールセット, *sheet* シート, *check* 判定, *skill* スキル, *difficulty* 難易度, *turn* ターン, *swipe* スワイプ, *branch* 分岐. *Dice card* is ダイスカード (`game/dice-and-skill-checks.md`); *tracker panel* keeps Latin **Tracker Panel**, as `roleplay/hud-and-trackers.md` writes it; a sheet *resource* is リソース, the word `game/rulesets.md` uses.
+- Its labels use the pack's gloss form (English bold, Japanese in half-width parentheses, no space): **Chat Settings**(チャット設定), **Ruleset**(ルールセット), **Build sheet**(シートを作成), **Open sheet**(シートを開く), **Remove sheet**(シートを削除), **Add missing sheets**(足りないシートを追加), **Edit ruleset sheet**(ルールセットのシートを編集), **Save sheet**(シートを保存), **Rest**(休息), **Success**(成功), **Failure**(失敗). **No sheet:** is glossed (シートなし) after the colon, and **None** (なし) matches the UI string `chat.settings.ruleset.none`.
+- **Give Mira a sheet** is split so the name reads naturally: **Give Mira a sheet**(Miraにシートを与える). The example name stays Latin, as `Marinara` and other product names do; no transcription is added.
+- UI cross-references quote the pack's own translated label in 「」 and point with **→**: `chat.settings.ruleset.noMembers` says 「足りないシートを追加」 and `removeMessage` says チャット設定 → ルールセット. The three labels agree with the prose page's own wording. Key names stay English.
+- `game/rulesets.md` gains the Roleplay sentence after the Official/Community bullets and, with it, `<a id="get-a-ruleset"></a>` above ルールセットを入手する: the new page links `#get-a-ruleset`, and a translated heading yields no English slug. The anchor follows the file's other Capability API and prose anchors in shape.

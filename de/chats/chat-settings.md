@@ -29,6 +29,7 @@ Welche Abschnitte du siehst, hängt vom Chat-Modus ab. Den Abschnitt **Impersona
 - **Advanced Parameters** (erweiterte Parameter): Überschreibt für diesen Chat Generierungseinstellungen wie die Temperature. Siehe [Generierungsparameter](../prompts/generation-parameters.md).
 - **Persona**: Wen du spielst. Siehe [Die Persona für einen Chat auswählen](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
 - **Characters** (Charaktere): Die Charaktere im Chat. (Conversation, Roleplay.)
+- **Ruleset** (Regelsatz): Spielt den Chat nach einem Regelsatz für Tischrollenspiele, mit Würfelproben und Charakterbögen. Siehe [Roleplay: Mit einem Regelsatz spielen](../roleplay/rulesets.md). (Roleplay.)
 - **Party**: Ersetzt **Persona** und **Characters** und vereint beides an einer Stelle. (Game.)
 - **Group Chat** (Gruppenchat): Wer in einer Gruppe spricht. Siehe [Gruppenchats](group-chats.md). (Chats mit mehr als einem Charakter.)
 - **Scoped Regex Scripts**: Steuert pro Chat die Regex-Skripte, die zu einem Charakter gehören. Siehe [Regex-Skripte](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting). (Nur sichtbar, wenn ein Charakter des Chats gebundene Skripte hat.)
