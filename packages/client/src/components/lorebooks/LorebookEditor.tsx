@@ -119,7 +119,7 @@ import {
   type LorebookEntryDraft,
   type LorebookEntryDrafts,
 } from "./LorebookEntryRow";
-import { OvEditorHead } from "../overhaul/EditorChrome";
+import { OvEditorHead, OvSplitSubCrumbs } from "../overhaul/EditorChrome";
 import { LorebookFolderRow } from "./LorebookFolderRow";
 import { LorebookLintPanel } from "./LorebookLintPanel";
 import { LorebookBulkEditPanel } from "./LorebookBulkEditPanel";
@@ -3468,6 +3468,26 @@ export function LorebookEditor() {
                           <div className="ov-lv__entries">{ovEntriesBody}</div>
                         </aside>
                         <div className="ov-lv__right">
+                          {overhaulMobile ? (
+                            <OvSplitSubCrumbs
+                              section="lorebooks"
+                              sectionLabel="Lorebooks"
+                              item={lorebook.name}
+                              onItem={() => {
+                                setOvmDetail(false);
+                                setOvPanel(null);
+                              }}
+                              page={
+                                ovPanel === "book"
+                                  ? localizeUi("Book settings")
+                                  : ovPanel === "check"
+                                    ? localizeUi("Check lorebook")
+                                    : ovPanel === "keyword"
+                                      ? localizeUi("ui.lorebooks.lorebookeditor.keywordTest")
+                                      : (entries.find((entry) => entry.id === expandedEntryId)?.name ?? "")
+                              }
+                            />
+                          ) : null}
                           {overhaulMobile ? (
                             <div className="ovm-drill-page__head ovm-lv-head">
                               <button

@@ -12306,6 +12306,15 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-ov-split-pane] {
   --ov-topbar-height: 2.25rem;
 }
+/* The second side in its tablet or phone layout has no phone top bar (its own bar sits above the app), so
+   pages open from the app's top edge instead of leaving that bar's room, and the page under an open item
+   (Home, a chat) is hidden instead of showing around and through it. */
+:root[data-ov-split-phone] [data-component="AppShell"] {
+  --mari-topbar-height: 0px;
+}
+:root[data-ov-split-phone] :has(> [data-component="MobileDetailSheet"]) > :not([data-component="MobileDetailSheet"]) {
+  visibility: hidden;
+}
 .ov-splitbar {
   position: relative;
   z-index: 20;
