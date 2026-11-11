@@ -675,6 +675,7 @@ export function OverhaulTopBar() {
       <header
         ref={barRef}
         data-component="TopBar"
+        data-mari-part="top-bar"
         data-overhaul-topbar="true"
         className={cn("ov-topbar", autoHide && "is-autohide")}
       >

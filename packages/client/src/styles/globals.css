@@ -278,8 +278,11 @@
   --marinara-chat-chrome-accent: var(--mari-chrome-accent, var(--marinara-app-accent-solid));
   --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient);
   --marinara-chat-chrome-text: var(--card-foreground);
-  --marinara-chat-chrome-button-text-base: var(--marinara-chat-chrome-accent);
-  --marinara-chat-chrome-highlight-text-base: var(--marinara-chat-chrome-accent);
+  /* Accent as text: light looks darken it and dark looks lighten it so small labels read
+     (theme nitpick audit DD3-DD7, see the @supports block after this one). */
+  --marinara-chat-chrome-accent-text: var(--mari-accent-text, var(--marinara-chat-chrome-accent));
+  --marinara-chat-chrome-button-text-base: var(--marinara-chat-chrome-accent-text);
+  --marinara-chat-chrome-highlight-text-base: var(--marinara-chat-chrome-accent-text);
   --marinara-chat-chrome-surface-bg: var(--card);
   --marinara-chat-chrome-surface-bg-hover: color-mix(
     in srgb,
@@ -305,7 +308,8 @@
   --marinara-chat-chrome-button-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 12%, transparent);
   --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 20%, transparent);
   --marinara-chat-chrome-button-border-active: color-mix(in srgb, var(--marinara-chat-chrome-accent) 24%, transparent);
-  --marinara-chat-chrome-button-text: color-mix(in srgb, var(--marinara-chat-chrome-button-text-base) 64%, transparent);
+  /* 90%, not 64%: faded accent text fell to 2.8:1 on small Settings buttons (theme nitpick audit MP5). */
+  --marinara-chat-chrome-button-text: color-mix(in srgb, var(--marinara-chat-chrome-button-text-base) 90%, transparent);
   --marinara-chat-chrome-button-text-hover: color-mix(
     in srgb,
     var(--marinara-chat-chrome-button-text-base) 92%,
@@ -472,6 +476,30 @@
   --font-y2k:
     "Straight Quotes", var(--font-user, "Inter"), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --app-font-size: 0.875rem;
+}
+
+@supports (color: oklch(from red l c h)) {
+  :root,
+  [data-theme="dark"] {
+    --marinara-chat-chrome-accent-text: var(
+      --mari-accent-text,
+      oklch(from var(--marinara-chat-chrome-accent) max(l, 0.68) c h)
+    );
+  }
+  /* After the dark block: :root matches in Light mode too. */
+  [data-theme="light"] {
+    --marinara-chat-chrome-accent-text: var(
+      --mari-accent-text,
+      oklch(from var(--marinara-chat-chrome-accent) min(l, 0.52) c h)
+    );
+  }
+  /* Home widgets carry their own accent (set inline); its text takes the same caps. */
+  [data-theme="dark"] [data-mari-part="home-widget"] {
+    --home-module-accent-text: oklch(from var(--home-module-accent) max(l, 0.68) c h);
+  }
+  [data-theme="light"] [data-mari-part="home-widget"] {
+    --home-module-accent-text: oklch(from var(--home-module-accent) min(l, 0.52) c h);
+  }
 }
 
 /* ─────────────────────────────────────────────
@@ -1312,7 +1340,8 @@
 .mari-chrome-control:disabled,
 .mari-chrome-field:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  /* 0.55 keeps disabled labels near 3:1; at 0.45 they fell to 1.6-3:1 (theme nitpick audit DD8). */
+  opacity: 0.55;
 }
 
 .mari-chrome-control--primary {

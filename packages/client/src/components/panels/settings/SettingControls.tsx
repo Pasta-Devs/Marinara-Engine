@@ -677,6 +677,8 @@ export function SettingsSwitchTrack({ checked, className }: { checked: boolean; 
         className={cn(
           "pointer-events-none block h-4 w-4 shrink-0 rounded-full bg-[var(--background)] shadow-sm ring-1 ring-[var(--border)] transition-transform",
           checked && "translate-x-4",
+          // Dark off: a near-black knob on the plum track read as a hole (theme nitpick audit DM14).
+          !checked && "dark:bg-[color-mix(in_srgb,var(--foreground)_70%,var(--background))]",
         )}
       />
     </span>

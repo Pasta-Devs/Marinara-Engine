@@ -725,7 +725,7 @@ export function GameInput({
           }
           disabled={draftDisabled}
           rows={1}
-          className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-normal text-foreground outline-none placeholder:text-foreground/30 disabled:opacity-50"
+          className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-normal text-foreground outline-none placeholder:text-foreground/50 disabled:opacity-50"
           style={{ minHeight: 36, maxHeight: 120 }}
         />
 

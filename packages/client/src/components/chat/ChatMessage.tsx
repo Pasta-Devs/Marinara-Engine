@@ -4452,12 +4452,15 @@ export const ChatMessage = memo(function ChatMessage({
         >
           {isMergedGroup ? mergedNameElement : <NameColorText color={msgNameColor}>{displayName}</NameColorText>}
         </span>
-        <span className="text-[0.625rem] text-white/30" data-mari-part="time">
+        <span className="text-[0.625rem] text-[var(--muted-foreground)]" data-mari-part="time">
           {formatTime(message.createdAt)}
         </span>
         {isGrouped ? null : ovThinkingButton}
         {genLabel && (
-          <span className="text-[0.5625rem] text-white/25 italic truncate max-w-[15.625rem]" title={genLabel}>
+          <span
+            className="text-[0.5625rem] text-[var(--muted-foreground)]/80 italic truncate max-w-[15.625rem]"
+            title={genLabel}
+          >
             {genLabel}
           </span>
         )}

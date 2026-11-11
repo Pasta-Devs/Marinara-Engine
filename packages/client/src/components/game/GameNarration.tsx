@@ -4103,7 +4103,7 @@ export function GameNarration({
   const NARRATION_COUNT_BADGE =
     "absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--foreground)] px-0.5 text-[0.55rem] font-bold text-[var(--background)] ring-1 ring-[var(--background)]/20 [-webkit-text-fill-color:currentColor] dark:bg-white/90 dark:text-black dark:ring-black/20";
   const ACTIVE_SEGMENT_ACTION_BTN =
-    "mari-chat-style-control mari-game-active-action relative inline-flex items-center justify-center rounded p-1 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-1.5 [@media(pointer:coarse)]:after:content-[''] text-[var(--muted-foreground)]/40 transition-colors hover:bg-[var(--muted)]/30 hover:text-[var(--muted-foreground)] dark:text-white/20 dark:hover:bg-white/10 dark:hover:text-white/60";
+    "mari-chat-style-control mari-game-active-action relative inline-flex items-center justify-center rounded p-1 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-2 [@media(pointer:coarse)]:after:content-[''] text-[var(--muted-foreground)]/40 transition-colors hover:bg-[var(--muted)]/30 hover:text-[var(--muted-foreground)] dark:text-white/20 dark:hover:bg-white/10 dark:hover:text-white/60 [@media(pointer:coarse)]:text-[var(--muted-foreground)] dark:[@media(pointer:coarse)]:text-white/60";
   const LOG_SEGMENT_ACTION_BTN =
     "mari-chat-style-control mari-game-log-action rounded p-1 text-[var(--foreground)]/45 opacity-100 transition-all hover:bg-[var(--muted)]/35 hover:text-[var(--foreground)]/70 md:opacity-0 md:group-hover/logseg:opacity-100 dark:text-white/45 dark:hover:bg-white/10 dark:hover:text-white/70";
   const LOG_DELETE_ACTION_BTN =
@@ -4118,7 +4118,7 @@ export function GameNarration({
         "relative",
         combatGenerationFailed
           ? "border-[var(--destructive)]/30 bg-[var(--destructive)]/15 text-[var(--destructive)] hover:bg-[var(--destructive)]/25"
-          : "border-[color:var(--mari-game-combat-border,color-mix(in_srgb,var(--mari-game-combat)_25%,transparent))] bg-[var(--mari-game-combat-bg,color-mix(in_srgb,var(--mari-game-combat)_12%,transparent))] text-[var(--mari-game-combat-text)] hover:bg-[var(--mari-game-combat-bg-hover,color-mix(in_srgb,var(--mari-game-combat)_22%,transparent))] dark:border-[color:var(--mari-game-combat-border,color-mix(in_srgb,var(--mari-game-combat)_25%,transparent))] dark:bg-[var(--mari-game-combat-bg,color-mix(in_srgb,var(--mari-game-combat)_12%,transparent))] dark:text-[var(--mari-game-combat-text)]",
+          : "border-[color:var(--mari-game-combat-border,color-mix(in_srgb,var(--mari-game-combat)_25%,transparent))] [background:var(--mari-game-combat-bg,color-mix(in_srgb,var(--mari-game-combat)_12%,transparent))] text-[var(--mari-game-combat-text)] hover:[background:var(--mari-game-combat-bg-hover,color-mix(in_srgb,var(--mari-game-combat)_22%,transparent))] dark:border-[color:var(--mari-game-combat-border,color-mix(in_srgb,var(--mari-game-combat)_25%,transparent))] dark:[background:var(--mari-game-combat-bg,color-mix(in_srgb,var(--mari-game-combat)_12%,transparent))] dark:text-[var(--mari-game-combat-text)]",
         combatStarting && "cursor-wait opacity-80",
       )}
       title={
