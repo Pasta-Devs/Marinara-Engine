@@ -486,6 +486,24 @@ async function insertPersonaVersionSnapshot(
   return id;
 }
 
+// One queue per character for read-modify-write saves, shared by the character routes and the capability host
+// (api.runtime.resources.updateCharacterExtensions), so a package write and a UI save of the same card can't
+// interleave and drop one of them. Never call a queued storage method from inside a callback on the same id: the
+// callback would wait on itself.
+const characterUpdateQueues = new Map<string, Promise<unknown>>();
+
+export function withCharacterUpdateQueue<T>(id: string, update: () => Promise<T>): Promise<T> {
+  const previous = characterUpdateQueues.get(id);
+  const next = previous ? previous.catch(() => undefined).then(update) : update();
+  characterUpdateQueues.set(id, next);
+  void next
+    .finally(() => {
+      if (characterUpdateQueues.get(id) === next) characterUpdateQueues.delete(id);
+    })
+    .catch(() => undefined);
+  return next;
+}
+
 export function createCharactersStorage(db: DB) {
   async function eligibleChat(chatId: string | undefined, kind: "character" | "persona", entityId: string) {
     if (!chatId) return undefined;
@@ -765,6 +783,47 @@ export function createCharactersStorage(db: DB) {
         })
         .where(eq(characters.id, id));
       return this.getById(id);
+    },
+
+    /**
+     * Set top-level keys of `data.extensions` on the character's update queue, with no card version. Each key's value
+     * replaces the stored one whole (no nested merge); other keys stay. With
+     * `onlyMissingKeys`, a key the card already has (null included) is left alone. Resolves null for an unknown id,
+     * else the row and the keys actually written.
+     */
+    async updateExtensions(
+      id: string,
+      patch: Record<string, unknown>,
+      options: { onlyMissingKeys?: boolean; versionSource?: string } = {},
+    ): Promise<{ row: CharacterRow; changedKeys: string[] } | null> {
+      return withCharacterUpdateQueue(id, async () => {
+        const existing = await this.getById(id);
+        if (!existing) return null;
+        const current = parseCharacterData(existing.data).extensions;
+        const currentExtensions: Record<string, unknown> =
+          current && typeof current === "object" && !Array.isArray(current) ? (current as Record<string, unknown>) : {};
+        const extensions = Object.fromEntries(
+          Object.entries(patch).filter(
+            ([key, value]) =>
+              (!options.onlyMissingKeys || currentExtensions[key] === undefined) &&
+              // An unchanged value is no edit: no save, no new updatedAt.
+              JSON.stringify(value) !== JSON.stringify(currentExtensions[key]),
+          ),
+        );
+        const changedKeys = Object.keys(extensions);
+        if (changedKeys.length === 0) return { row: existing, changedKeys };
+        const row = await this.update(
+          id,
+          { extensions: { ...currentExtensions, ...extensions } } as CharacterDataUpdate,
+          undefined,
+          {
+            skipVersionSnapshot: true,
+            mergeExtensions: false,
+            versionSource: options.versionSource ?? "extensions",
+          },
+        );
+        return row ? { row, changedKeys } : null;
+      });
     },
 
     async updateAvatar(id: string, avatarPath: string | null) {

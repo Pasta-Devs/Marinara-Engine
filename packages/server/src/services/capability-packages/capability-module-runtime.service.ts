@@ -170,7 +170,7 @@ async function createCapabilityRuntimeHost(
     achievements: createCapabilityAchievementHost(app.db, packageId, permissions),
     decisions: createCapabilityDecisionHost(app.db),
     persistence: createCapabilityPersistenceHost(app.db, permissions),
-    resources: createCapabilityResourceHost(app.db),
+    resources: createCapabilityResourceHost(app.db, permissions),
     services: Object.freeze({
       // Agent runtime hooks, Mari actions and services registered with `hostOnly` are read only by the Engine
       // itself, so a package can't call another package's hooks through this lookup.
