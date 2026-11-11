@@ -3742,7 +3742,9 @@ export function HomeProfessorMariChat({
                         omnibarMode
                           ? "rounded-none border-0 bg-transparent shadow-none"
                           : embeddedTab
-                            ? "rounded-2xl border-[color-mix(in_srgb,var(--mari-home-pink)_28%,var(--border))] shadow-[0_24px_70px_-42px_color-mix(in_srgb,var(--mari-home-pink)_80%,transparent)]"
+                            ? // The Mari tab sits in the page sheet, which is already the frame and takes the
+                              // theme's corners. A second rounded frame here left square backdrop corners outside it.
+                              "rounded-none border-0 shadow-none"
                             : "rounded-none border-0 sm:rounded-xl sm:border sm:border-[var(--border)]/70 sm:shadow-2xl",
                       )}
                     >
