@@ -106,6 +106,12 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
       ? " The two named dice tied."
       : ` With ${result.duality}.`
     : "";
+  // Special dice (1.823): how many, and what they made of the result.
+  const hunger = result.hunger
+    ? ` ${result.hunger} ${result.hungerLabel ?? "special"} ${result.hunger === 1 ? "die" : "dice"} (the first ${result.hunger === 1 ? "one" : result.hunger})${
+        result.messy ? "; a messy critical" : result.bestial ? "; a bestial failure" : ""
+      }.`
+    : "";
   // The plot die (1.821): its face and what the face carried.
   const plot = result.plotFace
     ? ` ${result.plotLabel ?? "Plot die"} ${result.plotFace}${result.plotSymbol ? `: ${result.plotSymbol}` : ": blank"}${
@@ -116,7 +122,7 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
   const shift = result.shift
     ? ` Moved ${Math.abs(result.shift)} ${Math.abs(result.shift) === 1 ? "band" : "bands"} ${result.shift > 0 ? "better" : "worse"}.`
     : "";
-  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}${plot}${shift}`;
+  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}${hunger}${plot}${shift}`;
 }
 
 function serializeSkillCheckAttribute(value: string): string {
@@ -234,6 +240,11 @@ export interface SkillCheckTagExtras {
   plotLabel?: string;
   /** `shift="+1"` (1.822): bands the outcome moved, or the ask to move it. */
   shift?: number;
+  /** `hunger="2" hungerLabel="Hunger" messy="true" bestial="true"` (1.823), on an ask the count alone. */
+  hunger?: number;
+  hungerLabel?: string;
+  messy?: boolean;
+  bestial?: boolean;
 }
 
 /** A name in `from=`: no brackets, which would end the tag, and no semicolons, which part the names. */
@@ -325,6 +336,12 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
   }
   if (extras.for) parts.push(`for="${serializeSkillCheckAttribute(extras.for)}"`);
   if (extras.duality) parts.push(`duality="${serializeSkillCheckAttribute(extras.duality)}"`);
+  if (extras.hunger != null && Number.isInteger(extras.hunger) && extras.hunger > 0) {
+    parts.push(`hunger="${extras.hunger}"`);
+    if (extras.hungerLabel) parts.push(`hungerLabel="${serializeSkillCheckAttribute(extras.hungerLabel)}"`);
+    if (extras.messy) parts.push(`messy="true"`);
+    if (extras.bestial) parts.push(`bestial="true"`);
+  }
   if (extras.plot) parts.push(`plot="true"`);
   if (extras.plotFace != null && Number.isInteger(extras.plotFace) && extras.plotFace > 0) {
     parts.push(`plotFace="${extras.plotFace}"`);
@@ -416,6 +433,14 @@ export function serializeResolvedSkillCheckTag(result: SkillCheckResult, extras?
         }
       : {}),
     ...(result.shift ? { shift: result.shift } : {}),
+    ...(result.hunger
+      ? {
+          hunger: result.hunger,
+          ...(result.hungerLabel ? { hungerLabel: result.hungerLabel } : {}),
+          ...(result.messy ? { messy: true } : {}),
+          ...(result.bestial ? { bestial: true } : {}),
+        }
+      : {}),
     ...(result.dark
       ? {
           dark: result.dark,

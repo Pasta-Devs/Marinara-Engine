@@ -741,6 +741,23 @@ const dicePoolResolutionSchema = z
       .object({ successes: z.number().int().min(1).max(RULESET_POOL_MAX_DICE) })
       .strict()
       .optional(),
+    /** Optional (1.823): each pair of dice at or above `from` counts `successes` together rather than
+     *  two, and a check that succeeds with a pair is a critical success. Vampire V5's paired 10s. */
+    pairs: z
+      .object({ from: poolFace, successes: z.number().int().min(3).max(10) })
+      .strict()
+      .optional(),
+    /** Optional (1.823): up to `max` dice of the pool are special dice, asked for with `hunger="N"` and
+     *  thrown first. A critical with one of them on the critical face is messy; a failure with one of
+     *  them on a 1 is bestial. They are never thrown again. Vampire V5's Hunger. */
+    hunger: z
+      .object({
+        label: promptSafeText(40),
+        max: z.number().int().min(1).max(10),
+        text: promptSafeText(200).optional(),
+      })
+      .strict()
+      .optional(),
     /** Optional: re-throws of the low faces the system grants without anybody paying for them, each
      *  named so the Game Master can ask for one on a check with `reroll=`. */
     reroll: z
@@ -18453,6 +18470,26 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           );
       }
     }
+    // Pairs (1.823) count the faces that succeed; a face counted twice or below the target would make
+    // a pair mean two things.
+    if (resolution.pairs) {
+      faceIssue(resolution.pairs.from, ["resolution", "pairs", "from"]);
+      if (resolution.pairs.from < target.max) {
+        issue(
+          ["resolution", "pairs", "from"],
+          `A paired face succeeds, so it is at or above the highest target (${target.max})`,
+        );
+      }
+      if (resolution.double || resolution.stances) {
+        issue(["resolution", "pairs"], "Pairs count the faces that succeed once each, so leave double and stances out");
+      }
+    }
+    // Hunger dice (1.823) are dice of the pool, so there are never more of them than the pool holds.
+    if (resolution.hunger && resolution.hunger.max > resolution.pool.max)
+      issue(
+        ["resolution", "hunger", "max"],
+        `Hunger dice come from the pool, so max is at most ${resolution.pool.max}`,
+      );
     // A number above what the largest roll can count could never be reached at the table.
     const reachable = rulesetPoolMaxSuccesses(resolution);
     if (resolution.exceptional && resolution.exceptional.successes > reachable) {
@@ -21557,9 +21594,12 @@ export type RulesetDicePoolResolution = Extract<RulesetResolution, { kind: "dice
  *  ever be reached" check and for the ceiling of a check's difficulty, so the two cannot disagree
  *  about a ladder step the file was allowed to declare. */
 export function rulesetPoolMaxSuccesses(
-  resolution: Pick<RulesetDicePoolResolution, "pool" | "explode" | "double">,
+  resolution: Pick<RulesetDicePoolResolution, "pool" | "explode" | "double" | "pairs">,
 ): number {
-  return (resolution.pool.max + (resolution.explode ? resolution.pool.max : 0)) * (resolution.double ? 2 : 1);
+  const dice = resolution.pool.max + (resolution.explode ? resolution.pool.max : 0);
+  // A pair (1.823) is worth `successes` for two dice; an odd die left over counts one.
+  if (resolution.pairs) return Math.floor(dice / 2) * resolution.pairs.successes + (dice % 2);
+  return dice * (resolution.double ? 2 : 1);
 }
 export type RulesetSheetSchema = RulesetDefinition["sheet"];
 /** A party sheet uses the existing sheet math and renderer with its own field namespace. */

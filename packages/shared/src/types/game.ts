@@ -648,6 +648,12 @@ export interface SkillCheckResult {
   plotLabel?: string;
   /** Bands the Game Master moved the outcome by (1.822), signed. */
   shift?: number;
+  /** Special dice (1.823): how many of `rolls`, first, they were, their name, and a messy critical or
+   *  a bestial failure they made. */
+  hunger?: number;
+  hungerLabel?: string;
+  messy?: boolean;
+  bestial?: boolean;
   /** Narrative dice (1.141): net symbols, die ids beside their 1-based rolls, and the face symbols
    *  with the ruleset's labels, so a saved check needs no installed ruleset to display. */
   symbols?: Record<string, number>;

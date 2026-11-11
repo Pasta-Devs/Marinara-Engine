@@ -252,6 +252,8 @@ export interface SkillCheckRequest {
   plot?: boolean;
   /** `shift=` (1.822): bands to move this check's outcome. */
   shift?: number;
+  /** `hunger=` (1.823): special dice among this check's pool. */
+  hunger?: number;
   /** `spend=`: what the player said they were spending on this check, where the ruleset offers
    *  such a purchase. The Engine decides what it costs and what it buys. */
   spend?: { pool: string; amount: number };
@@ -1115,6 +1117,7 @@ function diceAsk(tag: SkillCheckTag) {
   return {
     ...(tag.plot ? { plot: true } : {}),
     ...(tag.shift != null ? { shift: tag.shift } : {}),
+    ...(tag.hunger != null ? { hunger: tag.hunger } : {}),
   };
 }
 
@@ -1449,6 +1452,7 @@ function resolveRulesetSkillCheck(
         bonusDice: request.bonusDice,
         explode: request.explode,
         double: request.double,
+        hunger: request.hunger,
         ...(sheetTarget !== undefined ? { sheetTarget } : {}),
         ...(stance ? { stance: stance.count } : {}),
         ...(bought ? { bought } : {}),
@@ -1473,6 +1477,7 @@ function resolveRulesetSkillCheck(
       complication: rolled.complication || undefined,
       exact: rolled.exact || undefined,
       exactLabel: rolled.exact && resolution.exact ? resolution.exact.label : undefined,
+      hungerLabel: rolled.hunger && resolution.hunger ? resolution.hunger.label : undefined,
       // Named only when it was the standing one that was thrown, and it actually threw something.
       reroll: standing && reroll === standing && rolled.rerolled > 0 ? standing.id : undefined,
       ...applied,
