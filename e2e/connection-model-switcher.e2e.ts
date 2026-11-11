@@ -348,11 +348,17 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
     await expect(menu.locator(`[data-switcher-pane="${otherAccount}"]`)).toHaveCount(1);
     let picker = await showModels(menu, testInfo, mainAccount);
     await expect(picker).toContainText("All models");
-    // The current model's check is connection blue (#38bdf8), never the app accent.
-    await expect(modelRow(picker, "all", "vendor/alpha").locator("svg.lucide-check")).toHaveCSS(
-      "color",
-      "rgb(56, 189, 248)",
-    );
+    // The current model's check follows the app accent like the sibling panels' marks (#9053), not connection blue.
+    const accentInk = await picker.evaluate((element) => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--marinara-chat-chrome-highlight-text)";
+      element.append(probe);
+      const value = getComputedStyle(probe).color;
+      probe.remove();
+      return value;
+    });
+    expect(accentInk).not.toBe("rgb(56, 189, 248)");
+    await expect(modelRow(picker, "all", "vendor/alpha").locator("svg.lucide-check")).toHaveCSS("color", accentInk);
     await expect(modelRow(picker, "all", "vendor/gamma")).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/alpha")).toHaveAttribute("aria-current", "true");
     await expect(picker).not.toContainText("Applies to this chat");

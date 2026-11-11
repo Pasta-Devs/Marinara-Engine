@@ -325,7 +325,11 @@
   --marinara-editor-surface-bg-hover: var(--marinara-chat-chrome-surface-bg-hover);
   --marinara-editor-surface-bg-active: var(--marinara-chat-chrome-surface-bg-active);
   /* Mixed with the editor's own background: in dark that is the grey shell, where --background is navy. */
-  --marinara-editor-control-bg: color-mix(in srgb, var(--marinara-editor-surface-bg) 78%, var(--marinara-editor-bg) 22%);
+  --marinara-editor-control-bg: color-mix(
+    in srgb,
+    var(--marinara-editor-surface-bg) 78%,
+    var(--marinara-editor-bg) 22%
+  );
   --marinara-editor-control-bg-hover: color-mix(
     in srgb,
     var(--marinara-editor-surface-bg-hover) 86%,
@@ -1695,58 +1699,23 @@
   --mari-panel-gradient-start: #38bdf8;
   --mari-panel-gradient-end: #3b82f6;
   --mari-panel-gradient-text: #f0f9ff;
-  /* Connection blue for text, rails and selected chips; leaning on the foreground keeps it legible in light and dark. */
-  --mari-connection-ink: color-mix(in srgb, var(--mari-panel-gradient-end) 80%, var(--foreground) 20%);
-  --mari-connection-tint: color-mix(in srgb, var(--mari-panel-gradient-start) 14%, transparent);
-  --mari-connection-ring: color-mix(in srgb, var(--mari-panel-gradient-start) 55%, transparent);
 }
 
 /*
- * Every connection surface (panel, Add window, editors, picker, switcher) carries .mari-connection-scope. It points the
- * shared chrome tokens at connection blue and quiet neutrals, so no app accent (pink) leaks in: focus rings, the step
- * bar, checks and selected cards turn blue; buttons and cards lose their accent outlines.
- * The second selector outranks the accent-animation rule that pins .mari-editor-shell to the app accent.
+ * Every connection surface (panel, Add window, editors, picker, switcher) carries .mari-connection-scope. Its chrome,
+ * selections and marks follow the app accent, as in the Lorebooks, Presets and Agents panels. Connection blue is the
+ * identity colour, worn only by the primary action and by tiles that carry .mari-panel-gradient--connections.
  */
-.mari-connection-scope,
-[data-marinara-accent-animation] .mari-connection-scope {
-  --marinara-chat-chrome-accent: var(--mari-panel-gradient-start);
-  --marinara-chat-chrome-focus-ring: var(--mari-connection-ring);
-  --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
-  --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--foreground) 10%, transparent);
-  --marinara-chat-chrome-button-bg-active: var(--mari-connection-tint);
-  --marinara-chat-chrome-button-border: color-mix(in srgb, var(--foreground) 16%, transparent);
-  --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--foreground) 28%, transparent);
-  --marinara-chat-chrome-button-border-active: transparent;
-  --marinara-chat-chrome-button-text: var(--foreground);
-  --marinara-chat-chrome-button-text-hover: var(--foreground);
-  --marinara-chat-chrome-button-text-active: var(--mari-connection-ink);
-  --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
-  --marinara-chat-chrome-highlight-bg-hover: var(--mari-connection-tint);
-  --marinara-chat-chrome-highlight-text: var(--mari-connection-ink);
-  --marinara-chat-chrome-input-border: color-mix(in srgb, var(--foreground) 14%, transparent);
-  --marinara-chat-chrome-input-border-focus: color-mix(in srgb, var(--mari-panel-gradient-start) 70%, transparent);
-  --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--foreground) 10%, transparent);
-  --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--foreground) 8%, transparent);
-  --marinara-editor-accent: var(--mari-panel-gradient-start);
-  --marinara-editor-focus-ring: var(--mari-connection-ring);
-  --marinara-editor-border: color-mix(in srgb, var(--foreground) 10%, transparent);
-  --marinara-editor-border-strong: color-mix(in srgb, var(--foreground) 16%, transparent);
-  --ring: var(--mari-connection-ring);
+.mari-connection-scope {
+  --mari-connection-ink: var(--marinara-chat-chrome-highlight-text);
+  --mari-connection-tint: var(--marinara-chat-chrome-highlight-bg-hover);
+  --mari-connection-ring: var(--marinara-chat-chrome-focus-ring);
 }
-/* The editor's main action (Save) wears the connection-blue gradient, like every primary here. */
-.mari-connection-scope .mari-editor-action--primary,
-[data-marinara-chat-chrome-accent-mode="gradient"] .mari-connection-scope .mari-editor-action--primary {
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--mari-panel-gradient-start), var(--mari-panel-gradient-end));
-  color: var(--mari-panel-gradient-text);
-}
-.mari-connection-scope .mari-editor-action--primary:hover:not(:disabled) {
-  filter: brightness(1.06);
-}
-/* Selection is a light blue tint, never a ring. */
-.mari-connection-scope .mari-chrome-control[aria-pressed="true"],
-.mari-connection-scope .mari-chrome-control--card[aria-pressed="true"] {
-  box-shadow: none;
+/* Connection blue for tile text and rails; leaning on the foreground keeps it legible in light and dark. */
+.mari-panel-gradient--connections {
+  --mari-connection-ink: color-mix(in srgb, var(--mari-panel-gradient-end) 80%, var(--foreground) 20%);
+  --mari-connection-tint: color-mix(in srgb, var(--mari-panel-gradient-start) 14%, transparent);
+  --mari-connection-ring: color-mix(in srgb, var(--mari-panel-gradient-start) 55%, transparent);
 }
 
 /* The one primary per screen wears the connection-blue gradient; touch gets the 44px target.
@@ -1761,6 +1730,7 @@
   --marinara-chat-chrome-button-bg-active: var(--marinara-chat-chrome-button-bg);
   --marinara-chat-chrome-button-border: transparent;
   --marinara-chat-chrome-button-border-hover: transparent;
+  --marinara-chat-chrome-button-border-active: transparent;
   --marinara-chat-chrome-button-text: var(--mari-panel-gradient-text);
   --marinara-chat-chrome-button-text-hover: var(--mari-panel-gradient-text);
   --marinara-chat-chrome-button-text-active: var(--mari-panel-gradient-text);
