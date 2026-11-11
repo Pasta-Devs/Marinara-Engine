@@ -772,6 +772,8 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 developer-do
 
 §A-2 has nothing new to check: no glossed labels were added. Particles after Latin and code follow their Korean readings: `chatBranched({ chatId, parentChatId })`를 (아이디), `8.8.8.8`과 (팔), [아웃바운드 프록시](#outbound-http-proxy)가. These are translation choices, not a new native-reader review.
 
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (UI 편집기), **Whole app** as (앱 전체) and **Choose what to change…** as (변경할 대상 선택); the heading is "앱 배경과 강조 색상". New label references take "항목" instead of a particle so none has to follow the Latin reading, while "**Save**(저장)를" keeps the pack's 21 existing uses.
+
 ## Rulesets in Roleplay (2026-11-11, #8999)
 
 Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):

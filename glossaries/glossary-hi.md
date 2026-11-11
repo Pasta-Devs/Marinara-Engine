@@ -918,6 +918,8 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section in `
 - The inline link to `#outbound-http-proxy` reads `बाहर जाने वाली रिक्वेस्ट के लिए प्रॉक्सी`, the section heading without `HTTP`; the proxy is **प्रॉक्सी**, as in the ComfyUI authenticated proxy entry (no new phrase shows its gender). The new table sentence ends with `देखें [Marinara नोटिस](#marinara-notices)।`, as the `MARINARA_NOTICES_ENABLED` row does.
 - The heading is `### Capability API 1.817: पैकेज को बताना कि चैट की ब्रांच बनाई गई`, under `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`, like the file's 1.814 to 1.816 sections (Latin `Capability API`, `-ना` heading). A branched chat is `चैट की ब्रांच बनाना`, the pack's `ब्रांच बनाना`; ब्रांच is feminine (`ब्रांच लौटाई जाती है`). "Awaits it" is `कॉल करता है और इसके पूरा होने का इंतज़ार करता है`, after the file's `ensureMarinaraHost()` sentence; "logged and ignored" is `लॉग करके अनदेखी कर दी जाती हैं`; "soft seam" is **सॉफ़्ट इंटरफ़ेस**, as in the file's 1.12, 1.13 and 1.816 sections; the service is **सर्विस**, as in the 1.391 section it mirrors; snapshots are **स्नैपशॉट** and metadata **मेटाडेटा**.
 
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (यूआई एडिटर), **Whole app** as (पूरा ऐप) and **Choose what to change…** as (बदलने के लिए चुनें); "बैकग्राउंड" keeps the pack's existing transliteration and the heading is "ऐप का बैकग्राउंड और Accent Color".
+
 These are translation choices, not a new native-reader review.
 
 ## Rulesets in Roleplay (2026-11-11, #8999)

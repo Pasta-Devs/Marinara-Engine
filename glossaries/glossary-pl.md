@@ -1425,6 +1425,8 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`, #8954; `development/option
   after "jest zapisywany w logach" (`:344`); "soft seam" keeps **miękki interfejs**; "must
   still cope when it is missing" is "musi sobie radzić także bez tego wywołania".
 
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (edytor interfejsu), **Whole app** as (cała aplikacja) and **Choose what to change…** as (wybór tego, co zmienić); the heading is "Tło aplikacji i Accent Color". The steps use "Kliknij" and "lista rozwijana".
+
 ## Rulesets in Roleplay (2026-11-11, #8999)
 
 Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):

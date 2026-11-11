@@ -34,14 +34,21 @@
 
 **Visual Style**(视觉风格) 有两张卡片。**Default (Marinara)**(默认) 是带辉光效果的复古 Y2K 风格。**SillyTavern** 是干净极简的风格。它只改变外观，和从 SillyTavern 导入没有任何关系。
 
-### Background Color 和 Accent Color
+### 应用背景和 Accent Color
 
-两者都可以填纯色，也可以填渐变，也就是两种或多种颜色之间的平滑过渡。用 **Reset to default**(恢复默认) 清空输入框，就会回到默认值。
+**Accent Color** 可以填纯色，也可以填渐变，也就是两种或多种颜色之间的平滑过渡。用 **Reset to default**(恢复默认) 清空输入框，就会回到默认值。
 
 | 设置 | 着色对象 | 默认值 |
 | --- | --- | --- |
-| **Background Color**(背景色) | 应用的主体外壳。 | Dark 下是 `#050312`，Light 下是 `#faf8ff` |
 | **Accent Color**(强调色) | 按钮、激活状态的图标、聚焦边框、高亮、面板描边，以及聊天周围的控件。 | **Marinara Gradient**(Marinara 渐变)，一种粉、橙、青三色混合的渐变 |
+
+要更改应用主体外壳的背景，请使用 **App Style** 中的 **UI Editor**(界面编辑器)：
+
+1. 打开显示 **Choose what to change…**(选择要更改的内容) 的下拉菜单，选择 **Whole app**(整个应用)。
+2. 点击 **Background**(背景)，选一种颜色或渐变。
+3. 点击 **Save**(保存)。
+
+没有已保存的背景时，应用在 Dark 下使用 `#050312`，在 Light 下使用 `#faf8ff`。要恢复，请再次打开 **Whole app**，然后点击 **Reset to default**。
 
 `#050312` 这样的值是十六进制颜色码，一种简写颜色的方式。
 

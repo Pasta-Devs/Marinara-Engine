@@ -1115,6 +1115,8 @@ Precedents from the #8954 sync (`CONFIGURATION.md`) and the #8951 developer-docs
   missing* is „muss also auch ohne den Aufruf auskommen“, naming the call so „sie“ is not
   ambiguous. The section keeps the English hard line breaks, like 1.391 below it.
 
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (Oberflächen-Editor), **Whole app** as (ganze App) and **Choose what to change…** as (Was soll geändert werden); the heading is „App-Hintergrund und Accent Color“ and the prose „Hintergrund der Grundfläche der App“, following the old **Background Color** row's „Die Grundfläche der App“. The steps use the pack's „klick auf“ and „Dropdown-Menü“.
+
 ## Rulesets in Roleplay (2026-11-11, #8999)
 
 Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md`

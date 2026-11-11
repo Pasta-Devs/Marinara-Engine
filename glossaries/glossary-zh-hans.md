@@ -831,6 +831,8 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section in `
 | awaits it once | 调用它一次并等待它完成 | After 等待 `ensureMarinaraHost()` 完成 in the same file. |
 | logged and ignored / soft seam | 记录日志后忽略 / 软接口 | After the file's 记录日志后丢弃 and the 软接口 of its 1.12, 1.13 and 1.816 sections. |
 
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (界面编辑器), **Whole app** as (整个应用) and **Choose what to change…** as (选择要更改的内容); the heading is "应用背景和 Accent Color". The sentence before the list ends with the full-width colon after the closing parenthesis.
+
 These are translation choices, not a new native-reader review.
 
 ## Rulesets in Roleplay (2026-11-11, #8999)
