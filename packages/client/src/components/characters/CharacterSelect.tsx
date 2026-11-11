@@ -11,6 +11,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import type { Persona } from "@marinara-engine/shared";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import type { CharacterIdentityChoice } from "../../lib/character-identity-groups";
 import { Modal } from "../ui/Modal";
@@ -423,7 +424,11 @@ function CharacterSelectWindow({
         onClose();
       }}
       className={cn(
-        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-[var(--border)] bg-[var(--secondary)] shadow-2xl",
+        // Portaled to <body>, so it re-applies the neutral chrome tokens its host (wizard, drawer) sits in;
+        // without them --secondary falls back to the theme's raw navy. That tint is translucent (it is
+        // made to sit on a panel, like the preset dropdown), so it is layered over the panel colour, blurred like every neutral panel shell.
+        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] bg-[image:linear-gradient(var(--secondary),var(--secondary))] text-[var(--foreground)] shadow-2xl backdrop-blur-md",
+        NEUTRAL_SURFACE_VARIABLES,
         className,
       )}
       style={
@@ -437,7 +442,7 @@ function CharacterSelectWindow({
           : { visibility: "hidden" }
       }
     >
-      <div className="flex shrink-0 items-center gap-1 py-1 pl-3.5 pr-1">
+      <div className="flex h-10 shrink-0 items-center px-3.5">
         <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</h2>
       </div>
       {children}
