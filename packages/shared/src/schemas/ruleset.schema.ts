@@ -587,6 +587,29 @@ const diceSumResolutionSchema = z
       })
       .strict()
       .optional(),
+    /** One more die whose faces carry symbols (1.821): a plot die. Thrown only when a check asks
+     *  with `plot="true"`; its face adds nothing to the total but a face's own `bonus`. Faces not
+     *  listed are blank. */
+    plotDie: z
+      .object({
+        label: promptSafeText(40),
+        sides: z.number().int().min(2).max(20),
+        faces: z
+          .array(
+            z
+              .object({
+                face: z.number().int().min(1).max(20),
+                symbol: z.enum(["complication", "opportunity"]).nullable(),
+                bonus: z.number().int().min(-20).max(20).optional(),
+              })
+              .strict(),
+          )
+          .min(1)
+          .max(20),
+        text: promptSafeText(200).optional(),
+      })
+      .strict()
+      .optional(),
     difficultyLadder: diceSumLadderSchema,
   })
   .strict();
@@ -18232,6 +18255,14 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (duality.dice[0].id === duality.dice[1].id)
         issue(["resolution", "duality", "dice"], "The two dice share an id");
     }
+    // A plot die's listed faces (1.821) are faces it has, each listed once.
+    const { plotDie } = resolution;
+    plotDie?.faces.forEach((entry, index) => {
+      if (entry.face > plotDie.sides)
+        issue(["resolution", "plotDie", "faces", index, "face"], `A face of this die is from 1 to ${plotDie.sides}`);
+      if (plotDie.faces.findIndex((other) => other.face === entry.face) !== index)
+        issue(["resolution", "plotDie", "faces", index, "face"], `Face ${entry.face} is listed twice`);
+    });
   } else if (resolution.kind === "symbol-pool") {
     if (resolution.allowOwnUpgrade && !resolution.pool.upgrade) {
       issue(["resolution", "allowOwnUpgrade"], "Own upgrades require pool.upgrade");

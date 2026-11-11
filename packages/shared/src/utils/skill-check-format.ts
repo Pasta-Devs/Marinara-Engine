@@ -106,7 +106,13 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
       ? " The two named dice tied."
       : ` With ${result.duality}.`
     : "";
-  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}`;
+  // The plot die (1.821): its face and what the face carried.
+  const plot = result.plotFace
+    ? ` ${result.plotLabel ?? "Plot die"} ${result.plotFace}${result.plotSymbol ? `: ${result.plotSymbol}` : ": blank"}${
+        result.plotBonus ? ` (${result.plotBonus > 0 ? "+" : ""}${result.plotBonus})` : ""
+      }.`
+    : "";
+  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}${plot}`;
 }
 
 function serializeSkillCheckAttribute(value: string): string {
@@ -215,6 +221,13 @@ export interface SkillCheckTagExtras {
   for?: string;
   /** `duality="Hope"` (1.820): the named die that showed more, or "tie". */
   duality?: string;
+  /** `plot="true"`, the ask; `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`,
+   *  the record (1.821). */
+  plot?: boolean;
+  plotFace?: number;
+  plotSymbol?: "complication" | "opportunity";
+  plotBonus?: number;
+  plotLabel?: string;
 }
 
 /** A name in `from=`: no brackets, which would end the tag, and no semicolons, which part the names. */
@@ -306,6 +319,13 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
   }
   if (extras.for) parts.push(`for="${serializeSkillCheckAttribute(extras.for)}"`);
   if (extras.duality) parts.push(`duality="${serializeSkillCheckAttribute(extras.duality)}"`);
+  if (extras.plot) parts.push(`plot="true"`);
+  if (extras.plotFace != null && Number.isInteger(extras.plotFace) && extras.plotFace > 0) {
+    parts.push(`plotFace="${extras.plotFace}"`);
+    if (extras.plotSymbol) parts.push(`plotSymbol="${extras.plotSymbol}"`);
+    if (extras.plotBonus) parts.push(`plotBonus="${extras.plotBonus}"`);
+    if (extras.plotLabel) parts.push(`plotLabel="${serializeSkillCheckAttribute(extras.plotLabel)}"`);
+  }
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
@@ -378,6 +398,14 @@ export function serializeResolvedSkillCheckTag(result: SkillCheckResult, extras?
     ...(result.highest ? { highest: result.highest, ...(result.zeroDice ? { zeroDice: true } : {}) } : {}),
     ...(result.darkOutcome ? { darkOutcome: result.darkOutcome } : {}),
     ...(result.duality ? { duality: result.duality } : {}),
+    ...(result.plotFace
+      ? {
+          plotFace: result.plotFace,
+          ...(result.plotSymbol ? { plotSymbol: result.plotSymbol } : {}),
+          ...(result.plotBonus ? { plotBonus: result.plotBonus } : {}),
+          ...(result.plotLabel ? { plotLabel: result.plotLabel } : {}),
+        }
+      : {}),
     ...(result.dark
       ? {
           dark: result.dark,

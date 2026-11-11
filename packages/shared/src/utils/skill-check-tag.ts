@@ -118,6 +118,9 @@ export interface SkillCheckTag {
   /** Independent setback dice and optional own-pool upgrades (1.150). */
   setback?: number;
   upgradeOwn?: number;
+  /** `plot="true"`: the plot die thrown (1.821). Carried, never judged: the resolver holds it to the
+   *  ruleset. */
+  plot?: boolean;
   /**
    * `spend="willpower:1"` as the GM wrote it, read into a pool name and a whole number of points.
    *
@@ -508,6 +511,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     const dark = Number(darkValue);
     if (Number.isInteger(dark) && dark >= 0) tag.darkDice = dark;
   }
+  if (values.get("plot")?.trim().toLowerCase() === "true") tag.plot = true;
   const rerollName = values.get("reroll")?.trim();
   if (rerollName) tag.reroll = rerollName.slice(0, 40);
   const reason = values.get("reason")?.trim().toLowerCase();
@@ -603,6 +607,13 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const tensCount = Number(values.get("tens"));
   // Two named dice (1.820), said by the Engine's own record and read back so a reloaded card says them.
   const dualityLabel = values.get("duality")?.trim().slice(0, 80);
+  // The plot die (1.821), read back the same way.
+  const plotFace = Number(values.get("plotface"));
+  const plotSymbolRaw = values.get("plotsymbol")?.trim().toLowerCase();
+  const plotSymbol: SkillCheckResult["plotSymbol"] =
+    plotSymbolRaw === "complication" || plotSymbolRaw === "opportunity" ? plotSymbolRaw : undefined;
+  const plotBonus = Number(values.get("plotbonus"));
+  const plotLabel = values.get("plotlabel")?.trim().slice(0, 40);
   const symbolRecord = readSymbolRecord(values);
   if (values.has("symbols") && !symbolRecord) return tag;
   const effected = {
@@ -632,6 +643,14 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
       ? { dark: darkCount, ...(darkLabel ? { darkLabel } : {}), ...(darkHighest ? { darkHighest: true } : {}) }
       : {}),
     ...(dualityLabel ? { duality: dualityLabel } : {}),
+    ...(Number.isInteger(plotFace) && plotFace > 0 && plotFace <= 20
+      ? {
+          plotFace,
+          ...(plotSymbol ? { plotSymbol } : {}),
+          ...(Number.isInteger(plotBonus) && plotBonus !== 0 ? { plotBonus } : {}),
+          ...(plotLabel ? { plotLabel } : {}),
+        }
+      : {}),
   };
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);

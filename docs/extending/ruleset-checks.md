@@ -60,6 +60,33 @@ The total is still the two dice plus the modifier, read against the difficulty a
 
 `duality` needs `dice.count` 2, plain faces (no `faces`), no `openEnded` and `advantage` false, and the two ids must differ. An override may set or remove it for some checks.
 
+#### A plot die
+
+A summed check can throw one more die whose faces carry symbols, not numbers (Capability API 1.821). A community ruleset needs nothing; a packaged one declares 1.821.
+
+```json
+"plotDie": {
+  "label": "Plot die",
+  "sides": 6,
+  "faces": [
+    { "face": 1, "symbol": "complication", "bonus": 2 },
+    { "face": 2, "symbol": "complication", "bonus": 4 },
+    { "face": 5, "symbol": "opportunity" },
+    { "face": 6, "symbol": "opportunity" }
+  ],
+  "text": "A complication goes wrong alongside the result; an opportunity offers something more."
+}
+```
+
+- `label`: what the die is called on the card and to the Game Master.
+- `sides`: 2 to 20.
+- `faces`: the faces that carry something. Each has a `symbol`, `"complication"`, `"opportunity"` or `null`, and an optional `bonus` (-20 to 20) added to the total. A face you do not list is blank.
+- `text`: optional. One line telling the Game Master what the symbols mean at the table.
+
+The die is thrown only when the Game Master asks, by adding `plot="true"` to the check. It is thrown after the check's own dice and is not one of `rolls`. The record says `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`. The bonus is inside `modifier`, so the dice and the modifier still add up to the total. The dice card says what the die showed.
+
+Each listed face must be a face the die has, listed once.
+
 ### `dice-pool`: throw the dice and count them
 
 The sheet's number is the **size of the pool**, not a bonus on top of it. A rating of 3 and a trade worth 2 throw five dice. That is the whole trick: no new sheet vocabulary, no new editor, and a system whose ratings are handfuls of dice is written with the same `abilities`, `skills` and `proficiencyTiers` as any other.

@@ -1589,7 +1589,10 @@ const capabilityPackageManifestBaseSchema = z
 // 1.820: a summed check's two named dice (`resolution.duality`): Daggerheart's Hope and Fear, the higher one
 //        recorded as `duality=`, and a tie a critical success. Not a soft seam: an Engine that cannot read
 //        it refuses the whole ruleset file. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 820 } as const);
+// 1.821: a summed check's plot die (`resolution.plotDie`, asked for with `plot="true"`): one more die whose
+//        faces are blank or carry a complication or an opportunity, a face's `bonus` added to the total. Not a
+//        soft seam: an Engine that cannot read it refuses the whole ruleset file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 821 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
