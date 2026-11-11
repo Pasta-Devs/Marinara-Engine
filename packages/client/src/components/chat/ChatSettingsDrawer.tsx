@@ -6066,7 +6066,7 @@ export function ChatSettingsDrawer({
                     <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-2.5 py-2 ring-1 ring-[var(--primary)]/30">
                       <button
                         type="button"
-                        onClick={() => setShowPersonaPicker(true)}
+                        onClick={() => setShowPersonaPicker((open) => !open)}
                         className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
                         title={localizeUi("ui.chat.chatsettingsdrawer.changePersona")}
                       >
@@ -6130,7 +6130,7 @@ export function ChatSettingsDrawer({
 
                 {!chat.personaId && (
                   <button
-                    onClick={() => setShowPersonaPicker(true)}
+                    onClick={() => setShowPersonaPicker((open) => !open)}
                     className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
                   >
                     <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
@@ -6240,7 +6240,7 @@ export function ChatSettingsDrawer({
 
               <button
                 ref={partyBtnRef}
-                onClick={() => setShowCharPicker(true)}
+                onClick={() => setShowCharPicker((open) => !open)}
                 className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
               >
                 <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.addCharacterToParty")}
@@ -6277,7 +6277,7 @@ export function ChatSettingsDrawer({
                     <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-2.5 py-2">
                       <button
                         type="button"
-                        onClick={() => setShowPersonaPicker(true)}
+                        onClick={() => setShowPersonaPicker((open) => !open)}
                         className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
                         title={localizeUi("ui.chat.chatsettingsdrawer.changePersona")}
                       >
@@ -6375,7 +6375,7 @@ export function ChatSettingsDrawer({
                 {/* Persona picker */}
                 {!(chat.personaId || chat.personaCharacterId) && (
                   <button
-                    onClick={() => setShowPersonaPicker(true)}
+                    onClick={() => setShowPersonaPicker((open) => !open)}
                     className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
                   >
                     <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
@@ -6647,7 +6647,7 @@ export function ChatSettingsDrawer({
               {/* Add character picker */}
               <button
                 ref={addCharBtnRef}
-                onClick={() => setShowCharPicker(true)}
+                onClick={() => setShowCharPicker((open) => !open)}
                 className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
               >
                 <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.addCharacter")}

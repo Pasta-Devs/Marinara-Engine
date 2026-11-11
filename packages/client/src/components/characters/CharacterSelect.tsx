@@ -6,11 +6,12 @@
 // ──────────────────────────────────────────────
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { Persona } from "@marinara-engine/shared";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import type { CharacterIdentityChoice } from "../../lib/character-identity-groups";
 import { Modal } from "../ui/Modal";
@@ -212,9 +213,12 @@ export function CharacterSelect(props: CharacterSelectProps) {
   const emptyText =
     placeholder ??
     (props.allowNone || isPersona ? t("ui.game.gamesurfacecomponent.none") : t("ui.characterselect.choose"));
-  const windowTitle =
+  const baseTitle =
     title ??
     (typeof label === "string" ? label : t(isPersona ? "navigation.topbar.personas" : "ui.characterselect.characters"));
+
+  // A multiple pick shows how many are picked in the title, since there is no footer to say it.
+  const windowTitle = props.multiple && items.length > 0 ? `${baseTitle} · ${items.length}` : baseTitle;
 
   const close = () => {
     setOpen(false);
@@ -267,21 +271,6 @@ export function CharacterSelect(props: CharacterSelectProps) {
       autoFocusSearch={typeof window !== "undefined" && !!window.matchMedia?.("(pointer: fine)").matches}
     />
   );
-  const footer = props.multiple ? (
-    <div className="flex shrink-0 items-center gap-2 border-t border-foreground/10 p-2 max-md:w-full max-md:border-t-0 max-md:p-0 max-sm:flex-col">
-      <span className="min-w-0 flex-1 truncate text-[0.6875rem] max-sm:text-[13px] text-foreground/55 max-sm:w-full max-sm:text-center max-sm:text-[13px]">
-        {t("ui.characterselect.picked", { count: items.length })}
-      </span>
-      <button
-        type="button"
-        onClick={close}
-        className="h-9 rounded-lg bg-[var(--primary)] px-3.5 text-xs font-semibold text-[var(--primary-foreground)] max-md:h-11 max-sm:w-full"
-      >
-        {t("ui.characterselect.done")}
-      </button>
-    </div>
-  ) : null;
-
   const trigger = {
     ref: triggerRef,
     type: "button" as const,
@@ -291,7 +280,7 @@ export function CharacterSelect(props: CharacterSelectProps) {
     "aria-describedby": props["aria-label"] ? valueId : undefined,
     "aria-haspopup": "dialog" as const,
     "aria-expanded": open,
-    onClick: () => setOpen(true),
+    onClick: () => (open ? close() : setOpen(true)),
   };
 
   return (
@@ -334,7 +323,11 @@ export function CharacterSelect(props: CharacterSelectProps) {
               +{items.length - 3}
             </span>
           )}
-          <ChevronDown size="0.75rem" className="shrink-0 opacity-60" aria-hidden="true" />
+          <ChevronDown
+            size="0.75rem"
+            className={cn("shrink-0 opacity-60 transition-transform", open && "rotate-180")}
+            aria-hidden="true"
+          />
         </button>
       ) : null}
       {open && (
@@ -342,7 +335,6 @@ export function CharacterSelect(props: CharacterSelectProps) {
           title={windowTitle}
           anchorRef={anchorRef ?? triggerRef}
           onClose={close}
-          footer={footer}
           className={props.windowClassName}
         >
           {props.header}
@@ -357,18 +349,15 @@ function CharacterSelectWindow({
   title,
   anchorRef,
   onClose,
-  footer,
   className,
   children,
 }: {
   title: string;
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
-  footer: ReactNode;
   className?: string;
   children: ReactNode;
 }) {
-  const { t } = useUiTranslation();
   const [phone] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(PHONE_QUERY).matches);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<Placement | null>(null);
@@ -416,9 +405,10 @@ function CharacterSelectWindow({
         title={title}
         width="max-w-md"
         restoreFocusRef={anchorRef}
-        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none"
+        // Same accent tint over the panel colour as the desktop window below. Important, because the
+        // opaque-modal rule (.mari-modal--opaque .mari-modal-panel) sets its own background-image.
+        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!"
         contentClassName="flex flex-col !overflow-hidden !p-0"
-        footer={footer}
       >
         {children}
       </Modal>
@@ -440,7 +430,13 @@ function CharacterSelectWindow({
         onClose();
       }}
       className={cn(
-        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl",
+        // Portaled to <body>, so it re-applies the neutral chrome tokens its host (wizard, drawer) sits in;
+        // without them --secondary falls back to the theme's raw navy. That tint is translucent (it is
+        // made to sit on a panel, like the preset dropdown), so it is layered over the panel colour, blurred like
+        // every neutral panel shell. The panel colour is stacked twice (~98% opaque) so sharp lines underneath,
+        // like the wizard's footer divider, don't show through.
+        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] text-[var(--foreground)] shadow-2xl backdrop-blur-md",
+        NEUTRAL_SURFACE_VARIABLES,
         className,
       )}
       style={
@@ -454,19 +450,10 @@ function CharacterSelectWindow({
           : { visibility: "hidden" }
       }
     >
-      <div className="flex shrink-0 items-center gap-1 py-1 pl-3.5 pr-1">
+      <div className="flex h-10 shrink-0 items-center px-3.5">
         <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t("common.close")}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/55 hover:bg-foreground/10 hover:text-foreground"
-        >
-          <X size="1rem" />
-        </button>
       </div>
       {children}
-      {footer}
     </div>,
     document.body,
   );
