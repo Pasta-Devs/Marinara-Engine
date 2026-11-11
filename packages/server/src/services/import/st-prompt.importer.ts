@@ -5,6 +5,7 @@ import type { DB } from "../../db/connection.js";
 import type { MarkerConfig } from "@marinara-engine/shared";
 import { createPromptsStorage } from "../storage/prompts.storage.js";
 import type { PromptVariableGroup } from "@marinara-engine/shared";
+import { withImportTags, type ImportTagOptions } from "@marinara-engine/shared";
 import type { TimestampOverrides } from "./import-timestamps.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { convertStRegexScripts } from "./st-character.importer.js";
@@ -52,7 +53,13 @@ export async function importSTPreset(
   raw: Record<string, unknown>,
   db: DB,
   fileName?: string,
-  options?: { timestampOverrides?: TimestampOverrides | null },
+  options?: {
+    timestampOverrides?: TimestampOverrides | null;
+    /** The "Tag imported" / "Tag source" checkboxes. Left out, the preset gets no import tags. */
+    importTags?: ImportTagOptions;
+    /** The source tag; SillyTavern by default. */
+    source?: string;
+  },
 ) {
   const storage = createPromptsStorage(db);
   const preset = raw as unknown as STPreset;
@@ -63,8 +70,10 @@ export async function importSTPreset(
   // Create the preset
   const created = await storage.create(
     {
-      name: `Imported: ${guessPresetName(raw, fileName)}`,
-      description: "Imported from SillyTavern",
+      // Its own name and no description: where it came from is a tag ("Imported", "ST").
+      name: guessPresetName(raw, fileName),
+      description: "",
+      ...(options?.importTags ? { tags: withImportTags([], options.source ?? "st", options.importTags) } : {}),
       variableGroups,
       variableValues: {},
       parameters: {},

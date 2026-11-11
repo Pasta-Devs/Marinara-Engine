@@ -12,7 +12,7 @@ import { lorebookEntries } from "../../db/schema/index.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import type { CreateLorebookEntryInput, LorebookCategory } from "@marinara-engine/shared";
-import { parseLorebookDecisionActivation } from "@marinara-engine/shared";
+import { parseLorebookDecisionActivation, withImportTags, type ImportTagOptions } from "@marinara-engine/shared";
 import type { TimestampOverrides } from "./import-timestamps.js";
 import { resolveLorebookEntryRole } from "./lorebook-role.js";
 
@@ -432,6 +432,10 @@ export async function importSTLorebook(
     timestampOverrides?: TimestampOverrides | null;
     existingLorebookId?: string | null;
     allowLocalImagePaths?: boolean;
+    /** The "Tag imported" / "Tag source" checkboxes. Left out, the book gets no import tags. */
+    importTags?: ImportTagOptions;
+    /** The source tag; SillyTavern by default. */
+    source?: string;
     /** Runs with the imported rows, before commit and chat-reference cleanup. */
     beforeCommit?: (tx: DB, result: LorebookImportResult) => Promise<void>;
   },
@@ -471,13 +475,15 @@ export async function importSTLorebook(
       };
       const lorebookInput = {
         name: lbName,
-        description: bookSettings.description ?? "Imported from SillyTavern",
+        // Where it came from is a tag now ("Imported", "ST"), not text in the description.
+        description: bookSettings.description ?? "",
         category: detectedCategory,
         scanDepth: bookSettings.scanDepth ?? 2,
         tokenBudget: bookSettings.tokenBudget ?? 2048,
         recursiveScanning: bookSettings.recursiveScanning ?? false,
         maxRecursionDepth: bookSettings.maxRecursionDepth ?? 3,
         generatedBy: "import" as const,
+        ...(options?.importTags ? { tags: withImportTags([], options.source ?? "st", options.importTags) } : {}),
         ...(options?.characterId ? { characterIds: [options.characterId] } : {}),
       };
 

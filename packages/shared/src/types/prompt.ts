@@ -94,6 +94,8 @@ export interface PromptPreset {
   isDefault: boolean;
   /** Author of this preset */
   author: string;
+  /** Tags for organisation, as stored JSON text (a JSON array of strings). */
+  tags?: string;
   /** Reserved identifier for Engine-owned presets. Empty for user presets. */
   systemKey: string;
   createdAt: string;

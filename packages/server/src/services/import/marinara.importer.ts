@@ -33,6 +33,9 @@ import {
   MAX_FILE_SIZES,
   parseLorebookDecisionActivation,
   parseGamePresetStorySettings,
+  parseTagList,
+  withImportTags,
+  type ImportTagOptions,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -403,9 +406,17 @@ function readFilterMode(value: unknown): LorebookFilterMode {
  * Import a Marinara `.marinara.json` export envelope.
  * Dispatches to the correct handler based on the `type` field.
  */
+export interface MarinaraImportOptions {
+  /** The "Tag imported" / "Tag source" checkboxes; both on when left out. */
+  importTags?: ImportTagOptions;
+  /** The source tag; a Marinara export by default. */
+  source?: string;
+}
+
 export async function importMarinara(
   envelope: ExportEnvelope,
   db: DB,
+  options?: MarinaraImportOptions,
 ): Promise<{ success: boolean; type: ExportType; id?: string; name?: string; error?: string }> {
   const normalizedEnvelope = unwrapFolderManifestEnvelope(envelope) ?? envelope;
   if (
@@ -417,15 +428,19 @@ export async function importMarinara(
     return { success: false, type: "marinara_character" as ExportType, error: "Invalid Marinara export file" };
   }
 
+  // Only imports a person starts are tagged; the bundled presets seeded at startup are not.
+  const tagging: ImportTagging | undefined = options
+    ? { source: options.source ?? "marinara", options: options.importTags }
+    : undefined;
   switch (normalizedEnvelope.type) {
     case "marinara_character":
-      return importCharacter(normalizedEnvelope.data, db);
+      return importCharacter(normalizedEnvelope.data, db, tagging);
     case "marinara_persona":
-      return importPersona(normalizedEnvelope.data, db);
+      return importPersona(normalizedEnvelope.data, db, tagging);
     case "marinara_lorebook":
-      return importLorebook(normalizedEnvelope.data, db);
+      return importLorebook(normalizedEnvelope.data, db, tagging);
     case "marinara_preset":
-      return importPreset(normalizedEnvelope.data, db);
+      return importPreset(normalizedEnvelope.data, db, tagging);
     default:
       return {
         success: false,
@@ -434,6 +449,9 @@ export async function importMarinara(
       };
   }
 }
+
+/** Where an import came from and which of its tags to add. */
+type ImportTagging = { source: string; options?: ImportTagOptions };
 
 function unwrapFolderManifestEnvelope(value: unknown): ExportEnvelope | null {
   if (!isJsonRecord(value)) return null;
@@ -488,7 +506,7 @@ function withCappedRulesetSheets(data: unknown): unknown {
   return { ...(data as Record<string, unknown>), extensions: sheets ? { ...rest, rulesetSheets: sheets } : rest };
 }
 
-async function importCharacter(data: unknown, db: DB) {
+async function importCharacter(data: unknown, db: DB, tagging?: ImportTagging) {
   const storage = createCharactersStorage(db);
   const galleryStorage = createCharacterGalleryStorage(db);
   const d = data as {
@@ -561,6 +579,9 @@ async function importCharacter(data: unknown, db: DB) {
   const normalizedCharacterData = normalizeNativeCharacterData(charData);
   if (!normalizedCharacterData) {
     return { success: false, type: "marinara_character" as const, error: "Invalid character data" };
+  }
+  if (tagging) {
+    normalizedCharacterData.tags = withImportTags(normalizedCharacterData.tags, tagging.source, tagging.options);
   }
 
   const result = await storage.create(normalizedCharacterData, undefined, readTimestampOverrides(d), comment);
@@ -658,7 +679,7 @@ function parseNativePersonaInput(input: Record<string, unknown>) {
   return personaCreateInputSchema.parse(candidate);
 }
 
-async function importPersona(data: unknown, db: DB) {
+async function importPersona(data: unknown, db: DB, tagging?: ImportTagging) {
   const storage = createCharactersStorage(db);
   const galleryStorage = createPersonaGalleryStorage(db);
   if (!isJsonRecord(data)) {
@@ -674,7 +695,11 @@ async function importPersona(data: unknown, db: DB) {
     ...(d.avatarCrop === undefined ? {} : { avatarCrop: d.avatarCrop }),
     ...(d.trackerCardColors === undefined ? {} : { trackerCardColors: d.trackerCardColors }),
     ...(d.personaStats === undefined ? {} : { personaStats: d.personaStats }),
-    ...(d.tags === undefined ? {} : { tags: d.tags }),
+    ...(tagging
+      ? { tags: withImportTags(Array.isArray(d.tags) ? d.tags : parseTagList(d.tags), tagging.source, tagging.options) }
+      : d.tags === undefined
+        ? {}
+        : { tags: d.tags }),
     ...(d.savedStatusOptions === undefined ? {} : { savedStatusOptions: d.savedStatusOptions }),
     ...(d.convoBehavior === undefined ? {} : { convoBehavior: d.convoBehavior }),
     ...(typeof d.versioningEnabled === "boolean" ? { versioningEnabled: d.versioningEnabled } : {}),
@@ -755,11 +780,11 @@ async function importPersona(data: unknown, db: DB) {
 
 // ── Lorebook ─────────────────────────────────
 
-async function importLorebook(data: unknown, db: DB) {
-  return importLorebookPayload(data, db);
+async function importLorebook(data: unknown, db: DB, tagging?: ImportTagging) {
+  return importLorebookPayload(data, db, tagging);
 }
 
-async function importLorebookPayload(data: unknown, db: DB) {
+async function importLorebookPayload(data: unknown, db: DB, tagging?: ImportTagging) {
   const storage = createLorebooksStorage(db);
   const d = data as {
     lorebook?: Record<string, unknown>;
@@ -811,7 +836,11 @@ async function importLorebookPayload(data: unknown, db: DB) {
         isGlobal: !scopeCollapsed && (lb.isGlobal === true || lb.isGlobal === "true"),
         enabled: lb.enabled !== false,
         scope: scopeCollapsed ? { mode: "all", chatIds: [] } : { ...scope, chatIds: scopeChatIds },
-        tags: Array.isArray(lb.tags) ? lb.tags.map(String) : [],
+        tags: tagging
+          ? withImportTags(parseTagList(lb.tags), tagging.source, tagging.options)
+          : Array.isArray(lb.tags)
+            ? lb.tags.map(String)
+            : [],
         generatedBy: "import",
         sourceAgentId: typeof lb.sourceAgentId === "string" ? lb.sourceAgentId : null,
       },
@@ -943,7 +972,7 @@ async function importLorebookPayload(data: unknown, db: DB) {
 
 // ── Preset ───────────────────────────────────
 
-async function importPreset(data: unknown, db: DB) {
+async function importPreset(data: unknown, db: DB, tagging?: ImportTagging) {
   const storage = createPromptsStorage(db);
   const d = data as {
     preset?: Record<string, unknown>;
@@ -971,6 +1000,7 @@ async function importPreset(data: unknown, db: DB) {
       wrapFormat: (p.wrapFormat as any) ?? "xml",
       scopedRegexMode: resolveScopedRegexMode(p.scopedRegexMode),
       author: String(p.author ?? ""),
+      tags: tagging ? withImportTags(parseTagList(p.tags), tagging.source, tagging.options) : parseTagList(p.tags),
     },
     readTimestampOverrides(p),
   );

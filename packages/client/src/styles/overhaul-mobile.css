@@ -2928,6 +2928,12 @@
   padding-left: 0.125rem;
   font-size: 0.875rem;
 }
+:root[data-overhaul="mobile"] .ov-imp__checks {
+  gap: 0.5rem 1.25rem;
+}
+:root[data-overhaul="mobile"] .ov-imp__checks .ov-imp__checkrow {
+  min-height: 2.25rem;
+}
 
 /* Library landing pages on phones: title and + New (just "New": the title names the item) on top; Import, the filter dropdown and the
    List / Gallery switch on the next line; search and sort share one line; galleries show at

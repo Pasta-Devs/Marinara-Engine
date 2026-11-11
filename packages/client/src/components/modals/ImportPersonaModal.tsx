@@ -9,7 +9,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../../hooks/use-characters";
 import { api, formatFirstApiValidationIssue } from "../../lib/api-client";
 import { isOversizedMarinaraJson } from "../../lib/character-import";
+import { withImportTags } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useOverhaulLook } from "../../stores/overhaul.store";
+import { appendImportTags, ImportTagChecks, importTagsBody, OvImportDrop, useImportTagChoice } from "./ImportTagChecks";
 
 interface Props {
   open: boolean;
@@ -23,6 +26,8 @@ export function ImportPersonaModal({ open, onClose }: Props) {
   const [results, setResults] = useState<Array<{ filename: string; success: boolean; message: string }>>([]);
   const [dragOver, setDragOver] = useState(false);
   const qc = useQueryClient();
+  const importTags = useImportTagChoice();
+  const overhaulActive = useOverhaulLook();
 
   const isZipFile = async (file: File): Promise<boolean> => {
     if (file.size < 4) return false;
@@ -46,6 +51,7 @@ export function ImportPersonaModal({ open, onClose }: Props) {
         // is uploaded the same way.
         if ((await isZipFile(file)) || (await isOversizedMarinaraJson(file))) {
           const form = new FormData();
+          appendImportTags(form, importTags.choice);
           form.append("file", file, file.name);
           form.append(
             "timestampOverrides",
@@ -76,6 +82,7 @@ export function ImportPersonaModal({ open, onClose }: Props) {
         if (isMarinaraEnvelope) {
           const data = await api.post<{ success: boolean; name?: string; error?: string }>("/import/marinara", {
             ...json,
+            ...importTagsBody(importTags.choice),
             timestampOverrides: {
               createdAt: file.lastModified,
               updatedAt: file.lastModified,
@@ -93,6 +100,8 @@ export function ImportPersonaModal({ open, onClose }: Props) {
         // fields stay decoded and malformed input is reported by the server.
         const persona = await api.post<{ id: string; name: string }>("/characters/personas", {
           ...json,
+          // A plain JSON file has no known source, so it can only carry "Imported".
+          tags: withImportTags(Array.isArray(json.tags) ? json.tags : [], null, importTags.choice),
           createdAt: file.lastModified,
           updatedAt: file.lastModified,
         });
@@ -127,6 +136,7 @@ export function ImportPersonaModal({ open, onClose }: Props) {
   const reset = () => {
     setStatus("idle");
     setResults([]);
+    importTags.reset();
   };
 
   return (
@@ -139,42 +149,52 @@ export function ImportPersonaModal({ open, onClose }: Props) {
       title={localizeUi("ui.modals.importpersonamodal.importPersona")}
     >
       <div className="flex flex-col gap-4">
-        {/* Drop zone */}
-        <div
-          onDrop={handleDrop}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onClick={() => fileRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all ${
-            dragOver
-              ? "border-[var(--primary)] bg-[var(--primary)]/10"
-              : "border-[var(--border)] hover:border-[var(--muted-foreground)] hover:bg-[var(--secondary)]/50"
-          }`}
-        >
-          <Download
-            size="2rem"
-            className={`transition-colors ${dragOver ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}`}
+        {overhaulActive ? (
+          <OvImportDrop
+            types={localizeUi("ui.modals.importtags.typesJsonMarinara")}
+            dragOver={dragOver}
+            setDragOver={setDragOver}
+            onFiles={(files) => void handleFiles(files)}
+            onBrowse={() => fileRef.current?.click()}
           />
-          <div className="text-center">
-            <p className="text-sm font-medium">
-              {localizeUi("ui.modals.importcharactermodal.dropOneOrMoreFilesHereOrClickTo")}
-            </p>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {localizeUi("ui.modals.importpersonamodal.supportsJsonAndMarinaraPersonaExports")}
-            </p>
+        ) : (
+          <div
+            onDrop={handleDrop}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onClick={() => fileRef.current?.click()}
+            className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all ${
+              dragOver
+                ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                : "border-[var(--border)] hover:border-[var(--muted-foreground)] hover:bg-[var(--secondary)]/50"
+            }`}
+          >
+            <Download
+              size="2rem"
+              className={`transition-colors ${dragOver ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}`}
+            />
+            <div className="text-center">
+              <p className="text-sm font-medium">
+                {localizeUi("ui.modals.importcharactermodal.dropOneOrMoreFilesHereOrClickTo")}
+              </p>
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                {localizeUi("ui.modals.importpersonamodal.supportsJsonAndMarinaraPersonaExports")}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.json")}
+              </span>
+              <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.marinara")}
+              </span>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-              <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.json")}
-            </span>
-            <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-              <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.marinara")}
-            </span>
-          </div>
-        </div>
+        )}
+        <ImportTagChecks value={importTags.choice} onChange={importTags.setChoice} sources={["Marinara"]} />
 
         <input
           ref={fileRef}
