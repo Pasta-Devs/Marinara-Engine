@@ -5,7 +5,7 @@
 // The shell (popover, sheet, inline tab) belongs to the caller.
 // ──────────────────────────────────────────────
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { Ban, Plus, UserPlus, Users, X } from "lucide-react";
+import { Ban, Link2, Plus, UserPlus, Users, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { includesTextForMatch, type CharacterGroup, type Persona } from "@marinara-engine/shared";
 import { useCharacterGroups, useCharacters, usePersonaGroups, usePersonas } from "../../hooks/use-characters";
@@ -29,6 +29,8 @@ import {
 } from "../../lib/character-identity-groups";
 
 export type CharacterSelectKind = "persona" | "character";
+
+export type PickerDefaultChoice = { label: string; subtitle?: string | null; picked: boolean; onPick: () => void };
 
 export interface CharacterPickerListProps {
   kind: CharacterSelectKind;
@@ -58,6 +60,8 @@ export interface CharacterPickerListProps {
   autoFocusSearch?: boolean;
   /** Set false when the caller has a pick the list cannot show, so None is not marked. */
   nonePicked?: boolean;
+  /** Single pick: a row above None for a choice the caller defines, such as scene setup's "Source persona". */
+  defaultChoice?: PickerDefaultChoice;
   className?: string;
 }
 
@@ -135,6 +139,7 @@ export function CharacterPickerList({
   onCreate,
   autoFocusSearch = false,
   nonePicked,
+  defaultChoice,
   className,
 }: CharacterPickerListProps) {
   const { t } = useUiTranslation();
@@ -270,19 +275,34 @@ export function CharacterPickerList({
     />
   );
 
-  const noneRow = onPickNone && !multiple && query === "" && (
+  const noneRow = (onPickNone || defaultChoice) && !multiple && query === "" && (
     <>
-      <PickRow
-        picked={nonePicked ?? (personaIds.length === 0 && characterIds.length === 0)}
-        onClick={onPickNone}
-        art={
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-foreground/35 text-foreground/40">
-            <Ban size="0.8rem" />
-          </span>
-        }
-        title={t("ui.game.gamesurfacecomponent.none")}
-        subtitle={isPersona ? t("ui.chat.quickpersonaswitcher.noPersonaSelected") : null}
-      />
+      {defaultChoice && (
+        <PickRow
+          picked={defaultChoice.picked}
+          onClick={defaultChoice.onPick}
+          art={
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-foreground/35 text-foreground/40">
+              <Link2 size="0.8rem" />
+            </span>
+          }
+          title={defaultChoice.label}
+          subtitle={defaultChoice.subtitle}
+        />
+      )}
+      {onPickNone && (
+        <PickRow
+          picked={nonePicked ?? (personaIds.length === 0 && characterIds.length === 0)}
+          onClick={onPickNone}
+          art={
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-foreground/35 text-foreground/40">
+              <Ban size="0.8rem" />
+            </span>
+          }
+          title={t("ui.game.gamesurfacecomponent.none")}
+          subtitle={isPersona ? t("ui.chat.quickpersonaswitcher.noPersonaSelected") : null}
+        />
+      )}
       <PickerDivider />
     </>
   );

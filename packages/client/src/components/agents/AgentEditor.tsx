@@ -142,6 +142,7 @@ import { CUSTOM_AGENT_RESULT_EXAMPLES, type CustomAgentResultType } from "../../
 import { downloadZipFile } from "../../lib/download-zip";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
+import { LorebookPickerField } from "../ui/LibraryPickers";
 
 // The 2D and 3D Avatars setup loads only on those agents' pages.
 const AvatarAgentSetup = lazy(() =>
@@ -2859,22 +2860,18 @@ export function AgentEditor() {
                     {localizeUi("ui.agents.agenteditor.targetLorebook")}
                   </p>
                   {allLorebooks && allLorebooks.length > 0 ? (
-                    <select
+                    <LorebookPickerField
                       value={localWritableLorebookId}
+                      lorebooks={allLorebooks}
+                      ariaLabel={localizeUi("ui.agents.agenteditor.targetLorebook")}
+                      noneLabel={localizeUi("ui.agents.agenteditor.selectALorebook")}
                       disabled={!canConfigureLorebookTarget}
-                      onChange={(event) => {
-                        setLocalWritableLorebookId(event.target.value);
+                      onChange={(id) => {
+                        setLocalWritableLorebookId(id);
                         markDirty();
                       }}
-                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    >
-                      <option value="">{localizeUi("ui.agents.agenteditor.selectALorebook")}</option>
-                      {allLorebooks.map((lorebook) => (
-                        <option key={lorebook.id} value={lorebook.id}>
-                          {lorebook.name}
-                        </option>
-                      ))}
-                    </select>
+                      triggerClassName="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                    />
                   ) : (
                     <p className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[0.625rem] text-amber-200">
                       {localizeUi("ui.agents.agenteditor.createALorebookBeforeEnablingWritesForThisAgent")}

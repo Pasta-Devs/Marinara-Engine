@@ -54,42 +54,59 @@ export function LibraryArt({
   );
 }
 
-// The preset field: a trigger that opens the picker window with search, a None row and the
-// Presets panel's folders, like the persona and character pickers. A pick closes it.
-export function PresetPickerField({
-  value,
-  presets,
-  ariaLabel,
-  noneLabel,
-  triggerClassName,
-  disabled,
-  onChange,
-}: {
-  /** Preset id, or "" for None. */
+export type LibraryFieldItem = (LibraryPreset | LibraryLorebook) & {
+  /** Greys the row out in the window, with this as its second line. */
+  disabledReason?: string;
+};
+
+type LibraryFieldProps = {
+  /** Item id, or "" for None. */
   value: string;
-  presets: readonly LibraryPreset[];
   /** Names the trigger and titles the window. */
   ariaLabel: string;
   /** Text of the None row and of the trigger when nothing is picked. Defaults to "None". */
   noneLabel?: string;
+  /** Trigger text when `value` is set but not in the list (deleted, unavailable, not loaded yet). */
+  missingLabel?: string;
   /** The field look of the surface it sits in (wizard input, drawer select). */
   triggerClassName: string;
   disabled?: boolean;
   onChange: (value: string) => void;
-}) {
+};
+
+// A single-pick library field: a trigger that opens the picker window with search, a None row and
+// the panel's folders, like the persona and character pickers. A pick closes it.
+function LibraryPickerField({
+  kind,
+  value,
+  items: source,
+  ariaLabel,
+  noneLabel,
+  missingLabel,
+  triggerClassName,
+  disabled,
+  onChange,
+}: LibraryFieldProps & { kind: "preset" | "lorebook"; items: readonly LibraryFieldItem[] }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const { data: folders } = useLibraryFolders("presets");
+  const { data: folders } = useLibraryFolders(kind === "preset" ? "presets" : "lorebooks");
   const none = noneLabel ?? t("ui.game.gamesurfacecomponent.none");
   const items = useMemo(
     () =>
-      presets.map((preset) => ({
-        id: preset.id,
-        label: preset.name,
-        icon: <LibraryArt src={resolvePresetArtwork(preset)} kind="preset" className={LIBRARY_ROW_ART} />,
+      source.map((item) => ({
+        id: item.id,
+        label: item.name,
+        disabledReason: item.disabledReason,
+        icon: (
+          <LibraryArt
+            src={kind === "preset" ? resolvePresetArtwork(item) : (item.imagePath ?? null)}
+            kind={kind}
+            className={LIBRARY_ROW_ART}
+          />
+        ),
       })),
-    [presets],
+    [source, kind],
   );
   const leadingItems = useMemo(
     () => [
@@ -108,7 +125,7 @@ export function PresetPickerField({
     ],
     [none],
   );
-  const selectedLabel = presets.find((preset) => preset.id === value)?.name ?? none;
+  const selectedLabel = value ? (source.find((item) => item.id === value)?.name ?? missingLabel ?? none) : none;
 
   const close = () => {
     setOpen(false);
@@ -120,7 +137,8 @@ export function PresetPickerField({
       <button
         ref={triggerRef}
         type="button"
-        data-preset-picker-trigger
+        data-preset-picker-trigger={kind === "preset" ? "" : undefined}
+        data-lorebook-picker-trigger={kind === "lorebook" ? "" : undefined}
         aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -146,7 +164,9 @@ export function PresetPickerField({
               onChange(id);
               close();
             }}
-            searchLabel={t("chat.wizard.select.search")}
+            searchLabel={t(
+              kind === "preset" ? "chat.wizard.select.search" : "ui.chat.roleplaysetupwizard.searchLorebooks",
+            )}
             emptyLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
             noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
           />
@@ -154,6 +174,18 @@ export function PresetPickerField({
       )}
     </>
   );
+}
+
+/** The preset field (wizards, Chat Settings, scene setup). */
+export function PresetPickerField(props: LibraryFieldProps & { presets: readonly LibraryFieldItem[] }) {
+  const { presets, ...rest } = props;
+  return <LibraryPickerField kind="preset" items={presets} {...rest} />;
+}
+
+/** A one-lorebook field (agent target, agent attachment, encounter spellbook). */
+export function LorebookPickerField(props: LibraryFieldProps & { lorebooks: readonly LibraryFieldItem[] }) {
+  const { lorebooks, ...rest } = props;
+  return <LibraryPickerField kind="lorebook" items={lorebooks} {...rest} />;
 }
 
 // The lorebook window: search, checkboxes and the Lorebooks panel's folders ("Add all" per

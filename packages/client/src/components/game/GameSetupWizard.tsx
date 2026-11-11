@@ -151,6 +151,7 @@ import { CapabilityElement } from "../capabilities/CapabilityElement";
 
 import { NewGameExperienceChooser } from "./NewGameExperienceChooser";
 import { LegacyExperienceSetupDialog } from "./LegacyExperienceSetupDialog";
+import { PresetPickerField } from "../ui/LibraryPickers";
 import { MAX_EXPERIENCE_SEED, buildExperienceSetup, parseExperienceSeed } from "../../lib/game-experience-setup";
 import {
   SETTING_GENRE,
@@ -3907,18 +3908,13 @@ export function GameSetupWizard({
                         <Feather size={12} />
                         {localizeUi("ui.game.gamesetupwizard.basePromptPreset")}
                       </label>
-                      <select
+                      <PresetPickerField
                         value={promptPresetId ?? ""}
-                        onChange={(event) => handlePromptPresetChange(event.target.value || null)}
-                        className={GAME_SETUP_INPUT_CLASS}
-                      >
-                        <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-                        {promptPresets.map((preset) => (
-                          <option key={preset.id} value={preset.id}>
-                            {preset.name}
-                          </option>
-                        ))}
-                      </select>
+                        presets={promptPresets}
+                        ariaLabel={localizeUi("ui.game.gamesetupwizard.basePromptPreset")}
+                        triggerClassName={GAME_SETUP_INPUT_CLASS}
+                        onChange={(id) => handlePromptPresetChange(id || null)}
+                      />
                       <p className="mt-1 text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
                         {gamePresentation === "anime"
                           ? localizeUi("ui.game.gamesetupwizard.theStoryboardGamePromptReplacesTheSelectedPresetS")

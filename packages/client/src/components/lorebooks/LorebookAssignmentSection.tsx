@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { BookOpen, Check, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { BookOpen, Check, Loader2, Plus, Trash2 } from "lucide-react";
 import {
-  includesTextForMatch,
   type Chat,
   type ChatMode,
   type Lorebook,
@@ -15,6 +14,9 @@ import { DEFAULT_LOREBOOK_SCOPE, normalizeLorebookScope } from "../../lib/lorebo
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { Modal } from "../ui/Modal";
+import { LibraryArt, LIBRARY_ROW_ART } from "../ui/LibraryPickers";
+import { PickerFolderList } from "../ui/PickerFolderList";
+import { useLibraryFolders } from "../../hooks/use-library-folders";
 import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -38,7 +40,6 @@ interface AssignmentDraft {
   lorebookId: string | null;
   mode: LorebookScopeMode;
   chatIds: string[];
-  search: string;
 }
 
 const MODE_LABELS: Record<ChatMode, string> = {
@@ -135,14 +136,34 @@ export function LorebookAssignmentSection({
     [lorebooks, ownerId, ownerType],
   );
 
-  const filteredLorebooks = useMemo(() => {
-    const query = draft?.search ?? "";
-    return (lorebooks as Lorebook[]).filter((lorebook) => {
-      if (lorebook.hiddenFromLibrary && !isLorebookAssignedToOwner(lorebook, ownerType, ownerId)) return false;
-      if (!query) return true;
-      return includesTextForMatch(`${lorebook.name} ${lorebook.description ?? ""}`, query);
-    });
-  }, [draft?.search, lorebooks, ownerId, ownerType]);
+  // The dialog's list is the shared picker list: the Lorebooks panel's folders, pictures and search
+  // (over names and descriptions), with "already assigned" or the description under each name.
+  const { data: lorebookFolders } = useLibraryFolders("lorebooks");
+  const pickerItems = useMemo(
+    () =>
+      (lorebooks as Lorebook[])
+        .filter((lorebook) => !lorebook.hiddenFromLibrary || isLorebookAssignedToOwner(lorebook, ownerType, ownerId))
+        .map((lorebook) => ({
+          id: lorebook.id,
+          label: lorebook.name,
+          searchText: lorebook.description ?? "",
+          subtitle: isLorebookAssignedToOwner(lorebook, ownerType, ownerId)
+            ? localizeUi("ui.lorebooks.lorebookassignmentsection.alreadyAssignedToValue1", {
+                value1: ownerName || ownerType,
+              })
+            : lorebook.description || "No description",
+          icon: <LibraryArt src={lorebook.imagePath ?? null} kind="lorebook" className={LIBRARY_ROW_ART} />,
+        })),
+    [lorebooks, ownerId, ownerType, ownerName, localizeUi],
+  );
+  const pickLorebook = (id: string) => {
+    const lorebook = (lorebooks as Lorebook[]).find((item) => item.id === id);
+    if (!lorebook) return;
+    const scope = normalizeLorebookScope(lorebook.scope);
+    setDraft((current) =>
+      current ? { ...current, lorebookId: lorebook.id, mode: scope.mode, chatIds: scope.chatIds } : current,
+    );
+  };
 
   const selectedLorebook = draft?.lorebookId
     ? (lorebooks as Lorebook[]).find((lorebook) => lorebook.id === draft.lorebookId)
@@ -154,7 +175,6 @@ export function LorebookAssignmentSection({
       lorebookId: lorebook?.id ?? null,
       mode: scope.mode,
       chatIds: scope.chatIds,
-      search: "",
     });
   };
 
@@ -376,69 +396,17 @@ export function LorebookAssignmentSection({
       >
         {draft && (
           <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto">
-            <div className="relative">
-              <Search
-                size="0.875rem"
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-              />
-              <input
-                value={draft.search}
-                onChange={(event) =>
-                  setDraft((current) => (current ? { ...current, search: event.target.value } : current))
-                }
-                placeholder={localizeUi("ui.lorebooks.lorebookassignmentsection.searchCharacterLorebooks")}
-                className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 max-sm:text-base"
-              />
-            </div>
-
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_16rem]">
-              <div className="min-h-48 space-y-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-1.5">
-                {filteredLorebooks.length === 0 ? (
-                  <p className="px-3 py-6 text-center text-xs text-[var(--muted-foreground)]">
-                    {localizeUi("ui.lorebooks.lorebookassignmentsection.noMatchingLorebooks")}
-                  </p>
-                ) : (
-                  filteredLorebooks.map((lorebook) => {
-                    const assigned = isLorebookAssignedToOwner(lorebook, ownerType, ownerId);
-                    const selected = draft.lorebookId === lorebook.id;
-                    return (
-                      <button
-                        key={lorebook.id}
-                        type="button"
-                        onClick={() => {
-                          const scope = normalizeLorebookScope(lorebook.scope);
-                          setDraft((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  lorebookId: lorebook.id,
-                                  mode: scope.mode,
-                                  chatIds: scope.chatIds,
-                                }
-                              : current,
-                          );
-                        }}
-                        className={cn(
-                          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
-                          selected ? "bg-[var(--primary)]/15 text-[var(--primary)]" : "hover:bg-[var(--accent)]",
-                        )}
-                      >
-                        <BookOpen size="0.8125rem" className="shrink-0" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-xs font-medium">{lorebook.name}</span>
-                          <span className="block truncate text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                            {assigned
-                              ? localizeUi("ui.lorebooks.lorebookassignmentsection.alreadyAssignedToValue1", {
-                                  value1: ownerName || ownerType,
-                                })
-                              : lorebook.description || "No description"}
-                          </span>
-                        </span>
-                        {selected && <Check size="0.75rem" className="shrink-0" />}
-                      </button>
-                    );
-                  })
-                )}
+              <div className="flex h-[min(55vh,26rem)] min-h-48 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)]">
+                <PickerFolderList
+                  items={pickerItems}
+                  folders={lorebookFolders ?? []}
+                  selectedIds={draft.lorebookId ? [draft.lorebookId] : []}
+                  onToggle={pickLorebook}
+                  searchLabel={localizeUi("ui.lorebooks.lorebookassignmentsection.searchCharacterLorebooks")}
+                  emptyLabel={localizeUi("ui.lorebooks.lorebookassignmentsection.noMatchingLorebooks")}
+                  noMatchesLabel={localizeUi("ui.lorebooks.lorebookassignmentsection.noMatchingLorebooks")}
+                />
               </div>
 
               <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">

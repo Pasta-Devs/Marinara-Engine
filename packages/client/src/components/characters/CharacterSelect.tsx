@@ -13,7 +13,7 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import type { CharacterIdentityChoice } from "../../lib/character-identity-groups";
 import { PickerWindow } from "../ui/PickerWindow";
-import { CharacterPickerList, type CharacterPickerListProps } from "./CharacterPickerList";
+import { CharacterPickerList, type CharacterPickerListProps, type PickerDefaultChoice } from "./CharacterPickerList";
 
 /** A persona pick: a persona, a character played as the persona, or `null` for None. */
 export type PersonaChoice = { persona: string } | { character: string } | null;
@@ -36,6 +36,8 @@ type CommonProps = Pick<
   windowClassName?: string;
   id?: string;
   "aria-label"?: string;
+  /** Single pick: a row above None for a choice the caller defines; picking it closes the window. */
+  defaultChoice?: PickerDefaultChoice;
   /** Extra rows above the list, such as onboarding templates. */
   header?: ReactNode;
   /** `controlled`: open state, and the element the popover sits next to. */
@@ -242,6 +244,17 @@ export function CharacterSelect(props: CharacterSelectProps) {
       busy={props.busy}
       exclude={props.exclude}
       nonePicked={props.nonePicked}
+      defaultChoice={
+        props.defaultChoice && !props.multiple
+          ? {
+              ...props.defaultChoice,
+              onPick: () => {
+                props.defaultChoice?.onPick();
+                close();
+              },
+            }
+          : undefined
+      }
       unavailable={props.unavailable}
       badge={props.badge}
       onCreate={props.onCreate}

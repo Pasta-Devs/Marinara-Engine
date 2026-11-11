@@ -4187,9 +4187,10 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
     await expect(connectionPicker).toBeHidden();
     await roleplayWizard.getByRole("button", { name: "Next", exact: true }).click();
     await expect(roleplayWizard.getByRole("heading", { name: "Pick a Preset", exact: true })).toBeVisible();
-    const presetSelect = roleplayWizard.getByRole("combobox", { name: "Preset", exact: true });
+    const presetSelect = roleplayWizard.getByRole("button", { name: "Preset", exact: true });
     await presetSelect.click();
-    const presetListbox = roleplayWizard.getByRole("listbox", { name: "Preset", exact: true });
+    // The preset field opens the shared picker window (#9076), held to the same legibility rules.
+    const presetListbox = page.getByRole("dialog", { name: "Preset", exact: true });
     await expect(presetListbox).toBeVisible();
     // The model field is no longer a listbox of the same kind (#8456), so the preset listbox is held to the same
     // legibility rules on its own.
@@ -4210,7 +4211,7 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
       }
       await route.continue();
     });
-    await presetListbox.getByRole("option", { name: "None", exact: true }).click();
+    await presetListbox.locator("[data-pick-row]").filter({ hasText: "None" }).first().click();
     await presetSaved.promise;
     await expect(roleplayWizard.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
     presetSaveGate.resolve();

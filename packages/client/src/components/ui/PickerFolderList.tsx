@@ -17,7 +17,20 @@ import {
   usePickerKeyboard,
 } from "./PickerParts";
 
-export type PickerFolderItem = { id: string; label: string; icon?: ReactNode };
+export type PickerFolderItem = {
+  id: string;
+  label: string;
+  icon?: ReactNode;
+  /** Second line under the label. */
+  subtitle?: string | null;
+  /** Greys the row out, with this as its second line. */
+  disabledReason?: string;
+  /** Extra text the search matches besides the label (such as a description). */
+  searchText?: string;
+};
+
+const matches = (item: PickerFolderItem, query: string) =>
+  includesTextForMatch(item.searchText ? item.label + " " + item.searchText : item.label, query);
 
 export type PickerFolderListProps = {
   /** Already in display order. */
@@ -66,14 +79,10 @@ export function PickerFolderList({
   const onSearchKey = usePickerKeyboard({ listRef, searchRef, listId, query });
 
   const visibleLeading = useMemo(
-    () =>
-      query ? (leadingItems ?? []).filter((item) => includesTextForMatch(item.label, query)) : (leadingItems ?? []),
+    () => (query ? (leadingItems ?? []).filter((item) => matches(item, query)) : (leadingItems ?? [])),
     [leadingItems, query],
   );
-  const visibleItems = useMemo(
-    () => (query ? items.filter((item) => includesTextForMatch(item.label, query)) : items),
-    [items, query],
-  );
+  const visibleItems = useMemo(() => (query ? items.filter((item) => matches(item, query)) : items), [items, query]);
 
   // Folders by sort order, each with the items it holds. Items in no folder sit loose under the
   // folders, like the panels show them; only a long tail of them collapses into "Ungrouped".
@@ -121,6 +130,8 @@ export function PickerFolderList({
       onClick={() => onToggle(item.id)}
       art={item.icon}
       title={item.label}
+      subtitle={item.subtitle}
+      disabledReason={item.disabledReason}
       indented={indented}
     />
   );
@@ -129,7 +140,7 @@ export function PickerFolderList({
     const open = expanded.has(group.id);
     const addable =
       multiple && onPickGroup && group.id !== UNGROUPED_ID
-        ? group.items.filter((item) => !selectedSet.has(item.id)).map((item) => item.id)
+        ? group.items.filter((item) => !selectedSet.has(item.id) && !item.disabledReason).map((item) => item.id)
         : [];
     return (
       <PickerFolder
