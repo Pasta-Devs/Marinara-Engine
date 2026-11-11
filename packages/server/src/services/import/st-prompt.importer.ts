@@ -6,6 +6,9 @@ import type { MarkerConfig } from "@marinara-engine/shared";
 import { createPromptsStorage } from "../storage/prompts.storage.js";
 import type { PromptVariableGroup } from "@marinara-engine/shared";
 import type { TimestampOverrides } from "./import-timestamps.js";
+import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
+import { convertStRegexScripts } from "./st-character.importer.js";
+import { logger } from "../../lib/logger.js";
 
 /** Friendly display names for consolidated markers. */
 const MARKER_DISPLAY_NAMES: Partial<Record<string, string>> = {
@@ -163,12 +166,39 @@ export async function importSTPreset(
     await storage.reorderSections(created.id, createdSectionIds);
   }
 
+  const regexImported = await importPresetRegexScripts(raw, created.id, db);
+
   return {
     success: true,
     presetId: created.id,
     sectionsImported: sectionsCreated,
     variableGroups: variableGroups.length,
+    regexImported,
   };
+}
+
+/**
+ * SillyTavern keeps a preset's own regex scripts in `extensions.regex_scripts`. They come in
+ * linked to the new preset (so they only run with it and show in its folder in Regex scripts),
+ * after every existing script in run order.
+ */
+async function importPresetRegexScripts(raw: Record<string, unknown>, presetId: string, db: DB) {
+  const extensions =
+    raw.extensions && typeof raw.extensions === "object" ? (raw.extensions as Record<string, unknown>) : null;
+  if (!extensions || !Array.isArray(extensions.regex_scripts) || extensions.regex_scripts.length === 0) return 0;
+  const regexStorage = createRegexScriptsStorage(db);
+  const existing = await regexStorage.list();
+  const orderBase = existing.reduce((maximum, script) => Math.max(maximum, script.order), -1) + 1;
+  let created = 0;
+  for (const input of convertStRegexScripts(extensions.regex_scripts, { presetIds: [presetId] }, orderBase)) {
+    try {
+      await regexStorage.create(input);
+      created += 1;
+    } catch (err) {
+      logger.warn(err, "Failed to import a preset regex script");
+    }
+  }
+  return created;
 }
 
 /**

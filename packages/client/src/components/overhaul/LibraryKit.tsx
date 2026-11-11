@@ -329,7 +329,8 @@ export function KitBulkBar({ selection, actions }: { selection: KitSelection; ac
 
 // ── Folders ──
 
-export type KitFolder = { id: string; name: string; itemIds: string[]; collapsed?: boolean };
+/** `virtual`: a folder the app makes on its own (a preset's regex scripts); nothing can be dropped or filed into it. */
+export type KitFolder = { id: string; name: string; itemIds: string[]; collapsed?: boolean; virtual?: boolean };
 
 export type KitFolders = {
   folders: KitFolder[];
@@ -342,7 +343,7 @@ export type KitFolders = {
   folderOf: (itemId: string) => string | null;
 };
 
-function useLocalCollapsed(key: string) {
+export function useLocalCollapsed(key: string) {
   const storageKey = `marinara-ov-folders-collapsed:${key}`;
   const [collapsed, setCollapsed] = useState<Set<string>>(() => {
     try {
@@ -509,13 +510,15 @@ export function moveToFolderAction(folders: KitFolders, itemIds: () => string[],
     label: "Move to folder",
     icon: <FolderInput size={14} aria-hidden="true" />,
     submenu: [
-      ...folders.folders.map((folder) => ({
-        key: `f:${folder.id}`,
-        label: folder.name,
-        icon: <Folder size={14} aria-hidden="true" />,
-        disabled: folder.id === current,
-        onSelect: () => folders.move(itemIds(), folder.id),
-      })),
+      ...folders.folders
+        .filter((folder) => !folder.virtual)
+        .map((folder) => ({
+          key: `f:${folder.id}`,
+          label: folder.name,
+          icon: <Folder size={14} aria-hidden="true" />,
+          disabled: folder.id === current,
+          onSelect: () => folders.move(itemIds(), folder.id),
+        })),
       { key: "root", label: "No folder", disabled: current === null, onSelect: () => folders.move(itemIds(), null) },
     ],
   };
@@ -562,10 +565,16 @@ export function KitFolderHead({
   onToggle,
   onMenu,
   dragKind,
+  note,
+  trail,
 }: {
   dragKind?: string;
   folder: KitFolder;
   count: number;
+  /** Shown instead of the count, such as "3/12 on". */
+  note?: string;
+  /** A control before the ⋯ button, such as the folder's on/off switch. */
+  trail?: ReactNode;
   collapsed: boolean;
   onToggle: () => void;
   onMenu: (event: MouseEvent<HTMLElement>, anchor: "pointer" | "button") => void;
@@ -574,8 +583,12 @@ export function KitFolderHead({
   return (
     <div
       className="ov-kit-folder"
-      data-ov-folder-id={folder.id}
-      {...(dragKind ? { [`data-${dragKind}-folder-id`]: folder.id } : {})}
+      {...(folder.virtual
+        ? {}
+        : {
+            "data-ov-folder-id": folder.id,
+            ...(dragKind ? { [`data-${dragKind}-folder-id`]: folder.id } : {}),
+          })}
       role="button"
       tabIndex={0}
       aria-expanded={!collapsed}
@@ -591,7 +604,16 @@ export function KitFolderHead({
       <ChevronRight size={14} className={cn("ov-kit-folder__arrow", !collapsed && "is-open")} aria-hidden="true" />
       <Folder size={15} aria-hidden="true" />
       <span className="ov-kit-folder__name">{folder.name}</span>
-      <span className="ov-kit-folder__count">{count}</span>
+      <span className="ov-kit-folder__count">{note ?? count}</span>
+      {trail ? (
+        <span
+          className="ov-kit-folder__trail"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          {trail}
+        </span>
+      ) : null}
       <KitMoreButton label={localize("Folder actions")} onOpen={(event) => onMenu(event, "button")} />
     </div>
   );
