@@ -17,7 +17,7 @@ Before you start: you need either an account whose service offers embeddings, or
 Option 1: an account with an embedding model.
 
 1. Open the **Connections** panel and open an account for editing.
-2. Open **Advanced**, then **More**, and find **Semantic search (embeddings)**.
+2. Click **More** and find **Semantic search (embeddings)**.
 3. Type an embedding model name, such as `text-embedding-3-small`. If you are not sure of the name, look in your service's documentation, or use the built-in model instead.
 4. Save the account.
 5. Click **Test embedding** to check. Marinara saves first, embeds a short sample, and shows the vector size, such as "1536 dimensions", or the error the service returned.

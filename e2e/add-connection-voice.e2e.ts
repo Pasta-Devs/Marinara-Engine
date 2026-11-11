@@ -22,13 +22,26 @@ test("Add models for an old ElevenLabs row opens the Voice job picker instead of
   try {
     await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
     await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
+    await page.route("**/api/connections/*/models*", (route) =>
+      route.fulfill({
+        json: {
+          models: [
+            { id: "eleven_multilingual_v2", name: "Eleven Multilingual v2" },
+            { id: "eleven_v3", name: "Eleven v3" },
+          ],
+        },
+      }),
+    );
     await page.goto("/");
     await page.evaluate(async (accountId) => {
       const { openAddModels } = await import("/src/lib/add-connection.ts" as string);
       openAddModels({ accountId });
     }, row.accountId);
     // #16: an old Voice row has no models to add; the Voice job's picker opens, not the Model window.
-    await expect(page.getByRole("dialog", { name: "Model for Voice" })).toBeVisible();
+    const picker = page.getByRole("dialog", { name: "Model for Voice" });
+    await expect(picker).toBeVisible();
+    // The picker browses the account's TTS catalog (ids like eleven_v3), not only its saved row.
+    await expect(picker.locator('[data-switcher-entry="eleven_v3"]').filter({ visible: true })).toBeVisible();
     await expect(page.locator("[data-add-connection-step]")).toHaveCount(0);
     expect(
       await page.evaluate(async () => {

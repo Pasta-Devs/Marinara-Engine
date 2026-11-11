@@ -85,7 +85,7 @@ A passing **Test provider** shows the probability, how long the answer took, and
 
 If it did not work, see [Troubleshooting](#troubleshooting).
 
-The Decision editor (**Edit model** on a decision model) has these fields:
+A decision model has these fields. Click the model in the panel to open **Edit model**, or click the gear on the **Decision** row in the **Jobs** box to open **Decision settings** for the current decision model:
 
 | Field | What it does |
 | --- | --- |

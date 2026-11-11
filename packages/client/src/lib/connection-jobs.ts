@@ -188,8 +188,7 @@ export function catalogMatchesKind(
   if (kind === "image") return /image|dall-e|flux|stable-diffusion|ideogram|recraft/.test(id);
   if (kind === "video") return /video|veo|sora|kling|runway|seedance|wan\d/.test(id);
   return (
-    /tts|speech|voice|elevenlabs|music|sound-effect|sfx|suno/.test(id) &&
-    !/whisper|transcri|speech-to-text|stt/.test(id)
+    /tts|speech|voice|eleven|music|sound-effect|sfx|suno/.test(id) && !/whisper|transcri|speech-to-text|stt/.test(id)
   );
 }
 
