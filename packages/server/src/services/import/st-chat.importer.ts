@@ -20,6 +20,8 @@ import {
   worldFold,
   worldLedgerCarry,
   omitChatMetadataLocalDestinations,
+  withImportTags,
+  type ImportTagOptions,
 } from "@marinara-engine/shared";
 import { copyAdvancedMemoryRecords, remapAdvancedMemoryMetadata } from "../advanced-memory-transfer.js";
 import {
@@ -102,6 +104,10 @@ export interface ImportSTChatOptions {
   promptPresetId?: string | null;
   /** Source file timestamps to preserve when trustworthy */
   timestampOverrides?: TimestampOverrides | null;
+  /** The "Tag imported" / "Tag source" checkboxes. Left out, the chat gets no import tags. */
+  importTags?: ImportTagOptions;
+  /** The source tag; SillyTavern by default. */
+  source?: string;
 }
 
 function normalizeTranscriptTimestamps(
@@ -449,7 +455,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
 
   const chat = await storage.create(
     {
-      name: opts?.chatName ?? `${characterName} (imported)`,
+      name: opts?.chatName ?? characterName,
       mode: importedMode,
       characterIds,
       groupId: opts?.groupId ?? null,
@@ -506,6 +512,21 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         ...importedMetadata,
         ...(importedBranchName ? { branchName: importedBranchName } : {}),
       },
+      { touchUpdatedAt: false },
+    );
+  }
+
+  // "Imported" and where it came from, as chat tags rather than in the name (both optional).
+  if (opts?.importTags) {
+    const importTags = opts.importTags;
+    // A chat Marinara exported carries its own metadata block; anything else came from SillyTavern.
+    const source = opts.source ?? (Object.keys(marinaraMetadata).length > 0 ? "marinara" : "st");
+    await storage.patchMetadata(
+      chat.id,
+      (current) => ({
+        ...current,
+        tags: withImportTags(Array.isArray(current.tags) ? current.tags : [], source, importTags),
+      }),
       { touchUpdatedAt: false },
     );
   }

@@ -1,6 +1,7 @@
 import {
   DEFAULT_GENERATION_PARAMS,
   parseGamePresetStorySettings,
+  parseTagList,
   withoutPresetTokenLimits,
   type GamePresetStorySettings,
 } from "@marinara-engine/shared";
@@ -201,6 +202,7 @@ type PresetFormFields = {
   description: string;
   wrapFormat: WrapFormat;
   author: string;
+  tags: string[];
   conversationPrompt: string;
   gamePrompt: string;
   gameStorySettings: GamePresetStorySettings | null;
@@ -221,6 +223,7 @@ function presetFormFields(p: any): PresetFormFields {
     description: p.description ?? "",
     wrapFormat: (p.wrapFormat ?? "xml") as WrapFormat,
     author: p.author ?? "",
+    tags: parseTagList(p.tags),
     conversationPrompt: p.conversationPrompt ?? "",
     gamePrompt: p.gamePrompt ?? "",
     gameStorySettings: parseGamePresetStorySettings(p.gameStorySettings),
@@ -329,6 +332,7 @@ export function PresetEditor() {
   const [localDescription, setLocalDescription] = useState("");
   const [localWrapFormat, setLocalWrapFormat] = useState<WrapFormat>("xml");
   const [localAuthor, setLocalAuthor] = useState("");
+  const [localTags, setLocalTags] = useState<string[]>([]);
   const [localConversationPrompt, setLocalConversationPrompt] = useState("");
   const [localGamePrompt, setLocalGamePrompt] = useState("");
   const [localGameStorySettings, setLocalGameStorySettings] = useState<GamePresetStorySettings | null>(null);
@@ -350,6 +354,7 @@ export function PresetEditor() {
     setLocalDescription(form.description);
     setLocalWrapFormat(form.wrapFormat);
     setLocalAuthor(form.author);
+    setLocalTags(form.tags);
     setLocalConversationPrompt(form.conversationPrompt);
     setLocalGamePrompt(form.gamePrompt);
     setLocalGameStorySettings(form.gameStorySettings);
@@ -403,6 +408,7 @@ export function PresetEditor() {
       description: localDescription,
       wrapFormat: localWrapFormat,
       author: localAuthor,
+      tags: localTags,
       conversationPrompt: localConversationPrompt,
       gamePrompt: localGamePrompt,
       gameStorySettings: localGameStorySettings,
@@ -437,6 +443,7 @@ export function PresetEditor() {
     localDescription,
     localWrapFormat,
     localAuthor,
+    localTags,
     localConversationPrompt,
     localGamePrompt,
     localGameStorySettings,
@@ -496,6 +503,7 @@ export function PresetEditor() {
             description: localDescription,
             wrapFormat: localWrapFormat,
             author: localAuthor,
+            tags: localTags,
             conversationPrompt: localConversationPrompt,
             gamePrompt: localGamePrompt,
             parameters: localParameters,
@@ -513,6 +521,7 @@ export function PresetEditor() {
         setLocalDescription(form.description ?? "");
         if (form.wrapFormat) setLocalWrapFormat(form.wrapFormat);
         setLocalAuthor(form.author ?? "");
+        if (Array.isArray(form.tags)) setLocalTags(form.tags);
         setLocalConversationPrompt(form.conversationPrompt ?? "");
         setLocalGamePrompt(form.gamePrompt ?? "");
         if (form.parameters && typeof form.parameters === "object") setLocalParameters(form.parameters);
@@ -788,6 +797,11 @@ export function PresetEditor() {
       author={localAuthor}
       onAuthorChange={(v) => {
         setLocalAuthor(formatQuotes(v));
+        markDirty();
+      }}
+      tags={localTags}
+      onTagsChange={(next) => {
+        setLocalTags(next);
         markDirty();
       }}
       scopedRegexMode={localScopedRegexMode}
@@ -1683,6 +1697,54 @@ function OverviewTab({
 }
 
 /** Overhaul (v1 frame 24): one dense form, no boxed cards. */
+/** The preset's tags as removable chips plus a typing box (Enter or comma adds), as in the Lorebook editor. */
+function PresetTagChips({ tags, onChange }: { tags: string[]; onChange: (next: string[]) => void }) {
+  const { t: localizeUi } = useUiTranslation();
+  const [draft, setDraft] = useState("");
+  const add = () => {
+    const seen = new Set(tags.map((tag) => tag.toLowerCase()));
+    const additions = draft
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => {
+        const key = tag.toLowerCase();
+        if (!tag || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    setDraft("");
+    if (additions.length) onChange([...tags, ...additions]);
+  };
+  return (
+    <div className="ov-bk__chips">
+      {tags.map((tag) => (
+        <span key={tag} className="ov-bk__chip">
+          {tag}
+          <button
+            type="button"
+            aria-label={localizeUi("ui.agents.regexscripteditor.removeValue1", { value1: tag })}
+            onClick={() => onChange(tags.filter((value) => value !== tag))}
+          >
+            <X size={10} />
+          </button>
+        </span>
+      ))}
+      <input
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === ",") {
+            event.preventDefault();
+            add();
+          }
+        }}
+        onBlur={() => draft.trim() && add()}
+        placeholder={localizeUi("tag…")}
+      />
+    </div>
+  );
+}
+
 function OvPresetOverview({
   preset,
   name,
@@ -1693,6 +1755,8 @@ function OvPresetOverview({
   onWrapFormatChange,
   author,
   onAuthorChange,
+  tags,
+  onTagsChange,
   scopedRegexMode,
   onScopedRegexModeChange,
   onOpenRegex,
@@ -1708,6 +1772,8 @@ function OvPresetOverview({
   onWrapFormatChange: (v: WrapFormat) => void;
   author: string;
   onAuthorChange: (v: string) => void;
+  tags: string[];
+  onTagsChange: (next: string[]) => void;
   scopedRegexMode: ScopedRegexMode;
   onScopedRegexModeChange: (mode: ScopedRegexMode) => void;
   onOpenRegex: () => void;
@@ -1761,6 +1827,10 @@ function OvPresetOverview({
             placeholder={localizeUi("ui.presets.overviewtab.whatDoesThisPresetDo")}
           />
         </label>
+        <div className="ov-lf ov-povw__full" data-mari-field="tags">
+          <span>{localizeUi("ui.lorebooks.lorebookeditor.tags")}</span>
+          <PresetTagChips tags={tags} onChange={onTagsChange} />
+        </div>
         <div className="ov-lf">
           <span>{localizeUi("commandCenter.preview.wrapFormat")}</span>
           <OvSeg

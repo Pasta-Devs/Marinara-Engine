@@ -9,6 +9,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
 import { getFolderImportEntries, getFolderManifestConfig } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useOverhaulLook } from "../../stores/overhaul.store";
+import { ImportTagChecks, importTagsBody, OvImportDrop, useImportTagChoice } from "./ImportTagChecks";
 
 interface Props {
   open: boolean;
@@ -22,6 +24,8 @@ export function ImportPresetModal({ open, onClose }: Props) {
   const [results, setResults] = useState<Array<{ filename: string; success: boolean; message: string }>>([]);
   const [dragOver, setDragOver] = useState(false);
   const qc = useQueryClient();
+  const importTags = useImportTagChoice();
+  const overhaulActive = useOverhaulLook();
 
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
@@ -51,6 +55,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
           for (const envelope of nativePresetEnvelopes) {
             const data = await api.post<{ success: boolean; error?: string }>("/import/marinara", {
               ...envelope,
+              ...importTagsBody(importTags.choice),
               timestampOverrides: {
                 createdAt: file.lastModified,
                 updatedAt: file.lastModified,
@@ -70,6 +75,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
 
         const data = await api.post<{ success: boolean; error?: string }>("/import/st-preset", {
           ...json,
+          ...importTagsBody(importTags.choice),
           __filename: file.name.replace(/\.json$/i, ""),
           timestampOverrides: {
             createdAt: file.lastModified,
@@ -108,6 +114,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
   const reset = () => {
     setStatus("idle");
     setResults([]);
+    importTags.reset();
   };
 
   return (
@@ -120,28 +127,39 @@ export function ImportPresetModal({ open, onClose }: Props) {
       title={localizeUi("ui.modals.importpresetmodal.importPreset")}
     >
       <div className="flex flex-col gap-4">
-        <div
-          onDrop={handleDrop}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onClick={() => fileRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all ${
-            dragOver
-              ? "border-[var(--primary)] bg-[var(--primary)]/10"
-              : "border-[var(--border)] hover:border-[var(--muted-foreground)] hover:bg-[var(--secondary)]/50"
-          }`}
-        >
-          <Download size="2rem" className={dragOver ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"} />
-          <p className="text-sm font-medium">
-            {localizeUi("ui.modals.importpresetmodal.dropOneOrMorePresetFilesHereOrClick")}
-          </p>
-          <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-            <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.json")}
-          </span>
-        </div>
+        {overhaulActive ? (
+          <OvImportDrop
+            types={localizeUi("ui.modals.importtags.typesJson")}
+            dragOver={dragOver}
+            setDragOver={setDragOver}
+            onFiles={(files) => void handleFiles(files)}
+            onBrowse={() => fileRef.current?.click()}
+          />
+        ) : (
+          <div
+            onDrop={handleDrop}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onClick={() => fileRef.current?.click()}
+            className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all ${
+              dragOver
+                ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                : "border-[var(--border)] hover:border-[var(--muted-foreground)] hover:bg-[var(--secondary)]/50"
+            }`}
+          >
+            <Download size="2rem" className={dragOver ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"} />
+            <p className="text-sm font-medium">
+              {localizeUi("ui.modals.importpresetmodal.dropOneOrMorePresetFilesHereOrClick")}
+            </p>
+            <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+              <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.json")}
+            </span>
+          </div>
+        )}
+        <ImportTagChecks value={importTags.choice} onChange={importTags.setChoice} sources={["ST", "Marinara"]} />
 
         <input
           ref={fileRef}

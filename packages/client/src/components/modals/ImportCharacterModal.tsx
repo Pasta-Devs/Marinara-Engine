@@ -21,6 +21,7 @@ import type { DescriptionSplitResult } from "@marinara-engine/shared";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DescriptionSplitDialog } from "../characters/DescriptionSplitDialog";
 import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
+import { appendImportTags, ImportTagChecks, importTagsBody, useImportTagChoice } from "./ImportTagChecks";
 
 interface Props {
   open: boolean;
@@ -127,6 +128,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
   const [regexScriptScope, setRegexScriptScope] = useState<RegexScriptScope>("character");
   const [splitDescription, setSplitDescription] = useState(false);
+  const importTags = useImportTagChoice();
   // The row whose split summary is shown; kept after closing so the dialog does not empty while it fades.
   const [splitSummary, setSplitSummary] = useState<ImportResultRow | null>(null);
   const [splitSummaryOpen, setSplitSummaryOpen] = useState(false);
@@ -199,6 +201,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
 
       if (stCharacterFiles.length > 0) {
         const form = new FormData();
+        appendImportTags(form, importTags.choice);
         for (const file of stCharacterFiles) {
           form.append("files", file);
         }
@@ -262,6 +265,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             error?: string;
           }>("/import/marinara", {
             ...item.payload,
+            ...importTagsBody(importTags.choice),
             timestampOverrides: {
               createdAt: item.file.lastModified,
               updatedAt: item.file.lastModified,
@@ -287,6 +291,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
       for (const file of marinaraPackages) {
         try {
           const form = new FormData();
+          appendImportTags(form, importTags.choice);
           form.append("file", file, file.name);
           form.append(
             "timestampOverrides",
@@ -378,6 +383,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
     setTagImportMode("all");
     setRegexScriptScope("character");
     setSplitDescription(false);
+    importTags.reset();
   };
 
   return (
@@ -492,6 +498,11 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                 </span>
               </span>
             </label>
+            <ImportTagChecks
+              value={importTags.choice}
+              onChange={importTags.setChoice}
+              sources={["ST", "CharX", "Marinara"]}
+            />
           </>
         ) : (
           <>
@@ -589,6 +600,12 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                 />
               </span>
             </label>
+
+            <ImportTagChecks
+              value={importTags.choice}
+              onChange={importTags.setChoice}
+              sources={["ST", "CharX", "Marinara"]}
+            />
 
             {/* Drop zone */}
             <div

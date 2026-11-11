@@ -18,7 +18,10 @@ import {
   isPatternSafe,
   ONBOARDING_MAX_QUESTIONS,
   splitCharacterDescription,
+  botBrowserSourceTag,
+  withImportTags,
   type DescriptionSplitResult,
+  type ImportTagOptions,
 } from "@marinara-engine/shared";
 import type {
   CharacterBookEntryPosition,
@@ -130,6 +133,10 @@ export interface STCharacterImportOptions {
   regexScriptScope?: "character" | "global";
   /** Split a labelled description into personality, appearance, backstory and the other card fields. */
   splitDescription?: boolean;
+  /** The "Tag imported" / "Tag source" checkboxes. Left out, the card gets no import tags (internal imports). */
+  importTags?: ImportTagOptions;
+  /** The source tag: SillyTavern unless a CharX file or the bot browser says otherwise. */
+  source?: string;
 }
 
 // SillyTavern regex placement ids → our placement strings (1 = user input, 2 = AI output).
@@ -239,6 +246,9 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     data.character_book = normalizeCharacterBook(rawEmbeddedLorebook);
   }
   data.tags = await filterImportedTags(data.tags, db, tagImportMode, options?.existingTagKeys);
+  // "Imported" and where it came from, as tags rather than in the name (both optional).
+  const importSource = botBrowserSource ? botBrowserSourceTag(botBrowserSource) : (options?.source ?? "st");
+  if (options?.importTags) data.tags = withImportTags(data.tags, importSource, options.importTags);
 
   // Cards that keep everything in the description are split into Marinara's fields when asked.
   // The card is imported as it came and the split is saved afterwards as a new card version, so
@@ -328,6 +338,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
         characterId: charId,
         namePrefix: data.name,
         timestampOverrides: options?.timestampOverrides,
+        ...(options?.importTags ? { importTags: options.importTags, source: importSource } : {}),
         beforeCommit: async (tx, result) => {
           const updatedImportMetadata = {
             ...(data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>),
@@ -505,7 +516,10 @@ export async function importCharX(buf: Buffer, db: DB, options?: STCharacterImpo
     cardJson._avatarDataUrl = avatarDataUrl;
   }
 
-  const result = await importSTCharacter(cardJson as Record<string, unknown>, db, options);
+  const result = await importSTCharacter(cardJson as Record<string, unknown>, db, {
+    ...options,
+    source: options?.source ?? "charx",
+  });
   // The importer reports decision statements (#6569); only the server opens a .charx.
   return result.success && containsDecisionStatements(cardJson) ? { ...result, usesDecisions: true } : result;
 }

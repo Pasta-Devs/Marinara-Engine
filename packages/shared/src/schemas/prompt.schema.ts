@@ -217,6 +217,7 @@ export const createPromptPresetSchema = z.object({
   scopedRegexMode: scopedRegexModeSchema.default("disabled"),
   isDefault: z.boolean().default(false),
   author: z.string().default(""),
+  tags: z.array(z.string()).default([]),
 });
 
 export const updatePromptPresetSchema = z.object({
@@ -234,6 +235,7 @@ export const updatePromptPresetSchema = z.object({
   wrapFormat: wrapFormatSchema.optional(),
   scopedRegexMode: scopedRegexModeSchema.optional(),
   author: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   defaultChoices: z.record(z.string(), z.union([z.string(), z.array(z.string())])).optional(),
 });
 

@@ -56,7 +56,12 @@ import {
   TRANSLATOR_DEFAULTS_SETTINGS_KEY,
   type ExportEnvelope,
   parseLorebookDecisionActivation,
+  parseTagList,
+  PROFESSOR_MARI_ID,
+  readImportTagOptions,
   restoreBakedGreetingImages,
+  withImportTags,
+  type ImportTagOptions,
 } from "@marinara-engine/shared";
 import { getDataDir } from "../utils/data-dir.js";
 import { uniqueExportName } from "../utils/export-stream.js";
@@ -968,6 +973,54 @@ export function quarantineProfileThemeRow(row: Record<string, unknown>) {
   return { ...row, isActive: "false" };
 }
 
+/** The request header that carries the "Tag imported" / "Tag source" checkboxes of a profile import. */
+const PROFILE_IMPORT_TAGS_HEADER = "x-import-tags";
+
+function parseJsonText(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * "Imported" and "Backup" on the characters, personas, lorebooks, presets and chats a profile import
+ * brings in, when those checkboxes are on. Professor Mari and the Engine's own presets stay untagged.
+ */
+export function tagProfileImportRow(
+  tableName: string,
+  row: Record<string, unknown>,
+  importTags: ImportTagOptions | undefined,
+): Record<string, unknown> {
+  if (!importTags || (importTags.imported === false && importTags.source === false)) return row;
+  const tag = (tags: unknown) => withImportTags(parseTagList(tags), "backup", importTags);
+  switch (tableName) {
+    case "characters": {
+      if (row.id === PROFESSOR_MARI_ID) return row;
+      const data = parseJsonText(row.data);
+      if (!data || typeof data !== "object" || Array.isArray(data)) return row;
+      const card = data as Record<string, unknown>;
+      return { ...row, data: JSON.stringify({ ...card, tags: tag(card.tags) }) };
+    }
+    case "personas":
+    case "lorebooks":
+      return { ...row, tags: JSON.stringify(tag(row.tags)) };
+    case "prompt_presets":
+      if (typeof row.systemKey === "string" && row.systemKey) return row;
+      return { ...row, tags: JSON.stringify(tag(row.tags)) };
+    case "chats": {
+      const metadata = parseJsonText(row.metadata);
+      const record = metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+      const current = record as Record<string, unknown>;
+      return { ...row, metadata: JSON.stringify({ ...current, tags: tag(current.tags) }) };
+    }
+    default:
+      return row;
+  }
+}
+
 export function normalizeProfilePromptPresetRow(
   row: Record<string, unknown>,
   localStockPresetId: string | null,
@@ -1421,6 +1474,7 @@ async function importProfileStorageSnapshot(
   warnings: ProfileImportWarning[],
   onProgress?: ProfileImportProgressReporter,
   readAsset?: ProfileAssetReader,
+  importTags?: ImportTagOptions,
 ) {
   validateProfileStorageTableInputs(snapshot);
   const assetInputs = buildProfileImportAssetInputs(snapshot, readAsset, warnings);
@@ -1538,6 +1592,7 @@ async function importProfileStorageSnapshot(
             if (tableName === "prompt_presets") {
               cleanRow = normalizeProfilePromptPresetRow(cleanRow, localStockPresetId);
             }
+            cleanRow = tagProfileImportRow(tableName, cleanRow, importTags);
             const insert = tx.insert(table as any).values(cleanRow as any) as any;
             const conflictTarget = schemaPrimaryKeyColumn(table);
             if (conflictTarget) {
@@ -4057,6 +4112,7 @@ export async function backupRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Profile import" })) return;
 
     const wantsProgressStream = String(req.headers.accept ?? "").includes("text/event-stream");
+    const importTags = readImportTagOptions(req.headers[PROFILE_IMPORT_TAGS_HEADER]);
     const previewOnly = (req.query as { preview?: unknown } | undefined)?.preview === "true";
     const providedPreviewToken =
       typeof req.headers["x-profile-preview-token"] === "string" ? req.headers["x-profile-preview-token"].trim() : "";
@@ -4153,6 +4209,7 @@ export async function backupRoutes(app: FastifyInstance) {
             warnings,
             wantsProgressStream ? sendProgress : undefined,
             importInput.readAsset,
+            importTags,
           );
           const payload = { success: true, imported, warnings };
           if (wantsProgressStream) {
@@ -4188,7 +4245,11 @@ export async function backupRoutes(app: FastifyInstance) {
           for (const c of data.characters) {
             try {
               emitLegacyProgress("characters", "Importing characters");
-              const charData = typeof c.data === "string" ? JSON.parse(c.data) : c.data;
+              const parsedCharData = typeof c.data === "string" ? JSON.parse(c.data) : c.data;
+              const charData =
+                parsedCharData && typeof parsedCharData === "object"
+                  ? { ...parsedCharData, tags: withImportTags(parseTagList(parsedCharData.tags), "backup", importTags) }
+                  : parsedCharData;
               const result = await chars.create(
                 charData,
                 c.avatarPath ?? undefined,
@@ -4250,7 +4311,7 @@ export async function backupRoutes(app: FastifyInstance) {
                       ? p.trackerCardColors
                       : JSON.stringify(p.trackerCardColors ?? { mode: "chat" }),
                   personaStats: p.personaStats,
-                  tags: typeof p.tags === "string" ? p.tags : JSON.stringify(p.tags ?? []),
+                  tags: JSON.stringify(withImportTags(parseTagList(p.tags), "backup", importTags)),
                   savedStatusOptions:
                     typeof p.savedStatusOptions === "string"
                       ? p.savedStatusOptions
@@ -4304,6 +4365,7 @@ export async function backupRoutes(app: FastifyInstance) {
                 {
                   name: lb.name,
                   description: lb.description ?? "",
+                  tags: withImportTags(parseTagList(lb.tags), "backup", importTags),
                   category: lb.category ?? "uncategorized",
                   scanDepth: lb.scanDepth,
                   tokenBudget: lb.tokenBudget,
@@ -4331,7 +4393,6 @@ export async function backupRoutes(app: FastifyInstance) {
                   chatId: lb.chatId ?? null,
                   isGlobal: lb.isGlobal ?? false,
                   scope: normalizeLorebookScope(lb.scope),
-                  tags: Array.isArray(lb.tags) ? lb.tags : [],
                   generatedBy: lb.generatedBy ?? null,
                   sourceAgentId: lb.sourceAgentId ?? null,
                 },
@@ -4420,8 +4481,10 @@ export async function backupRoutes(app: FastifyInstance) {
               if (!existing) {
                 const created = await presets.create(
                   {
-                    name: `${p.name} (imported)`,
+                    // Its own name: where it came from is a tag ("Imported", "Backup"), not "(imported)".
+                    name: p.name,
                     description: p.description ?? "",
+                    tags: withImportTags(parseTagList(p.tags), "backup", importTags),
                     parameters:
                       typeof p.parameters === "string"
                         ? JSON.parse(p.parameters)

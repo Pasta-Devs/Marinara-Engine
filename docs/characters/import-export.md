@@ -36,6 +36,10 @@ If it did not work: read the red message next to the file. The other files in th
 | **Imported regex scripts** | **Character only** (default): rules run for this character. |
 | | **Global**: rules go to **Presets → Regexes** and run in every chat. |
 | **Split description into fields** | Off by default. Tick it to move labelled personality, appearance and similar text out of **Description** into their own fields. |
+| **Import tags** | **Tag imported** (on by default): adds the tag **Imported**. |
+| | **Tag source** (on by default): adds where the file came from: **ST** for a SillyTavern card, **CharX** for a `.charx`, **Marinara** for a Marinara export. |
+
+Imported items keep their own name and description. To find everything you imported, pick **Imported** in the **Tags** filter next to search. Every Library import window (Characters, Personas, Lorebooks, Presets) and the chat import has the same two **Import tags** boxes. The [Bot Browser](bot-browser.md) uses the site's name as the source, for example **Chub**.
 
 Regex scripts are small text-replacement rules. Keep **Character only** unless you want the rules everywhere. The split leaves narrator, world and multi-character cards as they are.
 

@@ -70,10 +70,11 @@ A native profile keeps Personal Extension code, but not whether it is turned on 
 **Import Profile** loads a profile file or a **Download Backup** `.zip`.
 
 1. Open **Settings → Data → Backup & Restore**.
-2. Click **Import Profile (JSON/ZIP)**.
-3. Choose `marinara-profile.json`, `marinara-profile.zip` or a backup `.zip`. The button shows **Scanning Profile...**.
-4. Read the **Import Profile** dialog. It lists what Marinara found and warns that you cannot undo the import.
-5. Click **Import**, or **Cancel** to stop. The button shows **Importing Profile...** and a progress bar follows. When it finishes, a message says the profile was imported.
+2. Under the button, leave **Tag imported** and **Tag source** ticked to tag the characters, personas, lorebooks, presets and chats it brings in with **Imported** and **Backup**. Untick them to restore everything exactly as it was.
+3. Click **Import Profile (JSON/ZIP)**.
+4. Choose `marinara-profile.json`, `marinara-profile.zip` or a backup `.zip`. The button shows **Scanning Profile...**.
+5. Read the **Import Profile** dialog. It lists what Marinara found and warns that you cannot undo the import.
+6. Click **Import**, or **Cancel** to stop. The button shows **Importing Profile...** and a progress bar follows. When it finishes, a message says the profile was imported.
 
 If it did not work:
 

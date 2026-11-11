@@ -33,9 +33,11 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  botBrowserSourceTag,
   DESCRIPTION_SPLIT_VERSION,
   splitCharacterDescription,
   unassignCardFieldAlternatives,
+  withImportTags,
   type DescriptionSplitResult,
 } from "@marinara-engine/shared";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -72,6 +74,7 @@ import {
 import { translate } from "../../localization/i18n";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
+import { ImportTagChecks, importTagsBody, useImportTagChoice } from "../modals/ImportTagChecks";
 
 // ════════════════════════════════════════════════
 // Types
@@ -1705,6 +1708,7 @@ export function BotBrowserView() {
   const [pendingImport, setPendingImport] = useState<PendingBrowserCardImport | null>(null);
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
   const [splitDescription, setSplitDescription] = useState(false);
+  const importTags = useImportTagChoice();
   // Kept after closing so the summary dialog does not empty out while it fades.
   const [splitSummary, setSplitSummary] = useState<ImportSplitSummary | null>(null);
   const [splitSummaryOpen, setSplitSummaryOpen] = useState(false);
@@ -2062,6 +2066,7 @@ export function BotBrowserView() {
           importEmbeddedLorebook,
           tagImportMode,
           splitDescription,
+          ...importTagsBody(importTags.choice),
         }),
       });
       const data = (await response.json()) as {
@@ -2100,7 +2105,11 @@ export function BotBrowserView() {
     const extensions = optionalRecord(cardData.extensions) ?? {};
     const personaName = optionalString(cardData.name) ?? prepared.card.name;
     const sourceTags = readCardTags(cardData.tags);
-    const personaTags = await filterPersonaImportTags(sourceTags, tagImportMode);
+    const personaTags = withImportTags(
+      await filterPersonaImportTags(sourceTags, tagImportMode),
+      botBrowserSourceTag(sourceId),
+      importTags.choice,
+    );
     const personaResponse = await fetch("/api/characters/personas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2171,6 +2180,8 @@ export function BotBrowserView() {
             ...embedded,
             name: optionalString(embedded.name) ?? `${personaName}'s Lorebook`,
             __filename: `${personaName}'s Lorebook`,
+            __importSource: botBrowserSourceTag(sourceId),
+            ...importTagsBody(importTags.choice),
           }),
         });
         const lorebook = (await lorebookResponse.json()) as { success?: boolean; error?: string };
@@ -3084,6 +3095,12 @@ export function BotBrowserView() {
                     />
                   </span>
                 </label>
+                <ImportTagChecks
+                  value={importTags.choice}
+                  onChange={importTags.setChoice}
+                  sources={[botBrowserSourceTag(sourceId)]}
+                  look="card"
+                />
               </>
             ) : !pendingImport.prepared ? (
               <div className="flex min-h-28 items-center justify-center gap-2 text-sm text-[var(--marinara-chat-chrome-panel-muted)]">

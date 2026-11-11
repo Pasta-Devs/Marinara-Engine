@@ -272,6 +272,14 @@ import {
 } from "../../lib/host-device";
 import { DeviceLookSetting } from "./DeviceLookSetting";
 import { themeHasHtml } from "../../lib/theme-template";
+import {
+  appendImportTags,
+  DEFAULT_IMPORT_TAGS,
+  ImportTagChecks,
+  importTagsBody,
+  useImportTagChoice,
+  type ImportTagChoice,
+} from "../modals/ImportTagChecks";
 
 type CustomFontFace = {
   filename: string;
@@ -7455,6 +7463,7 @@ function ProfileImportControl() {
   }, [profileImportBusy]);
 
   const profileImportInputRef = useRef<HTMLInputElement>(null);
+  const profileImportTags = useImportTagChoice();
   const handleProfileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -7596,6 +7605,9 @@ function ProfileImportControl() {
         method: "POST",
         headers: {
           Accept: "text/event-stream",
+          // "Tag imported" / "Tag source": restored characters, personas, lorebooks, presets and chats get
+          // the tags "Imported" and "Backup" unless unchecked.
+          "X-Import-Tags": JSON.stringify(profileImportTags.choice),
           ...(previewToken ? { "X-Profile-Preview-Token": previewToken } : {}),
         },
         body: previewToken ? undefined : makeImportBody(isZip, profileText),
@@ -7724,6 +7736,7 @@ function ProfileImportControl() {
           tabIndex={-1}
           aria-hidden="true"
         />
+        <ImportTagChecks value={profileImportTags.choice} onChange={profileImportTags.setChoice} sources={["Backup"]} />
 
         {profileImportProgress && (
           <div
@@ -7821,6 +7834,7 @@ function ProfileImportControl() {
 function ImportSettings() {
   const { t: localizeUi } = useUiTranslation();
   const openModal = useUIStore((s) => s.openModal);
+  const importTags = useImportTagChoice();
   const qc = useQueryClient();
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
 
@@ -7846,18 +7860,21 @@ function ImportSettings() {
             {localizeUi("ui.panels.importsettings.importFromSillytavernFolder")}
           </button>
 
+          <ImportTagChecks value={importTags.choice} onChange={importTags.setChoice} sources={["ST"]} />
           <div className="flex flex-col gap-2">
             <ImportButton
               label={localizeUi("settings.transfer.importCharacter")}
               accept=".json,.png"
               endpoint="/import/st-character"
               mode="auto"
+              importTags={importTags.choice}
             />
             <ImportButton
               label={localizeUi("settings.transfer.importChat")}
               accept=".jsonl"
               endpoint="/import/st-chat"
               mode="file"
+              importTags={importTags.choice}
               onImported={(data) => {
                 qc.invalidateQueries({ queryKey: chatKeys.list() });
                 if (data.chatId) setActiveChatId(data.chatId);
@@ -7868,12 +7885,14 @@ function ImportSettings() {
               accept=".json"
               endpoint="/import/st-preset"
               mode="json"
+              importTags={importTags.choice}
             />
             <ImportButton
               label={localizeUi("settings.transfer.importLorebook")}
               accept=".json"
               endpoint="/import/st-lorebook"
               mode="json"
+              importTags={importTags.choice}
             />
           </div>
         </div>
@@ -7890,12 +7909,14 @@ function ImportButton({
   endpoint,
   mode = "file",
   onImported,
+  importTags = DEFAULT_IMPORT_TAGS,
 }: {
   label: string;
   accept: string;
   endpoint: string;
   mode?: "file" | "json" | "auto";
   onImported?: (data: any) => void;
+  importTags?: ImportTagChoice;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -7933,10 +7954,11 @@ function ImportButton({
         res = await fetch(`/api${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(json),
+          body: JSON.stringify({ ...json, ...importTagsBody(importTags) }),
         });
       } else {
         const formData = new FormData();
+        appendImportTags(formData, importTags);
         if (endpoint === "/import/st-character" && importEmbeddedLorebook !== undefined) {
           formData.append("importEmbeddedLorebook", String(importEmbeddedLorebook));
         }

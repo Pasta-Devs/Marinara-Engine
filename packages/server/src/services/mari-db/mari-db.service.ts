@@ -1856,6 +1856,7 @@ function normalizePromptPresetActionData(input: Row, existing?: Row | null): Row
       firstBoolean(input, ["isDefault", "is_default"]) ?? (existing ? existing.isDefault === "true" : false),
     ),
     author: firstString(input, ["author"]) ?? (typeof existing?.author === "string" ? existing.author : ""),
+    tags: jsonString(input.tags ?? existing?.tags, []),
     // Engine-owned preset identity is never writable through Professor Mari.
     systemKey: typeof existing?.systemKey === "string" ? existing.systemKey : "",
   };
@@ -5651,6 +5652,7 @@ export class MariDbService {
             "defaultChoices",
             "isDefault",
             "author",
+            "tags",
             "groups",
             "sections",
             "promptSections",
@@ -5703,6 +5705,7 @@ export class MariDbService {
             "defaultChoices",
             "isDefault",
             "author",
+            "tags",
             "groups",
             "sections",
             "promptSections",

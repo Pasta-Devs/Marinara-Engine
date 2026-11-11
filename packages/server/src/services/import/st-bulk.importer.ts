@@ -19,7 +19,7 @@ import { characters as charactersTable } from "../../db/schema/index.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { getFileTimestampOverrides, parseTrustedTimestamp } from "./import-timestamps.js";
-import { normalizeTextForMatch } from "@marinara-engine/shared";
+import { normalizeTextForMatch, withImportTags, type ImportTagOptions } from "@marinara-engine/shared";
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
 const BG_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
@@ -520,6 +520,8 @@ export interface STBulkImportOptions {
   personas: STBulkImportSelection;
   characterTagImportMode?: STCharacterTagImportMode;
   regexScriptScope?: "character" | "global";
+  /** The "Tag imported" / "Tag source" checkboxes; everything imported is tagged "Imported" and "ST". */
+  importTags?: ImportTagOptions;
 }
 
 export interface STBulkImportResult {
@@ -564,6 +566,7 @@ export async function runSTBulkImport(
   db: DB,
   onProgress?: (progress: ImportProgress) => void,
 ): Promise<STBulkImportResult> {
+  const importTags = options.importTags;
   const scanResult = await scanSTFolder(rootPath);
   if (!scanResult.success || !scanResult.dataDir) {
     return {
@@ -611,12 +614,19 @@ export async function runSTBulkImport(
               tagImportMode,
               existingTagKeys,
               regexScriptScope,
+              importTags,
             });
             imported.characters++;
           }
         } else {
           const raw = JSON.parse(await readFile(ch.path, "utf-8"));
-          await importSTCharacter(raw, db, { timestampOverrides, tagImportMode, existingTagKeys, regexScriptScope });
+          await importSTCharacter(raw, db, {
+            timestampOverrides,
+            tagImportMode,
+            existingTagKeys,
+            regexScriptScope,
+            importTags,
+          });
           imported.characters++;
         }
       } catch (err) {
@@ -697,6 +707,7 @@ export async function runSTBulkImport(
           branchName: ct.chatName ?? basename(ct.path, ".jsonl"),
           groupId,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
+          importTags,
         });
 
         imported.chats++;
@@ -737,6 +748,7 @@ export async function runSTBulkImport(
           mode: "roleplay",
           groupId: gcGroupIds.get(groupKey)!,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
+          importTags,
         });
         imported.groupChats++;
       } catch (err) {
@@ -755,7 +767,7 @@ export async function runSTBulkImport(
       try {
         const raw = JSON.parse(await readFile(pr.path, "utf-8"));
         const fileInfo = await stat(pr.path);
-        await importSTPreset(raw, db, pr.name, { timestampOverrides: getFileTimestampOverrides(fileInfo) });
+        await importSTPreset(raw, db, pr.name, { timestampOverrides: getFileTimestampOverrides(fileInfo), importTags });
         imported.presets++;
       } catch (err) {
         errors.push(`Preset "${pr.name}": ${(err as Error).message}`);
@@ -776,6 +788,7 @@ export async function runSTBulkImport(
         await importSTLorebook(raw, db, {
           fallbackName: lb.name,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
+          importTags,
         });
         imported.lorebooks++;
       } catch (err) {
@@ -825,7 +838,13 @@ export async function runSTBulkImport(
         await copyFile(p.path, join(AVATAR_DIR, destName));
         const avatarPath = `/api/avatars/file/${destName}`;
         const fileInfo = await stat(p.path);
-        await storage.createPersona(p.name, p.description, avatarPath, undefined, getFileTimestampOverrides(fileInfo));
+        await storage.createPersona(
+          p.name,
+          p.description,
+          avatarPath,
+          importTags ? { tags: JSON.stringify(withImportTags([], "st", importTags)) } : undefined,
+          getFileTimestampOverrides(fileInfo),
+        );
         imported.personas++;
       } catch (err) {
         errors.push(`Persona "${p.name}": ${(err as Error).message}`);
