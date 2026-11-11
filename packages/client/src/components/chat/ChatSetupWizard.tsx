@@ -32,6 +32,9 @@ import { useConnections, useModelParameterCapabilities } from "../../hooks/use-c
 import { usePresets, usePresetFull, useDefaultPreset } from "../../hooks/use-presets";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
+import { useLibraryFolders } from "../../hooks/use-library-folders";
+import { PickerWindow } from "../ui/PickerWindow";
+import { PickerFolderList } from "../ui/PickerFolderList";
 import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset, useIsApplyingChatPreset } from "../../hooks/use-chat-presets";
 import { nextWizardApplyHold, type WizardApplyHold } from "../../lib/chat-preset-apply";
@@ -310,163 +313,70 @@ const WIZARD_PRIMARY_BUTTON_CLASS =
 const WIZARD_SECONDARY_BUTTON_CLASS =
   "flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
 
-type WizardSelectOption = {
-  value: string;
-  label: string;
-};
-
-function WizardSelect({
-  id,
+// The preset field: a trigger that opens the shared picker window with search and the
+// Presets panel's folders, like the persona and character pickers. A pick closes it.
+function WizardPresetSelect({
   value,
-  options,
+  presets,
   ariaLabel,
   onChange,
 }: {
-  id?: string;
+  /** Preset id, or "" for None. */
   value: string;
-  options: WizardSelectOption[];
+  presets: Array<{ id: string; name: string }>;
   ariaLabel: string;
   onChange: (value: string) => void;
 }) {
   const { t } = useUiTranslation();
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
-  const listboxId = useId();
-  const selectedOption = options.find((option) => option.value === value) ?? options[0];
-  const normalizedQuery = query.trim().toLowerCase();
-  const visibleOptions = normalizedQuery
-    ? options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
-    : options;
+  const { data: folders } = useLibraryFolders("presets");
+  const noneLabel = t("ui.game.gamesurfacecomponent.none");
+  const items = useMemo(() => presets.map((preset) => ({ id: preset.id, label: preset.name })), [presets]);
+  const leadingItems = useMemo(() => [{ id: "", label: noneLabel }], [noneLabel]);
+  const selectedLabel = presets.find((preset) => preset.id === value)?.name ?? noneLabel;
 
-  useEffect(() => {
-    // Focus the search only with a mouse; on touch it would pop the keyboard over the list (as CharacterSelect does).
-    if (open && window.matchMedia?.("(pointer: fine)").matches) searchRef.current?.focus();
-    else if (!open) setQuery("");
-  }, [open]);
-
-  const focusSelectedOption = () => {
-    window.requestAnimationFrame(() => {
-      const optionButtons = rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
-      const selectedIndex = Math.max(
-        0,
-        visibleOptions.findIndex((option) => option.value === value),
-      );
-      optionButtons?.[selectedIndex]?.focus();
-    });
-  };
-
-  const pickOption = (optionValue: string) => {
-    onChange(optionValue);
+  const close = () => {
     setOpen(false);
     triggerRef.current?.focus();
   };
 
   return (
-    <div
-      ref={rootRef}
-      className="relative"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && open) {
-          event.preventDefault();
-          setOpen(false);
-          triggerRef.current?.focus();
-        }
-      }}
-    >
+    <>
       <button
         ref={triggerRef}
-        id={id}
         type="button"
-        role="combobox"
         aria-label={ariaLabel}
-        aria-haspopup="listbox"
+        aria-haspopup="dialog"
         aria-expanded={open}
-        aria-controls={open ? listboxId : undefined}
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-          event.preventDefault();
-          if (!open) setOpen(true);
-          focusSelectedOption();
-        }}
+        onClick={() => (open ? close() : setOpen(true))}
         className={cn(WIZARD_INPUT_CLASS, "flex items-center justify-between gap-2 pr-3 text-left")}
       >
-        <span className="min-w-0 flex-1 truncate">{selectedOption?.label}</span>
+        <span className="min-w-0 flex-1 truncate">{selectedLabel}</span>
         <ChevronDown
           size="0.75rem"
+          aria-hidden="true"
           className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
         />
       </button>
       {open && (
-        <div className="mt-1 rounded-lg border border-[var(--border)] bg-[var(--secondary)] shadow-xl">
-          <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2 max-md:min-h-11">
-            <Search size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowDown") {
-                  event.preventDefault();
-                  rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]')[0]?.focus();
-                } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                  event.preventDefault();
-                  const first = visibleOptions[0];
-                  if (first) pickOption(first.value);
-                }
-              }}
-              placeholder={t("chat.wizard.select.search")}
-              aria-label={t("chat.wizard.select.search")}
-              className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-            />
-          </div>
-          {/* The listbox holds options only; the search box sits above it. */}
-          <div id={listboxId} role="listbox" aria-label={ariaLabel} className="max-h-48 overflow-y-auto p-1">
-            {visibleOptions.length === 0 && (
-              <p className="px-2.5 py-2 text-xs text-[var(--muted-foreground)]">
-                {t("ui.lorebooks.linkedresourcepicker.noMatches")}
-              </p>
-            )}
-            {visibleOptions.map((option, index) => {
-              const selected = option.value === value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  onClick={() => pickOption(option.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-                    event.preventDefault();
-                    if (event.key === "ArrowUp" && index === 0) {
-                      searchRef.current?.focus();
-                      return;
-                    }
-                    const nextIndex =
-                      event.key === "ArrowDown" ? Math.min(visibleOptions.length - 1, index + 1) : index - 1;
-                    rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]')[nextIndex]?.focus();
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left max-md:min-h-11 text-xs text-[var(--foreground)] hover:bg-[var(--accent)]",
-                    selected && "bg-[var(--primary)]/10 text-[var(--primary)]",
-                  )}
-                >
-                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                  {selected && <Check size="0.75rem" className="shrink-0" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <PickerWindow title={ariaLabel} anchorRef={triggerRef} onClose={close}>
+          <PickerFolderList
+            items={items}
+            folders={folders ?? []}
+            selectedIds={[value]}
+            leadingItems={leadingItems}
+            onToggle={(id) => {
+              onChange(id);
+              close();
+            }}
+            searchLabel={t("chat.wizard.select.search")}
+            emptyLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
+            noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
+          />
+        </PickerWindow>
       )}
-    </div>
+    </>
   );
 }
 
@@ -1543,13 +1453,10 @@ function ConversationQuickSetup({
     <div className="space-y-3">
       <div className="space-y-2">
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.chat.conversationquicksetup.conversationPrompt")}</label>
-        <WizardSelect
+        <WizardPresetSelect
           value={selectedPromptPresetId ?? ""}
           ariaLabel={localizeUi("ui.chatSettings.conversationpromptsection.promptPreset")}
-          options={[
-            { value: "", label: localizeUi("ui.game.gamesurfacecomponent.none") },
-            ...promptPresetOptions.map((preset) => ({ value: preset.id, label: preset.name })),
-          ]}
+          presets={promptPresetOptions}
           onChange={(nextValue) => setPreset(nextValue || null)}
         />
         <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
@@ -2900,16 +2807,10 @@ function RoleplaySetupWizard({
   function renderPreset() {
     return (
       <div className="space-y-4">
-        <WizardSelect
+        <WizardPresetSelect
           value={chat.promptPresetId ?? ""}
           ariaLabel={localizeUi("chat.toolbar.preset")}
-          options={[
-            { value: "", label: localizeUi("ui.game.gamesurfacecomponent.none") },
-            ...((presets ?? []) as Array<{ id: string; name: string; isDefault?: boolean | string }>).map((preset) => ({
-              value: preset.id,
-              label: preset.name,
-            })),
-          ]}
+          presets={(presets ?? []) as Array<{ id: string; name: string }>}
           onChange={(nextValue) => setPreset(nextValue || null)}
         />
         <section className="space-y-2 border-t border-[var(--border)] pt-4">
