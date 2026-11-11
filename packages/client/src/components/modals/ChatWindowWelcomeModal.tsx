@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/ui.store";
@@ -6,45 +6,78 @@ import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store"
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { Modal } from "../ui/Modal";
 
-/** New layout: a small tip that points at the Chat settings button in the top bar (desktop, phone and tablet). */
+/** Keeps a tip this far from every screen edge. */
+const TIP_EDGE = 8;
+
+/**
+ * New layout: a small tip that points at the Chat settings button in the top bar (desktop, phone and
+ * tablet). It measures itself and stays fully on screen however wide a theme or font makes it, and the
+ * button it points at gets a highlight ring while it shows.
+ */
 function OvChatSettingsTip({ onDismiss }: { onDismiss: () => void }) {
   const mobile = useOverhaulMobile();
   const { t } = useTranslation();
-  const [pos, setPos] = useState<{ top: number; right: number; arrow: number } | null>(null);
+  const tipRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; arrow: number }>({ top: 52, left: -9999, arrow: -1 });
   useLayoutEffect(() => {
     // The tip points into the top bar, so an auto-hidden bar stays in view while it shows (panel 3, PG6/PR8).
     document.documentElement.setAttribute("data-ov-topbar-pinned", "");
+    let highlighted: HTMLElement | null = null;
     const place = () => {
+      const tip = tipRef.current;
       const target = document.querySelector<HTMLElement>(
         `:is(.ov-topbar, .ovm-topbar) [data-window-opener="${CHAT_SETTINGS_WINDOW_ID}"]`,
       );
+      if (target !== highlighted) {
+        highlighted?.removeAttribute("data-ov-tip-target");
+        target?.setAttribute("data-ov-tip-target", "");
+        highlighted = target;
+      }
+      const vw = document.documentElement.clientWidth || window.innerWidth;
+      const vh = window.innerHeight;
+      const width = Math.min(tip?.offsetWidth ?? 280, vw - TIP_EDGE * 2);
+      const height = tip?.offsetHeight ?? 0;
       if (!target) {
-        setPos({ top: 52, right: 16, arrow: -1 });
+        setPos({ top: 52, left: Math.max(TIP_EDGE, vw - width - 16), arrow: -1 });
         return;
       }
       const rect = target.getBoundingClientRect();
-      // On a phone the tip can't be narrower than the screen allows, so it keeps an 8 px edge.
-      const right = Math.max(8, window.innerWidth - rect.right);
-      // Arrow sits under the button's middle, measured from the tip's right edge.
-      setPos({ top: rect.bottom + 10, right, arrow: Math.max(12, rect.width / 2 - 6) });
+      const center = rect.left + rect.width / 2;
+      // Right-aligned under the button when it fits, then pulled in to stay inside the screen.
+      const left = Math.min(Math.max(TIP_EDGE, rect.right - width), vw - width - TIP_EDGE);
+      const top = Math.min(rect.bottom + 10, Math.max(TIP_EDGE, vh - height - TIP_EDGE));
+      // The arrow sits under the button's middle, never past the tip's rounded corners.
+      const arrow = Math.min(Math.max(14, center - left - 6), width - 26);
+      setPos((before) =>
+        before.top === top && before.left === left && before.arrow === arrow ? before : { top, left, arrow },
+      );
     };
     place();
+    const frame = requestAnimationFrame(place);
     window.addEventListener("resize", place);
+    // Fonts, themes and the top bar's own layout can move the button or resize the tip after it opens.
+    const observer = new ResizeObserver(place);
+    if (tipRef.current) observer.observe(tipRef.current);
+    const bar = document.querySelector(".ov-topbar, .ovm-topbar");
+    if (bar) observer.observe(bar);
     return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
       window.removeEventListener("resize", place);
+      highlighted?.removeAttribute("data-ov-tip-target");
       document.documentElement.removeAttribute("data-ov-topbar-pinned");
     };
   }, []);
-  if (!pos) return null;
   return createPortal(
     <div
+      ref={tipRef}
       data-chat-window-intro
       role="dialog"
       aria-labelledby="ov-cs-tip-title"
       className="ov-cs-tip"
-      style={{ top: pos.top, right: pos.right }}
+      style={{ top: pos.top, left: pos.left }}
     >
-      {pos.arrow >= 0 ? <span className="ov-cs-tip__arrow" style={{ right: pos.arrow }} aria-hidden="true" /> : null}
+      {pos.arrow >= 0 ? <span className="ov-cs-tip__arrow" style={{ left: pos.arrow }} aria-hidden="true" /> : null}
       <p id="ov-cs-tip-title" className="ov-cs-tip__title">
         {t("chatWindowIntro.ovTitle")}
       </p>
