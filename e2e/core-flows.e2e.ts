@@ -1,11 +1,5 @@
 import { clickTopbarPanel } from "./topbar-navigation.js";
-import {
-  openConnectionsPanelModel,
-  openDefaultsTile,
-  revealDefaultsTile,
-  ttsConfigCard,
-  openJobSettings,
-} from "./connections-panel.js";
+import { openConnectionsPanelModel, openDefaultsTile, ttsConfigCard, openJobSettings } from "./connections-panel.js";
 import {
   expect,
   test,
@@ -15658,8 +15652,9 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
 
     callsInstalled = false;
     await page.reload();
-    await revealDefaultsTile(page, "voice");
-    await expect(page.locator('[data-defaults-tile="stt"]')).toHaveCount(0);
+    // Dictation (the chat microphone) stays without Calls; only Local Whisper leaves its settings.
+    await openDefaultsTile(page, "stt");
+    await expect(page.getByRole("dialog").filter({ visible: true })).toBeVisible();
     await expect(page.getByText("Local speech model", { exact: true })).toHaveCount(0);
     expect(errors).toEqual([]);
   } finally {
