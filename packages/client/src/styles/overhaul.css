@@ -12959,3 +12959,142 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-kit-folder > .ov-kit-more {
   flex: none;
 }
+/* ─── Theme nitpick audit, batch 3: toolbars, search boxes and dropdowns at narrow widths ─── */
+/* Text that doesn't fit ends in "…" instead of being cut mid-letter (DM6, SV5): search
+   placeholders and typed text, and dropdown labels. */
+:root[data-overhaul] input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]) {
+  text-overflow: ellipsis;
+}
+/* Native dropdowns in Library toolbars and Settings look like the app's own (DD9): no browser
+   arrow squeezed against a rounded border; one chevron drawn in the text colour, with room kept
+   for it, and a label that doesn't fit ends in "…". Themes that draw their own chevron
+   (background-image !important) still win. */
+:root[data-overhaul]
+  :is(select.ov-select, [data-component="OverhaulSettingsPage"] select):not([multiple], [size], .mari-chrome-sort-field) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 1.75rem;
+  background-image:
+    linear-gradient(45deg, transparent calc(50% - 0.8px), var(--ov-select-chevron, currentColor) calc(50% - 0.8px) calc(50% + 0.8px), transparent calc(50% + 0.8px)),
+    linear-gradient(-45deg, transparent calc(50% - 0.8px), var(--ov-select-chevron, currentColor) calc(50% - 0.8px) calc(50% + 0.8px), transparent calc(50% + 0.8px));
+  background-position:
+    right calc(0.75rem + 0.25rem) top calc(50% + 0.03rem),
+    right 0.75rem top calc(50% + 0.03rem);
+  background-size: 0.3125rem 0.3125rem;
+  background-repeat: no-repeat;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A dropdown that is a direct child of a Settings row list (Notification position) took the rows'
+   flat padding and square corners; it keeps its own field shape (DD9). */
+[data-ov-settings-sections] section[id^="settings-section-"] > div:last-child > .flex-col > select {
+  padding: 0.4375rem 1.75rem 0.4375rem 0.75rem;
+  border-bottom: 0;
+  border-radius: var(--radius-lg, 0.5rem);
+}
+/* Library toolbars: search is a pill with no fill, like the buttons and dropdowns in its row (DM7). */
+.ov-gallery__tools > .ov-search {
+  border-radius: 999px;
+  background: transparent;
+}
+
+/* ─── Theme nitpick audit, batch 4: sheets, menus and editors ─── */
+/* An editor's "⋯" menu lists its rows from the left edge at full width (DM17). The narrow-screen
+   editor header rule (globals.css) right-aligns the action row and draws a rule above it; neither
+   belongs inside a menu. */
+:is(.ov-rail__more, .ov-menu) .mari-editor-actions {
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch !important;
+  border-top: 0 !important;
+}
+/* Framed chat widgets (Dottore, Prof. Mari) put their crest left of the title in a phone sheet or
+   menu; the title starts after it instead of under it (DM11). */
+:root:is([data-chat-widget-preset="dottore"], [data-chat-widget-preset="mari"])
+  .mari-window:is([data-presentation="sheet"], [data-presentation="menu"], [data-header-ornament="inline"])
+  > .mari-window__header {
+  padding-left: 1.875rem;
+}
+/* Conversation header: the fade behind the "Juno · Online" chip stays solid down to the chip's
+   bottom edge, so a message scrolling under it is hidden cleanly instead of showing through half
+   the chip (DM16). Themes still restyle it with --mari-chat-header-bg. */
+:root[data-overhaul] [data-mari-part="chat-header"][data-chat-mode="conversation"] {
+  padding-bottom: 1rem;
+  background: var(
+    --mari-chat-header-bg,
+    linear-gradient(
+      to bottom,
+      var(--background) calc(100% - 1rem),
+      transparent
+    )
+  );
+}
+:root[data-overhaul][data-mari-app-backdrop] [data-mari-part="chat-header"][data-chat-mode="conversation"] {
+  background: var(--mari-chat-header-bg, none);
+}
+/* Docs: section counts readable (they fell to the browser's "smaller", 9px) and the chevron
+   centred on the label (DM15). */
+.ov-docs__group-head small {
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+.ov-docs__group-head span {
+  line-height: 1.2;
+}
+.ov-docs__group-head svg {
+  display: block;
+}
+/* Touch screens: no textarea resize grip; it can't be dragged with a finger and sat on the
+   rounded corner (DM8). */
+@media (pointer: coarse) {
+  :root[data-overhaul] textarea {
+    resize: none;
+  }
+}
+
+/* ─── Theme nitpick audit, batch 5: split view with the main side squeezed ─── */
+/* Character and persona editors in a narrow main side (near the 440px minimum): the picture rail
+   stacks above the fields like on a phone, instead of leaving the fields a column one word wide
+   (SV1). */
+@container mari-main (max-width: 32rem) {
+  :root[data-overhaul="on"] .ov-ed:has(> .ov-rail) {
+    flex-direction: column;
+    justify-content: flex-start !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  :root[data-overhaul="on"] .ov-ed > .ov-rail {
+    width: 100% !important;
+    max-width: none !important;
+    flex: none;
+    overflow: visible;
+    padding: 1rem 1rem 0.5rem;
+    border-right: 0 !important;
+  }
+  :root[data-overhaul="on"] .ov-ed > .ov-rail .ov-rail__portrait {
+    width: min(100%, 15rem);
+    margin: 0 auto;
+  }
+  :root[data-overhaul="on"] .ov-ed > .ov-rail + .mari-editor-body {
+    flex: none;
+    overflow: visible;
+  }
+  :root[data-overhaul="on"] .ov-ed > .ov-rail + .mari-editor-body .mari-editor-content {
+    height: auto;
+    overflow: visible;
+    padding: 0.5rem 1rem 3rem;
+  }
+}
+/* Game narration card: when the tools (Logs, Inventory, Combat) and the turn controls (⌄, stop,
+   play, Next) don't fit on one line, the controls wrap to a second line, right-aligned, instead of
+   running past the card (SV2). */
+:root[data-overhaul] [data-game-narration] div:has(> [data-mari-part="game-tools"]) {
+  flex-wrap: wrap;
+  row-gap: 0.375rem;
+}
+:root[data-overhaul] [data-game-narration] [data-mari-part="game-tools"] {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+:root[data-overhaul] [data-game-narration] [data-mari-part="game-tools"] + * {
+  margin-left: auto;
+}
