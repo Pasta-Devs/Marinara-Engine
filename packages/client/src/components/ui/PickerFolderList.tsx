@@ -54,7 +54,14 @@ export function PickerFolderList({
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const query = search.trim();
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  // Folders start collapsed, except that a single pick opens the folder holding the current choice,
+  // so the window shows what is picked. (A picked item in no folder sits in "Ungrouped".)
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const picked = !multiple && selectedIds[0] ? selectedIds[0] : null;
+    if (!picked || !items.some((item) => item.id === picked)) return new Set();
+    const folder = folders.find((f) => f.itemIds.includes(picked));
+    return new Set([folder?.id ?? UNGROUPED_ID]);
+  });
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);

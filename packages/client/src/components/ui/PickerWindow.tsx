@@ -55,10 +55,17 @@ export function PickerWindow({
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
     window.visualViewport?.addEventListener("resize", update);
+    // The trigger also moves when the layout around it changes size (a centred wizard growing as
+    // lorebooks are picked), which fires neither event; watching its ancestors catches that.
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    for (let el = anchorRef.current?.parentElement; el && el !== document.body; el = el.parentElement) {
+      observer?.observe(el);
+    }
     return () => {
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
       window.visualViewport?.removeEventListener("resize", update);
+      observer?.disconnect();
     };
   }, [phone, anchorRef]);
 
