@@ -85,7 +85,7 @@ import {
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
 import { useOverhaulLook, useOverhaulMobile, useOverhaulTouchMessages } from "../../stores/overhaul.store";
-import { OvEditorHead, OvSaveButton } from "../overhaul/EditorChrome";
+import { OvEditorHead, OvSaveButton, OvSplitSubCrumbs } from "../overhaul/EditorChrome";
 import { openConnectionsPage } from "../overhaul/library-navigation";
 import { OvSeg } from "../overhaul/LoreEntryParts";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -958,6 +958,15 @@ export function PresetEditor() {
           data-component="OverhaulPresetEditor"
           data-ovm-preset={ovmPage ?? "hub"}
         >
+          {ovmPage ? (
+            <OvSplitSubCrumbs
+              section="presets"
+              sectionLabel="Presets"
+              item={localName || data.preset.name}
+              onItem={() => setOvmPage(null)}
+              page={localize(ovmTitles[ovmPage])}
+            />
+          ) : null}
           {ovmPage ? (
             <div className="ovm-drill-page__head">
               <button

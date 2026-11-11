@@ -2338,15 +2338,16 @@
   position: absolute;
   inset: -0.625rem;
 }
-/* Help icons and breadcrumbs stay small to look at but get a thumb-sized hit area. */
+/* Help icons and breadcrumbs stay small to look at but get a thumb-sized hit area (on the crumb's button,
+   so the area itself still clicks it). */
 :root[data-overhaul="mobile"]
   :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings)
-  :is(.cursor-help, .ov-crumbs__item, .ov-ed__link) {
+  :is(.cursor-help, .ov-crumbs__item > button, .ov-ed__link) {
   position: relative;
 }
 :root[data-overhaul="mobile"]
   :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings)
-  :is(.cursor-help, .ov-crumbs__item, .ov-ed__link)::after {
+  :is(.cursor-help, .ov-crumbs__item > button, .ov-ed__link)::after {
   content: "";
   position: absolute;
   inset: -0.625rem -0.375rem;
@@ -4535,6 +4536,43 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.5rem;
+}
+
+/* Split view's narrow second side keeps the crumb trail in place of the ‹ (it has a pointer, and the
+   section is one click away like on the main side). Pages inside an item get the trail above their head. */
+:root[data-overhaul="mobile"] .ov-edhead--m.has-crumbs:not(#ovm-x) {
+  padding-left: 1rem;
+}
+:root[data-overhaul="mobile"] .ov-edhead--m.has-crumbs .ov-edhead__meta:not(#ovm-x) {
+  margin-left: 0;
+}
+:root[data-overhaul="mobile"] .ov-edhead--m > .ov-crumbs:not(#ovm-x) {
+  margin: 0;
+}
+:root[data-overhaul="mobile"] .ov-subcrumbs:not(#ovm-x) {
+  flex-wrap: nowrap;
+  min-width: 0;
+  margin: 0;
+  padding: 0.625rem 1rem 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+:root[data-overhaul="mobile"] .ov-lv__right > .ov-subcrumbs:not(#ovm-x) {
+  padding-left: 0.25rem;
+}
+:root[data-overhaul="mobile"] .ov-subcrumbs .ov-crumbs__item:last-child:not(#ovm-x) {
+  min-width: 0;
+  overflow: hidden;
+}
+:root[data-overhaul="mobile"] .ov-subcrumbs .ov-crumbs__item:last-child > span:not(#ovm-x) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A lorebook entry open under the book's header: the entry's trail (Library › Lorebooks › Book › Entry)
+   says it all, so the book header's own trail steps aside instead of repeating it. */
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv="detail"]:has(.ov-subcrumbs) .ov-edhead--m > .ov-crumbs:not(#ovm-x) {
+  display: none;
 }
 
 /* Preset drill pages keep Save in the corner (Saved when nothing waits), like the editor header. */

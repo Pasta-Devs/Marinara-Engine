@@ -11,7 +11,7 @@ import { ChevronLeft, MoreHorizontal, Save } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { useOverhaulMobile, type LibrarySection } from "../../stores/overhaul.store";
-import { EditorCrumbs, type RailCrumb } from "./EditorRail";
+import { EditorCrumbs, useSplitTouchCrumbs, type RailCrumb } from "./EditorRail";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useEditorDraftOfferStore } from "../../hooks/use-editor-leave-save";
@@ -144,6 +144,8 @@ export function OvEditorHead({
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const mobile = useOverhaulMobile();
+  // The second side of a split view in its tablet or phone layout keeps the crumbs instead of the ‹.
+  const splitCrumbs = useSplitTouchCrumbs();
   const slot = useContext(OvEditorHeadSlot);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -264,20 +266,26 @@ export function OvEditorHead({
   // Phones: ‹ back, the name and ⋯ on the first line; the editor's buttons and Save on the next,
   // with Save always at the right end (on the first line when the editor has no buttons).
   const head = mobile ? (
-    <header className={cn("ov-edhead ov-edhead--m", className)} data-component="OverhaulEditorHead">
+    <header
+      className={cn("ov-edhead ov-edhead--m", splitCrumbs && "has-crumbs", className)}
+      data-component="OverhaulEditorHead"
+    >
+      {splitCrumbs ? <EditorCrumbs items={trail} /> : null}
       <div className="ov-edhead__top">
-        <button
-          type="button"
-          className="ov-edhead__back"
-          aria-label={localizeUi("ui.chat.scheduletimeline.value1Value2", {
-            value1: localize("Back to"),
-            value2: label,
-          })}
-          title={label}
-          onClick={goBack}
-        >
-          <ChevronLeft size={26} aria-hidden="true" />
-        </button>
+        {splitCrumbs ? null : (
+          <button
+            type="button"
+            className="ov-edhead__back"
+            aria-label={localizeUi("ui.chat.scheduletimeline.value1Value2", {
+              value1: localize("Back to"),
+              value2: label,
+            })}
+            title={label}
+            onClick={goBack}
+          >
+            <ChevronLeft size={26} aria-hidden="true" />
+          </button>
+        )}
         {lead ? <span className="ov-edhead__lead">{lead}</span> : null}
         {titleNode}
         {actions ? null : (
@@ -317,6 +325,40 @@ export function OvEditorHead({
     </header>
   );
   return slot ? createPortal(head, slot) : head;
+}
+
+/**
+ * Split view's second side in its tablet or phone layout: the crumb trail above a page inside an item (a
+ * preset's Prompt order, a lorebook entry), so the section stays one click away there too. Nothing elsewhere.
+ */
+export function OvSplitSubCrumbs({
+  section,
+  sectionLabel,
+  item,
+  onItem,
+  page,
+}: {
+  section: LibrarySection;
+  sectionLabel: string;
+  item: string;
+  /** Back to the item's own first page. */
+  onItem: () => void;
+  page: string;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const splitCrumbs = useSplitTouchCrumbs();
+  if (!splitCrumbs) return null;
+  return (
+    <EditorCrumbs
+      className="ov-subcrumbs"
+      items={[
+        { label: localizeUi("ui.overhaul.oveditorhead.library"), onClick: openLibraryPane },
+        { label: sectionLabel, onClick: () => openLibrarySection(section) },
+        { label: item, onClick: onItem },
+        { label: page },
+      ]}
+    />
+  );
 }
 
 /** The editors' one Save button: an "Unsaved changes" note while there are edits, then Save. */

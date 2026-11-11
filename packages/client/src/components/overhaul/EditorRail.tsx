@@ -15,6 +15,8 @@ import {
 } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, type LucideIcon, Upload } from "lucide-react";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
+import { SPLIT_PANE } from "../../lib/split-view-env";
+import { openLibraryPane } from "./library-navigation";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -47,26 +49,41 @@ export function MobileBackCrumb({ label, onBack }: { label: string; onBack: () =
   );
 }
 
-export function EditorCrumbs({ items }: { items: RailCrumb[] }) {
+/**
+ * The second side of a split view in its tablet or phone layout keeps the crumb trail (it is still a
+ * computer with a pointer), so an open item leads back to its section like on the main side.
+ */
+export function useSplitTouchCrumbs() {
+  return useOverhaulMobile() && SPLIT_PANE !== null;
+}
+
+export function EditorCrumbs({ items, className }: { items: RailCrumb[]; className?: string }) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const mobile = useOverhaulMobile();
+  const splitTouch = mobile && SPLIT_PANE !== null;
   const back = [...items].reverse().find((item) => item.onClick);
-  if (mobile && back?.onClick) return <MobileBackCrumb label={localize(back.label)} onBack={back.onClick} />;
+  if (mobile && !splitTouch && back?.onClick)
+    return <MobileBackCrumb label={localize(back.label)} onBack={back.onClick} />;
   return (
-    <nav className="ov-crumbs" aria-label={localizeUi("ui.overhaul.oveditorhead.breadcrumb")}>
-      {items.map((item, index) => (
-        <span key={`${item.label}-${index}`} className="ov-crumbs__item">
-          {index > 0 ? <ChevronRight size={12} aria-hidden="true" /> : null}
-          {item.onClick ? (
-            <button type="button" onClick={item.onClick}>
-              {localize(item.label)}
-            </button>
-          ) : (
-            <span aria-current="page">{localize(item.label)}</span>
-          )}
-        </span>
-      ))}
+    <nav className={cn("ov-crumbs", className)} aria-label={localizeUi("ui.overhaul.oveditorhead.breadcrumb")}>
+      {items.map((item, index) => {
+        // The second side has no Library pane of its own (it stays on its page), so "Library" is a label there.
+        const onClick = splitTouch && item.onClick === openLibraryPane ? undefined : item.onClick;
+        const last = index === items.length - 1;
+        return (
+          <span key={`${item.label}-${index}`} className="ov-crumbs__item">
+            {index > 0 ? <ChevronRight size={12} aria-hidden="true" /> : null}
+            {onClick ? (
+              <button type="button" onClick={onClick}>
+                {localize(item.label)}
+              </button>
+            ) : (
+              <span aria-current={last ? "page" : undefined}>{localize(item.label)}</span>
+            )}
+          </span>
+        );
+      })}
     </nav>
   );
 }
