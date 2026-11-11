@@ -258,6 +258,31 @@ export function KitSelectButton({ selection }: { selection: KitSelection }) {
   );
 }
 
+/**
+ * One empty state for every Library page (audit C17): a dashed box with an icon, a short title, one
+ * line that says what to do (never a copy of the page description) and, when there is one, the next step.
+ */
+export function KitEmpty({
+  icon,
+  title,
+  text,
+  action,
+}: {
+  icon?: ReactNode;
+  title: string;
+  text?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="ov-list__empty ov-kit-empty">
+      {icon ? <span className="ov-kit-empty__icon">{icon}</span> : null}
+      <p className="ov-kit-empty__title">{title}</p>
+      {text ? <p className="ov-kit-empty__text">{text}</p> : null}
+      {action}
+    </div>
+  );
+}
+
 /** The bar at the bottom while selecting: count, Select all, the page's actions, Done. */
 export function KitBulkBar({ selection, actions }: { selection: KitSelection; actions: KitAction[] }) {
   const localize = useLocalizedUiText();
@@ -683,7 +708,11 @@ export async function kitDelete(
   if (!ids.length) return null;
   const ok = await showConfirmDialog({
     title: `${localize("Delete")} ${names ?? `${ids.length} ${noun}`}?`,
-    message: localize("This can't be undone. Export first if you might want them back."),
+    message: localize(
+      ids.length === 1
+        ? "This can't be undone. Export first if you might want it back."
+        : "This can't be undone. Export first if you might want them back.",
+    ),
     confirmLabel: localize("Delete"),
     tone: "destructive",
   });

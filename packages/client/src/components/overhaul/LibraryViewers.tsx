@@ -55,6 +55,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import {
   KitBulkBar,
   KitCheck,
+  KitEmpty,
   KitMoreButton,
   useKitMenu,
   useKitSelection,
@@ -154,16 +155,38 @@ function OvViewer({
     { label: title, onClick: onSection },
   ];
   if (typeof selectedName === "string" && selectedName) crumbs.push({ label: selectedName });
+  // With nothing open this is the section's landing page: it reads like the other Library landing pages
+  // (no crumbs, title at the same spot, Import and + New as pills at the top right). Once an item is
+  // open, its editor header takes the top and the list keeps Import / + New (audit D7).
+  const landing = !selectedId;
+  const newButton = (
+    <button type="button" className="ov-btn ov-btn--primary" data-ov-anchor={newAnchor} onClick={onNew}>
+      <Plus size={14} aria-hidden="true" />
+      {newLabel}
+    </button>
+  );
   return (
     <div className="ov-vw">
       {/* The open item's editor puts its own header here (OvEditorHead), so Regex, Connections and
           Agents read like every other editor: Library › Section › Item, the item's name, Save. */}
       <div className="ov-vw__head">
         <div className="ov-vw__slot" ref={setHeadSlot} />
-        <header className="ov-vw__top has-crumbs">
-          <EditorCrumbs items={crumbs} />
-          <h1>{title}</h1>
+        <header className={cn("ov-vw__top", !landing && "has-crumbs")}>
+          {landing ? null : <EditorCrumbs items={crumbs} />}
+          <h1 data-mari-part="page-title">{title}</h1>
           <small>{meta}</small>
+          {landing ? (
+            <div className="ov-vw__actions">
+              {tools.map(({ label, icon: Icon, onClick }) => (
+                <button key={label} type="button" className="ov-btn" onClick={onClick}>
+                  {Icon ? <Icon size={14} aria-hidden="true" /> : null}
+                  {label}
+                </button>
+              ))}
+              {/* With nothing yet, + New sits in the empty state instead (one button, not two). */}
+              {total > 0 || search ? newButton : null}
+            </div>
+          ) : null}
         </header>
       </div>
       <aside className="ov-vw__left" aria-label={title}>
@@ -174,16 +197,20 @@ function OvViewer({
           </label>
         </div>
         <div className="ov-vw__tools ov-vw__tools--list">
-          {tools.map(({ label, icon: Icon, onClick }) => (
-            <button key={label} type="button" onClick={onClick}>
-              {Icon ? <Icon size={13} aria-hidden="true" /> : null}
-              {label}
+          {landing
+            ? null
+            : tools.map(({ label, icon: Icon, onClick }) => (
+                <button key={label} type="button" onClick={onClick}>
+                  {Icon ? <Icon size={13} aria-hidden="true" /> : null}
+                  {label}
+                </button>
+              ))}
+          {landing ? null : (
+            <button type="button" className="is-new" data-ov-anchor={newAnchor} onClick={onNew}>
+              <Plus size={13} aria-hidden="true" />
+              {newLabel}
             </button>
-          ))}
-          <button type="button" className="is-new" data-ov-anchor={newAnchor} onClick={onNew}>
-            <Plus size={13} aria-hidden="true" />
-            {newLabel}
-          </button>
+          )}
           {kit ? (
             <button
               type="button"
@@ -201,7 +228,8 @@ function OvViewer({
           {listNote ? <small>{listNote}</small> : null}
         </p>
         <div className="ov-vw__list" role="listbox" aria-label={listLabel}>
-          {total === 0 ? <p className="ov-vw__empty">{emptyList}</p> : null}
+          {total === 0 && !landing ? <p className="ov-vw__empty">{emptyList}</p> : null}
+          {total === 0 && landing && search ? <p className="ov-vw__empty">{localize("No matches.")}</p> : null}
           {visible.map((group) => {
             const isClosed = closed[group.id] && !search;
             return (
@@ -303,7 +331,16 @@ function OvViewer({
       </aside>
       <div className="ov-vw__main">
         <OvEditorHeadSlot.Provider value={headSlot}>
-          {children ?? <p className="ov-vw__pick">{emptyDetail}</p>}
+          {children}
+          {landing ? (
+            total === 0 && !search ? (
+              <div className="ov-vw__pick">
+                <KitEmpty title={emptyList} action={newButton} />
+              </div>
+            ) : (
+              <p className="ov-vw__pick">{emptyDetail}</p>
+            )
+          ) : null}
         </OvEditorHeadSlot.Provider>
       </div>
     </div>
@@ -316,7 +353,7 @@ function OvViewer({
  * instead of reopening it on the way out.
  */
 function useAutoSelect(
-  section: "regex" | "tools" | "connections" | "agents",
+  section: "connections" | "agents",
   selectedId: string | null,
   firstId: string | undefined,
   open: (id: string) => void,
@@ -379,7 +416,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
     ].filter((group) => group.rows.length || group.id === "global");
   }, [localize, scripts, search, updateRegex]);
 
-  useAutoSelect("regex", selectedId, scripts[0]?.id, openRegexDetail);
+  // Regex scripts opens on its landing page like every other Library section (audit D7).
   const reorderRegex = useReorderRegexScripts();
   const visibleIds = useMemo(() => groups.flatMap((group) => group.rows.map((row) => row.id)), [groups]);
   const selection = useKitSelection(visibleIds);
@@ -521,7 +558,7 @@ export function OvToolsViewer({ children }: { children: ReactNode }) {
     return [{ id: "tools", label: "", rows }];
   }, [localize, search, tools, updateTool]);
 
-  useAutoSelect("tools", selectedId, tools[0]?.id, openToolDetail);
+  // Like Regex scripts, Custom tools opens on its landing page; pick a tool on the left.
 
   const visibleIds = useMemo(() => groups.flatMap((group) => group.rows.map((row) => row.id)), [groups]);
   const selection = useKitSelection(visibleIds);
@@ -754,7 +791,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       search={search}
       onSearch={setSearch}
       searchPlaceholder={localize("Search accounts and models")}
-      newLabel={localize("Add connection")}
+      newLabel={localize("New connection")}
       newAnchor="ov-add-account-viewer"
       onNew={() => openModal("create-connection", { anchor: "ov-add-account-viewer" })}
       groups={groups}

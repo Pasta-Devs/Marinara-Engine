@@ -33,7 +33,7 @@ function clampToolbarMenuX(left: number) {
  * Props for the Toolbar component.
  */
 export interface ToolbarProps {
-  /** Breadcrumb segments starting with "Game Assets" */
+  /** Breadcrumb segments starting with "Game assets" */
   breadcrumb: string[];
   /** Current search query */
   search: string;
@@ -179,13 +179,13 @@ export function Toolbar({
               <span key={i} className="flex shrink-0 items-center gap-1">
                 {i > 0 && <ChevronRight size="0.75rem" className="text-[var(--muted-foreground)]" />}
                 {isLast ? (
-                  <span className="font-medium text-[var(--foreground)]">{part || "Game Assets"}</span>
+                  <span className="font-medium text-[var(--foreground)]">{part || "Game assets"}</span>
                 ) : (
                   <button
                     onClick={() => onBreadcrumbClick(pathUpToHere)}
                     className="text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
                   >
-                    {part || "Game Assets"}
+                    {part || "Game assets"}
                   </button>
                 )}
               </span>

@@ -56,7 +56,7 @@ export function AccessibilitySettings({ anchorId }: { anchorId: string }) {
       title={t("theming.a11y.title", "Accessibility")}
       description={t(
         "theming.a11y.description",
-        "Spacing, focus rings, contrast and colour-blind-safe colours. Text size is in Fonts & text size, just above.",
+        "Spacing, focus rings, contrast and color-blind-safe colors. Text size is in Fonts & text size, just above.",
       )}
       icon={<Accessibility size="0.875rem" />}
       anchorId={anchorId}
@@ -109,7 +109,7 @@ export function AccessibilitySettings({ anchorId }: { anchorId: string }) {
             <HelpTooltip
               text={t(
                 "theming.a11y.contrastHelp",
-                "Stronger text, borders and focus colours. Follow system turns it on when your device asks for more contrast.",
+                "Stronger text, borders and focus colors. Follow system turns it on when your device asks for more contrast.",
               )}
             />
           </span>
@@ -168,7 +168,7 @@ export function AccessibilitySettings({ anchorId }: { anchorId: string }) {
         </label>
         <ToggleSetting
           anchorId="settings-control-a11y-color-blind"
-          label={t("theming.a11y.colorBlind", "Colour-blind-safe colours")}
+          label={t("theming.a11y.colorBlind", "Color-blind-safe colors")}
           checked={colorBlindSafe}
           onChange={setColorBlindSafe}
           help={t(

@@ -36,14 +36,14 @@ export function OmnibarPullDrop({ visuals, edgeGlow }: { visuals: PullDropVisual
   if (!shown) return null;
   const releaseToAskMari = about
     ? t("omnibar.pull.releaseAbout", "Release · {{about}}", { about })
-    : t("omnibar.pull.releaseToAskMari", "Release to ask Prof. Mari");
+    : t("omnibar.pull.releaseToAskMari", "Release to ask Professor Mari");
   const label =
     target === "mari"
       ? armed
         ? releaseToAskMari
         : about
-          ? t("omnibar.pull.askMariAbout", "Ask Prof. Mari · {{about}}", { about })
-          : t("omnibar.pull.askMari", "Ask Prof. Mari")
+          ? t("omnibar.pull.askMariAbout", "Ask Professor Mari · {{about}}", { about })
+          : t("omnibar.pull.askMari", "Ask Professor Mari")
       : armed
         ? t("omnibar.pull.releaseToSearch", "Release to search")
         : t("omnibar.pull.search", "Search");
@@ -76,10 +76,10 @@ export function OmnibarPullDrop({ visuals, edgeGlow }: { visuals: PullDropVisual
   const tagLabel = (side: "search" | "mari") =>
     side === "mari"
       ? [
-          t("omnibar.pull.askMari", "Ask Prof. Mari"),
+          t("omnibar.pull.askMari", "Ask Professor Mari"),
           about
             ? releaseLines("about", "Release <soft>{{about}}</soft>")
-            : releaseLines("mari", "Release <soft>to ask Prof. Mari</soft>"),
+            : releaseLines("mari", "Release <soft>to ask Professor Mari</soft>"),
         ]
       : [t("omnibar.pull.search", "Search"), releaseLines("search", "Release <soft>to search</soft>")];
 

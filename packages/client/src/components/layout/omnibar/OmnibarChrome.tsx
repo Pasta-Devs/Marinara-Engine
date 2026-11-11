@@ -45,9 +45,9 @@ export function OmnibarMariDoor({
         type="button"
         onClick={onClick}
         // Slice 79b: her head is the door to her (the footer pill is gone), so it says so.
-        aria-label={t("commandCenter.askMariDoor", "Ask Prof. Mari")}
+        aria-label={t("commandCenter.askMariDoor", "Ask Professor Mari")}
         aria-keyshortcuts={isApplePlatform() ? "Meta+J" : "Control+J"}
-        title={t("commandCenter.askMariDoorTooltip", "Ask Prof. Mari ({{shortcut}})", {
+        title={t("commandCenter.askMariDoorTooltip", "Ask Professor Mari ({{shortcut}})", {
           shortcut: isApplePlatform() ? "⌘J" : "Ctrl+J",
         })}
         data-component="GlobalOmnibar.ProfessorMariButton"
@@ -311,8 +311,10 @@ export function OmnibarFooter({
           // Says whether ⌘↵ sends: "Ask" sends what you typed, "Continue" opens her or carries the quick answer.
           <span>
             {mariSends(activeResult) && !(asideSettled && activeResult.id === "ask-professor-mari")
-              ? t("commandCenter.keyboard.askMari", "{{mod}}+Enter Ask Prof. Mari", { mod: formatShortcutKey("Mod") })
-              : t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Prof. Mari", {
+              ? t("commandCenter.keyboard.askMari", "{{mod}}+Enter Ask Professor Mari", {
+                  mod: formatShortcutKey("Mod"),
+                })
+              : t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Professor Mari", {
                   mod: formatShortcutKey("Mod"),
                 })}
           </span>
@@ -327,7 +329,7 @@ export function OmnibarFooter({
       </span>
       <span className="flex min-w-0 items-center gap-3">
         <span className="hidden sm:inline">
-          {t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Prof. Mari", {
+          {t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Professor Mari", {
             mod: formatShortcutKey("Mod"),
           })}
         </span>

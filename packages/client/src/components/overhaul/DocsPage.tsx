@@ -312,9 +312,15 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
         ) : (
           <article className="ov-docs__article">
             {/* Phones show one pane at a time: this goes back to the guide list. */}
-            <button type="button" className="ov-docs__back" onClick={() => setDocsPath(tabId, null)}>
+            <button
+              type="button"
+              className="ov-docs__back"
+              aria-label={localize("All guides")}
+              title={localize("All guides")}
+              onClick={() => setDocsPath(tabId, null)}
+            >
               <ChevronLeft size={18} aria-hidden="true" />
-              {localize("All guides")}
+              <span className="ov-docs__back-label">{localize("All guides")}</span>
             </button>
             <p className="ov-docs__meta">
               {current ? <span>{dirLabel(current.dir, docsLanguage) || localize("Start here")}</span> : null}

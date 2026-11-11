@@ -1863,8 +1863,8 @@ export function ChatSidebar() {
                 <button
                   onClick={handleCreateFolder}
                   className="ov-icon-btn ov-icon-btn--sm"
-                  title={localize("New Folder")}
-                  aria-label={localize("New Folder")}
+                  title={localize("New folder")}
+                  aria-label={localize("New folder")}
                 >
                   <FolderPlus size="0.8125rem" />
                 </button>
@@ -1877,7 +1877,7 @@ export function ChatSidebar() {
                 title={localize(multiSelectMode ? "Cancel selection" : "Select chats")}
                 aria-label={localize(multiSelectMode ? "Cancel selection" : "Select chats")}
               >
-                <Check size="0.8125rem" />
+                <CheckSquare size="0.8125rem" />
               </button>
               <button
                 onClick={handleNewChatFromTab}
@@ -1936,7 +1936,7 @@ export function ChatSidebar() {
               >
                 <span className="shrink-0 leading-none">{cfg.icon}</span>
                 <span className="inline-flex min-h-[1rem] items-center whitespace-nowrap pb-px leading-normal">
-                  {localize(overhaulActive ? (tab === "conversation" ? "Convo" : cfg.label) : cfg.shortLabel)}
+                  {localize(overhaulActive ? cfg.label : cfg.shortLabel)}
                 </span>
                 {overhaulActive ? (
                   <small className="ov-mode-count">{chats?.filter((c) => c.mode === tab).length ?? 0}</small>
@@ -1986,8 +1986,8 @@ export function ChatSidebar() {
           <button
             onClick={handleCreateFolder}
             className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
-            title={localize("New Folder")}
-            aria-label={localize("New Folder")}
+            title={localize("New folder")}
+            aria-label={localize("New folder")}
           >
             <FolderPlus size="0.8125rem" />
           </button>
@@ -2002,7 +2002,7 @@ export function ChatSidebar() {
           title={localize(multiSelectMode ? "Cancel selection" : "Select chats")}
           aria-label={localize(multiSelectMode ? "Cancel selection" : "Select chats")}
         >
-          <Check size="0.8125rem" />
+          <CheckSquare size="0.8125rem" />
         </button>
       </div>
 
@@ -2057,8 +2057,8 @@ export function ChatSidebar() {
               <option value="recent">{localizeUi("ui.layout.chatsidebar.recent")}</option>
               <option value="newest">{localize("Newest")}</option>
               <option value="oldest">{localize("Oldest")}</option>
-              <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-              <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
+              <option value="name-asc">{localize("A to Z")}</option>
+              <option value="name-desc">{localize("Z to A")}</option>
             </select>
             <ArrowUpDown
               size="0.625rem"
@@ -2164,7 +2164,7 @@ export function ChatSidebar() {
                     }}
                   >
                     <FolderPlus size={18} />
-                    {localize("New Folder")}
+                    {localize("New folder")}
                   </button>
                   <button
                     type="button"
@@ -2338,7 +2338,7 @@ export function ChatSidebar() {
                 className="mari-chrome-control mari-chrome-control--small flex-1 justify-center text-[0.6875rem]"
               >
                 <FolderPlus size="0.75rem" />
-                {localize("New Folder")}
+                {localize("New folder")}
               </button>
             </div>
           )}

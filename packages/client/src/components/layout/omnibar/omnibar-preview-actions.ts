@@ -57,7 +57,7 @@ export function buildOmnibarPreviewActions(
     MARI_EDITABLE_CATEGORIES.has(previewResult.category) && !previewResult.action
       ? [
           {
-            label: t("commandCenter.actions.continueWithMari", "Continue with Prof. Mari"),
+            label: t("commandCenter.actions.continueWithMari", "Continue with Professor Mari"),
             icon: Sparkles,
             onSelect: () => askMariAbout(previewResult),
           },
@@ -137,7 +137,7 @@ export function buildOmnibarPreviewActions(
       },
     };
     const askMariAction = {
-      label: t("commandCenter.mode.work", "Ask Prof. Mari"),
+      label: t("commandCenter.mode.work", "Ask Professor Mari"),
       icon: Sparkles,
       onSelect: () => askMariAbout(previewResult),
     };

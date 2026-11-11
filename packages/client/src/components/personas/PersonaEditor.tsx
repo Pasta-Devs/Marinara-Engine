@@ -200,7 +200,7 @@ const TABS = [
   { id: "sprites", label: "Sprites", icon: Image },
   { id: "gallery", label: "Gallery", icon: Camera },
   { id: "colors", label: "Colors", icon: Palette },
-  { id: "rpstats", label: "Roleplay Stats", icon: Dices },
+  { id: "rpstats", label: "Roleplay stats", icon: Dices },
   { id: "stats", label: "Stats", icon: Activity },
 ] as const;
 
@@ -254,13 +254,13 @@ const PERSONA_RPG_ATTRIBUTES_HELP =
 /** UI overhaul: plain names for the sections in the editor's left rail. */
 const OVERHAUL_SECTION_LABELS: Record<TabId, string> = {
   metadata: "Details",
-  card: "The Card",
-  convo: "Convo Profile",
+  card: "Card",
+  convo: "Convo profile",
   lorebook: "Lorebook",
   sprites: "Sprites",
   gallery: "Gallery",
   colors: "Colors",
-  rpstats: "Roleplay Stats",
+  rpstats: "Roleplay stats",
   stats: "Game Mode",
 };
 // The mode sections sit together, in mode order (owner 2026-11-07).
@@ -4256,17 +4256,17 @@ function PersonaCharacterSheetSection({
 const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; label: string; labelKey?: string }> = [
   { key: "name", label: "Name" },
   { key: "creator", label: "Creator" },
-  { key: "creatorNotes", label: "Creator Notes" },
+  { key: "creatorNotes", label: "Creator notes" },
   { key: "summary", label: "Summary", labelKey: "ui.characters.summary.label" },
-  { key: "mes_example", label: "Example Dialogue", labelKey: "chat.settings.inlineEditor.fields.exampleDialogue" },
+  { key: "mes_example", label: "Example dialogue", labelKey: "chat.settings.inlineEditor.fields.exampleDialogue" },
   { key: "description", label: "Description" },
   { key: "personality", label: "Personality" },
   { key: "scenario", label: "Scenario" },
   { key: "backstory", label: "Backstory" },
   { key: "appearance", label: "Appearance" },
-  { key: "imageAppearance", label: "Image Appearance Override" },
+  { key: "imageAppearance", label: "Image appearance override" },
   { key: "imageAppearanceEnabled", label: "Use Image Appearance Override" },
-  { key: "characterSheetImageId", label: "Character Sheet" },
+  { key: "characterSheetImageId", label: "Character sheet" },
   { key: "useCharacterSheetAsReference", label: "Use Character Sheet as Reference" },
   { key: "avatarCrop", label: "Avatar Crop" },
   { key: "nameColor", label: "Name Color" },
@@ -4275,8 +4275,8 @@ const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; la
   { key: "personaStats", label: "Persona Stats" },
   { key: "tags", label: "Tags" },
   { key: "savedStatusOptions", label: "Saved Status Options" },
-  { key: "convoDisplayName", label: "Convo Display Name" },
-  { key: "aboutMe", label: "About Me" },
+  { key: "convoDisplayName", label: "Convo display name" },
+  { key: "aboutMe", label: "About me" },
 ];
 
 function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnapshot {

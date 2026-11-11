@@ -720,7 +720,7 @@ export function buildOmnibarSearchResults({
   };
   // The row names what it will send (R8); the line under it says what she will do.
   const askTitle = trimmedQuery
-    ? t("omnibar.askMari.withQuery", "Ask Prof. Mari: “{{query}}”", { query: trimmedQuery })
+    ? t("omnibar.askMari.withQuery", "Ask Professor Mari: “{{query}}”", { query: trimmedQuery })
     : t("omnibar.askProfessorMari", "Ask Professor Mari");
   const askPeek =
     askPeeks[capability] ?? t("omnibar.askMari.peek.explain", "Professor Mari explains this and suggests a next step.");
@@ -751,7 +751,7 @@ export function buildOmnibarSearchResults({
     ? [
         {
           id: "open-professor-mari",
-          title: t("commandCenter.openMari", "Open Prof. Mari"),
+          title: t("commandCenter.openMari", "Open Professor Mari"),
           category: "professor",
           // The presenter otherwise picks a Top hit by title prefix.
           group: "top-hit",
@@ -1390,7 +1390,7 @@ export function buildOmnibarContextResults({
     if (omnibarSuggestionsEnabled && activeEditorField) {
       push({
         id: "suggestion:edit-focused-field",
-        title: t("commandCenter.suggestions.editFocusedField", "Improve {{field}} with Prof. Mari", {
+        title: t("commandCenter.suggestions.editFocusedField", "Improve {{field}} with Professor Mari", {
           field: activeEditorField.label,
         }),
         description: t(

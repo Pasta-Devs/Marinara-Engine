@@ -306,7 +306,7 @@ export function OmnibarAside({
                 </button>
               ) : null}
               <button type="button" onClick={onEscalate} className={continueAction}>
-                {t("omnibar.aside.escalate", "Continue with Prof. Mari")}
+                {t("omnibar.aside.escalate", "Continue with Professor Mari")}
               </button>
             </>
           ) : (
@@ -347,11 +347,11 @@ export function OmnibarAside({
                 onClick={state.status === "streaming" ? () => setContinueQueued(true) : onEscalate}
                 aria-busy={continueQueued || undefined}
                 className={continueAction}
-                title={t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Prof. Mari", {
+                title={t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Professor Mari", {
                   mod: formatShortcutKey("Mod"),
                 })}
               >
-                {t("omnibar.aside.escalate", "Continue with Prof. Mari")}
+                {t("omnibar.aside.escalate", "Continue with Professor Mari")}
               </button>
             </>
           )}
@@ -376,7 +376,7 @@ export function OmnibarAside({
           onKeyDown={onFollowUpKeyDown}
           maxLength={500}
           aria-label={t("omnibar.aside.followUp.label", "Follow-up question")}
-          placeholder={t("omnibar.aside.followUp.placeholder", "Ask Prof. Mari more…")}
+          placeholder={t("omnibar.aside.followUp.placeholder", "Ask Professor Mari more…")}
           className="mt-2 h-11 w-full min-w-0 border-0 border-t border-[var(--border)] bg-transparent px-0 text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] focus-visible:border-[var(--ring)] sm:h-8 sm:text-xs"
         />
       ) : null}

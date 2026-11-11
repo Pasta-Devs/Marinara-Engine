@@ -761,11 +761,11 @@ export function ConnectionsLanding() {
           className="ov-btn ov-btn--primary"
           data-ov-add-account
           data-ov-anchor="ov-add-account"
-          aria-label={ovMobile ? localize("Add connection") : undefined}
+          aria-label={ovMobile ? localize("New connection") : undefined}
           onClick={() => openModal("create-connection", { anchor: "ov-add-account" })}
         >
           <Plus size={14} aria-hidden="true" />
-          {ovMobile ? localize("New") : localize("Add connection")}
+          {ovMobile ? localize("New") : localize("New connection")}
         </button>
         {ovMobile && kindSelect}
         {ovMobile && groupSelect}
@@ -792,9 +792,9 @@ export function ConnectionsLanding() {
           onChange={(event) => setSort(event.target.value as SortKey)}
           aria-label={localize("Sort")}
         >
-          <option value="name">{localize("Sort: Name")}</option>
-          <option value="models">{localize("Sort: Most models")}</option>
-          <option value="recent">{localize("Sort: Recently changed")}</option>
+          <option value="name">{localize("A to Z")}</option>
+          <option value="models">{localize("Most models")}</option>
+          <option value="recent">{localize("Recently edited")}</option>
         </select>
         {!ovMobile && groupSelect}
       </div>
