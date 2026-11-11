@@ -175,7 +175,7 @@ export function JobRow({
             )
           ) : (
             // The state line stays grey; only a warning chip at the row end is amber.
-            <span className="min-w-0 truncate text-xs text-[var(--muted-foreground)]">
+            <span className="min-w-0 line-clamp-2 text-xs text-[var(--muted-foreground)]">
               {tile.setup?.text ??
                 (tile.find &&
                   (tile.find.count

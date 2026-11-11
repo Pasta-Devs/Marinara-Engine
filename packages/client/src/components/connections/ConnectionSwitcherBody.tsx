@@ -835,7 +835,7 @@ export function ConnectionSwitcherBody({
   const acceptsCatalog = (model: string, facts?: CachedModelFacts) =>
     (!modelFilter || modelFilter(model)) &&
     (!catalogFilter || catalogFilter(model, facts)) &&
-    (kind === "chat" || kind === "all" || catalogMatchesKind(model, facts, kind));
+    (kind === "all" || catalogMatchesKind(model, facts, kind));
   // Your models: each Connection's starred models, plus the saved Models a role or their own settings keep.
   const listed = useMemo(
     () =>
@@ -1448,6 +1448,8 @@ export function ConnectionSwitcherBody({
     const account = group.account;
     if (!account) return false;
     if (kind === "chat") return rows.some((row) => row.accountId === account.id);
+    // An account that needs a key stays listed, so its Add key button is reachable.
+    if (accountFilter && unavailableOf(group)) return true;
     if (!modelFilter && !catalogFilter && kind === "all") return true;
     const { starred, rest } = paneEntries(group);
     return starred.length + rest.length > 0;

@@ -456,7 +456,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
 }
 
 /** Voice job picker values for a built-in text to speech source, not a Model. */
-const DEVICE_VOICE = "tts-source:";
+export const DEVICE_VOICE = "tts-source:";
 
 /** Persisted with the Connection folds; no Connection id is "defaults". */
 export const DEFAULTS_FOLD_ID = "defaults";
