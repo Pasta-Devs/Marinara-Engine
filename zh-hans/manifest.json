@@ -1,6 +1,6 @@
 {
   "language": "zh-hans",
-  "sourceCommit": "dcbaa4b9b87431f9b4a98fa73fa9aca9bdcfdf1a",
+  "sourceCommit": "ced95585655848c267c72624f0cbe6a32776f523",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -119,8 +119,8 @@
     },
     {
       "path": "characters/colors-and-stats.md",
-      "sha256": "1cf04592141ab517ab9cfa1c97e4202d2d1225e9350d0f747912ad15e6b73017",
-      "bytes": 11907
+      "sha256": "5b686ef3496ee8f8721afdbaecfbfc586ab4360d65392dc011004d0989a1a1e8",
+      "bytes": 12170
     },
     {
       "path": "characters/creating-and-editing-characters.md",

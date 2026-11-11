@@ -1182,3 +1182,7 @@ and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI stri
   with it a new `<a id="get-a-ruleset"></a>` above **Einen Regelsatz bekommen**: the new page links
   `../game/rulesets.md#get-a-ruleset`, and a translated heading produces no English slug. The anchor is the
   only structural change in that file.
+
+## Roleplay message box opacity (2026-11-11, #9063)
+
+Der #9063-Abgleich von `characters/colors-and-stats.md`, **Die drei Farben**, gegen Engine `ced9558565` (Merge von #9091): Der alte Satz, der Schieberegler *ersetze* die gespeicherte Transparenz, ist ersetzt. Das Verb ist **skalieren**: „Der Schieberegler skaliert die Transparenz, die in der Farbe der Nachrichtenbox deines Charakters und deiner Persona gespeichert ist“. *Alpha* bleibt **das Alpha** (`rgba(255, 255, 255, 0.25)`, `#FFFFFF40` unverändert im Code). *Fill* ist **die Füllung**, *chat widget* ist **das Chat-Widget** (Bindestrich, wie **Chat-Widget-Stil** in `appearance/custom-css-themes.md`). Der neue Absatz verwendet die vorhandene Glosse **Apply preset colors** (Preset-Farben anwenden) und führt das Label danach ohne Glosse weiter, wie das File es hält.

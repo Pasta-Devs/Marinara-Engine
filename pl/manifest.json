@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "dcbaa4b9b87431f9b4a98fa73fa9aca9bdcfdf1a",
+  "sourceCommit": "ced95585655848c267c72624f0cbe6a32776f523",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -119,8 +119,8 @@
     },
     {
       "path": "characters/colors-and-stats.md",
-      "sha256": "599bd6bb280a511537b053024c9ab1a43db5ca92aab11a50d7fc8be191171ea4",
-      "bytes": 13085
+      "sha256": "be292e1f97d57de33cd06dee73df7e6c89a472ab9e72016075c2a30fae981b7f",
+      "bytes": 13416
     },
     {
       "path": "characters/creating-and-editing-characters.md",

@@ -34,7 +34,9 @@ A aba **Colors** de um personagem também tem **Name Aliases** (apelidos do nome
 
 Para mudar a transparência, use **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (Configurações → Aparência → Apresentação do Roleplay → Opacidade do plano de fundo das mensagens Roleplay).
 
-O controle deslizante substitui a transparência salva nas cores de fundo de personagens, personas e presets, incluindo as cores extraídas. Os valores de cor que você salvou continuam como estão. As cores do nome e do diálogo não são afetadas.
+O controle deslizante multiplica a transparência salva na cor da caixa de mensagem do seu personagem e da sua persona: uma cor com alfa próprio, como `rgba(255, 255, 255, 0.25)` ou `#FFFFFF40`, aparece com esse alfa multiplicado pelo valor do controle deslizante. Os valores de cor que você salvou continuam como estão. As cores do nome e do diálogo não são afetadas.
+
+Com **Apply preset colors** (aplicar cores do preset) ativado, a cor de fundo escolhida para o widget do chat define o preenchimento do balão, e o controle deslizante determina a transparência desse preenchimento diretamente.
 
 Os pontos de personalização do plano de fundo dos temas personalizados e o Card CSS ainda podem substituir o estilo dos balões do aplicativo.
 

@@ -870,3 +870,7 @@ Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.m
 - `game/rulesets.md` gains the Roleplay sentence after the Official/Community bullets and, with it, `<a id="get-a-ruleset"></a>` above **获取规则集**: the new page links `#get-a-ruleset`, and a translated heading yields no English slug.
 
 These are translation choices, not a new native-reader review.
+
+## Roleplay message box opacity (2026-11-11, #9063)
+
+Precedents from the #9063 sync of `characters/colors-and-stats.md`,「三种颜色」, against Engine `ced9558565` (merge of #9091): the old sentence saying the slider *replaces* saved transparency is gone. The verb is **按比例缩放** ("这个滑块会按比例缩放…透明度"). *Alpha* stays Latin **alpha**, as the pack writes it in prose. *Fill* is **填充** (noun and verb), after **Background Color**(背景色) 填充… in `appearance/custom-css-themes.md`; *chat widget* is **聊天组件**, matching **Chat widget style**(聊天组件样式). The new paragraph reuses **Apply preset colors**(应用预设颜色) with the pack's tight half-width parens and runs the label bare afterwards. The two sentences use 全角 ，。 and keep one half-width space between CJK and Latin/code.

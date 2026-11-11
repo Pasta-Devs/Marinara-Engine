@@ -34,7 +34,9 @@ L'onglet **Colors** d'un personnage contient aussi **Name Aliases** (alias du no
 
 Pour changer la transparence, utilise **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (Paramètres → Apparence → Présentation Roleplay → Opacité de l'arrière-plan des messages Roleplay).
 
-Ce curseur remplace la transparence enregistrée dans les couleurs de fond des personnages, des personas et des presets, y compris les couleurs extraites. Tes valeurs de couleur enregistrées restent telles quelles. Les couleurs du nom et des dialogues ne sont pas affectées.
+Ce curseur met à l'échelle la transparence enregistrée dans la couleur de la bulle de message de ton personnage et de ton persona : une couleur qui a son propre alpha, comme `rgba(255, 255, 255, 0.25)` ou `#FFFFFF40`, s'affiche avec cet alpha multiplié par la valeur du curseur. Tes valeurs de couleur enregistrées restent telles quelles. Les couleurs du nom et des dialogues ne sont pas affectées.
+
+Avec **Apply preset colors** (appliquer les couleurs du preset) activé, une couleur d'arrière-plan que tu choisis pour le widget du chat définit le remplissage de la bulle, et le curseur règle directement la transparence de ce remplissage.
 
 Les points d'accroche d'arrière-plan des thèmes personnalisés et le CSS de fiche peuvent toujours prendre le pas sur le style des bulles de l'application.
 
