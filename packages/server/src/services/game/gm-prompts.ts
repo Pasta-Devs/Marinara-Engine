@@ -35,6 +35,7 @@ import {
   worldOverviewPromptText,
   storyScriptPromptText,
   type StoryScript,
+  type GameIntro,
 } from "@marinara-engine/shared";
 import type { CharacterSpriteInfo } from "./sprite.service.js";
 import { TTS_EMOTION_CUE_GUIDANCE } from "../tts-emotion-guidance.js";
@@ -61,6 +62,8 @@ export interface GameSkillModifierView {
 
 export interface GmPromptContext {
   gameActiveState: GameActiveState;
+  /** The world overview setup wrote, which the player was shown (#9084). Absent or null sends none. */
+  worldOverview?: string | null;
   storyArc: string | null;
   plotTwists: string[] | null;
   campaignPlan?: GameCampaignPlan | null;
@@ -755,6 +758,14 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   // ── Active HUD Widgets ──
   // Moved to buildGmFormatReminder() so they sit next to <widget_commands>
   // in the last user message, keeping current state closest to generation.
+
+  // ── World Overview (what the player was shown at setup) ──
+  // Setup writes it for the player; without it the Game Master opened the game knowing the secret arc
+  // but not the world the player had just read about (#9084).
+  const worldOverview = ctx.worldOverview?.trim();
+  if (worldOverview) {
+    sections.push(`<world_overview>`, worldOverview, `</world_overview>`);
+  }
 
   // ── Story Arc (GM SECRET — never shared with party agent) ──
   if (ctx.storyArc) {
@@ -2715,6 +2726,28 @@ export interface SetupPromptContext {
   gameSystemPrompt?: string | null;
   /** Additional game-mode generation instructions that will be used after setup. */
   gameSpecialInstructions?: string | null;
+  /** How the game opens (Capability API 1.339): the setup's or the Experience's intro, so the world and
+   *  the story arc start where the first scene will (#9084). Absent or null is none. */
+  intro?: GameIntro | null;
+}
+
+/** The setup prompt's block for the game's opening: the world, story arc and starting map must agree
+ *  with it, so the first scene and the setup behind it tell the same start (#9084). */
+export function setupIntroPromptText(intro: GameIntro | null | undefined): string {
+  const text = intro?.text.trim();
+  if (!intro || !text) return "";
+  const what =
+    intro.mode === "defined"
+      ? `The game's first message is already written. It is shown to the player exactly as below:`
+      : `The game's opening scene is set. The first narration will follow this guidance:`;
+  return [
+    `<game_opening>`,
+    what,
+    text,
+    ``,
+    `Build the world so it starts here. The storyArc begins from this situation and does not replace it with a different premise or starting scenario. The startingMap includes where it happens, and the startingNpcs include anyone it names. Do not write the opening scene itself.`,
+    `</game_opening>`,
+  ].join("\n");
 }
 
 /** The temperaments a party member's card may have, as the model writes them. */
@@ -2809,6 +2842,8 @@ export function buildSetupPrompt(ctx: SetupPromptContext = {}): string {
       `This world already exists: set the story among its places and do not rename them. The party starts in ${start?.name ?? "its starting place"}; the starting map is of that place.`,
     );
   }
+  const setupIntro = setupIntroPromptText(ctx.intro);
+  if (setupIntro) contextSections.push(setupIntro);
   if (ctx.customHudWidgets?.length) {
     contextSections.push(
       `<user_hud_widgets>`,
