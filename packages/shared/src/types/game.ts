@@ -255,6 +255,18 @@ export interface GameSetupConfig {
   gmMode: GameGmMode;
   /** Content rating: sfw or nsfw */
   rating: "sfw" | "nsfw";
+  /** The player's own rating guidelines, used instead of the built-in text for `rating` in the setup
+   *  and GM prompts. Absent or empty is the built-in text. */
+  ratingGuidelines?: string | null;
+  /** Gentle storytelling (constants/game-story-style.ts): "gentle" softens the Game Master's own rules
+   *  toward lower-stress stories. Absent is "standard", the Game Master as it has always been. */
+  storyStyle?: import("../constants/game-story-style.js").GameStoryStyle;
+  /** How violence is shown, read apart from `rating` (which then decides sexual content only). Absent is
+   *  what the rating has always meant: graphic for NSFW, serious for SFW. */
+  violence?: import("../constants/game-story-style.js").GameViolenceLevel;
+  /** Subjects the player never wants in the story, one per line: hard limits in every prompt that
+   *  writes story, whatever the style and rating text. */
+  contentBoundaries?: string | null;
   /** Classic Game Mode or the Overworld RPG (see `GameStyle`), stored as `chat.metadata.gameStyle`.
    *  Absent in setups made before the choice: read as Overworld with a world, Classic without. */
   gameStyle?: GameStyle;

@@ -21,6 +21,9 @@ import {
   type GameNpc,
   type SessionSummary,
   type GameWorld,
+  resolveGameContentBoundaries,
+  resolveGameStoryStyle,
+  resolveGameViolenceLevel,
 } from "@marinara-engine/shared";
 import { buildGmSystemPrompt, type GmPromptContext } from "../game/gm-prompts.js";
 import { listPartySprites } from "../game/sprite.service.js";
@@ -500,6 +503,10 @@ export async function injectGameGmPromptRuntime(args: {
     setting: (setupConfig?.setting as string) || "original",
     tone: (setupConfig?.tone as string) || "balanced",
     rating: (setupConfig?.rating as "sfw" | "nsfw") || "sfw",
+    ratingGuidelines: typeof setupConfig?.ratingGuidelines === "string" ? setupConfig.ratingGuidelines : null,
+    storyStyle: resolveGameStoryStyle(setupConfig),
+    violence: resolveGameViolenceLevel(setupConfig),
+    contentBoundaries: resolveGameContentBoundaries(setupConfig),
     enableQuickTimeEvents: setupConfig?.enableQuickTimeEvents !== false,
     campaignPlan: gameBlueprint?.campaignPlan ?? null,
     canGenerateBackgrounds:
