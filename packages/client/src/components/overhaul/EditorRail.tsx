@@ -6,6 +6,8 @@
 // a "+ Name" row for each section not in use yet. The editor's sections scroll on the right.
 // ──────────────────────────────────────────────
 import {
+  useId,
+  useLayoutEffect,
   useSyncExternalStore,
   useEffect,
   useRef,
@@ -51,8 +53,8 @@ export function MobileBackCrumb({ label, onBack }: { label: string; onBack: () =
 }
 
 /**
- * The second side of a split view in its tablet or phone layout keeps the crumb trail (it is still a
- * computer with a pointer), so an open item leads back to its section like on the main side.
+ * The second side of a split view in its tablet or phone layout keeps the crumb trail (in its bar) instead of
+ * the ‹ (it is still a computer with a pointer), so an open item leads back to its section like on the main side.
  */
 export function useSplitTouchCrumbs() {
   return useOverhaulMobile() && SPLIT_PANE !== null;
@@ -78,45 +80,93 @@ export function useSplitItemTrail() {
 }
 
 /**
- * Split view's narrow side: the trail at the top of a page inside an item. The item's own last crumb goes
- * back to the item (onItem); the page's title ends the trail. Nothing elsewhere.
+ * Split view's narrow side: the trail for a page inside an item (shown in the side's bar). The item's own last
+ * crumb goes back to the item (onItem); the page's title ends the trail. Nothing elsewhere.
  */
 export function SplitPageCrumbs({ title, onItem }: { title: string; onItem: () => void }) {
   const splitTouch = useSplitTouchCrumbs();
   const trail = useSplitItemTrail();
   if (!splitTouch || !trail?.length) return null;
   const last = trail[trail.length - 1]!;
-  return (
-    <EditorCrumbs
-      className="ov-subcrumbs"
-      items={[...trail.slice(0, -1), { label: last.label, onClick: onItem }, { label: title }]}
-    />
+  return <EditorCrumbs items={[...trail.slice(0, -1), { label: last.label, onClick: onItem }, { label: title }]} />;
+}
+
+// Split view's second side shows the open page's trail in its own bar (SplitPaneBar), not in the page:
+// every trail on the page registers here and renders nothing; the bar shows the deepest one.
+const barTrails = new Map<string, { seq: number; items: RailCrumb[] }>();
+let barTrail: RailCrumb[] | null = null;
+let barSeq = 0;
+const barListeners = new Set<() => void>();
+function pickBarTrail() {
+  let best: { seq: number; items: RailCrumb[] } | null = null;
+  for (const entry of barTrails.values()) {
+    if (
+      !best ||
+      entry.items.length > best.items.length ||
+      (entry.items.length === best.items.length && entry.seq > best.seq)
+    )
+      best = entry;
+  }
+  barTrail = best?.items ?? null;
+  barListeners.forEach((listener) => listener());
+}
+/** The trail the second side's bar shows, or null on a page without one (a section's landing page). */
+export function useSplitBarTrail() {
+  return useSyncExternalStore(
+    (listener) => {
+      barListeners.add(listener);
+      return () => barListeners.delete(listener);
+    },
+    () => barTrail,
   );
 }
 
 export function EditorCrumbs({ items, className }: { items: RailCrumb[]; className?: string }) {
-  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const mobile = useOverhaulMobile();
-  const splitTouch = mobile && SPLIT_PANE !== null;
+  const id = useId();
+  const latest = useRef(items);
+  latest.current = items;
+  const key = items.map((item) => `${item.label}${item.onClick ? "+" : ""}`).join("\u0000");
+  useLayoutEffect(() => {
+    if (!SPLIT_PANE) return;
+    // "Library" is a label there: the second side has no Library pane of its own and stays on its page.
+    const registered = latest.current.map((item, index) => ({
+      label: item.label,
+      onClick: item.onClick && item.onClick !== openLibraryPane ? () => latest.current[index]?.onClick?.() : undefined,
+    }));
+    barTrails.set(id, { seq: ++barSeq, items: registered });
+    pickBarTrail();
+    return () => {
+      barTrails.delete(id);
+      pickBarTrail();
+    };
+  }, [id, key]);
+  if (SPLIT_PANE) return null;
   const back = [...items].reverse().find((item) => item.onClick);
-  if (mobile && !splitTouch && back?.onClick)
-    return <MobileBackCrumb label={localize(back.label)} onBack={back.onClick} />;
+  if (mobile && back?.onClick) return <MobileBackCrumb label={localize(back.label)} onBack={back.onClick} />;
+  return <CrumbTrail items={items} className={className} />;
+}
+
+/** The trail itself: earlier crumbs are links, the last one names the page. */
+export function CrumbTrail({ items, className }: { items: RailCrumb[]; className?: string }) {
+  const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
   return (
     <nav className={cn("ov-crumbs", className)} aria-label={localizeUi("ui.overhaul.oveditorhead.breadcrumb")}>
       {items.map((item, index) => {
-        // The second side has no Library pane of its own (it stays on its page), so "Library" is a label there.
-        const onClick = splitTouch && item.onClick === openLibraryPane ? undefined : item.onClick;
         const last = index === items.length - 1;
         return (
           <span key={`${item.label}-${index}`} className="ov-crumbs__item">
             {index > 0 ? <ChevronRight size={12} aria-hidden="true" /> : null}
-            {onClick ? (
-              <button type="button" onClick={onClick}>
+            {item.onClick ? (
+              <button type="button" onClick={item.onClick} title={localize(item.label)}>
                 {localize(item.label)}
               </button>
             ) : (
-              <span aria-current={last ? "page" : undefined}>{localize(item.label)}</span>
+              <span aria-current={last ? "page" : undefined} title={localize(item.label)}>
+                {localize(item.label)}
+              </span>
             )}
           </span>
         );

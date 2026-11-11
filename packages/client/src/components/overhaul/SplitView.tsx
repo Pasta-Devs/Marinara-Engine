@@ -20,6 +20,7 @@ import { overhaulTabKey, useOverhaulStore, type OverhaulSplit, type OverhaulTab 
 import { useChats } from "../../hooks/use-chats";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { CrumbTrail, useSplitBarTrail } from "./EditorRail";
 import { preloadChatSettingsDrawer } from "../chat/ChatCommonOverlays";
 import {
   ChatSettingsSummary,
@@ -466,6 +467,10 @@ export function SplitPaneBar({ phone = false }: { phone?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey]);
 
+  // An open Library item (or a page inside one) puts its crumb trail here instead of in the page.
+  // "Library" is left out: the section's icon leads the trail, and the side has no Library pane to open.
+  const fullTrail = useSplitBarTrail();
+  const trail = fullTrail && fullTrail.length > 2 && !fullTrail[0]?.onClick ? fullTrail.slice(1) : fullTrail;
   const activeChatId = useChatStore((s) => s.activeChatId);
   const chatSettingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
   const activeChat = current?.kind === "chat" ? chats.find((chat) => chat.id === activeChatId) : undefined;
@@ -479,8 +484,13 @@ export function SplitPaneBar({ phone = false }: { phone?: boolean }) {
       data-component="SplitViewBar"
       data-overhaul-topbar="true"
     >
-      <span className="ov-splitbar__page">
-        {current ? (
+      <span className={cn("ov-splitbar__page", trail && "has-trail")}>
+        {current && trail ? (
+          <>
+            <TabIcon tab={current} chats={chats} />
+            <CrumbTrail items={trail} className="ov-splitbar__crumbs" />
+          </>
+        ) : current ? (
           <>
             <TabIcon tab={current} chats={chats} />
             <TabLabel tab={current} chats={chats} />

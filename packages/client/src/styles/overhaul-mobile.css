@@ -2053,14 +2053,6 @@
   margin: -1rem -1.75rem 0.5rem;
   padding: 0 1.25rem;
 }
-/* Split view's narrow side: the trail takes the top edge, the page's head sits under it. */
-:root[data-overhaul="mobile"] .ov-ed.ov-agented .ovm-drill-page > .ov-subcrumbs:not(#ovm-x) {
-  margin: -1rem -1.75rem 0;
-  padding: 0.625rem 1rem 0.25rem;
-}
-.ov-ed.ov-agented .ov-subcrumbs + .ovm-drill-page__head {
-  margin-top: 0;
-}
 :root[data-overhaul="mobile"] .ov-agented .ov-row {
   grid-template-columns: minmax(0, 1fr) !important;
   gap: 0.375rem;
@@ -4554,25 +4546,11 @@
 :root[data-overhaul="mobile"] .ov-edhead--m.has-crumbs .ov-edhead__meta:not(#ovm-x) {
   margin-left: 0;
 }
-:root[data-overhaul="mobile"] .ov-edhead--m > .ov-crumbs:not(#ovm-x) {
-  margin: 0;
-}
-:root[data-overhaul="mobile"] .ov-subcrumbs:not(#ovm-x) {
-  flex: none;
-  flex-wrap: nowrap;
-  min-width: 0;
-  margin: 0;
-  padding: 0.625rem 1rem 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-:root[data-overhaul="mobile"] .ov-subcrumbs .ov-crumbs__item:last-child:not(#ovm-x) {
-  min-width: 0;
-  overflow: hidden;
-}
-:root[data-overhaul="mobile"] .ov-subcrumbs .ov-crumbs__item:last-child > span:not(#ovm-x) {
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Phones and tablets: a Library page fills the width under the top bar, so its top corners stay square (a
+   theme's rounded page sheet, made for the computer layout, let the backdrop show through them). */
+:root[data-overhaul="mobile"] [data-component="MobileDetailSheet"][data-mari-part="page"]:not(#ovm-x) {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
 }
 
 /* Preset drill pages keep Save in the corner (Saved when nothing waits), like the editor header. */

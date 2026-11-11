@@ -967,7 +967,6 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
       {/* Split view's narrow side: Library › Connections › page at the top, like every other Library page. */}
       {splitCrumbs && !accountPage ? (
         <EditorCrumbs
-          className="ov-subcrumbs"
           items={[
             { label: "Library", onClick: openLibraryPane },
             { label: "Connections", onClick: () => openLibrarySection("connections") },
