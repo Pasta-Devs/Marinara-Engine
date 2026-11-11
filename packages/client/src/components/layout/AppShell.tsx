@@ -705,14 +705,21 @@ export function AppShell({
   // New layout: Chats live in the one sidebar on the right, so the left chat list never shows. Anything
   // that opens it (shortcuts, Home, the tour) opens that sidebar on its Chats view instead: the right
   // pane on a computer, the slide-over page on phones and tablets.
+  // Consistency audit P6/T1: on phones and tablets the sidebar's saved or default "open" from before
+  // this visit doesn't open the Chats page over Home (and over the welcome tour); only opening it now does.
+  const sidebarOpenAtLoadRef = useRef(sidebarOpen);
   useEffect(() => {
+    if (!sidebarOpen) sidebarOpenAtLoadRef.current = false;
     if (!sidebarOpen || (!overhaulActive && !overhaulMobile)) return;
     const ui = useUIStore.getState();
     ui.setSidebarOpen(false);
     const overhaul = useOverhaulStore.getState();
     overhaul.setSidePane("chats");
-    if (overhaulMobile) overhaul.setMobileSidePageOpen(true);
-    else if (!ui.rightPanelOpen) ui.openRightPanel(ui.rightPanel === "chat" ? "characters" : ui.rightPanel);
+    const fromLoad = sidebarOpenAtLoadRef.current;
+    sidebarOpenAtLoadRef.current = false;
+    if (overhaulMobile) {
+      if (!fromLoad) overhaul.setMobileSidePageOpen(true);
+    } else if (!ui.rightPanelOpen) ui.openRightPanel(ui.rightPanel === "chat" ? "characters" : ui.rightPanel);
   }, [sidebarOpen, overhaulActive, overhaulMobile]);
   // The phone page belongs to the phone layout: leaving it (a wider window) closes the page.
   useEffect(() => {

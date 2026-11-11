@@ -8664,6 +8664,24 @@ input.ov-edhead__title:focus {
   background: var(--card);
   transform: rotate(45deg);
 }
+/* The button the tip points at gets a ring while the tip shows (first chat). */
+:root [data-ov-tip-target]:not(#ov-x) {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root [data-ov-tip-target]:not(#ov-x) {
+    animation: ov-tip-target-pulse 1.6s ease-in-out infinite;
+  }
+}
+@keyframes ov-tip-target-pulse {
+  50% {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+}
 .ov-cs-tip__title {
   margin: 0 0 0.25rem;
   font-weight: 600;
