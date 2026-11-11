@@ -2500,7 +2500,7 @@ export function GameSetupWizard({
                     {/* Content Rating */}
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
-                        {localizeUi("ui.game.gamesetupwizard.contentRating")}
+                        {localizeUi("ui.game.gamesetupwizard.sexualContentRating")}
                       </label>
                       <div className="flex gap-1.5">
                         <button
@@ -2532,8 +2532,8 @@ export function GameSetupWizard({
                       </div>
                       <p className="mt-1 text-[0.575rem] text-[var(--muted-foreground)]">
                         {rating === "nsfw"
-                          ? localizeUi("ui.game.gamesetupwizard.anythingGoesViolenceDarkThemesAndExplicitContentAre")
-                          : localizeUi("ui.game.gamesetupwizard.darkThemesAndProfanityAllowedButExplicitScenesCut")}
+                          ? localizeUi("ui.game.gamesetupwizard.nsfwSexualContentOnlyHelp")
+                          : localizeUi("ui.game.gamesetupwizard.sfwSexualContentOnlyHelp")}
                       </p>
                       <div className="mt-3">
                         <GameStoryBoundariesFields

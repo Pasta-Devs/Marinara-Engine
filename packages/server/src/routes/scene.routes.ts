@@ -32,6 +32,9 @@ import {
   normalizeGroupChatMode,
   parseChoiceOptions,
   defaultGameRatingGuidelines,
+  gameContentBoundariesBlock,
+  resolveGameContentBoundaries,
+  resolveGameRatingGuidelines,
 } from "@marinara-engine/shared";
 import type {
   SceneCreateRequest,
@@ -63,8 +66,30 @@ import {
 const BG_DIR = join(DATA_DIR, "backgrounds");
 const ALLOWED_BG_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 
-/** A scene's content rules: Game Mode's built-in NSFW rating guidelines, sent whatever the planned rating, as before. */
-const SCENE_GUIDELINES = [`<guidelines>`, defaultGameRatingGuidelines("nsfw"), `</guidelines>`].join("\n");
+/**
+ * A scene's content rules: the rating guidelines of the rating it was planned with. A scene started from a
+ * Game Mode chat follows that game's own settings instead (its rating, rating text, violence level, story
+ * style and content boundaries), so a scene never reads a harsher rating than its game.
+ */
+function originGameSetup(originMetadata: Record<string, unknown> | null): Record<string, unknown> | null {
+  const setup = originMetadata?.gameSetupConfig;
+  return setup && typeof setup === "object" && !Array.isArray(setup) ? (setup as Record<string, unknown>) : null;
+}
+
+/** The rating a scene plays at: its game's, when it started from one, else the one it was planned with. */
+export function sceneRatingFor(plannedRating: unknown, originMetadata: Record<string, unknown> | null): "sfw" | "nsfw" {
+  const game = originGameSetup(originMetadata);
+  return (game ? game.rating : plannedRating) === "nsfw" ? "nsfw" : "sfw";
+}
+
+export function sceneGuidelines(plannedRating: unknown, originMetadata: Record<string, unknown> | null): string {
+  const game = originGameSetup(originMetadata);
+  const rules = game
+    ? resolveGameRatingGuidelines(game)
+    : defaultGameRatingGuidelines(plannedRating === "nsfw" ? "nsfw" : "sfw");
+  const boundaries = game ? gameContentBoundariesBlock(resolveGameContentBoundaries(game)) : "";
+  return [`<guidelines>`, rules, `</guidelines>`, ...(boundaries ? [boundaries] : [])].join("\n");
+}
 
 function areScenePresetChoicesValid(
   choices: Record<string, string | string[]> | null,
@@ -501,7 +526,8 @@ export async function sceneRoutes(app: FastifyInstance) {
         ? participants.characterIds
         : [...new Set(plannedCharIds)];
 
-    const finalSystemPrompt = plan.systemPrompt + "\n" + SCENE_GUIDELINES;
+    const originMetadata = origin.chat ? parseMetadata(origin.chat) : null;
+    const finalSystemPrompt = plan.systemPrompt + "\n" + sceneGuidelines(plan.rating, originMetadata);
 
     // Create the roleplay chat
     const sceneChat = await chats.create({
@@ -560,7 +586,7 @@ export async function sceneRoutes(app: FastifyInstance) {
       sceneScenario: plan.scenario,
       sceneBackground: plan.background ?? null,
       sceneSystemPrompt: finalSystemPrompt,
-      sceneRating: plan.rating,
+      sceneRating: sceneRatingFor(plan.rating, originMetadata),
       sceneStatus: "active",
       sceneConversationContext: [origin.notes, historyText].filter(Boolean).join("\n\n"),
       sceneRelationshipHistory: plan.relationshipHistory || null,
