@@ -16,6 +16,13 @@ import {
   DEFAULT_GAME_SYSTEM_PROMPT,
   gameInventoryBagKey,
   resolveGameRatingGuidelines,
+  gameContentBoundariesBlock,
+  gameContentBoundariesReminder,
+  gentleGameInstructions,
+  GENTLE_CAMPAIGN_RULES,
+  GENTLE_GM_TURN_RULES,
+  type GameStoryStyle,
+  type GameViolenceLevel,
   rulesetDefenseLabel,
   rulesetItemStatsRead,
   rulesetLayeredCurrencies,
@@ -97,6 +104,12 @@ export interface GmPromptContext {
   rating?: "sfw" | "nsfw";
   /** The player's own rating guidelines, used instead of the built-in text for `rating`. */
   ratingGuidelines?: string | null;
+  /** Gentle storytelling (game-story-style.ts): "gentle" softens the GM's own rules. Absent is standard. */
+  storyStyle?: GameStoryStyle;
+  /** How violence is shown, apart from the rating. Absent is what the rating has always meant. */
+  violence?: GameViolenceLevel;
+  /** Subjects the player never wants in the story: hard limits in every prompt that writes story. */
+  contentBoundaries?: string[];
   /** Whether the GM may emit timed reaction prompts. Defaults to true. */
   enableQuickTimeEvents?: boolean;
   /** Whether a separate scene model handles bg, music, sfx, ambient, widgets, expressions */
@@ -702,7 +715,11 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   const storyScript = ctx.story ? storyScriptPromptText(ctx.story) : "";
   if (storyScript) sections.push(`<story_script>`, storyScript, `</story_script>`);
 
-  sections.push(wrapGameInstructions(normalizePromptText(ctx.gameSystemPrompt) || DEFAULT_GAME_SYSTEM_PROMPT));
+  const instructions = normalizePromptText(ctx.gameSystemPrompt) || DEFAULT_GAME_SYSTEM_PROMPT;
+  // A gentle game swaps the built-in instructions for the gentle ones; a prompt the player wrote stays.
+  sections.push(
+    wrapGameInstructions(ctx.storyStyle === "gentle" ? gentleGameInstructions(instructions) : instructions),
+  );
 
   if (ctx.ruleset?.gmReference) {
     sections.push(
@@ -716,9 +733,17 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   // ── Rating Guidelines ──
   sections.push(
     `<rating_guidelines>`,
-    resolveGameRatingGuidelines({ rating: ctx.rating, ratingGuidelines: ctx.ratingGuidelines }),
+    resolveGameRatingGuidelines({
+      rating: ctx.rating,
+      ratingGuidelines: ctx.ratingGuidelines,
+      violence: ctx.violence,
+      storyStyle: ctx.storyStyle,
+    }),
     `</rating_guidelines>`,
   );
+  // The player's boundaries sit apart from the rating text, so their own rating text never drops them.
+  const boundariesBlock = gameContentBoundariesBlock(ctx.contentBoundaries ?? []);
+  if (boundariesBlock) sections.push(boundariesBlock);
 
   // ── Current State ──
   // Moved to buildGmFormatReminder() so the model sees the latest
@@ -1774,6 +1799,8 @@ export function buildGmFormatReminder(
     | "rulesetLayerOptions"
     | "language"
     | "rating"
+    | "storyStyle"
+    | "contentBoundaries"
     | "enableQuickTimeEvents"
     | "gameSpecialInstructions"
   > & {
@@ -1854,6 +1881,8 @@ export function buildGmFormatReminder(
     };
   }
   const S = part === "whole" || part === "stable";
+  const gentle = ctx.storyStyle === "gentle";
+  const boundariesReminder = gameContentBoundariesReminder(ctx.contentBoundaries ?? []);
   const T = part === "whole" || part === "turn";
   const splitTurn = part === "turn";
   const lines: string[] = [];
@@ -2058,8 +2087,10 @@ export function buildGmFormatReminder(
       `- Commands: [tag: params].`,
       `- NEVER mix narration and dialogue in the same line; output them separately.`,
       ...(ctx.rating === "nsfw"
-        ? [`- Adult rating: explicit content is allowed when the story calls for it. No plot armor.`]
+        ? [`- Adult rating: explicit content is allowed when the story calls for it.${gentle ? "" : " No plot armor."}`]
         : []),
+      // The player's hard limits, said again closest to generation (the full block is in the system prompt).
+      ...(boundariesReminder ? [boundariesReminder] : []),
       `- Keep each character's vocabulary, grammar, and cadence distinct, shaped by personality and mood.`,
       `- ZERO TOLERANCE FOR LAZY AI WRITING! Absolutely NO: “doesn’t X, doesn’t Y”, “not X, not Y,” “jaw working,” “mechanical precision,” “ozone,” “somewhere outside,” and negative parallelisms in your narrative prose. Replace them with human cadence and affirmative forms. State what happens instead of what doesn’t (for example, describe something as just “still” instead of “not moving”).`,
       ``,
@@ -2086,7 +2117,11 @@ export function buildGmFormatReminder(
             `[${ctx.playerName ?? "Player"}] [thought] [smirk]: You think to yourself that you're the best.`,
           ]),
       `- CRITICAL: NEVER echo dialogue, especially not after the player. NO PARROTING!`,
-      `- Player agency is not player immunity: the player controls intent, not the world's response. Let successes earned through effort, luck, or cleverness and failures caused by mistakes, bad luck, or poor decisions land with consequences; both good and bad ends can be earned.`,
+      ...(gentle
+        ? GENTLE_GM_TURN_RULES.slice(0, 1)
+        : [
+            `- Player agency is not player immunity: the player controls intent, not the world's response. Let successes earned through effort, luck, or cleverness and failures caused by mistakes, bad luck, or poor decisions land with consequences; both good and bad ends can be earned.`,
+          ]),
       `- Keep turn length flexible. If player agency is low (exploration, travel/rest), go longer; if high (combat, dialogue, intense danger), stay concise. Sometimes one line of dialogue or narrative beat is enough.`,
       `- End naturally when it's the player's turn to act or speak.`,
       ``,
@@ -2188,6 +2223,8 @@ export function buildGmFormatReminder(
           ]),
       // A playtest GM narrated a sneak and a search as successes with no check at all.
       `- Never skip a check the action calls for. Sneaking, searching, spotting, persuading, climbing or anything else whose outcome is uncertain gets its check tag, for each character who attempts it; never narrate such an attempt succeeding or failing without one.`,
+      // A gentle game: what is worth a roll, and what a failure may cost.
+      ...(gentle ? GENTLE_GM_TURN_RULES.slice(1) : []),
       // The stop-at-the-attempt line is exactly the instruction the second request exists to
       // serve, so it is dropped while the turn has to finish itself.
       ...(oneRequestDice
@@ -2594,6 +2631,10 @@ export interface SetupPromptContext {
   rating?: "sfw" | "nsfw";
   /** The player's own rating guidelines, used instead of the built-in text for `rating`. */
   ratingGuidelines?: string | null;
+  /** Gentle storytelling, violence level and the player's hard limits (game-story-style.ts). */
+  storyStyle?: GameStoryStyle;
+  violence?: GameViolenceLevel;
+  contentBoundaries?: string[];
   /** Full persona card text (player character) */
   personaCard?: string | null;
   /** Exact player persona name, when known */
@@ -2650,8 +2691,15 @@ export function buildSetupPrompt(ctx: SetupPromptContext = {}): string {
   const characterCardTargets = [...(playerName ? [playerName] : []), ...partyNames];
   const ratingBlock = [
     `<rating>`,
-    resolveGameRatingGuidelines({ rating, ratingGuidelines: ctx.ratingGuidelines }),
+    resolveGameRatingGuidelines({
+      rating,
+      ratingGuidelines: ctx.ratingGuidelines,
+      violence: ctx.violence,
+      storyStyle: ctx.storyStyle,
+    }),
     `</rating>`,
+    ...(ctx.storyStyle === "gentle" ? [GENTLE_CAMPAIGN_RULES] : []),
+    ...(ctx.contentBoundaries?.length ? [gameContentBoundariesBlock(ctx.contentBoundaries, true)] : []),
   ].join("\n");
 
   // Build persona + party sections for the system prompt
@@ -2934,9 +2982,13 @@ export function buildSessionSummaryPrompt(language?: string | null): string {
 export function buildSessionConclusionPrompt(args: {
   language?: string | null;
   includeCharacterCards: boolean;
+  /** The player's hard limits: no new twist, arc or plan may be built on them. */
+  contentBoundaries?: string[];
 }): string {
   const normalizedLanguage = normalizePromptLanguage(args.language);
+  const boundaries = gameContentBoundariesBlock(args.contentBoundaries ?? [], true);
   return [
+    ...(boundaries ? [boundaries, ``] : []),
     `Review this completed game session and return all end-of-session continuity updates in one JSON object.`,
     `Return JSON with exactly these top-level keys and no others: summary, campaignProgression, nextSessionPlan, characterCards.`,
     ``,
@@ -3021,11 +3073,13 @@ export function buildCardAdjustmentPrompt(): string {
 }
 
 /** Build the prompt for adjusting campaign progression at session end. */
-export function buildCampaignProgressionPrompt(language?: string | null): string {
+export function buildCampaignProgressionPrompt(language?: string | null, contentBoundaries: string[] = []): string {
   const normalizedLanguage = normalizePromptLanguage(language);
+  const boundaries = gameContentBoundariesBlock(contentBoundaries, true);
   return [
     `You are the Game Master reviewing what happened during this session to update the campaign's ongoing progression state.`,
     ``,
+    ...(boundaries ? [boundaries, ``] : []),
     ...(normalizedLanguage
       ? [
           `Language: write every natural-language value in ${normalizedLanguage}. Keep the JSON keys and booleans in English.`,

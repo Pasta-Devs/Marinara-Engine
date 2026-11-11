@@ -27,11 +27,7 @@ import { createReplyFallbackNotifier } from "./generate/fallback-notification.js
 import { stripConversationPromptTimestamps } from "../services/conversation/transcript-sanitize.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import type { ChatCompletionResult, ChatMessage } from "../services/llm/base-provider.js";
-import {
-  normalizeGroupChatMode,
-  parseChoiceOptions,
-  defaultGameRatingGuidelines,
-} from "@marinara-engine/shared";
+import { normalizeGroupChatMode, parseChoiceOptions, defaultGameRatingGuidelines } from "@marinara-engine/shared";
 import type {
   SceneCreateRequest,
   SceneCreateResponse,
