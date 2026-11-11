@@ -2638,6 +2638,76 @@
 .ov-docs__content tr:last-child td {
   border-bottom: 0;
 }
+/* The shared markdown rules (globals.css .mari-md-table, .mari-md-codeblock) were written for dark
+   chat bubbles: near-white header text, a black wash under grey code. On a light theme or a day
+   look both vanished, so the docs page takes its table and code colors from the theme instead. */
+.ov-docs .ov-docs__content .mari-md-table :is(th, td) {
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--ov-line) 60%, transparent);
+}
+.ov-docs .ov-docs__content .mari-md-table th {
+  border-bottom-color: var(--ov-line);
+  background: color-mix(in srgb, var(--ov-text) 4%, transparent);
+  color: var(--ov-docs-ink);
+}
+.ov-docs .ov-docs__content .mari-md-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.ov-docs .ov-docs__content .mari-md-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--ov-text) 2.5%, transparent);
+}
+.ov-docs .ov-docs__content .mari-md-table tbody tr:hover {
+  background: color-mix(in srgb, var(--ov-text) 4%, transparent);
+}
+/* Links were Tailwind's fixed light blue (markdown.tsx), about 2:1 on a light page. Small accent
+   text (links, table heads) leans a quarter toward the text color: a bright accent such as the
+   default pink only reached 3:1 on a light page. */
+.ov-docs .ov-docs__content {
+  --ov-docs-ink: color-mix(in srgb, var(--ov-accent) 72%, var(--ov-text));
+}
+.ov-docs .ov-docs__content a {
+  color: var(--ov-docs-ink);
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 0.15em;
+}
+.ov-docs .ov-docs__content a:hover {
+  color: var(--ov-docs-ink);
+  text-decoration-color: currentColor;
+}
+.ov-docs .ov-docs__content .mari-md-codeblock {
+  /* Right padding keeps code clear of the Copy button. One line of code (0.85rem at 1.6) plus this
+     padding is 2.75rem tall, so the 1.75rem button at top 0.5rem sits centered in a one-line block
+     and in the top corner of a longer one. */
+  min-height: 2.75rem;
+  padding: 0.6875rem 4.75rem 0.6875rem 1rem;
+  border: 1px solid var(--ov-line);
+  background: color-mix(in srgb, var(--ov-text) 7%, var(--card));
+  color: var(--ov-text);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+/* The language tag sat in the same corner as Copy and was 30% white (invisible by day). */
+.ov-docs .ov-docs__content .mari-md-codeblock-lang {
+  display: none;
+}
+.ov-docs .ov-docs__content .docs-copy-button {
+  top: 0.5rem;
+  bottom: auto;
+  right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  min-height: 0;
+  padding: 0 0.625rem;
+  border-color: var(--ov-line);
+  background: var(--card);
+  color: color-mix(in srgb, var(--ov-muted) 60%, var(--ov-text));
+  line-height: 1;
+}
+.ov-docs .ov-docs__content .docs-copy-button:hover {
+  background: var(--accent);
+  color: var(--ov-text);
+}
 /* "> **Note:**" blockquotes become tinted callouts (DocsPage marks them). */
 .ov-docs__content blockquote[data-callout] {
   --callout: var(--ov-accent);
