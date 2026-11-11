@@ -12,6 +12,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  FileText,
   LayoutGrid,
   List,
   Plus,
@@ -1244,6 +1245,8 @@ export function useRegexFolders(scripts: RegexScriptRow[]) {
     const list = members(folder);
     const on = list.filter((script) => script.enabled === "true").length;
     return {
+      // A preset's folder wears the Presets icon, so it reads as that preset's scripts, not one of yours.
+      icon: folder.virtual ? <FileText size={14} className="ov-vw__gicon" aria-hidden="true" /> : undefined,
       note: on === list.length ? String(list.length) : `${on}/${list.length} ${localize("on")}`,
       trail: list.length ? (
         <Toggle

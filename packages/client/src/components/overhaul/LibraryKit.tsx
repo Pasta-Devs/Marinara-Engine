@@ -567,7 +567,10 @@ export function KitFolderHead({
   dragKind,
   note,
   trail,
+  icon,
 }: {
+  /** Replaces the folder icon (Regex scripts: a preset's own folder shows the preset icon). */
+  icon?: ReactNode;
   dragKind?: string;
   folder: KitFolder;
   count: number;
@@ -602,7 +605,7 @@ export function KitFolderHead({
       onContextMenu={(event) => onMenu(event, "pointer")}
     >
       <ChevronRight size={14} className={cn("ov-kit-folder__arrow", !collapsed && "is-open")} aria-hidden="true" />
-      <Folder size={15} aria-hidden="true" />
+      {icon ?? <Folder size={15} aria-hidden="true" />}
       <span className="ov-kit-folder__name">{folder.name}</span>
       <span className="ov-kit-folder__count">{note ?? count}</span>
       {trail ? (
