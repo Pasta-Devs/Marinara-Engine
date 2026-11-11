@@ -669,7 +669,14 @@
   color: color-mix(in srgb, var(--marinara-chat-chrome-accent) 22%, transparent);
 }
 
-.marinara-chat-input-shell button:not(:disabled):hover,
+/* Hover only where there is a mouse: on touch, :hover sticks after a tap and left a circle behind. */
+@media (hover: hover) and (pointer: fine) {
+  .marinara-chat-input-shell button:not(:disabled):hover {
+    background-color: var(--marinara-chat-chrome-highlight-bg-hover);
+    color: var(--marinara-chat-chrome-button-text-hover);
+  }
+}
+
 .marinara-chat-input-shell button:not(:disabled):focus-visible {
   background-color: var(--marinara-chat-chrome-highlight-bg-hover);
   color: var(--marinara-chat-chrome-button-text-hover);

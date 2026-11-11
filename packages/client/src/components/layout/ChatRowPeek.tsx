@@ -64,6 +64,11 @@ export function ChatRowPeek({ containerRef, activeChatId, disabled }: ChatRowPee
         return;
       }
       if (id === chatId) return;
+      // Another row: the open peek belongs to the last one, so it goes now rather than when the new one opens.
+      if (chatId) {
+        setChatId(null);
+        setAnchor(null);
+      }
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         setChatId(id);
@@ -121,6 +126,8 @@ export function ChatRowPeek({ containerRef, activeChatId, disabled }: ChatRowPee
   }, [chatId, anchor, messages, isLoading]);
 
   if (!chatId || !anchor) return null;
+  // An empty chat has nothing to read: a box saying "No messages yet" only covered the list.
+  if (!isLoading && !messages?.length) return null;
   // The row's width (the list is a narrow sidebar), never narrower than a readable 15rem.
   const peekWidth = Math.max(anchor.width, 240);
 
@@ -145,9 +152,9 @@ export function ChatRowPeek({ containerRef, activeChatId, disabled }: ChatRowPee
         <p className="mari-chrome-accent-text-muted mari-accent-animated text-[0.6875rem]">
           {localizeUi("ui.layout.chatsidebar.loading")}
         </p>
-      ) : messages?.length ? (
+      ) : (
         <div className="flex flex-col gap-2">
-          {messages.map((message) => (
+          {(messages ?? []).map((message) => (
             <div key={message.id} className="flex gap-2 text-[0.6875rem] leading-snug">
               {/* Speaker rail: a tinted bar reads faster down a stack than a repeated word,
                   and keeps the message text on one flush left edge. */}
@@ -172,10 +179,6 @@ export function ChatRowPeek({ containerRef, activeChatId, disabled }: ChatRowPee
             </div>
           ))}
         </div>
-      ) : (
-        <p className="mari-accent-animated text-[0.6875rem] text-[var(--marinara-chat-chrome-button-text-active)]">
-          {localizeUi("ui.layout.chatsidebar.peekEmpty")}
-        </p>
       )}
     </div>,
     document.body,
