@@ -9376,6 +9376,13 @@ function capabilityPackageInstallIssueFor(
   if (!declaresApi(821) && diceSettings.some((setting) => setting?.plotDie !== undefined)) {
     return "A ruleset with a plot die requires schemaVersion 2 and capabilityApi 1.821 or newer";
   }
+  // A natural total and a moved band, 1.822: strict keys, including per-check overrides.
+  if (
+    !declaresApi(822) &&
+    diceSettings.some((setting) => setting?.naturalTotal !== undefined || setting?.tierShift !== undefined)
+  ) {
+    return "A ruleset with a natural total or a band shift requires schemaVersion 2 and capabilityApi 1.822 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||

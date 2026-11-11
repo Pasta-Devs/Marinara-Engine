@@ -112,7 +112,11 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
         result.plotBonus ? ` (${result.plotBonus > 0 ? "+" : ""}${result.plotBonus})` : ""
       }.`
     : "";
-  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}${plot}`;
+  // A band the Game Master moved (1.822).
+  const shift = result.shift
+    ? ` Moved ${Math.abs(result.shift)} ${Math.abs(result.shift) === 1 ? "band" : "bands"} ${result.shift > 0 ? "better" : "worse"}.`
+    : "";
+  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}${plot}${shift}`;
 }
 
 function serializeSkillCheckAttribute(value: string): string {
@@ -228,6 +232,8 @@ export interface SkillCheckTagExtras {
   plotSymbol?: "complication" | "opportunity";
   plotBonus?: number;
   plotLabel?: string;
+  /** `shift="+1"` (1.822): bands the outcome moved, or the ask to move it. */
+  shift?: number;
 }
 
 /** A name in `from=`: no brackets, which would end the tag, and no semicolons, which part the names. */
@@ -326,6 +332,9 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
     if (extras.plotBonus) parts.push(`plotBonus="${extras.plotBonus}"`);
     if (extras.plotLabel) parts.push(`plotLabel="${serializeSkillCheckAttribute(extras.plotLabel)}"`);
   }
+  if (extras.shift != null && Number.isInteger(extras.shift) && extras.shift !== 0) {
+    parts.push(`shift="${extras.shift > 0 ? "+" : ""}${extras.shift}"`);
+  }
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
@@ -406,6 +415,7 @@ export function serializeResolvedSkillCheckTag(result: SkillCheckResult, extras?
           ...(result.plotLabel ? { plotLabel: result.plotLabel } : {}),
         }
       : {}),
+    ...(result.shift ? { shift: result.shift } : {}),
     ...(result.dark
       ? {
           dark: result.dark,

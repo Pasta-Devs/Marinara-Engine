@@ -121,6 +121,8 @@ export interface SkillCheckTag {
   /** `plot="true"`: the plot die thrown (1.821). Carried, never judged: the resolver holds it to the
    *  ruleset. */
   plot?: boolean;
+  /** `shift="+1"`: bands to move the outcome (1.822). Carried, never judged, as `plot` is. */
+  shift?: number;
   /**
    * `spend="willpower:1"` as the GM wrote it, read into a pool name and a whole number of points.
    *
@@ -512,6 +514,8 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     if (Number.isInteger(dark) && dark >= 0) tag.darkDice = dark;
   }
   if (values.get("plot")?.trim().toLowerCase() === "true") tag.plot = true;
+  const shiftValue = values.get("shift")?.trim();
+  if (shiftValue && Number.isInteger(Number(shiftValue)) && Number(shiftValue) !== 0) tag.shift = Number(shiftValue);
   const rerollName = values.get("reroll")?.trim();
   if (rerollName) tag.reroll = rerollName.slice(0, 40);
   const reason = values.get("reason")?.trim().toLowerCase();
@@ -651,6 +655,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
           ...(plotLabel ? { plotLabel } : {}),
         }
       : {}),
+    ...(tag.shift ? { shift: tag.shift } : {}),
   };
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);

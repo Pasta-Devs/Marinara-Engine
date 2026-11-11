@@ -646,6 +646,8 @@ export interface SkillCheckResult {
   plotSymbol?: "complication" | "opportunity";
   plotBonus?: number;
   plotLabel?: string;
+  /** Bands the Game Master moved the outcome by (1.822), signed. */
+  shift?: number;
   /** Narrative dice (1.141): net symbols, die ids beside their 1-based rolls, and the face symbols
    *  with the ruleset's labels, so a saved check needs no installed ruleset to display. */
   symbols?: Record<string, number>;

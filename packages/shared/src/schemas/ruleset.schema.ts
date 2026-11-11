@@ -610,6 +610,21 @@ const diceSumResolutionSchema = z
       })
       .strict()
       .optional(),
+    /** The dice's own total, before anything is added, that is a critical (1.822): a natural 19 or 20
+     *  on 2d10 is `atLeast: 19`. `atMost` is a critical failure. */
+    naturalTotal: z
+      .object({
+        atLeast: z.number().int().min(-1000).max(10000).optional(),
+        atMost: z.number().int().min(-1000).max(10000).optional(),
+      })
+      .strict()
+      .optional(),
+    /** The Game Master may move one check's outcome band up or down (1.822), up to `max` bands, with
+     *  `shift="+1"`: a double edge and a double bane. Needs `outcomes`. */
+    tierShift: z
+      .object({ max: z.number().int().min(1).max(3), text: promptSafeText(200).optional() })
+      .strict()
+      .optional(),
     difficultyLadder: diceSumLadderSchema,
   })
   .strict();
@@ -18263,6 +18278,26 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (plotDie.faces.findIndex((other) => other.face === entry.face) !== index)
         issue(["resolution", "plotDie", "faces", index, "face"], `Face ${entry.face} is listed twice`);
     });
+    // A natural total (1.822) the dice can show, read off the faces' own worth where they have it.
+    const { naturalTotal, tierShift } = resolution;
+    if (naturalTotal) {
+      const low = dice.count * (dice.faces ? Math.min(...dice.faces) : 1);
+      const high = dice.count * (dice.faces ? Math.max(...dice.faces) : dice.sides);
+      if (naturalTotal.atLeast === undefined && naturalTotal.atMost === undefined)
+        issue(["resolution", "naturalTotal"], "Give atLeast, atMost or both");
+      for (const key of ["atLeast", "atMost"] as const) {
+        const at = naturalTotal[key];
+        if (at !== undefined && (at < low || at > high))
+          issue(["resolution", "naturalTotal", key], `${dice.count}d${dice.sides} shows ${low} to ${high}`);
+      }
+      if (
+        naturalTotal.atLeast !== undefined &&
+        naturalTotal.atMost !== undefined &&
+        naturalTotal.atMost >= naturalTotal.atLeast
+      )
+        issue(["resolution", "naturalTotal", "atMost"], "atMost is at or above atLeast, so a roll would be both");
+    }
+    if (tierShift && !resolution.outcomes) issue(["resolution", "tierShift"], "Shifting a band needs outcomes");
   } else if (resolution.kind === "symbol-pool") {
     if (resolution.allowOwnUpgrade && !resolution.pool.upgrade) {
       issue(["resolution", "allowOwnUpgrade"], "Own upgrades require pool.upgrade");

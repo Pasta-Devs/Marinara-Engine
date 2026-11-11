@@ -250,6 +250,8 @@ export interface SkillCheckRequest {
   upgradeOwn?: number;
   /** `plot=` (1.821): throw the plot die with this check. */
   plot?: boolean;
+  /** `shift=` (1.822): bands to move this check's outcome. */
+  shift?: number;
   /** `spend=`: what the player said they were spending on this check, where the ruleset offers
    *  such a purchase. The Engine decides what it costs and what it buys. */
   spend?: { pool: string; amount: number };
@@ -1112,6 +1114,7 @@ export function rulesetRefusesUntrained(ruleset: SkillCheckRulesetContext, reque
 function diceAsk(tag: SkillCheckTag) {
   return {
     ...(tag.plot ? { plot: true } : {}),
+    ...(tag.shift != null ? { shift: tag.shift } : {}),
   };
 }
 
@@ -1593,6 +1596,7 @@ function resolveRulesetSkillCheck(
       ...("faceFloor" in floors && floors.faceFloor !== undefined ? { faceFloor: floors.faceFloor } : {}),
       ...("totalFloor" in floors && floors.totalFloor !== undefined ? { totalFloor: floors.totalFloor } : {}),
       plot: request.plot,
+      shift: request.shift,
     },
     rollDie,
   );
