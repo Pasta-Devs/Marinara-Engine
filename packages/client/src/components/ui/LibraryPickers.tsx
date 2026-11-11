@@ -4,7 +4,7 @@
 // Presets / Lorebooks panels' folders, and show each item's picture like character rows
 // show avatars.
 // ──────────────────────────────────────────────
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Ban, BookOpen, ChevronDown, FileText, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLibraryFolders } from "../../hooks/use-library-folders";
@@ -278,6 +278,9 @@ export function LorebookListField({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
   const picked = selectedIds
     .map((id) => lorebooks.find((lb) => lb.id === id))
     .filter((lb): lb is LibraryLorebook => Boolean(lb));
@@ -334,7 +337,8 @@ export function LorebookListField({
           ))}
         </div>
       )}
-      {open && (
+      {/* The window goes away if the field turns disabled while it is open (such as during a save). */}
+      {open && !disabled && (
         <LorebookPickerWindow
           anchorRef={triggerRef}
           lorebooks={lorebooks}

@@ -71,7 +71,10 @@ export function usePickerKeyboard({
   const [active, setActive] = useState(0);
   // A ring moved by the mouse never scrolls the list; only the arrow keys do.
   const fromPointer = useRef(false);
-  useEffect(() => setActive(0), [query]);
+  useEffect(() => {
+    fromPointer.current = false;
+    setActive(0);
+  }, [query]);
   const rows = () =>
     Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-pick-row]:not(:disabled)") ?? []);
   // The ring follows the mouse, so arrows continue from the row under it. Touch is left out:
@@ -116,6 +119,8 @@ export function usePickerKeyboard({
     const count = rows().length;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
+      // A hover over the already-ringed row leaves the flag set; the keys always scroll.
+      fromPointer.current = false;
       if (count) setActive((i) => (i + (event.key === "ArrowDown" ? 1 : count - 1)) % count);
     } else if (event.key === "Enter") {
       event.preventDefault();
