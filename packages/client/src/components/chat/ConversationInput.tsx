@@ -2311,7 +2311,7 @@ export function ConversationInput({
             if (mobilePickerOpen) setMobilePickerOpen(false);
             ensureInputVisible();
           }}
-          className="max-h-[12.5rem] min-h-9 min-w-0 flex-1 resize-none bg-transparent px-1 py-2 text-[1rem] leading-tight text-foreground outline-none placeholder:text-foreground/30 sm:min-h-0 sm:px-0 sm:py-0 sm:leading-normal"
+          className="max-h-[12.5rem] min-h-9 min-w-0 flex-1 resize-none bg-transparent px-1 py-2 text-[1rem] leading-tight text-foreground outline-none placeholder:text-foreground/50 sm:min-h-0 sm:px-0 sm:py-0 sm:leading-normal"
         />
 
         {/* Right actions */}

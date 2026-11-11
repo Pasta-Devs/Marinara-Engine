@@ -481,10 +481,14 @@ export function SplitPaneBar({ phone = false }: { phone?: boolean }) {
     <header
       ref={barRef}
       className={cn("ov-splitbar", phone && "ov-splitbar--phone")}
-      data-component="SplitViewBar"
+      // The second side's top bar: themes style it with the same hooks as the main one (theme nitpick
+      // audit SV11), so it takes the TopBar component name too. data-split-bar tells the two apart.
+      data-component="TopBar"
+      data-split-bar=""
+      data-mari-part="top-bar"
       data-overhaul-topbar="true"
     >
-      <span className={cn("ov-splitbar__page", trail && "has-trail")}>
+      <span className={cn("ov-splitbar__page ov-tab", trail && "has-trail")}>
         {current && trail ? (
           <>
             <TabIcon tab={current} chats={chats} />

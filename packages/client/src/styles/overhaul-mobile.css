@@ -54,7 +54,7 @@
 }
 .ovm-icon-btn:active,
 .ovm-icon-btn.is-on {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
 }
 .ovm-icon-btn:disabled {
@@ -169,7 +169,7 @@
   border: 0;
   border-radius: 0.75rem;
   background: none;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.9375rem;
   font-weight: 600;
 }
@@ -491,7 +491,7 @@
   font-weight: 500;
 }
 .ovm-chats-home svg {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 :root[data-overhaul="mobile"] [data-component="ChatSidebar"] .mari-chrome-segmented__button {
   min-height: 2.5rem;
@@ -618,7 +618,7 @@
   opacity: 0.35;
 }
 .ovm-sheet__swipes button.is-on {
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ovm-sheet .ov-rpf-swipes {
   max-height: 14rem;
@@ -845,7 +845,7 @@
     justify-content: center;
     margin: 0 0 0.25rem -0.75rem;
     padding: 0;
-    color: var(--ov-accent);
+    color: var(--ov-accent-text);
   }
   :root[data-overhaul="mobile"] .ov-docs__back > svg {
     width: 1.25rem;
@@ -941,7 +941,7 @@
   border: 1px solid var(--ov-line);
   border-radius: 999px;
   background: var(--ovm-raised);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   box-shadow: 0 10px 28px -10px rgb(0 0 0 / 0.7);
   animation: ovm-jump-in 160ms ease-out;
 }
@@ -975,7 +975,7 @@
   align-items: center;
   gap: 0.25rem;
   margin: 0 0 0.25rem -0.375rem;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.9375rem;
 }
 /* Chat-specific schedule editor (from Chat settings) is a full-screen page, not a floating popup. */
@@ -1011,7 +1011,7 @@
 }
 .ovm-trk-strip__pin {
   flex: none;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ovm-trk-strip__scene {
   min-width: 0;
@@ -1280,7 +1280,7 @@
   padding: 0 0.4375rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--ov-accent) 16%, transparent);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -1344,7 +1344,7 @@
   border-radius: 0.75rem;
   border: 0;
   background: none;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font-size: 1rem;
 }
 .ovm-cs-page__title {
@@ -1775,7 +1775,7 @@
   border: 0;
   border-radius: 0.75rem;
   background: none;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ovm-drill-page__title {
   min-width: 0;
@@ -1962,7 +1962,7 @@
   place-items: center;
   border-radius: 0.875rem;
   background: var(--ovm-raised);
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 .ovm-preset__art img {
   width: 100%;
@@ -4066,7 +4066,7 @@
   padding: 0 0.5rem;
   border: 0;
   background: none;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
   font: inherit;
   font-size: 1rem;
   font-weight: 600;
@@ -4147,7 +4147,7 @@
 }
 .ovm-settings__tab.is-on {
   background: var(--ov-accent);
-  color: var(--ov-on-accent, #fff);
+  color: var(--ov-on-accent, var(--primary-foreground, #fff));
   font-weight: 600;
 }
 .ovm-settings__tab small {
@@ -4426,7 +4426,7 @@
 :root[data-overhaul="mobile"] .mari-edit-actions > button[data-edit-save]:not(#ovm-x) {
   border-color: transparent;
   background: var(--ov-accent);
-  color: var(--ov-on-accent, #fff);
+  color: var(--ov-on-accent, var(--primary-foreground, #fff));
   font-weight: 600;
 }
 /* Landscape phones: keep the top bar and composer clear of the notch. */
@@ -4481,7 +4481,7 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  color: var(--ov-accent);
+  color: var(--ov-accent-text);
 }
 :root[data-overhaul="mobile"] .ov-edhead--m .ov-edhead__title:not(#ovm-x) {
   min-width: 0;
@@ -4780,10 +4780,15 @@
 :root[data-overhaul="mobile"] :is(.ov-conn, .ov-org) > .ov-gallery__head + .ov-gallery__tools:not(#ovm-x):not(#ovm-y) {
   margin-top: 1rem;
 }
-:root[data-overhaul="mobile"] :is(.ov-conn, .ov-org) > .ov-gallery__tools:not(:has(~ .ov-gallery__tools)):not(#ovm-x):not(#ovm-y) {
+:root[data-overhaul="mobile"]
+  :is(.ov-conn, .ov-org)
+  > .ov-gallery__tools:not(:has(~ .ov-gallery__tools)):not(#ovm-x):not(#ovm-y) {
   margin-bottom: 1.25rem;
 }
-:root[data-overhaul="mobile"] :is(.ov-conn, .ov-org) > .ov-gallery__tools + *:not(.ov-gallery__tools):not(#ovm-x):not(#ovm-y) {
+:root[data-overhaul="mobile"]
+  :is(.ov-conn, .ov-org)
+  > .ov-gallery__tools
+  + *:not(.ov-gallery__tools):not(#ovm-x):not(#ovm-y) {
   margin-top: 0;
 }
 
