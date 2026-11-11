@@ -12,6 +12,8 @@ export const promptPresets = fileTable("prompt_presets", {
   conversationPrompt: text("conversation_prompt").notNull().default(""),
   /** Game-mode GM prompt template */
   gamePrompt: text("game_prompt").notNull().default(""),
+  /** JSON of the Game Mode story settings this preset carries (GamePresetStorySettings); empty = none */
+  gameStorySettings: text("game_story_settings").notNull().default(""),
   /** JSON array of section IDs in order */
   sectionOrder: text("section_order").notNull().default("[]"),
   /** JSON array of group IDs in order */

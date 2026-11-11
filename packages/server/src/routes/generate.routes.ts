@@ -5858,6 +5858,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             characterSprites: gmCtx.characterSprites,
             language: gmCtx.language,
             rating: gmCtx.rating,
+            storyStyle: gmCtx.storyStyle,
+            contentBoundaries: gmCtx.contentBoundaries,
             enableQuickTimeEvents: gmCtx.enableQuickTimeEvents,
             gameSpecialInstructions: gmCtx.gameSpecialInstructions,
             canGenerateBackgrounds: gmCtx.canGenerateBackgrounds,
