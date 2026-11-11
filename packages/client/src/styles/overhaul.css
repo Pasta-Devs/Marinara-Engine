@@ -12438,6 +12438,10 @@ input.ov-edhead__title:not(#ov-x) {
     flex: 1 1 100%;
     font-size: 1.875rem;
   }
+  /* Regex scripts and Custom tools landings use the viewer header; keep their title the same size as the other Library pages. */
+  .ov-vw__top h1 {
+    font-size: 1.875rem;
+  }
   .ov-gallery__head > * {
     min-width: 0;
   }
@@ -12547,6 +12551,10 @@ input.ov-edhead__title:not(#ov-x) {
   }
   .ov-settings__head h1 {
     font-size: 1.875rem;
+  }
+  /* Same title spot as the gallery/list pages at this width (their padding-top drops to 1.25rem). */
+  :root[data-overhaul="on"] .ov-settings {
+    padding-top: 1.25rem;
   }
   .ov-settings__head p {
     flex: 1 1 100%;

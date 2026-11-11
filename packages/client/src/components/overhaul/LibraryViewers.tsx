@@ -166,7 +166,7 @@ function OvViewer({
     </button>
   );
   return (
-    <div className="ov-vw">
+    <div className={cn("ov-vw", landing && total === 0 && !search && "is-empty")}>
       {/* The open item's editor puts its own header here (OvEditorHead), so Regex, Connections and
           Agents read like every other editor: Library › Section › Item, the item's name, Save. */}
       <div className="ov-vw__head">
