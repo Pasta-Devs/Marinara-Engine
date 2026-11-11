@@ -176,7 +176,7 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
         : { error: { code: "notArray", field: "customTrackerFields" } },
   },
   "inventory-tracker": {
-    label: "Inventory Tracker",
+    label: "Inventory tracker",
     description: "Currencies, equipped items, and carried inventory maintained by the Inventory Tracker agent.",
     getValue: (gameState) => ({
       currencies: gameState.playerStats?.inventoryTrackerCurrencies ?? [],

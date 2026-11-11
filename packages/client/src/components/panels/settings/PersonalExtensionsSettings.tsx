@@ -1028,7 +1028,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
               <p className="max-w-md text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
                 {isExternal
                   ? t("settings.externalExtensions.empty.description")
-                  : t("settings.personalExtensions.empty.description")}
+                  : t("settings.personalExtensions.empty.hint")}
               </p>
             </div>
           ) : (

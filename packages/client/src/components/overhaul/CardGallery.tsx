@@ -69,8 +69,9 @@ export type GalleryCard = {
   updatedAt: string;
 };
 
-type QuickFilter = "favorites" | "recent" | null;
-type SortKey = "name-asc" | "name-desc" | "newest" | "oldest" | "custom";
+// "Recently edited" is a sort, as on Lorebooks and Presets, not a filter (audit C16).
+type QuickFilter = "favorites" | null;
+type SortKey = "name-asc" | "name-desc" | "recent" | "newest" | "oldest" | "custom";
 
 /** A stable, pleasant gradient for cards without a picture. */
 function placeholderGradient(id: string) {
@@ -118,7 +119,7 @@ export function CardGallery({
   const setCardSize = useOverhaulStore((state) => state.setGalleryCardSize);
   const [search, setSearch] = useState("");
   const [quick, setQuick] = useState<QuickFilter>(null);
-  // Phones: Favourites and Recently edited are one dropdown beside + New.
+  // Phones: Favourites is a dropdown beside + New.
   const mobile = useOverhaulMobile();
   // The tag selector beside search (several tags narrow to cards with all of them).
   const [pickedTags, setPickedTags] = useState<string[]>([]);
@@ -147,8 +148,9 @@ export function CardGallery({
       return card.name.toLowerCase().includes(needle) || card.tags.some((tag) => tag.toLowerCase().includes(needle));
     });
     list = [...list];
-    if (quick === "recent") return list.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
     switch (sort) {
+      case "recent":
+        return list.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
       case "custom":
         return order.orderItems(list.sort((a, b) => a.name.localeCompare(b.name)));
       case "name-desc":
@@ -173,7 +175,7 @@ export function CardGallery({
   const duplicatePersona = useDuplicatePersona();
   const deleteCharacter = useDeleteCharacter();
   const deletePersona = useDeletePersona();
-  const filtering = !!search.trim() || !!quick || pickedTags.length > 0;
+  const filtering = !!search.trim() || !!quick || pickedTags.length > 0 || sort === "recent";
   const byId = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const exportBase = isCharacters ? "/characters" : "/characters/personas";
   const removeMany = async (ids: string[], names?: string) => {
@@ -356,7 +358,7 @@ export function CardGallery({
           <Plus size={14} aria-hidden="true" />
           {mobile ? localize("New") : localize(kind === "characters" ? "New character" : "New persona")}
         </button>
-        {mobile ? (
+        {mobile && kind === "characters" ? (
           <select
             className="ov-select ovm-lp-filter"
             value={quick ?? "all"}
@@ -367,8 +369,7 @@ export function CardGallery({
             aria-label={localize("Filter")}
           >
             <option value="all">{localize("All")}</option>
-            {kind === "characters" ? <option value="favorites">{localize("Favourites")}</option> : null}
-            <option value="recent">{localize("Recently edited")}</option>
+            <option value="favorites">{localize("Favorites")}</option>
           </select>
         ) : null}
       </header>
@@ -391,19 +392,9 @@ export function CardGallery({
             aria-pressed={quick === "favorites"}
             onClick={() => setQuick((value) => (value === "favorites" ? null : "favorites"))}
           >
-            {localize("Favourites")}
+            {localize("Favorites")}
           </button>
         ) : null}
-        {mobile ? null : (
-          <button
-            type="button"
-            className={cn("ov-btn", quick === "recent" && "is-on")}
-            aria-pressed={quick === "recent"}
-            onClick={() => setQuick((value) => (value === "recent" ? null : "recent"))}
-          >
-            {localize("Recently edited")}
-          </button>
-        )}
         <span className="ov-gallery__spacer" />
         <select
           className="ov-select"
@@ -413,6 +404,7 @@ export function CardGallery({
         >
           <option value="name-asc">{localize("A to Z")}</option>
           <option value="name-desc">{localize("Z to A")}</option>
+          <option value="recent">{localize("Recently edited")}</option>
           <option value="newest">{localize("Newest")}</option>
           <option value="oldest">{localize("Oldest")}</option>
           <option value="custom">{localize("My order")}</option>

@@ -1092,7 +1092,10 @@ export function AppShell({
     lorebookDetailId,
   );
   const ovViewer: "regex" | "tools" | "connections" | "agents" | null = !overhaulActive
-    ? null
+    ? // Phones have no Custom tools table, so the viewer is its page there too (it was blank).
+      overhaulMobile && !ovOtherDetail && (toolDetailId || overhaulLibraryPage === "tools")
+      ? "tools"
+      : null
     : regexDetailId
       ? "regex"
       : toolDetailId

@@ -1,4 +1,4 @@
-// The "Game Mode Icon" block of the character and persona Stats tabs: what the card's token
+// The "Game Mode icon" block of the character and persona Stats tabs: what the card's token
 // shows on a fight board. The avatar by default, a picture from the card's own gallery (uploaded
 // here or already there), or the initials. A token with no picture always falls back to initials.
 import { useState } from "react";

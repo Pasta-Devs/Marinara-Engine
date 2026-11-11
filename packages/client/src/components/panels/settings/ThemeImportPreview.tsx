@@ -172,10 +172,10 @@ export function ThemeImportPreview({
       background: t("theming.import.setting.background", "Background (Dark)"),
       backgroundLight: t("theming.import.setting.backgroundLight", "Background (Light)"),
       fontFamily: t("theming.import.setting.fontFamily", "Font"),
-      accentPulse: t("theming.import.setting.accentPulseName", "Accent Pulse"),
+      accentPulse: t("theming.import.setting.accentPulseName", "Accent pulse"),
       dayStart: t("theming.import.setting.dayStart", "Light from"),
       nightStart: t("theming.import.setting.nightStart", "Dark from"),
-      fontSize: t("theming.import.setting.fontSize", "Display Size"),
+      fontSize: t("theming.import.setting.fontSize", "Display size"),
       reduceMotion: t("theming.import.setting.reduceMotion", "Reduce motion"),
     }[key];
     return `${label}${shown}`;
@@ -201,11 +201,11 @@ export function ThemeImportPreview({
       case "hsl-triplets":
         return t(
           "theming.import.issue.hslTriplets",
-          "{{names}} use bare HSL numbers (like 270 25% 8%), which aren't colours here, so they'd be ignored.",
+          "{{names}} use bare HSL numbers (like 270 25% 8%), which aren't colors here, so they'd be ignored.",
           { names: keepTogether(issue.names.slice(0, 4).join(", ") + (issue.names.length > 4 ? "…" : "")) },
         );
       case "bad-colors":
-        return t("theming.import.issue.badColors", "{{names}} aren't valid colours, so they'd be ignored.", {
+        return t("theming.import.issue.badColors", "{{names}} aren't valid colors, so they'd be ignored.", {
           names: keepTogether(issue.names.slice(0, 4).join(", ")),
         });
       case "unknown-hook":

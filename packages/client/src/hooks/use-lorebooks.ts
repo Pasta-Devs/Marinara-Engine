@@ -244,7 +244,7 @@ export function useDeleteLorebook() {
       // marking them stale. `useLorebook`/`useLorebookEntries` set
       // staleTime to 5 minutes, and TanStack returns cached `data` even
       // after a refetch errors — so without explicit removal the next
-      // "Edit Embedded Lorebook" click would render a ghost editor with
+      // "Edit embedded lorebook" click would render a ghost editor with
       // the deleted lorebook's name and metadata while the entries
       // query reports 0 entries from the server.
       qc.removeQueries({ queryKey: lorebookKeys.detail(id) });
@@ -257,7 +257,7 @@ export function useDeleteLorebook() {
       // characterId client-side (the detail cache may already be gone
       // by this point), so blanket-invalidate character queries —
       // missing this lets the character editor keep rendering stale
-      // entries and a broken "Edit Embedded Lorebook" button.
+      // entries and a broken "Edit embedded lorebook" button.
       qc.invalidateQueries({ queryKey: characterKeys.all });
       // The server also drops the deleted book from library folders.
       qc.invalidateQueries({ queryKey: libraryFolderKeys.list("lorebooks") });

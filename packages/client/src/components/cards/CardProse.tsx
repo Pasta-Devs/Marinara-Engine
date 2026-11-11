@@ -50,7 +50,15 @@ export function CardProseSectionHeader({
 
   return (
     <div className={cn("mb-4", className)}>
-      {persona ? <h3 className={headingClass}>{content}</h3> : <h2 className={headingClass}>{content}</h2>}
+      {persona ? (
+        <h3 className={headingClass} data-card-field-heading>
+          {content}
+        </h3>
+      ) : (
+        <h2 className={headingClass} data-card-field-heading>
+          {content}
+        </h2>
+      )}
       {subtitle && <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{subtitle}</p>}
     </div>
   );

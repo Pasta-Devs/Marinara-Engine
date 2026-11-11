@@ -22,7 +22,7 @@ export const CATEGORY_ICONS: Record<string, ElementType> = {
 /**
  * Default folder descriptions keyed by relative path.
  *
- * The empty-string key represents the root "Game Assets" folder.
+ * The empty-string key represents the root "Game assets" folder.
  * These are shown as editable hints when a folder has no custom
  * description stored in `meta.json`.
  */
