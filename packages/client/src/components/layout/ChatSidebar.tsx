@@ -125,6 +125,8 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
 import { ChatModeIcon } from "../chat/ChatModeIcon";
+import { ImportChatModal } from "../modals/ImportChatModal";
+import { appendImportTags, DEFAULT_IMPORT_TAGS, type ImportTagChoice } from "../modals/ImportTagChecks";
 
 // Opened from a menu only, so it loads on first use instead of weighing on the AppShell chunk.
 const CharacterScheduleManagerModal = lazy(async () => ({
@@ -883,17 +885,14 @@ export function ChatSidebar() {
     handleNewChat(activeTab);
   }, [handleNewChat, activeTab]);
 
-  const handleImportChatFile = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-      if (!file) return;
-
+  const importChatFile = useCallback(
+    async (file: File, importTags: ImportTagChoice = DEFAULT_IMPORT_TAGS) => {
       setIsImportingChat(true);
       try {
         const formData = new FormData();
-        formData.append("file", file);
+        appendImportTags(formData, importTags);
         formData.append("mode", activeTab);
+        formData.append("file", file);
         const data = await api.upload<{
           success?: boolean;
           chatId?: string;
@@ -926,6 +925,21 @@ export function ChatSidebar() {
     },
     [activeTab, refetchChats, setActiveChatId, localizeUi],
   );
+  const handleImportChatFile = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (file) void importChatFile(file);
+    },
+    [importChatFile],
+  );
+  // The new layout opens a small Import window (drop row + "Tag imported" / "Tag source"); the classic one
+  // keeps the straight file picker, which tags with both.
+  const [importChatOpen, setImportChatOpen] = useState(false);
+  const openChatImport = useCallback(() => {
+    if (overhaulDesktop || overhaulMobile) setImportChatOpen(true);
+    else chatImportInputRef.current?.click();
+  }, [overhaulDesktop, overhaulMobile]);
 
   const activeModeConfig = MODE_CONFIG[activeTab] ?? MODE_CONFIG.conversation;
   const activeModeHasChats = modeChats.length > 0;
@@ -1889,7 +1903,7 @@ export function ChatSidebar() {
           {overhaulDesktop ? (
             <>
               <button
-                onClick={() => chatImportInputRef.current?.click()}
+                onClick={openChatImport}
                 disabled={isImportingChat}
                 className="ov-icon-btn ov-icon-btn--sm"
                 title={localize(isImportingChat ? "Importing chat" : "Import SillyTavern or Marinara chat JSONL")}
@@ -2013,6 +2027,12 @@ export function ChatSidebar() {
           className="hidden"
           onChange={handleImportChatFile}
         />
+        <ImportChatModal
+          open={importChatOpen}
+          onClose={() => setImportChatOpen(false)}
+          busy={isImportingChat}
+          onImport={importChatFile}
+        />
         <button
           onClick={handleNewChatFromTab}
           disabled={createChat.isPending}
@@ -2027,7 +2047,7 @@ export function ChatSidebar() {
           <Plus size="0.8125rem" className="mari-rgb-static-icon" />
         </button>
         <button
-          onClick={() => chatImportInputRef.current?.click()}
+          onClick={openChatImport}
           disabled={isImportingChat}
           className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
           title={localize(isImportingChat ? "Importing chat" : "Import SillyTavern or Marinara chat JSONL")}
@@ -2225,7 +2245,7 @@ export function ChatSidebar() {
                     disabled={isImportingChat}
                     onClick={() => {
                       setOvmListMenuOpen(false);
-                      chatImportInputRef.current?.click();
+                      openChatImport();
                     }}
                   >
                     <Download size={18} />

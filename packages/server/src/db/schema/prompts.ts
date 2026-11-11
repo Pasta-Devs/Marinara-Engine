@@ -34,6 +34,8 @@ export const promptPresets = fileTable("prompt_presets", {
   isDefault: text("is_default").notNull().default("false"),
   /** Author of this preset */
   author: text("author").notNull().default(""),
+  /** JSON array of tags for organisation (e.g. "Imported", "ST" on an imported preset) */
+  tags: text("tags").notNull().default("[]"),
   /** Reserved identifier for Engine-owned presets; never accepted from user input. */
   systemKey: text("system_key").notNull().default(""),
   /** Pre-computed semantic embedding of name/description/author (JSON float[]), null until vectorized (#4768) */

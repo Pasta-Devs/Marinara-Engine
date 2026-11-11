@@ -26,6 +26,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { ImportTagChecks, useImportTagChoice } from "./ImportTagChecks";
 
 interface Props {
   open: boolean;
@@ -160,6 +161,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
   const [error, setError] = useState("");
   const [characterTagImportMode, setCharacterTagImportMode] = useState<TagImportMode>("all");
   const [regexScriptScope, setRegexScriptScope] = useState<"character" | "global">("character");
+  const importTags = useImportTagChoice();
   const qc = useQueryClient();
 
   const reset = useCallback(() => {
@@ -307,7 +309,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
         body: JSON.stringify({
           folderPath: folderPath.trim(),
           folderToken,
-          options: { ...selection, characterTagImportMode, regexScriptScope },
+          options: { ...selection, characterTagImportMode, regexScriptScope, importTags: importTags.choice },
         }),
       });
 
@@ -363,7 +365,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
       setError(err instanceof Error ? `Import failed: ${err.message}` : "Import failed — server error");
       setPhase("preview");
     }
-  }, [characterTagImportMode, regexScriptScope, folderPath, folderToken, qc, selection]);
+  }, [characterTagImportMode, regexScriptScope, folderPath, folderToken, qc, selection, importTags.choice]);
 
   const hasAnySelected = Object.values(selection).some((ids) => ids.length > 0);
   const builtinPresetCount = scanResult?.presets.filter((item) => item.isBuiltin).length ?? 0;
@@ -794,6 +796,8 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 }}
               />
             </div>
+
+            <ImportTagChecks value={importTags.choice} onChange={importTags.setChoice} sources={["ST"]} />
 
             {error && (
               <div className="flex items-start gap-2 rounded-lg bg-[var(--destructive)]/10 p-3 text-xs text-[var(--destructive)]">

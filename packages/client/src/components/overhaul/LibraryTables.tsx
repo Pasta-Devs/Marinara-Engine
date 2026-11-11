@@ -23,7 +23,13 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
-import { BUILT_IN_AGENTS, isAgentConfigDeleted, isRetiredBuiltInAgentId, type Lorebook } from "@marinara-engine/shared";
+import {
+  BUILT_IN_AGENTS,
+  isAgentConfigDeleted,
+  isRetiredBuiltInAgentId,
+  parseTagList,
+  type Lorebook,
+} from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
 import {
@@ -804,6 +810,11 @@ export function LorebooksLanding() {
 
 // ── Presets ──
 
+/** The server stores the flag as the text "true"/"false", so a plain truthy check marks every preset Default. */
+function isDefaultPreset(preset: { isDefault?: unknown } | undefined) {
+  return preset?.isDefault === true || preset?.isDefault === "true";
+}
+
 export function PresetsLanding() {
   const localize = useLocalizedUiText();
   const { data } = usePresets();
@@ -827,15 +838,30 @@ export function PresetsLanding() {
   const folders = useScopeFolders("presets", localize("presets"));
   const menu = useKitMenu();
 
+  // The tag selector beside search, as on Lorebooks (imports tag presets "Imported" and "ST", for one).
+  const [pickedTags, setPickedTags] = useState<string[]>([]);
+  const presetTags = useMemo(
+    () => new Map((data ?? []).map((preset) => [preset.id, parseTagList(preset.tags)] as const)),
+    [data],
+  );
+  const tagCounts = useMemo(() => countItemTags([...presetTags.values()].map((tags) => ({ tags }))), [presetTags]);
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
+    const tagQuery = needle.startsWith("tag:") ? needle.slice(4).trim() : null;
     const list = (data ?? []).filter((preset) => {
-      if (chip === "defaults" && !preset.isDefault) return false;
+      const tags = presetTags.get(preset.id) ?? [];
+      if (!matchesPickedTags(tags, pickedTags)) return false;
+      if (chip === "defaults" && !isDefaultPreset(preset)) return false;
       if (!needle) return true;
-      return preset.name.toLowerCase().includes(needle) || preset.description?.toLowerCase().includes(needle);
+      if (tagQuery !== null) return tags.some((tag) => tag.toLowerCase().includes(tagQuery));
+      return (
+        preset.name.toLowerCase().includes(needle) ||
+        preset.description?.toLowerCase().includes(needle) ||
+        tags.some((tag) => tag.toLowerCase().includes(needle))
+      );
     });
     return sort === "custom" ? order.orderItems(sortRows(list, "name-asc")) : sortRows(list, sort);
-  }, [chip, data, order, search, sort]);
+  }, [chip, data, order, pickedTags, presetTags, search, sort]);
   const selection = useKitSelection(rows.map((row) => row.id));
   type PresetRow = (typeof rows)[number];
   const removeMany = async (ids: string[], names?: string) => {
@@ -851,7 +877,7 @@ export function PresetsLanding() {
     selection,
     menu,
     folders,
-    filtering: !!search.trim() || chip !== "all",
+    filtering: !!search.trim() || chip !== "all" || pickedTags.length > 0,
     drag: { kind: "preset", reorder: order.reorder },
     rowTitle: (preset) => preset.name,
     rowActions: (preset) => [
@@ -883,7 +909,7 @@ export function PresetsLanding() {
         label: "Delete",
         icon: <Trash2 size={14} />,
         danger: true,
-        disabled: preset.isDefault,
+        disabled: isDefaultPreset(preset),
         onSelect: () => void removeMany([preset.id], `"${preset.name}"`),
       },
     ],
@@ -901,7 +927,7 @@ export function PresetsLanding() {
         icon: <Trash2 size={14} />,
         danger: true,
         onSelect: () =>
-          void removeMany(selection.list.filter((id) => !(data ?? []).find((p) => p.id === id)?.isDefault)),
+          void removeMany(selection.list.filter((id) => !isDefaultPreset((data ?? []).find((p) => p.id === id)))),
       },
     ],
   };
@@ -921,6 +947,11 @@ export function PresetsLanding() {
       searchPlaceholder={localize("Search presets")}
       search={search}
       onSearch={setSearch}
+      searchExtra={
+        tagCounts.tags.length || pickedTags.length ? (
+          <TagFilter tags={tagCounts.tags} untagged={tagCounts.untagged} picked={pickedTags} onChange={setPickedTags} />
+        ) : null
+      }
       chips={[
         { id: "all", label: "All" },
         { id: "defaults", label: "Defaults" },
@@ -960,7 +991,7 @@ export function PresetsLanding() {
         {
           key: "default",
           label: "Default",
-          render: (preset) => (preset.isDefault ? localize("Default") : "—"),
+          render: (preset) => (isDefaultPreset(preset) ? localize("Default") : "—"),
         },
         { key: "updated", label: "Updated", render: (preset) => relative(preset.updatedAt) },
       ]}

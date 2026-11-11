@@ -18,6 +18,7 @@ import type {
 import {
   DEFAULT_GENERATION_PARAMS,
   isStockMarinaraUniversalPreset,
+  parseTagList,
   parseGamePresetStorySettings,
   resolveScopedRegexMode,
   serializeGamePresetStorySettings,
@@ -105,6 +106,7 @@ export function createPromptsStorage(db: DB) {
         scopedRegexMode: input.scopedRegexMode ?? "disabled",
         isDefault: String(input.isDefault ?? false),
         author: input.author ?? "",
+        tags: JSON.stringify(input.tags ?? []),
         systemKey: "",
         createdAt: timestamp.createdAt,
         updatedAt: timestamp.updatedAt,
@@ -145,6 +147,7 @@ export function createPromptsStorage(db: DB) {
       if (data.wrapFormat !== undefined) updateFields.wrapFormat = data.wrapFormat;
       if (data.scopedRegexMode !== undefined) updateFields.scopedRegexMode = data.scopedRegexMode;
       if (data.author !== undefined) updateFields.author = data.author;
+      if (data.tags !== undefined) updateFields.tags = JSON.stringify(data.tags);
       if ((data as any).defaultChoices !== undefined)
         updateFields.defaultChoices = JSON.stringify((data as any).defaultChoices);
       await db.update(promptPresets).set(updateFields).where(eq(promptPresets.id, id));
@@ -186,6 +189,7 @@ export function createPromptsStorage(db: DB) {
         wrapFormat: preset.wrapFormat as "xml" | "markdown",
         scopedRegexMode: resolveScopedRegexMode(preset.scopedRegexMode),
         author: preset.author,
+        tags: parseTagList(preset.tags),
       });
       if (!newPreset) return null;
 

@@ -36,7 +36,7 @@ To export a preset, click the up-arrow icon in the top bar (tooltip **Export pre
 
 ## The Presets page
 
-**Library → Presets** lists your presets in a table with **Description**, **Sections**, **Author**, **Default** and **Updated** columns. Along the top are **Import** (load a `.json` file) and **New preset**. **All** / **Defaults** narrows the list, **List** / **Gallery** switches the view, and the sort menu offers **Recently edited**, **A to Z**, **Z to A** and **My order**. Click a preset to open it.
+**Library → Presets** lists your presets in a table with **Description**, **Sections**, **Author**, **Default** and **Updated** columns. Along the top are **Import** (load a `.json` file) and **New preset**. **All** / **Defaults** narrows the list, **Tags** beside search shows only presets with the tags you pick (imported presets carry **Imported** and where they came from, such as **ST**), **List** / **Gallery** switches the view, and the sort menu offers **Recently edited**, **A to Z**, **Z to A** and **My order**. Click a preset to open it.
 
 To organize presets:
 
@@ -73,6 +73,7 @@ Each row shows the name, wrap format, section count and author. A **DEFAULT** ba
 - **Description** is a short summary.
 - **Wrap Format** controls how sections are formatted (see [Wrap formats](#wrap-formats)).
 - **Author** is an optional creator name, useful when you share a preset.
+- **Tags** sort presets for the **Tags** filter on the Presets page. Type a tag and press Enter, or click a tag's **×** to remove it.
 
 Two read-only cards show the **Sections** and **Groups** counts.
 
