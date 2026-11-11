@@ -99,7 +99,7 @@ import {
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { Modal } from "../ui/Modal";
 import { Reorder } from "framer-motion";
-import { parseChatMetadata, getChatDisplayName } from "../../lib/chat-display";
+import { parseChatMetadata, getChatDisplayName, stripChatDateSuffix } from "../../lib/chat-display";
 import { buildChatBranchRows, hasChatBranchLineage, type BranchTreeRow } from "../../lib/chat-branch-tree";
 import {
   compareChatsByActivityDesc,
@@ -1136,7 +1136,7 @@ export function ChatSidebar() {
       let end = index + 1;
       while (end < rows.length && rows[end]!.depth > row.depth) end += 1;
       const subtree = rows.slice(index + 1, end);
-      const name = getChatDisplayName(row.chat);
+      const name = stripChatDateSuffix(getChatDisplayName(row.chat));
       nodes.push(
         <BranchRow
           key={row.chat.id}
@@ -1234,7 +1234,8 @@ export function ChatSidebar() {
     const { chat, branchCount, branchRows } = entry;
     const cfg = MODE_CONFIG[chat.mode] ?? MODE_CONFIG.conversation;
     const isBranchRoot = Boolean(branchRows && branchRows.length > 1);
-    const displayName = chat.name;
+    // An imported "Name - 2025-11-25@19h22m33s" reads "Name" in the list, like its tab.
+    const displayName = stripChatDateSuffix(chat.name);
     // Searching matches branch display names too, so a hit can be a branch below the fold: open the
     // group while a search is active, the way folder rows force themselves open for a search hit.
     // A tag filter matches the whole thread, so its branches stay folded.

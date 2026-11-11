@@ -4972,13 +4972,20 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   opacity: 0.7;
 }
 
-.mari-composer-icon:hover:not(:disabled),
 .mari-composer-icon[aria-expanded="true"],
 .mari-composer-icon[data-active="true"],
-.mari-composer-menu__trigger:hover:not(:disabled),
 .mari-composer-menu__trigger[aria-expanded="true"] {
   background: var(--mari-hover);
   color: var(--foreground);
+}
+
+/* Mouse only: on touch, :hover sticks after a tap. */
+@media (hover: hover) and (pointer: fine) {
+  .mari-composer-icon:hover:not(:disabled),
+  .mari-composer-menu__trigger:hover:not(:disabled) {
+    background: var(--mari-hover);
+    color: var(--foreground);
+  }
 }
 
 .mari-composer-icon:disabled,

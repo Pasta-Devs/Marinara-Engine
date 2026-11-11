@@ -18,6 +18,7 @@ import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatModeIcon } from "./ChatModeIcon";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { stripInlineMarkdown } from "../../lib/docs-command-search";
+import { stripChatDateSuffix } from "../../lib/chat-display";
 
 const MODE_BADGE = {
   conversation: {
@@ -260,7 +261,7 @@ export function RecentChats() {
                   )}
                 </span>
                 <span className="ov-recent__text">
-                  <strong>{chat.name}</strong>
+                  <strong>{stripChatDateSuffix(chat.name)}</strong>
                   <small>
                     {latestMessage
                       ? messagePreview(
@@ -392,7 +393,7 @@ export function RecentChats() {
                 {t(mode.labelKey)}
               </span>
               <span className="mt-1 block truncate text-xs font-semibold leading-tight text-[var(--foreground)] md:mt-2 md:line-clamp-2 md:whitespace-normal md:text-sm">
-                {chat.name}
+                {stripChatDateSuffix(chat.name)}
               </span>
               <span className="mt-0.5 line-clamp-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)] md:mt-1.5 md:line-clamp-3 md:text-xs md:leading-relaxed">
                 {latestMessage
