@@ -650,7 +650,8 @@ type AgentRequestOptions = Pick<
 
 /**
  * The connection-derived options every agent call sends (#7131). A reasoning level or Off chosen on the connection
- * wins; without one, a JSON reply keeps asking for reasoning off and other calls leave the provider default alone.
+ * wins, and so does medium on a model that cannot turn thinking off (Gemini 4 Argon and Carbon) with none saved;
+ * without one, a JSON reply keeps asking for reasoning off and other calls leave the provider default alone.
  */
 export function agentRequestOptions(config: AgentExecConfig, jsonResponse: boolean): AgentRequestOptions {
   const generation = config.generation ?? {};

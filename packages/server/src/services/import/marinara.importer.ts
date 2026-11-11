@@ -632,6 +632,7 @@ function parseNativePersonaInput(input: Record<string, unknown>) {
         break;
       case "tags":
       case "savedStatusOptions":
+      case "nameAliases":
         candidate[field] = normalizePersonaStringArray(candidate[field]);
         break;
       case "convoBehavior":
@@ -673,6 +674,7 @@ async function importPersona(data: unknown, db: DB) {
     ...(d.personaStats === undefined ? {} : { personaStats: d.personaStats }),
     ...(d.tags === undefined ? {} : { tags: d.tags }),
     ...(d.savedStatusOptions === undefined ? {} : { savedStatusOptions: d.savedStatusOptions }),
+    ...(d.nameAliases === undefined ? {} : { nameAliases: d.nameAliases }),
     ...(d.convoBehavior === undefined ? {} : { convoBehavior: d.convoBehavior }),
     ...(typeof d.versioningEnabled === "boolean" ? { versioningEnabled: d.versioningEnabled } : {}),
     // #7053: the export writes the public boolean contract for the image-appearance

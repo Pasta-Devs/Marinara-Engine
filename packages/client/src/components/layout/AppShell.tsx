@@ -38,6 +38,7 @@ import { getCssBackgroundStyle } from "../../lib/css-colors";
 import { resolveFeatureAgentPackage } from "../../lib/feature-agent-package";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { isIosWebKitBrowser } from "../../lib/generation-stream-policy";
+import { isTypingTarget } from "../../lib/keyboard-shortcuts";
 import { cn } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { openGlobalSearch } from "../../lib/chat-insights";
@@ -321,6 +322,11 @@ export function AppShell({
     let previousLayoutHeight = root.clientHeight || window.innerHeight;
     const supportsVirtualKeyboard = navigator.maxTouchPoints > 0 || window.matchMedia("(any-pointer: coarse)").matches;
     const isIosWebKit = isIosWebKitBrowser(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
+    // An iPhone Home Screen app: no browser toolbars, so the layout viewport is the whole screen the app may use.
+    const isIosHomeScreenApp =
+      isIosWebKit &&
+      (window.matchMedia("(display-mode: standalone)").matches ||
+        (navigator as Navigator & { standalone?: boolean }).standalone === true);
     root.toggleAttribute("data-mari-ios-webkit", isIosWebKit);
     const updateVisualViewportGeometry = () => {
       if (frame) cancelAnimationFrame(frame);
@@ -361,14 +367,28 @@ export function AppShell({
         previousLayoutHeight = currentLayoutHeight;
         largestViewportHeight = Math.max(largestViewportHeight, unzoomedHeight);
         const keyboardOpen = supportsVirtualKeyboard && largestViewportHeight - unzoomedHeight >= 80;
+        // An iPhone Home Screen app with its keyboard closed has nothing to fit, yet iOS can go on reporting a visual
+        // viewport a status bar short (or with a stale offsetTop), and leave the page scrolled where the keyboard put
+        // it, until the app is restarted. Sized from that, the whole app stopped short with the page backing in a grey
+        // band below it. There, size it from the layout viewport alone, at the top, and undo the leftover scroll.
+        // A focused field keeps the fit: an iPad's hardware-keyboard shortcut bar is shorter than the 80 px above.
+        // ponytail: a layout viewport (innerHeight) that iOS reports short as well still leaves the band; nothing on
+        // the page measures the screen any better. Upgrade path: size from screen geometry once a device shows it.
+        const settledHomeScreen = isIosHomeScreenApp && !keyboardOpen && !isTypingTarget(document.activeElement);
         // Preserve normal pinch magnification, but fit the visible area while
         // the keyboard is open. Closing it restores the layout even while zoomed.
         const height =
-          keyboardOpen && viewport && viewport.height > 0 ? Math.min(unzoomedHeight, viewport.height) : unzoomedHeight;
+          keyboardOpen && viewport && viewport.height > 0
+            ? Math.min(unzoomedHeight, viewport.height)
+            : settledHomeScreen
+              ? Math.min(window.innerHeight, root.clientHeight || window.innerHeight)
+              : unzoomedHeight;
         const layoutViewportHeight = isIosWebKit ? largestViewportHeight : window.innerHeight;
         const maxOffsetTop = Math.max(0, layoutViewportHeight - height);
         const visualViewportTop = Math.max(0, viewport?.offsetTop ?? 0, viewport?.pageTop ?? 0);
-        const offsetTop = Math.min(maxOffsetTop, visualViewportTop);
+        const offsetTop = settledHomeScreen ? 0 : Math.min(maxOffsetTop, visualViewportTop);
+        // Only at normal zoom: a pinch-zoomed page pans on purpose.
+        if (settledHomeScreen && Math.abs(scale - 1) < 0.01 && window.scrollY !== 0) window.scrollTo(0, 0);
         root.style.setProperty("--mari-visual-viewport-height", `${Math.max(0, Math.round(height))}px`);
         root.style.setProperty("--mari-visual-viewport-offset-top", `${Math.round(offsetTop)}px`);
         root.toggleAttribute("data-mari-software-keyboard-open", keyboardOpen);
@@ -935,8 +955,6 @@ export function AppShell({
     ) : (
       <AgentEditor />
     )
-  ) : connectionDetailId ? (
-    <ConnectionEditor />
   ) : presetDetailId ? (
     <PresetEditor />
   ) : characterDetailId ? (
@@ -1735,6 +1753,12 @@ export function AppShell({
         />
       ) : null}
 
+      {/* The Starred model window opens over the page the user is on. */}
+      {connectionDetailId && (
+        <Suspense fallback={null}>
+          <ConnectionEditor />
+        </Suspense>
+      )}
       {/* First-time onboarding tutorial */}
       {!hasCompletedOnboarding && (
         <Suspense fallback={null}>

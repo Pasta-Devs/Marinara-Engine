@@ -792,9 +792,12 @@ export function CreateConnectionModalContent({
       ownedPlaceholderIds: placeholderId ? [placeholderId] : [],
       accountBaseUrl: account?.baseUrl,
     });
-    // Dedicated voice and decision rows use their editor for model/source options.
-    // Their service tiles do not supply the chat model picker used by the job steps.
-    if (row.provider === "audio" || row.provider === "decision") return editInstead(accountId, row.id);
+    // Old voice and decision rows have no models to add: their job's picker opens, not the Model window (#16).
+    if (row.provider === "audio" || row.provider === "decision") {
+      onClose();
+      useUIStore.getState().openModal("job-picker", { job: row.provider === "audio" ? "voice" : "decision" });
+      return;
+    }
     const supportedKinds = resolvedService
       ? kindsOf(resolvedService).filter((kind): kind is AddableKind => kind !== "local")
       : [];

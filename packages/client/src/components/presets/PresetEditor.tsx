@@ -2076,7 +2076,8 @@ function SectionsTab({
 
                     {/* Rough cost of this section's own text. Markers are assembled per chat, so they say so
                         instead of showing a misleading zero; a disabled section keeps its count, struck through
-                        to show it is left out of the header total. */}
+                        to show it is left out of the header total. On a phone the count alone is shown, so the
+                        section's name keeps room (#8993); screen readers still hear "tokens". */}
                     <span
                       data-preset-section-tokens
                       className={cn(
@@ -2088,12 +2089,21 @@ function SectionsTab({
                       title={
                         sectionTokens === null
                           ? localizeUi("ui.presets.sectionstab.dynamicSectionDescription")
-                          : undefined
+                          : formatEstimatedTokens(sectionTokens, localizeUi)
                       }
                     >
-                      {sectionTokens === null
-                        ? localizeUi("ui.presets.sectionstab.dynamic")
-                        : formatEstimatedTokens(sectionTokens, localizeUi)}
+                      {sectionTokens === null ? (
+                        localizeUi("ui.presets.sectionstab.dynamic")
+                      ) : (
+                        <>
+                          <span aria-hidden="true" className="sm:hidden">
+                            {localizeUi("ui.presets.sectionstab.tokenEstimateShort", {
+                              tokens: sectionTokens.toLocaleString(),
+                            })}
+                          </span>
+                          <span className="max-sm:sr-only">{formatEstimatedTokens(sectionTokens, localizeUi)}</span>
+                        </>
+                      )}
                     </span>
 
                     <div className="flex shrink-0 items-center gap-0.5">

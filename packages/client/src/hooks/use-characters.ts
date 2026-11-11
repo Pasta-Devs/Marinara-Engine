@@ -1323,6 +1323,8 @@ export function useTagPersonaGalleryImage(personaId: string) {
 type PersonaSheetUpdateFields = {
   characterSheetImageId?: string | null;
   useCharacterSheetAsReference?: boolean;
+  /** Chat assignment edits are not authored revisions. */
+  skipVersionSnapshot?: boolean;
 };
 
 type PersonaTrackerPortrait = {

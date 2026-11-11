@@ -14,6 +14,8 @@ delete process.env.MARINARA_EAGER_STORAGE;
 writeFileSync(process.env.MARINARA_ENV_FILE, "");
 const { createFileNativeDB, encodeShardKey } = await import("../../packages/server/src/db/file-backed-store.js");
 const { eq } = await import("../../packages/server/src/db/file-query.js");
+const { completePersonaRow, storedPersonaFromRow } =
+  await import("../../packages/server/src/services/personas/persona-card-storage.js");
 const { appSettings, chats, messages, messageSwipes, messageTrash, personas } =
   await import("../../packages/server/src/db/schema/index.js");
 const {
@@ -223,13 +225,17 @@ try {
     historyReads++;
     throw new Error("injected cleanup read failure");
   };
-  await db.insert(personas).values({
-    id: "card-owned",
-    name: "Current owner",
-    avatarPath: urlFor("unknown.png"),
-    createdAt: at,
-    updatedAt: at,
-  });
+  await db.insert(personas).values(
+    storedPersonaFromRow(
+      completePersonaRow({
+        id: "card-owned",
+        name: "Current owner",
+        avatarPath: urlFor("unknown.png"),
+        createdAt: at,
+        updatedAt: at,
+      }),
+    ),
+  );
   assert.equal(await unlinkAvatarFilesIfUnreferenced({ db, avatarRoot, avatarPaths: [urlFor("unknown.png")] }), 0);
   assert.equal(historyReads, 0, "card-owned files require no expensive history scan");
   await db.delete(personas).where(eq(personas.id, "card-owned"));
@@ -374,13 +380,17 @@ try {
     await duringColdRead(
       () => unlinkAvatarFilesIfUnreferenced({ db, avatarRoot, avatarPaths: [urlFor("phase-card.png")] }),
       async () => {
-        await db.insert(personas).values({
-          id: "phase-owner",
-          name: "New owner",
-          avatarPath: urlFor("phase-card.png"),
-          createdAt: at,
-          updatedAt: at,
-        });
+        await db.insert(personas).values(
+          storedPersonaFromRow(
+            completePersonaRow({
+              id: "phase-owner",
+              name: "New owner",
+              avatarPath: urlFor("phase-card.png"),
+              createdAt: at,
+              updatedAt: at,
+            }),
+          ),
+        );
       },
     ),
     0,

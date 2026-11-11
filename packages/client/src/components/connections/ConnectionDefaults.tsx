@@ -3,13 +3,15 @@
 // its "If it fails" Model when set. A row opens the job's one picker (Model and If it fails). A job with a
 // problem shows it as a chip on its row. Agents and Decision keep their other settings behind a gear.
 // ──────────────────────────────────────────────
-import { useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Loader2, Shuffle, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
   isAgentConfigDeleted,
+  isChatProvider,
+  parseConnectionImageCaptioningDefaults,
   type TTSSource,
   isRetiredBuiltInAgentId,
   type ConnectionAccountListItem,
@@ -34,6 +36,7 @@ import { useFollowVoiceJob, useMigrateVoiceJob, useTTSConfig } from "../../hooks
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { i18n } from "../../localization/i18n";
 import { openAddConnection, type SetupItem } from "../../lib/add-connection";
 import { createLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
@@ -57,7 +60,7 @@ import {
 import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
-import { SMALL_ACTION } from "./DeviceDetail";
+import { LocalWhisper, SMALL_ACTION } from "./DeviceDetail";
 import type { ConnectionRowData } from "./ConnectionRow";
 import { JobRow, isUnset } from "./JobRow";
 import { mediaSources } from "../../lib/media-source";
@@ -643,6 +646,27 @@ function AgentsSettings() {
   );
 }
 
+const ConnectionEditor = lazy(() =>
+  import("./ConnectionEditor").then((module) => ({ default: module.ConnectionEditor })),
+);
+
+/** Chat Models whose own row overrides the Embeddings or Image reading job. */
+function overridesOf(key: JobKey, rows: readonly ConnectionRowData[]) {
+  if (key === "embeddings")
+    return rows.filter(
+      (row) =>
+        isChatProvider(row.provider) &&
+        !!(row.embeddingModel?.trim() || row.embeddingBaseUrl?.trim() || row.embeddingConnectionId),
+    );
+  if (key === "vision")
+    return rows.filter(
+      (row) =>
+        isChatProvider(row.provider) &&
+        Object.keys(parseConnectionImageCaptioningDefaults(row.defaultParameters)).length > 0,
+    );
+  return [];
+}
+
 /** Jobs with behaviour of their own: a gear opens the job's settings window. */
 const JOB_SETTINGS = new Set<JobKey>(["voice", "stt", "decision", "agents"]);
 
@@ -671,6 +695,8 @@ export function DictationSettings() {
       />
       {/* ponytail: the speech-to-text server keeps its own address and key here; an account for it comes in S4. */}
       {callsInstalled && <SpeechToTextCard inDictation />}
+      {/* The same Local Whisper card as the This device page, so Dictation can download its model here. */}
+      {callsInstalled && import.meta.env.VITE_MARINARA_LITE !== "true" && <LocalWhisper />}
     </>
   );
 }
@@ -681,7 +707,10 @@ function DefaultsJobRow({
   job,
   modelFor,
   onOpenDevice,
+  overrides = [],
 }: {
+  /** Models that keep a setting of this job on their own row, edited here */
+  overrides?: readonly ConnectionRowData[];
   tile: DefaultsTile;
   job: Job;
   modelFor: ReturnType<typeof useJobModels>;
@@ -691,9 +720,10 @@ function DefaultsJobRow({
   const mayReadImages = useMayReadImages();
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const connectionSaving = useUIStore((s) => s.connectionSaving);
   const embeddings = job.key === "embeddings";
   const decision = job.key === "decision";
-  const hasSettings = JOB_SETTINGS.has(job.key as JobKey);
+  const hasSettings = JOB_SETTINGS.has(job.key as JobKey) || overrides.length > 0;
   const model = embeddings || decision || job.device ? null : modelFor(job);
   const title = t(jobLabelKey(job));
   const onClick = () => {
@@ -762,7 +792,8 @@ function DefaultsJobRow({
       {hasSettings && (
         <Modal
           open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => void closeIfClean(() => setSettingsOpen(false))}
+          closeDisabled={connectionSaving}
           title={t("connections.defaults.settingsFor", { role: title })}
           width="max-w-xl"
         >
@@ -772,9 +803,29 @@ function DefaultsJobRow({
                 <JobRow tile={tile} onClick={() => setOpen(true)} aria-haspopup="dialog" trailing={chevron} />
               </JobSettingsSection>
             )}
-            {job.key === "voice" && <TTSConfigCard />}
+            {job.key === "voice" && <VoiceJobSettings />}
             {job.key === "stt" && <DictationSettings />}
             {decision && <DecisionDefaultControl settings />}
+            {decision && tile.source?.provider === "decision" && (
+              <Suspense fallback={null}>
+                <ConnectionEditor connectionId={tile.source.id} part="decision" />
+              </Suspense>
+            )}
+            {overrides.length > 0 && (
+              <JobSettingsSection title={t("connections.jobSettings.overrides")}>
+                {overrides.map((row) => (
+                  <div key={row.id} className="space-y-2">
+                    <p className="text-xs font-medium">{row.name}</p>
+                    <Suspense fallback={null}>
+                      <ConnectionEditor
+                        connectionId={row.id}
+                        part={job.key === "vision" ? "captioning" : "embeddings"}
+                      />
+                    </Suspense>
+                  </div>
+                ))}
+              </JobSettingsSection>
+            )}
             {job.key === "agents" && <AgentsSettings />}
           </div>
         </Modal>
@@ -783,11 +834,44 @@ function DefaultsJobRow({
   );
 }
 
+/** Closes a job settings window, asking first when a model part inside holds unsaved edits. */
+export async function closeIfClean(close: () => void) {
+  if (
+    useUIStore.getState().editorDirty &&
+    !(await showConfirmDialog({
+      title: i18n.t("ui.layout.chatsidebar.unsavedChanges"),
+      message: i18n.t("ui.layout.chatsidebar.youHaveUnsavedChangesDiscardAndContinue"),
+      confirmLabel: i18n.t("ui.agents.agenteditor.discard"),
+      tone: "destructive",
+    }))
+  )
+    return;
+  close();
+}
+
+/** Voice settings in both "Voice settings" windows: the card, then the Voice job's own row. */
+export function VoiceJobSettings() {
+  const connectionsList = (useConnections().data ?? []) as ConnectionRowData[];
+  const { data: tts } = useTTSConfig();
+  const row = voiceRowOf(connectionsList, tts?.connectionId).row;
+  return (
+    <>
+      <TTSConfigCard />
+      {row?.provider === "audio" && (
+        <Suspense fallback={null}>
+          <ConnectionEditor connectionId={row.id} part="voice" />
+        </Suspense>
+      )}
+    </>
+  );
+}
+
 /** One job's "Model for" window on its own, for a "Set up" outside the Jobs box. Null for jobs without a row picker. */
 export function JobPickerWindow({ job, onClose }: { job: Job; onClose: () => void }) {
   const { t } = useTranslation();
   const connectionsList = (useConnections().data ?? []) as ConnectionRowData[];
   const model = useJobModels(connectionsList)(job);
+  if (job.key === "decision") return <DecisionDefaultControl open onOpenChange={(open) => !open && onClose()} />;
   if (!model) return null;
   return (
     <ConnectionSelect
@@ -864,7 +948,13 @@ export function ConnectionDefaultsBox({
                   .filter((tile) => JOB[tile.key].group === group)
                   .map((tile) => (
                     <div key={tile.key} className="mari-connection-model-slot min-w-0">
-                      <DefaultsJobRow tile={tile} job={JOB[tile.key]} modelFor={modelFor} onOpenDevice={onOpenDevice} />
+                      <DefaultsJobRow
+                        tile={tile}
+                        job={JOB[tile.key]}
+                        modelFor={modelFor}
+                        onOpenDevice={onOpenDevice}
+                        overrides={overridesOf(tile.key, connectionsList)}
+                      />
                     </div>
                   ))}
               </div>

@@ -12,7 +12,6 @@ export type CardColorKey = "nameColor" | "dialogueColor" | "boxColor";
 export interface CardColorsProps {
   variant: "character" | "persona";
   header: ReactNode;
-  aliases?: ReactNode;
   name: string;
   avatarUrl: string | null;
   avatarStyle?: CSSProperties;
@@ -93,7 +92,6 @@ function nameStyle(color: string, fallback: string): CSSProperties {
 export function CardColors({
   variant,
   header,
-  aliases,
   name,
   avatarUrl,
   avatarStyle,
@@ -202,8 +200,6 @@ export function CardColors({
         label={localizeUi(v.boxLabel)}
         helpText={localizeUi(v.boxHelp)}
       />
-
-      {aliases}
     </div>
   );
 }

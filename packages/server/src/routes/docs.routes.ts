@@ -109,6 +109,7 @@ const DOC_ORDER: Record<string, string[]> = {
     "getting-started.md",
     "backgrounds.md",
     "hud-and-trackers.md",
+    "rulesets.md",
     "combat-encounters.md",
     "narrative-director.md",
     "scenes.md",

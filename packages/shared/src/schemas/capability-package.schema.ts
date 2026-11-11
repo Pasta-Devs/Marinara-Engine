@@ -27,6 +27,8 @@ export const capabilityPackageKindSchema = z.enum([
 export const capabilityPermissionSchema = z.enum([
   "achievements",
   "agent-runtime",
+  // Capability API 1.819: api.runtime.resources.updateCharacterExtensions.
+  "character-write",
   "chat-read",
   "chat-write",
   "conversation-actions",
@@ -1579,7 +1581,12 @@ const capabilityPackageManifestBaseSchema = z
 //        embedder, a connection id is that connection's own embedding source (as Connections > Test embedding
 //        resolves it, never the app-wide default), and an unknown id or a connection without embeddings resolves
 //        null. A soft seam: older Engines leave it out, so a package feature-detects it. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 818 } as const);
+// 1.819: characters on `api.runtime.resources`: `getCharacters(ids?)` (full rows: data, comment, avatarPath and
+//        timestamps), `listCharacterGroups()`, `listCharactersPage(options)` and `listCharacterSummaries(ids)` (the
+//        library's own search, sort and summary), and `updateCharacterExtensions(id, patch)`, which merges keys into
+//        `data.extensions` without a card version, queued behind the Engine's own saves. The write needs the new
+//        `character-write` permission. A soft seam: older Engines leave the members out, so a package checks for them.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 819 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1801,6 +1808,17 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["permissions"],
           message: 'The "achievements" permission requires schemaVersion 2 and capabilityApi 1.36 or newer',
+        });
+      }
+    }
+    // Same reason as `tools`: `resources.updateCharacterExtensions` only exists on an Engine this new.
+    if (manifest.permissions.includes("character-write")) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 819)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["permissions"],
+          message: 'The "character-write" permission requires schemaVersion 2 and capabilityApi 1.819 or newer',
         });
       }
     }

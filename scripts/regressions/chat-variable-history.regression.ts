@@ -1,7 +1,9 @@
 // Chat variables roll back with the reply that changed them (#6923). A swipe
 // starts from the values in place before that reply, deleting the reply puts
-// them back, and restoring it from the trash brings its changes back. Values
-// typed in Chat Settings after the reply are the user's and stay.
+// them back, and restoring it from the trash brings its changes back. Deleting
+// several replies at once undoes them all, and a branch from an earlier message
+// starts from the values at that message (#8990). Values typed in Chat Settings
+// after the reply are the user's and stay.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
@@ -192,6 +194,74 @@ try {
     assert.deepEqual(await variables(), { turns: "19", met: "yes", mood: "calm" }, `${mode}: nothing to undo`);
   }
 
+  // A branch starts from the values in place at the message it was branched from (#8990),
+  // and deleting several replies at once undoes them all, with the trash on and off.
+  const story = (await chats.create({
+    name: "Branches",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: connection.id,
+    promptPresetId: null,
+  }))!;
+  await chats.patchMetadata(story.id, {
+    enableAgents: false,
+    enableTools: false,
+    activeLorebookIds: [book.id],
+    macroVariables: { turns: "10" },
+  });
+  const turnsIn = async (chatId: string) => {
+    const metadata = (await chats.getById(chatId))!.metadata;
+    return (typeof metadata === "string" ? JSON.parse(metadata) : metadata).macroVariables?.turns;
+  };
+  const say = async (chatId: string, userMessage: string) => {
+    const response = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId, userMessage } });
+    assert.equal(response.statusCode, 200, response.body);
+    assert.ok(!response.body.includes('"type":"error"'), response.body);
+  };
+  for (const text of ["One.", "Two.", "Three."]) await say(story.id, text);
+  assert.equal(await turnsIn(story.id), "7");
+  const firstReply = (await chats.listMessages(story.id)).find((message) => message.role === "assistant")!;
+  const branched = await app.inject({
+    method: "POST",
+    url: `/api/chats/${story.id}/branch`,
+    payload: { upToMessageId: firstReply.id },
+  });
+  assert.equal(branched.statusCode, 200, branched.body);
+  const branch = branched.json() as { id: string };
+  assert.equal(await turnsIn(branch.id), "9", "a branch from the first reply has its values");
+  await say(branch.id, "Two, again.");
+  assert.equal(await turnsIn(branch.id), "8", "the branch counts on from there");
+  assert.equal(await turnsIn(story.id), "7", "the source chat keeps its own values");
+  const clearBranch = await app.inject({
+    method: "POST",
+    url: `/api/chats/${branch.id}/messages/bulk-delete`,
+    payload: { messageIds: (await chats.listMessages(branch.id)).map((message) => message.id) },
+  });
+  assert.equal(clearBranch.statusCode, 200, clearBranch.body);
+  assert.equal(await turnsIn(branch.id), "10", "the copied reply keeps its changes to undo");
+  const latest = await app.inject({ method: "POST", url: `/api/chats/${story.id}/branch`, payload: {} });
+  assert.equal(latest.statusCode, 200, latest.body);
+  assert.equal(await turnsIn((latest.json() as { id: string }).id), "7", "a branch from the end keeps them all");
+
+  const removeLastExchanges = async (count: number) => {
+    const ids = (await chats.listMessages(story.id)).slice(-2 * count).map((message) => message.id);
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/chats/${story.id}/messages/bulk-delete`,
+      payload: { messageIds: ids },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    return (response.json() as { trashed: boolean }).trashed;
+  };
+  assert.equal(await removeLastExchanges(2), true);
+  assert.equal(await turnsIn(story.id), "9", "deleting two exchanges to the trash undoes both");
+  for (const text of ["Two.", "Three."]) await say(story.id, text);
+  assert.equal(await turnsIn(story.id), "7");
+  applyFeatureSettingsValue(JSON.stringify({ messageTrash: false }));
+  assert.equal(await removeLastExchanges(2), false);
+  assert.equal(await turnsIn(story.id), "9", "deleting two exchanges for good undoes both");
+  applyFeatureSettingsValue(JSON.stringify({ messageTrash: true }));
+
   // The values follow the swipe on screen, as a tracker's do.
   const tellings = await lorebooks.create({ name: "Tellings" });
   assert.ok(tellings);
@@ -239,6 +309,29 @@ try {
   await request("PATCH", `/api/chats/${chat.id}/metadata`, { macroVariables: { told: "regenerate" } });
   await request("DELETE", `/api/chats/${chat.id}/messages/${reply.id}`);
   assert.equal(await told(), "regenerate", "deleting a reply ignores its hidden swipes");
+
+  // A branch undoes the swipe on screen of each later reply, not a hidden one. Here the first
+  // swipe of the later reply changes nothing and the one on screen sets "regenerate".
+  await request("PATCH", `/api/chats/${chat.id}/metadata`, { macroVariables: {} });
+  await request("POST", "/api/generate/", { chatId: chat.id, userMessage: "Hello again." });
+  const forkPoint = (await chats.listMessages(chat.id)).at(-1)!;
+  assert.equal(await told(), "normal");
+  await request("POST", "/api/generate/", { chatId: chat.id, userMessage: "And again." });
+  const later = (await chats.listMessages(chat.id)).at(-1)!;
+  await request("POST", "/api/generate/", { chatId: chat.id, regenerateMessageId: later.id });
+  assert.equal(await told(), "regenerate");
+  const forked = await app.inject({
+    method: "POST",
+    url: `/api/chats/${chat.id}/branch`,
+    payload: { upToMessageId: forkPoint.id },
+  });
+  assert.equal(forked.statusCode, 200, forked.body);
+  const forkedMetadata = (await chats.getById((forked.json() as { id: string }).id))!.metadata;
+  assert.equal(
+    (typeof forkedMetadata === "string" ? JSON.parse(forkedMetadata) : forkedMetadata).macroVariables?.told,
+    "normal",
+    "a branch undoes the swipe on screen",
+  );
 } finally {
   provider.closeAllConnections();
   await new Promise<void>((done) => provider.close(() => done()));

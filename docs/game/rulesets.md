@@ -16,6 +16,8 @@ Then start a new game and pick it (see below). Rulesets come from two places:
 - **Official** rulesets are installed as above.
 - **Community** rulesets are imported from a file or an author's GitHub repository. They are filed by origin, such as `local/ember-roads` or `alice/v20`.
 
+Any of these also works in a Roleplay chat. See [Roleplay: Playing by a Ruleset](../roleplay/rulesets.md).
+
 Importing uses the same **Allow custom Agent imports** switch as imported agents. While it is off, imported rulesets are left out of new games, and games that already use one keep working. A game on an imported ruleset always plays on the exact version it was created on. To write your own, see [Writing Game Mode Rulesets](../extending/writing-rulesets.md).
 
 A ruleset's own text, such as skill names, spells and Game Master (GM) text, follows the language set in **Settings**. An official ruleset downloads only that language's translation, fetches a new one when you switch, and falls back to English for a language it lacks. A ruleset imported from a file keeps only the translation for the language you had at import. To switch, import the file again.

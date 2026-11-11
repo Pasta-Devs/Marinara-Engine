@@ -51,6 +51,7 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
+import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 
 import { AudioGenerationConfigurationError, generateAudioAsset } from "../services/audio/generative-audio.service.js";
 
@@ -1386,10 +1387,16 @@ export async function ttsRoutes(app: FastifyInstance) {
     logDebugOverride(input.debugMode, "[debug/tts/speaker-extractor] user prompt:\n%s", userPrompt);
 
     const storedOptions = resolveStoredChatOptions(connection.defaultParameters, connection.provider, connection.model);
-    const maxTokens = clampGenerationMaxOutputTokens({
+    const maxTokens = withAlwaysOnThinkingHeadroom({
       provider: connection.provider,
       model: connection.model,
-      maxTokens: resolveStoredMaxTokens(connection.defaultParameters, 8192),
+      maxTokens: clampGenerationMaxOutputTokens({
+        provider: connection.provider,
+        model: connection.model,
+        maxTokens: resolveStoredMaxTokens(connection.defaultParameters, 8192),
+        maxTokensOverride: connection.maxTokensOverride,
+      }),
+      reasoningEffort: storedOptions.reasoningEffort,
       maxTokensOverride: connection.maxTokensOverride,
     });
     const provider = createLLMProvider(

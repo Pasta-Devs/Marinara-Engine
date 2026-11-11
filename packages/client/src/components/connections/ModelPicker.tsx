@@ -219,6 +219,8 @@ function ModelPickerSlot({
 
   const mediaKind = kind === "image" || kind === "video" || kind === "audio";
   const applyMedia = async (choice: ChatModelChoice) => {
+    // A saved Model needs no new row: commit it, or the picker stays open on a row without an account.
+    if (!choice.model) return apply(choice);
     const anchor = (rows as ConnectionModelRow[] | undefined)?.find(
       (row) => row.id === choice.connectionId || row.accountId === choice.connectionId,
     );

@@ -5,13 +5,11 @@ import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 import { eq, desc, and, like, inArray, asc, or } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import {
-  characters,
   lorebooks,
   lorebookCharacterLinks,
   lorebookEntries,
   lorebookFolders,
   lorebookPersonaLinks,
-  personas,
 } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import {
@@ -43,6 +41,7 @@ import { toPaginatedList } from "../../utils/list-pagination.js";
 import { createChatsStorage } from "./chats.storage.js";
 import { createLibraryFoldersStorage } from "./library-folders.storage.js";
 import { parseSourceMessageRefs } from "./lorebook-provenance.js";
+import { createCharactersStorage } from "./characters.storage.js";
 
 function normalizeLorebookEntryLimit(value: unknown): number {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -306,7 +305,7 @@ function lorebookOrder(sort: string | undefined) {
   }
 }
 
-function parseCharacterName(row: typeof characters.$inferSelect) {
+function parseCharacterName(row: { data: string }) {
   try {
     const parsed = JSON.parse(row.data) as { name?: unknown };
     return typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : "Unknown";
@@ -355,14 +354,18 @@ async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { inclu
   if (options.includeLinkedNames) {
     const characterIds = Array.from(new Set(characterRows.map((link) => link.characterId)));
     const personaIds = Array.from(new Set(personaRows.map((link) => link.personaId)));
+    // Through the characters storage, not the tables: a package bundles this file, and its overlay answers that
+    // storage from the live Engine (Pasta-Devs/Marinara-Engine#9035).
+    const people = createCharactersStorage(db);
     const [linkedCharacters, linkedPersonas] = await Promise.all([
-      characterIds.length > 0 ? db.select().from(characters).where(inArray(characters.id, characterIds)) : [],
-      personaIds.length > 0 ? db.select().from(personas).where(inArray(personas.id, personaIds)) : [],
+      people.getByIds(characterIds),
+      Promise.all(personaIds.map((personaId) => people.getPersona(personaId))),
     ]);
     for (const character of linkedCharacters) {
       characterNameById.set(character.id, parseCharacterName(character));
     }
     for (const persona of linkedPersonas) {
+      if (!persona) continue;
       personaNameById.set(persona.id, persona.comment ? `${persona.name} - ${persona.comment}` : persona.name);
     }
   }
