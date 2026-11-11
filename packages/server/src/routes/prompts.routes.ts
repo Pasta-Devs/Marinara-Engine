@@ -22,6 +22,7 @@ import {
 } from "@marinara-engine/shared";
 import type { ExportEnvelope } from "@marinara-engine/shared";
 import { createPromptsStorage } from "../services/storage/prompts.storage.js";
+import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
 import { assemblePrompt, normalizeChatMacroVariables, type AssemblerInput } from "../services/prompt/index.js";
 import { parsePresetParameters } from "../services/prompt/assembler.js";
 import { resolveReasoningMacroValue } from "../services/generation/provider-generation-runtime.js";
@@ -111,28 +112,71 @@ function safeAsciiDownloadName(value: string): string {
   return cleaned || "preset";
 }
 
-async function buildPresetExportEnvelope(storage: ReturnType<typeof createPromptsStorage>, id: string) {
+function parseIdList(value: unknown): string[] {
+  if (typeof value !== "string") return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The regex scripts linked to a preset, ready to travel with it (ids and character links stay home). */
+async function presetRegexScriptsForExport(regexStorage: ReturnType<typeof createRegexScriptsStorage>, id: string) {
+  const scripts = await regexStorage.list();
+  return scripts
+    .filter((script) => parseIdList(script.targetPromptPresetIds).includes(id))
+    .map((script) => ({
+      name: script.name,
+      enabled: script.enabled === "true",
+      findRegex: script.findRegex,
+      replaceString: script.replaceString,
+      trimStrings: parseIdList(script.trimStrings),
+      placement: parseIdList(script.placement),
+      flags: script.flags,
+      promptOnly: script.promptOnly === "true",
+      ...(script.applyMode ? { applyMode: script.applyMode } : {}),
+      order: script.order,
+      minDepth: script.minDepth,
+      maxDepth: script.maxDepth,
+    }));
+}
+
+async function buildPresetExportEnvelope(
+  storage: ReturnType<typeof createPromptsStorage>,
+  id: string,
+  regexStorage?: ReturnType<typeof createRegexScriptsStorage>,
+) {
   const preset = await storage.getById(id);
   if (!preset) return null;
   const exportedPreset = { ...preset } as Record<string, unknown>;
   delete exportedPreset.parameters;
   delete exportedPreset.systemKey;
-  const [sections, groups, choiceBlocks] = await Promise.all([
+  const [sections, groups, choiceBlocks, regexScripts] = await Promise.all([
     storage.listSections(id),
     storage.listGroups(id),
     storage.listChoiceBlocksForPreset(id),
+    regexStorage ? presetRegexScriptsForExport(regexStorage, id) : Promise.resolve([]),
   ]);
   const envelope: ExportEnvelope = {
     type: "marinara_preset",
     version: 1,
     exportedAt: new Date().toISOString(),
-    data: { preset: exportedPreset, sections, groups, choiceBlocks },
+    data: {
+      preset: exportedPreset,
+      sections,
+      groups,
+      choiceBlocks,
+      ...(regexScripts.length ? { regexScripts } : {}),
+    },
   };
   return { preset, envelope };
 }
 
 export async function promptsRoutes(app: FastifyInstance) {
   const storage = createPromptsStorage(app.db);
+  const regexStorage = createRegexScriptsStorage(app.db);
 
   // ═══════════════════════════════════════════
   //  Presets
@@ -261,7 +305,7 @@ export async function promptsRoutes(app: FastifyInstance) {
   // ── Export ──
 
   app.get<{ Params: { id: string } }>("/:id/export", async (req, reply) => {
-    const result = await buildPresetExportEnvelope(storage, req.params.id);
+    const result = await buildPresetExportEnvelope(storage, req.params.id, regexStorage);
     if (!result) return reply.status(404).send({ error: "Preset not found" });
     const originalFilename = `${result.preset.name || "preset"}.marinara.json`;
     const fallbackFilename = `${safeAsciiDownloadName(result.preset.name || "preset")}.marinara.json`;
@@ -283,7 +327,7 @@ export async function promptsRoutes(app: FastifyInstance) {
     const usedSegments = new Set<string>();
     let exportedCount = 0;
     for (const id of ids) {
-      const result = await buildPresetExportEnvelope(storage, id);
+      const result = await buildPresetExportEnvelope(storage, id, regexStorage);
       if (!result) continue;
       const entry = createFolderEntry({
         folderName: "Presets",

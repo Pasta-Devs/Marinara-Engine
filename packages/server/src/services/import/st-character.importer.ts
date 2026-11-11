@@ -161,15 +161,15 @@ function convertStRegexApplyMode(s: Record<string, unknown>): "prompt" | "displa
 }
 
 /**
- * Convert a SillyTavern card's embedded `regex_scripts` into CreateRegexScriptInput
- * rows scoped to the imported character. ST stores the pattern as `/source/flags`
- * (or a bare source) and placements as numbers; scripts with an empty or
- * ReDoS-prone source, or one that won't compile, are skipped.
+ * Convert SillyTavern `regex_scripts` (embedded in a character card or a chat-completion
+ * preset) into CreateRegexScriptInput rows scoped to the given characters / presets.
+ * ST stores the pattern as `/source/flags` (or a bare source) and placements as numbers;
+ * scripts with an empty or ReDoS-prone source, or one that won't compile, are skipped.
  */
-function convertStRegexScripts(
+export function convertStRegexScripts(
   stScripts: unknown,
-  characterId: string,
-  scope: "character" | "global",
+  target: { characterIds?: string[]; presetIds?: string[] },
+  orderBase = 0,
 ): CreateRegexScriptInput[] {
   if (!Array.isArray(stScripts)) return [];
   const out: CreateRegexScriptInput[] = [];
@@ -201,12 +201,12 @@ function convertStRegexScripts(
       flags,
       promptOnly: applyMode === "prompt",
       applyMode,
-      targetCharacterIds: scope === "global" ? [] : [characterId],
-      targetPromptPresetIds: [],
+      targetCharacterIds: target.characterIds ?? [],
+      targetPromptPresetIds: target.presetIds ?? [],
       // Preserve the card's authoring order so multi-script imports keep a stable
       // execution/list order (all-zero ties leave it undefined). Gaps from skipped
       // entries are harmless — list() only sorts by ascending order.
-      order: index,
+      order: orderBase + index,
       minDepth: typeof s.minDepth === "number" ? s.minDepth : null,
       maxDepth: typeof s.maxDepth === "number" ? s.maxDepth : null,
     });
@@ -370,11 +370,9 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
       cardData.extensions && typeof cardData.extensions === "object"
         ? (cardData.extensions as Record<string, unknown>)
         : {};
-    const importedRegex = convertStRegexScripts(
-      cardExtensions.regex_scripts,
-      charId,
-      options?.regexScriptScope ?? "character",
-    );
+    const importedRegex = convertStRegexScripts(cardExtensions.regex_scripts, {
+      characterIds: (options?.regexScriptScope ?? "character") === "global" ? [] : [charId],
+    });
     if (importedRegex.length > 0) {
       const regexStorage = createRegexScriptsStorage(db);
       let created = 0;

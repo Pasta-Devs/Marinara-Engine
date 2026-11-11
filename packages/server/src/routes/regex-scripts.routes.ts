@@ -9,6 +9,7 @@ import {
   updateRegexScriptSchema,
 } from "@marinara-engine/shared";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
+import { createLibraryFoldersStorage } from "../services/storage/library-folders.storage.js";
 
 export async function regexScriptsRoutes(app: FastifyInstance) {
   const storage = createRegexScriptsStorage(app.db);
@@ -48,6 +49,8 @@ export async function regexScriptsRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
     await storage.remove(req.params.id);
+    // A deleted script leaves its Regex scripts folder too.
+    await createLibraryFoldersStorage(app.db).removeItemReferences("regex", [req.params.id]);
     return reply.status(204).send();
   });
 }
