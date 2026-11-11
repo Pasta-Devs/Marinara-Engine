@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-function extractNamedStep(workflow, stepName) {
+export function extractNamedStep(workflow, stepName) {
   const marker = `      - name: ${stepName}\n`;
   const start = workflow.indexOf(marker);
   assert.notEqual(start, -1, `Missing workflow step: ${stepName}`);
@@ -17,7 +17,7 @@ function extractNamedStep(workflow, stepName) {
   return workflow.slice(start, end).trimEnd();
 }
 
-function extractJob(workflow, jobId) {
+export function extractJob(workflow, jobId) {
   const marker = `  ${jobId}:\n`;
   const start = workflow.indexOf(marker);
   assert.notEqual(start, -1, `Missing workflow job: ${jobId}`);

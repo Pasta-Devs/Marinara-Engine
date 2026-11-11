@@ -2,6 +2,7 @@
 // guards, the shared build) runs first, so these lanes, ESLint's type-aware rules among them, read built shared types.
 // Every lane runs to its end, so one failure does not hide another; each output line names its lane; the exit is
 // non-zero when any lane fails. MARINARA_CHECK_JOBS caps how many lanes run at once (1 on an 8 GB laptop).
+// MARINARA_CHECK_SKIP_LANES names lanes to leave out; CI sets it where the pull request workflow runs them elsewhere.
 import { spawn } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import readline from "node:readline";
@@ -35,18 +36,23 @@ export function checkLanes(pnpm = resolvePnpmRunner(), lowMemory = isLowMemoryBu
     run("e2e-types", "check:e2e-types"),
     run("token-estimation-types", "check:token-estimation-types"),
     // Server lint's third step: no build covers these regression files.
-    {
-      name: "character-activity-types",
-      command: process.execPath,
-      args: [
-        fileURLToPath(import.meta.resolve("typescript/bin/tsc")),
-        "-p",
-        "scripts/regressions/tsconfig.character-activity.json",
-      ],
-    },
+    run("character-activity-types", "check:character-activity-types"),
   ];
   // Low memory, server lint in the prelude already ran this one.
   return lowMemory ? lanes.filter((lane) => lane.name !== "character-activity-types") : lanes;
+}
+
+/** Drop the lanes MARINARA_CHECK_SKIP_LANES names (comma separated). A name that is no lane is an error, so a renamed
+ * lane cannot leave a stale skip behind; `known` is every lane name, including those a low-memory build already drops. */
+export function skipLanes(lanes, value, known = lanes.map((lane) => lane.name)) {
+  const names = (value ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  const unknown = names.filter((name) => !known.includes(name));
+  if (unknown.length > 0)
+    throw new Error(`MARINARA_CHECK_SKIP_LANES names no lane: ${unknown.join(", ")}. Lanes: ${known.join(", ")}.`);
+  return lanes.filter((lane) => !names.includes(lane.name));
 }
 
 /** MARINARA_CHECK_JOBS as a lane count; unset runs every lane at once. */
@@ -107,7 +113,11 @@ export async function runLanes(lanes, { jobs = lanes.length, cwd = repositoryRoo
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   try {
     const prelude = checkPrelude();
-    const lanes = checkLanes();
+    const lanes = skipLanes(
+      checkLanes(),
+      process.env.MARINARA_CHECK_SKIP_LANES,
+      checkLanes(undefined, false).map((lane) => lane.name),
+    );
     const jobs = checkJobs(process.env.MARINARA_CHECK_JOBS, lanes.length);
     if (prelude.length > 0)
       process.stdout.write("[check] Low-memory build: type-checking shared and the server first.\n");

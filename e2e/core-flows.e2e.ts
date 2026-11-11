@@ -3123,7 +3123,7 @@ test("modal backdrops ignore drag releases but still close on a fresh outside cl
   await expect(dialog).toHaveCount(0);
 });
 
-test("connection model fetch errors use the Connections editor accent", async ({ page }, testInfo) => {
+test("connection model fetch errors use the app accent", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop connection editor chrome is covered here.");
 
   const connectionResponse = await page.request.post("/api/connections", {
@@ -3138,8 +3138,8 @@ test("connection model fetch errors use the Connections editor accent", async ({
   const connection = (await connectionResponse.json()) as { id: string };
   const networkError = "NetworkError when attempting to fetch resource.";
   const internalServerError = "Internal Server Error";
-  // The Connections scope paints its editor in the Connections type colour (#38bdf8), even over a teal app accent.
-  const accentColor = "rgb(56, 189, 248)";
+  // The Connections editor follows the app accent (teal here) like the other editors (#9053).
+  const accentColor = "rgb(20, 184, 166)";
   let fetchCount = 0;
 
   try {
@@ -3204,7 +3204,7 @@ test("connection model fetch errors use the Connections editor accent", async ({
   }
 });
 
-test("connection test-message errors use the Connections editor accent", async ({ page }, testInfo) => {
+test("connection test-message errors use the app accent", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop connection editor chrome is covered here.");
 
   const connectionResponse = await page.request.post("/api/connections", {
@@ -3218,8 +3218,8 @@ test("connection test-message errors use the Connections editor accent", async (
   expect(connectionResponse.ok()).toBeTruthy();
   const connection = (await connectionResponse.json()) as { id: string };
   const internalServerError = "Internal Server Error";
-  // The Connections scope paints its editor in the Connections type colour (#38bdf8), even over a teal app accent.
-  const accentColor = "rgb(56, 189, 248)";
+  // The Connections editor follows the app accent (teal here) like the other editors (#9053).
+  const accentColor = "rgb(20, 184, 166)";
 
   try {
     await page.route(`**/api/connections/${connection.id}/test-message`, async (route) => {
@@ -3604,7 +3604,7 @@ test("Connection image captioning defaults persist with a dedicated captioning c
   }
 });
 
-test("Connection Discard uses the Connections editor accent", async ({ page }, testInfo) => {
+test("Connection Discard uses the app accent", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop connection editor guard chrome is covered here.");
 
   const connectionResponse = await page.request.post("/api/connections", {
@@ -3617,8 +3617,8 @@ test("Connection Discard uses the Connections editor accent", async ({ page }, t
   });
   expect(connectionResponse.ok()).toBeTruthy();
   const connection = (await connectionResponse.json()) as { id: string };
-  // The Connections scope paints its editor in the Connections type colour (#38bdf8), even over a teal app accent.
-  const accentColor = "rgb(56, 189, 248)";
+  // The Connections editor follows the app accent (teal here) like the other editors (#9053).
+  const accentColor = "rgb(20, 184, 166)";
 
   try {
     await page.goto("/");
