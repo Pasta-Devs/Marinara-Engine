@@ -151,7 +151,7 @@ export function LorebookAssignmentSection({
             ? localizeUi("ui.lorebooks.lorebookassignmentsection.alreadyAssignedToValue1", {
                 value1: ownerName || ownerType,
               })
-            : lorebook.description || "No description",
+            : lorebook.description || localizeUi("ui.panels.agentcard.noDescription"),
           icon: <LibraryArt src={lorebook.imagePath ?? null} kind="lorebook" className={LIBRARY_ROW_ART} />,
         })),
     [lorebooks, ownerId, ownerType, ownerName, localizeUi],

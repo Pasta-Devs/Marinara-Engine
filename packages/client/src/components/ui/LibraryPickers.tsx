@@ -176,7 +176,9 @@ function LibraryPickerField({
             selectedIds={[value]}
             leadingItems={leadingItems}
             onToggle={(id) => {
-              onChange(id);
+              // Re-picking the current choice is no change: callers such as the conversation prompt
+              // reset other state on a change, which the old select never fired for.
+              if (id !== value) onChange(id);
               close();
             }}
             searchLabel={t(
