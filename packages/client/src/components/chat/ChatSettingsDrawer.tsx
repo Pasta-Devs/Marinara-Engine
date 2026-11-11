@@ -156,6 +156,8 @@ import {
   resolveScopedRegexMode,
   isConversationCommandToggleOn,
   resolveGameStoryStyle,
+  parseGamePresetStorySettings,
+  applyGamePresetStorySettings,
   resolveGameViolenceLevel,
 } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -4434,10 +4436,49 @@ export function ChatSettingsDrawer({
         updateMeta.mutate({ id: chat.id, customSystemPrompt: null });
       }
       if (isGame) {
-        updateMeta.mutate({ id: chat.id, gameSystemPrompt: null });
+        // A preset that carries story settings brings its style and violence, and adds its boundaries.
+        const carried = promptPresetId
+          ? parseGamePresetStorySettings(
+              promptPresetOptions.find((preset) => preset.id === promptPresetId)?.gameStorySettings,
+            )
+          : null;
+        const next = carried
+          ? applyGamePresetStorySettings(
+              {
+                storyStyle: resolveGameStoryStyle(gameSetupConfig),
+                violence: null,
+                contentBoundaries:
+                  typeof gameSetupConfig.contentBoundaries === "string" ? gameSetupConfig.contentBoundaries : "",
+              },
+              carried,
+            )
+          : null;
+        updateMeta.mutate({
+          id: chat.id,
+          gameSystemPrompt: null,
+          ...(next
+            ? {
+                gameSetupConfig: {
+                  ...gameSetupConfig,
+                  storyStyle: next.storyStyle,
+                  violence: next.violence ?? undefined,
+                  contentBoundaries: next.contentBoundaries || null,
+                },
+              }
+            : {}),
+        });
       }
     },
-    [chat.id, fallbackPromptPreset?.id, isConversation, isGame, setPreset, updateMeta],
+    [
+      chat.id,
+      fallbackPromptPreset?.id,
+      gameSetupConfig,
+      isConversation,
+      isGame,
+      promptPresetOptions,
+      setPreset,
+      updateMeta,
+    ],
   );
 
   const openAgentAddModal = useCallback(

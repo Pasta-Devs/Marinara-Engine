@@ -5,7 +5,9 @@
  *     says what is worth a roll; a prompt the player wrote stays theirs;
  *   - the violence level changes only the violence lines, so explicit sex and mild violence can go together;
  *   - boundaries reach the system prompt, every turn, the setup and the session's end, and the player's
- *     own rating text does not drop them.
+ *     own rating text does not drop them;
+ *   - a prompt preset can carry the three settings; picking it sets style and violence and adds its
+ *     boundaries without dropping the game's own.
  */
 import assert from "node:assert/strict";
 import {
@@ -13,7 +15,11 @@ import {
   DEFAULT_GAME_NSFW_RATING_GUIDELINES,
   DEFAULT_GAME_SFW_RATING_GUIDELINES,
   defaultGameRatingGuidelines,
+  applyGamePresetStorySettings,
   GENTLE_GAME_SYSTEM_PROMPT,
+  mergeGameContentBoundaries,
+  parseGamePresetStorySettings,
+  serializeGamePresetStorySettings,
   parseGameContentBoundaries,
   resolveGameRatingGuidelines,
   resolveGameViolenceLevel,
@@ -127,5 +133,23 @@ assert.match(
 );
 assert.match(buildCampaignProgressionPrompt(null, ["spiders"]), /- spiders/u);
 assert.doesNotMatch(buildCampaignProgressionPrompt(null), /player_boundaries/u);
+
+// Prompt presets: none carried leaves the game alone; carried settings set style and violence and add boundaries.
+assert.equal(parseGamePresetStorySettings(""), null);
+assert.equal(parseGamePresetStorySettings("not json"), null);
+assert.equal(serializeGamePresetStorySettings(null), "");
+const carried = parseGamePresetStorySettings(
+  serializeGamePresetStorySettings({ storyStyle: "gentle", violence: "mild", contentBoundaries: "Spiders\ndrowning" }),
+);
+assert.deepEqual(carried, { storyStyle: "gentle", violence: "mild", contentBoundaries: "Spiders\ndrowning" });
+assert.equal(parseGamePresetStorySettings({ storyStyle: "odd", violence: "odd" })?.violence, null);
+const game = { storyStyle: "standard" as const, violence: "graphic" as const, contentBoundaries: "spiders\nfire" };
+assert.equal(applyGamePresetStorySettings(game, null), game);
+assert.deepEqual(applyGamePresetStorySettings(game, carried), {
+  storyStyle: "gentle",
+  violence: "mild",
+  contentBoundaries: "spiders\nfire\ndrowning",
+});
+assert.equal(mergeGameContentBoundaries("", "- cats; dogs"), "cats\ndogs");
 
 console.log("game-story-style regression passed");
