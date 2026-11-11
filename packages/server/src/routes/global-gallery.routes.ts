@@ -4,7 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import { existsSync, mkdirSync, unlinkSync } from "fs";
 import { writeFile } from "fs/promises";
-import { join, extname } from "path";
+import { basename, join, extname } from "path";
 import { createGlobalGalleryStorage } from "../services/storage/global-gallery.storage.js";
 import { newId } from "../utils/id-generator.js";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -12,6 +12,7 @@ import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { resolveFlatMediaFile, sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
 import { findGlobalGalleryCapabilityReferences } from "../services/image/global-gallery-capability-references.js";
+import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import {
   unlinkGalleryFileIfUnreferenced,
   withGlobalGalleryImageLifecycleLocks,
@@ -172,7 +173,7 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get<{ Params: { filename: string } }>("/file/:filename", async (req, reply) => {
+  app.get<{ Params: { filename: string }; Querystring: { w?: string } }>("/file/:filename", async (req, reply) => {
     const { filename } = req.params;
     if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
       return reply.status(400).send({ error: "Invalid path" });
@@ -186,12 +187,24 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
     const image = await validateImageAssetFile(filePath, filename);
     if (!image) return reply.status(404).send({ error: "Not found" });
 
+    // ?w= asks for a downscaled WebP preview; any miss (other width, animation, no sharp) serves the original.
+    const width = parseThumbnailWidth(req.query.w);
+    const thumbPath = width ? await resolveThumbPath(filePath, width) : null;
+    const preview = thumbPath ? await validateImageAssetFile(thumbPath, basename(thumbPath)) : null;
+    if (preview) await image.handle.close().catch(() => undefined);
+
     // Upload names every file with a fresh id and nothing rewrites it (a profile restore brings back the same bytes),
-    // so a URL is cached for good. Private: personal art can sit behind optional login or a proxy.
-    return sendValidatedMediaFile(reply, image, {
+    // so a URL is cached for good; a preview is keyed by the original's path and mtime, so it is as stable.
+    // Private: personal art can sit behind optional login or a proxy.
+    // ponytail: a later change to the preview recipe (its v3- cache key) does not reach previews a browser already
+    // holds; add a version to the ?w= URL if a recipe change ever needs to replace them.
+    // A ?w= URL answered with the original (a failed write, a width this Engine lacks) revalidates instead, so the
+    // preview replaces it once it can be made rather than the full painting sticking for a year.
+    const standIn = req.query.w !== undefined && !preview;
+    return sendValidatedMediaFile(reply, preview ?? image, {
       method: req.method,
       rangeHeader: req.headers.range,
-      cacheControl: "private, max-age=31536000, immutable",
+      cacheControl: standIn ? "private, no-cache" : "private, max-age=31536000, immutable",
     });
   });
 

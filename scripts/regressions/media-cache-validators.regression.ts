@@ -130,6 +130,74 @@ try {
     assert.equal(revisit.statusCode, 304);
     assert.equal(revisit.rawPayload.length, 0);
   }
+
+  // Otome Hearth's Album loaded every full painting for small tiles. Gallery art serves the shared ?w= previews,
+  // cached for good like the original, and a transparent cut-out stays transparent.
+  const square = await sharp({ create: { width: 300, height: 300, channels: 4, background: "#be185d" } })
+    .png()
+    .toBuffer();
+  const clear = { r: 0, g: 0, b: 0, alpha: 0 };
+  const cutout = await sharp({ create: { width: 900, height: 1200, channels: 4, background: clear } })
+    .composite([{ input: square, top: 450, left: 300 }])
+    .png()
+    .toBuffer();
+  writeFileSync(join(galleryDir, "cutout.png"), cutout);
+  const cutoutUrl = "/api/global-gallery/file/cutout.png";
+  for (const [width, size] of [
+    [320, [240, 320]],
+    [1024, [768, 1024]],
+  ] as const) {
+    const thumb = await app.inject(`${cutoutUrl}?w=${width}`);
+    assert.equal(thumb.statusCode, 200);
+    assert.equal(thumb.headers["content-type"], "image/webp");
+    assert.equal(thumb.headers["cache-control"], "private, max-age=31536000, immutable");
+    assert.equal(thumb.headers["content-length"], String(thumb.rawPayload.length));
+    assert.ok(thumb.rawPayload.length < cutout.length, "the preview is smaller than the painting");
+    const { data, info } = await sharp(thumb.rawPayload).raw().toBuffer({ resolveWithObject: true });
+    assert.deepEqual([info.width, info.height, info.channels], [...size, 4]);
+    assert.equal(data[3], 0, "the cut-out's corner stays transparent");
+    assert.equal(data[(info.height / 2) * info.width * 4 + (info.width / 2) * 4 + 3], 255);
+    const thumbTag = String(thumb.headers.etag);
+    assert.ok(thumbTag && thumb.headers["last-modified"]);
+    const revisit = await app.inject({ url: `${cutoutUrl}?w=${width}`, headers: { "if-none-match": thumbTag } });
+    assert.equal(revisit.statusCode, 304);
+    assert.equal(revisit.headers["cache-control"], "private, max-age=31536000, immutable");
+  }
+  // No ?w=, an unsupported width or an animation the thumbnailer skips keeps the original bytes; under a ?w= URL the
+  // original revalidates, so a width a later Engine supports can replace it.
+  const frames = Buffer.alloc(16 * 32 * 3, 120).fill(200, 16 * 16 * 3);
+  const animated = await sharp(frames, { raw: { width: 16, height: 32, channels: 3, pageHeight: 16 } })
+    .gif({ loop: 0, delay: [100, 200] })
+    .toBuffer();
+  assert.equal((await sharp(animated).metadata()).pages, 2);
+  writeFileSync(join(galleryDir, "animated.gif"), animated);
+  for (const [path, bytes, type, cacheControl] of [
+    [cutoutUrl, cutout, "image/png", "private, max-age=31536000, immutable"],
+    [`${cutoutUrl}?w=640`, cutout, "image/png", "private, no-cache"],
+    [`${cutoutUrl}?w=nope`, cutout, "image/png", "private, no-cache"],
+    ["/api/global-gallery/file/animated.gif?w=320", animated, "image/gif", "private, no-cache"],
+  ] as const) {
+    const response = await app.inject(path);
+    assert.equal(response.statusCode, 200, path);
+    assert.equal(response.headers["content-type"], type, path);
+    assert.equal(response.headers["cache-control"], cacheControl, path);
+    assert.deepEqual(response.rawPayload, bytes, path);
+  }
+  // A preview that cannot be written yet (disk full, a locked folder) must not pin the full painting for a year.
+  const thumbs = join(fixtureDir, "backgrounds-thumbs");
+  rmSync(thumbs, { recursive: true, force: true });
+  writeFileSync(thumbs, "");
+  const missed = await app.inject(`${cutoutUrl}?w=320`);
+  assert.deepEqual(missed.rawPayload, cutout);
+  assert.equal(missed.headers["cache-control"], "private, no-cache");
+  rmSync(thumbs);
+  const recovered = await app.inject({
+    url: `${cutoutUrl}?w=320`,
+    headers: { "if-none-match": String(missed.headers.etag) },
+  });
+  assert.equal(recovered.statusCode, 200, "the browser's stand-in is replaced once the preview is made");
+  assert.equal(recovered.headers["content-type"], "image/webp");
+  assert.equal(recovered.headers["cache-control"], "private, max-age=31536000, immutable");
 } finally {
   await app.close();
   await closeDB();
