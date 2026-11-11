@@ -2,7 +2,6 @@ import { clickTopbarPanel } from "./topbar-navigation.js";
 import {
   openConnectionsPanelModel,
   openDefaultsTile,
-  openDevicePage,
   revealDefaultsTile,
   ttsConfigCard,
   openJobSettings,
@@ -12161,13 +12160,12 @@ test("PocketTTS discovers server voices and uses its speech endpoint", async ({ 
     });
 
     await page.goto("/");
-    await openDevicePage(page, "tts");
+    await openJobSettings(page, "voice");
     const ttsCard = ttsConfigCard(page);
     const serverVoiceSelect = ttsCard.getByLabel("PocketTTS server voice");
     await expect(serverVoiceSelect.locator('option[value="AgentCobra.wav"]')).toHaveText(
       "Agent Cobra (AgentCobra.wav)",
     );
-    await expect(ttsCard.getByText("2 voices loaded from the PocketTTS server.", { exact: true })).toBeVisible();
 
     await ttsCard.getByText("Only read dialogues", { exact: true }).click();
     const dialoguePause = ttsCard.getByLabel("Pause between dialogues in seconds");
@@ -12301,7 +12299,8 @@ test("OpenAI-compatible TTS accepts and persists a custom Kokoro voice mix", asy
   });
 
   await page.goto("/");
-  await openDefaultsTile(page, "voice");
+  // With voice off the Voice tile opens the job picker; the gear still opens Voice settings.
+  await openJobSettings(page, "voice");
   const ttsCard = ttsConfigCard(page);
 
   const customVoiceInput = ttsCard.getByTestId("tts-custom-voice-input-global");
@@ -12310,7 +12309,7 @@ test("OpenAI-compatible TTS accepts and persists a custom Kokoro voice mix", asy
   await expect.poll(() => mockConfig.voice).toBe(kokoroMix);
 });
 
-test("ElevenLabs keeps models visible and exposes scrollable account voices in every assignment mode", async ({
+test("ElevenLabs exposes scrollable account voices for the shared voice and each character", async ({
   page,
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "ElevenLabs settings are covered on desktop.");
@@ -12320,6 +12319,7 @@ test("ElevenLabs keeps models visible and exposes scrollable account voices in e
   const config = {
     enabled: true,
     source: "elevenlabs",
+    connectionId: "",
     baseUrl: "https://api.elevenlabs.io",
     apiKey: "••••••",
     voice: "voice-01",
@@ -12395,30 +12395,10 @@ test("ElevenLabs keeps models visible and exposes scrollable account voices in e
         }),
       });
     });
-    await page.route("**/api/tts/models", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          models: [
-            { id: "eleven_multilingual_v2", name: "Eleven Multilingual v2" },
-            { id: "eleven_v3", name: "Eleven v3" },
-            { id: "eleven_flash_v2_5", name: "Eleven Flash v2.5" },
-          ],
-          fromProvider: true,
-          source: "elevenlabs",
-        }),
-      });
-    });
-
     await page.goto("/");
-    // #8678 lists the On this device Text to speech page only for PocketTTS; every source has it in the Add window.
-    await openDefaultsTile(page, "voice");
+    // The Voice job's Model (an ElevenLabs account's starred model) picks the TTS model; the card keeps the voices.
+    await openJobSettings(page, "voice");
     const ttsCard = ttsConfigCard(page);
-
-    const modelSelect = ttsCard.getByRole("combobox", { name: "Model" });
-    await expect(modelSelect.locator("option")).toHaveCount(3);
-    await expect(modelSelect.locator('option[value="eleven_v3"]')).toHaveText("Eleven v3 (eleven_v3)");
 
     const allCharactersVoicePicker = ttsCard.getByRole("button", { name: "Shared Voice" });
     await allCharactersVoicePicker.click();
@@ -12435,7 +12415,6 @@ test("ElevenLabs keeps models visible and exposes scrollable account voices in e
 
     await page.keyboard.press("Escape");
     await expect(allCharactersVoicePicker).toBeFocused();
-    await ttsCard.getByRole("combobox", { name: "Voice Option" }).selectOption("per-character");
     const refreshButton = ttsCard.getByRole("button", { name: "Refresh", exact: true });
     await expect(refreshButton).toBeVisible();
     await ttsCard.getByRole("button", { name: "Add voice" }).click();
@@ -15654,11 +15633,13 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
     // Variant D: Local Whisper sits with Speech to text, which exists only while Calls is installed.
     await page.goto("/");
     await openDefaultsTile(page, "stt");
-    const speechModel = page.getByText("Local speech model", { exact: true }).filter({ visible: true });
+    // Dictation settings carry the same Local Whisper card as the This device page.
+    const dictation = page.getByRole("dialog").filter({ visible: true });
+    const speechModel = dictation.getByText("Local speech model", { exact: true });
     await expect(speechModel).toBeVisible();
-    await expect(page.getByRole("button", { name: "Download Whisper" }).filter({ visible: true })).toBeVisible();
+    await expect(dictation.getByRole("button", { name: "Download Whisper" })).toBeVisible();
     if (testInfo.project.name.includes("mobile")) {
-      const speechSelect = page
+      const speechSelect = dictation
         .locator("select")
         .filter({ visible: true, has: page.locator('option[value="whisper_tiny"]') });
       await expect(speechSelect).toBeVisible();

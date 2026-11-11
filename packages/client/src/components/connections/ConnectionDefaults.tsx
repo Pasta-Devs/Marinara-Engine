@@ -60,7 +60,7 @@ import {
 import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
-import { SMALL_ACTION } from "./DeviceDetail";
+import { LocalWhisper, SMALL_ACTION } from "./DeviceDetail";
 import type { ConnectionRowData } from "./ConnectionRow";
 import { JobRow, isUnset } from "./JobRow";
 import { mediaSources } from "../../lib/media-source";
@@ -695,6 +695,8 @@ export function DictationSettings() {
       />
       {/* ponytail: the speech-to-text server keeps its own address and key here; an account for it comes in S4. */}
       {callsInstalled && <SpeechToTextCard inDictation />}
+      {/* The same Local Whisper card as the This device page, so Dictation can download its model here. */}
+      {callsInstalled && import.meta.env.VITE_MARINARA_LITE !== "true" && <LocalWhisper />}
     </>
   );
 }
@@ -718,6 +720,7 @@ function DefaultsJobRow({
   const mayReadImages = useMayReadImages();
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const connectionSaving = useUIStore((s) => s.connectionSaving);
   const embeddings = job.key === "embeddings";
   const decision = job.key === "decision";
   const hasSettings = JOB_SETTINGS.has(job.key as JobKey) || overrides.length > 0;
@@ -790,6 +793,7 @@ function DefaultsJobRow({
         <Modal
           open={settingsOpen}
           onClose={() => void closeIfClean(() => setSettingsOpen(false))}
+          closeDisabled={connectionSaving}
           title={t("connections.defaults.settingsFor", { role: title })}
           width="max-w-xl"
         >

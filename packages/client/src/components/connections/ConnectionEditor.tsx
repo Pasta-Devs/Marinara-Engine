@@ -18,7 +18,7 @@ import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-f
 // Full-Page Connection Editor
 // Click a connection → opens this editor (like presets/characters)
 // ──────────────────────────────────────────────
-import { useState, useCallback, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
+import { useState, useCallback, useEffect, useId, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import {
   useConnection,
@@ -360,6 +360,16 @@ interface ConnectionEditorProps {
   part?: "decision" | "voice" | "captioning" | "embeddings";
 }
 
+// Several part editors can be open in one job window; the store flags stay true while any one of them is.
+const dirtyEditors = new Set<string>();
+const savingEditors = new Set<string>();
+function markEditor(editors: Set<string>, key: string, on: boolean, publish: (any: boolean) => void) {
+  if (editors.has(key) === on) return;
+  if (on) editors.add(key);
+  else editors.delete(key);
+  publish(editors.size > 0);
+}
+
 export function ConnectionEditor({
   connectionId,
   onSaved,
@@ -420,10 +430,9 @@ export function ConnectionEditor({
   const [dirty, setDirty] = useState(false);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const imageStyleProfiles = useUIStore((s) => s.imageStyleProfiles);
-  useEffect(() => {
-    setEditorDirty(dirty);
-  }, [dirty, setEditorDirty]);
-  useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
+  const editorKey = useId();
+  useEffect(() => markEditor(dirtyEditors, editorKey, dirty, setEditorDirty), [dirty, editorKey, setEditorDirty]);
+  useEffect(() => () => markEditor(dirtyEditors, editorKey, false, setEditorDirty), [editorKey, setEditorDirty]);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -441,6 +450,16 @@ export function ConnectionEditor({
   useEffect(() => {
     onBusyChange?.(editorBusy);
   }, [editorBusy, onBusyChange]);
+  const setConnectionSaving = useUIStore((s) => s.setConnectionSaving);
+  const saving = updateConnection.isPending || saveConnectionDefaults.isPending;
+  useEffect(
+    () => markEditor(savingEditors, editorKey, saving, setConnectionSaving),
+    [saving, editorKey, setConnectionSaving],
+  );
+  useEffect(
+    () => () => markEditor(savingEditors, editorKey, false, setConnectionSaving),
+    [editorKey, setConnectionSaving],
+  );
   useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
   // Local editable state

@@ -845,10 +845,12 @@ export function DeviceDetailWindow({ onClose }: { onClose: () => void }) {
 /** Voice or Dictation settings on their own, for the character editor's "Open settings" and device links. */
 export function JobSettingsWindow({ job, onClose }: { job: "voice" | "stt"; onClose: () => void }) {
   const { t } = useTranslation();
+  const connectionSaving = useUIStore((s) => s.connectionSaving);
   return (
     <Modal
       open
       onClose={() => void closeIfClean(onClose)}
+      closeDisabled={connectionSaving}
       title={t("connections.defaults.settingsFor", { role: t(jobLabelKey(JOB[job])) })}
       width="max-w-xl"
     >
