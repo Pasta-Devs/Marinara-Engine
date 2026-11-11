@@ -628,7 +628,7 @@ const ROLEPLAY_AVATAR_STYLE_OPTIONS: Array<{ id: RoleplayAvatarStyle; label: str
   },
   {
     id: "faded",
-    label: "Faded Side Panel",
+    label: "Faded side panel",
     desc: "A wide portrait that fills the bubble's height and fades into the message.",
   },
 ];
@@ -703,7 +703,7 @@ const TRACKER_PANEL_SIZE_PROFILE_OPTIONS: Array<{
 
 const TRACKER_PANEL_CARD_OPTIONS: Record<TrackerDataPanelSection, { label: string; desc: string }> = {
   world: {
-    label: "World State",
+    label: "World state",
     desc: "Date, time, location, weather, and temperature.",
   },
   persona: {
@@ -2225,7 +2225,7 @@ function DocsLanguageSetting() {
   const activeInfo = options.find((option) => option.code === active);
   const integrityOk = status ? status.integrity.ok : true;
   // A language without a downloaded pack needs a download first — the button
-  // becomes "Download & Replace" and the switch may take a short while.
+  // becomes "Download & replace" and the switch may take a short while.
   const needsDownload = pendingSwitch && selection !== "en" && !(selectionInfo?.installed ?? false);
   const installProgress = status?.install ?? null;
 
@@ -4710,7 +4710,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 <p className="text-[0.625rem] text-[var(--muted-foreground)]" data-text-follows-dark>
                   {localizeUi(
                     "theming.pickers.textFollowsDark",
-                    "Light mode uses your Dark text colours until you pick its own.",
+                    "Light mode uses your Dark text colors until you pick its own.",
                   )}
                 </p>
               ) : null}
@@ -6270,8 +6270,8 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
           onClick={() => void cloneAndEditTheme(t)}
           disabled={cloningId === t.id}
           className={cn(SETTINGS_ICON_BUTTON_CLASS, "disabled:opacity-50")}
-          title={localizeUi("theming.starter.clone", { defaultValue: "Clone + Edit" })}
-          aria-label={`${localizeUi("theming.starter.clone", { defaultValue: "Clone + Edit" })}: ${t.name}`}
+          title={localizeUi("theming.starter.clone", { defaultValue: "Clone + edit" })}
+          aria-label={`${localizeUi("theming.starter.clone", { defaultValue: "Clone + edit" })}: ${t.name}`}
           data-theme-clone={t.id}
         >
           {cloningId === t.id ? <Loader2 size="0.75rem" className="animate-spin" /> : <Copy size="0.75rem" />}
@@ -7072,8 +7072,8 @@ const THEME_REFERENCE: Array<[string, string, string]> = [
   ["--mari-app-backdrop", "theming.ref.backdrop", "Art behind the whole app, chats included"],
   ["--mari-page-veil", "theming.ref.veil", "Tint over Settings, Library and editors"],
   ["--mari-top-bar-bg", "theming.ref.topBar", "Top bar background (tabs and icons stay on top)"],
-  ["--mari-home-widget-*", "theming.ref.homeWidgets", "Home widget borders, fonts, sizes and colours"],
-  ["--mari-text-outline / --mari-dialogue-color", "theming.ref.chatText", "Message outline and dialogue colour"],
+  ["--mari-home-widget-*", "theming.ref.homeWidgets", "Home widget borders, fonts, sizes and colors"],
+  ["--mari-text-outline / --mari-dialogue-color", "theming.ref.chatText", "Message outline and dialogue color"],
   ["--mari-composer-placeholder", "theming.ref.placeholder", "Message box placeholder, as a quoted string"],
   ['[data-mari-part="message"]', "theming.ref.message", "One message: avatar, header, actions, reasoning parts inside"],
   ["data-character / data-message-index", "theming.ref.messageData", "Who wrote it and its number (also --mari-msg-*)"],

@@ -2706,7 +2706,7 @@ export function ChatSettingsDrawer({
     if (activeCustomAgents.length > 0) {
       links.push({
         id: "custom-agents",
-        label: activeCustomAgents.length === 1 ? activeCustomAgents[0]!.name : "Custom Agents",
+        label: activeCustomAgents.length === 1 ? activeCustomAgents[0]!.name : "Custom agents",
         targetId: getAgentSettingsMenuId(chat.id, "custom-agents"),
         order: customAgentSettingsOrder,
         count: activeCustomAgents.length > 1 ? activeCustomAgents.length : undefined,

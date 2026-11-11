@@ -157,10 +157,10 @@ const MARKER_LABELS: Record<MarkerType, string> = {
   persona: "Persona",
   chat_history: "Chat History",
   chat_summary: "Chat Summary",
-  current_scene_summary: "Current Scene Summary",
-  recalled_scenes: "Recalled Scenes",
-  recalled_messages: "Recalled Scenes",
-  id_macro_cards: "ID Macro Cards",
+  current_scene_summary: "Current scene summary",
+  recalled_scenes: "Recalled scenes",
+  recalled_messages: "Recalled scenes",
+  id_macro_cards: "ID macro cards",
   world_info_before: "Lorebook Marker (Before)",
   world_info_after: "Lorebook Marker (After)",
   dialogue_examples: "Dialogue Examples",
@@ -992,7 +992,11 @@ export function PresetEditor() {
           <div className="ovm-preset__body">
             {!ovmPage ? (
               <>
-                {hubRow("order", <ListOrdered />, `${orderedSections.length} · ~${totalTokens.toLocaleString()} tk`)}
+                {hubRow(
+                  "order",
+                  <ListOrdered />,
+                  `${orderedSections.length} · ~${totalTokens.toLocaleString()} ${localizeUi("ui.presets.preseteditor.tk")}`,
+                )}
                 {hubRow("prompts", <MessagesSquare />)}
                 {hubRow("variables", <Variable />, choiceBlocks.length ? String(choiceBlocks.length) : undefined)}
                 {hubRow("parameters", <SlidersHorizontal />)}
@@ -2164,7 +2168,7 @@ function SectionsTab({
   };
 
   const handleAddGroup = () => {
-    onCreateGroup.mutate({ presetId, name: "New Group" });
+    onCreateGroup.mutate({ presetId, name: "New group" });
   };
 
   // ── Drag & Drop ──
@@ -2285,7 +2289,7 @@ function SectionsTab({
       const created = await onCreateSection.mutateAsync({
         presetId,
         identifier: `${section.identifier ?? "section"}_copy_${Date.now()}`,
-        name: `${section.name ?? "Prompt Block"} Copy`,
+        name: `${section.name ?? "Prompt block"} Copy`,
         content: section.content ?? "",
         role: section.role ?? "system",
         enabled: readBoolFlag(section.enabled),
@@ -2767,7 +2771,7 @@ function SectionsTab({
                       )}
                       onClick={masterDetail ? undefined : () => toggleExpanded(section.id)}
                     >
-                      {markerConfig?.type === "recalled_messages" && section.name === "Recalled Messages"
+                      {markerConfig?.type === "recalled_messages" && section.name === "Recalled messages"
                         ? markerLabel("recalled_scenes")
                         : section.name}
                     </span>

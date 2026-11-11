@@ -256,7 +256,7 @@ const TABS = [
   { id: "gallery", label: "Gallery", icon: Camera },
   { id: "colors", label: "Colors", icon: Palette },
   { id: "voice", label: "Voice", icon: Volume2 },
-  { id: "rpstats", label: "Roleplay Stats", icon: Dices },
+  { id: "rpstats", label: "Roleplay stats", icon: Dices },
   { id: "stats", label: "Stats", icon: Swords },
   { id: "advanced", label: "Advanced", icon: Settings2 },
 ] as const;
@@ -269,15 +269,15 @@ type TabId = (typeof TABS)[number]["id"];
 /** UI overhaul: plain names for the sections in the editor's left rail. */
 const OVERHAUL_SECTION_LABELS: Record<TabId, string> = {
   metadata: "Details",
-  card: "The Card",
+  card: "Card",
   onboarding: "Onboarding",
-  convo: "Convo Profile",
+  convo: "Convo profile",
   lorebook: "Lorebook",
   sprites: "Sprites",
   gallery: "Gallery",
   colors: "Colors",
   voice: "Voice",
-  rpstats: "Roleplay Stats",
+  rpstats: "Roleplay stats",
   stats: "Game Mode",
   advanced: "Advanced",
 };
@@ -310,7 +310,7 @@ const OVERHAUL_OPTIONAL_CARD_FIELDS = [
   { id: "scenario", label: "Scenario" },
 ] as const;
 /** Dialogue fields that, in the overhaul, also start hidden behind "+" chips. */
-const OVERHAUL_OPTIONAL_DIALOGUE_FIELDS = [{ id: "mes_example", label: "Example Dialogue" }] as const;
+const OVERHAUL_OPTIONAL_DIALOGUE_FIELDS = [{ id: "mes_example", label: "Example dialogue" }] as const;
 
 function overhaulHasText(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
@@ -329,19 +329,19 @@ const CHARACTER_CARD_SECTIONS = [
 const CHARACTER_ONBOARDING_SECTIONS = [
   {
     id: "character-onboarding-card-questions",
-    label: "Character Questions",
+    label: "Character questions",
     labelKey: "ui.characters.onboarding.cardQuestions",
   },
   // Persona questions come second in the tab, not last: the persona FIELDS they
   // fill are rendered after them, so listing this after Scenario made the nav
   // disagree with the page it scrolls.
-  { id: "character-onboarding-questions", label: "Persona Questions", labelKey: "ui.characters.onboarding.questions" },
+  { id: "character-onboarding-questions", label: "Persona questions", labelKey: "ui.characters.onboarding.questions" },
   // One entry for the whole group, the way "Dialogue" covers Dialogue &
   // Greetings. The five fields it holds are a single template, so five chips
   // repeated the same thing five times.
   {
     id: "character-onboarding-template",
-    label: "Persona Template",
+    label: "Persona template",
     labelKey: "ui.characters.onboarding.personaTemplate",
   },
   { id: "character-onboarding-preview", label: "Rendered preview" },
@@ -1616,7 +1616,7 @@ export function CharacterEditor() {
                 ...OVERHAUL_OPTIONAL_CARD_FIELDS.filter(
                   (field) => field.id !== "summary" && overhaulVisibleFields.has(field.id),
                 ).map((field) => ({ id: `character-card-${field.id}`, label: field.label })),
-                { id: "character-card-dialogue", label: "Greetings & dialogue" },
+                { id: "character-card-dialogue", label: "Dialogue & greetings" },
               ]
             : undefined,
       }))}
@@ -3245,15 +3245,15 @@ const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string }> = [
   { key: "description", label: "Description" },
   { key: "personality", label: "Personality" },
   { key: "scenario", label: "Scenario" },
-  { key: "first_mes", label: "First Message" },
-  { key: "mes_example", label: "Example Dialogue" },
+  { key: "first_mes", label: "First message" },
+  { key: "mes_example", label: "Example dialogue" },
   { key: "extensions.backstory", label: "Backstory" },
   { key: "extensions.appearance", label: "Appearance" },
-  { key: "extensions.imageAppearance", label: "Image Appearance Override" },
+  { key: "extensions.imageAppearance", label: "Image appearance override" },
   { key: "extensions.imageAppearanceEnabled", label: "Use Image Appearance Override" },
-  { key: "creator_notes", label: "Creator Notes" },
-  { key: "system_prompt", label: "System Prompt" },
-  { key: "post_history_instructions", label: "Post-History Instructions" },
+  { key: "creator_notes", label: "Creator notes" },
+  { key: "system_prompt", label: "System prompt" },
+  { key: "post_history_instructions", label: "Post-history instructions" },
 ];
 
 /**
@@ -7148,7 +7148,7 @@ function LorebookTab({
   // another Marinara instance can carry a stale `lorebookId` in their
   // extensions, and an auto-import that errored silently can leave the
   // pointer set without a real DB row. If we trust the raw pointer the
-  // "Edit Embedded Lorebook" button opens an editor that can never resolve
+  // "Edit embedded lorebook" button opens an editor that can never resolve
   // (its loading state is `isLoading || !lorebook`, and a 404'd query
   // satisfies the second clause forever), so verify before showing it.
   const linkedLorebookQuery = useLorebook(rawLinkedLorebookId);

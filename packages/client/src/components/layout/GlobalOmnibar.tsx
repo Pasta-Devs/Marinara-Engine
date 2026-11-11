@@ -1025,8 +1025,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     ...companionSize
   } = useMariCompanion(mariSurface, dialogRef);
   const dockLabel = companionDesktop
-    ? t("omnibar.companion.dock", "Keep Prof. Mari beside the editor")
-    : t("omnibar.companion.dockSheet", "Keep Prof. Mari below the editor");
+    ? t("omnibar.companion.dock", "Keep Professor Mari beside the editor")
+    : t("omnibar.companion.dockSheet", "Keep Professor Mari below the editor");
   const lastCompanionRef = useRef(companion);
   useLayoutEffect(() => {
     if (lastCompanionRef.current === companion) return;
@@ -2260,7 +2260,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                           ? // Slice 78: the greeting is cut off at 390 px ("Type to search,"), so a phone gets the short form.
                             window.matchMedia("(min-width: 640px)").matches
                             ? idleGreeting
-                            : t("commandCenter.placeholderIdleShort", "Search or ask Prof. Mari")
+                            : t("commandCenter.placeholderIdleShort", "Search or ask Professor Mari")
                           : // ponytail: read once per open (the dialog remounts each time); a resize
                             // while open keeps the old text. Use a shared media hook if one lands.
                             window.matchMedia("(min-width: 640px)").matches

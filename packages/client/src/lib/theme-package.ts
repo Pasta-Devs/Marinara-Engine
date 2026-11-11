@@ -401,7 +401,7 @@ function accessibilityChanges(css: string) {
   // and messages is styling, and the user's spacing settings win over it anyway.
   if (/(?:^|[;{\s])--mari-a11y-line-height\s*:/i.test(clean)) what.add("line spacing");
   if (/(?:^|[;{\s])--mari-a11y-letter-spacing\s*:/i.test(clean)) what.add("letter spacing");
-  if (/--mari-cvd-[\w-]+\s*:/i.test(clean)) what.add("colour-blind-safe colours");
+  if (/--mari-cvd-[\w-]+\s*:/i.test(clean)) what.add("color-blind-safe colors");
   // --mari-focus-ring-color is a theme token; only taking focus rings away is a change to flag.
   if (/--mari-focus-ring-(?!color\b)[\w-]+\s*:|:focus(-visible)?[^{]*\{[^}]*outline\s*:\s*(none|0)\b/i.test(clean))
     what.add("focus rings");

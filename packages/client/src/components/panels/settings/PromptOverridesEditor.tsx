@@ -112,7 +112,7 @@ function renderTemplatePreview(
 }
 
 export function PromptOverridesEditor({
-  title = "Prompt Overrides",
+  title = "Prompt overrides",
   description = "Edit the templates used by image and sprite prompt builders.",
   help = "Global templates for registered prompt builders, including the conversation selfie prompt writer.",
   keys,

@@ -3305,7 +3305,7 @@ function RoleplaySetupWizard({
       { category: "writer", title: "Writer Agents" },
       { category: "tracker", title: "Tracker Agents" },
       { category: "misc", title: "Misc Agents" },
-      { category: "custom", title: "Custom Agents" },
+      { category: "custom", title: "Custom agents" },
     ] as const;
     const filteredAgents = availableAgents.filter((agent) => {
       const query = agentSearch.toLowerCase();

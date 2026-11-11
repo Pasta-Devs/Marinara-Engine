@@ -250,7 +250,7 @@ export function ConversationSoundSetting() {
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1.5">
         <Volume2 size="0.75rem" className="text-[var(--muted-foreground)]" />
-        <span className="text-xs font-medium">{localize("Notification Sounds")}</span>
+        <span className="text-xs font-medium">{localize("Notification sounds")}</span>
         <HelpTooltip
           text={localize("Play a notification ping when you receive a new message while on a different chat.")}
         />
@@ -291,7 +291,7 @@ export function ConversationSoundSetting() {
       <CustomNotificationSoundSetting />
       <div className="mt-1 flex items-center gap-1.5">
         <Bell size="0.75rem" className="text-[var(--muted-foreground)]" />
-        <span className="text-xs font-medium">{localize("Background Notifications")}</span>
+        <span className="text-xs font-medium">{localize("Background notifications")}</span>
         <HelpTooltip
           text={localize(
             "Show a private operating-system notification when an autonomous Conversation message arrives while Marinara is not focused. Message content is hidden.",
@@ -331,7 +331,7 @@ export function ConversationSoundSetting() {
       />
       <div className="mt-1 flex items-center gap-1.5">
         <BellRing size="0.75rem" className="text-[var(--muted-foreground)]" />
-        <span className="text-xs font-medium">{localize("Generation Completion Notifications")}</span>
+        <span className="text-xs font-medium">{localize("Generation completion notifications")}</span>
         <HelpTooltip
           text={localize(
             "Show a private operating-system notification when a reply you started manually finishes in Conversation, Roleplay, or Game mode while Marinara is not focused. Message content is hidden.",

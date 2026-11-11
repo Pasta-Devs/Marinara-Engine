@@ -73,7 +73,7 @@ export function ThemeEditorChecks({
       case "hsl-triplet":
         return t(
           "theming.lint.hslTriplet",
-          "{{subject}} needs a full colour such as hsl(270 25% 8%) or #1b1530, not a bare triplet.",
+          "{{subject}} needs a full color such as hsl(270 25% 8%) or #1b1530, not a bare triplet.",
           { subject },
         );
       case "fixed-pseudo-picture":
