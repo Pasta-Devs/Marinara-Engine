@@ -86,3 +86,24 @@ export function useDeleteRegexScript() {
     },
   });
 }
+
+/** Turn many scripts on or off at once (a folder's switch): one refresh at the end, not one per script. */
+export function useSetRegexEnabledMany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, enabled }: { ids: string[]; enabled: boolean }) => {
+      await Promise.all(ids.map((id) => api.patch<RegexScriptRow>(`/regex-scripts/${id}`, { enabled })));
+    },
+    onMutate: async ({ ids, enabled }) => {
+      // Flip the switches straight away; the refresh below confirms them.
+      await qc.cancelQueries({ queryKey: regexKeys.all });
+      const moving = new Set(ids);
+      qc.setQueryData<RegexScriptRow[]>(regexKeys.all, (rows) =>
+        rows?.map((row) => (moving.has(row.id) ? { ...row, enabled: String(enabled) } : row)),
+      );
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: regexKeys.all });
+    },
+  });
+}

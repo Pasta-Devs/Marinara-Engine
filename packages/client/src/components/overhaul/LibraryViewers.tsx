@@ -7,7 +7,18 @@
 // right in its usual editor. One Library tab per section, not one per item.
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CheckSquare, ChevronDown, ChevronLeft, Download, Plus, Search, Trash2, Upload } from "lucide-react";
+import {
+  CheckSquare,
+  ChevronDown,
+  ChevronLeft,
+  Download,
+  Folder,
+  FolderPlus,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { toast } from "sonner";
 import { getFolderImportEntries } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
@@ -25,7 +36,7 @@ import {
 } from "../../hooks/use-regex-scripts";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
-import { Toggle, flag, parseList, useRegexImport, useRegexKitActions } from "./LibraryTables";
+import { Toggle, flag, parseList, useRegexFolders, useRegexImport, useRegexKitActions } from "./LibraryTables";
 import { insertLibraryItems } from "../../lib/library-order";
 import { DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
 import { ConnectionAccountEditor } from "../connections/ConnectionAccountEditor";
@@ -82,10 +93,33 @@ export type OvViewerRow = {
   monoSub?: boolean;
 };
 
-/** `openId`: the group itself has a page (a Connections account); its name opens it, the chevron folds it. */
-export type OvViewerGroup = { id: string; label: string; rows: OvViewerRow[]; openId?: string };
+/**
+ * A folder heading (Regex scripts): folder icon, name, a note such as "3/12 on", an optional switch
+ * for the whole folder and a ⋯ menu. `dropId` makes it a drop target for dragged rows (the user's own
+ * folders); `closed` / `onToggle` keep its open state outside the viewer.
+ */
+export type OvViewerFolder = {
+  dropId?: string;
+  dragKind?: string;
+  note?: string;
+  title?: string;
+  trail?: ReactNode;
+  menu?: KitAction[];
+  closed?: boolean;
+  onToggle?: () => void;
+};
 
-export type OvViewerTool = { label: string; icon: typeof Plus; onClick: () => void };
+/** `openId`: the group itself has a page (a Connections account); its name opens it, the chevron folds it. */
+export type OvViewerGroup = {
+  id: string;
+  label: string;
+  rows: OvViewerRow[];
+  openId?: string;
+  folder?: OvViewerFolder;
+};
+
+/** `compact`: in the list's own tool row (an item is open) the tool shows as its icon only, to keep that row on one line. */
+export type OvViewerTool = { label: string; icon: typeof Plus; onClick: () => void; compact?: boolean };
 
 /** Select, ⋯ menus and dragging for a viewer's list (Regex). Rows without a menu are left alone. */
 export type OvViewerKit = {
@@ -93,7 +127,7 @@ export type OvViewerKit = {
   menu: ReturnType<typeof useKitMenu>;
   rowMenu: (id: string) => { title: string; actions: KitAction[] } | null;
   bulkActions: KitAction[];
-  rowDrag?: (id: string) => Record<string, unknown>;
+  rowDrag?: (id: string, folderId: string | null) => Record<string, unknown>;
   blocked?: () => boolean;
 };
 
@@ -199,10 +233,16 @@ function OvViewer({
         <div className="ov-vw__tools ov-vw__tools--list">
           {landing
             ? null
-            : tools.map(({ label, icon: Icon, onClick }) => (
-                <button key={label} type="button" onClick={onClick}>
-                  {Icon ? <Icon size={13} aria-hidden="true" /> : null}
-                  {label}
+            : tools.map(({ label, icon: Icon, onClick, compact }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={onClick}
+                  aria-label={compact ? label : undefined}
+                  title={compact ? label : undefined}
+                >
+                  {Icon ? <Icon size={compact ? 14 : 13} aria-hidden="true" /> : null}
+                  {compact ? null : label}
                 </button>
               ))}
           {landing ? null : (
@@ -231,10 +271,45 @@ function OvViewer({
           {total === 0 && !landing ? <p className="ov-vw__empty">{emptyList}</p> : null}
           {total === 0 && landing && search ? <p className="ov-vw__empty">{localize("No matches.")}</p> : null}
           {visible.map((group) => {
-            const isClosed = closed[group.id] && !search;
+            const folder = group.folder;
+            const isClosed = (folder?.closed ?? closed[group.id]) && !search;
+            const toggleGroup = () =>
+              folder?.onToggle
+                ? folder.onToggle()
+                : setClosed((current) => ({ ...current, [group.id]: !current[group.id] }));
             return (
-              <section key={group.id} className="ov-vw__group">
-                {group.label && group.openId ? (
+              <section key={group.id} className={cn("ov-vw__group", folder && "is-folder")}>
+                {folder ? (
+                  <div
+                    className="ov-vw__ghead is-folder"
+                    title={folder.title}
+                    {...(folder.dropId
+                      ? {
+                          "data-ov-folder-id": folder.dropId,
+                          ...(folder.dragKind ? { [`data-${folder.dragKind}-folder-id`]: folder.dropId } : {}),
+                        }
+                      : {})}
+                    onContextMenu={
+                      folder.menu && kit
+                        ? (event) => kit.menu.openFromEvent(event, group.label, folder.menu!)
+                        : undefined
+                    }
+                  >
+                    <button type="button" className="ov-vw__gopen" aria-expanded={!isClosed} onClick={toggleGroup}>
+                      <ChevronDown size={13} className={cn(isClosed && "-rotate-90")} aria-hidden="true" />
+                      <Folder size={14} className="ov-vw__gicon" aria-hidden="true" />
+                      <span>{group.label}</span>
+                      <small>{folder.note ?? group.rows.length}</small>
+                    </button>
+                    {folder.trail ? <span className="ov-vw__trail">{folder.trail}</span> : null}
+                    {folder.menu && kit ? (
+                      <KitMoreButton
+                        label={localize("Folder actions")}
+                        onOpen={(event) => kit.menu.openFromEvent(event, group.label, folder.menu!, "button")}
+                      />
+                    ) : null}
+                  </div>
+                ) : group.label && group.openId ? (
                   <div className={cn("ov-vw__ghead is-split", group.openId === selectedId && "is-on")}>
                     <button
                       type="button"
@@ -251,12 +326,7 @@ function OvViewer({
                     </button>
                   </div>
                 ) : group.label ? (
-                  <button
-                    type="button"
-                    className="ov-vw__ghead"
-                    aria-expanded={!isClosed}
-                    onClick={() => setClosed((current) => ({ ...current, [group.id]: !current[group.id] }))}
-                  >
+                  <button type="button" className="ov-vw__ghead" aria-expanded={!isClosed} onClick={toggleGroup}>
                     <ChevronDown size={13} className={cn(isClosed && "-rotate-90")} aria-hidden="true" />
                     <span>{group.label}</span>
                     <small>{group.rows.length}</small>
@@ -285,7 +355,7 @@ function OvViewer({
                             checked && "is-selected",
                             row.dim && "is-dim",
                           )}
-                          {...(rowMenu && kit?.rowDrag ? kit.rowDrag(row.id) : {})}
+                          {...(rowMenu && kit?.rowDrag ? kit.rowDrag(row.id, folder?.dropId ?? null) : {})}
                           onClick={pick}
                           onContextMenu={
                             rowMenu && kit
@@ -381,50 +451,77 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
     () => [...((data ?? []) as RegexScriptRow[])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [data],
   );
-  const groups = useMemo<OvViewerGroup[]>(() => {
-    const needle = search.trim().toLowerCase();
-    const buckets: Record<string, OvViewerRow[]> = { global: [], presets: [], characters: [] };
-    for (const script of scripts) {
-      if (needle && !script.name.toLowerCase().includes(needle) && !script.findRegex.toLowerCase().includes(needle))
-        continue;
-      const enabled = script.enabled === "true";
-      const bucket = parseList(script.targetCharacterIds).length
-        ? "characters"
-        : parseList(script.targetPromptPresetIds).length
-          ? "presets"
-          : "global";
-      buckets[bucket]!.push({
-        id: script.id,
-        name: script.name || localize("Untitled script"),
-        sub: script.findRegex,
-        monoSub: true,
-        lead: <span className="ov-vw__num">{script.order ?? 0}</span>,
-        dim: !enabled,
-        trail: (
-          <Toggle
-            on={enabled}
-            label={localize(enabled ? "Disable regex" : "Enable regex")}
-            onChange={(next) => updateRegex.mutate({ id: script.id, enabled: next })}
-          />
-        ),
-      });
-    }
-    return [
-      { id: "global", label: localize("Global"), rows: buckets.global! },
-      { id: "presets", label: localize("Scoped to presets"), rows: buckets.presets! },
-      { id: "characters", label: localize("Scoped to characters"), rows: buckets.characters! },
-    ].filter((group) => group.rows.length || group.id === "global");
-  }, [localize, scripts, search, updateRegex]);
+  const regexFolders = useRegexFolders(scripts);
+  const { display } = regexFolders;
+
+  const needle = search.trim().toLowerCase();
+  const matches = (script: RegexScriptRow) =>
+    !needle || script.name.toLowerCase().includes(needle) || script.findRegex.toLowerCase().includes(needle);
+  const toRow = (script: RegexScriptRow): OvViewerRow => {
+    const enabled = script.enabled === "true";
+    return {
+      id: script.id,
+      name: script.name || localize("Untitled script"),
+      sub: script.findRegex,
+      monoSub: true,
+      lead: <span className="ov-vw__num">{script.order ?? 0}</span>,
+      dim: !enabled,
+      trail: (
+        <Toggle
+          on={enabled}
+          label={localize(enabled ? "Disable regex" : "Enable regex")}
+          onChange={(next) => updateRegex.mutate({ id: script.id, enabled: next })}
+        />
+      ),
+    };
+  };
+  // Your folders, then one per preset, then the scripts in no folder: Global and Scoped to characters.
+  const filed = new Set<string>();
+  const groups: OvViewerGroup[] = [];
+  for (const folder of display.folders) {
+    const members = regexFolders.members(folder).filter((script) => !filed.has(script.id));
+    members.forEach((script) => filed.add(script.id));
+    const rows = members.filter(matches).map(toRow);
+    if (needle && !rows.length) continue;
+    groups.push({
+      id: `folder:${folder.id}`,
+      label: folder.name,
+      rows,
+      folder: {
+        dropId: folder.virtual ? undefined : folder.id,
+        dragKind: "regex",
+        title: regexFolders.title(folder),
+        ...regexFolders.extra(folder),
+        closed: display.isCollapsed(folder),
+        onToggle: () => display.toggleCollapsed(folder),
+        menu: regexFolders.menu(folder),
+      },
+    });
+  }
+  const loose = scripts.filter((script) => !filed.has(script.id));
+  const scoped = loose.filter((script) => parseList(script.targetCharacterIds).length);
+  groups.push({
+    id: "global",
+    label: localize("Global"),
+    rows: loose.filter((script) => !parseList(script.targetCharacterIds).length && matches(script)).map(toRow),
+  });
+  if (scoped.length)
+    groups.push({
+      id: "characters",
+      label: localize("Scoped to characters"),
+      rows: scoped.filter(matches).map(toRow),
+    });
 
   // Regex scripts opens on its landing page like every other Library section (audit D7).
   const reorderRegex = useReorderRegexScripts();
-  const visibleIds = useMemo(() => groups.flatMap((group) => group.rows.map((row) => row.id)), [groups]);
+  const visibleIds = groups.flatMap((group) => group.rows.map((row) => row.id));
   const selection = useKitSelection(visibleIds);
   const menu = useKitMenu();
   const suppress = useSuppressClick();
-  const regexActions = useRegexKitActions(scripts, selection);
+  const regexActions = useRegexKitActions(scripts, selection, regexFolders.manual);
   const byId = useMemo(() => new Map(scripts.map((script) => [script.id, script])), [scripts]);
-  // Dragging a script changes its run order, like the classic panel. Not while searching.
+  // Dragging a script changes its run order, like the classic panel; dropping it on one of your folders
+  // files it there. Not while searching.
   const dragProps = useKitRowDrag({
     kind: "regex",
     reorder: (ids, target, edge) =>
@@ -436,6 +533,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
           edge,
         ),
       ),
+    folders: regexFolders.manual,
     selection,
     suppress,
     onHold: (id) => {
@@ -448,7 +546,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
     menu,
     blocked: suppress.blocked,
     bulkActions: regexActions.bulkActions,
-    rowDrag: search.trim() ? undefined : (id) => dragProps(id, null),
+    rowDrag: needle ? undefined : (id, folderId) => dragProps(id, folderId),
     rowMenu: (id) => {
       const script = byId.get(id);
       return script
@@ -462,7 +560,10 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
     <OvViewer
       title={localize("Regex scripts")}
       meta={`${scripts.length} ${localize(scripts.length === 1 ? "script" : "scripts")} · ${enabledCount} ${localize("enabled")}`}
-      tools={[{ label: localize("Import"), icon: Download, onClick: () => fileRef.current?.click() }]}
+      tools={[
+        { label: localize("Import"), icon: Download, onClick: () => fileRef.current?.click() },
+        { label: localize("New folder"), icon: FolderPlus, onClick: regexFolders.manual.create, compact: true },
+      ]}
       listLabel={localize("Scripts")}
       listNote={localize("in run order")}
       search={search}
@@ -488,6 +589,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
           if (file) void handleImport(file);
         }}
       />
+      {regexFolders.fileInput}
       {children}
     </OvViewer>
   );

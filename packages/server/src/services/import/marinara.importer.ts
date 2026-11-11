@@ -29,6 +29,7 @@ import {
   resolveScopedRegexMode,
   personaCreateInputSchema,
   lorebookFilterModeSchema,
+  importRegexScriptSchema,
   MAX_FILE_SIZES,
   parseLorebookDecisionActivation,
 } from "@marinara-engine/shared";
@@ -44,6 +45,7 @@ import { createCharacterGalleryStorage } from "../storage/character-gallery.stor
 import { createPersonaGalleryStorage } from "../storage/persona-gallery.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createPromptsStorage } from "../storage/prompts.storage.js";
+import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "./import-timestamps.js";
 import { resolveLorebookEntryRole } from "./lorebook-role.js";
 import { access, mkdir, writeFile } from "fs/promises";
@@ -947,6 +949,7 @@ async function importPreset(data: unknown, db: DB) {
     sections?: Record<string, unknown>[];
     groups?: Record<string, unknown>[];
     choiceBlocks?: Record<string, unknown>[];
+    regexScripts?: Record<string, unknown>[];
   };
   if (!d?.preset) {
     return { success: false, type: "marinara_preset" as const, error: "Invalid preset data" };
@@ -1052,6 +1055,30 @@ async function importPreset(data: unknown, db: DB) {
     groupOrder: newGroupOrder,
     defaultChoices: normalizeDefaultChoices(defaultChoices),
   });
+
+  // The preset's own regex scripts come back linked to the new preset, after every existing script.
+  if (Array.isArray(d.regexScripts) && d.regexScripts.length > 0) {
+    const regexStorage = createRegexScriptsStorage(db);
+    const existing = await regexStorage.list();
+    const orderBase = existing.reduce((maximum, script) => Math.max(maximum, script.order), -1) + 1;
+    const entries = d.regexScripts
+      .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object")
+      .map((entry, index) => ({ entry, rank: typeof entry.order === "number" ? entry.order : index }))
+      .sort((a, b) => a.rank - b.rank);
+    for (const [index, { entry }] of entries.entries()) {
+      const parsed = importRegexScriptSchema.safeParse({
+        ...entry,
+        targetCharacterIds: [],
+        targetPromptPresetIds: [newPreset.id],
+        order: orderBase + index,
+      });
+      if (!parsed.success) {
+        logger.warn("Skipped an invalid regex script in preset %s", newPreset.id);
+        continue;
+      }
+      await regexStorage.create(parsed.data);
+    }
+  }
 
   return {
     success: true,
