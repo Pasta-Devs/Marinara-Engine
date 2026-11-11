@@ -445,9 +445,9 @@ function WizardLorebookPicker({
               <button
                 type="button"
                 onClick={() => onToggle(lb.id)}
-                className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] max-md:-my-2 max-md:h-11 max-md:w-11"
                 title={t("settings.notifications.customSound.actions.remove")}
-                aria-label={t("settings.notifications.customSound.actions.remove")}
+                aria-label={t("ui.chat.roleplaysetupwizard.removeLorebook", { name: lb.name })}
               >
                 <Trash2 size="0.6875rem" />
               </button>

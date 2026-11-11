@@ -55,24 +55,26 @@ export function PickerFolderList({
   const [search, setSearch] = useState("");
   const query = search.trim();
   // Folders start collapsed, except that a single pick opens the folder holding the current choice,
-  // so the window shows what is picked. (A picked item in no folder sits in "Ungrouped".)
-  const [expanded, setExpanded] = useState<Set<string>>(() => {
-    const picked = !multiple && selectedIds[0] ? selectedIds[0] : null;
-    if (!picked || !items.some((item) => item.id === picked)) return new Set();
+  // so the window shows what is picked. (A picked item in no folder sits in "Ungrouped".) That start
+  // follows the folder data until the user opens or closes a folder, since folders may load late.
+  const picked = !multiple && selectedIds[0] ? selectedIds[0] : null;
+  const initialExpanded = useMemo(() => {
+    if (!picked || !items.some((item) => item.id === picked)) return new Set<string>();
     const folder = folders.find((f) => f.itemIds.includes(picked));
     return new Set([folder?.id ?? UNGROUPED_ID]);
-  });
+  }, [picked, items, folders]);
+  const [touchedExpanded, setTouchedExpanded] = useState<Set<string> | null>(null);
+  const expanded = touchedExpanded ?? initialExpanded;
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
-  const toggleFolder = (id: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggleFolder = (id: string) => {
+    const next = new Set(expanded);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setTouchedExpanded(next);
+  };
 
   const visibleLeading = useMemo(
     () =>

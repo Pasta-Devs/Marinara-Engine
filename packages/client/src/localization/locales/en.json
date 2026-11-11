@@ -11491,6 +11491,7 @@
   "ui.chat.roleplaysetupwizard.noMatchingAgents": "No matching agents.",
   "ui.chat.roleplaysetupwizard.openAgentsTab": "Open Agents tab",
   "ui.chat.roleplaysetupwizard.quickSetup": "Quick Setup",
+  "ui.chat.roleplaysetupwizard.removeLorebook": "Remove {{name}}",
   "ui.chat.roleplaysetupwizard.roleplayName": "Roleplay name",
   "ui.chat.roleplaysetupwizard.searchLorebooks": "Search lorebooks…",
   "ui.chat.roleplaysetupwizard.thisLetsCharactersInitiateTheDownloadedFeatureInThis": "This lets characters initiate the downloaded feature in this chat. Manual controls supplied by the installed package remain available independently, and no separate agent model call is used.",
