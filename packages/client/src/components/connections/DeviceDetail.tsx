@@ -33,7 +33,7 @@ import {
   useInstalledCapabilityPackages,
 } from "../../hooks/use-capability-packages";
 import { useFeatureModels } from "../../hooks/use-connection-accounts";
-import { useDefaultEmbeddingConnection } from "../../hooks/use-connections";
+import { useConnections, useDefaultEmbeddingConnection } from "../../hooks/use-connections";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useTTSConfig } from "../../hooks/use-tts";
@@ -46,7 +46,8 @@ import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { hostOf } from "../modals/create-connection/shared";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { ProviderIcon } from "./ProviderIcon";
-import { closeIfClean, DictationSettings, VoiceJobSettings } from "./ConnectionDefaults";
+import { closeIfClean, DEVICE_VOICE, DictationSettings, useJobModels, VoiceJobSettings } from "./ConnectionDefaults";
+import type { ConnectionRowData } from "./ConnectionRow";
 import { Modal } from "../ui/Modal";
 
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
@@ -179,6 +180,7 @@ export function useDeviceEngines(): DeviceEngine[] {
   const speechModels = useSidecarStore((s) => s.speechModels);
   const speechDownloading = useSidecarStore((s) => s.speechDownloadProgress?.status === "downloading");
   const { data: tts } = useTTSConfig();
+  const modelFor = useJobModels((useConnections().data ?? []) as ConnectionRowData[]);
   const whisperAvailable = setup.stt.available;
   useEffect(() => {
     if (whisperAvailable) void useSidecarStore.getState().fetchSpeechStatus();
@@ -283,7 +285,10 @@ export function useDeviceEngines(): DeviceEngine[] {
             state: t("connections.device.state.notInUse"),
             fix: {
               label: t("connections.device.useForVoice"),
-              run: () => useUIStore.getState().openModal("job-settings", { job: "voice" }),
+              run: () => {
+                modelFor(JOB.voice)?.onChange(`${DEVICE_VOICE}pockettts`);
+                useUIStore.getState().openModal("job-settings", { job: "voice" });
+              },
             },
           }),
     });

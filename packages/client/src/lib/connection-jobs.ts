@@ -178,6 +178,13 @@ export function catalogMatchesKind(
 ): boolean {
   if (kind === "all") return true;
   if (kind === "decision") return true;
+  if (kind === "chat")
+    return (
+      !/embed|whisper|transcri|speech-to-text|stt/i.test(model) &&
+      (facts?.outputModalities?.length
+        ? facts.outputModalities.some((output) => output.toLowerCase() === "text")
+        : !(["image", "video", "audio"] as const).some((media) => catalogMatchesKind(model, facts, media)))
+    );
   if (facts?.outputModalities?.length)
     return facts.outputModalities.some(
       (output) => output.toLowerCase() === kind || (kind === "audio" && output.toLowerCase() === "speech"),
@@ -283,12 +290,7 @@ export function foundForJob(
   const fits = (provider: string, model: RemoteConnectionModel) => {
     if (job.key === "decision") return isChatProvider(provider) && !!model.capabilities?.logprobs;
     if (job.key === "embeddings") return isChatProvider(provider) && embedding(model);
-    if (job.kind === "chat")
-      return (
-        isChatProvider(provider) &&
-        !embedding(model) &&
-        (!model.outputModalities?.length || model.outputModalities.some((output) => output.toLowerCase() === "text"))
-      );
+    if (job.kind === "chat") return isChatProvider(provider) && catalogMatchesKind(model.id, model, "chat");
     const kind = job.kind as MediaKind | undefined;
     return !!kind && drives(provider, kind) && catalogMatchesKind(model.id, model, kind);
   };

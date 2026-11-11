@@ -36,13 +36,6 @@ const JOB_OF: Partial<Record<UseKind, JobKey>> = {
 };
 type Use = { kind: UseKind; job: JobKey; model: string; name?: string; rowId?: string; typed?: true };
 
-/** A catalog model that writes text: its listed outputs say so, else no media or embedding name. */
-const writesText = (model: RemoteConnectionModel) =>
-  model.outputModalities?.length
-    ? model.outputModalities.some((output) => output.toLowerCase() === "text")
-    : !/embed/i.test(model.id) &&
-      !(["image", "video", "audio"] as const).some((kind) => catalogMatchesKind(model.id, model, kind));
-
 /**
  * What a new account can do, one row per model type it offers: a saved row of that type, else the
  * catalog's first fit (for text, the provider's recommended pick when the catalog has it). Asked for
@@ -67,7 +60,7 @@ export function usesOf(
     const logprobs = kind === "decision" ? models.filter((model) => model.capabilities?.logprobs) : [];
     const asText = kind === "chat" || (kind === "decision" && !logprobs.length && wanted === "decision");
     const fits = asText
-      ? models.filter(writesText)
+      ? models.filter((model) => catalogMatchesKind(model.id, model, "chat"))
       : kind === "decision"
         ? logprobs
         : models.filter((model) => catalogMatchesKind(model.id, model, kind));
