@@ -323,7 +323,11 @@ export function CharacterSelect(props: CharacterSelectProps) {
               +{items.length - 3}
             </span>
           )}
-          <ChevronDown size="0.75rem" className="shrink-0 opacity-60" aria-hidden="true" />
+          <ChevronDown
+            size="0.75rem"
+            className={cn("shrink-0 opacity-60 transition-transform", open && "rotate-180")}
+            aria-hidden="true"
+          />
         </button>
       ) : null}
       {open && (
@@ -428,8 +432,10 @@ function CharacterSelectWindow({
       className={cn(
         // Portaled to <body>, so it re-applies the neutral chrome tokens its host (wizard, drawer) sits in;
         // without them --secondary falls back to the theme's raw navy. That tint is translucent (it is
-        // made to sit on a panel, like the preset dropdown), so it is layered over the panel colour, blurred like every neutral panel shell.
-        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] bg-[image:linear-gradient(var(--secondary),var(--secondary))] text-[var(--foreground)] shadow-2xl backdrop-blur-md",
+        // made to sit on a panel, like the preset dropdown), so it is layered over the panel colour, blurred like
+        // every neutral panel shell. The panel colour is stacked twice (~98% opaque) so sharp lines underneath,
+        // like the wizard's footer divider, don't show through.
+        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] text-[var(--foreground)] shadow-2xl backdrop-blur-md",
         NEUTRAL_SURFACE_VARIABLES,
         className,
       )}
