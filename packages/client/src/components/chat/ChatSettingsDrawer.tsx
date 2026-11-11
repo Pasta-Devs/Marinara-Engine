@@ -4326,10 +4326,13 @@ export function ChatSettingsDrawer({
   const [gameImagePromptInstructionsDraft, setGameImagePromptInstructionsDraft] = useState(
     (metadata.gameImagePromptInstructions as string) ?? "",
   );
-  const gameSetupConfig =
-    metadata.gameSetupConfig && typeof metadata.gameSetupConfig === "object"
-      ? (metadata.gameSetupConfig as Record<string, unknown>)
-      : {};
+  const gameSetupConfig = useMemo(
+    () =>
+      metadata.gameSetupConfig && typeof metadata.gameSetupConfig === "object"
+        ? (metadata.gameSetupConfig as Record<string, unknown>)
+        : {},
+    [metadata.gameSetupConfig],
+  );
   const campaignArtStyle = typeof gameSetupConfig.artStylePrompt === "string" ? gameSetupConfig.artStylePrompt : "";
   const generatedCampaignArtStyle =
     typeof gameSetupConfig.generatedArtStylePrompt === "string" ? gameSetupConfig.generatedArtStylePrompt : "";
