@@ -1861,6 +1861,7 @@ function normalizePromptPresetActionData(input: Row, existing?: Row | null): Row
   };
   delete row.conversation_prompt;
   delete row.game_prompt;
+  delete row.game_story_settings;
   delete row.image_path;
   delete row.section_order;
   delete row.group_order;

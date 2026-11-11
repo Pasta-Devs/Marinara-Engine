@@ -2773,7 +2773,15 @@ export function GameSetupWizard({
                         </summary>
                         <textarea
                           value={ratingGuidelinesDraft ?? defaultGameRatingGuidelines(rating, ratingOptions)}
-                          onChange={(e) => setRatingGuidelinesDraft(e.target.value)}
+                          onChange={(e) =>
+                            // Text that matches the built-in guidelines stays unset, so it keeps
+                            // following the rating, violence and story style if they change later.
+                            setRatingGuidelinesDraft(
+                              e.target.value === defaultGameRatingGuidelines(rating, ratingOptions)
+                                ? null
+                                : e.target.value,
+                            )
+                          }
                           aria-label={localizeUi("ui.game.gamesetupwizard.editRatingGuidelines")}
                           maxLength={GAME_RATING_GUIDELINES_MAX_CHARS}
                           rows={7}
