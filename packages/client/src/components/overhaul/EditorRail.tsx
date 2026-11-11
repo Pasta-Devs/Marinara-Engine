@@ -6,6 +6,7 @@
 // a "+ Name" row for each section not in use yet. The editor's sections scroll on the right.
 // ──────────────────────────────────────────────
 import {
+  useSyncExternalStore,
   useEffect,
   useRef,
   useState,
@@ -55,6 +56,42 @@ export function MobileBackCrumb({ label, onBack }: { label: string; onBack: () =
  */
 export function useSplitTouchCrumbs() {
   return useOverhaulMobile() && SPLIT_PANE !== null;
+}
+
+// The open item's trail (Library › Section › Item), published by its header on split view's narrow side, so
+// a page opened inside the item (a drill page that hides the header) can show the trail at its own top.
+let itemTrail: RailCrumb[] | null = null;
+const trailListeners = new Set<() => void>();
+export function publishSplitItemTrail(trail: RailCrumb[] | null) {
+  if (itemTrail === trail) return;
+  itemTrail = trail;
+  trailListeners.forEach((listener) => listener());
+}
+export function useSplitItemTrail() {
+  return useSyncExternalStore(
+    (listener) => {
+      trailListeners.add(listener);
+      return () => trailListeners.delete(listener);
+    },
+    () => itemTrail,
+  );
+}
+
+/**
+ * Split view's narrow side: the trail at the top of a page inside an item. The item's own last crumb goes
+ * back to the item (onItem); the page's title ends the trail. Nothing elsewhere.
+ */
+export function SplitPageCrumbs({ title, onItem }: { title: string; onItem: () => void }) {
+  const splitTouch = useSplitTouchCrumbs();
+  const trail = useSplitItemTrail();
+  if (!splitTouch || !trail?.length) return null;
+  const last = trail[trail.length - 1]!;
+  return (
+    <EditorCrumbs
+      className="ov-subcrumbs"
+      items={[...trail.slice(0, -1), { label: last.label, onClick: onItem }, { label: title }]}
+    />
+  );
 }
 
 export function EditorCrumbs({ items, className }: { items: RailCrumb[]; className?: string }) {

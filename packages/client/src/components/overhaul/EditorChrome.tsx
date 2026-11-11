@@ -11,7 +11,7 @@ import { ChevronLeft, MoreHorizontal, Save } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { useOverhaulMobile, type LibrarySection } from "../../stores/overhaul.store";
-import { EditorCrumbs, useSplitTouchCrumbs, type RailCrumb } from "./EditorRail";
+import { EditorCrumbs, publishSplitItemTrail, useSplitTouchCrumbs, type RailCrumb } from "./EditorRail";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useEditorDraftOfferStore } from "../../hooks/use-editor-leave-save";
@@ -209,6 +209,21 @@ export function OvEditorHead({
     { label, onClick: section ? () => openLibrarySection(section) : goBack },
     { label: title || titlePlaceholder || "" },
   ];
+  // Pages opened inside this item (drill pages) show this trail at their top on split view's narrow side.
+  const trailKey = splitCrumbs ? trail.map((crumb) => crumb.label).join("\u0000") : "";
+  const trailRef = useRef(trail);
+  trailRef.current = trail;
+  useEffect(() => {
+    if (!trailKey) return;
+    const published = trailRef.current.map((crumb, index) => ({
+      label: crumb.label,
+      // "Library" is a label on that side (EditorCrumbs); the rest call the header's latest handlers.
+      onClick:
+        crumb.onClick && crumb.onClick !== openLibraryPane ? () => trailRef.current[index]?.onClick?.() : undefined,
+    }));
+    publishSplitItemTrail(published);
+    return () => publishSplitItemTrail(null);
+  }, [trailKey]);
   const hasMenu = Boolean(menu?.length || menuContent);
   const menuNode = hasMenu ? (
     <div className="ov-menu-wrap" ref={menuRef}>
