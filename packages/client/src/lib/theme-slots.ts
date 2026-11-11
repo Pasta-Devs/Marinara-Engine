@@ -8,6 +8,11 @@
 //   [data-mari-part="window-title"]          the row (hidden from screen readers)
 //     [data-mari-part="window-title-text"]   who wrote it / the widget's title / "Message"
 //     [data-mari-part="window-buttons"]      empty, for the theme's _ [] X decorations
+//
+// Chat row previews: a theme that sets --mari-chat-row-preview (any value) gets the newest line of
+// each chat under its name in the Chats list (when no live line such as "typing" is showing):
+//   [data-mari-part="chat-row-preview"]       the line; data-role is user, assistant, narrator…
+//     [data-mari-part="chat-row-preview-who"] "You:" or the speaker in a group chat
 // ──────────────────────────────────────────────
 import { createElement, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,9 +20,14 @@ import { create } from "zustand";
 
 interface ThemeSlotsState {
   windowTitles: boolean;
+  chatRowPreviews: boolean;
 }
 
-export const useThemeSlots = create<ThemeSlotsState>(() => ({ windowTitles: false }));
+export const useThemeSlots = create<ThemeSlotsState>(() => ({ windowTitles: false, chatRowPreviews: false }));
+
+export function useChatRowPreviewSlot() {
+  return useThemeSlots((state) => state.chatRowPreviews);
+}
 
 export function useWindowTitles() {
   return useThemeSlots((state) => state.windowTitles);

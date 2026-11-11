@@ -53,6 +53,7 @@ import { normalizeChatTags } from "../../lib/chat-tags";
 import {
   useBulkExportChats,
   useChats,
+  useChatRowPreviews,
   useCreateChat,
   useDeleteChat,
   useDeleteChatGroup,
@@ -117,6 +118,7 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { MobileChatsHomeButton, MobileLibraryButton } from "../overhaul/MobileTopBar";
 import { SwipeActionsRow, type SwipeAction } from "../overhaul/SwipeActionsRow";
 import { RowActionSheet } from "../overhaul/RowActionSheet";
+import { useChatRowPreviewSlot } from "../../lib/theme-slots";
 import { TagFilter, countItemTags, matchesPickedTags } from "../overhaul/TagFilter";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -291,6 +293,8 @@ export function ChatSidebar() {
   // The overhaul look (compact rows, previews, mode counts) applies to phones too.
   const overhaulActive = overhaulDesktop || overhaulMobile;
   const { data: chats, isError: chatsError, isLoading, isFetching, refetch: refetchChats } = useChats();
+  const chatRowPreviewSlot = useChatRowPreviewSlot();
+  const { data: chatRowPreviews } = useChatRowPreviews(chats, chatRowPreviewSlot);
   const { data: connections } = useConnections();
   const createChat = useCreateChat();
   const { data: chatPresetsData } = useChatPresets();
@@ -1296,6 +1300,15 @@ export function ChatSidebar() {
             : isSetupKeptForLater(chat)
               ? localizeUi("ui.layout.chatsidebar.setupNotFinished", { defaultValue: "Setup not finished" })
               : null;
+    // Theme slot: the newest line under the name ("You: …", or the speaker in a group chat).
+    const rowPreview = chatRowPreviewSlot ? chatRowPreviews?.[chat.id] : undefined;
+    const rowPreviewWho = !rowPreview
+      ? null
+      : rowPreview.role === "user"
+        ? localizeUi("ui.layout.chatsidebar.previewYou", { defaultValue: "You:" })
+        : charIds.length > 1 && rowPreview.characterId && charLookup.get(rowPreview.characterId)?.name
+          ? `${charLookup.get(rowPreview.characterId)!.name}:`
+          : null;
     // New layout: "Generating…" stands in for the time on the same line, so a row doesn't grow 6px and push
     // the list down and back for every reply (audit H14). Typing and the rest keep their own line.
     const liveInTimeSlot = overhaulActive && isGenerating && !typingCharacter;
@@ -1710,6 +1723,16 @@ export function ChatSidebar() {
                     />
                   )}
                   <span className="truncate">{subtitle}</span>
+                </span>
+              )}
+              {rowPreview && !(subtitle && !liveInTimeSlot) && (
+                <span
+                  data-mari-part="chat-row-preview"
+                  data-role={rowPreview.role}
+                  className="mari-chrome-accent-text-muted block truncate text-[0.6875rem] leading-tight"
+                >
+                  {rowPreviewWho ? <span data-mari-part="chat-row-preview-who">{rowPreviewWho} </span> : null}
+                  {rowPreview.text}
                 </span>
               )}
             </div>
