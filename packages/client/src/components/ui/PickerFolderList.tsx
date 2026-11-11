@@ -38,6 +38,8 @@ const ROW = "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left t
 const FOCUS_RING =
   "focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring,currentColor)] focus-visible:outline-none";
 const UNGROUPED_ID = "__ungrouped__";
+/** Items in no folder get their own "Ungrouped" folder only from this many; fewer sit loose under the folders. */
+export const UNGROUPED_FOLDER_MIN = 8;
 
 export function PickerFolderList({
   items,
@@ -54,17 +56,7 @@ export function PickerFolderList({
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const query = search.trim();
-  // Folders start collapsed, except that a single pick opens the folder holding the current choice,
-  // so the window shows what is picked. (A picked item in no folder sits in "Ungrouped".) That start
-  // follows the folder data until the user opens or closes a folder, since folders may load late.
-  const picked = !multiple && selectedIds[0] ? selectedIds[0] : null;
-  const initialExpanded = useMemo(() => {
-    if (!picked || !items.some((item) => item.id === picked)) return new Set<string>();
-    const folder = folders.find((f) => f.itemIds.includes(picked));
-    return new Set([folder?.id ?? UNGROUPED_ID]);
-  }, [picked, items, folders]);
   const [touchedExpanded, setTouchedExpanded] = useState<Set<string> | null>(null);
-  const expanded = touchedExpanded ?? initialExpanded;
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -86,25 +78,36 @@ export function PickerFolderList({
     [items, query],
   );
 
-  // Folders by sort order, each with the items it holds; the rest go in "Ungrouped".
-  const groups = useMemo<Group[]>(() => {
-    const byId = new Map(items.map((item) => [item.id, item]));
+  // Folders by sort order, each with the items it holds. Items in no folder sit loose under the
+  // folders, like the panels show them; only a long tail of them collapses into "Ungrouped".
+  const { groups, loose } = useMemo<{ groups: Group[]; loose: PickerFolderItem[] }>(() => {
     const grouped = new Set<string>();
     const result: Group[] = [];
     [...folders]
       .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
       .forEach((folder) => {
         const members = new Set(folder.itemIds);
-        const inFolder = items.filter((item) => members.has(item.id) && byId.has(item.id));
+        const inFolder = items.filter((item) => members.has(item.id));
         if (inFolder.length === 0) return;
         inFolder.forEach((item) => grouped.add(item.id));
         result.push({ id: folder.id, name: folder.name, items: inFolder });
       });
-    if (result.length === 0) return [];
+    if (result.length === 0) return { groups: [], loose: [] };
     const rest = items.filter((item) => !grouped.has(item.id));
-    if (rest.length > 0) result.push({ id: UNGROUPED_ID, name: t("ui.chat.personapicker.ungrouped"), items: rest });
-    return result;
+    if (rest.length < UNGROUPED_FOLDER_MIN) return { groups: result, loose: rest };
+    result.push({ id: UNGROUPED_ID, name: t("ui.chat.personapicker.ungrouped"), items: rest });
+    return { groups: result, loose: [] };
   }, [items, folders, t]);
+
+  // Folders start collapsed, except that a single pick opens the folder holding the current choice,
+  // so the window shows what is picked. That start follows the folder data until the user opens or
+  // closes a folder, since folders may load late.
+  const picked = !multiple && selectedIds[0] ? selectedIds[0] : null;
+  const initialExpanded = useMemo(() => {
+    const holder = picked ? groups.find((group) => group.items.some((item) => item.id === picked)) : undefined;
+    return holder ? new Set([holder.id]) : new Set<string>();
+  }, [picked, groups]);
+  const expanded = touchedExpanded ?? initialExpanded;
 
   const rows = () =>
     Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-pick-row]:not(:disabled)") ?? []);
@@ -268,6 +271,7 @@ export function PickerFolderList({
               </>
             )}
             {groups.map(groupBlock)}
+            {loose.map((item) => itemRow(item, false))}
           </>
         )}
       </div>

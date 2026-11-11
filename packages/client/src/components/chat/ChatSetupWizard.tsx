@@ -8,7 +8,9 @@ import {
   ChevronRight,
   ChevronDown,
   Plug,
+  Ban,
   BookOpen,
+  FileText,
   Check,
   Plus,
   Search,
@@ -26,6 +28,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { resolvePresetArtwork } from "../../lib/preset-artwork";
 import { advanceChatSetupDraft } from "../../lib/chat-setup-draft";
 import { useDiscardNewChatSetup } from "../../hooks/use-discard-new-chat-setup";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
@@ -313,6 +316,37 @@ const WIZARD_PRIMARY_BUTTON_CLASS =
 const WIZARD_SECONDARY_BUTTON_CLASS =
   "flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
 
+type WizardPreset = { id: string; name: string; author?: string | null; imagePath?: string | null };
+type WizardLorebook = { id: string; name: string; imagePath?: string | null };
+
+// A preset's or lorebook's picture, as its panel shows it: the uploaded image, or the panel's
+// placeholder (the presets gradient with a page, the lorebooks amber with a book).
+function LibraryArt({ src, kind, className }: { src: string | null; kind: "preset" | "lorebook"; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "flex shrink-0 items-center justify-center overflow-hidden",
+        src
+          ? "bg-[var(--muted)]"
+          : kind === "preset"
+            ? "mari-panel-gradient-surface mari-panel-gradient--presets"
+            : "bg-gradient-to-br from-amber-400 to-orange-500 text-white",
+        className,
+      )}
+    >
+      {src ? (
+        <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" draggable={false} />
+      ) : kind === "preset" ? (
+        <FileText size="0.875rem" />
+      ) : (
+        <BookOpen size="0.875rem" />
+      )}
+    </span>
+  );
+}
+const ROW_ART = "h-8 w-8 rounded-lg";
+
 // The preset field: a trigger that opens the shared picker window with search and the
 // Presets panel's folders, like the persona and character pickers. A pick closes it.
 function WizardPresetSelect({
@@ -323,7 +357,7 @@ function WizardPresetSelect({
 }: {
   /** Preset id, or "" for None. */
   value: string;
-  presets: Array<{ id: string; name: string }>;
+  presets: WizardPreset[];
   ariaLabel: string;
   onChange: (value: string) => void;
 }) {
@@ -332,8 +366,32 @@ function WizardPresetSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const { data: folders } = useLibraryFolders("presets");
   const noneLabel = t("ui.game.gamesurfacecomponent.none");
-  const items = useMemo(() => presets.map((preset) => ({ id: preset.id, label: preset.name })), [presets]);
-  const leadingItems = useMemo(() => [{ id: "", label: noneLabel }], [noneLabel]);
+  const items = useMemo(
+    () =>
+      presets.map((preset) => ({
+        id: preset.id,
+        label: preset.name,
+        icon: <LibraryArt src={resolvePresetArtwork(preset)} kind="preset" className={ROW_ART} />,
+      })),
+    [presets],
+  );
+  const leadingItems = useMemo(
+    () => [
+      {
+        id: "",
+        label: noneLabel,
+        icon: (
+          <span
+            aria-hidden="true"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-dashed border-foreground/35 text-foreground/40"
+          >
+            <Ban size="0.8rem" />
+          </span>
+        ),
+      },
+    ],
+    [noneLabel],
+  );
   const selectedLabel = presets.find((preset) => preset.id === value)?.name ?? noneLabel;
 
   const close = () => {
@@ -390,7 +448,7 @@ function WizardLorebookPicker({
   onToggle,
   onAdd,
 }: {
-  lorebooks: Array<{ id: string; name: string }>;
+  lorebooks: WizardLorebook[];
   loaded: boolean;
   activeIds: readonly string[];
   onToggle: (id: string) => void;
@@ -400,10 +458,18 @@ function WizardLorebookPicker({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const { data: folders } = useLibraryFolders("lorebooks");
-  const items = useMemo(() => lorebooks.map((lb) => ({ id: lb.id, label: lb.name })), [lorebooks]);
+  const items = useMemo(
+    () =>
+      lorebooks.map((lb) => ({
+        id: lb.id,
+        label: lb.name,
+        icon: <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className={ROW_ART} />,
+      })),
+    [lorebooks],
+  );
   const active = activeIds
     .map((id) => lorebooks.find((lb) => lb.id === id))
-    .filter((lb): lb is { id: string; name: string } => Boolean(lb));
+    .filter((lb): lb is WizardLorebook => Boolean(lb));
   const baseTitle = t("navigation.topbar.lorebooks");
   const title = active.length > 0 ? baseTitle + " · " + active.length : baseTitle;
 
@@ -440,7 +506,7 @@ function WizardLorebookPicker({
               key={lb.id}
               className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
             >
-              <BookOpen size="0.875rem" className="text-[var(--primary)]" />
+              <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className="h-6 w-6 rounded-md" />
               <span className="flex-1 truncate text-xs">{lb.name}</span>
               <button
                 type="button"
@@ -2907,7 +2973,7 @@ function RoleplaySetupWizard({
         <WizardPresetSelect
           value={chat.promptPresetId ?? ""}
           ariaLabel={localizeUi("chat.toolbar.preset")}
-          presets={(presets ?? []) as Array<{ id: string; name: string }>}
+          presets={(presets ?? []) as WizardPreset[]}
           onChange={(nextValue) => setPreset(nextValue || null)}
         />
         <section className="space-y-2 border-t border-[var(--border)] pt-4">
@@ -3032,7 +3098,7 @@ function RoleplaySetupWizard({
   function renderLorebooks() {
     return (
       <WizardLorebookPicker
-        lorebooks={(lorebooks ?? []) as Array<{ id: string; name: string }>}
+        lorebooks={(lorebooks ?? []) as WizardLorebook[]}
         loaded={lorebooks !== undefined}
         activeIds={activeLorebookIds}
         onToggle={toggleLorebook}
