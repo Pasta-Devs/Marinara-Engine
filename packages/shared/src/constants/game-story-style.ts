@@ -140,3 +140,74 @@ export const GENTLE_CAMPAIGN_RULES = [
   `- Twists reveal and surprise; they do not exist to betray or devastate the player.`,
   `</gentle_game>`,
 ].join("\n");
+
+/**
+ * Story settings a prompt preset carries into the games that pick it. A preset without them leaves
+ * each game's own settings alone. `violence` null follows the game's rating.
+ */
+export interface GamePresetStorySettings {
+  storyStyle: GameStoryStyle;
+  violence: GameViolenceLevel | null;
+  contentBoundaries: string;
+}
+
+/** A preset's stored story settings (JSON text or an object), or null when it carries none. */
+export function parseGamePresetStorySettings(value: unknown): GamePresetStorySettings | null {
+  let raw: unknown = value;
+  if (typeof raw === "string") {
+    if (!raw.trim()) return null;
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  const violence = record.violence;
+  return {
+    storyStyle: resolveGameStoryStyle(record),
+    violence: (GAME_VIOLENCE_LEVELS as readonly unknown[]).includes(violence) ? (violence as GameViolenceLevel) : null,
+    contentBoundaries:
+      typeof record.contentBoundaries === "string"
+        ? record.contentBoundaries.slice(0, GAME_CONTENT_BOUNDARIES_MAX_CHARS).trim()
+        : "",
+  };
+}
+
+/** The text a preset's story settings are stored as: empty when it carries none. */
+export function serializeGamePresetStorySettings(value: unknown): string {
+  const settings = parseGamePresetStorySettings(value);
+  return settings ? JSON.stringify(settings) : "";
+}
+
+/**
+ * A game's story settings after picking a preset that carries some. Style and violence come from the
+ * preset; boundaries are added to the game's own, so picking a preset never drops one the player wrote.
+ */
+export function applyGamePresetStorySettings(
+  current: GamePresetStorySettings,
+  preset: GamePresetStorySettings | null,
+): GamePresetStorySettings {
+  if (!preset) return current;
+  return {
+    storyStyle: preset.storyStyle,
+    violence: preset.violence,
+    contentBoundaries: mergeGameContentBoundaries(current.contentBoundaries, preset.contentBoundaries),
+  };
+}
+
+/** The game's boundaries text with the added ones that it doesn't list yet, one per line. */
+export function mergeGameContentBoundaries(current: string, added: string): string {
+  const base = (current ?? "").trim();
+  const known = new Set(parseGameContentBoundaries(base).map((item) => item.toLowerCase()));
+  let out = base;
+  for (const item of parseGameContentBoundaries(added)) {
+    if (known.has(item.toLowerCase())) continue;
+    const next = out ? `${out}\n${item}` : item;
+    if (next.length > GAME_CONTENT_BOUNDARIES_MAX_CHARS) break;
+    known.add(item.toLowerCase());
+    out = next;
+  }
+  return out;
+}

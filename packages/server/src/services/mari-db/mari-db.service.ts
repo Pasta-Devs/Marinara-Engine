@@ -81,6 +81,7 @@ import {
   normalizePersonalExtensionCapabilities,
   PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
   scopedRegexModeSchema,
+  serializeGamePresetStorySettings,
   type MariDbCommandResult,
   type MariDbMutationReadBack,
   type MariDbReadBackMismatch,
@@ -1828,6 +1829,13 @@ function normalizePromptPresetActionData(input: Row, existing?: Row | null): Row
     gamePrompt:
       firstString(input, ["gamePrompt", "game_prompt"]) ??
       (typeof existing?.gamePrompt === "string" ? existing.gamePrompt : ""),
+    gameStorySettings: serializeGamePresetStorySettings(
+      input.gameStorySettings !== undefined
+        ? input.gameStorySettings
+        : input.game_story_settings !== undefined
+          ? input.game_story_settings
+          : existing?.gameStorySettings,
+    ),
     sectionOrder: jsonString(input.sectionOrder ?? input.section_order ?? existing?.sectionOrder, []),
     groupOrder: jsonString(input.groupOrder ?? input.group_order ?? existing?.groupOrder, []),
     variableGroups: jsonString(input.variableGroups ?? input.variable_groups ?? existing?.variableGroups, []),
@@ -5630,6 +5638,7 @@ export class MariDbService {
             "imagePath",
             "conversationPrompt",
             "gamePrompt",
+            "gameStorySettings",
             "sectionOrder",
             "groupOrder",
             "variableGroups",
@@ -5679,6 +5688,7 @@ export class MariDbService {
             "imagePath",
             "conversationPrompt",
             "gamePrompt",
+            "gameStorySettings",
             "sectionOrder",
             "groupOrder",
             "variableGroups",

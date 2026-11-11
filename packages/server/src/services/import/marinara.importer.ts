@@ -32,6 +32,7 @@ import {
   importRegexScriptSchema,
   MAX_FILE_SIZES,
   parseLorebookDecisionActivation,
+  parseGamePresetStorySettings,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -963,6 +964,7 @@ async function importPreset(data: unknown, db: DB) {
       description: String(p.description ?? ""),
       conversationPrompt: String(p.conversationPrompt ?? p.conversation_prompt ?? ""),
       gamePrompt: String(p.gamePrompt ?? p.game_prompt ?? ""),
+      gameStorySettings: parseGamePresetStorySettings(p.gameStorySettings ?? p.game_story_settings),
       variableGroups: safeParseJson(p.variableGroups, []),
       variableValues: safeParseJson(p.variableValues, {}),
       parameters: {},
