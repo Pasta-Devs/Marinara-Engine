@@ -147,6 +147,7 @@ export function JobRow({
         label={chosen ? label : undefined}
         title={chosen ? tile.value : tile.title}
         titleNote={chosen ? provider : undefined}
+        badgesWithNote
         tooltip={chosen ? `${label}: ${tile.value}` : undefined}
         wrapTitle
         details={

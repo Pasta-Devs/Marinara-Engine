@@ -89,6 +89,7 @@ export function ModelRow({
   roles = [],
   roleSlots = 2,
   badgesBelow = false,
+  badgesWithNote = false,
   status,
   customized = false,
   facts,
@@ -127,6 +128,9 @@ export function ModelRow({
     roleSlots?: 1 | 2;
     /** The role and cost badges on a third line under the text instead of at the row end (folder view). */
     badgesBelow?: boolean;
+    /** The title note on its own line under the name, with the role and cost badges at its end (job rows),
+     * so the name gets the row's full width and no line is added. */
+    badgesWithNote?: boolean;
     /** Why it cannot run now (its Connection needs a key or is off…); replaces the role badge. */
     status?: { label: string; state?: string } | null;
     customized?: boolean;
@@ -241,7 +245,7 @@ export function ModelRow({
             title={tooltip ?? title}
           >
             {title}
-            {titleNote && (
+            {titleNote && !badgesWithNote && (
               <>
                 {" "}
                 {/* One line: it moves under the name whole when it does not fit beside it, then truncates. */}
@@ -251,6 +255,16 @@ export function ModelRow({
               </>
             )}
           </span>
+          {badgesWithNote && (titleNote || badge || costShown) && (
+            // The note's own line, with the badges at its end: the name above keeps the row's full width.
+            <span data-connection-badges className="mt-0.5 flex min-w-0 items-center gap-1.5">
+              {titleNote && (
+                <span className="min-w-0 truncate text-[0.6875rem] text-[var(--muted-foreground)]">{titleNote}</span>
+              )}
+              {badge}
+              <CostBadge cost={cost} showPaid={showPaid} pricing={pricing} />
+            </span>
+          )}
           {line2 && (
             // A retiring hint that does not fit next to the id wraps to its own line, so a narrow row keeps the id readable.
             <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs leading-[1.125rem] text-[var(--muted-foreground)]">
@@ -298,7 +312,7 @@ export function ModelRow({
           )}
         </span>
         {/* Badges: one row at the row end, centred: what the model does (role or status), then its cost. */}
-        {!badgesBelow && (badge || cost) && (
+        {!badgesBelow && !badgesWithNote && (badge || cost) && (
           <span data-connection-badges className="flex shrink-0 items-center gap-1">
             {badge}
             {cost && (
