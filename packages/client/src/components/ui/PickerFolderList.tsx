@@ -1,14 +1,21 @@
 // ──────────────────────────────────────────────
 // PickerFolderList: the body of a preset / lorebook picker window. A search box over rows
-// grouped by library folders, styled like CharacterPickerList. The window around it
-// (PickerWindow) and the data (useLibraryFolders) belong to the caller.
+// grouped by library folders, built from the same PickerParts as CharacterPickerList. The
+// window around it (PickerWindow) and the data (useLibraryFolders) belong to the caller.
 // ──────────────────────────────────────────────
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, Folder, FolderOpen, Search } from "lucide-react";
+import { useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { includesTextForMatch } from "@marinara-engine/shared";
 import type { LibraryFolder } from "../../hooks/use-library-folders";
-import { cn } from "../../lib/utils";
+import {
+  FolderToggle,
+  PickerDivider,
+  PickerFolder,
+  PickerSearch,
+  PickRow,
+  UNGROUPED_FOLDER_MIN,
+  usePickerKeyboard,
+} from "./PickerParts";
 
 export type PickerFolderItem = { id: string; label: string; icon?: ReactNode };
 
@@ -34,12 +41,7 @@ export type PickerFolderListProps = {
 
 type Group = { id: string; name: string; items: PickerFolderItem[] };
 
-const ROW = "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors max-md:min-h-11";
-const FOCUS_RING =
-  "focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring,currentColor)] focus-visible:outline-none";
 const UNGROUPED_ID = "__ungrouped__";
-/** Items in no folder get their own "Ungrouped" folder only from this many; fewer sit loose under the folders. */
-export const UNGROUPED_FOLDER_MIN = 8;
 
 export function PickerFolderList({
   items,
@@ -59,14 +61,9 @@ export function PickerFolderList({
   const [touchedExpanded, setTouchedExpanded] = useState<Set<string> | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-
-  const toggleFolder = (id: string) => {
-    const next = new Set(expanded);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setTouchedExpanded(next);
-  };
+  const onSearchKey = usePickerKeyboard({ listRef, searchRef, listId, query });
 
   const visibleLeading = useMemo(
     () =>
@@ -109,74 +106,24 @@ export function PickerFolderList({
   }, [picked, groups]);
   const expanded = touchedExpanded ?? initialExpanded;
 
-  const rows = () =>
-    Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-pick-row]:not(:disabled)") ?? []);
-
-  const onSearchKey = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      rows()[0]?.focus();
-    } else if (event.key === "Enter" && query) {
-      // Only with a search: then the list is flat and the first match is the first row the user sees.
-      event.preventDefault();
-      // Multiple: Enter adds the first match not yet picked, and never removes one.
-      const visible = [...visibleLeading, ...visibleItems];
-      const first = multiple ? visible.find((item) => !selectedSet.has(item.id)) : visible[0];
-      if (first) onToggle(first.id);
-    }
+  const toggleFolder = (id: string) => {
+    const next = new Set(expanded);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setTouchedExpanded(next);
   };
 
-  const onListKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    const all = rows();
-    const index = all.indexOf(document.activeElement as HTMLButtonElement);
-    if (index < 0) return;
-    event.preventDefault();
-    if (event.key === "ArrowDown") all[index + 1]?.focus();
-    else if (index === 0) searchRef.current?.focus();
-    else all[index - 1]?.focus();
-  };
-
-  const itemRow = (item: PickerFolderItem, indented: boolean) => {
-    const picked = selectedSet.has(item.id);
-    return (
-      <button
-        key={item.id}
-        type="button"
-        data-pick-row
-        title={item.label}
-        onClick={() => onToggle(item.id)}
-        aria-pressed={multiple ? picked : undefined}
-        aria-current={!multiple && picked ? "true" : undefined}
-        className={cn(
-          ROW,
-          FOCUS_RING,
-          picked && !multiple ? "bg-foreground/10 text-foreground" : "hover:bg-foreground/[0.06]",
-          indented && "pl-6",
-        )}
-      >
-        {multiple && (
-          <span
-            aria-hidden="true"
-            className={cn(
-              "flex h-[1.125rem] w-[1.125rem] shrink-0 items-center justify-center rounded-[0.3125rem] border-[1.5px]",
-              picked
-                ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
-                : "border-foreground/35",
-            )}
-          >
-            {picked && <Check size="0.75rem" strokeWidth={3} />}
-          </span>
-        )}
-        {item.icon}
-        <span className={cn("min-w-0 flex-1 truncate text-xs font-medium", picked && "text-foreground")}>
-          {item.label}
-        </span>
-        {picked && !multiple && <Check size="0.875rem" className="ml-auto shrink-0 text-[var(--primary)]" />}
-      </button>
-    );
-  };
+  const itemRow = (item: PickerFolderItem, indented: boolean) => (
+    <PickRow
+      key={item.id}
+      picked={selectedSet.has(item.id)}
+      multiple={multiple}
+      onClick={() => onToggle(item.id)}
+      art={item.icon}
+      title={item.label}
+      indented={indented}
+    />
+  );
 
   const groupBlock = (group: Group) => {
     const open = expanded.has(group.id);
@@ -185,46 +132,22 @@ export function PickerFolderList({
         ? group.items.filter((item) => !selectedSet.has(item.id)).map((item) => item.id)
         : [];
     return (
-      <div key={group.id}>
-        <div className="flex items-center gap-1">
-          <div className="min-w-0 flex-1">
-            <button
-              type="button"
-              data-pick-row
-              onClick={() => toggleFolder(group.id)}
-              aria-expanded={open}
-              className={cn(ROW, FOCUS_RING, "text-xs hover:bg-foreground/[0.06]")}
-            >
-              {open ? (
-                <ChevronDown size="0.75rem" className="shrink-0 text-foreground/40" />
-              ) : (
-                <ChevronRight size="0.75rem" className="shrink-0 text-foreground/40" />
-              )}
-              {open ? (
-                <FolderOpen size="0.875rem" className="shrink-0 text-foreground/45" />
-              ) : (
-                <Folder size="0.875rem" className="shrink-0 text-foreground/45" />
-              )}
-              <span className="min-w-0 flex-1 truncate font-semibold">{group.name}</span>
-              <span className="text-[0.6875rem] tabular-nums text-foreground/45">{group.items.length}</span>
-            </button>
-          </div>
-          {addable.length > 0 && (
-            <button
-              type="button"
-              data-pick-row
-              onClick={() => onPickGroup?.(addable)}
-              className={cn(
-                "shrink-0 rounded-lg px-2 py-1.5 text-[0.6875rem] font-medium text-[var(--primary)] hover:bg-foreground/[0.06] max-md:min-h-11",
-                FOCUS_RING,
-              )}
-            >
-              {t("ui.characterselect.addAll", { count: addable.length })}
-            </button>
-          )}
-        </div>
-        {open && group.items.map((item) => itemRow(item, true))}
-      </div>
+      <PickerFolder
+        key={group.id}
+        header={
+          <FolderToggle
+            open={open}
+            onClick={() => toggleFolder(group.id)}
+            label={group.name}
+            count={group.items.length}
+          />
+        }
+        addable={addable}
+        onAdd={onPickGroup}
+        open={open}
+      >
+        {group.items.map((item) => itemRow(item, true))}
+      </PickerFolder>
     );
   };
 
@@ -233,24 +156,18 @@ export function PickerFolderList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <label className="mx-2 mt-2 flex items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.04] px-2.5 py-2 text-foreground/55 focus-within:border-foreground/25">
-        <Search size="0.875rem" className="shrink-0" />
-        <span className="sr-only">{searchLabel}</span>
-        <input
-          type="search"
-          ref={searchRef}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          onKeyDown={onSearchKey}
-          placeholder={searchLabel}
-          aria-label={searchLabel}
-          className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-foreground/40 max-md:text-base"
-        />
-      </label>
+      <PickerSearch
+        inputRef={searchRef}
+        listId={listId}
+        label={searchLabel}
+        value={search}
+        onChange={setSearch}
+        onKeyDown={onSearchKey}
+      />
 
       <div
         ref={listRef}
-        onKeyDown={onListKey}
+        id={listId}
         className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-foreground/10 p-1"
       >
         {empty ? (
@@ -267,7 +184,7 @@ export function PickerFolderList({
             {visibleLeading.length > 0 && (
               <>
                 {visibleLeading.map((item) => itemRow(item, false))}
-                <div className="mx-2 my-1 h-px bg-foreground/10" />
+                <PickerDivider />
               </>
             )}
             {groups.map(groupBlock)}
