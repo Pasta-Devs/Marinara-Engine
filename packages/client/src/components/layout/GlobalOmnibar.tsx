@@ -1183,7 +1183,17 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     return () => {
       // Companion mode is not modal: if the user moved on to another field, leave focus there.
       const active = document.activeElement;
-      if (!active || active === document.body || panel?.contains(active)) restoreRef.current?.focus();
+      if (!active || active === document.body || panel?.contains(active)) {
+        const restore = restoreRef.current;
+        if (restore && restore !== document.body && restore.isConnected) restore.focus();
+        // Nothing to go back to (opened with Ctrl+K from the page): land on the page that just opened, not
+        // on <body>, so Tab continues from there (audit H16). Waits a frame for the new page to render.
+        else
+          requestAnimationFrame(() => {
+            if (document.activeElement && document.activeElement !== document.body) return;
+            document.getElementById("mari-main")?.focus({ preventScroll: true });
+          });
+      }
     };
   }, []);
 

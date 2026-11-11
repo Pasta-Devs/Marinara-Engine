@@ -609,8 +609,8 @@ function OverhaulSettingsDesktop() {
   return (
     <section className="ov-settings" data-component="OverhaulSettingsPage">
       <header className="ov-settings__head">
+        {/* No subtitle: it listed the same sections as the tabs and chips below (audit C8). */}
         <h1 data-mari-part="page-title">{localize("Settings")}</h1>
-        <p>{localize(tab.blurb)}</p>
         <div className="ov-settings__search">
           <label className="ov-search">
             <Search size={14} aria-hidden="true" />

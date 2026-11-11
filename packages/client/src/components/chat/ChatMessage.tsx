@@ -57,7 +57,6 @@ import { normalizeRollOutcomeToneMode } from "../dice/dice-tone";
 import { DiceMessageContent, diceRollReplacesMessageContent } from "./ConversationMessageShared";
 import {
   User,
-  Bot,
   Copy,
   RefreshCw,
   Trash2,
@@ -4104,7 +4103,8 @@ export const ChatMessage = memo(function ChatMessage({
                 data-mari-part="avatar-placeholder"
                 data-role={isUser ? "user" : "assistant"}
               >
-                {isUser ? <User size="1.75rem" /> : <Bot size="1.75rem" />}
+                {/* One avatar rule everywhere (audit C2): the name's initial, like the Chats list and Home. */}
+                <span className="text-xl font-bold">{avatarInitial(displayName)}</span>
               </div>
             )}
           </div>
@@ -4630,11 +4630,12 @@ export const ChatMessage = memo(function ChatMessage({
                       : "mari-chrome-accent-tile mari-accent-animated ring-[var(--marinara-chat-chrome-button-border-active)]",
                   )}
                 >
-                  {isUser ? (
-                    <User size={compactAvatarIconSize} className="text-white" />
-                  ) : (
-                    <Bot size={compactAvatarIconSize} className="text-current" />
-                  )}
+                  <span
+                    className={cn("font-bold leading-none", isUser ? "text-white" : "text-current")}
+                    style={{ fontSize: `calc(${compactAvatarIconSize} * 0.8)` }}
+                  >
+                    {avatarInitial(displayName)}
+                  </span>
                 </div>
               )}
               {(showActions || showMessageNumbers) && messageIndex != null && (
@@ -4671,9 +4672,6 @@ export const ChatMessage = memo(function ChatMessage({
               </div>
             )}
 
-            {/* New layout: Regenerate and swipes (anything that costs an API call) hang under the message's
-                bottom-right without taking space, so hovering moves nothing. */}
-            {rpGenerateActions}
             <ConversationStartMarkers
               memoryStartCharacterIds={memoryStartCharacterIds}
               sharedStart={isConversationStart}
@@ -4792,11 +4790,14 @@ export const ChatMessage = memo(function ChatMessage({
                               : "mari-chrome-accent-rail-strong mari-accent-animated",
                           )}
                         >
-                          {isUser ? (
-                            <User size="1.25rem" className="text-white" />
-                          ) : (
-                            <Bot size="1.25rem" className="text-[var(--primary-foreground)]" />
-                          )}
+                          <span
+                            className={cn(
+                              "text-lg font-bold leading-none",
+                              isUser ? "text-white" : "text-[var(--primary-foreground)]",
+                            )}
+                          >
+                            {avatarInitial(displayName)}
+                          </span>
                         </div>
                       )}
                       {roleplayAvatarPanelTail}
@@ -4853,6 +4854,10 @@ export const ChatMessage = memo(function ChatMessage({
               )}
             </div>
 
+            {/* New layout: Regenerate and swipes (anything that costs an API call) hang under the message's
+                bottom-right without taking space, so hovering moves nothing. After the bubble in the DOM, so
+                Tab reaches the header tools first (audit H11). */}
+            {rpGenerateActions}
             {roleplayAttachments}
 
             {!editing && !isUser && (storyboard || storyboardGenerating) ? (

@@ -175,9 +175,19 @@
   border-radius: 0.3125rem;
   opacity: 0.5;
 }
-.ov-tab__close:hover {
-  opacity: 1;
-  background: var(--ov-hover);
+@media (hover: hover) {
+  .ov-tab__close:hover {
+    opacity: 1;
+    background: var(--ov-hover);
+  }
+}
+/* Touch: a finger-sized × that doesn't stay lit after a tap (audit T9). */
+@media (pointer: coarse) {
+  .ov-tab__close {
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-right: 0.125rem;
+  }
 }
 .ov-topbar__right {
   display: flex;
@@ -205,6 +215,10 @@
   white-space: nowrap;
 }
 .ov-text-btn small {
+  min-width: 0;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--ov-dim);
   font-size: 0.75rem;
 }
@@ -664,8 +678,10 @@
 .ov-tag button {
   opacity: 0.5;
 }
-.ov-tag button:hover {
-  opacity: 1;
+@media (hover: hover) {
+  .ov-tag button:hover {
+    opacity: 1;
+  }
 }
 .ov-tag--add {
   border-style: dashed;
@@ -1131,6 +1147,11 @@
 }
 .ov-card__ph {
   color: rgb(255 255 255 / 0.7);
+}
+.ov-card__initial {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
 }
 .ov-card__tokens {
   position: absolute;
@@ -1781,12 +1802,15 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+/* Section descriptions wrap instead of ending mid-word ("They ope…", audit C18). */
 [data-ov-settings-sections] section[id^="settings-section-"] > div:first-child > div:first-of-type > div:nth-child(2) {
+  min-width: 0;
   margin: 0;
-  overflow: hidden;
   color: var(--ov-dim);
   font-size: 0.75rem;
-  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+[data-ov-settings-sections] code {
   white-space: nowrap;
 }
 [data-ov-settings-sections] section[id^="settings-section-"] > div:last-child {
@@ -2989,6 +3013,13 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+.ov-home-hero-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
 .ov-home-hero-actions {
   display: flex;
   gap: 0.5rem;
@@ -3015,7 +3046,7 @@
 .ov-recent button {
   display: grid;
   width: 100%;
-  grid-template-columns: 2.25rem minmax(0, 1fr) auto 4rem;
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.75rem;
   padding: 0.3125rem 0.375rem;
@@ -4420,7 +4451,11 @@ input.ov-edhead__title:focus {
   opacity: 0.7;
   transform: translateY(-50%);
 }
-.ov-cs__resize:hover::after,
+@media (hover: hover) {
+  .ov-cs__resize:hover::after {
+    opacity: 1;
+  }
+}
 .ov-cs__resize.is-dragging::after {
   opacity: 1;
 }
@@ -7326,6 +7361,16 @@ input.ov-edhead__title:focus {
 .ov-home-hero-actions .ov-btn {
   height: 2rem;
 }
+/* Professor and Widgets use the mode buttons' type: one size and weight for the five siblings (audit T14). */
+.ov-home-hero-actions .ov-btn {
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+@media (min-width: 640px) {
+  .ov-home-hero-actions .ov-btn {
+    font-size: 0.75rem;
+  }
+}
 
 [data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] :is(section, .grid) > :is(div, button).min-h-12,
 [data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] .grid > button.min-h-11 {
@@ -8136,8 +8181,9 @@ input.ov-edhead__title:focus {
   font-weight: 600;
 }
 .ov-tabs-more__menu {
+  position: fixed;
+  z-index: 200;
   left: auto;
-  right: 0;
   width: 17rem;
   max-height: min(70vh, 32rem);
   overflow-y: auto;
@@ -10943,9 +10989,11 @@ input.ov-edhead__title:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ov-vw__gopen:hover > span {
-  text-decoration: underline;
-  text-underline-offset: 2px;
+@media (hover: hover) {
+  .ov-vw__gopen:hover > span {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 }
 
 /* An account's page in the Connections viewer: the editor that used to be a window, at page density. */
@@ -11937,6 +11985,17 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-topbar :is(button, a) {
   white-space: nowrap;
 }
+/* Chat names win over the "Mode · model" summary (audit T2): it steps aside before tabs get squeezed. */
+@container ov-topbar (max-width: 75rem) {
+  .ov-topbar__right .ov-text-btn small {
+    display: none;
+  }
+}
+/* Tab focus rings sit inside the tab: the strip clips anything outside its one row (audit H2). */
+.ov-tabs :is(button, a):focus-visible,
+.ov-tabs .ov-tab:focus-visible {
+  outline-offset: -2px;
+}
 @container ov-topbar (max-width: 46rem) {
   .ov-topbar__right .ov-text-btn > :not(svg):not([aria-hidden="true"]) {
     display: none;
@@ -12538,4 +12597,30 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-gallery__tools > .ov-btn:not(.ov-btn--icon) {
   min-width: 9.5rem;
   justify-content: center;
+}
+
+/* Sidebar footer (status, What's up?, Activity, Schedule): the same solid ring as the top bar (audit H8). */
+.mari-status-footer :is(.mari-chrome-control, .mari-chrome-field):focus-visible {
+  outline: 2px solid var(--ov-accent, var(--ring));
+  outline-offset: 1px;
+}
+
+/* One message-action button for Roleplay and Conversation, quick reactions included (audit D10):
+   1.625rem square, one radius, one icon size. */
+.ov-rpf__btn,
+.ov-cvh > button,
+.ov-cvh .mari-message-action,
+.ov-cvh__quick button {
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 0.375rem;
+}
+.ov-rpf__swipes > button {
+  height: 1.625rem;
+  min-width: 1.625rem;
+  border-radius: 0.375rem;
+}
+:is(.ov-rpf__btn, .ov-cvh > button, .ov-cvh .mari-message-action) > svg {
+  width: 0.875rem;
+  height: 0.875rem;
 }

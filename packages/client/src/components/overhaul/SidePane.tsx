@@ -9,7 +9,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Layers, MessageCircle, Settings } from "lucide-react";
+import { CircleHelp, Layers, MessageCircle, Settings } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useOverhaulStore, type OverhaulSidePane } from "../../stores/overhaul.store";
@@ -106,7 +106,7 @@ function MobileLibraryList() {
             useOverhaulStore.getState().openDocs(null);
           })}
         >
-          <BookOpen size={22} aria-hidden="true" />
+          <CircleHelp size={22} aria-hidden="true" />
           <span>{localize("Docs")}</span>
         </button>
         <button

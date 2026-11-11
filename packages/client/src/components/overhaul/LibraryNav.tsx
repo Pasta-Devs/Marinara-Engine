@@ -16,7 +16,6 @@ import { useCustomTools } from "../../hooks/use-custom-tools";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
-import { OVERHAUL_SETTINGS_TABS } from "./SettingsPage";
 import { useOvAgentRows } from "./LibraryTables";
 import { splitDragProps } from "./split-view";
 
@@ -41,8 +40,6 @@ export function LibraryNav() {
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const libraryPage = useOverhaulStore((s) => s.libraryPage);
-  const settingsTab = useOverhaulStore((s) => s.settingsTab);
-  const setSettingsTab = useOverhaulStore((s) => s.setSettingsTab);
 
   const counts: Partial<Record<string, number>> = {
     characters: Array.isArray(characters.data) ? characters.data.length : undefined,
@@ -104,21 +101,7 @@ export function LibraryNav() {
                   <span>{localize(entry.label)}</span>
                   {counts[entry.id] !== undefined ? <small>{counts[entry.id]}</small> : null}
                 </button>
-                {entry.id === "settings" && on ? (
-                  <div className="ov-libnav__tags" role="group" aria-label={localize("Settings categories")}>
-                    {OVERHAUL_SETTINGS_TABS.map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        className={cn("ov-libnav__tag", settingsTab === tab.id && "is-on")}
-                        aria-pressed={settingsTab === tab.id}
-                        onClick={() => setSettingsTab(tab.id)}
-                      >
-                        <span>{localize(tab.label)}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+                {/* Settings' categories are the tabs on the page itself; the sidebar doesn't list them again (audit D18). */}
               </div>
             );
           })}

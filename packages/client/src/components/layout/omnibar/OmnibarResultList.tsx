@@ -141,7 +141,9 @@ export function OmnibarResultList({
                 className={cn(
                   "space-y-0.5 px-1",
                   // Slice 78: Continue is a strip of three cards on wider screens, plain rows on a phone.
-                  group.id === "continue" && "sm:grid sm:grid-cols-3 sm:gap-2 sm:space-y-0",
+                  // Audit D4: tracks collapse when there are fewer than three, so two cards share the width.
+                  group.id === "continue" &&
+                    "sm:grid sm:grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] sm:gap-2 sm:space-y-0",
                   group.id === "now" && "pt-2",
                 )}
               >
@@ -311,7 +313,8 @@ export function OmnibarResultList({
           <p className="flex items-start gap-2 px-3.5 pb-2 pt-3 text-xs leading-relaxed text-[var(--muted-foreground)]">
             <Search size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
             <span>
-              {window.matchMedia("(min-width: 640px)").matches
+              {window.matchMedia("(min-width: 640px)").matches &&
+              !window.matchMedia("(hover: none) and (pointer: coarse)").matches
                 ? t(
                     "commandCenter.empty.hintDesktop",
                     "Type a name, a setting or a question. Enter opens the top row; {{mod}}+Enter asks Professor Mari.",

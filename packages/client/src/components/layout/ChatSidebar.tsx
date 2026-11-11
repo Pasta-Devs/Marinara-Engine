@@ -1296,6 +1296,9 @@ export function ChatSidebar() {
             : isSetupKeptForLater(chat)
               ? localizeUi("ui.layout.chatsidebar.setupNotFinished", { defaultValue: "Setup not finished" })
               : null;
+    // New layout: "Generating…" stands in for the time on the same line, so a row doesn't grow 6px and push
+    // the list down and back for every reply (audit H14). Typing and the rest keep their own line.
+    const liveInTimeSlot = overhaulActive && isGenerating && !typingCharacter;
     // Same precedence as the subtitle: whatever the line says is what the icon marks.
     const SubtitleIcon =
       typingCharacter || isGenerating
@@ -1696,7 +1699,7 @@ export function ChatSidebar() {
                   )}
                 </span>
               )}
-              {subtitle && (
+              {subtitle && !liveInTimeSlot && (
                 <span className="mari-chrome-accent-text-muted flex items-center gap-1 truncate text-[0.6875rem] leading-tight">
                   {SubtitleIcon && (
                     <SubtitleIcon
@@ -1750,11 +1753,19 @@ export function ChatSidebar() {
             )}
 
             {/* Last-activity time, after the branch badge so the dates line up down the list. */}
-            {relativeTime && (
+            {liveInTimeSlot ? (
+              <span
+                className="mari-chrome-accent-text-muted flex shrink-0 items-center gap-1 text-[0.625rem]"
+                title={subtitle ?? undefined}
+              >
+                <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden="true" />
+                {subtitle}
+              </span>
+            ) : relativeTime ? (
               <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">
                 {relativeTime}
               </span>
-            )}
+            ) : null}
 
             {/* Delete button (phones with swipe gestures delete from the row swipe instead) */}
             {/* The new layout has no row trash can: one stray click shouldn't delete a chat. Delete
@@ -2421,7 +2432,8 @@ export function ChatSidebar() {
 
       {/* ── User Status Selector ── */}
       <UserStatusFooter
-        showScheduleManager={activeTab === "conversation"}
+        // New layout: always there, so the footer doesn't shift when the mode filter changes (audit D19).
+        showScheduleManager={activeTab === "conversation" || isOverhaulLook()}
         onOpenScheduleManager={() => {
           // Overhaul: the schedules are a page with its own tab, not a dialog.
           if (isOverhaulLook()) {
@@ -2852,8 +2864,16 @@ function UserStatusFooter({
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    // Esc closes it too (audit H5).
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   const current = STATUS_OPTIONS.find((s) => s.value === userStatus) ?? STATUS_OPTIONS[0]!;
@@ -2880,7 +2900,7 @@ function UserStatusFooter({
   );
 
   return (
-    <div ref={ref} className="relative border-t border-[var(--border)]/30 px-3 py-2">
+    <div ref={ref} className="mari-status-footer relative border-t border-[var(--border)]/30 px-3 py-2">
       {/* Popup */}
       {open && (
         <div className="absolute bottom-full left-2 right-2 mb-1 rounded-xl bg-[var(--popover)] p-1.5 shadow-xl ring-1 ring-[var(--border)]/40">
@@ -2958,7 +2978,10 @@ function UserStatusFooter({
         />
         <button
           type="button"
-          onClick={openActivityOverview}
+          onClick={() => {
+            setOpen(false);
+            openActivityOverview();
+          }}
           title={localizeUi("chatInsights.activity.open")}
           aria-label={localizeUi("chatInsights.activity.open")}
           className="mari-chrome-control mari-chrome-control--small ml-1 h-7 w-7 shrink-0 justify-center p-0! max-md:h-9 max-md:min-h-9 max-md:w-9"
@@ -2968,12 +2991,15 @@ function UserStatusFooter({
         {showScheduleManager && (
           <button
             type="button"
-            onClick={onOpenScheduleManager}
+            onClick={() => {
+              setOpen(false);
+              onOpenScheduleManager();
+            }}
             title={localizeUi("ui.layout.chatsidebar.characterScheduleManager")}
             aria-label={localizeUi("ui.layout.chatsidebar.characterScheduleManager")}
             className="mari-chrome-control mari-chrome-control--small ml-1 h-7 w-7 shrink-0 justify-center p-0! max-md:h-9 max-md:min-h-9 max-md:w-9"
           >
-            <CalendarClock className="shrink-0" size="1.25rem" strokeWidth={2.25} />
+            <CalendarClock className="shrink-0" size="1rem" strokeWidth={2.25} />
           </button>
         )}
       </div>

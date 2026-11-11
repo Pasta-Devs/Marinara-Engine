@@ -5384,13 +5384,20 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   width: 100%;
 }
 
-@media (pointer: coarse) {
-  .mari-composer-menu__trigger {
-    min-height: 2.75rem;
-  }
-  .mari-workspace-composer__connection {
-    min-width: 2.75rem;
-  }
+/* One box and one icon size for Attach, the connection, Permissions and Send (audit P8/T11). Touch
+   keeps the drawn size: the ::after above already grows the hit area to 44px. */
+.mari-workspace-composer__connection {
+  width: var(--mari-composer-control);
+  padding-inline: 0;
+}
+.mari-workspace-composer__connection > svg:only-child {
+  width: 1.0625rem;
+  height: 1.0625rem;
+  opacity: 1;
+}
+.mari-composer-menu__trigger > svg:first-child:not(:only-child) {
+  width: 1.0625rem;
+  height: 1.0625rem;
 }
 
 /* Slice 4: Prof. Mari as a companion panel beside an open editor (desktop). A solid floating

@@ -27,7 +27,6 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
-  GripVertical,
   Pencil,
   Heart,
   LibraryBig,
@@ -561,6 +560,18 @@ function HomeWidgetFrame({
       style={{ order }}
       data-home-widget-size={size}
       data-home-widget-kind={id.startsWith("agent:package:") ? "package" : undefined}
+      // No grip icon (audit D14, kolache's no-grip rule): with a mouse, drag a widget by its header strip.
+      onPointerDown={(event) => {
+        if (event.pointerType !== "mouse" || event.button !== 0) return;
+        const target = event.target as HTMLElement;
+        if (target.closest("button, a, input, select, textarea, label, [role='button'], [contenteditable='true']"))
+          return;
+        if (event.clientY - event.currentTarget.getBoundingClientRect().top > 44) return;
+        onPointerDragStart(id, event as unknown as ReactPointerEvent<HTMLSpanElement>);
+      }}
+      onPointerMove={(event) => onPointerDragMove(event as unknown as ReactPointerEvent<HTMLSpanElement>)}
+      onPointerUp={(event) => onPointerDragEnd(event as unknown as ReactPointerEvent<HTMLSpanElement>)}
+      onPointerCancel={(event) => onPointerDragEnd(event as unknown as ReactPointerEvent<HTMLSpanElement>)}
     >
       <span
         role="button"
@@ -570,7 +581,7 @@ function HomeWidgetFrame({
         aria-label={dragLabel}
         title={dragLabel}
         className={cn(
-          "mari-home-widget__drag-handle mari-chrome-accent-text-muted absolute right-2 top-2 z-20 flex h-7 w-5 cursor-grab [@media(pointer:coarse)]:right-0.5 [@media(pointer:coarse)]:top-0.5 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 touch-none select-none items-center justify-center opacity-100 transition-[opacity,color,transform] hover:text-[var(--foreground)] active:cursor-grabbing active:scale-95 focus-visible:outline-none focus-visible:text-[var(--marinara-app-accent-solid)] [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100",
+          "mari-home-widget__drag-handle mari-chrome-accent-text-muted absolute right-2 top-2 z-20 flex h-7 w-5 cursor-grab [@media(pointer:coarse)]:right-0.5 [@media(pointer:coarse)]:top-0.5 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 touch-none select-none items-center justify-center opacity-100 transition-[opacity,color,transform] hover:text-[var(--foreground)] active:cursor-grabbing active:scale-95 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100",
           dragging && "!cursor-grabbing !text-[var(--marinara-app-accent-solid)]",
         )}
         onClick={(event) => event.stopPropagation()}
@@ -588,9 +599,7 @@ function HomeWidgetFrame({
         onPointerUp={onPointerDragEnd}
         onPointerCancel={onPointerDragEnd}
         onLostPointerCapture={onPointerDragEnd}
-      >
-        <GripVertical size="0.86rem" />
-      </span>
+      ></span>
       {children}
     </div>
   );
@@ -2416,85 +2425,89 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                       {t("home.hero.description")}
                     </p>
                   </div>
-                  <div
-                    ref={homeModesRef}
-                    className={overhaulActive ? "ov-home-modes" : "grid w-full max-w-md grid-cols-3 gap-2"}
-                    aria-label={t("home.shortcuts.label")}
-                  >
-                    <HomeNewChatLauncher
-                      mode="conversation"
-                      className={homeLauncherClass}
-                      ariaLabel={t("home.shortcuts.newConversation")}
+                  {/* New layout: the five hero buttons wrap as one group, never three on one row and two on
+                      the next (audit T14). The classic layout keeps its own structure (display: contents). */}
+                  <div className={overhaulActive ? "ov-home-hero-buttons" : "contents"}>
+                    <div
+                      ref={homeModesRef}
+                      className={overhaulActive ? "ov-home-modes" : "grid w-full max-w-md grid-cols-3 gap-2"}
+                      aria-label={t("home.shortcuts.label")}
                     >
-                      <ShortcutIcon tone={HOME_CHAT_MODE_ACCENTS.conversation}>
-                        <ChatModeIcon mode="conversation" size="1rem" className="mari-rgb-static-icon" />
-                      </ShortcutIcon>
-                      <span className="text-[0.65rem] font-bold text-[var(--foreground)] sm:text-xs">
-                        {t("home.recentChats.mode.conversation")}
-                      </span>
-                    </HomeNewChatLauncher>
-                    <HomeNewChatLauncher
-                      mode="roleplay"
-                      className={homeLauncherClass}
-                      ariaLabel={t("home.shortcuts.newRoleplay")}
-                    >
-                      <ShortcutIcon tone={HOME_CHAT_MODE_ACCENTS.roleplay}>
-                        <ChatModeIcon mode="roleplay" size="1rem" className="mari-rgb-static-icon" />
-                      </ShortcutIcon>
-                      <span className="text-[0.65rem] font-bold text-[var(--foreground)] sm:text-xs">
-                        {t("home.recentChats.mode.roleplay")}
-                      </span>
-                    </HomeNewChatLauncher>
-                    <HomeNewChatLauncher
-                      mode="game"
-                      className={homeLauncherClass}
-                      ariaLabel={t("home.shortcuts.newGame")}
-                    >
-                      <ShortcutIcon tone={HOME_CHAT_MODE_ACCENTS.game}>
-                        <ChatModeIcon mode="game" size="1rem" className="mari-rgb-static-icon" />
-                      </ShortcutIcon>
-                      <span className="text-[0.65rem] font-bold text-[var(--foreground)] sm:text-xs">
-                        {t("home.recentChats.mode.game")}
-                      </span>
-                    </HomeNewChatLauncher>
-                  </div>
-                  {/* Outside the launchers: a button can't sit inside another, and it would cover the Game button. */}
-                  {noChatModel && (
-                    <button
-                      type="button"
-                      onClick={() => openAddConnection()}
-                      className="mari-chrome-control mt-2 flex min-h-11 w-fit items-center justify-center gap-2 rounded-xl border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-4 py-2 text-xs font-semibold text-[var(--foreground)] sm:min-h-9"
-                    >
-                      <Plug size="0.875rem" aria-hidden="true" />
-                      {t("home.connectModel.cta")}
-                    </button>
-                  )}
-                  {overhaulActive ? (
-                    <div className="ov-home-hero-actions">
-                      <button type="button" className="ov-btn" onClick={openProfessor}>
-                        {t("home.browser.professorTab")}
-                      </button>
-                      {localizedBrowserPackages.map(({ item, display }) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className="ov-btn"
-                          onClick={() => useOverhaulStore.getState().openApp(item.id)}
-                        >
-                          <BrowserPackageTabIcon
-                            packageId={item.id}
-                            version={item.version}
-                            iconPaths={display.homeBrowserTab?.iconPaths}
-                          />
-                          {display.homeBrowserTab?.label ?? display.name}
-                        </button>
-                      ))}
-                      <button type="button" className="ov-btn" onClick={() => setWidgetManagerOpen(true)}>
-                        <SlidersHorizontal size={14} aria-hidden="true" />
-                        {t("home.browser.widgets")}
-                      </button>
+                      <HomeNewChatLauncher
+                        mode="conversation"
+                        className={homeLauncherClass}
+                        ariaLabel={t("home.shortcuts.newConversation")}
+                      >
+                        <ShortcutIcon tone={HOME_CHAT_MODE_ACCENTS.conversation}>
+                          <ChatModeIcon mode="conversation" size="1rem" className="mari-rgb-static-icon" />
+                        </ShortcutIcon>
+                        <span className="text-[0.65rem] font-bold text-[var(--foreground)] sm:text-xs">
+                          {t("home.recentChats.mode.conversation")}
+                        </span>
+                      </HomeNewChatLauncher>
+                      <HomeNewChatLauncher
+                        mode="roleplay"
+                        className={homeLauncherClass}
+                        ariaLabel={t("home.shortcuts.newRoleplay")}
+                      >
+                        <ShortcutIcon tone={HOME_CHAT_MODE_ACCENTS.roleplay}>
+                          <ChatModeIcon mode="roleplay" size="1rem" className="mari-rgb-static-icon" />
+                        </ShortcutIcon>
+                        <span className="text-[0.65rem] font-bold text-[var(--foreground)] sm:text-xs">
+                          {t("home.recentChats.mode.roleplay")}
+                        </span>
+                      </HomeNewChatLauncher>
+                      <HomeNewChatLauncher
+                        mode="game"
+                        className={homeLauncherClass}
+                        ariaLabel={t("home.shortcuts.newGame")}
+                      >
+                        <ShortcutIcon tone={HOME_CHAT_MODE_ACCENTS.game}>
+                          <ChatModeIcon mode="game" size="1rem" className="mari-rgb-static-icon" />
+                        </ShortcutIcon>
+                        <span className="text-[0.65rem] font-bold text-[var(--foreground)] sm:text-xs">
+                          {t("home.recentChats.mode.game")}
+                        </span>
+                      </HomeNewChatLauncher>
                     </div>
-                  ) : null}
+                    {/* Outside the launchers: a button can't sit inside another, and it would cover the Game button. */}
+                    {noChatModel && (
+                      <button
+                        type="button"
+                        onClick={() => openAddConnection()}
+                        className="mari-chrome-control mt-2 flex min-h-11 w-fit items-center justify-center gap-2 rounded-xl border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-4 py-2 text-xs font-semibold text-[var(--foreground)] sm:min-h-9"
+                      >
+                        <Plug size="0.875rem" aria-hidden="true" />
+                        {t("home.connectModel.cta")}
+                      </button>
+                    )}
+                    {overhaulActive ? (
+                      <div className="ov-home-hero-actions">
+                        <button type="button" className="ov-btn" onClick={openProfessor}>
+                          {t("home.browser.professorTab")}
+                        </button>
+                        {localizedBrowserPackages.map(({ item, display }) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="ov-btn"
+                            onClick={() => useOverhaulStore.getState().openApp(item.id)}
+                          >
+                            <BrowserPackageTabIcon
+                              packageId={item.id}
+                              version={item.version}
+                              iconPaths={display.homeBrowserTab?.iconPaths}
+                            />
+                            {display.homeBrowserTab?.label ?? display.name}
+                          </button>
+                        ))}
+                        <button type="button" className="ov-btn" onClick={() => setWidgetManagerOpen(true)}>
+                          <SlidersHorizontal size={14} aria-hidden="true" />
+                          {t("home.browser.widgets")}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </section>
                 <div ref={feedShellRef} className="mari-home-feed-shell">
                   <div

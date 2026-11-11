@@ -16,8 +16,6 @@ import {
   MessageCircle,
   Plus,
   Search,
-  User,
-  VenetianMask,
   Download,
   Globe,
   Grid2x2,
@@ -25,6 +23,7 @@ import {
   Square,
 } from "lucide-react";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { avatarInitial } from "../../lib/avatar-initial";
 import { cn } from "../../lib/utils";
 import { useOverhaulMobile, useOverhaulStore, type GalleryCardSize } from "../../stores/overhaul.store";
 import { AvatarImage } from "../characters/AvatarImage";
@@ -253,8 +252,6 @@ export function CardGallery({
   };
   const { groups, loose } = groupByFolder(visible, folders, filtering);
 
-  const Placeholder = kind === "characters" ? User : VenetianMask;
-
   const renderCard = (card: GalleryCard, folderId: string | null) => (
     <div
       key={card.id}
@@ -288,7 +285,10 @@ export function CardGallery({
             loading="lazy"
           />
         ) : (
-          <Placeholder size={28} className="ov-card__ph" aria-hidden="true" />
+          // The name's initial, the same fallback as Home, the Chats list and chat messages (audit C2).
+          <span className="ov-card__ph ov-card__initial" aria-hidden="true">
+            {avatarInitial(card.name)}
+          </span>
         )}
         <span className="ov-card__tokens">{card.tokens}</span>
         {selection.on ? (
