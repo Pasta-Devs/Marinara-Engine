@@ -327,6 +327,42 @@ class StreamProgress(unittest.TestCase):
         self.assertEqual((result, streams, ctx.failures), ({"findings": []}, [], {"finder": 0}))
         self.assertIn(f"wait_s=0; StreamStalled: {stalled}none)", out.getvalue())
 
+    def test_malformed_eager_tool_input_is_resent_without_eager_streaming(self):
+        # Sonnet 5.5's finder on #9087: eagerly streamed tool input came back unquoted, which the SDK cannot parse.
+        malformed = ValueError('Unable to parse tool parameter JSON from model. Please retry your request or adjust your prompt. '
+                               'Error: expected value at line 1 column 20. JSON: {"change_summary": Adds a')
+        done = NS(stop_reason="tool_use", content=[NS(type="tool_use", id="t", name="submit", input={"findings": []})],
+                  usage=NS(input_tokens=10, output_tokens=5, cache_read_input_tokens=0, cache_creation_input_tokens=0))
+        replies, eager = [malformed, done], []
+        class MessageStream(list):
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def get_final_message(self):
+                reply = replies.pop(0)
+                if isinstance(reply, Exception):
+                    raise reply
+                return reply
+        def stream(**request):
+            eager.append([tool["eager_input_streaming"] for tool in request["tools"]])
+            return MessageStream([NS(type="message_start")])
+        settings = {"slot": "large", "model": "claude-sonnet-5-5", "api": "anthropic", "effort": "high",
+                    "max_tokens": 64000, "reads": 0, "chars": 0, "minutes": 10}
+        modules = {"anthropic": NS(Timeout=lambda *args, **kwargs: None), "httpx2": NS(TimeoutException=TimeoutError, TransportError=OSError)}
+        ctx = NS(clients={"large": NS(messages=NS(stream=stream))}, models={"finder": settings}, failures={}, lock=threading.Lock(),
+                 cost_limit=0, spent_usd=0.0, deadline=996, stats={"roles": {"finder": defaultdict(int)}})
+        submit = {"type": "function", "function": {"name": "submit", "description": "Submit.", "parameters": {"type": "object"}}}
+        out = io.StringIO()
+        with patch.dict(sys.modules, modules), patch.object(reviewer.time, "monotonic", lambda: 0), \
+                patch.object(reviewer.time, "sleep", lambda wait: None), contextlib.redirect_stdout(out):
+            result = reviewer.run_agent(ctx, "finder", [{"role": "user", "content": "Review."}], submit)
+        self.assertEqual(result, {"findings": []})
+        self.assertEqual(eager, [[True], [False]])
+        self.assertFalse(settings["eager_tool_input"])
+        # Without eager streaming the API validates the input itself, so a second parse error is not caught again.
+        replies[:] = [malformed]
+        with patch.dict(sys.modules, modules), self.assertRaises(ValueError):
+            reviewer.claude_reply(ctx, settings, [{"role": "user", "content": "Review."}], [submit], "auto", 600, reviewer.time.monotonic(), {}, "")
+
     def test_a_failed_review_names_a_silent_error_and_logs_its_traceback(self):
         # The SDK's bare assert, compiled as its installed file so the summary names it the way a run would.
         sdk = {}
