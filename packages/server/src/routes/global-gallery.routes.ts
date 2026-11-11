@@ -13,6 +13,7 @@ import { logger } from "../lib/logger.js";
 import { resolveFlatMediaFile, sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
 import { findGlobalGalleryCapabilityReferences } from "../services/image/global-gallery-capability-references.js";
 import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
+import { GLOBAL_GALLERY_FILE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import {
   unlinkGalleryFileIfUnreferenced,
   withGlobalGalleryImageLifecycleLocks,
@@ -173,40 +174,44 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get<{ Params: { filename: string }; Querystring: { w?: string } }>("/file/:filename", async (req, reply) => {
-    const { filename } = req.params;
-    if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
-      return reply.status(400).send({ error: "Invalid path" });
-    }
+  app.get<{ Params: { filename: string }; Querystring: { w?: string } }>(
+    "/file/:filename",
+    { config: { rateLimit: GLOBAL_GALLERY_FILE_RATE_LIMIT } },
+    async (req, reply) => {
+      const { filename } = req.params;
+      if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+        return reply.status(400).send({ error: "Invalid path" });
+      }
 
-    const filePath = resolveFlatMediaFile(GLOBAL_GALLERY_ROOT, filename);
-    if (!filePath || !existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
-    }
+      const filePath = resolveFlatMediaFile(GLOBAL_GALLERY_ROOT, filename);
+      if (!filePath || !existsSync(filePath)) {
+        return reply.status(404).send({ error: "Not found" });
+      }
 
-    const image = await validateImageAssetFile(filePath, filename);
-    if (!image) return reply.status(404).send({ error: "Not found" });
+      const image = await validateImageAssetFile(filePath, filename);
+      if (!image) return reply.status(404).send({ error: "Not found" });
 
-    // ?w= asks for a downscaled WebP preview; any miss (other width, animation, no sharp) serves the original.
-    const width = parseThumbnailWidth(req.query.w);
-    const thumbPath = width ? await resolveThumbPath(filePath, width) : null;
-    const preview = thumbPath ? await validateImageAssetFile(thumbPath, basename(thumbPath)) : null;
-    if (preview) await image.handle.close().catch(() => undefined);
+      // ?w= asks for a downscaled WebP preview; any miss (other width, animation, no sharp) serves the original.
+      const width = parseThumbnailWidth(req.query.w);
+      const thumbPath = width ? await resolveThumbPath(filePath, width) : null;
+      const preview = thumbPath ? await validateImageAssetFile(thumbPath, basename(thumbPath)) : null;
+      if (preview) await image.handle.close().catch(() => undefined);
 
-    // Upload names every file with a fresh id and nothing rewrites it (a profile restore brings back the same bytes),
-    // so a URL is cached for good; a preview is keyed by the original's path and mtime, so it is as stable.
-    // Private: personal art can sit behind optional login or a proxy.
-    // ponytail: a later change to the preview recipe (its v3- cache key) does not reach previews a browser already
-    // holds; add a version to the ?w= URL if a recipe change ever needs to replace them.
-    // A ?w= URL answered with the original (a failed write, a width this Engine lacks) revalidates instead, so the
-    // preview replaces it once it can be made rather than the full painting sticking for a year.
-    const standIn = req.query.w !== undefined && !preview;
-    return sendValidatedMediaFile(reply, preview ?? image, {
-      method: req.method,
-      rangeHeader: req.headers.range,
-      cacheControl: standIn ? "private, no-cache" : "private, max-age=31536000, immutable",
-    });
-  });
+      // Upload names every file with a fresh id and nothing rewrites it (a profile restore brings back the same bytes),
+      // so a URL is cached for good; a preview is keyed by the original's path and mtime, so it is as stable.
+      // Private: personal art can sit behind optional login or a proxy.
+      // ponytail: a later change to the preview recipe (its v3- cache key) does not reach previews a browser already
+      // holds; add a version to the ?w= URL if a recipe change ever needs to replace them.
+      // A ?w= URL answered with the original (a failed write, a width this Engine lacks) revalidates instead, so the
+      // preview replaces it once it can be made rather than the full painting sticking for a year.
+      const standIn = req.query.w !== undefined && !preview;
+      return sendValidatedMediaFile(reply, preview ?? image, {
+        method: req.method,
+        rangeHeader: req.headers.range,
+        cacheControl: standIn ? "private, no-cache" : "private, max-age=31536000, immutable",
+      });
+    },
+  );
 
   // Move an image into (or out of) a folder. folderId null = root.
   app.patch<{ Params: { id: string }; Body: { folderId?: string | null } }>("/:id", async (req, reply) => {

@@ -26,6 +26,17 @@ type RateLimitRule = {
 
 const DEFAULT_RULE: RateLimitRule = { key: "default", limit: 600, windowMs: 60_000 };
 
+/**
+ * Global gallery files read and validate a file on every request, and ?w= may write a preview with sharp, so they have
+ * a bucket of their own instead of sharing the default with every JSON call. Previews are made once per file and width,
+ * and the files are cached for a year, so an image-heavy screen asks for each picture once: 600/min leaves room for an
+ * Album page of many tiles while a scripted loop meets a wall.
+ */
+export const GLOBAL_GALLERY_FILE_RATE_LIMIT = {
+  max: 600,
+  timeWindow: 60_000,
+} as const;
+
 /** Connection probes can submit credentials and call a paid provider. */
 export const CONNECTION_TEST_RATE_LIMIT = {
   max: 30,
