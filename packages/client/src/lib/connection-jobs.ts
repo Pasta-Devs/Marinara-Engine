@@ -170,6 +170,9 @@ export function matchesKind(row: Pick<ConnectionModelRow, "provider">, kind: Con
   return kind === "chat" ? isChatProvider(row.provider) : row.provider === KIND_PROVIDER[kind];
 }
 
+const MEDIA_NAME_PART =
+  /(^|[-_/.:])(image|dall-e|flux|stable-diffusion|ideogram|recraft|video|veo|sora|kling|runway|seedance|wan\d|tts|speech|voice|eleven|music|sound-effect|sfx|suno|embed\w*|whisper|transcri\w*|stt)(?=[-_/.:]|\d|$)/i;
+
 /** A catalog model's generated media type. Explicit provider metadata takes precedence over its id. */
 export function catalogMatchesKind(
   model: string,
@@ -178,13 +181,11 @@ export function catalogMatchesKind(
 ): boolean {
   if (kind === "all") return true;
   if (kind === "decision") return true;
+  // Whole name parts only, so "Sparkling" or "mattshumer" stay text models.
   if (kind === "chat")
-    return (
-      !/embed|whisper|transcri|speech-to-text|stt/i.test(model) &&
-      (facts?.outputModalities?.length
-        ? facts.outputModalities.some((output) => output.toLowerCase() === "text")
-        : !(["image", "video", "audio"] as const).some((media) => catalogMatchesKind(model, facts, media)))
-    );
+    return facts?.outputModalities?.length
+      ? !/embed/i.test(model) && facts.outputModalities.some((output) => output.toLowerCase() === "text")
+      : !MEDIA_NAME_PART.test(model);
   if (facts?.outputModalities?.length)
     return facts.outputModalities.some(
       (output) => output.toLowerCase() === kind || (kind === "audio" && output.toLowerCase() === "speech"),
