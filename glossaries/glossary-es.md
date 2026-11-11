@@ -559,6 +559,8 @@ Precedents from the #8954 sync (`CONFIGURATION.md`) and the #8951 developer-docs
 - The developer heading is `### Capability API 1.817: avisar a un paquete de que se creó una rama de un chat`, infinitive like 1.814 and 1.815, with `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>` and a blank line above it, like every sibling Capability API heading in the file. *A chat is branched* is **se crea una rama de un chat** (**rama**, never **bifurcación**, per the branch row); the *branch route* is **la ruta que crea la rama** (coined).
 - *Awaits it once* is **lo llama una vez y espera a que termine**; *logged and ignored* is **se registran y se ignoran** and *either way* **de todos modos**, both from the file's scene `release` bullet. *Soft seam* stays **interfaz flexible**, and *older Engines* **los Engines anteriores**, as in 1.816. *Must still cope when it is missing* is **debe seguir funcionando cuando falta la llamada**, naming the call. *Add a method* keeps the file's **añadir** (as in 1.391), not the user guides' **agregar**. The section keeps the English hard line breaks, like 1.391 below it.
 
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (editor de interfaz), **Whole app** as (toda la app) and **Choose what to change…** as (Elegir qué cambiar), capitalized like the other button glosses; the heading is "Fondo de la app y Accent Color". The steps use the pack's "Haz clic en" and "menú desplegable".
+
 ## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
 
 Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:

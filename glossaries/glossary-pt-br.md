@@ -779,6 +779,8 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section of `
 - The heading is `### Capability API 1.817: avisar um pacote de que um chat foi ramificado`, an infinitive like its 1.814–1.816 siblings, with `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>` and a blank line above it, as the neighbouring 1.814, 1.815, 1.816 and 1.391 headings have. No guide links to it yet. Like the rest of the file, the section unwraps English's hard-wrapped lines into one line per paragraph.
 - A chat that was branched is **um chat ramificado** / **um chat é ramificado** (`chats/messages.md:36`), the branch **a ramificação** and the branch route **a rota de ramificação**. "Awaits it" is **aguarda esse método**, like `aguarda ensureMarinaraHost()` (`development/optional-agent-packages.md:83`); "logged and ignored" is **registrados e ignorados**, after line 216. Snapshots stay **snapshots** in this developer file (the §3 `snapshot (English, byte-exact)` row; `snapshots espaciais` at lines 54 and 296). A soft seam stays **uma integração opcional**, and "must still cope when it is missing" is **ainda precisa lidar com a ausência dessa chamada**.
 
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (editor de interface), **Whole app** as (aplicativo inteiro) and **Choose what to change…** as (escolher o que mudar); the heading is "Plano de fundo do aplicativo e Accent Color". The steps use "Clique em" and "menu suspenso".
+
 ## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
 
 Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:

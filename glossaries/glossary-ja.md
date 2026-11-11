@@ -709,6 +709,8 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 developer-do
 - **resolv.conf.** The Termux colon is split into two sentences: `$PREFIX/etc/resolv.conf`に書かれたDNSサーバーを使います。このファイルを編集しないかぎり、Googleの`8.8.8.8`と`8.8.4.4`です。 The `#outbound-http-proxy` link text is 外向きのプロキシ, after the heading 外向きのHTTPプロキシ. The `MARINARA_NOTICES_URL` row adds このURLのホストは、hostsファイルかDNSに登録されている必要があります ("its host" made explicit as the URL's host).
 - **Capability API 1.817.** Heading `### Capability API 1.817: チャットの分岐が作られたことをパッケージに伝える`, a plain-form verb like the 1.814 and 1.815 siblings, under `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`, since every Capability API heading in the file has one (nothing links to it yet). A branched chat is チャットの分岐が作られる, chat-sense 分岐 (never ブランチ) after `chats/branches.md` 分岐の作成; the copy is コピー, as there. "awaits it once" = 1回呼び出して完了を待ちます, after the file's `ensureMarinaraHost()`の完了を待ちます; branch route = 分岐のルート, after 生成ルート; "logged and ignored" = ログに記録して無視します; soft seam = ソフトなインターフェース and optional method = 省略可能な…メソッド, as in 1.391.
 
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (UIエディター), **Whole app** as (アプリ全体) and **Choose what to change…** as (変更する対象を選ぶ); the heading is 「アプリの背景とAccent Color」. The sentence before the list ends with 。, not a colon, since the pack has no full-width colon.
+
 These are translation choices, not a new native-reader review.
 
 ## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
