@@ -4443,7 +4443,7 @@ export const ChatMessage = memo(function ChatMessage({
 
             {/* Swipes */}
             {/* Reserve the pager row while streaming so the saved reply does not push the view. */}
-            {isStreaming && !isUser && alwaysDisplaySwipeMenu && (
+            {isStreaming && !isUser && (alwaysDisplaySwipeMenu || swipeCount > 1) && (
               <SwipeJumpControl
                 alwaysShow
                 messageId={message.id}
@@ -4910,7 +4910,7 @@ export const ChatMessage = memo(function ChatMessage({
 
           {/* Swipes */}
           {/* Reserve the pager row while streaming so the saved reply does not push the view. */}
-          {isStreaming && !isUser && alwaysDisplaySwipeMenu && (
+          {isStreaming && !isUser && (alwaysDisplaySwipeMenu || swipeCount > 1) && (
             <SwipeJumpControl
               alwaysShow
               messageId={message.id}
