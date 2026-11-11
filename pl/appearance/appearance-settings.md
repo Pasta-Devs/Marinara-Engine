@@ -34,14 +34,21 @@ W sekcji **App Style** lista rozwijana **Color Scheme** (schemat kolorów) ma op
 
 **Visual Style** (styl wizualny) ma dwa kafelki. **Default (Marinara)** to retrowy wygląd w stylu Y2K z efektami poświaty. **SillyTavern** to czysty, minimalistyczny wygląd. To ustawienie zmienia wyłącznie wygląd i nie ma nic wspólnego z importem z aplikacji SillyTavern.
 
-### Background Color i Accent Color
+### Tło aplikacji i Accent Color
 
-Obie kontrolki przyjmują jednolity kolor albo gradient, czyli płynne przejście między dwoma lub większą liczbą kolorów. Żeby wrócić do wartości domyślnej, wyczyść pole przyciskiem **Reset to default** (przywrócenie wartości domyślnej).
+**Accent Color** przyjmuje jednolity kolor albo gradient, czyli płynne przejście między dwoma lub większą liczbą kolorów. Żeby wrócić do wartości domyślnej, wyczyść pole przyciskiem **Reset to default** (przywrócenie wartości domyślnej).
 
 | Ustawienie | Co koloruje | Domyślnie |
 | --- | --- | --- |
-| **Background Color** (kolor tła) | Główną powłokę aplikacji. | `#050312` w trybie Dark, `#faf8ff` w trybie Light |
 | **Accent Color** (kolor akcentu) | Przyciski, aktywne ikony, obwódki fokusu, podświetlenia, kontury paneli i kontrolki wokół czatu. | **Marinara Gradient** (gradient Marinara), mieszanka różu, pomarańczu i cyjanu |
+
+Żeby zmienić tło głównej powłoki aplikacji, użyj **UI Editor** (edytor interfejsu) w **App Style**:
+
+1. Otwórz listę rozwijaną z napisem **Choose what to change…** (wybór tego, co zmienić) i wybierz **Whole app** (cała aplikacja).
+2. Kliknij **Background** (tło) i wybierz kolor albo gradient.
+3. Kliknij **Save** (zapis).
+
+Bez zapisanego tła aplikacja używa `#050312` w trybie Dark i `#faf8ff` w trybie Light. Żeby wrócić do domyślnego tła, otwórz ponownie **Whole app** i kliknij **Reset to default**.
 
 Wartość taka jak `#050312` to szesnastkowy kod koloru, czyli krótki zapis barwy.
 

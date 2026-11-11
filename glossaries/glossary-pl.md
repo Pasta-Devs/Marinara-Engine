@@ -1424,3 +1424,5 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`, #8954; `development/option
   raz i czeka na jej zakończenie"; "logged and ignored" is "zapisywane w logach i ignorowane",
   after "jest zapisywany w logach" (`:344`); "soft seam" keeps **miękki interfejs**; "must
   still cope when it is missing" is "musi sobie radzić także bez tego wywołania".
+
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (edytor interfejsu), **Whole app** as (cała aplikacja) and **Choose what to change…** as (wybór tego, co zmienić); the heading is "Tło aplikacji i Accent Color". The steps use "Kliknij" and "lista rozwijana".
