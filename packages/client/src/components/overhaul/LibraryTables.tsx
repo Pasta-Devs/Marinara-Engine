@@ -11,6 +11,8 @@ import {
   CheckSquare,
   Copy,
   Download,
+  ExternalLink,
+  FileText,
   LayoutGrid,
   List,
   Plus,
@@ -42,6 +44,7 @@ import {
   useImportRegexScript,
   useRegexScripts,
   useReorderRegexScripts,
+  useSetRegexEnabledMany,
   useUpdateRegexScript,
   type RegexScriptRow,
 } from "../../hooks/use-regex-scripts";
@@ -72,6 +75,7 @@ import {
   useKitMenu,
   useKitSelection,
   useScopeFolders,
+  useLocalCollapsed,
   useKitRowDrag,
   useSuppressClick,
   type KitAction,
@@ -154,6 +158,10 @@ export type ListKit<T> = {
   drag?: { kind: string; reorder?: (ids: string[], target: string, edge: InsertEdge, visibleIds: string[]) => void };
   /** Search or a filter is on: folders with no matching rows step aside. */
   filtering: boolean;
+  /** A folder's own ⋯ menu (default: Rename and Delete). */
+  folderMenu?: (folder: KitFolder) => KitAction[];
+  /** A folder heading's count text and switch (Regex scripts: "3/12 on" and on/off for the folder). */
+  folderExtra?: (folder: KitFolder) => { note?: string; trail?: ReactNode };
 };
 
 function ListPage<T extends { id: string }>({
@@ -253,19 +261,25 @@ function ListPage<T extends { id: string }>({
       <KitFolderHead
         folder={folder}
         count={count}
+        {...kit.folderExtra?.(folder)}
         dragKind={kit.drag?.kind}
         collapsed={kit.folders.isCollapsed(folder)}
         onToggle={() => kit.folders!.toggleCollapsed(folder)}
         onMenu={(event, anchor) =>
-          kit.menu.openFromEvent(event, folder.name, folderActions(kit.folders!, folder), anchor)
+          kit.menu.openFromEvent(
+            event,
+            folder.name,
+            kit.folderMenu?.(folder) ?? folderActions(kit.folders!, folder),
+            anchor,
+          )
         }
       />
     ) : null;
-  const tableRow = (row: T, folderId: string | null) => (
+  const tableRow = (row: T, folderId: string | null, inFolder = !!folderId) => (
     <tr
       key={row.id}
       tabIndex={0}
-      className={cn(folderId && "is-in-folder", kit?.selection.has(row.id) && "is-selected")}
+      className={cn(inFolder && "is-in-folder", kit?.selection.has(row.id) && "is-selected")}
       onClick={() => activate(row)}
       onKeyDown={(event) => {
         if (event.key === "Enter") activate(row);
@@ -348,7 +362,9 @@ function ListPage<T extends { id: string }>({
           {groups.map(({ folder, rows: members }) => (
             <Fragment key={`folder:${folder.id}`}>
               <div className="ov-kit-folder-cell">{folderHead(folder, members.length)}</div>
-              {kit?.folders?.isCollapsed(folder) ? null : members.map((row) => galleryItem(row, folder.id))}
+              {kit?.folders?.isCollapsed(folder)
+                ? null
+                : members.map((row) => galleryItem(row, folder.virtual ? null : folder.id))}
             </Fragment>
           ))}
           {groups.length > 0 && loose.length > 0 ? (
@@ -387,7 +403,9 @@ function ListPage<T extends { id: string }>({
                   <tr className="ov-table__folder">
                     <td colSpan={colCount}>{folderHead(folder, members.length)}</td>
                   </tr>
-                  {kit?.folders?.isCollapsed(folder) ? null : members.map((row) => tableRow(row, folder.id))}
+                  {kit?.folders?.isCollapsed(folder)
+                    ? null
+                    : members.map((row) => tableRow(row, folder.virtual ? null : folder.id, true))}
                 </Fragment>
               ))}
               {loose.map((row) => tableRow(row, null))}
@@ -1011,21 +1029,12 @@ export function useRegexImport() {
 }
 
 /** Duplicate, export, delete and on/off for regex scripts: shared by the list page and the Regex viewer. */
-export function useRegexKitActions(allScripts: RegexScriptRow[], selection: KitSelection) {
+export function useRegexKitActions(allScripts: RegexScriptRow[], selection: KitSelection, folders?: KitFolders | null) {
   const localize = useLocalizedUiText();
   const updateRegex = useUpdateRegexScript();
   const deleteRegex = useDeleteRegexScript();
   const importRegex = useImportRegexScript();
-  const exportScripts = (scripts: RegexScriptRow[]) =>
-    void downloadJsonFile(
-      {
-        kind: "marinara.regex-scripts",
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        regexScripts: scripts.map(serializeRegexScript),
-      },
-      scripts.length === 1 ? `${scripts[0]!.name || "regex"}.json` : "marinara-regexes.json",
-    );
+  const exportScripts = exportRegexScripts;
   const setEnabledMany = (ids: string[], enabled: boolean) =>
     void Promise.all(ids.map((id) => updateRegex.mutateAsync({ id, enabled })));
   const removeMany = async (ids: string[], names?: string) => {
@@ -1055,6 +1064,7 @@ export function useRegexKitActions(allScripts: RegexScriptRow[], selection: KitS
           void importRegex.mutateAsync(entry).then(() => toast.success(`${localize("Copied")} ${script.name}`));
       },
     },
+    ...(folders ? [moveToFolderAction(folders, () => [script.id], folders.folderOf(script.id))] : []),
     { key: "export", label: "Export", icon: <Upload size={14} />, onSelect: () => exportScripts([script]) },
     { key: "select", label: "Select", icon: <CheckSquare size={14} />, onSelect: () => selection.start(script.id) },
     {
@@ -1067,6 +1077,7 @@ export function useRegexKitActions(allScripts: RegexScriptRow[], selection: KitS
   ];
   const bulkActions: KitAction[] = [
     onOffAction((enabled) => setEnabledMany(selection.list, enabled)),
+    ...(folders ? [moveToFolderAction(folders, () => selection.list, null)] : []),
     {
       key: "export",
       label: "Export",
@@ -1081,7 +1092,248 @@ export function useRegexKitActions(allScripts: RegexScriptRow[], selection: KitS
       onSelect: () => void removeMany(selection.list),
     },
   ];
-  return { rowActions, bulkActions };
+  return { rowActions, bulkActions, exportScripts };
+}
+
+/** Where an imported file's scripts land: a preset's folder (linked to it) or one of the user's folders. */
+type RegexImportTarget = { presetId?: string; folderId?: string; members: RegexScriptRow[] };
+
+/** Regex entries in any file people pass around: our export, a script list, a SillyTavern preset or a Marinara preset. */
+function regexEntriesFromFile(parsed: unknown): unknown[] {
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const record = parsed as Record<string, unknown>;
+    const extensions = record.extensions as Record<string, unknown> | undefined;
+    if (Array.isArray(extensions?.regex_scripts)) return extensions.regex_scripts;
+    const data = record.data as Record<string, unknown> | undefined;
+    if (Array.isArray(data?.regexScripts)) return data.regexScripts;
+  }
+  return getImportEntries(parsed, ["regexScripts", "regexes", "scripts"]);
+}
+
+/**
+ * Import a file into a folder. A script with the same name as one already in the folder updates it in place
+ * (its on/off switch and run order stay), so a preset's new version keeps landing in the same folder.
+ * New scripts join the folder: linked to the preset, or filed into the user's folder.
+ */
+function useRegexFolderImport(allScripts: RegexScriptRow[], folders: KitFolders) {
+  const localize = useLocalizedUiText();
+  const importRegex = useImportRegexScript();
+  const updateRegex = useUpdateRegexScript();
+  return async (file: File, target: RegexImportTarget) => {
+    try {
+      const entries = regexEntriesFromFile(JSON.parse(await file.text()));
+      const byName = new Map(target.members.map((script) => [script.name, script]));
+      const base = getNextRegexOrderBase(allScripts);
+      let updated = 0;
+      let added = 0;
+      let failed = 0;
+      let valid = 0;
+      const newIds: string[] = [];
+      for (const [index, entry] of entries.entries()) {
+        const normalized = normalizeRegexImportEntry(entry, base + index);
+        if (!normalized) continue;
+        valid += 1;
+        const existing = byName.get(normalized.name);
+        try {
+          if (existing) {
+            byName.delete(normalized.name);
+            const current = serializeRegexScript(existing);
+            const same =
+              current.findRegex === normalized.findRegex &&
+              current.replaceString === normalized.replaceString &&
+              current.flags === normalized.flags &&
+              current.applyMode === normalized.applyMode &&
+              current.minDepth === normalized.minDepth &&
+              current.maxDepth === normalized.maxDepth &&
+              JSON.stringify(current.placement) === JSON.stringify(normalized.placement) &&
+              JSON.stringify(current.trimStrings) === JSON.stringify(normalized.trimStrings);
+            if (same) continue;
+            await updateRegex.mutateAsync({
+              id: existing.id,
+              findRegex: normalized.findRegex,
+              replaceString: normalized.replaceString,
+              trimStrings: normalized.trimStrings,
+              placement: normalized.placement,
+              flags: normalized.flags,
+              promptOnly: normalized.promptOnly,
+              applyMode: normalized.applyMode,
+              minDepth: normalized.minDepth,
+              maxDepth: normalized.maxDepth,
+            });
+            updated += 1;
+          } else {
+            const created = await importRegex.mutateAsync({
+              ...normalized,
+              order: base + index,
+              ...(target.presetId ? { targetPromptPresetIds: [target.presetId], targetCharacterIds: [] } : {}),
+            });
+            if (created?.id) newIds.push(created.id);
+            added += 1;
+          }
+        } catch {
+          failed += 1;
+        }
+      }
+      if (target.folderId && newIds.length) folders.move(newIds, target.folderId);
+      if (!valid) {
+        toast.error(localize("No valid regex scripts found in file."));
+        return;
+      }
+      if (!updated && !added && !failed) {
+        toast.success(localize("Already up to date"));
+        return;
+      }
+      const parts = [
+        updated ? `${localize("Updated")} ${updated}` : null,
+        added ? `${localize("Added")} ${added}` : null,
+      ].filter(Boolean);
+      if (parts.length) toast.success(parts.join(" · "));
+      if (failed) toast.error(`${localize("Couldn't import")} ${failed}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : localize("Failed to import regex scripts"));
+    }
+  };
+}
+
+/**
+ * Folders in Regex scripts: the user's own folders, then one folder per preset holding the scripts that come
+ * with it (named after the preset, made by the app). Every folder has an on/off switch for all its scripts.
+ * Shared by the viewer (computer) and the list page (phone and tablet).
+ */
+export function useRegexFolders(scripts: RegexScriptRow[]) {
+  const localize = useLocalizedUiText();
+  const { data: presets } = usePresets();
+  const manual = useScopeFolders("regex", localize("scripts"));
+  const local = useLocalCollapsed("regex");
+  const setEnabledMany = useSetRegexEnabledMany();
+  const openPresetDetail = useUIStore((s) => s.openPresetDetail);
+  const folderImport = useRegexFolderImport(scripts, manual);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const targetRef = useRef<RegexImportTarget | null>(null);
+  const byId = useMemo(() => new Map(scripts.map((script) => [script.id, script])), [scripts]);
+  const presetName = useMemo(() => new Map((presets ?? []).map((preset) => [preset.id, preset.name])), [presets]);
+
+  const presetFolders = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const script of scripts) {
+      if (manual.folderOf(script.id)) continue;
+      const presetId = parseList(script.targetPromptPresetIds)[0];
+      if (presetId) groups.set(presetId, [...(groups.get(presetId) ?? []), script.id]);
+    }
+    return [...groups].map(([presetId, itemIds]): KitFolder => ({
+      id: `${REGEX_PRESET_FOLDER}${presetId}`,
+      name: presetName.get(presetId) ?? localize("Deleted preset"),
+      itemIds,
+      virtual: true,
+    }));
+    // manual.folders changes whenever folderOf does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localize, manual.folders, presetName, scripts]);
+
+  const display: KitFolders = {
+    ...manual,
+    folders: [...manual.folders, ...presetFolders],
+    isCollapsed: (folder) => (folder.virtual ? local.collapsed.has(folder.id) : manual.isCollapsed(folder)),
+    toggleCollapsed: (folder) => (folder.virtual ? local.toggle(folder.id) : manual.toggleCollapsed(folder)),
+  };
+  const members = (folder: KitFolder) =>
+    folder.itemIds.map((id) => byId.get(id)).filter((script): script is RegexScriptRow => !!script);
+  const presetOf = (folder: KitFolder) => (folder.virtual ? folder.id.slice(REGEX_PRESET_FOLDER.length) : null);
+
+  /** "3/12 on" and the folder's switch: on while any script inside runs; off stops them all, on starts them all. */
+  const extra = (folder: KitFolder) => {
+    const list = members(folder);
+    const on = list.filter((script) => script.enabled === "true").length;
+    return {
+      // A preset's folder wears the Presets icon, so it reads as that preset's scripts, not one of yours.
+      icon: folder.virtual ? <FileText size={14} className="ov-vw__gicon" aria-hidden="true" /> : undefined,
+      note: on === list.length ? String(list.length) : `${on}/${list.length} ${localize("on")}`,
+      trail: list.length ? (
+        <Toggle
+          on={on > 0}
+          label={`${localize(on > 0 ? "Turn off" : "Turn on")} ${folder.name}`}
+          onChange={(next) => setEnabledMany.mutate({ ids: list.map((script) => script.id), enabled: next })}
+        />
+      ) : undefined,
+    };
+  };
+
+  const menu = (folder: KitFolder): KitAction[] => {
+    const list = members(folder);
+    const presetId = presetOf(folder);
+    const importInto = (target: RegexImportTarget): KitAction => ({
+      key: "import",
+      label: target.presetId ? "Update from file" : "Import into folder",
+      icon: <Download size={14} aria-hidden="true" />,
+      onSelect: () => {
+        targetRef.current = target;
+        fileRef.current?.click();
+      },
+    });
+    const exportAction: KitAction = {
+      key: "export",
+      label: "Export",
+      icon: <Upload size={14} aria-hidden="true" />,
+      disabled: list.length === 0,
+      onSelect: () => exportRegexScripts(list),
+    };
+    if (!presetId)
+      return [importInto({ folderId: folder.id, members: list }), exportAction, ...folderActions(manual, folder)];
+    if (!presetName.has(presetId)) return [exportAction];
+    return [
+      {
+        key: "open",
+        label: "Open preset",
+        icon: <ExternalLink size={14} aria-hidden="true" />,
+        onSelect: () => openPresetDetail(presetId),
+      },
+      importInto({ presetId, members: list }),
+      exportAction,
+    ];
+  };
+
+  const title = (folder: KitFolder) => {
+    const presetId = presetOf(folder);
+    if (!presetId) return folder.name;
+    return `${folder.name}: ${localize(
+      presetName.has(presetId)
+        ? "scripts that come with this preset"
+        : "this preset was deleted, so these scripts no longer run",
+    )}`;
+  };
+
+  const fileInput = (
+    <input
+      ref={fileRef}
+      type="file"
+      accept=".json,application/json"
+      className="hidden"
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        const target = targetRef.current;
+        targetRef.current = null;
+        if (file && target) void folderImport(file, target);
+      }}
+    />
+  );
+
+  return { manual, display, members, extra, menu, title, fileInput };
+}
+
+/** Folder ids the app makes for a preset's scripts. */
+const REGEX_PRESET_FOLDER = "preset:";
+
+function exportRegexScripts(scripts: RegexScriptRow[]) {
+  void downloadJsonFile(
+    {
+      kind: "marinara.regex-scripts",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      regexScripts: scripts.map(serializeRegexScript),
+    },
+    scripts.length === 1 ? `${scripts[0]!.name || "regex"}.json` : "marinara-regexes.json",
+  );
 }
 
 export function RegexLanding() {
@@ -1121,10 +1373,14 @@ export function RegexLanding() {
     () => [...((data ?? []) as RegexScriptRow[])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [data],
   );
-  const regexActions = useRegexKitActions(allScripts, selection);
+  const regexFolders = useRegexFolders(allScripts);
+  const regexActions = useRegexKitActions(allScripts, selection, regexFolders.manual);
   const kit: ListKit<RegexScriptRow> = {
     selection,
     menu,
+    folders: regexFolders.display,
+    folderMenu: regexFolders.menu,
+    folderExtra: regexFolders.extra,
     filtering: !!search.trim() || chip !== "all",
     // Run order is the scripts' own order: dragging a row changes it, like the classic panel.
     drag:
@@ -1163,6 +1419,7 @@ export function RegexLanding() {
               if (file) void handleImport(file);
             }}
           />
+          {regexFolders.fileInput}
           <button type="button" className="ov-btn" onClick={() => fileRef.current?.click()}>
             <Download size={14} aria-hidden="true" />
             {localize("Import")}
