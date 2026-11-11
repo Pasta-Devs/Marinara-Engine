@@ -4855,6 +4855,18 @@
 }
 
 /* ─── Theme nitpick audit, batch 4: phone sheets, menus and editors ─── */
+/* An editor's "⋯" menu drops down from the button, as wide as its longest row, instead of
+   spreading a few short rows across a full-width bottom sheet (DM17). */
+:root[data-overhaul="mobile"] .ov-edhead .ov-menu-wrap > .ov-menu:not(#ovm-x) {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  width: max-content;
+  max-width: calc(100vw - 1.5rem);
+  border-radius: 0.875rem;
+}
 /* Long-press sheet: every row in the labelled list is square, so the dividers between them stay
    straight (DM2; Bookmark, Mark as new start and Hide from AI kept a rounded chip shape). */
 .ovm-sheet__more.ov-rpf-menu .mari-message-actions button:not(#ovm-x):not(#ovm-y) {
