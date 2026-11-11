@@ -1,4 +1,9 @@
-import { DEFAULT_GENERATION_PARAMS, withoutPresetTokenLimits } from "@marinara-engine/shared";
+import {
+  DEFAULT_GENERATION_PARAMS,
+  parseGamePresetStorySettings,
+  withoutPresetTokenLimits,
+  type GamePresetStorySettings,
+} from "@marinara-engine/shared";
 import { GenerationParametersFields, getEditableGenerationParameters } from "../ui/GenerationParametersEditor";
 // ──────────────────────────────────────────────
 // Full-Page Preset Editor
@@ -128,6 +133,7 @@ import { useRegexScripts } from "../../hooks/use-regex-scripts";
 import { PresetVariablesEditor, reorderIdsByOffset, reorderIdsToGap } from "./PresetVariablesEditor";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
+import { GameStoryBoundariesFields } from "../game/GameStoryBoundariesFields";
 
 // ── Tab definitions ──
 const TABS = [
@@ -197,6 +203,7 @@ type PresetFormFields = {
   author: string;
   conversationPrompt: string;
   gamePrompt: string;
+  gameStorySettings: GamePresetStorySettings | null;
   parameters: Record<string, unknown>;
   scopedRegexMode: ScopedRegexMode;
 };
@@ -216,6 +223,7 @@ function presetFormFields(p: any): PresetFormFields {
     author: p.author ?? "",
     conversationPrompt: p.conversationPrompt ?? "",
     gamePrompt: p.gamePrompt ?? "",
+    gameStorySettings: parseGamePresetStorySettings(p.gameStorySettings),
     parameters,
     scopedRegexMode: resolveScopedRegexMode(p.scopedRegexMode),
   };
@@ -323,6 +331,7 @@ export function PresetEditor() {
   const [localAuthor, setLocalAuthor] = useState("");
   const [localConversationPrompt, setLocalConversationPrompt] = useState("");
   const [localGamePrompt, setLocalGamePrompt] = useState("");
+  const [localGameStorySettings, setLocalGameStorySettings] = useState<GamePresetStorySettings | null>(null);
   const [localParameters, setLocalParameters] = useState<Record<string, unknown>>({});
   const [localScopedRegexMode, setLocalScopedRegexMode] = useState<ScopedRegexMode>("disabled");
   const hydratedPresetIdRef = useRef<string | null>(null);
@@ -343,6 +352,7 @@ export function PresetEditor() {
     setLocalAuthor(form.author);
     setLocalConversationPrompt(form.conversationPrompt);
     setLocalGamePrompt(form.gamePrompt);
+    setLocalGameStorySettings(form.gameStorySettings);
     setLocalParameters(form.parameters);
     setLocalScopedRegexMode(form.scopedRegexMode);
     loadedFormRef.current = form;
@@ -395,6 +405,7 @@ export function PresetEditor() {
       author: localAuthor,
       conversationPrompt: localConversationPrompt,
       gamePrompt: localGamePrompt,
+      gameStorySettings: localGameStorySettings,
       parameters: localParameters,
       scopedRegexMode: localScopedRegexMode,
     };
@@ -428,6 +439,7 @@ export function PresetEditor() {
     localAuthor,
     localConversationPrompt,
     localGamePrompt,
+    localGameStorySettings,
     localParameters,
     localScopedRegexMode,
     updatePreset,
@@ -826,6 +838,11 @@ export function PresetEditor() {
         gamePrompt={localGamePrompt}
         onGamePromptChange={(v) => {
           setLocalGamePrompt(v);
+          markDirty();
+        }}
+        gameStorySettings={localGameStorySettings}
+        onGameStorySettingsChange={(v) => {
+          setLocalGameStorySettings(v);
           markDirty();
         }}
       />
@@ -1906,11 +1923,15 @@ function PromptsTab({
   onConversationPromptChange,
   gamePrompt,
   onGamePromptChange,
+  gameStorySettings,
+  onGameStorySettingsChange,
 }: {
   conversationPrompt: string;
   onConversationPromptChange: (v: string) => void;
   gamePrompt: string;
   onGamePromptChange: (v: string) => void;
+  gameStorySettings: GamePresetStorySettings | null;
+  onGameStorySettingsChange: (v: GamePresetStorySettings | null) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const quoteFormat = useUIStore((s) => s.quoteFormat);
@@ -1971,6 +1992,30 @@ function PromptsTab({
             spellCheck={false}
           />
         </MariFieldReview>
+      </FieldGroup>
+
+      <FieldGroup
+        label={localizeUi("ui.presets.promptstab.gameStorySettings")}
+        help={localizeUi("ui.presets.promptstab.gameStorySettingsHelp")}
+      >
+        <SettingsSwitch
+          label={localizeUi("ui.presets.promptstab.carryGameStorySettings")}
+          checked={gameStorySettings !== null}
+          onChange={(checked) =>
+            onGameStorySettingsChange(
+              checked ? { storyStyle: "standard", violence: null, contentBoundaries: "" } : null,
+            )
+          }
+          labelClassName="text-xs"
+          className="p-0 hover:bg-transparent"
+        />
+        {gameStorySettings && (
+          <GameStoryBoundariesFields
+            followRatingOption
+            value={gameStorySettings}
+            onChange={(patch) => onGameStorySettingsChange({ ...gameStorySettings, ...patch })}
+          />
+        )}
       </FieldGroup>
     </>
   );
