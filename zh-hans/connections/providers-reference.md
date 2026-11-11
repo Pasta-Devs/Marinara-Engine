@@ -70,7 +70,7 @@
 2. OAuth 访问 Token，例如 `gcloud auth print-access-token` 的输出。
 3. Vertex API 密钥。
 
-根据 Marinara 代码里一条依照 Google 文档写的注释，**Gemini 4 Argon** 只在 `global`、`us` 和 `eu` 这几个位置运行，不在 `us-central1` 这样的单个地区运行。要使用它，把地址设为 `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`。用其他位置时，Google 会返回错误，Marinara 会把它显示出来。
+根据 Marinara 代码里一条依照 Google 文档写的注释，**Gemini 4 Argon** 和 **Gemini 4 Carbon** 只在 `global`、`us` 和 `eu` 这几个位置运行，不在 `us-central1` 这样的单个地区运行。要使用其中任何一个，把地址设为 `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`。用其他位置时，Google 会返回错误，Marinara 会把它显示出来。
 
 ### Cohere
 

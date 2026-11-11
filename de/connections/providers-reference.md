@@ -71,7 +71,7 @@ Ein Aggregator ist ein Dienst, bei dem ein einziger Key Modelle vieler Firmen er
 2. Ein OAuth-Zugriffstoken, zum Beispiel aus `gcloud auth print-access-token`.
 3. Einen Vertex-API-Key.
 
-**Gemini 4 Argon** läuft laut einem Hinweis im Code von Marinara, der der Dokumentation von Google folgt, nur an den Standorten `global`, `us` und `eu`, nicht in einer einzelnen Region wie `us-central1`. Um es zu nutzen, setz die Adresse auf `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. Bei einem anderen Standort gibt Google einen Fehler zurück, und Marinara zeigt ihn an.
+**Gemini 4 Argon** und **Gemini 4 Carbon** laufen laut einem Hinweis im Code von Marinara, der der Dokumentation von Google folgt, nur an den Standorten `global`, `us` und `eu`, nicht in einer einzelnen Region wie `us-central1`. Um eines der beiden zu nutzen, setz die Adresse auf `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. Bei einem anderen Standort gibt Google einen Fehler zurück, und Marinara zeigt ihn an.
 
 ### Cohere
 

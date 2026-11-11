@@ -161,8 +161,8 @@ Marinara 按下面的顺序确定每个参数。后面的项会覆盖前面的�
 - **发送给智能体的设置**：Temperature、Top P、Top K、Frequency、Presence、Reasoning Effort、Verbosity、Service Tier、Custom Parameters、自定义请求头，以及依次打开 **Settings**(设置)、**Advanced**(高级)、**Parameters** 后添加的额外参数（例如 Top A 或种子）。Send 开关关闭的参数不会发送。
 - **不发送给智能体的设置**：Max Output Tokens、停止序列、预填、Thinking Tags 和其他提示词格式设置。每个智能体保留自己的 **Max Output Tokens**。
 - **Temperature**：智能体使用账号的温度，没有保存值时使用 0.7。Beholder 始终使用 0，Illustrator 的提示词编写器使用自己的值。生成聊天回复期间，使用聊天账号的智能体会沿用聊天最终确定的温度和 Send 开关。重试时使用账号保存的值。
-- **Reasoning Effort**：你选的级别或 **Off**，会应用到该账号上所有模型支持它的智能体。**Use custom defaults for this model**(为此模型使用自定义默认值) 在大多数账号上让 Reasoning Effort 从 **Maximum** 起步（Codex 上是 **Default**），所以智能体会以最高级别思考，速度更慢，费用也更高。想让它们少思考一些，就选一个较低的级别，或者关闭它的 Send 开关。没有保存级别时，以 JSON 作答的智能体会请求关闭思考，其他智能体则保留模型的默认行为。
-- **思考余量**：账号保存了 Reasoning Effort 时，Marinara 会在智能体的 **Max Output Tokens** 之上增加思考余量，但不超出账号的输出上限、模型的限制和剩余的上下文。自定义端点即使不发送这个级别，也会获得这部分余量。
+- **Reasoning Effort**：你选的级别或 **Off**，会应用到该账号上所有模型支持它的智能体。**Use custom defaults for this model**(为此模型使用自定义默认值) 在大多数账号上让 Reasoning Effort 从 **Maximum** 起步（Codex 上是 **Default**），所以智能体会以最高级别思考，速度更慢，费用也更高。想让它们少思考一些，就选一个较低的级别，或者关闭它的 Send 开关。没有保存级别时，以 JSON 作答的智能体会请求关闭思考，其他智能体则保留模型的默认行为。Gemini 4 Argon 和 Carbon 无法关闭思考，所以在 Google AI Studio 和 Vertex 上，它们的智能体会改为发送 **Medium**。
+- **思考余量**：账号保存了 Reasoning Effort，或者模型是 Gemini 4 Argon 或 Carbon 时，Marinara 会在智能体的 **Max Output Tokens** 之上增加思考余量，但不超出账号的输出上限、模型的限制和剩余的上下文。自定义端点即使不发送这个级别，也会获得这部分余量。
 
 已安装的智能体资源包遵循同样的账号值。账号保存并发送的值会替代资源包请求的值，没设置的项则保留资源包自己的设置。账号上关闭了开关的 **Reasoning Effort** 或 **Max Output Tokens** 不会发送，即使资源包请求也一样。Temperature 和 Verbosity 初始是关闭的，所以会保留资源包自己的值。
 
