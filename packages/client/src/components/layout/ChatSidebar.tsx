@@ -12,6 +12,7 @@ import {
 } from "../../stores/overhaul.store";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { useLibraryOrder } from "../../hooks/use-library-order";
+import { useSegmentedFit } from "../../hooks/use-segmented-fit";
 // ──────────────────────────────────────────────
 // Layout: Chat Sidebar (polished with rich buttons)
 // ──────────────────────────────────────────────
@@ -293,6 +294,9 @@ export function ChatSidebar() {
   // The overhaul look (compact rows, previews, mode counts) applies to phones too.
   const overhaulActive = overhaulDesktop || overhaulMobile;
   const { data: chats, isError: chatsError, isLoading, isFetching, refetch: refetchChats } = useChats();
+  // Conversation / Roleplay / Game in a narrow sidebar: "Conversation" becomes "Convo" first, then the
+  // counts step aside, then the icons, so nothing spills out of its pill (data-fit 1-3, overhaul.css).
+  const modeTabsRef = useSegmentedFit<HTMLDivElement>(3, overhaulActive, [chats?.length, localize]);
   const chatRowPreviewSlot = useChatRowPreviewSlot();
   const { data: chatRowPreviews } = useChatRowPreviews(chats, chatRowPreviewSlot);
   const { data: connections } = useConnections();
@@ -1950,7 +1954,7 @@ export function ChatSidebar() {
 
       {/* Tabs */}
       <div className="ov-chats-modes px-3 pt-3">
-        <div className="mari-chrome-segmented" data-tour="chat-modes">
+        <div ref={modeTabsRef} className="mari-chrome-segmented" data-tour="chat-modes">
           {(["conversation", "roleplay", "game"] as const).map((tab) => {
             const cfg = MODE_CONFIG[tab];
             const isActive = activeTab === tab;
@@ -1968,12 +1972,27 @@ export function ChatSidebar() {
                   isActive && "mari-chrome-segmented__button--selected",
                 )}
               >
-                <span className="shrink-0 leading-none">{cfg.icon}</span>
-                <span className="inline-flex min-h-[1rem] items-center whitespace-nowrap pb-px leading-normal">
+                <span className="shrink-0 leading-none" data-fit-part="icon">
+                  {cfg.icon}
+                </span>
+                <span
+                  className="inline-flex min-h-[1rem] items-center whitespace-nowrap pb-px leading-normal"
+                  data-fit-part="label"
+                >
                   {localize(overhaulActive ? cfg.label : cfg.shortLabel)}
                 </span>
+                {overhaulActive && tab === "conversation" ? (
+                  <span
+                    className="inline-flex min-h-[1rem] items-center whitespace-nowrap pb-px leading-normal"
+                    data-fit-part="short-label"
+                  >
+                    {localize("Convo")}
+                  </span>
+                ) : null}
                 {overhaulActive ? (
-                  <small className="ov-mode-count">{chats?.filter((c) => c.mode === tab).length ?? 0}</small>
+                  <small className="ov-mode-count" data-fit-part="count">
+                    {chats?.filter((c) => c.mode === tab).length ?? 0}
+                  </small>
                 ) : null}
                 {tabUnread > 0 && !isActive && (
                   <span className="absolute -top-1 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-md bg-red-500 px-0.5 text-[0.5rem] font-bold leading-none text-white">
