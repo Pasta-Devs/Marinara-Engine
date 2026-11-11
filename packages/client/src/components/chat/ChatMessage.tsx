@@ -30,6 +30,7 @@ import {
   replaceRoleplayCommandMarkers,
 } from "./RoleplayCommandResults";
 import { splitRoleplayParagraphs } from "../../lib/roleplay-vn-paragraphs";
+import { buildInlineNameColorMap, resolvePersonaInlineNames } from "../../lib/inline-name-colors";
 import {
   notifyRoleplayTTSParagraph,
   withRoleplayTTSParagraphs,
@@ -153,6 +154,8 @@ import { MessageThinkingModal } from "./MessageThinkingModal";
 import { MESSAGE_ACTION_ICON_SIZE, MessageActionButton } from "./MessageActionButton";
 import { MessageMarkIndicators, MessageMarksAction, type MessageNoteSharing } from "./MessageMarks";
 import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia";
+import { RoleplayRulesetCheckCard } from "./RoleplayRulesetCheckCard";
+import { extractRoleplayRulesetRecords } from "../../lib/roleplay-ruleset-records";
 
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
@@ -1035,6 +1038,8 @@ interface ChatMessageProps {
   groupChatMode?: string;
   /** This chat's Card Theming switch; undefined falls back to the retired global setting. */
   colorInlineNames?: boolean;
+  /** Per-chat persona switch; unset follows colorInlineNames. */
+  colorPersonaInlineNames?: boolean;
   chatCharacterIds?: string[];
   /** The chat's live active characters: a streaming merged Narrator reply shows them; a saved one keeps its own. */
   mergedGroupCharacterIds?: string[];
@@ -2019,6 +2024,7 @@ export const ChatMessage = memo(function ChatMessage({
   personaInfo,
   groupChatMode,
   colorInlineNames: chatColorInlineNames,
+  colorPersonaInlineNames: chatColorPersonaInlineNames,
   chatCharacterIds,
   mergedGroupCharacterIds,
   noExpressionCharacterIds,
@@ -2099,6 +2105,7 @@ export const ChatMessage = memo(function ChatMessage({
     })),
   );
   const colorInlineNames = chatColorInlineNames ?? legacyColorInlineNames;
+  const colorPersonaInlineNames = resolvePersonaInlineNames(chatColorPersonaInlineNames, !!colorInlineNames);
   const remoteImages = useRemoteImagePolicy();
   // Build reusable text style objects (memoized to avoid unnecessary DOM updates)
   const textStrokeStyle = useMemo<React.CSSProperties>(
@@ -2967,24 +2974,17 @@ export const ChatMessage = memo(function ChatMessage({
           ? userBubbleBg
           : assistantBubbleBg;
   const nameColorMap = useMemo(() => {
-    if (!colorInlineNames || !scopedCharacterMap) return null;
-    const map = new Map<string, string>();
-    const addName = (name: string | undefined | null, color: string) => {
-      const key = name?.trim().toLowerCase();
-      if (key) map.set(key, color);
-    };
-    scopedCharacterMap.forEach((char) => {
-      const color = char.nameColor;
-      if (!color) return;
+    if (!colorInlineNames && !colorPersonaInlineNames) return null;
+    return buildInlineNameColorMap({
+      characters: scopedCharacterMap?.values() ?? [],
+      persona: personaInfo,
+      colorCharacters: !!colorInlineNames,
+      colorPersona: !!colorPersonaInlineNames,
       // If gradients are disabled, extract the first solid color from gradient strings
-      const effectiveColor =
-        disableInlineNameGradients && isGradientNameColor(color) ? extractSolidColorFromGradient(color) : color;
-      addName(char.name, effectiveColor);
-      addName(char.convoDisplayName, effectiveColor);
-      for (const alias of char.nameAliases ?? []) addName(alias, effectiveColor);
+      toColor: (color) =>
+        disableInlineNameGradients && isGradientNameColor(color) ? extractSolidColorFromGradient(color) : color,
     });
-    return map.size > 0 ? map : null;
-  }, [colorInlineNames, scopedCharacterMap, disableInlineNameGradients]);
+  }, [colorInlineNames, colorPersonaInlineNames, scopedCharacterMap, personaInfo, disableInlineNameGradients]);
 
   // Build speaker → dialogueColor map for group chat speaker tag coloring
   const speakerColorMap = useMemo(() => {
@@ -3143,7 +3143,16 @@ export const ChatMessage = memo(function ChatMessage({
   );
 
   // Render content with dialogue highlighting (or HTML rendering)
-  const fullText = typeof displayContent === "string" ? displayContent : message.content;
+  // A Roleplay chat that plays by a ruleset saves the Engine's check records and sheet commands in the
+  // reply: the checks become dice cards where they happened, and the commands are not shown.
+  const rulesetRecords = useMemo(
+    () =>
+      isRoleplay && !isUser && typeof displayContent === "string" && displayContent.includes("[")
+        ? extractRoleplayRulesetRecords(displayContent)
+        : null,
+    [displayContent, isRoleplay, isUser],
+  );
+  const fullText = rulesetRecords?.text ?? (typeof displayContent === "string" ? displayContent : message.content);
   const vnParagraphs = useMemo(
     () => (visualNovel ? splitRoleplayParagraphs(fullText, isStreaming) : []),
     [fullText, isStreaming, visualNovel],
@@ -3190,6 +3199,12 @@ export const ChatMessage = memo(function ChatMessage({
     const commands = isRoleplay
       ? [
           ...(isUser ? [] : readRoleplayDiceRolls(fullText, extra).map((roll) => ({ ...roll, kind: "roll" as const }))),
+          ...(rulesetRecords?.checks ?? []).map((check, index) => ({
+            kind: "check" as const,
+            index,
+            offset: check.offset,
+            result: check.result,
+          })),
           ...getRoleplayWhispers(extra).map((whisper) => ({
             ...whisper,
             kind: "whisper" as const,
@@ -3245,6 +3260,7 @@ export const ChatMessage = memo(function ChatMessage({
     isUser,
     fullText,
     extra,
+    rulesetRecords,
     illustrationsByCommand,
     visualNovel,
     activeVnParagraphIndex,
@@ -3326,6 +3342,11 @@ export const ChatMessage = memo(function ChatMessage({
           html={command.html}
           scopeClass={`${htmlScopeClass}-artifact-${message.activeSwipeIndex}-${command.index}`}
         />
+      ) : command.kind === "check" ? (
+        <RoleplayRulesetCheckCard
+          key={`check-${message.id}-${message.activeSwipeIndex}-${command.index}`}
+          result={command.result}
+        />
       ) : command.kind === "whisper" ? (
         <RoleplayWhisper
           // The original command text identifies the whisper, so an open editor never saves over a replacement.
@@ -3386,11 +3407,11 @@ export const ChatMessage = memo(function ChatMessage({
     const slots = new Map<string, ReactNode>();
     let markedText = text;
     for (const command of inlineRoleplayCommands) {
-      const marker = `${markerPrefix}${command.index}\uE001`;
+      const marker = `${markerPrefix}${command.kind}-${command.index}\uE001`;
       slots.set(marker, renderInlineRoleplayCommand(command));
     }
     for (const roll of [...inlineRoleplayCommands].reverse()) {
-      const marker = `${markerPrefix}${roll.index}\uE001`;
+      const marker = `${markerPrefix}${roll.kind}-${roll.index}\uE001`;
       markedText = markedText.slice(0, roll.offset) + marker + markedText.slice(roll.offset);
     }
     const prose = replaceRoleplayCommandMarkers(renderPart(markedText), slots);

@@ -366,6 +366,30 @@ for (const [size, theme] of [
     // One request per Connection: the meter shares the widget's query.
     expect(usageRequests).toBe(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    // The Jobs box is the grey box every connection card is, and the rows sit on the panel's own paint: no blue tint
+    // and no navy app background (the maintainer's, 2026-11-10).
+    const fills = await panel.evaluate((element) => {
+      const paint = (css: string) => {
+        const probe = document.createElement("span");
+        probe.style.backgroundColor = css;
+        element.append(probe);
+        const value = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return value;
+      };
+      const background = (selector: string) =>
+        [...element.querySelectorAll(selector)].map((node) => getComputedStyle(node).backgroundColor);
+      return {
+        jobs: background(".mari-connection-defaults-box"),
+        cards: background(".mari-connection-group:not(.mari-connection-defaults-box)"),
+        wells: [...new Set(background(".mari-connection-model-well"))],
+        sidebar: paint("var(--sidebar)"),
+      };
+    });
+    expect(fills.jobs).toHaveLength(1);
+    expect(fills.cards.length).toBeGreaterThan(0);
+    expect(fills.jobs[0]).toBe(fills.cards[0]);
+    expect(fills.wells).toEqual([fills.sidebar]);
     await page.screenshot({ path: `${out}/panel-${size.name}-${theme}.png` });
 
     // Escape closes a ⋯ menu or the picture menu, never the panel under it.

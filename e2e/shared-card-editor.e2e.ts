@@ -115,3 +115,63 @@ for (const kind of ["characters", "personas"] as const) {
     }
   });
 }
+
+for (const kind of ["characters", "personas"] as const) {
+  test(kind + " editor saves Other names under Name in Metadata", async ({ page, request }, testInfo) => {
+    const character = kind === "characters";
+    const name = (character ? "Lois Vale " : "Clark Vale ") + testInfo.project.name;
+    const url = character ? "/api/characters" : "/api/characters/personas";
+    const res = await request.post(url, {
+      data: character ? { data: { name, extensions: { nameColor: "#3b82f6" } } } : { name, nameColor: "#3b82f6" },
+    });
+    expect(res.ok(), await res.text()).toBeTruthy();
+    const { id } = await res.json();
+    const path = url + "/" + id;
+    const savedAliases = async () => {
+      const row = await (await request.get(path)).json();
+      if (!character) return row.nameAliases ?? [];
+      const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
+      return data.extensions?.nameAliases ?? [];
+    };
+    try {
+      await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+      await page.route("**/api/app-settings/ui", (route) =>
+        route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
+      );
+      await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
+      const open = async () => {
+        await page.goto("/");
+        await clickTopbarPanel(page, kind);
+        await page.getByText(name, { exact: true }).first().click();
+        await expect(page.locator(".mari-editor-shell .mari-editor-title-input")).toHaveValue(name);
+      };
+      const save = page.locator(".mari-editor-header .mari-editor-action--save");
+      await open();
+      // One field, in Metadata, right after Name (the Colors tab no longer has one).
+      const field = page.locator('[data-card-field="other-names"]');
+      await expect(field).toHaveCount(1);
+      expect(
+        await field.evaluate((element) => {
+          const previous = element.parentElement?.previousElementSibling;
+          return previous?.getAttribute("data-mari-field") ?? null;
+        }),
+      ).toBe("name");
+      const input = field.getByRole("textbox", { name: "Other names" });
+      await input.fill("Kal-El, Mr. Kent, kal-el");
+      await input.press("Enter");
+      await expect(field.getByRole("button", { name: /^Remove / })).toHaveCount(2);
+      await expect(field.getByText("Kal-El", { exact: true })).toHaveCSS("color", "rgb(59, 130, 246)");
+      await field.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath("other-names.png"), animations: "disabled" });
+      await save.click();
+      await expect.poll(savedAliases).toEqual(["Kal-El", "Mr. Kent"]);
+      await open();
+      await expect(field.getByText("Mr. Kent", { exact: true })).toBeVisible();
+      await field.getByRole("button", { name: "Remove Kal-El" }).click();
+      await save.click();
+      await expect.poll(savedAliases).toEqual(["Mr. Kent"]);
+    } finally {
+      await request.delete(path);
+    }
+  });
+}

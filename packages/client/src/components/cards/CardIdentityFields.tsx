@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { MariFieldReview } from "../characters/MariFieldReview";
@@ -9,10 +10,13 @@ export function CardIdentityFields({
   kind,
   fields,
   onChange,
+  otherNames,
 }: {
   kind: Kind;
   fields: Fields;
   onChange: (field: keyof Fields, value: string) => void;
+  /** Rendered directly under Name: the card's other names (nicknames, full names, titles). */
+  otherNames?: ReactNode;
 }) {
   const { t } = useTranslation();
   const character = kind === "character";
@@ -74,7 +78,7 @@ export function CardIdentityFields({
             className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           />
         );
-        return (
+        const field = (
           <label
             key={key}
             className={key === "name" || key === "comment" ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}
@@ -85,6 +89,13 @@ export function CardIdentityFields({
             </span>
             {review ? <MariFieldReview field={key}>{input}</MariFieldReview> : input}
           </label>
+        );
+        if (key !== "name" || !otherNames) return field;
+        return (
+          <Fragment key={key}>
+            {field}
+            <div className="sm:col-span-2">{otherNames}</div>
+          </Fragment>
         );
       })}
     </>

@@ -45,7 +45,11 @@ export function resolveStoredMaxTokens(defaultParameters: unknown, calculatedMax
   return maxTokens.success ? maxTokens.data : calculatedMaxTokens;
 }
 
-/** Resolve the connection's standard generation defaults for non-preset generation paths. */
+/**
+ * Resolve the connection's standard generation defaults for non-preset generation paths. A caller that sends the
+ * reasoningEffort sizes its max tokens with withAlwaysOnThinkingHeadroom, so the medium named for Gemini 4 Argon and
+ * Carbon with nothing saved leaves room for the answer.
+ */
 export function resolveStoredChatOptions(
   defaultParameters: unknown,
   provider: string,
@@ -58,6 +62,11 @@ export function resolveStoredChatOptions(
     } catch {
       return {};
     }
+  }
+  if (parsed == null) {
+    // Nothing saved: Argon and Carbon still think at medium, so name that level as a saved Off would.
+    const reasoningEffort = resolveProviderReasoningEffort({ provider, model, reasoningEffort: null });
+    return reasoningEffort ? { reasoningEffort } : {};
   }
   const result = partialInput(generationParametersSchema).safeParse(parsed);
   if (!result.success) return {};
@@ -270,8 +279,8 @@ export function supportsAssistantReasoningPrefill(provider: string): boolean {
 
 /**
  * Connections that refuse a request ending on an assistant message (a prefill): Claude (Subscription) with any model,
- * since its Agent SDK prompt is user-only, and by any provider Claude Opus 5.5 and Sonnet 5.5, and Gemini 4 Argon,
- * 3.5 Flash-Lite and 3.6 to 3.8 Flash. Their providers turn such a request into a continuation, so the Assistant
+ * since its Agent SDK prompt is user-only, and by any provider Claude Opus 5.5 and Sonnet 5.5, and Gemini 4 Argon and
+ * Carbon, 3.5 Flash-Lite and 3.6 to 3.8 Flash. Their providers turn such a request into a continuation, so the Assistant
  * Prefill goes into the chat history for them instead (endPromptOnAssistantPrefill).
  */
 export function rejectsFinalAssistantMessage(provider: string, model: string): boolean {

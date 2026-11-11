@@ -563,6 +563,8 @@ export interface GameRulesetSheetProps {
   ) => Promise<string | null>;
   /** The features a rest offers to use as it ends (1.789): Arcane Recovery on a Short rest. */
   onRestOffers?: (rest: string) => Promise<RulesetRestRecovery[]>;
+  /** Open with the build editor showing (a sheet nobody has built yet), as Edit would. */
+  startEditing?: boolean;
 }
 
 export function GameRulesetSheet({
@@ -582,6 +584,7 @@ export function GameRulesetSheet({
   carrying,
   onRest,
   onRestOffers,
+  startEditing: openEditing = false,
 }: GameRulesetSheetProps) {
   const readOnly = locked || buildOnly;
   // In a fight on screen the sheet is read as it stands: only what play spends (points, slots,
@@ -812,6 +815,14 @@ export function GameRulesetSheet({
     setRestNotice(null);
     onDraftStart?.();
   };
+  // Opened to be built: the editor shows at once, the guided builder first where the ruleset has one.
+  const [openedEditing, setOpenedEditing] = useState(false);
+  useEffect(() => {
+    if (!openEditing || openedEditing || readOnly || inFight) return;
+    setOpenedEditing(true);
+    startEditing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the sheet first shows
+  }, [openEditing, openedEditing, readOnly, inFight]);
 
   const saveDraft = async () => {
     if (!draft || isSaving) return;

@@ -38,6 +38,10 @@ const provider = createServer(async (request, response) => {
   const body = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
   requests.push(body);
   response.writeHead(200, { "content-type": "application/json" });
+  if (request.url?.includes(":generateContent")) {
+    response.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: "hello" }] }, finishReason: "STOP" }] }));
+    return;
+  }
   if (typeof body.model === "string" && body.model.startsWith("glm-5.3")) {
     // An always-reasoning model that spent its whole budget thinking (#5963).
     response.end(
@@ -276,6 +280,22 @@ try {
     const tested = await app.inject({ method: "POST", url: `/api/connections/${mistral.id}/test-message` });
     assert.equal(tested.json().success, true, tested.body);
     assert.equal(requests.at(-1)!.max_tokens, expected, `${model} test budget`);
+  }
+
+  // Gemini 4 Argon and Carbon think at medium even with no level saved, so they get the same room (#9037).
+  for (const model of ["gemini-4-argon", "gemini-4-carbon"]) {
+    const gemini = await storage.create({
+      name: "Gemini test fixture",
+      provider: "google",
+      baseUrl: `http://127.0.0.1:${address.port}`,
+      apiKey: "synthetic",
+      model,
+    });
+    const tested = await app.inject({ method: "POST", url: `/api/connections/${gemini.id}/test-message` });
+    assert.equal(tested.json().success, true, tested.body);
+    const config = requests.at(-1)!.generationConfig as Record<string, any>;
+    assert.equal(config.thinkingConfig?.thinkingLevel, "medium", `${model} test thinks at medium`);
+    assert.equal(config.maxOutputTokens, 1024, `${model} test budget`);
   }
 
   // Test checks a key typed in the editor before it is saved, and the saved key stays as it is.

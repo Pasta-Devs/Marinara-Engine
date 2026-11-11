@@ -2,6 +2,7 @@ import {
   cardHasInteractiveOnboarding,
   estimateCharacterCardTokens,
   matchesAllCardSearchTags,
+  normalizeNameAliases,
   normalizeTextForMatch,
   parseCardTagSearchTerms,
   PROFESSOR_MARI_ID,
@@ -63,10 +64,13 @@ function strings(data: CharacterData, comment: string) {
   const backstory = typeof extensions.backstory === "string" ? extensions.backstory : "";
   const appearance = typeof extensions.appearance === "string" ? extensions.appearance : "";
   const tags = Array.isArray(data.tags) ? data.tags.filter((tag): tag is string => typeof tag === "string") : [];
+  const nameAliases = normalizeNameAliases(extensions.nameAliases);
   return {
     tags,
+    nameAliases,
     searchText: [
       data.name,
+      ...nameAliases,
       comment,
       data.creator,
       data.character_version,
@@ -89,7 +93,7 @@ function strings(data: CharacterData, comment: string) {
 
 function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry {
   const data = readData(row.data);
-  const { tags, searchText } = strings(data, row.comment ?? "");
+  const { tags, nameAliases, searchText } = strings(data, row.comment ?? "");
   const extensions =
     data.extensions && typeof data.extensions === "object" ? (data.extensions as Record<string, unknown>) : {};
   const importMetadata =
@@ -107,6 +111,7 @@ function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry
   return {
     id: row.id,
     name: typeof data.name === "string" && data.name.trim() ? data.name.trim() : "Unknown",
+    nameAliases,
     comment: row.comment ?? "",
     creator: typeof data.creator === "string" ? data.creator : "",
     version: typeof data.character_version === "string" ? data.character_version : "",

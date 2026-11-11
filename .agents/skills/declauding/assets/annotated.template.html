@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+:root{
+  --ivory:#FAF9F5; --paper:#fff; --ink:#141413; --accent:#B85C3E; --accent-bg:#FDF1EC;
+  --ok:#4A6B3A; --flag:#8A6D1F; --g100:#F4F2ED; --g200:#E6E3DB; --g500:#6E6A61; --g700:#3A3733;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ivory);color:var(--ink);font:16px/1.65 var(--sans)}
+.wrap{max-width:46rem;margin:0 auto;padding:0 1.25rem 5rem}
+header.mast{padding:2.5rem 0 1.25rem;border-bottom:2px solid var(--ink);margin-bottom:0}
+.eyebrow{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 .75rem}
+h1{font:500 2rem/1.2 var(--serif);margin:0 0 .6rem}
+.sub{margin:0;color:var(--g500);font-size:.95rem}
+.toolbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;
+  padding:.7rem 0;background:var(--ivory);border-bottom:1px solid var(--g200);margin-bottom:1.5rem}
+.btn{font:600 12px/1 var(--mono);letter-spacing:.04em;text-transform:uppercase;background:var(--ink);
+  color:var(--ivory);border:0;border-radius:6px;padding:.6rem .9rem;cursor:pointer}
+.btn:hover{background:var(--accent)}
+.toolnote{font:12px/1.4 var(--mono);color:var(--g500)}
+h2{font:500 1.35rem/1.3 var(--serif);margin:2.4rem 0 .3rem}
+h2+hr{border:0;border-top:2px solid var(--accent);width:2.5rem;margin:0 0 1rem}
+h3{font:600 1rem/1.3 var(--sans);margin:1.8rem 0 .5rem}
+p{margin:0 0 1rem}
+q{quotes:'"' '"'}
+code{font:.9em var(--mono);background:var(--g100);padding:.1em .3em;border-radius:3px}
+pre{background:var(--ink);color:#EDE9E2;padding:1rem;border-radius:6px;overflow-x:auto;font:13px/1.6 var(--mono)}
+pre code{background:none;padding:0;color:inherit}
+table{width:100%;border-collapse:collapse;margin:0 0 1.5rem;font-size:.9rem}
+th,td{text-align:left;padding:.5rem .6rem;border-bottom:1px solid var(--g200);vertical-align:top}
+th{font:600 11px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--g500);
+  border-bottom:2px solid var(--ink)}
+table.tally td:nth-child(1){font-weight:600;white-space:nowrap}
+table.tally td:nth-child(2){font-family:var(--mono);text-align:right}
+table.data{font-family:var(--mono);font-size:.8rem}
+table.data td:not(:first-child){text-align:right}
+.chg{background:var(--accent-bg);box-shadow:inset 0 -1px 0 var(--accent)}
+.ed{display:block;border-left:3px solid var(--accent);background:var(--paper);padding:.65rem .85rem;
+  margin:.35rem 0 1.4rem;font:13px/1.6 var(--mono);color:var(--g700);border-radius:0 6px 6px 0}
+.ed b{display:inline-block;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;
+  font-size:11px;margin-right:.5rem}
+.ed q{color:var(--g500);font-style:italic}
+.ed.ok{border-left-color:var(--ok)} .ed.ok b{color:var(--ok)}
+.ed.flag{border-left-color:var(--flag)} .ed.flag b{color:var(--flag)}
+.unedited{font:12px/1.5 var(--mono);color:var(--g500);background:var(--g100);padding:.45rem .7rem;border-radius:6px}
+body.clean .ed,body.clean .unedited{display:none}
+body.clean .chg{background:none;box-shadow:none}
+.sep{border:0;border-top:2px solid var(--ink);margin:2.5rem 0}
+footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--g200);
+  font:12px/1.6 var(--mono);color:var(--g500)}
+@media print{.toolbar{position:static}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="mast">
+  <p class="eyebrow">de-claude edit</p>
+  <h1>{{TITLE}}</h1>
+  <p class="sub">{{SUBTITLE}}</p>
+</header>
+
+<div class="toolbar">
+  <button id="toggle" class="btn">Hide edit marks</button>
+  <span class="toolnote">toggle to read the clean version</span>
+</div>
+
+<section>
+<h2>How to read this</h2><hr>
+<p>The body below is the piece rewritten. Every rewritten passage is <span class="chg">marked like this</span>, with a note underneath giving the original text, the name of the tic, and why it goes. Turn the marks off to read the result straight through.</p>
+<p>Numbers, tables, quotations and commands are unchanged. The edits are register only; anything factual is flagged rather than fixed.</p>
+
+<table class="tally">
+<thead><tr><th>Tic</th><th>n</th><th>Shape</th></tr></thead>
+<tbody>
+{{TALLY_ROWS}}
+</tbody>
+</table>
+<p>One pattern generates most of them: the sentence is built to make the reader feel a finding arrive, rather than to state the finding. Every fix is the same move — put a real subject in the subject slot, say the thing, stop.</p>
+</section>
+
+<hr class="sep">
+
+<article>
+{{BODY}}
+</article>
+
+<footer>Produced with the <b>declauding</b> skill. The register and the linter are in the skill directory; both are meant to be argued with.</footer>
+</div>
+<script>
+(function(){
+  var b=document.getElementById('toggle');
+  b.addEventListener('click',function(){
+    var clean=document.body.classList.toggle('clean');
+    b.textContent=clean?'Show edit marks':'Hide edit marks';
+  });
+})();
+</script>
+</body>
+</html>

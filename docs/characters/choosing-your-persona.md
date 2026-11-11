@@ -32,6 +32,10 @@ If it did not work: you can only pick personas you have already created. Create 
 
 In Game Mode this section is framed as your in-game party but still uses the **Persona** label.
 
+### Color your name in messages
+
+In a Roleplay chat, the **Persona** section has **Color Persona Name in Text**. It paints your persona's name, conversation display name and **Other names** in the persona's name color inside messages. Until you change it, it follows **Color Character Names in Text** in the **Characters** section. A character in the chat with the same name keeps its own color. The persona needs a name color (**Colors** tab) for this to show.
+
 ## When you create a chat
 
 The New Chat setup wizard has a **Your Persona** field. It uses the same searchable picker and a **None** option. In the New Game Setup wizard, the field is called **Player's Persona**, and the chat keeps that choice.
