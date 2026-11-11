@@ -12816,6 +12816,7 @@ input.ov-edhead__title:not(#ov-x) {
   flex: none;
   white-space: nowrap;
 }
-.ov-kit-folder > svg {
+.ov-kit-folder > svg,
+.ov-kit-folder > .ov-kit-more {
   flex: none;
 }
