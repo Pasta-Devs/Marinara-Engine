@@ -365,7 +365,6 @@ export function OvSplitSubCrumbs({
   if (!splitCrumbs) return null;
   return (
     <EditorCrumbs
-      className="ov-subcrumbs"
       items={[
         { label: localizeUi("ui.overhaul.oveditorhead.library"), onClick: openLibraryPane },
         { label: sectionLabel, onClick: () => openLibrarySection(section) },

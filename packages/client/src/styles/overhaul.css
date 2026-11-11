@@ -526,7 +526,9 @@
   border-radius: 0;
   box-shadow: none;
 }
-:root[data-overhaul] [data-component="HomeBrowserHub"] header > div:first-child {
+/* Only the browser chrome's tab row. A bare `header` here also caught every Home card's header and
+   squashed it to 2.375rem, so the card title spilled over the text under it. */
+:root[data-overhaul] [data-component="HomeBrowserHub"] .mari-home-browser-chrome > div:first-child {
   height: 2.375rem;
   align-items: center;
 }
@@ -2641,6 +2643,76 @@
 }
 .ov-docs__content tr:last-child td {
   border-bottom: 0;
+}
+/* The shared markdown rules (globals.css .mari-md-table, .mari-md-codeblock) were written for dark
+   chat bubbles: near-white header text, a black wash under grey code. On a light theme or a day
+   look both vanished, so the docs page takes its table and code colors from the theme instead. */
+.ov-docs .ov-docs__content .mari-md-table :is(th, td) {
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--ov-line) 60%, transparent);
+}
+.ov-docs .ov-docs__content .mari-md-table th {
+  border-bottom-color: var(--ov-line);
+  background: color-mix(in srgb, var(--ov-text) 4%, transparent);
+  color: var(--ov-docs-ink);
+}
+.ov-docs .ov-docs__content .mari-md-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.ov-docs .ov-docs__content .mari-md-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--ov-text) 2.5%, transparent);
+}
+.ov-docs .ov-docs__content .mari-md-table tbody tr:hover {
+  background: color-mix(in srgb, var(--ov-text) 4%, transparent);
+}
+/* Links were Tailwind's fixed light blue (markdown.tsx), about 2:1 on a light page. Small accent
+   text (links, table heads) leans a quarter toward the text color: a bright accent such as the
+   default pink only reached 3:1 on a light page. */
+.ov-docs .ov-docs__content {
+  --ov-docs-ink: color-mix(in srgb, var(--ov-accent) 72%, var(--ov-text));
+}
+.ov-docs .ov-docs__content a {
+  color: var(--ov-docs-ink);
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 0.15em;
+}
+.ov-docs .ov-docs__content a:hover {
+  color: var(--ov-docs-ink);
+  text-decoration-color: currentColor;
+}
+.ov-docs .ov-docs__content .mari-md-codeblock {
+  /* Right padding keeps code clear of the Copy button. One line of code (0.85rem at 1.6) plus this
+     padding is 2.75rem tall, so the 1.75rem button at top 0.5rem sits centered in a one-line block
+     and in the top corner of a longer one. */
+  min-height: 2.75rem;
+  padding: 0.6875rem 4.75rem 0.6875rem 1rem;
+  border: 1px solid var(--ov-line);
+  background: color-mix(in srgb, var(--ov-text) 7%, var(--card));
+  color: var(--ov-text);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+/* The language tag sat in the same corner as Copy and was 30% white (invisible by day). */
+.ov-docs .ov-docs__content .mari-md-codeblock-lang {
+  display: none;
+}
+.ov-docs .ov-docs__content .docs-copy-button {
+  top: 0.5rem;
+  bottom: auto;
+  right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  min-height: 0;
+  padding: 0 0.625rem;
+  border-color: var(--ov-line);
+  background: var(--card);
+  color: color-mix(in srgb, var(--ov-muted) 60%, var(--ov-text));
+  line-height: 1;
+}
+.ov-docs .ov-docs__content .docs-copy-button:hover {
+  background: var(--accent);
+  color: var(--ov-text);
 }
 /* "> **Note:**" blockquotes become tinted callouts (DocsPage marks them). */
 .ov-docs__content blockquote[data-callout] {
@@ -12081,22 +12153,31 @@ input.ov-edhead__title:not(#ov-x) {
   }
 }
 
-/* Chat mode tabs at a big Display Size: the counts, then the icons, step aside before anything overlaps. */
+/* Chat mode tabs (Conversation / Roleplay / Game): each pill takes the room its own label needs and
+   shares out the rest, so "Conversation" isn't squeezed into a third. When the sidebar is too narrow
+   (or a theme's font too wide), useSegmentedFit steps down until everything fits inside its pill:
+   data-fit 1 shortens "Conversation" to "Convo", 2 drops the counts, 3 drops the icons. */
 :root[data-overhaul] [data-tour="chat-modes"] {
-  container-type: inline-size;
+  grid-template-columns: repeat(3, minmax(0, auto));
 }
 :root[data-overhaul] [data-tour="chat-modes"] .mari-chrome-segmented__button {
   min-width: 0;
 }
-@container (max-width: 16rem) {
-  :root[data-overhaul] [data-tour="chat-modes"] .ov-mode-count {
-    display: none;
-  }
+:root[data-overhaul] [data-tour="chat-modes"] [data-fit-part="short-label"],
+:root[data-overhaul] [data-tour="chat-modes"]:is([data-fit="1"], [data-fit="2"], [data-fit="3"])
+  [data-fit-part="label"]:has(+ [data-fit-part="short-label"]),
+:root[data-overhaul] [data-tour="chat-modes"]:is([data-fit="2"], [data-fit="3"]) [data-fit-part="count"],
+:root[data-overhaul] [data-tour="chat-modes"][data-fit="3"] [data-fit-part="icon"] {
+  display: none;
 }
-@container (max-width: 12.5rem) {
-  :root[data-overhaul] [data-tour="chat-modes"] .mari-chrome-segmented__button > span:first-child {
-    display: none;
-  }
+:root[data-overhaul] [data-tour="chat-modes"]:is([data-fit="1"], [data-fit="2"], [data-fit="3"])
+  [data-fit-part="short-label"] {
+  display: inline-flex;
+}
+/* Keyboard focus: the accent ring inside the pill, not the browser's black-and-white default. */
+:root[data-overhaul] [data-tour="chat-modes"] .mari-chrome-segmented__button:focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: -2px;
 }
 
 /* The open chat in the chats sidebar: neutral selected tint; the accent stays on the small indicator. */
@@ -12352,6 +12433,41 @@ input.ov-edhead__title:not(#ov-x) {
   margin-right: 0.375rem;
   color: var(--ov-text);
   font-weight: 600;
+}
+/* An open Library item's crumb trail sits in the bar (the page itself starts at its title). Long names
+   shorten with an ellipsis, the page's own name first. */
+.ov-splitbar__page.has-trail {
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-weight: 400;
+}
+.ov-splitbar__crumbs.ov-crumbs {
+  flex-wrap: nowrap;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ov-muted);
+  font-size: inherit;
+  white-space: nowrap;
+}
+.ov-splitbar__crumbs .ov-crumbs__item {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.ov-splitbar__crumbs .ov-crumbs__item:first-child {
+  flex-shrink: 0;
+}
+.ov-splitbar__crumbs .ov-crumbs__item:last-child {
+  flex-shrink: 0.4;
+  font-weight: 600;
+}
+.ov-splitbar__crumbs .ov-crumbs__item > :is(button, span) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-splitbar__crumbs .ov-crumbs__item > svg {
+  flex: none;
 }
 .ov-splitbar__fill {
   flex: 1 1 auto;
