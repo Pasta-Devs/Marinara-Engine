@@ -526,7 +526,9 @@
   border-radius: 0;
   box-shadow: none;
 }
-:root[data-overhaul] [data-component="HomeBrowserHub"] header > div:first-child {
+/* Only the browser chrome's tab row. A bare `header` here also caught every Home card's header and
+   squashed it to 2.375rem, so the card title spilled over the text under it. */
+:root[data-overhaul] [data-component="HomeBrowserHub"] .mari-home-browser-chrome > div:first-child {
   height: 2.375rem;
   align-items: center;
 }
