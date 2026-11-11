@@ -744,7 +744,7 @@
   :root[data-overhaul="mobile"] .ov-gallery__head {
     flex-wrap: wrap;
   }
-  :root[data-overhaul="mobile"] :is(.ov-gallery__head h1, .ov-settings__head h1) {
+  :root[data-overhaul="mobile"] :is(.ov-gallery__head h1, .ov-settings__head h1, .ov-vw__top h1) {
     font-size: 1.75rem;
   }
   :root[data-overhaul="mobile"] .ov-gallery__head .ov-btn {
@@ -4749,4 +4749,24 @@
 }
 :root[data-overhaul="mobile"] :is(.ov-conn, .ov-org) > .ov-gallery__tools + *:not(.ov-gallery__tools):not(#ovm-x):not(#ovm-y) {
   margin-top: 0;
+}
+
+/* Regex scripts / Custom tools landing on phones: title row reads like the other Library pages
+   (no squeezed count beside the title), and an empty list doesn't stack above the empty state. */
+:root[data-overhaul="mobile"] .ov-vw__top:not(.has-crumbs):not(#ovm-x) {
+  padding-top: 1rem;
+  border-bottom: 0;
+}
+:root[data-overhaul="mobile"] .ov-vw__top:not(.has-crumbs) > small:not(#ovm-x) {
+  display: none;
+}
+:root[data-overhaul="mobile"] .ov-vw__top:not(.has-crumbs) > h1:not(#ovm-x) {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-overhaul="mobile"] .ov-vw.is-empty > .ov-vw__left:not(#ovm-x) {
+  display: none;
 }
