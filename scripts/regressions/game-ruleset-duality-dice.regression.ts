@@ -184,7 +184,7 @@ try {
       permissions: [],
       restartRequired: false,
     });
-    assert.match(getCapabilityPackageInstallIssue(manifest(819) as any, doc()) ?? "", /capabilityApi 1.820/);
+    assert.match(getCapabilityPackageInstallIssue(manifest(819) as any, doc()) ?? "", /capabilityApi 1\.820/);
     assert.equal(getCapabilityPackageInstallIssue(manifest(820) as any, doc()), null);
   }
 } finally {
