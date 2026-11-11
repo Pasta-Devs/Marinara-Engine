@@ -1669,7 +1669,7 @@ function ConversationQuickSetup({
           onPickGroup={addCharacterIds}
         />
         {available.length > 0 && (
-          <div className="mt-1.5 overflow-hidden rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
+          <div className="mt-1.5 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50">
             {available.length > 0 && (
               <button
                 type="button"
@@ -2982,7 +2982,7 @@ function RoleplaySetupWizard({
           onPickGroup={addCharacterIds}
         />
         {available.length > 0 && (
-          <div className="mt-1.5 overflow-hidden rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
+          <div className="mt-1.5 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50">
             {available.length > 0 && (
               <button
                 type="button"
