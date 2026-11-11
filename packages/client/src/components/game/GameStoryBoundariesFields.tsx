@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { MacroTextarea } from "../ui/MacroTextarea";
 import {
   GAME_CONTENT_BOUNDARIES_MAX_CHARS,
   type GameStoryStyle,
@@ -52,6 +53,11 @@ export function GameStoryBoundariesFields({ value, onChange, compact }: GameStor
   const row = compact ? "" : "flex flex-col gap-1.5";
   const rowLabel = compact ? cn(label, "mb-1.5") : label;
   const rowHelp = compact ? cn(help, "mt-1") : help;
+  const commitBoundaries = () => {
+    if (boundariesDraft.trim() !== value.contentBoundaries.trim()) {
+      onChange({ contentBoundaries: boundariesDraft.trim() });
+    }
+  };
   const fields = (
     <>
       <div className={row}>
@@ -97,28 +103,37 @@ export function GameStoryBoundariesFields({ value, onChange, compact }: GameStor
       </div>
 
       <div className={row}>
-        <label htmlFor="game-content-boundaries" className={rowLabel}>
+        <label htmlFor={compact ? "game-content-boundaries" : undefined} className={rowLabel}>
           {localizeUi("ui.game.contentBoundaries.label")}
         </label>
         <div>
-          <textarea
-            id="game-content-boundaries"
-            value={boundariesDraft}
-            onChange={(event) => setBoundariesDraft(event.target.value)}
-            onBlur={() => {
-              if (boundariesDraft.trim() !== value.contentBoundaries.trim()) {
-                onChange({ contentBoundaries: boundariesDraft.trim() });
-              }
-            }}
-            maxLength={GAME_CONTENT_BOUNDARIES_MAX_CHARS}
-            rows={3}
-            placeholder={localizeUi("ui.game.contentBoundaries.placeholder")}
-            className={
-              compact
-                ? "w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
-                : "mari-chrome-field min-h-[5rem] w-full resize-y !rounded-md px-3 py-2 text-xs leading-relaxed"
-            }
-          />
+          {compact ? (
+            <textarea
+              id="game-content-boundaries"
+              value={boundariesDraft}
+              onChange={(event) => setBoundariesDraft(event.target.value)}
+              onBlur={commitBoundaries}
+              maxLength={GAME_CONTENT_BOUNDARIES_MAX_CHARS}
+              rows={3}
+              placeholder={localizeUi("ui.game.contentBoundaries.placeholder")}
+              className="w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
+            />
+          ) : (
+            // In a game, the same field as Extra instructions above it.
+            <MacroTextarea
+              value={boundariesDraft}
+              onChange={setBoundariesDraft}
+              onBlur={commitBoundaries}
+              onExpandedClose={commitBoundaries}
+              title={localizeUi("ui.game.contentBoundaries.label")}
+              ariaLabel={localizeUi("ui.game.contentBoundaries.label")}
+              placeholder={localizeUi("ui.game.contentBoundaries.placeholder")}
+              rows={3}
+              maxLength={GAME_CONTENT_BOUNDARIES_MAX_CHARS}
+              showMacroReference={false}
+              className="mari-chrome-field min-h-[5rem] w-full !rounded-md px-3 py-2 pr-8 text-xs leading-relaxed"
+            />
+          )}
           <p className={cn(rowHelp, "m-0")}>{localizeUi("ui.game.contentBoundaries.help")}</p>
         </div>
       </div>
