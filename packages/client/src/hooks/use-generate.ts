@@ -3729,6 +3729,8 @@ export function useGenerate() {
           } else {
             try {
               // Stop aborts the stream before the server's message_saved may arrive: reuse a reply it already stored.
+              // A normal send keeps running on the server after the stream closes, so let it write first (5 s cap).
+              await waitForServerGenerationToSettle(params.chatId, AbortSignal.timeout(5_000));
               if (
                 !(await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values(), {
                   fetchEvenIfInactive: true,
