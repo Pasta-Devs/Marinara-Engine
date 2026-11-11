@@ -128,8 +128,8 @@ export function ModelRow({
     roleSlots?: 1 | 2;
     /** The role and cost badges on a third line under the text instead of at the row end (folder view). */
     badgesBelow?: boolean;
-    /** The title note on its own line under the name, with the role and cost badges at its end (job rows),
-     * so the name gets the row's full width and no line is added. */
+    /** The title note (job rows: the model id) on its own line under the name, with the role and cost badges at
+     * its end, so the name gets the row's full width and the badges sit with the model they describe. */
     badgesWithNote?: boolean;
     /** Why it cannot run now (its Connection needs a key or is off…); replaces the role badge. */
     status?: { label: string; state?: string } | null;
@@ -258,9 +258,11 @@ export function ModelRow({
           {badgesWithNote && (titleNote || badge || costShown) && (
             // The note's own line, the badges pinned to its right end so they line up from row to row; the name
             // above keeps the row's full width.
-            <span className="mt-1.5 flex min-w-0 items-center gap-1.5">
+            <span className="-mt-0.5 flex min-w-0 items-center gap-1.5">
               {titleNote && (
-                <span className="min-w-0 truncate text-[0.6875rem] text-[var(--muted-foreground)]">{titleNote}</span>
+                <span className="min-w-0 truncate text-[0.6875rem] text-[var(--muted-foreground)]" title={titleNote}>
+                  {titleNote}
+                </span>
               )}
               <span data-connection-badges className="ms-auto flex shrink-0 items-center gap-1">
                 {badge}
