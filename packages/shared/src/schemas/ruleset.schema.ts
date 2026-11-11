@@ -577,6 +577,16 @@ const diceSumResolutionSchema = z
       .object({ check: naturalPolicySchema.default("none"), save: naturalPolicySchema.default("none") })
       .strict()
       .prefault({}),
+    /** Two named dice of one size (1.820): Daggerheart's Hope and Fear. They add up as any two dice
+     *  do; the record says which one showed more, and a tie is a critical success when `tieIsCritical`. */
+    duality: z
+      .object({
+        dice: z.tuple([z.object({ id: sheetId, label }).strict(), z.object({ id: sheetId, label }).strict()]),
+        tieIsCritical: z.boolean().default(true),
+        text: promptSafeText(200).optional(),
+      })
+      .strict()
+      .optional(),
     difficultyLadder: diceSumLadderSchema,
   })
   .strict();
@@ -18210,6 +18220,17 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         if (face > dice.sides)
           issue(["resolution", "unmodified", index], `A face of this die is from 1 to ${dice.sides}`);
       });
+    }
+    // Two named dice (1.820) are read face against face, so they are two plain dice thrown once.
+    const { duality } = resolution;
+    if (duality) {
+      if (dice.count !== 2 || dice.faces || openEnded) {
+        issue(["resolution", "duality"], "Two named dice need dice.count 2, plain faces and no open-ended roll");
+      }
+      if (resolution.advantage)
+        issue(["resolution", "duality"], "Two named dice are read as thrown, so advantage is false");
+      if (duality.dice[0].id === duality.dice[1].id)
+        issue(["resolution", "duality", "dice"], "The two dice share an id");
     }
   } else if (resolution.kind === "symbol-pool") {
     if (resolution.allowOwnUpgrade && !resolution.pool.upgrade) {

@@ -100,7 +100,13 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
     : "";
   // A roll at most a target (1.139) says so, because "DC 45" would read as needing 45 or more.
   const needed = result.against === "at-most" ? `at most ${result.dc}` : `DC ${result.dc}`;
-  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}`;
+  // Two named dice (1.820), said only where the record carries them.
+  const duality = result.duality
+    ? result.duality === "tie"
+      ? " The two named dice tied."
+      : ` With ${result.duality}.`
+    : "";
+  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}`;
 }
 
 function serializeSkillCheckAttribute(value: string): string {
@@ -207,6 +213,8 @@ export interface SkillCheckTagExtras {
   criticalFailure?: boolean;
   /** `for="climb"` (1.752): what the check was made for, which a change narrowed to it read. */
   for?: string;
+  /** `duality="Hope"` (1.820): the named die that showed more, or "tie". */
+  duality?: string;
 }
 
 /** A name in `from=`: no brackets, which would end the tag, and no semicolons, which part the names. */
@@ -297,6 +305,7 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
     if (extras.darkHighest) parts.push(`darkHighest="true"`);
   }
   if (extras.for) parts.push(`for="${serializeSkillCheckAttribute(extras.for)}"`);
+  if (extras.duality) parts.push(`duality="${serializeSkillCheckAttribute(extras.duality)}"`);
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
@@ -368,6 +377,7 @@ export function serializeResolvedSkillCheckTag(result: SkillCheckResult, extras?
     ...(result.tens ? { tens: result.tens } : {}),
     ...(result.highest ? { highest: result.highest, ...(result.zeroDice ? { zeroDice: true } : {}) } : {}),
     ...(result.darkOutcome ? { darkOutcome: result.darkOutcome } : {}),
+    ...(result.duality ? { duality: result.duality } : {}),
     ...(result.dark
       ? {
           dark: result.dark,

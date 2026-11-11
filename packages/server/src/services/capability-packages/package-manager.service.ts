@@ -9368,6 +9368,10 @@ function capabilityPackageInstallIssueFor(
   if (!declaresApi(150) && diceSettings.some((setting) => setting?.allowOwnUpgrade !== undefined)) {
     return "A ruleset that declares own dice upgrades requires schemaVersion 2 and capabilityApi 1.150 or newer";
   }
+  // Two named dice, 1.820: a strict key, including per-check overrides.
+  if (!declaresApi(820) && diceSettings.some((setting) => setting?.duality !== undefined)) {
+    return "A ruleset that throws two named dice requires schemaVersion 2 and capabilityApi 1.820 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||

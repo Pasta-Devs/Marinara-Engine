@@ -196,6 +196,16 @@ export function AnimatedSkillCheckResult({
           <span>{localizeUi("ui.dice.animatedskillcheckresult.unmodified", { face: result.unmodified })}</span>
         </div>
       )}
+      {/* Two named dice (1.820): which one showed more, or that they tied. */}
+      {result.duality && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {result.duality === "tie"
+              ? localizeUi("ui.dice.animatedskillcheckresult.dualityTie")
+              : localizeUi("ui.dice.animatedskillcheckresult.duality", { label: result.duality })}
+          </span>
+        </div>
+      )}
       {/* A roll read against the sheet's number (1.139): the card's DC is the number it had to stay under. */}
       {result.against && (
         <div className="skill-check-roll-meta">

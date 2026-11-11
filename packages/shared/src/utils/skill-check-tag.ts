@@ -601,6 +601,8 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const againstValue: SkillCheckResult["against"] =
     againstRaw === "at-most" || againstRaw === "at-least" ? againstRaw : undefined;
   const tensCount = Number(values.get("tens"));
+  // Two named dice (1.820), said by the Engine's own record and read back so a reloaded card says them.
+  const dualityLabel = values.get("duality")?.trim().slice(0, 80);
   const symbolRecord = readSymbolRecord(values);
   if (values.has("symbols") && !symbolRecord) return tag;
   const effected = {
@@ -629,6 +631,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     ...(Number.isInteger(darkCount) && darkCount > 0 && darkCount <= 10
       ? { dark: darkCount, ...(darkLabel ? { darkLabel } : {}), ...(darkHighest ? { darkHighest: true } : {}) }
       : {}),
+    ...(dualityLabel ? { duality: dualityLabel } : {}),
   };
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
