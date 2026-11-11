@@ -1,4 +1,5 @@
 import { ChatButtonLayoutSettings } from "../../features/chat-settings/ChatButtonLayoutSettings";
+import { LorebookListField } from "../ui/LibraryPickers";
 // ──────────────────────────────────────────────
 // Chat: Settings Drawer — per-chat configuration
 // ──────────────────────────────────────────────
@@ -10017,7 +10018,8 @@ export function ChatSettingsDrawer({
                                           id={hasSettingsTarget ? getAgentSettingsMenuId(chat.id, agent.id) : undefined}
                                           tabIndex={hasSettingsTarget ? -1 : undefined}
                                           data-chat-agent-entry={agent.id}
-                                          className="scroll-mt-3 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/60"
+                                          // The lorebook switch sits under the description with the prompt select's gap.
+                                          className="scroll-mt-3 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/60 [&>[data-agent-lorebook-attachment]]:mt-2 [&>[data-agent-lorebook-package-update]]:mt-2"
                                         >
                                           <div className="flex items-start gap-2.5">
                                             <Sparkles
@@ -11420,44 +11422,18 @@ function KnowledgeAgentSettingsCard({
             ))}
         </div>
         {lorebooks.length > 0 ? (
-          <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--background)]/75 p-2">
-            {lorebooks.map((lorebook) => {
-              const selected = sourceLorebookIds.includes(lorebook.id);
-              return (
-                <button
-                  key={lorebook.id}
-                  type="button"
-                  onClick={() => toggleLorebook(lorebook.id)}
-                  className={cn(
-                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-all",
-                    selected
-                      ? "bg-[var(--primary)]/10 text-[var(--foreground)] ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] text-[var(--foreground)] ring-1 ring-transparent hover:bg-[var(--accent)]",
-                  )}
-                  aria-pressed={selected}
-                >
-                  <span
-                    className={cn(
-                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all",
-                      selected
-                        ? "border-[var(--primary)]/60 bg-[var(--primary)]/20"
-                        : "border-[var(--border)] bg-[var(--background)]",
-                    )}
-                  >
-                    {selected && <Check size="0.625rem" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{lorebook.name}</span>
-                    {lorebook.description ? (
-                      <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                        {lorebook.description}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <LorebookListField
+            lorebooks={lorebooks}
+            selectedIds={sourceLorebookIds}
+            onToggle={toggleLorebook}
+            onAdd={(ids) =>
+              onChange({
+                sourceLorebookIds: [...sourceLorebookIds, ...ids.filter((id) => !sourceLorebookIds.includes(id))],
+              })
+            }
+            ariaLabel={localizeUi("ui.chat.knowledgeagentsettingscard.fixedSourceLorebooks")}
+            triggerClassName="mari-chrome-field min-h-10 w-full min-w-0 rounded-md px-2.5 py-2 text-base md:text-xs"
+          />
         ) : (
           <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
             {localizeUi("ui.agents.agenteditor.noLorebooksAvailable")}

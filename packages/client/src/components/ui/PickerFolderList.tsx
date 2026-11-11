@@ -27,6 +27,8 @@ export type PickerFolderItem = {
   disabledReason?: string;
   /** Extra text the search matches besides the label (such as a description). */
   searchText?: string;
+  /** A small mark after the label (such as "OFF"). */
+  badge?: ReactNode;
 };
 
 const matches = (item: PickerFolderItem, query: string) =>
@@ -132,6 +134,7 @@ export function PickerFolderList({
       title={item.label}
       subtitle={item.subtitle}
       disabledReason={item.disabledReason}
+      badge={item.badge}
       indented={indented}
     />
   );

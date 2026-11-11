@@ -5,7 +5,7 @@
 // show avatars.
 // ──────────────────────────────────────────────
 import { useMemo, useRef, useState, type RefObject } from "react";
-import { Ban, BookOpen, ChevronDown, FileText } from "lucide-react";
+import { Ban, BookOpen, ChevronDown, FileText, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLibraryFolders } from "../../hooks/use-library-folders";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
@@ -14,7 +14,7 @@ import { PickerFolderList } from "./PickerFolderList";
 import { PickerWindow } from "./PickerWindow";
 
 export type LibraryPreset = { id: string; name: string; author?: string | null; imagePath?: string | null };
-export type LibraryLorebook = { id: string; name: string; imagePath?: string | null };
+export type LibraryLorebook = { id: string; name: string; imagePath?: string | null; enabled?: boolean };
 
 /** Size of the picture in a picker row. */
 export const LIBRARY_ROW_ART = "h-8 w-8 rounded-lg";
@@ -53,6 +53,20 @@ export function LibraryArt({
     </span>
   );
 }
+
+// The Lorebooks panel's OFF mark. A switched-off book stays pickable: a fixed source or a write
+// target uses it anyway, so the mark only says why it is quiet in chats.
+export function LorebookOffBadge() {
+  const { t } = useTranslation();
+  return (
+    <span className="shrink-0 rounded bg-[var(--muted)]/50 px-1 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)]">
+      {t("ui.panels.lorebookrow.off")}
+    </span>
+  );
+}
+
+const offBadge = (item: { enabled?: boolean; disabledReason?: string }) =>
+  item.enabled === false && item.disabledReason === undefined ? <LorebookOffBadge /> : undefined;
 
 export type LibraryFieldItem = (LibraryPreset | LibraryLorebook) & {
   /** Greys the row out in the window, with this as its second line. */
@@ -98,6 +112,7 @@ function LibraryPickerField({
         id: item.id,
         label: item.name,
         disabledReason: item.disabledReason,
+        badge: kind === "lorebook" ? offBadge(item as LibraryLorebook) : undefined,
         icon: (
           <LibraryArt
             src={kind === "preset" ? resolvePresetArtwork(item) : (item.imagePath ?? null)}
@@ -213,6 +228,7 @@ export function LorebookPickerWindow({
       lorebooks.map((lb) => ({
         id: lb.id,
         label: lb.name,
+        badge: offBadge(lb),
         icon: <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className={LIBRARY_ROW_ART} />,
       })),
     [lorebooks],
@@ -235,5 +251,99 @@ export function LorebookPickerWindow({
         noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
       />
     </PickerWindow>
+  );
+}
+
+// A several-lorebooks field (New Chat lorebook step, agents' fixed sources): a trigger that opens the
+// lorebook window, with the picked lorebooks listed under it, a remove button each.
+export function LorebookListField({
+  lorebooks,
+  selectedIds,
+  onToggle,
+  onAdd,
+  triggerClassName,
+  ariaLabel,
+  disabled,
+}: {
+  lorebooks: readonly LibraryLorebook[];
+  selectedIds: readonly string[];
+  onToggle: (id: string) => void;
+  onAdd: (ids: string[]) => void;
+  /** The field look of the surface it sits in. */
+  triggerClassName: string;
+  /** Names the trigger, when a visible label isn't tied to it. */
+  ariaLabel?: string;
+  disabled?: boolean;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const picked = selectedIds
+    .map((id) => lorebooks.find((lb) => lb.id === id))
+    .filter((lb): lb is LibraryLorebook => Boolean(lb));
+
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  return (
+    <div className="space-y-2">
+      <button
+        ref={triggerRef}
+        type="button"
+        data-lorebook-list-trigger=""
+        aria-label={ariaLabel}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => (open ? close() : setOpen(true))}
+        className={cn(triggerClassName, "flex items-center justify-between gap-2 pr-3 text-left")}
+      >
+        <BookOpen size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />
+        <span className="min-w-0 flex-1 truncate text-[var(--muted-foreground)]">
+          {t("ui.chat.roleplaysetupwizard.chooseLorebooks")}
+        </span>
+        <ChevronDown
+          size="0.75rem"
+          aria-hidden="true"
+          className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
+        />
+      </button>
+      {picked.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {picked.map((lb) => (
+            <div
+              key={lb.id}
+              className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
+            >
+              <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className="h-6 w-6 rounded-md" />
+              <span className="min-w-0 flex-1 truncate text-xs">{lb.name}</span>
+              {offBadge(lb)}
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onToggle(lb.id)}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-50 max-md:-my-2 max-md:h-11 max-md:w-11"
+                title={t("settings.notifications.customSound.actions.remove")}
+                aria-label={t("ui.chat.roleplaysetupwizard.removeLorebook", { name: lb.name })}
+              >
+                <Trash2 size="0.6875rem" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {open && (
+        <LorebookPickerWindow
+          anchorRef={triggerRef}
+          lorebooks={lorebooks}
+          selectedIds={selectedIds}
+          onToggle={onToggle}
+          onAdd={onAdd}
+          onClose={close}
+        />
+      )}
+    </div>
   );
 }

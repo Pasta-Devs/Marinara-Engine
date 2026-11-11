@@ -3,7 +3,7 @@
 // headers, "Add all" and the keyboard. CharacterPickerList (personas, characters) and
 // PickerFolderList (presets, lorebooks) only bring their data; a change here reaches all of them.
 // ──────────────────────────────────────────────
-import { useEffect, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { Check, ChevronDown, ChevronRight, Folder, FolderOpen, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
@@ -69,9 +69,28 @@ export function usePickerKeyboard({
   query: string;
 }) {
   const [active, setActive] = useState(0);
+  // A ring moved by the mouse never scrolls the list; only the arrow keys do.
+  const fromPointer = useRef(false);
   useEffect(() => setActive(0), [query]);
   const rows = () =>
     Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-pick-row]:not(:disabled)") ?? []);
+  // The ring follows the mouse, so arrows continue from the row under it. Touch is left out:
+  // a scrolling finger would drag the ring along.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      const row = (event.target as Element | null)?.closest?.("[data-pick-row]");
+      const index = row ? rows().indexOf(row as HTMLButtonElement) : -1;
+      if (index < 0) return;
+      fromPointer.current = true;
+      setActive(index);
+    };
+    list.addEventListener("pointermove", onPointerMove);
+    return () => list.removeEventListener("pointermove", onPointerMove);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listRef]);
   // After every render, since rows come and go as folders open and searches change.
   useEffect(() => {
     rows().forEach((row, index) => {
@@ -84,6 +103,10 @@ export function usePickerKeyboard({
     else searchRef.current?.removeAttribute("aria-activedescendant");
   });
   useEffect(() => {
+    if (fromPointer.current) {
+      fromPointer.current = false;
+      return;
+    }
     rows()[active]?.scrollIntoView?.({ block: "nearest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, query]);

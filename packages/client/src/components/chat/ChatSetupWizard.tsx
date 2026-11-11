@@ -6,13 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   ChevronRight,
-  ChevronDown,
   Plug,
-  BookOpen,
   Check,
   Plus,
   Search,
-  Trash2,
   MessageCircle,
   X,
   Users,
@@ -26,13 +23,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import {
-  LibraryArt,
-  LorebookPickerWindow,
-  PresetPickerField,
-  type LibraryLorebook,
-  type LibraryPreset,
-} from "../ui/LibraryPickers";
+import { LorebookListField, PresetPickerField, type LibraryLorebook, type LibraryPreset } from "../ui/LibraryPickers";
 import { advanceChatSetupDraft } from "../../lib/chat-setup-draft";
 import { useDiscardNewChatSetup } from "../../hooks/use-discard-new-chat-setup";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
@@ -316,90 +307,6 @@ const WIZARD_PRIMARY_BUTTON_CLASS =
   "flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50";
 const WIZARD_SECONDARY_BUTTON_CLASS =
   "flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
-
-// The lorebook step: a trigger that opens the shared lorebook window. The picked lorebooks
-// stay listed under the trigger with a remove button each.
-function WizardLorebookPicker({
-  lorebooks,
-  loaded,
-  activeIds,
-  onToggle,
-  onAdd,
-}: {
-  lorebooks: LibraryLorebook[];
-  loaded: boolean;
-  activeIds: readonly string[];
-  onToggle: (id: string) => void;
-  onAdd: (ids: string[]) => void;
-}) {
-  const { t } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const active = activeIds
-    .map((id) => lorebooks.find((lb) => lb.id === id))
-    .filter((lb): lb is LibraryLorebook => Boolean(lb));
-
-  const close = () => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-
-  return (
-    <div className="space-y-2">
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        disabled={!loaded}
-        onClick={() => (open ? close() : setOpen(true))}
-        className={cn(WIZARD_INPUT_CLASS, "flex items-center justify-between gap-2 pr-3 text-left")}
-      >
-        <BookOpen size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />
-        <span className="min-w-0 flex-1 truncate text-[var(--muted-foreground)]">
-          {t("ui.chat.roleplaysetupwizard.chooseLorebooks")}
-        </span>
-        <ChevronDown
-          size="0.75rem"
-          aria-hidden="true"
-          className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
-        />
-      </button>
-      {active.length > 0 && (
-        <div className="flex flex-col gap-1">
-          {active.map((lb) => (
-            <div
-              key={lb.id}
-              className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
-            >
-              <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className="h-6 w-6 rounded-md" />
-              <span className="flex-1 truncate text-xs">{lb.name}</span>
-              <button
-                type="button"
-                onClick={() => onToggle(lb.id)}
-                className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] max-md:-my-2 max-md:h-11 max-md:w-11"
-                title={t("settings.notifications.customSound.actions.remove")}
-                aria-label={t("ui.chat.roleplaysetupwizard.removeLorebook", { name: lb.name })}
-              >
-                <Trash2 size="0.6875rem" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      {open && (
-        <LorebookPickerWindow
-          anchorRef={triggerRef}
-          lorebooks={lorebooks}
-          selectedIds={activeIds}
-          onToggle={onToggle}
-          onAdd={onAdd}
-          onClose={close}
-        />
-      )}
-    </div>
-  );
-}
 
 function readChatActiveAgentIds(chat: Chat): string[] {
   const metadata = readChatMetadata(chat);
@@ -2960,12 +2867,13 @@ function RoleplaySetupWizard({
 
   function renderLorebooks() {
     return (
-      <WizardLorebookPicker
+      <LorebookListField
         lorebooks={(lorebooks ?? []) as LibraryLorebook[]}
-        loaded={lorebooks !== undefined}
-        activeIds={activeLorebookIds}
+        disabled={lorebooks === undefined}
+        selectedIds={activeLorebookIds}
         onToggle={toggleLorebook}
         onAdd={addLorebooks}
+        triggerClassName={WIZARD_INPUT_CLASS}
       />
     );
   }
