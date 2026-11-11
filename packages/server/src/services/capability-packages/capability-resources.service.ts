@@ -19,6 +19,7 @@ import type {
 import type { DB } from "../../db/connection.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
+import { LIBRARY_PAGE_LIMIT } from "../../utils/list-pagination.js";
 
 type LorebookEntrySource = {
   id: string;
@@ -67,7 +68,13 @@ export function createCapabilityResourceHost(db: DB, permissions: readonly strin
     },
 
     async listCharactersPage(options: CapabilityCharacterPageOptions): Promise<CapabilityCharacterPage> {
-      const page = await characters.listPage(options);
+      // The same bounds the library route puts on a page.
+      const limit =
+        Number.isFinite(options.limit) && options.limit > 0
+          ? Math.min(LIBRARY_PAGE_LIMIT, Math.trunc(options.limit))
+          : LIBRARY_PAGE_LIMIT;
+      const offset = Number.isFinite(options.offset) && options.offset > 0 ? Math.trunc(options.offset) : 0;
+      const page = await characters.listPage({ ...options, limit, offset });
       return { ...page, items: page.items.map(characterRow) };
     },
 

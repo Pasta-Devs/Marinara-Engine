@@ -803,7 +803,12 @@ export function createCharactersStorage(db: DB) {
         const currentExtensions: Record<string, unknown> =
           current && typeof current === "object" && !Array.isArray(current) ? (current as Record<string, unknown>) : {};
         const extensions = Object.fromEntries(
-          Object.entries(patch).filter(([key]) => !options.onlyMissingKeys || currentExtensions[key] === undefined),
+          Object.entries(patch).filter(
+            ([key, value]) =>
+              (!options.onlyMissingKeys || currentExtensions[key] === undefined) &&
+              // An unchanged value is no edit: no save, no new updatedAt.
+              JSON.stringify(value) !== JSON.stringify(currentExtensions[key]),
+          ),
         );
         const changedKeys = Object.keys(extensions);
         if (changedKeys.length === 0) return { row: existing, changedKeys };

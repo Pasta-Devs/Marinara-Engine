@@ -93,6 +93,16 @@ try {
   assert.equal((await storage.listVersions(ada.id)).length, versionsBefore);
   assert.equal(await writer.updateCharacterExtensions!("missing", { x: 1 }), null);
 
+  // Writing the value already stored is no edit: the card isn't saved again and keeps its updatedAt.
+  const unchanged = await storage.updateExtensions(ada.id, { characterMemories: [{ summary: "met Bo" }] });
+  assert.deepEqual(unchanged?.changedKeys, []);
+  assert.equal(unchanged?.row.updatedAt, updated.updatedAt);
+
+  // A page is held to the library route's bounds.
+  const bounded = await reader.listCharactersPage!({ limit: 10_000, offset: -5 });
+  assert.equal(bounded.limit, 100);
+  assert.equal(bounded.offset, 0);
+
   // A key's value replaces the stored one whole, no nested merge (a regenerated schedule drops yesterday's days).
   await writer.updateCharacterExtensions!(ada.id, { schedule: { monday: "work", tuesday: "rest" } });
   const replaced = await writer.updateCharacterExtensions!(ada.id, { schedule: { monday: "gym" } });
