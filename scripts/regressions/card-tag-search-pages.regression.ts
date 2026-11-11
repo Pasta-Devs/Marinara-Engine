@@ -4,10 +4,16 @@ import assert from "node:assert/strict";
 // including storage filtering before pagination, rather than mock search results.
 process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
-const [{ buildApp }, { getDB }, { characters, characterGroups, personas }] = await Promise.all([
+const [
+  { buildApp },
+  { getDB },
+  { characters, characterGroups, personas },
+  { completePersonaRow, storedPersonaFromRow },
+] = await Promise.all([
   import("../../packages/server/src/app.js"),
   import("../../packages/server/src/db/connection.js"),
   import("../../packages/server/src/db/schema/index.js"),
+  import("../../packages/server/src/services/personas/persona-card-storage.js"),
 ]);
 const app = await buildApp();
 try {
@@ -33,13 +39,17 @@ try {
     })),
   );
   await db.insert(personas).values(
-    fixtures.map((row) => ({
-      id: row.id,
-      name: row.name,
-      tags: JSON.stringify(row.tags),
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    })),
+    fixtures.map((row) =>
+      storedPersonaFromRow(
+        completePersonaRow({
+          id: row.id,
+          name: row.name,
+          tags: JSON.stringify(row.tags),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        }),
+      ),
+    ),
   );
 
   // Corrupt or older storage rows must not throw or acquire tag matches.
@@ -53,24 +63,32 @@ try {
     })),
   );
   await db.insert(personas).values(
-    invalidTags.map((tags, index) => ({
-      id: `tag-search-invalid-${index}`,
-      name: "Malformed tag fixture",
-      tags: JSON.stringify(tags),
-      createdAt: "2022-01-01T00:00:00.000Z",
-      updatedAt: timestamp,
-    })),
+    invalidTags.map((tags, index) =>
+      storedPersonaFromRow(
+        completePersonaRow({
+          id: `tag-search-invalid-${index}`,
+          name: "Malformed tag fixture",
+          tags: JSON.stringify(tags),
+          createdAt: "2022-01-01T00:00:00.000Z",
+          updatedAt: timestamp,
+        }),
+      ),
+    ),
   );
   await db
     .insert(characters)
     .values({ id: "tag-search-invalid-json", data: "{", createdAt: timestamp, updatedAt: timestamp });
-  await db.insert(personas).values({
-    id: "tag-search-invalid-json",
-    name: "Malformed JSON fixture",
-    tags: "{",
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  });
+  await db.insert(personas).values(
+    storedPersonaFromRow(
+      completePersonaRow({
+        id: "tag-search-invalid-json",
+        name: "Malformed JSON fixture",
+        tags: "{",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }),
+    ),
+  );
 
   const getPage = async (endpoint: string, search: string, limit = 100, offset = 0, extra = "") => {
     const response = await app.inject({

@@ -1,5 +1,6 @@
 import {
   normalizeConvoBehavior,
+  normalizeNameAliases,
   normalizeCardFieldAlternatives,
   normalizeAvatarCrop,
   normalizePersonaStats,
@@ -46,6 +47,7 @@ export function projectPersona(row: PersonaStorageRow): Persona {
     personaStats: normalizePersonaStats(row.personaStats),
     tags: normalizePersonaStringArray(row.tags),
     savedStatusOptions: normalizePersonaStringArray(row.savedStatusOptions),
+    nameAliases: normalizeNameAliases(row.nameAliases),
     convoDisplayName: stringValue(row.convoDisplayName) || undefined,
     aboutMe: stringValue(row.aboutMe) || undefined,
     convoBehavior: normalizeConvoBehavior(row.convoBehavior),
@@ -104,6 +106,7 @@ export function encodePersonaUpdate(input: PersonaUpdateInput): EncodedPersonaUp
   if (Object.hasOwn(input, "tags")) encoded.tags = encodeStructured(input.tags);
   if (Object.hasOwn(input, "savedStatusOptions"))
     encoded.savedStatusOptions = encodeStructured(input.savedStatusOptions);
+  if (Object.hasOwn(input, "nameAliases")) encoded.nameAliases = encodeStructured(input.nameAliases);
   if (Object.hasOwn(input, "convoBehavior"))
     encoded.convoBehavior = input.convoBehavior === null ? "" : encodeStructured(input.convoBehavior);
   return encoded;

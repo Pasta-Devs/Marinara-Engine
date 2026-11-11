@@ -72,6 +72,7 @@ The **Metadata** tab shows:
 - **Persona ID**, with **Copy**.
 - The avatar crop.
 - **Name** and **Creator**.
+- **Other names**, nicknames, full names or titles the persona also goes by. Roleplay chats can paint them in the name color, see [Color your name in messages](choosing-your-persona.md#color-your-name-in-messages).
 - **Phonetic name**, used only when text-to-speech reads your name.
 - **Title / Comment**, a short label.
 - **Version**, default `1.0`, with an **Automatic versioning** switch.
@@ -97,7 +98,7 @@ The **Card** tab holds the fields that describe you to the AI. Each has a live t
 These features work the same as on characters, with the persona as the subject:
 
 - The wand button above each field writes it for you. See [Write a card field with the wand](creating-and-editing-characters.md#write-a-card-field-with-the-wand).
-- **Add Alternative Field** under each field gives selected chats a different version. The **Active in** list shows only chats that use this persona, and assignments pause when a chat selects another persona. See [Use an alternative field in selected chats](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
+- **Add Alternative Field** under each field gives selected chats a different version. The **Active in** list shows only chats that use this persona, and assignments pause when a chat selects another persona. You can name each alternative, and switch between them from **Chat Settings → Card Field Alternatives**. See [Use an alternative field in selected chats](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
 - **Version history** is on the **Metadata** tab. Before your first edit it reads `Previous persona states will appear here after the next edit.` **Reset** deletes every snapshot and sets the version to 1.0. See [Version history](creating-and-editing-characters.md#version-history).
 
 ### Stats tab

@@ -1731,6 +1731,56 @@ function renderRulesetSheetSection(
 /** The parts `buildGmFormatReminder` can render. */
 export type GmReminderPart = "whole" | "stable" | "turn";
 
+/**
+ * What a Roleplay chat that plays by a ruleset is taught (the Game Master's reminder is for games).
+ * The same check line and sheet commands a game's Game Master learns, and the same clocks, around a
+ * short note on when to ask for a check. The ruleset's Game Master reference goes in too, since in
+ * Roleplay the narrator is the one keeping the rules.
+ */
+export function buildRulesetRoleplayReminder(args: {
+  ruleset: import("@marinara-engine/shared").RulesetDefinition;
+  sheetBlocks: string[];
+  clocks?: RulesetClocks;
+  /** A rest the player asked for by name in this turn. */
+  playerAsksRest?: string;
+}): string {
+  const { ruleset } = args;
+  const lines = [
+    `<ruleset>`,
+    `RULESET: ${ruleset.name}`,
+    `This roleplay plays by a tabletop ruleset, and the Engine keeps its dice and character sheets. When a character tries something uncertain whose outcome matters, do not decide it yourself: write the check tag where the attempt happens. The Engine rolls it from the character's sheet, and you are then given the result to narrate. Ordinary actions that cannot really fail need no check.`,
+    `CHECKS:`,
+    renderRulesetSkillCheckLine(ruleset, false, false, false),
+    ...renderRulesetSheetSection(ruleset, args.sheetBlocks, false),
+  ];
+  if (args.playerAsksRest) {
+    lines.push(
+      ``,
+      `THE PLAYER ASKS TO REST:`,
+      `- Their turn asks for a ${args.playerAsksRest}. Unless the story stops it, write [sheet: who="party" op="rest" rest="${args.playerAsksRest}"] in this reply; a rest told without it restores nothing.`,
+    );
+  }
+  if (ruleset.clocks) {
+    lines.push(
+      ``,
+      `PROGRESS CLOCKS (shared by the scene):`,
+      `Create: [clock: name="Alarm raised" size="${ruleset.clocks.sizes[0]}"]. Allowed sizes: ${ruleset.clocks.sizes.join(", ")}; at most ${ruleset.clocks.max} clocks at once. Existing names are refused (case-insensitive).`,
+      `Tick: [clock: name="Alarm raised" tick="2"]. Negative ticks remove segments; fill is bounded to 0..size. A full clock is done and stays visible until cleared.`,
+      `Clear: [clock: name="Alarm raised" clear]. Commands apply in reply order. Only the Engine writes now/result/reason; a refused command did not happen.`,
+      ...(ruleset.clocks.text ? [ruleset.clocks.text] : []),
+      `Open clocks:`,
+      ...(args.clocks?.length
+        ? args.clocks.map(
+            (clock) => `${clock.name}: ${clock.filled}/${clock.size}${clock.filled === clock.size ? " (done)" : ""}`,
+          )
+        : ["None."]),
+    );
+  }
+  if (ruleset.gmReference) lines.push(``, `RULES REFERENCE:`, ruleset.gmReference);
+  lines.push(`</ruleset>`);
+  return lines.join("\n");
+}
+
 /** The ruleset rest the player's turn asks for by name ("we take a long rest"), the longest name that
  *  matches when several do, for the turn's reminder (laptop playtest 2026-10-25: a long rest the
  *  player asked for was told with no rest command, and nothing came back). */

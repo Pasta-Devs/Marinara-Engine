@@ -26,6 +26,7 @@ import { resolveStoredChatOptions, resolveStoredMaxTokens } from "./generation-p
 import { resolveModelAccessPolicy } from "./model-access-policy.js";
 import { parseExtra } from "./prompt-attachments.js";
 import { clampGenerationMaxOutputTokens } from "./output-token-limits.js";
+import { withAlwaysOnThinkingHeadroom } from "./agent-generation-parameters.js";
 import { resolveBaseUrl } from "./connection-base-url.js";
 
 /** One reply can ask for this many artifacts; the rest get a visible error instead of a paid call. */
@@ -239,10 +240,16 @@ async function writeHtmlArtifact(
         ? {}
         : {
             ...defaults,
-            maxTokens: clampGenerationMaxOutputTokens({
+            maxTokens: withAlwaysOnThinkingHeadroom({
               provider: connection.provider,
               model: connection.model,
-              maxTokens: resolveStoredMaxTokens(connection.defaultParameters, HTML_ARTIFACT_MAX_TOKENS),
+              maxTokens: clampGenerationMaxOutputTokens({
+                provider: connection.provider,
+                model: connection.model,
+                maxTokens: resolveStoredMaxTokens(connection.defaultParameters, HTML_ARTIFACT_MAX_TOKENS),
+                maxTokensOverride: connection.maxTokensOverride,
+              }),
+              reasoningEffort: defaults.reasoningEffort,
               maxTokensOverride: connection.maxTokensOverride,
             }),
             maxContext: policy.effectiveMaxContext,

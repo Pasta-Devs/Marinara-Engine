@@ -70,7 +70,7 @@ An aggregator is a service where one key reaches models from many companies. Ope
 2. An OAuth access token, for example from `gcloud auth print-access-token`.
 3. A Vertex API key.
 
-**Gemini 4 Argon** runs only in the `global`, `us`, and `eu` locations, not in one region such as `us-central1`, according to a note in Marinara's code that follows Google's documentation. To use it, set the address to `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. With another location, Google returns an error and Marinara shows it.
+**Gemini 4 Argon** and **Gemini 4 Carbon** run only in the `global`, `us`, and `eu` locations, not in one region such as `us-central1`, according to a note in Marinara's code that follows Google's documentation. To use either, set the address to `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. With another location, Google returns an error and Marinara shows it.
 
 ### Cohere
 

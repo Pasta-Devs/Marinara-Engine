@@ -7,6 +7,7 @@ import {
 } from "../services/multiplayer/generation-policy.js";
 import { rejectGenerationOutput, type GenerationOutput } from "./generate/sse.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
+import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 import {
   SYMBOL_DICE_NOTATION_MAX_LENGTH,
   TTS_SETTINGS_KEY,
@@ -3810,23 +3811,35 @@ export function gameGenOptions(
   provider?: APIProvider | string | null,
 ): ChatOptions {
   const stored = resolveStoredChatOptions(parameters, provider ?? "", model);
+  const maxTokens = resolveStoredMaxTokens(parameters, defaults.maxTokens ?? 8192);
   const options: ChatOptions = {
     model,
     temperature: 1,
     topP: 1,
     ...defaults,
     ...Object.fromEntries(Object.entries(stored).filter(([, value]) => value !== undefined)),
-    maxTokens: resolveStoredMaxTokens(parameters, defaults.maxTokens ?? 8192),
+    maxTokens,
     maxContext: parameters?.maxContext ?? defaults.maxContext,
     customParameters: mergeCustomParameters(defaults.customParameters, stored.customParameters),
     enabledParameters: mergeEnabledParameters(defaults.enabledParameters, stored.enabledParameters),
   };
-  // Explicitly disabling a setting must also clear a helper default.
-  if (parameters?.reasoningEffort !== undefined || parameters?.enabledParameters?.reasoningEffort === false) {
+  // Explicitly disabling a setting must also clear a helper default. A level named with nothing saved (Gemini 4 Argon
+  // and Carbon) is sent too, so the call thinks with it.
+  if (
+    stored.reasoningEffort !== undefined ||
+    parameters?.reasoningEffort !== undefined ||
+    parameters?.enabledParameters?.reasoningEffort === false
+  ) {
     options.reasoningEffort = stored.reasoningEffort;
     options.enableThinking = !!stored.reasoningEffort && stored.reasoningEffort !== "none";
   }
   if (parameters?.verbosity !== undefined) options.verbosity = stored.verbosity;
+  options.maxTokens = withAlwaysOnThinkingHeadroom({
+    provider: provider ?? "",
+    model,
+    maxTokens,
+    reasoningEffort: options.reasoningEffort,
+  });
 
   if (resolveModelAccessPolicy({ provider, model }).suppressModelParameters) {
     return {

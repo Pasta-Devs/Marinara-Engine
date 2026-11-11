@@ -186,7 +186,13 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
     const image = await validateImageAssetFile(filePath, filename);
     if (!image) return reply.status(404).send({ error: "Not found" });
 
-    return sendValidatedMediaFile(reply, image, { method: req.method, rangeHeader: req.headers.range });
+    // Upload names every file with a fresh id and nothing rewrites it (a profile restore brings back the same bytes),
+    // so a URL is cached for good. Private: personal art can sit behind optional login or a proxy.
+    return sendValidatedMediaFile(reply, image, {
+      method: req.method,
+      rangeHeader: req.headers.range,
+      cacheControl: "private, max-age=31536000, immutable",
+    });
   });
 
   // Move an image into (or out of) a folder. folderId null = root.

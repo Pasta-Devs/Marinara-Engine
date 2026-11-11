@@ -334,6 +334,25 @@ try {
         `${family} wire payload keeps the instruction after player input`,
       );
     }
+    // Gemini 4 Argon thinks at medium with nothing saved, so its planning budget keeps room for that thinking.
+    wireFamily = "google";
+    await planGameToolCalls({
+      connection: { ...plannerWithKey, provider: "google", model: "gemini-4-argon", defaultParameters: null },
+      baseUrl: `http://127.0.0.1:${address.port}`,
+      messages: [{ role: "user", content: "Try the gate." }],
+      tools: [
+        {
+          type: "function",
+          function: { name: "roll_dice", description: "roll", parameters: { type: "object", properties: {} } },
+        },
+      ],
+      forceToolCall: false,
+      signal: new AbortController().signal,
+      debugMode: false,
+      debugLog: () => {},
+    });
+    assert.equal(outbound?.generationConfig?.thinkingConfig?.thinkingLevel, "medium");
+    assert.ok(outbound?.generationConfig?.maxOutputTokens > 2048, "Argon planning keeps room for its thinking");
   } finally {
     await new Promise<void>((resolve, reject) => wireServer.close((error) => (error ? reject(error) : resolve())));
   }

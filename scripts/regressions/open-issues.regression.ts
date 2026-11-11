@@ -697,7 +697,7 @@ assert.deepEqual(
 );
 assert.match(
   characterRoutesSource,
-  /app\.post<\{ Params: \{ id: string \} \}>\("\/:id\/avatar"[\s\S]{0,2400}enqueueUpdate\(characterUpdateQueues, id, async \(\) => \{\s*const validatedData = await validateCharacterGalleryReferences/u,
+  /app\.post<\{ Params: \{ id: string \} \}>\("\/:id\/avatar"[\s\S]{0,2400}withCharacterUpdateQueue\(id, async \(\) => \{\s*const validatedData = await validateCharacterGalleryReferences/u,
   "Embedded card updates must serialize writes and validate character-owned gallery references",
 );
 

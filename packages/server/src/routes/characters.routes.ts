@@ -37,7 +37,11 @@ import type {
   ExportEnvelope,
   ImageAnimation,
 } from "@marinara-engine/shared";
-import { createCharactersStorage, type PersonaStorageRow } from "../services/storage/characters.storage.js";
+import {
+  createCharactersStorage,
+  withCharacterUpdateQueue,
+  type PersonaStorageRow,
+} from "../services/storage/characters.storage.js";
 import { createCharacterCatalog } from "../services/storage/character-catalog.js";
 import { encodePersonaCreate, encodePersonaUpdate, projectPersona } from "../services/personas/persona-projector.js";
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
@@ -1026,7 +1030,6 @@ export async function charactersRoutes(app: FastifyInstance) {
   const lorebooksStorage = createLorebooksStorage(app.db);
   const connections = createConnectionsStorage(app.db);
   const promptOverridesStorage = createPromptOverridesStorage(app.db);
-  const characterUpdateQueues = new Map<string, Promise<unknown>>();
   const personaUpdateQueues = new Map<string, Promise<unknown>>();
 
   function enqueueUpdate<T>(queues: Map<string, Promise<unknown>>, id: string, update: () => Promise<T>): Promise<T> {
@@ -1187,7 +1190,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         continue;
       }
       try {
-        const outcome = await enqueueUpdate(characterUpdateQueues, id, () =>
+        const outcome = await withCharacterUpdateQueue(id, () =>
           app.db.transaction(async () => {
             const current = await storage.getById(id);
             if (!current) return "missing" as const;
@@ -1634,7 +1637,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Params: { id: string } }>("/:id/versions/reset", async (req, reply) => {
-    const reset = await enqueueUpdate(characterUpdateQueues, req.params.id, () => storage.resetVersions(req.params.id));
+    const reset = await withCharacterUpdateQueue(req.params.id, () => storage.resetVersions(req.params.id));
     if (!reset) return reply.status(404).send({ error: "Character not found" });
     return reset;
   });
@@ -1677,7 +1680,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     // in flight wins. Checked inside the per-character queue to stay atomic.
     const requireEmptySummary = body.requireEmptySummary === true;
     const characterDataUpdate = update.data ?? {};
-    const result = await enqueueUpdate(characterUpdateQueues, req.params.id, async () => {
+    const result = await withCharacterUpdateQueue(req.params.id, async () => {
       if (requireEmptySummary) {
         const current = await storage.getById(req.params.id);
         const currentData = current ? (parseCharacterDataRecord(current.data) as Partial<CharacterData>) : undefined;
@@ -1714,7 +1717,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Tracker-card paint must be a JSON object" });
     }
 
-    const updated = await enqueueUpdate(characterUpdateQueues, req.params.id, async () => {
+    const updated = await withCharacterUpdateQueue(req.params.id, async () => {
       const char = await storage.getById(req.params.id);
       if (!char) return null;
       const currentData = parseCharacterDataRecord(char.data);
@@ -2290,7 +2293,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     }
 
     await characterGallery.remove(imageId);
-    await enqueueUpdate(characterUpdateQueues, id, async () => {
+    await withCharacterUpdateQueue(id, async () => {
       const character = await storage.getById(id);
       if (!character) return null;
       const characterData = parseCharacterDataRecord(character.data);
@@ -2658,7 +2661,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       await writeFile(filepath, imageBuffer);
       const characterData =
         body.data === undefined ? {} : (updateCharacterSchema.parse({ data: body.data }).data ?? {});
-      const updated = await enqueueUpdate(characterUpdateQueues, id, async () => {
+      const updated = await withCharacterUpdateQueue(id, async () => {
         const validatedData = await validateCharacterGalleryReferences(id, characterData, (imageId) =>
           characterGallery.getById(imageId),
         );
@@ -2796,6 +2799,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const versionOptions = {
       versionSource: typeof rawBody.versionSource === "string" ? rawBody.versionSource : undefined,
       versionReason: typeof rawBody.versionReason === "string" ? rawBody.versionReason : undefined,
+      skipVersionSnapshot: rawBody.skipVersionSnapshot === true,
     };
     if (Object.keys(body).length === 0 && !hasCharacterSheetImageId && !hasUseCharacterSheetAsReference) {
       const current = await storage.getPersona(req.params.id);

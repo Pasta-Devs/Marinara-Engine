@@ -19,7 +19,9 @@ import { useMatchMedia } from "../../hooks/use-match-media";
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { getChatSettingsWindowProps } from "./chat-settings-window";
 import { ChatBranchGraphWindow } from "./ChatBranchGraphWindow";
+import { parseChatMetadata } from "../../lib/chat-display";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
+import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
 
 const loadChatSettingsDrawer = async () => {
   const module = await import("./ChatSettingsDrawer");
@@ -43,6 +45,12 @@ const ChatSetupWizard = lazy(async () => {
 const PeekPromptModal = lazy(async () => {
   const module = await import("./PeekPromptModal");
   return { default: module.PeekPromptModal };
+});
+
+// Game Mode's character sheet brings Game Mode's screen with it, so it loads only once a sheet opens.
+const RoleplayRulesetSheet = lazy(async () => {
+  const module = await import("./RoleplayRulesetSheet");
+  return { default: module.RoleplayRulesetSheet };
 });
 
 type ChatData = ComponentProps<typeof ChatSettingsDrawer>["chat"];
@@ -356,6 +364,7 @@ export function ChatCommonOverlays({
   // Popped-out sections render from inside Chat Settings, so it stays mounted (hidden) while any is out.
   // The setup wizard sits below floating windows, so they wait until it closes; their layout is kept.
   const settingsSectionsPoppedOut = useHostHasDetachedDrawers(CHAT_SETTINGS_WINDOW_ID) && !wizardOpen;
+  const roleplaySheetChatId = useRoleplaySheetStore((state) => state.open?.chatId);
   return (
     <>
       {chat && (settingsOpen || settingsSectionsPoppedOut) && (
@@ -385,6 +394,11 @@ export function ChatCommonOverlays({
         </Suspense>
       )}
       {chat && <ChatBranchGraphWindow chatId={chat.id} groupId={chat.groupId ?? null} />}
+      {chat?.mode === "roleplay" && roleplaySheetChatId === chat.id && (
+        <Suspense fallback={null}>
+          <RoleplayRulesetSheet chatId={chat.id} metadata={parseChatMetadata(chat.metadata)} />
+        </Suspense>
+      )}
       {chat && (
         <Suspense fallback={null}>{wizardOpen && <ChatSetupWizard chat={chat} onFinish={onWizardFinish} />}</Suspense>
       )}

@@ -41,8 +41,14 @@ export function createClientStaticOptions(clientDist: string): FastifyStaticOpti
     // @fastify/static applies its generated Cache-Control header after
     // setHeaders. Disable that default so the update-safe policies below win.
     cacheControl: false,
+    // Send the client build's .br/.gz copies (client scripts/precompress.mjs) to browsers that accept them, else
+    // the plain file. The copies get no routes of their own. The SPA fallback above reads index.html itself and
+    // stays plain (a few KB).
+    preCompressed: true,
+    globIgnore: ["**/*.br", "**/*.gz"],
     setHeaders(res, filePath) {
-      const fileName = basename(filePath);
+      // filePath is the copy actually sent, so index.html.br must keep index.html's policy.
+      const fileName = basename(filePath).replace(/\.(?:br|gz)$/u, "");
 
       if (REVALIDATE_FILES.has(fileName)) {
         res.header("Cache-Control", "no-cache, must-revalidate");

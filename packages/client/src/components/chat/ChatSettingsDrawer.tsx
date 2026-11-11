@@ -91,7 +91,9 @@ import {
   Wallpaper,
   Search,
   UserRound,
+  Dices,
 } from "lucide-react";
+import { RoleplayRulesetSettings } from "./RoleplayRuleset";
 import { NEUTRAL_PANEL_SCROLL_AREA, SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { FloatingWindow } from "../ui/FloatingWindow";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
@@ -102,12 +104,14 @@ import { PersonaHistoryReassignDropdown } from "../../features/chat-settings/sec
 import { ChatSettingsSection as Section } from "../../features/chat-settings/ChatSettingsSection";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
+import { CardFieldAlternativesSection } from "../../features/chat-settings/sections/CardFieldAlternativesSection";
 import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameSection";
 import { ChatVariablesSection } from "../../features/chat-settings/sections/ChatVariablesSection";
 import { CombatStyleSection } from "../../features/chat-settings/sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { useHasDecisionModel } from "../../hooks/use-decision-model";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
+import { resolvePersonaInlineNames } from "../../lib/inline-name-colors";
 import { ConnectionSection, type ChatConnectionOption } from "../../features/chat-settings/sections/ConnectionSection";
 import { ConversationPromptSection } from "../../features/chat-settings/sections/ConversationPromptSection";
 import { DiscordMirrorControls } from "../../features/chat-settings/sections/DiscordMirrorSection";
@@ -739,6 +743,7 @@ const CHAT_SETTINGS_ORDER = {
   combatStyle: -475,
   persona: -1000,
   characters: -900,
+  cardFieldAlternatives: -890,
   groupChat: -800,
   scopedRegex: -750,
   chatVariables: -740,
@@ -1281,6 +1286,8 @@ export function ChatSettingsDrawer({
   const legacyColorInlineNames = useUIStore((s) => s.colorInlineNames);
   const colorInlineNames =
     typeof metadata.colorInlineNames === "boolean" ? metadata.colorInlineNames : legacyColorInlineNames;
+  // Unset follows the character switch, so a chat with coloring off stays unchanged.
+  const colorPersonaInlineNames = resolvePersonaInlineNames(metadata.colorPersonaInlineNames, colorInlineNames);
   const activeCardsHaveCss = useMemo(() => {
     if (!allCharacters) return false;
     const byId = new Map((allCharacters as Array<{ id: string; data: unknown }>).map((c) => [c.id, c]));
@@ -6456,6 +6463,22 @@ export function ChatSettingsDrawer({
                     : (personas.find((persona) => persona.id === chat.personaId)?.name ?? null)
                 }
               />
+              {isRoleplayMode && (
+                <SettingsSwitch
+                  label={localizeUi("ui.chat.chatsettingsdrawer.colorPersonaNameInText")}
+                  description={localizeUi("ui.chat.chatsettingsdrawer.colorPersonaNameInTextDescription")}
+                  checked={colorPersonaInlineNames}
+                  onChange={(checked) => updateMeta.mutate({ id: chat.id, colorPersonaInlineNames: checked })}
+                  labelPosition="start"
+                  className={cn(
+                    "mt-2 justify-between rounded-md px-3 py-2.5 text-left",
+                    colorPersonaInlineNames
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                  )}
+                  labelClassName="text-[0.6875rem] font-medium"
+                />
+              )}
             </Section>
           )}
 
@@ -6660,6 +6683,27 @@ export function ChatSettingsDrawer({
               {cardThemingControls}
             </Section>
           )}
+
+          {/* Ruleset — a Roleplay chat played by a Game Mode ruleset */}
+          {isRoleplayMode && !metadata.multiplayer && (
+            <Section
+              id="roleplay-ruleset"
+              style={{ order: CHAT_SETTINGS_ORDER.characters + 1 }}
+              label={localizeUi("chat.settings.ruleset.label")}
+              icon={<Dices size="0.875rem" />}
+              help={localizeUi("chat.settings.ruleset.help")}
+            >
+              <RoleplayRulesetSettings chatId={chat.id} metadata={metadata} />
+            </Section>
+          )}
+
+          {/* Card field alternatives — hidden when no card in this chat has any */}
+          <CardFieldAlternativesSection
+            chat={chat}
+            characters={characters}
+            personas={personas}
+            style={{ order: CHAT_SETTINGS_ORDER.cardFieldAlternatives }}
+          />
 
           {/* Scoped Regex Scripts — only shown when a chat character has scoped scripts */}
           {chatScopedRegexGroups.length > 0 && (

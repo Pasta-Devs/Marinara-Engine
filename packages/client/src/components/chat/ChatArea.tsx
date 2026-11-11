@@ -1402,6 +1402,9 @@ const LocalChatArea = memo(function LocalChatArea({
             avatarUrl: row.avatarPath || undefined,
             avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
             combatIcon: parseCombatIconChoice(extensions.combatIcon),
+            nameAliases: Array.isArray(extensions.nameAliases)
+              ? extensions.nameAliases.filter((alias: unknown): alias is string => typeof alias === "string")
+              : undefined,
             nameColor: typeof extensions.nameColor === "string" ? extensions.nameColor : undefined,
             dialogueColor: typeof extensions.dialogueColor === "string" ? extensions.dialogueColor : undefined,
             boxColor: typeof extensions.boxColor === "string" ? extensions.boxColor : undefined,
@@ -1431,6 +1434,7 @@ const LocalChatArea = memo(function LocalChatArea({
       avatarUrl: persona.avatarPath || undefined,
       avatarCrop: persona.avatarCrop ?? null,
       combatIcon: parseCombatIconChoice(persona.personaStats?.combatIcon),
+      nameAliases: persona.nameAliases?.length ? persona.nameAliases : undefined,
       nameColor: persona.nameColor || undefined,
       dialogueColor: persona.dialogueColor || undefined,
       boxColor: persona.boxColor || undefined,

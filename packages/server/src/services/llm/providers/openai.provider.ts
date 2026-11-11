@@ -1268,8 +1268,8 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private shouldSendPenaltyParams(model: string): boolean {
-    // DeepSeek marks both penalties deprecated and states they no longer take effect. Argon and the newer Gemini Flash
-    // models reject them; a custom endpoint keeps them, as it keeps their samplers.
+    // DeepSeek marks both penalties deprecated and states they no longer take effect. Argon, Carbon and the newer Gemini
+    // Flash models reject them; a custom endpoint keeps them, as it keeps their samplers.
     return (
       this.providerKind !== "deepseek" &&
       !this.isXAIReasoningModel(model) &&
@@ -1296,7 +1296,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       return true;
     // Claude adaptive-only models forbid all sampling params (covers reverse proxies).
     if (isClaudeAdaptiveOnlyNoSamplingModel(m)) return true;
-    // Argon and the newer Gemini Flash models ignore sampling and reject penalties (OpenRouter, NanoGPT).
+    // Argon, Carbon and the newer Gemini Flash models ignore sampling and reject penalties (OpenRouter, NanoGPT).
     if (isGeminiStrictRequestModel(m)) return true;
     return false;
   }
