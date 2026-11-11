@@ -99,7 +99,7 @@ L'onglet **Card** contient les champs qui te décrivent à l'IA. Chacun affiche 
 Ces fonctions marchent comme sur les personnages, avec le persona pour sujet :
 
 - Le bouton baguette au-dessus de chaque champ l'écrit pour toi. Voir [Écrire un champ de la fiche avec la baguette](creating-and-editing-characters.md#write-a-card-field-with-the-wand).
-- **Add Alternative Field** (ajouter un champ alternatif), sous chaque champ, donne une autre version du champ à certains chats. La liste **Active in** (actif dans) ne montre que les chats qui utilisent ce persona, et les affectations sont suspendues quand un chat choisit un autre persona. Voir [Utiliser un champ alternatif dans certains chats](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
+- **Add Alternative Field** (ajouter un champ alternatif), sous chaque champ, donne une autre version du champ à certains chats. La liste **Active in** (actif dans) ne montre que les chats qui utilisent ce persona, et les affectations sont suspendues quand un chat choisit un autre persona. Tu peux nommer chaque alternative et passer de l'une à l'autre depuis **Chat Settings → Card Field Alternatives** (réglages du chat → alternatives des champs de la fiche). Voir [Utiliser un champ alternatif dans certains chats](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
 - **Version history** (historique des versions) se trouve dans l'onglet **Metadata**. Avant ta première modification, il affiche `Previous persona states will appear here after the next edit.` **Reset** (réinitialiser) supprime tous les instantanés et remet la version à 1.0. Voir [Historique des versions](creating-and-editing-characters.md#version-history).
 
 <a id="stats-tab"></a>

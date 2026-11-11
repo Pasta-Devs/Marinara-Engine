@@ -34,14 +34,21 @@ Dans **App Style**, le menu déroulant **Color Scheme** (jeu de couleurs) propos
 
 **Visual Style** (style visuel) propose deux cartes. **Default (Marinara)** est un look rétro Y2K avec des effets de halo. **SillyTavern** est un rendu épuré et minimaliste. Ce choix ne change que l'apparence et n'a rien à voir avec l'import depuis SillyTavern.
 
-### Background Color et Accent Color
+### Arrière-plan de l'application et Accent Color
 
-Les deux acceptent une couleur unie ou un dégradé, un fondu progressif entre deux couleurs ou plus. Pour revenir à la valeur par défaut, vide le champ avec **Reset to default** (revenir à la valeur par défaut).
+**Accent Color** accepte une couleur unie ou un dégradé, un fondu progressif entre deux couleurs ou plus. Pour revenir à la valeur par défaut, vide le champ avec **Reset to default** (revenir à la valeur par défaut).
 
 | Réglage | Ce qu'il colore | Par défaut |
 | --- | --- | --- |
-| **Background Color** (couleur d'arrière-plan) | La coque principale de l'application. | `#050312` en Dark, `#faf8ff` en Light |
 | **Accent Color** (couleur d'accentuation) | Les boutons, les icônes actives, les contours de focus, les surbrillances, les bordures des panneaux et les contrôles autour du chat. | **Marinara Gradient**, un dégradé de rose, d'orange et de cyan |
+
+Pour changer l'arrière-plan de la coque principale de l'application, utilise **UI Editor** (éditeur d'interface) dans **App Style** :
+
+1. Ouvre le menu déroulant qui affiche **Choose what to change…** (choisir quoi modifier) et sélectionne **Whole app** (toute l'application).
+2. Clique sur **Background** (arrière-plan) et choisis une couleur ou un dégradé.
+3. Clique sur **Save** (enregistrer).
+
+Sans arrière-plan enregistré, l'application utilise `#050312` en Dark et `#faf8ff` en Light. Pour revenir à cette valeur par défaut, rouvre **Whole app** et clique sur **Reset to default**.
 
 Une valeur comme `#050312` est un code couleur hexadécimal, une façon courte d'écrire une couleur.
 

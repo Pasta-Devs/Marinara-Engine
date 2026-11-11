@@ -34,14 +34,21 @@ In **App Style** bietet das Dropdown-Menü **Color Scheme** (Farbschema) **Dark*
 
 **Visual Style** (visueller Stil) hat zwei Karten. **Default (Marinara)** ist ein Retro-Y2K-Look mit Leuchteffekten. **SillyTavern** ist ein aufgeräumter, minimalistischer Look. Die Wahl ändert nur das Aussehen und hat nichts mit dem Import aus SillyTavern zu tun.
 
-### Background Color und Accent Color
+### App-Hintergrund und Accent Color
 
-Beide akzeptieren eine einfarbige Angabe oder einen Farbverlauf, also einen weichen Übergang zwischen zwei oder mehr Farben. Mit **Reset to default** (auf Standard zurücksetzen) leerst du ein Feld und kehrst zum Standard zurück.
+**Accent Color** akzeptiert eine einfarbige Angabe oder einen Farbverlauf, also einen weichen Übergang zwischen zwei oder mehr Farben. Mit **Reset to default** (auf Standard zurücksetzen) leerst du das Feld und kehrst zum Standard zurück.
 
 | Einstellung | Was sie färbt | Standard |
 | --- | --- | --- |
-| **Background Color** (Hintergrundfarbe) | Die Grundfläche der App. | `#050312` in Dark, `#faf8ff` in Light |
 | **Accent Color** (Akzentfarbe) | Schaltflächen, aktive Symbole, Fokusrahmen, Hervorhebungen, Panel-Umrandungen und die Bedienelemente rund um den Chat. | **Marinara Gradient**, ein Verlauf aus Pink, Orange und Cyan |
+
+Um den Hintergrund der Grundfläche der App zu ändern, nutze den **UI Editor** (Oberflächen-Editor) in **App Style**:
+
+1. Öffne das Dropdown-Menü, das **Choose what to change…** (Was soll geändert werden) zeigt, und wähle **Whole app** (ganze App).
+2. Klick auf **Background** (Hintergrund) und wähle eine Farbe oder einen Farbverlauf.
+3. Klick auf **Save** (Speichern).
+
+Ohne gespeicherten Hintergrund verwendet die App `#050312` in Dark und `#faf8ff` in Light. Um zum Standard zurückzukehren, öffne erneut **Whole app** und klick auf **Reset to default**.
 
 Ein Wert wie `#050312` ist ein Hex-Farbcode, eine Kurzschreibweise für eine Farbe.
 

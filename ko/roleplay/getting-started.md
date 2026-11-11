@@ -85,6 +85,7 @@ Roleplay(롤플레이)는 이야기를 위한 채팅 모드입니다. 메시지 
 - Roleplay에는 가벼운 전투 계층이 있습니다. Combat 에이전트를 추가한 다음 채팅 입력란 위의 **Encounter**(전투)를 클릭하세요. [전투 인카운터(Roleplay)](combat-encounters.md)를 참고하세요.
 - 장면은 회상이나 다른 장소를 다루는 곁가지입니다. [장면: Roleplay 분기하기](scenes.md)를 참고하세요.
 - 이야기 흐름을 이끌려면 [Narrative Director와 Secret Plot](narrative-director.md)을 참고하세요.
+- 주사위 판정과 캐릭터 시트가 있는 탁상용 규칙으로 플레이하려면 [Roleplay: 규칙 집합으로 플레이하기](rulesets.md)를 참고하세요.
 
 ## 모델 고르기
 
@@ -207,6 +208,7 @@ CYOA는 Choose Your Own Adventure의 약자입니다. CYOA Choices 에이전트�
 - [Roleplay HUD와 트래커](hud-and-trackers.md)
 - [전투 인카운터(Roleplay)](combat-encounters.md)
 - [Narrative Director와 Secret Plot](narrative-director.md)
+- [Roleplay: 규칙 집합으로 플레이하기](rulesets.md)
 - [장면: Roleplay 분기하기](scenes.md)
 - [캐릭터 스프라이트](../characters/sprites.md)
 - [Conversation을 Roleplay나 Game에 연결하기](../chats/connected-chats.md)

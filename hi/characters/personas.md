@@ -99,7 +99,7 @@ Persona Editor [Character Editor](creating-and-editing-characters.md) की त
 ये सुविधाएँ कैरेक्टर की तरह ही काम करती हैं, बस इनका विषय पर्सोना होता है:
 
 - हर फ़ील्ड के ऊपर वाला वैंड बटन उसे आपके लिए लिख देता है। देखें [वैंड से कार्ड की फ़ील्ड लिखना](creating-and-editing-characters.md#write-a-card-field-with-the-wand)।
-- हर फ़ील्ड के नीचे **Add Alternative Field** (वैकल्पिक फ़ील्ड जोड़ें) चुनी हुई चैट को उस फ़ील्ड का एक अलग वर्ज़न देता है। **Active in** लिस्ट में सिर्फ़ वे चैट दिखती हैं जो इस पर्सोना को इस्तेमाल करती हैं, और जब कोई चैट दूसरा पर्सोना चुनती है तो असाइनमेंट रुक जाते हैं। देखें [चुनी हुई चैट में वैकल्पिक फ़ील्ड इस्तेमाल करना](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats)।
+- हर फ़ील्ड के नीचे **Add Alternative Field** (वैकल्पिक फ़ील्ड जोड़ें) चुनी हुई चैट को उस फ़ील्ड का एक अलग वर्ज़न देता है। **Active in** लिस्ट में सिर्फ़ वे चैट दिखती हैं जो इस पर्सोना को इस्तेमाल करती हैं, और जब कोई चैट दूसरा पर्सोना चुनती है तो असाइनमेंट रुक जाते हैं। आप हर विकल्प को नाम दे सकते हैं, और **Chat Settings → Card Field Alternatives** (चैट सेटिंग्स → कार्ड फ़ील्ड के विकल्प) से उनके बीच स्विच कर सकते हैं। देखें [चुनी हुई चैट में वैकल्पिक फ़ील्ड इस्तेमाल करना](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats)।
 - **Version history** (वर्ज़न हिस्ट्री) **Metadata** टैब पर है। पहला बदलाव करने से पहले इसमें `Previous persona states will appear here after the next edit.` लिखा रहता है। **Reset** हर स्नैपशॉट डिलीट कर देता है और वर्ज़न को 1.0 पर सेट कर देता है। देखें [वर्ज़न हिस्ट्री](creating-and-editing-characters.md#version-history)।
 
 <a id="stats-tab"></a>

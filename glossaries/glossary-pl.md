@@ -1424,3 +1424,50 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`, #8954; `development/option
   raz i czeka na jej zakończenie"; "logged and ignored" is "zapisywane w logach i ignorowane",
   after "jest zapisywany w logach" (`:344`); "soft seam" keeps **miękki interfejs**; "must
   still cope when it is missing" is "musi sobie radzić także bez tego wywołania".
+
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (edytor interfejsu), **Whole app** as (cała aplikacja) and **Choose what to change…** as (wybór tego, co zmienić); the heading is "Tło aplikacji i Accent Color". The steps use "Kliknij" and "lista rozwijana".
+
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives** is glossed (alternatywne pola karty) at its first bold use in
+  `creating-and-editing-characters.md` and again in the personas bullet, inside the combined
+  **Chat Settings → Card Field Alternatives** (ustawienia czatu → alternatywne pola karty) pair.
+  The first rule never names the label; it writes **Chat Settings** bare. The pack calls an
+  alternative field **wariant** in this section, so the section label names the card fields it
+  holds (*alternatywne pola karty*) instead of inventing a second word for "alternative".
+- **Original** takes (oryginał) once, in the paragraph: the picker row restores a field's original
+  text, and the pack already writes **oryginalne pole** in the same section.
+- Step 2's example title, **Backstory alternative 1**, is the app's own string:
+  `ui/pl.json` `ui.cardFields.alternativeTitle` is **{{field}} – alternatywa {{index}}** with
+  `chat.settings.inlineEditor.fields.backstory` = Historia postaci, hence
+  **Backstory alternative 1** (Historia postaci – alternatywa 1), reusing the dash of the template.
+- *Optional* opens the step as **Opcjonalnie:** (`agents/hierarchical-maps.md:76`). *Its title* is
+  **jego tytuł**, masculine for **wariant**. *Up to 60 characters* is **najwyżej 60 znaków**, the
+  pack's **najwyżej** for a cap (`home/professor-mari.md:133` **najwyżej 60 000 znaków**);
+  *leave the name empty to keep the numbered title* is
+  **Zostaw nazwę pustą, żeby zachować numerowany tytuł**, with **zachować** for a preserved value.
+- *Pick* in the new paragraph is **Wybierz**, as in the section's other steps. *Applies from the
+  next reply* is **obowiązuje od następnej odpowiedzi**, after `home/professor-mari.md:262`
+  **od jej następnej odpowiedzi**. *The section is hidden* is **Sekcja jest ukryta**, after
+  `TROUBLESHOOTING.md:493` **Sekcja pozostaje ukryta**.
+- The first rule keeps **Czat może używać tylko jednego wariantu danego pola** and adds
+  **albo wybranie innego wariantu w Chat Settings**; **Chat Settings** runs bare after its gloss,
+  as in `home/professor-mari.md` and the rest of the file.
+- In the personas bullet, *name each alternative* is **Każdy wariant można nazwać** and *switch
+  between them* is **między wariantami przełączać się**; the path is
+  **Chat Settings → Card Field Alternatives** (ustawienia czatu → alternatywne pola karty), one
+  gloss pair for the bold span. No product name is declined (§3).
+
+These are translation choices, not a new native-reader review.
+## Rulesets in Roleplay (2026-11-11, #8999)
+
+Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):
+
+- The new page reuses the Game Mode vocabulary: *ruleset* **zestaw zasad**, *sheet* **arkusz** (postaci), *check* **test**, *skill* **umiejętność**, *difficulty* **trudność**, *turn* **tura**, *swipe* **swipe** (kept Latin, in the inflected forms the pack already uses: "swipe'ami", "swipe'a"), *branch* **gałąź**. *Dice card* is **karta rzutu**, the form `game/dice-and-skill-checks.md` uses; *tracker panel* keeps Latin **Tracker Panel**, as `roleplay/hud-and-trackers.md` writes it; a sheet *resource* is **zasoby**, the word `game/rulesets.md` uses.
+- Its labels use the pack's gloss form (English bold, Polish in parentheses): **Chat Settings** (ustawienia czatu), **Ruleset** (zestaw zasad), **Build sheet** (utwórz arkusz), **Open sheet** (otwórz arkusz), **Remove sheet** (usuń arkusz), **Add missing sheets** (dodaj brakujące arkusze), **No sheet:** (brak arkusza), **Give Mira a sheet** (daj Mirze arkusz), **Edit ruleset sheet** (edycja arkusza zestawu zasad), **Save sheet** (zapisz arkusz), **Rest** (odpoczynek), **Success** (sukces), **Failure** (porażka). **None** in the picker is (brak), and the UI string `chat.settings.ruleset.none` capitalises it as **Brak** for a bare list entry.
+- UI cross-references quote the pack's own translated label in straight double quotes and point with **→**: `chat.settings.ruleset.noMembers` says "Dodaj brakujące arkusze" and `removeMessage` says `Ustawienia czatu → Zestaw zasad`. The strings use the pack's second-person "ty" imperatives (Dodaj, Daj, Usuń, Otwórz) and undeclined product names.
+- `game/rulesets.md` gains the Roleplay sentence after the Official/Community bullets and, with it, `<a id="get-a-ruleset"></a>` above **Uzyskanie zestawu zasad**: the new page links `#get-a-ruleset`, and a translated heading yields no English slug.
+- **Scroll button** is **Przycisk ze zwojem**, not *Przycisk przewijania*: *Use the character sheets* in `roleplay/rulesets.md` describes the parchment-scroll control (`ScrollText` in `TrackerDataSidebar.tsx`) that opens your persona's sheet, and the pack's word for a parchment scroll is **zwój** (`chats/guided-and-impersonate.md:42`, "zapisana wskazówka, zwój"). Przewijanie stays reserved for actual scrolling, per R-77 (*scrollbar* = pasek przewijania).
+- *Dice checks* in `chats/chat-settings.md` is **rzuty kośćmi i testy umiejętności**, the collocation `roleplay/getting-started.md` and every `dice-and-skill-checks.md` link already use — never "testy kośćmi".

@@ -1,6 +1,6 @@
 {
   "language": "fr",
-  "sourceCommit": "85ac5acacc7d2827d25d4c14a60ad5e6fbdc2d3f",
+  "sourceCommit": "dcbaa4b9b87431f9b4a98fa73fa9aca9bdcfdf1a",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -84,8 +84,8 @@
     },
     {
       "path": "appearance/appearance-settings.md",
-      "sha256": "6403f6e9f83be81a189f83fbbec1178c65dea27cc287dcde5d65bf71a24c7c45",
-      "bytes": 12910
+      "sha256": "af0f5af878afda6d3df7f8c04141d6d6a2f49a2ebbc1b8e254fa3d62ded805d7",
+      "bytes": 13401
     },
     {
       "path": "appearance/card-css-theming.md",
@@ -124,8 +124,8 @@
     },
     {
       "path": "characters/creating-and-editing-characters.md",
-      "sha256": "c27e9cebb0db776747e4e7287d6849775b98c98da360244ea85b68be984a9e5d",
-      "bytes": 19916
+      "sha256": "ac71520d348cb7828b598e0f84dd7aee382fe881a2d87d91e9b8d444bb481edd",
+      "bytes": 20689
     },
     {
       "path": "characters/galleries.md",
@@ -149,8 +149,8 @@
     },
     {
       "path": "characters/personas.md",
-      "sha256": "e8f216781f848b4f8938006e1297afd9445b3848ad7911172922916b7c21dc78",
-      "bytes": 12569
+      "sha256": "7d5e965987c3f2170285f520552ad32768177f3765ba7d5c00fb21501e29634e",
+      "bytes": 12747
     },
     {
       "path": "characters/sprites.md",
@@ -164,8 +164,8 @@
     },
     {
       "path": "chats/chat-settings.md",
-      "sha256": "171d591d4d28af5e7a4eef50fd78c2e4499d797a746f1e258ec5107271a69402",
-      "bytes": 20616
+      "sha256": "c31149facdff4d712e0e7e85666f82f4e4bc844bc5f56a1d88483c38ad359f87",
+      "bytes": 20848
     },
     {
       "path": "chats/connected-chats.md",
@@ -534,8 +534,8 @@
     },
     {
       "path": "game/rulesets.md",
-      "sha256": "974bc7e753b9c22f8d7a694fac3e99684d8c65022c405dc990c99a95ef121a43",
-      "bytes": 25318
+      "sha256": "47281aacdceb2c84c1f366b3052b4dc70015b111b447d17360526edc09c0d174",
+      "bytes": 25489
     },
     {
       "path": "game/sessions-and-saves.md",
@@ -729,8 +729,8 @@
     },
     {
       "path": "roleplay/getting-started.md",
-      "sha256": "d399b7e971ad16a64a430aa029e53da45aa0ed089675210151aa57b6855b15c0",
-      "bytes": 21339
+      "sha256": "a7e45aa742d445a96b394f59163d7c3b48c283542537be1baeb80f60b661de22",
+      "bytes": 21561
     },
     {
       "path": "roleplay/hud-and-trackers.md",
@@ -741,6 +741,11 @@
       "path": "roleplay/narrative-director.md",
       "sha256": "eb8ad2ac4617c9cbc433981bff355352092cc57916d7ef7630411f5ebf8eedcb",
       "bytes": 5899
+    },
+    {
+      "path": "roleplay/rulesets.md",
+      "sha256": "6d14eb6cc46612793683e7179c1287d3d6f6ef07c97eaaf136c7b2873b64b21b",
+      "bytes": 6131
     },
     {
       "path": "roleplay/scenes.md",

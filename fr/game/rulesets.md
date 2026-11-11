@@ -2,6 +2,8 @@
 
 Un ensemble de règles explique à Game Mode le fonctionnement d'un système sur table : les dés d'un test, le contenu de la feuille de personnage, les ressources dépensées, ce qu'un repos rend et, pour certains ensembles de règles, le déroulement d'un combat entier. Utilise ce guide pour obtenir un ensemble de règles, le choisir pour une partie et voir ce qui change en jeu. Une partie sans ensemble de règles utilise les règles propres à Marinara, décrites dans les autres guides de Game Mode.
 
+<a id="get-a-ruleset"></a>
+
 ## Obtenir un ensemble de règles
 
 Pour installer un ensemble de règles officiel comme 5e (SRD 5.1) :
@@ -15,6 +17,8 @@ Lance ensuite une nouvelle partie et choisis-le (voir plus bas). Les ensembles d
 
 - Les ensembles de règles **officiels** s'installent comme ci-dessus.
 - Les ensembles de règles de la **communauté** s'importent depuis un fichier ou depuis le dépôt GitHub d'un auteur. Ils sont rangés selon leur provenance, comme `local/ember-roads` ou `alice/v20`.
+
+Chacun de ces ensembles fonctionne aussi dans un chat Roleplay. Voir [Roleplay : jouer avec un ensemble de règles](../roleplay/rulesets.md).
 
 L'import utilise le même interrupteur **Allow custom Agent imports** (autoriser l'import d'agents personnalisés) que les agents importés. Tant qu'il est désactivé, les ensembles de règles importés sont exclus des nouvelles parties, et les parties qui en utilisent déjà un continuent de fonctionner. Une partie sur un ensemble de règles importé se joue toujours sur la version exacte avec laquelle elle a été créée. Pour écrire le tien, voir [Écrire des ensembles de règles Game Mode](../extending/writing-rulesets.md).
 

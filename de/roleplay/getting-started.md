@@ -85,6 +85,7 @@ Alle Agenten stellt [Agenten: KI-Helfer für deine Chats](../agents/agents-overv
 - Roleplay bringt eine schlanke Kampfebene mit. Füg den Agenten Combat hinzu und klick dann über dem Nachrichtenfeld auf **Encounter** (Begegnung). Siehe [Kampfbegegnungen (Roleplay)](combat-encounters.md).
 - Eine Szene ist eine Nebenverzweigung für eine Rückblende oder einen Nebenschauplatz. Siehe [Szenen: Ein Roleplay verzweigen](scenes.md).
 - Wie du die Handlung lenkst, steht unter [Narrative Director und Secret Plot](narrative-director.md).
+- Wie du nach Tischregeln spielst, mit Würfelproben und Charakterbögen, steht unter [Roleplay: Mit einem Regelsatz spielen](rulesets.md).
 
 ## Modelle auswählen
 
@@ -207,6 +208,7 @@ Weitere Hilfe bietet [Fehlerbehebung in Marinara Engine](../TROUBLESHOOTING.md).
 - [Roleplay-HUD und Tracker](hud-and-trackers.md)
 - [Kampfbegegnungen (Roleplay)](combat-encounters.md)
 - [Narrative Director und Secret Plot](narrative-director.md)
+- [Roleplay: Mit einem Regelsatz spielen](rulesets.md)
 - [Szenen: Ein Roleplay verzweigen](scenes.md)
 - [Charakter-Sprites](../characters/sprites.md)
 - [Eine Conversation mit einem Roleplay oder Game verknüpfen](../chats/connected-chats.md)

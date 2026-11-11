@@ -1114,3 +1114,71 @@ Precedents from the #8954 sync (`CONFIGURATION.md`) and the #8951 developer-docs
   `release` bullet. *Soft seam* stays „weiche Schnittstelle“; *must still cope when it is
   missing* is „muss also auch ohne den Aufruf auskommen“, naming the call so „sie“ is not
   ambiguous. The section keeps the English hard line breaks, like 1.391 below it.
+
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (Oberflächen-Editor), **Whole app** as (ganze App) and **Choose what to change…** as (Was soll geändert werden); the heading is „App-Hintergrund und Accent Color“ and the prose „Hintergrund der Grundfläche der App“, following the old **Background Color** row's „Die Grundfläche der App“. The steps use the pack's „klick auf“ and „Dropdown-Menü“.
+
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives** is glossed (Alternativen für Kartenfelder) at its first bold use in
+  `creating-and-editing-characters.md`, in the file's usual bold-plus-parentheses form, and again
+  in the personas bullet, inside the combined **Chat Settings → Card Field Alternatives**
+  (Chat-Einstellungen → Alternativen für Kartenfelder) pair. The first rule never names the label;
+  it writes **Chat Settings** bare. **Original** stays unglossed in the paragraph, because
+  „beim Original“ (`:167`) and „Originalfeld“ already carry the word in German, so a parenthetical
+  would only repeat it.
+- The title in step 2, **Backstory alternative 1**, is the app's own string:
+  `ui/de.json` `ui.cardFields.alternativeTitle` is **{{field}} – Alternative {{index}}** with
+  `chat.settings.inlineEditor.fields.backstory` = Hintergrundgeschichte, hence
+  (Hintergrundgeschichte – Alternative 1), keeping the template's en dash.
+- *Optional* opens step 2 as „Optional:“, the form the pack already uses for optional steps
+  (`agents/custom-agents.md:184`). *Its title* is „ihren Titel“ for die Alternative. *Type a name
+  such as* is „gib einen Namen wie … ein“; *names are up to 60 characters* is „Namen dürfen bis zu
+  60 Zeichen lang sein“; *leave the name empty to keep the numbered title* is „Lässt du den Namen
+  leer, bleibt der nummerierte Titel“, the pack's „bleibt“ for a state that persists.
+- *Pick* in the new paragraph is „Wähl“, as in the section's other steps. *Right away* is „sofort“;
+  *applies from the next reply* is „gilt ab der nächsten Antwort“, after `home/professor-mari.md:262`.
+  *The section is hidden* is „ist der Abschnitt ausgeblendet“, reordered so the condition comes first.
+- The first rule keeps „Ein Chat kann pro Feld nur eine Alternative verwenden“ and adds the
+  parallel „oder wählst du in Chat Settings eine andere“ before „wandert er dorthin“.
+- In the personas bullet, *name each alternative* is „jede Alternative benennen“ and *switch
+  between them* is „zwischen ihnen wechseln“; the path is written **Chat Settings → Card Field
+  Alternatives** (Chat-Einstellungen → Alternativen für Kartenfelder), glossing both labels of the
+  bold span in one pair, as the pack does for `**Settings → General**` paths.
+
+These are translation choices, not a new native-reader review.
+## Rulesets in Roleplay (2026-11-11, #8999)
+
+Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md`
+and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine
+`dcbaa4b9b8` (merge of #8998):
+
+- The guide's vocabulary is the one `game/rulesets.md` already ships: *ruleset* **der Regelsatz**, *sheet*
+  **der Bogen**, *check* **die Probe**, *skill* **die Fertigkeit**, *difficulty* **die Schwierigkeit**, *turn*
+  **der Zug**, *swipe* **der Swipe** (glossed *(alternative Antwort)*), *branch* **die Verzweigung**. The new
+  page coins nothing here; it reuses those forms so a reader arrives from the Game Mode guide without a
+  second name for the same thing.
+- *Dice card* is **die Würfelkarte**, as in `game/dice-and-skill-checks.md`; *tracker panel* is
+  **das Tracker Panel** (English label, as `roleplay/hud-and-trackers.md` has it); *pool* is
+  **die Ressource** where the English "pool" means a sheet resource, not **der Pool**, which this pack
+  reserves for pools of dice; the sheet row itself keeps **die Ressource** (`game/rulesets.md`).
+- The new page's own labels are UI strings and keep the pack's gloss form of English bold plus one German
+  parenthetical: **Ruleset** *(Regelsatz)*, **blank sheet** *(leerer Bogen)*, **Build sheet** *(Bogen
+  erstellen)*, **Open sheet** *(Bogen öffnen)*, **Remove sheet** *(Bogen entfernen)*, **Add missing sheets**
+  *(fehlende Bögen hinzufügen)*, **No sheet:** *(Kein Bogen)*, **Give Mira a sheet** *(Mira einen Bogen
+  geben)*, **Edit ruleset sheet** *(Regelsatzbogen bearbeiten)*, **Save sheet** *(Bogen speichern)*, **Rest**
+  *(Rast)*. **Add missing sheets** is written bare on repeat, like every other glossed label.
+- **None** in the ruleset picker is *(keinen)*, masculine for *Regelsatz*; the UI string
+  `chat.settings.ruleset.none` says **Keiner** for a bare list entry. Neither form is copied into the
+  other's place.
+- *Impersonate* stays English (the section name in `chats/chat-settings.md`); *Connection* is
+  **die Connection** with *(Verbindung)*, as there. A *multiplayer room* is **ein Raum im Mehrspielermodus**,
+  after `chats/settings-profiles.md`'s **Mehrspielermodus**.
+- In the UI strings, cross-references to other labels use the pack's own translated string in „…“ and point
+  with **→**, so `chat.settings.ruleset.removeMessage` says „Fehlende Bögen hinzufügen“ and
+  `Chat-Einstellungen → Regelsatz`; both match what the same file renders elsewhere. Key names stay English.
+- `game/rulesets.md` gains the line linking to the Roleplay guide after the Official/Community bullets, and
+  with it a new `<a id="get-a-ruleset"></a>` above **Einen Regelsatz bekommen**: the new page links
+  `../game/rulesets.md#get-a-ruleset`, and a translated heading produces no English slug. The anchor is the
+  only structural change in that file.

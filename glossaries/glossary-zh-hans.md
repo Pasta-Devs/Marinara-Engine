@@ -831,4 +831,42 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section in `
 | awaits it once | 调用它一次并等待它完成 | After 等待 `ensureMarinaraHost()` 完成 in the same file. |
 | logged and ignored / soft seam | 记录日志后忽略 / 软接口 | After the file's 记录日志后丢弃 and the 软接口 of its 1.12, 1.13 and 1.816 sections. |
 
+- The UI Editor steps for the app background (#8927): **UI Editor** is glossed once as (界面编辑器), **Whole app** as (整个应用) and **Choose what to change…** as (选择要更改的内容); the heading is "应用背景和 Accent Color". The sentence before the list ends with the full-width colon after the closing parenthesis.
+
+These are translation choices, not a new native-reader review.
+
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| Card Field Alternatives (Chat Settings section) | **Card Field Alternatives**(卡片字段替代版本) | First bold use in `creating-and-editing-characters.md`, bold plus tight half-width gloss, and again in the personas bullet inside the combined **Chat Settings → Card Field Alternatives**(聊天设置 → 卡片字段替代版本) pair. The first rule never names the label and writes **Chat Settings** bare. |
+| Original (picker row) | **Original**(原始) | Glossed once, in the paragraph. 原始 as in the pack's 原始命令 and 原始字段. |
+| Backstory alternative 1 (alternative title) | **Backstory alternative 1**(背景故事的第 1 个替代版本) | The app's string: `ui/zh-Hans.json` `ui.cardFields.alternativeTitle` is {{field}}的第 {{index}} 个替代版本 with `chat.settings.inlineEditor.fields.backstory` = 背景故事. |
+| Optional: | 可选： | Full-width colon, as in `agents/custom-agents.md:184` and the pack's other optional steps. |
+| names are up to 60 characters | 名字最多 60 个字符 | Half-width digits (§4.4); 名字 as in the **Name** field. |
+| leave the name empty to keep the numbered title | 名字留空则保留带编号的标题 | 留空 as elsewhere for an empty field; 保留 for a value that is kept. |
+| applies from the next reply | 从下一条回复开始生效 | 下一条回复 (14 uses in the pack) rather than 下一次回复. |
+| the section is hidden | 这个区域不会显示 | 区域 for a panel region, 不会显示 for something that does not appear. |
+
+**Chat Settings** stays bare after its first-mention gloss in the paragraph, and the first rule writes it bare as well, as the file does elsewhere. In the personas bullet, *name each alternative* is 每个替代版本都可以命名 and *switch between them* is 在 … 里切换; the path is **Chat Settings → Card Field Alternatives**(聊天设置 → 卡片字段替代版本), one gloss pair for the whole bold span. These are translation choices, not a new native-reader review.
+## Rulesets in Roleplay (2026-11-11, #8999)
+
+Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):
+
+| Item | zh-hans | Note |
+| --- | --- | --- |
+| ruleset / sheet / check | 规则集 / 人物卡 / 检定 | The Game Mode words `game/rulesets.md` already uses; *sheet* stays 人物卡, never 表格. |
+| skill / difficulty / turn | 技能 / 难度 / 回合 | As in `game/dice-and-skill-checks.md` and `chats/branches.md`. |
+| dice card | 骰子卡 | `game/dice-and-skill-checks.md`. |
+| tracker panel | Tracker Panel | Latin, as `roleplay/hud-and-trackers.md` writes it. |
+| sheet resource | 资源 | `game/rulesets.md` 消耗哪些资源. |
+| swipe / branch | 备选回复 / 分支 | `chats/branches.md` wording; the page says 当前选中的备选回复. |
+
+- Labels use the pack's gloss form (English bold, Chinese in half-width parentheses, no space before the bracket): **Chat Settings**(聊天设置), **Ruleset**(规则集), **Build sheet**(建立人物卡), **Open sheet**(打开人物卡), **Remove sheet**(移除人物卡), **Add missing sheets**(补齐缺少的人物卡), **No sheet:**(没有人物卡), **Give Mira a sheet**(给 Mira 一张人物卡), **Edit ruleset sheet**(编辑规则集人物卡), **Save sheet**(保存人物卡), **Rest**(休息), **Success**(成功), **Failure**(失败). **None** is (无), matching `chat.settings.ruleset.none`.
+- The troubleshooting table keeps English's UI sentence verbatim, as the English guide does: **This chat's ruleset is not installed here, so its checks and sheets are paused.**
+- UI cross-references quote the pack's own translated label in “” and point with **→**: `chat.settings.ruleset.noMembers` says “补齐缺少的人物卡” and `removeMessage` says 聊天设置 → 规则集. Prose uses the pack's 你 and full-width ，。; the UI strings keep the same 你 imperatives (先添加…再使用…).
+- `game/rulesets.md` gains the Roleplay sentence after the Official/Community bullets and, with it, `<a id="get-a-ruleset"></a>` above **获取规则集**: the new page links `#get-a-ruleset`, and a translated heading yields no English slug.
+
 These are translation choices, not a new native-reader review.

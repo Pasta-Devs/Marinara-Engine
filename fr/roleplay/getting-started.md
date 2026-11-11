@@ -83,6 +83,7 @@ Pour tous les agents, voir [Agents : des aides IA pour tes chats](../agents/agen
 - Le mode Roleplay a une couche de combat légère. Ajoute l'agent Combat, puis clique sur **Encounter** (rencontre) au-dessus de la zone de saisie. Voir [Rencontres de combat (Roleplay)](combat-encounters.md).
 - Une scène est une branche latérale pour un flash-back ou un lieu secondaire. Voir [Scènes : créer une branche d'un roleplay](scenes.md).
 - Pour orienter l'intrigue, voir [Narrative Director et Secret Plot](narrative-director.md).
+- Pour jouer selon des règles sur table, avec des tests de dés et des fiches de personnage, voir [Roleplay : jouer avec un ensemble de règles](rulesets.md).
 
 ## Choisir les modèles
 
@@ -205,6 +206,7 @@ Pour plus d'aide, voir [Résoudre les problèmes de Marinara Engine](../TROUBLES
 - [HUD et trackers en Roleplay](hud-and-trackers.md)
 - [Rencontres de combat (Roleplay)](combat-encounters.md)
 - [Narrative Director et Secret Plot](narrative-director.md)
+- [Roleplay : jouer avec un ensemble de règles](rulesets.md)
 - [Scènes : créer une branche d'un roleplay](scenes.md)
 - [Sprites de personnage](../characters/sprites.md)
 - [Connecter une Conversation à un Roleplay ou à une partie](../chats/connected-chats.md)
