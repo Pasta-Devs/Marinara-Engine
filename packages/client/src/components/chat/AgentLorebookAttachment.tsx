@@ -5,6 +5,7 @@ import { useChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { readChatMetadata } from "../../lib/chat-wizard-defaults";
 import { AgentSettingsToggle } from "./AgentSettingsControls";
+import { LorebookPickerField } from "../ui/LibraryPickers";
 
 export function AgentLorebookAttachment({ chatId, agentType }: { chatId: string; agentType: string }) {
   const { t } = useTranslation();
@@ -18,6 +19,10 @@ export function AgentLorebookAttachment({ chatId, agentType }: { chatId: string;
   const selectedBook = lorebooks.find((book) => book.id === selectedId);
   const missing = selectedId !== "" && !isLoading && !isError && !selectedBook;
   const visibleLorebooks = lorebooks.filter((book) => !book.hiddenFromLibrary);
+  // A switched-off lorebook stays listed, greyed out, as the old dropdown showed it.
+  const pickable = visibleLorebooks.map((book) =>
+    book.enabled === false ? { ...book, disabledReason: t("ui.agents.agenteditor.disabled") } : book,
+  );
   const save = (patch: { enabled?: boolean; lorebookId?: string | null }) => {
     void updateMetadata
       .mutateAsync({
@@ -38,27 +43,18 @@ export function AgentLorebookAttachment({ chatId, agentType }: { chatId: string;
         onToggle={() => save({ enabled: !enabled })}
       />
       {enabled && (
-        <label className="flex min-w-0 flex-col gap-1.5 text-[0.6875rem]">
+        <div className="flex min-w-0 flex-col gap-1.5 text-[0.6875rem]">
           <span className="font-medium">{t("chat.agentLorebook.select")}</span>
-          <select
+          <LorebookPickerField
             value={selectedId}
+            lorebooks={pickable}
+            ariaLabel={t("chat.agentLorebook.select")}
+            noneLabel={t("chat.agentLorebook.choose")}
+            missingLabel={selectedBook?.name ?? t("chat.agentLorebook.unavailable")}
             disabled={isLoading || isError || updateMetadata.isPending}
-            onChange={(event) => save({ lorebookId: event.target.value || null })}
-            className="mari-chrome-field min-h-10 w-full min-w-0 rounded-md px-2.5 py-2 text-base md:text-xs"
-          >
-            <option value="">{t("chat.agentLorebook.choose")}</option>
-            {missing && <option value={selectedId}>{t("chat.agentLorebook.unavailable")}</option>}
-            {selectedBook?.hiddenFromLibrary && (
-              <option value={selectedId} disabled>
-                {selectedBook.name}
-              </option>
-            )}
-            {visibleLorebooks.map((book) => (
-              <option key={book.id} value={book.id} disabled={book.enabled === false}>
-                {book.name}
-              </option>
-            ))}
-          </select>
+            onChange={(id) => save({ lorebookId: id || null })}
+            triggerClassName="mari-chrome-field min-h-10 w-full min-w-0 rounded-md px-2.5 py-2 text-base md:text-xs"
+          />
           {isError ? (
             <span role="status">{t("chat.agentLorebook.loadError")}</span>
           ) : missing ? (
@@ -66,7 +62,7 @@ export function AgentLorebookAttachment({ chatId, agentType }: { chatId: string;
           ) : !isLoading && visibleLorebooks.length === 0 && !selectedBook ? (
             <span>{t("chat.agentLorebook.empty")}</span>
           ) : null}
-        </label>
+        </div>
       )}
     </div>
   );

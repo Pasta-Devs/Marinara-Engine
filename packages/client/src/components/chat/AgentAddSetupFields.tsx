@@ -1,4 +1,5 @@
 import { useRef, type ReactNode } from "react";
+import { LorebookListField } from "../ui/LibraryPickers";
 import { Check, FolderOpen, Loader2, Upload } from "lucide-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
@@ -806,51 +807,25 @@ function KnowledgeSourceFields({
       <div className="space-y-1.5">
         <SetupLabel>{localizeUi("ui.chat.knowledgesourcefields.fixedSourceLorebooks")}</SetupLabel>
         {lorebooks.length > 0 ? (
-          <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--background)]/75 p-2">
-            {lorebooks.map((lorebook) => {
-              const selected = sourceLorebookIds.includes(lorebook.id);
-              return (
-                <button
-                  key={lorebook.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() =>
-                    onChange({
-                      sourceLorebookIds: selected
-                        ? sourceLorebookIds.filter((id) => id !== lorebook.id)
-                        : [...sourceLorebookIds, lorebook.id],
-                    })
-                  }
-                  className={cn(
-                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-all disabled:cursor-not-allowed disabled:opacity-60",
-                    selected
-                      ? "bg-[var(--primary)]/10 text-[var(--foreground)] ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] text-[var(--foreground)] ring-1 ring-transparent hover:bg-[var(--accent)]",
-                  )}
-                  aria-pressed={selected}
-                >
-                  <span
-                    className={cn(
-                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all",
-                      selected
-                        ? "border-[var(--primary)]/60 bg-[var(--primary)]/20"
-                        : "border-[var(--border)] bg-[var(--background)]",
-                    )}
-                  >
-                    {selected && <Check size="0.625rem" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{lorebook.name}</span>
-                    {lorebook.description ? (
-                      <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                        {lorebook.description}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <LorebookListField
+            lorebooks={lorebooks}
+            selectedIds={sourceLorebookIds}
+            onToggle={(id) =>
+              onChange({
+                sourceLorebookIds: sourceLorebookIds.includes(id)
+                  ? sourceLorebookIds.filter((other) => other !== id)
+                  : [...sourceLorebookIds, id],
+              })
+            }
+            onAdd={(ids) =>
+              onChange({
+                sourceLorebookIds: [...sourceLorebookIds, ...ids.filter((id) => !sourceLorebookIds.includes(id))],
+              })
+            }
+            ariaLabel={localizeUi("ui.chat.knowledgesourcefields.fixedSourceLorebooks")}
+            disabled={disabled}
+            triggerClassName="mari-chrome-field min-h-10 w-full min-w-0 rounded-lg px-3 py-2 text-base md:text-xs disabled:cursor-not-allowed disabled:opacity-60"
+          />
         ) : (
           <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
             {localizeUi("ui.agents.agenteditor.noLorebooksAvailable")}
