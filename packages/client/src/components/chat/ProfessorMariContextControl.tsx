@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, Check, FileText, Sparkles, UserRound, X } from "lucide-react";
 import type { ProfessorMariAskContext } from "@marinara-engine/shared";
@@ -20,6 +20,11 @@ interface Props {
   onViewAttachedContext: () => void;
   character?: CharacterPreviewModel | null;
   lorebook?: LorebookPreviewModel | null;
+  /** Controlled open state, for a header that opens it from its own menu (the phone ☰ menu). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Extra classes on the trigger pill (the phone header hides it and opens the panel from its menu). */
+  triggerClassName?: string;
 }
 
 type PanelPosition = { top: number; right: number };
@@ -41,9 +46,23 @@ export function ProfessorMariContextControl({
   onViewAttachedContext,
   character,
   lorebook,
+  open: openProp,
+  onOpenChange,
+  triggerClassName,
 }: Props) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [innerOpen, setInnerOpen] = useState(false);
+  const open = openProp ?? innerOpen;
+  const openRef = useRef(open);
+  openRef.current = open;
+  const setOpen = useCallback(
+    (next: boolean | ((current: boolean) => boolean)) => {
+      const value = typeof next === "function" ? next(openRef.current) : next;
+      setInnerOpen(value);
+      onOpenChange?.(value);
+    },
+    [onOpenChange],
+  );
   const [mobile, setMobile] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches,
   );
@@ -140,7 +159,7 @@ export function ProfessorMariContextControl({
       if (restoreTriggerFocusRef.current) trigger?.focus();
       restoreTriggerFocusRef.current = true;
     };
-  }, [open, panelMounted]);
+  }, [open, panelMounted, setOpen]);
 
   const totalCount = professorMariContextCount(attachedContextCount, context);
   const panel = (
@@ -281,6 +300,7 @@ export function ProfessorMariContextControl({
           "mari-workspace-destination mari-chrome-control mari-chrome-control--compact",
           "mari-chrome-accent-text-muted mari-accent-animated hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
           context && "text-[var(--primary)]",
+          triggerClassName,
         )}
         title={t("ui.chat.homeprofessormarichat.awareOfOpen")}
         aria-label={t("ui.chat.homeprofessormarichat.awareOfOpen")}

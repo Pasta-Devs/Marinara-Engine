@@ -52,9 +52,14 @@ export function ChatRowPeek({ containerRef, activeChatId, disabled }: ChatRowPee
     if (!container || !hoverCapable || disabled) return;
 
     const onOver = (event: MouseEvent) => {
-      const row = (event.target as HTMLElement | null)?.closest?.("[data-chat-id]") as HTMLElement | null;
+      const target = event.target as HTMLElement | null;
+      const row = target?.closest?.("[data-chat-id]") as HTMLElement | null;
       const id = row?.dataset.chatId ?? null;
-      if (!id || id === activeChatId) {
+      // A row's own controls (rename, tags, branches, menus) and an open rename field are for acting on the
+      // chat, not reading it: pointing at them closes the peek instead of opening it over them.
+      const control = target?.closest?.("button, a, input, textarea, select, [role='menuitem']") as HTMLElement | null;
+      const onRowControl = Boolean(row && control && control !== row && row.contains(control));
+      if (!id || id === activeChatId || onRowControl) {
         close();
         return;
       }
@@ -95,7 +100,8 @@ export function ChatRowPeek({ containerRef, activeChatId, disabled }: ChatRowPee
 
   const { data: messages, isLoading } = useChatMessagePeek(chatId, PEEK_MESSAGE_COUNT, Boolean(chatId));
 
-  // Anchor to the right of the row, clamped into the viewport.
+  // Drop down from the row, as wide as the row, so it never covers the row you are pointing at or its
+  // buttons; above the row when there is no room below it.
   useLayoutEffect(() => {
     if (!chatId || !anchor || !panelRef.current) {
       setPos({ top: 0, left: 0, ready: false });
@@ -103,12 +109,20 @@ export function ChatRowPeek({ containerRef, activeChatId, disabled }: ChatRowPee
     }
     const panel = panelRef.current.getBoundingClientRect();
     const pad = 8;
-    const left = Math.min(anchor.right + pad, window.innerWidth - panel.width - pad);
-    const top = Math.max(pad, Math.min(anchor.top, window.innerHeight - panel.height - pad));
-    setPos({ top, left, ready: true });
+    const gap = 4;
+    const below = anchor.bottom + gap;
+    const above = anchor.top - gap - panel.height;
+    const top =
+      below + panel.height <= window.innerHeight - pad || above < pad
+        ? Math.min(below, window.innerHeight - panel.height - pad)
+        : above;
+    const left = Math.max(pad, Math.min(anchor.left, window.innerWidth - panel.width - pad));
+    setPos({ top: Math.max(pad, top), left, ready: true });
   }, [chatId, anchor, messages, isLoading]);
 
   if (!chatId || !anchor) return null;
+  // The row's width (the list is a narrow sidebar), never narrower than a readable 15rem.
+  const peekWidth = Math.max(anchor.width, 240);
 
   return createPortal(
     <div
@@ -116,15 +130,15 @@ export function ChatRowPeek({ containerRef, activeChatId, disabled }: ChatRowPee
       data-chat-floating-panel
       role="tooltip"
       className={cn(
-        "pointer-events-none fixed z-50 w-72 rounded-xl border border-[var(--border)] bg-[var(--popover)]/95 p-3 shadow-xl backdrop-blur-sm",
+        "pointer-events-none fixed z-50 rounded-xl border border-[var(--border)] bg-[var(--popover)]/95 p-3 shadow-xl backdrop-blur-sm",
         pos.ready ? "animate-fade-in-up opacity-100" : "opacity-0",
       )}
       // Until it's measured, sit beside the row and stay invisible (inline, so no theme rule can show
       // it early): a first frame at 0,0 flashed the peek in the window's top-left corner.
       style={
         pos.ready
-          ? { top: pos.top, left: pos.left }
-          : { top: anchor.top, left: anchor.right + 8, visibility: "hidden", animation: "none" }
+          ? { top: pos.top, left: pos.left, width: peekWidth }
+          : { top: anchor.bottom + 4, left: anchor.left, width: peekWidth, visibility: "hidden", animation: "none" }
       }
     >
       {isLoading ? (

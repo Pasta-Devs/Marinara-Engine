@@ -54,20 +54,22 @@ export function OmnibarMariDoor({
         data-mari-glow={working ? "true" : "false"}
         className="group relative -mb-px flex h-14 w-[4.25rem] shrink-0 self-end items-end justify-end rounded-t-lg pb-2 pl-8 transition-colors [--mari-glow-size:3.4rem] [--mari-glow-top:0.05rem] hover:bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)] active:bg-[color-mix(in_srgb,var(--primary)_14%,transparent)] max-[30rem]:w-11 max-[30rem]:pl-0"
       >
-        {/* P1: only the tall portrait is cropped, so her working glow on the button fades out freely. */}
+        {/* P1: only the tall portrait is cropped, so her working glow on the button fades out freely.
+            Her figure sits left of the sprite's middle (pixels 40-232 of 299, centre 45.5%), so the image
+            is shifted by that much rather than 50%: she stands in the middle of the button's hover fill. */}
         <span aria-hidden="true" className="absolute inset-0 overflow-hidden">
           <img
             src={portrait}
             alt=""
             draggable={false}
-            className="absolute left-1/2 top-0 h-[6.5rem] w-auto max-w-none -translate-x-1/2 object-contain object-top transition-transform duration-200 ease-out group-hover:-translate-y-1 group-focus-visible:-translate-y-1 group-active:translate-y-0 motion-reduce:transition-none max-[30rem]:h-20"
+            className="absolute left-1/2 top-0 h-[6.5rem] w-auto max-w-none -translate-x-[45.5%] object-contain object-top transition-transform duration-200 ease-out group-hover:-translate-y-1 group-focus-visible:-translate-y-1 group-active:translate-y-0 motion-reduce:transition-none max-[30rem]:h-20"
           />
           {/* Slice 85 hover: the same box, so the swap moves nothing. Mouse only; touch has no hover. */}
           <img
             src={hover}
             alt=""
             draggable={false}
-            className="absolute left-1/2 top-0 h-[6.5rem] w-auto max-w-none -translate-x-1/2 object-contain object-top opacity-0 transition-transform duration-200 ease-out [@media(hover:hover)]:group-hover:opacity-100 group-hover:-translate-y-1 group-focus-visible:-translate-y-1 group-active:translate-y-0 motion-reduce:transition-none max-[30rem]:h-20"
+            className="absolute left-1/2 top-0 h-[6.5rem] w-auto max-w-none -translate-x-[45.5%] object-contain object-top opacity-0 transition-transform duration-200 ease-out [@media(hover:hover)]:group-hover:opacity-100 group-hover:-translate-y-1 group-focus-visible:-translate-y-1 group-active:translate-y-0 motion-reduce:transition-none max-[30rem]:h-20"
           />
         </span>
       </button>
