@@ -256,13 +256,16 @@ export function ModelRow({
             )}
           </span>
           {badgesWithNote && (titleNote || badge || costShown) && (
-            // The note's own line, with the badges at its end: the name above keeps the row's full width.
-            <span data-connection-badges className="mt-0.5 flex min-w-0 items-center gap-1.5">
+            // The note's own line, the badges pinned to its right end so they line up from row to row; the name
+            // above keeps the row's full width.
+            <span className="mt-1.5 flex min-w-0 items-center gap-1.5">
               {titleNote && (
                 <span className="min-w-0 truncate text-[0.6875rem] text-[var(--muted-foreground)]">{titleNote}</span>
               )}
-              {badge}
-              <CostBadge cost={cost} showPaid={showPaid} pricing={pricing} />
+              <span data-connection-badges className="ms-auto flex shrink-0 items-center gap-1">
+                {badge}
+                <CostBadge cost={cost} showPaid={showPaid} pricing={pricing} />
+              </span>
             </span>
           )}
           {line2 && (

@@ -66,7 +66,7 @@ export function JobRow({
   hint?: string;
   /** The row's end mark, such as a chevron: drawn last, after the fix and `end`, and opens the row like the row itself. */
   trailing?: ReactNode;
-  /** Sibling controls after the row button, such as a settings gear. */
+  /** A control raised to the row's top end, left of the chevron, such as a settings gear. */
   end?: ReactNode;
   /** Goes on the row's outer element, such as an open state. */
   className?: string;
@@ -98,6 +98,8 @@ export function JobRow({
   // What the row is: the job, and the job it follows when it has no Model of its own.
   const label = [tile.title, tile.follows].filter(Boolean).join(" · ");
   const hintId = useId();
+  // On the name's line under a label; a row without one centres them.
+  const RAISED = chosen ? "top-[1.125rem] max-md:top-1" : "top-1/2 -translate-y-1/2";
   return (
     <>
       <ModelRow
@@ -125,15 +127,20 @@ export function JobRow({
                 </span>
               </button>
             )}
-            {end}
+            {/* The settings and the chevron sit on the name's line, out of the flow, with the badges under them:
+                they take no width from the badges' line, so every row's badges end at the row's end. */}
+            {end && <span className={cn("absolute end-7 flex", RAISED)}>{end}</span>}
             {trailing && (
-              // After the fix and the settings so every row's chevron sits in the same column; the row button stays the keyboard target.
+              // The row button stays the keyboard target.
               <button
                 type="button"
                 tabIndex={-1}
                 aria-hidden
                 onClick={button.onClick}
-                className="flex h-11 w-7 shrink-0 items-center justify-center"
+                className={cn(
+                  "absolute end-0 -mt-px flex h-[2.125rem] w-7 items-center justify-center max-md:-end-[0.1875rem] max-md:h-[2.875rem]",
+                  RAISED,
+                )}
               >
                 {trailing}
               </button>
@@ -141,8 +148,17 @@ export function JobRow({
           </>
         }
         aria-describedby={hint ? hintId : undefined}
-        rowProps={{ className: cn("mari-connection-defaults-job pe-0", className) }}
-        className="min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1"
+        // A warning chip stays in the flow, so it keeps clear of the chevron.
+        rowProps={{
+          className: cn("mari-connection-defaults-job pe-0", tile.warning && trailing && "pe-7", className),
+        }}
+        className={cn(
+          "min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1",
+          // The name keeps clear of the chevron and the settings beside it.
+          end
+            ? "[&_[data-model-title]]:pe-12 max-md:[&_[data-model-title]]:pe-[4.25rem]"
+            : trailing && "[&_[data-model-title]]:pe-5 max-md:[&_[data-model-title]]:pe-6",
+        )}
         tile={chosen ? <ModelTile row={chosen} model={chosen.model} /> : <JobTile unset={!!unset}>{tile.icon}</JobTile>}
         label={chosen ? label : undefined}
         title={chosen ? tile.value : tile.title}
