@@ -85,6 +85,7 @@ Roleplay – это режим чата для историй. Он добавл
 - В режиме Roleplay есть облегченный слой боя. Добавьте агента Combat, затем нажмите **Encounter** (сражение) над полем ввода. См. [Сражения (Roleplay)](combat-encounters.md).
 - Сцена – это боковая ветка для воспоминания или побочного места действия. См. [Сцены: ответвление в режим Roleplay](scenes.md).
 - О том, как направлять сюжет, читайте в руководстве [Агент Narrative Director и функция Secret Plot](narrative-director.md).
+- Чтобы играть по настольным правилам, с проверками на костях и листами персонажей, см. [Roleplay: игра с набором правил](rulesets.md).
 
 ## Выбор моделей
 
@@ -207,6 +208,7 @@ CYOA расшифровывается как Choose Your Own Adventure – "вы
 - [Панель HUD и трекеры в режиме Roleplay](hud-and-trackers.md)
 - [Сражения (Roleplay)](combat-encounters.md)
 - [Агент Narrative Director и функция Secret Plot](narrative-director.md)
+- [Roleplay: игра с набором правил](rulesets.md)
 - [Сцены: ответвление в режим Roleplay](scenes.md)
 - [Спрайты персонажа](../characters/sprites.md)
 - [Связь чата Conversation с чатом Roleplay или Game](../chats/connected-chats.md)

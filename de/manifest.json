@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "sourceCommit": "ee5bc8e08056094c7e19e55b4787a20a43f3b473",
+  "sourceCommit": "dcbaa4b9b87431f9b4a98fa73fa9aca9bdcfdf1a",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -164,8 +164,8 @@
     },
     {
       "path": "chats/chat-settings.md",
-      "sha256": "85be2699a521b26eb437844ebb9d2e904b042779ba77185f6ab701550ac47e21",
-      "bytes": 20219
+      "sha256": "76db82bc35cda572dcfc5804f488ab5bfe74e78a3a016ebf2fd35a9dc1bb1524",
+      "bytes": 20430
     },
     {
       "path": "chats/connected-chats.md",
@@ -534,8 +534,8 @@
     },
     {
       "path": "game/rulesets.md",
-      "sha256": "e96a49d7bf94ed9c5488eaaf566228ba791adfabbd0ae2b9d193b96b5cc16cbd",
-      "bytes": 24287
+      "sha256": "305e3dba170392eb585752506b254b98dd1f4784385f24c75d9989e59356aa1b",
+      "bytes": 24455
     },
     {
       "path": "game/sessions-and-saves.md",
@@ -729,8 +729,8 @@
     },
     {
       "path": "roleplay/getting-started.md",
-      "sha256": "193896eab7410a30bbdb2efcfb6cb9cd3b88275c3fad20ac9715a8984b5dff9c",
-      "bytes": 21890
+      "sha256": "cd185a8507acde611c97b2345cd69b882a434e70d48d3ebbd901853dd914d786",
+      "bytes": 22085
     },
     {
       "path": "roleplay/hud-and-trackers.md",
@@ -741,6 +741,11 @@
       "path": "roleplay/narrative-director.md",
       "sha256": "e5c05b63545c8327e40dca6ff3a2b7c1ce822a2530dfa47c400912c9fb0d7723",
       "bytes": 6008
+    },
+    {
+      "path": "roleplay/rulesets.md",
+      "sha256": "f4c337f0da65ea40e6da42ec5c7b69391cd03c412903bdcd2f2592ba5771eb9e",
+      "bytes": 5951
     },
     {
       "path": "roleplay/scenes.md",

@@ -85,6 +85,7 @@ Wszystkich agentów opisuje przewodnik [Agenci: pomocnicy AI w czatach](../agent
 - Tryb Roleplay ma lekką warstwę walki. Dodaj agenta Combat, a potem kliknij **Encounter** (starcie) nad polem czatu. Zobacz [Starcia bojowe (Roleplay)](combat-encounters.md).
 - Scena to boczna gałąź na retrospekcję albo poboczną lokalizację. Zobacz [Sceny: odgałęzienie roleplayu](scenes.md).
 - Jak sterować fabułą, opisuje przewodnik [Narrative Director i Secret Plot](narrative-director.md).
+- Aby grać według zasad stołowych, z rzutami kośćmi i testami umiejętności oraz arkuszami postaci, zobacz [Roleplay: gra z zestawem zasad](rulesets.md).
 
 ## Wybór modeli
 
@@ -207,6 +208,7 @@ Więcej pomocy znajdziesz w przewodniku [Rozwiązywanie problemów w aplikacji M
 - [Pasek HUD i trackery w trybie Roleplay](hud-and-trackers.md)
 - [Starcia bojowe (Roleplay)](combat-encounters.md)
 - [Narrative Director i Secret Plot](narrative-director.md)
+- [Roleplay: gra z zestawem zasad](rulesets.md)
 - [Sceny: odgałęzienie roleplayu](scenes.md)
 - [Sprite'y postaci](../characters/sprites.md)
 - [Łączenie czatu Conversation z czatem Roleplay lub Game](../chats/connected-chats.md)

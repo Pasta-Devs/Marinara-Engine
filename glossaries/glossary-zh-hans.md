@@ -851,3 +851,22 @@ Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md
 | the section is hidden | 这个区域不会显示 | 区域 for a panel region, 不会显示 for something that does not appear. |
 
 **Chat Settings** stays bare after its first-mention gloss in the paragraph, and the first rule writes it bare as well, as the file does elsewhere. In the personas bullet, *name each alternative* is 每个替代版本都可以命名 and *switch between them* is 在 … 里切换; the path is **Chat Settings → Card Field Alternatives**(聊天设置 → 卡片字段替代版本), one gloss pair for the whole bold span. These are translation choices, not a new native-reader review.
+## Rulesets in Roleplay (2026-11-11, #8999)
+
+Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md` and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine `dcbaa4b9b8` (merge of #8998):
+
+| Item | zh-hans | Note |
+| --- | --- | --- |
+| ruleset / sheet / check | 规则集 / 人物卡 / 检定 | The Game Mode words `game/rulesets.md` already uses; *sheet* stays 人物卡, never 表格. |
+| skill / difficulty / turn | 技能 / 难度 / 回合 | As in `game/dice-and-skill-checks.md` and `chats/branches.md`. |
+| dice card | 骰子卡 | `game/dice-and-skill-checks.md`. |
+| tracker panel | Tracker Panel | Latin, as `roleplay/hud-and-trackers.md` writes it. |
+| sheet resource | 资源 | `game/rulesets.md` 消耗哪些资源. |
+| swipe / branch | 备选回复 / 分支 | `chats/branches.md` wording; the page says 当前选中的备选回复. |
+
+- Labels use the pack's gloss form (English bold, Chinese in half-width parentheses, no space before the bracket): **Chat Settings**(聊天设置), **Ruleset**(规则集), **Build sheet**(建立人物卡), **Open sheet**(打开人物卡), **Remove sheet**(移除人物卡), **Add missing sheets**(补齐缺少的人物卡), **No sheet:**(没有人物卡), **Give Mira a sheet**(给 Mira 一张人物卡), **Edit ruleset sheet**(编辑规则集人物卡), **Save sheet**(保存人物卡), **Rest**(休息), **Success**(成功), **Failure**(失败). **None** is (无), matching `chat.settings.ruleset.none`.
+- The troubleshooting table keeps English's UI sentence verbatim, as the English guide does: **This chat's ruleset is not installed here, so its checks and sheets are paused.**
+- UI cross-references quote the pack's own translated label in “” and point with **→**: `chat.settings.ruleset.noMembers` says “补齐缺少的人物卡” and `removeMessage` says 聊天设置 → 规则集. Prose uses the pack's 你 and full-width ，。; the UI strings keep the same 你 imperatives (先添加…再使用…).
+- `game/rulesets.md` gains the Roleplay sentence after the Official/Community bullets and, with it, `<a id="get-a-ruleset"></a>` above **获取规则集**: the new page links `#get-a-ruleset`, and a translated heading yields no English slug.
+
+These are translation choices, not a new native-reader review.

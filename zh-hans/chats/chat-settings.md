@@ -29,6 +29,7 @@
 - **Advanced Parameters**(高级参数)：为这个聊天覆盖温度之类的生成设置。见[生成参数](../prompts/generation-parameters.md)。
 - **Persona**(用户角色)：你扮演谁。见[在聊天里选择用户角色](../characters/choosing-your-persona.md)。（Conversation 和 Roleplay）
 - **Characters**(角色)：聊天里的角色。（Conversation 和 Roleplay）
+- **Ruleset**(规则集)：按桌面规则集游玩聊天，带掷骰检定和人物卡。见[Roleplay：按规则集游玩](../roleplay/rulesets.md)。（Roleplay）
 - **Party**(队伍)：取代 **Persona** 和 **Characters**，把两者合并在一处。（Game）
 - **Group Chat**(群聊)：群聊里谁来发言。见[群聊](group-chats.md)。（有多个角色的聊天）
 - **Scoped Regex Scripts**(限定正则脚本)：按聊天控制属于某个角色的正则脚本。见[正则脚本](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting)。（只有聊天中的角色带有限定脚本时才显示）

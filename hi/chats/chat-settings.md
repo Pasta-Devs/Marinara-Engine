@@ -29,6 +29,7 @@
 - **Advanced Parameters** (एडवांस्ड पैरामीटर): इस चैट के लिए टेम्परेचर जैसी जेनरेशन सेटिंग्स बदल देता है। देखें [जेनरेशन पैरामीटर](../prompts/generation-parameters.md)।
 - **Persona** (पर्सोना): आप कौन बनकर खेलते हैं। देखें [चैट में अपना पर्सोना चुनना](../characters/choosing-your-persona.md)। (Conversation, Roleplay)
 - **Characters** (कैरेक्टर): चैट के कैरेक्टर। (Conversation, Roleplay)
+- **Ruleset** (नियमसेट): चैट को टेबलटॉप नियमसेट से खेलता है, डाइस चेक और कैरेक्टर शीट के साथ। देखें [Roleplay: नियमसेट से खेलना](../roleplay/rulesets.md)। (Roleplay)
 - **Party** (पार्टी): **Persona** और **Characters** की जगह लेता है और दोनों को एक ही जगह रखता है। (Game)
 - **Group Chat** (ग्रुप चैट): ग्रुप में कौन बोलता है। देखें [ग्रुप चैट](group-chats.md)। (एक से ज़्यादा कैरेक्टर वाली चैट)
 - **Scoped Regex Scripts**: किसी कैरेक्टर की अपनी रेजेक्स स्क्रिप्ट के लिए हर चैट का अलग कंट्रोल। देखें [रेजेक्स स्क्रिप्ट](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting)। (सिर्फ़ तब दिखता है जब चैट के किसी कैरेक्टर के पास सीमित स्क्रिप्ट हों)

@@ -2,6 +2,8 @@
 
 Um conjunto de regras informa ao Game Mode como funciona um sistema de mesa: quais dados um teste rola, o que há na ficha, quais recursos são gastos, o que um descanso recupera e, em alguns conjuntos de regras, como uma luta inteira é travada. Use este guia para obter um conjunto de regras, escolhê-lo para uma partida e ver o que muda ao jogar. Uma partida sem conjunto de regras usa as regras do próprio Marinara, descritas nos outros guias de Game Mode.
 
+<a id="get-a-ruleset"></a>
+
 ## Obter um conjunto de regras
 
 Para instalar um conjunto de regras oficial, como 5e (SRD 5.1):
@@ -15,6 +17,8 @@ Depois, comece uma partida nova e escolha o conjunto (veja abaixo). Os conjuntos
 
 - Os conjuntos **Official** (oficiais) são instalados como descrito acima.
 - Os conjuntos **Community** (da comunidade) são importados de um arquivo ou do repositório GitHub de um autor. Eles ficam arquivados pela origem, como `local/ember-roads` ou `alice/v20`.
+
+Qualquer um destes também funciona em um chat de Roleplay. Veja [Roleplay: jogar com um conjunto de regras](../roleplay/rulesets.md).
 
 A importação usa o mesmo botão liga/desliga **Allow custom Agent imports** (permitir importações de agentes personalizados) dos agentes importados. Enquanto ele está desligado, os conjuntos importados ficam de fora das partidas novas, e as partidas que já usam um continuam funcionando. Uma partida com um conjunto importado sempre joga na versão exata em que foi criada. Para escrever o seu, veja [Escrever conjuntos de regras de Game Mode](../extending/writing-rulesets.md).
 

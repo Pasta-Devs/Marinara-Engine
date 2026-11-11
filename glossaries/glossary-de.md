@@ -1148,3 +1148,37 @@ Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md
   bold span in one pair, as the pack does for `**Settings → General**` paths.
 
 These are translation choices, not a new native-reader review.
+## Rulesets in Roleplay (2026-11-11, #8999)
+
+Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.md`, `chats/chat-settings.md`
+and `roleplay/getting-started.md`, plus the 22 `chat.settings.ruleset.*` UI strings, against Engine
+`dcbaa4b9b8` (merge of #8998):
+
+- The guide's vocabulary is the one `game/rulesets.md` already ships: *ruleset* **der Regelsatz**, *sheet*
+  **der Bogen**, *check* **die Probe**, *skill* **die Fertigkeit**, *difficulty* **die Schwierigkeit**, *turn*
+  **der Zug**, *swipe* **der Swipe** (glossed *(alternative Antwort)*), *branch* **die Verzweigung**. The new
+  page coins nothing here; it reuses those forms so a reader arrives from the Game Mode guide without a
+  second name for the same thing.
+- *Dice card* is **die Würfelkarte**, as in `game/dice-and-skill-checks.md`; *tracker panel* is
+  **das Tracker Panel** (English label, as `roleplay/hud-and-trackers.md` has it); *pool* is
+  **die Ressource** where the English "pool" means a sheet resource, not **der Pool**, which this pack
+  reserves for pools of dice; the sheet row itself keeps **die Ressource** (`game/rulesets.md`).
+- The new page's own labels are UI strings and keep the pack's gloss form of English bold plus one German
+  parenthetical: **Ruleset** *(Regelsatz)*, **blank sheet** *(leerer Bogen)*, **Build sheet** *(Bogen
+  erstellen)*, **Open sheet** *(Bogen öffnen)*, **Remove sheet** *(Bogen entfernen)*, **Add missing sheets**
+  *(fehlende Bögen hinzufügen)*, **No sheet:** *(Kein Bogen)*, **Give Mira a sheet** *(Mira einen Bogen
+  geben)*, **Edit ruleset sheet** *(Regelsatzbogen bearbeiten)*, **Save sheet** *(Bogen speichern)*, **Rest**
+  *(Rast)*. **Add missing sheets** is written bare on repeat, like every other glossed label.
+- **None** in the ruleset picker is *(keinen)*, masculine for *Regelsatz*; the UI string
+  `chat.settings.ruleset.none` says **Keiner** for a bare list entry. Neither form is copied into the
+  other's place.
+- *Impersonate* stays English (the section name in `chats/chat-settings.md`); *Connection* is
+  **die Connection** with *(Verbindung)*, as there. A *multiplayer room* is **ein Raum im Mehrspielermodus**,
+  after `chats/settings-profiles.md`'s **Mehrspielermodus**.
+- In the UI strings, cross-references to other labels use the pack's own translated string in „…“ and point
+  with **→**, so `chat.settings.ruleset.removeMessage` says „Fehlende Bögen hinzufügen“ and
+  `Chat-Einstellungen → Regelsatz`; both match what the same file renders elsewhere. Key names stay English.
+- `game/rulesets.md` gains the line linking to the Roleplay guide after the Official/Community bullets, and
+  with it a new `<a id="get-a-ruleset"></a>` above **Einen Regelsatz bekommen**: the new page links
+  `../game/rulesets.md#get-a-ruleset`, and a translated heading produces no English slug. The anchor is the
+  only structural change in that file.
