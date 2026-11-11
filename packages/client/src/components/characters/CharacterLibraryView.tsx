@@ -32,7 +32,7 @@ import {
 import { estimateCharacterCardTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { resolveSelfCardAssets } from "../../lib/card-asset-links";
-import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
+import { normalizeAvatarCrop, normalizeNameAliases, type AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useLoadMoreWhenNear } from "../panels/PanelLoadMoreBar";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -65,6 +65,7 @@ type LibrarySection = { title: string; content: string };
 type LibraryCard = {
   id: string;
   name: string;
+  aliases: string[];
   title: string | null;
   meta: string | null;
   summary: string;
@@ -115,7 +116,12 @@ function parseCharacterRow(char: CharacterRow): ParsedCharacterRow {
       tags: char.tags,
       creator: char.creator,
       character_version: char.version,
-      extensions: { fav: char.favorite, avatarCrop: char.avatarCrop, nameColor: char.nameColor },
+      extensions: {
+        fav: char.favorite,
+        avatarCrop: char.avatarCrop,
+        nameColor: char.nameColor,
+        nameAliases: char.nameAliases,
+      },
     };
     return { ...char, parsed: parsed as unknown as ParsedCharacterRow["parsed"] };
   } catch {
@@ -200,6 +206,7 @@ function toCharacterLibraryCard(char: ParsedCharacterRow): LibraryCard {
   return {
     id: char.id,
     name,
+    aliases: normalizeNameAliases(char.parsed.extensions?.nameAliases),
     title: getCharacterTitle({ name, comment: char.comment }),
     meta: formatCardLibraryMeta(char.parsed.creator, char.parsed.character_version),
     summary: getCharacterSummary(char),
@@ -220,6 +227,7 @@ function toPersonaLibraryCard(persona: Persona): LibraryCard {
   return {
     id: persona.id,
     name: getText(persona.name) || "Unnamed",
+    aliases: persona.nameAliases,
     title: getText(persona.comment) || null,
     meta: formatCardLibraryMeta(persona.creator, persona.personaVersion),
     summary: getPersonaSummary(persona),

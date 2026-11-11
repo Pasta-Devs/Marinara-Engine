@@ -522,6 +522,12 @@ export interface ChatMetadata {
    */
   colorInlineNames?: boolean;
   /**
+   * Color the chat persona's name, display name and other names in its name color inside this
+   * Roleplay chat's messages. Unset follows `colorInlineNames`. A character with the same name
+   * keeps its own color.
+   */
+  colorPersonaInlineNames?: boolean;
+  /**
    * How character-scoped regex scripts (those with target characters) apply at
    * display time in this chat: "exclusive" (a scoped script only transforms its
    * own character's messages) or "chat" (all scoped scripts transform every

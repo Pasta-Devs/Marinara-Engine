@@ -1,6 +1,8 @@
 export type CharacterCatalogEntry = {
   id: string;
   name: string;
+  /** Other names (`extensions.nameAliases`), normalized. */
+  nameAliases: string[];
   comment: string;
   creator: string;
   version: string;

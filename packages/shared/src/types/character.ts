@@ -306,6 +306,8 @@ export interface PersonaCardSnapshot {
   personaStats: string;
   tags: string;
   savedStatusOptions: string;
+  /** Other names as a JSON string array; snapshots from before other names existed lack it. */
+  nameAliases?: string;
   /** Conversation mode ONLY fields (convoBehavior stored as a JSON string). */
   convoDisplayName: string;
   aboutMe: string;

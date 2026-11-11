@@ -4,6 +4,7 @@
 import { and, asc, desc, eq, inArray, jsonStringArrayContainsAll, like, ne, or } from "../../db/file-query.js";
 import {
   personaRowFromStored,
+  storedCardBase,
   storedPersonaFromRow,
   type PersonaStorageRow,
 } from "../personas/persona-card-storage.js";
@@ -24,6 +25,7 @@ import {
   PROFESSOR_MARI_ID,
   parseCardTagSearchTerms,
   matchesAllCardSearchTags,
+  normalizeNameAliases,
   applyCharacterCardFieldAlternatives,
   applyPersonaCardFieldAlternatives,
   cardEntityBelongsToChat,
@@ -205,6 +207,7 @@ export type PersonaStorageWriteFields = Pick<
   | "personaStats"
   | "tags"
   | "savedStatusOptions"
+  | "nameAliases"
   | "convoDisplayName"
   | "aboutMe"
   | "convoBehavior"
@@ -291,6 +294,8 @@ function personaMatchesSearch(row: PersonaStorageRow, search: string | undefined
   const needle = search?.trim().toLowerCase();
   if (!needle) return true;
   if (PERSONA_SEARCH_COLUMNS.some((column) => row[column].toLowerCase().includes(needle))) return true;
+  // Other names (#9040) are stored as a JSON array, so match each name rather than the raw column text.
+  if (normalizeNameAliases(row.nameAliases).some((alias) => alias.toLowerCase().includes(needle))) return true;
   let tags: unknown;
   try {
     tags = JSON.parse(row.tags);
@@ -329,7 +334,10 @@ async function selectPersonaRow(database: DB, id: string) {
 
 /** Write a full flat persona view back as its stored row. */
 async function writePersonaRow(database: DB, row: PersonaStorageRow) {
-  const { id: _id, createdAt: _createdAt, ...stored } = storedPersonaFromRow(row);
+  // Overlay the stored card so extensions the flat view does not carry survive the save.
+  const [current] = await database.select().from(personas).where(eq(personas.id, row.id));
+  const base = storedCardBase(current?.data);
+  const { id: _id, createdAt: _createdAt, ...stored } = storedPersonaFromRow(row, base);
   await database.update(personas).set(stored).where(eq(personas.id, row.id));
 }
 
@@ -384,6 +392,7 @@ function buildPersonaSnapshot(persona: PersonaStorageRow): PersonaCardSnapshot {
     personaStats: persona.personaStats ?? "",
     tags: persona.tags ?? "[]",
     savedStatusOptions: persona.savedStatusOptions ?? "[]",
+    nameAliases: persona.nameAliases ?? "[]",
     convoDisplayName: persona.convoDisplayName ?? "",
     aboutMe: persona.aboutMe ?? "",
     convoBehavior: persona.convoBehavior ?? "",
@@ -430,6 +439,7 @@ function normalizePersonaSnapshot(data: PersonaCardSnapshot): PersonaCardSnapsho
     personaStats: data.personaStats ?? "",
     tags: data.tags ?? "[]",
     savedStatusOptions: data.savedStatusOptions ?? "[]",
+    nameAliases: data.nameAliases ?? "[]",
     convoDisplayName: data.convoDisplayName ?? "",
     aboutMe: data.aboutMe ?? "",
     convoBehavior: data.convoBehavior ?? "",
@@ -1134,6 +1144,7 @@ export function createCharactersStorage(db: DB) {
         personaStats: extra?.personaStats ?? "",
         tags: extra?.tags ?? "[]",
         savedStatusOptions: extra?.savedStatusOptions ?? "[]",
+        nameAliases: extra?.nameAliases ?? "[]",
         convoDisplayName: extra?.convoDisplayName ?? "",
         aboutMe: extra?.aboutMe ?? "",
         convoBehavior: extra?.convoBehavior ?? "",
@@ -1202,6 +1213,7 @@ export function createCharactersStorage(db: DB) {
           personaStats: source.personaStats ?? "",
           tags: source.tags ?? "[]",
           savedStatusOptions: source.savedStatusOptions ?? "[]",
+          nameAliases: source.nameAliases ?? "[]",
           convoDisplayName: source.convoDisplayName ?? "",
           aboutMe: source.aboutMe ?? "",
           convoBehavior: source.convoBehavior ?? "",
@@ -1261,6 +1273,7 @@ export function createCharactersStorage(db: DB) {
       if (updates.personaStats !== undefined) sets.personaStats = updates.personaStats;
       if (updates.tags !== undefined) sets.tags = updates.tags;
       if (updates.savedStatusOptions !== undefined) sets.savedStatusOptions = updates.savedStatusOptions;
+      if (updates.nameAliases !== undefined) sets.nameAliases = updates.nameAliases;
       if (updates.convoDisplayName !== undefined) sets.convoDisplayName = updates.convoDisplayName;
       if (updates.aboutMe !== undefined) sets.aboutMe = updates.aboutMe;
       if (updates.convoBehavior !== undefined) sets.convoBehavior = updates.convoBehavior;
@@ -1301,6 +1314,7 @@ export function createCharactersStorage(db: DB) {
           ...(updates.personaStats !== undefined && { personaStats: updates.personaStats }),
           ...(updates.tags !== undefined && { tags: updates.tags }),
           ...(updates.savedStatusOptions !== undefined && { savedStatusOptions: updates.savedStatusOptions }),
+          ...(updates.nameAliases !== undefined && { nameAliases: updates.nameAliases }),
           ...(updates.convoDisplayName !== undefined && { convoDisplayName: updates.convoDisplayName }),
           ...(updates.aboutMe !== undefined && { aboutMe: updates.aboutMe }),
           ...(updates.convoBehavior !== undefined && { convoBehavior: updates.convoBehavior }),
@@ -1394,6 +1408,7 @@ export function createCharactersStorage(db: DB) {
           personaStats: data.personaStats,
           tags: data.tags,
           savedStatusOptions: data.savedStatusOptions,
+          nameAliases: data.nameAliases ?? "[]",
           convoDisplayName: data.convoDisplayName,
           aboutMe: data.aboutMe,
           convoBehavior: data.convoBehavior,

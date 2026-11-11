@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { characterDataSchema } from "../../packages/shared/src/schemas/character.schema.js";
 import type { Persona } from "../../packages/shared/src/types/persona.js";
 import {
+  storedCardBase,
   personaRowChanges,
   personaRowFromStored,
   storedPersonaFromRow,
@@ -42,6 +43,7 @@ const minimalRow: PersonaStorageRow = {
   personaStats: "",
   tags: "[]",
   savedStatusOptions: "[]",
+  nameAliases: "[]",
   convoDisplayName: "",
   aboutMe: "",
   convoBehavior: "",
@@ -114,6 +116,7 @@ const canonicalPersona: Persona = {
   },
   tags: ["regression", "persona"],
   savedStatusOptions: ["At the library", "Asleep"],
+  nameAliases: ["Countess", "Ada L."],
   convoDisplayName: "Ada",
   aboutMe: "Mathematician and countess.",
   convoBehavior: { instruction: "Stay in character.", insertionStrategy: "constant_after" },
@@ -165,6 +168,57 @@ assert.deepEqual(
   personaRowFromStored(canonicalRow as unknown as Parameters<typeof personaRowFromStored>[0]),
   canonicalRow,
 );
+// Name aliases live in the card extensions and round-trip through the codec.
+assert.deepEqual(JSON.parse(storedRows.canonical.data).extensions.nameAliases, ["Countess", "Ada L."]);
+assert.deepEqual(projectPersona(personaRowFromStored(storedRows.canonical)).nameAliases, ["Countess", "Ada L."]);
+assert.equal(personaRowFromStored(storedRows.canonical).nameAliases, '["Countess","Ada L."]');
+assert.equal(personaRowFromStored(storedRows.minimal).nameAliases, "[]");
+// Bad values normalize to trimmed, non-empty, unique strings, or to none.
+for (const [raw, expected] of [
+  ['["  Kit  ", "", "   ", "Kit", 5, null, "Kat"]', ["Kit", "Kat"]],
+  ['"Kit"', []],
+  ['["Kate", "kate", " KATE ", "Katie"]', ["Kate", "Katie"]],
+  ["{not json", []],
+  ['{"a":1}', []],
+] as const) {
+  const row = personaRowFromStored(storedPersonaFromRow({ ...minimalRow, nameAliases: raw }));
+  assert.deepEqual(JSON.parse(row.nameAliases), expected, `aliases ${raw} normalize`);
+}
+for (const bad of [5, "Kit", { a: 1 }, null]) {
+  const row = personaRowFromStored({
+    ...storedRows.minimal,
+    data: JSON.stringify({ name: "X", extensions: { nameAliases: bad } }),
+  });
+  assert.equal(row.nameAliases, "[]", `card value ${JSON.stringify(bad)} reads as no aliases`);
+}
+// A character card's aliases show up on the persona view.
+assert.equal(
+  personaRowFromStored({
+    ...storedRows.minimal,
+    data: JSON.stringify({ name: "X", extensions: { nameAliases: ["Kit"] } }),
+  }).nameAliases,
+  '["Kit"]',
+);
+
+// A base card keeps what the flat view does not know, and never wins over the flat values.
+{
+  const base = JSON.parse(storedRows.canonical.data);
+  base.name = "Stale name";
+  base.description = "Stale description";
+  base.first_mes = "Hello from the card";
+  base.extensions.someoneElsesKey = { x: 1 };
+  base.extensions.nameAliases = ["Stale"];
+  const overlaid = JSON.parse(storedPersonaFromRow(canonicalRow, base).data);
+  assert.equal(overlaid.name, canonicalRow.name);
+  assert.equal(overlaid.description, canonicalRow.description);
+  assert.deepEqual(overlaid.extensions.nameAliases, ["Countess", "Ada L."]);
+  assert.equal(overlaid.first_mes, "Hello from the card");
+  assert.deepEqual(overlaid.extensions.someoneElsesKey, { x: 1 });
+  assert.equal(storedCardBase("{not json"), undefined, "an unreadable card means no base");
+  assert.equal(storedCardBase("[]"), undefined);
+  assert.equal(storedCardBase(undefined), undefined);
+}
+
 // Unreadable card JSON keeps the record columns and reads as an empty card instead of throwing.
 const unreadable = personaRowFromStored({ ...storedRows.canonical, data: "{not json" });
 assert.equal(unreadable.id, canonicalRow.id);

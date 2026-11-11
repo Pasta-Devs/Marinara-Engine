@@ -30,6 +30,7 @@ import {
   replaceRoleplayCommandMarkers,
 } from "./RoleplayCommandResults";
 import { splitRoleplayParagraphs } from "../../lib/roleplay-vn-paragraphs";
+import { buildInlineNameColorMap, resolvePersonaInlineNames } from "../../lib/inline-name-colors";
 import {
   notifyRoleplayTTSParagraph,
   withRoleplayTTSParagraphs,
@@ -1037,6 +1038,8 @@ interface ChatMessageProps {
   groupChatMode?: string;
   /** This chat's Card Theming switch; undefined falls back to the retired global setting. */
   colorInlineNames?: boolean;
+  /** Per-chat persona switch; unset follows colorInlineNames. */
+  colorPersonaInlineNames?: boolean;
   chatCharacterIds?: string[];
   /** The chat's live active characters: a streaming merged Narrator reply shows them; a saved one keeps its own. */
   mergedGroupCharacterIds?: string[];
@@ -2021,6 +2024,7 @@ export const ChatMessage = memo(function ChatMessage({
   personaInfo,
   groupChatMode,
   colorInlineNames: chatColorInlineNames,
+  colorPersonaInlineNames: chatColorPersonaInlineNames,
   chatCharacterIds,
   mergedGroupCharacterIds,
   noExpressionCharacterIds,
@@ -2101,6 +2105,7 @@ export const ChatMessage = memo(function ChatMessage({
     })),
   );
   const colorInlineNames = chatColorInlineNames ?? legacyColorInlineNames;
+  const colorPersonaInlineNames = resolvePersonaInlineNames(chatColorPersonaInlineNames, !!colorInlineNames);
   const remoteImages = useRemoteImagePolicy();
   // Build reusable text style objects (memoized to avoid unnecessary DOM updates)
   const textStrokeStyle = useMemo<React.CSSProperties>(
@@ -2969,24 +2974,17 @@ export const ChatMessage = memo(function ChatMessage({
           ? userBubbleBg
           : assistantBubbleBg;
   const nameColorMap = useMemo(() => {
-    if (!colorInlineNames || !scopedCharacterMap) return null;
-    const map = new Map<string, string>();
-    const addName = (name: string | undefined | null, color: string) => {
-      const key = name?.trim().toLowerCase();
-      if (key) map.set(key, color);
-    };
-    scopedCharacterMap.forEach((char) => {
-      const color = char.nameColor;
-      if (!color) return;
+    if (!colorInlineNames && !colorPersonaInlineNames) return null;
+    return buildInlineNameColorMap({
+      characters: scopedCharacterMap?.values() ?? [],
+      persona: personaInfo,
+      colorCharacters: !!colorInlineNames,
+      colorPersona: !!colorPersonaInlineNames,
       // If gradients are disabled, extract the first solid color from gradient strings
-      const effectiveColor =
-        disableInlineNameGradients && isGradientNameColor(color) ? extractSolidColorFromGradient(color) : color;
-      addName(char.name, effectiveColor);
-      addName(char.convoDisplayName, effectiveColor);
-      for (const alias of char.nameAliases ?? []) addName(alias, effectiveColor);
+      toColor: (color) =>
+        disableInlineNameGradients && isGradientNameColor(color) ? extractSolidColorFromGradient(color) : color,
     });
-    return map.size > 0 ? map : null;
-  }, [colorInlineNames, scopedCharacterMap, disableInlineNameGradients]);
+  }, [colorInlineNames, colorPersonaInlineNames, scopedCharacterMap, personaInfo, disableInlineNameGradients]);
 
   // Build speaker → dialogueColor map for group chat speaker tag coloring
   const speakerColorMap = useMemo(() => {
