@@ -839,7 +839,7 @@ Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md
 
 | English label or term | Gloss / rendering | Note |
 | --- | --- | --- |
-| Card Field Alternatives (Chat Settings section) | **Card Field Alternatives**(卡片字段替代版本) | First bold use in `creating-and-editing-characters.md`, bold plus tight half-width gloss. Bare in the personas bullet and the first rule, which gloss **Chat Settings**(聊天设置) themselves. |
+| Card Field Alternatives (Chat Settings section) | **Card Field Alternatives**(卡片字段替代版本) | First bold use in `creating-and-editing-characters.md`, bold plus tight half-width gloss, and again in the personas bullet inside the combined **Chat Settings → Card Field Alternatives**(聊天设置 → 卡片字段替代版本) pair. The first rule never names the label and writes **Chat Settings** bare. |
 | Original (picker row) | **Original**(原始) | Glossed once, in the paragraph. 原始 as in the pack's 原始命令 and 原始字段. |
 | Backstory alternative 1 (alternative title) | **Backstory alternative 1**(背景故事的第 1 个替代版本) | The app's string: `ui/zh-Hans.json` `ui.cardFields.alternativeTitle` is {{field}}的第 {{index}} 个替代版本 with `chat.settings.inlineEditor.fields.backstory` = 背景故事. |
 | Optional: | 可选： | Full-width colon, as in `agents/custom-agents.md:184` and the pack's other optional steps. |

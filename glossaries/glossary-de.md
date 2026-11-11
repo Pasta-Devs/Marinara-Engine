@@ -1120,9 +1120,12 @@ Precedents from the #8954 sync (`CONFIGURATION.md`) and the #8951 developer-docs
 Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
 
 - **Card Field Alternatives** is glossed (Alternativen für Kartenfelder) at its first bold use in
-  `creating-and-editing-characters.md`, in the file's usual bold-plus-parentheses form, and stays
-  bare in the personas bullet and in the first rule, both of which already carry the glossed
-  **Chat Settings** (Chat-Einstellungen). **Original** is glossed (Original) once, in the paragraph.
+  `creating-and-editing-characters.md`, in the file's usual bold-plus-parentheses form, and again
+  in the personas bullet, inside the combined **Chat Settings → Card Field Alternatives**
+  (Chat-Einstellungen → Alternativen für Kartenfelder) pair. The first rule never names the label;
+  it writes **Chat Settings** bare. **Original** stays unglossed in the paragraph, because
+  „beim Original“ (`:167`) and „Originalfeld“ already carry the word in German, so a parenthetical
+  would only repeat it.
 - The title in step 2, **Backstory alternative 1**, is the app's own string:
   `ui/de.json` `ui.cardFields.alternativeTitle` is **{{field}} – Alternative {{index}}** with
   `chat.settings.inlineEditor.fields.backstory` = Hintergrundgeschichte, hence

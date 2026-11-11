@@ -1430,10 +1430,11 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`, #8954; `development/option
 Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
 
 - **Card Field Alternatives** is glossed (alternatywne pola karty) at its first bold use in
-  `creating-and-editing-characters.md` and stays bare in the personas bullet and the first rule,
-  which gloss **Chat Settings** (ustawienia czatu) themselves. The pack calls an alternative field
-  **wariant** in this section, so the section label names the card fields it holds
-  (*alternatywne pola karty*) instead of inventing a second word for "alternative".
+  `creating-and-editing-characters.md` and again in the personas bullet, inside the combined
+  **Chat Settings → Card Field Alternatives** (ustawienia czatu → alternatywne pola karty) pair.
+  The first rule never names the label; it writes **Chat Settings** bare. The pack calls an
+  alternative field **wariant** in this section, so the section label names the card fields it
+  holds (*alternatywne pola karty*) instead of inventing a second word for "alternative".
 - **Original** takes (oryginał) once, in the paragraph: the picker row restores a field's original
   text, and the pack already writes **oryginalne pole** in the same section.
 - Step 2's example title, **Backstory alternative 1**, is the app's own string:
