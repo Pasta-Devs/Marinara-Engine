@@ -8,9 +8,7 @@ import {
   ChevronRight,
   ChevronDown,
   Plug,
-  Ban,
   BookOpen,
-  FileText,
   Check,
   Plus,
   Search,
@@ -28,16 +26,19 @@ import {
   UserPlus,
 } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { resolvePresetArtwork } from "../../lib/preset-artwork";
+import {
+  LibraryArt,
+  LorebookPickerWindow,
+  PresetPickerField,
+  type LibraryLorebook,
+  type LibraryPreset,
+} from "../ui/LibraryPickers";
 import { advanceChatSetupDraft } from "../../lib/chat-setup-draft";
 import { useDiscardNewChatSetup } from "../../hooks/use-discard-new-chat-setup";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
 import { usePresets, usePresetFull, useDefaultPreset } from "../../hooks/use-presets";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
-import { useLibraryFolders } from "../../hooks/use-library-folders";
-import { PickerWindow } from "../ui/PickerWindow";
-import { PickerFolderList } from "../ui/PickerFolderList";
 import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset, useIsApplyingChatPreset } from "../../hooks/use-chat-presets";
 import { nextWizardApplyHold, type WizardApplyHold } from "../../lib/chat-preset-apply";
@@ -316,131 +317,8 @@ const WIZARD_PRIMARY_BUTTON_CLASS =
 const WIZARD_SECONDARY_BUTTON_CLASS =
   "flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
 
-type WizardPreset = { id: string; name: string; author?: string | null; imagePath?: string | null };
-type WizardLorebook = { id: string; name: string; imagePath?: string | null };
-
-// A preset's or lorebook's picture, as its panel shows it: the uploaded image, or the panel's
-// placeholder (the presets gradient with a page, the lorebooks amber with a book).
-function LibraryArt({ src, kind, className }: { src: string | null; kind: "preset" | "lorebook"; className?: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden",
-        src
-          ? "bg-[var(--muted)]"
-          : kind === "preset"
-            ? "mari-panel-gradient-surface mari-panel-gradient--presets"
-            : "bg-gradient-to-br from-amber-400 to-orange-500 text-white",
-        className,
-      )}
-    >
-      {src ? (
-        <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" draggable={false} />
-      ) : kind === "preset" ? (
-        <FileText size="0.875rem" />
-      ) : (
-        <BookOpen size="0.875rem" />
-      )}
-    </span>
-  );
-}
-const ROW_ART = "h-8 w-8 rounded-lg";
-
-// The preset field: a trigger that opens the shared picker window with search and the
-// Presets panel's folders, like the persona and character pickers. A pick closes it.
-function WizardPresetSelect({
-  value,
-  presets,
-  ariaLabel,
-  onChange,
-}: {
-  /** Preset id, or "" for None. */
-  value: string;
-  presets: WizardPreset[];
-  ariaLabel: string;
-  onChange: (value: string) => void;
-}) {
-  const { t } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const { data: folders } = useLibraryFolders("presets");
-  const noneLabel = t("ui.game.gamesurfacecomponent.none");
-  const items = useMemo(
-    () =>
-      presets.map((preset) => ({
-        id: preset.id,
-        label: preset.name,
-        icon: <LibraryArt src={resolvePresetArtwork(preset)} kind="preset" className={ROW_ART} />,
-      })),
-    [presets],
-  );
-  const leadingItems = useMemo(
-    () => [
-      {
-        id: "",
-        label: noneLabel,
-        icon: (
-          <span
-            aria-hidden="true"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-dashed border-foreground/35 text-foreground/40"
-          >
-            <Ban size="0.8rem" />
-          </span>
-        ),
-      },
-    ],
-    [noneLabel],
-  );
-  const selectedLabel = presets.find((preset) => preset.id === value)?.name ?? noneLabel;
-
-  const close = () => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label={ariaLabel}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => (open ? close() : setOpen(true))}
-        className={cn(WIZARD_INPUT_CLASS, "flex items-center justify-between gap-2 pr-3 text-left")}
-      >
-        <span className="min-w-0 flex-1 truncate">{selectedLabel}</span>
-        <ChevronDown
-          size="0.75rem"
-          aria-hidden="true"
-          className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
-        />
-      </button>
-      {open && (
-        <PickerWindow title={ariaLabel} anchorRef={triggerRef} onClose={close}>
-          <PickerFolderList
-            items={items}
-            folders={folders ?? []}
-            selectedIds={[value]}
-            leadingItems={leadingItems}
-            onToggle={(id) => {
-              onChange(id);
-              close();
-            }}
-            searchLabel={t("chat.wizard.select.search")}
-            emptyLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
-            noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
-          />
-        </PickerWindow>
-      )}
-    </>
-  );
-}
-
-// The lorebook step: a trigger that opens the shared picker window with search, checkboxes
-// and the Lorebooks panel's folders ("Add all" per folder). It stays open while picking;
-// the picked lorebooks stay listed under the trigger with a remove button each.
+// The lorebook step: a trigger that opens the shared lorebook window. The picked lorebooks
+// stay listed under the trigger with a remove button each.
 function WizardLorebookPicker({
   lorebooks,
   loaded,
@@ -448,7 +326,7 @@ function WizardLorebookPicker({
   onToggle,
   onAdd,
 }: {
-  lorebooks: WizardLorebook[];
+  lorebooks: LibraryLorebook[];
   loaded: boolean;
   activeIds: readonly string[];
   onToggle: (id: string) => void;
@@ -457,21 +335,9 @@ function WizardLorebookPicker({
   const { t } = useUiTranslation();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const { data: folders } = useLibraryFolders("lorebooks");
-  const items = useMemo(
-    () =>
-      lorebooks.map((lb) => ({
-        id: lb.id,
-        label: lb.name,
-        icon: <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className={ROW_ART} />,
-      })),
-    [lorebooks],
-  );
   const active = activeIds
     .map((id) => lorebooks.find((lb) => lb.id === id))
-    .filter((lb): lb is WizardLorebook => Boolean(lb));
-  const baseTitle = t("navigation.topbar.lorebooks");
-  const title = active.length > 0 ? baseTitle + " · " + active.length : baseTitle;
+    .filter((lb): lb is LibraryLorebook => Boolean(lb));
 
   const close = () => {
     setOpen(false);
@@ -522,19 +388,14 @@ function WizardLorebookPicker({
         </div>
       )}
       {open && (
-        <PickerWindow title={title} anchorRef={triggerRef} onClose={close}>
-          <PickerFolderList
-            items={items}
-            folders={folders ?? []}
-            selectedIds={activeIds}
-            multiple
-            onToggle={onToggle}
-            onPickGroup={onAdd}
-            searchLabel={t("ui.chat.roleplaysetupwizard.searchLorebooks")}
-            emptyLabel={t("ui.panels.lorebookspanel.noLorebooksYet")}
-            noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
-          />
-        </PickerWindow>
+        <LorebookPickerWindow
+          anchorRef={triggerRef}
+          lorebooks={lorebooks}
+          selectedIds={activeIds}
+          onToggle={onToggle}
+          onAdd={onAdd}
+          onClose={close}
+        />
       )}
     </div>
   );
@@ -1613,7 +1474,8 @@ function ConversationQuickSetup({
     <div className="space-y-3">
       <div className="space-y-2">
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.chat.conversationquicksetup.conversationPrompt")}</label>
-        <WizardPresetSelect
+        <PresetPickerField
+          triggerClassName={WIZARD_INPUT_CLASS}
           value={selectedPromptPresetId ?? ""}
           ariaLabel={localizeUi("ui.chatSettings.conversationpromptsection.promptPreset")}
           presets={promptPresetOptions}
@@ -2970,10 +2832,11 @@ function RoleplaySetupWizard({
   function renderPreset() {
     return (
       <div className="space-y-4">
-        <WizardPresetSelect
+        <PresetPickerField
+          triggerClassName={WIZARD_INPUT_CLASS}
           value={chat.promptPresetId ?? ""}
           ariaLabel={localizeUi("chat.toolbar.preset")}
-          presets={(presets ?? []) as WizardPreset[]}
+          presets={(presets ?? []) as LibraryPreset[]}
           onChange={(nextValue) => setPreset(nextValue || null)}
         />
         <section className="space-y-2 border-t border-[var(--border)] pt-4">
@@ -3098,7 +2961,7 @@ function RoleplaySetupWizard({
   function renderLorebooks() {
     return (
       <WizardLorebookPicker
-        lorebooks={(lorebooks ?? []) as WizardLorebook[]}
+        lorebooks={(lorebooks ?? []) as LibraryLorebook[]}
         loaded={lorebooks !== undefined}
         activeIds={activeLorebookIds}
         onToggle={toggleLorebook}
