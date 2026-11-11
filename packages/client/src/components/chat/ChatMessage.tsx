@@ -31,6 +31,7 @@ import {
 } from "./RoleplayCommandResults";
 import { splitRoleplayParagraphs } from "../../lib/roleplay-vn-paragraphs";
 import { buildInlineNameColorMap, resolvePersonaInlineNames } from "../../lib/inline-name-colors";
+import { withCssPaintAlpha } from "../../lib/css-colors";
 import {
   notifyRoleplayTTSParagraph,
   withRoleplayTTSParagraphs,
@@ -2965,11 +2966,13 @@ export const ChatMessage = memo(function ChatMessage({
   const ownDialogueColor = !isMergedGroup && !!msgColors?.dialogueColor;
   const boxBgColor = msgColors?.boxColor;
   const msgNameColor = msgColors?.nameColor;
+  // The Roleplay slider scales the authored alpha instead of replacing it, so `rgba(255, 255, 255, 0.25)`
+  // and `#FFFFFF40` both follow the control (#9063).
   const roleplayBubbleBg =
     chatFontOpacity <= 0
       ? "transparent"
       : boxBgColor
-        ? `rgb(from ${boxBgColor} r g b / ${chatFontOpacity / 100})`
+        ? withCssPaintAlpha(boxBgColor, String(chatFontOpacity / 100))
         : isUser
           ? userBubbleBg
           : assistantBubbleBg;
