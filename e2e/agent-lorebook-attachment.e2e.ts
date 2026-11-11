@@ -120,7 +120,13 @@ for (const theme of ["dark", "light"] as const) {
       await page.reload();
       attachment = await open();
       await expect(select()).toHaveText(book.name);
-      await expect(select().locator(`option[value="${book.id}"]`)).toHaveJSProperty("disabled", true);
+      // A book hidden from the library stays named on the field, but the picker no longer offers it.
+      await select().click();
+      const picker = page.getByRole("dialog", { name: "Reference lorebook", exact: true });
+      await expect(picker).toBeVisible();
+      await expect(picker.locator("[data-pick-row]").filter({ hasText: book.name })).toHaveCount(0);
+      await picker.press("Escape");
+      await expect(picker).toHaveCount(0);
       await expect(
         attachment.getByText("Select another lorebook. An unavailable attachment adds no reference context."),
       ).toHaveCount(0);
@@ -128,7 +134,7 @@ for (const theme of ["dark", "light"] as const) {
       ids.book = "";
       await page.reload();
       attachment = await open();
-      await expect(select()).toHaveText(book.name);
+      await expect(select()).toHaveText("Selected lorebook unavailable");
       await expect(
         attachment.getByText("Select another lorebook. An unavailable attachment adds no reference context."),
       ).toBeVisible();

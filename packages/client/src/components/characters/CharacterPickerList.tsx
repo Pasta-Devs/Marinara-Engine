@@ -455,22 +455,26 @@ export function CharacterPickerList({
             </div>
           ))
         ) : libraryEmpty ? (
-          <div className="flex flex-col items-center gap-2 px-5 py-8 text-center text-xs text-foreground/55">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground/[0.06]">
-              <UserPlus size="1.125rem" />
-            </span>
-            {t(isPersona ? "ui.characterselect.noPersonasYet" : "ui.characterselect.noCharactersYet")}
-            {onCreate && (
-              <button
-                type="button"
-                onClick={onCreate}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-foreground/20 px-3 text-xs text-foreground hover:bg-foreground/[0.06]"
-              >
-                <Plus size="0.875rem" />
-                {t(isPersona ? "ui.characterselect.newPersona" : "ui.characterselect.newCharacter")}
-              </button>
-            )}
-          </div>
+          <>
+            {/* None and a caller's own choice stay pickable when the library is empty. */}
+            {noneRow}
+            <div className="flex flex-col items-center gap-2 px-5 py-8 text-center text-xs text-foreground/55">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground/[0.06]">
+                <UserPlus size="1.125rem" />
+              </span>
+              {t(isPersona ? "ui.characterselect.noPersonasYet" : "ui.characterselect.noCharactersYet")}
+              {onCreate && (
+                <button
+                  type="button"
+                  onClick={onCreate}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-foreground/20 px-3 text-xs text-foreground hover:bg-foreground/[0.06]"
+                >
+                  <Plus size="0.875rem" />
+                  {t(isPersona ? "ui.characterselect.newPersona" : "ui.characterselect.newCharacter")}
+                </button>
+              )}
+            </div>
+          </>
         ) : nothingMatches ? (
           <div className="flex flex-col items-center gap-2 px-5 py-8 text-center text-xs text-foreground/55">
             {t("ui.characterselect.noMatch", { query })}
