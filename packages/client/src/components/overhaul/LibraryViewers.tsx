@@ -101,6 +101,8 @@ export type OvViewerRow = {
 export type OvViewerFolder = {
   dropId?: string;
   dragKind?: string;
+  /** Replaces the folder icon (a preset's folder shows the preset icon). */
+  icon?: ReactNode;
   note?: string;
   title?: string;
   trail?: ReactNode;
@@ -297,7 +299,7 @@ function OvViewer({
                   >
                     <button type="button" className="ov-vw__gopen" aria-expanded={!isClosed} onClick={toggleGroup}>
                       <ChevronDown size={13} className={cn(isClosed && "-rotate-90")} aria-hidden="true" />
-                      <Folder size={14} className="ov-vw__gicon" aria-hidden="true" />
+                      {folder.icon ?? <Folder size={14} className="ov-vw__gicon" aria-hidden="true" />}
                       <span>{group.label}</span>
                       <small>{folder.note ?? group.rows.length}</small>
                     </button>
