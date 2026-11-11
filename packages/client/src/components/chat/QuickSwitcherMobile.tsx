@@ -83,7 +83,8 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
             : localizeUi("ui.chat.quickswitchermobile.quickSwitcher")
         }
         className={cn(
-          "flex h-11 w-11 items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25",
+          // Same 36px square as the paperclip beside it, so their pressed circles match.
+          "flex h-9 w-9 items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25",
           open
             ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
             : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",

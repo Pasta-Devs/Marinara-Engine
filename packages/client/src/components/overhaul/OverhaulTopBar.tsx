@@ -40,7 +40,7 @@ import { useCharacter, usePersona } from "../../hooks/use-characters";
 import { useLorebook } from "../../hooks/use-lorebooks";
 import { useConnection, useConnections } from "../../hooks/use-connections";
 import { usePresetFull } from "../../hooks/use-presets";
-import { getChatDisplayName, parseChatMetadata } from "../../lib/chat-display";
+import { getChatDisplayName, parseChatMetadata, stripChatDateSuffix } from "../../lib/chat-display";
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { useDocsIndex } from "../../hooks/use-docs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -342,6 +342,8 @@ export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
     // A shared "[game] " style prefix would make every such tab read "[game…"; the tab's icon shows the mode.
     const unprefixed = label?.replace(/^\[[^\]]{1,24}\]\s*/, "");
     if (unprefixed) label = unprefixed;
+    // An imported "Name - 2025-11-25@19h22m33s" shows as "Name": the tab is for the chat's name, not its date.
+    if (label) label = stripChatDateSuffix(label);
   } else if (tab.kind === "character") label = parseCharacterName(character.data);
   else if (tab.kind === "persona") label = nameOf(persona.data);
   else if (tab.kind === "lorebook") label = nameOf(lorebook.data);
