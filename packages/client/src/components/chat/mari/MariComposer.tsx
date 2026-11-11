@@ -641,7 +641,7 @@ export function MariComposer({
             aria-controls={pickerOpen ? referenceUi?.picker?.id : undefined}
             aria-activedescendant={pickerOpen ? referenceUi?.activeOptionId : undefined}
             rows={1}
-            placeholder={t("home.professorMari.placeholder")}
+            placeholder={phone ? t("home.professorMari.placeholderPhone") : t("home.professorMari.placeholder")}
             className="mari-workspace-composer__text mari-workspace-composer__input"
           />
         </div>

@@ -8,7 +8,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { avatarInitial } from "../../lib/avatar-initial";
-import { BookOpen, Backpack, Map as MapIcon, ScrollText, Users, X } from "lucide-react";
+import { BookOpen, Backpack, History, Map as MapIcon, Users, X } from "lucide-react";
 import type { AvatarCrop, GameInventoryStack } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useOverhaulStore, type OverhaulGamePaneTab } from "../../stores/overhaul.store";
@@ -47,7 +47,7 @@ const TABS: Array<{ id: OverhaulGamePaneTab; label: string; icon: typeof Users }
   { id: "inventory", label: "Inventory", icon: Backpack },
   { id: "journal", label: "Journal", icon: BookOpen },
   { id: "map", label: "Map", icon: MapIcon },
-  { id: "sessions", label: "Sessions", icon: ScrollText },
+  { id: "sessions", label: "Sessions", icon: History },
 ];
 
 const HP = /^(hp|health|hit points?|vitality)$/i;

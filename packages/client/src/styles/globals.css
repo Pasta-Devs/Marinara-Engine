@@ -677,9 +677,12 @@
   }
 }
 
+/* One focus look for every composer button (audit H7): same ring width and offset on each. */
 .marinara-chat-input-shell button:not(:disabled):focus-visible {
   background-color: var(--marinara-chat-chrome-highlight-bg-hover);
   color: var(--marinara-chat-chrome-button-text-hover);
+  outline: 2px solid color-mix(in srgb, var(--marinara-chat-chrome-accent) 70%, transparent);
+  outline-offset: 1px;
 }
 
 .marinara-chat-input-shell button.bg-foreground\/10:not(:disabled),

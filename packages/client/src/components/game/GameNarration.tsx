@@ -25,7 +25,7 @@ import {
   RefreshCw,
   ScrollText,
   X,
-  Package,
+  Backpack,
   Sword,
   Copy,
   Pencil,
@@ -4099,11 +4099,11 @@ export function GameNarration({
   const NARRATION_ACTION_BTN =
     "mari-chat-style-control mari-game-action flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/30 px-3 py-1.5 text-xs text-[var(--foreground)]/70 transition-colors hover:bg-[var(--muted)]/50 hover:text-[var(--foreground)] dark:bg-white/10 dark:text-white/70 dark:hover:bg-white/20 dark:hover:text-white";
   const NARRATION_META_BTN =
-    "mari-chat-style-control mari-game-meta flex min-h-7 items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-2.5 py-1 text-xs text-[var(--foreground)]/75 transition-colors hover:bg-[var(--muted)]/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10";
+    "mari-chat-style-control mari-game-meta flex h-8 items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-2.5 py-1 text-xs text-[var(--foreground)]/75 transition-colors hover:bg-[var(--muted)]/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10";
   const NARRATION_COUNT_BADGE =
     "absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--foreground)] px-0.5 text-[0.55rem] font-bold text-[var(--background)] ring-1 ring-[var(--background)]/20 [-webkit-text-fill-color:currentColor] dark:bg-white/90 dark:text-black dark:ring-black/20";
   const ACTIVE_SEGMENT_ACTION_BTN =
-    "mari-chat-style-control mari-game-active-action inline-flex items-center justify-center rounded p-1 text-[var(--muted-foreground)]/40 transition-colors hover:bg-[var(--muted)]/30 hover:text-[var(--muted-foreground)] dark:text-white/20 dark:hover:bg-white/10 dark:hover:text-white/60";
+    "mari-chat-style-control mari-game-active-action relative inline-flex items-center justify-center rounded p-1 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-1.5 [@media(pointer:coarse)]:after:content-[''] text-[var(--muted-foreground)]/40 transition-colors hover:bg-[var(--muted)]/30 hover:text-[var(--muted-foreground)] dark:text-white/20 dark:hover:bg-white/10 dark:hover:text-white/60";
   const LOG_SEGMENT_ACTION_BTN =
     "mari-chat-style-control mari-game-log-action rounded p-1 text-[var(--foreground)]/45 opacity-100 transition-all hover:bg-[var(--muted)]/35 hover:text-[var(--foreground)]/70 md:opacity-0 md:group-hover/logseg:opacity-100 dark:text-white/45 dark:hover:bg-white/10 dark:hover:text-white/70";
   const LOG_DELETE_ACTION_BTN =
@@ -4389,7 +4389,7 @@ export function GameNarration({
                 onClick={() => setAutoPlay((v) => !v)}
                 aria-pressed={autoPlay}
                 className={cn(
-                  "mari-chat-style-control mari-game-nav mari-game-autoplay-control flex items-center justify-center self-stretch rounded-lg border px-2 text-xs transition-colors",
+                  "mari-chat-style-control mari-game-nav mari-game-autoplay-control flex w-8 items-center justify-center self-stretch rounded-lg border text-xs transition-colors",
                   autoPlay
                     ? "border-[var(--primary)]/40 bg-[var(--primary)]/20 text-[var(--primary)]"
                     : "border-[var(--border)] bg-[var(--muted)]/20 text-[var(--foreground)]/70 hover:bg-[var(--muted)]/40 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10",
@@ -5672,7 +5672,7 @@ export function GameNarration({
                     )}
                     {onOpenInventory && (
                       <button onClick={onOpenInventory} className={cn("relative", NARRATION_META_BTN)}>
-                        <Package size={12} />
+                        <Backpack size={12} />
                         <span className="hidden sm:inline">{localizeUi("ui.game.gamecharactersheet.inventory")}</span>
                         {(inventoryCount ?? 0) > 0 && <span className={NARRATION_COUNT_BADGE}>{inventoryCount}</span>}
                       </button>
@@ -5749,7 +5749,7 @@ export function GameNarration({
                     )}
                     {onOpenInventory && (
                       <button onClick={onOpenInventory} className={cn("relative", NARRATION_META_BTN)}>
-                        <Package size={12} />
+                        <Backpack size={12} />
                         <span className="hidden sm:inline">{localizeUi("ui.game.gamecharactersheet.inventory")}</span>
                         {(inventoryCount ?? 0) > 0 && <span className={NARRATION_COUNT_BADGE}>{inventoryCount}</span>}
                       </button>

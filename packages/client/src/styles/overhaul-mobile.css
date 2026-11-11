@@ -271,6 +271,16 @@
   line-height: 1;
 }
 
+/* In the Stack footer the tab-count box is the same 22px as the Settings and Docs icons beside it, so
+   the three labels share one baseline (audit P10). */
+.ovm-stack-menu__tile > .ovm-tabs-icon {
+  box-sizing: border-box;
+  min-width: calc(22px * var(--ov-ui-scale, 1));
+  height: calc(22px * var(--ov-ui-scale, 1));
+  padding: 0 0.1875rem;
+  font-size: 0.6875rem;
+}
+
 /* ─── All Tabs (Safari's tab overview) ─── */
 .ovm-alltabs {
   position: fixed;
@@ -638,6 +648,10 @@
 }
 .ovm-sheet__more.ov-rpf-menu .mari-message-actions button[title]::after {
   font-size: 1rem;
+}
+/* Rows inside a wrapper (Bookmark, Mark as new start, Hide from AI) are square too, so dividers stay straight (audit P9). */
+.ovm-sheet__more.ov-rpf-menu .mari-message-actions button:is([title], :first-child) {
+  border-radius: 0;
 }
 
 /* ─── Chat settings: a bottom sheet with touch-sized rows ─── */
@@ -4682,7 +4696,7 @@
   }
 }
 .ovm-sidepage .ov-sideswitch {
-  margin: 0.625rem 0.75rem 0.375rem;
+  margin: 0.625rem 0.5rem 0.375rem; /* same inset as the mode tabs and search below (audit T7) */
 }
 .ovm-sidepage .ov-sideswitch__btn {
   height: 2.5rem;
@@ -4732,4 +4746,24 @@
 }
 :root[data-overhaul="mobile"] :is(.ov-conn, .ov-org) > .ov-gallery__tools + *:not(.ov-gallery__tools):not(#ovm-x):not(#ovm-y) {
   margin-top: 0;
+}
+
+/* Chat settings quick sheet: one 8px gap between every row (audit P7/T6: Prompt Preset and Persona touched,
+   the toggles sat 1px under Lorebooks). The gap replaces the rows' own top margins. */
+.ov-cs.ov-cs [data-ovm-cs-view="quick"] {
+  row-gap: 0.5rem;
+}
+.ov-cs.ov-cs [data-ovm-cs-view="quick"] > * {
+  margin-top: 0 !important;
+}
+
+/* Chats list toolbar on phones and tablets: search, Tags, + New and ⋯ share one 2.5rem height, and Tags is
+   as square and as round as ⋯ beside it (audit P11/T7). */
+:root[data-overhaul="mobile"] .ov-chats-tools .mari-chrome-field:not(#ovm-x) {
+  height: 2.5rem;
+}
+:root[data-overhaul="mobile"] .ov-chats-tools .ov-tagfilter:not(#ovm-x) {
+  min-width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
 }

@@ -16,8 +16,8 @@ import {
   GraduationCap,
   Layers,
   Link,
-  Plus,
   Regex,
+  Search,
   Settings2,
   Sparkles,
   Users,
@@ -324,6 +324,31 @@ function useHomeApps() {
 
 /** Resolves a tab's label with the same queries the editors use, so it is usually cached already. */
 export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
+  const text = useTabLabelText(tab, chats);
+  // Short names keep their natural width; only long names give way when the strip is full.
+  return (
+    <span className="ov-tab__label" data-short={text.length <= 10 ? "true" : undefined} title={text}>
+      {text}
+    </span>
+  );
+}
+
+/** The browser tab says which page or chat is open ("Smuggler's Run · Marinara Engine"), audit C23. */
+export function DocumentTitle({ tab, chats }: { tab: OverhaulTab | null; chats: Chat[] }) {
+  const { t } = useTranslation();
+  const localize = useLocalizedUiText();
+  const label = useTabLabelText(tab ?? HOME_TITLE_TAB, chats);
+  const base = t("app.documentTitle", "Marinara Engine");
+  const text = tab ? label : localize("Home");
+  useEffect(() => {
+    document.title = `${text} · ${base}`;
+  }, [base, text]);
+  useEffect(() => () => void (document.title = base), [base]);
+  return null;
+}
+const HOME_TITLE_TAB = { kind: "library", id: "" } as OverhaulTab;
+
+function useTabLabelText(tab: OverhaulTab, chats: Chat[]): string {
   const localize = useLocalizedUiText();
   const character = useCharacter(tab.kind === "character" ? tab.id : null);
   const persona = usePersona(tab.kind === "persona" ? tab.id : null);
@@ -362,13 +387,7 @@ export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
     const title = docsTitle(docsPath);
     label = title ? `${localize("Docs")}: ${title}` : localize("Docs");
   }
-  const text = label ?? localize("Untitled");
-  // Short names keep their natural width; only long names give way when the strip is full.
-  return (
-    <span className="ov-tab__label" data-short={text.length <= 10 ? "true" : undefined} title={text}>
-      {text}
-    </span>
-  );
+  return label ?? localize("Untitled");
 }
 
 const PRESENCE_LABEL: Record<string, string> = { online: "Online", idle: "Idle", dnd: "Busy", offline: "Offline" };
@@ -642,6 +661,7 @@ export function OverhaulTopBar() {
         data-overhaul-topbar="true"
         className={cn("ov-topbar", autoHide && "is-autohide")}
       >
+        <DocumentTitle tab={current} chats={chats} />
         {mariEdgeGlow ? <span aria-hidden="true" data-state={mariEdgeGlow} className="mari-topbar-edge-glow" /> : null}
         <img
           className="ov-mark"
@@ -655,13 +675,13 @@ export function OverhaulTopBar() {
         </Suspense>
         <button
           type="button"
-          className="ov-icon-btn ov-icon-btn--sm"
+          className="ov-icon-btn"
           onClick={() => setOmnibarOpen(true)}
           data-tour="omnibar-button"
           title={localize("Search or open anything")}
           aria-label={localize("Search or open anything")}
         >
-          <Plus size={15} />
+          <Search size={15} />
         </button>
         <div className="ov-topbar__right">
           <MariTopbarStatus state={mariEdgeGlow} />
@@ -684,7 +704,8 @@ export function OverhaulTopBar() {
           <PersonalExtensionContributionsMenu />
           <button
             type="button"
-            className="ov-text-btn"
+            className={cn("ov-text-btn", current?.kind === "docs" && "is-on")}
+            aria-pressed={current?.kind === "docs"}
             onClick={() => useUIStore.getState().openModal("docs-viewer")}
             title={localize("Docs")}
             data-tour="docs-button"
@@ -694,7 +715,7 @@ export function OverhaulTopBar() {
               path: useOverhaulStore.getState().docsTabs.main ?? null,
             }))}
           >
-            <span aria-hidden="true">📖</span>
+            <CircleHelp size={15} aria-hidden="true" />
             <span>{localize("Docs")}</span>
           </button>
           <button
@@ -706,7 +727,7 @@ export function OverhaulTopBar() {
               if (ui.rightPanelOpen) ui.closeRightPanel();
               else ui.openRightPanel(ui.rightPanel === "chat" ? "characters" : ui.rightPanel);
             }}
-            title={localize(libraryOpen ? "Hide Library pane" : "Show Library pane")}
+            title={localize(libraryOpen ? "Hide sidebar" : "Show sidebar")}
             data-tour="panel-buttons"
           >
             <Layers size={15} aria-hidden="true" />

@@ -303,7 +303,7 @@ export function OmnibarFooter({
     <footer className="flex min-h-10 shrink-0 items-center justify-between gap-3 border-t border-[var(--border)] px-3 text-[0.6875rem] text-[var(--muted-foreground)]">
       {/* The conditional hints group to the left so the two permanent
                 hints keep their positions as rows gain and lose shortcuts. */}
-      <span className="hidden items-center gap-4 sm:flex">
+      <span className="mari-kbd-hint hidden items-center gap-4 sm:flex">
         <span>{t("commandCenter.keyboard.move", "Arrow keys move")}</span>
         {inlineSuffix ? (
           <span>{t("commandCenter.keyboard.complete", "⇥ Complete")}</span>
@@ -326,12 +326,14 @@ export function OmnibarFooter({
         ) : null}
       </span>
       <span className="flex min-w-0 items-center gap-3">
-        <span className="hidden sm:inline">
+        <span className="mari-kbd-hint hidden sm:inline">
           {t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Prof. Mari", {
             mod: formatShortcutKey("Mod"),
           })}
         </span>
-        {!idle ? <span className="hidden sm:inline">{t("commandCenter.keyboard.escape", "Esc close")}</span> : null}
+        {!idle ? (
+          <span className="mari-kbd-hint hidden sm:inline">{t("commandCenter.keyboard.escape", "Esc close")}</span>
+        ) : null}
         <OmnibarSettingsButton open={settingsOpen} onOpen={() => openSettings()} />
       </span>
     </footer>

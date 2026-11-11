@@ -2275,7 +2275,7 @@ export function ConversationInput({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all active:scale-90 sm:-mr-1 sm:h-8 sm:w-6",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all active:scale-90 sm:h-8 sm:w-8",
               attachments.length
                 ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                 : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
@@ -2344,7 +2344,7 @@ export function ConversationInput({
                 setMobilePickerOpen((value) => !value);
               }}
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                "flex h-8 w-8 items-center justify-center rounded-xl transition-colors",
                 mobilePickerOpen
                   ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                   : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
@@ -2353,7 +2353,7 @@ export function ConversationInput({
               aria-label={t("chat.input.mediaAndTools")}
               aria-expanded={mobilePickerOpen}
             >
-              <Smile size="1.25rem" />
+              <Smile size="1rem" />
             </button>
             {mobilePickerOpen && (
               <ConversationMediaPickerPanel
@@ -2376,7 +2376,7 @@ export function ConversationInput({
               onClick={() => void handleTranslateDraft()}
               disabled={!activeChatId || !hasInput || isTranslatingDraft}
               className={cn(
-                "hidden h-11 w-11 items-center justify-center rounded-full transition-colors sm:flex sm:h-8 sm:w-8",
+                "hidden h-11 w-11 items-center justify-center rounded-xl transition-colors sm:flex sm:h-8 sm:w-8",
                 hasInput && !isTranslatingDraft
                   ? "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70"
                   : "text-foreground/25",
@@ -2425,7 +2425,7 @@ export function ConversationInput({
             ) : showRetrySendState ? (
               <RefreshCw size="0.9375rem" />
             ) : (
-              <Send size="0.9375rem" />
+              <Send size="1rem" />
             )}
           </button>
         </div>

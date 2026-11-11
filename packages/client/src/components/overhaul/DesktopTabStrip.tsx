@@ -78,6 +78,9 @@ export function DesktopTabStrip({
   const [drop, setDrop] = useState<DropSpot | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  // Where the "More tabs" menu opens. It's portalled out of the top bar, which clips everything
+  // below its one row (audit H1: the menu opened invisibly).
+  const [overflowAt, setOverflowAt] = useState<{ top: number; right: number } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
 
   const items = useMemo<StripItem[]>(() => {
@@ -171,7 +174,9 @@ export function DesktopTabStrip({
     window.addEventListener("pointerdown", close);
     window.addEventListener("keydown", close);
     window.addEventListener("blur", close);
+    window.addEventListener("resize", close);
     return () => {
+      window.removeEventListener("resize", close);
       window.removeEventListener("pointerdown", close);
       window.removeEventListener("keydown", close);
       window.removeEventListener("blur", close);
@@ -531,69 +536,79 @@ export function DesktopTabStrip({
             aria-expanded={overflowOpen}
             title={localize("More tabs")}
             aria-label={localize("More tabs")}
-            onClick={() => {
+            onClick={(event) => {
               setMenu(null);
+              const rect = event.currentTarget.getBoundingClientRect();
+              setOverflowAt({ top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right) });
               setOverflowOpen((open) => !open);
             }}
           >
             <ChevronDown size={14} />
             <span>{overflowCount}</span>
           </button>
-          {overflowOpen ? (
-            <div className="ov-menu ov-tabs-more__menu" role="menu">
-              {overflowItems.map((item) =>
-                item.type === "tab" ? (
-                  <OverflowRow
-                    key={item.itemKey}
-                    entry={item.entry}
-                    on={item.entry.key === currentKey}
-                    dragging={drag?.kind === "tab" && drag.key === item.entry.key}
-                    dropClass={dropClass(`entry:${item.entry.key}`)}
-                    onDragStart={(event) => startDrag(event, { kind: "tab", key: item.entry.key })}
-                    onDragOver={(event) => overEntry(event, item.entry, "y")}
-                    onDrop={(event) => dropOnEntry(event, item.entry)}
-                    onDragEnd={endDrag}
-                  >
-                    {tabButton(item.entry, { compact: true })}
-                  </OverflowRow>
-                ) : (
-                  <div key={item.itemKey} className="ov-tabs-more__group">
-                    <button
-                      type="button"
-                      className="ov-tabs-more__grouphead"
-                      draggable
-                      onDragStart={(event) => startDrag(event, { kind: "group", id: item.id })}
-                      onDragEnd={endDrag}
-                      onClick={() => {
-                        activateGroup(item.id);
-                        setOverflowOpen(false);
-                      }}
-                    >
-                      <Layers size={13} aria-hidden="true" />
-                      {item.name}
-                      <span className="ov-tab__count">{item.entries.length}</span>
-                    </button>
-                    {item.entries.map((entry) => (
+          {overflowOpen && overflowAt
+            ? createPortal(
+                <div
+                  className="ov-menu ov-tabs-more__menu"
+                  role="menu"
+                  data-ov-tabmenu
+                  style={{ top: overflowAt.top, right: overflowAt.right }}
+                >
+                  {overflowItems.map((item) =>
+                    item.type === "tab" ? (
                       <OverflowRow
-                        key={entry.key}
-                        entry={entry}
-                        on={entry.key === currentKey}
-                        dragging={drag?.kind === "tab" && drag.key === entry.key}
-                        dropClass={dropClass(`entry:${entry.key}`)}
-                        onDragStart={(event) => startDrag(event, { kind: "tab", key: entry.key })}
-                        onDragOver={(event) => overEntry(event, entry, "y")}
-                        onDrop={(event) => dropOnEntry(event, entry)}
+                        key={item.itemKey}
+                        entry={item.entry}
+                        on={item.entry.key === currentKey}
+                        dragging={drag?.kind === "tab" && drag.key === item.entry.key}
+                        dropClass={dropClass(`entry:${item.entry.key}`)}
+                        onDragStart={(event) => startDrag(event, { kind: "tab", key: item.entry.key })}
+                        onDragOver={(event) => overEntry(event, item.entry, "y")}
+                        onDrop={(event) => dropOnEntry(event, item.entry)}
                         onDragEnd={endDrag}
                       >
-                        {tabButton(entry, { compact: true })}
+                        {tabButton(item.entry, { compact: true })}
                       </OverflowRow>
-                    ))}
-                  </div>
-                ),
-              )}
-              <p className="ov-tabs-more__hint">{localize("Drag a tab onto the tab bar to move it there.")}</p>
-            </div>
-          ) : null}
+                    ) : (
+                      <div key={item.itemKey} className="ov-tabs-more__group">
+                        <button
+                          type="button"
+                          className="ov-tabs-more__grouphead"
+                          draggable
+                          onDragStart={(event) => startDrag(event, { kind: "group", id: item.id })}
+                          onDragEnd={endDrag}
+                          onClick={() => {
+                            activateGroup(item.id);
+                            setOverflowOpen(false);
+                          }}
+                        >
+                          <Layers size={13} aria-hidden="true" />
+                          {item.name}
+                          <span className="ov-tab__count">{item.entries.length}</span>
+                        </button>
+                        {item.entries.map((entry) => (
+                          <OverflowRow
+                            key={entry.key}
+                            entry={entry}
+                            on={entry.key === currentKey}
+                            dragging={drag?.kind === "tab" && drag.key === entry.key}
+                            dropClass={dropClass(`entry:${entry.key}`)}
+                            onDragStart={(event) => startDrag(event, { kind: "tab", key: entry.key })}
+                            onDragOver={(event) => overEntry(event, entry, "y")}
+                            onDrop={(event) => dropOnEntry(event, entry)}
+                            onDragEnd={endDrag}
+                          >
+                            {tabButton(entry, { compact: true })}
+                          </OverflowRow>
+                        ))}
+                      </div>
+                    ),
+                  )}
+                  <p className="ov-tabs-more__hint">{localize("Drag a tab onto the tab bar to move it there.")}</p>
+                </div>,
+                document.body,
+              )
+            : null}
         </div>
       ) : null}
       {row}

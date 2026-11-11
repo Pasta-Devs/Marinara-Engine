@@ -14,7 +14,6 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useChatStore } from "../../stores/chat.store";
 import { useTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
-import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatModeIcon } from "./ChatModeIcon";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { stripInlineMarkdown } from "../../lib/docs-command-search";
@@ -232,7 +231,7 @@ export function RecentChats() {
   if (overhaul) {
     return (
       <ul ref={listRef} className="ov-recent" data-component="RecentChats" data-variant="list">
-        {recentChats.slice(0, Math.min(12, fitRows)).map(({ chat, latestMessage }) => {
+        {recentChats.slice(0, Math.min(12, fitRows)).map(({ chat }) => {
           const mode = MODE_BADGE[chat.mode];
           const characterId = chat.characterIds.find((id) => characterLookup.has(id)) ?? null;
           const character = characterId ? characterLookup.get(characterId) : null;
@@ -257,26 +256,15 @@ export function RecentChats() {
                       loading="lazy"
                     />
                   ) : (
-                    avatarInitial(chat.name)
+                    // The character's initial, as in the Chats list (audit C2); the chat's name without one.
+                    avatarInitial(character?.name ?? chat.name)
                   )}
                 </span>
+                {/* Just the name and the chat's type (kolache, audit C3): no preview, no time. */}
                 <span className="ov-recent__text">
                   <strong>{stripChatDateSuffix(chat.name)}</strong>
-                  <small>
-                    {latestMessage
-                      ? messagePreview(
-                          latestMessage.role,
-                          latestMessage.content,
-                          t("home.recentChats.noPreview"),
-                          t("home.recentChats.you"),
-                        )
-                      : t("home.recentChats.noPreview")}
-                  </small>
                 </span>
                 <span className="ov-recent__mode">{t(mode.labelKey)}</span>
-                <span className="ov-recent__time">
-                  {latestMessage ? (formatRelativeContact(latestMessage.createdAt) ?? "") : ""}
-                </span>
               </button>
             </li>
           );

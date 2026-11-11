@@ -441,3 +441,10 @@ html[data-marinara-reduced-effects="true"] .omnibar-row-expansion {
     animation: none;
   }
 }
+
+/* Keyboard-only hints (arrow keys, Ctrl+J, Esc) mean nothing on a touch tablet (audit T12). */
+@media (hover: none) and (pointer: coarse) {
+  .mari-kbd-hint {
+    display: none !important;
+  }
+}

@@ -30,7 +30,7 @@ import { cn } from "../../lib/utils";
 import { OvMarksMenuContext } from "./marks-menu-context";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
-type Anchor = { left: number; top: number; bottom: number; right: number };
+type Anchor = { left: number; top: number; bottom: number; right: number; alignRight?: boolean };
 
 /** A popover in a portal, so the bubble's overflow cannot clip it. Opens above the button when there is no room below. */
 export function FooterPopover({
@@ -56,7 +56,12 @@ export function FooterPopover({
     const rect = el.getBoundingClientRect();
     const below = anchor.bottom + 4;
     const top = below + rect.height > window.innerHeight - 8 ? Math.max(8, anchor.top - rect.height - 4) : below;
-    const left = Math.min(Math.max(8, anchor.left), window.innerWidth - rect.width - 8);
+    // Right-aligned popovers (Swipes) end at their trigger and stay inside the chat column, so they don't
+    // spill over the sidebar (audit H10).
+    const column = document.getElementById("mari-main")?.getBoundingClientRect();
+    const maxRight = Math.min(window.innerWidth, column?.right ?? window.innerWidth) - 8;
+    const wanted = anchor.alignRight ? anchor.right - rect.width : anchor.left;
+    const left = Math.max(8, Math.min(wanted, maxRight - rect.width));
     setStyle({ left, top });
   }, [anchor]);
   useEffect(() => {
@@ -227,7 +232,13 @@ export function OvRpMessageFooter({
     const r = el.getBoundingClientRect();
     setOpen({
       kind,
-      anchor: { left: kind === "more" ? r.right - 240 : r.left, top: r.top, bottom: r.bottom, right: r.right },
+      anchor: {
+        left: kind === "more" ? r.right - 240 : r.left,
+        top: r.top,
+        bottom: r.bottom,
+        right: r.right,
+        alignRight: kind === "swipes",
+      },
     });
   };
   // Hidden until hover on a mouse: a chat opens without building these buttons for every message, and
@@ -262,6 +273,7 @@ export function OvRpMessageFooter({
           <button
             type="button"
             aria-label={localizeUi("ui.chat.swipejumpcontrol.previousSwipe")}
+            title={localizeUi("ui.chat.swipejumpcontrol.previousSwipe")}
             disabled={swipeIndex <= 0}
             onClick={() => onSetSwipe(swipeIndex - 1)}
           >
@@ -271,6 +283,7 @@ export function OvRpMessageFooter({
             type="button"
             className="ov-rpf__count"
             aria-label={localizeUi("ui.overhaul.ovrpmessagefooter.showAllSwipes")}
+            title={localizeUi("ui.overhaul.ovrpmessagefooter.showAllSwipes")}
             aria-expanded={open?.kind === "swipes"}
             onClick={(event) => openAt("swipes", event.currentTarget)}
           >
@@ -280,6 +293,11 @@ export function OvRpMessageFooter({
           <button
             type="button"
             aria-label={
+              swipeIndex < count - 1
+                ? localizeUi("ui.chat.swipejumpcontrol.nextSwipe")
+                : localizeUi("ui.overhaul.ovrpmessagefooter.generateAnotherSwipe")
+            }
+            title={
               swipeIndex < count - 1
                 ? localizeUi("ui.chat.swipejumpcontrol.nextSwipe")
                 : localizeUi("ui.overhaul.ovrpmessagefooter.generateAnotherSwipe")
