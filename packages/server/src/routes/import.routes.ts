@@ -7,7 +7,14 @@ import { inflateSync } from "node:zlib";
 import { platform, homedir } from "os";
 import { readdir, stat } from "fs/promises";
 import { resolve as pathResolve } from "path";
-import { containsDecisionStatements, normalizeTextForMatch, type ChatMode } from "@marinara-engine/shared";
+import {
+  containsDecisionStatements,
+  IMPORT_TAGS_FIELD,
+  normalizeTextForMatch,
+  readImportTagOptions,
+  type ChatMode,
+  type ImportTagOptions,
+} from "@marinara-engine/shared";
 import { importSTChat } from "../services/import/st-chat.importer.js";
 import {
   importSTCharacter,
@@ -373,6 +380,18 @@ function readMultipartFieldValue(file: { fields?: Record<string, any> } | null |
   return Array.isArray(field) ? field.at(-1)?.value : field?.value;
 }
 
+/** The "Tag imported" / "Tag source" checkboxes from a multipart upload; both on when the field is missing. */
+function readMultipartImportTags(file: { fields?: Record<string, any> } | null | undefined) {
+  return readImportTagOptions(readMultipartFieldValue(file, IMPORT_TAGS_FIELD));
+}
+
+/** The same checkboxes from a JSON body, removed from it so the importers never see the key. */
+function takeBodyImportTags(body: Record<string, unknown>) {
+  const options = readImportTagOptions(body[IMPORT_TAGS_FIELD]);
+  delete body[IMPORT_TAGS_FIELD];
+  return options;
+}
+
 function readChatMode(value: unknown): ChatMode | undefined {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim().toLowerCase();
@@ -447,6 +466,7 @@ async function importCharacterBuffer(
   existingTagKeys?: ReadonlySet<string>,
   regexScriptScope?: "character" | "global",
   splitDescription?: boolean,
+  importTags?: ImportTagOptions,
 ) {
   if (fileName.toLowerCase().endsWith(".png")) {
     const charData = extractCharaFromPng(buffer);
@@ -468,6 +488,7 @@ async function importCharacterBuffer(
           existingTagKeys,
           regexScriptScope,
           splitDescription,
+          importTags,
         }),
         charData,
       );
@@ -484,6 +505,7 @@ async function importCharacterBuffer(
       existingTagKeys,
       regexScriptScope,
       splitDescription,
+      importTags,
     });
   }
 
@@ -506,6 +528,7 @@ async function importCharacterBuffer(
         existingTagKeys,
         regexScriptScope,
         splitDescription,
+        importTags,
       }),
       json,
     );
@@ -603,6 +626,7 @@ export async function importRoutes(app: FastifyInstance) {
       ...(characterId ? { characterId } : {}),
       ...(mode ? { mode } : {}),
       ...(timestampOverrides ? { timestampOverrides } : {}),
+      importTags: readMultipartImportTags(data as any),
     });
   });
 
@@ -695,7 +719,8 @@ export async function importRoutes(app: FastifyInstance) {
 
   /** Import a Marinara Engine export (.marinara.json). */
   app.post("/marinara", { bodyLimit: IMPORT_BODY_LIMIT_BYTES }, async (req) => {
-    const body = req.body as Record<string, unknown>;
+    const body = { ...(req.body as Record<string, unknown>) };
+    const importTags = takeBodyImportTags(body);
     const timestampOverrides = readTimestampOverridesFromBody(body);
     const payload =
       timestampOverrides && body.data && typeof body.data === "object"
@@ -713,7 +738,7 @@ export async function importRoutes(app: FastifyInstance) {
             },
           }
         : body;
-    return importMarinara(payload as any, app.db);
+    return importMarinara(payload as any, app.db, { importTags });
   });
 
   /**
@@ -724,7 +749,7 @@ export async function importRoutes(app: FastifyInstance) {
    */
   app.post("/marinara-package", { bodyLimit: NATIVE_PACKAGE_UPLOAD_LIMIT_BYTES }, async (req, reply) => {
     const file = await req.file({
-      limits: { fields: 1, parts: 2, files: 1, fieldSize: 64 * 1024, fileSize: NATIVE_PACKAGE_UPLOAD_LIMIT_BYTES },
+      limits: { fields: 2, parts: 3, files: 1, fieldSize: 64 * 1024, fileSize: NATIVE_PACKAGE_UPLOAD_LIMIT_BYTES },
     });
     if (!file) return reply.status(400).send({ success: false, error: "No file uploaded" });
     const buffer = await file.toBuffer();
@@ -736,7 +761,10 @@ export async function importRoutes(app: FastifyInstance) {
           data.metadata && typeof data.metadata === "object" ? (data.metadata as Record<string, unknown>) : {};
         data.metadata = { ...existingMeta, timestamps: timestampOverrides };
       }
-      return flagDecisionStatements(await importMarinara(envelope as any, app.db), envelope);
+      return flagDecisionStatements(
+        await importMarinara(envelope as any, app.db, { importTags: readMultipartImportTags(file as any) }),
+        envelope,
+      );
     };
     if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
       const firstChar = buffer
@@ -846,6 +874,7 @@ export async function importRoutes(app: FastifyInstance) {
         undefined,
         regexScriptScope,
         splitDescription,
+        readMultipartImportTags(file as any),
       );
     }
 
@@ -859,6 +888,7 @@ export async function importRoutes(app: FastifyInstance) {
     const regexScriptScope = readRegexScriptScope(rawRegexScriptScope);
     if (rawRegexScriptScope !== undefined && regexScriptScope === undefined) return invalidRegexScriptScopeResponse();
     const splitDescription = readBooleanOption(body.splitDescription);
+    const importTags = takeBodyImportTags(body);
     delete body.importEmbeddedLorebook;
     delete body.tagImportMode;
     delete body.regexScriptScope;
@@ -870,6 +900,7 @@ export async function importRoutes(app: FastifyInstance) {
         tagImportMode,
         regexScriptScope,
         splitDescription,
+        importTags,
       });
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
@@ -929,6 +960,7 @@ export async function importRoutes(app: FastifyInstance) {
     let regexScriptScope: "character" | "global" | undefined;
     let invalidRegexScriptScope = false;
     let splitDescription: boolean | undefined;
+    let importTags = readImportTagOptions(undefined);
 
     for await (const part of parts) {
       if (part.type === "file") {
@@ -976,6 +1008,10 @@ export async function importRoutes(app: FastifyInstance) {
       if (part.fieldname === "splitDescription") {
         splitDescription = readBooleanOption(part.value);
       }
+
+      if (part.fieldname === IMPORT_TAGS_FIELD) {
+        importTags = readImportTagOptions(part.value);
+      }
     }
 
     if (invalidTagImportMode) return { ...invalidTagImportModeResponse(), results: [] };
@@ -1013,6 +1049,7 @@ export async function importRoutes(app: FastifyInstance) {
           existingTagKeys,
           regexScriptScope,
           splitDescription,
+          importTags,
         );
         results.push({ filename: file.filename, ...result });
       } catch (error) {
@@ -1032,18 +1069,31 @@ export async function importRoutes(app: FastifyInstance) {
 
   /** Import a SillyTavern prompt preset (JSON body). */
   app.post("/st-preset", async (req) => {
-    const body = req.body as Record<string, unknown>;
+    const body = { ...(req.body as Record<string, unknown>) };
+    const importTags = takeBodyImportTags(body);
     const fileName = typeof body.__filename === "string" ? body.__filename : undefined;
-    return importSTPreset(body, app.db, fileName, { timestampOverrides: readTimestampOverridesFromBody(body) });
+    return importSTPreset(body, app.db, fileName, {
+      timestampOverrides: readTimestampOverridesFromBody(body),
+      importTags,
+    });
   });
 
   /** Import a SillyTavern World Info / lorebook (JSON body). */
   app.post("/st-lorebook", async (req) => {
-    const body = req.body as Record<string, unknown>;
+    const body = { ...(req.body as Record<string, unknown>) };
+    const importTags = takeBodyImportTags(body);
+    // A lorebook the bot browser brings along carries the site it came from as its source tag.
+    const importSource =
+      typeof body.__importSource === "string" && body.__importSource.trim()
+        ? body.__importSource.trim().slice(0, 40)
+        : undefined;
+    delete body.__importSource;
     const fallbackName = typeof body.__filename === "string" ? body.__filename : undefined;
     return importSTLorebook(body, app.db, {
       ...(fallbackName ? { fallbackName } : {}),
       timestampOverrides: readTimestampOverridesFromBody(body),
+      importTags,
+      ...(importSource ? { source: importSource } : {}),
     });
   });
 
@@ -1083,6 +1133,7 @@ export async function importRoutes(app: FastifyInstance) {
       return reply.send(invalidRegexScriptScopeResponse());
     }
     if (bulkRegexScriptScope) options.regexScriptScope = bulkRegexScriptScope;
+    options.importTags = readImportTagOptions((req.body as { options?: { importTags?: unknown } }).options?.importTags);
 
     // Set up SSE headers
     reply.raw.writeHead(200, {

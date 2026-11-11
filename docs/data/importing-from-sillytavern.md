@@ -26,7 +26,7 @@ Bring your SillyTavern data into Marinara Engine. Import one file at a time, or 
 | **Import Preset (JSON)** | A `.json` preset. |
 | **Import Lorebook (JSON)** | A `.json` World Info file. |
 
-The buttons have no options. A character import keeps all source tags and limits any regex scripts to that character. A regex script is a find-and-replace rule for text. To choose these options, use **Import** on the **Library → Characters** page. See [Importing and Exporting Character Cards](../characters/import-export.md).
+Above the buttons, **Tag imported** and **Tag source** (both on by default) add the tags **Imported** and **ST** to what you import. Untick either one to leave that tag off. Imports keep their own name and description. Otherwise the buttons have no options. A character import keeps all source tags and limits any regex scripts to that character. A regex script is a find-and-replace rule for text. To choose these options, use **Import** on the **Library → Characters** page. See [Importing and Exporting Character Cards](../characters/import-export.md).
 
 If a character card has a lorebook inside it, your browser asks whether to import it as its own lorebook. Click **OK** to keep it as a lorebook you can reuse, or **Cancel** to import only the character.
 
@@ -77,6 +77,7 @@ If it did not work:
 - Chat files that belong to one character import as branches of one chat. A branch is a copy of a chat that you continue separately.
 - Group chats import as Roleplay chats.
 - Imported items keep the source file's last-changed date, not the date of the import.
+- Characters, personas, lorebooks, presets and chats get the tags **Imported** and **ST**, unless you untick **Tag imported** or **Tag source** above **Import Selected**. Their names and descriptions stay as they were.
 
 ## What does not transfer
 

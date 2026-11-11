@@ -8744,6 +8744,12 @@ input.ov-edhead__title:focus {
   color: var(--ov-text);
   cursor: pointer;
 }
+/* Import windows: "Tag imported" and "Tag source" side by side. */
+.ov-imp__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
 
 /* First chat: a small tip pointing at Chat settings in the top bar (replaces the video popup). */
 .ov-cs-tip {
