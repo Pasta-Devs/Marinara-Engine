@@ -44,7 +44,8 @@ async function openAgents(
     folder = false,
     theme = "dark",
     registryGate,
-  }: { folder?: boolean; theme?: "dark" | "light"; registryGate?: Promise<void> } = {},
+    chatId,
+  }: { folder?: boolean; theme?: "dark" | "light"; registryGate?: Promise<void>; chatId?: string } = {},
 ) {
   const copies: Record<string, unknown>[] = [];
   const agents = [
@@ -54,6 +55,7 @@ async function openAgents(
   await isolateSyncedUISettings(page);
   await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false, theme });
   await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), APP_VERSION);
+  if (chatId) await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chatId);
   await page.route("**/api/capability-packages/agents", async (route) => {
     await registryGate;
     await route.fulfill({ json: OFFICIAL });
@@ -194,3 +196,27 @@ for (const theme of ["dark", "light"] as const) {
     await expect(description).toHaveValue("My unchanged draft 🎭");
   });
 }
+
+test("inside a chat the agents not in it keep their store groups (#9053)", async ({ page }, info) => {
+  const created = await page.request.post("/api/chats", {
+    data: { name: "Agent groups fixture", mode: "roleplay", characterIds: [] },
+  });
+  expect(created.ok()).toBeTruthy();
+  const chat = (await created.json()) as { id: string };
+  try {
+    const patch = await page.request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { enableAgents: true, activeAgentIds: ["haptic"] },
+    });
+    expect(patch.ok()).toBeTruthy();
+    const { panel } = await openAgents(page, { chatId: chat.id });
+    // "In this chat" stays one section; Narrative Director (writer) and the misc fixtures keep their groups.
+    await expect(panel.getByRole("button", { name: /In this chat (1)/ })).toBeVisible();
+    await expect(panel.getByRole("button", { name: /Writing help (1)/ })).toBeVisible();
+    await expect(panel.getByRole("button", { name: /More agents (2)/ })).toBeVisible();
+    await expect(panel.getByText("Not in this chat", { exact: true })).toHaveCount(0);
+    await expect(panel.getByText("Drag one into the chat, or use its add button.", { exact: true })).toHaveCount(1);
+    await page.screenshot({ path: info.outputPath("agents-in-chat-groups.png") });
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});

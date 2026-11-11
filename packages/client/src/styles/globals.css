@@ -1538,12 +1538,13 @@
   box-shadow: 0 0.25rem 0.75rem color-mix(in srgb, var(--mari-panel-gradient-end) 18%, transparent);
 }
 
-/* Connection accounts share one quiet surface across the sidebar and model pickers. */
+/* Connection accounts share one box across the sidebar and model pickers: the Jobs box and every connection. A thin
+ * accent edge (the chrome panel border, as on the Character library cards) instead of a grey fill, so the rows'
+ * --sidebar wells sit on the panel's own paint and the box still reads as one group. */
 .mari-connection-group {
   border-radius: 1rem;
   padding: 0.5rem;
-  /* One grey box for the Defaults and every connection; rows sit in neutral wells inside it. */
-  background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
+  border: 1px solid var(--marinara-chat-chrome-panel-border);
 }
 
 /* Phones: a thin card edge, so the rows get the width. */
