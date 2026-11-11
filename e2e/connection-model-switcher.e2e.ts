@@ -349,16 +349,19 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
     let picker = await showModels(menu, testInfo, mainAccount);
     await expect(picker).toContainText("All models");
     // The current model's check follows the app accent like the sibling panels' marks (#9053), not connection blue.
-    const accentInk = await picker.evaluate((element) => {
-      const probe = document.createElement("span");
-      probe.style.color = "var(--marinara-chat-chrome-highlight-text)";
-      element.append(probe);
-      const value = getComputedStyle(probe).color;
-      probe.remove();
-      return value;
-    });
-    expect(accentInk).not.toBe("rgb(56, 189, 248)");
-    await expect(modelRow(picker, "all", "vendor/alpha").locator("svg.lucide-check")).toHaveCSS("color", accentInk);
+    // Read in one frame next to the check, because the accent may pulse.
+    const [checkColor, accentColor] = await modelRow(picker, "all", "vendor/alpha")
+      .locator("svg.lucide-check")
+      .evaluate((check) => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--marinara-chat-chrome-accent)";
+        check.parentElement!.append(probe);
+        const colors = [getComputedStyle(check).color, getComputedStyle(probe).color];
+        probe.remove();
+        return colors;
+      });
+    expect(checkColor).toBe(accentColor);
+    expect(checkColor).not.toBe("rgb(56, 189, 248)");
     await expect(modelRow(picker, "all", "vendor/gamma")).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/alpha")).toHaveAttribute("aria-current", "true");
     await expect(picker).not.toContainText("Applies to this chat");

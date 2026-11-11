@@ -210,9 +210,9 @@ test("inside a chat the agents not in it keep their store groups (#9053)", async
     expect(patch.ok()).toBeTruthy();
     const { panel } = await openAgents(page, { chatId: chat.id });
     // "In this chat" stays one section; Narrative Director (writer) and the misc fixtures keep their groups.
-    await expect(panel.getByRole("button", { name: /In this chat (1)/ })).toBeVisible();
-    await expect(panel.getByRole("button", { name: /Writing help (1)/ })).toBeVisible();
-    await expect(panel.getByRole("button", { name: /More agents (2)/ })).toBeVisible();
+    await expect(panel.getByRole("button", { name: /In this chat \(1\)/ })).toBeVisible();
+    await expect(panel.getByRole("button", { name: /Writing help \(1\)/ })).toBeVisible();
+    await expect(panel.getByRole("button", { name: /More agents \(2\)/ })).toBeVisible();
     await expect(panel.getByText("Not in this chat", { exact: true })).toHaveCount(0);
     await expect(panel.getByText("Drag one into the chat, or use its add button.", { exact: true })).toHaveCount(1);
     await page.screenshot({ path: info.outputPath("agents-in-chat-groups.png") });
