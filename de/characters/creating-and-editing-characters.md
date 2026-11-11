@@ -167,13 +167,16 @@ Der Abschnitt **Regex Scripts** enthält Suchen-und-Ersetzen-Skripte für genau 
 Ein alternatives Feld gibt demselben Charakter in ausgewählten Chats eine andere Beschreibung, ein anderes Aussehen, eine andere Vorgeschichte oder ein anderes Detail, während alle übrigen Chats beim Original bleiben. Unter jedem der sieben Kartenfelder steht **Add Alternative Field** (alternatives Feld hinzufügen).
 
 1. Klick unter dem Feld, das du abwandeln willst, auf **Add Alternative Field**. Marinara kopiert den Text des Felds in eine neue Alternative.
-2. Bearbeite die Alternative. Sie hat einen eigenen Zauberstab, der den Text der Alternative als Ausgangsdetails nimmt und das Originalfeld nicht ändert.
-3. Öffne **Active in 0 chats** (in 0 Chats aktiv) und kreuz die Chats an, die sie verwenden sollen. Aufgelistet werden nur Chats, in denen dieser Charakter vorkommt.
-4. Klick auf **Save**.
+2. Optional: Klick auf ihren Titel, etwa **Backstory alternative 1** (Hintergrundgeschichte – Alternative 1), und gib einen Namen wie `Young` ein. Namen dürfen bis zu 60 Zeichen lang sein. Lässt du den Namen leer, bleibt der nummerierte Titel.
+3. Bearbeite die Alternative. Sie hat einen eigenen Zauberstab, der den Text der Alternative als Ausgangsdetails nimmt und das Originalfeld nicht ändert.
+4. Öffne **Active in 0 chats** (in 0 Chats aktiv) und kreuz die Chats an, die sie verwenden sollen. Aufgelistet werden nur Chats, in denen dieser Charakter vorkommt.
+5. Klick auf **Save**.
+
+Du kannst auch direkt im Chat wählen. Öffne **Chat Settings** (Chat-Einstellungen) und klapp **Card Field Alternatives** (Alternativen für Kartenfelder) auf. Dort stehen die Persona des Chats und jeder Charakter im Chat, der Alternativen hat, mit einem Menü pro Feld. Wähl **Original** oder eine Alternative über ihren Namen. Die Karte wird sofort gespeichert, und die Auswahl gilt ab der nächsten Antwort. Gibt es im Chat keine Alternativen, ist der Abschnitt ausgeblendet.
 
 Regeln:
 
-- Ein Chat kann pro Feld nur eine Alternative verwenden. Kreuzt du einen Chat in einer anderen Alternative an, wandert er dorthin.
+- Ein Chat kann pro Feld nur eine Alternative verwenden. Kreuzt du einen Chat in einer anderen Alternative an oder wählst du in Chat Settings eine andere, wandert er dorthin.
 - Ohne angekreuzte Chats bleibt die Alternative für später inaktiv.
 - Eine leere Alternative leert das Feld in ihren Chats.
 - Chatspezifische Überschreibungen für Szenario und Bildaussehen haben weiterhin Vorrang.

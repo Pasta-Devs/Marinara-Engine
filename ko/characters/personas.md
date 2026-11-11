@@ -99,7 +99,7 @@ Persona Editor는 [캐릭터 편집기](creating-and-editing-characters.md)와 �
 다음 기능은 캐릭터에서와 똑같이 동작하며, 대상이 페르소나라는 점만 다릅니다.
 
 - 각 필드 위의 마법봉 버튼으로 필드를 대신 작성할 수 있습니다. [마법봉으로 카드 필드 생성](creating-and-editing-characters.md#write-a-card-field-with-the-wand)을 참고하세요.
-- 각 필드 아래의 **Add Alternative Field**(대체 필드 추가)로 선택한 채팅에 다른 버전을 줄 수 있습니다. **Active in** 목록에는 이 페르소나를 쓰는 채팅만 표시되며, 채팅에서 다른 페르소나를 선택하면 할당이 일시 중지됩니다. [선택한 채팅에서 대체 필드 사용](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats)을 참고하세요.
+- 각 필드 아래의 **Add Alternative Field**(대체 필드 추가)로 선택한 채팅에 다른 버전을 줄 수 있습니다. **Active in** 목록에는 이 페르소나를 쓰는 채팅만 표시되며, 채팅에서 다른 페르소나를 선택하면 할당이 일시 중지됩니다. 각 대체 필드에 이름을 붙일 수 있고, **Chat Settings → Card Field Alternatives**(채팅 설정 → 카드 대체 필드)에서 서로 전환할 수 있습니다. [선택한 채팅에서 대체 필드 사용](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats)을 참고하세요.
 - **Version history**(버전 히스토리)는 **Metadata** 탭에 있습니다. 처음 편집하기 전에는 `Previous persona states will appear here after the next edit.`이 표시됩니다. **Reset**(초기화)은 모든 스냅샷을 삭제하고 버전을 1.0으로 설정합니다. [버전 히스토리](creating-and-editing-characters.md#version-history)를 참고하세요.
 
 <a id="stats-tab"></a>

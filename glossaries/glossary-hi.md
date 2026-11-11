@@ -919,3 +919,16 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section in `
 - The heading is `### Capability API 1.817: पैकेज को बताना कि चैट की ब्रांच बनाई गई`, under `<a id="capability-api-1817-telling-a-package-that-a-chat-was-branched"></a>`, like the file's 1.814 to 1.816 sections (Latin `Capability API`, `-ना` heading). A branched chat is `चैट की ब्रांच बनाना`, the pack's `ब्रांच बनाना`; ब्रांच is feminine (`ब्रांच लौटाई जाती है`). "Awaits it" is `कॉल करता है और इसके पूरा होने का इंतज़ार करता है`, after the file's `ensureMarinaraHost()` sentence; "logged and ignored" is `लॉग करके अनदेखी कर दी जाती हैं`; "soft seam" is **सॉफ़्ट इंटरफ़ेस**, as in the file's 1.12, 1.13 and 1.816 sections; the service is **सर्विस**, as in the 1.391 section it mirrors; snapshots are **स्नैपशॉट** and metadata **मेटाडेटा**.
 
 These are translation choices, not a new native-reader review.
+
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives** is glossed (कार्ड फ़ील्ड के विकल्प) at its first bold use in `creating-and-editing-characters.md`, in §5 Pattern A form, and stays bare in the personas bullet and the first rule, which gloss **Chat Settings** (चैट सेटिंग्स) themselves. **Original** takes (मूल) once, in the paragraph.
+- Step 2's example title, **Backstory alternative 1**, is the app's own string: `ui/hi.json` `ui.cardFields.alternativeTitle` is **{{field}} का विकल्प {{index}}** with `chat.settings.inlineEditor.fields.backstory` = पिछली कहानी, so the gloss is (पिछली कहानी का विकल्प 1) and keeps the label Hindi rather than repeating the English.
+- *Optional* opens the step as **चाहें तो**, the pack's usual optional step (`characters/sprites.md:105`, `characters/bot-browser.md:96`), not the **वैकल्पिक:** of the agent guides, because this file speaks to the reader as "आप … चाहें तो" throughout. *Click its title* is **उसके टाइटल पर क्लिक करें**; **टाइटल** is the pack's word for a UI title. *Names are up to 60 characters* is **नाम 60 अक्षरों तक के हो सकते हैं**, plural like the English; *leave the name empty to keep the numbered title* is **नाम खाली छोड़ने पर नंबर वाला टाइटल बना रहता है**, with **बना रहता है** for a state that persists.
+- *Pick* is **चुनें**, as in the section's other steps. *Applies from the next reply* is **अगले जवाब से लागू होता है**, after the file's **जवाब**. *The section is hidden* is **यह सेक्शन नहीं दिखता**, the pack's **नहीं दिखता** for an absent panel, not a coined word for "hidden".
+- The first rule keeps **एक चैट में किसी फ़ील्ड का सिर्फ़ एक विकल्प इस्तेमाल हो सकता है** and adds the parallel **या Chat Settings में कोई दूसरा विकल्प चुनने पर**; **Chat Settings** runs bare after its gloss in the paragraph.
+- In the personas bullet, *name each alternative* is **हर विकल्प को नाम दे सकते हैं** and *switch between them* is **उनके बीच स्विच कर सकते हैं**; the path is **Chat Settings → Card Field Alternatives** (चैट सेटिंग्स → कार्ड फ़ील्ड के विकल्प), one gloss pair for the bold span. **Chat Settings** stays masculine, as the pack records (`**Chat Settings** … खुलता है`).
+
+These are translation choices, not a new native-reader review.

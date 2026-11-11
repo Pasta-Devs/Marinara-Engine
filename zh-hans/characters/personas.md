@@ -99,7 +99,7 @@ Marinara 会在每一次提示词里把你的用户角色发给 AI。在聊天�
 下面这些功能和角色上的一样，只是对象换成了用户角色：
 
 - 每个字段上方的魔杖按钮可以替你写这个字段，见[用魔杖生成角色卡字段](creating-and-editing-characters.md#write-a-card-field-with-the-wand)。
-- 每个字段下方的 **Add Alternative Field**(添加替代字段) 可以让选定的聊天使用另一个版本。**Active in**(在……中启用) 列表只显示使用这个用户角色的聊天；聊天改选其他用户角色后，分配会暂停。见[在选定聊天中使用替代字段](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats)。
+- 每个字段下方的 **Add Alternative Field**(添加替代字段) 可以让选定的聊天使用另一个版本。**Active in**(在……中启用) 列表只显示使用这个用户角色的聊天；聊天改选其他用户角色后，分配会暂停。每个替代版本都可以命名，也可以在 **Chat Settings → Card Field Alternatives**(聊天设置 → 卡片字段替代版本) 里切换。见[在选定聊天中使用替代字段](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats)。
 - **Version history**(版本历史) 在 **Metadata** 选项卡上。第一次编辑之前，它显示的是 `Previous persona states will appear here after the next edit.`。**Reset**(重置) 会删除所有快照，并把版本设为 1.0。见[版本历史](creating-and-editing-characters.md#version-history)。
 
 <a id="stats-tab"></a>

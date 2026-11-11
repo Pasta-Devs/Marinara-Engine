@@ -832,3 +832,20 @@ Precedents from the #8954 mirror (`CONFIGURATION.md`) and the #8951 section in `
 | logged and ignored / soft seam | 记录日志后忽略 / 软接口 | After the file's 记录日志后丢弃 and the 软接口 of its 1.12, 1.13 and 1.816 sections. |
 
 These are translation choices, not a new native-reader review.
+
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| Card Field Alternatives (Chat Settings section) | **Card Field Alternatives**(卡片字段替代版本) | First bold use in `creating-and-editing-characters.md`, bold plus tight half-width gloss. Bare in the personas bullet and the first rule, which gloss **Chat Settings**(聊天设置) themselves. |
+| Original (picker row) | **Original**(原始) | Glossed once, in the paragraph. 原始 as in the pack's 原始命令 and 原始字段. |
+| Backstory alternative 1 (alternative title) | **Backstory alternative 1**(背景故事的第 1 个替代版本) | The app's string: `ui/zh-Hans.json` `ui.cardFields.alternativeTitle` is {{field}}的第 {{index}} 个替代版本 with `chat.settings.inlineEditor.fields.backstory` = 背景故事. |
+| Optional: | 可选： | Full-width colon, as in `agents/custom-agents.md:184` and the pack's other optional steps. |
+| names are up to 60 characters | 名字最多 60 个字符 | Half-width digits (§4.4); 名字 as in the **Name** field. |
+| leave the name empty to keep the numbered title | 名字留空则保留带编号的标题 | 留空 as elsewhere for an empty field; 保留 for a value that is kept. |
+| applies from the next reply | 从下一条回复开始生效 | 下一条回复 (14 uses in the pack) rather than 下一次回复. |
+| the section is hidden | 这个区域不会显示 | 区域 for a panel region, 不会显示 for something that does not appear. |
+
+**Chat Settings** stays bare after its first-mention gloss in the paragraph, and the first rule writes it bare as well, as the file does elsewhere. In the personas bullet, *name each alternative* is 每个替代版本都可以命名 and *switch between them* is 在 … 里切换; the path is **Chat Settings → Card Field Alternatives**(聊天设置 → 卡片字段替代版本), one gloss pair for the whole bold span. These are translation choices, not a new native-reader review.

@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "7b0f12be357a21375ccb801f2bcd5d1710b1cbbd",
+  "sourceCommit": "ee5bc8e08056094c7e19e55b4787a20a43f3b473",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -124,8 +124,8 @@
     },
     {
       "path": "characters/creating-and-editing-characters.md",
-      "sha256": "cc7d5c94e3efc372442109f4c61a42151ad2944325d23c9907fb913a07797de3",
-      "bytes": 18530
+      "sha256": "1643f06f24f8d082c7b2cf9fbb3c2c0656b365788f0aa8fa219ccf556084da74",
+      "bytes": 19285
     },
     {
       "path": "characters/galleries.md",
@@ -149,8 +149,8 @@
     },
     {
       "path": "characters/personas.md",
-      "sha256": "c1e5ac0ea387662f0a1980d19ec97e14e24824918e2982fcb96705fdc9694cc6",
-      "bytes": 11976
+      "sha256": "5b4f83a8e92f781af40b2bf35d0186e3847016eaa5e0137430e9795918c8bad3",
+      "bytes": 12143
     },
     {
       "path": "characters/sprites.md",

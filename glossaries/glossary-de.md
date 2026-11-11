@@ -1114,3 +1114,32 @@ Precedents from the #8954 sync (`CONFIGURATION.md`) and the #8951 developer-docs
   `release` bullet. *Soft seam* stays „weiche Schnittstelle“; *must still cope when it is
   missing* is „muss also auch ohne den Aufruf auskommen“, naming the call so „sie“ is not
   ambiguous. The section keeps the English hard line breaks, like 1.391 below it.
+
+## Card field alternative names and the Chat Settings picker (2026-11-10, #9012)
+
+Precedents from the #9011 mirror (`characters/creating-and-editing-characters.md`, `characters/personas.md`), against Engine `ee5bc8e080`:
+
+- **Card Field Alternatives** is glossed (Alternativen für Kartenfelder) at its first bold use in
+  `creating-and-editing-characters.md`, in the file's usual bold-plus-parentheses form, and stays
+  bare in the personas bullet and in the first rule, both of which already carry the glossed
+  **Chat Settings** (Chat-Einstellungen). **Original** is glossed (Original) once, in the paragraph.
+- The title in step 2, **Backstory alternative 1**, is the app's own string:
+  `ui/de.json` `ui.cardFields.alternativeTitle` is **{{field}} – Alternative {{index}}** with
+  `chat.settings.inlineEditor.fields.backstory` = Hintergrundgeschichte, hence
+  (Hintergrundgeschichte – Alternative 1), keeping the template's en dash.
+- *Optional* opens step 2 as „Optional:“, the form the pack already uses for optional steps
+  (`agents/custom-agents.md:184`). *Its title* is „ihren Titel“ for die Alternative. *Type a name
+  such as* is „gib einen Namen wie … ein“; *names are up to 60 characters* is „Namen dürfen bis zu
+  60 Zeichen lang sein“; *leave the name empty to keep the numbered title* is „Lässt du den Namen
+  leer, bleibt der nummerierte Titel“, the pack's „bleibt“ for a state that persists.
+- *Pick* in the new paragraph is „Wähl“, as in the section's other steps. *Right away* is „sofort“;
+  *applies from the next reply* is „gilt ab der nächsten Antwort“, after `home/professor-mari.md:262`.
+  *The section is hidden* is „ist der Abschnitt ausgeblendet“, reordered so the condition comes first.
+- The first rule keeps „Ein Chat kann pro Feld nur eine Alternative verwenden“ and adds the
+  parallel „oder wählst du in Chat Settings eine andere“ before „wandert er dorthin“.
+- In the personas bullet, *name each alternative* is „jede Alternative benennen“ and *switch
+  between them* is „zwischen ihnen wechseln“; the path is written **Chat Settings → Card Field
+  Alternatives** (Chat-Einstellungen → Alternativen für Kartenfelder), glossing both labels of the
+  bold span in one pair, as the pack does for `**Settings → General**` paths.
+
+These are translation choices, not a new native-reader review.

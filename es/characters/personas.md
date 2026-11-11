@@ -99,7 +99,7 @@ La pestaña **Card** contiene los campos que te describen ante la IA. Cada uno t
 Estas funciones son iguales que en los personajes, pero con la persona como sujeto:
 
 - El botón de varita encima de cada campo lo escribe por ti. Consulta [Escribir un campo de la tarjeta con la varita](creating-and-editing-characters.md#write-a-card-field-with-the-wand).
-- **Add Alternative Field** (Añadir campo alternativo), debajo de cada campo, da a los chats seleccionados una versión distinta. La lista **Active in** (Activo en) solo muestra los chats que usan esta persona, y las asignaciones se pausan cuando un chat elige otra persona. Consulta [Usar un campo alternativo en chats seleccionados](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
+- **Add Alternative Field** (Añadir campo alternativo), debajo de cada campo, da a los chats seleccionados una versión distinta. La lista **Active in** (Activo en) solo muestra los chats que usan esta persona, y las asignaciones se pausan cuando un chat elige otra persona. Puedes poner nombre a cada alternativa y cambiar entre ellas desde **Chat Settings → Card Field Alternatives** (Ajustes del chat → Alternativas de campos de la tarjeta). Consulta [Usar un campo alternativo en chats seleccionados](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats).
 - **Version history** (Historial de versiones) está en la pestaña **Metadata**. Antes de tu primera edición dice `Previous persona states will appear here after the next edit.` **Reset** (Restablecer) elimina todas las instantáneas y establece la versión en 1.0. Consulta [Historial de versiones](creating-and-editing-characters.md#version-history).
 
 <a id="stats-tab"></a>

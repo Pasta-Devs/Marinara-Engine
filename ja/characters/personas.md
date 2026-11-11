@@ -99,7 +99,7 @@ Marinaraは毎回のプロンプトで、ペルソナをAIに送ります。ペ�
 次の機能は、対象がペルソナになるだけで、キャラクターと同じように動作します。
 
 - 各欄の上にある杖のボタンで、その欄を書いてもらえます。[杖でカードの欄を書く](creating-and-editing-characters.md#write-a-card-field-with-the-wand)を参照してください。
-- 各欄の下にある**Add Alternative Field**(代替項目を追加)を使うと、選んだチャットで別のバージョンを使えます。**Active in**の一覧にはこのペルソナを使うチャットだけが表示され、チャットが別のペルソナを選ぶと割り当ては休止します。[選択したチャットで代替項目を使う](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats)を参照してください。
+- 各欄の下にある**Add Alternative Field**(代替項目を追加)を使うと、選んだチャットで別のバージョンを使えます。**Active in**の一覧にはこのペルソナを使うチャットだけが表示され、チャットが別のペルソナを選ぶと割り当ては休止します。代替項目にはそれぞれ名前を付けられ、**Chat Settings → Card Field Alternatives**(チャット設定 → カード項目の代替)で切り替えられます。[選択したチャットで代替項目を使う](creating-and-editing-characters.md#use-an-alternative-field-in-selected-chats)を参照してください。
 - **Version history**(バージョン履歴)は**Metadata**タブにあります。最初の編集の前は`Previous persona states will appear here after the next edit.`と表示されます。**Reset**(リセット)はすべてのスナップショットを削除し、バージョンを1.0に設定します。[バージョン履歴](creating-and-editing-characters.md#version-history)を参照してください。
 
 <a id="stats-tab"></a>
