@@ -643,7 +643,7 @@ function DefaultsJobRow({
                 aria-controls={settingsId}
                 aria-label={t("connections.defaults.settingsFor", { role: title })}
                 className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]",
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--marinara-chat-chrome-button-text)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
                   FOCUS,
                 )}
               >
