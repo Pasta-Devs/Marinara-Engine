@@ -9,6 +9,13 @@ import { rejectGenerationOutput, type GenerationOutput } from "./generate/sse.js
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 import {
+  GAME_RATING_GUIDELINES_MAX_CHARS,
+  GAME_CONTENT_BOUNDARIES_MAX_CHARS,
+  GAME_STORY_STYLES,
+  GAME_VIOLENCE_LEVELS,
+  resolveGameContentBoundaries,
+  resolveGameStoryStyle,
+  resolveGameViolenceLevel,
   SYMBOL_DICE_NOTATION_MAX_LENGTH,
   TTS_SETTINGS_KEY,
   normalizeGameDifficulty,
@@ -2240,6 +2247,10 @@ const gameSetupConfigSchema = z.object({
   playerGoals: z.string().max(2000).default(""),
   gmMode: z.enum(["standalone", "character"]),
   rating: z.enum(["sfw", "nsfw"]).default("sfw"),
+  ratingGuidelines: z.string().max(GAME_RATING_GUIDELINES_MAX_CHARS).nullable().optional(),
+  storyStyle: z.enum(GAME_STORY_STYLES).optional(),
+  violence: z.enum(GAME_VIOLENCE_LEVELS).optional(),
+  contentBoundaries: z.string().max(GAME_CONTENT_BOUNDARIES_MAX_CHARS).nullable().optional(),
   gmCharacterId: z.string().nullable().optional(),
   partyCharacterIds: z.array(z.string()),
   personaId: z.string().nullable().optional(),
@@ -4123,6 +4134,7 @@ function truncateSessionTranscriptMiddle(content: string, targetTokens: number):
 export function buildSessionConclusionMessages(args: {
   sessionNumber: number;
   language?: string | null;
+  contentBoundaries?: string[];
   journalRecap: string;
   transcriptText: string;
   transcriptMessageCount: number;
@@ -4205,6 +4217,7 @@ export function buildSessionConclusionMessages(args: {
       role: "system",
       content: buildSessionConclusionPrompt({
         language: args.language ?? null,
+        contentBoundaries: args.contentBoundaries,
         includeCharacterCards: args.currentCards.length > 0,
       }),
     },
@@ -4215,6 +4228,7 @@ export function buildSessionConclusionMessages(args: {
 function fitSessionConclusionMessages(args: {
   sessionNumber: number;
   language?: string | null;
+  contentBoundaries?: string[];
   journalRecap: string;
   transcriptText: string;
   transcriptMessageCount: number;
@@ -4235,6 +4249,7 @@ function fitSessionConclusionMessages(args: {
   let conclusionMessages = buildSessionConclusionMessages({
     sessionNumber: args.sessionNumber,
     language: args.language,
+    contentBoundaries: args.contentBoundaries,
     journalRecap: args.journalRecap,
     transcriptText,
     transcriptMessageCount: args.transcriptMessageCount,
@@ -4273,6 +4288,7 @@ function fitSessionConclusionMessages(args: {
     conclusionMessages = buildSessionConclusionMessages({
       sessionNumber: args.sessionNumber,
       language: args.language,
+      contentBoundaries: args.contentBoundaries,
       journalRecap: args.journalRecap,
       transcriptText,
       transcriptMessageCount: args.transcriptMessageCount,
@@ -7771,6 +7787,10 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         role: "system",
         content: buildSetupPrompt({
           rating: setupConfig.rating ?? "sfw",
+          ratingGuidelines: setupConfig.ratingGuidelines ?? null,
+          storyStyle: resolveGameStoryStyle(setupConfig),
+          violence: resolveGameViolenceLevel(setupConfig),
+          contentBoundaries: resolveGameContentBoundaries(setupConfig),
           personaCard: personaCard || null,
           playerName: personaName,
           partyCards: partyCards.length > 0 ? partyCards : undefined,
@@ -8637,6 +8657,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       const { messages: conclusionMessages, transcriptTruncated } = fitSessionConclusionMessages({
         sessionNumber,
         language: setupConfig?.language ?? null,
+        contentBoundaries: resolveGameContentBoundaries(setupConfig),
         journalRecap,
         transcriptText,
         transcriptMessageCount: relevantMessages.length,
@@ -9204,6 +9225,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { messages: conclusionMessages, transcriptTruncated } = fitSessionConclusionMessages({
       sessionNumber,
       language: setupConfig?.language ?? null,
+      contentBoundaries: resolveGameContentBoundaries(setupConfig),
       journalRecap,
       transcriptText,
       transcriptMessageCount: relevantMessages.length,
@@ -9501,7 +9523,13 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     );
 
     const progressionMessages: ChatMessage[] = [
-      { role: "system", content: buildCampaignProgressionPrompt(setupConfig?.language ?? null) },
+      {
+        role: "system",
+        content: buildCampaignProgressionPrompt(
+          setupConfig?.language ?? null,
+          resolveGameContentBoundaries(setupConfig),
+        ),
+      },
       { role: "user", content: userLines.join("\n") },
     ];
     const fit = fitMessagesToModelAccessContext({

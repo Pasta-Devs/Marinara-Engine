@@ -149,6 +149,10 @@ import {
   normalizeSemanticSummaryRetrievalSettings,
   resolveScopedRegexMode,
   isConversationCommandToggleOn,
+  resolveGameStoryStyle,
+  parseGamePresetStorySettings,
+  applyGamePresetStorySettings,
+  resolveGameViolenceLevel,
 } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { showAlertDialog, showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
@@ -4323,10 +4327,13 @@ export function ChatSettingsDrawer({
   const [gameImagePromptInstructionsDraft, setGameImagePromptInstructionsDraft] = useState(
     (metadata.gameImagePromptInstructions as string) ?? "",
   );
-  const gameSetupConfig =
-    metadata.gameSetupConfig && typeof metadata.gameSetupConfig === "object"
-      ? (metadata.gameSetupConfig as Record<string, unknown>)
-      : {};
+  const gameSetupConfig = useMemo(
+    () =>
+      metadata.gameSetupConfig && typeof metadata.gameSetupConfig === "object"
+        ? (metadata.gameSetupConfig as Record<string, unknown>)
+        : {},
+    [metadata.gameSetupConfig],
+  );
   const campaignArtStyle = typeof gameSetupConfig.artStylePrompt === "string" ? gameSetupConfig.artStylePrompt : "";
   const generatedCampaignArtStyle =
     typeof gameSetupConfig.generatedArtStylePrompt === "string" ? gameSetupConfig.generatedArtStylePrompt : "";
@@ -4433,10 +4440,49 @@ export function ChatSettingsDrawer({
         updateMeta.mutate({ id: chat.id, customSystemPrompt: null });
       }
       if (isGame) {
-        updateMeta.mutate({ id: chat.id, gameSystemPrompt: null });
+        // A preset that carries story settings brings its style and violence, and adds its boundaries.
+        const carried = promptPresetId
+          ? parseGamePresetStorySettings(
+              promptPresetOptions.find((preset) => preset.id === promptPresetId)?.gameStorySettings,
+            )
+          : null;
+        const next = carried
+          ? applyGamePresetStorySettings(
+              {
+                storyStyle: resolveGameStoryStyle(gameSetupConfig),
+                violence: null,
+                contentBoundaries:
+                  typeof gameSetupConfig.contentBoundaries === "string" ? gameSetupConfig.contentBoundaries : "",
+              },
+              carried,
+            )
+          : null;
+        updateMeta.mutate({
+          id: chat.id,
+          gameSystemPrompt: null,
+          ...(next
+            ? {
+                gameSetupConfig: {
+                  ...gameSetupConfig,
+                  storyStyle: next.storyStyle,
+                  violence: next.violence ?? undefined,
+                  contentBoundaries: next.contentBoundaries || null,
+                },
+              }
+            : {}),
+        });
       }
     },
-    [chat.id, fallbackPromptPreset?.id, isConversation, isGame, setPreset, updateMeta],
+    [
+      chat.id,
+      fallbackPromptPreset?.id,
+      gameSetupConfig,
+      isConversation,
+      isGame,
+      promptPresetOptions,
+      setPreset,
+      updateMeta,
+    ],
   );
 
   const openAgentAddModal = useCallback(
@@ -6017,6 +6063,31 @@ export function ChatSettingsDrawer({
                 onSpecialInstructionsChange={setGameSpecialInstructionsDraft}
                 onPromptPresetChange={handleModePromptPresetChange}
                 onGmPromptTemplateChange={updateGameGmPromptTemplateSelection}
+                rating={gameSetupConfig.rating === "nsfw" ? "nsfw" : "sfw"}
+                ratingGuidelinesValue={
+                  typeof gameSetupConfig.ratingGuidelines === "string" ? gameSetupConfig.ratingGuidelines : ""
+                }
+                onRatingGuidelinesCommit={(ratingGuidelines) =>
+                  updateMeta.mutate({ id: chat.id, gameSetupConfig: { ...gameSetupConfig, ratingGuidelines } })
+                }
+                storySettings={{
+                  storyStyle: resolveGameStoryStyle(gameSetupConfig),
+                  violence: resolveGameViolenceLevel(gameSetupConfig),
+                  contentBoundaries:
+                    typeof gameSetupConfig.contentBoundaries === "string" ? gameSetupConfig.contentBoundaries : "",
+                }}
+                onStorySettingsCommit={(patch) =>
+                  updateMeta.mutate({
+                    id: chat.id,
+                    gameSetupConfig: {
+                      ...gameSetupConfig,
+                      ...patch,
+                      ...(patch.contentBoundaries !== undefined
+                        ? { contentBoundaries: patch.contentBoundaries || null }
+                        : {}),
+                    },
+                  })
+                }
               />
             </div>
           )}
