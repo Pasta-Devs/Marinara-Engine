@@ -3449,6 +3449,14 @@ export function ChatSettingsDrawer({
     else current.push(lbId);
     updateMeta.mutate({ id: chat.id, activeLorebookIds: current });
   };
+  // "Add all" in the lorebook picker: one write with every id, so per-id toggles can't race.
+  const addLorebooks = (lbIds: string[]) => {
+    const current = readLatestActiveLorebookIds();
+    updateMeta.mutate({
+      id: chat.id,
+      activeLorebookIds: [...current, ...lbIds.filter((id) => !current.includes(id))],
+    });
+  };
 
   // Disable / re-enable an auto-activated (character/global/persona) lorebook for
   // this chat. Unlike unpinning, this does not touch activeLorebookIds — it adds
@@ -4009,7 +4017,6 @@ export function ChatSettingsDrawer({
   const [showCharPicker, setShowCharPicker] = useState(false);
   const addCharBtnRef = useRef<HTMLButtonElement>(null);
   const partyBtnRef = useRef<HTMLButtonElement>(null);
-  const [showLbPicker, setShowLbPicker] = useState(false);
   const [showToolPicker, setShowToolPicker] = useState(false);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const personaBtnRef = useRef<HTMLDivElement>(null);
@@ -4191,7 +4198,6 @@ export function ChatSettingsDrawer({
     setOnboardingQuestionsCharacterId(null);
   }, [continueAddedCardGreeting, onboardingQuestionsCharacterId]);
   const [pendingToolIds, setPendingToolIds] = useState<string[]>([]);
-  const [lbSearch, setLbSearch] = useState("");
   const [toolSearch, setToolSearch] = useState("");
   const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
   const [agentSetupQueue, setAgentSetupQueue] = useState<string[]>([]);
@@ -8016,14 +8022,10 @@ export function ChatSettingsDrawer({
               chatId={chat.id}
               activeLorebooks={activeLorebooks}
               lorebooks={(lorebooks ?? []) as Lorebook[]}
-              lorebookSearch={lbSearch}
               lorebookTokenBudget={lorebookTokenBudget}
-              showLorebookPicker={showLbPicker}
-              onLorebookSearchChange={setLbSearch}
               onLorebookTokenBudgetChange={(lorebookTokenBudget) =>
                 updateMeta.mutate({ id: chat.id, lorebookTokenBudget })
               }
-              onShowLorebookPickerChange={setShowLbPicker}
               onEditLorebook={(lorebookId) => toggleInlineResourceEditor("lorebook", lorebookId)}
               editingLorebookId={inlineResourceEditor?.kind === "lorebook" ? inlineResourceEditor.id : null}
               inlineLorebookEditor={
@@ -8052,6 +8054,7 @@ export function ChatSettingsDrawer({
                 ) : null
               }
               onToggleLorebook={toggleLorebook}
+              onAddLorebooks={addLorebooks}
               onSetLorebookExcluded={setLorebookExcluded}
             />
           </div>
