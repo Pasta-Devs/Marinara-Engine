@@ -41,7 +41,8 @@ function isValidFilename(name: string): boolean {
 }
 
 const AVATAR_DATA_URL_SUBTYPE_RE = /^[\w.+-]+$/;
-const AVATAR_DATA_URL_BODY_BREAK_RE = /[\r\n]/;
+// `.` matches none of JavaScript's four line terminators.
+const AVATAR_DATA_URL_BODY_BREAK_RE = /[\r\n\u2028\u2029]/;
 
 /**
  * An avatar data URL's media subtype and encoded body. The header is sliced and only the subtype is matched, because
@@ -53,7 +54,8 @@ function parseAvatarDataUrl(value: string): { subtype: string; encoded: string }
   const separator = value.indexOf(",", "data:image/".length);
   if (separator < 0) return null;
   const header = value.slice("data:image/".length, separator);
-  if (!header.toLowerCase().endsWith(";base64")) return null;
+  // The pattern was case-sensitive, so `;BASE64` was never a marker.
+  if (!header.endsWith(";base64")) return null;
   const subtype = header.slice(0, -";base64".length);
   if (!AVATAR_DATA_URL_SUBTYPE_RE.test(subtype)) return null;
   const encoded = value.slice(separator + 1);
