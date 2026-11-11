@@ -12746,7 +12746,7 @@
   "ui.game.combatantcard.value1AuraGaugeValue2": "{{value1}} aura (gauge: {{value2}})",
   "ui.game.combatantcard.value1Value2Turns": "{{value1}} ({{value2}} turns)",
   "ui.game.combatmechanicspanel.every": "every",
-  "ui.game.contentBoundaries.help": "Subjects the Game Master never brings into the story, in any style or rating. Your own rating guidelines can’t remove them.",
+  "ui.game.contentBoundaries.help": "Subjects you ask the Game Master to keep out of the story, as hard limits in any style or rating. Your own rating guidelines can’t remove them. Because the story is written by AI, it can’t guarantee that a listed subject will never appear.",
   "ui.game.contentBoundaries.label": "Content boundaries",
   "ui.game.contentBoundaries.placeholder": "One per line, e.g.\nharm to animals\nmedical procedures",
   "ui.game.damagenumber.miss": "MISS",
