@@ -3315,6 +3315,74 @@ function buildChatImageMessageContent(request: ImageGenRequest): string | Array<
   return prompt;
 }
 
+// A chat-completions provider that returns the finished image inline puts megabytes of base64 in `content`, so no
+// pattern below may repeat over the body: V8's regexp interpreter recurses once per matched character and a large
+// image ended in "Maximum call stack size exceeded" (#9060). The scans are indexOf-driven and linear instead.
+const INLINE_IMAGE_DATA_URL_HEADER_RE = /data:image\/(?:png|jpe?g|webp|gif);base64,/gi;
+const IMAGE_URL_SCHEME_RE = /https?:\/\//gi;
+const IMAGE_EXTENSION_RE = /\.(?:png|jpe?g|webp|gif)/gi;
+const NON_BASE64_RE = /[^A-Za-z0-9+/=]/g;
+const WHITESPACE_RE = /\s/g;
+
+/** The first inline image data URL in `content`, ending where its base64 body ends. */
+function findInlineImageDataUrl(content: string): string | null {
+  INLINE_IMAGE_DATA_URL_HEADER_RE.lastIndex = 0;
+  for (
+    let header = INLINE_IMAGE_DATA_URL_HEADER_RE.exec(content);
+    header;
+    header = INLINE_IMAGE_DATA_URL_HEADER_RE.exec(content)
+  ) {
+    const bodyStart = header.index + header[0].length;
+    NON_BASE64_RE.lastIndex = bodyStart;
+    const invalid = NON_BASE64_RE.exec(content);
+    const bodyEnd = invalid ? invalid.index : content.length;
+    // The `+` this replaces required a body, so a bare header is not an image.
+    if (bodyEnd > bodyStart) return content.slice(header.index, bodyEnd);
+  }
+  return null;
+}
+
+/** The target of the first `![label](target)` in `content`, which the old `!\[[^\]]*\]\(([^)]+)\)` captured. */
+function findMarkdownImageUrl(content: string): string | null {
+  for (let start = content.indexOf("!["); start >= 0; start = content.indexOf("![", start + 2)) {
+    const labelEnd = content.indexOf("]", start + 2);
+    if (labelEnd < 0) return null; // No later label can close either.
+    if (content[labelEnd + 1] !== "(") continue;
+    const urlEnd = content.indexOf(")", labelEnd + 2);
+    if (urlEnd < 0) return null;
+    // An empty target is not an image, as the `([^)]+)` this replaces required.
+    if (urlEnd > labelEnd + 2) return content.slice(labelEnd + 2, urlEnd);
+  }
+  return null;
+}
+
+/** The first bare image URL in `content`, which the old `https?:\/\/\S+\.(png|jpg|jpeg|webp|gif)` matched greedily. */
+function findBareImageUrl(content: string): string | null {
+  // A match cannot cross whitespace, so only a scheme start inside the current token can still match.
+  IMAGE_URL_SCHEME_RE.lastIndex = 0;
+  for (let scheme = IMAGE_URL_SCHEME_RE.exec(content); scheme; scheme = IMAGE_URL_SCHEME_RE.exec(content)) {
+    const tokenStart = scheme.index + scheme[0].length;
+    WHITESPACE_RE.lastIndex = tokenStart;
+    const whitespace = WHITESPACE_RE.exec(content);
+    const tokenEnd = whitespace ? whitespace.index : content.length;
+    // `\S+\.<ext>` is greedy, so the match ends at the last image extension in the token; `\S+` needs a character.
+    IMAGE_EXTENSION_RE.lastIndex = tokenStart;
+    let extensionEnd = -1;
+    for (
+      let extension = IMAGE_EXTENSION_RE.exec(content);
+      extension && extension.index + extension[0].length <= tokenEnd;
+      extension = IMAGE_EXTENSION_RE.exec(content)
+    ) {
+      if (extension.index > tokenStart) extensionEnd = extension.index + extension[0].length;
+    }
+    if (extensionEnd > 0) return content.slice(scheme.index, extensionEnd);
+    // Nothing later in this token can match either, so the next candidate starts after it.
+    if (tokenEnd >= content.length) return null;
+    IMAGE_URL_SCHEME_RE.lastIndex = tokenEnd;
+  }
+  return null;
+}
+
 function extractImageUrlFromMessage(message: unknown): string | null {
   if (!message || typeof message !== "object") return null;
   const record = message as Record<string, unknown>;
@@ -3334,9 +3402,7 @@ function extractImageUrlFromMessage(message: unknown): string | null {
   }
 
   const content = typeof record.content === "string" ? record.content : "";
-  const mdMatch = content.match(/!\[[^\]]*\]\(([^)]+)\)/);
-  const dataUrlMatch = content.match(/data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+/i);
-  return mdMatch?.[1] ?? dataUrlMatch?.[0] ?? content.match(/https?:\/\/\S+\.(png|jpg|jpeg|webp|gif)/i)?.[0] ?? null;
+  return findMarkdownImageUrl(content) ?? findInlineImageDataUrl(content) ?? findBareImageUrl(content);
 }
 
 function openRouterAspectRatio(width?: number, height?: number): string | null {

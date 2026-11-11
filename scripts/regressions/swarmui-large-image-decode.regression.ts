@@ -74,7 +74,34 @@ if (role === "--generations") {
     for (const socket of sockets) socket.destroy();
     await new Promise<void>((resolve) => swarm.close(() => resolve()));
   }
-  console.info(`${GENERATIONS} SwarmUI generations of ${IMAGE_MB} MB decoded without exhausting the stack.`);
+
+  // The chat-completions providers (OpenRouter, Gemini image, Ollama/proxies) return the finished image inline in the
+  // reply's `content`, and the extractor ran the same class of whole-subject pattern over it.
+  const chat = createServer((request, response) => {
+    request.resume();
+    request.on("end", () => {
+      response.setHeader("content-type", "application/json");
+      response.end(
+        JSON.stringify({ choices: [{ message: { role: "assistant", content: `Here you go: ${dataUrl}` } }] }),
+      );
+    });
+  });
+  const chatPort = await new Promise<number>((resolve) =>
+    chat.listen(0, "127.0.0.1", () => resolve((chat.address() as { port: number }).port)),
+  );
+  try {
+    const image = await generateImage("gemini_image", `http://127.0.0.1:${chatPort}`, "", "gemini_image", {
+      prompt: "inline image from a chat-completions provider",
+      allowLocalUrls: true,
+    });
+    assert.equal(image.mimeType, "image/png", "a chat-completions reply kept its image type");
+    assert.equal(image.base64.length, IMAGE_MB * 1024 * 1024, "a chat-completions reply kept every byte");
+  } finally {
+    await new Promise<void>((resolve) => chat.close(() => resolve()));
+  }
+  console.info(
+    `${GENERATIONS} SwarmUI generations and a chat-completions reply of ${IMAGE_MB} MB decoded without exhausting the stack.`,
+  );
   process.exit(0);
 }
 
