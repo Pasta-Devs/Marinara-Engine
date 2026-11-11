@@ -13097,26 +13097,32 @@ input.ov-edhead__title:not(#ov-x) {
     margin-left: 0;
   }
 }
-/* Game narration card: when the tools (Logs, Inventory, Combat, ⌄) and the turn controls (stop,
-   play, Next) don't fit on one line, the controls wrap to a second line instead of running past the
-   card (SV2). In a narrow main side the tools line reaches the card's right edge (⌄ at its end), so
-   the controls, still pinned right, line up under it. */
+/* Game narration card (SV2): the tools (Logs, Inventory, Combat, then ⌄ to collapse the card) and
+   the turn controls (stop, play, Next, pinned right) stay on one line. In a narrow main side the
+   tools drop their words like on a phone, so the row fits instead of running past the card; only
+   if it still can't fit do the controls wrap to a second line, still pinned right. ⌄ always stays
+   right after Combat. */
 :root[data-overhaul] [data-game-narration] div:has(> [data-mari-part="game-tools"]) {
   flex-wrap: wrap;
   row-gap: 0.375rem;
 }
 :root[data-overhaul] [data-game-narration] [data-mari-part="game-tools"] {
   min-width: 0;
-  flex-wrap: wrap;
 }
 :root[data-overhaul] [data-game-narration] [data-mari-part="game-tools"] + * {
   margin-left: auto;
 }
 @container mari-main (max-width: 32rem) {
-  :root[data-overhaul] [data-game-narration] [data-mari-part="game-tools"] {
-    flex: 1 1 auto;
+  :root[data-overhaul] [data-game-narration] [data-mari-part="game-tools"] button > span.sm\:inline {
+    display: none;
   }
-  :root[data-overhaul] [data-game-narration] [data-mari-part="game-tools"] > :last-child {
-    margin-left: auto;
+}
+/* The smallest phones (320px): slightly slimmer buttons and gaps keep the row on one line. */
+@container mari-main (max-width: 22rem) {
+  :root[data-overhaul] [data-game-narration] div:has(> [data-mari-part="game-tools"]) :is([data-mari-part="game-tools"], [data-mari-part="game-tools"] + *) {
+    gap: 0.25rem;
+  }
+  :root[data-overhaul] [data-game-narration] div:has(> [data-mari-part="game-tools"]) button {
+    padding-inline: 0.5rem;
   }
 }
