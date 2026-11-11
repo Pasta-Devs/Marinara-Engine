@@ -10959,6 +10959,7 @@ test("roleplay quick preset editor uses chat settings spacing, surfaces, and saf
     await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "true");
     await expect(quickEditorToggle).toContainText("Collapse preset editor");
     await expect(drawer.locator("[data-preset-picker-trigger]")).toBeVisible();
+    await expect(drawer.locator("[data-preset-picker-trigger] svg")).toBeVisible();
 
     await quickEditor.getByRole("button", { name: "Add Section", exact: true }).click();
     await expect(quickEditor.getByRole("button", { name: "ID Macro Cards", exact: true })).toBeVisible();
