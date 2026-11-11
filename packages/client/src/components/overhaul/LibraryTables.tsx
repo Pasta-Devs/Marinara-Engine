@@ -504,7 +504,7 @@ function SortSelect<K extends string>({
 
 type SortKey = "recent" | "name-asc" | "name-desc";
 const SORTS: { id: SortKey; label: string }[] = [
-  { id: "recent", label: "Recently edited" },
+  { id: "recent", label: "Recent" },
   { id: "name-asc", label: "A to Z" },
   { id: "name-desc", label: "Z to A" },
 ];

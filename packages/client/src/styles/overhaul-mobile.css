@@ -3773,7 +3773,7 @@
   flex: 1 1 0;
   height: 2.75rem;
   padding-left: 0.5rem;
-  padding-right: 0.25rem;
+  padding-right: 1.5rem;
   font-size: 0.875rem;
 }
 :root[data-overhaul="mobile"] .ov-org .ov-gallery__tools .ov-search:not(#ovm-x) {
@@ -4825,4 +4825,63 @@
 }
 :root[data-overhaul="mobile"] .ov-vw.is-empty > .ov-vw__left:not(#ovm-x) {
   display: none;
+}
+
+/* ─── Theme nitpick audit, batch 3: Library toolbars on phones, tablets and a narrow split side ─── */
+/* The search line wraps instead of pushing the sort dropdown and card-size switch past the edge
+   (SV3): search keeps at least 7rem and takes what is left, and the sort dropdown is as wide as the
+   label it shows (where the browser can size it to its content). */
+:root[data-overhaul="mobile"] .ov-gallery__tools:not(#ovm-x):not(#ovm-y) {
+  flex-wrap: wrap;
+}
+:root[data-overhaul="mobile"] .ov-gallery__tools > .ov-search:not(#ovm-x):not(#ovm-y) {
+  flex: 1 1 7rem;
+  min-width: 7rem;
+}
+:root[data-overhaul="mobile"] .ov-gallery__tools > .ov-select:not(#ovm-x):not(#ovm-y) {
+  field-sizing: content;
+}
+/* Buttons that show only their icon stay icon-sized instead of stretching into wide empty pills (SV4). */
+@media (max-width: 34rem) {
+  :root[data-overhaul="mobile"]
+    .ov-gallery__head
+    > .ov-btn:not(.ov-btn--primary):not(.ov-btn--icon):has(> svg):not(#ovm-x):not(#ovm-y) {
+    flex: 0 0 auto;
+  }
+}
+:root[data-overhaul="mobile"] .ov-gallery__head > .ov-btn--icon:not(#ovm-x):not(#ovm-y) {
+  flex: 0 0 auto;
+  width: 2.5rem;
+}
+
+/* ─── Theme nitpick audit, batch 4: phone sheets, menus and editors ─── */
+/* Long-press sheet: every row in the labelled list is square, so the dividers between them stay
+   straight (DM2; Bookmark, Mark as new start and Hide from AI kept a rounded chip shape). */
+.ovm-sheet__more.ov-rpf-menu .mari-message-actions button:not(#ovm-x):not(#ovm-y) {
+  border-radius: 0 !important;
+}
+/* A bottom sheet (Chat settings) covers the composer; the composer stays hidden behind it so its
+   edge can't show under the sheet's rounded bottom corners (DM13). */
+:root[data-overhaul="mobile"]:has(.mari-window[data-presentation="sheet"]) [data-mari-part="composer"] {
+  visibility: hidden;
+}
+/* Chat settings sheet: the Connection row's label has no chip of its own (DM12; framed chat widgets
+   paint every section header, which here is only the icon and label). */
+.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] > .mari-drawer__header {
+  background: transparent !important;
+}
+/* Editor header: the Save button keeps its size and the title gives way first (DM5). */
+:root[data-overhaul="mobile"] .ov-savebtn:not(#ovm-x):not(#ovm-y) {
+  flex-shrink: 0;
+}
+/* Home on phones, tablets and a narrow split side: Professor and Widgets take the mode buttons' size
+   (the touch-size rule for every button made them larger and bolder; SV6). */
+:root[data-overhaul="mobile"] .ov-home-hero-actions .ov-btn:not(#ovm-x) {
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+@media (min-width: 640px) {
+  :root[data-overhaul="mobile"] .ov-home-hero-actions .ov-btn:not(#ovm-x) {
+    font-size: 0.75rem;
+  }
 }

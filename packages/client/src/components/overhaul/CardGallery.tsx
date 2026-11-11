@@ -336,7 +336,7 @@ export function CardGallery({
         {onBrowse ? (
           <button
             type="button"
-            className="ov-btn"
+            className={cn("ov-btn", mobile && "ov-btn--icon")}
             onClick={onBrowse}
             aria-label={localizeUi("ui.overhaul.text.browseOnline")}
             title={localizeUi("ui.overhaul.text.browseOnline")}
@@ -404,7 +404,7 @@ export function CardGallery({
         >
           <option value="name-asc">{localize("A to Z")}</option>
           <option value="name-desc">{localize("Z to A")}</option>
-          <option value="recent">{localize("Recently edited")}</option>
+          <option value="recent">{localize("Recent")}</option>
           <option value="newest">{localize("Newest")}</option>
           <option value="oldest">{localize("Oldest")}</option>
           <option value="custom">{localize("My order")}</option>

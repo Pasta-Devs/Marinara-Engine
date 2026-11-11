@@ -794,7 +794,7 @@ export function ConnectionsLanding() {
         >
           <option value="name">{localize("A to Z")}</option>
           <option value="models">{localize("Most models")}</option>
-          <option value="recent">{localize("Recently edited")}</option>
+          <option value="recent">{localize("Recent")}</option>
         </select>
         {!ovMobile && groupSelect}
       </div>
