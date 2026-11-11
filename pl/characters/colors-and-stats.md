@@ -34,7 +34,9 @@ Zakładka **Colors** postaci ma też pole **Name Aliases** (aliasy imienia). Wpi
 
 Przezroczystość zmienisz w **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (ustawienia, wygląd, prezentacja trybu Roleplay, nieprzezroczystość tła wiadomości w trybie Roleplay).
 
-Suwak zastępuje przezroczystość zapisaną w kolorach tła postaci, persony i presetu, także w kolorach pobranych z awatara. Zapisane wartości kolorów pozostają bez zmian. Ustawienie nie wpływa na kolor imienia ani dialogu.
+Suwak skaluje przezroczystość zapisaną w kolorze pola wiadomości postaci i persony: kolor z własną wartością alfa, na przykład `rgba(255, 255, 255, 0.25)` lub `#FFFFFF40`, pokazuje się z tą wartością alfa pomnożoną przez wartość suwaka. Zapisane wartości kolorów pozostają bez zmian. Ustawienie nie wpływa na kolor imienia ani dialogu.
+
+Przy włączonym **Apply preset colors** (zastosowanie kolorów presetu) kolor tła wybrany dla widgetu czatu ustawia wypełnienie dymka, a suwak bezpośrednio ustala przezroczystość tego wypełnienia.
 
 Punkty zaczepienia tła w niestandardowym motywie oraz CSS karty nadal mogą nadpisać styl dymków aplikacji.
 

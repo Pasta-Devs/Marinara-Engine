@@ -34,7 +34,9 @@ Der Tab **Colors** eines Charakters hat außerdem **Name Aliases** (Namensaliass
 
 Die Transparenz änderst du unter **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (Einstellungen → Darstellung → Roleplay-Darstellung → Deckkraft des Hintergrunds von Roleplay-Nachrichten).
 
-Der Schieberegler ersetzt die Transparenz, die in den Hintergrundfarben von Charakteren, Personas und Presets gespeichert ist, einschließlich übernommener Farben. Deine gespeicherten Farbwerte bleiben, wie sie sind. Namens- und Dialogfarben sind davon nicht betroffen.
+Der Schieberegler skaliert die Transparenz, die in der Farbe der Nachrichtenbox deines Charakters und deiner Persona gespeichert ist: Eine Farbe mit eigenem Alpha, etwa `rgba(255, 255, 255, 0.25)` oder `#FFFFFF40`, zeigt sich in diesem Alpha, multipliziert mit dem eingestellten Wert des Schiebereglers. Deine gespeicherten Farbwerte bleiben, wie sie sind. Namens- und Dialogfarben sind davon nicht betroffen.
+
+Ist **Apply preset colors** (Preset-Farben anwenden) an, bestimmt die Hintergrundfarbe, die du für das Chat-Widget wählst, die Füllung der Sprechblase, und der Schieberegler legt die Transparenz dieser Füllung direkt fest.
 
 Hintergrund-Hooks benutzerdefinierter Themes und Card CSS können die app-eigene Gestaltung der Sprechblasen weiterhin überschreiben.
 

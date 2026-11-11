@@ -34,7 +34,9 @@ La pestaña **Colors** de un personaje también tiene **Name Aliases** (Alias de
 
 Para cambiar la transparencia, usa **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (Configuración → Apariencia → Presentación de Roleplay → Opacidad del fondo de los mensajes de Roleplay).
 
-El control deslizante reemplaza la transparencia guardada en los colores de fondo de personajes, personas y presets (ajustes guardados), incluidos los extraídos. Tus valores de color guardados se mantienen tal como están. Los colores del nombre y del diálogo no se ven afectados.
+El control deslizante escala la transparencia guardada en el color del cuadro del mensaje de tu personaje y de tu persona: un color con su propio alfa, como `rgba(255, 255, 255, 0.25)` o `#FFFFFF40`, se muestra con ese alfa multiplicado por el valor del control deslizante. Tus valores de color guardados se mantienen tal como están. Los colores del nombre y del diálogo no se ven afectados.
+
+Con **Apply preset colors** (Aplicar colores del preset) activado, el color de fondo que elijas para el widget del chat define el relleno de la burbuja, y el control deslizante establece directamente la transparencia de ese relleno.
 
 Los puntos de personalización del fondo de los temas personalizados y el CSS de la tarjeta pueden seguir anulando el estilo de las burbujas de la app.
 

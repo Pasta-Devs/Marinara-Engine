@@ -34,7 +34,9 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 
 要调整透明度，使用 **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity**(设置 → 外观 → Roleplay 呈现方式 → Roleplay 消息背景不透明度)。
 
-这个滑块会取代角色、用户角色和预设的背景色中保存的透明度，从头像提取的颜色也包括在内。你保存的颜色值本身保持不变。名字颜色和对话颜色不受影响。
+这个滑块会按比例缩放角色和用户角色消息框颜色中保存的透明度。如果颜色自带 alpha，例如 `rgba(255, 255, 255, 0.25)` 或 `#FFFFFF40`，它的显示透明度就是该 alpha 乘以滑块的值。你保存的颜色值本身保持不变。名字颜色和对话颜色不受影响。
+
+开启 **Apply preset colors**(应用预设颜色) 时，为聊天组件选择的背景色决定气泡的填充，滑块则直接决定这个填充的透明度。
 
 自定义主题的背景钩子和角色卡 CSS 仍然可以覆盖应用自带的气泡样式。
 
