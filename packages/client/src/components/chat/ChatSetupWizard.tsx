@@ -415,7 +415,7 @@ function WizardSelect({
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
                   rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]')[0]?.focus();
-                } else if (event.key === "Enter") {
+                } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
                   event.preventDefault();
                   const first = visibleOptions[0];
                   if (first) pickOption(first.value);

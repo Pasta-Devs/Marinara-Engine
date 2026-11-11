@@ -14,7 +14,8 @@ export async function chooseCharacter(page: Page, trigger: Locator, title: strin
   // After a multiple pick the title reads "Characters · 1", so look for either name.
   const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const open = page.getByRole("dialog", { name: new RegExp(`^${escaped}( · \\d+)?$`) });
-  if (await open.isVisible()) await page.keyboard.press("Escape");
+  // Press Escape on the dialog itself, so a stray key can never reach (and close) the wizard behind it.
+  if (await open.isVisible()) await open.press("Escape");
   await expect(open).toHaveCount(0);
 }
 
