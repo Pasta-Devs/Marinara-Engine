@@ -12339,6 +12339,41 @@ input.ov-edhead__title:not(#ov-x) {
   color: var(--ov-text);
   font-weight: 600;
 }
+/* An open Library item's crumb trail sits in the bar (the page itself starts at its title). Long names
+   shorten with an ellipsis, the page's own name first. */
+.ov-splitbar__page.has-trail {
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-weight: 400;
+}
+.ov-splitbar__crumbs.ov-crumbs {
+  flex-wrap: nowrap;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ov-muted);
+  font-size: inherit;
+  white-space: nowrap;
+}
+.ov-splitbar__crumbs .ov-crumbs__item {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.ov-splitbar__crumbs .ov-crumbs__item:first-child {
+  flex-shrink: 0;
+}
+.ov-splitbar__crumbs .ov-crumbs__item:last-child {
+  flex-shrink: 0.4;
+  font-weight: 600;
+}
+.ov-splitbar__crumbs .ov-crumbs__item > :is(button, span) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-splitbar__crumbs .ov-crumbs__item > svg {
+  flex: none;
+}
 .ov-splitbar__fill {
   flex: 1 1 auto;
 }

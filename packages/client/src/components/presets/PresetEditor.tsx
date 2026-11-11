@@ -86,7 +86,6 @@ import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
 import { useOverhaulLook, useOverhaulMobile, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvEditorHead, OvSaveButton, OvSplitSubCrumbs } from "../overhaul/EditorChrome";
-import { useSplitTouchCrumbs } from "../overhaul/EditorRail";
 import { openConnectionsPage } from "../overhaul/library-navigation";
 import { OvSeg } from "../overhaul/LoreEntryParts";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -244,7 +243,6 @@ export function PresetEditor() {
   const localize = useLocalizedUiText();
   const overhaulActive = useOverhaulLook();
   const overhaulMobileShell = useOverhaulMobile();
-  const splitCrumbs = useSplitTouchCrumbs();
   // Phones: the preset is a page of rows; each row opens as its own page.
   const [ovmPage, setOvmPage] = useState<
     null | "order" | "overview" | "prompts" | "variables" | "parameters" | "regex"
@@ -911,11 +909,10 @@ export function PresetEditor() {
       </button>
     </div>
   ) : null;
-  // Split view's narrow side puts the bar under the crumb trail (barInside), so the trail stays at the top.
-  const withStockBar = (editor: ReactNode, barInside = false) =>
+  const withStockBar = (editor: ReactNode) =>
     stockPreset ? (
       <div ref={stockReadOnlyRef} className="ov-stock-preset flex min-h-0 flex-1 flex-col" data-ov-readonly="true">
-        {barInside ? null : stockBar}
+        {stockBar}
         {editor}
       </div>
     ) : (
@@ -1010,7 +1007,6 @@ export function PresetEditor() {
               save={{ dirty, saving: savingPreset, onSave: handleSave }}
             />
           )}
-          {splitCrumbs ? stockBar : null}
           <div className="ovm-preset__body">
             {!ovmPage ? (
               <>
@@ -1056,7 +1052,6 @@ export function PresetEditor() {
             {ovmPage === "regex" ? ov_regex : null}
           </div>
         </div>,
-        splitCrumbs,
       );
     }
     return withStockBar(
