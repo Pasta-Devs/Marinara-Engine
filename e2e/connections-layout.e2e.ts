@@ -343,6 +343,11 @@ test("a narrow Connections page keeps Connections pinned and phone Back returns 
     await back.click();
     await expect(back).toHaveCount(0);
     await expect(row).toBeFocused();
+
+    // The device page's button opens the Voice settings window itself.
+    await row.click();
+    await panel.getByRole("button", { name: "Open its settings" }).click();
+    await expect(page.getByRole("dialog", { name: "Voice settings" })).toBeVisible();
   } finally {
     await request.delete(`/api/connections/${created.connectionId}`);
     await request.delete(`/api/connection-accounts/${created.account.id}`);

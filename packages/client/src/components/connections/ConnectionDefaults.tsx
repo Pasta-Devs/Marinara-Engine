@@ -459,7 +459,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
 export const DEVICE_VOICE = "tts-source:";
 
 /** Persisted with the Connection folds; no Connection id is "defaults". */
-export const DEFAULTS_FOLD_ID = "defaults";
+const DEFAULTS_FOLD_ID = "defaults";
 
 type RoleField = (typeof FLAG_JOBS)[number]["flag"] | (typeof FLAG_JOBS)[number]["fallback"];
 

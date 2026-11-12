@@ -91,7 +91,7 @@ import {
 import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
-import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
+import { ConnectionDefaultsBox } from "../connections/ConnectionDefaults";
 import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
 import { DeviceDetail, SMALL_ACTION, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
 import { ProviderIcon } from "../connections/ProviderIcon";
@@ -1011,18 +1011,7 @@ export function ConnectionsPanel() {
 
   let detail: ReactNode = null;
   if (current?.startsWith("device:")) {
-    detail = (
-      <DeviceDetail
-        key={current}
-        item={current.slice("device:".length) as DeviceItem}
-        onOpenDefaults={() => {
-          // Back to the list, with the Defaults box unfolded.
-          if (collapsedConnections.includes(DEFAULTS_FOLD_ID)) toggleConnectionCollapsed(DEFAULTS_FOLD_ID);
-          returnKeyRef.current = "defaults";
-          setSelected(null);
-        }}
-      />
-    );
+    detail = <DeviceDetail key={current} item={current.slice("device:".length) as DeviceItem} />;
   } else if (current === "other") {
     detail = (
       <div className="flex flex-col gap-0.5">

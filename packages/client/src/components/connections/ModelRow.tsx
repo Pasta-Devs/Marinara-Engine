@@ -239,7 +239,7 @@ export function ModelRow({
             data-model-title
             className={cn(
               "block min-w-0 text-[0.8125rem] font-medium leading-5",
-              wrapTitle ? "break-words" : "line-clamp-2 [overflow-wrap:anywhere]",
+              wrapTitle ? "break-words" : line2 ? "truncate" : "line-clamp-2 [overflow-wrap:anywhere]",
               dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
             )}
             title={tooltip ?? title}

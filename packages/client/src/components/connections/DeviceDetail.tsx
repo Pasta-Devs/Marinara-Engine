@@ -806,7 +806,7 @@ export function LocalWhisper() {
 }
 
 /** One "On this device" engine's page. */
-export function DeviceDetail({ item, onOpenDefaults }: { item: DeviceItem; onOpenDefaults: () => void }) {
+export function DeviceDetail({ item }: { item: DeviceItem }) {
   const { t } = useTranslation();
   const engine = useDeviceEngines().find((entry) => entry.item === item);
   const { data: installedPackages } = useInstalledCapabilityPackages();
@@ -828,7 +828,11 @@ export function DeviceDetail({ item, onOpenDefaults }: { item: DeviceItem; onOpe
         <span>· {engine?.detail || t("connections.accounts.section.device")}</span>
       </DetailHero>
       {/* The Voice and Dictation settings live in their jobs; this page keeps the engine. */}
-      <button type="button" onClick={onOpenDefaults} className={cn(SMALL_ACTION, "self-start")}>
+      <button
+        type="button"
+        onClick={() => useUIStore.getState().openModal("job-settings", { job: item === "tts" ? "voice" : "stt" })}
+        className={cn(SMALL_ACTION, "self-start")}
+      >
         {t("connections.device.openJobSettings")}
       </button>
       {item === "stt" && callsInstalled && !isLite && <LocalWhisper />}
@@ -842,7 +846,7 @@ export function DeviceDetailWindow({ onClose }: { onClose: () => void }) {
   return (
     <Modal open onClose={onClose} title={t("connections.add.device.local_model")} width="max-w-xl">
       {/* Lite has no built-in model, but the decision model still installs here. */}
-      {isLite ? <DecisionModelModal /> : <DeviceDetail item="local-model" onOpenDefaults={onClose} />}
+      {isLite ? <DecisionModelModal /> : <DeviceDetail item="local-model" />}
     </Modal>
   );
 }
