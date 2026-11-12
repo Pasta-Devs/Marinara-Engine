@@ -2,6 +2,7 @@ import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
 import { cn, copyToClipboard } from "../../lib/utils";
+import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface ImagePromptPanelProps {
@@ -58,6 +59,7 @@ export function ImagePromptPanel({
     <div
       className={cn(
         "min-h-0 overflow-y-auto overscroll-contain rounded-xl border border-[var(--border)] bg-[var(--sidebar)] px-4 py-3 text-left text-[var(--foreground)] shadow-2xl",
+        NEUTRAL_SURFACE_VARIABLES,
         className,
       )}
       onPointerDown={(event) => event.stopPropagation()}

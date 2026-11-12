@@ -14,6 +14,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 
 interface ImageRegeneratePanelProps {
   image: ChatImage;
@@ -26,8 +27,10 @@ interface ImageRegeneratePanelProps {
   className?: string;
 }
 
+// Same field as InlineChatCardEditor: the chat chrome input tokens follow every theme and chat style,
+// where raw --background turned into the default dark theme's navy.
 const FIELD_CLASS =
-  "min-h-11 w-full resize-y rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm leading-relaxed text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus-visible:outline-2 focus-visible:outline-[var(--ring)] disabled:opacity-60";
+  "min-h-11 w-full resize-y rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] px-3 py-2 text-sm leading-relaxed text-[var(--marinara-chat-chrome-panel-text)] outline-none transition-colors placeholder:text-[var(--marinara-chat-chrome-panel-muted)]/55 focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)] disabled:opacity-60";
 const LABEL_CLASS = "text-xs font-semibold text-[var(--foreground)]";
 const BUTTON_CLASS =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50";
@@ -199,6 +202,7 @@ export function ImageRegeneratePanel({
       aria-labelledby={titleId}
       className={cn(
         "flex min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--sidebar)] text-left text-[var(--foreground)] shadow-2xl",
+        NEUTRAL_SURFACE_VARIABLES,
         className,
       )}
       onPointerDown={(event) => event.stopPropagation()}
