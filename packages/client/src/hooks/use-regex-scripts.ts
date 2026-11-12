@@ -4,7 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 
-const regexKeys = {
+export const regexKeys = {
   all: ["regex-scripts"] as const,
 };
 
@@ -12,6 +12,7 @@ export interface RegexScriptRow {
   id: string;
   name: string;
   enabled: string;
+  pausedByFolder?: boolean;
   findRegex: string;
   replaceString: string;
   trimStrings: string;
@@ -77,12 +78,22 @@ export function useReorderRegexScripts() {
   });
 }
 
+export function useSetRegexScriptsEnabled() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { scriptIds: string[]; enabled: boolean }) => api.put<void>("/regex-scripts/enabled", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: regexKeys.all }),
+  });
+}
+
 export function useDeleteRegexScript() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/regex-scripts/${id}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: regexKeys.all });
-    },
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: regexKeys.all }),
+        qc.invalidateQueries({ queryKey: ["library-folders", "regex"] }),
+      ]),
   });
 }

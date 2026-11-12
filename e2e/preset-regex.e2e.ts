@@ -242,3 +242,143 @@ for (const mode of ["conversation", "roleplay"] as const) {
     }
   });
 }
+
+test("regex library folders pause chat display and bulk toggles keep each script setting", async ({
+  page,
+  request,
+}, info) => {
+  const scripts: { id: string; name: string; order: number }[] = [];
+  let folderId: string | undefined;
+  let chatId: string | undefined;
+  let characterId: string | undefined;
+  const tabGroup = page.getByRole("group", { name: "Presets", exact: true });
+  const openRegexes = async () => {
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openRightPanel("presets");
+    });
+    await tabGroup.getByRole("button", { name: "Regexes", exact: true }).click();
+  };
+  const scriptState = async () => {
+    const rows = (await (await request.get("/api/regex-scripts")).json()) as {
+      id: string;
+      enabled: string;
+      order: number;
+      pausedByFolder: boolean;
+    }[];
+    return scripts.map((script) => {
+      const row = rows.find(({ id }) => id === script.id);
+      return row && [row.enabled, row.order, row.pausedByFolder];
+    });
+  };
+  try {
+    const charResponse = await request.post("/api/characters", { data: { data: { name: "Regex Preview Character" } } });
+    expect(charResponse.ok()).toBeTruthy();
+    characterId = (await charResponse.json()).id;
+    const chatResponse = await request.post("/api/chats", {
+      data: { name: "Regex folder fixture", mode: "conversation", characterIds: [characterId] },
+    });
+    expect(chatResponse.ok()).toBeTruthy();
+    chatId = (await chatResponse.json()).id;
+    const messageResponse = await request.post("/api/chats/" + chatId + "/messages", {
+      data: { role: "assistant", characterId, content: "PACK_RAW and OUTSIDE_RAW" },
+    });
+    expect(messageResponse.ok()).toBeTruthy();
+    const messageId = (await messageResponse.json()).id;
+    for (const data of [
+      { name: "Pack format", findRegex: "PACK_RAW", replaceString: "pack formatted", enabled: true },
+      { name: "Pack experimental", findRegex: "PACK_RAW", replaceString: "experimental", enabled: false },
+      { name: "Outside pack", findRegex: "OUTSIDE_RAW", replaceString: "outside formatted", enabled: true },
+    ]) {
+      const result = await request.post("/api/regex-scripts", {
+        data: { ...data, placement: ["ai_output"], applyMode: "both" },
+      });
+      expect(result.ok()).toBeTruthy();
+      scripts.push(await result.json());
+    }
+    const [format, experimental, outside] = scripts;
+    const originalOrders = scripts.map((script) => script.order);
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id!), chatId);
+    await page.goto("/");
+    const message = page.locator('[data-message-id="' + messageId + '"]');
+    await expect(message).toContainText("pack formatted and outside formatted");
+    await openRegexes();
+    const selectRegex = page.getByRole("button", { name: "Select regex scripts", exact: true });
+    const exitSelection = page.getByRole("button", { name: "Exit regex selection", exact: true });
+    const created = page.waitForResponse(
+      (response) => response.url().endsWith("/api/library-folders/regex") && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "New Folder", exact: true }).click();
+    const createdResponse = await created;
+    expect(createdResponse.ok()).toBeTruthy();
+    folderId = (await createdResponse.json()).id;
+    const folder = page.locator('[data-regex-folder="' + folderId + '"]');
+    const folderName = folder.getByRole("textbox", { name: "Rename folder", exact: true });
+    await folderName.fill("Test pack");
+    await folderName.press("Enter");
+    await expect(folder.getByRole("button", { name: "Test pack", exact: true })).toBeVisible();
+    await selectRegex.click();
+    await page.getByRole("checkbox", { name: "Select Pack format", exact: true }).check();
+    await page.getByRole("checkbox", { name: "Select Pack experimental", exact: true }).check();
+    await page.getByRole("button", { name: "Move to folder", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Test pack", exact: true }).click();
+    await expect(folder.getByRole("checkbox", { name: "Select Pack format", exact: true })).toBeChecked();
+    expect((await scriptState()).map((row) => row?.[1])).toEqual(originalOrders);
+    await exitSelection.click();
+
+    await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).uncheck();
+    await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(2);
+    await expect(folder.getByRole("checkbox", { name: "Run Pack format", exact: true })).toBeChecked();
+    await expect(folder.getByRole("checkbox", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
+    await expect(message).toContainText("PACK_RAW and outside formatted");
+    await page.screenshot({ path: info.outputPath("regex-folders-paused.png") });
+
+    await page.reload();
+    await expect(message).toContainText("PACK_RAW and outside formatted");
+    await openRegexes();
+    await expect(folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true })).not.toBeChecked();
+    await selectRegex.click();
+    await folder.getByRole("checkbox", { name: "Select Pack format", exact: true }).check();
+    await folder.getByRole("checkbox", { name: "Select Pack experimental", exact: true }).check();
+    const bulk = page.locator(".mari-selection-action-bar");
+    await bulk.getByRole("button", { name: "Enable selected", exact: true }).click();
+    await expect.poll(scriptState).toEqual([
+      ["true", format!.order, true],
+      ["true", experimental!.order, true],
+      ["true", outside!.order, false],
+    ]);
+    await bulk.getByRole("button", { name: "Disable selected", exact: true }).click();
+    await expect.poll(scriptState).toEqual([
+      ["false", format!.order, true],
+      ["false", experimental!.order, true],
+      ["true", outside!.order, false],
+    ]);
+    const rejected = await request.put("/api/regex-scripts/enabled", {
+      data: { scriptIds: [format!.id, "missing-script-id"], enabled: true },
+    });
+    expect(rejected.status()).toBe(404);
+    expect((await scriptState())[0]?.[0]).toBe("false");
+    await exitSelection.click();
+    await folder.getByRole("checkbox", { name: "Run Pack format", exact: true }).check();
+    await expect(message).toContainText("PACK_RAW and outside formatted");
+    await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).check();
+    await expect(message).toContainText("pack formatted and outside formatted");
+    await expect(folder.getByRole("checkbox", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
+    await page.getByRole("button", { name: "Execution order", exact: true }).click();
+    await expect(folder).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Pack format", exact: false }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Execution order", exact: true }).click();
+    await folder.getByRole("button", { name: "Delete folder", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Delete folder", exact: true })
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
+    await expect(folder).toHaveCount(0);
+    expect((await scriptState()).map((row) => row?.[1])).toEqual(originalOrders);
+  } finally {
+    if (chatId) await request.delete("/api/chats/" + chatId + "?force=true");
+    await Promise.all(scripts.map((script) => request.delete("/api/regex-scripts/" + script.id)));
+    if (folderId) await request.delete("/api/library-folders/regex/" + folderId);
+    if (characterId) await request.delete("/api/characters/" + characterId);
+  }
+});

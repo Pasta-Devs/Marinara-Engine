@@ -19,7 +19,7 @@ const nonEmptyLibraryFolderItemIdsSchema = z
     }
   });
 
-export const libraryFolderScopeSchema = z.enum(["lorebooks", "presets", "agents"]);
+export const libraryFolderScopeSchema = z.enum(["lorebooks", "presets", "agents", "regex"]);
 
 export const libraryFolderScopeParamsSchema = z.object({
   scope: libraryFolderScopeSchema,
@@ -36,6 +36,7 @@ export const createLibraryFolderSchema = z.object({
 export const updateLibraryFolderSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   collapsed: z.boolean().optional(),
+  paused: z.boolean().optional(),
   sortOrder: z.number().int().nonnegative().optional(),
   itemIds: libraryFolderItemIdsSchema.optional(),
 });

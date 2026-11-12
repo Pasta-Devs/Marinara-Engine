@@ -30,6 +30,7 @@ function mapFolder(row: LibraryFolderRow) {
     scope: row.scope as LibraryFolderScope,
     name: row.name,
     collapsed: row.collapsed === "true",
+    paused: row.paused === "true",
     sortOrder: row.sortOrder,
     itemIds: parseItemIds(row.itemIds),
     createdAt: row.createdAt,
@@ -78,6 +79,7 @@ export function createLibraryFoldersStorage(db: DB) {
         .set({
           ...(input.name !== undefined && { name: input.name }),
           ...(input.collapsed !== undefined && { collapsed: input.collapsed ? "true" : "false" }),
+          ...(scope === "regex" && input.paused !== undefined && { paused: String(input.paused) }),
           ...(input.sortOrder !== undefined && { sortOrder: input.sortOrder }),
           ...(input.itemIds !== undefined && { itemIds: JSON.stringify(input.itemIds) }),
           updatedAt: now(),

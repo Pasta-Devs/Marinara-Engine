@@ -8,6 +8,7 @@ export const libraryFolders = fileTable("library_folders", {
   scope: text("scope").notNull(),
   name: text("name").notNull(),
   collapsed: text("collapsed").notNull().default("false"),
+  paused: text("paused").notNull().default("false"),
   sortOrder: integer("sort_order").notNull().default(0),
   /** JSON array of resource IDs assigned to this folder. */
   itemIds: text("item_ids").notNull().default("[]"),

@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import {
+  bulkSetRegexEnabledSchema,
   createRegexScriptSchema,
   importRegexScriptSchema,
   reorderRegexScriptsSchema,
@@ -20,6 +21,14 @@ export async function regexScriptsRoutes(app: FastifyInstance) {
   app.put("/reorder", async (req) => {
     const input = reorderRegexScriptsSchema.parse(req.body);
     return storage.reorder(input.scriptIds);
+  });
+
+  app.put("/enabled", async (req, reply) => {
+    const { scriptIds, enabled } = bulkSetRegexEnabledSchema.parse(req.body);
+    if (!(await storage.setEnabled(scriptIds, enabled))) {
+      return reply.status(404).send({ error: "One or more regex scripts were not found" });
+    }
+    return reply.status(204).send();
   });
 
   // Imports keep patterns flagged by the conservative safety heuristic so the
