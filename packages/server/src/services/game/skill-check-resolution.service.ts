@@ -2379,6 +2379,15 @@ export async function resolveSkillCheckTagsInContent(
 
   /** What is left of the dice issued for this turn, spent one check at a time. */
   const issued = options.issuedD20s ? [...options.issuedD20s] : null;
+  // What a branch arm rolled this turn answers its own check and no other, wherever in the reply
+  // another tag sits, so its dice are spent before any tag is read. Only a summed record's faces were
+  // ever put in the list, and each is taken on its own: one already gone does not keep the rest.
+  if (issued && options.engineRecords) {
+    for (const record of options.engineRecords) {
+      const own = parseSkillCheckTagBody(createSkillCheckTagRegex().exec(record)?.[1] ?? "")?.resolvedResult;
+      if (own?.resolution === "sum") for (const face of own.rolls) takeIssuedD20s(issued, [face]);
+    }
+  }
   /** The outcome each tag's own `result=` claimed, by where the tag starts, for the correction below. */
   const claims = new Map<number, boolean>();
   let corrected = 0;
@@ -2409,10 +2418,6 @@ export async function resolveSkillCheckTagsInContent(
       }
       // A record a branch arm wrote this turn is the Engine's own roll: never rolled a second time.
       if (options.engineRecords?.has(match[0])) {
-        // Its dice are spent all the same, so no other record this turn can claim the same faces.
-        // Only a summed record's faces were ever put there: a pool's are not, and must not use up a
-        // die the player threw.
-        if (issued && tag.resolvedResult?.resolution === "sum") takeIssuedD20s(issued, tag.resolvedResult.rolls);
         trusted += 1;
         left += 1;
         continue;
