@@ -303,7 +303,6 @@ import {
   GAME_GM_BUILT_IN_PROMPT_TEMPLATES,
   getDefaultAgentPrompt,
   GAME_VIDEO_PROMPT_TEMPLATE_ID,
-  LIMITS,
   MIN_AGENT_MAX_TOKENS,
   PROFESSOR_MARI_ID,
   STORYBOARD_AGENT_ID,
@@ -1118,15 +1117,7 @@ export function ChatSettingsDrawer({
       ? Math.max(1, Math.floor(metadata.autonomousDailyCapOverride))
       : null;
   const activeLorebookIds = useMemo(() => getChatActiveLorebookIds({ metadata: chat.metadata }), [chat.metadata]);
-  const readLatestActiveLorebookIds = useCallback(() => {
-    const latestChat = qc.getQueryData<Chat>(chatKeys.detail(chat.id));
-    return latestChat ? getChatActiveLorebookIds(latestChat) : [...activeLorebookIds];
-  }, [activeLorebookIds, chat.id, qc]);
   const excludedLorebookIds = useMemo(() => getChatExcludedLorebookIds({ metadata: chat.metadata }), [chat.metadata]);
-  const readLatestExcludedLorebookIds = useCallback(() => {
-    const latestChat = qc.getQueryData<Chat>(chatKeys.detail(chat.id));
-    return latestChat ? getChatExcludedLorebookIds(latestChat) : [...excludedLorebookIds];
-  }, [chat.id, excludedLorebookIds, qc]);
   const gameLorebookKeeperEnabled = metadata.gameLorebookKeeperEnabled === true;
   const gameLorebookKeeperLorebookId =
     typeof metadata.gameLorebookKeeperLorebookId === "string" ? metadata.gameLorebookKeeperLorebookId : null;
@@ -1148,10 +1139,6 @@ export function ChatSettingsDrawer({
     isGame,
     lorebooks,
   ]);
-  const lorebookTokenBudget =
-    typeof metadata.lorebookTokenBudget === "number" && Number.isFinite(metadata.lorebookTokenBudget)
-      ? Math.max(0, Math.floor(metadata.lorebookTokenBudget))
-      : LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET;
   const agentConfigsByType = useMemo(() => {
     const map = new Map<string, AgentConfigRow>();
     for (const config of (agentConfigs ?? []) as AgentConfigRow[]) {
@@ -3057,33 +3044,6 @@ export function ChatSettingsDrawer({
     onDrop: () => setDraggedCharId(null),
     onCancel: () => setDraggedCharId(null),
   });
-
-  const toggleLorebook = (lbId: string) => {
-    const current = readLatestActiveLorebookIds();
-    const idx = current.indexOf(lbId);
-    if (idx >= 0) current.splice(idx, 1);
-    else current.push(lbId);
-    updateMeta.mutate({ id: chat.id, activeLorebookIds: current });
-  };
-  // "Add all" in the lorebook picker: one write with every id, so per-id toggles can't race.
-  const addLorebooks = (lbIds: string[]) => {
-    const current = readLatestActiveLorebookIds();
-    updateMeta.mutate({
-      id: chat.id,
-      activeLorebookIds: [...current, ...lbIds.filter((id) => !current.includes(id))],
-    });
-  };
-
-  // Disable / re-enable an auto-activated (character/global/persona) lorebook for
-  // this chat. Unlike unpinning, this does not touch activeLorebookIds — it adds
-  // the book to excludedLorebookIds so the scope filter drops it before injection.
-  const setLorebookExcluded = (lbId: string, excluded: boolean) => {
-    const current = readLatestExcludedLorebookIds();
-    const has = current.includes(lbId);
-    if (excluded === has) return;
-    const next = excluded ? [...current, lbId] : current.filter((id) => id !== lbId);
-    updateMeta.mutate({ id: chat.id, excludedLorebookIds: next });
-  };
 
   const hasSecretPlotMemory = (memory: Record<string, unknown> | null | undefined) => {
     if (!memory) return false;
@@ -7322,12 +7282,11 @@ export function ChatSettingsDrawer({
             <LorebooksSection
               forceOpen={initialSection === "lorebooks"}
               chatId={chat.id}
+              metadata={metadata}
+              activeLorebookIds={activeLorebookIds}
+              excludedLorebookIds={excludedLorebookIds}
               activeLorebooks={activeLorebooks}
               lorebooks={(lorebooks ?? []) as Lorebook[]}
-              lorebookTokenBudget={lorebookTokenBudget}
-              onLorebookTokenBudgetChange={(lorebookTokenBudget) =>
-                updateMeta.mutate({ id: chat.id, lorebookTokenBudget })
-              }
               onEditLorebook={(lorebookId) => toggleInlineResourceEditor("lorebook", lorebookId)}
               editingLorebookId={inlineResourceEditor?.kind === "lorebook" ? inlineResourceEditor.id : null}
               inlineLorebookEditor={
@@ -7355,9 +7314,6 @@ export function ChatSettingsDrawer({
                   </Suspense>
                 ) : null
               }
-              onToggleLorebook={toggleLorebook}
-              onAddLorebooks={addLorebooks}
-              onSetLorebookExcluded={setLorebookExcluded}
             />
           </div>
 
