@@ -1,12 +1,12 @@
 /**
- * Two named dice on a summed check (Capability API 1.820): Daggerheart's Hope and Fear.
+ * Two named dice on a summed check (Capability API 1.821): Daggerheart's Hope and Fear.
  *
  * What is pinned here:
  *   - The schema takes 2d12 with two named dice, and refuses them on another count, beside advantage,
  *     and under one id.
  *   - The roll adds the two dice as before and records which one showed more; a tie is a critical
  *     success whatever the total, unless `tieIsCritical` is false.
- *   - Through the resolver, the record and the Game Master; a packaged ruleset declares 1.820.
+ *   - Through the resolver, the record and the Game Master; a packaged ruleset declares 1.821.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -199,8 +199,8 @@ try {
       permissions: [],
       restartRequired: false,
     });
-    assert.match(getCapabilityPackageInstallIssue(manifest(819) as any, doc()) ?? "", /capabilityApi 1\.820/);
-    assert.equal(getCapabilityPackageInstallIssue(manifest(820) as any, doc()), null);
+    assert.match(getCapabilityPackageInstallIssue(manifest(820) as any, doc()) ?? "", /capabilityApi 1\.821/);
+    assert.equal(getCapabilityPackageInstallIssue(manifest(821) as any, doc()), null);
   }
 } finally {
   if (previousDataDir === undefined) delete process.env.DATA_DIR;

@@ -100,7 +100,7 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
     : "";
   // A roll at most a target (1.139) says so, because "DC 45" would read as needing 45 or more.
   const needed = result.against === "at-most" ? `at most ${result.dc}` : `DC ${result.dc}`;
-  // Two named dice (1.820), said only where the record carries them.
+  // Two named dice (1.821), said only where the record carries them.
   const duality = result.duality
     ? result.duality === "tie"
       ? " The two named dice tied."
@@ -213,7 +213,7 @@ export interface SkillCheckTagExtras {
   criticalFailure?: boolean;
   /** `for="climb"` (1.752): what the check was made for, which a change narrowed to it read. */
   for?: string;
-  /** `duality="Hope"` (1.820): the named die that showed more, or "tie". */
+  /** `duality="Hope"` (1.821): the named die that showed more, or "tie". */
   duality?: string;
 }
 

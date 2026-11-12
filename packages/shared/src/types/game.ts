@@ -638,7 +638,7 @@ export interface SkillCheckResult {
   /** Independent setback dice and own upgrades actually applied (1.150). */
   setback?: number;
   upgradeOwn?: number;
-  /** Two named dice (1.820): the label of the one that showed more, or "tie". */
+  /** Two named dice (1.821): the label of the one that showed more, or "tie". */
   duality?: string;
   /** Narrative dice (1.141): net symbols, die ids beside their 1-based rolls, and the face symbols
    *  with the ruleset's labels, so a saved check needs no installed ruleset to display. */

@@ -41,7 +41,7 @@ What the resulting number means is the kind's business: `dice-sum` adds it to th
 
 #### Two named dice
 
-A summed check can throw two dice that each have a name, where the story turns on which one showed more (Capability API 1.820). A community ruleset needs nothing; a packaged one declares 1.820.
+A summed check can throw two dice that each have a name, where the story turns on which one showed more (Capability API 1.821). A community ruleset needs nothing; a packaged one declares 1.821.
 
 ```json
 "dice": { "count": 2, "sides": 12 },

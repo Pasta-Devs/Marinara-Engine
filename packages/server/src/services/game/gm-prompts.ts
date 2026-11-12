@@ -1452,7 +1452,7 @@ function renderRulesetKindCheckLine(
     ...untrainedClause,
     ...effectsClause,
     ...outcomesClause("points"),
-    // Two named dice (1.820).
+    // Two named dice (1.821).
     ...(resolution.duality
       ? [
           `The two dice are ${resolution.duality.dice[0].label} and ${resolution.duality.dice[1].label}; the engine marks duality="..." with the one that showed more${

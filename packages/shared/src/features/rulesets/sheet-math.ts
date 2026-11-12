@@ -1287,7 +1287,7 @@ export interface RulesetCheckRoll {
   faces?: number[];
   /** The single die's face, where the ruleset marks it as rolled unmodified (1.136). */
   unmodified?: number;
-  /** Two named dice (1.820): the label of the one that showed more, or "tie". */
+  /** Two named dice (1.821): the label of the one that showed more, or "tie". */
   duality?: string;
 }
 
@@ -1432,7 +1432,7 @@ export function rollDiceSumCheck(
   const natural = floor || kept.thrown[0]!;
 
   const policy = input.isSave ? naturals.save : naturals.check;
-  // Two named dice (1.820): the one that showed more, and a tie, which may be a critical on its own.
+  // Two named dice (1.821): the one that showed more, and a tie, which may be a critical on its own.
   const { duality } = resolution;
   const [first0, first1] = kept.thrown;
   const dualityWinner = !duality

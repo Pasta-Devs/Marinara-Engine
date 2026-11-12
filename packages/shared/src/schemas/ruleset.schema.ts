@@ -577,7 +577,7 @@ const diceSumResolutionSchema = z
       .object({ check: naturalPolicySchema.default("none"), save: naturalPolicySchema.default("none") })
       .strict()
       .prefault({}),
-    /** Two named dice of one size (1.820): Daggerheart's Hope and Fear. They add up as any two dice
+    /** Two named dice of one size (1.821): Daggerheart's Hope and Fear. They add up as any two dice
      *  do; the record says which one showed more, and a tie is a critical success when `tieIsCritical`. */
     duality: z
       .object({
@@ -18221,7 +18221,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           issue(["resolution", "unmodified", index], `A face of this die is from 1 to ${dice.sides}`);
       });
     }
-    // Two named dice (1.820) are read face against face, so they are two plain dice thrown once.
+    // Two named dice (1.821) are read face against face, so they are two plain dice thrown once.
     const { duality } = resolution;
     if (duality) {
       if (dice.count !== 2 || dice.faces || openEnded) {
