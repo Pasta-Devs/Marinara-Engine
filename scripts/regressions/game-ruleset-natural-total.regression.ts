@@ -159,6 +159,20 @@ try {
     const lifted = rollDiceSumCheck(floored, { modifier: 0, dc: 12, isSave: false, faceFloor: 10 }, faces(1));
     assert.deepEqual([lifted.usedRoll, lifted.criticalFailure], [10, false]);
 
+    // Faces worth other numbers are read by their worth, as the schema bounds them.
+    const worth = parsed(
+      doc(
+        (d) => (
+          (d.resolution.dice = { count: 1, sides: 6, faces: [0, 0, 1, 1, 2, 2] }),
+          (d.resolution.naturalTotal = { atLeast: 2 }),
+          delete d.resolution.tierShift
+        ),
+      ),
+    );
+    const worthRoll = (face: number) =>
+      rollDiceSumCheck(worth, { modifier: 0, dc: 1, isSave: false }, faces(face)).criticalSuccess;
+    assert.deepEqual([worthRoll(3), worthRoll(4), worthRoll(5), worthRoll(6)], [false, false, true, true]);
+
     // The record says the shift and reads it back.
     const record = serializeResolvedSkillCheckTag({ skill: "Scrap", dc: 12, modifier: 4, resolution: "sum", ...edged });
     assert.match(record, /shift="\+1"/);
@@ -224,6 +238,20 @@ try {
     assert.deepEqual([loose.trusted, loose.results?.length], [0, 1], "a claimed shift is not kept");
     assert.deepEqual([loose.results![0]!.success, loose.results![0]!.shift], [false, undefined]);
     assert.equal(parseSkillCheckTagBody('skill="Scrap" dc="12" shift="1000000"')?.shift, 3);
+    // Where the Engine cannot roll the check either, the claim is dropped from the text itself, so it
+    // does not read back as a result: out of bounds with no ruleset, and the wrong dice with one.
+    const tooHard = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Stealth" dc="60" rolls="3" used="3" modifier="0" total="3" result="success" shift="+1" outcome="Slips by"]',
+      { loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any },
+    );
+    assert.doesNotMatch(tooHard.content, /result="success"|rolls="3"/);
+    assert.match(tooHard.content, /\[skill_check: skill="Stealth" dc="60"/);
+    const wrongDice = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Scrap" dc="12" rolls="3" used="3" modifier="0" total="3" result="success" mode="normal" resolution="sum" dice="1d20" shift="+1" outcome="Tier 2"]',
+      { loadContext: async () => context as any, rulesetPinned: true },
+    );
+    assert.equal(wrongDice.trusted, 0);
+    assert.doesNotMatch(wrongDice.content, /result="success"/);
     const natural = result.rolls[0]! + result.rolls[1]!;
     if (natural >= 19) assert.equal(result.outcome, "Tier 3", "a natural 19 or 20 is the best band, shifted or not");
 
