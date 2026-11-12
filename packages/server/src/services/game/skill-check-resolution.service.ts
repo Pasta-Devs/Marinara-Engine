@@ -2125,6 +2125,11 @@ export interface SkillCheckTagResolutionOptions {
    * as it always was, which is what a re-read of a saved turn needs.
    */
   issuedD20s?: readonly number[];
+  /**
+   * The records a branch arm wrote earlier in this same turn, as written, supplied by generation
+   * only. Each is the Engine's own roll and is left exactly as it is.
+   */
+  engineRecords?: ReadonlySet<string>;
 }
 
 export interface SkillCheckTagResolution {
@@ -2395,6 +2400,12 @@ export async function resolveSkillCheckTagsInContent(
         left += 1;
         continue;
       }
+      // A record a branch arm wrote this turn is the Engine's own roll: never rolled a second time.
+      if (options.engineRecords?.has(match[0])) {
+        trusted += 1;
+        left += 1;
+        continue;
+      }
       // ── The sighted pool's attachment point ──
       // Placed BEFORE the two short-circuits below on purpose. A pool tag arrives either
       // complete (its own numbers, which are never believed) or sparse with a `rolls=` the
@@ -2444,7 +2455,23 @@ export async function resolveSkillCheckTagsInContent(
       }
       // Moving a band (1.822) is a ruleset's own, and this game pins none, so a record that claims a
       // shift is the model's: its numbers are dropped and the Engine rolls the check.
-      if (tag.resolvedResult?.shift !== undefined) tag = { ...tag, resolvedResult: undefined, shift: undefined };
+      if (tag.resolvedResult?.shift !== undefined) {
+        tag = { ...tag, resolvedResult: undefined, shift: undefined };
+        // Where the Engine cannot roll it either, the ask is kept and the claimed outcome is not, so
+        // the text saved does not read back as a result.
+        if (!isEngineRollableSkillCheckTag(tag) || !isResolvableSkillCheckRequest(toRequest(tag))) {
+          stripped.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            replacement: serializeSparseSkillCheckTag(
+              { skill: tag.skill, dc: tag.dc, advantage: tag.advantage, disadvantage: tag.disadvantage },
+              askExtras(tag),
+            ),
+          });
+          left += 1;
+          continue;
+        }
+      }
       // Only a ruleset's own condition or item fails a save without a roll, and this game pins none,
       // so a record that says so is the model's claim: the ask survives, the claimed outcome does not.
       // (A ruleset game decides it again from the sheet, which never vouches for a record with no dice.)
@@ -2575,7 +2602,7 @@ export async function resolveSkillCheckTagsInContent(
         const refused = !!ruleset && !group && rulesetRefusesUntrained(ruleset, request);
         if (noRoller || refused || (owesRoll && isResolvableSkillCheckRequest(request, ruleset?.definition))) {
           pending.push({ start: entry.start, end: entry.end, request, tag });
-        } else if ((owesRoll || claimsNoRoll) && tag.resolvedResult) {
+        } else if ((owesRoll || claimsNoRoll || tag.resolvedResult?.shift !== undefined) && tag.resolvedResult) {
           // This ruleset's own kind of check, carrying numbers the sheet does not vouch for, that
           // cannot be rolled either (an out-of-bounds DC, say). The ask survives; the claimed
           // outcome does not, exactly as a roll that could not happen is saved.

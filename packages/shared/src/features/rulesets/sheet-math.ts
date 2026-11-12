@@ -1468,7 +1468,8 @@ export function rollDiceSumCheck(
         : "tie";
   // The dice's own total, before anything is added (1.822): a natural 19 or 20 on 2d10.
   const { naturalTotal } = resolution;
-  const ownTotal = single ? natural : kept.worth;
+  // Faces worth other numbers are read by their worth, floor included; a plain single die by its face.
+  const ownTotal = faces ? usedRoll : single ? natural : kept.worth;
   const naturalHigh = naturalTotal?.atLeast !== undefined && ownTotal >= naturalTotal.atLeast;
   const naturalLow = naturalTotal?.atMost !== undefined && ownTotal <= naturalTotal.atMost;
   const criticalSuccess =
