@@ -710,7 +710,14 @@ export function ChatHelpOverlay({
     // so someone who has used the mode on a PC for months still learns where its controls sit on touch.
     const seenHere = hasSeenModeWalkthrough(mode, walkthroughDevice);
     const due = walkthroughDevice !== "desktop" || isFirstChat || !seenModes.includes(mode);
-    if (chatHelpButtonHidden || autoOpenBlocked || deviceTourDue || seenHere || !due || autoOpenedChatRef.current === activeChatId) {
+    if (
+      chatHelpButtonHidden ||
+      autoOpenBlocked ||
+      deviceTourDue ||
+      seenHere ||
+      !due ||
+      autoOpenedChatRef.current === activeChatId
+    ) {
       return;
     }
     // The chat can still be sliding in (the phone layout opens it from the chat list), so wait for it to
@@ -892,7 +899,11 @@ export function ChatHelpOverlay({
   const hideHelpButtonControl = (
     <button
       type="button"
-      className="mari-chrome-control pointer-events-auto min-h-7 px-2.5 text-[0.625rem] shadow-lg"
+      className={cn(
+        "mari-chrome-control pointer-events-auto min-h-7 px-2.5 text-[0.625rem] shadow-lg",
+        // Phones: as wide as the callout above it, label left-aligned with the eye icon beside it (GS9).
+        mobile && "justify-start text-left",
+      )}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={hideHelpButton}
     >
@@ -1022,7 +1033,7 @@ export function ChatHelpOverlay({
       {mobile && (
         <div
           ref={instructionsRef}
-          className="pointer-events-none fixed flex max-w-[calc(100vw-1.5rem)] flex-col items-center gap-1.5"
+          className="pointer-events-none fixed flex max-w-[calc(100vw-1.5rem)] flex-col items-stretch gap-1.5"
           style={{
             top: instructionsTop ?? rootRect.top + 10,
             left: Math.max(rootRect.left + 12, rootRect.left + rootRect.width / 2),
