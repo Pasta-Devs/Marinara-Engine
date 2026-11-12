@@ -1,6 +1,7 @@
 // Small profile picture that leads the name on phones (Settings > Appearance > Profile pictures on
 // phones: Mini). Hidden everywhere else by CSS; see `.mari-mini-avatar` in overhaul-mobile.css.
-// Persona pictures sit to the right of the name, character pictures to the left.
+// Roleplay: a character's picture leads the name and yours trails it (yours sits on the right).
+// Conversation: the picture always leads the name.
 import type React from "react";
 import { avatarInitial } from "../../lib/avatar-initial";
 

@@ -191,14 +191,13 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
         {!isGrouped && (
           <div data-mari-part="header" className="mari-message-meta mb-0.5 flex items-baseline gap-2">
             {hiddenFromAIHeader}
-            {/* Phones (Mini profile pictures): before a character's name, after yours. */}
-            {!isUser && miniAvatar}
+            {/* Phones (Mini profile pictures): before the name, yours too. */}
+            {miniAvatar}
             <ConversationMessageName
               displayName={displayName}
               nameColor={nameColor}
               onOpenAboutMe={ctx.onOpenAboutMe}
             />
-            {isUser && miniAvatar}
             {!hideTimestamp && (
               <span
                 className="mari-message-timestamp mari-conversation-transcript-chrome-text text-[0.6875rem]"
