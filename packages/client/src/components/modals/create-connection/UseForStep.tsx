@@ -224,15 +224,10 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
         failures[use.job] = errorText(error);
       }
     }
-    // A new account's empty image row only held its place; a media row made here replaces it.
-    if (madeMedia && account)
-      for (const row of rows)
-        if (
-          row.accountId === account.id &&
-          !row.model?.trim() &&
-          (row.provider === "image_generation" || row.provider === "video_generation")
-        )
-          await deleteRow.mutateAsync(row.id).catch(() => undefined);
+    // The empty row this Add flow made only held the place; a media row replaces it. Older empty rows stay.
+    const placeholder = target.placeholderId ? rows.find((row) => row.id === target.placeholderId) : undefined;
+    if (madeMedia && placeholder && !placeholder.model?.trim())
+      await deleteRow.mutateAsync(placeholder.id).catch(() => undefined);
     setErrors(failures);
     setBusy(false);
     if (jobs.length)
