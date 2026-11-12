@@ -1111,7 +1111,7 @@ export function rulesetRefusesUntrained(ruleset: SkillCheckRulesetContext, reque
 
 /** The dice asks a tag carried beyond its numbers (1.821), under the same names on a request and on a
  *  sparse ask's extras, so every path that copies a tag's freedoms copies these in one place. */
-function diceAsk(tag: SkillCheckTag) {
+export function diceAsk(tag: SkillCheckTag | SkillCheckRequest) {
   return {
     ...(tag.plot ? { plot: true } : {}),
     ...(tag.shift != null ? { shift: tag.shift } : {}),
@@ -1392,8 +1392,10 @@ function resolveRulesetSkillCheck(
     ...(purchase?.spent ? { spent: purchase.spent } : {}),
     ...(purchase?.used ? { used: purchase.used } : {}),
   };
-  // The injected d20 (tests, the sighted pool) stands in only where a d20 is what is rolled.
-  const rollDie = (sides: number) => (sides === 20 && rollD20 ? rollD20() : rollDieSecurely(sides));
+  // The injected d20 (tests, the sighted pool) stands in only where a d20 is what is rolled, and never
+  // for the plot die (1.821): that one is thrown beside the check, so it is not one of the check's dice.
+  const rollDie = (sides: number, beside?: "plot") =>
+    sides === 20 && rollD20 && !beside ? rollD20() : rollDieSecurely(sides);
   // The effects' own dice are never the check's: the sighted pool spent its d20s for the check alone.
   const boost = rollRulesetCheckModifiers(effects.modifiers, rollDieSecurely, (ref) =>
     rulesetCheckValueFor(ruleset, ref, request.who),

@@ -216,8 +216,12 @@ export function AnimatedSkillCheckResult({
                   ? "ui.dice.animatedskillcheckresult.plotComplicationBonus"
                   : "ui.dice.animatedskillcheckresult.plotComplication"
                 : result.plotSymbol === "opportunity"
-                  ? "ui.dice.animatedskillcheckresult.plotOpportunity"
-                  : "ui.dice.animatedskillcheckresult.plotBlank",
+                  ? result.plotBonus
+                    ? "ui.dice.animatedskillcheckresult.plotOpportunityBonus"
+                    : "ui.dice.animatedskillcheckresult.plotOpportunity"
+                  : result.plotBonus
+                    ? "ui.dice.animatedskillcheckresult.plotBlankBonus"
+                    : "ui.dice.animatedskillcheckresult.plotBlank",
               {
                 label: result.plotLabel ?? localizeUi("ui.dice.animatedskillcheckresult.plotDefault"),
                 face: result.plotFace,
