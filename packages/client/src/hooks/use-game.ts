@@ -662,6 +662,8 @@ export function useSkillCheck() {
       explode?: number;
       double?: number;
       reroll?: string;
+      /** `plot=` (1.822): throw the plot die with the check. */
+      plot?: boolean;
       messageId?: string;
     }) =>
       api.post<{ result: import("@marinara-engine/shared").SkillCheckResult; updatedContent?: string }>(
