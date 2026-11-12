@@ -4908,3 +4908,116 @@
     font-size: 0.75rem;
   }
 }
+
+/* ─── Theme nitpick audit round 2, batch 3 (phones and tablets): siblings share one shape ─── */
+/* DM1: the Chats panel toolbar is all pills, like the Library toolbars ("+ New" was the only pill). */
+:root[data-overhaul="mobile"] .ov-chats-tools > :first-child :is(input.mari-chrome-field, .mari-chrome-control):not(#ovm-x) {
+  border-radius: 999px;
+}
+:root[data-overhaul="mobile"] .ov-chats-tools > :first-child input.mari-chrome-field:not(#ovm-x) {
+  padding-left: 2.25rem;
+}
+:root[data-overhaul="mobile"] .ov-chats-tools > :first-child .relative > .mari-chrome-field-icon:not(#ovm-x) {
+  left: 0.875rem;
+}
+/* DM5: the editor header's Chat button is the Save button's height and text size. */
+:root[data-overhaul="mobile"] .ov-edhead--m .ov-edhead__bar .ov-chatbtn-wrap > .ov-btn:not(#ovm-x) {
+  height: 2.75rem;
+  font-size: 0.875rem;
+}
+/* DM6: lorebook entries on phones: pill search and Order like the Library toolbars, and the ENTRIES label,
+   fields and cards on the same 1rem gutter as the header's buttons; the count lines up with the title. */
+:root[data-overhaul="mobile"] .ov-lv-tools :is(input, select):not(#ovm-x) {
+  border-radius: 999px !important;
+}
+:root[data-overhaul="mobile"] .ov-lv-tools__search input:not(#ovm-x) {
+  padding-left: 2.25rem !important;
+}
+:root[data-overhaul="mobile"] .ov-lv-tools__search > svg:not(#ovm-x) {
+  left: 0.875rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left:not(#ovm-x) {
+  padding-inline: 0.25rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lv__left > .ov-vw__label:not(#ovm-x) {
+  margin-inline: 0;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-edhead--m:not(.has-crumbs) .ov-edhead__meta:not(#ovm-x) {
+  margin-left: 3.25rem;
+}
+/* DM7: the preset editor's Saved button ends on the content column like the other editors. */
+:root[data-overhaul="mobile"] .ovm-preset .ov-edhead--m:not(#ovm-x) {
+  padding-right: 0;
+}
+/* DM2: the status dock's field, Active pill and the two buttons are one height; the buttons are square. */
+:root[data-overhaul="mobile"] .mari-status-footer :is(.mari-chrome-field, .mari-chrome-control):not(#ovm-x) {
+  height: 2.5rem;
+  min-height: 2.5rem;
+}
+:root[data-overhaul="mobile"] .mari-status-footer .mari-chrome-control.w-7:not(#ovm-x) {
+  width: 2.5rem;
+}
+/* MP5: tablet Settings: the tab list has the search field's side margins, so the active tab is no wider
+   than the search and the content column. */
+.ovm-settings__tab:not(#ovm-x) {
+  margin-inline: 0.72rem;
+}
+/* DM11: Settings drill rows: label and value share one baseline (centring them separately left the smaller
+   value about 1px low, so the rows looked slanted). The padding keeps the pair in the middle of the row;
+   the icon and chevron stay centred. */
+.ovm-drill-row:not([data-ovm-level="root"] *):has(> .ovm-drill-row__value) {
+  align-items: baseline;
+  padding-block: calc((3.25rem - 1.5rem) / 2);
+}
+.ovm-drill-row:not([data-ovm-level="root"] *):has(> .ovm-drill-row__value) > :is(.ovm-drill-row__title, .ovm-drill-row__value) {
+  line-height: 1.5rem;
+}
+.ovm-drill-row:not([data-ovm-level="root"] *):has(> .ovm-drill-row__value) > :not(.ovm-drill-row__title, .ovm-drill-row__value) {
+  align-self: center;
+}
+
+/* ─── Theme nitpick audit round 2, batch 4 (phones and tablets) ─── */
+/* GV3: Connections Defaults rows: lines above each row, none along the card's rounded edge. */
+:root[data-overhaul="mobile"] .ov-conn-defaults__grid > .ov-conn-defaults__cell:not(#ovm-x) {
+  border-top: 1px solid var(--ov-line);
+  border-bottom: 0;
+}
+:root[data-overhaul="mobile"] .ov-conn-defaults__grid > .ov-conn-defaults__cell:first-child:not(#ovm-x) {
+  border-top: 0;
+}
+@media (min-width: 40rem) {
+  :root[data-overhaul="mobile"] .ov-conn-defaults__grid > .ov-conn-defaults__cell:nth-child(2):not(#ovm-x) {
+    border-top: 0;
+  }
+}
+/* DM10: the long-press sheet's first visible row draws no divider of its own above it (the sheet hides the
+   actions its big buttons cover, so the first row shown still counted as "after" a row and doubled the
+   group's rounded top border with a square line). */
+.ovm-sheet__more.ov-rpf-menu
+  .mari-message-actions
+  > :nth-child(
+    1 of
+      :not(
+        button:has(
+          > svg.lucide-copy,
+          > svg.lucide-check,
+          > svg.lucide-pencil,
+          > svg.lucide-refresh-cw,
+          > svg.lucide-git-branch
+        )
+      )
+  ) {
+  border-top: 0;
+}
+
+/* ─── Theme nitpick audit round 2, batch 5 (narrow split side) ─── */
+/* SV14: a Library page in a narrow split side: the title gets the whole first line and "+ New" leads the
+   buttons on the next one, so a wide display font (Granite's stencil) isn't cut to "CHARACT…". */
+@container mari-main (max-width: 22rem) {
+  :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__head > h1 {
+    flex-basis: 100%;
+  }
+  :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__head > .ov-btn--primary {
+    order: 3;
+  }
+}
