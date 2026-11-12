@@ -798,7 +798,10 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     const usedRollHolds = usedRoll === actualRoll;
     const arithmeticHolds = actualRoll + modifier === total;
     // A shifted band (1.822) may succeed below the dc or fail above it, and the record names it.
-    const shifted = !!tag.shift && !!outcomeLabel;
+    // Only a shift that explains the disagreement: a better band for a success below the dc, a worse
+    // one for a failure at or above it.
+    const shifted =
+      !!tag.shift && !!outcomeLabel && (tag.shift > 0 ? success && total < recordDc : !success && total >= recordDc);
     const outcomeHolds = criticalSuccess || criticalFailure || shifted || success === total >= recordDc;
     if (!rollIsD20 || !usedRollHolds || !arithmeticHolds || !outcomeHolds) return tag;
   }

@@ -183,6 +183,13 @@ try {
     };
     assert.deepEqual(readBack(1, 10), [true, true, 1, "Tier 2"]);
     assert.deepEqual(readBack(-1, 13), [false, false, -1, "Tier 1"]);
+    // A shift the wrong way round explains nothing, so the audit still refuses the record.
+    assert.equal(
+      parseSkillCheckTagBody(
+        'skill="Scrap" dc="12" rolls="10" used="10" modifier="0" total="10" result="success" mode="normal" resolution="sum" dice="1d20" shift="-1" outcome="Tier 2"',
+      )?.resolvedResult,
+      undefined,
+    );
     // With no shift, a result its total contradicts is still refused.
     assert.equal(
       parseSkillCheckTagBody(
