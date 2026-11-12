@@ -515,7 +515,8 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   }
   if (values.get("plot")?.trim().toLowerCase() === "true") tag.plot = true;
   const shiftValue = values.get("shift")?.trim();
-  if (shiftValue && Number.isInteger(Number(shiftValue)) && Number(shiftValue) !== 0) tag.shift = Number(shiftValue);
+  if (shiftValue && Number.isInteger(Number(shiftValue)) && Number(shiftValue) !== 0)
+    tag.shift = Math.max(-3, Math.min(3, Number(shiftValue)));
   const rerollName = values.get("reroll")?.trim();
   if (rerollName) tag.reroll = rerollName.slice(0, 40);
   const reason = values.get("reason")?.trim().toLowerCase();

@@ -2435,6 +2435,9 @@ export async function resolveSkillCheckTagsInContent(
         deferred.push({ start: match.index, end: match.index + match[0].length, tag });
         continue;
       }
+      // Moving a band (1.822) is a ruleset's own, and this game pins none, so a record that claims a
+      // shift is the model's: its numbers are dropped and the Engine rolls the check.
+      if (tag.resolvedResult?.shift !== undefined) tag = { ...tag, resolvedResult: undefined, shift: undefined };
       // Only a ruleset's own condition or item fails a save without a roll, and this game pins none,
       // so a record that says so is the model's claim: the ask survives, the claimed outcome does not.
       // (A ruleset game decides it again from the sheet, which never vouches for a record with no dice.)
@@ -2559,7 +2562,7 @@ export async function resolveSkillCheckTagsInContent(
           (!issued || takeIssuedD20s(issued, tag.resolvedResult!.rolls));
         const owesRoll = ruleset
           ? claimsNoRoll || (!vouched && isRulesetRollableSkillCheckTag(tag, ruleset.definition))
-          : !tag.resolvedResult && isEngineRollableSkillCheckTag(tag);
+          : (!tag.resolvedResult || tag.resolvedResult.shift !== undefined) && isEngineRollableSkillCheckTag(tag);
         // A check the character cannot attempt untrained is refused below whatever it carries: no
         // numbers, dice or difficulty the Game Master wrote on it gets it past the sheet.
         const refused = !!ruleset && !group && rulesetRefusesUntrained(ruleset, request);
