@@ -1375,7 +1375,8 @@ export function rollDiceSumCheck(
     /** `plot="true"` (1.821): throw the plot die, where the ruleset has one. */
     plot?: boolean;
   },
-  rollDie: (sides: number) => number,
+  /** `beside` marks a die thrown beside the check, which is never one of its own dice. */
+  rollDie: (sides: number, beside?: "plot") => number,
 ): RulesetCheckRoll {
   const resolution = definition.resolution;
   if (resolution.kind !== "dice-sum") return noRoll();
@@ -1453,7 +1454,7 @@ export function rollDiceSumCheck(
   const unmodified = single && resolution.unmodified?.includes(natural) ? natural : undefined;
   // The plot die (1.821) is thrown after the check's own dice, and adds only what its face says.
   const { plotDie } = resolution;
-  const plotFace = plotDie && input.plot ? rollDie(plotDie.sides) : undefined;
+  const plotFace = plotDie && input.plot ? rollDie(plotDie.sides, "plot") : undefined;
   const plotEntry = plotFace === undefined ? undefined : plotDie!.faces.find((entry) => entry.face === plotFace);
   const plotBonus = plotEntry?.bonus ?? 0;
   const total = Math.max(usedRoll + input.modifier + plotBonus, input.totalFloor ?? -Infinity);
