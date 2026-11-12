@@ -112,7 +112,7 @@ export function ChatMessageSearch({ chatId }: { chatId: string }) {
       </div>
 
       {view === "search" && (
-        <div className="shrink-0 px-3 pb-3 pt-1.5">
+        <div data-chat-message-search-field="" className="shrink-0 px-3 pb-3 pt-1.5">
           <div className="relative">
             <Search
               size="0.875rem"

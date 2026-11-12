@@ -728,8 +728,10 @@
   display: none !important;
 }
 :root[data-overhaul="mobile"] .ov-cs .mari-window__title {
-  overflow: visible;
+  min-width: 0;
+  overflow: hidden;
   font-size: 1.125rem;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 :root[data-overhaul="mobile"] .ov-cs .mari-window__control {
@@ -1236,7 +1238,7 @@
   gap: 0.875rem;
   padding: 0 0.875rem;
   border: 0;
-  border-radius: 0.75rem;
+  border-radius: var(--ov-cs-tile-radius, 0.75rem);
   background: var(--ovm-raised);
   color: var(--ov-text);
   text-align: left;
@@ -1295,7 +1297,7 @@
 }
 [data-ovm-cs-view="all"] > [data-ovm-quick] {
   margin-top: 1px;
-  border-radius: 0.75rem;
+  border-radius: var(--ov-cs-tile-radius, 0.75rem);
   background: var(--ovm-raised);
 }
 .ovm-cs-group {
@@ -1386,7 +1388,7 @@
   min-height: 3.25rem;
   padding: 0.375rem 0.625rem 0.375rem 0.875rem !important;
   border: 0 !important;
-  border-radius: 0.75rem;
+  border-radius: var(--ov-cs-tile-radius, 0.75rem);
   background: var(--ovm-raised) !important;
 }
 .ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] > .mari-drawer__header {
@@ -1481,7 +1483,7 @@
   gap: 0.375rem;
   padding: 0.75rem 0.25rem;
   border: 0;
-  border-radius: 0.875rem;
+  border-radius: var(--ov-cs-tile-radius, 0.75rem);
   background: var(--ovm-raised);
   color: var(--ov-text);
   font-size: 0.8125rem;
@@ -1520,7 +1522,7 @@
   justify-content: space-between;
   padding: 0 1rem;
   border: 0;
-  border-radius: 0.875rem;
+  border-radius: var(--ov-cs-tile-radius, 0.75rem);
   background: var(--ovm-raised);
   color: var(--ov-text);
   font-size: 1rem;
@@ -1662,7 +1664,7 @@
 .ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"],
 .ov-cs.ov-cs [data-ovm-cs-view] [data-ovm-quick] > .mari-drawer {
   border: 0 !important;
-  border-radius: 0.75rem !important;
+  border-radius: var(--ov-cs-tile-radius, 0.75rem) !important;
   box-shadow: none !important;
 }
 .ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer.ovm-cs-row {
@@ -4907,4 +4909,10 @@
   :root[data-overhaul="mobile"] .ov-home-hero-actions .ov-btn:not(#ovm-x) {
     font-size: 0.75rem;
   }
+}
+
+/* Chat settings sheet: the first row sits one row gap (8px) under the header line, like the gaps between rows
+   (it touched the line; nitpick audit 2 DM3). */
+:root[data-overhaul="mobile"] .ov-cs [data-ovm-cs-view] {
+  padding-top: 0.5rem;
 }
