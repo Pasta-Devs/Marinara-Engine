@@ -1340,6 +1340,10 @@ export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
   let index = read.findIndex((tier) => tier.atLeast === undefined || measure >= tier.atLeast);
   if (index < 0) index = read.length - 1;
   if (outcomes.naturals === "shift" && input.natural) index -= input.natural;
+  // Where the roll stood before the Game Master's shift (1.822), to say how far it really moved: an
+  // ask past the last band, or on a roll a critical pins, moves nothing.
+  const held = (at: number) => Math.min(read.length - 1, Math.max(0, at));
+  const unshifted = held(index);
   if (input.shift) index -= input.shift;
   if (input.forced === "best") index = 0;
   if (input.forced === "worst") index = read.length - 1;
@@ -1349,7 +1353,8 @@ export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
       : input.forced === "worst"
         ? outcomes.tiers.find((tier) => tier.on === "critical-failure")
         : undefined;
-  const tier = onCritical ?? read[Math.min(read.length - 1, Math.max(0, index))]!;
+  const tier = onCritical ?? read[held(index)]!;
+  const moved = input.forced ? 0 : unshifted - held(index);
   // A forced end keeps the critical it came from: a botch is still a botch in a worst band that is not
   // marked critical, and an automatic success still a critical one.
   return {
@@ -1358,6 +1363,7 @@ export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
     criticalSuccess: tier.success && (tier.critical || !!tier.on || input.forced === "best"),
     criticalFailure: !tier.success && (tier.critical || !!tier.on || input.forced === "worst"),
     outcome: tier.label,
+    ...(moved ? { shift: moved } : {}),
   };
 }
 
@@ -1388,7 +1394,8 @@ export function rollDiceSumCheck(
     /** `shift=` (1.822): bands to move the outcome, held to the ruleset's `tierShift.max`. */
     shift?: number;
   },
-  rollDie: (sides: number) => number,
+  /** `beside` marks a die thrown beside the check, which is never one of its own dice. */
+  rollDie: (sides: number, beside?: "plot") => number,
 ): RulesetCheckRoll {
   const resolution = definition.resolution;
   if (resolution.kind !== "dice-sum") return noRoll();
@@ -1461,8 +1468,9 @@ export function rollDiceSumCheck(
         : "tie";
   // The dice's own total, before anything is added (1.822): a natural 19 or 20 on 2d10.
   const { naturalTotal } = resolution;
-  const naturalHigh = naturalTotal?.atLeast !== undefined && kept.worth >= naturalTotal.atLeast;
-  const naturalLow = naturalTotal?.atMost !== undefined && kept.worth <= naturalTotal.atMost;
+  const ownTotal = single ? natural : kept.worth;
+  const naturalHigh = naturalTotal?.atLeast !== undefined && ownTotal >= naturalTotal.atLeast;
+  const naturalLow = naturalTotal?.atMost !== undefined && ownTotal <= naturalTotal.atMost;
   const criticalSuccess =
     (single && natural === dice.sides && (policy === "both" || policy === "max-only")) ||
     (dualityWinner === "tie" && duality!.tieIsCritical) ||
@@ -1472,7 +1480,7 @@ export function rollDiceSumCheck(
   const unmodified = single && resolution.unmodified?.includes(natural) ? natural : undefined;
   // The plot die (1.821) is thrown after the check's own dice, and adds only what its face says.
   const { plotDie } = resolution;
-  const plotFace = plotDie && input.plot ? rollDie(plotDie.sides) : undefined;
+  const plotFace = plotDie && input.plot ? rollDie(plotDie.sides, "plot") : undefined;
   const plotEntry = plotFace === undefined ? undefined : plotDie!.faces.find((entry) => entry.face === plotFace);
   const plotBonus = plotEntry?.bonus ?? 0;
   const total = Math.max(usedRoll + input.modifier + plotBonus, input.totalFloor ?? -Infinity);
@@ -1503,7 +1511,6 @@ export function rollDiceSumCheck(
           },
         }
       : {}),
-    ...(shift ? { shift } : {}),
   };
   // Bands, where the ruleset declares them: a natural the policy makes automatic pins the best or the
   // worst band, and a natural the bands shift on moves one band either way.

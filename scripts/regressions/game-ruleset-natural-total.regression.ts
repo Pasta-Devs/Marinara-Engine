@@ -140,6 +140,25 @@ try {
     const before = roll(plain, -3, 1, 10, 9);
     assert.deepEqual([before.criticalSuccess, before.outcome, before.shift], [false, "Tier 2", undefined]);
 
+    // An ask that moves nothing is not on the record: past the best band, or on a natural 19.
+    assert.deepEqual([roll(drawSteel, 9, 1, 5, 4).outcome, roll(drawSteel, 9, 1, 5, 4).shift], ["Tier 3", undefined]);
+    assert.deepEqual(
+      [roll(drawSteel, 0, -1, 10, 9).outcome, roll(drawSteel, 0, -1, 10, 9).shift],
+      ["Tier 3", undefined],
+    );
+    // A floor under a single die lifts its natural, so it lifts it out of `atMost` too.
+    const floored = parsed(
+      doc(
+        (d) => (
+          (d.resolution.dice = { count: 1, sides: 20 }),
+          (d.resolution.naturalTotal = { atMost: 1 }),
+          delete d.resolution.tierShift
+        ),
+      ),
+    );
+    const lifted = rollDiceSumCheck(floored, { modifier: 0, dc: 12, isSave: false, faceFloor: 10 }, faces(1));
+    assert.deepEqual([lifted.usedRoll, lifted.criticalFailure], [10, false]);
+
     // The record says the shift and reads it back.
     const record = serializeResolvedSkillCheckTag({ skill: "Scrap", dc: 12, modifier: 4, resolution: "sum", ...edged });
     assert.match(record, /shift="\+1"/);
@@ -186,7 +205,18 @@ try {
       ruleset: buildSkillCheckRulesetContext(drawSteel, cards, cards[0]),
     };
     const result = resolveSkillCheckWithContext(context as any, { skill: "Scrap", dc: 12, shift: -1 });
-    assert.equal(result.shift, -1);
+    // The record says the band moved only when it did: not from the worst band, and not on a critical.
+    assert.ok(result.shift === -1 || result.shift === undefined);
+    if (result.outcome === "Tier 3") assert.equal(result.shift, undefined);
+
+    // A game with no ruleset has no bands, so a written record that claims a shift is rolled again.
+    const loose = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Stealth" dc="15" rolls="3" used="3" modifier="0" total="3" result="success" shift="+1" outcome="Slips by"]',
+      { loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any, rollD20: () => 3 },
+    );
+    assert.deepEqual([loose.trusted, loose.results?.length], [0, 1], "a claimed shift is not kept");
+    assert.deepEqual([loose.results![0]!.success, loose.results![0]!.shift], [false, undefined]);
+    assert.equal(parseSkillCheckTagBody('skill="Scrap" dc="12" shift="1000000"')?.shift, 3);
     const natural = result.rolls[0]! + result.rolls[1]!;
     if (natural >= 19) assert.equal(result.outcome, "Tier 3", "a natural 19 or 20 is the best band, shifted or not");
 

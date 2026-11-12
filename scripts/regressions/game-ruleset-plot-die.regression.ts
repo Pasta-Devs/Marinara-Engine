@@ -177,6 +177,13 @@ try {
     const back = parseSkillCheckTagBody(record.slice("[skill_check:".length, -1))?.resolvedResult;
     assert.match(formatSkillCheckResultSummary(back!), /Plot die 2: complication \(\+4\)\.$/);
 
+    // A 20-sided plot die is still not the check's own d20: an injected d20 is spent on the check alone.
+    const wide = parsed(doc((d) => (d.resolution.plotDie.sides = 20)));
+    const wideContext = { ...context, ruleset: buildSkillCheckRulesetContext(wide, cards, cards[0]) };
+    let d20s = 0;
+    resolveSkillCheckWithContext(wideContext as any, { skill: "Scrap", dc: 10, plot: true }, () => ((d20s += 1), 12));
+    assert.equal(d20s, 1, "the plot die did not take a second injected d20");
+
     // A record the Game Master wrote is vouched for when its numbers are the sheet's. One that names
     // a plot die, or asks for one, is not: nobody threw that die, so the Engine rolls the check.
     const sheetModifier = resolveSkillCheckWithContext(context as any, { skill: "Scrap", dc: 10 }, () => 12).modifier;
