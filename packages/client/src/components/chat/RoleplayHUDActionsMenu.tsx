@@ -14,7 +14,7 @@ import {
 import { ContextInjectionPanel } from "../agents/ContextInjectionPanel";
 import { AgentTaskStatus } from "../agents/AgentTaskStatus";
 import { AgentOutputSpoiler } from "../agents/AgentOutputSpoiler";
-import { useAgentStore } from "../../stores/agent.store";
+import { selectPackageAlert, selectPackageBusy, useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
@@ -143,8 +143,10 @@ export function RoleplayHUDActionsMenu({
       ),
     [installedCapabilities, enabledAgentTypes],
   );
+  const packageSignalsActivity = useAgentStore((s) => selectPackageBusy(s, chatId) || selectPackageAlert(s, chatId));
   const hasAnyActivity =
     chatActivityPackages.length > 0 ||
+    packageSignalsActivity ||
     advancedMemoryStatus ||
     isAgentProcessing ||
     hasTaskProgress ||

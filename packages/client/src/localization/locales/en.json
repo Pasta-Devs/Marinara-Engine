@@ -49,6 +49,7 @@
   "agents.activity.failed_one": "{{count}} agent failed",
   "agents.activity.failed_other": "{{count}} agents failed",
   "agents.activity.latestSavedOutput": "Latest saved output",
+  "agents.activity.needsAttention": "An agent needs your attention",
   "agents.activity.title": "Agent activity",
   "agents.batching.alwaysAlone": "This agent always runs on its own.",
   "agents.batching.description": "Turn off to give this agent its own, slower request if your model mixes up several agents' tasks.",

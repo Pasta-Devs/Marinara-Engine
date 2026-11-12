@@ -1591,6 +1591,9 @@ const capabilityPackageManifestBaseSchema = z
 // 1.820: the `chat-activity` slot: a package with a client entrypoint that the chat runs can mount its `activity`
 //        view as a card in the chat's Agent activity panel (props `chatId`, `onOpenAgentSettings`). Not a soft seam:
 //        an Engine older than 1.820 refuses the manifest, so a package that declares `chat-activity` declares 1.820.
+//        Also `__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })`: the Agent
+//        activity icon spins while a package is busy and shows its dot on an alert. A soft seam: older Engines leave
+//        the method out, so a package checks for it.
 export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 820 } as const);
 
 const capabilityApiVersionSchema = z
