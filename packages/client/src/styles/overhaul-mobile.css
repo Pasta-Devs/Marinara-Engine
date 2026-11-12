@@ -4908,3 +4908,158 @@
     font-size: 0.75rem;
   }
 }
+
+/* ── Mini profile pictures on phones (Settings > Appearance > Profile pictures on phones) ──
+   Mini (default): the big picture column goes and a small picture rides in the name line, before a
+   character's name and after yours, so messages get the full width with no extra height. Full keeps
+   the column; Off drops both. Tablets and computers always keep the full picture.
+   Theme hooks: --mari-mini-avatar-size, --mari-mini-avatar-ring (a box-shadow), and
+   --mari-phone-convo-avatar: full to keep the full column in Conversation chats. */
+@media (max-width: 767px), (max-height: 500px) {
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"] .mari-mini-avatar {
+    --mini-size: var(--mari-mini-avatar-size, 1.6rem);
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    width: var(--mini-size);
+    height: var(--mini-size);
+    /* as tall as the line it sits in: it may overhang, it never pushes the line taller */
+    margin-block: calc((var(--mini-size) - 1lh) / -2);
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: var(--mari-mini-avatar-ring, 0 0 0 1.5px var(--border));
+    color: var(--foreground);
+    font-size: calc(var(--mini-size) * 0.45);
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+  }
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"] .mari-mini-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+  }
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"] [data-mari-part="header"]:has(> .mari-mini-avatar) {
+    align-items: center;
+  }
+  /* the picture never pushes a long name onto a second line: it shortens with … instead */
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"]
+    [data-mari-part="header"]:has(> .mari-mini-avatar)
+    .mari-message-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"]
+    [data-mari-part="header"]:has(> .mari-mini-avatar)
+    > [data-mari-part="time"] {
+    flex: none;
+    white-space: nowrap;
+  }
+  /* a theme with window titles (e.g. Petal OS) shows the picture in its title bar instead */
+  :root[data-overhaul="mobile"][data-mari-window-titles] [data-mari-part="header"] > .mari-mini-avatar {
+    display: none;
+  }
+  :root[data-overhaul="mobile"]:not([data-mari-window-titles]) [data-mari-part="window-title"] > .mari-mini-avatar {
+    display: none;
+  }
+  /* in a title bar it sits centred in the bar, a little smaller than the bar is tall */
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"] [data-mari-part="window-title"] > .mari-mini-avatar {
+    --mini-size: var(--mari-mini-avatar-size, 1.25rem);
+    align-self: center;
+    margin: 0;
+  }
+
+  /* Roleplay: no picture column; the default look's name becomes an opaque tag on the bubble's top
+     edge with the picture overhanging its outer end (Settings preview: option B). */
+  :root[data-overhaul="mobile"]:is([data-phone-chat-avatars="mini"], [data-phone-chat-avatars="off"])
+    [data-chat-mode="roleplay"]
+    .mari-roleplay-message-row
+    > :is(.mari-message-avatar, .mari-roleplay-avatar-spacer) {
+    display: none;
+  }
+  :root[data-overhaul="mobile"]:is([data-phone-chat-avatars="mini"], [data-phone-chat-avatars="off"])
+    [data-chat-mode="roleplay"]
+    .mari-roleplay-message-row {
+    --mari-roleplay-mobile-avatar-space: 0rem;
+    gap: 0;
+  }
+  :root[data-overhaul="mobile"]:is([data-phone-chat-avatars="mini"], [data-phone-chat-avatars="off"])
+    [data-chat-mode="roleplay"]
+    .mari-roleplay-message-body {
+    width: 100%;
+    max-width: 100%;
+  }
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"]:not([data-custom-theme])
+    [data-chat-mode="roleplay"]
+    [data-mari-part="header"][data-placement="outside"] {
+    --mari-mini-avatar-size: 2rem;
+    position: relative;
+    z-index: 2;
+    width: fit-content;
+    max-width: calc(100% - 1.5rem);
+    gap: 0.4rem;
+    margin: 0 0.5rem -0.7rem 1.4rem;
+    padding: 0.1rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--card);
+  }
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"]:not([data-custom-theme])
+    [data-chat-mode="roleplay"]
+    .mari-message-user
+    [data-mari-part="header"][data-placement="outside"] {
+    margin: 0 1.4rem -0.7rem auto;
+  }
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"]:not([data-custom-theme])
+    [data-chat-mode="roleplay"]
+    [data-mari-part="header"][data-placement="outside"]
+    > .mari-mini-avatar {
+    margin-inline-start: -1.1rem;
+    box-shadow:
+      0 0 0 2px var(--card),
+      0 0 0 3px var(--border);
+  }
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"]:not([data-custom-theme])
+    [data-chat-mode="roleplay"]
+    .mari-message-user
+    [data-mari-part="header"][data-placement="outside"]
+    > .mari-mini-avatar {
+    margin-inline: 0 -1.1rem;
+  }
+  :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"]:not([data-custom-theme])
+    [data-chat-mode="roleplay"]
+    .mari-roleplay-message-body:has(> [data-mari-part="header"][data-placement="outside"])
+    .mari-rp-bubble
+    > .px-4.py-3 {
+    padding-top: 1.05rem;
+  }
+
+  /* Conversation (line layout): no picture column, the picture rides in the name line. */
+  :root[data-overhaul="mobile"]:is([data-phone-chat-avatars="mini"], [data-phone-chat-avatars="off"]):not(
+      [data-mari-phone-convo-avatar="full"]
+    )
+    [data-mari-part="avatar"][data-layout="line"] {
+    display: none;
+  }
+  :root[data-overhaul="mobile"]:is([data-phone-chat-avatars="mini"], [data-phone-chat-avatars="off"]):not(
+      [data-mari-phone-convo-avatar="full"]
+    )
+    [data-component="ConversationMessage.Content"]:has(> [data-mari-part="avatar"][data-layout="line"]) {
+    gap: 0;
+  }
+  :root[data-overhaul="mobile"][data-mari-phone-convo-avatar="full"]
+    [data-chat-mode="conversation"]
+    .mari-mini-avatar {
+    display: none;
+  }
+}

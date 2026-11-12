@@ -124,6 +124,8 @@ export function normalizeChatWidgetColor(value: unknown): string {
 }
 export type ConversationMessageStyle = "classic" | "bubble";
 export type ConversationAvatarShape = "circle" | "square";
+/** Chat profile pictures on phones: a small one by the name, the full column, or none. */
+export type PhoneChatAvatars = "mini" | "full" | "off";
 export type TrackerPanelSide = "left" | "right";
 export type TrackerThoughtBubbleDisplay = "inline" | "floating";
 export type TrackerStatDisplayMode = "bars" | "gauges";
@@ -687,6 +689,10 @@ export function normalizeConversationAvatarShape(value: unknown): ConversationAv
   return value === "square" ? "square" : "circle";
 }
 
+export function normalizePhoneChatAvatars(value: unknown): PhoneChatAvatars {
+  return value === "full" || value === "off" ? value : "mini";
+}
+
 export function normalizeTrackerThoughtBubbleDisplay(value: unknown): TrackerThoughtBubbleDisplay {
   return value === "inline" || value === "floating" ? value : "inline";
 }
@@ -1103,6 +1109,7 @@ interface UIState {
   alwaysDisplayConversationSwipeMenu: boolean;
   alwaysDisplayRoleplaySwipeMenu: boolean;
   conversationAvatarShape: ConversationAvatarShape;
+  phoneChatAvatars: PhoneChatAvatars;
   showTimestamps: boolean;
   showModelName: boolean;
   showTokenUsage: boolean;
@@ -1588,6 +1595,7 @@ interface UIState {
   setAlwaysDisplayConversationSwipeMenu: (v: boolean) => void;
   setAlwaysDisplayRoleplaySwipeMenu: (v: boolean) => void;
   setConversationAvatarShape: (v: ConversationAvatarShape) => void;
+  setPhoneChatAvatars: (v: PhoneChatAvatars) => void;
   setShowTimestamps: (v: boolean) => void;
   setShowModelName: (v: boolean) => void;
   setShowTokenUsage: (v: boolean) => void;
@@ -1897,6 +1905,7 @@ export function pickSyncedSettings(state: UIState) {
     alwaysDisplayConversationSwipeMenu: state.alwaysDisplayConversationSwipeMenu,
     alwaysDisplayRoleplaySwipeMenu: state.alwaysDisplayRoleplaySwipeMenu,
     conversationAvatarShape: state.conversationAvatarShape,
+    phoneChatAvatars: state.phoneChatAvatars,
     showTimestamps: state.showTimestamps,
     showModelName: state.showModelName,
     showTokenUsage: state.showTokenUsage,
@@ -2187,6 +2196,7 @@ export function pickPersistedUIState(state: UIState) {
     alwaysDisplayConversationSwipeMenu: state.alwaysDisplayConversationSwipeMenu,
     alwaysDisplayRoleplaySwipeMenu: state.alwaysDisplayRoleplaySwipeMenu,
     conversationAvatarShape: state.conversationAvatarShape,
+    phoneChatAvatars: state.phoneChatAvatars,
     showTimestamps: state.showTimestamps,
     showModelName: state.showModelName,
     showTokenUsage: state.showTokenUsage,
@@ -2540,6 +2550,7 @@ export const useUIStore = create<UIState>()(
         alwaysDisplayConversationSwipeMenu: true,
         alwaysDisplayRoleplaySwipeMenu: true,
         conversationAvatarShape: "circle" as ConversationAvatarShape,
+        phoneChatAvatars: "mini" as PhoneChatAvatars,
         showTimestamps: false,
         showModelName: false,
         showTokenUsage: false,
@@ -3511,6 +3522,7 @@ export const useUIStore = create<UIState>()(
         setAlwaysDisplayConversationSwipeMenu: (v) => set({ alwaysDisplayConversationSwipeMenu: v }),
         setAlwaysDisplayRoleplaySwipeMenu: (v) => set({ alwaysDisplayRoleplaySwipeMenu: v }),
         setConversationAvatarShape: (v) => set({ conversationAvatarShape: normalizeConversationAvatarShape(v) }),
+        setPhoneChatAvatars: (v) => set({ phoneChatAvatars: normalizePhoneChatAvatars(v) }),
         setShowTimestamps: (v) => set({ showTimestamps: v }),
         setShowModelName: (v) => set({ showModelName: v }),
         setShowTokenUsage: (v) => set({ showTokenUsage: v }),
@@ -3739,6 +3751,7 @@ export const useUIStore = create<UIState>()(
             chatWidgetApplyColors: false,
             conversationMessageStyle: "classic" as ConversationMessageStyle,
             conversationAvatarShape: "circle" as ConversationAvatarShape,
+            phoneChatAvatars: "mini" as PhoneChatAvatars,
             chatFontColor: "",
             defaultDialogueColor: "",
             chatChromeTextColor: "",
