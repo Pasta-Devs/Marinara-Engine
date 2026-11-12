@@ -223,7 +223,7 @@ try {
       `[skill_check: skill="Scrap" dc="10" branch="door"]\n[branch: door]\n[on success] Yes.\n[on failure] No.\n[/branch]`,
       issuing,
     );
-    const [branchRecord] = [...issuing.engineRecords];
+    const [branchRecord] = [...issuing.engineRecords.keys()];
     const own = parseSkillCheckTagBody(branchRecord!.slice("[skill_check:".length, -1))!.resolvedResult!;
     assert.deepEqual(own.rolls, [15]);
     const copy = `[skill_check: skill="Sneak" dc="9" rolls="15" used="15" modifier="${own.modifier}" total="${own.total}" result="${own.total >= 9 ? "success" : "failure"}" mode="normal" resolution="sum" dice="1d20"]`;
@@ -231,9 +231,20 @@ try {
       loadContext: async () => plainContext as any,
       rulesetPinned: true,
       engineRecords: issuing.engineRecords,
+      engineDice: issuing.engineDice,
       issuedD20s: issuing.issuedD20s!,
     });
     assert.deepEqual([both.trusted, both.resolved], [1, 1], "the copied face was already spent");
+    // The arm wrote its record once, so it is passed over once: a second copy of the same text is the
+    // model's, and its die is spent, so the Engine rolls it.
+    const copied = await resolveSkillCheckTagsInContent(`${first.content}\nAnd once more. ${branchRecord}`, {
+      loadContext: async () => plainContext as any,
+      rulesetPinned: true,
+      engineRecords: issuing.engineRecords,
+      engineDice: issuing.engineDice,
+      issuedD20s: issuing.issuedD20s!,
+    });
+    assert.deepEqual([copied.trusted, copied.resolved], [1, 1], "a copy of the Engine's record is not the Engine's");
 
     // The branch arm's dice are spent before any tag is read, and one at a time: a check written
     // before the Engine's record cannot claim one of its faces, and a face already gone does not leave
@@ -244,7 +255,8 @@ try {
       `[skill_check: skill="Stealth" dc="5" rolls="18"] ${twoFaces} [skill_check: skill="Stealth" dc="5" rolls="7"]`,
       {
         loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any,
-        engineRecords: new Set([twoFaces]),
+        engineRecords: new Map([[twoFaces, 1]]),
+        engineDice: [18, 7],
         issuedD20s: [18, 7],
         rollD20: () => 3,
       },
@@ -255,6 +267,15 @@ try {
       "neither written die was one somebody threw",
     );
     assert.equal(around.trusted, 1);
+    // One at a time: with the 18 already gone from the list, the 7 is still spent.
+    const partly = await resolveSkillCheckTagsInContent(`${twoFaces} [skill_check: skill="Stealth" dc="5" rolls="7"]`, {
+      loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any,
+      engineRecords: new Map([[twoFaces, 1]]),
+      engineDice: [18, 7],
+      issuedD20s: [7],
+      rollD20: () => 3,
+    });
+    assert.deepEqual(partly.results?.[0]?.rolls, [3], "the 7 was the Engine's, not a die somebody threw");
 
     // A pool record's dice were never put in the list of dice thrown, so passing over one spends
     // nothing: the player's own die of the same face still answers the next check.
@@ -263,7 +284,7 @@ try {
     const loose = { skills: null, attributes: null, sheetAttributes: {} };
     const kept = await resolveSkillCheckTagsInContent(`${poolRecord} [skill_check: skill="Stealth" dc="5" rolls="6"]`, {
       loadContext: async () => loose as any,
-      engineRecords: new Set([poolRecord]),
+      engineRecords: new Map([[poolRecord, 1]]),
       issuedD20s: [6],
       rollD20: () => 3,
     });
@@ -299,7 +320,7 @@ try {
         `[skill_check: skill="Scrap" dc="12" branch="door"]\n[branch: door]\n[on success] Yes.\n[on failure] No.\n[/branch]`,
         loud,
       );
-      const [record] = [...loud.engineRecords];
+      const [record] = [...loud.engineRecords.keys()];
       const back = parseSkillCheckTagBody(record!.slice("[skill_check:".length, -1))?.resolvedResult;
       assert.ok(back, `the branch record reads back: ${rolled.content}`);
       assert.ok(
@@ -312,6 +333,7 @@ try {
       loadContext: async () => context as any,
       rulesetPinned: true,
       engineRecords: session.engineRecords,
+      engineDice: session.engineDice,
     });
     assert.deepEqual([after.resolved, after.trusted, after.content], [0, 1, branched.content]);
     // The same record with nobody naming it as the Engine's is rolled again, as any written one is.
