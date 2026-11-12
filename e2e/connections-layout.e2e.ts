@@ -312,7 +312,7 @@ test("a narrow Connections page keeps Connections pinned and phone Back returns 
       chibiProfessorMariEnabled: false,
     });
     await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
-    // A phone-width, short window: the panel is narrow and a page is taller than it, so the page has to scroll.
+    // A phone-width, short window: the panel is narrow.
     await page.setViewportSize({ width: 390, height: 420 });
     await page.goto("/");
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
@@ -321,12 +321,7 @@ test("a narrow Connections page keeps Connections pinned and phone Back returns 
     await row.click();
     const back = panel.locator("[data-connections-back]");
     await expect(back).toBeVisible();
-    const scrolled = await back.evaluate((element) => {
-      const scroller = element.closest("[data-panel-key]")!;
-      scroller.scrollTop = scroller.scrollHeight;
-      return scroller.scrollTop;
-    });
-    expect(scrolled).toBeGreaterThan(100);
+    // The device page is one hero and a button since Voice settings moved to their own window, so it has nothing to scroll.
     await expect(back).toBeInViewport({ ratio: 1 });
 
     // Back from a page shows the list with the panel still open.
