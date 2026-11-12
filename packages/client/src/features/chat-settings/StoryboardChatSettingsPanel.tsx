@@ -16,7 +16,7 @@ import { mergeBuiltInAgentSettings, normalizeStoryboardAgentSettings } from "@ma
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
-import { ConnectionSelect, type ConnectionSelectKind } from "../connections/ConnectionSelect";
+import { ConnectionSelect, type ConnectionSelectKind } from "../../components/connections/ConnectionSelect";
 import { useUIStore } from "../../stores/ui.store";
 import {
   AgentSettingsActionButton,
@@ -25,7 +25,7 @@ import {
   AgentSettingsSubsection,
   AgentSettingsToggle,
   GamePromptTemplateSelect,
-} from "./AgentSettingsControls";
+} from "../../components/chat/AgentSettingsControls";
 
 type StoryboardChatSettingsPanelProps = {
   active: boolean;

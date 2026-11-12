@@ -1,5 +1,5 @@
-import { ChatButtonLayoutSettings } from "../../features/chat-settings/ChatButtonLayoutSettings";
-import { LorebookListField } from "../ui/LibraryPickers";
+import { ChatButtonLayoutSettings } from "./ChatButtonLayoutSettings";
+import { LorebookListField } from "../../components/ui/LibraryPickers";
 // ──────────────────────────────────────────────
 // Chat: Settings Drawer — per-chat configuration
 // ──────────────────────────────────────────────
@@ -23,9 +23,9 @@ import { RoleplayCommandsSettings } from "./RoleplayCommandsSettings";
 import { ChatBranchesPanel } from "./ChatBranchesPanel";
 import { ChatMessageSearch } from "./ChatMessageSearch";
 import { ChatWindowFavoriteButton } from "./ChatWindowFavoriteButton";
-import { listCombatStyles, resolveCombatStyle } from "../game/combat-styles";
-import { AgentActivitySection } from "../agents/AgentActivitySection";
-import { withAgentActivityStatus } from "../agents/AgentActivityIcon";
+import { listCombatStyles, resolveCombatStyle } from "../../components/game/combat-styles";
+import { AgentActivitySection } from "../../components/agents/AgentActivitySection";
+import { withAgentActivityStatus } from "../../components/agents/AgentActivityIcon";
 import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 import {
   X,
@@ -94,36 +94,40 @@ import {
   UserRound,
   Dices,
 } from "lucide-react";
-import { RoleplayRulesetSettings } from "./RoleplayRuleset";
-import { NEUTRAL_PANEL_SCROLL_AREA, SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
-import { FloatingWindow } from "../ui/FloatingWindow";
-import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
-import { type ChatToolbarFloatingPanelAnchor } from "./ChatToolbarControls";
-import { PickerDropdown } from "../../features/chat-settings/PickerDropdown";
-import { CharacterSelect, changedId } from "../characters/CharacterSelect";
-import { PersonaHistoryReassignDropdown } from "../../features/chat-settings/sections/PersonaHistoryReassignDropdown";
-import { ChatSettingsSection as Section } from "../../features/chat-settings/ChatSettingsSection";
-import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
-import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
-import { CardFieldAlternativesSection } from "../../features/chat-settings/sections/CardFieldAlternativesSection";
-import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameSection";
-import { ChatVariablesSection } from "../../features/chat-settings/sections/ChatVariablesSection";
-import { CombatStyleSection } from "../../features/chat-settings/sections/CombatStyleSection";
+import { RoleplayRulesetSettings } from "../../components/chat/RoleplayRuleset";
+import {
+  NEUTRAL_PANEL_SCROLL_AREA,
+  SHEET_BUTTON_PRIMARY,
+  SHEET_BUTTON_QUIET,
+} from "../../components/ui/neutral-surface-styles";
+import { FloatingWindow } from "../../components/ui/FloatingWindow";
+import { TrackerPanelIcon } from "../../components/ui/TrackerPanelIcon";
+import { type ChatToolbarFloatingPanelAnchor } from "../../components/chat/ChatToolbarControls";
+import { PickerDropdown } from "./PickerDropdown";
+import { CharacterSelect, changedId } from "../../components/characters/CharacterSelect";
+import { PersonaHistoryReassignDropdown } from "./sections/PersonaHistoryReassignDropdown";
+import { ChatSettingsSection as Section } from "./ChatSettingsSection";
+import { ActiveChatBackgroundPicker } from "../../components/panels/settings/BackgroundPicker";
+import { AdvancedParametersSection } from "./sections/AdvancedParametersSection";
+import { CardFieldAlternativesSection } from "./sections/CardFieldAlternativesSection";
+import { ChatNameSection } from "./sections/ChatNameSection";
+import { ChatVariablesSection } from "./sections/ChatVariablesSection";
+import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { useHasDecisionModel } from "../../hooks/use-decision-model";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
 import { resolvePersonaInlineNames } from "../../lib/inline-name-colors";
-import { ConnectionSection, type ChatConnectionOption } from "../../features/chat-settings/sections/ConnectionSection";
-import { ConversationPromptSection } from "../../features/chat-settings/sections/ConversationPromptSection";
-import { DiscordMirrorControls } from "../../features/chat-settings/sections/DiscordMirrorSection";
-import { FunctionCallingSection } from "../../features/chat-settings/sections/FunctionCallingSection";
-import { GameExtraPromptSection } from "../../features/chat-settings/sections/GameExtraPromptSection";
-import { ImpersonateSection } from "../../features/chat-settings/sections/ImpersonateSection";
-import { LorebooksSection } from "../../features/chat-settings/sections/LorebooksSection";
-import { PromptPresetSection } from "../../features/chat-settings/sections/PromptPresetSection";
-import { SceneInstructionsSection } from "../../features/chat-settings/sections/SceneInstructionsSection";
-import { TranslationSection } from "../../features/chat-settings/sections/TranslationSection";
-import { CapabilityElement } from "../capabilities/CapabilityElement";
+import { ConnectionSection, type ChatConnectionOption } from "./sections/ConnectionSection";
+import { ConversationPromptSection } from "./sections/ConversationPromptSection";
+import { DiscordMirrorControls } from "./sections/DiscordMirrorSection";
+import { FunctionCallingSection } from "./sections/FunctionCallingSection";
+import { GameExtraPromptSection } from "./sections/GameExtraPromptSection";
+import { ImpersonateSection } from "./sections/ImpersonateSection";
+import { LorebooksSection } from "./sections/LorebooksSection";
+import { PromptPresetSection } from "./sections/PromptPresetSection";
+import { SceneInstructionsSection } from "./sections/SceneInstructionsSection";
+import { TranslationSection } from "./sections/TranslationSection";
+import { CapabilityElement } from "../../components/capabilities/CapabilityElement";
 import type { AutoActiveCharactersMode, AvatarCrop, MultiplayerHostAction } from "@marinara-engine/shared";
 import {
   AVATAR_AGENT_IDS,
@@ -158,11 +162,11 @@ import {
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { showAlertDialog, showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { saveIntoProfileSettings } from "../../lib/chat-preset-apply";
-import { HelpTooltip } from "../ui/HelpTooltip";
-import { ChatProfileBuilder } from "./ChatProfileBuilder";
-import { MacroTextarea } from "../ui/MacroTextarea";
-import { Modal } from "../ui/Modal";
-import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { HelpTooltip } from "../../components/ui/HelpTooltip";
+import { ChatProfileBuilder } from "../../components/chat/ChatProfileBuilder";
+import { MacroTextarea } from "../../components/ui/MacroTextarea";
+import { Modal } from "../../components/ui/Modal";
+import { DraftNumberInput } from "../../components/ui/DraftNumberInput";
 import {
   AGENT_SETTINGS_SURFACE_CLASS,
   AgentCategorySection,
@@ -176,37 +180,37 @@ import {
   MediaScopeSelect,
   GamePromptTemplateSelect,
   GenerationSettingsLink,
-} from "./AgentSettingsControls";
+} from "../../components/chat/AgentSettingsControls";
 import { ExpressionSpriteSettings } from "./ExpressionSpriteSettings";
-import { AvatarLayoutSettings, type AvatarLayoutControls } from "./AvatarLayoutSettings";
+import { AvatarLayoutSettings, type AvatarLayoutControls } from "../../components/chat/AvatarLayoutSettings";
 import { AgentPromptTemplateSelect } from "./AgentPromptTemplateSelect";
 import { AgentLorebookAttachment } from "./AgentLorebookAttachment";
 import { HapticConnectionPanel } from "./HapticConnectionPanel";
-import { HAPTIC_SENSITIVITY_OPTIONS } from "./haptic-sensitivity-options";
-import { ChatModeIcon } from "./ChatModeIcon";
-import { SettingsSwitch } from "../panels/settings/SettingControls";
-import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
-import { CharacterOnboardingModal } from "../characters/CharacterOnboardingModal";
-import { SecretPlotPanel } from "../agents/SecretPlotPanel";
+import { HAPTIC_SENSITIVITY_OPTIONS } from "../../components/chat/haptic-sensitivity-options";
+import { ChatModeIcon } from "../../components/chat/ChatModeIcon";
+import { SettingsSwitch } from "../../components/panels/settings/SettingControls";
+import { ChoiceSelectionModal } from "../../components/presets/ChoiceSelectionModal";
+import { CharacterOnboardingModal } from "../../components/characters/CharacterOnboardingModal";
+import { SecretPlotPanel } from "../../components/agents/SecretPlotPanel";
 import { SummariesEditorModal } from "./SummariesEditorModal";
-import { AdvancedMemorySettings } from "./AdvancedMemorySettings";
-import { AdvancedMemoryInspector } from "./AdvancedMemoryInspector";
+import { AdvancedMemorySettings } from "../../components/chat/AdvancedMemorySettings";
+import { AdvancedMemoryInspector } from "../../components/chat/AdvancedMemoryInspector";
 import { useAdvancedMemoryStatus } from "../../hooks/use-advanced-memory";
 import { AgentSuiteModal } from "./AgentSuiteModal";
-import { ConversationTimeZoneSelect } from "./ConversationTimeZoneSelect";
+import { ConversationTimeZoneSelect } from "../../components/chat/ConversationTimeZoneSelect";
 import {
   SemanticSummaryRetrievalControls,
   type SemanticSummaryRetrievalControlField,
-} from "./SemanticSummaryRetrievalControls";
-import { RoleplayMessagePreview } from "./ChatMessage";
+} from "../../components/chat/SemanticSummaryRetrievalControls";
+import { RoleplayMessagePreview } from "../../components/chat/ChatMessage";
 import { resolveChatContextBudget } from "../../lib/professor-mari-context-budget";
 import { CHAT_SETTINGS_SURFACES } from "./chat-settings-surfaces";
 import { useCharacters, usePersonas, type SpriteInfo } from "../../hooks/use-characters";
 import { lorebookKeys, useLorebooks, useEntriesAcrossLorebooks } from "../../hooks/use-lorebooks";
 import { useDefaultPreset, usePresetFull, usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
-import { NeedsModelChip, agentModelNeed } from "../connections/NeedsModelChip";
-import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { NeedsModelChip, agentModelNeed } from "../../components/connections/NeedsModelChip";
+import { ConnectionSelect } from "../../components/connections/ConnectionSelect";
 import { useKnowledgeSources, useUploadKnowledgeSource } from "../../hooks/use-knowledge-sources";
 import { useGenerate } from "../../hooks/use-generate";
 import {
@@ -274,10 +278,10 @@ import { abortGenerationForChat, useChatStore } from "../../stores/chat.store";
 import { blurActiveChatFloatingUiControl } from "../../lib/chat-floating-ui-events";
 import { requestChatHelp } from "../../lib/chat-help-events";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
-import { getChatSettingsWindowProps, useTrackerPanelClearance } from "./chat-settings-window";
+import { getChatSettingsWindowProps, useTrackerPanelClearance } from "../../components/chat/chat-settings-window";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { readCurrentWindowLayout } from "../../hooks/use-chat-window-layout";
-import { useChatControlDockStore, useHostHasDetachedDrawers } from "../ui/drawer-host";
+import { useChatControlDockStore, useHostHasDetachedDrawers } from "../../components/ui/drawer-host";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import {
@@ -371,11 +375,11 @@ import {
   useCustomTools,
   type CustomToolRow,
 } from "../../hooks/use-custom-tools";
-import { normalizeSpritePlacements } from "./sprite-placement";
+import { normalizeSpritePlacements } from "../../components/chat/sprite-placement";
 import {
   normalizeSpriteCharacterVisualSettingsMap,
   type LocalSpriteVisualSettings,
-} from "./local-sprite-visual-settings";
+} from "../../components/chat/local-sprite-visual-settings";
 import {
   DEFAULT_SPRITE_DISPLAY_MODES,
   SPRITE_DISPLAY_OPACITY_MAX,
@@ -388,7 +392,7 @@ import {
   SPRITE_DISPLAY_SCALE_PERCENT_MIN,
   normalizeSpriteDisplayModes,
   type SpriteDisplayMode,
-} from "./sprite-display-modes";
+} from "../../components/chat/sprite-display-modes";
 import {
   AgentAddSetupFields,
   applyAgentAddSetupToAgentSettings,
@@ -404,31 +408,32 @@ import {
   type AgentAddSpriteSubject,
   type CustomMusicSource,
   type MusicProvider,
-} from "./AgentAddSetupFields";
+} from "../../components/chat/AgentAddSetupFields";
 import {
   CHAT_RESOURCE_AGENT_SETUP_EVENT,
   takePendingChatAgentSetupIds,
   takePendingChatResourcePanelRestore,
 } from "../../lib/chat-resource-drag";
-import { GameWidgetFileControls, GameWidgetSetupEditor, normalizeGameHudWidgets } from "../game/GameWidgetSetupEditor";
 import {
-  MultiplayerPlayersSection,
-  type MultiplayerGameStart,
-} from "../../features/multiplayer/MultiplayerHostControls";
-import { multiplayerGuestErrorLabelKey } from "../../features/multiplayer/multiplayer-guest-labels";
+  GameWidgetFileControls,
+  GameWidgetSetupEditor,
+  normalizeGameHudWidgets,
+} from "../../components/game/GameWidgetSetupEditor";
+import { MultiplayerPlayersSection, type MultiplayerGameStart } from "../multiplayer/MultiplayerHostControls";
+import { multiplayerGuestErrorLabelKey } from "../multiplayer/multiplayer-guest-labels";
 import { multiplayerActionError, useMultiplayerMutation } from "../../hooks/use-multiplayer";
 
 const PICKER_EXCLUDED_IDS = [PROFESSOR_MARI_ID];
 const QuickPresetSectionsEditor = lazy(() =>
-  import("../presets/PresetEditor").then((module) => ({ default: module.QuickPresetSectionsEditor })),
+  import("../../components/presets/PresetEditor").then((module) => ({ default: module.QuickPresetSectionsEditor })),
 );
 const InlineChatCardEditor = lazy(() =>
-  import("../../features/chat-settings/inline-editors/InlineChatCardEditor").then((module) => ({
+  import("./inline-editors/InlineChatCardEditor").then((module) => ({
     default: module.InlineChatCardEditor,
   })),
 );
 const InlineLorebookEntriesEditor = lazy(() =>
-  import("../../features/chat-settings/inline-editors/InlineLorebookEntriesEditor").then((module) => ({
+  import("./inline-editors/InlineLorebookEntriesEditor").then((module) => ({
     default: module.InlineLorebookEntriesEditor,
   })),
 );
@@ -437,7 +442,9 @@ const ChatGalleryPanel = lazy(() =>
   import("./ChatGalleryPanel").then((module) => ({ default: module.ChatGalleryPanel })),
 );
 const ActiveLorebookEntriesContent = lazy(() =>
-  import("./ChatRoleplayPanels").then((module) => ({ default: module.ActiveLorebookEntriesContent })),
+  import("../../components/chat/ChatRoleplayPanels").then((module) => ({
+    default: module.ActiveLorebookEntriesContent,
+  })),
 );
 const BeholderChatSettingsPanel = lazy(() => import("./BeholderChatSettingsPanel"));
 

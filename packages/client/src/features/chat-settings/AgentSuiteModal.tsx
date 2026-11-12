@@ -21,7 +21,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { AgentOutputSpoiler } from "../agents/AgentOutputSpoiler";
+import { AgentOutputSpoiler } from "../../components/agents/AgentOutputSpoiler";
 import { estimateTextTokens, type Chat, type GameState } from "@marinara-engine/shared";
 import {
   useAgentMemory,
@@ -53,12 +53,12 @@ import { cn } from "../../lib/utils";
 import { useAgentStore } from "../../stores/agent.store";
 import { useChatStore } from "../../stores/chat.store";
 import { parseStateDraft } from "../../lib/state-editor/state-editor-json";
-import { StateJsonField } from "../ui/state-editor/StateJsonField";
+import { StateJsonField } from "../../components/ui/state-editor/StateJsonField";
 import { useUIStore } from "../../stores/ui.store";
 import { useGameStateStore } from "../../stores/game-state.store";
-import { Modal } from "../ui/Modal";
+import { Modal } from "../../components/ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { ConnectionSelect } from "../../components/connections/ConnectionSelect";
 
 export interface AgentSuiteAgent {
   id: string;

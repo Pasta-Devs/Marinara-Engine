@@ -145,7 +145,7 @@ try {
   assert.match(section, /offered\("classic"\) && \(/);
   assert.match(section, /offered\("tactical"\) && \(/);
   assert.match(section, /!isBuiltInCombatStyle\(id\) && offered\(id\)/);
-  const drawer = readSource("packages/client/src/components/chat/ChatSettingsDrawer.tsx");
+  const drawer = readSource("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
   assert.match(drawer, /allowedStyles=\{allowedCombatStyles\}/);
   assert.match(drawer, /rulesetCombatStyle\(\s+rulesetDefinition,[\s\S]{0,200}listCombatStyles\(\),/);
   const surface = readSource("packages/client/src/components/game/GameSurface.tsx");

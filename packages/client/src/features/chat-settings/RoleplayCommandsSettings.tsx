@@ -8,11 +8,11 @@ import {
   type Chat,
 } from "@marinara-engine/shared";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
-import { AgentSettingsCard } from "./AgentSettingsControls";
-import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { AgentSettingsCard } from "../../components/chat/AgentSettingsControls";
+import { SettingsSwitch } from "../../components/panels/settings/SettingControls";
 import { cn } from "../../lib/utils";
-import { normalizeRollOutcomeToneMode } from "../dice/dice-tone";
-import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { normalizeRollOutcomeToneMode } from "../../components/dice/dice-tone";
+import { ConnectionSelect } from "../../components/connections/ConnectionSelect";
 
 export function RoleplayCommandsSettings({
   chat,
