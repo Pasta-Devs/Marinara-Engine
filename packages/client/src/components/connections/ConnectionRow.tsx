@@ -28,7 +28,6 @@ import {
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api } from "../../lib/api-client";
-import { cn } from "../../lib/utils";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { JOB, JOBS, jobLabelKey, rowJobs } from "../../lib/connection-jobs";
 import { modelKindOf, modelSubtitle } from "../../lib/connection-identity";
@@ -313,7 +312,7 @@ export function ConnectionRow({
               stop(event);
               setMenu(menuAt(event));
             }}
-            className={cn(ROW_BUTTON, "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}
+            className={ROW_BUTTON}
             title={t("connections.accounts.row.actions", { name: title })}
             aria-label={t("connections.accounts.row.actions", { name: title })}
             aria-haspopup="menu"

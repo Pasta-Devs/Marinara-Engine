@@ -34,7 +34,9 @@ linear-gradient(90deg, #f59e0b, #ef4444)
 
 To change transparency, use **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity**.
 
-The slider replaces the transparency saved in character, persona and preset background colors, including extracted ones. Your saved color values stay as they are. Name and dialogue colors are not affected.
+The slider scales the transparency saved in your character's and persona's Message Box Color: a color that carries its own alpha, such as `rgba(255, 255, 255, 0.25)` or `#FFFFFF40`, shows at that alpha times the slider. Your saved color values stay as they are. Name and dialogue colors are not affected.
+
+With **Apply preset colors** on, a background color you pick for the chat widget sets the bubble fill and the slider sets that fill's transparency outright.
 
 Custom-theme background hooks and card CSS can still override the app's bubble styling.
 

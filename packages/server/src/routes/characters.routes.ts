@@ -1523,7 +1523,8 @@ export async function charactersRoutes(app: FastifyInstance) {
     const promptOverride = promptOverrideById.get(avatarGenerationPromptId(body.name ?? "character", body.purpose));
     const referenceImages = (body.referenceImages ?? [])
       .map((image) => image.trim())
-      .filter((image) => image.startsWith("data:image/") || /^[A-Za-z0-9+/=\s]+$/.test(image))
+      // A negative test walks the string; `^[A-Za-z0-9+/=\s]+$` recurses once per character in V8's regexp interpreter.
+      .filter((image) => image.startsWith("data:image/") || (image.length > 0 && !/[^A-Za-z0-9+/=\s]/.test(image)))
       .slice(0, 4);
 
     const imgModel = conn.model || "";

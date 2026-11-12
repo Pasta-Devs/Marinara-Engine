@@ -43,13 +43,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Prettier and the three small type-check lanes run in validate-guards, which has its own runner; the two
+      # builds and the lint keep this runner's four cores. A local pnpm check still runs every lane.
       - name: Run project checks
+        env:
+          MARINARA_CHECK_SKIP_LANES: format,e2e-types,token-estimation-types,character-activity-types
         run: pnpm check
 
       - name: Install Chromium for smoke tests
         if: github.base_ref == 'staging'
         timeout-minutes: 5
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium
 
       # pnpm check has already built the server and client this step opens.
       - name: Open the production frontend in Chromium
@@ -119,6 +123,22 @@ jobs:
       - name: Check tracked installer artifacts
         run: pnpm guard:installer-artifacts
 
+      # The lanes validate-check skips (MARINARA_CHECK_SKIP_LANES). They need shared's built declarations, as in pnpm check.
+      - name: Build shared package
+        run: pnpm build:shared
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Type-check the Playwright specs
+        run: pnpm check:e2e-types
+
+      - name: Type-check the token estimation regressions
+        run: pnpm check:token-estimation-types
+
+      - name: Type-check the character activity regressions
+        run: pnpm check:character-activity-types
+
   # The job always runs and only its steps check the base branch, so it
   # reports success on PRs that don't target staging.
   validate-smoke:
@@ -159,7 +179,7 @@ jobs:
       - name: Install Chromium for smoke tests
         if: github.base_ref == 'staging'
         timeout-minutes: 5
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium
 
       # The small browser suite runs behind the required pnpm-validate verdict,
       # so a failed smoke test blocks staging merges without new ruleset names.
@@ -265,5 +285,5 @@ jobs:
           context: .
           platforms: linux/amd64
           # PRs read the cache that build-container.yml writes on staging pushes and never write it (Actions cache budget).
-          cache-from: type=gha
+          cache-from: type=gha,scope=container-amd64
           push: false

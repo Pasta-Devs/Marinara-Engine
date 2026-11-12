@@ -61,7 +61,7 @@ import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
 import { LocalWhisper, SMALL_ACTION } from "./DeviceDetail";
-import type { ConnectionRowData } from "./ConnectionRow";
+import { ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
 import { JobRow, isUnset } from "./JobRow";
 import { mediaSources } from "../../lib/media-source";
 
@@ -765,10 +765,8 @@ function DefaultsJobRow({
                 onClick={() => setSettingsOpen(true)}
                 aria-haspopup="dialog"
                 aria-label={t("connections.defaults.settingsFor", { role: title })}
-                className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]",
-                  FOCUS,
-                )}
+                // The panel's row-button look (quiet at rest, the shared accent hover), like the Connections rows.
+                className={ROW_BUTTON}
               >
                 <SlidersHorizontal size="0.875rem" aria-hidden />
               </button>

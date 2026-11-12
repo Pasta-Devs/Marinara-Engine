@@ -4953,6 +4953,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           primaryProvider: agentChatProvider,
           provider: runtimeProvider,
         } = providerRuntime;
+        // A Claude model that thinks natively is never asked to write its planning into a <think> block:
+        // Claude can refuse that as an attempt to extract its reasoning (#9092).
+        const claudeThinksNatively = isClaudeNoSampling || (enableThinking && /claude/i.test(conn?.model ?? ""));
         // A defined Game Master intro (1.339) is the game's first message exactly as set: streamed as written.
         const definedIntro = await gameIntroNow();
         const provider =
@@ -5917,6 +5920,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             : undefined;
           const gmReminderArgs: Parameters<typeof buildGmFormatReminder>[0] = {
             sceneState: buildGmSceneState(gmCtx),
+            // A Claude model that thinks natively is not asked for a written <think> plan (#9092).
+            ...(claudeThinksNatively ? { thinksNatively: true } : {}),
             ttsEmotionIndicatorsEnabled: gameTtsEmotionIndicatorsEnabled(await appSettings.get(TTS_SETTINGS_KEY)),
             hasSceneModel,
             hudWidgets: gmCtx.hudWidgets,
@@ -5931,6 +5936,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             characterSprites: gmCtx.characterSprites,
             language: gmCtx.language,
             rating: gmCtx.rating,
+            storyStyle: gmCtx.storyStyle,
+            contentBoundaries: gmCtx.contentBoundaries,
             enableQuickTimeEvents: gmCtx.enableQuickTimeEvents,
             gameSpecialInstructions: gmCtx.gameSpecialInstructions,
             canGenerateBackgrounds: gmCtx.canGenerateBackgrounds,
@@ -10395,7 +10402,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   draftTurn,
                   {
                     role: "user",
-                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) - (rolled.unknownRoller?.count ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}${rolled.unknownRoller ? "\nSome checks were not rolled because they did not name one party member: leave their outcome open; ask again next turn with who= set to the party member's name." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${rewriteKeptCommandsNote(chatMeta.gameRuleset != null)} ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : roleplayRulesetTurn ? "Return only the complete revised reply, starting directly with it" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: any planning goes inside one <think>...</think> block at the very start, never in the narration.`,
+                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) - (rolled.unknownRoller?.count ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}${rolled.unknownRoller ? "\nSome checks were not rolled because they did not name one party member: leave their outcome open; ask again next turn with who= set to the party member's name." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${rewriteKeptCommandsNote(chatMeta.gameRuleset != null)} ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : roleplayRulesetTurn ? "Return only the complete revised reply, starting directly with it" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: ${claudeThinksNatively ? "no planning, notes or analysis, only the reply itself" : "any planning goes inside one <think>...</think> block at the very start, never in the narration"}.`,
                   },
                 ],
                 { tools: undefined },

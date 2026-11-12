@@ -8,6 +8,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from "@
 import { readFileSync } from "node:fs";
 import { openChatSettings } from "./chat-settings-tools.js";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseCharacter } from "./character-picker.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 const avatarPath = "/api/avatars/file/play-as-character-7093.png";
@@ -177,11 +178,7 @@ test("new chat setup keeps Play as a character folders usable", async ({ page, r
     await next.click();
     await expect(wizard.getByRole("heading", { name: "Pick a Preset", exact: true })).toBeVisible();
     // The default preset asks for its variables first; no preset keeps the walk to the persona step short.
-    await wizard.getByRole("combobox", { name: "Preset", exact: true }).click();
-    await wizard
-      .getByRole("listbox", { name: "Preset", exact: true })
-      .getByRole("option", { name: "None", exact: true })
-      .click();
+    await chooseCharacter(page, wizard.getByRole("button", { name: "Preset", exact: true }), "Preset", "None");
     await next.click();
     await expect(wizard.getByRole("heading", { name: "Persona & Characters", exact: true })).toBeVisible();
     await wizard.getByRole("button", { name: "None", exact: true }).click();
