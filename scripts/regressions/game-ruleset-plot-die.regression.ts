@@ -223,6 +223,18 @@ try {
       [0, [3], undefined],
     );
     assert.doesNotMatch(noRuleset.content, /plotFace|plotSymbol/);
+    // The same holds for a record that only asks for the plot die: its written numbers are not kept.
+    const askedLoose = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Stealth" dc="5" plot="true" rolls="14" used="14" modifier="0" total="14" result="success" mode="normal" resolution="sum" dice="1d20"]',
+      { loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any, rollD20: () => 3 },
+    );
+    assert.deepEqual([askedLoose.trusted, askedLoose.results?.[0]?.rolls], [0, [3]]);
+    // A bare ask claims nothing, so it is rolled as any check is.
+    const bareLoose = await resolveSkillCheckTagsInContent('[skill_check: skill="Stealth" dc="5" plot="true"]', {
+      loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any,
+      rollD20: () => 3,
+    });
+    assert.deepEqual([bareLoose.resolved, bareLoose.results?.[0]?.rolls], [1, [3]]);
 
     // A 20-sided plot die is still not the check's own d20: an injected d20 is spent on the check alone.
     const wide = parsed(doc((d) => (d.resolution.plotDie.sides = 20)));
