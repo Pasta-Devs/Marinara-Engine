@@ -326,6 +326,19 @@ export function CardGallery({
     </div>
   );
 
+  const browseButton = onBrowse ? (
+    <button
+      type="button"
+      className={cn("ov-btn", mobile && "ov-btn--icon")}
+      onClick={onBrowse}
+      aria-label={localizeUi("ui.overhaul.text.browseOnline")}
+      title={localizeUi("ui.overhaul.text.browseOnline")}
+    >
+      <Globe size={14} aria-hidden="true" />
+      {mobile ? null : localizeUi("ui.overhaul.text.browseOnline")}
+    </button>
+  ) : null;
+
   const quickSelect = (className: string) => (
     <select
       className={cn("ov-select", className)}
@@ -348,22 +361,14 @@ export function CardGallery({
         {extraHeader}
         <KitNewFolderButton folders={folders} />
         <KitSelectButton selection={selection} />
-        {onBrowse ? (
-          <button
-            type="button"
-            className={cn("ov-btn", mobile && "ov-btn--icon")}
-            onClick={onBrowse}
-            aria-label={localizeUi("ui.overhaul.text.browseOnline")}
-            title={localizeUi("ui.overhaul.text.browseOnline")}
-          >
-            <Globe size={14} aria-hidden="true" />
-            {mobile ? null : localizeUi("ui.overhaul.text.browseOnline")}
-          </button>
-        ) : null}
+        {mobile ? null : browseButton}
         <button type="button" className="ov-btn" onClick={onImport}>
           <Download size={14} aria-hidden="true" />
           {localize("Import")}
         </button>
+        {/* Phones and the split side: Browse sits after Import, so the first buttons line up with the
+            other Library pages (folder, select, import). */}
+        {mobile ? browseButton : null}
         <button
           type="button"
           className="ov-btn ov-btn--primary"

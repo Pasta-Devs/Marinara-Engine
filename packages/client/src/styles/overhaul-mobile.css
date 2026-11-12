@@ -5040,8 +5040,22 @@
     > .ov-search:not(#ovm-x):not(#ovm-y) {
     flex: 1 1 100%;
   }
+  /* That line never wraps: sort, filter and grouping start from zero and share what the tag button
+     and list/grid switch leave (the sort first), so a wide theme font ellipsizes instead of adding a line. */
+  :root[data-ov-split-pane][data-overhaul="mobile"]
+    .ov-gallery__tools:has(> .ovm-lp-filter--tools)
+    > .ov-select:not(.ovm-lp-filter--tools):not(#ovm-x):not(#ovm-y) {
+    flex: 3 1 0;
+    min-width: 3rem;
+  }
   :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__tools > .ovm-lp-filter--tools:not(#ovm-x):not(#ovm-y) {
     display: inline-flex;
+    flex: 0 0 4.25rem;
+  }
+  /* Characters (nothing else on that line): the filter may grow so a wide theme font fits "All". */
+  :root[data-ov-split-pane][data-overhaul="mobile"]
+    .ov-gallery__tools:not(:has(> .ovm-lp-view--tools, > .ovm-conn-group))
+    > .ovm-lp-filter--tools:not(#ovm-x):not(#ovm-y) {
     flex: 1 1 0;
     min-width: 4.25rem;
     max-width: 6.5rem;
@@ -5049,13 +5063,17 @@
   :root[data-ov-split-pane][data-overhaul="mobile"]
     .ov-gallery__tools
     > .ovm-lp-filter--tools.ovm-conn-group:not(#ovm-x):not(#ovm-y) {
-    flex: 0 1 auto;
+    flex: 6 1 0;
+    min-width: 0;
     max-width: none;
   }
   :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__tools > .ovm-lp-view--tools:not(#ovm-x):not(#ovm-y) {
     display: inline-flex;
     flex-shrink: 0;
     margin-left: auto;
+  }
+  :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__tools > .ovm-lp-view--tools > button:not(#ovm-x) {
+    width: 1.625rem;
   }
 }
 .ov-gallery__tools > :is(.ovm-lp-filter--tools, .ovm-lp-view--tools) {
