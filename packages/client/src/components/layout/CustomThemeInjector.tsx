@@ -250,7 +250,14 @@ export function CustomThemeInjector() {
     const root = document.documentElement;
     if (!activeTheme || !allowed || root.dataset.mariAmbient === undefined) return;
     let frame = 0;
+    let wait = 0;
+    // Each write to <html> re-styles the whole page, so while panels open or the chat reflows (Chat
+    // settings docking) the value is written once things have settled, not on every frame (GV13).
     const publish = () => {
+      window.clearTimeout(wait);
+      wait = window.setTimeout(publishNow, 160);
+    };
+    const publishNow = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const center = document.querySelector('[data-component="CenterContent"]');
@@ -262,7 +269,8 @@ export function CustomThemeInjector() {
           root.style.setProperty("--mari-center-x", `${x}px`);
       });
     };
-    publish();
+    if (root.style.getPropertyValue("--mari-center-x")) publish();
+    else publishNow();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
     const center = document.querySelector('[data-component="CenterContent"]');
     if (center) observer?.observe(center);
@@ -271,11 +279,19 @@ export function CustomThemeInjector() {
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(settle);
+      window.clearTimeout(wait);
       observer?.disconnect();
       window.removeEventListener("resize", publish);
-      root.style.removeProperty("--mari-center-x");
     };
   }, [activeTheme, allowed, sidebarOpen, rightPanelOpen]);
+  // Cleared only when the theme changes or goes, not each time a panel opens (the mask would jump to the
+  // middle and the page be re-styled twice).
+  useEffect(
+    () => () => {
+      document.documentElement.style.removeProperty("--mari-center-x");
+    },
+    [activeTheme, allowed],
+  );
 
   // The chrome guard: check after the theme lands, again at 2.5 s and 10 s (rules that wait), when a
   // side panel or Ctrl+K opens, when a chat opens or the colour scheme changes, and on resize.
@@ -319,7 +335,11 @@ export function CustomThemeInjector() {
               Number.isFinite(animation.effect?.getComputedTiming().endTime ?? Infinity),
           ),
       );
-      if (moving && retries < 5) {
+      // Docked Chat settings still making room for itself (its window is there, the chat hasn't
+      // reflowed yet): the check re-styles the whole page and would hold the reflow up (GV13).
+      const docking =
+        !!document.querySelector(".mari-window.ov-cs--docked") && !document.querySelector("[data-cs-docked]");
+      if ((moving || docking) && retries < 5) {
         retries += 1;
         schedule(400);
         return;
@@ -353,9 +373,26 @@ export function CustomThemeInjector() {
       confirming = false;
       useThemeSafetyStore.getState().blockTheme(themeId, themeName, problems);
     };
+    // The check is one long task (it re-styles the page with the theme off and on), so it waits for the
+    // page to be idle as well as for the delay: never in the middle of a panel or window opening (GV13).
+    let idle = 0;
+    const cancelIdle = () => {
+      if (idle && typeof cancelIdleCallback === "function") cancelIdleCallback(idle);
+      idle = 0;
+    };
     const schedule = (delay: number) => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(run, delay);
+      cancelIdle();
+      timer = setTimeout(() => {
+        if (typeof requestIdleCallback !== "function") return run();
+        idle = requestIdleCallback(
+          () => {
+            idle = 0;
+            run();
+          },
+          { timeout: 1500 },
+        );
+      }, delay);
     };
     schedule(700);
     const late = setTimeout(() => schedule(0), 2500);
@@ -413,6 +450,7 @@ export function CustomThemeInjector() {
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      cancelIdle();
       clearTimeout(late);
       clearTimeout(later);
       unsubscribe();

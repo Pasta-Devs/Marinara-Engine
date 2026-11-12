@@ -1155,9 +1155,12 @@
     transform 0.12s ease,
     box-shadow 0.12s ease;
 }
-.ov-card__art:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.7);
+/* Hover only where there is a pointer that hovers: a tap on a touch screen leaves :hover stuck. */
+@media (hover: hover) {
+  .ov-card__art:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.7);
+  }
 }
 .ov-card__art--new {
   border: 1px dashed var(--ov-line);
