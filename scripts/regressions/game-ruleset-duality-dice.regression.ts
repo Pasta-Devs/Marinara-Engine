@@ -110,6 +110,11 @@ try {
       "labels the record writes alike",
     );
     refuses(
+      doc((d) => (d.resolution.duality.dice[0].label = "   ")),
+      /needs a label the record can write/,
+      "a label of spaces",
+    );
+    refuses(
       doc((d) => (d.resolution.duality.dice[1].label = "Tie")),
       /labelled "tie"/,
       "a die labelled tie",
@@ -203,6 +208,27 @@ try {
       session,
     );
     assert.match(branched.content, /duality="(Hope|Fear|tie)"/, "the branch arm rolled the two named dice");
+    // The branch arm's roller stands in for a d20 only, so the two d12s are thrown at their own size:
+    // a roller that always says 20 never reaches the record, which reads back as a result.
+    for (let turn = 0; turn < 40; turn++) {
+      const loud = createGameTurnChanceSession({
+        db: null as never,
+        chatId: "duality-branch",
+        roll: () => 20,
+        loadModifierContext: () => Promise.resolve(context as any),
+      });
+      const rolled = await resolveGameTurnBranches(
+        `[skill_check: skill="Scrap" dc="12" branch="door"]\n[branch: door]\n[on success] Yes.\n[on failure] No.\n[/branch]`,
+        loud,
+      );
+      const [record] = [...loud.engineRecords];
+      const back = parseSkillCheckTagBody(record!.slice("[skill_check:".length, -1))?.resolvedResult;
+      assert.ok(back, `the branch record reads back: ${rolled.content}`);
+      assert.ok(
+        back.rolls.length === 2 && back.rolls.every((face) => face >= 1 && face <= 12),
+        `faces of a d12: ${back.rolls}`,
+      );
+    }
     assert.equal(session.engineRecords.size, 1);
     const after = await resolveSkillCheckTagsInContent(branched.content, {
       loadContext: async () => context as any,

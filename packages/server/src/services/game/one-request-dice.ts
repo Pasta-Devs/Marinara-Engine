@@ -443,6 +443,9 @@ export async function resolveGameTurnBranches(
           ),
         });
       } else {
+        // The roller handed over stands in for a d20 only. A ruleset's other dice (2d12, 3d6, a pool)
+        // are thrown by the resolver itself at their own size, so a record never holds a face its die
+        // cannot show.
         result = resolveSkillCheckWithContext(context, request, () => session.roll(20));
         outcome = result.success;
         // The record this writes is the Engine's own, so the tag pass after this one must vouch for it.
