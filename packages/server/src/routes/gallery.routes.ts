@@ -2172,10 +2172,12 @@ export async function galleryRoutes(app: FastifyInstance) {
       const captionLimit = imageTarget ? resolveGalleryCaptionLimit(imageTarget) : 0;
       const captionLimitError = galleryCaptionLimitError(captionLimit, input.characterPrompts.length);
       if (captionLimitError) return reply.status(400).send({ error: captionLimitError });
+      const hasDraftCaptions = input.characterPrompts.length > 0;
       const userPrompt = JSON.stringify({
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
-        ...(captionLimit > 0
+        // Without native captions, generation appends them to the prompt, so the model revises them too.
+        ...(captionLimit > 0 || hasDraftCaptions
           ? { characterPrompts: input.characterPrompts.map((character, id) => ({ ...character, id })) }
           : {}),
         guidance: input.guidance ?? "",
@@ -2214,7 +2216,6 @@ export async function galleryRoutes(app: FastifyInstance) {
           .send({ error: "The Prompt Model is unavailable. Check the Illustrator and Agents model settings." });
       }
 
-      const hasDraftCaptions = input.characterPrompts.length > 0;
       const systemPrompt = appendImagePromptInstructions(
         [
           "Revise this existing image-generation draft according to the guidance field.",
@@ -2238,10 +2239,16 @@ export async function galleryRoutes(app: FastifyInstance) {
                       'Omit "position" unless the layout is clear and you can give both x and y as numbers.',
                     ]),
               ]
-            : [
-                "Apply changes to the main and negative prompts where relevant. Keep character descriptions in the main prompt.",
-                'Return only JSON in the format {"prompt":"…","negativePrompt":"…"}.',
-              ]),
+            : hasDraftCaptions
+              ? [
+                  'This image model has no native character prompts. Each character caption is appended to the main prompt as "name: prompt", so apply changes to the main, negative and character prompts where relevant, and keep them consistent.',
+                  'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
+                  "Return one entry for each input character with the same id. Do not add or remove characters; describe any new character in the main prompt.",
+                ]
+              : [
+                  "Apply changes to the main and negative prompts where relevant. Keep character descriptions in the main prompt.",
+                  'Return only JSON in the format {"prompt":"…","negativePrompt":"…"}.',
+                ]),
           "Use an empty string for any negative prompt that should be blank.",
           "Image prompt instructions apply to the strings inside this JSON format.",
         ].join("\n"),
@@ -2290,11 +2297,33 @@ export async function galleryRoutes(app: FastifyInstance) {
       if (!parsed) return rejectRewrite("The Prompt Model did not return a valid JSON object. Try revising again.");
 
       const invalidFields = "The Prompt Model returned missing or invalid prompt fields. Try revising again.";
-      if (captionLimit === 0) {
-        // Preserve the current draft captions for regeneration's cross-provider fallback.
+      if (captionLimit === 0 && !hasDraftCaptions) {
         const base = rewrittenGalleryBasePromptSchema.safeParse(parsed);
         if (!base.success) return rejectRewrite(invalidFields);
-        return { ...base.data, characterPrompts: input.characterPrompts };
+        return { ...base.data, characterPrompts: [] };
+      }
+      if (captionLimit === 0) {
+        // Revised in place: names and positions stay, so the captions still work if the user switches back to NovelAI.
+        const revision = rewrittenGalleryImagePromptSchema.safeParse(parsed);
+        if (!revision.success) return rejectRewrite(invalidFields);
+        const byId = new Map(revision.data.characterPrompts.map((character) => [character.id, character]));
+        if (
+          byId.size !== input.characterPrompts.length ||
+          revision.data.characterPrompts.length !== byId.size ||
+          input.characterPrompts.some((_, id) => !byId.has(id))
+        ) {
+          return rejectRewrite(
+            "The Prompt Model returned missing, duplicate, or extra character IDs. Try revising again.",
+          );
+        }
+        return {
+          prompt: revision.data.prompt,
+          negativePrompt: revision.data.negativePrompt,
+          characterPrompts: input.characterPrompts.map((original, id) => {
+            const { prompt, negativePrompt } = byId.get(id)!;
+            return { ...original, prompt, negativePrompt };
+          }),
+        };
       }
       if (Array.isArray(parsed.characterPrompts) && parsed.characterPrompts.length > captionLimit) {
         return rejectRewrite(

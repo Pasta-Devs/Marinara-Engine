@@ -472,20 +472,51 @@ try {
     guidance: plainDraft.guidance,
   });
 
-  promptModelOutput = JSON.stringify(baseRewrite);
+  // Qwen gets the captions appended to its prompt, so guidance has to revise them too.
+  const switchedPayload = { ...guidedDraft, connectionId: qwen.id };
+  promptModelOutput = JSON.stringify({
+    ...baseRewrite,
+    characterPrompts: [
+      { id: 1, prompt: "chancellor", negativePrompt: "", name: "Renamed", position: { x: 0.9, y: 0.9 } },
+      { id: 0, prompt: "tall elf queen, silver cloak", negativePrompt: "gold cloak" },
+    ],
+  });
   const switchedRewrite = await app.inject({
     method: "POST",
     url: `${regenerateUrl}/prompt`,
-    payload: { ...guidedDraft, connectionId: qwen.id },
+    payload: switchedPayload,
   });
   assert.equal(switchedRewrite.statusCode, 200, switchedRewrite.body);
   assert.deepEqual(
     switchedRewrite.json(),
-    { ...baseRewrite, characterPrompts: guidedDraft.characterPrompts },
-    "changing the image connection keeps existing draft captions for generation",
+    expectedRewrite,
+    "flattened captions are revised in place and keep their names and positions",
   );
-  const switchedInput = promptModelRequests.at(-1)?.messages?.find(({ role }) => role === "user")?.content ?? "";
-  assert.doesNotMatch(switchedInput, /characterPrompts|tall elf queen/);
+  const switchedMessages = promptModelRequests.at(-1)?.messages ?? [];
+  const switchedSystem = switchedMessages.find(({ role }) => role === "system")?.content ?? "";
+  assert.match(switchedSystem, /no native character prompts/);
+  assert.match(switchedSystem, /Do not add or remove characters/);
+  assert.doesNotMatch(switchedSystem, /NovelAI/);
+  const switchedInput = JSON.parse(switchedMessages.find(({ role }) => role === "user")?.content ?? "");
+  assert.deepEqual(
+    switchedInput.characterPrompts.map(({ id, name }: { id: number; name: string }) => [id, name]),
+    guidedDraft.characterPrompts.map(({ name }, id) => [id, name]),
+  );
+  promptModelOutput = JSON.stringify({
+    ...baseRewrite,
+    characterPrompts: [
+      { id: 0, prompt: "tall elf queen", negativePrompt: "" },
+      { id: 1, prompt: "chancellor", negativePrompt: "" },
+      { id: 2, prompt: "royal guard", negativePrompt: "" },
+    ],
+  });
+  const addedFlatCaption = await app.inject({
+    method: "POST",
+    url: `${regenerateUrl}/prompt`,
+    payload: switchedPayload,
+  });
+  assert.equal(addedFlatCaption.statusCode, 502, addedFlatCaption.body);
+  assert.match(addedFlatCaption.json().error, /extra character IDs/);
 
   const qwenImage = await gallery.create({
     chatId: chat.id,
