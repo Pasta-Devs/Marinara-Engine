@@ -6066,19 +6066,27 @@ const themesRouteSource = readFileSync(
   new URL("../../packages/server/src/routes/themes.routes.ts", import.meta.url),
   "utf8",
 );
-assert.doesNotMatch(conversationGroupSettingsSource, /Reply When Mentioned/u);
-assert.doesNotMatch(conversationGroupSettingsSource, /label="Cross-Chat Awareness"/u);
+const groupChatSectionSource = readFileSync(
+  new URL("../../packages/client/src/features/chat-settings/sections/GroupChatSection.tsx", import.meta.url),
+  "utf8",
+);
+for (const source of [conversationGroupSettingsSource, groupChatSectionSource]) {
+  assert.doesNotMatch(source, /Reply When Mentioned/u);
+  assert.doesNotMatch(source, /label="Cross-Chat Awareness"/u);
+}
 assert.match(
-  conversationGroupSettingsSource,
+  groupChatSectionSource,
   /ui\.chat\.chatsettingsdrawer\.individualRepliesCanUseManyTokens/u,
   "Conversation group-token warning must remain wired through localization",
 );
-const groupChatLabelIndex = conversationGroupSettingsSource.indexOf("ui.chat.chatsettingsdrawer.groupChat");
-assert.notEqual(groupChatLabelIndex, -1, "Chat Settings Drawer must retain the Group Chat section");
-const groupChatVisibilitySource = conversationGroupSettingsSource.slice(
-  Math.max(0, groupChatLabelIndex - 500),
-  groupChatLabelIndex,
+assert.match(
+  groupChatSectionSource,
+  /ui\.chat\.chatsettingsdrawer\.groupChat"/u,
+  "the Group Chat section keeps its label",
 );
+const groupChatUseIndex = conversationGroupSettingsSource.indexOf("<GroupChatSection");
+assert.notEqual(groupChatUseIndex, -1, "Chat Settings Drawer must retain the Group Chat section");
+const groupChatVisibilitySource = conversationGroupSettingsSource.slice(groupChatUseIndex, groupChatUseIndex + 600);
 assert.match(
   groupChatVisibilitySource,
   /chatCharIds\.length\s*>\s*1/u,
@@ -6123,7 +6131,7 @@ releaseFirstMetadataSave();
 await Promise.all([firstMetadataSave, secondMetadataSave, pendingMetadataWait]);
 assert.deepEqual(metadataSaveOrder, ["first", "second"]);
 assert.match(
-  conversationGroupSettingsSource,
+  groupChatSectionSource,
   /\{!isConversation && \(\s*<SettingsSwitch[\s\S]{0,700}ui\.chat\.chatsettingsdrawer\.namePrefixHistory/u,
   "Conversation group settings should not show the roleplay-only Name Prefix History toggle",
 );
