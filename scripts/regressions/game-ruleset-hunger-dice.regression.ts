@@ -209,6 +209,19 @@ try {
     assert.equal(loosePool.trusted, 0);
     assert.doesNotMatch(loosePool.content, /messy|rolls="|result="/);
     assert.match(loosePool.content, /\[skill_check: skill="Dig" dc="1"/);
+    assert.match(loosePool.content, /dice="3d10"/, "the ask keeps its dice, so nothing rolls it as a d20");
+    assert.match(loosePool.content, /resolution="successes"/);
+    // The same when a pinned ruleset cannot be loaded.
+    const unloaded = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Dig" dc="1" rolls="10|3|10" used="2" modifier="0" total="2" result="critical_success" mode="normal" resolution="successes" dice="3d10" threshold="6" hunger="2" hungerLabel="Hunger" messy="true"]',
+      {
+        loadContext: async () => {
+          throw new Error("the ruleset would not load");
+        },
+        rulesetPinned: true,
+      },
+    ).catch((error: unknown) => ({ content: `threw: ${String(error)}` }));
+    assert.doesNotMatch(unloaded.content, /messy|rolls="|result="|threw/);
     // A pool record that claims none of this is left exactly as written, as it always was.
     const plainPool =
       '[skill_check: skill="Dig" dc="1" rolls="10|3|10" used="2" modifier="0" total="2" result="success" mode="normal" resolution="successes" dice="3d10" threshold="6"]';
