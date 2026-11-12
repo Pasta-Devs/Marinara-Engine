@@ -5492,6 +5492,7 @@ function GameSurfaceComponent({
                     reroll: sc.reroll,
                     ...(sc.plot ? { plot: true } : {}),
                     shift: sc.shift,
+                    hunger: sc.hunger,
                     messageId: msg.id,
                   })
                 ).result
