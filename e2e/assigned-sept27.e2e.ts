@@ -140,6 +140,11 @@ test("regex bulk deletion confirms once and keeps failed and unselected scripts"
     await presetsTab.click();
     await selectPresets.click();
     releaseDeletion();
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: "Could not delete 1 regex script" })
+      .getByRole("button", { name: "Close toast", exact: true })
+      .click();
     await regexTab.click();
     await expect(selectRegex).toBeEnabled();
     await selectRegex.click();
