@@ -166,6 +166,11 @@ try {
       record.slice("[skill_check:".length, -1).replace('hunger="2"', 'hunger="50"'),
     )?.resolvedResult;
     assert.ok(over, "the roll itself is still read");
+    // Nor do special dice belong on a summed check: a written d20 record that claims them reads back bare.
+    const summed = parseSkillCheckTagBody(
+      'skill="Dig" dc="10" rolls="14" used="14" modifier="0" total="14" result="success" mode="normal" resolution="sum" dice="1d20" hunger="1" hungerLabel="Hunger" messy="true"',
+    )?.resolvedResult;
+    assert.deepEqual([summed?.total, summed?.hunger, summed?.messy], [14, undefined, undefined]);
     assert.deepEqual(
       [over.hunger, over.hungerLabel, over.messy, over.bestial],
       [undefined, undefined, undefined, undefined],

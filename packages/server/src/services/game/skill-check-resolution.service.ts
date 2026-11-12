@@ -1916,6 +1916,8 @@ function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag
   if (resolution.duality || tag.plot || result.duality != null || result.plotFace != null) return false;
   // Nor one whose critical is read off the dice's own total, or that asks to move a band (1.822).
   if (resolution.naturalTotal || tag.shift) return false;
+  // Nor one that asks for special dice (1.823): those are a pool's, and a pool is the Engine's roll.
+  if (tag.hunger != null) return false;
   // A check the character's conditions or items change is always the Engine's own: the Game Master
   // cannot have counted what it is not shown, and a bonus in dice has no one right number.
   const changed = rulesetCheckEffectsFor(

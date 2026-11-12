@@ -665,9 +665,10 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
       : {}),
     ...(tag.shift ? { shift: tag.shift } : {}),
   };
-  // Special dice are some of the dice thrown, so a count above them names no dice and is left out.
+  // Special dice are some of a pool's dice, so a count above the dice thrown, or one on a summed
+  // check, names no dice and is left out.
   const special = (thrown: number) =>
-    tag.hunger && tag.hunger <= thrown
+    tag.hunger && declaredResolution === "successes" && tag.hunger <= thrown
       ? {
           hunger: tag.hunger,
           ...(hungerLabel ? { hungerLabel } : {}),
