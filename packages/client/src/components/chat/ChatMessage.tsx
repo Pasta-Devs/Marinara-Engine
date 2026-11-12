@@ -31,6 +31,7 @@ import {
 } from "./RoleplayCommandResults";
 import { splitRoleplayParagraphs } from "../../lib/roleplay-vn-paragraphs";
 import { buildInlineNameColorMap, resolvePersonaInlineNames } from "../../lib/inline-name-colors";
+import { withCssPaintAlpha } from "../../lib/css-colors";
 import {
   notifyRoleplayTTSParagraph,
   withRoleplayTTSParagraphs,
@@ -2965,11 +2966,13 @@ export const ChatMessage = memo(function ChatMessage({
   const ownDialogueColor = !isMergedGroup && !!msgColors?.dialogueColor;
   const boxBgColor = msgColors?.boxColor;
   const msgNameColor = msgColors?.nameColor;
+  // The Roleplay slider scales the authored alpha instead of replacing it, so `rgba(255, 255, 255, 0.25)`
+  // and `#FFFFFF40` both follow the control (#9063).
   const roleplayBubbleBg =
     chatFontOpacity <= 0
       ? "transparent"
       : boxBgColor
-        ? `rgb(from ${boxBgColor} r g b / ${chatFontOpacity / 100})`
+        ? withCssPaintAlpha(boxBgColor, String(chatFontOpacity / 100))
         : isUser
           ? userBubbleBg
           : assistantBubbleBg;
@@ -4031,6 +4034,7 @@ export const ChatMessage = memo(function ChatMessage({
               multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
             )}
             data-message-id={message.id}
+            aria-busy={isStreaming || undefined}
             data-card-css={message.characterId ?? undefined}
             onClick={handleMobileTap}
             onDoubleClick={handleRoleplayDoubleClick}
@@ -4137,6 +4141,7 @@ export const ChatMessage = memo(function ChatMessage({
             multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
           )}
           data-message-id={message.id}
+          aria-busy={isStreaming || undefined}
           data-message-role={message.role}
           data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
@@ -4461,6 +4466,18 @@ export const ChatMessage = memo(function ChatMessage({
             ) : null}
 
             {/* Swipes */}
+            {/* Reserve the pager row while streaming so the saved reply does not push the view. */}
+            {isStreaming && (hasSwipes || canCreateNextSwipe) && (
+              <SwipeJumpControl
+                alwaysShow={alwaysDisplaySwipeMenu && !isUser}
+                messageId={message.id}
+                activeSwipeIndex={message.activeSwipeIndex}
+                swipeCount={swipeCount}
+                onSetActiveSwipe={handleSetActiveSwipe}
+                onCreateNextSwipe={canCreateNextSwipe ? () => {} : undefined}
+                className="invisible"
+              />
+            )}
             {showSwipeControls && (
               <SwipeJumpControl
                 alwaysShow={alwaysDisplaySwipeMenu && !isUser}
@@ -4502,7 +4519,7 @@ export const ChatMessage = memo(function ChatMessage({
                 "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all [@media(pointer:fine)]:focus-within:opacity-100 group-hover:opacity-100 md:justify-start md:gap-x-2",
                 (showActions || editing) && "opacity-100",
                 showStreamingThinkingAction &&
-                  "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
+                  "opacity-100 [&>button:not([data-message-thinking-action])]:invisible [&>div]:invisible",
               )}
             >
               <ActionBtn
@@ -4661,6 +4678,7 @@ export const ChatMessage = memo(function ChatMessage({
         multiSelectMode && isSelected && MESSAGE_SELECTION_SURFACE_CLASS,
       )}
       data-message-id={message.id}
+      aria-busy={isStreaming || undefined}
       data-message-role={message.role}
       onClick={handleMobileTap}
     >
@@ -4916,6 +4934,18 @@ export const ChatMessage = memo(function ChatMessage({
           )}
 
           {/* Swipes */}
+          {/* Reserve the pager row while streaming so the saved reply does not push the view. */}
+          {isStreaming && (hasSwipes || canCreateNextSwipe) && (
+            <SwipeJumpControl
+              alwaysShow={alwaysDisplaySwipeMenu && !isUser}
+              messageId={message.id}
+              activeSwipeIndex={message.activeSwipeIndex}
+              swipeCount={swipeCount}
+              onSetActiveSwipe={handleSetActiveSwipe}
+              onCreateNextSwipe={canCreateNextSwipe ? () => {} : undefined}
+              className="invisible"
+            />
+          )}
           {showSwipeControls && (
             <SwipeJumpControl
               alwaysShow={alwaysDisplaySwipeMenu && !isUser}
@@ -4957,7 +4987,7 @@ export const ChatMessage = memo(function ChatMessage({
               "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all [@media(pointer:fine)]:focus-within:opacity-100 group-hover:opacity-100 md:justify-start md:gap-x-2",
               (showActions || editing) && "opacity-100",
               showStreamingThinkingAction &&
-                "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
+                "opacity-100 [&>button:not([data-message-thinking-action])]:invisible [&>div]:invisible",
             )}
           >
             <ActionBtn

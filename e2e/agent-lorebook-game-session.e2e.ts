@@ -175,7 +175,7 @@ for (const theme of ["dark", "light"] as const) {
         await page.screenshot({ path: testInfo.outputPath("game-session-reference.png") });
         const toggle = attachment.getByRole("checkbox", { name: "Attach lorebook for the specific agent" });
         await expect(toggle).toBeChecked();
-        await expect(attachment.getByRole("combobox", { name: "Reference lorebook" })).toHaveValue(bookId);
+        await expect(attachment.getByRole("button", { name: "Reference lorebook" })).toHaveText("Game reference");
         const saved = page.waitForRequest(
           (request) =>
             request.method() === "PATCH" &&

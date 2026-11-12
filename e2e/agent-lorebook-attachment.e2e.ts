@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseCharacter } from "./character-picker.js";
 import { chatSettingsDrawer, drawerToggle, openChatSettings } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -84,11 +85,11 @@ for (const theme of ["dark", "light"] as const) {
       await expect(attachment).toBeVisible();
       const checkbox = () => attachment.getByRole("checkbox", { name: "Attach lorebook for the specific agent" });
       await expect(checkbox()).not.toBeChecked();
-      await expect(attachment.getByRole("combobox")).toHaveCount(0);
+      await expect(attachment.locator("[data-lorebook-picker-trigger]")).toHaveCount(0);
       await attachment.getByText("Attach lorebook for the specific agent", { exact: true }).click();
-      const select = () => attachment.getByRole("combobox", { name: "Reference lorebook" });
+      const select = () => attachment.getByRole("button", { name: "Reference lorebook" });
       await expect(select()).toBeEnabled();
-      await select().selectOption(book.id);
+      await chooseCharacter(page, select(), "Reference lorebook", book.name);
       const metadata = async () => (await (await page.request.get(`/api/chats/${chat.id}`)).json()).metadata;
       await expect
         .poll(async () => (await metadata()).agentLorebookAttachments["prose-guardian"].lorebookId)
@@ -108,19 +109,24 @@ for (const theme of ["dark", "light"] as const) {
       await page.reload();
       attachment = await open();
       await expect(checkbox()).toBeChecked();
-      await expect(select()).toHaveValue(book.id);
+      await expect(select()).toHaveText(book.name);
       await attachment.getByText("Attach lorebook for the specific agent", { exact: true }).click();
       await expect.poll(async () => (await metadata()).agentLorebookAttachments["prose-guardian"].enabled).toBe(false);
       await expect(select()).toHaveCount(0);
       await attachment.getByText("Attach lorebook for the specific agent", { exact: true }).click();
-      await expect(select()).toHaveValue(book.id);
+      await expect(select()).toHaveText(book.name);
       const hidden = await page.request.patch(`/api/lorebooks/${book.id}`, { data: { hiddenFromLibrary: true } });
       expect(hidden.ok(), await hidden.text()).toBeTruthy();
       await page.reload();
       attachment = await open();
-      await expect(select()).toHaveValue(book.id);
-      await expect(select().locator(`option[value="${book.id}"]`)).toHaveText(book.name);
-      await expect(select().locator(`option[value="${book.id}"]`)).toHaveJSProperty("disabled", true);
+      await expect(select()).toHaveText(book.name);
+      // A book hidden from the library stays named on the field, but the picker no longer offers it.
+      await select().click();
+      const picker = page.getByRole("dialog", { name: "Reference lorebook", exact: true });
+      await expect(picker).toBeVisible();
+      await expect(picker.locator("[data-pick-row]").filter({ hasText: book.name })).toHaveCount(0);
+      await picker.press("Escape");
+      await expect(picker).toHaveCount(0);
       await expect(
         attachment.getByText("Select another lorebook. An unavailable attachment adds no reference context."),
       ).toHaveCount(0);
@@ -128,7 +134,7 @@ for (const theme of ["dark", "light"] as const) {
       ids.book = "";
       await page.reload();
       attachment = await open();
-      await expect(select()).toHaveValue(book.id);
+      await expect(select()).toHaveText("Selected lorebook unavailable");
       await expect(
         attachment.getByText("Select another lorebook. An unavailable attachment adds no reference context."),
       ).toBeVisible();

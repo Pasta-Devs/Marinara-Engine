@@ -104,6 +104,9 @@ for (const [store, fields] of Object.entries(pinnedFields)) {
   assert.equal(new Set(fields).size, fields.length, `${store} lists each field once`);
 }
 
+// Only the setter is pinned for the agent store: a package can signal Agent activity but reads none of its state.
+assert.deepEqual([...MARINARA_HOST_STORE_FIELDS.agent], ["setYoutubePlay", "setPackageActivity", "reset"]);
+
 // ── A host library major change needs a capability API major ──
 const MAJOR_CHANGE =
   "A host module major change requires a capability API major bump (docs/development/optional-agent-packages.md#host-client-namespace)";
