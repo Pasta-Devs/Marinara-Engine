@@ -4911,7 +4911,10 @@
 
 /* ─── Theme nitpick audit round 2, batch 3 (phones and tablets): siblings share one shape ─── */
 /* DM1: the Chats panel toolbar is all pills, like the Library toolbars ("+ New" was the only pill). */
-:root[data-overhaul="mobile"] .ov-chats-tools > :first-child :is(input.mari-chrome-field, .mari-chrome-control):not(#ovm-x) {
+:root[data-overhaul="mobile"]
+  .ov-chats-tools
+  > :first-child
+  :is(input.mari-chrome-field, .mari-chrome-control):not(#ovm-x) {
   border-radius: 999px;
 }
 :root[data-overhaul="mobile"] .ov-chats-tools > :first-child input.mari-chrome-field:not(#ovm-x) {
@@ -4969,10 +4972,12 @@
   align-items: baseline;
   padding-block: calc((3.25rem - 1.5rem) / 2);
 }
-.ovm-drill-row:not([data-ovm-level="root"] *):has(> .ovm-drill-row__value) > :is(.ovm-drill-row__title, .ovm-drill-row__value) {
+.ovm-drill-row:not([data-ovm-level="root"] *):has(> .ovm-drill-row__value)
+  > :is(.ovm-drill-row__title, .ovm-drill-row__value) {
   line-height: 1.5rem;
 }
-.ovm-drill-row:not([data-ovm-level="root"] *):has(> .ovm-drill-row__value) > :not(.ovm-drill-row__title, .ovm-drill-row__value) {
+.ovm-drill-row:not([data-ovm-level="root"] *):has(> .ovm-drill-row__value)
+  > :not(.ovm-drill-row__title, .ovm-drill-row__value) {
   align-self: center;
 }
 
@@ -4996,7 +5001,8 @@
 .ovm-sheet__more.ov-rpf-menu
   .mari-message-actions
   > :nth-child(
-    1 of
+    1
+      of
       :not(
         button:has(
           > svg.lucide-copy,
@@ -5020,4 +5026,26 @@
   :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__head > .ov-btn--primary {
     order: 3;
   }
+  /* Characters: "All" moves from its own line to the right of the sort, under a full-width search. */
+  :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__head > .ovm-lp-filter:not(#ovm-x) {
+    display: none;
+  }
+  :root[data-ov-split-pane][data-overhaul="mobile"]
+    .ov-gallery__tools:has(> .ovm-lp-filter--tools):not(#ovm-x):not(#ovm-y) {
+    flex-wrap: wrap;
+  }
+  :root[data-ov-split-pane][data-overhaul="mobile"]
+    .ov-gallery__tools:has(> .ovm-lp-filter--tools)
+    > .ov-search:not(#ovm-x):not(#ovm-y) {
+    flex: 1 1 100%;
+  }
+  :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__tools > .ovm-lp-filter--tools:not(#ovm-x):not(#ovm-y) {
+    display: inline-flex;
+    flex: 1 1 0;
+    min-width: 4.25rem;
+    max-width: 6.5rem;
+  }
+}
+.ov-gallery__tools > .ovm-lp-filter--tools {
+  display: none;
 }

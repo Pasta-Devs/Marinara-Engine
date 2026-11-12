@@ -326,6 +326,21 @@ export function CardGallery({
     </div>
   );
 
+  const quickSelect = (className: string) => (
+    <select
+      className={cn("ov-select", className)}
+      value={quick ?? "all"}
+      onChange={(event) => {
+        const value = event.target.value;
+        setQuick(value === "all" ? null : (value as QuickFilter));
+      }}
+      aria-label={localize("Filter")}
+    >
+      <option value="all">{localize("All")}</option>
+      <option value="favorites">{localize("Favorites")}</option>
+    </select>
+  );
+
   return (
     <section className="ov-gallery" data-component="OverhaulCardGallery" data-kind={kind}>
       <header className="ov-gallery__head">
@@ -358,20 +373,7 @@ export function CardGallery({
           <Plus size={14} aria-hidden="true" />
           {mobile ? localize("New") : localize(kind === "characters" ? "New character" : "New persona")}
         </button>
-        {mobile && kind === "characters" ? (
-          <select
-            className="ov-select ovm-lp-filter"
-            value={quick ?? "all"}
-            onChange={(event) => {
-              const value = event.target.value;
-              setQuick(value === "all" ? null : (value as QuickFilter));
-            }}
-            aria-label={localize("Filter")}
-          >
-            <option value="all">{localize("All")}</option>
-            <option value="favorites">{localize("Favorites")}</option>
-          </select>
-        ) : null}
+        {mobile && kind === "characters" ? quickSelect("ovm-lp-filter") : null}
       </header>
       <div className="ov-gallery__tools">
         <label className="ov-search">
@@ -409,6 +411,9 @@ export function CardGallery({
           <option value="oldest">{localize("Oldest")}</option>
           <option value="custom">{localize("My order")}</option>
         </select>
+        {/* A narrow split side shows this copy (beside the sort) and hides the header one, so the
+            toolbar keeps three lines (overhaul-mobile.css, SV14). */}
+        {mobile && kind === "characters" ? quickSelect("ovm-lp-filter ovm-lp-filter--tools") : null}
         <div className="ov-seg ov-gallery__size" role="group" aria-label={localize("Card size")}>
           {GALLERY_SIZES.map((option) => (
             <button
