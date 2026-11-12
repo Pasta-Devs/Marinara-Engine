@@ -6865,7 +6865,10 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
           </div>
 
           {/* Info box */}
-          <div className="flex flex-col gap-1.5 rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+          <div
+            data-settings-tip=""
+            className="flex flex-col gap-1.5 rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]"
+          >
             <p>
               <strong>{localizeUi("ui.panels.themessettings.tip")}</strong>{" "}
               {localizeUi("theming.tip.body", {
@@ -6879,12 +6882,15 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             <button
               type="button"
               onClick={openThemeGuide}
-              className="inline-flex items-center gap-1 self-start font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+              data-settings-tip-link=""
+              className="inline-flex items-start gap-1.5 self-start text-left font-medium text-[var(--primary)] underline-offset-2 hover:underline"
             >
-              <BookOpen size="0.6875rem" />
-              {localizeUi("theming.guide.link", {
-                defaultValue: "Theme author guide: every token, part hook and safety rule",
-              })}
+              <BookOpen size="0.6875rem" className="mt-[0.2em] shrink-0" />
+              <span>
+                {localizeUi("theming.guide.link", {
+                  defaultValue: "Theme author guide: every token, part hook and safety rule",
+                })}
+              </span>
             </button>
           </div>
         </div>

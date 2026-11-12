@@ -82,10 +82,10 @@ export function ThemeGallery({ starterThemes }: { starterThemes: Theme[] }) {
 
   if (!open) {
     return (
-      <span className="mt-2 flex flex-col gap-1" data-theme-gallery="">
-        <button type="button" onClick={() => setOpen(true)} className={cn(SETTINGS_BUTTON_CLASS, "self-start")}>
+      <span className="mt-2 flex flex-col gap-2" data-theme-gallery="">
+        <button type="button" onClick={() => setOpen(true)} className={cn(SETTINGS_BUTTON_CLASS, "w-full")}>
           <Download size="0.75rem" />
-          {localizeUi("theming.gallery.browse", { defaultValue: "Browse the theme gallery" })}
+          <span>{localizeUi("theming.gallery.browse", { defaultValue: "Browse the theme gallery" })}</span>
         </button>
         <span className="mari-chrome-text-muted text-[0.6875rem]">
           {localizeUi("theming.gallery.browseHelp", {

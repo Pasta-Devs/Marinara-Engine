@@ -12955,6 +12955,19 @@ input.ov-edhead__title:not(#ov-x) {
   border: 1px dashed color-mix(in srgb, var(--ov-accent) 35%, var(--ov-line));
   border-radius: 0.75rem;
 }
+/* CSS themes "Tip" keeps its box: on the rows' column (2px in, like the theme cards above it), real padding, the
+   rows' radius, room below it, and no row divider above it (a divider over a box never matched its width; nitpick
+   audit 2 OWN2). The ids beat the desktop and phone row-flattening rules. */
+[data-ov-settings-sections] section[id^="settings-section-"] > div:last-child > .flex-col > [data-settings-tip]:not(#ov-x):not(#ov-y) {
+  margin: 0.5rem 0.125rem 0.875rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid color-mix(in srgb, var(--ov-line) 80%, transparent);
+  border-radius: var(--radius-lg, 0.75rem);
+  box-shadow: none;
+}
+[data-ov-settings-sections] section[id^="settings-section-"] > div:last-child > .flex-col > :has(+ [data-settings-tip]):not(#ov-x):not(#ov-y) {
+  border-bottom: 0;
+}
 /* New layout: the Character and Persona editors are siblings, so their field headings ("Description",
    "Personality"…) share one size and weight (the classic panel keeps the compact persona look; audit D6). */
 :root:is([data-overhaul="on"], [data-overhaul="mobile"]) [data-card-field-heading] {
