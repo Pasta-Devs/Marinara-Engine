@@ -151,7 +151,10 @@ export interface GameTurnChanceSession {
    * these alone: they are the Engine's own rolls, and a second roll could contradict the half of the
    * branch already kept. Vouching cannot say so for a ruleset whose records are never vouched for.
    */
-  readonly engineRecords: Set<string>;
+  readonly engineRecords: Map<string, number>;
+  /** The faces those records' dice showed, exactly as this arm put them among the dice thrown this
+   *  turn (`issuedD20s`), so the tag pass can take them back out without reading the records. */
+  readonly engineDice: number[];
 }
 
 export interface GameTurnChanceSessionOptions {
@@ -206,7 +209,8 @@ export function createGameTurnChanceSession(options: GameTurnChanceSessionOption
     placeholders: [],
     failed: false,
     issuedD20s: options.playerD20s ? [...options.playerD20s] : null,
-    engineRecords: new Set(),
+    engineRecords: new Map(),
+    engineDice: [],
   };
 }
 
@@ -401,14 +405,20 @@ export async function resolveGameTurnBranches(
         const group = resolveRulesetGroupCheck(context, request, groupRollers, () => session.roll(20));
         outcome = group.success;
         for (const one of group.results) {
-          if (session.issuedD20s && one.resolution === "sum") session.issuedD20s.push(...one.rolls);
+          if (session.issuedD20s && one.resolution === "sum") {
+            session.issuedD20s.push(...one.rolls);
+            session.engineDice.push(...one.rolls);
+          }
         }
         const groupRecord = serializeRulesetGroupCheck(request, group, {
           ...(request.difficulty ? { difficulty: request.difficulty } : {}),
           ...(request.withAbility ? { with: request.withAbility } : {}),
           ...(request.purpose ? { for: request.purpose } : {}),
         });
-        for (const one of groupRecord.match(/\[skill_check:[^\]]*\]/gi) ?? []) session.engineRecords.add(one);
+        // Only what was rolled is the Engine's record; a member's refusal stays an ask the tag pass reads.
+        for (const one of groupRecord.match(/\[skill_check:[^\]]*\]/gi) ?? []) {
+          if (/\srolls="/.test(one)) session.engineRecords.set(one, (session.engineRecords.get(one) ?? 0) + 1);
+        }
         edits.push({ start: plan.check.start, end: plan.check.end, replacement: groupRecord });
       } else if (
         context.ruleset &&
@@ -452,9 +462,12 @@ export async function resolveGameTurnBranches(
         result = resolveSkillCheckWithContext(context, request, () => session.roll(20));
         outcome = result.success;
         // The record this writes is the Engine's own, so the tag pass after this one must vouch for it.
-        if (session.issuedD20s && result.resolution === "sum") session.issuedD20s.push(...result.rolls);
+        if (session.issuedD20s && result.resolution === "sum") {
+          session.issuedD20s.push(...result.rolls);
+          session.engineDice.push(...result.rolls);
+        }
         const record = serializeResolvedSkillCheckTag(result);
-        session.engineRecords.add(record);
+        session.engineRecords.set(record, (session.engineRecords.get(record) ?? 0) + 1);
         edits.push({ start: plan.check.start, end: plan.check.end, replacement: record });
       }
     }
