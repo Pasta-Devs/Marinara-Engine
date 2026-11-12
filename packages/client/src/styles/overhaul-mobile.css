@@ -5026,8 +5026,9 @@
   :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__head > .ov-btn--primary {
     order: 3;
   }
-  /* Characters: "All" moves from its own line to the right of the sort, under a full-width search. */
-  :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__head > .ovm-lp-filter:not(#ovm-x) {
+  /* Every Library page: the filter (and list/grid switch) moves from the header to the right of the
+     sort, under a full-width search, so it is in the same spot on every page. */
+  :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__head > :is(.ovm-lp-filter, .ovm-lp-view):not(#ovm-x) {
     display: none;
   }
   :root[data-ov-split-pane][data-overhaul="mobile"]
@@ -5045,7 +5046,18 @@
     min-width: 4.25rem;
     max-width: 6.5rem;
   }
+  :root[data-ov-split-pane][data-overhaul="mobile"]
+    .ov-gallery__tools
+    > .ovm-lp-filter--tools.ovm-conn-group:not(#ovm-x):not(#ovm-y) {
+    flex: 0 1 auto;
+    max-width: none;
+  }
+  :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__tools > .ovm-lp-view--tools:not(#ovm-x):not(#ovm-y) {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
 }
-.ov-gallery__tools > .ovm-lp-filter--tools {
+.ov-gallery__tools > :is(.ovm-lp-filter--tools, .ovm-lp-view--tools) {
   display: none;
 }

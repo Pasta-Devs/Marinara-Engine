@@ -6,7 +6,16 @@
 // items have pictures, sort) and a dense table. Clicking a row opens its editor.
 // ──────────────────────────────────────────────
 import { placeholderArt } from "../../lib/placeholder-art";
-import { Fragment, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import {
+  Fragment,
+  cloneElement,
+  isValidElement,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 import {
   CheckSquare,
   Copy,
@@ -246,20 +255,21 @@ function ListPage<T extends { id: string }>({
       : undefined,
   });
   const { groups, loose } = groupByFolder(rows, kit?.folders ?? null, !!kit?.filtering);
-  const chipSelect = chips?.length ? (
+  const makeChipSelect = (toolsCopy = false) => (
     <select
-      className={cn("ov-select", mobile && "ovm-lp-filter")}
+      className={cn("ov-select", mobile && "ovm-lp-filter", toolsCopy && "ovm-lp-filter--tools")}
       value={chip}
       onChange={(event) => onChip?.(event.target.value)}
       aria-label={localize("Filter")}
     >
-      {chips.map((item) => (
+      {(chips ?? []).map((item) => (
         <option key={item.id} value={item.id}>
           {item.id === "all" ? localize(mobile ? "All" : "All kinds") : localize(item.label)}
         </option>
       ))}
     </select>
-  ) : null;
+  );
+  const chipSelect = chips?.length ? makeChipSelect() : null;
   const selecting = !!kit?.selection.on;
   const colCount = columns.length + (leading ? 1 : 0) + (selecting ? 1 : 0) + (kit ? 1 : 0);
   const folderHead = (folder: KitFolder, count: number) =>
@@ -360,6 +370,12 @@ function ListPage<T extends { id: string }>({
         <span className="ov-gallery__spacer" />
         {mobile ? null : view}
         {toolsEnd}
+        {/* Narrow split side: these copies sit after the sort and the header ones hide, so the
+            filter is in the same spot on every Library page (overhaul-mobile.css, SV14). */}
+        {mobile && chips?.length ? makeChipSelect(true) : null}
+        {mobile && isValidElement<{ className?: string }>(view)
+          ? cloneElement(view, { className: "ovm-lp-view--tools" })
+          : null}
       </div>
       {rows.length === 0 && groups.length === 0 ? (
         <p className="ov-list__empty">{empty}</p>
@@ -440,13 +456,21 @@ export type GalleryExtra = {
   more: ReactNode;
 };
 
-export function ViewSwitch({ gallery, onChange }: { gallery: boolean; onChange: (gallery: boolean) => void }) {
+export function ViewSwitch({
+  gallery,
+  onChange,
+  className,
+}: {
+  gallery: boolean;
+  onChange: (gallery: boolean) => void;
+  className?: string;
+}) {
   const localize = useLocalizedUiText();
   const mobile = useOverhaulMobile();
   if (mobile) {
     // Phones: two icon buttons, like the composer's toggles.
     return (
-      <div className="ovm-lp-view" role="group" aria-label={localize("View")}>
+      <div className={cn("ovm-lp-view", className)} role="group" aria-label={localize("View")}>
         <button
           type="button"
           className={cn(!gallery && "is-on")}

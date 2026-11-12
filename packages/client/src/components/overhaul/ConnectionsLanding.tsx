@@ -704,9 +704,9 @@ export function ConnectionsLanding() {
     setMenu((current) => (current?.id === id ? null : { id, x: rect.right, y: rect.bottom + 4 }));
   };
 
-  const kindSelect = (
+  const makeKindSelect = (toolsCopy = false) => (
     <select
-      className={cn("ov-select", ovMobile && "ovm-lp-filter")}
+      className={cn("ov-select", ovMobile && "ovm-lp-filter", toolsCopy && "ovm-lp-filter--tools")}
       value={kind}
       onChange={(event) => setKind(event.target.value as KindFilter)}
       aria-label={localize("Kind")}
@@ -720,9 +720,9 @@ export function ConnectionsLanding() {
   );
 
   // Phones: the grouping sits beside the kind filter on the header line; search and sort share the next line.
-  const groupSelect = (
+  const makeGroupSelect = (toolsCopy = false) => (
     <select
-      className={cn("ov-select", ovMobile && "ovm-lp-filter ovm-conn-group")}
+      className={cn("ov-select", ovMobile && "ovm-lp-filter ovm-conn-group", toolsCopy && "ovm-lp-filter--tools")}
       value={groupBy}
       onChange={(event) => setGroupBy(event.target.value as "connection" | "folder")}
       aria-label={localize("Group")}
@@ -731,6 +731,9 @@ export function ConnectionsLanding() {
       <option value="folder">{localize("By folder")}</option>
     </select>
   );
+
+  const kindSelect = makeKindSelect();
+  const groupSelect = makeGroupSelect();
 
   return (
     <section className="ov-list ov-conn" data-component="OverhaulConnections">
@@ -797,6 +800,9 @@ export function ConnectionsLanding() {
           <option value="recent">{localize("Recent")}</option>
         </select>
         {!ovMobile && groupSelect}
+        {/* Narrow split side: filters move beside the sort, like every Library page (SV14). */}
+        {ovMobile && makeKindSelect(true)}
+        {ovMobile && makeGroupSelect(true)}
       </div>
       <DefaultsGrid connectionsList={rows} />
       {visible.groups.length === 0 && visible.standalone.length === 0 && (needle || kind !== "all") ? (
