@@ -2491,8 +2491,16 @@ export async function resolveSkillCheckTagsInContent(
           stripped.push({
             start: match.index,
             end: match.index + match[0].length,
+            // The ask keeps the dice and the system it named, so nothing rolls it as a d20 later.
             replacement: serializeSparseSkillCheckTag(
-              { skill: tag.skill, dc: tag.dc, advantage: tag.advantage, disadvantage: tag.disadvantage },
+              {
+                skill: tag.skill,
+                dc: tag.dc,
+                advantage: tag.advantage,
+                disadvantage: tag.disadvantage,
+                declaredDice: tag.declaredDice,
+                declaredResolution: tag.declaredResolution,
+              },
               askExtras(tag),
             ),
           });
@@ -2572,8 +2580,16 @@ export async function resolveSkillCheckTagsInContent(
         // ruleset might have rolled goes back sparse through the catch below; a tag that names
         // another system outright is left exactly as written.
         for (const entry of deferred) {
-          if (entry.tag.declaredResolution != null && entry.tag.declaredResolution !== "sum") left += 1;
-          else pending.push({ start: entry.start, end: entry.end, request: toRequest(entry.tag), tag: entry.tag });
+          // One that claims what only a ruleset's roll can give is not left: it goes back as an ask.
+          if (
+            entry.tag.declaredResolution != null &&
+            entry.tag.declaredResolution !== "sum" &&
+            !claimsRulesetDice(entry.tag)
+          ) {
+            left += 1;
+          } else {
+            pending.push({ start: entry.start, end: entry.end, request: toRequest(entry.tag), tag: entry.tag });
+          }
         }
         keepWho = true;
         throw err;
@@ -2645,6 +2661,9 @@ export async function resolveSkillCheckTagsInContent(
                 disadvantage: tag.disadvantage,
                 // The "0dN" of a record that claims no roll labels no dice anybody would throw.
                 declaredDice: claimsNoRoll ? undefined : tag.declaredDice,
+                ...(claimsRulesetDice(tag) && tag.declaredResolution
+                  ? { declaredResolution: tag.declaredResolution }
+                  : {}),
               },
               askExtras(tag),
             ),
