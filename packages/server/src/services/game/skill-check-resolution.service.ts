@@ -2389,6 +2389,8 @@ export async function resolveSkillCheckTagsInContent(
       }
       // A record a branch arm wrote this turn is the Engine's own roll: never rolled a second time.
       if (options.engineRecords?.has(match[0])) {
+        // Its dice are spent all the same, so no other record this turn can claim the same faces.
+        if (issued && tag.resolvedResult) takeIssuedD20s(issued, tag.resolvedResult.rolls);
         trusted += 1;
         left += 1;
         continue;
