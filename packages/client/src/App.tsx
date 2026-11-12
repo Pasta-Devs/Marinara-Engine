@@ -1433,7 +1433,9 @@ export function App() {
   return (
     <>
       <CustomThemeInjector />
-      <ThemeSafetyHost />
+      {/* The theme notices belong to the window, not each split side: one in the narrow second side
+          covered its last messages and the composer (audit SV25). */}
+      {SPLIT_PANE ? null : <ThemeSafetyHost />}
       <PersonalExtensionInjector />
       {SPLIT_PANE ? null : <ChibiProfessorMariEasterEgg />}
       <Suspense fallback={null}>
