@@ -21,7 +21,7 @@ jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       # Build the incremental (overlay) base database on staging pushes, so PRs into staging
       # can analyse only their diff. The action otherwise builds it only on the default branch.

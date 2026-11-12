@@ -41,6 +41,7 @@ import {
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DescriptionSplitDialog } from "../characters/DescriptionSplitDialog";
 import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { characterKeys } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api } from "../../lib/api-client";
@@ -1913,6 +1914,15 @@ export function BotBrowserView() {
     }
   }, [selectedCard]);
 
+  // One step-back for the button, a failed detail load and hardware Back.
+  const closeDetail = () => {
+    restoreResultsScrollRef.current = true;
+    setSelectedCard(null);
+    setDetail(null);
+  };
+  // The browser stays mounted while closed, so only a visible character page owns a Back layer.
+  useBackDismiss(botBrowserOpen && !!selectedCard, closeDetail);
+
   const openDetail = async (card: BrowseCard) => {
     resultsScrollTopRef.current = mainScrollRef.current?.scrollTop ?? 0;
     openDetailScrollRef.current = true;
@@ -1930,8 +1940,7 @@ export function BotBrowserView() {
       }
       if (err instanceof PygmalionSessionExpiredError) expirePygmalionSession();
       else toast.error(localizeUi("ui.botBrowser.botbrowserview.failedToLoadCharacterDetails"));
-      restoreResultsScrollRef.current = true;
-      setSelectedCard(null);
+      closeDetail();
     } finally {
       setDetailLoading(false);
     }
@@ -2610,11 +2619,7 @@ export function BotBrowserView() {
               loading={detailLoading}
               importing={importing}
               provider={provider}
-              onBack={() => {
-                restoreResultsScrollRef.current = true;
-                setSelectedCard(null);
-                setDetail(null);
-              }}
+              onBack={closeDetail}
               onImport={handleImport}
               tagImportMode={tagImportMode}
               onTagImportModeChange={setTagImportMode}
@@ -3598,15 +3603,15 @@ function DetailView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 flex items-center gap-2 bg-[var(--background)] px-4 py-2">
         <button
           type="button"
           onClick={onBack}
           className="mari-editor-action inline-flex shrink-0"
           title={localizeUi("ui.botBrowser.detailview.backToResults")}
-          aria-label={localizeUi("ui.botBrowser.detailview.backToResults")}
         >
           <ArrowLeft size="1.125rem" />
+          {localizeUi("ui.botBrowser.detailview.backToResults")}
         </button>
         <div className="flex-1" />
         <a

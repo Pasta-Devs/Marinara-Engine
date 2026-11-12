@@ -443,7 +443,7 @@ export function ConnectionGroup({
             <button
               type="button"
               onClick={(event) => setMenu(menuAt(event))}
-              className={cn(ROW_BUTTON, "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}
+              className={ROW_BUTTON}
               title={t("connections.accounts.row.actions", { name: account.name })}
               aria-label={t("connections.accounts.row.actions", { name: account.name })}
               aria-haspopup="menu"
@@ -456,10 +456,7 @@ export function ConnectionGroup({
             <button type="button" tabIndex={-1} aria-hidden onClick={onToggle} className={ROW_BUTTON}>
               <ChevronDown
                 size="0.875rem"
-                className={cn(
-                  "text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
-                  !open && "-rotate-90",
-                )}
+                className={cn("transition-transform motion-reduce:transition-none", !open && "-rotate-90")}
               />
             </button>
           </>

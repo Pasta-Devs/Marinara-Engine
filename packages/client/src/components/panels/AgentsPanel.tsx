@@ -30,7 +30,6 @@ import {
   Dices,
   Grid3x3,
   Upload,
-  CirclePlus,
   Store,
   MessageSquare,
   SlidersHorizontal,
@@ -562,30 +561,34 @@ export function AgentsPanel() {
     hint?: string;
     icon: ReactNode;
     agents: typeof panelBuiltInAgents;
-  }> = activeChat
-    ? [
-        {
-          key: "in-chat",
-          title: localizeUi("ui.panels.agentspanel.inThisChat"),
-          hint: activeChat.name,
-          icon: <MessageSquare size="0.8125rem" />,
-          agents: panelBuiltInAgents.filter((agent) => isInActiveChat({ id: agent.id, type: agent.id })),
-        },
-        {
-          key: "not-in-chat",
-          title: localizeUi("ui.panels.agentspanel.notInThisChat"),
-          hint: localizeUi("ui.panels.agentspanel.notInThisChatHint"),
-          icon: <CirclePlus size="0.8125rem" />,
-          agents: panelBuiltInAgents.filter((agent) => !isInActiveChat({ id: agent.id, type: agent.id })),
-        },
-      ]
-    : // The Agent Organizer's store sections, so an agent sits in the same group in both places.
+  }> = (() => {
+    // The Agent Organizer's store sections, so an agent sits in the same group in both places.
+    const storeSections = (agents: typeof panelBuiltInAgents) =>
       ORGANIZER_SECTIONS.map((section) => ({
         key: section,
         title: localizeUi(sectionLabelKey(section)),
+        hint: undefined as string | undefined,
         icon: STORE_SECTION_ICONS[section],
-        agents: panelBuiltInAgents.filter((agent) => storeSectionOf(agent) === section),
+        agents: agents.filter((agent) => storeSectionOf(agent) === section),
       })).filter((section) => section.agents.length > 0);
+    if (!activeChat) return storeSections(panelBuiltInAgents);
+    // In a chat, the few agents already in it share one section; the rest keep their store groups,
+    // so the agents you might add are not one long flat list. The drag hint sits on the first of those.
+    const notInChat = storeSections(
+      panelBuiltInAgents.filter((agent) => !isInActiveChat({ id: agent.id, type: agent.id })),
+    );
+    if (notInChat[0]) notInChat[0].hint = localizeUi("ui.panels.agentspanel.notInThisChatHint");
+    return [
+      {
+        key: "in-chat",
+        title: localizeUi("ui.panels.agentspanel.inThisChat"),
+        hint: activeChat.name,
+        icon: <MessageSquare size="0.8125rem" />,
+        agents: panelBuiltInAgents.filter((agent) => isInActiveChat({ id: agent.id, type: agent.id })),
+      },
+      ...notInChat,
+    ];
+  })();
   const visibleCustomAgents = manualOrder.orderItems(
     sortBasicPanelItems(
       customAgents.filter(
@@ -1563,7 +1566,7 @@ export function AgentsPanel() {
       )}
 
       {hasInstalledAgents && (
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-1">
             <button
               onClick={handleCreateFolder}

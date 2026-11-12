@@ -146,6 +146,8 @@ const capabilityPackageManifestBaseSchema = z
               "roleplay-tracker",
               // Package-owned content inside the detached or docked Tracker Panel.
               "tracker-panel",
+              // Package-owned card in the chat's Agent activity panel.
+              "chat-activity",
             ]),
           )
           .optional(),
@@ -1586,6 +1588,12 @@ const capabilityPackageManifestBaseSchema = z
 //        library's own search, sort and summary), and `updateCharacterExtensions(id, patch)`, which merges keys into
 //        `data.extensions` without a card version, queued behind the Engine's own saves. The write needs the new
 //        `character-write` permission. A soft seam: older Engines leave the members out, so a package checks for them.
+// 1.820: the `chat-activity` slot: a package with a client entrypoint that the chat runs can mount its `activity`
+//        view as a card in the chat's Agent activity panel (props `chatId`, `onOpenAgentSettings`). Not a soft seam:
+//        an Engine older than 1.820 refuses the manifest, so a package that declares `chat-activity` declares 1.820.
+//        Also `__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })`: the Agent
+//        activity icon spins while a package is busy and shows its dot on an alert. A soft seam: older Engines leave
+//        the method out, so a package checks for it.
 // 1.821: a summed check's two named dice (`resolution.duality`): Daggerheart's Hope and Fear, the higher one
 //        recorded as `duality=`, and a tie a critical success. Not a soft seam: an Engine that cannot read
 //        it refuses the whole ruleset file. No permission.
