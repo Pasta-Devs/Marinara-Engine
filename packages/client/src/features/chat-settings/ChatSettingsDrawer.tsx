@@ -5776,6 +5776,7 @@ export function ChatSettingsDrawer({
           )}
           {modeSettingsSurfaces.showSettingsProfiles && (
             <div
+              data-chat-settings-profiles
               style={{ order: CHAT_SETTINGS_ORDER.settingsPresets }}
               className="flex shrink-0 flex-col gap-2 border-b border-[var(--border)] px-4 py-3"
             >
