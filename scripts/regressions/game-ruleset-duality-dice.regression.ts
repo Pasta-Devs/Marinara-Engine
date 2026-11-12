@@ -105,6 +105,11 @@ try {
       "one label twice",
     );
     refuses(
+      doc((d) => ((d.resolution.duality.dice[0].label = 'Hope"'), (d.resolution.duality.dice[1].label = "Hope'"))),
+      /share a label/,
+      "labels the record writes alike",
+    );
+    refuses(
       doc((d) => (d.resolution.duality.dice[1].label = "Tie")),
       /labelled "tie"/,
       "a die labelled tie",
