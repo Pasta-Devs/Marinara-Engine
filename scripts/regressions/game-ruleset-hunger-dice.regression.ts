@@ -161,6 +161,15 @@ try {
     assert.match(record, /hunger="2" hungerLabel="Hunger" messy="true"/);
     const back = parseSkillCheckTagBody(record.slice("[skill_check:".length, -1))?.resolvedResult;
     assert.deepEqual([back?.hunger, back?.hungerLabel, back?.messy, back?.total], [2, "Hunger", true, 5]);
+    // A count above the dice thrown names no dice, so a record that claims one reads back without it.
+    const over = parseSkillCheckTagBody(
+      record.slice("[skill_check:".length, -1).replace('hunger="2"', 'hunger="50"'),
+    )?.resolvedResult;
+    assert.ok(over, "the roll itself is still read");
+    assert.deepEqual(
+      [over.hunger, over.hungerLabel, over.messy, over.bestial],
+      [undefined, undefined, undefined, undefined],
+    );
     assert.match(formatSkillCheckResultSummary(back!), /2 Hunger dice \(the first 2\); a messy critical\.$/);
     const bestialBack = parseSkillCheckTagBody(
       serializeResolvedSkillCheckTag({ skill: "Dig", dc: 2, modifier: 0, resolution: "successes", ...bestial }).slice(

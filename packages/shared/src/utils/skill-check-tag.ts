@@ -663,15 +663,17 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
         }
       : {}),
     ...(tag.shift ? { shift: tag.shift } : {}),
-    ...(tag.hunger
+  };
+  // Special dice are some of the dice thrown, so a count above them names no dice and is left out.
+  const special = (thrown: number) =>
+    tag.hunger && tag.hunger <= thrown
       ? {
           hunger: tag.hunger,
           ...(hungerLabel ? { hungerLabel } : {}),
           ...(values.get("messy")?.trim().toLowerCase() === "true" ? { messy: true } : {}),
           ...(values.get("bestial")?.trim().toLowerCase() === "true" ? { bestial: true } : {}),
         }
-      : {}),
-  };
+      : {};
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
   const total = Number.parseInt(values.get("total") ?? "", 10);
@@ -835,6 +837,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     ...adjust,
     ...thrownAgain,
     ...effected,
+    ...special(rolls.length),
   };
 
   return tag;
