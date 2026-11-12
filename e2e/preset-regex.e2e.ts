@@ -321,12 +321,12 @@ test("regex library folders pause chat display and bulk toggles keep each script
     await page.getByRole("checkbox", { name: "Select Pack format", exact: true }).check();
     await page.getByRole("checkbox", { name: "Select Pack experimental", exact: true }).check();
     await page.getByRole("button", { name: "Move to folder", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Test pack", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Test pack", exact: true }).click();
     await expect(folder.getByRole("checkbox", { name: "Select Pack format", exact: true })).toBeChecked();
     expect((await scriptState()).map((row) => row?.[1])).toEqual(originalOrders);
     await exitSelection.click();
 
-    await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).uncheck();
+    await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).locator("..").click();
     await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(2);
     await expect(folder.getByRole("checkbox", { name: "Run Pack format", exact: true })).toBeChecked();
     await expect(folder.getByRole("checkbox", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
@@ -359,9 +359,9 @@ test("regex library folders pause chat display and bulk toggles keep each script
     expect(rejected.status()).toBe(404);
     expect((await scriptState())[0]?.[0]).toBe("false");
     await exitSelection.click();
-    await folder.getByRole("checkbox", { name: "Run Pack format", exact: true }).check();
+    await folder.getByRole("checkbox", { name: "Run Pack format", exact: true }).locator("..").click();
     await expect(message).toContainText("PACK_RAW and outside formatted");
-    await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).check();
+    await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).locator("..").click();
     await expect(message).toContainText("pack formatted and outside formatted");
     await expect(folder.getByRole("checkbox", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
     await page.getByRole("button", { name: "Execution order", exact: true }).click();

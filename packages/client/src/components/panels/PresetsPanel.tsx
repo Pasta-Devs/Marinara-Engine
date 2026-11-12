@@ -2117,18 +2117,16 @@ function RegexSection({
                             <ChevronDown size="0.75rem" className="shrink-0" />
                           )}
                           <Folder size="0.875rem" className="mari-chrome-accent-icon shrink-0" />
-                          <span className="truncate" title={folder.name}>
-                            {folder.name}
-                          </span>
-                          <span className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">
-                            {scripts.length}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate" title={folder.name}>
+                              {folder.name}
+                            </span>
+                            <span className="flex flex-wrap gap-x-1.5 text-[0.625rem] font-normal text-[var(--muted-foreground)]">
+                              <span>{localizeUi("regex.library.scriptCount", { count: scripts.length })}</span>
+                              {folder.paused && <span>{localizeUi("regex.library.paused")}</span>}
+                            </span>
                           </span>
                         </button>
-                      )}
-                      {folder.paused && (
-                        <span className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">
-                          {localizeUi("regex.library.paused")}
-                        </span>
                       )}
                       <SettingsSwitch
                         ariaLabel={localizeUi("regex.library.folderSwitch", { name: folder.name })}
