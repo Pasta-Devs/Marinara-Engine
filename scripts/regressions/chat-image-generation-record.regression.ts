@@ -385,9 +385,11 @@ try {
   });
   const invalidRewrite = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: guidedDraft });
   assert.equal(invalidRewrite.statusCode, 502, invalidRewrite.body);
+  assert.match(invalidRewrite.json().error, /duplicate.*character IDs/);
   promptModelOutput = JSON.stringify({ ...expectedRewrite, characterPrompts: [] });
   const missingCharacters = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: guidedDraft });
   assert.equal(missingCharacters.statusCode, 502, missingCharacters.body);
+  assert.match(missingCharacters.json().error, /missing.*character IDs/);
   const unknownImage = await app.inject({
     method: "POST",
     url: `/api/gallery/${chat.id}/images/missing-image/regenerate/prompt`,
@@ -548,6 +550,49 @@ try {
     positionedDraft.characterPrompts[1],
   ]);
 
+  const soloDraft = {
+    ...draft,
+    prompt: "1girl, solo, throne room",
+    characterPrompts: [draft.characterPrompts[0]],
+    guidance: "Add a knight named Mira to the scene.",
+  };
+  const newCaption = {
+    prompt: "girl, Mira, knight, silver armor",
+    negativePrompt: "crown",
+    position: { x: 0.3, y: 0.5 },
+  };
+  for (const name of [undefined, "Mira"]) {
+    promptModelOutput = JSON.stringify({
+      ...baseRewrite,
+      prompt: "2girls, throne room",
+      characterPrompts: [
+        { id: 1, name, ...newCaption },
+        { id: 0, prompt: "tall elf queen", negativePrompt: "" },
+      ],
+    });
+    const added = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: soloDraft });
+    assert.equal(added.statusCode, 200, added.body);
+    assert.deepEqual(added.json(), {
+      prompt: "2girls, throne room",
+      negativePrompt: baseRewrite.negativePrompt,
+      characterPrompts: [
+        { ...soloDraft.characterPrompts[0], negativePrompt: "" },
+        { name: name ?? "Character 2", ...newCaption },
+      ],
+    });
+  }
+  const additionMessages = promptModelRequests.at(-1)?.messages ?? [];
+  assert.match(additionMessages.find(({ role }) => role === "system")?.content ?? "", /new characters requested/);
+
+  promptModelOutput = '{"prompt":"unfinished';
+  const invalidJson = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: soloDraft });
+  assert.equal(invalidJson.statusCode, 502, invalidJson.body);
+  assert.match(invalidJson.json().error, /valid JSON object/);
+  promptModelOutput = JSON.stringify({ prompt: "", negativePrompt: "", characterPrompts: [] });
+  const invalidFields = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: soloDraft });
+  assert.equal(invalidFields.statusCode, 502, invalidFields.body);
+  assert.match(invalidFields.json().error, /invalid prompt fields/);
+
   const novelAiV45 = await connections.create({
     name: "NovelAI V4.5 fixture",
     provider: "image_generation",
@@ -572,6 +617,21 @@ try {
     assert.match(response.json().error, /accepts up to 6 character prompts/);
   }
   assert.equal(promptModelRequests.length, requestsBeforeLimitCheck, "oversized drafts never reach the text provider");
+  promptModelOutput = JSON.stringify({
+    ...baseRewrite,
+    characterPrompts: oversizedDraft.characterPrompts.map((character, id) => ({
+      ...character,
+      id,
+      negativePrompt: "",
+    })),
+  });
+  const oversizedRewrite = await app.inject({
+    method: "POST",
+    url: `${regenerateUrl}/prompt`,
+    payload: { ...oversizedDraft, characterPrompts: oversizedDraft.characterPrompts.slice(0, 6) },
+  });
+  assert.equal(oversizedRewrite.statusCode, 502, oversizedRewrite.body);
+  assert.match(oversizedRewrite.json().error, /returned 7 character prompts.*accepts up to 6/);
   assert.equal(imagePrompts.length, 0);
 
   const requestsBeforeImage = promptModelRequests.length;

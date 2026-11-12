@@ -271,11 +271,8 @@ const rewrittenGalleryImagePromptSchema = rewrittenGalleryBasePromptSchema
       .array(
         z
           .object({
-            id: z
-              .number()
-              .int()
-              .min(0)
-              .max(NOVELAI_V5_MAX_CHARACTER_PROMPTS - 1),
+            id: z.number().int().nonnegative(),
+            name: galleryCharacterPromptSchema.shape.name.optional(),
             prompt: z.string().trim().min(1).max(20_000),
             negativePrompt: z.string().max(20_000),
             position: extractedGalleryCharacterPromptSchema.shape.position,
@@ -2229,7 +2226,9 @@ export async function galleryRoutes(app: FastifyInstance) {
                 ...(hasDraftCaptions
                   ? [
                       'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
-                      "Return exactly one entry for each input character with the same id. Omit position to keep its current placement. If the guidance requests a move, include position as an object with numeric x and y between 0 and 1, where x runs left to right and y runs top to bottom.",
+                      "Return one entry for each input character with the same id. Add entries only for new characters requested in the guidance. For each new character, include a short name and assign the next unused id starting at the number of input characters. Update the main prompt's character counts and shared actions as needed.",
+                      `Return at most ${captionLimit} captions in total.`,
+                      "Omit position to keep an existing character's placement or leave a new character's placement automatic. If the guidance requests placement, include position as an object with numeric x and y between 0 and 1, where x runs left to right and y runs top to bottom.",
                     ]
                   : [
                       'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"name":"…","prompt":"…","negativePrompt":"…"}]}.',
@@ -2254,12 +2253,17 @@ export async function galleryRoutes(app: FastifyInstance) {
         systemPrompt,
         userPrompt,
       );
+      const rejectRewrite = (error: string) => {
+        logger.warn("[gallery/regenerate/prompt] Rewrite failed for chat %s: %s", chatId, error);
+        return reply.status(502).send({ error });
+      };
+      const messages: ChatMessage[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ];
+      let result;
       try {
-        const messages: ChatMessage[] = [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ];
-        const result = await runtime.provider.chatComplete(messages, {
+        result = await runtime.provider.chatComplete(messages, {
           model: runtime.model,
           ...(runtime.suppressModelParameters
             ? {}
@@ -2270,49 +2274,65 @@ export async function galleryRoutes(app: FastifyInstance) {
           anthropicExtendedCacheTtl: runtime.anthropicExtendedCacheTtl,
           signal: createResponseAbortSignal(reply, IMAGE_PROMPT_REWRITE_TIMEOUT_MS, "Gallery prompt rewriting"),
         });
-        if (result.finishReason === "length") {
-          return reply.status(502).send({
-            error: "The Prompt Model reached its output limit. Increase the limit or shorten the draft and try again.",
-          });
-        }
-        const raw = (result.content ?? "").replace(/^\s*<think>[\s\S]*?<\/think>/i, "").trim();
-        const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)?.[1] ?? raw;
-        // Repair syntax only when the model supplied an object with a closing brace.
-        const json = fenced.match(/\{[\s\S]*\}/)?.[0];
-        const parsed = json ? tryParseJsonRecord(json) : null;
-        if (captionLimit === 0) {
-          // Preserve the current draft captions for regeneration's cross-provider fallback.
-          return { ...rewrittenGalleryBasePromptSchema.parse(parsed), characterPrompts: input.characterPrompts };
-        }
-        if (!hasDraftCaptions) {
-          const extracted = extractedGalleryImagePromptSchema.parse(parsed);
-          if (extracted.characterPrompts.length > captionLimit) {
-            throw new Error("Extracted character prompts exceed the image model limit");
-          }
-          return extracted;
-        }
-        const revised = rewrittenGalleryImagePromptSchema.parse(parsed);
-        const byId = new Map(revised.characterPrompts.map((character) => [character.id, character]));
-        if (
-          revised.characterPrompts.length !== input.characterPrompts.length ||
-          input.characterPrompts.some((_, id) => !byId.has(id))
-        ) {
-          throw new Error("Rewritten character prompt ids do not match the draft");
-        }
-        return {
-          prompt: revised.prompt,
-          negativePrompt: revised.negativePrompt,
-          characterPrompts: input.characterPrompts.map((character, id) => {
-            const { prompt, negativePrompt, position } = byId.get(id)!;
-            return { ...character, prompt, negativePrompt, ...(position ? { position } : {}) };
-          }),
-        };
       } catch {
-        logger.warn("[gallery/regenerate/prompt] Prompt rewrite failed for chat %s", chatId);
-        return reply
-          .status(502)
-          .send({ error: "The Prompt Model could not return a valid revised prompt. Try again." });
+        return rejectRewrite("The Prompt Model request failed. Try again or check its connection.");
       }
+      if (result.finishReason === "length") {
+        return rejectRewrite(
+          "The Prompt Model reached its output limit. Increase the limit or shorten the draft and try again.",
+        );
+      }
+      const raw = (result.content ?? "").replace(/^\s*<think>[\s\S]*?<\/think>/i, "").trim();
+      const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)?.[1] ?? raw;
+      // Repair syntax only when the model supplied an object with a closing brace.
+      const json = fenced.match(/\{[\s\S]*\}/)?.[0];
+      const parsed = json ? tryParseJsonRecord(json) : null;
+      if (!parsed) return rejectRewrite("The Prompt Model did not return a valid JSON object. Try revising again.");
+
+      const invalidFields = "The Prompt Model returned missing or invalid prompt fields. Try revising again.";
+      if (captionLimit === 0) {
+        // Preserve the current draft captions for regeneration's cross-provider fallback.
+        const base = rewrittenGalleryBasePromptSchema.safeParse(parsed);
+        if (!base.success) return rejectRewrite(invalidFields);
+        return { ...base.data, characterPrompts: input.characterPrompts };
+      }
+      if (Array.isArray(parsed.characterPrompts) && parsed.characterPrompts.length > captionLimit) {
+        return rejectRewrite(
+          `The Prompt Model returned ${parsed.characterPrompts.length} character prompts, but this NovelAI model accepts up to ${captionLimit}. Ask for fewer characters or select another image model.`,
+        );
+      }
+      if (!hasDraftCaptions) {
+        const extracted = extractedGalleryImagePromptSchema.safeParse(parsed);
+        if (!extracted.success) return rejectRewrite(invalidFields);
+        return extracted.data;
+      }
+      const revision = rewrittenGalleryImagePromptSchema.safeParse(parsed);
+      if (!revision.success) return rejectRewrite(invalidFields);
+      const revised = revision.data;
+      const byId = new Map(revised.characterPrompts.map((character) => [character.id, character]));
+      if (
+        byId.size < input.characterPrompts.length ||
+        byId.size !== revised.characterPrompts.length ||
+        revised.characterPrompts.some((_, id) => !byId.has(id))
+      ) {
+        return rejectRewrite(
+          "The Prompt Model returned missing, duplicate, or out-of-sequence character IDs. Try revising again.",
+        );
+      }
+      return {
+        prompt: revised.prompt,
+        negativePrompt: revised.negativePrompt,
+        characterPrompts: Array.from({ length: byId.size }, (_, id) => {
+          const original = input.characterPrompts[id];
+          const { name, prompt, negativePrompt, position } = byId.get(id)!;
+          return {
+            name: original?.name ?? name ?? `Character ${id + 1}`,
+            prompt,
+            negativePrompt,
+            position: position ?? original?.position,
+          };
+        }),
+      };
     },
   );
 
