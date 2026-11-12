@@ -212,6 +212,18 @@ try {
     });
     assert.equal(unnamed.resolved, 1);
 
+    // With no ruleset there is no plot die, so a record that names one is the model's claim and the
+    // Engine rolls the check: the saved record has no plot die on it.
+    const noRuleset = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Stealth" dc="5" rolls="14" used="14" modifier="0" total="14" result="success" mode="normal" resolution="sum" dice="1d20" plotFace="6" plotSymbol="opportunity" plotLabel="Plot die"]',
+      { loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any, rollD20: () => 3 },
+    );
+    assert.deepEqual(
+      [noRuleset.trusted, noRuleset.results?.[0]?.rolls, noRuleset.results?.[0]?.plotFace],
+      [0, [3], undefined],
+    );
+    assert.doesNotMatch(noRuleset.content, /plotFace|plotSymbol/);
+
     // A 20-sided plot die is still not the check's own d20: an injected d20 is spent on the check alone.
     const wide = parsed(doc((d) => (d.resolution.plotDie.sides = 20)));
     const wideContext = { ...context, ruleset: buildSkillCheckRulesetContext(wide, cards, cards[0]) };

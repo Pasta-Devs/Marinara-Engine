@@ -235,6 +235,36 @@ try {
     });
     assert.deepEqual([both.trusted, both.resolved], [1, 1], "the copied face was already spent");
 
+    // A pool record's dice were never put in the list of dice thrown, so passing over one spends
+    // nothing: the player's own die of the same face still answers the next check.
+    const poolRecord =
+      '[skill_check: skill="Dig" dc="1" rolls="6" used="1" modifier="0" total="1" result="success" mode="normal" resolution="successes" dice="1d6" threshold="6"]';
+    const loose = { skills: null, attributes: null, sheetAttributes: {} };
+    const kept = await resolveSkillCheckTagsInContent(`${poolRecord} [skill_check: skill="Stealth" dc="5" rolls="6"]`, {
+      loadContext: async () => loose as any,
+      engineRecords: new Set([poolRecord]),
+      issuedD20s: [6],
+      rollD20: () => 3,
+    });
+    assert.deepEqual(kept.results?.[0]?.rolls, [6], "the player's die is honoured");
+
+    // With no ruleset, a record that names one of two dice is the model's claim: rolled by the Engine
+    // where it can be, and cut back to the ask where it cannot.
+    const claimed = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Stealth" dc="5" rolls="14" used="14" modifier="0" total="14" result="success" mode="normal" resolution="sum" dice="1d20" duality="Hope"]',
+      { loadContext: async () => loose as any, rollD20: () => 3 },
+    );
+    assert.deepEqual(
+      [claimed.trusted, claimed.results?.[0]?.rolls, claimed.results?.[0]?.duality],
+      [0, [3], undefined],
+    );
+    const twoDice = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Stealth" dc="5" rolls="7,5" used="12" modifier="0" total="12" result="success" mode="normal" resolution="sum" dice="2d12" duality="Hope"]',
+      { loadContext: async () => loose as any },
+    );
+    assert.doesNotMatch(twoDice.content, /duality=|result="success"/);
+    assert.match(twoDice.content, /\[skill_check: skill="Stealth" dc="5"/);
+
     // The branch arm's roller stands in for a d20 only, so the two d12s are thrown at their own size:
     // a roller that always says 20 never reaches the record, which reads back as a result.
     for (let turn = 0; turn < 40; turn++) {
