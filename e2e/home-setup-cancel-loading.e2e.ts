@@ -89,7 +89,7 @@ test("Home cancel and Skip discard only the untouched new chat in every mode", a
       await wizard.getByRole("button", { name: "Choose a character", exact: true }).click();
       const picker = page.getByRole("dialog", { name: "Characters", exact: true });
       await picker.getByRole("searchbox").fill("Just browsing, no selection");
-      await picker.getByRole("button", { name: "Done", exact: true }).click();
+      await page.keyboard.press("Escape");
       await expect(picker).toHaveCount(0);
       await wizard.getByRole("button", { name: "Skip", exact: true }).click();
       await expect.poll(async () => (await page.request.get(`/api/chats/${chat.id}`)).status()).toBe(404);

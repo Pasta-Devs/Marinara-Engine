@@ -270,7 +270,10 @@ export async function resolveAvatarVisionConnection(
     if (conn && isLanguageConnection(conn)) return conn;
   }
   const agentDefault = await connections.getDefaultForAgents();
-  if (agentDefault && isLanguageConnection(agentDefault)) return agentDefault;
+  // The built-in model reads no pictures (nothing launches its vision projector), as this path already assumes
+  // for an explicit or Main pick of it.
+  if (agentDefault && agentDefault.id !== LOCAL_SIDECAR_CONNECTION_ID && isLanguageConnection(agentDefault))
+    return agentDefault;
   const fallback = await connections.getDefault();
   const conn =
     fallback && fallback.id !== LOCAL_SIDECAR_CONNECTION_ID && isLanguageConnection(fallback)

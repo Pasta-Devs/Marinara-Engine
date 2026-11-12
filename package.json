@@ -33,6 +33,7 @@
     "localization:ui-check": "node ./scripts/migrate-static-jsx-localization.mjs --check --notices packages/client/src",
     "lint": "node ./scripts/pnpm-runner.mjs -r run lint",
     "check:e2e-types": "tsc --noEmit -p tsconfig.json",
+    "check:character-activity-types": "tsc --noEmit -p scripts/regressions/tsconfig.character-activity.json",
     "check:token-estimation-types": "tsc --noEmit -p scripts/regressions/tsconfig.token-estimation.json",
     "regression": "node ./scripts/pnpm-runner.mjs regression:node",
     "reset-login": "node ./scripts/reset-login.mjs",

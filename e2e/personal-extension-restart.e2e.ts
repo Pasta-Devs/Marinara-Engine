@@ -111,3 +111,81 @@ test("a stopped client extension drops its controls and Restart starts a fresh s
   await expect(sandboxes(other)).toHaveCount(0);
   await expect(action(other)).toHaveCount(0);
 });
+
+// #9042: a long extension editor keeps its way back to the list pinned, and the phone's Back takes the same step.
+test("the extension editor keeps its back link pinned and Back returns to the list", async ({ page }, info) => {
+  const stamp = "2026-11-11T00:00:00.000Z";
+  const fixture = {
+    id: "step-back-fixture",
+    name: "Step Back Fixture",
+    version: "1.0.0",
+    description: "A long extension for the step-back proof.",
+    runtime: "client",
+    capabilities: [],
+    css: null,
+    js: Array.from({ length: 80 }, (_, line) => `// line ${line}`).join("\n"),
+    serverJs: null,
+    enabled: false,
+    contentHash: `sha256:${"c".repeat(64)}`,
+    approvedHash: null,
+    source: "professor_mari",
+    revisions: [],
+    installedAt: stamp,
+    createdAt: stamp,
+    updatedAt: stamp,
+  };
+  await page.route("**/api/personal-extensions", (route) =>
+    route.request().method() === "GET" ? route.fulfill({ json: [fixture] }) : route.fallback(),
+  );
+  await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    sidebarOpen: false,
+    rightPanelOpen: true,
+    rightPanel: "settings",
+    settingsTab: "addons",
+    chibiProfessorMariEnabled: false,
+  });
+  await page.addInitScript((appVersion) => {
+    localStorage.setItem("marinara:whats-new:seen-version", appVersion);
+  }, version);
+  // A short window, so the editor is taller than the panel and has to scroll.
+  await page.setViewportSize({ width: page.viewportSize()!.width, height: 600 });
+  await page.goto("/");
+
+  const panel = page.locator("#settings-panel-addons");
+  const row = panel.getByRole("button", { name: /Step Back Fixture/ }).first();
+  await row.click();
+  const back = panel.getByRole("button", { name: "Personal Extensions", exact: true });
+  await expect(back).toBeVisible();
+  // Scroll part-way into the editor: the pinned row is bounded by the editor, so the very bottom of the
+  // panel (the Themes section below it) is out of its range.
+  const scrolled = await back.evaluate((element) => {
+    const scroller = element.closest(".overflow-y-auto")!;
+    const editor = element.parentElement!.parentElement!;
+    const start = element.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+    scroller.scrollTop = start + 200;
+    const editorBottom = editor.getBoundingClientRect().bottom;
+    return {
+      moved: scroller.scrollTop - start,
+      editorStillBelowView: editorBottom > scroller.getBoundingClientRect().bottom + 50,
+      pinnedGap: element.parentElement!.getBoundingClientRect().top - scroller.getBoundingClientRect().top,
+    };
+  });
+  expect(scrolled.moved).toBeGreaterThan(150);
+  expect(scrolled.editorStillBelowView).toBe(true);
+  // Pinned flush with the top of the scroller, with no strip of scrolled content showing above it.
+  expect(Math.abs(scrolled.pinnedGap)).toBeLessThan(2);
+  await expect(back).toBeInViewport({ ratio: 1 });
+
+  // Back from the editor shows the list with Settings still open.
+  await page.goBack();
+  await expect(back).toHaveCount(0);
+  await expect(row).toBeVisible();
+  await expect(panel).toBeVisible();
+  if (info.project.name.startsWith("mobile-")) {
+    // The phone's overlay panel is the next layer: one more Back closes it.
+    await page.goBack();
+    await expect(panel).toHaveCount(0);
+  }
+});

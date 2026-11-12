@@ -36,8 +36,9 @@ export function regressionTimeoutMs(relativePath) {
   if (relativePath === 'scripts/regressions/ruleset-combat-director.regression.ts') return 300_000;
   // An out-of-memory control and a small-heap 64 MB gallery round trip: 20 s alone, 26 s to over 60 s in the CI pool.
   if (relativePath === 'scripts/regressions/native-export-memory.regression.ts') return 90_000;
-  // Real large-text, multipart and 10,001-entry transfers exceed 30 s on the CI file-backed store.
-  if (relativePath === 'scripts/regressions/chat-request-validation.regression.ts') return 90_000;
+  // Real large-text, multipart and 10,001-entry transfers exceed 30 s on the CI file-backed store, and over 90 s on slow
+  // CI runners (about 1.6x slower), where it was being retried.
+  if (relativePath === 'scripts/regressions/chat-request-validation.regression.ts') return 150_000;
   // Eighteen blink and talk pictures lined up with their face at full size: about 10 s, more on a busy runner.
   if (relativePath === 'scripts/regressions/avatar-variant-composite.regression.ts') return 120_000;
   // Every cap of the ruleset schema proved at its edge, against the whole 5e ruleset: about 40 s.

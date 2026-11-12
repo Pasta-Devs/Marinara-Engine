@@ -3696,10 +3696,14 @@ export function useGenerate() {
         }
         const partialContent = normalizeLineBreakSpacing(fullBuffer + pendingText).trim();
         let unpersistedPartialMessage: Message | null = null;
+        // The sent user turn is already in persistedMessages; only a saved reply means the server kept the text.
+        const replySaved = Array.from(persistedMessages.values()).some((m) => m.role === expectedPersistedRole);
         if (
           receivedContent &&
-          persistedMessages.size === 0 &&
+          !replySaved &&
           partialContent &&
+          // A user Stop keeps the text; an errored reply only when nothing was stored (staging behaviour). Game turns stay out.
+          (persistedMessages.size === 0 || (abortController.signal.aborted && !isGameGeneration)) &&
           // A failed game turn has its own retry; saving what streamed before the failure left a half-turn
           // (often the GM's lead-in to a tool call) in the story, and a second reply right after it.
           !(replyErrorSeen && isGameGeneration) &&
@@ -3724,13 +3728,31 @@ export function useGenerate() {
             }
           } else {
             try {
-              const created = await api.post<Message>(`/chats/${params.chatId}/messages`, {
-                role: partialRole,
-                characterId: partialCharacterId,
-                content: partialContent,
-                createdAt,
-                updatedAt: createdAt,
-              });
+              // Stop aborts the stream before the server's message_saved may arrive: reuse a reply it already stored.
+              // A normal send keeps running on the server after the stream closes, so let it write first (5 s cap).
+              await waitForServerGenerationToSettle(params.chatId, AbortSignal.timeout(5_000));
+              if (
+                !(await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values(), {
+                  fetchEvenIfInactive: true,
+                }))
+              ) {
+                await Promise.reject(new Error("history refetch failed")); // unknown history: use the cache-only fallback below
+              }
+              const stored = latestNewMessageByRole(
+                qc,
+                params.chatId,
+                expectedPersistedRole,
+                expectedMessagesBeforeGeneration,
+              );
+              const created =
+                stored ??
+                (await api.post<Message>(`/chats/${params.chatId}/messages`, {
+                  role: partialRole,
+                  characterId: partialCharacterId,
+                  content: partialContent,
+                  createdAt,
+                  updatedAt: createdAt,
+                }));
               unpersistedPartialMessage = created;
               persistedMessages.set(created.id, created);
             } catch (error) {

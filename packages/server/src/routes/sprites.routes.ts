@@ -957,7 +957,8 @@ function buildFullBodyExpressionSheetPrompt({
 function looksLikeBase64(input: string): boolean {
   const trimmed = input.trim();
   if (!trimmed || trimmed.length < 32) return false;
-  return /^[A-Za-z0-9+/=\r\n]+$/.test(trimmed);
+  // A negative test walks the string; `^[A-Za-z0-9+/=\r\n]+$` recurses once per character in V8's regexp interpreter.
+  return !/[^A-Za-z0-9+/=\r\n]/.test(trimmed);
 }
 
 function extractBase64ImageData(input: string): string {

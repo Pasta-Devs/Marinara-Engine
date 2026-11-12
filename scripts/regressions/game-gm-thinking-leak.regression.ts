@@ -54,6 +54,12 @@ assert.match(
   "a talk-to-GM turn still keeps its plan hidden",
 );
 
+// #9092: a Claude model that thinks natively can refuse a request to write its reasoning into tags, so it
+// is not asked for a <think> block. It is still told the reply is the scene alone.
+const native = buildGmFormatReminder({ hasSceneModel: false, turnNumber: 1, thinksNatively: true } as ReminderContext);
+assert.doesNotMatch(native, /<think>/, "a natively thinking Claude model is not asked for a <think> block");
+assert.match(native, /the reply holds only the VN scene text: no notes, analysis, headings or plan/);
+
 // A non-English talk-to-GM turn still answers in the game's language, but as an answer, not a scene.
 const germanTalkToGm = buildGmFormatReminder({
   hasSceneModel: false,
