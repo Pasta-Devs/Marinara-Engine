@@ -2853,6 +2853,11 @@ export async function resolveSkillCheckTagsInContent(
           disadvantage: entry.request.disadvantage,
           preRolledD20: entry.request.preRolledD20,
           declaredDice: entry.tag.declaredDice,
+          // A claim cut back to its ask keeps the system it named with its dice, here as at the other
+          // two places one is cut back, so nothing rolls another system's check as a d20 later.
+          ...(claimsRulesetDice(entry.tag) && entry.tag.declaredResolution
+            ? { declaredResolution: entry.tag.declaredResolution }
+            : {}),
         },
         askExtras(entry.tag),
       ),
