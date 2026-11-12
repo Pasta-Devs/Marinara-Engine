@@ -1892,6 +1892,13 @@ function isRulesetRollableSkillCheckTag(tag: SkillCheckTag, definition: RulesetD
   return notation.sides === sides && notation.count === count * sets;
 }
 
+/** Whether a record says something only a ruleset's own roll can: which of two named dice led
+ *  (1.821), what a plot die showed (1.822), or that a band moved (1.823). In a game with no ruleset
+ *  such a record is the model's claim, never the Engine's roll. */
+function claimsRulesetDice(result: SkillCheckTag["resolvedResult"]): boolean {
+  return result?.duality !== undefined || result?.plotFace !== undefined || result?.shift !== undefined;
+}
+
 /** Whether a complete tag's numbers are the ones this ruleset and this sheet would have produced.
  *  A GM that writes its own modifier has not rolled the character's check, however tidy the sum. */
 function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag): boolean {
@@ -2403,7 +2410,9 @@ export async function resolveSkillCheckTagsInContent(
       // A record a branch arm wrote this turn is the Engine's own roll: never rolled a second time.
       if (options.engineRecords?.has(match[0])) {
         // Its dice are spent all the same, so no other record this turn can claim the same faces.
-        if (issued && tag.resolvedResult) takeIssuedD20s(issued, tag.resolvedResult.rolls);
+        // Only a summed record's faces were ever put there: a pool's are not, and must not use up a
+        // die the player threw.
+        if (issued && tag.resolvedResult?.resolution === "sum") takeIssuedD20s(issued, tag.resolvedResult.rolls);
         trusted += 1;
         left += 1;
         continue;
@@ -2455,12 +2464,11 @@ export async function resolveSkillCheckTagsInContent(
         deferred.push({ start: match.index, end: match.index + match[0].length, tag });
         continue;
       }
-      // Moving a band (1.823) is a ruleset's own, and this game pins none, so a record that claims a
-      // shift is the model's: its numbers are dropped and the Engine rolls the check.
-      if (tag.resolvedResult?.shift !== undefined) {
+      // This game pins no ruleset, so a record that says what only a ruleset's roll can is the model's
+      // claim: its numbers are dropped and the Engine rolls the check, or keeps only the ask where it
+      // cannot roll it either, so the text saved does not read back as a result.
+      if (claimsRulesetDice(tag.resolvedResult)) {
         tag = { ...tag, resolvedResult: undefined, shift: undefined };
-        // Where the Engine cannot roll it either, the ask is kept and the claimed outcome is not, so
-        // the text saved does not read back as a result.
         if (!isEngineRollableSkillCheckTag(tag) || !isResolvableSkillCheckRequest(toRequest(tag))) {
           stripped.push({
             start: match.index,
@@ -2598,13 +2606,13 @@ export async function resolveSkillCheckTagsInContent(
           (!issued || takeIssuedD20s(issued, tag.resolvedResult!.rolls));
         const owesRoll = ruleset
           ? claimsNoRoll || (!vouched && isRulesetRollableSkillCheckTag(tag, ruleset.definition))
-          : (!tag.resolvedResult || tag.resolvedResult.shift !== undefined) && isEngineRollableSkillCheckTag(tag);
+          : (!tag.resolvedResult || claimsRulesetDice(tag.resolvedResult)) && isEngineRollableSkillCheckTag(tag);
         // A check the character cannot attempt untrained is refused below whatever it carries: no
         // numbers, dice or difficulty the Game Master wrote on it gets it past the sheet.
         const refused = !!ruleset && !group && rulesetRefusesUntrained(ruleset, request);
         if (noRoller || refused || (owesRoll && isResolvableSkillCheckRequest(request, ruleset?.definition))) {
           pending.push({ start: entry.start, end: entry.end, request, tag });
-        } else if ((owesRoll || claimsNoRoll || tag.resolvedResult?.shift !== undefined) && tag.resolvedResult) {
+        } else if ((owesRoll || claimsNoRoll || claimsRulesetDice(tag.resolvedResult)) && tag.resolvedResult) {
           // This ruleset's own kind of check, carrying numbers the sheet does not vouch for, that
           // cannot be rolled either (an out-of-bounds DC, say). The ask survives; the claimed
           // outcome does not, exactly as a roll that could not happen is saved.
