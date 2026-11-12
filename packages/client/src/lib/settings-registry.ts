@@ -1256,6 +1256,16 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Button group",
   },
   {
+    id: "phone-chat-avatars",
+    sectionId: "chat-display",
+    labelKey: "ui.panels.appearancesettings.phoneChatAvatars",
+    label: "Profile pictures on phones",
+    description: "Show a small picture by each name, the full picture column, or no pictures in chats on phones.",
+    descriptionKey: "settings.search.phoneChatAvatars.description",
+    aliases: ["avatar", "profile picture", "pfp", "phone", "mini", "mobile"],
+    kind: "Button group",
+  },
+  {
     id: "show-characters-in-persona-pickers",
     sectionId: "input-editing",
     labelKey: "settings.search.showCharactersInPersonaPickers.label",

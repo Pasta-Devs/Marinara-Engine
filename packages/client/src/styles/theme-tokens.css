@@ -1151,7 +1151,11 @@
    --mari-paragraph-gap      space between paragraphs instead of one blank line, e.g. 0.85em
    --mari-pinned-speaker     `on`: the name line stays at the top of a tall reply while it scrolls;
                              --mari-pinned-speaker-bg paints behind it (stock: the bubble colour)
-   --mari-phone-avatar       `hidden`: phones drop the avatar column in roleplay so text gets the width */
+   --mari-phone-avatar       `hidden`: phones drop the avatar column in roleplay so text gets the width
+   --mari-phone-convo-avatar `full`: Conversation chats keep the full avatar column on phones even when
+                             the user's "Profile pictures on phones" setting is Mini
+   --mari-mini-avatar-size   size of the mini picture by the name on phones ([data-mari-part="mini-avatar"],
+                             data-role user|assistant); --mari-mini-avatar-ring is its box-shadow */
 :root[data-mari-message-measure] :is([data-chat-mode="roleplay"], [data-chat-mode="conversation"]) .mari-message-content {
   max-width: var(--mari-message-measure);
 }
