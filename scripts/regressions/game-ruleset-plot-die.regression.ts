@@ -177,6 +177,41 @@ try {
     const back = parseSkillCheckTagBody(record.slice("[skill_check:".length, -1))?.resolvedResult;
     assert.match(formatSkillCheckResultSummary(back!), /Plot die 2: complication \(\+4\)\.$/);
 
+    // A check inside a branch throws the plot die too, and the tag pass that follows leaves the branch
+    // arm's record alone: rolling it again could contradict the half of the branch already kept.
+    const { createGameTurnChanceSession, resolveGameTurnBranches } =
+      await import("../../packages/server/src/services/game/one-request-dice.js");
+    const session = createGameTurnChanceSession({
+      db: null as never,
+      chatId: "plot-branch",
+      roll: () => 12,
+      loadModifierContext: () => Promise.resolve(context as any),
+    });
+    const branched = await resolveGameTurnBranches(
+      [
+        `Before. [skill_check: skill="Scrap" dc="10" plot="true" branch="door"]`,
+        `[branch: door]`,
+        `[on success] It opens.`,
+        `[on failure] It holds.`,
+        `[/branch]`,
+      ].join("\n"),
+      session,
+    );
+    assert.match(branched.content, /plotFace="\d"/, "the branch arm threw the plot die");
+    assert.equal(session.engineRecords.size, 1);
+    const after = await resolveSkillCheckTagsInContent(branched.content, {
+      loadContext: async () => context as any,
+      rulesetPinned: true,
+      engineRecords: session.engineRecords,
+    });
+    assert.deepEqual([after.resolved, after.trusted, after.content], [0, 1, branched.content]);
+    // The same record with nobody naming it as the Engine's is rolled again, as any written one is.
+    const unnamed = await resolveSkillCheckTagsInContent(branched.content, {
+      loadContext: async () => context as any,
+      rulesetPinned: true,
+    });
+    assert.equal(unnamed.resolved, 1);
+
     // A 20-sided plot die is still not the check's own d20: an injected d20 is spent on the check alone.
     const wide = parsed(doc((d) => (d.resolution.plotDie.sides = 20)));
     const wideContext = { ...context, ruleset: buildSkillCheckRulesetContext(wide, cards, cards[0]) };
