@@ -29,7 +29,7 @@ process.env.DATA_DIR = dataDir;
 
 try {
   const [
-    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext },
+    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext, resolveSkillCheckTagsInContent },
     { buildGmFormatReminder },
     { getCapabilityPackageInstallIssue },
   ] = await Promise.all([
@@ -167,6 +167,16 @@ try {
     assert.equal(result.rolls.length, 2);
     const [a, b] = result.rolls;
     assert.equal(result.duality, a! > b! ? "Hope" : b! > a! ? "Fear" : "tie");
+
+    // A record the Game Master wrote, with the sheet's own modifier and a tidy sum, cannot say which
+    // die led, so a check on two named dice is always the Engine's own roll.
+    const written = `[skill_check: skill="Scrap" dc="12" rolls="7,5" used="12" modifier="${result.modifier}" total="${12 + result.modifier}" result="${12 + result.modifier >= 12 ? "success" : "failure"}" mode="normal" resolution="sum" dice="2d12"]`;
+    const again = await resolveSkillCheckTagsInContent(written, {
+      loadContext: async () => context as any,
+      rulesetPinned: true,
+    });
+    assert.deepEqual([again.trusted, again.results?.length], [0, 1], "a written record is rolled again");
+    assert.ok(again.results![0]!.duality, "the Engine's roll says which die led");
 
     const reminder = buildGmFormatReminder({
       turnNumber: 2,
