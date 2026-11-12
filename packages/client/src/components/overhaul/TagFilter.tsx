@@ -90,7 +90,10 @@ export function TagFilter({
       const pop = popRef.current?.getBoundingClientRect();
       if (!button) return;
       const width = pop?.width ?? 256;
-      const left = Math.min(Math.max(8, button.left), window.innerWidth - width - 8);
+      // Never past the toolbar's right edge (the page's content column), nor the window's.
+      const toolbar = buttonRef.current?.closest(".ov-gallery__tools, .ov-chats-tools")?.getBoundingClientRect();
+      const maxRight = Math.min(window.innerWidth - 8, toolbar && toolbar.width > 0 ? toolbar.right : Infinity);
+      const left = Math.min(Math.max(8, button.left), maxRight - width);
       const top = button.bottom + 6;
       setPos({ left: Math.max(8, left), top, maxHeight: Math.max(160, window.innerHeight - top - 12) });
     };

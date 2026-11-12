@@ -12973,14 +12973,22 @@ input.ov-edhead__title:not(#ov-x) {
 /* CSS themes "Tip" keeps its box: on the rows' column (2px in, like the theme cards above it), real padding, the
    rows' radius, room below it, and no row divider above it (a divider over a box never matched its width; nitpick
    audit 2 OWN2). The ids beat the desktop and phone row-flattening rules. */
-[data-ov-settings-sections] section[id^="settings-section-"] > div:last-child > .flex-col > [data-settings-tip]:not(#ov-x):not(#ov-y) {
+[data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child
+  > .flex-col
+  > [data-settings-tip]:not(#ov-x):not(#ov-y) {
   margin: 0.5rem 0.125rem 0.875rem;
   padding: 0.75rem 0.875rem;
   border: 1px solid color-mix(in srgb, var(--ov-line) 80%, transparent);
   border-radius: var(--radius-lg, 0.75rem);
   box-shadow: none;
 }
-[data-ov-settings-sections] section[id^="settings-section-"] > div:last-child > .flex-col > :has(+ [data-settings-tip]):not(#ov-x):not(#ov-y) {
+[data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child
+  > .flex-col
+  > :has(+ [data-settings-tip]):not(#ov-x):not(#ov-y) {
   border-bottom: 0;
 }
 /* New layout: the Character and Persona editors are siblings, so their field headings ("Description",
@@ -13064,13 +13072,27 @@ input.ov-edhead__title:not(#ov-x) {
    for it, and a label that doesn't fit ends in "…". Themes that draw their own chevron
    (background-image !important) still win. */
 :root[data-overhaul]
-  :is(select.ov-select, [data-component="OverhaulSettingsPage"] select):not([multiple], [size], .mari-chrome-sort-field) {
+  :is(select.ov-select, [data-component="OverhaulSettingsPage"] select):not(
+    [multiple],
+    [size],
+    .mari-chrome-sort-field
+  ) {
   -webkit-appearance: none;
   appearance: none;
   padding-right: 1.75rem;
   background-image:
-    linear-gradient(45deg, transparent calc(50% - 0.8px), var(--ov-select-chevron, currentColor) calc(50% - 0.8px) calc(50% + 0.8px), transparent calc(50% + 0.8px)),
-    linear-gradient(-45deg, transparent calc(50% - 0.8px), var(--ov-select-chevron, currentColor) calc(50% - 0.8px) calc(50% + 0.8px), transparent calc(50% + 0.8px));
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 0.8px),
+      var(--ov-select-chevron, currentColor) calc(50% - 0.8px) calc(50% + 0.8px),
+      transparent calc(50% + 0.8px)
+    ),
+    linear-gradient(
+      -45deg,
+      transparent calc(50% - 0.8px),
+      var(--ov-select-chevron, currentColor) calc(50% - 0.8px) calc(50% + 0.8px),
+      transparent calc(50% + 0.8px)
+    );
   background-position:
     right calc(0.75rem + 0.25rem) top calc(50% + 0.03rem),
     right 0.75rem top calc(50% + 0.03rem);
@@ -13113,14 +13135,7 @@ input.ov-edhead__title:not(#ov-x) {
    the chip (DM16). Themes still restyle it with --mari-chat-header-bg. */
 :root[data-overhaul] [data-mari-part="chat-header"][data-chat-mode="conversation"] {
   padding-bottom: 1rem;
-  background: var(
-    --mari-chat-header-bg,
-    linear-gradient(
-      to bottom,
-      var(--background) calc(100% - 1rem),
-      transparent
-    )
-  );
+  background: var(--mari-chat-header-bg, linear-gradient(to bottom, var(--background) calc(100% - 1rem), transparent));
 }
 :root[data-overhaul][data-mari-app-backdrop] [data-mari-part="chat-header"][data-chat-mode="conversation"] {
   background: var(--mari-chat-header-bg, none);
@@ -13213,7 +13228,10 @@ input.ov-edhead__title:not(#ov-x) {
 }
 /* The smallest phones (320px): slightly slimmer buttons and gaps keep the row on one line. */
 @container mari-main (max-width: 22rem) {
-  :root[data-overhaul] [data-game-narration] div:has(> [data-mari-part="game-tools"]) :is([data-mari-part="game-tools"], [data-mari-part="game-tools"] + *) {
+  :root[data-overhaul]
+    [data-game-narration]
+    div:has(> [data-mari-part="game-tools"])
+    :is([data-mari-part="game-tools"], [data-mari-part="game-tools"] + *) {
     gap: 0.25rem;
   }
   :root[data-overhaul] [data-game-narration] div:has(> [data-mari-part="game-tools"]) button {
@@ -13279,4 +13297,143 @@ input.ov-edhead__title:not(#ov-x) {
 /* Dottore's monospace sits high in its line box: nudge the Edit label onto the button's centre (DM12). */
 :root[data-chat-widget-preset="dottore"] .ov-cs .ov-cs__head > .ov-edbtn {
   padding-top: 0.25rem;
+}
+/* ─── Theme nitpick audit round 2, batch 3: siblings share one shape ─── */
+/* DD4 + DD5: one selected marker in the sidebar. The open chat's accent bar and the open Library
+   section both use a short bar with rounded ends, inset from the row's edge so it sits inside the
+   rounded corner (the chat bar sat on the edge; the Library row drew a crescent with an inset shadow). */
+:root[data-overhaul] [data-chat-row] .mari-chrome-accent-progress {
+  left: 0.3125rem;
+  width: 0.1875rem;
+}
+:root[data-overhaul] .ov-libnav__item {
+  position: relative;
+}
+:root[data-overhaul] .ov-libnav__item.is-on {
+  box-shadow: none;
+}
+:root[data-overhaul] .ov-libnav__item.is-on::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0.3125rem;
+  width: 0.1875rem;
+  height: 1.0625rem;
+  border-radius: 999px;
+  background: var(--ov-accent);
+  transform: translateY(-50%);
+}
+/* DD7: a group chat's two stacked avatars are squircles like every other avatar in the list (the small
+   size turned the shared radius into circles), and the back one shows its initial in its visible corner. */
+:root[data-overhaul] [data-chat-row] .h-7.w-7 > :is(.absolute.h-5.w-5) {
+  border-radius: 0.4375rem;
+}
+:root[data-overhaul] [data-chat-row] .h-7.w-7 > div.absolute.h-5.w-5.bottom-0 {
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0 0.1875rem 0.0625rem 0;
+}
+/* DM9: the game's party button shows the leader's avatar flat inside the round-cornered button,
+   not a second ring of a different shape inside it. */
+:root[data-overhaul] .mari-window-bubble[data-window="control:character-profiles"] .rounded-lg {
+  border-color: transparent;
+  border-radius: 0.375rem;
+  box-shadow: none;
+}
+/* DD10: in Light styles the character name has no glow; it smudged the dark name next to the crisp time. */
+:root[data-overhaul][data-theme="light"] .rpg-char-name {
+  text-shadow: none;
+}
+/* DD6: in two columns the section headings keep one height, so the dividers under the first two line up
+   when one description wraps to a second line. */
+@container mari-main (min-width: 44rem) {
+  [data-ov-settings-sections]
+    section[id^="settings-section-"]
+    > div:first-child
+    > div:first-of-type
+    > div:nth-child(2) {
+    min-height: 2.8em;
+  }
+}
+/* DM5 (desktop): the editor header's Chat and Saved buttons are one height and one border. */
+.ov-edhead .ov-chatbtn-wrap > .ov-btn,
+.ov-edhead .ov-savebtn {
+  box-sizing: border-box;
+  height: 2.125rem;
+  margin-block: 0;
+}
+/* DD8: the Chats list's search row: the Tags button has the search field's and sort select's radius, and on
+   touch screens the sort select gets the same anti-zoom text size as the search field beside it. */
+:root[data-overhaul] .ov-chats-tools > :first-child > .mari-chrome-control {
+  border-radius: 0.75rem;
+}
+@media (pointer: coarse) {
+  :root[data-overhaul] .ov-chats-tools select.mari-chrome-sort-field {
+    font-size: 1rem;
+  }
+}
+
+/* ─── Theme nitpick audit round 2, batch 4: no square strips inside rounded popovers ─── */
+/* DM8: the tag selector's search is a pill with the toolbar search's fill, like the search right above it. */
+.ov-tagpop .ov-tagpop__search {
+  border-radius: 999px;
+  background: transparent;
+}
+/* GV3: the Connections Defaults grid draws its row lines ABOVE each row, so the last row adds no second line
+   along the card's rounded bottom (and the empty slot after the last job has no outline). */
+.ov-conn-defaults__grid > .ov-conn-defaults__cell {
+  border-top: 1px solid var(--ov-line);
+  border-bottom: 0;
+}
+.ov-conn-defaults__grid > .ov-conn-defaults__cell:nth-child(-n + 3) {
+  border-top: 0;
+}
+/* MP3: the omnibar's result icon wrapper (a themed avatar placeholder) has the icon's own radius, so a
+   theme's outline around it isn't a square box around a rounded icon. */
+.result-type-icon {
+  border-radius: 0.75rem;
+}
+
+/* ─── Theme nitpick audit round 2, batch 5: narrow panes (split view, small windows) ─── */
+/* SV16: the composer's placeholder stays on one line and ends in "…" when the box is narrow (it wrapped and
+   its second line was cut off by the box). Only while it's empty, so typed text still wraps. */
+:root[data-overhaul] .mari-chat-input-box textarea:placeholder-shown {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* SV17: a narrow chat (main side squeezed to ~440px): the hover tools float in the bubble's corner like the
+   headerless bubbles' tools, instead of keeping 7rem of the header row empty and crushing the name to one
+   word per line. */
+@container mari-main (max-width: 36rem) {
+  .ov-rpmsg__head > .ov-rpf.ov-rpf--tools {
+    position: absolute;
+    z-index: 3;
+    top: 0.375rem;
+    right: 0.5rem;
+    margin: 0;
+    border-radius: 0.5rem;
+    background: var(--mari-rp-bubble-bg, var(--card));
+  }
+  .ov-rpmsg__head > .mari-message-name {
+    min-width: 0;
+  }
+}
+/* SV18: Home in a narrow split side: the Professor Mari card keeps 12px text (it scaled down to about 9px
+   with the frame's width) and Mari stands a size smaller, so the text has room. */
+:root[data-ov-split-pane] [data-home-professor-description] {
+  font-size: max(0.75rem, var(--mari-home-widget-text-size, 0.75rem)) !important;
+}
+:root[data-ov-split-pane] [data-home-professor-action] {
+  font-size: 0.75rem !important;
+}
+:root[data-ov-split-pane] [data-home-professor-art],
+:root[data-ov-split-pane] [data-home-professor-art] > img {
+  width: 96px !important;
+  height: 144px !important;
+}
+/* SV19: a Library table's name heading sits over the names, not over the little picture in front of them
+   (in a narrow split side "LOREBOOK" lined up with nothing). */
+.ov-table:has(td.ov-table__name .ov-table__title > .ov-thumb:first-child) th.ov-table__name {
+  padding-left: calc(0.75rem + 1.75rem + 0.625rem);
 }
