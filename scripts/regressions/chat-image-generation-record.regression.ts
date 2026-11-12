@@ -524,6 +524,54 @@ try {
   const conversionInput = JSON.parse(conversionMessages.find(({ role }) => role === "user")?.content ?? "");
   assert.deepEqual(conversionInput.characterPrompts, []);
   assert.equal(conversionInput.guidance, convertedDraft.guidance);
+
+  const revisedPosition = { x: 0.2, y: 0.65 };
+  promptModelOutput = JSON.stringify({
+    ...baseRewrite,
+    characterPrompts: [
+      { id: 0, prompt: "tall elf queen", negativePrompt: "", position: revisedPosition },
+      { id: 1, prompt: "chancellor", negativePrompt: "crown", position: "" },
+    ],
+  });
+  const positionedDraft = {
+    ...guidedDraft,
+    guidance: "Move the queen to x 0.2 and y 0.65.",
+    characterPrompts: [
+      guidedDraft.characterPrompts[0],
+      { ...guidedDraft.characterPrompts[1], position: { x: 0.75, y: 0.5 } },
+    ],
+  };
+  const repositioned = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: positionedDraft });
+  assert.equal(repositioned.statusCode, 200, repositioned.body);
+  assert.deepEqual(repositioned.json().characterPrompts, [
+    { ...positionedDraft.characterPrompts[0], negativePrompt: "", position: revisedPosition },
+    positionedDraft.characterPrompts[1],
+  ]);
+
+  const novelAiV45 = await connections.create({
+    name: "NovelAI V4.5 fixture",
+    provider: "image_generation",
+    baseUrl: "https://image.novelai.net",
+    model: "nai-diffusion-4-5-full",
+    imageService: "novelai",
+    apiKey: "fixture",
+  });
+  assert.ok(novelAiV45?.id);
+  const oversizedDraft = {
+    ...draft,
+    connectionId: novelAiV45.id,
+    characterPrompts: Array.from({ length: 7 }, (_, index) => ({
+      name: `Character ${index + 1}`,
+      prompt: "elf, silver cloak",
+    })),
+  };
+  const requestsBeforeLimitCheck = promptModelRequests.length;
+  for (const url of [`${regenerateUrl}/prompt`, regenerateUrl]) {
+    const response = await app.inject({ method: "POST", url, payload: oversizedDraft });
+    assert.equal(response.statusCode, 400, response.body);
+    assert.match(response.json().error, /accepts up to 6 character prompts/);
+  }
+  assert.equal(promptModelRequests.length, requestsBeforeLimitCheck, "oversized drafts never reach the text provider");
   assert.equal(imagePrompts.length, 0);
 
   const requestsBeforeImage = promptModelRequests.length;

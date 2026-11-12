@@ -261,6 +261,10 @@ const rewrittenGalleryBasePromptSchema = regenerateGalleryImageSchema
   .pick({ prompt: true, negativePrompt: true })
   .required({ negativePrompt: true });
 
+const extractedGalleryImagePromptSchema = rewrittenGalleryBasePromptSchema
+  .extend({ characterPrompts: z.array(extractedGalleryCharacterPromptSchema).max(NOVELAI_V5_MAX_CHARACTER_PROMPTS) })
+  .strict();
+
 const rewrittenGalleryImagePromptSchema = rewrittenGalleryBasePromptSchema
   .extend({
     characterPrompts: z
@@ -274,6 +278,7 @@ const rewrittenGalleryImagePromptSchema = rewrittenGalleryBasePromptSchema
               .max(NOVELAI_V5_MAX_CHARACTER_PROMPTS - 1),
             prompt: z.string().trim().min(1).max(20_000),
             negativePrompt: z.string().max(20_000),
+            position: extractedGalleryCharacterPromptSchema.shape.position,
           })
           .strict(),
       )
@@ -451,6 +456,24 @@ function resolveGalleryImageTarget(connection: {
     imageSource,
     imageServiceHint: connection.imageService || imageSource,
   };
+}
+
+function resolveGalleryCaptionLimit({
+  imageModel,
+  imageBaseUrl,
+  imageSource,
+  imageServiceHint,
+}: ReturnType<typeof resolveGalleryImageTarget>): number {
+  return supportsNovelAiCharacterPrompts({ baseUrl: imageBaseUrl, model: imageModel }) &&
+    resolveImageBackend(imageSource, imageBaseUrl, imageServiceHint, imageModel) === "novelai"
+    ? resolveNovelAiCharacterPromptLimit(imageModel)
+    : 0;
+}
+
+function galleryCaptionLimitError(limit: number, count: number): string | null {
+  return limit > 0 && count > limit
+    ? `This NovelAI model accepts up to ${limit} character prompts. Clear the extra character prompts or select another image model.`
+    : null;
 }
 
 async function resolveRegenerationImageConnection(
@@ -2149,17 +2172,9 @@ export async function galleryRoutes(app: FastifyInstance) {
       }
 
       const imageTarget = imageConnection ? resolveGalleryImageTarget(imageConnection) : null;
-      const captionLimit =
-        imageTarget &&
-        supportsNovelAiCharacterPrompts({ baseUrl: imageTarget.imageBaseUrl, model: imageTarget.imageModel }) &&
-        resolveImageBackend(
-          imageTarget.imageSource,
-          imageTarget.imageBaseUrl,
-          imageTarget.imageServiceHint,
-          imageTarget.imageModel,
-        ) === "novelai"
-          ? resolveNovelAiCharacterPromptLimit(imageTarget.imageModel)
-          : 0;
+      const captionLimit = imageTarget ? resolveGalleryCaptionLimit(imageTarget) : 0;
+      const captionLimitError = galleryCaptionLimitError(captionLimit, input.characterPrompts.length);
+      if (captionLimitError) return reply.status(400).send({ error: captionLimitError });
       const userPrompt = JSON.stringify({
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
@@ -2214,7 +2229,7 @@ export async function galleryRoutes(app: FastifyInstance) {
                 ...(hasDraftCaptions
                   ? [
                       'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
-                      "Return exactly one entry for each input character with the same id.",
+                      "Return exactly one entry for each input character with the same id. Omit position to keep its current placement. If the guidance requests a move, include position as an object with numeric x and y between 0 and 1, where x runs left to right and y runs top to bottom.",
                     ]
                   : [
                       'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"name":"…","prompt":"…","negativePrompt":"…"}]}.',
@@ -2270,10 +2285,11 @@ export async function galleryRoutes(app: FastifyInstance) {
           return { ...rewrittenGalleryBasePromptSchema.parse(parsed), characterPrompts: input.characterPrompts };
         }
         if (!hasDraftCaptions) {
-          return rewrittenGalleryBasePromptSchema
-            .extend({ characterPrompts: z.array(extractedGalleryCharacterPromptSchema).max(captionLimit) })
-            .strict()
-            .parse(parsed);
+          const extracted = extractedGalleryImagePromptSchema.parse(parsed);
+          if (extracted.characterPrompts.length > captionLimit) {
+            throw new Error("Extracted character prompts exceed the image model limit");
+          }
+          return extracted;
         }
         const revised = rewrittenGalleryImagePromptSchema.parse(parsed);
         const byId = new Map(revised.characterPrompts.map((character) => [character.id, character]));
@@ -2287,8 +2303,8 @@ export async function galleryRoutes(app: FastifyInstance) {
           prompt: revised.prompt,
           negativePrompt: revised.negativePrompt,
           characterPrompts: input.characterPrompts.map((character, id) => {
-            const { prompt, negativePrompt } = byId.get(id)!;
-            return { ...character, prompt, negativePrompt };
+            const { prompt, negativePrompt, position } = byId.get(id)!;
+            return { ...character, prompt, negativePrompt, ...(position ? { position } : {}) };
           }),
         };
       } catch {
@@ -2337,12 +2353,18 @@ export async function galleryRoutes(app: FastifyInstance) {
 
       const imageSettings = await loadImageGenerationUserSettings(app.db);
       const imageDefaults = resolveConnectionImageDefaults(imageConnection);
-      const { imageModel, imageBaseUrl, imageSource, imageServiceHint } = resolveGalleryImageTarget(imageConnection);
+      const imageTarget = resolveGalleryImageTarget(imageConnection);
+      const { imageModel, imageBaseUrl, imageSource, imageServiceHint } = imageTarget;
       const imageFallback = await resolveImageConnectionFallback(connectionsStore, imageConnection.id);
       const width = original.width ?? imageSettings.illustration.width;
       const height = original.height ?? imageSettings.illustration.height;
       const negativePrompt = (input.negativePrompt ?? record?.negativePrompt ?? "").trim();
       const characterPrompts = input.characterPrompts ?? record?.characterPrompts ?? [];
+      const captionLimitError = galleryCaptionLimitError(
+        resolveGalleryCaptionLimit(imageTarget),
+        characterPrompts.length,
+      );
+      if (captionLimitError) return reply.status(400).send({ error: captionLimitError });
 
       const references = record?.references ?? {
         characterIds: [],

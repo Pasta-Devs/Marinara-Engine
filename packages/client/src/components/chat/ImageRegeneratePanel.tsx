@@ -13,6 +13,7 @@ import {
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { DraftNumberInput } from "../ui/DraftNumberInput";
 
 interface ImageRegeneratePanelProps {
   image: ChatImage;
@@ -31,6 +32,7 @@ const LABEL_CLASS = "text-xs font-semibold text-[var(--foreground)]";
 const BUTTON_CLASS =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50";
 const SECONDARY_BUTTON_CLASS = `${BUTTON_CLASS} border border-[var(--border)] hover:bg-[var(--accent)]`;
+type CharacterPrompt = ImagePromptDraft["characterPrompts"][number];
 
 function PromptField({
   label,
@@ -119,11 +121,11 @@ export function ImageRegeneratePanel({
     titleRef.current?.focus();
   }, []);
 
-  const updateCharacter = (index: number, field: "prompt" | "negativePrompt", value: string) =>
+  const updateCharacter = (index: number, update: (entry: CharacterPrompt) => CharacterPrompt) =>
     setDraft((current) => ({
       ...current,
       characterPrompts: current.characterPrompts.map((entry, entryIndex) =>
-        entryIndex === index ? { ...entry, [field]: value } : entry,
+        entryIndex === index ? update(entry) : entry,
       ),
     }));
 
@@ -153,8 +155,7 @@ export function ImageRegeneratePanel({
         : {};
       if (action !== "generate") {
         input = await revise.mutateAsync({ imageId: image.id, ...input, guidance, ...connection, debugMode });
-        // The revision keeps the order of the sent entries. Keep cleared character fields
-        // in the editor so they can still be reset.
+        // Merge revisions into the sent fields, keep cleared fields for reset, and append newly extracted captions.
         let revisedIndex = 0;
         const characterPrompts = draft.characterPrompts.map((entry) =>
           entry.prompt.trim() ? (input.characterPrompts[revisedIndex++] ?? entry) : entry,
@@ -237,16 +238,49 @@ export function ImageRegeneratePanel({
                   label={t("ui.chat.imagepromptpanel.characterPrompt", { name: character.name })}
                   value={character.prompt}
                   original={original.characterPrompts[index]?.prompt ?? ""}
-                  onChange={(value) => updateCharacter(index, "prompt", value)}
+                  onChange={(prompt) => updateCharacter(index, (entry) => ({ ...entry, prompt }))}
                   disabled={busy}
                 />
                 <PromptField
                   label={t("ui.chat.imagepromptpanel.characterNegativePrompt", { name: character.name })}
                   value={character.negativePrompt ?? ""}
                   original={original.characterPrompts[index]?.negativePrompt ?? ""}
-                  onChange={(value) => updateCharacter(index, "negativePrompt", value)}
+                  onChange={(negativePrompt) => updateCharacter(index, (entry) => ({ ...entry, negativePrompt }))}
                   disabled={busy}
                 />
+                <fieldset className="grid grid-cols-2 gap-2">
+                  <legend className={LABEL_CLASS}>
+                    {t("ui.chat.imageregeneratepanel.characterPlacement", { name: character.name })}
+                  </legend>
+                  {(["x", "y"] as const).map((axis) => (
+                    <label key={axis} className="flex min-w-0 flex-col gap-1">
+                      <span className="text-xs text-[var(--muted-foreground)]">
+                        {t(
+                          axis === "x"
+                            ? "ui.chat.imageregeneratepanel.positionX"
+                            : "ui.chat.imageregeneratepanel.positionY",
+                        )}
+                      </span>
+                      <DraftNumberInput
+                        allowEmpty
+                        integer={false}
+                        min={0}
+                        max={1}
+                        disabled={busy}
+                        value={character.position?.[axis] ?? null}
+                        placeholder={t("ui.chat.imageregeneratepanel.positionAutomatic")}
+                        className={FIELD_CLASS}
+                        onCommit={(value) =>
+                          updateCharacter(index, (entry) => ({
+                            ...entry,
+                            position:
+                              value === null ? undefined : { ...(entry.position ?? { x: 0.5, y: 0.5 }), [axis]: value },
+                          }))
+                        }
+                      />
+                    </label>
+                  ))}
+                </fieldset>
               </div>
             ))}
           </div>

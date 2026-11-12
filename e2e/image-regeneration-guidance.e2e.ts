@@ -226,10 +226,30 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     expect(backgrounds[0]).not.toBe(backgrounds[1]);
 
     await prompt.fill("Manual harbor edit");
+    const placement = dialog.getByRole("group", { name: "Mira placement (NovelAI)", exact: true });
+    const xPosition = placement.getByRole("textbox", { name: "X (0 left, 1 right)", exact: true });
+    const yPosition = placement.getByRole("textbox", { name: "Y (0 top, 1 bottom)", exact: true });
+    await xPosition.fill("");
+    await xPosition.blur();
+    await expect(yPosition).toHaveValue("");
+    await xPosition.fill("0.8");
+    await xPosition.blur();
+    await yPosition.fill("0.65");
+    await yPosition.blur();
     await generate.click();
     await expect(regenerate).toBeVisible();
     expect(requests).toEqual([
-      { action: "generate", body: expect.objectContaining({ ...original, prompt: "Manual harbor edit" }) },
+      {
+        action: "generate",
+        body: expect.objectContaining({
+          ...original,
+          prompt: "Manual harbor edit",
+          characterPrompts: [
+            { ...original.characterPrompts[0], position: { x: 0.8, y: 0.65 } },
+            original.characterPrompts[1],
+          ],
+        }),
+      },
     ]);
     expect(generatedPrompt).toBe("Manual harbor edit");
 
