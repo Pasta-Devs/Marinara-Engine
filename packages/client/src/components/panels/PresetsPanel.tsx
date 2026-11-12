@@ -69,6 +69,7 @@ import {
   Folder,
   FolderInput,
   FolderPlus,
+  Pause,
   Wrench,
   Upload,
   ShieldCheck,
@@ -1834,16 +1835,22 @@ function RegexSection({
         ) : null}
         <Regex size="0.875rem" className="mt-0.5 shrink-0 text-[var(--marinara-chat-chrome-button-text)]" />
         <button
-          className={cn("min-w-0 flex-1 basis-[min(100%,10rem)] text-left", !enabled && !paused && "opacity-50")}
+          className={cn("min-w-0 flex-1 basis-[min(100%,10rem)] text-left", !enabled && "opacity-50")}
           disabled={busy}
           onClick={() => (selectionMode ? toggleSelection(script.id) : openRegexDetail(script.id))}
         >
-          <div className="break-words text-xs font-medium">{script.name}</div>
-          {paused && (
-            <div className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("regex.library.pausedByFolder")}
-            </div>
-          )}
+          <div className="flex items-center gap-1.5">
+            <span className="min-w-0 break-words text-xs font-medium">{script.name}</span>
+            {flat && paused && enabled && (
+              <span
+                title={localizeUi("regex.library.pausedByFolder")}
+                className="shrink-0 text-[var(--muted-foreground)]"
+              >
+                <Pause size="0.6875rem" aria-hidden="true" />
+                <span className="sr-only">{localizeUi("regex.library.pausedByFolder")}</span>
+              </span>
+            )}
+          </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1">
             <span
               className="min-w-0 flex-1 truncate font-mono text-[0.5625rem] text-[var(--muted-foreground)]"
@@ -1880,7 +1887,11 @@ function RegexSection({
               }}
             >
               <SettingsSwitch
-                ariaLabel={localizeUi("regex.library.scriptSwitch", { name: script.name })}
+                ariaLabel={localizeUi(
+                  paused && enabled ? "regex.library.pausedScriptSwitch" : "regex.library.scriptSwitch",
+                  { name: script.name },
+                )}
+                switchClassName={paused && enabled ? "saturate-0 opacity-70" : undefined}
                 checked={enabled}
                 disabled={updateRegex.isPending}
                 onChange={(checked) =>

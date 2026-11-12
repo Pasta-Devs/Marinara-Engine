@@ -6583,6 +6583,7 @@
   "regex.library.moveScript": "Move {{name}} to folder",
   "regex.library.paused": "Paused",
   "regex.library.pausedByFolder": "Paused by folder",
+  "regex.library.pausedScriptSwitch": "Run {{name}} (paused by folder)",
   "regex.library.saveFailed": "Could not save the regex change. Try again.",
   "regex.library.scriptCount_one": "{{count}} script",
   "regex.library.scriptCount_other": "{{count}} scripts",

@@ -327,11 +327,18 @@ test("regex library folders pause chat display and bulk toggles keep each script
     await exitSelection.click();
 
     await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).locator("..").click();
-    await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(2);
-    await expect(folder.getByRole("checkbox", { name: "Run Pack format", exact: true })).toBeChecked();
+    await expect(folder.getByText("Paused", { exact: true })).toBeVisible();
+    await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(0);
+    await expect(
+      folder.getByRole("checkbox", { name: "Run Pack format (paused by folder)", exact: true }),
+    ).toBeChecked();
     await expect(folder.getByRole("checkbox", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
     await expect(message).toContainText("PACK_RAW and outside formatted");
     await page.screenshot({ path: info.outputPath("regex-folders-paused.png") });
+    const orderView = page.getByRole("button", { name: "Execution order", exact: true });
+    await orderView.click();
+    await expect(page.getByTitle("Paused by folder", { exact: true })).toHaveCount(1);
+    await orderView.click();
 
     await page.reload();
     await expect(message).toContainText("PACK_RAW and outside formatted");
