@@ -37,8 +37,13 @@ export function useWindowTitles() {
 export function WindowTitle({
   title,
   where,
+  before,
+  after,
 }: {
   title?: ReactNode;
+  /** Shown just before / after the title text (a message's mini profile picture on phones). */
+  before?: ReactNode;
+  after?: ReactNode;
   where: "message" | "home-widget" | "composer" | "narration" | "omnibar" | "window" | "dialog";
 }) {
   const on = useWindowTitles();
@@ -47,7 +52,9 @@ export function WindowTitle({
   return createElement(
     "div",
     { "data-mari-part": "window-title", "data-window": where, "aria-hidden": "true" },
+    before ?? null,
     createElement("span", { "data-mari-part": "window-title-text" }, title ?? t("theming.slots.messageBox", "Message")),
+    after ?? null,
     createElement("span", { "data-mari-part": "window-buttons" }),
   );
 }

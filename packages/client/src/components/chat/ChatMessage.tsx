@@ -1,6 +1,7 @@
 import { WindowTitle } from "../../lib/theme-slots";
 import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
 import { avatarInitial } from "../../lib/avatar-initial";
+import { MiniAvatar } from "./MiniAvatar";
 import { messageHooks } from "../../lib/message-hooks";
 // ──────────────────────────────────────────────
 // Chat: Message — mode-aware rendering
@@ -4440,6 +4441,12 @@ export const ChatMessage = memo(function ChatMessage({
       </div>
     );
 
+    // Window-title themes (e.g. Petal OS) name the speaker in the title bar, so the phone mini
+    // picture rides there too: before a character's name, after yours.
+    const titleMiniAvatar =
+      isMergedGroup || overhaulActive ? undefined : (
+        <MiniAvatar url={displayAvatarUrl} name={displayName} isUser={isUser} cropStyle={compactAvatarCropStyle} />
+      );
     const rpNameMeta = (
       <>
         {hiddenFromAIHeader}
@@ -4671,6 +4678,18 @@ export const ChatMessage = memo(function ChatMessage({
                 data-mari-part="header"
                 data-placement="outside"
               >
+                {/* Phones (Mini profile pictures): first in the DOM, so it leads a character's
+                    name and, through flex-row-reverse, trails yours. */}
+                {!isMergedGroup && (
+                  <MiniAvatar
+                    url={displayAvatarUrl}
+                    name={displayName}
+                    isUser={isUser}
+                    cropStyle={compactAvatarCropStyle}
+                    onOpen={displayAvatarUrl ? () => openImageLightbox(displayAvatarUrl) : undefined}
+                    label={localizeUi("ui.chat.chatmessage.openValue1Avatar", { value1: displayName })}
+                  />
+                )}
                 {rpNameMeta}
               </div>
             )}
@@ -4825,7 +4844,12 @@ export const ChatMessage = memo(function ChatMessage({
                   </div>
                   {roleplayBubbleContent && (
                     <div className="min-w-0 flex-1 px-3 py-3">
-                      <WindowTitle title={displayName} where="message" />
+                      <WindowTitle
+                        title={displayName}
+                        where="message"
+                        before={isUser ? undefined : titleMiniAvatar}
+                        after={isUser ? titleMiniAvatar : undefined}
+                      />
                       {ovRpHead}
                       {roleplayBubbleContent}
                     </div>
@@ -4833,7 +4857,12 @@ export const ChatMessage = memo(function ChatMessage({
                 </div>
               ) : roleplayBubbleContent ? (
                 <div className="px-4 py-3">
-                  <WindowTitle title={displayName} where="message" />
+                  <WindowTitle
+                    title={displayName}
+                    where="message"
+                    before={isUser ? undefined : titleMiniAvatar}
+                    after={isUser ? titleMiniAvatar : undefined}
+                  />
                   {ovRpHead}
                   {roleplayBubbleContent}
                 </div>

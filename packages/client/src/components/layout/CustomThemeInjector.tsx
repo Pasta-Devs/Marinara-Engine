@@ -57,6 +57,8 @@ const THEME_FLAG_TOKENS: Array<[string, string]> = [
 /** Tokens whose keyword value is copied onto <html> (e.g. --mari-phone-avatar: hidden). */
 const THEME_VALUE_TOKENS: Array<[string, string, readonly string[]]> = [
   ["--mari-phone-avatar", "data-mari-phone-avatar", ["hidden"]],
+  // `full`: keep the full picture column in Conversation chats on phones when Mini pictures are on.
+  ["--mari-phone-convo-avatar", "data-mari-phone-convo-avatar", ["full"]],
 ];
 
 /** The last keyword the theme gives a token, if it is one of `allowed`. */
@@ -112,6 +114,11 @@ export function CustomThemeInjector() {
   const safeMode = useThemeSafetyStore((s) => s.safeMode);
   const blockedThemeId = useThemeSafetyStore((s) => s.blockedThemeId);
   const allowThemeHtml = useUIStore((s) => s.allowThemeHtml);
+  // Settings > Appearance > Profile pictures on phones (overhaul-mobile.css reads it).
+  const phoneChatAvatars = useUIStore((s) => s.phoneChatAvatars);
+  useEffect(() => {
+    document.documentElement.dataset.phoneChatAvatars = phoneChatAvatars;
+  }, [phoneChatAvatars]);
   // Security audit: text that pretends to be the app, an address outside the theme, an SVG with
   // code or a picture too big to open: the theme isn't applied at all (lib/theme-content-check.ts).
   const contentProblems = useMemo(() => {
