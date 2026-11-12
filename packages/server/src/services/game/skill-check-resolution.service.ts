@@ -1884,9 +1884,10 @@ function isRulesetRollableSkillCheckTag(tag: SkillCheckTag, definition: RulesetD
 }
 
 /** Whether a record says something only a ruleset's own roll can: which of two named dice led
- *  (1.821). In a game with no ruleset such a record is the model's claim, never the Engine's roll. */
+ *  (1.821), or what a plot die showed (1.822). In a game with no ruleset such a record is the model's
+ *  claim, never the Engine's roll. */
 function claimsRulesetDice(result: SkillCheckTag["resolvedResult"]): boolean {
-  return result?.duality !== undefined;
+  return result?.duality !== undefined || result?.plotFace !== undefined;
 }
 
 /** Whether a complete tag's numbers are the ones this ruleset and this sheet would have produced.
