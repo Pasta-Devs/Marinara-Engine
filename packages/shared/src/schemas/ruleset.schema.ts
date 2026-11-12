@@ -577,7 +577,7 @@ const diceSumResolutionSchema = z
       .object({ check: naturalPolicySchema.default("none"), save: naturalPolicySchema.default("none") })
       .strict()
       .prefault({}),
-    /** Two named dice of one size (1.820): Daggerheart's Hope and Fear. They add up as any two dice
+    /** Two named dice of one size (1.821): Daggerheart's Hope and Fear. They add up as any two dice
      *  do; the record says which one showed more, and a tie is a critical success when `tieIsCritical`. */
     duality: z
       .object({
@@ -587,7 +587,7 @@ const diceSumResolutionSchema = z
       })
       .strict()
       .optional(),
-    /** One more die whose faces carry symbols (1.821): a plot die. Thrown only when a check asks
+    /** One more die whose faces carry symbols (1.822): a plot die. Thrown only when a check asks
      *  with `plot="true"`; its face adds nothing to the total but a face's own `bonus`. Faces not
      *  listed are blank. */
     plotDie: z
@@ -610,7 +610,7 @@ const diceSumResolutionSchema = z
       })
       .strict()
       .optional(),
-    /** The dice's own total, before anything is added, that is a critical (1.822): a natural 19 or 20
+    /** The dice's own total, before anything is added, that is a critical (1.823): a natural 19 or 20
      *  on 2d10 is `atLeast: 19`. `atMost` is a critical failure. */
     naturalTotal: z
       .object({
@@ -619,7 +619,7 @@ const diceSumResolutionSchema = z
       })
       .strict()
       .optional(),
-    /** The Game Master may move one check's outcome band up or down (1.822), up to `max` bands, with
+    /** The Game Master may move one check's outcome band up or down (1.823), up to `max` bands, with
      *  `shift="+1"`: a double edge and a double bane. Needs `outcomes`. */
     tierShift: z
       .object({ max: z.number().int().min(1).max(3), text: promptSafeText(200).optional() })
@@ -18259,7 +18259,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           issue(["resolution", "unmodified", index], `A face of this die is from 1 to ${dice.sides}`);
       });
     }
-    // Two named dice (1.820) are read face against face, so they are two plain dice thrown once.
+    // Two named dice (1.821) are read face against face, so they are two plain dice thrown once.
     const { duality } = resolution;
     if (duality) {
       if (dice.count !== 2 || dice.faces || openEnded) {
@@ -18281,7 +18281,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (first === "tie" || second === "tie")
         issue(["resolution", "duality", "dice"], 'A die cannot be labelled "tie": the record uses it for equal faces');
     }
-    // A plot die's listed faces (1.821) are faces it has, each listed once.
+    // A plot die's listed faces (1.822) are faces it has, each listed once.
     const { plotDie } = resolution;
     plotDie?.faces.forEach((entry, index) => {
       if (entry.face > plotDie.sides)
@@ -18289,7 +18289,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (plotDie.faces.findIndex((other) => other.face === entry.face) !== index)
         issue(["resolution", "plotDie", "faces", index, "face"], `Face ${entry.face} is listed twice`);
     });
-    // A natural total (1.822) the dice can show, read off the faces' own worth where they have it.
+    // A natural total (1.823) the dice can show, read off the faces' own worth where they have it.
     const { naturalTotal, tierShift } = resolution;
     if (naturalTotal) {
       const low = dice.count * (dice.faces ? Math.min(...dice.faces) : 1);

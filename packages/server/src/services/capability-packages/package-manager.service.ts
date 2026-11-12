@@ -9368,20 +9368,20 @@ function capabilityPackageInstallIssueFor(
   if (!declaresApi(150) && diceSettings.some((setting) => setting?.allowOwnUpgrade !== undefined)) {
     return "A ruleset that declares own dice upgrades requires schemaVersion 2 and capabilityApi 1.150 or newer";
   }
-  // Two named dice, 1.820: a strict key, including per-check overrides.
-  if (!declaresApi(820) && diceSettings.some((setting) => setting?.duality !== undefined)) {
-    return "A ruleset that throws two named dice requires schemaVersion 2 and capabilityApi 1.820 or newer";
+  // Two named dice, 1.821: a strict key, including per-check overrides.
+  if (!declaresApi(821) && diceSettings.some((setting) => setting?.duality !== undefined)) {
+    return "A ruleset that throws two named dice requires schemaVersion 2 and capabilityApi 1.821 or newer";
   }
-  // A plot die, 1.821: a strict key, including per-check overrides.
-  if (!declaresApi(821) && diceSettings.some((setting) => setting?.plotDie !== undefined)) {
-    return "A ruleset with a plot die requires schemaVersion 2 and capabilityApi 1.821 or newer";
+  // A plot die, 1.822: a strict key, including per-check overrides.
+  if (!declaresApi(822) && diceSettings.some((setting) => setting?.plotDie !== undefined)) {
+    return "A ruleset with a plot die requires schemaVersion 2 and capabilityApi 1.822 or newer";
   }
-  // A natural total and a moved band, 1.822: strict keys, including per-check overrides.
+  // A natural total and a moved band, 1.823: strict keys, including per-check overrides.
   if (
-    !declaresApi(822) &&
+    !declaresApi(823) &&
     diceSettings.some((setting) => setting?.naturalTotal !== undefined || setting?.tierShift !== undefined)
   ) {
-    return "A ruleset with a natural total or a band shift requires schemaVersion 2 and capabilityApi 1.822 or newer";
+    return "A ruleset with a natural total or a band shift requires schemaVersion 2 and capabilityApi 1.823 or newer";
   }
   if (
     !declaresApi(153) &&

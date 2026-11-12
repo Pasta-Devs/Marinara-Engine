@@ -118,10 +118,10 @@ export interface SkillCheckTag {
   /** Independent setback dice and optional own-pool upgrades (1.150). */
   setback?: number;
   upgradeOwn?: number;
-  /** `plot="true"`: the plot die thrown (1.821). Carried, never judged: the resolver holds it to the
+  /** `plot="true"`: the plot die thrown (1.822). Carried, never judged: the resolver holds it to the
    *  ruleset. */
   plot?: boolean;
-  /** `shift="+1"`: bands to move the outcome (1.822). Carried, never judged, as `plot` is. */
+  /** `shift="+1"`: bands to move the outcome (1.823). Carried, never judged, as `plot` is. */
   shift?: number;
   /**
    * `spend="willpower:1"` as the GM wrote it, read into a pool name and a whole number of points.
@@ -610,9 +610,9 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const againstValue: SkillCheckResult["against"] =
     againstRaw === "at-most" || againstRaw === "at-least" ? againstRaw : undefined;
   const tensCount = Number(values.get("tens"));
-  // Two named dice (1.820), said by the Engine's own record and read back so a reloaded card says them.
+  // Two named dice (1.821), said by the Engine's own record and read back so a reloaded card says them.
   const dualityLabel = values.get("duality")?.trim().slice(0, 80);
-  // The plot die (1.821), read back the same way.
+  // The plot die (1.822), read back the same way.
   const plotFace = Number(values.get("plotface"));
   const plotSymbolRaw = values.get("plotsymbol")?.trim().toLowerCase();
   const plotSymbol: SkillCheckResult["plotSymbol"] =
@@ -797,7 +797,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     const rollIsD20 = actualRoll >= 1 && actualRoll <= 20;
     const usedRollHolds = usedRoll === actualRoll;
     const arithmeticHolds = actualRoll + modifier === total;
-    // A shifted band (1.822) may succeed below the dc or fail above it, and the record names it.
+    // A shifted band (1.823) may succeed below the dc or fail above it, and the record names it.
     // Only a shift that explains the disagreement: a better band for a success below the dc, a worse
     // one for a failure at or above it.
     const shifted =

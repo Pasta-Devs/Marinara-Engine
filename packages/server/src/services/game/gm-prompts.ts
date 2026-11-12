@@ -1452,7 +1452,7 @@ function renderRulesetKindCheckLine(
     ...untrainedClause,
     ...effectsClause,
     ...outcomesClause("points"),
-    // Two named dice (1.820).
+    // Two named dice (1.821).
     ...(resolution.duality
       ? [
           `The two dice are ${resolution.duality.dice[0].label} and ${resolution.duality.dice[1].label}; the engine marks duality="..." with the one that showed more${
@@ -1460,13 +1460,13 @@ function renderRulesetKindCheckLine(
           }. Narrate the check as with that die${resolution.duality.text ? `: ${resolution.duality.text}` : "."}`,
         ]
       : []),
-    // The plot die (1.821).
+    // The plot die (1.822).
     ...(resolution.plotDie
       ? [
           `Add plot="true" to throw the ${resolution.plotDie.label} with the check; the engine marks plotFace, plotSymbol (complication or opportunity) and any plotBonus it added${resolution.plotDie.text ? `: ${resolution.plotDie.text}` : "."}`,
         ]
       : []),
-    // A natural total and a moved band (1.822).
+    // A natural total and a moved band (1.823).
     ...(resolution.naturalTotal
       ? [
           [

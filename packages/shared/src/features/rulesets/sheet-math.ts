@@ -1287,11 +1287,11 @@ export interface RulesetCheckRoll {
   faces?: number[];
   /** The single die's face, where the ruleset marks it as rolled unmodified (1.136). */
   unmodified?: number;
-  /** Two named dice (1.820): the label of the one that showed more, or "tie". */
+  /** Two named dice (1.821): the label of the one that showed more, or "tie". */
   duality?: string;
-  /** The plot die (1.821), where the check threw it: its face, symbol, what it added and its name. */
+  /** The plot die (1.822), where the check threw it: its face, symbol, what it added and its name. */
   plot?: { face: number; symbol?: "complication" | "opportunity"; bonus: number; label: string };
-  /** Bands the outcome was moved (1.822), after the ruleset's limit. */
+  /** Bands the outcome was moved (1.823), after the ruleset's limit. */
   shift?: number;
 }
 
@@ -1328,7 +1328,7 @@ export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
     fraction?: number;
     natural?: -1 | 0 | 1;
     forced?: "best" | "worst";
-    /** Bands better (+) or worse (-) the Game Master moved this check (1.822). */
+    /** Bands better (+) or worse (-) the Game Master moved this check (1.823). */
     shift?: number;
   },
 ): T {
@@ -1340,7 +1340,7 @@ export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
   let index = read.findIndex((tier) => tier.atLeast === undefined || measure >= tier.atLeast);
   if (index < 0) index = read.length - 1;
   if (outcomes.naturals === "shift" && input.natural) index -= input.natural;
-  // Where the roll stood before the Game Master's shift (1.822), to say how far it really moved: an
+  // Where the roll stood before the Game Master's shift (1.823), to say how far it really moved: an
   // ask past the last band, or on a roll a critical pins, moves nothing.
   const held = (at: number) => Math.min(read.length - 1, Math.max(0, at));
   const unshifted = held(index);
@@ -1389,9 +1389,9 @@ export function rollDiceSumCheck(
     faceFloor?: number;
     /** A total below this counts as this (1.418): Indomitable Might's Strength score. */
     totalFloor?: number;
-    /** `plot="true"` (1.821): throw the plot die, where the ruleset has one. */
+    /** `plot="true"` (1.822): throw the plot die, where the ruleset has one. */
     plot?: boolean;
-    /** `shift=` (1.822): bands to move the outcome, held to the ruleset's `tierShift.max`. */
+    /** `shift=` (1.823): bands to move the outcome, held to the ruleset's `tierShift.max`. */
     shift?: number;
   },
   /** `beside` marks a die thrown beside the check, which is never one of its own dice. */
@@ -1456,7 +1456,7 @@ export function rollDiceSumCheck(
   const natural = floor || kept.thrown[0]!;
 
   const policy = input.isSave ? naturals.save : naturals.check;
-  // Two named dice (1.820): the one that showed more, and a tie, which may be a critical on its own.
+  // Two named dice (1.821): the one that showed more, and a tie, which may be a critical on its own.
   const { duality } = resolution;
   const [first0, first1] = kept.thrown;
   const dualityWinner = !duality
@@ -1466,7 +1466,7 @@ export function rollDiceSumCheck(
       : first1! > first0!
         ? duality.dice[1].label
         : "tie";
-  // The dice's own total, before anything is added (1.822): a natural 19 or 20 on 2d10.
+  // The dice's own total, before anything is added (1.823): a natural 19 or 20 on 2d10.
   const { naturalTotal } = resolution;
   // Faces worth other numbers are read by their worth, floor included; a plain single die by its face.
   const ownTotal = faces ? usedRoll : single ? natural : kept.worth;
@@ -1479,7 +1479,7 @@ export function rollDiceSumCheck(
   const criticalFailure =
     !criticalSuccess && ((single && natural === 1 && (policy === "both" || policy === "min-only")) || naturalLow);
   const unmodified = single && resolution.unmodified?.includes(natural) ? natural : undefined;
-  // The plot die (1.821) is thrown after the check's own dice, and adds only what its face says.
+  // The plot die (1.822) is thrown after the check's own dice, and adds only what its face says.
   const { plotDie } = resolution;
   const plotFace = plotDie && input.plot ? rollDie(plotDie.sides, "plot") : undefined;
   const plotEntry = plotFace === undefined ? undefined : plotDie!.faces.find((entry) => entry.face === plotFace);
