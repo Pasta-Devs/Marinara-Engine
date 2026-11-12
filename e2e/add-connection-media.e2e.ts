@@ -344,6 +344,7 @@ test("a fresh ComfyUI connection can finish as video without leaving its image p
     };
     accountId = created.account.id;
     createdIds.add(created.connectionId);
+    // Connect opens "Found in ComfyUI — use it for": untick Images, keep Video, name the checkpoint.
     // Connect left one empty image row; Video makes its own row and replaces that empty one.
     const videoRowResponse = page.waitForResponse(
       (response) =>
@@ -351,23 +352,16 @@ test("a fresh ComfyUI connection can finish as video without leaving its image p
         response.request().method() === "POST" &&
         new URL(response.url()).pathname === "/api/connections",
     );
-    // Connect closes the Add window; open the models screen only after it is gone.
-    await expect(dialog).toHaveCount(0);
-    await openAddModels(page, accountId!, "video");
-    const modelsDialog = page.getByRole("dialog", { name: /^Add models to /u });
-    await expect(modelsDialog.locator('[data-add-connection-capability="video"]')).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    const useDialog = page.getByRole("dialog", { name: "ComfyUI is connected", exact: true });
+    await expect(useDialog.locator('[data-add-connection-use="video"]')).toBeVisible();
+    await useDialog.locator('[data-add-connection-use="images"] input[type="checkbox"]').uncheck();
+    await useDialog
+      .locator('[data-add-connection-use="video"] input:not([type="checkbox"])')
+      .fill("fresh-video-checkpoint.safetensors");
+    await useDialog.locator("[data-add-connection-done]").click();
     const videoCreated = (await (await videoRowResponse).json()) as { id: string };
     createdIds.add(videoCreated.id);
-    await modelsDialog.locator("[data-model-search]").fill("fresh-video-checkpoint.safetensors");
-    await modelsDialog.locator("[data-model-search]").press("Enter");
-    await expect
-      .poll(async () => (await rows(request)).find((row) => row.id === videoCreated.id)?.model)
-      .toBe("fresh-video-checkpoint.safetensors");
-    await modelsDialog.locator("[data-add-connection-done]").click();
-    await expect(modelsDialog).toHaveCount(0);
+    await expect(useDialog).toHaveCount(0);
 
     const accountRows = (await rows(request)).filter((row) => row.accountId === accountId);
     expect(accountRows).toHaveLength(1);
@@ -488,19 +482,12 @@ test("switching kinds keeps a fresh connection's chat catalog available", async 
     await setupDialog.locator("[data-add-connection-connect]").click();
     accountId = ((await (await createdAccount).json()) as { account: { id: string } }).account.id;
 
-    // With no Main model yet, a passing Connect opens the account's models in the same window (#8456).
-    const dialog = setupDialog;
-    await expect(dialog.locator('[data-add-connection-capability="chat"]')).toHaveAttribute("aria-pressed", "true");
-    await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
-    await dialog.locator('[data-add-connection-capability="image"]').click();
-    await expect
-      .poll(async () => (await rows(request)).filter((row) => row.accountId === accountId).map((row) => row.provider))
-      .toEqual(expect.arrayContaining(["openai", "image_generation"]));
-    await dialog.locator('[data-add-connection-capability="chat"]').click();
-    await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
-    await dialog.getByRole("button", { name: "Close Add account", exact: true }).click();
+    // With no Main model yet, a passing Connect opens "Found in OpenAI — use it for" with the catalog's pick (#8456).
+    const dialog = page.getByRole("dialog", { name: "OpenAI is connected", exact: true });
+    await expect(dialog.locator('[data-add-connection-use="main"]')).toContainText("Fixture chat");
+    await dialog.getByRole("button", { name: "Skip", exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    // The account stays; only the image row made by the chip switch is thrown away.
+    // The account stays; looking at the image job made no image row.
     await expect
       .poll(async () => (await rows(request)).filter((row) => row.accountId === accountId).map((row) => row.provider))
       .not.toContain("image_generation");

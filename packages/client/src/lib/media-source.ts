@@ -77,8 +77,10 @@ export async function mediaRowFor(
   name: string | undefined,
   rows: readonly Row[],
   createRow: (data: CreateConnectionPayload) => Promise<unknown>,
+  /** A media account's provider is just "image_generation"; the Add flow knows its backend and passes it. */
+  knownSource?: string,
 ): Promise<string | undefined> {
-  const source = mediaSources(account.provider, kind)[0];
+  const source = knownSource ?? mediaSources(account.provider, kind)[0];
   if (!source) return undefined;
   const provider = kind === "image" ? "image_generation" : kind === "video" ? "video_generation" : "audio";
   const existing = rows.find(

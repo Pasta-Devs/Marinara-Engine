@@ -77,8 +77,8 @@ test("a first run adds a connection from the empty new-chat gate and starts the 
     await expect(dialog).toBeVisible();
     await expect(page.locator("[data-new-chat-connection-gate]")).toHaveCount(0);
     await expect(dialog.locator('[data-add-connection-service="openrouter"]')).toBeVisible();
-    // Built-in parts are in the list too, until they are set up (decision 32).
-    await expect(dialog.locator('[data-add-connection-service="tts"]')).toBeVisible();
+    // Device engines (built-in model, Whisper, PocketTTS) are no longer tiles here: they live on the "On this device" card.
+    await expect(dialog.locator('[data-add-connection-service="tts"]')).toHaveCount(0);
 
     // A rejected key gets a plain reason and Try again; no way on to the models.
     await page.route("**/api/connections/*/test", (route) =>
@@ -493,11 +493,14 @@ test("the Add window lists providers by what they give; one search finds a provi
   const dialog = page.getByRole("dialog", { name: "Add account", exact: true });
   const tile = (id: string) => dialog.locator(`[data-add-connection-service="${id}"]`);
 
-  // Before typing: the providers, in sections by what they give.
-  await expect(dialog.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
+  // Before typing: one provider list, with type chips for what each one gives.
+  const chips = dialog.getByRole("group", { name: "Filter services by kind" });
+  await expect(chips.getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await chips.getByRole("button", { name: "Text", exact: true }).click();
   await expect(tile("openrouter")).toBeVisible();
   await expect(tile("anthropic")).toBeVisible();
 
+  await chips.getByRole("button", { name: "All", exact: true }).click();
   const search = dialog.getByRole("searchbox");
   await search.fill("anthropic");
   await expect(tile("anthropic")).toBeVisible();

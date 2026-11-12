@@ -23,7 +23,15 @@ import type { ConnectionRowData } from "../../connections/ConnectionRow";
 import { catalogMatchesKind, JOB, jobLabelKey, matchesKind, type JobKey } from "../../../lib/connection-jobs";
 import type { RemoteConnectionModel } from "../../../lib/connection-model-selection";
 import { mediaRowFor } from "../../../lib/media-source";
-import { errorText, kindsOf, PRIMARY_CLASS, SECONDARY_CLASS, type ServiceId, type Target } from "./shared";
+import {
+  errorText,
+  kindsOf,
+  mediaBackendOf,
+  PRIMARY_CLASS,
+  SECONDARY_CLASS,
+  type ServiceId,
+  type Target,
+} from "./shared";
 
 type UseKind = Exclude<ConnectionPickerKind, "all">;
 /** The job each model type serves, in row order. */
@@ -96,7 +104,7 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
   const testRow = useTestConnection();
   const [ticked, setTicked] = useState<Set<JobKey> | null>(null);
   const [busy, setBusy] = useState(false);
-  const [typed, setTyped] = useState("");
+  const [typed, setTyped] = useState<Partial<Record<JobKey, string>>>({});
   const [errors, setErrors] = useState<Partial<Record<JobKey, string>>>({});
   const account = accounts?.find((item) => item.id === target.accountId);
 
@@ -110,9 +118,11 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
         job,
       )
     : [];
-  // A server with no model list (or a failed one) still gets a Main model: the user types its ID.
-  if (account && kinds.includes("chat") && !catalog.isLoading && !uses.some((use) => use.kind === "chat"))
-    uses.unshift({ kind: "chat", job: "main", model: typed.trim(), typed: true });
+  // A server with no model list (or a failed one) still gets a row per chat, image and video job: the user types its ID.
+  if (account && !catalog.isLoading)
+    for (const kind of ["chat", "image", "video"] as const)
+      if (kinds.includes(kind) && !uses.some((use) => use.kind === kind))
+        uses.push({ kind, job: JOB_OF[kind]!, model: (typed[JOB_OF[kind]!] ?? "").trim(), typed: true });
   const currentOf = (use: Use) =>
     use.kind === "decision" ? (decisionOptions.data?.selected ?? null) : (modelFor(JOB[use.job])?.value ?? null);
   const labelOf = (id: string, use: Use) => {
@@ -170,7 +180,16 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
           : decisionConnectionTestMessage(t, result).message,
       );
     }
-    return mediaRowFor(use.kind, account, use.model, use.name, rows, (data) => createRow.mutateAsync(data));
+    const backend = mediaBackendOf(service);
+    return mediaRowFor(
+      use.kind,
+      account,
+      use.model,
+      use.name,
+      rows,
+      (data) => createRow.mutateAsync(data),
+      backend && (use.kind === "image" || use.kind === "video") && backend[use.kind] ? backend.source : undefined,
+    );
   };
 
   const done = async () => {
@@ -186,10 +205,12 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
       undo.push(() => set(id, previous));
       return true;
     };
+    let madeMedia = false;
     for (const use of uses.filter(isTicked)) {
       if (!use.model) continue;
       try {
         const id = await rowFor(use);
+        if (id && !use.rowId && (use.kind === "image" || use.kind === "video")) madeMedia = true;
         const previous = currentOf(use);
         if (!id || id === previous) continue;
         if (use.kind === "decision") {
@@ -203,6 +224,15 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
         failures[use.job] = errorText(error);
       }
     }
+    // A new account's empty image row only held its place; a media row made here replaces it.
+    if (madeMedia && account)
+      for (const row of rows)
+        if (
+          row.accountId === account.id &&
+          !row.model?.trim() &&
+          (row.provider === "image_generation" || row.provider === "video_generation")
+        )
+          await deleteRow.mutateAsync(row.id).catch(() => undefined);
     setErrors(failures);
     setBusy(false);
     if (jobs.length)
@@ -260,8 +290,8 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
                   <span className="text-sm font-medium">{t(jobLabelKey(JOB[use.job]))}</span>
                   {use.typed && (
                     <input
-                      value={typed}
-                      onChange={(event) => setTyped(event.target.value)}
+                      value={typed[use.job] ?? ""}
+                      onChange={(event) => setTyped({ ...typed, [use.job]: event.target.value })}
                       disabled={busy}
                       aria-label={t("connections.move.manualLabel")}
                       placeholder={t("connections.move.manualLabel")}
