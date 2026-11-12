@@ -1,5 +1,4 @@
 import { ChatButtonLayoutSettings } from "./ChatButtonLayoutSettings";
-
 // ──────────────────────────────────────────────
 // Chat: Settings Drawer — per-chat configuration
 // ──────────────────────────────────────────────
@@ -203,7 +202,6 @@ import { useDefaultPreset, usePresetFull, usePresets } from "../../hooks/use-pre
 import { useConnections } from "../../hooks/use-connections";
 import { NeedsModelChip, agentModelNeed } from "../../components/connections/NeedsModelChip";
 import { ConnectionSelect } from "../../components/connections/ConnectionSelect";
-
 import { useGenerate } from "../../hooks/use-generate";
 import {
   isCapabilityPackageAvailable,
@@ -225,7 +223,6 @@ import {
 import { useUpdateGameWidgets } from "../../hooks/use-game";
 import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../../hooks/use-regex-scripts";
 import { api } from "../../lib/api-client";
-
 import { readCharacterGreetings, type CharacterGreeting } from "../../lib/character-greetings";
 import { trackChatMetadataSave, waitForPendingChatMetadataSaves } from "../../lib/chat-metadata-save-barrier";
 import { createSerializedMutationQueue } from "../../lib/serialized-mutation-queue";
@@ -413,7 +410,7 @@ import {
 import { renderRoleplayAgentMenuIcon } from "./roleplay-agent-menu-icon";
 import { MemoryRecallMemoriesModal } from "./MemoryRecallMemoriesModal";
 import { KnowledgeAgentSettingsCard } from "./KnowledgeAgentSettingsCard";
-import { ConversationNotesSection } from "./ConversationNotesSection";
+import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 
 const PICKER_EXCLUDED_IDS = [PROFESSOR_MARI_ID];
 const QuickPresetSectionsEditor = lazy(() =>

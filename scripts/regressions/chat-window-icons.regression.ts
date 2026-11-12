@@ -68,7 +68,11 @@ function collect(path: string, tag: string) {
 const sectionFiles = readdirSync(join(root, "packages/client/src/features/chat-settings/sections"))
   .filter((file) => file.endsWith(".tsx"))
   .map((file) => `packages/client/src/features/chat-settings/sections/${file}`);
-for (const path of ["packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"]) {
+for (const path of [
+  "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx",
+  // Imports ChatSettingsSection as Section, so the sections/ loop below would miss its icon.
+  "packages/client/src/features/chat-settings/sections/ConversationNotesSection.tsx",
+]) {
   collect(path, "Section");
   collect(path, "Drawer");
 }

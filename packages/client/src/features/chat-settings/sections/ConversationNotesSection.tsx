@@ -1,11 +1,11 @@
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { useChatNotes, useDeleteChatNote, useClearChatNotes } from "../../hooks/use-chats";
+import { useChatNotes, useDeleteChatNote, useClearChatNotes } from "../../../hooks/use-chats";
 import { useMemo } from "react";
 import type { ConversationNote } from "@marinara-engine/shared";
-import { showConfirmDialog } from "../../lib/app-dialogs";
-import { ChatSettingsSection as Section } from "./ChatSettingsSection";
+import { showConfirmDialog } from "../../../lib/app-dialogs";
+import { ChatSettingsSection as Section } from "../ChatSettingsSection";
 import { StickyNote, Trash2 } from "lucide-react";
-import { formatMemoryDate } from "./lib/memory-format";
+import { formatMemoryDate } from "../lib/memory-format";
 
 export function ConversationNotesSection({ chatId }: { chatId: string }) {
   const { t: localizeUi } = useUiTranslation();
