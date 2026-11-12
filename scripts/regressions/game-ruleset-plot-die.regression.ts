@@ -31,7 +31,7 @@ process.env.DATA_DIR = dataDir;
 
 try {
   const [
-    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext },
+    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext, resolveSkillCheckTagsInContent },
     { buildGmFormatReminder },
     { getCapabilityPackageInstallIssue },
   ] = await Promise.all([
@@ -176,6 +176,25 @@ try {
     assert.match(record, /plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"/);
     const back = parseSkillCheckTagBody(record.slice("[skill_check:".length, -1))?.resolvedResult;
     assert.match(formatSkillCheckResultSummary(back!), /Plot die 2: complication \(\+4\)\.$/);
+
+    // A record the Game Master wrote is vouched for when its numbers are the sheet's. One that names
+    // a plot die, or asks for one, is not: nobody threw that die, so the Engine rolls the check.
+    const sheetModifier = resolveSkillCheckWithContext(context as any, { skill: "Scrap", dc: 10 }, () => 12).modifier;
+    const written = (extra: string) =>
+      `[skill_check: skill="Scrap" dc="10" rolls="12" used="12" modifier="${sheetModifier}" total="${12 + sheetModifier}" result="success" mode="normal" resolution="sum" dice="1d20"${extra}]`;
+    const resolve = (content: string) =>
+      resolveSkillCheckTagsInContent(content, {
+        loadContext: async () => context as any,
+        rulesetPinned: true,
+        rollD20: () => 12,
+      });
+    assert.equal((await resolve(written(""))).trusted, 1, "a plain written record is vouched for");
+    const forged = await resolve(written(' plotFace="6" plotSymbol="opportunity" plotLabel="Plot die"'));
+    assert.deepEqual([forged.trusted, forged.results?.length], [0, 1], "a written plot die is rolled again");
+    assert.equal(forged.results![0]!.plotFace, undefined, "nobody asked for the plot die, so the record has none");
+    const asked = await resolve(written(' plot="true"'));
+    assert.deepEqual([asked.trusted, asked.results?.length], [0, 1], "full numbers do not stand in for the plot die");
+    assert.ok(asked.results![0]!.plotFace! >= 1, "the Engine threw the plot die");
 
     const reminder = buildGmFormatReminder({
       turnNumber: 2,

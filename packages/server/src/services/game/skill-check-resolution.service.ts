@@ -1904,6 +1904,9 @@ function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag
   if (tag.apply?.length) return false;
   const result = tag.resolvedResult;
   if (!result || result.resolution !== "sum") return false;
+  // Nor a check with two named dice (1.820) or a plot die (1.821): only the Engine's own throw can
+  // say which die led or what the plot die showed, whatever the record claims.
+  if (resolution.duality || tag.plot || result.duality != null || result.plotFace != null) return false;
   // A check the character's conditions or items change is always the Engine's own: the Game Master
   // cannot have counted what it is not shown, and a bonus in dice has no one right number.
   const changed = rulesetCheckEffectsFor(
