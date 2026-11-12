@@ -63,6 +63,9 @@ export function createLLMProvider(
 
   // The on-device model is not an HTTP endpoint: it has its own provider and no key, gate or throttle.
   if (provider === "local_sidecar") return getLocalSidecarProvider();
+  // Providers append paths like "/chat/completions". A saved base URL ending in "/" would send "//chat/completions",
+  // which llama.cpp answers with 404 (#9097). Not every caller resolves the URL through resolveBaseUrl, so trim here.
+  baseUrl = baseUrl.replace(/\/+$/, "");
   let resolved: BaseLLMProvider;
   switch (provider) {
     case "decision":
