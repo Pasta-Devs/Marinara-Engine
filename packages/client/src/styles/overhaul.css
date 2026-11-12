@@ -4382,10 +4382,24 @@ input.ov-edhead__title:focus {
 }
 .ov-cs__head {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.5rem;
   margin-left: auto;
   cursor: default;
+}
+/* The title gives way first: Edit keeps its own width and never runs into the star (nitpick audit 2 MP1/GA2). */
+.ov-cs .mari-window__title-row > .mari-window__title {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.ov-cs .ov-cs__head > .ov-edbtn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  border-radius: var(--ov-cs-pill-radius, 999px);
+}
+.ov-cs > .mari-window__header > .mari-window__controls {
+  margin-left: 0.25rem;
 }
 .ov-cs__mode {
   color: var(--ov-muted);
@@ -4628,7 +4642,7 @@ input.ov-edhead__title:focus {
   height: auto !important;
   padding: 0.1875rem 0.625rem !important;
   border: 1px solid var(--ov-line) !important;
-  border-radius: 999px !important;
+  border-radius: var(--ov-cs-pill-radius, 999px) !important;
   background: transparent !important;
   font-size: 0.8125rem !important;
   font-weight: 500;
@@ -4710,7 +4724,7 @@ input.ov-edhead__title:focus {
   justify-self: start;
   padding: 0.1875rem 0.625rem !important;
   border: 1px solid var(--ov-line) !important;
-  border-radius: 999px !important;
+  border-radius: var(--ov-cs-pill-radius, 999px) !important;
   background: transparent !important;
   box-shadow: none !important;
   font-size: 0.8125rem !important;
@@ -6152,7 +6166,7 @@ input.ov-edhead__title:focus {
   padding: 0 0.5rem !important;
   border-width: 1px !important;
   border-style: solid !important;
-  border-radius: 999px !important;
+  border-radius: var(--ov-cs-pill-radius, 999px) !important;
   font-size: 0.6875rem !important;
 }
 /* Empty states: one quiet line, not a centred block. */
@@ -6251,7 +6265,7 @@ input.ov-edhead__title:focus {
   padding: 0 0.625rem 0 0.5rem !important;
   /* Same border and fill as the Prompt Preset select below it. */
   border: 1px solid var(--ov-line) !important;
-  border-radius: 0.375rem !important;
+  border-radius: var(--ov-cs-field-radius, 0.5rem) !important;
   font-size: 0.8125rem !important;
   background: color-mix(in srgb, var(--background) 70%, transparent) !important;
   box-shadow: none;
@@ -9226,8 +9240,9 @@ input.ov-edhead__title:focus {
 .ov-cs--section .mari-window__body {
   container-type: inline-size;
 }
+/* Wraps only when a wide skin font can't fit the row (Stats was cut off in Dottore; nitpick audit 2 DD1). */
 .ov-cb-io {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 .ov-cb-io__btn {
   flex-shrink: 0;
@@ -13214,4 +13229,54 @@ input.ov-edhead__title:not(#ov-x) {
 ):focus-visible {
   outline: 2px solid var(--ov-accent);
   outline-offset: 2px;
+}
+
+/* ─── Chat settings: one shape per family (nitpick audit 2 DD3/DD11/DD2) ───
+   Fields (inputs, selects, text boxes, field buttons) share one radius; actions (Add…, branch buttons, Backfill,
+   Select…) share the pill. Chat widgets with cut or square frames set both tokens small (chat-widgets.css). */
+.ov-cs.ov-cs.ov-cs.ov-cs
+  .mari-window__body
+  :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+    select,
+    textarea,
+    .mari-chrome-field
+  ),
+.ov-cs.ov-cs.ov-cs.ov-cs [data-chat-settings-section$="connection"] .mari-drawer__body button[class*="ring-1"] {
+  /* Some fields carry an !important rounded-md utility; it reads these. */
+  --radius-md: var(--ov-cs-field-radius, 0.5rem);
+  --radius-lg: var(--ov-cs-field-radius, 0.5rem);
+  border-radius: var(--ov-cs-field-radius, 0.5rem) !important;
+}
+.ov-cs.ov-cs.ov-cs .mari-drawer__body :is(.ov-cb-io__btn, .mari-editor-action, .mari-agent-settings-action) {
+  border-radius: var(--ov-cs-pill-radius, 999px) !important;
+}
+/* Labels and hints start on the section's edge like the titles and fields (their own px-1/px-1.5 inset them). */
+.ov-cs.ov-cs .mari-drawer__body :is(p, label, h3, h4):is(.px-1, .px-1\.5):not(button *) {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+/* Search messages: the field and its hint span the section like every other field. */
+.ov-cs.ov-cs .mari-drawer__body [data-chat-message-search-field] {
+  padding-left: 0;
+  padding-right: 0;
+}
+/* Framed chat widgets (Dottore, Prof. Mari): the docked drawer's crest sat on the drawer's top edge, right over the
+   end of the top bar's Chat settings button. It goes left of the title, as in the phone sheet (nitpick audit 2 DD9). */
+:root:is([data-chat-widget-preset="dottore"], [data-chat-widget-preset="mari"])
+  .mari-window.ov-cs--docked
+  > .mari-window__header::after {
+  left: 0.5rem;
+  top: calc(50% - 1rem);
+  width: 1.25rem;
+  height: 2rem;
+}
+:root:is([data-chat-widget-preset="dottore"], [data-chat-widget-preset="mari"])
+  .mari-window.ov-cs--docked
+  > .mari-window__header {
+  padding-left: 2rem;
+}
+/* Dottore's monospace sits high in its line box: nudge the Edit label onto the button's centre (DM12). */
+:root[data-chat-widget-preset="dottore"] .ov-cs .ov-cs__head > .ov-edbtn {
+  padding-top: 0.25rem;
 }

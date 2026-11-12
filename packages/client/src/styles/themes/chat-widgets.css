@@ -166,6 +166,19 @@
   --mari-widget-drawer-radius: 0px;
 }
 
+/* Chat settings rows, fields and pills follow the frame: cut-corner (Dottore) gets small corners, square gets none
+   (nitpick audit 2 DM12). Read by overhaul.css / overhaul-mobile.css. */
+[data-chat-widget-shape="cut-corner"] {
+  --ov-cs-tile-radius: 0.25rem;
+  --ov-cs-field-radius: 0.25rem;
+  --ov-cs-pill-radius: 0.25rem;
+}
+[data-chat-widget-shape="square"] {
+  --ov-cs-tile-radius: 0px;
+  --ov-cs-field-radius: 0px;
+  --ov-cs-pill-radius: 0px;
+}
+
 [data-chat-widget-shape="arched"],
 [data-chat-widget-preset="mari"][data-chat-widget-shape="preset"] {
   --mari-widget-radius: 1.75rem 1.75rem 0.875rem 0.875rem;
