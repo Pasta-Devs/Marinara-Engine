@@ -58,7 +58,7 @@ A summed check can throw two dice that each have a name, where the story turns o
 
 The total is still the two dice plus the modifier, read against the difficulty as usual. The record says which die showed more, `duality="Hope"`, or `duality="tie"`, the dice card says it, and the Game Master is told to narrate the check as with that die.
 
-`duality` needs `dice.count` 2, plain faces (no `faces`), no `openEnded` and `advantage` false, and the two ids must differ. An override may set or remove it for some checks.
+`duality` needs `dice.count` 2, plain faces (no `faces`), no `openEnded` and `advantage` false, and the two ids must differ. The two labels must differ too, and neither can be `tie`, because the record names the leading die by its label. An override may set or remove it for some checks.
 
 #### A plot die
 
