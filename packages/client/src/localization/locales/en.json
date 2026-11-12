@@ -2216,7 +2216,7 @@
   "connections.device.modelLoaded": "Built-in model loaded.",
   "connections.device.modelUnloaded": "Built-in model unloaded from memory.",
   "connections.device.notForRoleplay": "The built-in model is not for roleplay",
-  "connections.device.openJobSettings": "Open its settings in Jobs",
+  "connections.device.openJobSettings": "Open its settings",
   "connections.device.pleaseWait": "Please wait…",
   "connections.device.pocketVoicesLoaded_one": "{{count}} voice loaded from the PocketTTS server.",
   "connections.device.pocketVoicesLoaded_other": "{{count}} voices loaded from the PocketTTS server.",
