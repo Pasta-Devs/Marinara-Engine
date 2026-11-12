@@ -10298,6 +10298,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   input.regenerateMessageId,
                 ),
               chatId: input.chatId,
+              // What a branch arm rolled above stands: the tag pass does not roll it again.
+              ...(gameChanceSession ? { engineRecords: gameChanceSession.engineRecords } : {}),
               // Keyed on the pin being PRESENT, not on it resolving. A pin the install cannot
               // honour must still fail closed (the context refuses to load and the checks are
               // saved sparse); treating it as unpinned would roll a ruleset game's checks with

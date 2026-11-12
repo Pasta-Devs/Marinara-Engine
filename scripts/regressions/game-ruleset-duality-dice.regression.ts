@@ -29,7 +29,7 @@ process.env.DATA_DIR = dataDir;
 
 try {
   const [
-    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext },
+    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext, resolveSkillCheckTagsInContent },
     { buildGmFormatReminder },
     { getCapabilityPackageInstallIssue },
   ] = await Promise.all([
@@ -172,6 +172,50 @@ try {
     assert.equal(result.rolls.length, 2);
     const [a, b] = result.rolls;
     assert.equal(result.duality, a! > b! ? "Hope" : b! > a! ? "Fear" : "tie");
+
+    // A record the Game Master wrote, with the sheet's own modifier and a tidy sum, cannot say which
+    // die led, so a check on two named dice is always the Engine's own roll.
+    const written = `[skill_check: skill="Scrap" dc="12" rolls="7,5" used="12" modifier="${result.modifier}" total="${12 + result.modifier}" result="${12 + result.modifier >= 12 ? "success" : "failure"}" mode="normal" resolution="sum" dice="2d12"]`;
+    const again = await resolveSkillCheckTagsInContent(written, {
+      loadContext: async () => context as any,
+      rulesetPinned: true,
+    });
+    assert.deepEqual([again.trusted, again.results?.length], [0, 1], "a written record is rolled again");
+    assert.ok(again.results![0]!.duality, "the Engine's roll says which die led");
+
+    // The Engine's own record from a branch is the exception: the tag pass that follows the branch arm
+    // leaves it alone, because rolling it again could contradict the half of the branch already kept.
+    const { createGameTurnChanceSession, resolveGameTurnBranches } =
+      await import("../../packages/server/src/services/game/one-request-dice.js");
+    const session = createGameTurnChanceSession({
+      db: null as never,
+      chatId: "duality-branch",
+      loadModifierContext: () => Promise.resolve(context as any),
+    });
+    const branched = await resolveGameTurnBranches(
+      [
+        `Before. [skill_check: skill="Scrap" dc="12" branch="door"]`,
+        `[branch: door]`,
+        `[on success] It opens.`,
+        `[on failure] It holds.`,
+        `[/branch]`,
+      ].join("\n"),
+      session,
+    );
+    assert.match(branched.content, /duality="(Hope|Fear|tie)"/, "the branch arm rolled the two named dice");
+    assert.equal(session.engineRecords.size, 1);
+    const after = await resolveSkillCheckTagsInContent(branched.content, {
+      loadContext: async () => context as any,
+      rulesetPinned: true,
+      engineRecords: session.engineRecords,
+    });
+    assert.deepEqual([after.resolved, after.trusted, after.content], [0, 1, branched.content]);
+    // The same record with nobody naming it as the Engine's is rolled again, as any written one is.
+    const unnamed = await resolveSkillCheckTagsInContent(branched.content, {
+      loadContext: async () => context as any,
+      rulesetPinned: true,
+    });
+    assert.equal(unnamed.resolved, 1);
 
     const reminder = buildGmFormatReminder({
       turnNumber: 2,
