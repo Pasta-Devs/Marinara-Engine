@@ -208,6 +208,33 @@ try {
       session,
     );
     assert.match(branched.content, /duality="(Hope|Fear|tie)"/, "the branch arm rolled the two named dice");
+    // A branch record's dice are spent when the tag pass passes over it, so a second record in the same
+    // reply that claims the same face is not kept as a die somebody threw.
+    const plain = parsed(doc((d) => ((d.resolution.dice = { count: 1, sides: 20 }), delete d.resolution.duality)));
+    const plainContext = { ...context, ruleset: buildSkillCheckRulesetContext(plain, cards, cards[0]) };
+    const issuing = createGameTurnChanceSession({
+      db: null as never,
+      chatId: "duality-branch",
+      roll: () => 15,
+      playerD20s: [],
+      loadModifierContext: () => Promise.resolve(plainContext as any),
+    });
+    const first = await resolveGameTurnBranches(
+      `[skill_check: skill="Scrap" dc="10" branch="door"]\n[branch: door]\n[on success] Yes.\n[on failure] No.\n[/branch]`,
+      issuing,
+    );
+    const [branchRecord] = [...issuing.engineRecords];
+    const own = parseSkillCheckTagBody(branchRecord!.slice("[skill_check:".length, -1))!.resolvedResult!;
+    assert.deepEqual(own.rolls, [15]);
+    const copy = `[skill_check: skill="Sneak" dc="9" rolls="15" used="15" modifier="${own.modifier}" total="${own.total}" result="${own.total >= 9 ? "success" : "failure"}" mode="normal" resolution="sum" dice="1d20"]`;
+    const both = await resolveSkillCheckTagsInContent(`${first.content}\nThen again. ${copy}`, {
+      loadContext: async () => plainContext as any,
+      rulesetPinned: true,
+      engineRecords: issuing.engineRecords,
+      issuedD20s: issuing.issuedD20s!,
+    });
+    assert.deepEqual([both.trusted, both.resolved], [1, 1], "the copied face was already spent");
+
     // The branch arm's roller stands in for a d20 only, so the two d12s are thrown at their own size:
     // a roller that always says 20 never reaches the record, which reads back as a result.
     for (let turn = 0; turn < 40; turn++) {
