@@ -118,7 +118,7 @@ export interface SkillCheckTag {
   /** Independent setback dice and optional own-pool upgrades (1.150). */
   setback?: number;
   upgradeOwn?: number;
-  /** `plot="true"`: the plot die thrown (1.821). Carried, never judged: the resolver holds it to the
+  /** `plot="true"`: the plot die thrown (1.822). Carried, never judged: the resolver holds it to the
    *  ruleset. */
   plot?: boolean;
   /**
@@ -605,9 +605,9 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const againstValue: SkillCheckResult["against"] =
     againstRaw === "at-most" || againstRaw === "at-least" ? againstRaw : undefined;
   const tensCount = Number(values.get("tens"));
-  // Two named dice (1.820), said by the Engine's own record and read back so a reloaded card says them.
+  // Two named dice (1.821), said by the Engine's own record and read back so a reloaded card says them.
   const dualityLabel = values.get("duality")?.trim().slice(0, 80);
-  // The plot die (1.821), read back the same way.
+  // The plot die (1.822), read back the same way.
   const plotFace = Number(values.get("plotface"));
   const plotSymbolRaw = values.get("plotsymbol")?.trim().toLowerCase();
   const plotSymbol: SkillCheckResult["plotSymbol"] =

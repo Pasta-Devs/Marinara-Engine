@@ -1287,9 +1287,9 @@ export interface RulesetCheckRoll {
   faces?: number[];
   /** The single die's face, where the ruleset marks it as rolled unmodified (1.136). */
   unmodified?: number;
-  /** Two named dice (1.820): the label of the one that showed more, or "tie". */
+  /** Two named dice (1.821): the label of the one that showed more, or "tie". */
   duality?: string;
-  /** The plot die (1.821), where the check threw it: its face, symbol, what it added and its name. */
+  /** The plot die (1.822), where the check threw it: its face, symbol, what it added and its name. */
   plot?: { face: number; symbol?: "complication" | "opportunity"; bonus: number; label: string };
 }
 
@@ -1372,7 +1372,7 @@ export function rollDiceSumCheck(
     faceFloor?: number;
     /** A total below this counts as this (1.418): Indomitable Might's Strength score. */
     totalFloor?: number;
-    /** `plot="true"` (1.821): throw the plot die, where the ruleset has one. */
+    /** `plot="true"` (1.822): throw the plot die, where the ruleset has one. */
     plot?: boolean;
   },
   /** `beside` marks a die thrown beside the check, which is never one of its own dice. */
@@ -1437,7 +1437,7 @@ export function rollDiceSumCheck(
   const natural = floor || kept.thrown[0]!;
 
   const policy = input.isSave ? naturals.save : naturals.check;
-  // Two named dice (1.820): the one that showed more, and a tie, which may be a critical on its own.
+  // Two named dice (1.821): the one that showed more, and a tie, which may be a critical on its own.
   const { duality } = resolution;
   const [first0, first1] = kept.thrown;
   const dualityWinner = !duality
@@ -1452,7 +1452,7 @@ export function rollDiceSumCheck(
     (dualityWinner === "tie" && duality!.tieIsCritical);
   const criticalFailure = single && natural === 1 && (policy === "both" || policy === "min-only");
   const unmodified = single && resolution.unmodified?.includes(natural) ? natural : undefined;
-  // The plot die (1.821) is thrown after the check's own dice, and adds only what its face says.
+  // The plot die (1.822) is thrown after the check's own dice, and adds only what its face says.
   const { plotDie } = resolution;
   const plotFace = plotDie && input.plot ? rollDie(plotDie.sides, "plot") : undefined;
   const plotEntry = plotFace === undefined ? undefined : plotDie!.faces.find((entry) => entry.face === plotFace);

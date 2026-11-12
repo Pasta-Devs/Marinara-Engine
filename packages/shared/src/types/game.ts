@@ -638,9 +638,9 @@ export interface SkillCheckResult {
   /** Independent setback dice and own upgrades actually applied (1.150). */
   setback?: number;
   upgradeOwn?: number;
-  /** Two named dice (1.820): the label of the one that showed more, or "tie". */
+  /** Two named dice (1.821): the label of the one that showed more, or "tie". */
   duality?: string;
-  /** The plot die (1.821): its face, its symbol, what it added (inside `modifier` too) and its name.
+  /** The plot die (1.822): its face, its symbol, what it added (inside `modifier` too) and its name.
    *  It is not one of `rolls`. */
   plotFace?: number;
   plotSymbol?: "complication" | "opportunity";

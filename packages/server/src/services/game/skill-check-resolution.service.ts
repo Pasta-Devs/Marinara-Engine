@@ -248,7 +248,7 @@ export interface SkillCheckRequest {
   /** Independent setback dice and optional own-pool upgrades (1.150). */
   setback?: number;
   upgradeOwn?: number;
-  /** `plot=` (1.821): throw the plot die with this check. */
+  /** `plot=` (1.822): throw the plot die with this check. */
   plot?: boolean;
   /** `spend=`: what the player said they were spending on this check, where the ruleset offers
    *  such a purchase. The Engine decides what it costs and what it buys. */
@@ -1107,7 +1107,7 @@ export function rulesetRefusesUntrained(ruleset: SkillCheckRulesetContext, reque
   return rulesetUntrainedFor(ruleset, request) === "refuse";
 }
 
-/** The dice asks a tag carried beyond its numbers (1.821), under the same names on a request and on a
+/** The dice asks a tag carried beyond its numbers (1.822), under the same names on a request and on a
  *  sparse ask's extras, so every path that copies a tag's freedoms copies these in one place. */
 export function diceAsk(tag: SkillCheckTag | SkillCheckRequest) {
   return {
@@ -1390,7 +1390,7 @@ function resolveRulesetSkillCheck(
     ...(purchase?.used ? { used: purchase.used } : {}),
   };
   // The injected d20 (tests, the sighted pool) stands in only where a d20 is what is rolled, and never
-  // for the plot die (1.821): that one is thrown beside the check, so it is not one of the check's dice.
+  // for the plot die (1.822): that one is thrown beside the check, so it is not one of the check's dice.
   const rollDie = (sides: number, beside?: "plot") =>
     sides === 20 && rollD20 && !beside ? rollD20() : rollDieSecurely(sides);
   // The effects' own dice are never the check's: the sighted pool spent its d20s for the check alone.
@@ -1603,7 +1603,7 @@ function resolveRulesetSkillCheck(
   return {
     skill: request.skill,
     dc: askedDc,
-    // The plot die's bonus (1.821) is added like any other number, so the record's dice and modifier
+    // The plot die's bonus (1.822) is added like any other number, so the record's dice and modifier
     // still add up to its total; the die itself is said apart, not as one of the rolls.
     modifier: summed + (plot?.bonus ?? 0),
     resolution: "sum",
@@ -1902,7 +1902,7 @@ function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag
   if (tag.apply?.length) return false;
   const result = tag.resolvedResult;
   if (!result || result.resolution !== "sum") return false;
-  // Nor a check with two named dice (1.820) or a plot die (1.821): only the Engine's own throw can
+  // Nor a check with two named dice (1.821) or a plot die (1.822): only the Engine's own throw can
   // say which die led or what the plot die showed, whatever the record claims.
   if (resolution.duality || tag.plot || result.duality != null || result.plotFace != null) return false;
   // A check the character's conditions or items change is always the Engine's own: the Game Master

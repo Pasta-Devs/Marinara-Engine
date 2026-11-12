@@ -577,7 +577,7 @@ const diceSumResolutionSchema = z
       .object({ check: naturalPolicySchema.default("none"), save: naturalPolicySchema.default("none") })
       .strict()
       .prefault({}),
-    /** Two named dice of one size (1.820): Daggerheart's Hope and Fear. They add up as any two dice
+    /** Two named dice of one size (1.821): Daggerheart's Hope and Fear. They add up as any two dice
      *  do; the record says which one showed more, and a tie is a critical success when `tieIsCritical`. */
     duality: z
       .object({
@@ -587,7 +587,7 @@ const diceSumResolutionSchema = z
       })
       .strict()
       .optional(),
-    /** One more die whose faces carry symbols (1.821): a plot die. Thrown only when a check asks
+    /** One more die whose faces carry symbols (1.822): a plot die. Thrown only when a check asks
      *  with `plot="true"`; its face adds nothing to the total but a face's own `bonus`. Faces not
      *  listed are blank. */
     plotDie: z
@@ -18244,7 +18244,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           issue(["resolution", "unmodified", index], `A face of this die is from 1 to ${dice.sides}`);
       });
     }
-    // Two named dice (1.820) are read face against face, so they are two plain dice thrown once.
+    // Two named dice (1.821) are read face against face, so they are two plain dice thrown once.
     const { duality } = resolution;
     if (duality) {
       if (dice.count !== 2 || dice.faces || openEnded) {
@@ -18266,7 +18266,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (first === "tie" || second === "tie")
         issue(["resolution", "duality", "dice"], 'A die cannot be labelled "tie": the record uses it for equal faces');
     }
-    // A plot die's listed faces (1.821) are faces it has, each listed once.
+    // A plot die's listed faces (1.822) are faces it has, each listed once.
     const { plotDie } = resolution;
     plotDie?.faces.forEach((entry, index) => {
       if (entry.face > plotDie.sides)

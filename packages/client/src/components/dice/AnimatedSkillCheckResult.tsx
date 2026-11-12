@@ -196,7 +196,7 @@ export function AnimatedSkillCheckResult({
           <span>{localizeUi("ui.dice.animatedskillcheckresult.unmodified", { face: result.unmodified })}</span>
         </div>
       )}
-      {/* Two named dice (1.820): which one showed more, or that they tied. */}
+      {/* Two named dice (1.821): which one showed more, or that they tied. */}
       {result.duality && (
         <div className="skill-check-roll-meta">
           <span>
@@ -206,7 +206,7 @@ export function AnimatedSkillCheckResult({
           </span>
         </div>
       )}
-      {/* The plot die (1.821): its face and what the face carried. It is not one of the dice above. */}
+      {/* The plot die (1.822): its face and what the face carried. It is not one of the dice above. */}
       {result.plotFace !== undefined && (
         <div className="skill-check-roll-meta">
           <span>

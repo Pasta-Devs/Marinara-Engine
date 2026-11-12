@@ -1586,13 +1586,13 @@ const capabilityPackageManifestBaseSchema = z
 //        library's own search, sort and summary), and `updateCharacterExtensions(id, patch)`, which merges keys into
 //        `data.extensions` without a card version, queued behind the Engine's own saves. The write needs the new
 //        `character-write` permission. A soft seam: older Engines leave the members out, so a package checks for them.
-// 1.820: a summed check's two named dice (`resolution.duality`): Daggerheart's Hope and Fear, the higher one
+// 1.821: a summed check's two named dice (`resolution.duality`): Daggerheart's Hope and Fear, the higher one
 //        recorded as `duality=`, and a tie a critical success. Not a soft seam: an Engine that cannot read
 //        it refuses the whole ruleset file. No permission.
-// 1.821: a summed check's plot die (`resolution.plotDie`, asked for with `plot="true"`): one more die whose
+// 1.822: a summed check's plot die (`resolution.plotDie`, asked for with `plot="true"`): one more die whose
 //        faces are blank or carry a complication or an opportunity, a face's `bonus` added to the total. Not a
 //        soft seam: an Engine that cannot read it refuses the whole ruleset file. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 821 } as const);
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 822 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

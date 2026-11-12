@@ -1,5 +1,5 @@
 /**
- * A summed check's plot die (Capability API 1.821): the Cosmere RPG's d20 with a d6 whose faces carry
+ * A summed check's plot die (Capability API 1.822): the Cosmere RPG's d20 with a d6 whose faces carry
  * complications (+2, +4) and opportunities.
  *
  * What is pinned here:
@@ -8,7 +8,7 @@
  *     and a face it does not list is blank.
  *   - The record keeps the d20 as the one roll and the bonus inside `modifier`, so the d20 audit still
  *     holds, and says the face, symbol and bonus apart; the Game Master is taught `plot=`; a packaged
- *     ruleset declares 1.821.
+ *     ruleset declares 1.822.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -263,8 +263,8 @@ try {
       permissions: [],
       restartRequired: false,
     });
-    assert.match(getCapabilityPackageInstallIssue(manifest(820) as any, doc()) ?? "", /capabilityApi 1\.821/);
-    assert.equal(getCapabilityPackageInstallIssue(manifest(821) as any, doc()), null);
+    assert.match(getCapabilityPackageInstallIssue(manifest(821) as any, doc()) ?? "", /capabilityApi 1\.822/);
+    assert.equal(getCapabilityPackageInstallIssue(manifest(822) as any, doc()), null);
   }
 } finally {
   if (previousDataDir === undefined) delete process.env.DATA_DIR;
