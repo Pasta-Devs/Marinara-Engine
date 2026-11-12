@@ -1447,8 +1447,11 @@ export function ChatRoleplaySurface({
 
   useLayoutEffect(() => {
     const measure = () => {
-      // The Chat Settings button starts in a row at the top of the chat, so text starts below that row.
-      const buttonRow = WINDOW_MARGIN_PX + (phoneLayout ? PHONE_BUBBLE_SIZE_PX : WINDOW_BUBBLE_SIZE_PX);
+      // The classic Chat Settings button starts in a row at the top of the chat, so text starts below that row.
+      // The new layout on phones keeps that button in the top bar, so the first message sits right under it.
+      const buttonRow = overhaulMobile
+        ? 0
+        : WINDOW_MARGIN_PX + (phoneLayout ? PHONE_BUBBLE_SIZE_PX : WINDOW_BUBBLE_SIZE_PX);
       let top = Math.max(buttonRow, Math.ceil(topChromeRef.current?.getBoundingClientRect().height ?? 0));
       let bottom = Math.ceil(inputChromeRef.current?.getBoundingClientRect().height ?? 0);
       if (vnMediaTarget) {
@@ -1490,6 +1493,7 @@ export function ChatRoleplaySurface({
   }, [
     activeChatId,
     centerCompact,
+    overhaulMobile,
     phoneLayout,
     roleplayChatWidthPercent,
     chatMeta.enableAgents,
