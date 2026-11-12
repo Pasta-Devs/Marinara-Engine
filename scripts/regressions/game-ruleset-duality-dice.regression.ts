@@ -306,6 +306,22 @@ try {
     );
     assert.doesNotMatch(twoDice.content, /duality=|result="success"/);
     assert.match(twoDice.content, /\[skill_check: skill="Stealth" dc="5"/);
+    assert.match(twoDice.content, /dice="2d12"/, "the ask keeps its dice, so nothing rolls it as a d20");
+    // A ruleset that is pinned but cannot be loaded leaves another system's record as written, unless
+    // the record claims what only a ruleset's roll can give: that one goes back as an ask.
+    const failing = (content: string) =>
+      resolveSkillCheckTagsInContent(content, {
+        loadContext: async () => {
+          throw new Error("the ruleset would not load");
+        },
+        rulesetPinned: true,
+      }).catch((error: unknown) => ({ content: `threw: ${String(error)}` }));
+    const otherSystem =
+      '[skill_check: skill="Hunt" dc="2" resolution="successes" dice="3d10" rolls="3|8|9" modifier="0" total="2" result="success"]';
+    assert.equal((await failing(otherSystem)).content, otherSystem);
+    const claiming = await failing(otherSystem.replace("]", ' duality="Hope"]'));
+    assert.doesNotMatch(claiming.content, /duality=|result="success"|rolls="/);
+    assert.match(claiming.content, /\[skill_check: skill="Hunt" dc="2"/);
 
     // The branch arm's roller stands in for a d20 only, so the two d12s are thrown at their own size:
     // a roller that always says 20 never reaches the record, which reads back as a result.
