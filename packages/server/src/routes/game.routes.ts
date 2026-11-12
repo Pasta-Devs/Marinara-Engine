@@ -10747,6 +10747,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       reroll: z.string().trim().min(1).max(40).optional(),
       /** `plot=` (1.822): throw the plot die with the check. Ignored where the ruleset does not take it. */
       plot: z.boolean().optional(),
+      /** `shift=` (1.823): bands to move the outcome. */
+      shift: z.number().int().min(-3).max(3).optional(),
       messageId: z.string().min(1).optional(),
     })
     .refine((input) => input.dc !== undefined || input.difficulty !== undefined, {
@@ -10778,6 +10780,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         double: input.double,
         reroll: input.reroll,
         ...(input.plot ? { plot: true } : {}),
+        shift: input.shift,
       });
     } catch (err) {
       // A step no ladder in this game has, or a game with no ladder at all: nothing to roll against.

@@ -664,6 +664,8 @@ export function useSkillCheck() {
       reroll?: string;
       /** `plot=` (1.822): throw the plot die with the check. */
       plot?: boolean;
+      /** `shift=` (1.823): bands to move the outcome. */
+      shift?: number;
       messageId?: string;
     }) =>
       api.post<{ result: import("@marinara-engine/shared").SkillCheckResult; updatedContent?: string }>(
