@@ -74,7 +74,6 @@ import {
   ScrollText,
   PenLine,
   Images,
-  LayoutDashboard,
   Link2,
   Pin,
   ScanText,
@@ -103,6 +102,7 @@ import { ChatNameSection } from "./sections/ChatNameSection";
 import { ChatVariablesSection } from "./sections/ChatVariablesSection";
 import { ScopedRegexSection } from "./sections/ScopedRegexSection";
 import { GroupChatSection } from "./sections/GroupChatSection";
+import { GameWidgetsSection } from "./sections/GameWidgetsSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
@@ -218,7 +218,6 @@ import {
   useChatGroup,
   chatKeys,
 } from "../../hooks/use-chats";
-import { useUpdateGameWidgets } from "../../hooks/use-game";
 import { api } from "../../lib/api-client";
 import { readCharacterGreetings, type CharacterGreeting } from "../../lib/character-greetings";
 import { trackChatMetadataSave, waitForPendingChatMetadataSaves } from "../../lib/chat-metadata-save-barrier";
@@ -277,7 +276,6 @@ import type {
   ChatPreset,
   ChatPresetSettings,
   HapticFeedbackSensitivity,
-  HudWidget,
   KnowledgeAgentSourceSettings,
   Message,
   MusicDjFolderSource,
@@ -374,11 +372,6 @@ import {
   takePendingChatAgentSetupIds,
   takePendingChatResourcePanelRestore,
 } from "../../lib/chat-resource-drag";
-import {
-  GameWidgetFileControls,
-  GameWidgetSetupEditor,
-  normalizeGameHudWidgets,
-} from "../../components/game/GameWidgetSetupEditor";
 import { MultiplayerPlayersSection, type MultiplayerGameStart } from "../multiplayer/MultiplayerHostControls";
 import { multiplayerGuestErrorLabelKey } from "../multiplayer/multiplayer-guest-labels";
 import { multiplayerActionError, useMultiplayerMutation } from "../../hooks/use-multiplayer";
@@ -726,7 +719,6 @@ export function ChatSettingsDrawer({
     patch: Partial<Record<string, CustomAgentImageSetting | null>>;
   } | null>(null);
   updateMetaMutateAsyncRef.current = updateMeta.mutateAsync;
-  const updateGameWidgets = useUpdateGameWidgets();
   const updateAgentConfig = useUpdateAgent();
   const createAgent = useCreateAgent();
   const createMessage = useCreateMessage(chat.id);
@@ -960,25 +952,6 @@ export function ChatSettingsDrawer({
     () => getChatCharacterIds({ characterIds: chat.characterIds }),
     [chat.characterIds],
   );
-
-  const gameWidgetSource = useMemo<HudWidget[]>(() => {
-    const persistedWidgets = normalizeGameHudWidgets(metadata.gameWidgetState);
-    if (persistedWidgets.length > 0 || Array.isArray(metadata.gameWidgetState)) return persistedWidgets;
-
-    const blueprint =
-      metadata.gameBlueprint && typeof metadata.gameBlueprint === "object" && !Array.isArray(metadata.gameBlueprint)
-        ? (metadata.gameBlueprint as { hudWidgets?: unknown })
-        : null;
-    return normalizeGameHudWidgets(blueprint?.hudWidgets);
-  }, [metadata.gameBlueprint, metadata.gameWidgetState]);
-  const gameWidgetSourceSignature = useMemo(() => JSON.stringify(gameWidgetSource), [gameWidgetSource]);
-  const [gameWidgetDrafts, setGameWidgetDrafts] = useState<HudWidget[]>(() => gameWidgetSource);
-  const gameWidgetDraftSignature = useMemo(() => JSON.stringify(gameWidgetDrafts), [gameWidgetDrafts]);
-  const gameWidgetsChanged = gameWidgetDraftSignature !== gameWidgetSourceSignature;
-
-  useEffect(() => {
-    setGameWidgetDrafts(gameWidgetSource);
-  }, [chat.id, gameWidgetSource]);
 
   // Creator-notes card CSS: the current per-chat mode (default "chat"), and
   // whether any active character actually ships CSS — the CSS mode buttons
@@ -4555,16 +4528,6 @@ export function ChatSettingsDrawer({
     readLatestActiveAgentIds,
     updateMeta,
   ]);
-
-  const saveGameWidgets = useCallback(async () => {
-    const widgets = normalizeGameHudWidgets(gameWidgetDrafts);
-    try {
-      await updateGameWidgets.mutateAsync({ chatId: chat.id, widgets });
-      toast.success(localizeUi("ui.chat.chatsettingsdrawer.gameWidgetsUpdated"));
-    } catch {
-      toast.error(localizeUi("ui.chat.chatsettingsdrawer.failedToUpdateGameWidgets"));
-    }
-  }, [chat.id, gameWidgetDrafts, updateGameWidgets, localizeUi]);
 
   const toggleGameLorebookKeeper = useCallback(() => {
     const latestActiveAgentIds = readLatestActiveAgentIds();
@@ -9467,56 +9430,7 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          {isGame && (
-            <Section
-              id="game-widgets"
-              style={{ order: CHAT_SETTINGS_ORDER.widgets }}
-              label={localizeUi("ui.chat.chatsettingsdrawer.widgets")}
-              icon={<LayoutDashboard size="0.875rem" />}
-              count={gameWidgetDrafts.length}
-              help={localizeUi("ui.chat.chatsettingsdrawer.configureTheVisibleGameModeHudWidgetsTheGm")}
-            >
-              <div className="space-y-3">
-                <GameWidgetSetupEditor
-                  widgets={gameWidgetDrafts}
-                  onChange={(widgets) => setGameWidgetDrafts(normalizeGameHudWidgets(widgets, { mode: "draft" }))}
-                  disabled={updateGameWidgets.isPending}
-                  containerQueries
-                />
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <AgentSettingsActionButton
-                    type="button"
-                    onClick={() => setGameWidgetDrafts(gameWidgetSource)}
-                    disabled={!gameWidgetsChanged || updateGameWidgets.isPending}
-                  >
-                    {localizeUi("ui.characters.charactercliptrimmodal.reset")}
-                  </AgentSettingsActionButton>
-                  <AgentSettingsActionButton
-                    type="button"
-                    variant="primary"
-                    onClick={() => void saveGameWidgets()}
-                    disabled={!gameWidgetsChanged || updateGameWidgets.isPending}
-                  >
-                    {updateGameWidgets.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
-                    <span>
-                      {updateGameWidgets.isPending
-                        ? localizeUi("ui.noodle.stageprofileform.saving")
-                        : localizeUi("ui.chat.chatsettingsdrawer.saveWidgets")}
-                    </span>
-                  </AgentSettingsActionButton>
-                </div>
-                <GameWidgetFileControls
-                  widgets={gameWidgetDrafts}
-                  onImport={(widgets) => setGameWidgetDrafts(normalizeGameHudWidgets(widgets))}
-                  disabled={updateGameWidgets.isPending}
-                  exportFilename={`${chat.name || "game"}-widgets`}
-                  importSuccessMessage={(count) =>
-                    `Imported ${count === 1 ? "1 widget" : `${count} widgets`}. Save Widgets to apply them.`
-                  }
-                />
-              </div>
-            </Section>
-          )}
+          {isGame && <GameWidgetsSection order={CHAT_SETTINGS_ORDER.widgets} chat={chat} metadata={metadata} />}
 
           {/* Memory Recall — conversation mode: placed before Function Calling by section order */}
           {isConversation && import.meta.env.VITE_MARINARA_LITE !== "true" && (
