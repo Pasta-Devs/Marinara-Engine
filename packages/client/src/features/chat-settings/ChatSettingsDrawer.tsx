@@ -299,7 +299,6 @@ import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } 
 import { useAgentStore } from "../../stores/agent.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import {
-  BUILT_IN_TOOLS,
   DEFAULT_AGENT_CONTEXT_SIZE,
   DEFAULT_AGENT_TOOLS,
   DEFAULT_AGENT_MAX_TOKENS,
@@ -336,12 +335,6 @@ import {
   rulesetCombatStyles,
 } from "@marinara-engine/shared";
 import type { Chat, GameCombatStyle, Lorebook, SpriteCharacterVisualSettings } from "@marinara-engine/shared";
-import {
-  isCustomToolSelectable,
-  useCustomToolCapabilities,
-  useCustomTools,
-  type CustomToolRow,
-} from "../../hooks/use-custom-tools";
 import { normalizeSpritePlacements } from "../../components/chat/sprite-placement";
 import {
   normalizeSpriteCharacterVisualSettingsMap,
@@ -960,8 +953,6 @@ export function ChatSettingsDrawer({
     typeof metadata.summaryConnectionId === "string" ? metadata.summaryConnectionId : "";
   const { data: allPersonas } = usePersonas();
   const { data: agentConfigs } = useAgentConfigs();
-  const { data: customTools } = useCustomTools();
-  const { data: customToolCapabilities } = useCustomToolCapabilities();
   const { data: allChats } = useChats({ refetchOnMount: false });
   const personas = useMemo(() => allPersonas ?? [], [allPersonas]);
 
@@ -2476,25 +2467,6 @@ export function ChatSettingsDrawer({
     100,
   );
 
-  // Build the available tool list: built-in + custom tools from DB
-  const availableTools = useMemo(() => {
-    const tools: Array<{ id: string; name: string; description: string }> = [];
-    for (const t of BUILT_IN_TOOLS) {
-      // update_about_me is Conversation-only (enforced server-side); hide the
-      // toggle in other modes so it doesn't look available where it can't run.
-      if (t.name === "update_about_me" && !isConversation) continue;
-      tools.push({ id: t.name, name: t.name, description: t.description });
-    }
-    if (customTools) {
-      for (const ct of customTools as CustomToolRow[]) {
-        if (isCustomToolSelectable(ct, customToolCapabilities)) {
-          tools.push({ id: ct.name, name: ct.name, description: ct.description });
-        }
-      }
-    }
-    return tools;
-  }, [customToolCapabilities, customTools, isConversation]);
-
   // ── Helpers ──
   const characters = useMemo(
     () =>
@@ -3573,18 +3545,7 @@ export function ChatSettingsDrawer({
     [chat.id, retryAgents],
   );
 
-  const toggleTool = (toolId: string) => {
-    const current = [...activeToolIds];
-    const idx = current.indexOf(toolId);
-    if (idx >= 0) current.splice(idx, 1);
-    else current.push(toolId);
-    updateMeta.mutate({ id: chat.id, activeToolIds: current });
-  };
-
   const handleCreateCustomTool = () => {
-    setShowToolPicker(false);
-    setPendingToolIds([]);
-    setToolSearch("");
     rememberSettingsReturn();
     openToolDetail("__new__");
     onClose();
@@ -3688,7 +3649,6 @@ export function ChatSettingsDrawer({
   const [showCharPicker, setShowCharPicker] = useState(false);
   const addCharBtnRef = useRef<HTMLButtonElement>(null);
   const partyBtnRef = useRef<HTMLButtonElement>(null);
-  const [showToolPicker, setShowToolPicker] = useState(false);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const personaBtnRef = useRef<HTMLDivElement>(null);
   const gamePersonaBtnRef = useRef<HTMLDivElement>(null);
@@ -3868,8 +3828,6 @@ export function ChatSettingsDrawer({
     continueAddedCardGreeting(onboardingQuestionsCharacterId);
     setOnboardingQuestionsCharacterId(null);
   }, [continueAddedCardGreeting, onboardingQuestionsCharacterId]);
-  const [pendingToolIds, setPendingToolIds] = useState<string[]>([]);
-  const [toolSearch, setToolSearch] = useState("");
   const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
   const [agentSetupQueue, setAgentSetupQueue] = useState<string[]>([]);
   const [agentAddCadenceInputFocused, setAgentAddCadenceInputFocused] = useState(false);
@@ -9746,6 +9704,7 @@ export function ChatSettingsDrawer({
             <FunctionCallingSection
               chatConnectionId={chat.connectionId}
               isGameMode={isGame}
+              isConversation={isConversation}
               narratorProvider={
                 (
                   chatGenerationConnectionsList as Array<{
@@ -9793,22 +9752,9 @@ export function ChatSettingsDrawer({
               enableTools={metadata.enableTools as boolean | undefined}
               forceToolCall={metadata.forceToolCall as boolean | undefined}
               activeToolIds={activeToolIds}
-              pendingToolIds={pendingToolIds}
-              availableTools={availableTools}
-              showToolPicker={showToolPicker}
-              toolSearch={toolSearch}
               onEnableToolsChange={(enableTools) => updateMeta.mutate({ id: chat.id, enableTools })}
               onForceToolCallChange={(forceToolCall) => updateMeta.mutate({ id: chat.id, forceToolCall })}
-              onToggleTool={toggleTool}
-              onShowToolPickerChange={setShowToolPicker}
-              onToolSearchChange={setToolSearch}
-              onPendingToolIdsChange={(updater) => setPendingToolIds(updater)}
-              onAddPendingTools={() => {
-                const next = [...activeToolIds, ...pendingToolIds];
-                updateMeta.mutate({ id: chat.id, activeToolIds: next });
-                setPendingToolIds([]);
-                setShowToolPicker(false);
-              }}
+              onActiveToolIdsChange={(next) => updateMeta.mutate({ id: chat.id, activeToolIds: next })}
               onCreateCustomTool={handleCreateCustomTool}
             />
           </div>
