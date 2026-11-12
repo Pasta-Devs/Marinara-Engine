@@ -40,7 +40,12 @@ import {
   resolveConnectionImageQuality,
 } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
-import { supportsNovelAiCharacterPrompts } from "../services/image/character-prompts.js";
+import {
+  NOVELAI_CHARACTER_PROMPT_RULES,
+  NOVELAI_V5_MAX_CHARACTER_PROMPTS,
+  resolveNovelAiCharacterPromptLimit,
+  supportsNovelAiCharacterPrompts,
+} from "../services/image/character-prompts.js";
 import {
   compileImagePrompt,
   formatImageStylePromptGuidance,
@@ -224,21 +229,18 @@ const generateGalleryImageSchema = z.object({
   debugMode: z.boolean().optional().default(false),
 });
 
+const galleryCharacterPromptSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  prompt: z.string().trim().min(1).max(20_000),
+  negativePrompt: z.string().max(20_000).optional(),
+  position: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
+});
+
 /** Re-send an existing image's final request, possibly edited (#7767). */
 const regenerateGalleryImageSchema = z.object({
   prompt: z.string().trim().min(1).max(200_000),
   negativePrompt: z.string().max(200_000).optional(),
-  characterPrompts: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1).max(200),
-        prompt: z.string().trim().min(1).max(20_000),
-        negativePrompt: z.string().max(20_000).optional(),
-        position: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
-      }),
-    )
-    .max(6)
-    .optional(),
+  characterPrompts: z.array(galleryCharacterPromptSchema).max(NOVELAI_V5_MAX_CHARACTER_PROMPTS).optional(),
   /** Another image connection to try; defaults to the one that made the image. */
   connectionId: z.string().trim().min(1).max(200).optional(),
   /** Message the image was opened from, so its attachment is swapped without scanning swipes. */
@@ -261,13 +263,17 @@ const rewrittenGalleryImagePromptSchema = rewrittenGalleryBasePromptSchema
       .array(
         z
           .object({
-            id: z.number().int().min(0).max(5),
+            id: z
+              .number()
+              .int()
+              .min(0)
+              .max(NOVELAI_V5_MAX_CHARACTER_PROMPTS - 1),
             prompt: z.string().trim().min(1).max(20_000),
             negativePrompt: z.string().max(20_000),
           })
           .strict(),
       )
-      .max(6),
+      .max(NOVELAI_V5_MAX_CHARACTER_PROMPTS),
   })
   .strict();
 
@@ -2129,8 +2135,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       }
 
       const imageSource = imageConnection?.imageGenerationSource || imageConnection?.model || "";
-      const rewriteCharacterPrompts =
-        input.characterPrompts.length > 0 &&
+      const captionLimit =
         imageConnection &&
         supportsNovelAiCharacterPrompts(imageConnection) &&
         resolveImageBackend(
@@ -2138,11 +2143,13 @@ export async function galleryRoutes(app: FastifyInstance) {
           imageConnection.baseUrl,
           imageConnection.imageService || imageSource,
           imageConnection.model,
-        ) === "novelai";
+        ) === "novelai"
+          ? resolveNovelAiCharacterPromptLimit(imageConnection.model)
+          : 0;
       const userPrompt = JSON.stringify({
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
-        ...(rewriteCharacterPrompts
+        ...(captionLimit > 0
           ? { characterPrompts: input.characterPrompts.map((character, id) => ({ ...character, id })) }
           : {}),
         guidance: input.guidance ?? "",
@@ -2181,16 +2188,26 @@ export async function galleryRoutes(app: FastifyInstance) {
           .send({ error: "The Prompt Model is unavailable. Check the Illustrator and Agents model settings." });
       }
 
+      const hasDraftCaptions = input.characterPrompts.length > 0;
       const systemPrompt = appendImagePromptInstructions(
         [
           "Revise this existing image-generation draft according to the guidance field.",
           "Preserve the draft's subject, details, style and prompt syntax except where the guidance requests changes.",
           "If guidance is empty, offer alternate wording that faithfully describes the same image.",
-          ...(rewriteCharacterPrompts
+          ...(captionLimit > 0
             ? [
                 "This image connection supports native NovelAI character prompts. Apply changes to the main, negative and character prompts where relevant. Keep the main scene and individual character captions separate.",
-                'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
-                "Return exactly one entry for each input character with the same id.",
+                ...(hasDraftCaptions
+                  ? [
+                      'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
+                      "Return exactly one entry for each input character with the same id.",
+                    ]
+                  : [
+                      'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"name":"…","prompt":"…","negativePrompt":"…"}]}.',
+                      "When a separate caption helps fulfill the guidance, move character-specific details from the draft into one caption per visible subject, including solo subjects. Use a short descriptive name if the draft gives no name. Keep counts, shared actions, composition and setting in the main prompt.",
+                      `Return at most ${captionLimit} captions. Use an empty array when no separate caption is needed. Preserve the draft's characters and use an optional position only when the layout is clear.`,
+                      ...NOVELAI_CHARACTER_PROMPT_RULES,
+                    ]),
               ]
             : [
                 "Apply changes to the main and negative prompts where relevant. Keep character descriptions in the main prompt.",
@@ -2216,7 +2233,7 @@ export async function galleryRoutes(app: FastifyInstance) {
           model: runtime.model,
           ...(runtime.suppressModelParameters
             ? {}
-            : { maxTokens: runtime.resolveAgentMaxTokens(visibleMaxTokens, messages) }),
+            : runtime.resolveAgentPromptOptions(visibleMaxTokens, messages, 0.3)),
           suppressModelParameters: runtime.suppressModelParameters,
           preserveContext: true,
           enableCaching: runtime.enableCaching,
@@ -2233,9 +2250,15 @@ export async function galleryRoutes(app: FastifyInstance) {
         // Repair syntax only when the model supplied an object with a closing brace.
         const json = fenced.match(/\{[\s\S]*\}/)?.[0];
         const parsed = json ? tryParseJsonRecord(json) : null;
-        if (!rewriteCharacterPrompts) {
+        if (captionLimit === 0) {
           // Keep saved captions available for regeneration's cross-provider fallback.
           return { ...rewrittenGalleryBasePromptSchema.parse(parsed), characterPrompts: input.characterPrompts };
+        }
+        if (!hasDraftCaptions) {
+          return rewrittenGalleryBasePromptSchema
+            .extend({ characterPrompts: z.array(galleryCharacterPromptSchema.strict()).max(captionLimit) })
+            .strict()
+            .parse(parsed);
         }
         const revised = rewrittenGalleryImagePromptSchema.parse(parsed);
         const byId = new Map(revised.characterPrompts.map((character) => [character.id, character]));

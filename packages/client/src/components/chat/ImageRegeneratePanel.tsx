@@ -156,12 +156,11 @@ export function ImageRegeneratePanel({
         // The revision keeps the order of the sent entries. Keep cleared character fields
         // in the editor so they can still be reset.
         let revisedIndex = 0;
-        setDraft({
-          ...input,
-          characterPrompts: draft.characterPrompts.map((entry) =>
-            entry.prompt.trim() ? (input.characterPrompts[revisedIndex++] ?? entry) : entry,
-          ),
-        });
+        const characterPrompts = draft.characterPrompts.map((entry) =>
+          entry.prompt.trim() ? (input.characterPrompts[revisedIndex++] ?? entry) : entry,
+        );
+        characterPrompts.push(...input.characterPrompts.slice(revisedIndex));
+        setDraft({ ...input, characterPrompts });
         if (action === "revise") {
           toast.success(t("ui.chat.imageregeneratepanel.revised"));
           return;

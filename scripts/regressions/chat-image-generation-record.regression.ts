@@ -41,6 +41,7 @@ const promptModelRequests: Array<{
   model?: string;
   messages?: Array<{ role: string; content: string }>;
   max_tokens?: number;
+  temperature?: number;
 }> = [];
 let promptModelOutput = "";
 let promptModelFinish = "stop";
@@ -290,6 +291,8 @@ try {
     name: "Chat model fixture",
     model: "fixture-chat-model",
   });
+  await connections.updateDefaultParameters(illustratorModel.id, { temperature: 0.55 });
+  await connections.updateDefaultParameters(agentsDefault.id, { enabledParameters: { temperature: false } });
   const agents = createAgentsStorage(db);
   const illustrator = await agents.create({
     type: "illustrator",
@@ -343,6 +346,7 @@ try {
   assert.equal(promptModelRequests.length, 1);
   assert.equal(promptModelRequests[0]?.model, "fixture-prompt-model");
   assert.equal(promptModelRequests[0]?.max_tokens, 5230, "rewrites inherit Illustrator's saved output budget");
+  assert.equal(promptModelRequests[0]?.temperature, 0.3);
   const promptMessages = promptModelRequests[0]?.messages ?? [];
   assert.match(
     promptMessages.find(({ role }) => role === "system")?.content ?? "",
@@ -420,6 +424,7 @@ try {
   const repaired = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: guidedDraft });
   assert.equal(repaired.statusCode, 200, repaired.body);
   assert.equal(promptModelRequests.at(-1)?.model, "fixture-illustrator-model");
+  assert.equal(promptModelRequests.at(-1)?.temperature, 0.55, "a saved connection temperature takes precedence");
   assert.deepEqual(
     repaired.json(),
     { ...expectedRewrite, prompt: jsonPrompt },
@@ -433,6 +438,7 @@ try {
   assert.match(cutOff.json().error, /output limit/);
   assert.equal(promptModelRequests.at(-1)?.model, "fixture-agents-default");
   assert.equal(promptModelRequests.at(-1)?.max_tokens, 2100, "the selected Agents connection caps the output budget");
+  assert.equal(promptModelRequests.at(-1)?.temperature, undefined, "the selected connection can omit temperature");
   promptModelFinish = "stop";
 
   const qwen = await connections.create({
@@ -478,6 +484,42 @@ try {
   );
   const switchedInput = promptModelRequests.at(-1)?.messages?.find(({ role }) => role === "user")?.content ?? "";
   assert.doesNotMatch(switchedInput, /characterPrompts|tall elf queen/);
+
+  const qwenImage = await gallery.create({
+    chatId: chat.id,
+    filePath: `${chat.id}/qwen.png`,
+    prompt: "1girl, solo, tall elf queen, throne room",
+    provider: "image_generation",
+    model: qwen.model,
+    width: 896,
+    height: 1280,
+    generation: buildChatImageGenerationRecord({ connectionId: qwen.id }),
+  });
+  assert.ok(qwenImage?.id);
+  const soloCaption = { name: "Elf queen", prompt: "girl, tall elf queen, silver cloak", negativePrompt: "" };
+  const convertedDraft = {
+    ...plainDraft,
+    prompt: qwenImage.prompt,
+    connectionId: novelAi.id,
+    guidance: "Move the queen into a separate character prompt.",
+  };
+  promptModelOutput = JSON.stringify({
+    prompt: "1girl, solo, throne room",
+    negativePrompt: baseRewrite.negativePrompt,
+    characterPrompts: [soloCaption],
+  });
+  const converted = await app.inject({
+    method: "POST",
+    url: `/api/gallery/${chat.id}/images/${qwenImage.id}/regenerate/prompt`,
+    payload: convertedDraft,
+  });
+  assert.equal(converted.statusCode, 200, converted.body);
+  assert.deepEqual(converted.json(), JSON.parse(promptModelOutput), "a Qwen image can gain a native NovelAI caption");
+  const conversionMessages = promptModelRequests.at(-1)?.messages ?? [];
+  assert.match(conversionMessages.find(({ role }) => role === "system")?.content ?? "", /including solo subjects/);
+  const conversionInput = JSON.parse(conversionMessages.find(({ role }) => role === "user")?.content ?? "");
+  assert.deepEqual(conversionInput.characterPrompts, []);
+  assert.equal(conversionInput.guidance, convertedDraft.guidance);
   assert.equal(imagePrompts.length, 0);
 
   const requestsBeforeImage = promptModelRequests.length;

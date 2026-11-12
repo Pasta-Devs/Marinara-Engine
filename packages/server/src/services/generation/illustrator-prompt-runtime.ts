@@ -1,6 +1,6 @@
 import { allowsDefaultChatModel } from "../llm/local-context-limit.js";
-import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
-import { resolveAgentCallMaxTokens } from "../agents/agent-executor.js";
+import { LOCAL_SIDECAR_CONNECTION_ID, type ChatOptions } from "@marinara-engine/shared";
+import { gateAgentTemperature, resolveAgentCallMaxTokens } from "../agents/agent-executor.js";
 import type { BaseLLMProvider, ChatMessage } from "../llm/base-provider.js";
 import { withConnectionFallbackProvider, type FallbackConnection } from "../llm/connection-fallback-provider.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
@@ -32,7 +32,11 @@ export type IllustratorPromptRuntime = {
   model: string;
   connectionId: string;
   suppressModelParameters: boolean;
-  resolveAgentMaxTokens(visibleMaxTokens: number, messages: ChatMessage[]): number;
+  resolveAgentPromptOptions(
+    visibleMaxTokens: number,
+    messages: ChatMessage[],
+    defaultTemperature: number,
+  ): Pick<ChatOptions, "maxTokens" | "temperature" | "enabledParameters">;
   enableCaching: boolean;
   anthropicExtendedCacheTtl: boolean;
 };
@@ -85,8 +89,10 @@ export async function resolveIllustratorPromptRuntime(args: {
       model: LOCAL_SIDECAR_MODEL,
       connectionId,
       suppressModelParameters: false,
-      resolveAgentMaxTokens: (visibleMaxTokens, messages) =>
-        resolveAgentCallMaxTokens(provider, {}, visibleMaxTokens, { messages }),
+      resolveAgentPromptOptions: (visibleMaxTokens, messages, temperature) => ({
+        maxTokens: resolveAgentCallMaxTokens(provider, {}, visibleMaxTokens, { messages }),
+        temperature,
+      }),
       enableCaching: false,
       anthropicExtendedCacheTtl: false,
     };
@@ -136,20 +142,26 @@ export async function resolveIllustratorPromptRuntime(args: {
     model,
     connectionId,
     suppressModelParameters: modelAccessPolicy.suppressModelParameters,
-    resolveAgentMaxTokens: (visibleMaxTokens, messages) =>
-      resolveAgentCallMaxTokens(
-        provider,
-        {
-          ...resolveAgentConnectionParameters({
-            ...connection,
-            model,
-            defaultParameters: connection.defaultParameters,
-          }),
-          maxOutputTokens: resolveKnownMaxOutputTokens(connection.provider, model),
-        },
-        visibleMaxTokens,
-        { messages },
-      ),
+    resolveAgentPromptOptions: (visibleMaxTokens, messages, defaultTemperature) => {
+      const parameters = resolveAgentConnectionParameters({
+        ...connection,
+        model,
+        defaultParameters: connection.defaultParameters,
+      });
+      const temperature = gateAgentTemperature(
+        { ...parameters, suppressModelParameters: modelAccessPolicy.suppressModelParameters },
+        parameters.temperature ?? defaultTemperature,
+      );
+      return {
+        maxTokens: resolveAgentCallMaxTokens(
+          provider,
+          { ...parameters, maxOutputTokens: resolveKnownMaxOutputTokens(connection.provider, model) },
+          visibleMaxTokens,
+          { messages },
+        ),
+        ...(temperature === undefined ? { enabledParameters: { temperature: false } } : { temperature }),
+      };
+    },
     enableCaching: isEnabled(connection.enableCaching),
     anthropicExtendedCacheTtl: isEnabled(connection.anthropicExtendedCacheTtl),
   };

@@ -146,6 +146,14 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await expect(dialog.getByRole("button", { name: "Copy Negative prompt", exact: true })).toHaveCount(0);
     await regenerate.click();
     await expect(dialog.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(legacy.prompt);
+    await page.route(`**/api/gallery/${chatId}/images/${legacy.id}/regenerate/prompt`, async (route) => {
+      expect(route.request().postDataJSON().characterPrompts).toEqual([]);
+      await route.fulfill({ json: { ...revised, characterPrompts: [revised.characterPrompts[0]] } });
+    });
+    await dialog.getByRole("button", { name: "Revise prompt", exact: true }).click();
+    await expect(dialog.getByRole("textbox", { name: "Mira prompt", exact: true })).toHaveValue(
+      revised.characterPrompts[0].prompt,
+    );
     await dialog.getByRole("button", { name: "Close image", exact: true }).click();
 
     await openGalleryImage(drawer, displayPrompt);
