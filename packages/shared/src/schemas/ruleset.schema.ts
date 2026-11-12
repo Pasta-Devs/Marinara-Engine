@@ -18294,6 +18294,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           .trim()
           .toLowerCase(),
       );
+      if (!first || !second) issue(["resolution", "duality", "dice"], "A die needs a label the record can write");
       if (first === second) issue(["resolution", "duality", "dice"], "The two dice share a label");
       if (first === "tie" || second === "tie")
         issue(["resolution", "duality", "dice"], 'A die cannot be labelled "tie": the record uses it for equal faces');
