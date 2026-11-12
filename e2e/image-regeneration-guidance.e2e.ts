@@ -229,9 +229,17 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     const placement = dialog.getByRole("group", { name: "Mira placement (NovelAI)", exact: true });
     const xPosition = placement.getByRole("textbox", { name: "X (0 left, 1 right)", exact: true });
     const yPosition = placement.getByRole("textbox", { name: "Y (0 top, 1 bottom)", exact: true });
+    // A placement needs both axes: clearing one keeps the other, and one alone never invents the other.
     await xPosition.fill("");
     await xPosition.blur();
-    await expect(yPosition).toHaveValue("");
+    await expect(yPosition).toHaveValue("0.5");
+    const julesPlacement = dialog.getByRole("group", { name: "Jules placement (NovelAI)", exact: true });
+    const julesX = julesPlacement.getByRole("textbox", { name: "X (0 left, 1 right)", exact: true });
+    await julesX.fill("0.7");
+    await julesX.blur();
+    await expect(julesPlacement.getByRole("textbox", { name: "Y (0 top, 1 bottom)", exact: true })).toHaveValue("");
+    await julesX.fill("");
+    await julesX.blur();
     await xPosition.fill("0.8");
     await xPosition.blur();
     await yPosition.fill("0.65");

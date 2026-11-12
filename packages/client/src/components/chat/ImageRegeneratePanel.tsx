@@ -86,6 +86,67 @@ function PromptField({
   );
 }
 
+type PlacementAxis = "x" | "y";
+
+/**
+ * A caption's position needs both axes. A half-entered one stays here until the other axis arrives, so
+ * one field never invents or erases the other's value.
+ */
+function PlacementFields({
+  name,
+  position,
+  disabled,
+  onChange,
+}: {
+  name: string;
+  position: CharacterPrompt["position"];
+  disabled: boolean;
+  onChange: (position: CharacterPrompt["position"]) => void;
+}) {
+  const { t } = useUiTranslation();
+  const [pending, setPending] = useState<Partial<Record<PlacementAxis, number>>>({});
+  useEffect(() => {
+    if (position) setPending({});
+  }, [position]);
+  const valueOf = (axis: PlacementAxis) => position?.[axis] ?? pending[axis] ?? null;
+
+  const commit = (axis: PlacementAxis, value: number | null) => {
+    const x = axis === "x" ? value : valueOf("x");
+    const y = axis === "y" ? value : valueOf("y");
+    if (x !== null && y !== null) {
+      setPending({});
+      onChange({ x, y });
+      return;
+    }
+    setPending({ ...(x !== null ? { x } : {}), ...(y !== null ? { y } : {}) });
+    onChange(undefined);
+  };
+
+  return (
+    <fieldset className="grid grid-cols-2 gap-2">
+      <legend className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.characterPlacement", { name })}</legend>
+      {(["x", "y"] as const).map((axis) => (
+        <label key={axis} className="flex min-w-0 flex-col gap-1">
+          <span className="text-xs text-[var(--muted-foreground)]">
+            {t(axis === "x" ? "ui.chat.imageregeneratepanel.positionX" : "ui.chat.imageregeneratepanel.positionY")}
+          </span>
+          <DraftNumberInput
+            allowEmpty
+            integer={false}
+            min={0}
+            max={1}
+            disabled={disabled}
+            value={valueOf(axis)}
+            placeholder={t("ui.chat.imageregeneratepanel.positionAutomatic")}
+            className={FIELD_CLASS}
+            onCommit={(value) => commit(axis, value)}
+          />
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 export function ImageRegeneratePanel({
   image,
   record,
@@ -252,39 +313,12 @@ export function ImageRegeneratePanel({
                   onChange={(negativePrompt) => updateCharacter(index, (entry) => ({ ...entry, negativePrompt }))}
                   disabled={busy}
                 />
-                <fieldset className="grid grid-cols-2 gap-2">
-                  <legend className={LABEL_CLASS}>
-                    {t("ui.chat.imageregeneratepanel.characterPlacement", { name: character.name })}
-                  </legend>
-                  {(["x", "y"] as const).map((axis) => (
-                    <label key={axis} className="flex min-w-0 flex-col gap-1">
-                      <span className="text-xs text-[var(--muted-foreground)]">
-                        {t(
-                          axis === "x"
-                            ? "ui.chat.imageregeneratepanel.positionX"
-                            : "ui.chat.imageregeneratepanel.positionY",
-                        )}
-                      </span>
-                      <DraftNumberInput
-                        allowEmpty
-                        integer={false}
-                        min={0}
-                        max={1}
-                        disabled={busy}
-                        value={character.position?.[axis] ?? null}
-                        placeholder={t("ui.chat.imageregeneratepanel.positionAutomatic")}
-                        className={FIELD_CLASS}
-                        onCommit={(value) =>
-                          updateCharacter(index, (entry) => ({
-                            ...entry,
-                            position:
-                              value === null ? undefined : { ...(entry.position ?? { x: 0.5, y: 0.5 }), [axis]: value },
-                          }))
-                        }
-                      />
-                    </label>
-                  ))}
-                </fieldset>
+                <PlacementFields
+                  name={character.name}
+                  position={character.position}
+                  disabled={busy}
+                  onChange={(position) => updateCharacter(index, (entry) => ({ ...entry, position }))}
+                />
               </div>
             ))}
           </div>
