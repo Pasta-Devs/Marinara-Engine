@@ -2133,10 +2133,12 @@ export interface SkillCheckTagResolutionOptions {
    */
   issuedD20s?: readonly number[];
   /**
-   * The records a branch arm wrote earlier in this same turn, as written, supplied by generation
-   * only. Each is the Engine's own roll and is left exactly as it is.
+   * The records a branch arm wrote earlier in this same turn, as written, each with how many times it
+   * wrote it, supplied by generation only. Each is the Engine's own roll and is left exactly as it is.
    */
-  engineRecords?: ReadonlySet<string>;
+  engineRecords?: ReadonlyMap<string, number>;
+  /** The faces those records' dice showed, as the branch arm put them into `issuedD20s`. */
+  engineDice?: readonly number[];
 }
 
 export interface SkillCheckTagResolution {
@@ -2380,14 +2382,12 @@ export async function resolveSkillCheckTagsInContent(
   /** What is left of the dice issued for this turn, spent one check at a time. */
   const issued = options.issuedD20s ? [...options.issuedD20s] : null;
   // What a branch arm rolled this turn answers its own check and no other, wherever in the reply
-  // another tag sits, so its dice are spent before any tag is read. Only a summed record's faces were
-  // ever put in the list, and each is taken on its own: one already gone does not keep the rest.
-  if (issued && options.engineRecords) {
-    for (const record of options.engineRecords) {
-      const own = parseSkillCheckTagBody(createSkillCheckTagRegex().exec(record)?.[1] ?? "")?.resolvedResult;
-      if (own?.resolution === "sum") for (const face of own.rolls) takeIssuedD20s(issued, [face]);
-    }
-  }
+  // another tag sits, so its dice are spent before any tag is read. The arm names the faces it put in
+  // the list, and each is taken on its own: one already gone does not keep the rest.
+  if (issued) for (const face of options.engineDice ?? []) takeIssuedD20s(issued, [face]);
+  // Each of its records is passed over as many times as the arm wrote it, and no more: a copy the
+  // model wrote of the same text is read like any other written record.
+  const engineRecords = new Map(options.engineRecords ?? []);
   /** The outcome each tag's own `result=` claimed, by where the tag starts, for the correction below. */
   const claims = new Map<number, boolean>();
   let corrected = 0;
@@ -2417,7 +2417,9 @@ export async function resolveSkillCheckTagsInContent(
         continue;
       }
       // A record a branch arm wrote this turn is the Engine's own roll: never rolled a second time.
-      if (options.engineRecords?.has(match[0])) {
+      const written = engineRecords.get(match[0]) ?? 0;
+      if (written > 0) {
+        engineRecords.set(match[0], written - 1);
         trusted += 1;
         left += 1;
         continue;

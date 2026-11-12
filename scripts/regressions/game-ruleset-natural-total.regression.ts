@@ -265,6 +265,22 @@ try {
       { loadContext: async () => bareContext as any, rulesetPinned: true },
     );
     assert.deepEqual([again.trusted, again.results?.length], [0, 1], "a written record is rolled again");
+    // On a ruleset with none of this, a written record with the sheet's numbers is kept, and the same
+    // record that asks for a shift is not: the shift is the Engine's to apply.
+    const ordinary = parsed(
+      doc((d) => (delete d.resolution.outcomes, delete d.resolution.tierShift, delete d.resolution.naturalTotal)),
+    );
+    const ordinaryContext = { ...context, ruleset: buildSkillCheckRulesetContext(ordinary, cards, cards[0]) };
+    const sheet = resolveSkillCheckWithContext(ordinaryContext as any, { skill: "Scrap", dc: 12 }).modifier;
+    const record = (extra: string) =>
+      `[skill_check: skill="Scrap" dc="12" rolls="10,9" used="19" modifier="${sheet}" total="${19 + sheet}" result="success" mode="normal" resolution="sum" dice="2d10"${extra}]`;
+    const keep = (content: string) =>
+      resolveSkillCheckTagsInContent(content, { loadContext: async () => ordinaryContext as any, rulesetPinned: true });
+    assert.equal((await keep(record(""))).trusted, 1, "the plain record is vouched for");
+    assert.deepEqual(
+      [(await keep(record(' shift="+1"'))).trusted, (await keep(record(' shift="+1"'))).resolved],
+      [0, 1],
+    );
 
     const reminder = buildGmFormatReminder({
       turnNumber: 2,
