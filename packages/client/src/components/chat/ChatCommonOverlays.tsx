@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState, type ComponentProps } from "react";
+import { Suspense, lazy, useEffect, useRef, useState, type ComponentProps } from "react";
 import { createPortal } from "react-dom";
 import type { SpriteSide } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -23,6 +23,7 @@ import { NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
 import { type ChatToolbarFloatingPanelAnchor } from "./ChatToolbarControls";
 import { FloatingWindow } from "../ui/FloatingWindow";
 import { useMatchMedia } from "../../hooks/use-match-media";
+import { useChatSettingsReflow } from "../../hooks/use-chat-settings-reflow";
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { getChatSettingsWindowProps } from "./chat-settings-window";
 import { ChatBranchGraphWindow } from "./ChatBranchGraphWindow";
@@ -397,9 +398,11 @@ function MultiSelectBar({
 function ChatSettingsLoadingFallback({
   anchor,
   onClose,
+  gameMode,
 }: {
   anchor: ChatFloatingPanelAnchor;
   onClose: (options?: { force?: boolean }) => void;
+  gameMode: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const phoneLayout = useMatchMedia("(max-width: 767px)");
@@ -408,10 +411,16 @@ function ChatSettingsLoadingFallback({
   const ovFloating = useOverhaulStore((state) => state.chatSettingsFloating);
   const ovDocked = overhaulActive && !ovFloating;
   const windowProps = getChatSettingsWindowProps(anchor);
+  // The docked pane makes room in the chat as soon as it shows, not once its code has loaded and
+  // rendered (with a custom theme that was most of a second later, nitpick audit GV13). The loaded
+  // pane takes the room over without the chat moving in between.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  useChatSettingsReflow(bodyRef, ovDocked && !gameMode);
 
   return (
     <FloatingWindow
       id={CHAT_SETTINGS_WINDOW_ID}
+      bodyRef={bodyRef}
       presentation={phoneLayout ? "sheet" : "window"}
       title={localizeUi("chat.toolbar.settings")}
       titleIcon={<Loader2 size="0.8125rem" className="mari-chrome-accent-icon shrink-0 animate-spin" />}
@@ -502,14 +511,39 @@ export function ChatCommonOverlays({
   // Popped-out sections render from inside Chat Settings, so it stays mounted (hidden) while any is out.
   // The setup wizard sits below floating windows, so they wait until it closes; their layout is kept.
   const settingsSectionsPoppedOut = useHostHasDetachedDrawers(CHAT_SETTINGS_WINDOW_ID) && !wizardOpen;
+  const settingsMounted = !!chat && (settingsOpen || settingsSectionsPoppedOut);
+  // Chat settings is a big render. Opening it shows the light loading pane for a frame first, so the
+  // pane appears and the chat makes room at once, and the full drawer renders into it right after
+  // (the click used to wait on that whole render; GV13).
+  const [drawerReady, setDrawerReady] = useState(false);
+  useEffect(() => {
+    if (!settingsMounted) {
+      setDrawerReady(false);
+      return;
+    }
+    if (drawerReady) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setDrawerReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [settingsMounted, drawerReady]);
+  const settingsLoading =
+    chat && settingsOpen ? (
+      <ChatSettingsLoadingFallback
+        anchor={settingsAnchor}
+        onClose={onCloseSettings}
+        gameMode={(chat as unknown as { mode?: unknown }).mode === "game"}
+      />
+    ) : null;
   return (
     <>
-      {chat && (settingsOpen || settingsSectionsPoppedOut) && (
-        <Suspense
-          fallback={
-            settingsOpen ? <ChatSettingsLoadingFallback anchor={settingsAnchor} onClose={onCloseSettings} /> : null
-          }
-        >
+      {settingsMounted && !drawerReady && settingsLoading}
+      {chat && settingsMounted && drawerReady && (
+        <Suspense fallback={settingsLoading}>
           <ChatSettingsDrawer
             chat={chat}
             open={settingsOpen}

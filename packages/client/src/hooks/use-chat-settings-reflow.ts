@@ -30,6 +30,14 @@ function chatMinWidth(host: HTMLElement): number {
   return Number.isFinite(value) && value > 0 ? value : OV_CHAT_MIN_WIDTH;
 }
 
+/**
+ * Handing over between two panes on the same host: the loading pane (shown while Chat settings' code
+ * loads) makes room right away, and the real pane takes over when it mounts. The first one's clean-up
+ * waits for the next frame, so the chat doesn't widen and narrow again in between; the next pane
+ * cancels it and inherits the chat list it folded away.
+ */
+const pendingRelease = new WeakMap<HTMLElement, { timer: number; hidSidebar: boolean }>();
+
 export function useChatSettingsReflow(bodyRef: RefObject<HTMLElement | null>, active: boolean) {
   useEffect(() => {
     if (!active) return;
@@ -47,6 +55,12 @@ export function useChatSettingsReflow(bodyRef: RefObject<HTMLElement | null>, ac
       }
       /** The chat list was folded away to make room; it comes back when Chat settings closes. */
       let hidSidebar = false;
+      const handed = pendingRelease.get(host);
+      if (handed) {
+        cancelAnimationFrame(handed.timer);
+        pendingRelease.delete(host);
+        hidSidebar = handed.hidSidebar;
+      }
       let settleUntil = 0;
       let settleTimer = 0;
       // How much narrower than the chat column its bubbles are (avatar, gutters), read while reflowed.
@@ -105,12 +119,17 @@ export function useChatSettingsReflow(bodyRef: RefObject<HTMLElement | null>, ac
         observer.disconnect();
         window.clearTimeout(settleTimer);
         window.removeEventListener("resize", measure);
-        // Put back the chat list this folded away, unless the player has opened or closed it since.
-        if (hidSidebar && !useUIStore.getState().sidebarOpen) useUIStore.getState().setSidebarOpen(true);
-        delete host.dataset.csDocked;
-        delete host.dataset.csTracker;
-        host.style.removeProperty("--ov-cs-reflow");
-        host.style.removeProperty("--ov-cs-cover");
+        const release = () => {
+          pendingRelease.delete(host);
+          // Put back the chat list this folded away, unless the player has opened or closed it since.
+          if (hidSidebar && !useUIStore.getState().sidebarOpen) useUIStore.getState().setSidebarOpen(true);
+          delete host.dataset.csDocked;
+          delete host.dataset.csTracker;
+          host.style.removeProperty("--ov-cs-reflow");
+          host.style.removeProperty("--ov-cs-cover");
+        };
+        // Released in the next frame (before it paints), unless the loaded pane takes over in between.
+        pendingRelease.set(host, { timer: requestAnimationFrame(release), hidSidebar });
       };
     };
     attach();

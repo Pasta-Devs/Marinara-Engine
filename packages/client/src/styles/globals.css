@@ -1322,10 +1322,13 @@
   white-space: nowrap;
 }
 
-.mari-chrome-control:hover {
-  border-color: var(--marinara-chat-chrome-button-border-hover);
-  background: var(--marinara-chat-chrome-button-bg-hover);
-  color: var(--marinara-chat-chrome-button-text-hover);
+/* Hover only where there is a pointer that hovers: a tap on a touch screen leaves :hover stuck. */
+@media (hover: hover) {
+  .mari-chrome-control:hover {
+    border-color: var(--marinara-chat-chrome-button-border-hover);
+    background: var(--marinara-chat-chrome-button-bg-hover);
+    color: var(--marinara-chat-chrome-button-text-hover);
+  }
 }
 
 .mari-chrome-control:focus-visible {

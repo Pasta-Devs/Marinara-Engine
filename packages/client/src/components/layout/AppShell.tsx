@@ -738,15 +738,24 @@ export function AppShell({
   const chatUiInsetLeft = !shellOverlayMode && layoutSidebarOpen ? Math.round(liveSidebarWidth) : 0;
   const chatUiInsetRight = !shellOverlayMode && layoutRightPanelOpen ? Math.round(liveRightPanelWidth) : 0;
 
+  // Written on <html> (windows portalled into <body> read them too), so each write re-styles the whole
+  // page: only write a value that changed, and only clear them when the shell goes away, instead of
+  // clearing and re-setting both on every change (slow with a custom theme, nitpick audit GV13).
   useLayoutEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
-    root.style.setProperty("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
-    return () => {
-      root.style.removeProperty("--mari-chat-ui-inset-left");
-      root.style.removeProperty("--mari-chat-ui-inset-right");
+    const set = (name: string, value: string) => {
+      if (root.style.getPropertyValue(name) !== value) root.style.setProperty(name, value);
     };
+    set("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
+    set("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
   }, [chatUiInsetLeft, chatUiInsetRight]);
+  useLayoutEffect(
+    () => () => {
+      document.documentElement.style.removeProperty("--mari-chat-ui-inset-left");
+      document.documentElement.style.removeProperty("--mari-chat-ui-inset-right");
+    },
+    [],
+  );
 
   // ── Center-area compact detection ──
   // Side panels can shrink the center pane below the chat chrome's usable desktop
