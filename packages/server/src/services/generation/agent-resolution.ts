@@ -30,6 +30,7 @@ import {
   buildAgentConnectionUnavailableWarning,
   buildDefaultAgentConnectionWarning,
   buildLocalSidecarUnavailableWarning,
+  isLocalSidecarConnectionId,
   resolveAgentConnectionId,
   type AgentConnectionWarning,
 } from "../../routes/generate/agent-connection-guards.js";
@@ -725,7 +726,8 @@ export async function resolveAgentPipelineAgents({
     agentConnectionWarnings.push(buildAgentConnectionUnavailableWarning(warning));
   }
 
-  if (defaultAgentConn && defaultAgentConnectionAgents.length > 0) {
+  // A saved row is a paid-by-default risk; the built-in model bills nothing, so it is never worth a warning.
+  if (defaultAgentConn && !isLocalSidecarConnectionId(defaultAgentConn.id) && defaultAgentConnectionAgents.length > 0) {
     agentConnectionWarnings.push(
       buildDefaultAgentConnectionWarning({
         agentNames: defaultAgentConnectionAgents,

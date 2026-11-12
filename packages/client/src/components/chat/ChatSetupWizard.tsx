@@ -6,13 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   ChevronRight,
-  ChevronDown,
   Plug,
-  BookOpen,
   Check,
   Plus,
   Search,
-  Trash2,
   MessageCircle,
   X,
   Users,
@@ -26,6 +23,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { LorebookListField, PresetPickerField, type LibraryLorebook, type LibraryPreset } from "../ui/LibraryPickers";
 import { advanceChatSetupDraft } from "../../lib/chat-setup-draft";
 import { useDiscardNewChatSetup } from "../../hooks/use-discard-new-chat-setup";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
@@ -309,166 +307,6 @@ const WIZARD_PRIMARY_BUTTON_CLASS =
   "flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50";
 const WIZARD_SECONDARY_BUTTON_CLASS =
   "flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
-
-type WizardSelectOption = {
-  value: string;
-  label: string;
-};
-
-function WizardSelect({
-  id,
-  value,
-  options,
-  ariaLabel,
-  onChange,
-}: {
-  id?: string;
-  value: string;
-  options: WizardSelectOption[];
-  ariaLabel: string;
-  onChange: (value: string) => void;
-}) {
-  const { t } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
-  const listboxId = useId();
-  const selectedOption = options.find((option) => option.value === value) ?? options[0];
-  const normalizedQuery = query.trim().toLowerCase();
-  const visibleOptions = normalizedQuery
-    ? options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
-    : options;
-
-  useEffect(() => {
-    // Focus the search only with a mouse; on touch it would pop the keyboard over the list (as CharacterSelect does).
-    if (open && window.matchMedia?.("(pointer: fine)").matches) searchRef.current?.focus();
-    else if (!open) setQuery("");
-  }, [open]);
-
-  const focusSelectedOption = () => {
-    window.requestAnimationFrame(() => {
-      const optionButtons = rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
-      const selectedIndex = Math.max(
-        0,
-        visibleOptions.findIndex((option) => option.value === value),
-      );
-      optionButtons?.[selectedIndex]?.focus();
-    });
-  };
-
-  const pickOption = (optionValue: string) => {
-    onChange(optionValue);
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-
-  return (
-    <div
-      ref={rootRef}
-      className="relative"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && open) {
-          event.preventDefault();
-          setOpen(false);
-          triggerRef.current?.focus();
-        }
-      }}
-    >
-      <button
-        ref={triggerRef}
-        id={id}
-        type="button"
-        role="combobox"
-        aria-label={ariaLabel}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? listboxId : undefined}
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-          event.preventDefault();
-          if (!open) setOpen(true);
-          focusSelectedOption();
-        }}
-        className={cn(WIZARD_INPUT_CLASS, "flex items-center justify-between gap-2 pr-3 text-left")}
-      >
-        <span className="min-w-0 flex-1 truncate">{selectedOption?.label}</span>
-        <ChevronDown
-          size="0.75rem"
-          className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
-        />
-      </button>
-      {open && (
-        <div className="mt-1 rounded-lg border border-[var(--border)] bg-[var(--secondary)] shadow-xl">
-          <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2 max-md:min-h-11">
-            <Search size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowDown") {
-                  event.preventDefault();
-                  rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]')[0]?.focus();
-                } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                  event.preventDefault();
-                  const first = visibleOptions[0];
-                  if (first) pickOption(first.value);
-                }
-              }}
-              placeholder={t("chat.wizard.select.search")}
-              aria-label={t("chat.wizard.select.search")}
-              className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-            />
-          </div>
-          {/* The listbox holds options only; the search box sits above it. */}
-          <div id={listboxId} role="listbox" aria-label={ariaLabel} className="max-h-48 overflow-y-auto p-1">
-            {visibleOptions.length === 0 && (
-              <p className="px-2.5 py-2 text-xs text-[var(--muted-foreground)]">
-                {t("ui.lorebooks.linkedresourcepicker.noMatches")}
-              </p>
-            )}
-            {visibleOptions.map((option, index) => {
-              const selected = option.value === value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  onClick={() => pickOption(option.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-                    event.preventDefault();
-                    if (event.key === "ArrowUp" && index === 0) {
-                      searchRef.current?.focus();
-                      return;
-                    }
-                    const nextIndex =
-                      event.key === "ArrowDown" ? Math.min(visibleOptions.length - 1, index + 1) : index - 1;
-                    rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]')[nextIndex]?.focus();
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left max-md:min-h-11 text-xs text-[var(--foreground)] hover:bg-[var(--accent)]",
-                    selected && "bg-[var(--primary)]/10 text-[var(--primary)]",
-                  )}
-                >
-                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                  {selected && <Check size="0.75rem" className="shrink-0" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function readChatActiveAgentIds(chat: Chat): string[] {
   const metadata = readChatMetadata(chat);
@@ -1543,13 +1381,11 @@ function ConversationQuickSetup({
     <div className="space-y-3">
       <div className="space-y-2">
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.chat.conversationquicksetup.conversationPrompt")}</label>
-        <WizardSelect
+        <PresetPickerField
+          triggerClassName={WIZARD_INPUT_CLASS}
           value={selectedPromptPresetId ?? ""}
           ariaLabel={localizeUi("ui.chatSettings.conversationpromptsection.promptPreset")}
-          options={[
-            { value: "", label: localizeUi("ui.game.gamesurfacecomponent.none") },
-            ...promptPresetOptions.map((preset) => ({ value: preset.id, label: preset.name })),
-          ]}
+          presets={promptPresetOptions}
           onChange={(nextValue) => setPreset(nextValue || null)}
         />
         <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
@@ -2397,6 +2233,13 @@ function RoleplaySetupWizard({
     },
     [chat.id, activeLorebookIds, updateMeta],
   );
+  const addLorebooks = useCallback(
+    (ids: string[]) => {
+      const next = [...activeLorebookIds, ...ids.filter((id) => !activeLorebookIds.includes(id))];
+      updateMeta.mutate({ id: chat.id, activeLorebookIds: next });
+    },
+    [chat.id, activeLorebookIds, updateMeta],
+  );
 
   // Default the shortcut dropdown once profiles load. Prefer (in order):
   //  1) the profile already applied to this chat,
@@ -2478,8 +2321,7 @@ function RoleplaySetupWizard({
     }
   }, [shortcutPresetId, shortcutPersonaPicked, chat.id, applyChatPreset, onFinish, seedInitialGreetingsIfEmpty]);
 
-  // Search state for character & lorebook pickers
-  const [lbSearch, setLbSearch] = useState("");
+  // Search state for the agent picker
   const [agentSearch, setAgentSearch] = useState("");
   const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
   const [addingAgentToChat, setAddingAgentToChat] = useState(false);
@@ -2591,7 +2433,6 @@ function RoleplaySetupWizard({
         return;
       }
       setStep((s) => s + 1);
-      setLbSearch("");
       setAgentSearch("");
       setAgentAddPreview(null);
     }
@@ -2654,7 +2495,6 @@ function RoleplaySetupWizard({
       setOnboardingCharacterId(null);
       setShowOnboarding(false);
       setStep((s) => s + 1);
-      setLbSearch("");
       setAgentSearch("");
       setAgentAddPreview(null);
     },
@@ -2663,7 +2503,6 @@ function RoleplaySetupWizard({
 
   const previous = useCallback(() => {
     setStep((s) => Math.max(0, s - 1));
-    setLbSearch("");
     setAgentSearch("");
     setAgentAddPreview(null);
   }, []);
@@ -2900,16 +2739,11 @@ function RoleplaySetupWizard({
   function renderPreset() {
     return (
       <div className="space-y-4">
-        <WizardSelect
+        <PresetPickerField
+          triggerClassName={WIZARD_INPUT_CLASS}
           value={chat.promptPresetId ?? ""}
           ariaLabel={localizeUi("chat.toolbar.preset")}
-          options={[
-            { value: "", label: localizeUi("ui.game.gamesurfacecomponent.none") },
-            ...((presets ?? []) as Array<{ id: string; name: string; isDefault?: boolean | string }>).map((preset) => ({
-              value: preset.id,
-              label: preset.name,
-            })),
-          ]}
+          presets={(presets ?? []) as LibraryPreset[]}
           onChange={(nextValue) => setPreset(nextValue || null)}
         />
         <section className="space-y-2 border-t border-[var(--border)] pt-4">
@@ -3032,74 +2866,15 @@ function RoleplaySetupWizard({
   }
 
   function renderLorebooks() {
-    const available = ((lorebooks ?? []) as Array<{ id: string; name: string }>).filter(
-      (lb) => !activeLorebookIds.includes(lb.id) && lb.name.toLowerCase().includes(lbSearch.toLowerCase()),
-    );
-
     return (
-      <div className="space-y-2">
-        {/* Active lorebooks */}
-        {activeLorebookIds.length > 0 && (
-          <div className="flex flex-col gap-1">
-            {activeLorebookIds.map((lbId) => {
-              const lb = ((lorebooks ?? []) as Array<{ id: string; name: string }>).find((l) => l.id === lbId);
-              if (!lb) return null;
-              return (
-                <div
-                  key={lb.id}
-                  className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
-                >
-                  <BookOpen size="0.875rem" className="text-[var(--primary)]" />
-                  <span className="flex-1 truncate text-xs">{lb.name}</span>
-                  <button
-                    onClick={() => toggleLorebook(lb.id)}
-                    className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                    title={localizeUi("settings.notifications.customSound.actions.remove")}
-                  >
-                    <Trash2 size="0.6875rem" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Search + add */}
-        <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--secondary)]">
-          <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2 max-md:min-h-11">
-            <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
-            <input
-              value={lbSearch}
-              onChange={(e) => setLbSearch(e.target.value)}
-              placeholder={localizeUi("ui.chat.roleplaysetupwizard.searchLorebooks")}
-              className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-            />
-          </div>
-          <div className="max-h-32 overflow-y-auto p-1">
-            {available.map((lb) => (
-              <button
-                key={lb.id}
-                onClick={() => toggleLorebook(lb.id)}
-                className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-xs text-[var(--foreground)] hover:bg-[var(--accent)] max-md:min-h-11"
-              >
-                <BookOpen size="0.875rem" className="text-[var(--muted-foreground)]" />
-                <span className="flex-1 truncate text-xs">{lb.name}</span>
-                <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-              </button>
-            ))}
-            {available.length === 0 && lorebooks !== undefined && (
-              <p className="px-2.5 py-2 text-xs text-[var(--muted-foreground)]">
-                {(lorebooks ?? []).length === 0
-                  ? localizeUi("ui.panels.lorebookspanel.noLorebooksYet")
-                  : ((lorebooks ?? []) as Array<{ id: string }>).filter((lb) => !activeLorebookIds.includes(lb.id))
-                        .length === 0
-                    ? localizeUi("ui.chat.roleplaysetupwizard.allLorebooksAlreadyAdded")
-                    : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+      <LorebookListField
+        lorebooks={(lorebooks ?? []) as LibraryLorebook[]}
+        disabled={lorebooks === undefined}
+        selectedIds={activeLorebookIds}
+        onToggle={toggleLorebook}
+        onAdd={addLorebooks}
+        triggerClassName={WIZARD_INPUT_CLASS}
+      />
     );
   }
 
@@ -3541,7 +3316,6 @@ function RoleplaySetupWizard({
         onClose={() => {
           setShowChoiceModal(false);
           setStep((s) => s + 1);
-          setLbSearch("");
           setAgentSearch("");
           setAgentAddPreview(null);
         }}
