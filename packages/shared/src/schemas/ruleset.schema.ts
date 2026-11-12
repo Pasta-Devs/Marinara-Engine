@@ -18231,6 +18231,11 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         issue(["resolution", "duality"], "Two named dice are read as thrown, so advantage is false");
       if (duality.dice[0].id === duality.dice[1].id)
         issue(["resolution", "duality", "dice"], "The two dice share an id");
+      // The record names the leading die by its label, and says "tie" when neither leads.
+      const [first, second] = duality.dice.map((die) => die.label.trim().toLowerCase());
+      if (first === second) issue(["resolution", "duality", "dice"], "The two dice share a label");
+      if (first === "tie" || second === "tie")
+        issue(["resolution", "duality", "dice"], 'A die cannot be labelled "tie": the record uses it for equal faces');
     }
   } else if (resolution.kind === "symbol-pool") {
     if (resolution.allowOwnUpgrade && !resolution.pool.upgrade) {
