@@ -100,25 +100,25 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
     : "";
   // A roll at most a target (1.139) says so, because "DC 45" would read as needing 45 or more.
   const needed = result.against === "at-most" ? `at most ${result.dc}` : `DC ${result.dc}`;
-  // Two named dice (1.820), said only where the record carries them.
+  // Two named dice (1.821), said only where the record carries them.
   const duality = result.duality
     ? result.duality === "tie"
       ? " The two named dice tied."
       : ` With ${result.duality}.`
     : "";
-  // Special dice (1.823): how many, and what they made of the result.
+  // Special dice (1.824): how many, and what they made of the result.
   const hunger = result.hunger
     ? ` ${result.hunger} ${result.hungerLabel ?? "special"} ${result.hunger === 1 ? "die" : "dice"} (the first ${result.hunger === 1 ? "one" : result.hunger})${
         result.messy ? "; a messy critical" : result.bestial ? "; a bestial failure" : ""
       }.`
     : "";
-  // The plot die (1.821): its face and what the face carried.
+  // The plot die (1.822): its face and what the face carried.
   const plot = result.plotFace
     ? ` ${result.plotLabel ?? "Plot die"} ${result.plotFace}${result.plotSymbol ? `: ${result.plotSymbol}` : ": blank"}${
         result.plotBonus ? ` (${result.plotBonus > 0 ? "+" : ""}${result.plotBonus})` : ""
       }.`
     : "";
-  // A band the Game Master moved (1.822).
+  // A band the Game Master moved (1.823).
   const shift = result.shift
     ? ` Moved ${Math.abs(result.shift)} ${Math.abs(result.shift) === 1 ? "band" : "bands"} ${result.shift > 0 ? "better" : "worse"}.`
     : "";
@@ -229,18 +229,18 @@ export interface SkillCheckTagExtras {
   criticalFailure?: boolean;
   /** `for="climb"` (1.752): what the check was made for, which a change narrowed to it read. */
   for?: string;
-  /** `duality="Hope"` (1.820): the named die that showed more, or "tie". */
+  /** `duality="Hope"` (1.821): the named die that showed more, or "tie". */
   duality?: string;
   /** `plot="true"`, the ask; `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`,
-   *  the record (1.821). */
+   *  the record (1.822). */
   plot?: boolean;
   plotFace?: number;
   plotSymbol?: "complication" | "opportunity";
   plotBonus?: number;
   plotLabel?: string;
-  /** `shift="+1"` (1.822): bands the outcome moved, or the ask to move it. */
+  /** `shift="+1"` (1.823): bands the outcome moved, or the ask to move it. */
   shift?: number;
-  /** `hunger="2" hungerLabel="Hunger" messy="true" bestial="true"` (1.823), on an ask the count alone. */
+  /** `hunger="2" hungerLabel="Hunger" messy="true" bestial="true"` (1.824), on an ask the count alone. */
   hunger?: number;
   hungerLabel?: string;
   messy?: boolean;

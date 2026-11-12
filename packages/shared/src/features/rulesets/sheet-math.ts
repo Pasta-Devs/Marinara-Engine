@@ -1287,11 +1287,11 @@ export interface RulesetCheckRoll {
   faces?: number[];
   /** The single die's face, where the ruleset marks it as rolled unmodified (1.136). */
   unmodified?: number;
-  /** Two named dice (1.820): the label of the one that showed more, or "tie". */
+  /** Two named dice (1.821): the label of the one that showed more, or "tie". */
   duality?: string;
-  /** The plot die (1.821), where the check threw it: its face, symbol, what it added and its name. */
+  /** The plot die (1.822), where the check threw it: its face, symbol, what it added and its name. */
   plot?: { face: number; symbol?: "complication" | "opportunity"; bonus: number; label: string };
-  /** Bands the outcome was moved (1.822), after the ruleset's limit. */
+  /** Bands the outcome was moved (1.823), after the ruleset's limit. */
   shift?: number;
 }
 
@@ -1328,7 +1328,7 @@ export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
     fraction?: number;
     natural?: -1 | 0 | 1;
     forced?: "best" | "worst";
-    /** Bands better (+) or worse (-) the Game Master moved this check (1.822). */
+    /** Bands better (+) or worse (-) the Game Master moved this check (1.823). */
     shift?: number;
   },
 ): T {
@@ -1340,7 +1340,7 @@ export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
   let index = read.findIndex((tier) => tier.atLeast === undefined || measure >= tier.atLeast);
   if (index < 0) index = read.length - 1;
   if (outcomes.naturals === "shift" && input.natural) index -= input.natural;
-  // Where the roll stood before the Game Master's shift (1.822), to say how far it really moved: an
+  // Where the roll stood before the Game Master's shift (1.823), to say how far it really moved: an
   // ask past the last band, or on a roll a critical pins, moves nothing.
   const held = (at: number) => Math.min(read.length - 1, Math.max(0, at));
   const unshifted = held(index);
@@ -1389,9 +1389,9 @@ export function rollDiceSumCheck(
     faceFloor?: number;
     /** A total below this counts as this (1.418): Indomitable Might's Strength score. */
     totalFloor?: number;
-    /** `plot="true"` (1.821): throw the plot die, where the ruleset has one. */
+    /** `plot="true"` (1.822): throw the plot die, where the ruleset has one. */
     plot?: boolean;
-    /** `shift=` (1.822): bands to move the outcome, held to the ruleset's `tierShift.max`. */
+    /** `shift=` (1.823): bands to move the outcome, held to the ruleset's `tierShift.max`. */
     shift?: number;
   },
   /** `beside` marks a die thrown beside the check, which is never one of its own dice. */
@@ -1456,7 +1456,7 @@ export function rollDiceSumCheck(
   const natural = floor || kept.thrown[0]!;
 
   const policy = input.isSave ? naturals.save : naturals.check;
-  // Two named dice (1.820): the one that showed more, and a tie, which may be a critical on its own.
+  // Two named dice (1.821): the one that showed more, and a tie, which may be a critical on its own.
   const { duality } = resolution;
   const [first0, first1] = kept.thrown;
   const dualityWinner = !duality
@@ -1466,7 +1466,7 @@ export function rollDiceSumCheck(
       : first1! > first0!
         ? duality.dice[1].label
         : "tie";
-  // The dice's own total, before anything is added (1.822): a natural 19 or 20 on 2d10.
+  // The dice's own total, before anything is added (1.823): a natural 19 or 20 on 2d10.
   const { naturalTotal } = resolution;
   // Faces worth other numbers are read by their worth, floor included; a plain single die by its face.
   const ownTotal = faces ? usedRoll : single ? natural : kept.worth;
@@ -1479,7 +1479,7 @@ export function rollDiceSumCheck(
   const criticalFailure =
     !criticalSuccess && ((single && natural === 1 && (policy === "both" || policy === "min-only")) || naturalLow);
   const unmodified = single && resolution.unmodified?.includes(natural) ? natural : undefined;
-  // The plot die (1.821) is thrown after the check's own dice, and adds only what its face says.
+  // The plot die (1.822) is thrown after the check's own dice, and adds only what its face says.
   const { plotDie } = resolution;
   const plotFace = plotDie && input.plot ? rollDie(plotDie.sides, "plot") : undefined;
   const plotEntry = plotFace === undefined ? undefined : plotDie!.faces.find((entry) => entry.face === plotFace);
@@ -1550,7 +1550,7 @@ export interface RulesetPoolRoll extends RulesetCheckRoll {
   compare?: "below" | "above";
   /** How many dice showed exactly the target, where the ruleset names that face (1.137). */
   exact?: number;
-  /** Special dice (1.823): how many of `rolls`, first, they were; and a messy critical or a bestial
+  /** Special dice (1.824): how many of `rolls`, first, they were; and a messy critical or a bestial
    *  failure they made. */
   hunger?: number;
   messy?: boolean;
@@ -1596,7 +1596,7 @@ export function rollDicePoolCheck(
     /** `explode=` and `double=`, honoured only where the ruleset gives that rule a `min`. */
     explode?: number;
     double?: number;
-    /** `hunger=` (1.823): special dice among the pool, held to the ruleset's `hunger.max`. */
+    /** `hunger=` (1.824): special dice among the pool, held to the ruleset's `hunger.max`. */
     hunger?: number;
     /** What a purchase bought for this one check, already validated and paid for by the caller:
      *  dice thrown on top of the pool, successes added after the dice are counted, a per-die target
@@ -1664,7 +1664,7 @@ export function rollDicePoolCheck(
   );
   const rolls: number[] = [];
   for (let i = 0; i < count; i++) rolls.push(rollDie(die.sides));
-  // Special dice (1.823) are the first of the pool, never more than it has.
+  // Special dice (1.824) are the first of the pool, never more than it has.
   const hunger =
     resolution.hunger && Number.isFinite(input.hunger)
       ? clampInteger(input.hunger!, 0, Math.min(resolution.hunger.max, count))
@@ -1678,7 +1678,7 @@ export function rollDicePoolCheck(
   let rerolled = 0;
   const reroll = input.bought?.reroll;
   if (reroll && reroll.upTo >= 1 && reroll.upTo < die.sides) {
-    // Special dice are never thrown again (1.823), so the re-throw starts after them.
+    // Special dice are never thrown again (1.824), so the re-throw starts after them.
     for (let i = hunger; i < rolls.length && rerolled < RULESET_POOL_MAX_REROLLS; i++) {
       if (rolls[i]! > reroll.upTo) continue;
       rolls[i] = rollDie(die.sides);
@@ -1723,7 +1723,7 @@ export function rollDicePoolCheck(
     if (counts(roll)) successes += doubleFrom !== undefined && roll >= doubleFrom ? 2 : 1;
     if (cancel && roll <= cancel.upTo) cancelled += 1;
   }
-  // Each pair of paired faces (1.823) is worth `successes` rather than the two it already counted.
+  // Each pair of paired faces (1.824) is worth `successes` rather than the two it already counted.
   const pairs = resolution.pairs
     ? Math.floor(rolls.filter((roll) => roll >= resolution.pairs!.from && counts(roll)).length / 2)
     : 0;
@@ -1771,14 +1771,14 @@ export function rollDicePoolCheck(
     ...(resolution.exact ? { exact } : {}),
   };
   // Bands, where the ruleset declares them, read from the net successes; a botch is the worst band and
-  // a pair (1.823) the best.
+  // a pair (1.824) the best.
   const banded = applyRulesetCheckOutcome(resolution.outcomes, roll, {
     margin: total - input.required,
     total,
     ...(criticalFailure ? { forced: "worst" as const } : paired ? { forced: "best" as const } : {}),
   });
   if (!hunger) return banded;
-  // What the special dice made of the result (1.823), read once the outcome is settled: a critical with
+  // What the special dice made of the result (1.824), read once the outcome is settled: a critical with
   // one of them on the critical face is messy, a failure with one of them on a 1 is bestial.
   const special = rolls.slice(0, hunger);
   const criticalFace = resolution.pairs?.from ?? die.sides;

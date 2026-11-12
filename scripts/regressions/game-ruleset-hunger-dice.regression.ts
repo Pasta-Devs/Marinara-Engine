@@ -1,5 +1,5 @@
 /**
- * Special dice and paired faces in a pool (Capability API 1.823): Vampire V5's Hunger dice and
+ * Special dice and paired faces in a pool (Capability API 1.824): Vampire V5's Hunger dice and
  * paired 10s.
  *
  * What is pinned here:
@@ -8,7 +8,7 @@
  *   - Each pair of 10s counts 4 successes, three 10s count 5, and a success with a pair is critical.
  *   - `hunger=` makes the first dice special, held to `hunger.max` and the pool; a critical with a
  *     special 10 is messy, a failure with a special 1 is bestial; a re-throw never touches them.
- *   - Through the resolver, the record and the Game Master; a packaged ruleset declares 1.823.
+ *   - Through the resolver, the record and the Game Master; a packaged ruleset declares 1.824.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -225,8 +225,8 @@ try {
       permissions: [],
       restartRequired: false,
     });
-    assert.match(getCapabilityPackageInstallIssue(manifest(822) as any, doc()) ?? "", /capabilityApi 1\.823/);
-    assert.equal(getCapabilityPackageInstallIssue(manifest(823) as any, doc()), null);
+    assert.match(getCapabilityPackageInstallIssue(manifest(823) as any, doc()) ?? "", /capabilityApi 1\.824/);
+    assert.equal(getCapabilityPackageInstallIssue(manifest(824) as any, doc()), null);
   }
 } finally {
   if (previousDataDir === undefined) delete process.env.DATA_DIR;

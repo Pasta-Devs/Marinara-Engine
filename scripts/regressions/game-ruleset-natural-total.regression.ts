@@ -1,5 +1,5 @@
 /**
- * A natural total that is a critical, and a band the Game Master moves (Capability API 1.822): Draw
+ * A natural total that is a critical, and a band the Game Master moves (Capability API 1.823): Draw
  * Steel's 2d10 power roll, a natural 19 or 20, and the tier a double edge or double bane shifts.
  *
  * What is pinned here:
@@ -8,7 +8,7 @@
  *   - A natural total at or above `atLeast` (before the modifier) is a critical success in the best
  *     band; at or below `atMost` a critical failure in the worst.
  *   - `shift=` moves the band, held to `tierShift.max` and the ends of the bands.
- *   - Through the resolver, the record and the Game Master; a packaged ruleset declares 1.822.
+ *   - Through the resolver, the record and the Game Master; a packaged ruleset declares 1.823.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -295,8 +295,8 @@ try {
       permissions: [],
       restartRequired: false,
     });
-    assert.match(getCapabilityPackageInstallIssue(manifest(821) as any, doc()) ?? "", /capabilityApi 1\.822/);
-    assert.equal(getCapabilityPackageInstallIssue(manifest(822) as any, doc()), null);
+    assert.match(getCapabilityPackageInstallIssue(manifest(822) as any, doc()) ?? "", /capabilityApi 1\.823/);
+    assert.equal(getCapabilityPackageInstallIssue(manifest(823) as any, doc()), null);
   }
 } finally {
   if (previousDataDir === undefined) delete process.env.DATA_DIR;

@@ -196,7 +196,7 @@ export function AnimatedSkillCheckResult({
           <span>{localizeUi("ui.dice.animatedskillcheckresult.unmodified", { face: result.unmodified })}</span>
         </div>
       )}
-      {/* Two named dice (1.820): which one showed more, or that they tied. */}
+      {/* Two named dice (1.821): which one showed more, or that they tied. */}
       {result.duality && (
         <div className="skill-check-roll-meta">
           <span>
@@ -206,7 +206,7 @@ export function AnimatedSkillCheckResult({
           </span>
         </div>
       )}
-      {/* The plot die (1.821): its face and what the face carried. It is not one of the dice above. */}
+      {/* The plot die (1.822): its face and what the face carried. It is not one of the dice above. */}
       {result.plotFace !== undefined && (
         <div className="skill-check-roll-meta">
           <span>
@@ -231,7 +231,7 @@ export function AnimatedSkillCheckResult({
           </span>
         </div>
       )}
-      {/* A band the Game Master moved (1.822). */}
+      {/* A band the Game Master moved (1.823). */}
       {result.shift !== undefined && result.shift !== 0 && (
         <div className="skill-check-roll-meta">
           <span>
@@ -244,7 +244,7 @@ export function AnimatedSkillCheckResult({
           </span>
         </div>
       )}
-      {/* Special dice (1.823): how many of the pool they were, and what they made of the result. */}
+      {/* Special dice (1.824): how many of the pool they were, and what they made of the result. */}
       {result.hunger !== undefined && result.hunger > 0 && (
         <div className="skill-check-roll-meta">
           <span>
