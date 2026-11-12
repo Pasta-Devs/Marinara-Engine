@@ -346,7 +346,7 @@ try {
   assert.equal(promptModelRequests.length, 1);
   assert.equal(promptModelRequests[0]?.model, "fixture-prompt-model");
   assert.equal(promptModelRequests[0]?.max_tokens, 5230, "rewrites inherit Illustrator's saved output budget");
-  assert.equal(promptModelRequests[0]?.temperature, 0.3);
+  assert.equal(promptModelRequests[0]?.temperature, 0.55);
   const promptMessages = promptModelRequests[0]?.messages ?? [];
   assert.match(
     promptMessages.find(({ role }) => role === "system")?.content ?? "",
@@ -503,10 +503,14 @@ try {
     connectionId: novelAi.id,
     guidance: "Move the queen into a separate character prompt.",
   };
-  promptModelOutput = JSON.stringify({
+  const expectedConversion = {
     prompt: "1girl, solo, throne room",
     negativePrompt: baseRewrite.negativePrompt,
     characterPrompts: [soloCaption],
+  };
+  promptModelOutput = JSON.stringify({
+    ...expectedConversion,
+    characterPrompts: [{ ...soloCaption, position: "" }],
   });
   const converted = await app.inject({
     method: "POST",
@@ -514,7 +518,7 @@ try {
     payload: convertedDraft,
   });
   assert.equal(converted.statusCode, 200, converted.body);
-  assert.deepEqual(converted.json(), JSON.parse(promptModelOutput), "a Qwen image can gain a native NovelAI caption");
+  assert.deepEqual(converted.json(), expectedConversion, "an empty position leaves placement to NovelAI");
   const conversionMessages = promptModelRequests.at(-1)?.messages ?? [];
   assert.match(conversionMessages.find(({ role }) => role === "system")?.content ?? "", /including solo subjects/);
   const conversionInput = JSON.parse(conversionMessages.find(({ role }) => role === "user")?.content ?? "");

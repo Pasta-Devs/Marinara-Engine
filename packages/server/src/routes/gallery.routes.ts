@@ -236,6 +236,10 @@ const galleryCharacterPromptSchema = z.object({
   position: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
 });
 
+const extractedGalleryCharacterPromptSchema = galleryCharacterPromptSchema
+  .extend({ position: galleryCharacterPromptSchema.shape.position.catch(undefined) })
+  .strict();
+
 /** Re-send an existing image's final request, possibly edited (#7767). */
 const regenerateGalleryImageSchema = z.object({
   prompt: z.string().trim().min(1).max(200_000),
@@ -431,6 +435,22 @@ async function resolveGalleryImageConnection(
   }
   connection ??= await connections.getDefaultForImageGeneration();
   return { connection, connections };
+}
+
+function resolveGalleryImageTarget(connection: {
+  model: string | null;
+  baseUrl: string | null;
+  imageGenerationSource?: string | null;
+  imageService?: string | null;
+}) {
+  const imageModel = connection.model || "";
+  const imageSource = connection.imageGenerationSource || imageModel;
+  return {
+    imageModel,
+    imageBaseUrl: connection.baseUrl || "https://image.pollinations.ai",
+    imageSource,
+    imageServiceHint: connection.imageService || imageSource,
+  };
 }
 
 async function resolveRegenerationImageConnection(
@@ -652,10 +672,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const setting = readTrimmedString(setupConfig.setting);
     const worldOverview = readTrimmedString(metadata.gameWorldOverview);
     const imagePromptInstructions = readTrimmedString(metadata.gameImagePromptInstructions);
-    const imageModel = imageConnection.model || "";
-    const imageBaseUrl = imageConnection.baseUrl || "https://image.pollinations.ai";
-    const imageSource = imageConnection.imageGenerationSource || imageModel;
-    const imageServiceHint = imageConnection.imageService || imageSource;
+    const imageTarget = resolveGalleryImageTarget(imageConnection);
     const imageFallback = await resolveImageConnectionFallback(connections, imageConnection.id);
 
     return {
@@ -670,10 +687,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       setting,
       worldOverview,
       imagePromptInstructions,
-      imageModel,
-      imageBaseUrl,
-      imageSource,
-      imageServiceHint,
+      ...imageTarget,
       imageFallback,
       debugLog,
       promptOverridesStorage: createPromptOverridesStorage(app.db),
@@ -2134,17 +2148,17 @@ export async function galleryRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "That image connection no longer exists." });
       }
 
-      const imageSource = imageConnection?.imageGenerationSource || imageConnection?.model || "";
+      const imageTarget = imageConnection ? resolveGalleryImageTarget(imageConnection) : null;
       const captionLimit =
-        imageConnection &&
-        supportsNovelAiCharacterPrompts(imageConnection) &&
+        imageTarget &&
+        supportsNovelAiCharacterPrompts({ baseUrl: imageTarget.imageBaseUrl, model: imageTarget.imageModel }) &&
         resolveImageBackend(
-          imageSource,
-          imageConnection.baseUrl,
-          imageConnection.imageService || imageSource,
-          imageConnection.model,
+          imageTarget.imageSource,
+          imageTarget.imageBaseUrl,
+          imageTarget.imageServiceHint,
+          imageTarget.imageModel,
         ) === "novelai"
-          ? resolveNovelAiCharacterPromptLimit(imageConnection.model)
+          ? resolveNovelAiCharacterPromptLimit(imageTarget.imageModel)
           : 0;
       const userPrompt = JSON.stringify({
         prompt: input.prompt,
@@ -2205,8 +2219,9 @@ export async function galleryRoutes(app: FastifyInstance) {
                   : [
                       'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"name":"…","prompt":"…","negativePrompt":"…"}]}.',
                       "When a separate caption helps fulfill the guidance, move character-specific details from the draft into one caption per visible subject, including solo subjects. Use a short descriptive name if the draft gives no name. Keep counts, shared actions, composition and setting in the main prompt.",
-                      `Return at most ${captionLimit} captions. Use an empty array when no separate caption is needed. Preserve the draft's characters and use an optional position only when the layout is clear.`,
+                      `Return at most ${captionLimit} captions. Use an empty array when no separate caption is needed. Preserve the draft's characters.`,
                       ...NOVELAI_CHARACTER_PROMPT_RULES,
+                      'Omit "position" unless the layout is clear and you can give both x and y as numbers.',
                     ]),
               ]
             : [
@@ -2233,7 +2248,7 @@ export async function galleryRoutes(app: FastifyInstance) {
           model: runtime.model,
           ...(runtime.suppressModelParameters
             ? {}
-            : runtime.resolveAgentPromptOptions(visibleMaxTokens, messages, 0.3)),
+            : runtime.resolveAgentPromptOptions(visibleMaxTokens, messages, 0.55)),
           suppressModelParameters: runtime.suppressModelParameters,
           preserveContext: true,
           enableCaching: runtime.enableCaching,
@@ -2251,12 +2266,12 @@ export async function galleryRoutes(app: FastifyInstance) {
         const json = fenced.match(/\{[\s\S]*\}/)?.[0];
         const parsed = json ? tryParseJsonRecord(json) : null;
         if (captionLimit === 0) {
-          // Keep saved captions available for regeneration's cross-provider fallback.
+          // Preserve the current draft captions for regeneration's cross-provider fallback.
           return { ...rewrittenGalleryBasePromptSchema.parse(parsed), characterPrompts: input.characterPrompts };
         }
         if (!hasDraftCaptions) {
           return rewrittenGalleryBasePromptSchema
-            .extend({ characterPrompts: z.array(galleryCharacterPromptSchema.strict()).max(captionLimit) })
+            .extend({ characterPrompts: z.array(extractedGalleryCharacterPromptSchema).max(captionLimit) })
             .strict()
             .parse(parsed);
         }
@@ -2322,10 +2337,7 @@ export async function galleryRoutes(app: FastifyInstance) {
 
       const imageSettings = await loadImageGenerationUserSettings(app.db);
       const imageDefaults = resolveConnectionImageDefaults(imageConnection);
-      const imageModel = imageConnection.model || "";
-      const imageBaseUrl = imageConnection.baseUrl || "https://image.pollinations.ai";
-      const imageSource = imageConnection.imageGenerationSource || imageModel;
-      const imageServiceHint = imageConnection.imageService || imageSource;
+      const { imageModel, imageBaseUrl, imageSource, imageServiceHint } = resolveGalleryImageTarget(imageConnection);
       const imageFallback = await resolveImageConnectionFallback(connectionsStore, imageConnection.id);
       const width = original.width ?? imageSettings.illustration.width;
       const height = original.height ?? imageSettings.illustration.height;
