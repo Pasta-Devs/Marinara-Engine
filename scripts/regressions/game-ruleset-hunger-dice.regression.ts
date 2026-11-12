@@ -200,6 +200,22 @@ try {
     assert.equal((await read(tidy(""))).trusted, 1, "the plain record is vouched for");
     const asked = await read(tidy(' hunger="1"'));
     assert.deepEqual([asked.trusted, asked.resolved], [0, 1], "an ask for special dice is rolled by the Engine");
+    // With no ruleset there are no special dice, so a written pool record that claims them is cut back
+    // to the ask: the saved text has no dice, no result and no messy critical for the card to show.
+    const loosePool = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Dig" dc="1" rolls="10|3|10" used="2" modifier="0" total="2" result="critical_success" mode="normal" resolution="successes" dice="3d10" threshold="6" hunger="2" hungerLabel="Hunger" messy="true"]',
+      { loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any },
+    );
+    assert.equal(loosePool.trusted, 0);
+    assert.doesNotMatch(loosePool.content, /messy|rolls="|result="/);
+    assert.match(loosePool.content, /\[skill_check: skill="Dig" dc="1"/);
+    // A pool record that claims none of this is left exactly as written, as it always was.
+    const plainPool =
+      '[skill_check: skill="Dig" dc="1" rolls="10|3|10" used="2" modifier="0" total="2" result="success" mode="normal" resolution="successes" dice="3d10" threshold="6"]';
+    const kept = await resolveSkillCheckTagsInContent(plainPool, {
+      loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any,
+    });
+    assert.equal(kept.content, plainPool);
     assert.deepEqual(
       [over.hunger, over.hungerLabel, over.messy, over.bestial],
       [undefined, undefined, undefined, undefined],

@@ -1893,9 +1893,9 @@ function isRulesetRollableSkillCheckTag(tag: SkillCheckTag, definition: RulesetD
 }
 
 /** Whether a complete record says or asks for something only a ruleset's own roll can give: which
- * of two named dice led (1.821); a plot die asked for or shown (1.822); a band moved (1.823). In a
- * game with no ruleset such a record is the model's claim, never the Engine's roll. A bare ask is
- * not a claim: it carries no numbers to keep. */
+ * of two named dice led (1.821); a plot die asked for or shown (1.822); a band moved (1.823);
+ * special dice in a pool (1.824). In a game with no ruleset such a record is the model's claim,
+ * never the Engine's roll. A bare ask is not a claim: it carries no numbers to keep. */
 function claimsRulesetDice(tag: SkillCheckTag): boolean {
   const result = tag.resolvedResult;
   if (!result) return false;
@@ -1904,7 +1904,9 @@ function claimsRulesetDice(tag: SkillCheckTag): boolean {
     !!tag.plot ||
     result.plotFace !== undefined ||
     tag.shift !== undefined ||
-    result.shift !== undefined
+    result.shift !== undefined ||
+    tag.hunger !== undefined ||
+    result.hunger !== undefined
   );
 }
 
