@@ -235,6 +235,27 @@ try {
     });
     assert.deepEqual([both.trusted, both.resolved], [1, 1], "the copied face was already spent");
 
+    // The branch arm's dice are spent before any tag is read, and one at a time: a check written
+    // before the Engine's record cannot claim one of its faces, and a face already gone does not leave
+    // the others to be claimed after it.
+    const twoFaces =
+      '[skill_check: skill="Climb" dc="5" rolls="18|7" used="25" modifier="0" total="25" result="success" mode="normal" resolution="sum" dice="2d20"]';
+    const around = await resolveSkillCheckTagsInContent(
+      `[skill_check: skill="Stealth" dc="5" rolls="18"] ${twoFaces} [skill_check: skill="Stealth" dc="5" rolls="7"]`,
+      {
+        loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any,
+        engineRecords: new Set([twoFaces]),
+        issuedD20s: [18, 7],
+        rollD20: () => 3,
+      },
+    );
+    assert.deepEqual(
+      around.results?.map((one) => one.rolls),
+      [[3], [3]],
+      "neither written die was one somebody threw",
+    );
+    assert.equal(around.trusted, 1);
+
     // A pool record's dice were never put in the list of dice thrown, so passing over one spends
     // nothing: the player's own die of the same face still answers the next check.
     const poolRecord =
