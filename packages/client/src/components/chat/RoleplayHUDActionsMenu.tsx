@@ -15,6 +15,9 @@ import { ContextInjectionPanel } from "../agents/ContextInjectionPanel";
 import { AgentTaskStatus } from "../agents/AgentTaskStatus";
 import { AgentOutputSpoiler } from "../agents/AgentOutputSpoiler";
 import { useAgentStore } from "../../stores/agent.store";
+import { useUIStore } from "../../stores/ui.store";
+import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
+import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { ContinuityIssueChecklist } from "../agents/ContinuityIssueChecklist";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -127,7 +130,21 @@ export function RoleplayHUDActionsMenu({
     () => hasActiveCustomAgentType(agentConfigs ?? [], enabledAgentTypes),
     [agentConfigs, enabledAgentTypes],
   );
+  const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
+  // Packages the chat runs that draw a card here; the same filter as the Roleplay HUD's tracker slot.
+  const chatActivityPackages = useMemo(
+    () =>
+      installedCapabilities.filter(
+        (item) =>
+          item.status === "active" &&
+          enabledAgentTypes?.has(item.id) &&
+          item.manifest.entrypoints.client &&
+          item.manifest.contributions?.slots?.includes("chat-activity"),
+      ),
+    [installedCapabilities, enabledAgentTypes],
+  );
   const hasAnyActivity =
+    chatActivityPackages.length > 0 ||
     advancedMemoryStatus ||
     isAgentProcessing ||
     hasTaskProgress ||
@@ -296,6 +313,22 @@ export function RoleplayHUDActionsMenu({
               )}
             </div>
           )}
+
+          {chatActivityPackages.map((item) => (
+            <CapabilityElement
+              key={item.id}
+              packageId={item.id}
+              view="activity"
+              capabilityProps={{
+                chatId,
+                onOpenAgentSettings: () => {
+                  useUIStore.getState().openAgentDetail(item.id);
+                  onClose();
+                },
+              }}
+              className="contents"
+            />
+          ))}
 
           {(unreportedCustomRuns.length > 0 || customAgentRunsLoading) && (
             <CustomAgentRunsSection

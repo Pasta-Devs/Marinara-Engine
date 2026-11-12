@@ -328,6 +328,8 @@ agent packages with a client entrypoint:
   include `chatId`, `chatMode`, `mobileCompact`, the host's `toolbarButtonClass`,
   `onRerunTracker`, `trackerRetryBusy`, `lockMode`, and `onToggleLockMode`. The callbacks
   are optional: check that they exist before using them.
+- `chat-activity` (Capability API 1.820) mounts the package's `activity` view in the chat's Agent
+  activity panel. See [Capability API 1.820](#capability-api-1820-showing-a-package-in-agent-activity).
 - `tracker-panel` mounts the package's `tracker` view inside the existing Tracker Panel,
   with `chatId`, `chatMode`, and `detached`. Reuse that host surface rather than opening
   a second panel. Both slots also receive the ordinary capability identity and localization props.
@@ -1923,6 +1925,26 @@ const [queryVector] = (await embeddings?.embed([query], signal, "query")) ?? [];
 ```
 
 It is a soft seam: older Engines leave the method out, so check that it exists before calling it, and fall back as the example does. Declare 1.818 only when the package cannot work without it. No permission is needed.
+
+### Capability API 1.820: showing a package in Agent activity
+
+The `chat-activity` slot puts a card of your own in a chat's Agent activity panel, the one the Agent activity icon
+opens, in the chat drawer and in the Tracker Panel. Declare it in `contributions.slots` and register an `activity`
+view; the Engine mounts one element for each active package that has a client entrypoint and that the chat runs
+(the package's id is among the chat's enabled agents). It goes after the agents' status and outputs, before the
+custom agents' saved outputs.
+
+```json
+{ "contributions": { "slots": ["chat-activity"] } }
+```
+
+The element gets `chatId` and `onOpenAgentSettings()`, which opens the package's own agent page, plus the ordinary
+capability identity and localization props. The Engine adds no wrapper chrome: draw your own card, and render nothing
+when you have nothing to show. Once your client code has loaded, an empty element takes no space. While any package
+card is mounted, the panel does not show "No agent activity yet", so draw your own idle line if you want one.
+
+Not a soft seam: an Engine older than 1.820 refuses the manifest, so a package that declares `chat-activity` declares
+1.820.
 
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 

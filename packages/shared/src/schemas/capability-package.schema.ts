@@ -146,6 +146,8 @@ const capabilityPackageManifestBaseSchema = z
               "roleplay-tracker",
               // Package-owned content inside the detached or docked Tracker Panel.
               "tracker-panel",
+              // Package-owned card in the chat's Agent activity panel.
+              "chat-activity",
             ]),
           )
           .optional(),
@@ -1586,7 +1588,10 @@ const capabilityPackageManifestBaseSchema = z
 //        library's own search, sort and summary), and `updateCharacterExtensions(id, patch)`, which merges keys into
 //        `data.extensions` without a card version, queued behind the Engine's own saves. The write needs the new
 //        `character-write` permission. A soft seam: older Engines leave the members out, so a package checks for them.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 819 } as const);
+// 1.820: the `chat-activity` slot: a package with a client entrypoint that the chat runs can mount its `activity`
+//        view as a card in the chat's Agent activity panel (props `chatId`, `onOpenAgentSettings`). Not a soft seam:
+//        an Engine older than 1.820 refuses the manifest, so a package that declares `chat-activity` declares 1.820.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 820 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
