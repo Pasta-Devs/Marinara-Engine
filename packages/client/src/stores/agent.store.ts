@@ -116,6 +116,12 @@ export interface AgentProgressEntry extends AgentTaskProgress {
   stopped?: boolean;
 }
 
+/** What a package reports for one chat on the Agent activity icon: it is working, or it needs attention. */
+export interface PackageActivitySignal {
+  busy: boolean;
+  alert: boolean;
+}
+
 interface AgentState {
   taskProgress: AgentProgressEntry[];
   updateTaskProgress: (chatId: string, runId: string, progress: AgentTaskProgress) => void;
@@ -179,6 +185,8 @@ interface AgentState {
   localMusicVolume: number | null;
   pendingCardUpdates: PendingCardUpdate[];
   pendingAgentWriteApprovals: PendingAgentWriteApproval[];
+  /** Busy/alert signals packages set for a chat, by chat ID then package ID. A package clears its own. */
+  packageActivity: Record<string, Record<string, PackageActivitySignal>>;
 
   // Actions
   setActiveAgents: (agents: string[]) => void;
@@ -222,6 +230,8 @@ interface AgentState {
   enqueuePendingAgentWriteApproval: (entry: PendingAgentWriteApproval) => void;
   dismissPendingAgentWriteApproval: (id: string) => void;
   clearPendingAgentWriteApprovals: () => void;
+  /** Merges a package's busy/alert signal for a chat; an entry with both false is removed. */
+  setPackageActivity: (packageId: string, chatId: string, patch: { busy?: boolean; alert?: boolean }) => void;
   /** Clear chat-scoped Agent state, including Professor Mari's suggestions and guided plan, so they cannot leak into another chat. */
   resetForChatChange: () => void;
   reset: () => void;
@@ -262,6 +272,7 @@ type AgentDataState = Pick<
   | "localMusicVolume"
   | "pendingCardUpdates"
   | "pendingAgentWriteApprovals"
+  | "packageActivity"
 >;
 
 function createInitialAgentDataState(): AgentDataState {
@@ -299,6 +310,7 @@ function createInitialAgentDataState(): AgentDataState {
     localMusicVolume: null,
     pendingCardUpdates: [],
     pendingAgentWriteApprovals: [],
+    packageActivity: {},
   };
 }
 
@@ -547,8 +559,22 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       pendingAgentWriteApprovals: s.pendingAgentWriteApprovals.filter((entry) => entry.id !== id),
     })),
   clearPendingAgentWriteApprovals: () => set({ pendingAgentWriteApprovals: [] }),
+  setPackageActivity: (packageId, chatId, patch) =>
+    set((s) => {
+      const previous = s.packageActivity[chatId]?.[packageId];
+      const busy = patch?.busy === undefined ? (previous?.busy ?? false) : patch.busy === true;
+      const alert = patch?.alert === undefined ? (previous?.alert ?? false) : patch.alert === true;
+      if (busy === (previous?.busy ?? false) && alert === (previous?.alert ?? false)) return {};
+      const { [chatId]: chatEntries = {}, ...otherChats } = s.packageActivity;
+      const { [packageId]: _replaced, ...otherPackages } = chatEntries;
+      const nextEntries = busy || alert ? { ...otherPackages, [packageId]: { busy, alert } } : otherPackages;
+      return {
+        packageActivity: Object.keys(nextEntries).length > 0 ? { ...otherChats, [chatId]: nextEntries } : otherChats,
+      };
+    }),
 
-  resetForChatChange: () => set(createInitialAgentDataState()),
+  // Package signals are keyed by chat and owned by their package, so a chat change leaves them.
+  resetForChatChange: () => set({ ...createInitialAgentDataState(), packageActivity: get().packageActivity }),
   reset: () => set(createInitialAgentDataState()),
 }));
 
@@ -557,3 +583,14 @@ export function selectUnseenAgentFailureCount(state: AgentState, chatId: string)
   if (state.failedAgentsSeen || (state.failedAgentChatId && state.failedAgentChatId !== chatId)) return 0;
   return state.failedAgentTypes.length;
 }
+
+const packageSignalFor = (state: AgentState, chatId: string, key: keyof PackageActivitySignal): boolean =>
+  Object.values(state.packageActivity[chatId] ?? {}).some((signal) => signal[key]);
+
+/** A package is working on this chat: Agent activity's icon spins. */
+export const selectPackageBusy = (state: AgentState, chatId: string): boolean =>
+  packageSignalFor(state, chatId, "busy");
+
+/** A package needs attention in this chat: Agent activity's icon shows its dot. */
+export const selectPackageAlert = (state: AgentState, chatId: string): boolean =>
+  packageSignalFor(state, chatId, "alert");

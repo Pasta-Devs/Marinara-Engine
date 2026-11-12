@@ -762,7 +762,6 @@ type RoleplaySurfaceProps = {
   generationVisualsPaused: boolean;
   agentProcessing: boolean;
   regenerateMessageId: string | null;
-  shouldAnimateMessages: boolean;
   summaryContextSize: number;
   totalMessageCount: number;
   lastAssistantMessageId: string | null;
@@ -892,7 +891,6 @@ export function ChatRoleplaySurface({
   generationVisualsPaused,
   agentProcessing,
   regenerateMessageId,
-  shouldAnimateMessages,
   summaryContextSize,
   totalMessageCount,
   lastAssistantMessageId,
@@ -2051,15 +2049,7 @@ export function ChatRoleplaySurface({
                       roleplayStoryboardAutoMode === "illustration" ||
                       roleplayStoryboardAutoMode === "animation");
                   return (
-                    <div
-                      key={msg.id}
-                      className={shouldAnimateMessages ? "animate-message-in" : undefined}
-                      style={
-                        shouldAnimateMessages
-                          ? { animationDelay: `${Math.min(i * 30, 200)}ms`, animationFillMode: "backwards" }
-                          : undefined
-                      }
-                    >
+                    <div key={msg.id}>
                       {isRegenerating ? (
                         <RegeneratingMessageContent
                           msg={msg}

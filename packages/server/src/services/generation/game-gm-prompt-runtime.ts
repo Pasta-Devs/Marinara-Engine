@@ -21,6 +21,9 @@ import {
   type GameNpc,
   type SessionSummary,
   type GameWorld,
+  resolveGameContentBoundaries,
+  resolveGameStoryStyle,
+  resolveGameViolenceLevel,
 } from "@marinara-engine/shared";
 import { buildGmSystemPrompt, type GmPromptContext } from "../game/gm-prompts.js";
 import { listPartySprites } from "../game/sprite.service.js";
@@ -256,6 +259,8 @@ export async function injectGameGmPromptRuntime(args: {
   const gameActiveState = (args.chatMetadata.gameActiveState as string) || "exploration";
   const sessionNumber = (args.chatMetadata.gameSessionNumber as number) || 1;
   const storyArc = (args.chatMetadata.gameStoryArc as string) || null;
+  const worldOverview =
+    typeof args.chatMetadata.gameWorldOverview === "string" ? args.chatMetadata.gameWorldOverview : null;
   const plotTwists = Array.isArray(args.chatMetadata.gamePlotTwists)
     ? (args.chatMetadata.gamePlotTwists as string[])
     : null;
@@ -474,6 +479,7 @@ export async function injectGameGmPromptRuntime(args: {
   const gmCtx: GmPromptContext = {
     gameActiveState: gameActiveState as GameActiveState,
     ruleset: args.ruleset,
+    worldOverview,
     storyArc,
     plotTwists,
     map: gameMap,
@@ -500,6 +506,10 @@ export async function injectGameGmPromptRuntime(args: {
     setting: (setupConfig?.setting as string) || "original",
     tone: (setupConfig?.tone as string) || "balanced",
     rating: (setupConfig?.rating as "sfw" | "nsfw") || "sfw",
+    ratingGuidelines: typeof setupConfig?.ratingGuidelines === "string" ? setupConfig.ratingGuidelines : null,
+    storyStyle: resolveGameStoryStyle(setupConfig),
+    violence: resolveGameViolenceLevel(setupConfig),
+    contentBoundaries: resolveGameContentBoundaries(setupConfig),
     enableQuickTimeEvents: setupConfig?.enableQuickTimeEvents !== false,
     campaignPlan: gameBlueprint?.campaignPlan ?? null,
     canGenerateBackgrounds:

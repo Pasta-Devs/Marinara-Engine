@@ -4,20 +4,8 @@
 // lists characters. With `multiple`, rows toggle and the picked ones show as pills on top.
 // The shell (popover, sheet, inline tab) belongs to the caller.
 // ──────────────────────────────────────────────
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import {
-  Ban,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Folder,
-  FolderOpen,
-  Plus,
-  Search,
-  UserPlus,
-  Users,
-  X,
-} from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { Ban, Link2, Plus, UserPlus, Users, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { includesTextForMatch, type CharacterGroup, type Persona } from "@marinara-engine/shared";
 import { useCharacterGroups, useCharacters, usePersonaGroups, usePersonas } from "../../hooks/use-characters";
@@ -25,12 +13,24 @@ import { useUIStore } from "../../stores/ui.store";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import {
+  FolderLabel,
+  FolderToggle,
+  PickerDivider,
+  PickerFolder,
+  PickerSearch,
+  PickRow,
+  UNGROUPED_FOLDER_MIN,
+  usePickerKeyboard,
+} from "../ui/PickerParts";
+import {
   buildCharacterIdentityGroups,
   UNGROUPED_CHARACTER_GROUP_ID,
   type CharacterIdentityChoice,
 } from "../../lib/character-identity-groups";
 
 export type CharacterSelectKind = "persona" | "character";
+
+export type PickerDefaultChoice = { label: string; subtitle?: string | null; picked: boolean; onPick: () => void };
 
 export interface CharacterPickerListProps {
   kind: CharacterSelectKind;
@@ -60,12 +60,13 @@ export interface CharacterPickerListProps {
   autoFocusSearch?: boolean;
   /** Set false when the caller has a pick the list cannot show, so None is not marked. */
   nonePicked?: boolean;
+  /** Single pick: a row above None for a choice the caller defines, such as scene setup's "Source persona". */
+  defaultChoice?: PickerDefaultChoice;
   className?: string;
 }
 
 // The chat setup wizard paged its character list at 50; the picker keeps that limit per block.
 const PAGE = 50;
-const ROW = "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors max-md:min-h-12";
 const NO_IDS: readonly string[] = [];
 
 function parseIds(value: string): string[] {
@@ -97,116 +98,6 @@ function Avatar({
     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-foreground/10 bg-foreground/10 text-xs font-semibold text-foreground/45">
       {(name || "?")[0]?.toUpperCase()}
     </div>
-  );
-}
-
-function PickRow({
-  picked,
-  multiple,
-  onClick,
-  avatar,
-  title,
-  subtitle,
-  badge,
-  indented,
-  disabledReason,
-  busy,
-}: {
-  picked: boolean;
-  multiple?: boolean;
-  onClick: () => void;
-  avatar: ReactNode;
-  title: string;
-  subtitle?: string | null;
-  badge?: ReactNode;
-  indented?: boolean;
-  disabledReason?: string;
-  busy?: boolean;
-}) {
-  const disabled = disabledReason !== undefined;
-  return (
-    <button
-      type="button"
-      data-pick-row
-      title={title}
-      disabled={disabled || busy}
-      onClick={onClick}
-      aria-pressed={multiple ? picked : undefined}
-      aria-current={!multiple && picked ? "true" : undefined}
-      className={cn(
-        ROW,
-        "relative data-[active=true]:ring-2 data-[active=true]:ring-[var(--marinara-chat-chrome-focus-ring,currentColor)]",
-        picked && !multiple ? "bg-foreground/10 text-foreground" : "hover:bg-foreground/[0.06]",
-        indented && "pl-6",
-        disabled && "cursor-default opacity-45 hover:bg-transparent",
-      )}
-    >
-      {multiple && (
-        <span
-          aria-hidden="true"
-          className={cn(
-            "flex h-[1.125rem] w-[1.125rem] shrink-0 items-center justify-center rounded-[0.3125rem] border-[1.5px]",
-            picked
-              ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
-              : "border-foreground/35",
-          )}
-        >
-          {picked && <Check size="0.75rem" strokeWidth={3} />}
-        </span>
-      )}
-      {avatar}
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className={cn("truncate text-xs font-medium", picked && "text-foreground")}>{title}</span>
-        {(disabledReason ?? subtitle) && (
-          <span className="truncate text-[0.6875rem] leading-tight text-foreground/50">
-            {disabledReason ?? subtitle}
-          </span>
-        )}
-      </span>
-      {badge}
-      {picked && !multiple && <Check size="0.875rem" className="ml-auto shrink-0 text-[var(--primary)]" />}
-    </button>
-  );
-}
-
-function FolderToggle({
-  open,
-  onClick,
-  label,
-  count,
-  icon,
-}: {
-  open: boolean;
-  onClick: () => void;
-  label: string;
-  count: ReactNode;
-  icon?: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      data-pick-row
-      onClick={onClick}
-      aria-expanded={open}
-      className={cn(
-        ROW,
-        "text-xs hover:bg-foreground/[0.06] data-[active=true]:ring-2 data-[active=true]:ring-[var(--marinara-chat-chrome-focus-ring,currentColor)]",
-      )}
-    >
-      {open ? (
-        <ChevronDown size="0.75rem" className="shrink-0 text-foreground/40" />
-      ) : (
-        <ChevronRight size="0.75rem" className="shrink-0 text-foreground/40" />
-      )}
-      {icon ??
-        (open ? (
-          <FolderOpen size="0.875rem" className="shrink-0 text-foreground/45" />
-        ) : (
-          <Folder size="0.875rem" className="shrink-0 text-foreground/45" />
-        ))}
-      <span className="min-w-0 flex-1 truncate font-semibold">{label}</span>
-      <span className="text-[0.6875rem] tabular-nums text-foreground/45">{count}</span>
-    </button>
   );
 }
 
@@ -248,13 +139,13 @@ export function CharacterPickerList({
   onCreate,
   autoFocusSearch = false,
   nonePicked,
+  defaultChoice,
   className,
 }: CharacterPickerListProps) {
   const { t } = useUiTranslation();
   const [search, setSearch] = useState("");
   const query = search.trim();
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listId = useId();
@@ -348,36 +239,7 @@ export function CharacterPickerList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstPersona, personaGroups.length > 0]);
 
-  // ── Keyboard: the search keeps focus, arrows move a ring over the rows, Enter picks ──
-  useEffect(() => setActive(0), [query]);
-  const rows = () =>
-    Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-pick-row]:not(:disabled)") ?? []);
-  useEffect(() => {
-    rows().forEach((row, index) => {
-      row.id = `${listId}-row-${index}`;
-      if (index === active) {
-        row.dataset.active = "true";
-      } else delete row.dataset.active;
-    });
-    const activeRow = rows()[active];
-    if (activeRow) searchRef.current?.setAttribute("aria-activedescendant", activeRow.id);
-    else searchRef.current?.removeAttribute("aria-activedescendant");
-  });
-  useEffect(() => {
-    rows()[active]?.scrollIntoView?.({ block: "nearest" });
-  }, [active, query]);
-
-  const onSearchKey = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-    const count = rows().length;
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      if (count) setActive((i) => (i + (event.key === "ArrowDown" ? 1 : count - 1)) % count);
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      rows()[active]?.click();
-    }
-  };
+  const onSearchKey = usePickerKeyboard({ listRef, searchRef, listId, query });
 
   const characterRow = (character: CharacterIdentityChoice, indented: boolean) => {
     const data = parseCharacterDisplayData(character);
@@ -387,7 +249,7 @@ export function CharacterPickerList({
         picked={characterSet.has(character.id)}
         multiple={multiple}
         onClick={() => onPickCharacter?.(character.id)}
-        avatar={<Avatar src={character.avatarPath} name={data.name} crop={data.avatarCrop} />}
+        art={<Avatar src={character.avatarPath} name={data.name} crop={data.avatarCrop} />}
         title={data.name}
         subtitle={getCharacterTitle(data) || (isPersona ? t("ui.chat.personapicker.characterSource") : null)}
         badge={badge?.(character.id)}
@@ -403,7 +265,7 @@ export function CharacterPickerList({
       picked={personaSet.has(persona.id)}
       multiple={multiple}
       onClick={() => onPickPersona?.(persona.id)}
-      avatar={<Avatar src={persona.avatarPath} name={persona.name} crop={persona.avatarCrop} />}
+      art={<Avatar src={persona.avatarPath} name={persona.name} crop={persona.avatarCrop} />}
       title={persona.name || "?"}
       subtitle={persona.comment}
       badge={badge?.(persona.id)}
@@ -413,47 +275,67 @@ export function CharacterPickerList({
     />
   );
 
-  const noneRow = onPickNone && !multiple && query === "" && (
+  const noneRow = (onPickNone || defaultChoice) && !multiple && query === "" && (
     <>
-      <PickRow
-        picked={nonePicked ?? (personaIds.length === 0 && characterIds.length === 0)}
-        onClick={onPickNone}
-        avatar={
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-foreground/35 text-foreground/40">
-            <Ban size="0.8rem" />
-          </span>
-        }
-        title={t("ui.game.gamesurfacecomponent.none")}
-        subtitle={isPersona ? t("ui.chat.quickpersonaswitcher.noPersonaSelected") : null}
-      />
-      <div className="mx-2 my-1 h-px bg-foreground/10" />
+      {defaultChoice && (
+        <PickRow
+          picked={defaultChoice.picked}
+          onClick={defaultChoice.onPick}
+          art={
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-foreground/35 text-foreground/40">
+              <Link2 size="0.8rem" />
+            </span>
+          }
+          title={defaultChoice.label}
+          subtitle={defaultChoice.subtitle}
+        />
+      )}
+      {onPickNone && (
+        <PickRow
+          picked={nonePicked ?? (personaIds.length === 0 && characterIds.length === 0)}
+          onClick={onPickNone}
+          art={
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-foreground/35 text-foreground/40">
+              <Ban size="0.8rem" />
+            </span>
+          }
+          title={t("ui.game.gamesurfacecomponent.none")}
+          subtitle={isPersona ? t("ui.chat.quickpersonaswitcher.noPersonaSelected") : null}
+        />
+      )}
+      <PickerDivider />
     </>
   );
 
   // One folder only (often just "Ungrouped") is a flat list, with no extra tap.
   // A single real folder keeps its row, open, when the caller can add a whole folder.
   const groupPickable = (id: string) => multiple && !!onPickGroup && id !== UNGROUPED_CHARACTER_GROUP_ID;
+  // Characters in no folder sit loose under the folders; only a long tail of them gets an "Ungrouped" folder.
+  const ungroupedGroup = characterGroups.find((group) => group.id === UNGROUPED_CHARACTER_GROUP_ID);
+  const looseCharacters =
+    ungroupedGroup && characterGroups.length > 1 && ungroupedGroup.members.length < UNGROUPED_FOLDER_MIN
+      ? ungroupedGroup.members
+      : [];
+  const folderGroups =
+    looseCharacters.length > 0 ? characterGroups.filter((group) => group !== ungroupedGroup) : characterGroups;
   const characterList =
     characterGroups.length === 1 && !groupPickable(characterGroups[0]!.id) ? (
       <Capped items={characterGroups[0]!.members} render={(c) => characterRow(c, false)} />
     ) : (
-      characterGroups.map((group) => {
-        // The sole folder cannot collapse, so its header is a plain label.
-        const sole = characterGroups.length === 1;
-        const open = sole || isOpen(group.id);
-        const addable = groupPickable(group.id)
-          ? group.members.filter((c) => !characterSet.has(c.id) && !unavailable?.[c.id]).map((c) => c.id)
-          : [];
-        return (
-          <div key={group.id}>
-            <div className="flex items-center gap-1">
-              <div className="min-w-0 flex-1">
-                {sole ? (
-                  <div className="flex min-h-9 items-center gap-2 px-2 text-xs">
-                    <FolderOpen size="0.875rem" className="shrink-0 text-foreground/45" />
-                    <span className="min-w-0 flex-1 truncate font-semibold">{group.name}</span>
-                    <span className="text-[0.6875rem] tabular-nums text-foreground/45">{group.members.length}</span>
-                  </div>
+      <>
+        {folderGroups.map((group) => {
+          // The sole folder cannot collapse, so its header is a plain label.
+          const sole = characterGroups.length === 1;
+          const open = sole || isOpen(group.id);
+          const addable = groupPickable(group.id)
+            ? group.members.filter((c) => !characterSet.has(c.id) && !unavailable?.[c.id]).map((c) => c.id)
+            : [];
+          return (
+            <PickerFolder
+              key={group.id}
+              header={
+                sole ? (
+                  <FolderLabel label={group.name} count={group.members.length} />
                 ) : (
                   <FolderToggle
                     open={open}
@@ -461,24 +343,19 @@ export function CharacterPickerList({
                     label={group.name}
                     count={group.members.length}
                   />
-                )}
-              </div>
-              {addable.length > 0 && (
-                <button
-                  type="button"
-                  data-pick-row
-                  disabled={busy}
-                  onClick={() => onPickGroup?.(addable)}
-                  className="shrink-0 rounded-lg px-2 py-1.5 text-[0.6875rem] font-medium text-[var(--primary)] hover:bg-foreground/[0.06] data-[active=true]:ring-2 data-[active=true]:ring-[var(--marinara-chat-chrome-focus-ring,currentColor)]"
-                >
-                  {t("ui.characterselect.addAll", { count: addable.length })}
-                </button>
-              )}
-            </div>
-            {open && <Capped items={group.members} render={(c) => characterRow(c, true)} />}
-          </div>
-        );
-      })
+                )
+              }
+              addable={addable}
+              onAdd={onPickGroup}
+              busy={busy}
+              open={open}
+            >
+              <Capped items={group.members} render={(c) => characterRow(c, true)} />
+            </PickerFolder>
+          );
+        })}
+        {looseCharacters.map((c) => characterRow(c, false))}
+      </>
     );
 
   const libraryEmpty =
@@ -524,21 +401,15 @@ export function CharacterPickerList({
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
-      <label className="mx-2 mt-2 flex items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.04] px-2.5 py-2 text-foreground/55 focus-within:border-foreground/25">
-        <Search size="0.875rem" className="shrink-0" />
-        <span className="sr-only">{searchLabel}</span>
-        <input
-          type="search"
-          ref={searchRef}
-          aria-controls={listId}
-          value={search}
-          autoFocus={autoFocusSearch}
-          onChange={(event) => setSearch(event.target.value)}
-          onKeyDown={onSearchKey}
-          placeholder={searchLabel}
-          className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-foreground/40 max-md:text-base"
-        />
-      </label>
+      <PickerSearch
+        inputRef={searchRef}
+        listId={listId}
+        label={searchLabel}
+        value={search}
+        onChange={setSearch}
+        onKeyDown={onSearchKey}
+        autoFocus={autoFocusSearch}
+      />
 
       {picked.length > 0 && (
         <div className="flex max-h-24 shrink-0 flex-wrap gap-1.5 overflow-y-auto px-2 py-2">
@@ -584,22 +455,26 @@ export function CharacterPickerList({
             </div>
           ))
         ) : libraryEmpty ? (
-          <div className="flex flex-col items-center gap-2 px-5 py-8 text-center text-xs text-foreground/55">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground/[0.06]">
-              <UserPlus size="1.125rem" />
-            </span>
-            {t(isPersona ? "ui.characterselect.noPersonasYet" : "ui.characterselect.noCharactersYet")}
-            {onCreate && (
-              <button
-                type="button"
-                onClick={onCreate}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-foreground/20 px-3 text-xs text-foreground hover:bg-foreground/[0.06]"
-              >
-                <Plus size="0.875rem" />
-                {t(isPersona ? "ui.characterselect.newPersona" : "ui.characterselect.newCharacter")}
-              </button>
-            )}
-          </div>
+          <>
+            {/* None and a caller's own choice stay pickable when the library is empty. */}
+            {noneRow}
+            <div className="flex flex-col items-center gap-2 px-5 py-8 text-center text-xs text-foreground/55">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground/[0.06]">
+                <UserPlus size="1.125rem" />
+              </span>
+              {t(isPersona ? "ui.characterselect.noPersonasYet" : "ui.characterselect.noCharactersYet")}
+              {onCreate && (
+                <button
+                  type="button"
+                  onClick={onCreate}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-foreground/20 px-3 text-xs text-foreground hover:bg-foreground/[0.06]"
+                >
+                  <Plus size="0.875rem" />
+                  {t(isPersona ? "ui.characterselect.newPersona" : "ui.characterselect.newCharacter")}
+                </button>
+              )}
+            </div>
+          </>
         ) : nothingMatches ? (
           <div className="flex flex-col items-center gap-2 px-5 py-8 text-center text-xs text-foreground/55">
             {t("ui.characterselect.noMatch", { query })}
