@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Linear message layout (chat-style rows)
 // ──────────────────────────────────────────────
+import { MiniAvatar } from "./MiniAvatar";
 import { User } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { PendingTypingDots } from "./PendingTypingDots";
@@ -68,6 +69,17 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
     shouldHideUserAvatar,
   } = ctx;
 
+  const miniAvatar = shouldHideUserAvatar ? null : (
+    <MiniAvatar
+      url={avatarUrl}
+      name={displayName}
+      isUser={isUser}
+      cropStyle={avatarCropStyle}
+      onOpen={ctx.onOpenAboutMe ? (el) => ctx.onOpenAboutMe?.(el.getBoundingClientRect()) : undefined}
+      label={localizeUi("ui.chat.conversationmessagebubble.viewValue1SAboutMe", { value1: displayName })}
+    />
+  );
+
   return (
     <>
       {/* Multi-select checkbox */}
@@ -100,6 +112,7 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
       {/* Avatar column */}
       <div
         data-mari-part="avatar"
+        data-layout="line"
         // Centred against the name + first line: the column stretches with the
         // body but stops at about two lines, so a one-line message gets the
         // avatar in the middle and a long one keeps it up by the name.
@@ -178,11 +191,14 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
         {!isGrouped && (
           <div data-mari-part="header" className="mari-message-meta mb-0.5 flex items-baseline gap-2">
             {hiddenFromAIHeader}
+            {/* Phones (Mini profile pictures): before a character's name, after yours. */}
+            {!isUser && miniAvatar}
             <ConversationMessageName
               displayName={displayName}
               nameColor={nameColor}
               onOpenAboutMe={ctx.onOpenAboutMe}
             />
+            {isUser && miniAvatar}
             {!hideTimestamp && (
               <span
                 className="mari-message-timestamp mari-conversation-transcript-chrome-text text-[0.6875rem]"

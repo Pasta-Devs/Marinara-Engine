@@ -60,3 +60,9 @@
   align-self: stretch;
   width: 100%;
 }
+
+/* Mini profile pictures (Settings > Appearance > Profile pictures on phones). The app renders a
+   small picture by each speaker's name; only the phone shell shows it (overhaul-mobile.css). */
+.mari-mini-avatar {
+  display: none;
+}

@@ -18,6 +18,7 @@ import {
   type ChatWidgetPreset,
   type ChatWidgetShape,
   type ConversationAvatarShape,
+  type PhoneChatAvatars,
   type ConversationMessageStyle,
   type GameDialogueDisplayMode,
   type ChatListBackgroundMode,
@@ -4063,6 +4064,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setConversationMessageStyle = useUIStore((s) => s.setConversationMessageStyle);
   const conversationAvatarShape = useUIStore((s) => s.conversationAvatarShape);
   const setConversationAvatarShape = useUIStore((s) => s.setConversationAvatarShape);
+  const phoneChatAvatars = useUIStore((s) => s.phoneChatAvatars);
+  const setPhoneChatAvatars = useUIStore((s) => s.setPhoneChatAvatars);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
   const setWeatherEffects = useUIStore((s) => s.setWeatherEffects);
   // Text appearance
@@ -5311,6 +5314,47 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                         className={cn("h-5 w-5 shrink-0 border border-current bg-[var(--accent)]", option.cornerClass)}
                         data-avatar-shape-preview={option.id}
                       />
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div
+                id={getSettingsControlAnchorId("phone-chat-avatars")}
+                className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
+              >
+                <div>
+                  <div className="text-xs font-medium">
+                    {localizeUi("ui.panels.appearancesettings.phoneChatAvatars")}
+                  </div>
+                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.panels.appearancesettings.phoneChatAvatarsDescription")}
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      {
+                        id: "mini" as PhoneChatAvatars,
+                        label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsMini"),
+                      },
+                      {
+                        id: "full" as PhoneChatAvatars,
+                        label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsFull"),
+                      },
+                      {
+                        id: "off" as PhoneChatAvatars,
+                        label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsOff"),
+                      },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setPhoneChatAvatars(option.id)}
+                      className={SETTINGS_BUTTON_CLASS}
+                      aria-pressed={phoneChatAvatars === option.id}
+                    >
                       {option.label}
                     </button>
                   ))}
