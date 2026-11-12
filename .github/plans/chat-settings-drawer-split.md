@@ -30,8 +30,8 @@ Measured on `staging` on 2026-11-12:
 
 | Step | What moves | Lines today | Goes to | Status |
 | --- | --- | --- | --- | --- |
-| 1 | The drawer and the 14 files only it uses | n/a | `features/chat-settings/` | This pull request |
-| 2 | Helpers and constants at the top of the drawer, and the four separate components at the bottom | 421–968, 11,089–11,757 | `features/chat-settings/lib/` and their own files | Not started |
+| 1 | The drawer and the 14 files only it uses | n/a | `features/chat-settings/` | In review: #9120 |
+| 2 | The three separate components at the bottom of the drawer (Memory recall's memories window, the Knowledge agents card, Conversation notes), and the helper groups at the top that stand on their own: game video prompt templates, conversation command toggles, Knowledge agent source settings, the agent menu icons | about 1,080 | Their own files, and `features/chat-settings/lib/` for plain helpers | This pull request |
 | 3 | Settings profiles, scoped regex, group chat, function calling, game widgets, the rest of Lorebooks | about 700 | `sections/`, one file each | Not started |
 | 4 | Connected chats: four near-copies, one per mode | 7,796–8,088 | First moved as they are, then merged into one component in a second pull request | Not started |
 | 5 | Memory recall, autonomous messaging, automatic summarization; then Characters, Persona and Game party | about 400; 6,130–6,762 | `sections/` | Not started |
@@ -39,6 +39,8 @@ Measured on `staging` on 2026-11-12:
 | 7 | Agents, both modes, with their state and render helpers | about 3,700 | `features/chat-settings/agents/`, over several pull requests | Not started |
 
 Line numbers refer to `staging` on 2026-11-12 and drift as the file changes. Recount each section's dependencies before its pull request.
+
+Small constants, types and helpers that only one future section uses, like the Spotify source options, the Prose Guardian defaults or the persona avatar, stay in the drawer for now and move with their section. Moving them earlier would only fill `lib/` with files that the later steps re-home.
 
 ## What the drawer keeps after step 7
 
