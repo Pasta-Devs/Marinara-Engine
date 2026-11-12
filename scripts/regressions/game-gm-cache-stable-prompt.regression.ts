@@ -3,6 +3,7 @@ import {
   buildGmFormatReminder,
   buildGmSceneState,
   buildGmSystemPrompt,
+  buildSetupPrompt,
 } from "../../packages/server/src/services/game/gm-prompts.js";
 
 // A long Game session resent its whole history every turn at full price. Providers only reuse
@@ -157,3 +158,16 @@ assert.equal(
 );
 
 console.log("game-gm-cache-stable-prompt regression passed");
+
+// #9084: the Game Master knows the world overview the player was shown, and setup builds the world
+// from the game's opening, so the story arc cannot start a different scenario than the first scene.
+assert.match(
+  buildGmSystemPrompt({ ...base, worldOverview: "A drowned kingdom of bell towers." }),
+  /<world_overview>\nA drowned kingdom of bell towers\.\n<\/world_overview>/,
+);
+assert.ok(!buildGmSystemPrompt(base).includes("<world_overview>"), "no overview sends no block");
+const guidedSetup = buildSetupPrompt({
+  intro: { mode: "guided", text: "Mira reaches the castle gate to ask for asylum." },
+});
+assert.match(guidedSetup, /<game_opening>[\s\S]*ask for asylum\.[\s\S]*storyArc begins from this situation/);
+assert.ok(!buildSetupPrompt({}).includes("<game_opening>"), "a game with no intro sends no opening block");
