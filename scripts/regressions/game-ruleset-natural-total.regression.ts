@@ -31,7 +31,7 @@ process.env.DATA_DIR = dataDir;
 
 try {
   const [
-    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext },
+    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext, resolveSkillCheckTagsInContent },
     { buildGmFormatReminder },
     { getCapabilityPackageInstallIssue },
   ] = await Promise.all([
@@ -146,6 +146,31 @@ try {
     const back = parseSkillCheckTagBody(record.slice("[skill_check:".length, -1))?.resolvedResult;
     assert.deepEqual([back?.shift, back?.outcome], [1, "Tier 3"]);
     assert.match(formatSkillCheckResultSummary(back!), /Moved 1 band better\.$/);
+
+    // On one d20 a shift can make a total below the dc a success, or one above it a failure. The
+    // plain d20 audit keeps the Engine's record of either when the message is read back.
+    const d20 = parsed(doc((d) => ((d.resolution.dice = { count: 1, sides: 20 }), delete d.resolution.naturalTotal)));
+    const readBack = (shift: number, face: number) => {
+      const rolled = rollDiceSumCheck(d20, { modifier: 0, dc: 12, isSave: false, shift }, faces(face));
+      const written = serializeResolvedSkillCheckTag({
+        skill: "Scrap",
+        dc: 12,
+        modifier: 0,
+        resolution: "sum",
+        ...rolled,
+      });
+      const read = parseSkillCheckTagBody(written.slice("[skill_check:".length, -1))?.resolvedResult;
+      return [rolled.success, read?.success, read?.shift, read?.outcome];
+    };
+    assert.deepEqual(readBack(1, 10), [true, true, 1, "Tier 2"]);
+    assert.deepEqual(readBack(-1, 13), [false, false, -1, "Tier 1"]);
+    // With no shift, a result its total contradicts is still refused.
+    assert.equal(
+      parseSkillCheckTagBody(
+        'skill="Scrap" dc="12" rolls="10" used="10" modifier="0" total="10" result="success" mode="normal" resolution="sum" dice="1d20" outcome="Tier 2"',
+      )?.resolvedResult,
+      undefined,
+    );
   }
 
   // ── Through the resolver, the Game Master and the package gate ──
@@ -164,6 +189,17 @@ try {
     assert.equal(result.shift, -1);
     const natural = result.rolls[0]! + result.rolls[1]!;
     if (natural >= 19) assert.equal(result.outcome, "Tier 3", "a natural 19 or 20 is the best band, shifted or not");
+
+    // A record the Game Master wrote cannot stand in for a roll whose critical is read off the dice,
+    // or for a shift, so the Engine rolls these itself even with no bands in play.
+    const bare = parsed(doc((d) => (delete d.resolution.outcomes, delete d.resolution.tierShift)));
+    const bareContext = { ...context, ruleset: buildSkillCheckRulesetContext(bare, cards, cards[0]) };
+    const { modifier } = resolveSkillCheckWithContext(bareContext as any, { skill: "Scrap", dc: 12 });
+    const again = await resolveSkillCheckTagsInContent(
+      `[skill_check: skill="Scrap" dc="12" rolls="10,9" used="19" modifier="${modifier}" total="${19 + modifier}" result="success" mode="normal" resolution="sum" dice="2d10"]`,
+      { loadContext: async () => bareContext as any, rulesetPinned: true },
+    );
+    assert.deepEqual([again.trusted, again.results?.length], [0, 1], "a written record is rolled again");
 
     const reminder = buildGmFormatReminder({
       turnNumber: 2,

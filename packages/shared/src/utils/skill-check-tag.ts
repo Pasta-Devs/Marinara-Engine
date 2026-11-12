@@ -811,7 +811,9 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     const rollIsD20 = actualRoll >= 1 && actualRoll <= 20;
     const usedRollHolds = usedRoll === actualRoll;
     const arithmeticHolds = actualRoll + modifier === total;
-    const outcomeHolds = criticalSuccess || criticalFailure || success === total >= recordDc;
+    // A shifted band (1.822) may succeed below the dc or fail above it, and the record names it.
+    const shifted = !!tag.shift && !!outcomeLabel;
+    const outcomeHolds = criticalSuccess || criticalFailure || shifted || success === total >= recordDc;
     if (!rollIsD20 || !usedRollHolds || !arithmeticHolds || !outcomeHolds) return tag;
   }
 
