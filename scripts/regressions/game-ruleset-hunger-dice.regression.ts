@@ -32,7 +32,7 @@ process.env.DATA_DIR = dataDir;
 
 try {
   const [
-    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext },
+    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext, resolveSkillCheckTagsInContent },
     { buildGmFormatReminder },
     { getCapabilityPackageInstallIssue },
   ] = await Promise.all([
@@ -171,6 +171,35 @@ try {
       'skill="Dig" dc="10" rolls="14" used="14" modifier="0" total="14" result="success" mode="normal" resolution="sum" dice="1d20" hunger="1" hungerLabel="Hunger" messy="true"',
     )?.resolvedResult;
     assert.deepEqual([summed?.total, summed?.hunger, summed?.messy], [14, undefined, undefined]);
+    // A summed check that asks for special dice is the Engine's to roll, however tidy its numbers: on a
+    // plain d20 ruleset the record alone is kept, and the same record with `hunger=` is rolled again.
+    const emberDoc = JSON.parse(
+      readFileSync(fileURLToPath(new URL("../../docs/examples/rulesets/ember-roads.json", import.meta.url)), "utf8"),
+    ) as Record<string, any>;
+    delete emberDoc.combat;
+    delete emberDoc.layers;
+    emberDoc.catalogs = (emberDoc.catalogs ?? []).filter(
+      (catalog: { holds?: string }) => catalog.holds !== "creatures",
+    );
+    emberDoc.resolution.dice = { count: 1, sides: 20 };
+    const ember = parsed(emberDoc);
+    const emberCards = [
+      { name: "Wren", rulesetSheet: { v: ember.sheet.version, build: defaultRulesetSheetBuild(ember) } },
+    ];
+    const emberContext = {
+      skills: null,
+      attributes: null,
+      sheetAttributes: {},
+      ruleset: buildSkillCheckRulesetContext(ember, emberCards, emberCards[0]),
+    };
+    const sheet = resolveSkillCheckWithContext(emberContext as any, { skill: "Scrap", dc: 5 }, () => 14).modifier;
+    const tidy = (extra: string) =>
+      `[skill_check: skill="Scrap" dc="5" rolls="14" used="14" modifier="${sheet}" total="${14 + sheet}" result="success" mode="normal" resolution="sum" dice="1d20"${extra}]`;
+    const read = (content: string) =>
+      resolveSkillCheckTagsInContent(content, { loadContext: async () => emberContext as any, rulesetPinned: true });
+    assert.equal((await read(tidy(""))).trusted, 1, "the plain record is vouched for");
+    const asked = await read(tidy(' hunger="1"'));
+    assert.deepEqual([asked.trusted, asked.resolved], [0, 1], "an ask for special dice is rolled by the Engine");
     assert.deepEqual(
       [over.hunger, over.hungerLabel, over.messy, over.bestial],
       [undefined, undefined, undefined, undefined],
