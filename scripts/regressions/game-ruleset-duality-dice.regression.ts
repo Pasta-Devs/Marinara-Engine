@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import {
   defaultRulesetSheetBuild,
   formatSkillCheckResultSummary,
+  isEngineRollableSkillCheckTag,
   parseRulesetDefinition,
   parseSkillCheckTagBody,
   rollDiceSumCheck,
@@ -322,6 +323,13 @@ try {
     const claiming = await failing(otherSystem.replace("]", ' duality="Hope"]'));
     assert.doesNotMatch(claiming.content, /duality=|result="success"|rolls="/);
     assert.match(claiming.content, /\[skill_check: skill="Hunt" dc="2"/);
+    assert.match(claiming.content, /resolution="successes"/, "the ask still names its system");
+    assert.match(claiming.content, /dice="3d10"/);
+    assert.equal(
+      isEngineRollableSkillCheckTag(parseSkillCheckTagBody(claiming.content.slice("[skill_check:".length, -1))!),
+      false,
+      "so nothing rolls it as a d20",
+    );
 
     // The branch arm's roller stands in for a d20 only, so the two d12s are thrown at their own size:
     // a roller that always says 20 never reaches the record, which reads back as a result.
