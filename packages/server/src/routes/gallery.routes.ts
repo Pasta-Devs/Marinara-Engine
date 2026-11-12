@@ -12,6 +12,7 @@ import {
   parseChatImageGenerationRecord,
   LOCAL_SIDECAR_CONNECTION_ID,
   readImageAppearanceOverride,
+  resolveImageBackend,
   resolveGameSetupArtStylePrompt,
   VIDEO_GENERATION_SETTINGS_KEY,
   normalizeVideoGenerationUserSettings,
@@ -39,6 +40,7 @@ import {
   resolveConnectionImageQuality,
 } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
+import { supportsNovelAiCharacterPrompts } from "../services/image/character-prompts.js";
 import {
   compileImagePrompt,
   formatImageStylePromptGuidance,
@@ -249,9 +251,11 @@ const rewriteGalleryImagePromptSchema = regenerateGalleryImageSchema
   .required({ negativePrompt: true, characterPrompts: true })
   .extend({ guidance: z.string().trim().max(4_000).optional() });
 
-const rewrittenGalleryImagePromptSchema = regenerateGalleryImageSchema
+const rewrittenGalleryBasePromptSchema = regenerateGalleryImageSchema
   .pick({ prompt: true, negativePrompt: true })
-  .required({ negativePrompt: true })
+  .required({ negativePrompt: true });
+
+const rewrittenGalleryImagePromptSchema = rewrittenGalleryBasePromptSchema
   .extend({
     characterPrompts: z
       .array(
@@ -2105,18 +2109,6 @@ export async function galleryRoutes(app: FastifyInstance) {
       if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
 
       const input = rewriteGalleryImagePromptSchema.parse(req.body);
-      const userPrompt = JSON.stringify({
-        prompt: input.prompt,
-        negativePrompt: input.negativePrompt,
-        characterPrompts: input.characterPrompts.map((character, id) => ({ ...character, id })),
-        guidance: input.guidance ?? "",
-      });
-      if (userPrompt.length > 24_000) {
-        return reply
-          .status(400)
-          .send({ error: "This prompt draft is too long for AI rewriting. Shorten the draft and try again." });
-      }
-
       const chat = await chats.getById(chatId);
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
       const original = await storage.getById(imageId, chatId);
@@ -2134,6 +2126,31 @@ export async function galleryRoutes(app: FastifyInstance) {
       );
       if (input.connectionId && !imageConnection) {
         return reply.status(400).send({ error: "That image connection no longer exists." });
+      }
+
+      const imageSource = imageConnection?.imageGenerationSource || imageConnection?.model || "";
+      const rewriteCharacterPrompts =
+        input.characterPrompts.length > 0 &&
+        imageConnection &&
+        supportsNovelAiCharacterPrompts(imageConnection) &&
+        resolveImageBackend(
+          imageSource,
+          imageConnection.baseUrl,
+          imageConnection.imageService || imageSource,
+          imageConnection.model,
+        ) === "novelai";
+      const userPrompt = JSON.stringify({
+        prompt: input.prompt,
+        negativePrompt: input.negativePrompt,
+        ...(rewriteCharacterPrompts
+          ? { characterPrompts: input.characterPrompts.map((character, id) => ({ ...character, id })) }
+          : {}),
+        guidance: input.guidance ?? "",
+      });
+      if (userPrompt.length > 24_000) {
+        return reply
+          .status(400)
+          .send({ error: "This prompt draft is too long for AI rewriting. Shorten the draft and try again." });
       }
 
       let runtime;
@@ -2169,9 +2186,17 @@ export async function galleryRoutes(app: FastifyInstance) {
           "Revise this existing image-generation draft according to the guidance field.",
           "Preserve the draft's subject, details, style and prompt syntax except where the guidance requests changes.",
           "If guidance is empty, offer alternate wording that faithfully describes the same image.",
-          "Apply changes to the main, negative and character prompts where relevant. Keep the main scene and individual character captions separate.",
-          'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
-          "Return exactly one entry for each input character with the same id. Use an empty string for any negative prompt that should be blank.",
+          ...(rewriteCharacterPrompts
+            ? [
+                "This image connection supports native NovelAI character prompts. Apply changes to the main, negative and character prompts where relevant. Keep the main scene and individual character captions separate.",
+                'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
+                "Return exactly one entry for each input character with the same id.",
+              ]
+            : [
+                "Apply changes to the main and negative prompts where relevant. Keep character descriptions in the main prompt.",
+                'Return only JSON in the format {"prompt":"…","negativePrompt":"…"}.',
+              ]),
+          "Use an empty string for any negative prompt that should be blank.",
           "Image prompt instructions apply to the strings inside this JSON format.",
         ].join("\n"),
         imageConnection?.imagePromptInstructions,
@@ -2207,7 +2232,12 @@ export async function galleryRoutes(app: FastifyInstance) {
         const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)?.[1] ?? raw;
         // Repair syntax only when the model supplied an object with a closing brace.
         const json = fenced.match(/\{[\s\S]*\}/)?.[0];
-        const revised = rewrittenGalleryImagePromptSchema.parse(json ? tryParseJsonRecord(json) : null);
+        const parsed = json ? tryParseJsonRecord(json) : null;
+        if (!rewriteCharacterPrompts) {
+          // Keep saved captions available for regeneration's cross-provider fallback.
+          return { ...rewrittenGalleryBasePromptSchema.parse(parsed), characterPrompts: input.characterPrompts };
+        }
+        const revised = rewrittenGalleryImagePromptSchema.parse(parsed);
         const byId = new Map(revised.characterPrompts.map((character) => [character.id, character]));
         if (
           revised.characterPrompts.length !== input.characterPrompts.length ||

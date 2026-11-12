@@ -252,6 +252,16 @@ try {
 
   const regenerateUrl = `/api/gallery/${chat.id}/images/${illustration.id}/regenerate`;
   const connections = createConnectionsStorage(db);
+  const novelAi = await connections.create({
+    name: "Native NovelAI fixture",
+    provider: "image_generation",
+    baseUrl: "https://image.novelai.net",
+    model: "nai-diffusion-5-full",
+    imageService: "novelai",
+    imagePromptInstructions: "Use concise comma-separated image tags.",
+    apiKey: "fixture",
+  });
+  assert.ok(novelAi?.id);
   const textFixture = {
     provider: "custom",
     baseUrl: `http://127.0.0.1:${address.port}/v1`,
@@ -296,6 +306,7 @@ try {
   await chats.updateMetadata(chat.id, { illustratorPromptConnectionId: promptModel.id });
 
   const draft = {
+    connectionId: novelAi.id,
     prompt: "1girl, 1boy, throne room",
     negativePrompt: "lowres",
     characterPrompts: [
@@ -335,7 +346,7 @@ try {
   const promptMessages = promptModelRequests[0]?.messages ?? [];
   assert.match(
     promptMessages.find(({ role }) => role === "system")?.content ?? "",
-    /Use concise comma-separated image tags/,
+    /native NovelAI character prompts[\s\S]*"characterPrompts"[\s\S]*Use concise comma-separated image tags/,
   );
   const sentDraft = JSON.parse(promptMessages.find(({ role }) => role === "user")?.content ?? "");
   assert.equal(sentDraft.guidance, guidedDraft.guidance);
@@ -423,6 +434,50 @@ try {
   assert.equal(promptModelRequests.at(-1)?.model, "fixture-agents-default");
   assert.equal(promptModelRequests.at(-1)?.max_tokens, 2100, "the selected Agents connection caps the output budget");
   promptModelFinish = "stop";
+
+  const qwen = await connections.create({
+    name: "Qwen image fixture",
+    provider: "image_generation",
+    baseUrl: `http://127.0.0.1:${address.port}/v1`,
+    model: "qwen-image",
+    imageService: "openai",
+    apiKey: "fixture",
+  });
+  assert.ok(qwen?.id);
+  const baseRewrite = { prompt: expectedRewrite.prompt, negativePrompt: expectedRewrite.negativePrompt };
+  promptModelOutput = JSON.stringify({
+    ...baseRewrite,
+    characterPrompts: [{ id: 0, prompt: "Invented caption", negativePrompt: "" }],
+  });
+  const plainDraft = { ...guidedDraft, connectionId: qwen.id, characterPrompts: [] };
+  const plainRewrite = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: plainDraft });
+  assert.equal(plainRewrite.statusCode, 200, plainRewrite.body);
+  assert.deepEqual(plainRewrite.json(), { ...baseRewrite, characterPrompts: [] });
+  const plainMessages = promptModelRequests.at(-1)?.messages ?? [];
+  const plainSystem = plainMessages.find(({ role }) => role === "system")?.content ?? "";
+  assert.ok(plainSystem.includes('{"prompt":"…","negativePrompt":"…"}'));
+  assert.doesNotMatch(plainSystem, /characterPrompts|NovelAI/);
+  const plainInput = JSON.parse(plainMessages.find(({ role }) => role === "user")?.content ?? "");
+  assert.deepEqual(plainInput, {
+    prompt: plainDraft.prompt,
+    negativePrompt: plainDraft.negativePrompt,
+    guidance: plainDraft.guidance,
+  });
+
+  promptModelOutput = JSON.stringify(baseRewrite);
+  const switchedRewrite = await app.inject({
+    method: "POST",
+    url: `${regenerateUrl}/prompt`,
+    payload: { ...guidedDraft, connectionId: qwen.id },
+  });
+  assert.equal(switchedRewrite.statusCode, 200, switchedRewrite.body);
+  assert.deepEqual(
+    switchedRewrite.json(),
+    { ...baseRewrite, characterPrompts: guidedDraft.characterPrompts },
+    "changing the image connection keeps existing draft captions for generation",
+  );
+  const switchedInput = promptModelRequests.at(-1)?.messages?.find(({ role }) => role === "user")?.content ?? "";
+  assert.doesNotMatch(switchedInput, /characterPrompts|tall elf queen/);
   assert.equal(imagePrompts.length, 0);
 
   const requestsBeforeImage = promptModelRequests.length;
