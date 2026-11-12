@@ -99,6 +99,16 @@ try {
       /share an id/,
       "one id twice",
     );
+    refuses(
+      doc((d) => (d.resolution.duality.dice[1].label = " hope ")),
+      /share a label/,
+      "one label twice",
+    );
+    refuses(
+      doc((d) => (d.resolution.duality.dice[1].label = "Tie")),
+      /labelled "tie"/,
+      "a die labelled tie",
+    );
   }
 
   // ── The roll ──
