@@ -4974,7 +4974,9 @@
   }
   /* in a title bar it sits centred in the bar, a little smaller than the bar is tall */
   :root[data-overhaul="mobile"][data-phone-chat-avatars="mini"] [data-mari-part="window-title"] > .mari-mini-avatar {
-    --mini-size: var(--mari-mini-avatar-size, 1.25rem);
+    /* whole pixels, so it sits exactly centred in a pixel-art bar */
+    --mini-size: var(--mari-mini-avatar-size, 20px);
+    box-sizing: border-box;
     align-self: center;
     margin: 0;
   }
