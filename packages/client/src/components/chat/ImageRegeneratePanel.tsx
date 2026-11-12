@@ -143,6 +143,11 @@ function PlacementFields({
           />
         </label>
       ))}
+      {!position && (pending.x !== undefined || pending.y !== undefined) && (
+        <p role="status" className="col-span-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
+          {t("ui.chat.imageregeneratepanel.placementIncomplete", { name })}
+        </p>
+      )}
     </fieldset>
   );
 }

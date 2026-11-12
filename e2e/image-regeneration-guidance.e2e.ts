@@ -238,8 +238,13 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await julesX.fill("0.7");
     await julesX.blur();
     await expect(julesPlacement.getByRole("textbox", { name: "Y (0 top, 1 bottom)", exact: true })).toHaveValue("");
+    const halfPlaced = julesPlacement.getByText(
+      "Set both X and Y to place Jules. Until then, placement stays automatic.",
+    );
+    await expect(halfPlaced).toBeVisible();
     await julesX.fill("");
     await julesX.blur();
+    await expect(halfPlaced).toBeHidden();
     await xPosition.fill("0.8");
     await xPosition.blur();
     await yPosition.fill("0.65");

@@ -11056,6 +11056,7 @@
   "ui.chat.imageregeneratepanel.guidance": "AI guidance (optional)",
   "ui.chat.imageregeneratepanel.guidancePlaceholder": "For example, move the scene outdoors at dusk.",
   "ui.chat.imageregeneratepanel.noRecordNotice": "This image was made before Marinara saved full image requests, so its negative prompt and character prompts weren't kept.",
+  "ui.chat.imageregeneratepanel.placementIncomplete": "Set both X and Y to place {{name}}. Until then, placement stays automatic.",
   "ui.chat.imageregeneratepanel.positionAutomatic": "Automatic",
   "ui.chat.imageregeneratepanel.positionX": "X (0 left, 1 right)",
   "ui.chat.imageregeneratepanel.positionY": "Y (0 top, 1 bottom)",
