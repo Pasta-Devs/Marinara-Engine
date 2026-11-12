@@ -8,7 +8,6 @@ import { basename, extname, join } from "path";
 import { z } from "zod";
 import {
   buildChatImageGenerationRecord,
-  estimateTextTokens,
   findImageStyleProfile,
   parseChatImageGenerationRecord,
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -61,6 +60,10 @@ import {
 } from "../services/image/gallery-file-lifecycle.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
 import { resolveIllustratorPromptRuntime } from "../services/generation/illustrator-prompt-runtime.js";
+import { normalizeAgentMaxTokens } from "../services/generation/generation-parameters.js";
+import { resolveAgentsDefaultConnectionId } from "../services/generation/agent-resolution.js";
+import { sidecarModelService } from "../services/sidecar/sidecar-model.service.js";
+import type { ChatMessage } from "../services/llm/base-provider.js";
 import { resolveIllustratorImageConnectionId } from "../services/generation/illustrator-background-generation.js";
 import { resolveConversationSelfieSystemPrompt } from "../services/conversation/selfie-prompt.js";
 import { appendImagePromptInstructions } from "../services/generation/image-prompt-instructions.js";
@@ -124,6 +127,7 @@ import {
   validateVideoAssetFile,
 } from "../utils/media-file-security.js";
 import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
+import { tryParseJsonRecord } from "../lib/json-repair.js";
 
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const SPRITES_DIR = join(DATA_DIR, "sprites");
@@ -2102,10 +2106,10 @@ export async function galleryRoutes(app: FastifyInstance) {
 
       const input = rewriteGalleryImagePromptSchema.parse(req.body);
       const userPrompt = JSON.stringify({
-        guidance: input.guidance ?? "",
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
         characterPrompts: input.characterPrompts.map((character, id) => ({ ...character, id })),
+        guidance: input.guidance ?? "",
       });
       if (userPrompt.length > 24_000) {
         return reply
@@ -2133,19 +2137,31 @@ export async function galleryRoutes(app: FastifyInstance) {
       }
 
       let runtime;
+      let visibleMaxTokens;
       try {
+        const illustrator = await createAgentsStorage(app.db).getByType("illustrator");
+        visibleMaxTokens = normalizeAgentMaxTokens(parseJsonRecord(illustrator?.settings).maxTokens);
+        const promptConnectionId =
+          readTrimmedString(metadata.illustratorPromptConnectionId) ??
+          readTrimmedString(illustrator?.connectionId) ??
+          resolveAgentsDefaultConnectionId({
+            useLocalSidecarAsAgentsDefault: sidecarModelService.getConfig().useAsAgentsDefault,
+            localSidecarAvailable: sidecarModelService.getConfiguredModelRef() !== null,
+            rowDefaultConnectionId: (await connections.getDefaultForAgents())?.id ?? null,
+          }) ??
+          chat.connectionId;
         runtime = await resolveIllustratorPromptRuntime({
           chatMetadata: metadata,
           defaultConnection: null,
-          defaultConnectionId: chat.connectionId,
+          defaultConnectionId: promptConnectionId,
           connections,
           resolveBaseUrl,
         });
-      } catch (err) {
-        logger.warn(err, "[gallery/regenerate/prompt] Prompt Model unavailable for chat %s", chatId);
+      } catch {
+        logger.warn("[gallery/regenerate/prompt] Prompt Model unavailable for chat %s", chatId);
         return reply
           .status(400)
-          .send({ error: "The Prompt Model is unavailable. Check the chat's text connection settings." });
+          .send({ error: "The Prompt Model is unavailable. Check the Illustrator and Agents model settings." });
       }
 
       const systemPrompt = appendImagePromptInstructions(
@@ -2167,26 +2183,31 @@ export async function galleryRoutes(app: FastifyInstance) {
         userPrompt,
       );
       try {
-        const result = await runtime.provider.chatComplete(
-          [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          {
-            model: runtime.model,
-            ...(runtime.suppressModelParameters
-              ? {}
-              : { maxTokens: Math.min(8192, estimateTextTokens(userPrompt) + 1024) }),
-            suppressModelParameters: runtime.suppressModelParameters,
-            preserveContext: true,
-            enableCaching: runtime.enableCaching,
-            anthropicExtendedCacheTtl: runtime.anthropicExtendedCacheTtl,
-            signal: createResponseAbortSignal(reply, IMAGE_PROMPT_REWRITE_TIMEOUT_MS, "Gallery prompt rewriting"),
-          },
-        );
-        const raw = result.content?.trim() ?? "";
-        const json = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)?.[1] ?? raw;
-        const revised = rewrittenGalleryImagePromptSchema.parse(JSON.parse(json));
+        const messages: ChatMessage[] = [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ];
+        const result = await runtime.provider.chatComplete(messages, {
+          model: runtime.model,
+          ...(runtime.suppressModelParameters
+            ? {}
+            : { maxTokens: runtime.resolveAgentMaxTokens(visibleMaxTokens, messages) }),
+          suppressModelParameters: runtime.suppressModelParameters,
+          preserveContext: true,
+          enableCaching: runtime.enableCaching,
+          anthropicExtendedCacheTtl: runtime.anthropicExtendedCacheTtl,
+          signal: createResponseAbortSignal(reply, IMAGE_PROMPT_REWRITE_TIMEOUT_MS, "Gallery prompt rewriting"),
+        });
+        if (result.finishReason === "length") {
+          return reply.status(502).send({
+            error: "The Prompt Model reached its output limit. Increase the limit or shorten the draft and try again.",
+          });
+        }
+        const raw = (result.content ?? "").replace(/^\s*<think>[\s\S]*?<\/think>/i, "").trim();
+        const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)?.[1] ?? raw;
+        // Repair syntax only when the model supplied an object with a closing brace.
+        const json = fenced.match(/\{[\s\S]*\}/)?.[0];
+        const revised = rewrittenGalleryImagePromptSchema.parse(json ? tryParseJsonRecord(json) : null);
         const byId = new Map(revised.characterPrompts.map((character) => [character.id, character]));
         if (
           revised.characterPrompts.length !== input.characterPrompts.length ||
@@ -2202,8 +2223,8 @@ export async function galleryRoutes(app: FastifyInstance) {
             return { ...character, prompt, negativePrompt };
           }),
         };
-      } catch (err) {
-        logger.warn(err, "[gallery/regenerate/prompt] Prompt rewrite failed for chat %s", chatId);
+      } catch {
+        logger.warn("[gallery/regenerate/prompt] Prompt rewrite failed for chat %s", chatId);
         return reply
           .status(502)
           .send({ error: "The Prompt Model could not return a valid revised prompt. Try again." });

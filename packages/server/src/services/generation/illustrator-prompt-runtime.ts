@@ -1,11 +1,14 @@
 import { allowsDefaultChatModel } from "../llm/local-context-limit.js";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
-import type { BaseLLMProvider } from "../llm/base-provider.js";
+import { resolveAgentCallMaxTokens } from "../agents/agent-executor.js";
+import type { BaseLLMProvider, ChatMessage } from "../llm/base-provider.js";
 import { withConnectionFallbackProvider, type FallbackConnection } from "../llm/connection-fallback-provider.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
+import { resolveAgentConnectionParameters } from "./agent-generation-parameters.js";
 import type { GenerationFallbackNotifier } from "./fallback-notification.js";
 import { resolveModelAccessPolicy } from "./model-access-policy.js";
+import { resolveKnownMaxOutputTokens } from "./output-token-limits.js";
 
 export type IllustratorPromptConnection = FallbackConnection & {
   defaultParameters?: string | Record<string, unknown> | null;
@@ -29,6 +32,7 @@ export type IllustratorPromptRuntime = {
   model: string;
   connectionId: string;
   suppressModelParameters: boolean;
+  resolveAgentMaxTokens(visibleMaxTokens: number, messages: ChatMessage[]): number;
   enableCaching: boolean;
   anthropicExtendedCacheTtl: boolean;
 };
@@ -75,11 +79,14 @@ export async function resolveIllustratorPromptRuntime(args: {
     });
 
   if (connectionId === LOCAL_SIDECAR_CONNECTION_ID) {
+    const provider = wrapWithFallback(getLocalSidecarProvider());
     return {
-      provider: wrapWithFallback(getLocalSidecarProvider()),
+      provider,
       model: LOCAL_SIDECAR_MODEL,
       connectionId,
       suppressModelParameters: false,
+      resolveAgentMaxTokens: (visibleMaxTokens, messages) =>
+        resolveAgentCallMaxTokens(provider, {}, visibleMaxTokens, { messages }),
       enableCaching: false,
       anthropicExtendedCacheTtl: false,
     };
@@ -111,23 +118,38 @@ export async function resolveIllustratorPromptRuntime(args: {
     model,
     maxContext: connection.maxContext,
   });
-  return {
-    provider: wrapWithFallback(
-      createLLMProvider(
-        connection.provider,
-        baseUrl,
-        connection.apiKey,
-        connection.maxContext,
-        connection.openrouterProvider,
-        connection.maxTokensOverride,
-        isEnabled(connection.claudeFastMode),
-        isEnabled(connection.treatAsLocalEndpoint),
-        connection.defaultParameters,
-      ),
+  const provider = wrapWithFallback(
+    createLLMProvider(
+      connection.provider,
+      baseUrl,
+      connection.apiKey,
+      connection.maxContext,
+      connection.openrouterProvider,
+      connection.maxTokensOverride,
+      isEnabled(connection.claudeFastMode),
+      isEnabled(connection.treatAsLocalEndpoint),
+      connection.defaultParameters,
     ),
+  );
+  return {
+    provider,
     model,
     connectionId,
     suppressModelParameters: modelAccessPolicy.suppressModelParameters,
+    resolveAgentMaxTokens: (visibleMaxTokens, messages) =>
+      resolveAgentCallMaxTokens(
+        provider,
+        {
+          ...resolveAgentConnectionParameters({
+            ...connection,
+            model,
+            defaultParameters: connection.defaultParameters,
+          }),
+          maxOutputTokens: resolveKnownMaxOutputTokens(connection.provider, model),
+        },
+        visibleMaxTokens,
+        { messages },
+      ),
     enableCaching: isEnabled(connection.enableCaching),
     anthropicExtendedCacheTtl: isEnabled(connection.anthropicExtendedCacheTtl),
   };

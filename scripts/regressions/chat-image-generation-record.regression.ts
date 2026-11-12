@@ -29,6 +29,7 @@ const { getDB, closeDB } = await import("../../packages/server/src/db/connection
 const { galleryRoutes } = await import("../../packages/server/src/routes/gallery.routes.js");
 const { readRecordedReferenceImages } =
   await import("../../packages/server/src/services/image/illustrator-references.js");
+const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
@@ -36,8 +37,13 @@ const { createGalleryStorage } = await import("../../packages/server/src/service
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const imagePrompts: string[] = [];
-const promptModelRequests: Array<{ model?: string; messages?: Array<{ role: string; content: string }> }> = [];
+const promptModelRequests: Array<{
+  model?: string;
+  messages?: Array<{ role: string; content: string }>;
+  max_tokens?: number;
+}> = [];
 let promptModelOutput = "";
+let promptModelFinish = "stop";
 const provider = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -47,7 +53,7 @@ const provider = createServer(async (request, response) => {
     promptModelRequests.push(body);
     response.end(
       JSON.stringify({
-        choices: [{ message: { role: "assistant", content: promptModelOutput }, finish_reason: "stop" }],
+        choices: [{ message: { role: "assistant", content: promptModelOutput }, finish_reason: promptModelFinish }],
       }),
     );
     return;
@@ -245,14 +251,48 @@ try {
   assert.ok(message?.id);
 
   const regenerateUrl = `/api/gallery/${chat.id}/images/${illustration.id}/regenerate`;
-  const promptModel = await createConnectionsStorage(db).create({
-    name: "Prompt model fixture",
-    provider: "openai",
+  const connections = createConnectionsStorage(db);
+  const textFixture = {
+    provider: "custom",
     baseUrl: `http://127.0.0.1:${address.port}/v1`,
-    model: "fixture-prompt-model",
     apiKey: "fixture",
+  } as const;
+  const promptModel = await connections.create({
+    ...textFixture,
+    name: "Prompt model fixture",
+    model: "fixture-prompt-model",
   });
   assert.ok(promptModel?.id);
+  const agentsDefault = await connections.create({
+    ...textFixture,
+    name: "Agents default fixture",
+    model: "fixture-agents-default",
+    defaultForAgents: true,
+    maxTokensOverride: 2100,
+  });
+  const illustratorModel = await connections.create({
+    ...textFixture,
+    name: "Illustrator model fixture",
+    model: "fixture-illustrator-model",
+  });
+  const chatModel = await connections.create({
+    ...textFixture,
+    name: "Chat model fixture",
+    model: "fixture-chat-model",
+  });
+  const agents = createAgentsStorage(db);
+  const illustrator = await agents.create({
+    type: "illustrator",
+    name: "Illustrator",
+    description: "",
+    phase: "post_processing",
+    connectionId: illustratorModel.id,
+    imagePath: null,
+    promptTemplate: "",
+    settings: { maxTokens: 5230 },
+  });
+  assert.ok(agentsDefault?.id && illustrator?.id && chatModel?.id);
+  await chats.update(chat.id, { connectionId: chatModel.id });
   await chats.updateMetadata(chat.id, { illustratorPromptConnectionId: promptModel.id });
 
   const draft = {
@@ -291,6 +331,7 @@ try {
   );
   assert.equal(promptModelRequests.length, 1);
   assert.equal(promptModelRequests[0]?.model, "fixture-prompt-model");
+  assert.equal(promptModelRequests[0]?.max_tokens, 5230, "rewrites inherit Illustrator's saved output budget");
   const promptMessages = promptModelRequests[0]?.messages ?? [];
   assert.match(
     promptMessages.find(({ role }) => role === "system")?.content ?? "",
@@ -298,6 +339,7 @@ try {
   );
   const sentDraft = JSON.parse(promptMessages.find(({ role }) => role === "user")?.content ?? "");
   assert.equal(sentDraft.guidance, guidedDraft.guidance);
+  assert.equal(Object.keys(sentDraft).at(-1), "guidance", "guidance comes after the draft in the model context");
   assert.equal(sentDraft.prompt, draft.prompt, "the current draft takes precedence over the saved image prompt");
   assert.deepEqual(await gallery.listByChatId(chat.id), beforeRewrite);
   assert.deepEqual(await chats.getMessage(message.id), messageBeforeRewrite);
@@ -347,13 +389,54 @@ try {
   );
   assert.equal(imagePrompts.length, 0);
 
+  await chats.updateMetadata(chat.id, { illustratorPromptConnectionId: null });
+  const repairedJson = JSON.stringify({
+    prompt: jsonPrompt,
+    negativePrompt: expectedRewrite.negativePrompt,
+    characterPrompts: expectedRewrite.characterPrompts.map(({ prompt, negativePrompt }, id) => ({
+      id,
+      prompt,
+      negativePrompt,
+    })),
+  }).replace(/}$/, ",}");
+  promptModelOutput = [
+    "<think>Consider the prompt.</think>",
+    "Here is the revision:",
+    "```json",
+    repairedJson,
+    "```",
+  ].join("\n");
+  const repaired = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: guidedDraft });
+  assert.equal(repaired.statusCode, 200, repaired.body);
+  assert.equal(promptModelRequests.at(-1)?.model, "fixture-illustrator-model");
+  assert.deepEqual(
+    repaired.json(),
+    { ...expectedRewrite, prompt: jsonPrompt },
+    "repairs wrapped JSON without changing its strings",
+  );
+
+  await agents.update(illustrator.id, { connectionId: null });
+  promptModelFinish = "length";
+  const cutOff = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: guidedDraft });
+  assert.equal(cutOff.statusCode, 502, cutOff.body);
+  assert.match(cutOff.json().error, /output limit/);
+  assert.equal(promptModelRequests.at(-1)?.model, "fixture-agents-default");
+  assert.equal(promptModelRequests.at(-1)?.max_tokens, 2100, "the selected Agents connection caps the output budget");
+  promptModelFinish = "stop";
+  assert.equal(imagePrompts.length, 0);
+
+  const requestsBeforeImage = promptModelRequests.length;
   const regenerated = await app.inject({
     method: "POST",
     url: regenerateUrl,
     payload: { prompt: "2girls, throne room" },
   });
   assert.equal(regenerated.statusCode, 200, regenerated.body);
-  assert.equal(promptModelRequests.length, 4, "image-only regeneration does not call the Prompt Model");
+  assert.equal(
+    promptModelRequests.length,
+    requestsBeforeImage,
+    "image-only regeneration does not call the Prompt Model",
+  );
   const result = regenerated.json() as {
     image: { id: string; url: string; prompt: string; generation: string; width: number; height: number };
     replacedMessageIds: string[];

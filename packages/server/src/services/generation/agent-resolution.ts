@@ -13,9 +13,7 @@ import {
   mergeBuiltInAgentSettings,
   normalizeAgentPhaseValue,
   resolveAgentPromptTemplate,
-  findKnownModel,
   shouldSuppressUnknownModelParameters,
-  type APIProvider,
   type GenerationParameterSendMap,
   type ManagedGenerationParameterDefinition,
 } from "@marinara-engine/shared";
@@ -42,6 +40,7 @@ import { applyAgentLorebookChatSettings } from "./agent-lorebook-triggers.js";
 import { applyCustomAgentImageChatSettings } from "./custom-agent-image-settings.js";
 import { withConnectionFallbackProvider, type FallbackConnection } from "../llm/connection-fallback-provider.js";
 import type { GenerationFallbackNotifier } from "./fallback-notification.js";
+import { resolveKnownMaxOutputTokens } from "./output-token-limits.js";
 
 type ConnectionsStore = {
   getWithKey(id: string): Promise<any | null>;
@@ -248,11 +247,6 @@ export function getAgentFallbackPrompt(agentType: string, settings: Record<strin
   return getDefaultAgentPrompt(agentType);
 }
 
-function resolveConnectionMaxOutputTokens(connection: { provider: string; model: string }): number | null {
-  const knownModel = findKnownModel(connection.provider as APIProvider, connection.model.trim());
-  return knownModel?.maxOutput && knownModel.maxOutput > 0 ? Math.floor(knownModel.maxOutput) : null;
-}
-
 async function resolveAgentConnectionProvider(args: {
   connections: ConnectionsStore;
   agentProviderCache: Map<string | null, AgentProviderCacheEntry>;
@@ -377,7 +371,7 @@ async function resolveAgentConnectionProvider(args: {
     enabledParameters: connectionParameters.enabledParameters,
     generation: connectionParameters.generation,
     suppressModelParameters: shouldSuppressUnknownModelParameters(agentConn.provider, model),
-    maxOutputTokens: resolveConnectionMaxOutputTokens({ provider: agentConn.provider, model }),
+    maxOutputTokens: resolveKnownMaxOutputTokens(agentConn.provider, model),
     maxParallelJobs: Number(agentConn.maxParallelJobs) || 1,
     enableCaching: agentConn.enableCaching === "true",
     anthropicExtendedCacheTtl: agentConn.anthropicExtendedCacheTtl === "true",
