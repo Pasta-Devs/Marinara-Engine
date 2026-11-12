@@ -1,6 +1,6 @@
 # Chat Settings Drawer split
 
-Status: in progress, one section per pull request. Tracking issue: #9119. This file is the progress record: each pull request in the series updates the table below.
+Status: in progress, one step per pull request. Tracking issue: #9119. This file is the progress record: each pull request in the series updates the table below.
 
 ## Outcome
 
@@ -19,7 +19,7 @@ Measured on `staging` on 2026-11-12:
 ## Rules for every pull request in the series
 
 - **Link the tracking issue without closing it.** Put `Part of #9119` on a line of its own, with no "close", "fix" or "resolve" on that line: the issue status workflow treats any issue on such a line as fixed. The required closing line references #1469, the earlier request for this split.
-- **One section per pull request, merged quickly.** Before starting a section, list the open pull requests that change files in the folder, and skip any section one of them is changing. Search by changed files, not text: `gh pr list --search` only matches a pull request's title and description.
+- **One step per pull request, one section per commit.** Each step in the table below is one pull request, and each section in it is its own commit with its own checks, so a reviewer can go commit by commit. Connected chats (move, then merge) and Agents (cards, then the shell) are split further, as the table says. Separate pull requests for every section would pile up into a deep stack while each waits for review, and every pull request costs a hand test, a review and a CI run. Before starting a section, list the open pull requests that change files in the folder, and skip any section one of them is changing. Search by changed files, not text: `gh pr list --search` only matches a pull request's title and description.
 
   ```sh
   gh pr list --repo Pasta-Devs/Marinara-Engine --base staging --state open --limit 200 --json number,title,files \
