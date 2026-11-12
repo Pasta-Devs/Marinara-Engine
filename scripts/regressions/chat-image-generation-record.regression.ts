@@ -18,6 +18,7 @@ writeFileSync(process.env.MARINARA_ENV_FILE, "");
 process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
 process.env.IMAGE_LOCAL_URLS_ENABLED = "true";
+process.env.PROVIDER_LOCAL_URLS_ENABLED = "true";
 process.env.LOG_LEVEL = "silent";
 
 const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
@@ -35,12 +36,23 @@ const { createGalleryStorage } = await import("../../packages/server/src/service
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const imagePrompts: string[] = [];
+const promptModelRequests: Array<{ model?: string; messages?: Array<{ role: string; content: string }> }> = [];
+let promptModelOutput = "";
 const provider = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
-  const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as { prompt?: unknown };
-  imagePrompts.push(String(body.prompt));
+  const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
   response.writeHead(200, { "content-type": "application/json" });
+  if (request.url?.endsWith("/chat/completions")) {
+    promptModelRequests.push(body);
+    response.end(
+      JSON.stringify({
+        choices: [{ message: { role: "assistant", content: promptModelOutput }, finish_reason: "stop" }],
+      }),
+    );
+    return;
+  }
+  imagePrompts.push(String(body.prompt));
   response.end(JSON.stringify({ data: [{ b64_json: png }] }));
 });
 
@@ -196,6 +208,7 @@ try {
     model: "dall-e-3",
     imageService: "openai",
     imageGenerationSource: "openai",
+    imagePromptInstructions: "Use concise comma-separated image tags.",
     apiKey: "fixture",
     // The default Images connection, used for images saved before records existed.
     defaultForAgents: true,
@@ -232,12 +245,115 @@ try {
   assert.ok(message?.id);
 
   const regenerateUrl = `/api/gallery/${chat.id}/images/${illustration.id}/regenerate`;
+  const promptModel = await createConnectionsStorage(db).create({
+    name: "Prompt model fixture",
+    provider: "openai",
+    baseUrl: `http://127.0.0.1:${address.port}/v1`,
+    model: "fixture-prompt-model",
+    apiKey: "fixture",
+  });
+  assert.ok(promptModel?.id);
+  await chats.updateMetadata(chat.id, { illustratorPromptConnectionId: promptModel.id });
+
+  const draft = {
+    prompt: "1girl, 1boy, throne room",
+    negativePrompt: "lowres",
+    characterPrompts: [
+      { name: "Arceana", prompt: "tall elf queen", position: { x: 0.7, y: 0.5 } },
+      { name: "Rolim", prompt: "chancellor", negativePrompt: "crown" },
+    ],
+  };
+  const guidedDraft = { ...draft, guidance: "Make it dusk and give the queen a silver cloak." };
+  promptModelOutput = JSON.stringify({
+    prompt: "1girl, 1boy, throne room, dusk",
+    negativePrompt: "lowres, oversaturated",
+    characterPrompts: [
+      { id: 1, prompt: "chancellor", negativePrompt: "" },
+      { id: 0, prompt: "tall elf queen, silver cloak", negativePrompt: "gold cloak" },
+    ],
+  });
+  const beforeRewrite = await gallery.listByChatId(chat.id);
+  const messageBeforeRewrite = await chats.getMessage(message.id);
+  const rewritten = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: guidedDraft });
+  assert.equal(rewritten.statusCode, 200, rewritten.body);
+  const expectedRewrite = {
+    prompt: "1girl, 1boy, throne room, dusk",
+    negativePrompt: "lowres, oversaturated",
+    characterPrompts: [
+      { ...draft.characterPrompts[0], prompt: "tall elf queen, silver cloak", negativePrompt: "gold cloak" },
+      { ...draft.characterPrompts[1], negativePrompt: "" },
+    ],
+  };
+  assert.deepEqual(
+    rewritten.json(),
+    expectedRewrite,
+    "rewrites all prompt fields while keeping character identity and position",
+  );
+  assert.equal(promptModelRequests.length, 1);
+  assert.equal(promptModelRequests[0]?.model, "fixture-prompt-model");
+  const promptMessages = promptModelRequests[0]?.messages ?? [];
+  assert.match(
+    promptMessages.find(({ role }) => role === "system")?.content ?? "",
+    /Use concise comma-separated image tags/,
+  );
+  const sentDraft = JSON.parse(promptMessages.find(({ role }) => role === "user")?.content ?? "");
+  assert.equal(sentDraft.guidance, guidedDraft.guidance);
+  assert.equal(sentDraft.prompt, draft.prompt, "the current draft takes precedence over the saved image prompt");
+  assert.deepEqual(await gallery.listByChatId(chat.id), beforeRewrite);
+  assert.deepEqual(await chats.getMessage(message.id), messageBeforeRewrite);
+  assert.equal(imagePrompts.length, 0, "prompt rewriting does not call the image provider");
+
+  const jsonPrompt = JSON.stringify({ scene: "throne room", lighting: "dusk" });
+  promptModelOutput = JSON.stringify({ ...JSON.parse(promptModelOutput), prompt: jsonPrompt });
+  const withoutGuidance = await app.inject({
+    method: "POST",
+    url: `${regenerateUrl}/prompt`,
+    payload: { ...draft, prompt: jsonPrompt },
+  });
+  assert.equal(withoutGuidance.statusCode, 200, withoutGuidance.body);
+  assert.equal(withoutGuidance.json().prompt, jsonPrompt, "the rewritten image prompt can itself be JSON text");
+  const unguidedDraft = JSON.parse(
+    promptModelRequests[1]?.messages?.find(({ role }) => role === "user")?.content ?? "",
+  );
+  assert.equal(unguidedDraft.guidance, "");
+  assert.equal(unguidedDraft.prompt, jsonPrompt);
+
+  promptModelOutput = JSON.stringify({
+    prompt: expectedRewrite.prompt,
+    negativePrompt: expectedRewrite.negativePrompt,
+    characterPrompts: [
+      { id: 0, prompt: "silver cloak", negativePrompt: "" },
+      { id: 0, prompt: "chancellor", negativePrompt: "" },
+    ],
+  });
+  const invalidRewrite = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: guidedDraft });
+  assert.equal(invalidRewrite.statusCode, 502, invalidRewrite.body);
+  promptModelOutput = JSON.stringify({ ...expectedRewrite, characterPrompts: [] });
+  const missingCharacters = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: guidedDraft });
+  assert.equal(missingCharacters.statusCode, 502, missingCharacters.body);
+  const unknownImage = await app.inject({
+    method: "POST",
+    url: `/api/gallery/${chat.id}/images/missing-image/regenerate/prompt`,
+    payload: guidedDraft,
+  });
+  assert.equal(unknownImage.statusCode, 404, unknownImage.body);
+  await chats.updateMetadata(chat.id, { illustratorPromptConnectionId: "missing-text-connection" });
+  const noPromptModel = await app.inject({ method: "POST", url: `${regenerateUrl}/prompt`, payload: guidedDraft });
+  assert.equal(noPromptModel.statusCode, 400, noPromptModel.body);
+  assert.equal(
+    promptModelRequests.length,
+    4,
+    "unknown images and missing text connections never reach the text provider",
+  );
+  assert.equal(imagePrompts.length, 0);
+
   const regenerated = await app.inject({
     method: "POST",
     url: regenerateUrl,
     payload: { prompt: "2girls, throne room" },
   });
   assert.equal(regenerated.statusCode, 200, regenerated.body);
+  assert.equal(promptModelRequests.length, 4, "image-only regeneration does not call the Prompt Model");
   const result = regenerated.json() as {
     image: { id: string; url: string; prompt: string; generation: string; width: number; height: number };
     replacedMessageIds: string[];
@@ -444,6 +560,17 @@ try {
   const emptyPrompt = await app.inject({ method: "POST", url: regenerateUrl, payload: { prompt: "   " } });
   assert.notEqual(emptyPrompt.statusCode, 200, "an empty prompt is rejected");
   assert.equal(imagePrompts.length, 6, "rejected requests never reach the provider");
+
+  const fromRewrite = await app.inject({ method: "POST", url: regenerateUrl, payload: rewritten.json() });
+  assert.equal(fromRewrite.statusCode, 200, fromRewrite.body);
+  assert.match(imagePrompts.at(-1) ?? "", /^1girl, 1boy, throne room, dusk/);
+  assert.match(imagePrompts.at(-1) ?? "", /Arceana: tall elf queen, silver cloak/);
+  const fromRewriteRecord = parseChatImageGenerationRecord(fromRewrite.json().image.generation);
+  assert.equal(fromRewriteRecord?.negativePrompt, expectedRewrite.negativePrompt);
+  assert.deepEqual(fromRewriteRecord?.characterPrompts, [
+    expectedRewrite.characterPrompts[0],
+    { name: "Rolim", prompt: "chancellor" },
+  ]);
 
   console.log("chat-image-generation-record: ok (record, storage round trip, regenerate route)");
 } finally {

@@ -8,6 +8,7 @@ import { basename, extname, join } from "path";
 import { z } from "zod";
 import {
   buildChatImageGenerationRecord,
+  estimateTextTokens,
   findImageStyleProfile,
   parseChatImageGenerationRecord,
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -131,6 +132,7 @@ const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]
 const GALLERY_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 const SCENE_VIDEO_FILENAME_RE = /^[A-Za-z0-9_-]+\.mp4$/;
 const SCENE_VIDEO_GENERATION_TIMEOUT_MS = 31 * 60 * 1000;
+const IMAGE_PROMPT_REWRITE_TIMEOUT_MS = 3 * 60 * 1000;
 
 type ChatGalleryImageRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createGalleryStorage>["getById"]>>>;
 type ChatRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createChatsStorage>["getById"]>>>;
@@ -237,6 +239,29 @@ const regenerateGalleryImageSchema = z.object({
   messageId: z.string().trim().min(1).max(200).optional(),
   debugMode: z.boolean().optional().default(false),
 });
+
+const rewriteGalleryImagePromptSchema = regenerateGalleryImageSchema
+  .omit({ messageId: true })
+  .required({ negativePrompt: true, characterPrompts: true })
+  .extend({ guidance: z.string().trim().max(4_000).optional() });
+
+const rewrittenGalleryImagePromptSchema = regenerateGalleryImageSchema
+  .pick({ prompt: true, negativePrompt: true })
+  .required({ negativePrompt: true })
+  .extend({
+    characterPrompts: z
+      .array(
+        z
+          .object({
+            id: z.number().int().min(0).max(5),
+            prompt: z.string().trim().min(1).max(20_000),
+            negativePrompt: z.string().max(20_000),
+          })
+          .strict(),
+      )
+      .max(6),
+  })
+  .strict();
 
 const previewGalleryImagesSchema = z.object({
   items: z
@@ -392,6 +417,26 @@ async function resolveGalleryImageConnection(
   }
   connection ??= await connections.getDefaultForImageGeneration();
   return { connection, connections };
+}
+
+async function resolveRegenerationImageConnection(
+  app: FastifyInstance,
+  connections: ReturnType<typeof createConnectionsStorage>,
+  chatMode: string,
+  metadata: Record<string, unknown>,
+  selectedId: string | undefined,
+  recordedId: string | null | undefined,
+) {
+  const preferredId = selectedId ?? recordedId;
+  const preferred = preferredId ? await connections.getWithKey(preferredId) : null;
+  if (preferred?.provider === "image_generation") return preferred;
+  if (selectedId) return null;
+
+  // Conversation selfies use the image connection configured for the chat.
+  const conversationId = chatMode === "conversation" ? readTrimmedString(metadata.imageGenConnectionId) : null;
+  const conversation = conversationId ? await connections.getWithKey(conversationId) : null;
+  if (conversation?.provider === "image_generation") return conversation;
+  return (await resolveGalleryImageConnection(app, chatMode, metadata)).connection;
 }
 
 function readStringArray(value: unknown): string[] {
@@ -2048,6 +2093,124 @@ export async function galleryRoutes(app: FastifyInstance) {
     }
   });
 
+  // Revise the editor's current draft. Only the image regeneration route saves and swaps images.
+  app.post<{ Params: { chatId: string; imageId: string } }>(
+    "/:chatId/images/:imageId/regenerate/prompt",
+    async (req, reply) => {
+      const { chatId, imageId } = req.params;
+      if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+
+      const input = rewriteGalleryImagePromptSchema.parse(req.body);
+      const userPrompt = JSON.stringify({
+        guidance: input.guidance ?? "",
+        prompt: input.prompt,
+        negativePrompt: input.negativePrompt,
+        characterPrompts: input.characterPrompts.map((character, id) => ({ ...character, id })),
+      });
+      if (userPrompt.length > 24_000) {
+        return reply
+          .status(400)
+          .send({ error: "This prompt draft is too long for AI rewriting. Shorten the draft and try again." });
+      }
+
+      const chat = await chats.getById(chatId);
+      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      const original = await storage.getById(imageId, chatId);
+      if (!original) return reply.status(404).send({ error: "Image not found" });
+
+      const metadata = parseChatMetadata(chat.metadata);
+      const connections = createConnectionsStorage(app.db);
+      const imageConnection = await resolveRegenerationImageConnection(
+        app,
+        connections,
+        chat.mode,
+        metadata,
+        input.connectionId,
+        parseChatImageGenerationRecord(original.generation)?.connectionId,
+      );
+      if (input.connectionId && !imageConnection) {
+        return reply.status(400).send({ error: "That image connection no longer exists." });
+      }
+
+      let runtime;
+      try {
+        runtime = await resolveIllustratorPromptRuntime({
+          chatMetadata: metadata,
+          defaultConnection: null,
+          defaultConnectionId: chat.connectionId,
+          connections,
+          resolveBaseUrl,
+        });
+      } catch (err) {
+        logger.warn(err, "[gallery/regenerate/prompt] Prompt Model unavailable for chat %s", chatId);
+        return reply
+          .status(400)
+          .send({ error: "The Prompt Model is unavailable. Check the chat's text connection settings." });
+      }
+
+      const systemPrompt = appendImagePromptInstructions(
+        [
+          "Revise this existing image-generation draft according to the guidance field.",
+          "Preserve the draft's subject, details, style and prompt syntax except where the guidance requests changes.",
+          "If guidance is empty, offer alternate wording that faithfully describes the same image.",
+          "Apply changes to the main, negative and character prompts where relevant. Keep the main scene and individual character captions separate.",
+          'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
+          "Return exactly one entry for each input character with the same id. Use an empty string for any negative prompt that should be blank.",
+          "Image prompt instructions apply to the strings inside this JSON format.",
+        ].join("\n"),
+        imageConnection?.imagePromptInstructions,
+      );
+      logDebugOverride(
+        input.debugMode || isDebugAgentsEnabled(),
+        "[debug/gallery/regenerate/prompt] system:\n%s\nuser:\n%s",
+        systemPrompt,
+        userPrompt,
+      );
+      try {
+        const result = await runtime.provider.chatComplete(
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          {
+            model: runtime.model,
+            ...(runtime.suppressModelParameters
+              ? {}
+              : { maxTokens: Math.min(8192, estimateTextTokens(userPrompt) + 1024) }),
+            suppressModelParameters: runtime.suppressModelParameters,
+            preserveContext: true,
+            enableCaching: runtime.enableCaching,
+            anthropicExtendedCacheTtl: runtime.anthropicExtendedCacheTtl,
+            signal: createResponseAbortSignal(reply, IMAGE_PROMPT_REWRITE_TIMEOUT_MS, "Gallery prompt rewriting"),
+          },
+        );
+        const raw = result.content?.trim() ?? "";
+        const json = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)?.[1] ?? raw;
+        const revised = rewrittenGalleryImagePromptSchema.parse(JSON.parse(json));
+        const byId = new Map(revised.characterPrompts.map((character) => [character.id, character]));
+        if (
+          revised.characterPrompts.length !== input.characterPrompts.length ||
+          input.characterPrompts.some((_, id) => !byId.has(id))
+        ) {
+          throw new Error("Rewritten character prompt ids do not match the draft");
+        }
+        return {
+          prompt: revised.prompt,
+          negativePrompt: revised.negativePrompt,
+          characterPrompts: input.characterPrompts.map((character, id) => {
+            const { prompt, negativePrompt } = byId.get(id)!;
+            return { ...character, prompt, negativePrompt };
+          }),
+        };
+      } catch (err) {
+        logger.warn(err, "[gallery/regenerate/prompt] Prompt rewrite failed for chat %s", chatId);
+        return reply
+          .status(502)
+          .send({ error: "The Prompt Model could not return a valid revised prompt. Try again." });
+      }
+    },
+  );
+
   // Regenerate an existing image from its final request, optionally edited (#7767). The new image
   // replaces the old one wherever a message or storyboard frame shows it; the old one stays in the
   // gallery.
@@ -2064,24 +2227,19 @@ export async function galleryRoutes(app: FastifyInstance) {
       if (!original) return reply.status(404).send({ error: "Image not found" });
       const record = parseChatImageGenerationRecord(original.generation);
 
-      // The connection that made the image, unless the user picked another; images from before
-      // records existed (or whose connection is gone) use the chat's current image connection.
       const connectionsStore = createConnectionsStorage(app.db);
-      const preferredConnectionId = input.connectionId ?? record?.connectionId ?? null;
-      let imageConnection = preferredConnectionId ? await connectionsStore.getWithKey(preferredConnectionId) : null;
-      if (imageConnection && imageConnection.provider !== "image_generation") imageConnection = null;
+      const chatMeta = parseChatMetadata(chat.metadata);
+      const imageConnection = await resolveRegenerationImageConnection(
+        app,
+        connectionsStore,
+        chat.mode,
+        chatMeta,
+        input.connectionId,
+        record?.connectionId,
+      );
       if (input.connectionId && !imageConnection) {
         return reply.status(400).send({ error: "That image connection no longer exists." });
       }
-      const chatMeta = parseChatMetadata(chat.metadata);
-      // Conversation selfies use the chat's own image connection, not the Illustrator's.
-      const conversationConnectionId =
-        chat.mode === "conversation" ? readTrimmedString(chatMeta.imageGenConnectionId) : null;
-      if (!imageConnection && conversationConnectionId) {
-        const conversationConnection = await connectionsStore.getWithKey(conversationConnectionId);
-        if (conversationConnection?.provider === "image_generation") imageConnection = conversationConnection;
-      }
-      imageConnection ??= (await resolveGalleryImageConnection(app, chat.mode, chatMeta)).connection;
       if (!imageConnection) {
         return reply
           .status(400)
