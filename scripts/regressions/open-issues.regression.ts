@@ -5738,6 +5738,8 @@ assert.equal(isProfessorMariTranscriptNearBottom(professorMariTranscript), true)
   // Her window is still animating its height open: the content is unchanged, the viewport is not. The loop
   // must not read that as settled (#9115), so a frame budget of 6 is given to prove it keeps the frames.
   frame.clientHeight = 900;
+  // A growing viewport lets the browser clamp the position down to the new bottom; that is not the reader.
+  frame.scrollTop = frame.scrollHeight - frame.clientHeight;
   tick();
   assert.equal(pending.length, 1, "a viewport that is still growing does not end the landing");
   frame.scrollHeight = 5200; // a turn below the fold took its real height

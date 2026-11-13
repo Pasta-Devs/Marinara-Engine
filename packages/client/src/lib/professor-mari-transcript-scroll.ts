@@ -34,7 +34,8 @@ export function landProfessorMariTranscript(
   let handle: number | null = null;
   let geometry = "";
   let stable = 0;
-  // Where the card opens is not a scroll the reader made: only a move away from the last pin counts.
+  // The card's opening position is not a scroll the reader made: the bottom test applies only after a pin.
+  let pinned = false;
   let pinnedTop = node.scrollTop;
   let moved = false;
   let used = 0;
@@ -42,15 +43,20 @@ export function landProfessorMariTranscript(
     handle = null;
     if (moved || used++ > frames) return;
     if (node.clientHeight > 0) {
-      // Anywhere but where the last pin left it is the reader: growth below the fold leaves the scroll
-      // position alone (the pin moves it back itself), so this never mistakes our own pin for a scroll.
-      if (node.scrollTop !== pinnedTop) moved = true;
+      // A transcript the reader has scrolled up from leaves its newest line below the fold. Growth below
+      // that line leaves the position alone (the pin moves it back itself), and a viewport that grows lets
+      // the browser clamp the position down to the new bottom - neither is the reader, so the test is
+      // "is the newest line still on screen", not "is the position where I left it" (#9115, Dottore MEDIUM).
+      // Where the last pin left the transcript, or the bottom it clamped to when the viewport grew - any
+      // other position is the reader.
+      if (pinned) moved = node.scrollTop !== pinnedTop && node.scrollTop !== node.scrollHeight - node.clientHeight;
       if (moved) return;
       const next = `${node.scrollHeight}:${node.clientHeight}`;
       if (next === geometry && ++stable >= stableFrames) return;
       if (next !== geometry) stable = 0;
       geometry = next;
       scrollProfessorMariTranscriptToBottom(node);
+      pinned = true;
       pinnedTop = node.scrollTop;
       onPinned?.();
     }
