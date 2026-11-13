@@ -14,7 +14,28 @@ const AGENTS = [
   { id: "card-evolution-auditor", name: "Card Evolution Auditor", category: "writer", phase: "post_processing" },
   { id: "continuity", name: "Continuity", category: "writer", phase: "post_processing" },
   { id: "html", name: "HTML", category: "writer", phase: "post_processing" },
+  { id: "echo-chamber", name: "Echo Chamber", category: "misc", phase: "post_processing" },
 ];
+
+/** A saved agent config, as `/api/agents` returns it, with the prompt templates beyond Default. */
+function agentConfig(type: string, promptTemplates: Array<{ id: string; name: string }>) {
+  return {
+    id: `config-${type}`,
+    type,
+    name: type,
+    description: "",
+    phase: "post_processing",
+    enabled: "true",
+    connectionId: null,
+    imagePath: null,
+    promptTemplate: "Default prompt.",
+    settings: JSON.stringify({
+      promptTemplates: promptTemplates.map((template) => ({ ...template, promptTemplate: `${template.name} prompt.` })),
+    }),
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
 
 async function readMetadata(request: APIRequestContext, chatId: string) {
   const stored = (await (await request.get(`/api/chats/${chatId}`)).json()) as {
@@ -36,7 +57,7 @@ async function createRoleplayChat(request: APIRequestContext, activeAgentIds: st
   return chat.id;
 }
 
-async function openApp(page: Page, chatId: string) {
+async function openApp(page: Page, chatId: string, agentConfigs: unknown[] = []) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await page.route("**/api/capability-packages/agents", (route) =>
     route.fulfill({
@@ -52,7 +73,7 @@ async function openApp(page: Page, chatId: string) {
     }),
   );
   await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [] }));
-  await page.route("**/api/agents", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/agents", (route) => route.fulfill({ json: agentConfigs }));
   await seedUIState(page, {
     hasCompletedOnboarding: true,
     sidebarOpen: false,
@@ -123,6 +144,32 @@ test("Continuity and HTML share one Hold Message Until Rewrite switch", async ({
     await html.getByText("Hold Message Until Rewrite", { exact: true }).click();
     await expect.poll(async () => (await readMetadata(request, chatId)).proseGuardianHoldForRewrite).toBe(false);
     await expect(hold(continuity)).not.toBeChecked();
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Echo Chamber's card picks its prompt for this chat and opens its setup", async ({ page, request }) => {
+  const chatId = await createRoleplayChat(request, ["echo-chamber"]);
+  try {
+    await openApp(page, chatId, [agentConfig("echo-chamber", [{ id: "crowd", name: "Crowd" }])]);
+    const { settings, card } = await openAgentCard(page, chatId, "echo-chamber");
+    const prompt = card
+      .locator("label")
+      .filter({ hasText: /^Prompt/iu })
+      .locator("select");
+    await expect(prompt).toHaveValue("default");
+    await prompt.selectOption("crowd");
+    await expect
+      .poll(async () => (await readMetadata(request, chatId)).agentPromptTemplateIds)
+      .toEqual({ "echo-chamber": "crowd" });
+    // Picking Default again clears the chat's choice instead of storing it.
+    await prompt.selectOption("default");
+    await expect.poll(async () => (await readMetadata(request, chatId)).agentPromptTemplateIds).toEqual({});
+
+    await card.getByRole("button", { name: "Open Setup", exact: true }).click();
+    await expect(settings).toBeHidden();
+    await expect.poll(() => readAgentDetailId(page)).toBe("echo-chamber");
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
   }
