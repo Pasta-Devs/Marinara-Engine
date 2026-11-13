@@ -167,7 +167,7 @@ To run the full hosted matrix on the current staging candidate, use `gh workflow
 
 CI runs the full Node lane on Linux only (Platform Artifact Checks runs a few launcher and shutdown regressions on Windows and macOS), and most regressions are written on Linux or macOS, so one can pass every check and still fail on every Windows machine. Write each one to run on all three:
 
-- Give `import()` and `--import` a file URL, never a bare path: `pathToFileURL(require.resolve("three")).href`. On Windows, `C:\…` reads as a URL with the scheme `c:`.
+- Give `import()` and `--import` a file URL, never a bare path: `pathToFileURL(serverRequire.resolve("tsx/esm")).href`, where `serverRequire` is `createRequire(new URL("../../packages/server/package.json", import.meta.url))`. On Windows, `C:\…` reads as a URL with the scheme `c:`.
 - Build paths with `join`, and compare them with `/`-based strings or patterns only after `.split(sep).join("/")`. Escape a path before putting it in a regular expression, since Windows paths contain `\`.
 - Name the encoding when a test reads or writes text: `"utf8"` in Node, `"utf-8"` in Python, whose default on Windows is the system code page.
 - Pass a long script to a child process on stdin, not as a `-c` or `-e` argument: Windows limits a whole command line to 32,767 characters.
