@@ -123,6 +123,11 @@ import { reloadFeatureSettingsIfTouched } from "../features/feature-settings.js"
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 import { encryptCustomToolWebhookUrl, ENCRYPTED_WEBHOOK_PREFIX } from "../../utils/custom-tool-webhook.js";
 import { getProfessorMariWorkspaceSkillsService } from "../professor-mari/workspace-skills.service.js";
+import { isStarterThemeId } from "../storage/starter-themes.js";
+
+const STARTER_THEME_READ_ONLY =
+  "Starter themes are read-only. Ask the user to click Clone + Edit on it in CSS Themes (that copy keeps its pictures), then edit the copy.";
+const STARTER_THEME_ID_RESERVED = "Theme ids starting with starter- are for gallery downloads. Pick another id.";
 
 type Row = Record<string, unknown>;
 type Table = AnyFileTable;
@@ -9747,6 +9752,9 @@ export class MariDbService {
     const existingRows = await this.rawRows(THEME_TABLE);
 
     this.addThemeNameIssues(name, id, issues);
+    if (isStarterThemeId(id)) {
+      issues.push({ level: "error", table: THEME_TABLE, id, message: STARTER_THEME_ID_RESERVED });
+    }
     if (existingRows.some((row) => row[pk] === id)) {
       issues.push({ level: "error", table: THEME_TABLE, id, message: `Theme id ${id} already exists` });
     }
@@ -9768,6 +9776,9 @@ export class MariDbService {
       createdAt: timestamp,
       updatedAt: timestamp,
       isActive: request.activate ? THEME_ACTIVE_TRUE : THEME_ACTIVE_FALSE,
+      // The theme package column (pictures, fonts, credits) is required since round 6. Mari writes only the
+      // name and css, so a new theme starts with no package; without this every create was refused.
+      meta: "",
     });
     changes.push({
       table: THEME_TABLE,
@@ -9790,6 +9801,12 @@ export class MariDbService {
     const meta = getMeta(THEME_TABLE);
     const id = String(request.id ?? "");
     const existing = await this.requireRawById(meta, id);
+    if (isStarterThemeId(id)) {
+      // Same rule as PATCH /themes/:id: a starter is a gallery download, and the next gallery update
+      // would overwrite an edit. Clone + Edit in CSS Themes makes a copy that keeps its pictures.
+      issues.push({ level: "error", table: THEME_TABLE, id, message: STARTER_THEME_READ_ONLY });
+      return [];
+    }
     const next = parseRow(THEME_TABLE, existing);
     if (request.name !== undefined) {
       const name = request.name.trim();

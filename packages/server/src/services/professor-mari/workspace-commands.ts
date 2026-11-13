@@ -169,6 +169,8 @@ export function handbooksForAction(action: string, args: Record<string, unknown>
   if (skillId) ids.add(skillId);
   if (key === "character.update") CHARACTER_UPDATE_SKILLS.forEach((id) => ids.add(id));
   if (LINK_ACTIONS.has(key)) LINK_SKILLS.forEach((id) => ids.add(id));
+  // The design handbook rides along with the theme one while she works on a theme (two fit the sticky limit).
+  if (key.startsWith("theme.")) ids.add("builtin-theme-design");
   if (DECISION_CONTENT.test(JSON.stringify(args))) ids.add("builtin-decisions");
   return [...ids];
 }

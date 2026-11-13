@@ -112,6 +112,7 @@ try {
       "builtin-onboarding",
       "builtin-presets",
       "builtin-repair",
+      "builtin-theme-design",
       "builtin-themes",
       "ask-before-building",
     ],
@@ -150,6 +151,7 @@ try {
       "builtin:builtin-onboarding",
       "builtin:builtin-presets",
       "builtin:builtin-repair",
+      "builtin:builtin-theme-design",
       "builtin:builtin-themes",
       "user:ask-before-building",
       "user:user-builtin-wannabe",
@@ -205,6 +207,7 @@ try {
     "builtin-onboarding",
     "builtin-presets",
     "builtin-repair",
+    "builtin-theme-design",
     "builtin-themes",
   ]) {
     assert.ok(knowledge.includes(id), `the permanent prompt names ${id}`);
