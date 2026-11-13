@@ -1,3 +1,4 @@
+import { dungeonGuardMarks, dungeonSiteHere, gameDay } from "../services/game/dungeon-spawns.service.js";
 import { createRoomGameRuntime, type RoomGameRuntime } from "../services/multiplayer/game-runtime.js";
 import {
   currentRoomGeneration,
@@ -390,11 +391,13 @@ import {
   gameDungeonMapFromPlaceMap,
   gameDungeonMapSchema,
   gameDungeonOnWayOut,
+  gameDungeonOnWayDown,
+  gameDungeonOnWayUp,
+  gameDungeonMapForFloor,
+  gameDungeonSiteMap,
   worldPlaceMap,
   worldCast,
-  generateDungeonMap,
   gameDungeonSeed,
-  gameDungeonMapFromDungeon,
   dungeonFromGameDungeonMap,
   dungeonPath,
   dungeonWalkMinutes,
@@ -12230,7 +12233,17 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     const meta = parseMeta(chat.metadata);
-    return { map: gameDungeonMapFromMetadata(meta), walk: gameDungeonWalkFromMetadata(meta) };
+    const map = gameDungeonMapFromMetadata(meta);
+    // Where the holders keep their posts (dungeon spawns; owner 2026-11-13: their guards show on the map,
+    // squatters stay hidden until the party walks in on them).
+    const site = map
+      ? dungeonSiteHere({
+          meta,
+          setup: meta.gameSetupConfig as Record<string, unknown> | undefined,
+          world: await loadGameWorld(app.db, chat.id, meta),
+        })
+      : null;
+    return { map, walk: gameDungeonWalkFromMetadata(meta), guards: site ? dungeonGuardMarks(site, gameDay(meta)) : [] };
   });
 
   // POST /game/:chatId/map/walk: the party walks to a cell by the shortest way; the minutes go on the
@@ -12312,6 +12325,44 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     return { left };
   });
 
+  // POST /game/:chatId/map/stairs: the party takes the stairs it stands on (owner 2026-11-13: separate
+  // maps per floor): the way down to the next floor, at its way in; the way up to the floor above, at its
+  // way down. Each floor is laid out again from the place's seed, the same every time.
+  app.post<{ Params: { chatId: string } }>("/:chatId/map/stairs", async (req, reply) => {
+    const { chatId } = req.params;
+    const body = z.object({ map: z.string().min(1).max(80) }).parse(req.body);
+    const chats = createChatsStorage(app.db);
+    let map: GameDungeonMap | undefined;
+    const updated = await chats.patchMetadata(chatId, (fresh) => {
+      const kept = gameDungeonMapFromMetadata(fresh);
+      if (!kept || kept.id !== body.map) {
+        throw Object.assign(new Error("The party is not on that map."), { statusCode: 409 });
+      }
+      const floor = kept.floor ?? 1;
+      const down = gameDungeonOnWayDown(kept);
+      if ((!down && !gameDungeonOnWayUp(kept)) || kept.siteSeed === undefined || !kept.floors) {
+        throw Object.assign(new Error("There are no stairs here."), { statusCode: 400 });
+      }
+      const next = gameDungeonMapForFloor({
+        setId: kept.set,
+        name: kept.name,
+        siteSeed: kept.siteSeed,
+        floor: down ? floor + 1 : floor - 1,
+        floors: kept.floors,
+        id: randomUUID(),
+      });
+      map = {
+        ...next,
+        ...(kept.place ? { place: kept.place } : {}),
+        // Up, the party comes out at the way down of the floor above.
+        ...(!down && next.down ? { at: next.down } : {}),
+      };
+      return { gameDungeonMap: map, gameDungeonWalk: null };
+    });
+    if (!updated || !map) return reply.status(404).send({ error: "Chat not found" });
+    return { map };
+  });
+
   // POST /game/:chatId/map/enter: the party goes down into the place in town it stands at (a cave, a
   // mine, a crypt, a sewer, by its words; map editor Phase 3): its map, laid out from the game and the
   // place's name as the Game Master's `[map:]` would be, or the one the party is already on.
@@ -12380,8 +12431,11 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         if (!kept.success) throw Object.assign(new Error("This place's map can't be read."), { statusCode: 400 });
         map = kept.data;
       } else {
-        const made = generateDungeonMap(set.id, gameDungeonSeed(chatId, name), "medium");
-        map = { ...gameDungeonMapFromDungeon(made, name, randomUUID()), place: placeKey };
+        // Its first floor; a place deeper than one floor has its way down (owner 2026-11-13).
+        map = {
+          ...gameDungeonSiteMap({ setId: set.id, name, siteSeed: gameDungeonSeed(chatId, name), id: randomUUID() }),
+          place: placeKey,
+        };
       }
       return { gameDungeonMap: map, gameDungeonWalk: null, gameDungeonLeft: null, gameDungeonView: "map" };
     });

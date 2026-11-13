@@ -22,7 +22,13 @@ import {
 } from "../marinara-bestiary.js";
 import type { MarinaraEnemyTier } from "../marinara-combat.js";
 import { MARINARA_LEVEL_CAP, marinaraRandom } from "../marinara-classes.js";
-import { DUNGEON_SETS, dungeonFromGameDungeonMap, dungeonWalkable, type GameDungeonMap } from "./dungeon-map.js";
+import {
+  DUNGEON_SETS,
+  dungeonFromGameDungeonMap,
+  dungeonWalkable,
+  gameDungeonMapForFloor,
+  type GameDungeonMap,
+} from "./dungeon-map.js";
 import type { WorldHistory } from "./history.js";
 
 /** What kind of place a site is, which decides who holds it. */
@@ -55,6 +61,10 @@ export type DungeonAreaRole = "entry" | "guard" | "lair" | "empty" | "rest" | "h
 export interface DungeonArea {
   /** The map's area number (1-based, as the Game Master's prompt counts them). */
   area: number;
+  /** Where its clearing is kept (dungeonAreaKey). */
+  key: string;
+  /** The way down to the next floor stands in it: the holders guard it. */
+  wayDown?: true;
   role: DungeonAreaRole;
   level: number;
   foes: MarinaraEncounterFoe[];
@@ -154,34 +164,59 @@ export function dungeonSiteFate(
   return undefined;
 }
 
-/** A site's band from the land around it: the region's band, the kind of place's offset on top. */
-export function dungeonSiteBand(origin: DungeonSiteOrigin, region: DungeonLevelBand): DungeonLevelBand {
-  const low = Math.max(1, Math.min(MARINARA_LEVEL_CAP - BAND_SPAN, Math.round(region.low) + ORIGIN_OFFSET[origin]));
-  return { low, high: Math.min(MARINARA_LEVEL_CAP, low + BAND_SPAN) };
+/** How many floors each kind of place has, at least and at most (owner 2026-11-13: separate maps). */
+const ORIGIN_FLOORS: Record<DungeonSiteOrigin, readonly [number, number]> = {
+  cave: [1, 2],
+  mine: [2, 3],
+  crypt: [2, 3],
+  ruin: [1, 2],
+  sewer: [1, 2],
+  station: [1, 2],
+};
+/** How many levels each floor down climbs. */
+const FLOOR_RISE = 2;
+
+/** How many floors a place has: by its kind, drawn from its seed. */
+export function dungeonSiteFloors(origin: DungeonSiteOrigin, siteSeed: number): number {
+  const [least, most] = ORIGIN_FLOORS[origin];
+  return least + Math.floor(marinaraRandom(`${siteSeed}:floors`)() * (most - least + 1));
+}
+
+/** A site's band from the land around it: the region's band, the kind of place's offset on top, and two
+ *  levels more for each floor below the first. */
+export function dungeonSiteBand(origin: DungeonSiteOrigin, region: DungeonLevelBand, floors = 1): DungeonLevelBand {
+  const deeper = FLOOR_RISE * Math.max(0, floors - 1);
+  const low = Math.max(
+    1,
+    Math.min(MARINARA_LEVEL_CAP - BAND_SPAN - deeper, Math.round(region.low) + ORIGIN_OFFSET[origin]),
+  );
+  return { low, high: Math.min(MARINARA_LEVEL_CAP, low + BAND_SPAN + deeper) };
 }
 
 /**
- * A region's band where the world has none of its own yet (the Overworld's region bands replace it): the
- * further from where the game began, the higher, from levels 1-4 at the start to the low twenties at the
- * far edge of the map.
+ * A floor of a place laid out by its name (owner 2026-11-13: separate maps per floor): how many floors it
+ * has follows from what kind of place it is and its seed, the same every time it is laid out.
  */
-export function dungeonFallbackRegionBand(
-  world: {
-    width: number;
-    height: number;
-    places: ReadonlyArray<{ id: string; at: { x: number; y: number } }>;
-    startId: string;
-  },
-  at: { x: number; y: number },
-): DungeonLevelBand {
-  const start = world.places.find((place) => place.id === world.startId)?.at ?? {
-    x: world.width / 2,
-    y: world.height / 2,
-  };
-  const reach = Math.max(1, Math.hypot(world.width, world.height) / 2);
-  const share = Math.min(1, Math.hypot(at.x - start.x, at.y - start.y) / reach);
-  const low = 1 + Math.round(share * 20);
-  return { low, high: low + 3 };
+export function gameDungeonSiteMap(input: {
+  setId: string;
+  name: string;
+  siteSeed: number;
+  id: string;
+  floor?: number;
+}): GameDungeonMap {
+  const floors = dungeonSiteFloors(dungeonSiteOrigin(input.setId, input.name), input.siteSeed);
+  return gameDungeonMapForFloor({ ...input, floor: input.floor ?? 1, floors });
+}
+
+/** One floor's band within its site's: two levels deeper for each floor down. */
+export function dungeonFloorBand(band: DungeonLevelBand, floor: number): DungeonLevelBand {
+  const low = Math.min(band.high, band.low + FLOOR_RISE * Math.max(0, floor - 1));
+  return { low, high: Math.min(band.high, low + BAND_SPAN) };
+}
+
+/** The key an area's clearing is kept under: its number on the first floor, "floor:area" below it. */
+export function dungeonAreaKey(floor: number, area: number): string {
+  return floor > 1 ? `${floor}:${area}` : String(area);
 }
 
 /** Whether a family can stand in a site at every level of its band, in the game's setting. */
@@ -336,6 +371,9 @@ function squatRoster(
  */
 export function dungeonAreas(map: GameDungeonMap, site: DungeonSite, setting: MarinaraBestiarySetting): DungeonArea[] {
   if (map.hand || !map.rooms.length) return [];
+  const floor = map.floor ?? 1;
+  const deepest = floor >= (map.floors ?? 1);
+  const band = dungeonFloorBand(site.band, floor);
   const cells = dungeonFromGameDungeonMap(map);
   // Steps from the way in to every cell.
   const steps = new Int32Array(cells.width * cells.height).fill(-1);
@@ -377,18 +415,43 @@ export function dungeonAreas(map: GameDungeonMap, site: DungeonSite, setting: Ma
     map.entrance.y < room.y + room.h;
   const entry = Math.max(0, map.rooms.findIndex(inside));
   const far = Math.max(1, ...distance);
-  const heart = distance.reduce((best, d, index) => (index !== entry && d > (distance[best] ?? -1) ? index : best), -1);
-  const random = marinaraRandom(`${map.seed}:areas:${site.holder}:${site.band.low}`);
+  const furthest = distance.reduce(
+    (best, d, index) => (index !== entry && d > (distance[best] ?? -1) ? index : best),
+    -1,
+  );
+  // The heart is on the deepest floor; above it, the furthest area is where the way down is, held.
+  const heart = deepest ? furthest : -1;
+  const downArea = map.down
+    ? map.rooms.findIndex(
+        (room) =>
+          map.down!.x >= room.x &&
+          map.down!.x < room.x + room.w &&
+          map.down!.y >= room.y &&
+          map.down!.y < room.y + room.h,
+      )
+    : -1;
+  const random = marinaraRandom(`${map.seed}:areas:${site.holder}:${band.low}`);
   const levelAt = (index: number) =>
-    Math.round(site.band.low + ((site.band.high - 1 - site.band.low) * Math.max(0, distance[index]!)) / far);
+    Math.round(band.low + ((band.high - 1 - band.low) * Math.max(0, distance[index]!)) / far);
   const areas: DungeonArea[] = map.rooms.map((_, index) => {
-    const level = index === heart ? site.band.high : levelAt(index);
-    if (index === entry || distance[index]! < 0) return { area: index + 1, role: "entry", level, foes: [] };
+    const level = index === heart ? band.high : levelAt(index);
+    const area = index + 1;
+    const key = dungeonAreaKey(floor, area);
+    if (index === entry || distance[index]! < 0) return { area, key, role: "entry", level, foes: [] };
+    if (index === downArea) {
+      const foes = fitted(
+        setting,
+        level,
+        group(site.holder, "standard", level, 2 + Math.floor(random() * 2)),
+        "normal",
+      );
+      return { area, key, role: "guard", wayDown: true, level, foes };
+    }
     if (index === heart) {
       const top = marinaraEnemyFamily(site.leader ?? site.holder)!;
       const head = group(top.id, top.tiers.includes("boss") ? "boss" : "elite", level, 1);
       const guard = group(site.holder, "standard", level, site.leader ? 2 : 1 + Math.floor(random() * 2));
-      return { area: index + 1, role: "heart", level, foes: fitted(setting, level, [...head, ...guard], "hard") };
+      return { area, key, role: "heart", level, foes: fitted(setting, level, [...head, ...guard], "hard") };
     }
     const deep = distance[index]! / far >= 0.5;
     if (deep && random() < 0.75) {
@@ -398,11 +461,10 @@ export function dungeonAreas(map: GameDungeonMap, site: DungeonSite, setting: Ma
         group(site.holder, "standard", level, 2 + Math.floor(random() * 2)),
         "normal",
       );
-      return { area: index + 1, role: "guard", level, foes };
+      return { area, key, role: "guard", level, foes };
     }
-    if (random() < 0.5)
-      return { area: index + 1, role: "lair", level, foes: squatRoster(site, setting, level, random) };
-    return { area: index + 1, role: "empty", level, foes: [] };
+    if (random() < 0.5) return { area, key, role: "lair", level, foes: squatRoster(site, setting, level, random) };
+    return { area, key, role: "empty", level, foes: [] };
   });
   // One empty area (the one nearest halfway in) is quiet enough to rest in.
   const quiet = areas
@@ -423,7 +485,8 @@ export const gameDungeonSiteStateSchema = z
   .object({
     band: z.object({ low: z.number().int().min(1).max(40), high: z.number().int().min(1).max(40) }).strict(),
     fate: z.enum(DUNGEON_SITE_FATES).optional(),
-    cleared: z.record(z.string().regex(/^\d{1,2}$/u), z.number().int().min(0)).default({}),
+    /** Area keys (dungeonAreaKey: "5" on the first floor, "2:5" below) to the day each was cleared. */
+    cleared: z.record(z.string().regex(/^(\d:)?\d{1,2}$/u), z.number().int().min(0)).default({}),
     /** The heart's leader is dead and stays dead. */
     leaderDead: z.literal(true).optional(),
     /** The holders are gone for good (owner 2026-11-13): people who lost their chief, or driven out by the
@@ -486,13 +549,13 @@ export function dungeonAreaFoesNow(
   state: GameDungeonSiteState,
   today: number,
 ): MarinaraEncounterFoe[] {
-  const cleared = state.cleared[String(area.area)];
+  const cleared = state.cleared[area.key];
   const squat = (why: string) =>
-    squatRoster(site, setting, area.level, marinaraRandom(`${area.area}:${why}:${site.holder}`));
+    squatRoster(site, setting, area.level, marinaraRandom(`${area.key}:${why}:${site.holder}`));
   if (area.role === "heart") return cleared === undefined && !state.leaderDead && !state.displaced ? area.foes : [];
   if (cleared === undefined) {
     if (area.role !== "guard" || !state.displaced) return area.foes;
-    return marinaraRandom(`${area.area}:left:${site.holder}`)() < 0.5 ? squat("left") : [];
+    return marinaraRandom(`${area.key}:left:${site.holder}`)() < 0.5 ? squat("left") : [];
   }
   if (area.role === "entry" || area.role === "rest") return [];
   if (today < cleared + DUNGEON_REFILL_DAYS) return [];
@@ -505,13 +568,13 @@ export function dungeonAreaFoesNow(
 export function dungeonSiteAfterWin(
   state: GameDungeonSiteState,
   site: DungeonSite,
-  area: Pick<DungeonArea, "area" | "role">,
+  area: Pick<DungeonArea, "key" | "role">,
   today: number,
 ): GameDungeonSiteState {
   const heart = area.role === "heart";
   return {
     ...state,
-    cleared: { ...state.cleared, [String(area.area)]: today },
+    cleared: { ...state.cleared, [area.key]: today },
     ...(heart ? { leaderDead: true as const } : {}),
     ...(heart && dungeonHoldersScatter(site)
       ? { displaced: true as const }
@@ -573,20 +636,34 @@ export function dungeonSpawnPromptText(input: {
   const holderFamily = marinaraEnemyFamily(site.holder);
   const holderName = (holderFamily && marinaraEnemyName(holderFamily, setting, site.band.low)) ?? site.holder;
   const here = dungeonAreaNumberAt(map, map.at);
+  const floor = map.floor ?? 1;
+  const floors = map.floors ?? 1;
+  const floorBand = dungeonFloorBand(site.band, floor);
+  const floorLine =
+    floors > 1
+      ? ` This is floor ${floor} of ${floors}, its foes levels ${floorBand.low}-${floorBand.high}; each floor down is deadlier.`
+      : "";
   const lines = [
     input.state.displaced
-      ? `WHO IS IN ${map.name.toUpperCase()}: a ${site.origin} once held by ${holderName}, who are gone for good; only squatters remain. Foes here are levels ${site.band.low}-${site.band.high}, fixed by the world and never by the party.`
+      ? `WHO IS IN ${map.name.toUpperCase()}: a ${site.origin} once held by ${holderName}, who are gone for good; only squatters remain. Foes here are levels ${site.band.low}-${site.band.high}, fixed by the world and never by the party.${floorLine}`
       : `WHO IS IN ${map.name.toUpperCase()}: a ${site.origin} held by ${holderName}${
           site.fate ? `, since the ${FATE_WORDS[site.fate]} that touched it` : ""
-        }; foes here are levels ${site.band.low}-${site.band.high}, fixed by the world and never by the party.`,
+        }; foes here are levels ${site.band.low}-${site.band.high}, fixed by the world and never by the party.${floorLine}`,
   ];
   for (const area of input.areas) {
     const foes = dungeonAreaFoesNow(area, site, setting, input.state, input.today);
-    const role = area.role === "heart" ? " (the heart)" : area.role === "rest" ? " (quiet: safe to rest)" : "";
+    const role =
+      area.role === "heart"
+        ? " (the heart)"
+        : area.wayDown
+          ? " (the way down)"
+          : area.role === "rest"
+            ? " (quiet: safe to rest)"
+            : "";
     const where = area.area === here ? " (the party is here)" : "";
     const who = foes.length
       ? dungeonRosterWords(foes, setting)
-      : input.state.cleared[String(area.area)] !== undefined
+      : input.state.cleared[area.key] !== undefined
         ? "cleared"
         : "nobody";
     lines.push(`- Area ${area.area}${role}${where}: ${who}.`);

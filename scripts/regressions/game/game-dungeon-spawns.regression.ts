@@ -15,21 +15,30 @@ import {
 } from "../../../packages/shared/src/features/marinara-bestiary.js";
 import {
   DUNGEON_SETS,
+  dungeonFromGameDungeonMap,
+  dungeonPath,
+  gameDungeonMapForFloor,
   gameDungeonMapFromDungeon,
+  gameDungeonOnWayDown,
+  gameDungeonOnWayOut,
+  gameDungeonOnWayUp,
   generateDungeonMap,
 } from "../../../packages/shared/src/features/world/dungeon-map.js";
 import { marinaraFightStart } from "../../../packages/server/src/services/game/marinara-fight-start.service.js";
 import {
   dungeonFightEndPatch,
   dungeonFoesHere,
+  dungeonGuardMarks,
   dungeonSiteHere,
 } from "../../../packages/server/src/services/game/dungeon-spawns.service.js";
 import type { Combatant } from "../../../packages/shared/src/types/game.js";
 import {
   DUNGEON_REFILL_DAYS,
+  dungeonFloorBand,
+  dungeonSiteFloors,
+  gameDungeonSiteMap,
   dungeonAreaFoesNow,
   dungeonAreas,
-  dungeonFallbackRegionBand,
   dungeonSiteBand,
   dungeonSiteFate,
   dungeonSiteAfterWin,
@@ -37,6 +46,7 @@ import {
   dungeonSiteOrigin,
   dungeonSpawnPromptText,
   gameDungeonSiteStateSchema,
+  dungeonAreaNumberAt as dungeonAreaNumberAtCell,
   readGameDungeonSiteTags,
 } from "../../../packages/shared/src/features/world/dungeon-spawns.js";
 
@@ -76,7 +86,10 @@ for (const setting of MARINARA_BESTIARY_SETTINGS) {
           assert.ok(area.foes.length <= MARINARA_MAX_FOES, "a fight has room for six");
           assert.ok(area.foes.filter((foe) => foe.tier === "boss").length <= 1, "one boss at most");
           for (const foe of area.foes) {
-            assert.ok(foe.level >= band.low && foe.level <= band.high, `level ${foe.level} outside ${band.low}-${band.high}`);
+            assert.ok(
+              foe.level >= band.low && foe.level <= band.high,
+              `level ${foe.level} outside ${band.low}-${band.high}`,
+            );
             assert.ok(foe.level >= MARINARA_TIER_RULES[foe.tier].minLevel, `${foe.tier} at level ${foe.level}`);
           }
         }
@@ -118,8 +131,17 @@ assert.ok(missing / (sites + missing) < 0.05, `${missing} of ${sites + missing} 
 
 // A map made by hand has no rosters: its author writes who is there.
 {
-  const map = { ...gameDungeonMapFromDungeon(generateDungeonMap("cave_rock", 1, "small"), "Den", "m"), hand: true as const };
-  const site = dungeonSiteFor({ setId: "cave_rock", name: "Den", setting: "high_fantasy", band: { low: 3, high: 7 }, seed: 1 })!;
+  const map = {
+    ...gameDungeonMapFromDungeon(generateDungeonMap("cave_rock", 1, "small"), "Den", "m"),
+    hand: true as const,
+  };
+  const site = dungeonSiteFor({
+    setId: "cave_rock",
+    name: "Den",
+    setting: "high_fantasy",
+    band: { low: 3, high: 7 },
+    seed: 1,
+  })!;
   assert.deepEqual(dungeonAreas(map, site, "high_fantasy"), []);
 }
 
@@ -127,8 +149,22 @@ assert.ok(missing / (sites + missing) < 0.05, `${missing} of ${sites + missing} 
 {
   const history = {
     events: [
-      { yearsAgo: 40, kind: "catastrophe" as const, text: "Plague struck Varn; many died.", places: ["p1"], groups: [], severe: true as const },
-      { yearsAgo: 40, kind: "catastrophe" as const, text: "Old Varn was abandoned after it.", places: ["p1"], groups: [], severe: true as const },
+      {
+        yearsAgo: 40,
+        kind: "catastrophe" as const,
+        text: "Plague struck Varn; many died.",
+        places: ["p1"],
+        groups: [],
+        severe: true as const,
+      },
+      {
+        yearsAgo: 40,
+        kind: "catastrophe" as const,
+        text: "Old Varn was abandoned after it.",
+        places: ["p1"],
+        groups: [],
+        severe: true as const,
+      },
     ],
   };
   assert.equal(dungeonSiteFate(history, "Old Varn"), "sickness");
@@ -145,19 +181,17 @@ assert.ok(missing / (sites + missing) < 0.05, `${missing} of ${sites + missing} 
   assert.ok(["gorger", "bones", "shade"].includes(site.holder), `plague ruin held by ${site.holder}`);
 }
 
-// The fallback region band climbs away from where the game began.
-{
-  const world = { width: 40, height: 30, startId: "s", places: [{ id: "s", at: { x: 5, y: 5 } }] };
-  const near = dungeonFallbackRegionBand(world, { x: 6, y: 5 });
-  const far = dungeonFallbackRegionBand(world, { x: 39, y: 29 });
-  assert.ok(near.low <= 2 && far.low > near.low + 10, `bands ${near.low} and ${far.low}`);
-}
-
 // Displaced holders never come back (owner 2026-11-13): a gang that lost its chief scatters, and its posts
 // stand empty or squatters take them; beasts that lost their alpha breed back.
 {
   const map = gameDungeonMapFromDungeon(generateDungeonMap("dungeon_sewer", 4, "medium"), "Old Drains", "m");
-  const gang = { origin: "sewer" as const, band: { low: 6, high: 10 }, holder: "cutpurse", leader: "captain", squatters: ["gnawer"] };
+  const gang = {
+    origin: "sewer" as const,
+    band: { low: 6, high: 10 },
+    holder: "cutpurse",
+    leader: "captain",
+    squatters: ["gnawer"],
+  };
   const areas = dungeonAreas(map, gang, "the_1920s");
   const heart = areas.find((area) => area.role === "heart")!;
   const guards = areas.filter((area) => area.role === "guard");
@@ -170,9 +204,18 @@ assert.ok(missing / (sites + missing) < 0.05, `${missing} of ${sites + missing} 
   const later = dungeonSiteAfterWin(won, gang, guards[0]!, 5);
   for (const foe of dungeonAreaFoesNow(guards[0]!, gang, "the_1920s", later, 30))
     assert.notEqual(foe.familyId, gang.holder, "a refilled post is squatters'");
-  assert.match(dungeonSpawnPromptText({ map, site: gang, areas, state: won, setting: "the_1920s", today: 5 }), /gone for good/u);
+  assert.match(
+    dungeonSpawnPromptText({ map, site: gang, areas, state: won, setting: "the_1920s", today: 5 }),
+    /gone for good/u,
+  );
 
-  const den = dungeonSiteFor({ setId: "cave_rock", name: "Den", setting: "high_fantasy", band: { low: 3, high: 7 }, seed: 1 })!;
+  const den = dungeonSiteFor({
+    setId: "cave_rock",
+    name: "Den",
+    setting: "high_fantasy",
+    band: { low: 3, high: 7 },
+    seed: 1,
+  })!;
   if (!["cunning", "tactical", "genius"].includes(marinaraEnemyFamily(den.holder)!.mind)) {
     const caveMap = gameDungeonMapFromDungeon(generateDungeonMap("cave_rock", 2, "medium"), "Den", "m");
     const caveAreas = dungeonAreas(caveMap, den, "high_fantasy");
@@ -210,7 +253,20 @@ assert.ok(missing / (sites + missing) < 0.05, `${missing} of ${sites + missing} 
   const foes = dungeonFoesHere(here, 4)!;
   assert.equal(foes.area.area, held.area);
   const unit = (id: string, name: string, side: "player" | "enemy"): Combatant =>
-    ({ id, name, side, hp: 20, maxHp: 20, mp: 0, maxMp: 0, attack: 5, defense: 5, speed: 5, level: 1, skills: [] }) as unknown as Combatant;
+    ({
+      id,
+      name,
+      side,
+      hp: 20,
+      maxHp: 20,
+      mp: 0,
+      maxMp: 0,
+      attack: 5,
+      defense: 5,
+      speed: 5,
+      level: 1,
+      skills: [],
+    }) as unknown as Combatant;
   const start = marinaraFightStart({
     gameId: "g",
     cards: [],
@@ -235,7 +291,10 @@ assert.ok(missing / (sites + missing) < 0.05, `${missing} of ${sites + missing} 
     setting: "high_fantasy",
     placeFoes: foes.foes,
   });
-  assert.deepEqual(story.enemies.map((one) => one.name), ["The Warden"]);
+  assert.deepEqual(
+    story.enemies.map((one) => one.name),
+    ["The Warden"],
+  );
 
   meta.gameDungeonFight = { key: here.key, area: held.area };
   assert.deepEqual(dungeonFightEndPatch(meta, "flee"), { gameDungeonFight: null }, "fleeing clears nothing");
@@ -245,8 +304,91 @@ assert.ok(missing / (sites + missing) < 0.05, `${missing} of ${sites + missing} 
   const after = { ...meta, ...won };
   const later = dungeonSiteHere({ meta: after, setup: after.gameSetupConfig as Record<string, unknown>, world: null })!;
   assert.equal(dungeonFoesHere(later, 5), null, "a cleared area stays empty");
+  // The holders' posts show on the map, squatters never; a cleared post no longer shows.
+  const marks = dungeonGuardMarks(here, 4);
+  const posts = here.areas.filter((area) => (area.role === "guard" || area.role === "heart") && area.foes.length);
+  assert.equal(marks.length, posts.length, "every held post shows");
+  assert.ok(
+    marks.some((mark) => mark.heart),
+    "the heart shows",
+  );
+  for (const mark of marks) assert.equal(dungeonAreaNumberAtCell(base, mark), mark.area, "a mark stands in its area");
+  const baseCells = dungeonFromGameDungeonMap(base);
+  for (const mark of marks)
+    assert.equal(baseCells.props[mark.y * base.width + mark.x], -1, "a mark stands clear of props");
+  if (held.role === "guard") assert.ok(!dungeonGuardMarks(later, 5).some((mark) => mark.area === held.area));
   // A game without Classic classes has no dungeon foes.
   assert.equal(dungeonSiteHere({ meta, setup: { marinaraClasses: false }, world: null }), null);
+}
+
+// Floors (owner 2026-11-13: separate maps per floor): a place's floors are its own maps, the first the
+// map it always had, each below reached by a way down in the furthest area, guarded by the holders, and
+// every floor deadlier than the one above; the heart is on the deepest floor only.
+{
+  const setting = "high_fantasy";
+  let deepSites = 0;
+  for (const set of DUNGEON_SETS) {
+    for (let seed = 1; seed <= 12; seed++) {
+      const name = set.id.startsWith("dungeon_crypt") ? "Old Crypt" : "Deep Hollow";
+      const first = gameDungeonSiteMap({ setId: set.id, name, siteSeed: seed, id: "f1" });
+      const floors = dungeonSiteFloors(dungeonSiteOrigin(set.id, name), seed);
+      assert.equal(first.floors ?? 1, floors, "the first floor knows how deep its place goes");
+      const plain = gameDungeonMapFromDungeon(generateDungeonMap(set.id, seed, "medium"), name, "f1");
+      assert.equal(first.ground, plain.ground, "the first floor is the map the place always had");
+      assert.ok(gameDungeonOnWayOut(first), "the party comes in at the way out");
+      if (floors <= 1) continue;
+      deepSites++;
+      const region = { low: 3, high: 6 };
+      const band = dungeonSiteBand(dungeonSiteOrigin(set.id, name), region, floors);
+      const site = dungeonSiteFor({ setId: set.id, name, setting, band, seed })!;
+      assert.ok(site, `${set.id} ${seed} has holders`);
+      let lastLow = 0;
+      for (let floor = 1; floor <= floors; floor++) {
+        const map = gameDungeonMapForFloor({ setId: set.id, name, siteSeed: seed, floor, floors, id: `f${floor}` });
+        assert.equal(map.floor, floor);
+        const cells = dungeonFromGameDungeonMap(map);
+        const areas = dungeonAreas(map, site, setting);
+        const floorBand = dungeonFloorBand(band, floor);
+        assert.ok(floorBand.low >= lastLow, "a floor down is never easier");
+        lastLow = floorBand.low;
+        for (const area of areas) {
+          assert.equal(area.key, floor > 1 ? `${floor}:${area.area}` : String(area.area));
+          for (const foe of area.foes) assert.ok(foe.level >= floorBand.low - 1, "foes keep their floor's band");
+        }
+        assert.equal(
+          areas.some((area) => area.role === "heart"),
+          floor === floors,
+          "the heart is deepest",
+        );
+        if (floor > 1) {
+          assert.ok(gameDungeonOnWayUp(map), "below the first floor the way in leads up");
+          assert.ok(!gameDungeonOnWayOut(map), "and never out");
+        }
+        if (floor < floors) {
+          assert.ok(map.down, `${set.id} ${seed} floor ${floor} has a way down`);
+          assert.ok(dungeonPath(cells, map.at, map.down!), "the way down can be walked to");
+          const downArea = areas.find((area) => area.wayDown);
+          if (downArea) assert.ok(downArea.foes.length > 0, "the way down is held");
+          const there = { ...map, at: map.down! };
+          assert.ok(gameDungeonOnWayDown(there) && !gameDungeonOnWayOut(there));
+        } else assert.equal(map.down, undefined, "the deepest floor has no way down");
+      }
+      const text = dungeonSpawnPromptText({
+        map: gameDungeonMapForFloor({ setId: set.id, name, siteSeed: seed, floor: 2, floors, id: "f2" }),
+        site,
+        areas: dungeonAreas(
+          gameDungeonMapForFloor({ setId: set.id, name, siteSeed: seed, floor: 2, floors, id: "f2" }),
+          site,
+          setting,
+        ),
+        state: { band, cleared: {} },
+        setting,
+        today: 1,
+      });
+      assert.match(text, new RegExp(`floor 2 of ${floors}`));
+    }
+  }
+  assert.ok(deepSites > 20, `places deeper than one floor are common (${deepSites})`);
 }
 
 console.log(`dungeon spawns: ${sites} sites, ${missing} with nobody`);

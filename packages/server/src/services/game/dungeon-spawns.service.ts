@@ -4,9 +4,10 @@
 
 import {
   dungeonAreaFoesNow,
+  dungeonFromGameDungeonMap,
+  dungeonWalkable,
   dungeonAreaNumberAt,
   dungeonAreas,
-  dungeonFallbackRegionBand,
   dungeonRosterWords,
   dungeonSiteBand,
   dungeonSiteFate,
@@ -18,9 +19,11 @@ import {
   gameDungeonSitesWith,
   dungeonSiteAfterWin,
   marinaraBestiarySetting,
+  normalizeGameDifficulty,
   readMarinaraCardProgression,
   worldHistory,
   worldPlaceByName,
+  worldRegionBand,
   worldSiteAnchor,
   type DungeonArea,
   type DungeonSite,
@@ -74,7 +77,8 @@ export function gamePartyLevel(meta: Record<string, unknown>): number | undefine
 }
 
 /**
- * A new site's state: its band from the land where it lies (the site's own place, else where the party
+ * A new site's state: its band from the land where it lies (the region's band, the game's difficulty
+ * shifting it) (the site's own place, else where the party
  * stands on the overworld, else where the game began) and how it fell. Set once and kept: the band never
  * moves after.
  */
@@ -83,6 +87,7 @@ export function newDungeonSiteState(
   map: GameDungeonMap,
   partyPlace: string | undefined,
   partyLevel: number | undefined,
+  difficulty?: string,
 ): GameDungeonSiteState {
   const origin = dungeonSiteOrigin(map.set, map.name);
   const place =
@@ -95,11 +100,11 @@ export function newDungeonSiteState(
   // With no world to read, the land is where the party first found the place.
   const region =
     world && at
-      ? dungeonFallbackRegionBand(world.world, at)
+      ? worldRegionBand(world, at, difficulty)
       : { low: Math.max(1, Math.round(partyLevel ?? 1)), high: Math.max(1, Math.round(partyLevel ?? 1)) + 3 };
   const anchor = world && place ? worldSiteAnchor(world, place) : undefined;
   const fate = world ? dungeonSiteFate(worldHistory(world), map.name, anchor?.id) : undefined;
-  return { band: dungeonSiteBand(origin, region), ...(fate ? { fate } : {}), cleared: {} };
+  return { band: dungeonSiteBand(origin, region, map.floors ?? 1), ...(fate ? { fate } : {}), cleared: {} };
 }
 
 /** The site of the map the party is on, with its areas and state; null when there is none to have foes. */
@@ -115,14 +120,16 @@ export function dungeonSiteHere(input: {
   if (!setting) return null;
   const key = gameDungeonSiteKey(map);
   const kept = gameDungeonSitesFromMetadata(input.meta)[key];
-  const state = kept ?? newDungeonSiteState(input.world, map, input.partyPlace, gamePartyLevel(input.meta));
+  const difficulty =
+    typeof input.setup?.difficulty === "string" ? normalizeGameDifficulty(input.setup.difficulty) : undefined;
+  const state = kept ?? newDungeonSiteState(input.world, map, input.partyPlace, gamePartyLevel(input.meta), difficulty);
   const site = dungeonSiteFor({
     setId: map.set,
     name: map.name,
     setting,
     band: state.band,
     ...(state.fate ? { fate: state.fate } : {}),
-    seed: map.seed,
+    seed: map.siteSeed ?? map.seed,
   });
   if (!site) return null;
   return { key, map, setting, site, areas: dungeonAreas(map, site, setting), state, fresh: !kept };
@@ -182,4 +189,43 @@ export function dungeonFightEndPatch(
     dungeonSiteAfterWin(here.state, here.site, area, gameDay(meta)),
   );
   return patch;
+}
+
+/** A post of the holders on the map, for the party to see: where it is, how many stand there, and
+ *  whether it is the heart. */
+export interface DungeonGuardMark {
+  x: number;
+  y: number;
+  area: number;
+  count: number;
+  heart: boolean;
+}
+
+/** The holders' posts as the party sees them on the map (owner 2026-11-13): every guard post and the heart
+ *  while the holders still hold them. Squatters are never shown. */
+export function dungeonGuardMarks(here: DungeonSiteHere, today: number): DungeonGuardMark[] {
+  const holders = new Set([here.site.holder, ...(here.site.leader ? [here.site.leader] : [])]);
+  const cells = dungeonFromGameDungeonMap(here.map);
+  return here.areas.flatMap((area) => {
+    if (area.role !== "guard" && area.role !== "heart") return [];
+    const foes = dungeonAreaFoesNow(area, here.site, here.setting, here.state, today).filter((foe) =>
+      holders.has(foe.familyId),
+    );
+    if (!foes.length) return [];
+    const room = here.map.rooms[area.area - 1]!;
+    // The room's middle, or the walkable cell nearest it; a cell clear of props (an urn, a lamp, the stairs)
+    // first, so the figure never stands in one, and never the cell above it, where its head would be.
+    const middle = { x: room.x + Math.floor(room.w / 2), y: room.y + Math.floor(room.h / 2) };
+    const clear = (x: number, y: number) =>
+      cells.props[y * cells.width + x] === -1 && (y === 0 || cells.props[(y - 1) * cells.width + x] === -1);
+    let at = middle;
+    let best = Infinity;
+    for (let y = room.y; y < room.y + room.h; y++)
+      for (let x = room.x; x < room.x + room.w; x++) {
+        if (!dungeonWalkable(cells, x, y)) continue;
+        const away = Math.abs(x - middle.x) + Math.abs(y - middle.y) + (clear(x, y) ? 0 : 100);
+        if (away < best) [at, best] = [{ x, y }, away];
+      }
+    return [{ ...at, area: area.area, count: foes.length, heart: area.role === "heart" }];
+  });
 }
