@@ -57,6 +57,9 @@ const mutation = (name: string, value?: unknown) => ({
 const createHandler = new Function("context", `with(context) { ${javascript} }`);
 const context = {
   savingRef: { current: false },
+    setSaving: () => {},
+    forJob: { assign: true },
+    openUseFor: () => {},
   provider: "custom",
   accountFields: () => ({}),
   name: "",
