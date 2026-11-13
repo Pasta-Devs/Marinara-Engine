@@ -17,20 +17,23 @@ export function scrollProfessorMariTranscriptToBottom(container: ProfessorMariTr
 /**
  * #9115: pin a newly opened transcript to its newest line until its height holds still. Older turns off
  * screen have only an estimated height (content-visibility), and the ones the bottom brings into view take
- * their real height a frame or more later, pushing the newest line down again - a settle that lasts a single
- * frame is not the end. So the loop keeps its frame budget and pins again whenever the height changes, and
- * stops as soon as the transcript moves without it (the reader scrolling), so it never pulls a reader back.
- * A hidden transcript (no height yet) waits for one. Returns the cancel.
+ * their real height a frame or more later, pushing the newest line down again, and her window animates its
+ * height for a few hundred milliseconds as it opens - so both the content height and the viewport height
+ * move after the first pin, and only a geometry that holds still ends the loop. It stops as soon as the
+ * transcript moves without it (the reader scrolling), so it never pulls a reader back. A hidden transcript
+ * (no height yet) waits for one. Returns the cancel.
  */
 export function landProfessorMariTranscript(
   node: HTMLElement,
   schedule: (frame: () => void) => number,
   cancel: (handle: number) => void,
   onPinned?: () => void,
-  frames = 60,
+  frames = 120,
+  stableFrames = 6,
 ): () => void {
   let handle: number | null = null;
-  let pinnedHeight = -1;
+  let geometry = "";
+  let stable = 0;
   // Where the card opens is not a scroll the reader made: only a move away from the last pin counts.
   let pinnedTop = node.scrollTop;
   let moved = false;
@@ -42,12 +45,14 @@ export function landProfessorMariTranscript(
       // Anywhere but where the last pin left it is the reader: growth below the fold leaves the scroll
       // position alone (the pin moves it back itself), so this never mistakes our own pin for a scroll.
       if (node.scrollTop !== pinnedTop) moved = true;
-      if (node.scrollHeight !== pinnedHeight) {
-        pinnedHeight = node.scrollHeight;
-        scrollProfessorMariTranscriptToBottom(node);
-        pinnedTop = node.scrollTop;
-        onPinned?.();
-      }
+      if (moved) return;
+      const next = `${node.scrollHeight}:${node.clientHeight}`;
+      if (next === geometry && ++stable >= stableFrames) return;
+      if (next !== geometry) stable = 0;
+      geometry = next;
+      scrollProfessorMariTranscriptToBottom(node);
+      pinnedTop = node.scrollTop;
+      onPinned?.();
     }
     handle = schedule(land);
   };

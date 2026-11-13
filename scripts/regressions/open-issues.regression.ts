@@ -5735,7 +5735,11 @@ assert.equal(isProfessorMariTranscriptNearBottom(professorMariTranscript), true)
   const tick = () => pending.shift()?.();
   tick();
   assert.equal(frame.scrollTop, 4000, "the first frame pins to the newest line");
+  // Her window is still animating its height open: the content is unchanged, the viewport is not. The loop
+  // must not read that as settled (#9115), so a frame budget of 6 is given to prove it keeps the frames.
+  frame.clientHeight = 900;
   tick();
+  assert.equal(pending.length, 1, "a viewport that is still growing does not end the landing");
   frame.scrollHeight = 5200; // a turn below the fold took its real height
   tick();
   assert.equal(frame.scrollTop, 5200, "a later measure pins again, rather than leaving the view mid-history");
@@ -5746,6 +5750,19 @@ assert.equal(isProfessorMariTranscriptNearBottom(professorMariTranscript), true)
   assert.equal(frame.scrollTop, 3000, "a reader who scrolled away is never pulled back");
   run();
   assert.equal(pending.length, 0, "the landing stops when the node or chat goes");
+  // Once the geometry holds still for a few frames the loop lets go, so it cannot pin the reader forever.
+  const held = { clientHeight: 600, scrollHeight: 4000, scrollTop: 0 };
+  const frames: Array<() => void> = [];
+  landProfessorMariTranscript(
+    held,
+    (callback) => frames.push(callback),
+    () => {},
+    undefined,
+    120,
+    3,
+  );
+  for (let frame = 0; frame < 6; frame += 1) frames.shift()?.();
+  assert.equal(frames.length, 0, "a settled transcript stops the landing");
 }
 professorMariTranscript.scrollTop = 200;
 assert.equal(
