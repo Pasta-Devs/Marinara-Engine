@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { createPortal } from "react-dom";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { useMobileShellMediaQuery, useUIStore, type ChatModeShortcut } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -687,34 +688,38 @@ function TourCardContent({
 
       {pickerSlot}
 
-      {/* Progress dots */}
-      <div className="mb-3 flex items-center justify-center gap-1.5" data-component="OnboardingTutorial.Progress">
-        <span className="mr-1.5 text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-muted)]">
-          {localizeUi("onboarding.stepCount", { step: step + 1, total: stepCount })}
-        </span>
-        {Array.from({ length: stepCount }, (_, i) => (
-          <div
-            key={i}
-            className={`h-1.5 rounded-full transition-all duration-300 ${
-              i === step
-                ? "w-4 bg-[var(--marinara-chat-chrome-button-text-active)]"
-                : i < step
-                  ? "w-1.5 bg-[var(--marinara-chat-chrome-button-text-active)]/40"
-                  : "w-1.5 bg-[var(--marinara-chat-chrome-panel-muted)]/25"
-            }`}
-          />
-        ))}
-      </div>
+      {/* Progress and buttons stay pinned to the card's bottom: on a short phone a long step scrolls
+          under them instead of pushing Next off the screen. */}
+      <div className="sticky -bottom-5 -mx-5 -mb-5 bg-[var(--marinara-chat-chrome-panel-bg)] px-5 pb-5 pt-2">
+        {/* Progress dots */}
+        <div className="mb-3 flex items-center justify-center gap-1.5" data-component="OnboardingTutorial.Progress">
+          <span className="mr-1.5 text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-muted)]">
+            {localizeUi("onboarding.stepCount", { step: step + 1, total: stepCount })}
+          </span>
+          {Array.from({ length: stepCount }, (_, i) => (
+            <div
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === step
+                  ? "w-4 bg-[var(--marinara-chat-chrome-button-text-active)]"
+                  : i < step
+                    ? "w-1.5 bg-[var(--marinara-chat-chrome-button-text-active)]/40"
+                    : "w-1.5 bg-[var(--marinara-chat-chrome-panel-muted)]/25"
+              }`}
+            />
+          ))}
+        </div>
 
-      {/* Buttons */}
-      <div className="flex items-center justify-between">
-        <button onClick={onSkip} className={TUTORIAL_SECONDARY_BUTTON_CLASS}>
-          {localize(step === 0 ? "Skip Tutorial" : "Skip")}
-        </button>
-        <button onClick={onNext} className={TUTORIAL_PRIMARY_BUTTON_CLASS}>
-          {localize(isLast ? "Get Started" : "Next")}
-          {!isLast && <ChevronRight size="0.75rem" />}
-        </button>
+        {/* Buttons */}
+        <div className="flex items-center justify-between">
+          <button onClick={onSkip} className={TUTORIAL_SECONDARY_BUTTON_CLASS}>
+            {localize(step === 0 ? "Skip Tutorial" : "Skip")}
+          </button>
+          <button onClick={onNext} className={TUTORIAL_PRIMARY_BUTTON_CLASS}>
+            {localize(isLast ? "Get Started" : "Next")}
+            {!isLast && <ChevronRight size="0.75rem" />}
+          </button>
+        </div>
       </div>
     </>
   );
@@ -977,7 +982,9 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
     </div>
   ) : undefined;
 
-  return (
+  // On body, not inside the app shell: the phone's Chats page is a body-level sheet above the whole
+  // shell, and the tour card has to sit above it (steps 2 and 3 open it).
+  return createPortal(
     <div className="mari-chrome-token-scope pointer-events-none fixed inset-0 z-[9999]">
       {/* Pulsing highlight rings around the current target elements */}
       {!isMobileViewport &&
@@ -1075,6 +1082,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
           </motion.div>
         </AnimatePresence>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

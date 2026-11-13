@@ -3949,8 +3949,8 @@ assert.ok(!("mariDetailId" in mariSession));
       target: { kind: "resource", resource: "lorebook", id: "monastery" },
       category: "lorebook",
     }),
-    false,
-    "a lorebook row still expands first — it was not part of this fix",
+    true,
+    "a lorebook row opens directly on tap too (phone/tablet panel, Nov 13)",
   );
   assert.equal(
     resultOpensDirectlyOnTap({ target: { kind: "chat", chatId: "chat-1" }, category: "chat" }),

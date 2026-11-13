@@ -88,7 +88,6 @@ export function useKeepLatestChatMessageVisible(
     let restoreFrame = 0;
     let settleFrame = 0;
     let pendingAnchor: { scrollTop: number; pinnedToBottom: boolean } | null = null;
-    let revealedEditor: Element | null = null;
 
     const captureAnchor = () => {
       const scrollElement = scrollRef.current;
@@ -123,7 +122,6 @@ export function useKeepLatestChatMessageVisible(
       if (!detail?.keyboardOpen) {
         const wasKeyboardOpen = keyboardOpen;
         keyboardOpen = false;
-        revealedEditor = null;
         if (wasKeyboardOpen || !focusedChatComposerAcceptsText()) pendingAnchor = null;
         if (restoreFrame) cancelAnimationFrame(restoreFrame);
         if (settleFrame) cancelAnimationFrame(settleFrame);
@@ -132,8 +130,9 @@ export function useKeepLatestChatMessageVisible(
         return;
       }
       const editor = document.activeElement;
-      if (editor && editor !== revealedEditor && editor.matches("[data-chat-message-editor]")) {
-        revealedEditor = editor;
+      // Every size report, not only the first: a keyboard that opens in steps (or grows its
+      // suggestion bar) keeps shrinking the transcript after the first reveal.
+      if (editor && editor.matches("[data-chat-message-editor]")) {
         // Phones line the editor up when editing starts, but a taller tablet
         // transcript can still shrink past it. If its first lines are out of
         // view, scroll only the transcript (never the app shell) back to them,
@@ -186,6 +185,59 @@ export function useKeepLatestChatMessageVisible(
       });
     };
 
+    // Stay at the newest message while the transcript gets shorter from below: the keyboard
+    // opening in steps, the suggestion bar appearing, the composer growing a line. Someone reading
+    // further up (more than a short way from the bottom) is left where they are.
+    let distanceFromBottom = 0;
+    let observedHeight = 0;
+    let observedWidth = 0;
+    let observed: HTMLElement | null = null;
+    const measure = () => {
+      const el = scrollRef.current;
+      if (el) distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    };
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver((entries) => {
+            const el = scrollRef.current;
+            const box = entries[entries.length - 1]?.contentRect;
+            if (!el || !box || el.clientHeight === 0) return;
+            // The content box, not clientHeight: the composer growing a line raises the transcript's
+            // bottom padding, which shrinks the content box while the element keeps its size.
+            // Narrower (a side panel opening) rewraps every message and moves the bottom too.
+            const shrank =
+              (observedHeight > 0 && box.height < observedHeight - 0.5) ||
+              (observedWidth > 0 && Math.abs(box.width - observedWidth) > 0.5);
+            observedHeight = box.height;
+            observedWidth = box.width;
+            if (shrank && distanceFromBottom < 150 && !hasActiveTextSelection()) {
+              const editing = document.activeElement?.matches("[data-chat-message-editor]");
+              if (!editing) el.scrollTop = el.scrollHeight;
+            }
+            measure();
+          });
+    const watch = () => {
+      const el = scrollRef.current;
+      if (el === observed) return;
+      if (observed) {
+        resizeObserver?.unobserve(observed);
+        observed.removeEventListener("scroll", measure);
+      }
+      observed = el;
+      if (el) {
+        const style = getComputedStyle(el);
+        observedHeight = el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+        observedWidth = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        measure();
+        resizeObserver?.observe(el);
+        el.addEventListener("scroll", measure, { passive: true });
+      }
+    };
+    watch();
+    // The transcript node can be replaced (a chat switch, a remount): pick up the new one.
+    const watchTimer = window.setInterval(watch, 1000);
+
     document.addEventListener("pointerdown", handleComposerPointerDown, true);
     document.addEventListener("focusin", handleComposerFocus, true);
     document.addEventListener("focusout", handleComposerBlur, true);
@@ -193,6 +245,9 @@ export function useKeepLatestChatMessageVisible(
     return () => {
       if (restoreFrame) cancelAnimationFrame(restoreFrame);
       if (settleFrame) cancelAnimationFrame(settleFrame);
+      window.clearInterval(watchTimer);
+      resizeObserver?.disconnect();
+      observed?.removeEventListener("scroll", measure);
       document.removeEventListener("pointerdown", handleComposerPointerDown, true);
       document.removeEventListener("focusin", handleComposerFocus, true);
       document.removeEventListener("focusout", handleComposerBlur, true);

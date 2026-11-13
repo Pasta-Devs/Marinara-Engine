@@ -436,6 +436,11 @@ export function ConversationInput({
   });
   // Show stop button only during actual generation, not during busy delay
   const isActuallyGenerating = isStreaming && !delayedCharacterInfo;
+  // Enter while a reply is still coming: the message waits and sends itself when the reply ends,
+  // instead of the Enter being dropped (the next words then ran into the waiting ones).
+  const queuedSendRef = useRef(false);
+  // A Stop that lands right after a send is a second tap on Send, not a decision to stop.
+  const lastSendAtRef = useRef(0);
   const replyDraft = useChatStore((s) => (activeChatId ? s.replyDrafts.get(activeChatId) : undefined));
   const setReplyDraft = useChatStore((s) => s.setReplyDraft);
   const setInputDraft = useChatStore((s) => s.setInputDraft);
@@ -1558,6 +1563,17 @@ export function ConversationInput({
     localizeUi,
   ]);
 
+  // The reply ended (or was stopped): send what waited for it.
+  useEffect(() => {
+    if (isSendBlocked || !queuedSendRef.current) return;
+    queuedSendRef.current = false;
+    toast.dismiss("queued-send");
+    if (textareaRef.current?.value.trim()) void handleSend();
+  }, [isSendBlocked, handleSend]);
+  useEffect(() => {
+    queuedSendRef.current = false;
+  }, [activeChatId]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       // @mention completions navigation
@@ -1642,6 +1658,22 @@ export function ConversationInput({
       const shouldSend = enterToSend ? e.key === "Enter" && !e.shiftKey : e.key === "Enter" && (e.metaKey || e.ctrlKey);
       if (shouldSend) {
         e.preventDefault();
+        const field = textareaRef.current;
+        if (isSendBlocked && field && field.value.trim()) {
+          if (!queuedSendRef.current) {
+            queuedSendRef.current = true;
+            toast.info(localizeUi("ui.chat.chatinput.sendsWhenTheReplyFinishes"), { id: "queued-send" });
+          }
+          // Start the next words on their own line, so they never glue onto the waiting ones.
+          if (!/\s$/.test(field.value)) {
+            const next = `${field.value}\n`;
+            field.value = next;
+            syncInputState(next);
+            if (activeChatId) setInputDraft(activeChatId, next);
+          }
+          return;
+        }
+        lastSendAtRef.current = Date.now();
         handleSend();
       }
     },
@@ -1657,6 +1689,8 @@ export function ConversationInput({
       insertEmoji,
       enterToSend,
       handleSend,
+      isSendBlocked,
+      localizeUi,
       setInputDraft,
       syncInputState,
     ],
@@ -2403,10 +2437,21 @@ export function ConversationInput({
           )}
 
           <button
+            // Keep the keyboard up: a tap on Send must not take focus from the message box.
+            onPointerDown={(event) => {
+              if (event.pointerType !== "mouse") event.preventDefault();
+            }}
+            onMouseDown={(event) => event.preventDefault()}
             onClick={
               isActuallyGenerating
-                ? () => useChatStore.getState().stopGeneration(activeChatId ?? undefined)
-                : handleSend
+                ? () => {
+                    if (Date.now() - lastSendAtRef.current < 1200) return;
+                    useChatStore.getState().stopGeneration(activeChatId ?? undefined);
+                  }
+                : () => {
+                    lastSendAtRef.current = Date.now();
+                    void handleSend();
+                  }
             }
             disabled={!isActuallyGenerating && (isSendBlocked || isReadingAttachments || !activeChatId || !canSubmit)}
             aria-label={sendButtonTitle}

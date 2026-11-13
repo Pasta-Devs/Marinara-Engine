@@ -92,3 +92,90 @@ export function useKeepFocusedFieldAboveKeyboard(rootRef: RefObject<HTMLElement 
     };
   }, [rootRef]);
 }
+
+/** Fields with their own keyboard handling: the chat transcript and composer (useKeepLatestChatMessageVisible)
+ *  and Prof Mari's sheet, which rides above the keyboard by CSS. */
+const OWN_KEYBOARD_HANDLING = '[data-chat-scroll], [data-chat-composer], [data-component="GlobalOmnibar"]';
+
+function keyboardIsOpen(): boolean {
+  return document.documentElement.hasAttribute("data-mari-software-keyboard-open");
+}
+
+/** Scroll the areas around a growing field so its last line (where the caret is while typing at the end) stays visible. */
+function revealFieldEndAboveKeyboard(field: HTMLElement): void {
+  const viewport = window.visualViewport;
+  const screenBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight) - REVEAL_MARGIN;
+  for (let area = field.parentElement; area && area !== document.body; area = area.parentElement) {
+    if (area.scrollHeight <= area.clientHeight || !/auto|scroll/.test(getComputedStyle(area).overflowY)) continue;
+    const frame = area.getBoundingClientRect();
+    const bottom =
+      Math.min(frame.top + area.clientTop + area.clientHeight, screenBottom + REVEAL_MARGIN) - REVEAL_MARGIN;
+    const box = field.getBoundingClientRect();
+    if (box.bottom > bottom) area.scrollTop += box.bottom - bottom;
+  }
+}
+
+/**
+ * The same, app-wide: any text field in a scrolling page, panel or dialog (the card, persona and
+ * lorebook editors among them) stays visible when the keyboard opens, when the next field is tapped
+ * while it is open, and while a long text grows past the keyboard line.
+ */
+export function useKeepAnyFocusedFieldAboveKeyboard(): void {
+  useEffect(() => {
+    let frame = 0;
+    let settleFrame = 0;
+    const eligible = (field: Element | null): field is HTMLElement =>
+      acceptsText(field) && !field.closest(OWN_KEYBOARD_HANDLING);
+    const schedule = (field: HTMLElement) => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(settleFrame);
+      const reveal = () => {
+        if (document.activeElement === field && keyboardIsOpen()) revealFieldAboveKeyboard(field, document.body);
+      };
+      frame = requestAnimationFrame(() => {
+        reveal();
+        settleFrame = requestAnimationFrame(reveal);
+      });
+    };
+    let lastHeight = Number.POSITIVE_INFINITY;
+    let lastField: Element | null = null;
+    const handleViewportChange = (event: Event) => {
+      const detail = (event as CustomEvent<ChatVisualViewportChangeDetail>).detail;
+      const field = document.activeElement;
+      if (!detail?.keyboardOpen || !eligible(field)) {
+        lastHeight = Number.POSITIVE_INFINITY;
+        lastField = null;
+        return;
+      }
+      // Only when the space shrinks (or a new field): growing room never hides the field.
+      if (field === lastField && detail.height >= lastHeight) return;
+      lastField = field;
+      lastHeight = detail.height;
+      schedule(field);
+    };
+    const handleFocusIn = (event: FocusEvent) => {
+      const field = event.target as Element | null;
+      if (!keyboardIsOpen() || !eligible(field)) return;
+      lastField = field;
+      schedule(field);
+    };
+    const handleInput = (event: Event) => {
+      const field = event.target as Element | null;
+      if (!keyboardIsOpen() || !eligible(field) || !(field instanceof HTMLTextAreaElement)) return;
+      if (field.selectionEnd !== field.value.length) return;
+      requestAnimationFrame(() => {
+        if (document.activeElement === field) revealFieldEndAboveKeyboard(field);
+      });
+    };
+    window.addEventListener(CHAT_VISUAL_VIEWPORT_CHANGE_EVENT, handleViewportChange);
+    document.addEventListener("focusin", handleFocusIn);
+    document.addEventListener("input", handleInput);
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(settleFrame);
+      window.removeEventListener(CHAT_VISUAL_VIEWPORT_CHANGE_EVENT, handleViewportChange);
+      document.removeEventListener("focusin", handleFocusIn);
+      document.removeEventListener("input", handleInput);
+    };
+  }, []);
+}
