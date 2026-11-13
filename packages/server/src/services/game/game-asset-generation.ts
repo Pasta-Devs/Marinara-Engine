@@ -1744,7 +1744,8 @@ export async function cleanWindowMask(
 const WINDOW_MASK_INSTRUCTION = [
   "Turn the reference image into a black and white stencil of its windows, at exactly the same framing.",
   "Paint pure white every area where the outside or the sky can be seen: window glass, skylights, open doorways and other openings to the outdoors.",
-  "Paint everything else pure black: walls, window frames and bars, curtains, furniture, the floor and the ceiling, and anything standing in front of the glass, such as cushions, pillows, plants, people or a window seat.",
+  "Paint everything else pure black: walls, window frames and bars, curtains, furniture, the floor and the ceiling.",
+  "Anything between the viewer and a window that blocks part of the view through it is black too, even where the glass is behind it: cushions, pillows, plants, vases, lamps, people, a window seat, a table or anything else in the way. White only where the outside itself can be seen.",
   "Flat black and white only, no grey, no shading, no outlines, no text.",
   "If no outside can be seen at all, return an all-black image.",
 ].join(" ");
