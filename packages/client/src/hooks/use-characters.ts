@@ -231,6 +231,9 @@ export function fetchAllCharacterPages<T = Record<string, unknown>>(
   const search = (options.search ?? "").trim();
   const sort = options.sort ?? "";
 
+  // ponytail: the drain walks by offset, so a card deleted or restamped while it runs can shift the pages under it.
+  // A repeat cannot happen (the ids are deduplicated below); a card skipped by a shift is picked up by the next
+  // refetch. The ceiling is that one mid-load write, and the upgrade path is a keyset cursor on updatedAt + id.
   return collectAllPaginatedItems<T>((offset) => {
     const params = new URLSearchParams({
       limit: String(LIBRARY_PAGE_SIZE),
@@ -240,6 +243,12 @@ export function fetchAllCharacterPages<T = Record<string, unknown>>(
     if (search) params.set("search", search);
     if (sort) params.set("sort", sort);
     return api.get<PaginatedList<T>>(`/characters?${params.toString()}`);
+  }).then((rows) => {
+    const seen = new Set<unknown>();
+    return rows.filter((row) => {
+      const id = (row as { id?: unknown }).id;
+      return seen.has(id) ? false : (seen.add(id), true);
+    });
   });
 }
 
