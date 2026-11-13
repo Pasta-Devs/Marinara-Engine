@@ -7,7 +7,7 @@
 import { useRef, useEffect, useMemo, useState, useCallback, type CSSProperties } from "react";
 import { MessageCircle, Trash2, RefreshCw } from "lucide-react";
 import { useAgentStore } from "../../stores/agent.store";
-import { useUIStore } from "../../stores/ui.store";
+import { selectSidebarShown, useUIStore } from "../../stores/ui.store";
 import type { EchoChamberSide } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
@@ -190,7 +190,10 @@ function CornerPicker({
   );
 }
 
-export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelProps) {
+export function EchoChamberPanel({ hiddenOnMobile: hiddenByChat = false }: EchoChamberPanelProps) {
+  // Read sidebar state here, not in the chat surface, so a sidebar toggle does not re-render every message.
+  const sidePanelOpen = useUIStore((s) => selectSidebarShown(s) || s.rightPanelOpen);
+  const hiddenOnMobile = hiddenByChat || sidePanelOpen;
   const { t: localizeUi } = useUiTranslation();
   const activeChatId = useChatStore((s) => s.activeChatId);
   const echoChamberSide = useUIStore((s) =>

@@ -48,6 +48,7 @@ import {
 import {
   createCapabilityEmbeddingHost,
   createConfiguredCapabilityEmbeddingHost,
+  createConnectionCapabilityEmbeddingHost,
 } from "./capability-embedding.service.js";
 import { createCapabilityAchievementHost } from "./capability-achievement-host.service.js";
 import { registerCapabilityAchievements } from "./capability-achievement-registry.service.js";
@@ -131,6 +132,11 @@ async function createCapabilityRuntimeHost(
         ? createConfiguredCapabilityEmbeddingHost(app.db, config?.connectionId)
         : createCapabilityEmbeddingHost();
     },
+    async embeddingsFor(connectionId: string | null) {
+      // A package written in plain JavaScript may pass undefined for "no connection".
+      if (connectionId === null || connectionId === undefined) return createCapabilityEmbeddingHost();
+      return app.db ? createConnectionCapabilityEmbeddingHost(app.db, connectionId) : null;
+    },
     async getAgentConfig() {
       const config = await agents?.getByType(packageId);
       return config ? { connectionId: config.connectionId, settings: parseAgentSettingsRecord(config.settings) } : null;
@@ -164,7 +170,7 @@ async function createCapabilityRuntimeHost(
     achievements: createCapabilityAchievementHost(app.db, packageId, permissions),
     decisions: createCapabilityDecisionHost(app.db),
     persistence: createCapabilityPersistenceHost(app.db, permissions),
-    resources: createCapabilityResourceHost(app.db),
+    resources: createCapabilityResourceHost(app.db, permissions),
     services: Object.freeze({
       // Agent runtime hooks, Mari actions and services registered with `hostOnly` are read only by the Engine
       // itself, so a package can't call another package's hooks through this lookup.

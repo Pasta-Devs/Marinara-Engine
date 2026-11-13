@@ -33,7 +33,7 @@ import { useFollowVoiceJob, useTTSConfig, useUpdateTTSConfig } from "../../hooks
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
-import { openAddConnection } from "../../lib/add-connection";
+import { openAddConnection, type SetupItem } from "../../lib/add-connection";
 import { createLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
 import { ToggleSetting } from "../panels/settings/SettingControls";
@@ -52,7 +52,7 @@ import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
 import { SMALL_ACTION } from "./DeviceDetail";
-import type { ConnectionRowData } from "./ConnectionRow";
+import { ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
 import { JobRow } from "./JobRow";
 
 function JobIcon({ job }: { job: JobKey }) {
@@ -92,7 +92,7 @@ export type DefaultsTile = {
   /** The job this one follows ("Follows Main"): `value` and `source` are the Model it really runs. */
   follows?: string;
   /** The engine this job needs is not set up: the tile leads to its set-up screen. */
-  setup?: { item: DeviceItem; text: string };
+  setup?: { item: SetupItem; text: string };
   /** A device job opens its engine's page instead of pickers. */
   device?: DeviceItem;
 };
@@ -258,7 +258,9 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     // With no Audio connection, text to speech reads with the TTS card's own source settings.
     if (role.key === "voice" && tts?.enabled) {
       const value = t(`connections.device.ttsSource.${tts.source}`);
-      return { ...tile, value, hint: t("connections.add.device.tts"), muted: true };
+      // A local voice server lives On this device: the row opens its page (turn off, server, voice), not an empty picker.
+      const device = tts.local ? ("tts" as const) : undefined;
+      return { ...tile, value, hint: t("connections.add.device.tts"), muted: true, device };
     }
     // Agents follow the chat's model; a new chat uses Main.
     if (isAgents)
@@ -313,6 +315,11 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const decisionNeedsLocal =
     decisionSelected?.slot === "primary" &&
     (decisionSelected.unavailable === "no_model" || decisionSelected.unavailable === "not_installed");
+  // The built-in decision model turned off, not installed, or with a runtime an update made stale: its own
+  // window turns it on, installs it, or reinstalls the runtime.
+  const decisionNeedsBuiltIn =
+    decisionSelected?.slot === "decision_sidecar" &&
+    (decisionSelected.unavailable === "not_installed" || decisionSelected.unavailable === "not_enabled");
   const decisionRow =
     decisionSelected?.group === "connection"
       ? connectionsList.find((row) => row.id === decisionSelected.id)
@@ -336,35 +343,46 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
             run: () => openAddConnection({ category: "device", item: "local-model" }),
           },
         }
-      : decisionSelected?.unavailable
+      : decisionNeedsBuiltIn
         ? {
-            text: t(`connections.decision.unavailable.${decisionSelected.unavailable}`, {
-              detail: decisionSelected.detail ?? "",
-              defaultValue: t("connections.defaults.warning.unavailable"),
-            }),
-            short: t(
-              decisionSelected.unavailable === "needs_update"
-                ? "connections.decision.unavailable.needs_update"
-                : "connections.defaults.warning.unavailableShort",
-            ),
-            // A local slot that broke opens its own set-up window, as the main built-in model does.
-            ...(decisionSelected.slot
-              ? {
-                  fix: {
-                    label: t(
-                      decisionSelected.unavailable === "needs_update"
-                        ? "connections.defaults.update"
-                        : "connections.defaults.fix",
-                    ),
-                    run: () => openDecisionSlotSetup(decisionSelected.slot!),
-                  },
-                }
-              : {}),
+            text: t("connections.defaults.warning.decisionBuiltInNotReady"),
+            short: t("connections.defaults.notSetUp"),
+            fix: {
+              label: t("connections.defaults.setUp"),
+              run: () => openAddConnection({ category: "device", item: "decision-builtin" }),
+            },
           }
-        : null,
+        : decisionSelected?.unavailable
+          ? {
+              text: t(`connections.decision.unavailable.${decisionSelected.unavailable}`, {
+                detail: decisionSelected.detail ?? "",
+                defaultValue: t("connections.defaults.warning.unavailable"),
+              }),
+              short: t(
+                decisionSelected.unavailable === "needs_update"
+                  ? "connections.decision.unavailable.needs_update"
+                  : "connections.defaults.warning.unavailableShort",
+              ),
+              // A local slot that broke opens its own set-up window, as the main built-in model does.
+              ...(decisionSelected.slot
+                ? {
+                    fix: {
+                      label: t(
+                        decisionSelected.unavailable === "needs_update"
+                          ? "connections.defaults.update"
+                          : "connections.defaults.fix",
+                      ),
+                      run: () => openDecisionSlotSetup(decisionSelected.slot!),
+                    },
+                  }
+                : {}),
+            }
+          : null,
     ...(decisionNeedsLocal
       ? { setup: { item: "local-model" as const, text: t("connections.defaults.notDownloadedShort") } }
-      : {}),
+      : decisionNeedsBuiltIn
+        ? { setup: { item: "decision-builtin" as const, text: t("connections.defaults.notSetUp") } }
+        : {}),
   };
 
   // Speech to text chooses a service; the engine row manages the engine.
@@ -651,10 +669,8 @@ function DefaultsJobRow({
                 aria-expanded={settingsOpen}
                 aria-controls={settingsId}
                 aria-label={t("connections.defaults.settingsFor", { role: title })}
-                className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]",
-                  FOCUS,
-                )}
+                // The panel's row-button look (quiet at rest, the shared accent hover), like the Connections rows.
+                className={ROW_BUTTON}
               >
                 <SlidersHorizontal size="0.875rem" aria-hidden />
               </button>

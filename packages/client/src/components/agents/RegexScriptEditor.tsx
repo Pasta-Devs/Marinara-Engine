@@ -13,7 +13,6 @@ import {
 } from "../../hooks/use-regex-scripts";
 import { usePresets } from "../../hooks/use-presets";
 import {
-  ArrowLeft,
   Save,
   Check,
   AlertCircle,
@@ -50,6 +49,8 @@ import { useOverhaulLook } from "../../stores/overhaul.store";
 import { OvEditorHead, OvEyebrow, OvRow } from "../overhaul/EditorChrome";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { OvChipInput, OvChipPicker, OvNum, OvSeg, OvToggle } from "../overhaul/LoreEntryParts";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 
 // ═══════════════════════════════════════════════
 //  Placement metadata
@@ -961,14 +962,7 @@ export function RegexScriptEditor() {
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
       <div className="mari-editor-header">
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label={localizeUi("ui.agents.regexscripteditor.backToRegexScripts")}
-          className="mari-editor-action inline-flex"
-        >
-          <ArrowLeft size="1.125rem" />
-        </button>
+        <SurfaceBackButton onClick={handleClose} />
         <div className="mari-editor-icon-tile">
           <Regex size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
         </div>
@@ -981,7 +975,7 @@ export function RegexScriptEditor() {
           className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
           placeholder={localizeUi("ui.agents.regexscripteditor.scriptName")}
         />
-        <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
+        <div className="mari-editor-actions flex max-md:order-2 max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
           {saveError && (
             <span className="mari-editor-status mr-2 text-red-400">
               <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
@@ -1043,6 +1037,7 @@ export function RegexScriptEditor() {
             </button>
           )}
         </div>
+        <SurfaceCloseButton dividerClassName="max-md:hidden" />
       </div>
 
       {/* Unsaved warning */}

@@ -23,7 +23,12 @@ import {
   withSpriteCatalogLock,
 } from "../sprites/sprite-catalog.js";
 import { newId, now } from "../../utils/id-generator.js";
-import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../../utils/security.js";
+import {
+  assertInsideDir,
+  extensionFromImageMime,
+  isAllowedImageBuffer,
+  parseImageDataUrl,
+} from "../../utils/security.js";
 import { generateImage, type ImageGenResult } from "../image/image-generation.js";
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
@@ -687,10 +692,10 @@ async function writeBackgroundMeta(meta: Record<string, { tags: string[] }>) {
 }
 
 function decodeDataImage(value: string): ResolvedImage | null {
-  const match = value.match(/^data:(image\/(?:png|jpe?g|webp|gif|avif));base64,([\s\S]+)$/i);
-  if (!match) return null;
-  const mimeType = match[1]!.toLowerCase().replace("image/jpg", "image/jpeg");
-  const base64 = match[2]!.replace(/\s+/g, "");
+  const data = parseImageDataUrl(value);
+  if (!data) return null;
+  const mimeType = data.mimeType;
+  const base64 = data.encoded.replace(/\s+/g, "");
   const buffer = Buffer.from(base64, "base64");
   const imageInfo = isAllowedImageBuffer(buffer, `.${extensionFromImageMime(mimeType)}`);
   if (!imageInfo) throw new Error("Unsupported or invalid data URL image");
@@ -1344,7 +1349,8 @@ export class MariImagesService {
     }
 
     const base64ish = value.replace(/\s+/g, "");
-    if (/^[A-Za-z0-9+/=]+$/.test(base64ish) && base64ish.length > 128) {
+    // A negative test walks the string; `^[A-Za-z0-9+/=]+$` recurses once per character in V8's regexp interpreter.
+    if (base64ish.length > 128 && !/[^A-Za-z0-9+/=]/.test(base64ish)) {
       const buffer = Buffer.from(base64ish, "base64");
       const imageInfo = isAllowedImageBuffer(buffer);
       if (imageInfo)

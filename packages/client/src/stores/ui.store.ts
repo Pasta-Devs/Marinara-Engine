@@ -38,6 +38,15 @@ import { markOmnibarOpenStart } from "../lib/omnibar-open-timing";
 import { readUIPersistence, UI_PERSISTENCE, UI_PERSISTENCE_HOST_COPY } from "../lib/ui-persistence";
 import { addApprovedRemoteImageUrl, normalizeApprovedRemoteImageUrls } from "../lib/remote-images";
 import { normalizeChatWidgetFont } from "../lib/font-family";
+import {
+  normalizeUiStyleOverride,
+  normalizeUiStyleOverrides,
+  normalizeUiStylePresets,
+  type UiStyleOverride,
+  type UiStyleOverrides,
+  type UiStylePreset,
+  type UiStyleTargetId,
+} from "../lib/ui-style-overrides";
 import type { ChatWizardDefaults, ChatWizardMode } from "../lib/chat-wizard-defaults";
 import type { MariFieldReview } from "../lib/mari-editor-fields";
 import {
@@ -573,7 +582,7 @@ function normalizeAppAccentColor(value: unknown) {
   return LEGACY_DEFAULT_APP_ACCENTS.has(normalized.toLowerCase()) ? "" : normalized;
 }
 
-function normalizeAppBackgroundColor(value: unknown) {
+export function normalizeAppBackgroundColor(value: unknown) {
   const normalized = safePaint(value);
   return DEFAULT_APP_BACKGROUNDS.has(normalized.toLowerCase()) ? "" : normalized;
 }
@@ -805,8 +814,19 @@ interface UIState {
   settingsTargetSectionId: string | null;
   /** Not saved: a Home surface to open once Home mounts (see `requestHome`). */
   homeRequest: HomeRequest | null;
-  /** Not saved: the Home tab a package opened the connection editor from; closing that editor returns there. */
-  connectionDetailReturnTab: string | null;
+  /**
+   * Not saved: the Home tab being shown (`"home"` or an installed package's id). It lives here because the desktop
+   * shell unmounts Home under every full-page surface, so Back must find the tab the user left. Opening a chat
+   * resets it (AppShell); `closeAllDetails` leaves it alone.
+   */
+  homeTab: string;
+  /**
+   * Not saved: the chat (and Chat Settings section) whose drawer opened the full-page surface now showing. The drawer
+   * closes first, so nothing else remembers it: popping the last surface turns this into `chatSettingsRequest`.
+   */
+  chatSettingsReturn: ChatSettingsReturn | null;
+  /** Not saved: reopen Chat Settings once the chat shows again (ChatArea consumes it; the desktop shell remounts it). */
+  chatSettingsRequest: ChatSettingsReturn | null;
   /** Not saved: the What's New window should open again (see `requestWhatsNew`). */
   whatsNewRequested: boolean;
   modal: { type: string; props?: Record<string, unknown> } | null;
@@ -850,6 +870,16 @@ interface UIState {
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
   reduceAmbientEffects: boolean;
+  /** User restyling of curated interface regions (Settings → Appearance); persisted and synced. */
+  uiStyleOverrides: UiStyleOverrides;
+  /** The user's saved style presets (a library that "Reset appearance" keeps); persisted and synced. */
+  uiStylePresets: UiStylePreset[];
+  /** Transient: the full-screen element picker is open. */
+  uiStylePickMode: boolean;
+  /** Transient: the region the style editor is editing. */
+  uiStyleSelectedTarget: UiStyleTargetId | null;
+  /** Transient: the unsaved draft layered over `uiStyleOverrides` while editing. */
+  uiStylePreview: { target: UiStyleTargetId; override: UiStyleOverride | null } | null;
   mariPanelSortMode: MariPanelSortMode;
   /** The omnibar aside may answer a dead-end query without being asked (R3/R10). */
   omnibarAsideEnabled: boolean;
@@ -983,7 +1013,10 @@ interface UIState {
   cardLibraryKind: CardLibraryKind;
   /** When true, the main area shows the full-page downloadable agent catalog */
   agentCatalogOpen: boolean;
-  /** Optional package selected when opening the downloadable agent catalog */
+  /**
+   * The agent page the catalog shows, or null for its front page. Set when the catalog opens and kept current by
+   * the catalog while it is mounted, so Back from an agent's Settings returns to the page that was being viewed.
+   */
   agentCatalogInitialPackageId: string | null;
   /** Last selected character card inside the full-page character library */
   characterLibrarySelectedId: string | null;
@@ -1033,6 +1066,8 @@ interface UIState {
   editorDirty: boolean;
   /** Mobile-only return target for detail editors opened from a right panel */
   detailReturnRightPanel: Panel | null;
+  /** Surfaces Back returns to, oldest first. In memory only: never persisted or synced. */
+  mainSurfaceHistory: MainSurfaceSnapshot[];
 
   // ── Settings (persisted) ──
   fontSize: FontSize;
@@ -1435,6 +1470,9 @@ interface UIState {
   setSettingsTargetControlId: (controlId: string | null) => void;
   requestHome: (request: HomeRequest) => void;
   consumeHomeRequest: () => void;
+  setChatSettingsReturn: (back: ChatSettingsReturn | null) => void;
+  consumeChatSettingsRequest: () => void;
+  setHomeTab: (tab: string) => void;
   requestWhatsNew: () => void;
   consumeWhatsNewRequest: () => void;
   setSettingsTargetSectionId: (sectionId: string | null) => void;
@@ -1445,6 +1483,14 @@ interface UIState {
   setThemeAuto: (mode: ThemeAutoMode) => void;
   setThemeDayHours: (dayStart: string, nightStart: string) => void;
   setAppBackgroundColor: (color: string) => void;
+  saveUiStyleOverride: (target: UiStyleTargetId, override: UiStyleOverride | null) => void;
+  resetUiStyleOverrides: () => void;
+  saveUiStylePreset: (name: string) => void;
+  applyUiStylePreset: (id: string) => void;
+  deleteUiStylePreset: (id: string) => void;
+  setUiStylePickMode: (enabled: boolean) => void;
+  setUiStyleSelectedTarget: (target: UiStyleTargetId | null) => void;
+  setUiStylePreview: (preview: UIState["uiStylePreview"]) => void;
   setAppAccentColor: (color: string) => void;
   setAppBackgroundColorLight: (color: string) => void;
   setAppAccentColorLight: (color: string) => void;
@@ -1510,7 +1556,7 @@ interface UIState {
   setLorebookLinkClipboard: (links: NonNullable<UIState["lorebookLinkClipboard"]>) => void;
   openPresetDetail: (id: string, options?: { initialTab?: string }) => void;
   closePresetDetail: () => void;
-  openConnectionDetail: (id: string, options?: { returnToHomeTab?: string }) => void;
+  openConnectionDetail: (id: string) => void;
   closeConnectionDetail: () => void;
   openAgentDetail: (agentType: string) => void;
   closeAgentDetail: () => void;
@@ -1536,6 +1582,7 @@ interface UIState {
   closeCharacterLibrary: () => void;
   openAgentCatalog: (packageId?: string) => void;
   closeAgentCatalog: () => void;
+  setAgentCatalogPage: (packageId: string | null) => void;
   openBotBrowser: () => void;
   closeBotBrowser: () => void;
   openGameAssetsBrowser: () => void;
@@ -1549,6 +1596,8 @@ interface UIState {
   hasAnyDetailOpen: () => boolean;
   /** Close all detail editors at once */
   closeAllDetails: () => void;
+  /** Close the surface in front, returning to the one opened before it (what Back does) */
+  closeTopMainSurface: () => void;
   /** Update the editor dirty flag (called by detail editors when their dirty state changes) */
   setEditorDirty: (dirty: boolean) => void;
 
@@ -1761,24 +1810,150 @@ function restoreMobileDetailReturnPanel(panel: Panel | null) {
   };
 }
 
+/**
+ * The full-page surfaces that replace the chat, in `AppShell`'s `detailView` precedence order (the map, Bot Browser,
+ * game assets and Noodle render outside that chain, after it).
+ */
+const MAIN_SURFACE_KEYS = [
+  "regexDetailId",
+  "personaDetailId",
+  "toolDetailId",
+  "agentDetailId",
+  "connectionDetailId",
+  "presetDetailId",
+  "characterDetailId",
+  "characterLibraryOpen",
+  "agentCatalogOpen",
+  "lorebookDetailId",
+  "spatialMapDetailChatId",
+  "botBrowserOpen",
+  "gameAssetsBrowserOpen",
+  "noodleOpen",
+] as const;
+export type MainSurfaceKey = (typeof MAIN_SURFACE_KEYS)[number];
+
+/** The Chat Settings drawer a surface was opened from; `section` is the drawer's `initialSection`. */
+export type ChatSettingsReturn = { chatId: string; section: string | null };
+
+const CLOSED_MAIN_SURFACE = {
+  regexDetailId: null,
+  personaDetailId: null,
+  toolDetailId: null,
+  agentDetailId: null,
+  connectionDetailId: null,
+  presetDetailId: null,
+  characterDetailId: null,
+  characterLibraryOpen: false,
+  agentCatalogOpen: false,
+  lorebookDetailId: null,
+  spatialMapDetailChatId: null,
+  botBrowserOpen: false,
+  gameAssetsBrowserOpen: false,
+  noodleOpen: false,
+  // A draft review belongs to the map; no other surface may inherit it.
+  pendingSpatialMapDraftReview: null,
+} satisfies Partial<UIState>;
+
+/**
+ * What returning to a surface needs; one-shot fields (`*InitialTab`, reveal targets) are consumed on mount. The map's
+ * pending draft review is not: it stays set until applied or skipped, so it returns with the map.
+ */
+type MainSurfaceSnapshot = Pick<
+  UIState,
+  MainSurfaceKey | "cardLibraryKind" | "detailReturnRightPanel" | "pendingSpatialMapDraftReview"
+>;
+
+const MAIN_SURFACE_HISTORY_LIMIT = 10;
+
+type MainSurfaceFields = Pick<UIState, MainSurfaceKey | "cardLibraryKind">;
+
+function mainSurfaceKind(state: MainSurfaceFields): MainSurfaceKey | null {
+  return MAIN_SURFACE_KEYS.find((key) => !!state[key]) ?? null;
+}
+
+/** Identifies the open surface; the two card libraries are distinct surfaces. */
+function mainSurfaceKey(state: MainSurfaceFields): string | null {
+  const kind = mainSurfaceKind(state);
+  if (!kind) return null;
+  return kind === "characterLibraryOpen" ? `${kind}:${state.cardLibraryKind}` : `${kind}:${String(state[kind])}`;
+}
+
+function snapshotMainSurface(state: UIState): MainSurfaceSnapshot {
+  const snapshot = {
+    cardLibraryKind: state.cardLibraryKind,
+    detailReturnRightPanel: state.detailReturnRightPanel,
+    pendingSpatialMapDraftReview: state.pendingSpatialMapDraftReview,
+  } as MainSurfaceSnapshot;
+  for (const key of MAIN_SURFACE_KEYS) (snapshot as Record<string, unknown>)[key] = state[key];
+  return snapshot;
+}
+
+/**
+ * Opens `target` as the main surface and records the surface it replaces, so Back can return to it. A surface of the
+ * same kind replaces the top instead of stacking (browsing ten lorebooks stays one Back from the chat), and
+ * revisiting a surface already in the stack drops everything above it. Reopening the surface already showing records
+ * nothing.
+ *
+ * ponytail: the stack cannot know an entity was deleted while hidden; popping to it shows that editor's existing
+ * not-found state. The oldest snapshot also carries the mobile panel the first surface was opened from, so the
+ * 10-entry cap drops that panel memory first. Upgrade path: validate entities on pop.
+ */
+function enterMainSurface(s: UIState, target: Partial<UIState>): Partial<UIState> {
+  const next = { ...CLOSED_MAIN_SURFACE, ...target };
+  const nextFields = { ...next, cardLibraryKind: next.cardLibraryKind ?? s.cardLibraryKind } as MainSurfaceFields;
+  const currentKey = mainSurfaceKey(s);
+  const targetKey = mainSurfaceKey(nextFields);
+  if (!currentKey) return { ...next, mainSurfaceHistory: [] };
+  if (currentKey === targetKey) return next;
+  const revisited = s.mainSurfaceHistory.findIndex((entry) => mainSurfaceKey(entry) === targetKey);
+  if (revisited >= 0) return { ...next, mainSurfaceHistory: s.mainSurfaceHistory.slice(0, revisited) };
+  if (mainSurfaceKind(s) === mainSurfaceKind(nextFields)) return next;
+  return {
+    ...next,
+    mainSurfaceHistory: [...s.mainSurfaceHistory, snapshotMainSurface(s)].slice(-MAIN_SURFACE_HISTORY_LIMIT),
+  };
+}
+
+/** Closes the surface `own` describes: back to the one opened before it, else to the chat (or the mobile panel). */
+function leaveMainSurface(s: UIState, own: Partial<UIState>): Partial<UIState> {
+  const top = s.mainSurfaceHistory[s.mainSurfaceHistory.length - 1];
+  if (top) return { ...own, ...top, mainSurfaceHistory: s.mainSurfaceHistory.slice(0, -1), editorDirty: false };
+  // A mobile panel the surface came from wins; otherwise a surface opened from Chat Settings reopens the drawer.
+  const reopenSettings = !s.detailReturnRightPanel && s.chatSettingsReturn;
+  return {
+    ...own,
+    editorDirty: false,
+    ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
+    chatSettingsReturn: null,
+    ...(reopenSettings && { chatSettingsRequest: reopenSettings }),
+  };
+}
+
+/** Where the Back button of the open surface lands; `null` means the chat (or Home), which the caller resolves. */
+export type BackDestination =
+  { surface: MainSurfaceKey; cardLibraryKind: CardLibraryKind } | { panel: Panel } | { chatSettings: true } | null;
+
+/**
+ * Names the destination `closeTopMainSurface` reaches from `state`, mirroring `leaveMainSurface` and the close that
+ * overrides it: the regex editor's return target.
+ */
+export function selectBackDestination(state: UIState): BackDestination {
+  if (state.regexDetailId && state.regexDetailReturn) {
+    const ret = state.regexDetailReturn;
+    return { surface: "presetId" in ret ? "presetDetailId" : "characterDetailId", cardLibraryKind: "characters" };
+  }
+  const top = state.mainSurfaceHistory[state.mainSurfaceHistory.length - 1];
+  if (top) {
+    const surface = mainSurfaceKind(top);
+    if (surface) return { surface, cardLibraryKind: top.cardLibraryKind };
+  }
+  if (state.detailReturnRightPanel) return { panel: state.detailReturnRightPanel };
+  return state.chatSettingsReturn ? { chatSettings: true } : null;
+}
+
 function normalizePersistedMainSurface(persisted: Record<string, unknown>) {
-  const surfaceKeys = [
-    "regexDetailId",
-    "personaDetailId",
-    "toolDetailId",
-    "agentDetailId",
-    "connectionDetailId",
-    "presetDetailId",
-    "characterDetailId",
-    "lorebookDetailId",
-    "characterLibraryOpen",
-    "agentCatalogOpen",
-    "botBrowserOpen",
-    "gameAssetsBrowserOpen",
-    "noodleOpen",
-  ] as const;
   let found = false;
-  for (const key of surfaceKeys) {
+  for (const key of MAIN_SURFACE_KEYS) {
     const value = persisted[key];
     const isOpen = typeof value === "string" ? value.trim().length > 0 : value === true;
     if (!isOpen) {
@@ -1856,6 +2031,8 @@ export function pickSyncedSettings(state: UIState) {
     a11yColorBlindSafe: state.a11yColorBlindSafe,
     a11yBackdropStrength: state.a11yBackdropStrength,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    uiStyleOverrides: state.uiStyleOverrides,
+    uiStylePresets: state.uiStylePresets,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
@@ -2129,6 +2306,8 @@ export function pickPersistedUIState(state: UIState) {
     appAccentRgbMode: state.appAccentRgbMode,
     customCursorEnabled: state.customCursorEnabled,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    uiStyleOverrides: state.uiStyleOverrides,
+    uiStylePresets: state.uiStylePresets,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
@@ -2399,7 +2578,9 @@ export const useUIStore = create<UIState>()(
         lastAppError: null,
         settingsTargetControlId: null,
         homeRequest: null,
-        connectionDetailReturnTab: null,
+        chatSettingsReturn: null,
+        chatSettingsRequest: null,
+        homeTab: "home",
         whatsNewRequested: false,
         settingsTargetSectionId: null,
         modal: null,
@@ -2425,6 +2606,11 @@ export const useUIStore = create<UIState>()(
         appAccentRgbMode: false,
         customCursorEnabled: true,
         reduceAmbientEffects: false,
+        uiStyleOverrides: {},
+        uiStylePresets: [],
+        uiStylePickMode: false,
+        uiStyleSelectedTarget: null,
+        uiStylePreview: null,
         mariPanelSortMode: "az",
         // Quick answers send a model request from Search, so they are opt-in.
         omnibarAsideEnabled: false,
@@ -2500,6 +2686,7 @@ export const useUIStore = create<UIState>()(
         libraryManualOrders: {},
         editorDirty: false,
         detailReturnRightPanel: null,
+        mainSurfaceHistory: [],
 
         // Settings defaults
         fontSize: 17 as FontSize,
@@ -2822,6 +3009,9 @@ export const useUIStore = create<UIState>()(
         setSettingsTargetControlId: (controlId) => set({ settingsTargetControlId: controlId }),
         requestHome: (homeRequest) => set({ homeRequest }),
         consumeHomeRequest: () => set({ homeRequest: null }),
+        setChatSettingsReturn: (chatSettingsReturn) => set({ chatSettingsReturn }),
+        consumeChatSettingsRequest: () => set({ chatSettingsRequest: null }),
+        setHomeTab: (homeTab) => set({ homeTab }),
         requestWhatsNew: () => set({ whatsNewRequested: true }),
         consumeWhatsNewRequest: () => set({ whatsNewRequested: false }),
         setSettingsTargetSectionId: (sectionId) => set({ settingsTargetSectionId: sectionId }),
@@ -2856,6 +3046,43 @@ export const useUIStore = create<UIState>()(
             themeNightStart: normalizeClock(nightStart, "19:00"),
           }),
         setAppBackgroundColor: (color) => set({ appBackgroundColor: normalizeAppBackgroundColor(color) }),
+        saveUiStyleOverride: (target, override) =>
+          set((state) => {
+            const next = { ...state.uiStyleOverrides };
+            const clean = normalizeUiStyleOverride(override);
+            if (clean) next[target] = clean;
+            else delete next[target];
+            // The overhaul keeps Background color (per scheme) as its own setting; the UI Editor's Whole app
+            // background paints over it while set and never clears it.
+            return { uiStyleOverrides: next };
+          }),
+        resetUiStyleOverrides: () => set({ uiStyleOverrides: {}, uiStylePreview: null }),
+        saveUiStylePreset: (name) =>
+          set((state) => {
+            const [fresh] = normalizeUiStylePresets([{ id: "new", name, overrides: state.uiStyleOverrides }]);
+            if (!fresh) return {};
+            const same = state.uiStylePresets.find((preset) => preset.name.toLowerCase() === fresh.name.toLowerCase());
+            if (same) {
+              return {
+                uiStylePresets: state.uiStylePresets.map((preset) =>
+                  preset === same ? { ...preset, overrides: fresh.overrides } : preset,
+                ),
+              };
+            }
+            const id =
+              globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+            return { uiStylePresets: normalizeUiStylePresets([...state.uiStylePresets, { ...fresh, id }]) };
+          }),
+        applyUiStylePreset: (id) =>
+          set((state) => {
+            const preset = state.uiStylePresets.find((candidate) => candidate.id === id);
+            return preset ? { uiStyleOverrides: { ...preset.overrides }, uiStylePreview: null } : {};
+          }),
+        deleteUiStylePreset: (id) =>
+          set((state) => ({ uiStylePresets: state.uiStylePresets.filter((preset) => preset.id !== id) })),
+        setUiStylePickMode: (uiStylePickMode) => set({ uiStylePickMode }),
+        setUiStyleSelectedTarget: (uiStyleSelectedTarget) => set({ uiStyleSelectedTarget }),
+        setUiStylePreview: (uiStylePreview) => set({ uiStylePreview }),
         setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
         setAppBackgroundColorLight: (color) => set({ appBackgroundColorLight: normalizeAppBackgroundColor(color) }),
         setAppAccentColorLight: (color) => set({ appAccentColorLight: normalizeAppAccentColor(color) }),
@@ -2950,484 +3177,194 @@ export const useUIStore = create<UIState>()(
             const preserveCharacterLibrary =
               options?.preserveCharacterLibrary ?? (s.characterLibraryOpen && s.cardLibraryKind === "characters");
             return {
-              characterDetailId: id,
+              ...enterMainSurface(s, {
+                characterDetailId: id,
+                characterLibraryOpen: preserveCharacterLibrary ? s.characterLibraryOpen : false,
+              }),
               characterDetailInitialTab: options?.initialTab ?? null,
               // In the same patch as the navigation, so a refused editor leave drops it too.
               mariRevealField: options?.revealField ? { entityId: id, path: options.revealField } : null,
-              lorebookDetailId: null,
-              presetDetailId: null,
-              connectionDetailId: null,
-              agentDetailId: null,
-              toolDetailId: null,
-              personaDetailId: null,
-              regexDetailId: null,
-              spatialMapDetailChatId: null,
-              characterLibraryOpen: preserveCharacterLibrary ? s.characterLibraryOpen : false,
-              agentCatalogOpen: false,
               characterLibrarySelectedId: preserveCharacterLibrary ? id : s.characterLibrarySelectedId,
-              botBrowserOpen: false,
-              gameAssetsBrowserOpen: false,
-              noodleOpen: false,
               ...getMobileDetailReturnState(s),
             };
           }),
-        closeCharacterDetail: () =>
-          set((s) => ({
-            characterDetailId: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+        closeCharacterDetail: () => set((s) => leaveMainSurface(s, { characterDetailId: null })),
         setLorebookLinkClipboard: (links) => set({ lorebookLinkClipboard: links }),
         openLorebookDetail: (id, options) =>
           set((s) => ({
-            lorebookDetailId: id,
+            ...enterMainSurface(s, { lorebookDetailId: id }),
             lorebookDetailInitialTab: options?.initialTab ?? null,
             lorebookDetailInitialEntryId: options?.entryId ?? null,
             lorebookDetailInitialField: options?.field ?? null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
             ...getMobileDetailReturnState(s),
           })),
-        closeLorebookDetail: () =>
-          set((s) => ({
-            lorebookDetailId: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+        closeLorebookDetail: () => set((s) => leaveMainSurface(s, { lorebookDetailId: null })),
         openPresetDetail: (id, options) =>
           set((s) => ({
-            presetDetailId: id,
+            ...enterMainSurface(s, { presetDetailId: id }),
             presetDetailInitialTab: options?.initialTab ?? null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
             ...getMobileDetailReturnState(s),
           })),
         closePresetDetail: () =>
+          set((s) => leaveMainSurface(s, { presetDetailId: null, presetDetailInitialTab: null })),
+        openConnectionDetail: (id) =>
           set((s) => ({
-            presetDetailId: null,
-            presetDetailInitialTab: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
-        openConnectionDetail: (id, options) =>
-          set((s) => ({
-            connectionDetailId: id,
-            // Switching the open editor to another connection keeps the package tab it returns to; an editor
-            // opened afresh starts without one.
-            connectionDetailReturnTab:
-              options?.returnToHomeTab || (s.connectionDetailId ? s.connectionDetailReturnTab : null),
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
+            ...enterMainSurface(s, { connectionDetailId: id }),
             ...getMobileDetailReturnState(s),
           })),
-        closeConnectionDetail: () =>
-          set((s) => ({
-            connectionDetailId: null,
-            connectionDetailReturnTab: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-            // Only closing the editor itself returns Home to the package tab that opened it. Leaving it any other
-            // way (a chat, another editor, closeAllDetails) queues nothing, so Home never jumps to that tab later.
-            ...(s.connectionDetailId && s.connectionDetailReturnTab
-              ? { homeRequest: { kind: "tab" as const, tab: s.connectionDetailReturnTab } }
-              : {}),
-          })),
+        closeConnectionDetail: () => set((s) => leaveMainSurface(s, { connectionDetailId: null })),
         openAgentDetail: (agentType) =>
           set((s) => ({
-            agentDetailId: agentType,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
+            ...enterMainSurface(s, { agentDetailId: agentType }),
             ...getMobileDetailReturnState(s),
           })),
-        closeAgentDetail: () =>
-          set((s) => ({
-            agentDetailId: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+        closeAgentDetail: () => set((s) => leaveMainSurface(s, { agentDetailId: null })),
         openToolDetail: (id) =>
           set((s) => ({
-            toolDetailId: id,
-            agentDetailId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
+            ...enterMainSurface(s, { toolDetailId: id }),
             ...getMobileDetailReturnState(s),
           })),
-        closeToolDetail: () =>
-          set((s) => ({
-            toolDetailId: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+        closeToolDetail: () => set((s) => leaveMainSurface(s, { toolDetailId: null })),
         openPersonaDetail: (id, options) =>
           set((s) => {
             const preservePersonaLibrary =
               options?.preservePersonaLibrary ?? (s.characterLibraryOpen && s.cardLibraryKind === "personas");
             return {
-              personaDetailId: id,
+              ...enterMainSurface(s, {
+                personaDetailId: id,
+                characterLibraryOpen: preservePersonaLibrary ? s.characterLibraryOpen : false,
+              }),
               personaDetailInitialTab: options?.initialTab ?? null,
-              characterLibraryOpen: preservePersonaLibrary ? s.characterLibraryOpen : false,
               personaLibrarySelectedId: preservePersonaLibrary ? id : s.personaLibrarySelectedId,
-              agentCatalogOpen: false,
-              botBrowserOpen: false,
-              gameAssetsBrowserOpen: false,
-              noodleOpen: false,
-              characterDetailId: null,
-              lorebookDetailId: null,
-              presetDetailId: null,
-              connectionDetailId: null,
-              agentDetailId: null,
-              toolDetailId: null,
-              regexDetailId: null,
-              spatialMapDetailChatId: null,
               ...getMobileDetailReturnState(s),
             };
           }),
-        closePersonaDetail: () =>
-          set((s) => ({
-            personaDetailId: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+        closePersonaDetail: () => set((s) => leaveMainSurface(s, { personaDetailId: null })),
         openRegexDetail: (id, options) =>
           set((s) => ({
-            regexDetailId: id,
+            ...enterMainSurface(s, { regexDetailId: id }),
             regexDetailDefaultCharacterIds: options?.defaultCharacterIds ?? null,
             regexDetailDefaultPresetIds: options?.defaultPresetIds ?? null,
             regexDetailReturn: options?.returnTo ?? null,
-            personaDetailId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            spatialMapDetailChatId: null,
             ...getMobileDetailReturnState(s),
           })),
         closeRegexDetail: () =>
           set((s) => {
-            const ret = s.regexDetailReturn;
-            if (ret) {
-              // Return to the character/preset manager that opened the existing editor.
-              return {
-                regexDetailId: null,
-                regexDetailReturn: null,
-                regexDetailDefaultCharacterIds: null,
-                regexDetailDefaultPresetIds: null,
-                ...("presetId" in ret
-                  ? { presetDetailId: ret.presetId, presetDetailInitialTab: "regex" }
-                  : { characterDetailId: ret.characterId, characterDetailInitialTab: ret.tab ?? null }),
-                editorDirty: false,
-              };
-            }
-            return {
+            const own = {
               regexDetailId: null,
               regexDetailReturn: null,
               regexDetailDefaultCharacterIds: null,
               regexDetailDefaultPresetIds: null,
-              editorDirty: false,
-              ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
             };
+            const ret = s.regexDetailReturn;
+            if (!ret) return leaveMainSurface(s, own);
+            // Return to the character/preset manager that opened the existing editor.
+            const returnPatch = {
+              ...own,
+              ...("presetId" in ret
+                ? { presetDetailId: ret.presetId, presetDetailInitialTab: "regex" }
+                : { characterDetailId: ret.characterId, characterDetailInitialTab: ret.tab ?? null }),
+              editorDirty: false,
+            };
+            // The return carries the tab a snapshot never has, so it wins over the pop.
+            return s.mainSurfaceHistory.length > 0 ? { ...leaveMainSurface(s, own), ...returnPatch } : returnPatch;
           }),
         openSpatialMapDetail: (chatId) =>
           set((s) => ({
-            spatialMapDetailChatId: chatId,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
+            ...enterMainSurface(s, { spatialMapDetailChatId: chatId }),
             ...getMobileDetailReturnState(s),
           })),
         openSpatialMapDraftReview: (review) =>
           set((s) => ({
-            pendingSpatialMapDraftReview: review,
-            spatialMapDetailChatId: review.chatId,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
+            ...enterMainSurface(s, { pendingSpatialMapDraftReview: review, spatialMapDetailChatId: review.chatId }),
             ...getMobileDetailReturnState(s),
           })),
         clearPendingSpatialMapDraftReview: () => set({ pendingSpatialMapDraftReview: null }),
         closeSpatialMapDetail: () =>
-          set((s) => ({
-            spatialMapDetailChatId: null,
-            pendingSpatialMapDraftReview: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+          set((s) => leaveMainSurface(s, { spatialMapDetailChatId: null, pendingSpatialMapDraftReview: null })),
         openCharacterLibrary: (characterId) =>
           set((state) => ({
-            characterLibraryOpen: true,
+            ...enterMainSurface(state, { characterLibraryOpen: true, cardLibraryKind: "characters" }),
             characterLibraryInitialId: characterId ?? null,
             characterLibrarySelectedId: characterId ?? state.characterLibrarySelectedId,
-            cardLibraryKind: "characters",
-            agentCatalogOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            pendingSpatialMapDraftReview: null,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
             editorDirty: false,
-            detailReturnRightPanel: null,
-            rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
+            ...getMobileDetailReturnState(state),
           })),
         openPersonaLibrary: () =>
           set((state) => ({
-            characterLibraryOpen: true,
-            cardLibraryKind: "personas",
-            agentCatalogOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            pendingSpatialMapDraftReview: null,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
+            ...enterMainSurface(state, { characterLibraryOpen: true, cardLibraryKind: "personas" }),
             editorDirty: false,
-            detailReturnRightPanel: null,
-            rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
+            ...getMobileDetailReturnState(state),
           })),
-        closeCharacterLibrary: () => set({ characterLibraryOpen: false, characterLibraryInitialId: null }),
+        closeCharacterLibrary: () =>
+          set((s) => leaveMainSurface(s, { characterLibraryOpen: false, characterLibraryInitialId: null })),
         openAgentCatalog: (packageId) =>
           set((state) => ({
-            agentCatalogOpen: true,
+            ...enterMainSurface(state, { agentCatalogOpen: true }),
             agentCatalogInitialPackageId: packageId ?? null,
-            characterLibraryOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            pendingSpatialMapDraftReview: null,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
             editorDirty: false,
-            detailReturnRightPanel: null,
-            rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
+            ...getMobileDetailReturnState(state),
           })),
-        closeAgentCatalog: () => set({ agentCatalogOpen: false, agentCatalogInitialPackageId: null }),
+        closeAgentCatalog: () =>
+          set((s) => leaveMainSurface(s, { agentCatalogOpen: false, agentCatalogInitialPackageId: null })),
+        setAgentCatalogPage: (agentCatalogInitialPackageId) => set({ agentCatalogInitialPackageId }),
         openBotBrowser: () =>
-          set({
-            botBrowserOpen: true,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            detailReturnRightPanel: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            personaDetailId: null,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            ...(isMobileShellViewport() && { rightPanelOpen: false }),
-          }),
-        closeBotBrowser: () => set({ botBrowserOpen: false }),
+          set((s) => ({ ...enterMainSurface(s, { botBrowserOpen: true }), ...getMobileDetailReturnState(s) })),
+        closeBotBrowser: () => set((s) => leaveMainSurface(s, { botBrowserOpen: false })),
         openGameAssetsBrowser: () =>
-          set({
-            gameAssetsBrowserOpen: true,
-            botBrowserOpen: false,
-            noodleOpen: false,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            detailReturnRightPanel: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            personaDetailId: null,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            ...(isMobileShellViewport() && { rightPanelOpen: false }),
-          }),
-        closeGameAssetsBrowser: () => set({ gameAssetsBrowserOpen: false }),
+          set((s) => ({ ...enterMainSurface(s, { gameAssetsBrowserOpen: true }), ...getMobileDetailReturnState(s) })),
+        closeGameAssetsBrowser: () => set((s) => leaveMainSurface(s, { gameAssetsBrowserOpen: false })),
         openNoodle: () =>
-          set({
-            noodleOpen: true,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            detailReturnRightPanel: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            personaDetailId: null,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
+          set((s) => ({
+            ...enterMainSurface(s, { noodleOpen: true }),
             editorDirty: false,
-            ...(isMobileShellViewport() && { rightPanelOpen: false }),
-          }),
-        closeNoodle: () => set({ noodleOpen: false }),
+            ...getMobileDetailReturnState(s),
+          })),
+        closeNoodle: () => set((s) => leaveMainSurface(s, { noodleOpen: false })),
         setNoodleSelectedPersonaId: (id) => set({ noodleSelectedPersonaId: id }),
         setNoodleNavigation: (navigation) => set({ noodleNavigation: navigation }),
 
-        hasAnyDetailOpen: () => {
-          const s = get();
-          return !!(
-            s.characterDetailId ||
-            s.lorebookDetailId ||
-            s.presetDetailId ||
-            s.connectionDetailId ||
-            s.agentDetailId ||
-            s.toolDetailId ||
-            s.personaDetailId ||
-            s.regexDetailId ||
-            s.spatialMapDetailChatId ||
-            s.characterLibraryOpen ||
-            s.agentCatalogOpen ||
-            s.botBrowserOpen ||
-            s.gameAssetsBrowserOpen ||
-            s.noodleOpen
-          );
-        },
+        hasAnyDetailOpen: () => mainSurfaceKey(get()) !== null,
         closeAllDetails: () =>
           set({
-            connectionDetailReturnTab: null,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
+            ...CLOSED_MAIN_SURFACE,
+            mainSurfaceHistory: [],
             editorDirty: false,
             detailReturnRightPanel: null,
+            chatSettingsReturn: null,
           }),
+        closeTopMainSurface: () => {
+          const actions = get();
+          const closeTop: Record<MainSurfaceKey, () => void> = {
+            regexDetailId: actions.closeRegexDetail,
+            personaDetailId: actions.closePersonaDetail,
+            toolDetailId: actions.closeToolDetail,
+            agentDetailId: actions.closeAgentDetail,
+            connectionDetailId: actions.closeConnectionDetail,
+            presetDetailId: actions.closePresetDetail,
+            characterDetailId: actions.closeCharacterDetail,
+            characterLibraryOpen: actions.closeCharacterLibrary,
+            agentCatalogOpen: actions.closeAgentCatalog,
+            lorebookDetailId: actions.closeLorebookDetail,
+            spatialMapDetailChatId: actions.closeSpatialMapDetail,
+            botBrowserOpen: actions.closeBotBrowser,
+            gameAssetsBrowserOpen: actions.closeGameAssetsBrowser,
+            noodleOpen: actions.closeNoodle,
+          };
+          const kind = mainSurfaceKind(actions);
+          if (kind) closeTop[kind]();
+          else actions.closeAllDetails();
+        },
         setEditorDirty: (dirty) => set({ editorDirty: dirty }),
         requestChatModeShortcut: (mode) =>
           set((state) => ({
+            ...CLOSED_MAIN_SURFACE,
+            mainSurfaceHistory: [],
             sidebarOpen: true,
             rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
             editorDirty: false,
             detailReturnRightPanel: null,
+            chatSettingsReturn: null,
             chatModeShortcutRequest: {
               mode,
               token: (state.chatModeShortcutRequest?.token ?? 0) + 1,
@@ -3724,6 +3661,10 @@ export const useUIStore = create<UIState>()(
             appAccentRgbMode: false,
             customCursorEnabled: true,
             reduceAmbientEffects: false,
+            uiStyleOverrides: {},
+            uiStylePreview: null,
+            uiStyleSelectedTarget: null,
+            uiStylePickMode: false,
             mariPanelSortMode: "az",
             mariEditViewMode: "easy",
             mariWindowHeightRem: MARI_WINDOW_HEIGHT_DEFAULT_REM,
@@ -4448,6 +4389,8 @@ export const useUIStore = create<UIState>()(
         }
         persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
         persisted.appBackgroundColor = normalizeAppBackgroundColor(persisted.appBackgroundColor);
+        // Staging folds Background color into the UI Editor's Whole app part here (its v105); the overhaul keeps
+        // Background color as its own per-scheme setting, so nothing is folded.
         if (typeof persisted.appAccentPulseMode !== "boolean") {
           persisted.appAccentPulseMode = persisted.appAccentRgbMode !== true && getDefaultAppAccentPulseMode();
         }
@@ -4659,6 +4602,8 @@ export const useUIStore = create<UIState>()(
           mariSeasonOptOut: typeof persisted.mariSeasonOptOut === "string" ? persisted.mariSeasonOptOut : "",
           loadRemoteMessageImages: persisted.loadRemoteMessageImages === true,
           approvedRemoteImageUrls: normalizeApprovedRemoteImageUrls(persisted.approvedRemoteImageUrls),
+          uiStyleOverrides: normalizeUiStyleOverrides(persisted.uiStyleOverrides),
+          uiStylePresets: normalizeUiStylePresets(persisted.uiStylePresets),
           conversationBackgroundImageOpacity: normalizeConversationBackgroundImageOpacity(
             persisted.conversationBackgroundImageOpacity,
           ),

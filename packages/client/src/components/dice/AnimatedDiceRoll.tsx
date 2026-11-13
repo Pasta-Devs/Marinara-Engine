@@ -285,10 +285,8 @@ export function AnimatedDiceRoll({
           </span>
           <span className={cn("dice-roll-total", totalVisible && "is-visible")}>
             {sumsToTotal ? " = " : " → "}
-            {total}
-            {resolution === "successes" ? (
-              <> {localizeUi("ui.dice.animateddiceroll.successCount", { count: total })}</>
-            ) : null}
+            {/* The success string carries the count itself ("1 success"), so the bare number is not repeated. */}
+            {resolution === "successes" ? localizeUi("ui.dice.animateddiceroll.successCount", { count: total }) : total}
           </span>
         </div>
       )}

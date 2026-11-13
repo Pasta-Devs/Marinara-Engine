@@ -4,14 +4,13 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { cn } from "../../../lib/utils";
 import { useUIStore } from "../../../stores/ui.store";
 import { ChatSettingsSection } from "../ChatSettingsSection";
+import { PresetPickerField, type LibraryPreset } from "../../../components/ui/LibraryPickers";
 
-interface PromptPresetOption {
-  id: string;
-  name: string;
-}
+type PromptPresetOption = LibraryPreset;
 
-const PROMPT_PRESET_CHEVRON_CLASS =
-  "pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]";
+// The native select's look (mari-preset-native-select gives the chrome field colours), on the picker's trigger.
+const PROMPT_PRESET_TRIGGER_CLASS =
+  "mari-preset-native-select w-full min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-shadow focus-visible:ring-[var(--primary)]/40";
 const QUICK_PRESET_EDITOR_SECTION_ID = "prompt-preset-editor";
 
 interface PromptPresetSectionProps {
@@ -50,24 +49,13 @@ export function PromptPresetSection({
       help={localizeUi("ui.chatSettings.promptpresetsection.presetsControlHowTheSystemPromptIsStructuredAnd")}
     >
       <div className="flex items-center gap-1.5">
-        <div className="relative min-w-0 flex-1">
-          <select
+        <div className="min-w-0 flex-1">
+          <PresetPickerField
             value={promptPresetId ?? ""}
-            onChange={(event) => onPromptPresetChange(event.target.value || null)}
-            className="mari-preset-native-select w-full appearance-none truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-          >
-            <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-            {presets.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            data-prompt-preset-chevron="select"
-            aria-hidden
-            size="0.75rem"
-            className={PROMPT_PRESET_CHEVRON_CLASS}
+            presets={presets}
+            ariaLabel={localizeUi("ui.chatSettings.conversationpromptsection.promptPreset")}
+            triggerClassName={PROMPT_PRESET_TRIGGER_CLASS}
+            onChange={(value) => onPromptPresetChange(value || null)}
           />
         </div>
         {showVariableEditor && (

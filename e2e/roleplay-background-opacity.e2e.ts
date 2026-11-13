@@ -7,6 +7,8 @@ const version = (JSON.parse(readFileSync(new URL("../package.json", import.meta.
   .version;
 const characterColor = "rgba(18, 52, 86, 0.25)";
 const personaColor = "rgba(86, 52, 18, 0.4)";
+/** The alpha a saved paint renders at, as an 8-bit canvas channel: its own alpha times the slider. */
+const scaledAlpha = (authoredAlpha: number, opacity: number) => Math.round(authoredAlpha * opacity * 255);
 
 async function createFixture(request: APIRequestContext) {
   const created: string[] = [];
@@ -79,7 +81,7 @@ async function paintPixel(bubble: Locator, pseudo?: string) {
 }
 
 for (const theme of ["dark", "light"] as const) {
-  test(`Roleplay opacity replaces authored character, persona and preset alpha (${theme})`, async ({
+  test(`Roleplay opacity scales authored character, persona and preset alpha (${theme})`, async ({
     page,
     request,
   }, testInfo) => {
@@ -126,21 +128,24 @@ for (const theme of ["dark", "light"] as const) {
       for (const key of ["ArrowRight", "End"]) {
         if (key === "ArrowRight") for (let step = 0; step < 10; step++) await slider.press(key);
         else await slider.press(key);
-        const alpha = key === "End" ? 255 : 128;
+        const opacity = key === "End" ? 1 : 0.5;
         await expect(slider).toHaveValue(key === "End" ? "100" : "50");
-        for (const [bubble, color] of [
-          [characterBubble, [18, 52, 86]],
-          [personaBubble, [86, 52, 18]],
+        // Character and persona cards saved their own alpha, so each scales from its own value.
+        for (const [bubble, color, authoredAlpha] of [
+          [characterBubble, [18, 52, 86], 0.25],
+          [personaBubble, [86, 52, 18], 0.4],
         ] as const) {
-          await expect.poll(async () => (await paintPixel(bubble))[3]).toBe(alpha);
+          await expect.poll(async () => (await paintPixel(bubble))[3]).toBe(scaledAlpha(authoredAlpha, opacity));
           const pixel = await paintPixel(bubble);
-          color.forEach((channel, i) => expect(Math.abs(pixel[i]! - channel)).toBeLessThanOrEqual(1));
+          // The canvas un-premultiplies a faint fill, so a low alpha rounds a channel by up to 255 / alpha.
+          const rounding = Math.ceil(1 / (authoredAlpha * opacity));
+          color.forEach((channel, i) => expect(Math.abs(pixel[i]! - channel)).toBeLessThanOrEqual(rounding));
           await expect(bubble).toHaveCSS("opacity", "1");
         }
       }
       // The setting must persist without changing saved card or historical persona colors.
       await page.reload();
-      await expect.poll(async () => (await paintPixel(characterBubble))[3]).toBe(255);
+      await expect.poll(async () => (await paintPixel(characterBubble))[3]).toBe(scaledAlpha(0.25, 1));
       const savedCharacter = await (await request.get(`/api/characters/${fixture.character.id}`)).json();
       expect(JSON.parse(savedCharacter.data).extensions.boxColor).toBe(characterColor);
       const savedMessages = await (await request.get(`/api/chats/${fixture.chat.id}/messages`)).json();
@@ -252,7 +257,11 @@ for (const theme of ["dark", "light"] as const) {
         );
         const preview = page.locator("[data-roleplay-color-preview]");
         await expect(preview).toBeVisible();
-        await expect.poll(async () => (await paintPixel(preview))[3]).toBe(128);
+        // The preview shows the card's own saved paint, scaled the same way as its bubble. The character
+        // still carries its rgba() alpha; the persona was repainted with an opaque hex above.
+        await expect
+          .poll(async () => (await paintPixel(preview))[3])
+          .toBe(scaledAlpha(kind === "character" ? 0.25 : 1, 0.5));
         await page.evaluate(async () => {
           const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
           useUIStore.getState().setChatFontOpacity(0);

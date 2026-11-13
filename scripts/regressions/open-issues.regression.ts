@@ -697,7 +697,7 @@ assert.deepEqual(
 );
 assert.match(
   characterRoutesSource,
-  /app\.post<\{ Params: \{ id: string \} \}>\("\/:id\/avatar"[\s\S]{0,2400}enqueueUpdate\(characterUpdateQueues, id, async \(\) => \{\s*const validatedData = await validateCharacterGalleryReferences/u,
+  /app\.post<\{ Params: \{ id: string \} \}>\("\/:id\/avatar"[\s\S]{0,2400}withCharacterUpdateQueue\(id, async \(\) => \{\s*const validatedData = await validateCharacterGalleryReferences/u,
   "Embedded card updates must serialize writes and validate character-owned gallery references",
 );
 
@@ -1186,6 +1186,15 @@ for (const dockerfile of ["Dockerfile", "Dockerfile.lite"]) {
   const dockerSource = readFileSync(join(REPOSITORY_ROOT, dockerfile), "utf8");
   assert.match(dockerSource, /^ARG BUILD_BRANCH$/mu, `${dockerfile} must accept the source ref as build metadata`);
   assert.match(dockerSource, /meta\.branch = process\.env\.BUILD_BRANCH/u);
+}
+{
+  // The client bundle reads BUILD_COMMIT during `pnpm build`; the ARG must precede it but follow the dependency
+  // install, since a per-commit ARG invalidates every later layer.
+  const dockerSource = readFileSync(join(REPOSITORY_ROOT, "Dockerfile"), "utf8");
+  const installAt = dockerSource.indexOf("pnpm install --frozen-lockfile");
+  const argAt = dockerSource.search(/^ARG BUILD_COMMIT$/mu);
+  const buildAt = dockerSource.search(/^RUN pnpm build$/mu);
+  assert.ok(installAt >= 0 && installAt < argAt && argAt < buildAt, "Dockerfile must declare ARG BUILD_COMMIT between the dependency install and `pnpm build`");
 }
 for (const workflow of ["build-container.yml", "build-container-lite.yml"]) {
   const workflowSource = readFileSync(join(REPOSITORY_ROOT, ".github/workflows", workflow), "utf8");
@@ -6033,8 +6042,8 @@ assert.match(
 );
 assert.match(
   conversationGroupSettingsSource,
-  // The close button also closes a pinned window, hence `onClose({ force: true })` (#7036).
-  /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;[\s\S]{0,250}onClose\((?:\{ force: true \})?\)[\s\S]{0,100}return true/u,
+  // The close button also closes a pinned window: `force` defaults to true (#7036); a card link passes false (#8933).
+  /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;[\s\S]{0,250}onClose\((?:\{ force(?:: true)? \})?\)[\s\S]{0,100}return true/u,
   "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
 );
 assert.match(
@@ -6071,8 +6080,8 @@ assert.match(
 );
 assert.match(
   conversationGroupSettingsSource,
-  /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\)\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
-  "Long-Term Memory settings navigation must wait for the guarded drawer close",
+  /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\) \{\s+rememberSettingsReturn\(\);\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
+  "Long-Term Memory settings navigation must wait for the guarded drawer close, then record the Chat Settings return",
 );
 assert.match(
   conversationPresenceSource,
@@ -9519,7 +9528,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(
     chatSettingsSource,
-    /const openLorebookFromSettings = useCallback\([\s\S]{0,220}onClose\(\);[\s\S]{0,80}openLorebookDetail\(lorebookId\);/u,
+    /const openLorebookFromSettings = useCallback\([\s\S]{0,220}closeForSurface\(\);[\s\S]{0,80}openLorebookDetail\(lorebookId\);/u,
     "Opening linked Maps lore from Chat Settings must close the drawer before navigating",
   );
   assert.equal(
@@ -10893,5 +10902,43 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
 assert.match(gameSurfaceSource, /localStorage\.setItem\(`story-ending-closed:\$\{storyEndingKey\}`, "1"\)/u);
 assert.match(gameSurfaceSource, /readIntroPresentedFlag\(`story-ending-closed:\$\{storyEndingKey\}`\)/u);
 assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!storyEndingClosedBefore &&/u);
+
+// #8933: a member's name in Chat Settings opens their full card again (Characters and Game Mode party), only after
+// the drawer's guarded close (drafts and the inline card editor's saves finished; a pinned drawer stays open).
+{
+  const drawerSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+    "utf8",
+  );
+  const cardOpens = drawerSource.match(
+    /void requestClose\(false\)\.then\(\(closed\) => \{\s*if \(closed\) \{\s*rememberSettingsReturn\(\);\s*useUIStore\.getState\(\)\.openCharacterDetail\(c\.id, \{ initialTab: "card" \}\);/gu,
+  );
+  assert.equal(cardOpens?.length, 2, "both member-name buttons open the card after a guarded, unforced close");
+  assert.match(
+    drawerSource,
+    /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;\s*if \(!\(await \(inlineCardFlushRef\.current\?\.\(\) \?\? Promise\.resolve\(true\)\)\)\) return false;[\s\S]{0,80}onClose\(\{ force \}\);/u,
+    "the drawer's close waits for the inline card editor's saves",
+  );
+  assert.match(drawerSource, /onFlushChange=\{handleInlineCardFlushChange\}/u);
+  const inlineEditorSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/inline-editors/InlineChatCardEditor.tsx"),
+    "utf8",
+  );
+  assert.match(
+    inlineEditorSource,
+    /onFlushChange\(async \(\) => \{[\s\S]{0,400}commitField\(field\);\s*await saveQueueRef\.current;\s*return !lastSaveFailedRef\.current;/u,
+    "the inline card editor hands the drawer a flush that waits for its queued saves",
+  );
+  assert.match(
+    inlineEditorSource,
+    /onFlushChange\(async \(\) => \{[\s\S]{0,160}lastSaveFailedRef\.current = false;/u,
+    "a flush starts with no failure recorded",
+  );
+  assert.equal(
+    inlineEditorSource.match(/lastSaveFailedRef\.current = false;/gu)?.length,
+    1,
+    "a later successful save never clears a failure within the flush",
+  );
+}
 
 console.info("Open-issue regressions passed.");

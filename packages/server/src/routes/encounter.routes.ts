@@ -1,5 +1,8 @@
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
-import { withConnectionThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
+import {
+  withAlwaysOnThinkingHeadroom,
+  withConnectionThinkingHeadroom,
+} from "../services/generation/agent-generation-parameters.js";
 import { z } from "zod";
 import { resolveGameConnection as resolveEncounterConnection } from "../services/game/connection.service.js";
 import {
@@ -1713,7 +1716,13 @@ export async function encounterRoutes(app: FastifyInstance) {
         ...storedOptions,
         temperature: storedOptions.temperature ?? 0.8,
         enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
-        maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 8192),
+        maxTokens: withAlwaysOnThinkingHeadroom({
+          provider: conn.provider,
+          model: conn.model ?? "",
+          maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 8192),
+          reasoningEffort: storedOptions.reasoningEffort,
+          maxTokensOverride: conn.maxTokensOverride,
+        }),
       });
 
       if (!result.content) {
@@ -1809,7 +1818,13 @@ export async function encounterRoutes(app: FastifyInstance) {
         ...storedOptions,
         temperature: storedOptions.temperature ?? 0.9,
         enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
-        maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 8192),
+        maxTokens: withAlwaysOnThinkingHeadroom({
+          provider: conn.provider,
+          model: conn.model ?? "",
+          maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 8192),
+          reasoningEffort: storedOptions.reasoningEffort,
+          maxTokensOverride: conn.maxTokensOverride,
+        }),
       });
 
       if (!result.content) {

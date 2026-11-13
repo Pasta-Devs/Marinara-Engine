@@ -15,6 +15,7 @@ import type {
   XaiVideoDefaults,
 } from "../types/video-generation-defaults.js";
 import { normalizeComfyUiLoraSettings } from "./image-generation-defaults.js";
+import { normalizeCustomRequestHeaders } from "../schemas/prompt.schema.js";
 
 export const VIDEO_DEFAULTS_STORAGE_KEY = "videoGeneration";
 export const VIDEO_GENERATION_DEFAULTS_VERSION = 1 as const;
@@ -200,6 +201,8 @@ export function normalizeVideoGenerationProfile(rawProfile: unknown): {
     resolution: readResolution(rawComfyUi.resolution, DEFAULT_COMFYUI_VIDEO_DEFAULTS.resolution),
     loras: normalizeComfyUiLoraSettings(rawComfyUi.loras),
   };
+  const customHeaders = normalizeCustomRequestHeaders(raw.customHeaders);
+  if (customHeaders) profile.customHeaders = customHeaders;
   const changed = JSON.stringify(profile) !== JSON.stringify(rawProfile);
   return { profile, changed };
 }

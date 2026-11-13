@@ -20,12 +20,15 @@ import {
   rmSync,
   unlinkSync,
 } from "fs";
+import { open, realpath, stat } from "fs/promises";
 import { join, extname, basename, dirname, relative, resolve, sep } from "path";
 import { execFile } from "child_process";
 import { platform } from "os";
 import { z } from "zod";
 import { pipeline } from "stream/promises";
-import { MUSIC_GENRES, MUSIC_INTENSITIES } from "@marinara-engine/shared";
+import { MUSIC_GENRES, MUSIC_INTENSITIES, listMusicDjFolders } from "@marinara-engine/shared";
+import type { DB } from "../db/connection.js";
+import { chats } from "../db/schema/index.js";
 import {
   GAME_ASSETS_DIR,
   buildAssetManifest,
@@ -38,10 +41,15 @@ import {
 } from "../services/game/asset-manifest.service.js";
 import { folderContainsBundledGameAssets, isBundledGameAsset } from "../services/game/native-game-assets.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { getSharp } from "../utils/sharp.js";
 import { openFolderInFileManager } from "../lib/open-folder-in-file-manager.js";
 import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
-import { sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
+import {
+  isCanonicalMediaPathInsideRoot,
+  sendValidatedMediaFile,
+  validateImageAssetFile,
+} from "../utils/media-file-security.js";
 
 const META_PATH = join(GAME_ASSETS_DIR, "meta.json");
 
@@ -124,6 +132,36 @@ const MUSIC_INTENSITY_SET = new Set<string>(MUSIC_INTENSITIES);
  */
 function isSafePath(segment: string): boolean {
   return !segment.includes("..") && !segment.includes("\\") && !/^\//.test(segment);
+}
+
+/**
+ * The real path of `filePath` when it lies inside a folder the Music DJ plays from: its default folder, a
+ * character's or a chat's (#8901). Links and `..` are resolved on both sides first, so neither can reach a file
+ * outside those folders (#8915).
+ */
+async function musicDjFolderFile(db: DB, filePath: string): Promise<string | null> {
+  let canonicalPath: string;
+  try {
+    canonicalPath = await realpath(resolve(filePath));
+  } catch {
+    return null;
+  }
+  const [musicDj, chatRows] = await Promise.all([
+    createAgentsStorage(db).getByType("spotify"),
+    db.select({ metadata: chats.metadata }).from(chats),
+  ]);
+  const folders = listMusicDjFolders(
+    musicDj?.settings,
+    chatRows.map((row) => row.metadata),
+  );
+  for (const folder of folders) {
+    try {
+      if (isCanonicalMediaPathInsideRoot(canonicalPath, await realpath(resolve(folder)))) return canonicalPath;
+    } catch {
+      // A folder that no longer exists holds no files.
+    }
+  }
+  return null;
 }
 
 function pickMusicFolder(): Promise<string | null> {
@@ -566,18 +604,50 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Unsupported music file type" });
     }
 
+    // A file outside the Music DJ folders answers like a missing one, so the route cannot probe the device.
+    const canonicalPath = await musicDjFolderFile(app.db, filePath);
     let isFile = false;
     try {
-      isFile = existsSync(filePath) && statSync(filePath).isFile();
+      isFile = !!canonicalPath && statSync(canonicalPath).isFile();
     } catch {
       isFile = false;
     }
-    if (!isFile) {
+    // The real file must be audio too: a link named like a track can point at any file in the folder's tree.
+    const realExt = canonicalPath ? extname(canonicalPath).toLowerCase() : "";
+    if (!canonicalPath || !isFile || !MUSIC_FILE_EXTENSIONS.has(realExt)) {
       return reply.status(404).send({ error: "Music file not found" });
     }
 
-    const mime = MIME_MAP[ext] ?? "application/octet-stream";
-    const stream = createReadStream(filePath);
+    // Bind the check to the file actually opened: a link swapped in after the check would make the open follow it,
+    // so the opened file must still be the one at a path inside the folders (same device and inode) (#8915).
+    let handle: Awaited<ReturnType<typeof open>>;
+    try {
+      handle = await open(canonicalPath, "r");
+    } catch {
+      return reply.status(404).send({ error: "Music file not found" });
+    }
+    let sameFile = false;
+    try {
+      // A failure reading the folders is a server error, as at the first check; only the filesystem answers 404.
+      const recheck = await musicDjFolderFile(app.db, canonicalPath);
+      try {
+        const [opened, current] = await Promise.all([handle.stat(), recheck ? stat(recheck) : null]);
+        sameFile = !!current && opened.isFile() && current.dev === opened.dev && current.ino === opened.ino;
+      } catch {
+        sameFile = false;
+      }
+    } catch (err) {
+      await handle.close().catch(() => undefined);
+      logger.error(err, "Music file recheck failed");
+      throw err;
+    }
+    if (!sameFile) {
+      await handle.close().catch(() => undefined);
+      return reply.status(404).send({ error: "Music file not found" });
+    }
+
+    const mime = MIME_MAP[realExt] ?? "application/octet-stream";
+    const stream = handle.createReadStream();
     return reply.header("Content-Type", mime).header("Cache-Control", "private, max-age=60").send(stream);
   });
 

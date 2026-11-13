@@ -3,7 +3,8 @@
 // MariDbService against the two docs examples, which share no ids or dice: Ember Roads (2d6, three
 // stats, no saves) on a persona and Gravewatch (a d10 pool, a save, enum fields) on a card. Each
 // update writes only that ruleset's sheet, refuses anything the sheet editor would refuse, and
-// leaves the rest of personaStats and the card untouched.
+// leaves the rest of personaStats and the card untouched. The MRPG picks actions (`*.mrpg.get|update`)
+// ride along at the end on the same two cards.
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,6 +26,10 @@ const { characters, personas } = await import("../../../packages/server/src/db/s
 const { createGameRulesetsStorage } =
   await import("../../../packages/server/src/services/storage/game-rulesets.storage.js");
 const { MariDbService } = await import("../../../packages/server/src/services/mari-db/mari-db.service.js");
+const { buildMariWorkspaceActionResult } =
+  await import("../../../packages/server/src/services/professor-mari/workspace-agent.service.js");
+const { personaRowFromStored, storedPersonaFromRow } =
+  await import("../../../packages/server/src/services/personas/persona-card-storage.js");
 
 type Row = Record<string, unknown>;
 const EMBER = "local/ember-roads";
@@ -45,12 +50,18 @@ try {
   });
   assert.equal(created.ok, true, `persona.create: ${created.error ?? ""}`);
   const otherStats = { enabled: true, bars: [{ name: "Grit", value: 3, max: 5, color: "#ff0000" }] };
-  await db
-    .update(personas)
-    .set({ personaStats: JSON.stringify(otherStats) })
-    .where(eq(personas.id, "rook"));
-  const personaStats = async () => {
+  // The table stores card JSON: read the decoded flat view, merge the change, write the folded row back.
+  const readRook = async () => {
     const [row] = await db.select().from(personas).where(eq(personas.id, "rook"));
+    return personaRowFromStored(row!);
+  };
+  const setRookStats = async (stats: unknown) => {
+    const { id: _id, ...stored } = storedPersonaFromRow({ ...(await readRook()), personaStats: JSON.stringify(stats) });
+    await db.update(personas).set(stored).where(eq(personas.id, "rook"));
+  };
+  await setRookStats(otherStats);
+  const personaStats = async () => {
+    const row = await readRook();
     return JSON.parse(String(row!.personaStats)) as Row & { rulesetSheets?: Record<string, { v: number; build: Row }> };
   };
   const update = (patch: unknown, extra: Row = {}) =>
@@ -83,7 +94,7 @@ try {
   assert.equal(preview.ok, true, `preview: ${preview.error ?? ""}`);
   assert.equal((await personaStats()).rulesetSheets, undefined, "apply:false saves nothing");
 
-  const [rowBefore] = await db.select().from(personas).where(eq(personas.id, "rook"));
+  const rowBefore = await readRook();
   const first = await update({
     abilities: { brawn: 2, wits: -1 },
     skills: { scrap: "expert" },
@@ -92,9 +103,9 @@ try {
     lists: { gear: { add: [{ name: "Crowbar", swing: "brawn", damage: "1d6", bulk: 1, packed: true }] } },
   });
   assert.equal(first.ok, true, `first update: ${first.error ?? ""}`);
-  const [rowAfter] = await db.select().from(personas).where(eq(personas.id, "rook"));
-  const { personaStats: _a, updatedAt: _b, ...restBefore } = rowBefore!;
-  const { personaStats: _c, updatedAt: _d, ...restAfter } = rowAfter!;
+  const rowAfter = await readRook();
+  const { personaStats: _a, updatedAt: _b, ...restBefore } = rowBefore;
+  const { personaStats: _c, updatedAt: _d, ...restAfter } = rowAfter;
   assert.deepEqual(restAfter, restBefore, "no other persona column changes");
   let stats = await personaStats();
   assert.deepEqual(stats.bars, otherStats.bars, "bars beside the sheets are untouched");
@@ -213,10 +224,7 @@ try {
     ...(await personaStats()),
     rulesetSheets: { ...(await personaStats()).rulesetSheets, [GRAVE]: { v: "x" } },
   };
-  await db
-    .update(personas)
-    .set({ personaStats: JSON.stringify(broken) })
-    .where(eq(personas.id, "rook"));
+  await setRookStats(broken);
   const unreadable = await mari.executeAction({
     action: "persona.rulesetSheet.update",
     personaId: "rook",
@@ -289,6 +297,58 @@ try {
     await mari.executeAction({ action: "persona.rulesetSheet.get", personaId: "rook", rulesetId: GRAVE })
   ).output as Row;
   assert.equal(blankRead.status, "unreadable");
+
+  // ── MRPG card picks (primary tree, strong and weak stats) share the same cards ──
+  const picks = await mari.executeAction({
+    action: "character.mrpg.update",
+    characterId: "warden",
+    patch: { tree: "Guard", strong: ["defense", "hp"], weak: "speed" },
+    apply: true,
+  });
+  assert.equal(picks.ok, true, `character.mrpg.update: ${picks.error ?? ""}`);
+  const [pickedRow] = await db.select().from(characters).where(eq(characters.id, "warden"));
+  const picked = JSON.parse(String(pickedRow!.data)) as Row & { extensions: Row };
+  assert.deepEqual(picked.extensions.classic, { tree: "guard", strong: ["defense", "hp"], weak: "speed", built: true });
+  assert.ok(picked.extensions.rulesetSheets, "MRPG picks leave the ruleset sheets alone");
+  assert.equal(picked.description, "Keeps the gate.");
+  const refusedPicks = await mari.executeAction({
+    action: "persona.mrpg.update",
+    personaId: "rook",
+    patch: { tree: "wizard", strong: ["luck", "magic", "skill"], weak: "luck" },
+    apply: true,
+  });
+  assert.equal(refusedPicks.ok, false);
+  assert.match(String(refusedPicks.error), /tree must be one of/);
+  assert.match(String(refusedPicks.error), /strong takes at most 2/);
+  const personaPicks = await mari.executeAction({
+    action: "persona.mrpg.update",
+    personaId: "rook",
+    patch: { strong: ["luck"], weak: "luck" },
+    apply: true,
+  });
+  assert.match(String(personaPicks.error), /luck can't be both strong and weak/);
+  await mari.executeAction({
+    action: "persona.mrpg.update",
+    personaId: "rook",
+    patch: { strong: ["luck"] },
+    apply: true,
+  });
+  const rookPicks = (await mari.executeAction({ action: "persona.mrpg.get", personaId: "rook" })).output as Row;
+  assert.equal(rookPicks.tree, "auto");
+  assert.deepEqual(rookPicks.strong, ["luck"]);
+  assert.equal((await personaStats()).enabled, true, "the rest of personaStats is untouched");
+
+  // ── A persona change receipt names persona fields, not the stored card's keys ──
+  const backstoryEdit = await mari.executeAction({
+    action: "persona.update",
+    id: "rook",
+    patch: { backstory: "Grew up by the gate." },
+    apply: true,
+  });
+  assert.equal(backstoryEdit.ok, true, `persona.update: ${backstoryEdit.error ?? ""}`);
+  assert.equal(backstoryEdit.summary?.preview[0]?.after?.backstory, "Grew up by the gate.");
+  assert.equal(backstoryEdit.summary?.preview[0]?.after?.data, undefined, "the preview is the flat view");
+  assert.deepEqual(buildMariWorkspaceActionResult("persona.update", backstoryEdit)?.changedFields, ["backstory"]);
 } finally {
   await closeDB();
   if (previousDataDir === undefined) delete process.env.DATA_DIR;

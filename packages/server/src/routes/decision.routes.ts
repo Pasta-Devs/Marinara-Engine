@@ -207,6 +207,12 @@ export async function decisionRoutes(app: FastifyInstance) {
       settings: sidecarSettings,
       runtimeInstalled: decisionRuntimeInstalled(),
       runtimeNeedsUpdate: decisionRuntimeNeedsUpdate(),
+      // Whether the installed model's weights are here and whole, or null with none installed. A pasted model
+      // has no catalog row to carry `downloaded`, so the window reads it here.
+      installedModelDownloaded: (() => {
+        const installed = installedDecisionModel(sidecarSettings);
+        return installed ? decisionRuntimeService.modelDownloaded(installed) : null;
+      })(),
       process: decisionProcessService.getStatus(),
       logPath: decisionProcessService.getLogPath(),
       models,

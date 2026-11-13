@@ -101,6 +101,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useAgentStore, EMPTY_AGENT_TYPES } from "../../stores/agent.store";
 import { isBuiltInTrackerAgentType, resolveTrackerRerunTypes } from "../../lib/tracker-agents";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { useEncounter } from "../../hooks/use-encounter";
 import { useRoleplayHtmlArtifact } from "../../hooks/use-roleplay-commands";
 import { useScene } from "../../hooks/use-scene";
@@ -603,7 +604,7 @@ export const ChatArea = memo(function ChatArea({
   onChatWindowIntroOpenChange,
 }: ChatWindowIntroProps) {
   const activeChatId = useChatStore((state) => state.activeChatId);
-  const { data: chat, error, refetch } = useChat(activeChatId);
+  const { data: chat, error, refetch, isPlaceholderData, failureCount, errorUpdateCount } = useChat(activeChatId);
   const metadata = chat ? readChatMetadata(chat) : {};
   // Keep the local host registered while the next chat loads. Multiplayer registers its own host
   // once the room is ready; its setup screen must not offer Chat Settings.
@@ -629,7 +630,8 @@ export const ChatArea = memo(function ChatArea({
       useChatStore.getState().setActiveChatId(null);
     }
   }, [activeChatId, error]);
-  if (activeChatId && !chat)
+  // A failing detail keeps the list placeholder through its retries; show the opening state meanwhile.
+  if (activeChatId && (!chat || (isPlaceholderData && (failureCount > 0 || errorUpdateCount > 0))))
     return (
       <ChatOpeningState error={error} onRetry={refetch} onBack={() => useChatStore.getState().setActiveChatId(null)} />
     );
@@ -723,14 +725,11 @@ const LocalChatArea = memo(function LocalChatArea({
   const intuitiveTouchStartRef = useRef<{ x: number; y: number; target: EventTarget | null } | null>(null);
   const swipeActionSeq = useRef(0);
   const pendingSwipeMutationsRef = useRef(new Map<string, Promise<void>>());
-  // Tracks whether the initial load stagger animation has played.
-  // After the first render with messages, new/re-mounted messages
-  // skip the entry animation to avoid a visible flash on refetch.
-  const hasAnimatedRef = useRef(false);
   const settingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
   const settingsPinned = useFloatingWindowStore((s) => s.layouts[CHAT_SETTINGS_WINDOW_ID]?.pinned === true);
   const [settingsInitialSection, setSettingsInitialSection] = useState<ChatSettingsInitialSection>(null);
   const advancedMemoryRequest = useUIStore((state) => state.advancedMemoryRequest);
+  const chatSettingsRequest = useUIStore((state) => state.chatSettingsRequest);
   const [settingsAnchor, setSettingsAnchor] = useState<FloatingPanelAnchor>(null);
   // Held in the store: desktop editors (model settings, characters, agents) unmount ChatArea mid-setup.
   const wizardOpen = useChatStore((s) => s.setupWizardChatId !== null && s.setupWizardChatId === activeChatId);
@@ -870,6 +869,17 @@ const LocalChatArea = memo(function LocalChatArea({
     )
       ui.setAdvancedMemoryRequest(null);
   }, [activeChatId, advancedMemoryRequest, chatDetail?.id, handleOpenSettingsPanel]);
+
+  // Back from a surface opened in Chat Settings reopens the drawer; a pinned one that never closed stays as it is.
+  useEffect(() => {
+    if (!chatSettingsRequest || chatSettingsRequest.chatId !== chatDetail?.id || chatDetail.id !== activeChatId) return;
+    if (!useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID]) {
+      handleOpenSettingsPanel(undefined, {
+        initialSection: chatSettingsRequest.section as ChatSettingsInitialSection,
+      });
+    }
+    useUIStore.getState().consumeChatSettingsRequest();
+  }, [activeChatId, chatDetail?.id, chatSettingsRequest, handleOpenSettingsPanel]);
 
   // The Chat Summary agent's "open summaries" link and the omnibar's chat tool rows land on their Chat Settings drawer.
   useEffect(() => {
@@ -1414,6 +1424,9 @@ const LocalChatArea = memo(function LocalChatArea({
             avatarUrl: row.avatarPath || undefined,
             avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
             combatIcon: parseCombatIconChoice(extensions.combatIcon),
+            nameAliases: Array.isArray(extensions.nameAliases)
+              ? extensions.nameAliases.filter((alias: unknown): alias is string => typeof alias === "string")
+              : undefined,
             nameColor: typeof extensions.nameColor === "string" ? extensions.nameColor : undefined,
             dialogueColor: typeof extensions.dialogueColor === "string" ? extensions.dialogueColor : undefined,
             boxColor: typeof extensions.boxColor === "string" ? extensions.boxColor : undefined,
@@ -1443,6 +1456,7 @@ const LocalChatArea = memo(function LocalChatArea({
       avatarUrl: persona.avatarPath || undefined,
       avatarCrop: persona.avatarCrop ?? null,
       combatIcon: parseCombatIconChoice(persona.personaStats?.combatIcon),
+      nameAliases: persona.nameAliases?.length ? persona.nameAliases : undefined,
       nameColor: persona.nameColor || undefined,
       dialogueColor: persona.dialogueColor || undefined,
       boxColor: persona.boxColor || undefined,
@@ -3481,9 +3495,7 @@ const LocalChatArea = memo(function LocalChatArea({
     if (chat) useChatStore.getState().setActiveChat(chat);
   }, [chat]);
 
-  // Reset stagger animation flag when switching chats
   useEffect(() => {
-    hasAnimatedRef.current = false;
     // A remount on the same chat keeps its open wizard; switching chats closes it.
     if (useChatStore.getState().setupWizardChatId !== activeChatId) setWizardOpen(false);
   }, [activeChatId, setWizardOpen]);
@@ -4459,9 +4471,6 @@ const LocalChatArea = memo(function LocalChatArea({
   // ═══════════════════════════════════════════════
   // Roleplay mode — existing layout
   // ═══════════════════════════════════════════════
-  const shouldAnimateMessages = !hasAnimatedRef.current;
-  if (messages?.length) hasAnimatedRef.current = true;
-
   return (
     <>
       {cardCssInjector}
@@ -4512,7 +4521,6 @@ const LocalChatArea = memo(function LocalChatArea({
           generationVisualsPaused={isStreaming || agentProcessing}
           agentProcessing={agentProcessing}
           regenerateMessageId={regenerateMessageId}
-          shouldAnimateMessages={shouldAnimateMessages}
           summaryContextSize={summaryContextSize}
           totalMessageCount={totalMessageCount}
           lastAssistantMessageId={lastAssistantMessageId}
@@ -4644,6 +4652,20 @@ function AgentInjectionReviewModal({
       onClose={onClose}
       title={localizeUi("ui.chat.agentinjectionreviewmodal.writerAgentReview")}
       width="max-w-3xl"
+      pullToClose={false}
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button type="button" onClick={onContinue} className={SHEET_BUTTON_PRIMARY}>
+            <Check size="0.875rem" />
+            {localizeUi("ui.noodle.wizardfooter.continue")}
+          </button>
+          <button type="button" onClick={onClose} className={SHEET_BUTTON_QUIET}>
+            <X size="0.875rem" />
+            {localizeUi("capabilities.actions.close")}
+          </button>
+        </>
+      }
     >
       <div className="flex flex-col gap-3">
         <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
@@ -4662,29 +4684,11 @@ function AgentInjectionReviewModal({
                 value={drafts[injection.agentType] ?? injection.text}
                 onChange={(event) => onDraftChange(injection.agentType, event.target.value)}
                 rows={6}
-                className="min-h-32 w-full resize-y rounded-b-lg border-0 bg-[var(--secondary)]/35 px-3 py-2 font-mono text-xs leading-relaxed text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--ring)]"
+                className="min-h-32 w-full resize-y rounded-b-lg border-0 bg-[var(--secondary)]/35 px-3 py-2 font-mono text-xs max-sm:text-base leading-relaxed text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--ring)]"
                 spellCheck={false}
               />
             </div>
           ))}
-        </div>
-        <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-2 text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            <X size="0.875rem" />
-            {localizeUi("capabilities.actions.close")}
-          </button>
-          <button
-            type="button"
-            onClick={onContinue}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
-          >
-            <Check size="0.875rem" />
-            {localizeUi("ui.noodle.wizardfooter.continue")}
-          </button>
         </div>
       </div>
     </Modal>

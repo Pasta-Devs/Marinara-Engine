@@ -1,6 +1,8 @@
 export type CharacterCatalogEntry = {
   id: string;
   name: string;
+  /** Other names (`extensions.nameAliases`), normalized. */
+  nameAliases: string[];
   comment: string;
   creator: string;
   version: string;
@@ -29,4 +31,21 @@ export type CharacterCatalogPage = {
   offset: number;
   hasMore: boolean;
   catalogGeneration: number;
+  /** Matching cards across all pages. */
+  total: number;
+  /** Folders that hold a matching favourite, before the folder filter. */
+  favoriteFolderIds: string[];
+};
+
+/** List-only rows; full card text remains available through the default catalog view. */
+export type CharacterCatalogSummaryEntry = Omit<
+  CharacterCatalogEntry,
+  "explicitSummary" | "description" | "personality" | "scenario" | "firstMessage" | "creatorNotes"
+> & {
+  cardSpec: string;
+  cardSpecVersion: string;
+};
+
+export type CharacterCatalogSummaryPage = Omit<CharacterCatalogPage, "items"> & {
+  items: CharacterCatalogSummaryEntry[];
 };

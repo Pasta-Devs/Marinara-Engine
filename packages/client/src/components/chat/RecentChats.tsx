@@ -11,6 +11,7 @@ import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
 import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { usePrefetchChatMessages } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
@@ -95,6 +96,7 @@ export function RecentChats() {
   const overhaul = useOverhaulLook();
   const gameAssets = useGameAssetManifest();
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
+  const prefetchChatMessages = usePrefetchChatMessages();
   const recentChats = useMemo(() => feed.data?.recentChats ?? [], [feed.data?.recentChats]);
   // New layout: as many rows as the widget has room for (it can be resized), so a tall widget isn't
   // left with an empty band under six rows.
@@ -313,6 +315,7 @@ export function RecentChats() {
             key={chat.id}
             type="button"
             onClick={() => setActiveChatId(chat.id)}
+            onPointerDown={() => prefetchChatMessages(chat.id)}
             style={style}
             data-chat-mode={chatMode}
             data-recent-chat-index={index}

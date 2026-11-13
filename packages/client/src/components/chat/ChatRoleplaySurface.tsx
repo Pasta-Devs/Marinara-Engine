@@ -68,7 +68,6 @@ import {
   DEFAULT_ROLEPLAY_BACKGROUND_URL,
   ROLEPLAY_AVATAR_STYLES,
   selectRoleplayAvatarStyle,
-  selectSidebarShown,
   useUIStore,
 } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -473,6 +472,7 @@ function StreamingIndicator({
   chatMode,
   groupChatMode,
   colorInlineNames,
+  colorPersonaInlineNames,
   expressionAvatarResolver,
   visualNovel = false,
   visualNovelParagraphIndex,
@@ -487,6 +487,7 @@ function StreamingIndicator({
   chatMode: string;
   groupChatMode?: string;
   colorInlineNames?: boolean;
+  colorPersonaInlineNames?: boolean;
   expressionAvatarResolver?: ExpressionAvatarResolver;
   visualNovel?: boolean;
   visualNovelParagraphIndex?: number;
@@ -540,6 +541,7 @@ function StreamingIndicator({
         chatMode={chatMode}
         groupChatMode={groupChatMode}
         colorInlineNames={colorInlineNames}
+        colorPersonaInlineNames={colorPersonaInlineNames}
         chatCharacterIds={chatCharIds}
         mergedGroupCharacterIds={mergedGroupCharacterIds}
         expressionAvatarResolver={expressionAvatarResolver}
@@ -851,7 +853,6 @@ type RoleplaySurfaceProps = {
   generationVisualsPaused: boolean;
   agentProcessing: boolean;
   regenerateMessageId: string | null;
-  shouldAnimateMessages: boolean;
   summaryContextSize: number;
   totalMessageCount: number;
   lastAssistantMessageId: string | null;
@@ -981,7 +982,6 @@ export function ChatRoleplaySurface({
   generationVisualsPaused,
   agentProcessing,
   regenerateMessageId,
-  shouldAnimateMessages,
   summaryContextSize,
   totalMessageCount,
   lastAssistantMessageId,
@@ -1120,8 +1120,6 @@ export function ChatRoleplaySurface({
   const linkedChatName = chat?.connectedChatId
     ? getConnectedChatDisplayName(allChats?.find((c) => c.id === chat.connectedChatId))
     : undefined;
-  const sidebarOpen = useUIStore(selectSidebarShown);
-  const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   // The stock black backdrop is a dark-mode default; in Light mode the theme's own background shows instead.
   const lightTheme = useUIStore((s) => s.theme === "light");
@@ -1134,6 +1132,9 @@ export function ChatRoleplaySurface({
   const visualNovel = isRoleplay && (chatMeta.roleplayDisplayStyle ?? defaultDisplayStyle) === "visual-novel";
   // Undefined until the chat sets it; ChatMessage then falls back to the retired global switch.
   const colorInlineNames = typeof chatMeta.colorInlineNames === "boolean" ? chatMeta.colorInlineNames : undefined;
+  // Undefined until the chat sets it; ChatMessage then follows the character switch above.
+  const colorPersonaInlineNames =
+    typeof chatMeta.colorPersonaInlineNames === "boolean" ? chatMeta.colorPersonaInlineNames : undefined;
   const chatPosition = useUIStore((s) => s.roleplayChatPosition);
   const roleplayAvatarStyle = useUIStore(selectRoleplayAvatarStyle);
   // This chat's own avatar display (Chat settings > Characters), in effect while it's open.
@@ -1436,7 +1437,7 @@ export function ChatRoleplaySurface({
   const ambientVisualsPaused =
     generationVisualsPaused || (isMobileToolbarViewport && (keyboardOpen || composerFocused || hasMobileDraftInput));
   const weatherEffectsPaused = isMobileToolbarViewport && (keyboardOpen || composerFocused || hasMobileDraftInput);
-  const hideEchoChamberOnMobile = sidebarOpen || rightPanelOpen || settingsOpen || wizardOpen;
+  const hideEchoChamberOnMobile = settingsOpen || wizardOpen;
   const showSpriteOverlay = expressionAgentEnabled && spriteCharacterIds.length > 0 && spriteDisplayModes.length > 0;
   // Avatars show independently of the Expression Engine; the user hides the full-body sprite by hand.
   const avatarAgentIds = useChatAvatarAgentIds(chatMeta);
@@ -2265,15 +2266,7 @@ export function ChatRoleplaySurface({
                       roleplayStoryboardAutoMode === "illustration" ||
                       roleplayStoryboardAutoMode === "animation");
                   return (
-                    <div
-                      key={msg.id}
-                      className={shouldAnimateMessages ? "animate-message-in" : undefined}
-                      style={
-                        shouldAnimateMessages
-                          ? { animationDelay: `${Math.min(i * 30, 200)}ms`, animationFillMode: "backwards" }
-                          : undefined
-                      }
-                    >
+                    <div key={msg.id}>
                       {isRegenerating ? (
                         <RegeneratingMessageContent
                           msg={msg}
@@ -2297,6 +2290,7 @@ export function ChatRoleplaySurface({
                           isGrouped={isGrouped(sourceIndex)}
                           groupChatMode={groupChatMode}
                           colorInlineNames={colorInlineNames}
+                          colorPersonaInlineNames={colorPersonaInlineNames}
                           chatCharacterIds={chatCharIds}
                           mergedGroupCharacterIds={activeChatCharacterIds}
                           expressionAvatarResolver={expressionAvatarResolver}
@@ -2336,6 +2330,7 @@ export function ChatRoleplaySurface({
                           isGrouped={isGrouped(sourceIndex)}
                           groupChatMode={groupChatMode}
                           colorInlineNames={colorInlineNames}
+                          colorPersonaInlineNames={colorPersonaInlineNames}
                           chatCharacterIds={chatCharIds}
                           mergedGroupCharacterIds={activeChatCharacterIds}
                           noExpressionCharacterIds={noExpressionCharacterIds}
@@ -2373,6 +2368,7 @@ export function ChatRoleplaySurface({
                     chatMode={chatMode}
                     groupChatMode={groupChatMode}
                     colorInlineNames={colorInlineNames}
+                    colorPersonaInlineNames={colorPersonaInlineNames}
                     expressionAvatarResolver={expressionAvatarResolver}
                   />
                 )}
@@ -2434,6 +2430,7 @@ export function ChatRoleplaySurface({
                               personaInfo={personaInfo}
                               groupChatMode={groupChatMode}
                               colorInlineNames={colorInlineNames}
+                              colorPersonaInlineNames={colorPersonaInlineNames}
                               chatCharacterIds={chatCharIds}
                               mergedGroupCharacterIds={activeChatCharacterIds}
                               expressionAvatarResolver={expressionAvatarResolver}
@@ -2452,6 +2449,7 @@ export function ChatRoleplaySurface({
                               chatMode="roleplay"
                               groupChatMode={groupChatMode}
                               colorInlineNames={colorInlineNames}
+                              colorPersonaInlineNames={colorPersonaInlineNames}
                               expressionAvatarResolver={expressionAvatarResolver}
                             />
                           )
@@ -2475,6 +2473,7 @@ export function ChatRoleplaySurface({
                             personaInfo={personaInfo}
                             groupChatMode={groupChatMode}
                             colorInlineNames={colorInlineNames}
+                            colorPersonaInlineNames={colorPersonaInlineNames}
                             chatCharacterIds={chatCharIds}
                             mergedGroupCharacterIds={activeChatCharacterIds}
                             noExpressionCharacterIds={noExpressionCharacterIds}

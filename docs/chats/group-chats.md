@@ -25,7 +25,8 @@ Open **Chat Settings** and find the **Characters** section. It is not in Game Mo
 | --- | --- |
 | Add a character | Click **Add Character** and search. |
 | Add a Folder | Click **Add Character**, then **Add all** on the folder row. |
-| Change several at once | Click a member's name. The same picker opens. |
+| Change several at once | Click **Add Character**. Members already in the chat are checked. Click a name to add or remove it. |
+| Open a member's full card | Click the member's name (**Open character card**). **Chat Settings** closes and the card opens. |
 | Remove a character | Click the trash icon (**Remove from chat**). |
 | Reorder | Drag the handle (**Drag to reorder**). In **Sequential** order, characters reply in this order. |
 | Turn off for a while | Click the eye (**Disable in chat**). Click again to turn on (**Enable in chat**). |
@@ -122,4 +123,4 @@ A hint under the setting tells you when something is missing: no Decision model 
 - **Nobody active is ignored.** A result that would turn everyone off is not applied.
 - **A Character Activity agent wins.** A chat with a custom agent using the **Character Activity** result type keeps that agent in charge.
 
-The Character Tracker writes its own name for each character. Marinara matches it to a card by card id, then name, then the name aliases on the **Colors** tab. A tracker list that names none of the chat's characters keeps the current list. Automation runs before every reply, swipe and regenerate, and skips **Continue** and impersonation. The setting is saved in settings profiles. Pins stay with the one chat.
+The Character Tracker writes its own name for each character. Marinara matches it to a card by card id, then name, then the **Other names** on the card's **Metadata** tab. A tracker list that names none of the chat's characters keeps the current list. Automation runs before every reply, swipe and regenerate, and skips **Continue** and impersonation. The setting is saved in settings profiles. Pins stay with the one chat.

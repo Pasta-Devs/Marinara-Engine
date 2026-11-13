@@ -509,7 +509,7 @@ export function ConnectionModelPicker({
           !(addMode && !onChoose) && (
             <Check
               size="0.875rem"
-              className="mari-panel-gradient--connections shrink-0 text-[var(--mari-connection-ink)]"
+              className="shrink-0 text-[var(--mari-connection-ink)]"
               aria-label={t("connections.modelPicker.current")}
             />
           )
@@ -529,9 +529,7 @@ export function ConnectionModelPicker({
                 onClick={() => toggleStar(row, !starred)}
                 className={cn(
                   "flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-lg px-2 text-[0.6875rem] font-medium outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
-                  starred
-                    ? "mari-panel-gradient--connections text-[var(--mari-connection-ink)]"
-                    : "text-foreground/45 hover:text-foreground/80",
+                  starred ? "text-[var(--mari-connection-ink)]" : "text-foreground/45 hover:text-foreground/80",
                 )}
               >
                 {starred ? <Check size="0.875rem" aria-hidden /> : <Plus size="0.875rem" aria-hidden />}
@@ -549,9 +547,7 @@ export function ConnectionModelPicker({
                   onClick={() => toggleStar(row, !starred)}
                   className={cn(
                     "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
-                    starred
-                      ? "mari-panel-gradient--connections text-[var(--mari-connection-ink)]"
-                      : "text-foreground/35 hover:text-foreground/70",
+                    starred ? "text-[var(--mari-connection-ink)]" : "text-foreground/35 hover:text-foreground/70",
                   )}
                 >
                   <Star size="0.875rem" fill={starred ? "currentColor" : "none"} />
@@ -703,7 +699,7 @@ export function ConnectionModelPicker({
                         data-model-upstream-filter={value ?? "all"}
                         aria-pressed={upstream === value}
                         onClick={() => setUpstream(value)}
-                        className="mari-connection-chip mari-panel-gradient--connections gap-1"
+                        className="mari-connection-chip gap-1"
                       >
                         {value && <BrandMark of={value} className="h-3 w-3" />}
                         {value ? (knownPrefixName(value) ?? value) : t("connections.modelPicker.allUpstreams")}
@@ -723,7 +719,7 @@ export function ConnectionModelPicker({
                             data-model-cost-filter={kind}
                             aria-pressed={costFilter === kind}
                             onClick={() => setCostFilter(costFilter === kind ? null : kind)}
-                            className="mari-connection-chip mari-panel-gradient--connections"
+                            className="mari-connection-chip"
                           >
                             {t(`connections.cost.${kind}`)}
                           </button>

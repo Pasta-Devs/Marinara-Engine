@@ -4,6 +4,7 @@
 import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due";
 import { useCenterPageOpen } from "../../hooks/use-chat-theme";
 import { useQueryClient } from "@tanstack/react-query";
+import { preloadedLazy } from "../../lib/preloaded-lazy";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
 import { GlobalOmnibar } from "./GlobalOmnibarHost";
@@ -40,6 +41,7 @@ import { getCssBackgroundStyle } from "../../lib/css-colors";
 import { resolveFeatureAgentPackage } from "../../lib/feature-agent-package";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { isIosWebKitBrowser } from "../../lib/generation-stream-policy";
+import { isTypingTarget } from "../../lib/keyboard-shortcuts";
 import { cn } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { openGlobalSearch } from "../../lib/chat-insights";
@@ -87,7 +89,7 @@ import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
 const SpotifyMobileWidget = lazy(() =>
   import("../spotify/SpotifyMiniPlayer").then((module) => ({ default: module.SpotifyMobileWidget })),
 );
-const ChatArea = lazy(() => import("../chat/ChatArea").then((module) => ({ default: module.ChatArea })));
+const ChatArea = preloadedLazy(() => import("../chat/ChatArea").then((module) => module.ChatArea));
 const CharacterEditor = lazy(() =>
   import("../characters/CharacterEditor").then((module) => ({ default: module.CharacterEditor })),
 );
@@ -118,7 +120,7 @@ const BotBrowserView = lazy(() =>
 const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
 );
-const RightPanel = lazy(() => import("./RightPanel").then((module) => ({ default: module.RightPanel })));
+const RightPanel = preloadedLazy(() => import("./RightPanel").then((module) => module.RightPanel));
 const OverhaulSchedulesPage = lazy(() =>
   import("../chat/CharacterScheduleManagerModal").then((module) => ({ default: module.OverhaulSchedulesPage })),
 );
@@ -171,6 +173,8 @@ const TRACKER_PANEL_HUD_GAP = 6;
 const TRACKER_PANEL_CHAT_GAP = 8;
 // The narrowest docked Tracker Panel: its close, settings and help buttons still fit side by side (#7188).
 const TRACKER_PANEL_MIN_DOCKED_WIDTH = 96;
+// Matches the .mari-shell-panel-slot width transition in globals.css.
+const SHELL_PANEL_SLIDE_MS = 220;
 const TRACKER_PANEL_DESKTOP_MOTION_MS = 260;
 const TRACKER_PANEL_DESKTOP_EXIT_MS = 240;
 const TRACKER_PANEL_DESKTOP_EASE = [0.16, 1, 0.3, 1] as const;
@@ -290,6 +294,20 @@ export function AppShell({
   chatWindowIntroAllowed?: boolean;
   onChatWindowIntroOpenChange?: (open: boolean) => void;
 }) {
+  // Load the chat view and right panel while idle, so the first chat or panel open does not wait for code.
+  useEffect(() => {
+    const preload = () => {
+      // A failed preload only means the click loads the code; the lazy import reports real failures.
+      ChatArea.preload().catch(() => undefined);
+      RightPanel.preload().catch(() => undefined);
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(preload, { timeout: 5_000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(preload, 2_000);
+    return () => window.clearTimeout(timer);
+  }, []);
   const { t: localizeUi } = useUiTranslation();
   const chatWindowIntroNavigationBlocked = useUIStore((state) => state.hasAnyDetailOpen());
   const queryClient = useQueryClient();
@@ -350,6 +368,11 @@ export function AppShell({
     let previousLayoutHeight = root.clientHeight || window.innerHeight;
     const supportsVirtualKeyboard = navigator.maxTouchPoints > 0 || window.matchMedia("(any-pointer: coarse)").matches;
     const isIosWebKit = isIosWebKitBrowser(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
+    // An iPhone Home Screen app: no browser toolbars, so the layout viewport is the whole screen the app may use.
+    const isIosHomeScreenApp =
+      isIosWebKit &&
+      (window.matchMedia("(display-mode: standalone)").matches ||
+        (navigator as Navigator & { standalone?: boolean }).standalone === true);
     root.toggleAttribute("data-mari-ios-webkit", isIosWebKit);
     const updateVisualViewportGeometry = () => {
       if (frame) cancelAnimationFrame(frame);
@@ -390,14 +413,28 @@ export function AppShell({
         previousLayoutHeight = currentLayoutHeight;
         largestViewportHeight = Math.max(largestViewportHeight, unzoomedHeight);
         const keyboardOpen = supportsVirtualKeyboard && largestViewportHeight - unzoomedHeight >= 80;
+        // An iPhone Home Screen app with its keyboard closed has nothing to fit, yet iOS can go on reporting a visual
+        // viewport a status bar short (or with a stale offsetTop), and leave the page scrolled where the keyboard put
+        // it, until the app is restarted. Sized from that, the whole app stopped short with the page backing in a grey
+        // band below it. There, size it from the layout viewport alone, at the top, and undo the leftover scroll.
+        // A focused field keeps the fit: an iPad's hardware-keyboard shortcut bar is shorter than the 80 px above.
+        // ponytail: a layout viewport (innerHeight) that iOS reports short as well still leaves the band; nothing on
+        // the page measures the screen any better. Upgrade path: size from screen geometry once a device shows it.
+        const settledHomeScreen = isIosHomeScreenApp && !keyboardOpen && !isTypingTarget(document.activeElement);
         // Preserve normal pinch magnification, but fit the visible area while
         // the keyboard is open. Closing it restores the layout even while zoomed.
         const height =
-          keyboardOpen && viewport && viewport.height > 0 ? Math.min(unzoomedHeight, viewport.height) : unzoomedHeight;
+          keyboardOpen && viewport && viewport.height > 0
+            ? Math.min(unzoomedHeight, viewport.height)
+            : settledHomeScreen
+              ? Math.min(window.innerHeight, root.clientHeight || window.innerHeight)
+              : unzoomedHeight;
         const layoutViewportHeight = isIosWebKit ? largestViewportHeight : window.innerHeight;
         const maxOffsetTop = Math.max(0, layoutViewportHeight - height);
         const visualViewportTop = Math.max(0, viewport?.offsetTop ?? 0, viewport?.pageTop ?? 0);
-        const offsetTop = Math.min(maxOffsetTop, visualViewportTop);
+        const offsetTop = settledHomeScreen ? 0 : Math.min(maxOffsetTop, visualViewportTop);
+        // Only at normal zoom: a pinch-zoomed page pans on purpose.
+        if (settledHomeScreen && Math.abs(scale - 1) < 0.01 && window.scrollY !== 0) window.scrollTo(0, 0);
         root.style.setProperty("--mari-visual-viewport-height", `${Math.max(0, Math.round(height))}px`);
         root.style.setProperty("--mari-visual-viewport-offset-top", `${Math.round(offsetTop)}px`);
         root.toggleAttribute("data-mari-software-keyboard-open", keyboardOpen);
@@ -481,6 +518,7 @@ export function AppShell({
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
+  const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
@@ -499,8 +537,10 @@ export function AppShell({
     [openLorebookDetail, refreshLorebooks],
   );
   const closeFeatureDetail = useCallback(() => {
+    // Popping back to another surface leaves the agents panel out of sight, so it only opens when nothing was popped.
+    const returnsToSurface = useUIStore.getState().mainSurfaceHistory.length > 0;
     closeAgentDetail();
-    openRightPanel("agents");
+    if (!returnsToSurface) openRightPanel("agents");
   }, [closeAgentDetail, openRightPanel]);
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
@@ -738,19 +778,26 @@ export function AppShell({
   const chatUiInsetLeft = !shellOverlayMode && layoutSidebarOpen ? Math.round(liveSidebarWidth) : 0;
   const chatUiInsetRight = !shellOverlayMode && layoutRightPanelOpen ? Math.round(liveRightPanelWidth) : 0;
 
-  // Written on <html> (windows portalled into <body> read them too), so each write re-styles the whole
-  // page: only write a value that changed, and only clear them when the shell goes away, instead of
-  // clearing and re-setting both on every change (slow with a custom theme, nitpick audit GV13).
+  const chatUiInsetPublishedRef = useRef(false);
   useLayoutEffect(() => {
     const root = document.documentElement;
-    const set = (name: string, value: string) => {
-      if (root.style.getPropertyValue(name) !== value) root.style.setProperty(name, value);
+    const publish = () => {
+      chatUiInsetPublishedRef.current = true;
+      root.style.setProperty("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
+      root.style.setProperty("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
     };
-    set("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
-    set("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
+    // Matches the globals.css rules that turn the slide off (reduced motion, desktop Firefox): nothing to wait for.
+    const noSlide =
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches || CSS.supports("-moz-appearance", "none");
+    if (!chatUiInsetPublishedRef.current || noSlide) return publish();
+    // A root style write restyles the whole app. Publish once a sidebar has slid or a resize drag has
+    // paused, not in the frame that starts the slide or on every drag move. Only floating chat UI reads it.
+    const timer = window.setTimeout(publish, SHELL_PANEL_SLIDE_MS);
+    return () => window.clearTimeout(timer);
   }, [chatUiInsetLeft, chatUiInsetRight]);
   useLayoutEffect(
     () => () => {
+      chatUiInsetPublishedRef.current = false;
       document.documentElement.style.removeProperty("--mari-chat-ui-inset-left");
       document.documentElement.style.removeProperty("--mari-chat-ui-inset-right");
     },
@@ -851,6 +898,16 @@ export function AppShell({
   const hasCompletedOnboarding = useUIStore((s) => s.hasCompletedOnboarding);
   const deviceWalkthroughDue = useDeviceWalkthroughDue();
   const activeChatId = useChatStore((s) => s.activeChatId);
+  // Home remembers its tab for Back from an editor; opening a chat starts it over on the first tab, as leaving Home did.
+  useEffect(() => {
+    if (activeChatId) useUIStore.getState().setHomeTab("home");
+  }, [activeChatId]);
+  // Chat Settings reopens only for the chat it was opened from.
+  useEffect(() => {
+    const ui = useUIStore.getState();
+    if (ui.chatSettingsReturn && ui.chatSettingsReturn.chatId !== activeChatId) ui.setChatSettingsReturn(null);
+    if (ui.chatSettingsRequest && ui.chatSettingsRequest.chatId !== activeChatId) ui.consumeChatSettingsRequest();
+  }, [activeChatId]);
   const discardNewChatSetup = useDiscardNewChatSetup();
   useEffect(
     () => () => {
@@ -926,10 +983,10 @@ export function AppShell({
   const openChatSummarySettings = useCallback(() => {
     if (!activeChatId || activeChat?.mode !== "roleplay") return;
     const chatId = activeChatId;
-    closeAgentDetail();
+    closeAllDetails();
     closeRightPanel();
     window.requestAnimationFrame(() => requestChatSummaryOpen(chatId));
-  }, [activeChat?.mode, activeChatId, closeAgentDetail, closeRightPanel]);
+  }, [activeChat?.mode, activeChatId, closeAllDetails, closeRightPanel]);
   const openActivePromptPresetEditor = useCallback(() => {
     const presetId = activeChat?.promptPresetId;
     if (!activeChat || !presetId) return;

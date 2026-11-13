@@ -121,8 +121,9 @@ jobs:
             BUILD_BRANCH=${{ github.ref_name }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ steps.lower.outputs.image }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # One cache scope per architecture so the two jobs do not overwrite each other's layers.
+          cache-from: type=gha,scope=container-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          cache-to: type=gha,mode=max,scope=container-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
 
       - name: Export digest
         run: |

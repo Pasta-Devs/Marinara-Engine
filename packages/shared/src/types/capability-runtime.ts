@@ -94,6 +94,56 @@ export interface CapabilityCharacterRecord {
   comment: string;
 }
 
+/**
+ * Capability API 1.819. A character as storage holds it, with the fields packages read. `data` is the stored card
+ * JSON string, the same value the Engine's own character routes start from.
+ */
+export interface CapabilityCharacterRow {
+  id: string;
+  data: string;
+  comment: string;
+  avatarPath: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Capability API 1.819. A character group. `characterIds` is the stored JSON array string. */
+export interface CapabilityCharacterGroupRecord {
+  id: string;
+  name: string;
+  description: string;
+  avatarPath: string | null;
+  characterIds: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Capability API 1.819. One page of the character library, searched and sorted the way the library does it. */
+export interface CapabilityCharacterPageOptions {
+  limit: number;
+  offset: number;
+  search?: string;
+  sort?: string;
+  favoriteFilter?: string;
+  includeBuiltIn?: boolean;
+}
+
+export interface CapabilityCharacterPage {
+  items: CapabilityCharacterRow[];
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
+/** Capability API 1.819. The library's short form of a character. */
+export interface CapabilityCharacterSummary {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  avatarCrop: unknown;
+  conversationStatus?: string;
+}
+
 export interface CapabilityPersonaRecord {
   id: string;
   data: unknown;
@@ -181,6 +231,22 @@ export interface CapabilityResourceHost {
   updateLorebook?(lorebookId: string, updates: CapabilityLorebookUpdateInput): Promise<void>;
   bulkCreateLorebookEntries?(lorebookId: string, entries: CapabilityLorebookEntryInput[]): Promise<void>;
   removeLorebookEntry?(entryId: string): Promise<void>;
+  // Capability API 1.819: characters as packages use them. Optional like the writes above; a package checks for
+  // them, because `listCharacters` is older and an older Engine would answer it without these fields.
+  /** Full rows. No ids lists every character, most recently updated first. Unknown ids are left out. */
+  getCharacters?(characterIds?: string[]): Promise<CapabilityCharacterRow[]>;
+  listCharacterGroups?(): Promise<CapabilityCharacterGroupRecord[]>;
+  listCharactersPage?(options: CapabilityCharacterPageOptions): Promise<CapabilityCharacterPage>;
+  listCharacterSummaries?(characterIds: string[]): Promise<CapabilityCharacterSummary[]>;
+  /**
+   * Set top-level keys of a character's `data.extensions`: each value replaces the stored one whole, other keys and
+   * the card's authored fields stay as they are, and no card version is taken. An undefined value is refused. Queued behind the Engine's own saves of that character. Requires the
+   * `character-write` permission. Resolves the updated row, or null for an unknown id.
+   */
+  updateCharacterExtensions?(
+    characterId: string,
+    patch: Record<string, unknown>,
+  ): Promise<CapabilityCharacterRow | null>;
 }
 
 export interface CapabilityLanguageModelMessage {
@@ -596,6 +662,14 @@ export interface CapabilityRuntimeHost {
   embeddings: CapabilityEmbeddingHost;
   /** Resolve the package's current embedding configuration. Requires capability API 1.15. */
   resolveEmbeddings(): Promise<CapabilityEmbeddingHost>;
+  /**
+   * Capability API 1.818. Embeddings from a source the package chooses, without the package's agent connection or
+   * the app-wide default. `null` is the built-in local MiniLM embedder. A connection id is that connection's own
+   * embedding source (its Embedding Connection, endpoint URL and model, as Connections > Test embedding resolves it).
+   * Resolves null for an id that names no connection, or a connection without a usable embedding source. Optional:
+   * feature-detect it on older Engines.
+   */
+  embeddingsFor?(connectionId: string | null): Promise<CapabilityEmbeddingHost | null>;
   getAgentConfig(): Promise<{ connectionId: string | null; settings: Record<string, unknown> } | null>;
   /**
    * Capability API 1.380. Resolve this package's per-chat reference lorebook through

@@ -30,11 +30,13 @@ Set each with the color field, or type a value:
 linear-gradient(90deg, #f59e0b, #ef4444)
 ```
 
-A character's **Colors** tab also has **Name Aliases**. Type extra names or nicknames, separated by commas, such as `Kate, Kitty, Katherine`. They get the character's name color when they appear in chat messages. The main name is always included. Turn it on per chat in **Chat Settings → Characters**.
+**Other names** (nicknames, full names or titles, such as `Clark Kent, Kal-El, Mr. Kent`) are on the **Metadata** tab, under **Name**. In Roleplay chats they get the name color in messages, like the main name. Turn it on per chat: **Color Character Names in Text** in **Chat Settings → Characters**, and **Color Persona Name in Text** in **Chat Settings → Persona**.
 
 To change transparency, use **Settings → Roleplay → Roleplay Messages → Roleplay Messages Background Opacity**.
 
-The slider replaces the transparency saved in character, persona and preset background colors, including extracted ones. Your saved color values stay as they are. Name and dialogue colors are not affected.
+The slider scales the transparency saved in your character's and persona's Message Box Color: a color that carries its own alpha, such as `rgba(255, 255, 255, 0.25)` or `#FFFFFF40`, shows at that alpha times the slider. Your saved color values stay as they are. Name and dialogue colors are not affected.
+
+With **Apply preset colors** on, a background color you pick for the chat widget sets the bubble fill and the slider sets that fill's transparency outright.
 
 Custom-theme background hooks and card CSS can still override the app's bubble styling.
 
@@ -82,6 +84,8 @@ Both **Stats** tabs have a **Game Mode** section with an **MRPG** block, for gam
 Every pick is kept as you make it, and **Back**, **Next** and the step names move between steps. Click **Finish** on the last step. The block then shows the review: the starting class and its stats, with the strong and weak ones marked. Click **Edit** to run the builder again. Save the card as usual to keep the changes.
 
 The strong and weak picks lean the character's hidden growth in each game. Their sister tree comes from their temperament in the game, not from the card. See [Game Mode: MRPG Classes](../game/mrpg-classes.md#choose-a-characters-trees).
+
+The **Roleplay Stats** below the block are the pools and attributes described above. Roleplay chats and Legacy games use them. An MRPG game uses the MRPG block instead and never builds a sheet from them.
 
 ### Game Mode Icon
 

@@ -29,10 +29,11 @@ function isShellOverlayMode() {
 let detailCloseInFlight = false;
 
 /**
- * Closes the open detail editor the same way the sidebar does — including the
- * unsaved-changes confirm, so back can never discard an edit silently.
+ * Runs `close` for the open full-page surfaces behind the unsaved-changes confirm, so neither hardware back nor the
+ * on-screen buttons can discard an edit silently. An editor with a leave handler saves itself on the way out
+ * (the store's `set` routes the leave through it), so only an editor without one is asked.
  */
-async function requestCloseDetails() {
+async function requestSurfaceClose(close: () => void) {
   if (detailCloseInFlight) return;
   const ui = useUIStore.getState();
   if (!ui.hasAnyDetailOpen()) return;
@@ -52,13 +53,17 @@ async function requestCloseDetails() {
     }
   }
 
-  const current = useUIStore.getState();
-  // A regex editor opened from a character's scoped-regex manager has a real
-  // one-step return path; `closeRegexDetail` walks it back to that character.
-  if (current.regexDetailId && current.regexDetailReturn) current.closeRegexDetail();
-  // A connection editor a Home package opened (capability API 1.386) closes back to that package's tab.
-  else if (current.connectionDetailId && current.connectionDetailReturnTab) current.closeConnectionDetail();
-  else current.closeAllDetails();
+  close();
+}
+
+/** Closes the front-most surface the way the on-screen Back button does: one step back through the surfaces opened before it. */
+function requestCloseDetails() {
+  return requestSurfaceClose(() => useUIStore.getState().closeTopMainSurface());
+}
+
+/** Closes every open full-page surface at once, straight to the chat (or Home), through the same unsaved-changes guard. */
+export function requestCloseAllSurfaces() {
+  return requestSurfaceClose(() => useUIStore.getState().closeAllDetails());
 }
 
 export function getStoreBackLayers(): BackLayer[] {

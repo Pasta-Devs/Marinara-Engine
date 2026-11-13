@@ -25,13 +25,25 @@ export function getCssBackgroundStyle(value: string) {
   return isCssGradient(value) ? { background: value } : { backgroundColor: value };
 }
 
-/** Replace authored alpha without changing the color channels or gradient geometry. */
-export function withCssPaintAlpha(value: string, alpha: string): string {
-  const colorWithAlpha = (color: string) => `rgb(from ${color} r g b / ${alpha})`;
-  if (!isCssGradient(value)) return colorWithAlpha(value);
+/**
+ * Scale a paint's own alpha by `factor` (0-1), keeping the color channels and gradient geometry, so an
+ * authored `rgba(…, 0.25)` stays a quarter as strong as an opaque color. The Roleplay opacity slider
+ * and an authored alpha then both apply instead of one silently replacing the other (#9063).
+ */
+export function withCssPaintAlpha(value: string, factor: string): string {
+  return mapCssPaintColors(value, (color) => `rgb(from ${color} r g b / calc(alpha * ${factor}))`);
+}
+
+/** Replace a paint's own alpha outright, keeping its channels and gradient geometry. */
+export function replacedCssPaintAlpha(value: string, alpha: string): string {
+  return mapCssPaintColors(value, (color) => `rgb(from ${color} r g b / ${alpha})`);
+}
+
+function mapCssPaintColors(value: string, paint: (color: string) => string): string {
+  if (!isCssGradient(value)) return paint(value);
 
   const layers = splitTopLevelCommas(value);
-  if (layers.length > 1) return layers.map((layer) => withCssPaintAlpha(layer, alpha)).join(", ");
+  if (layers.length > 1) return layers.map((layer) => mapCssPaintColors(layer, paint)).join(", ");
 
   const open = value.indexOf("(");
   const close = value.lastIndexOf(")");
@@ -39,7 +51,7 @@ export function withCssPaintAlpha(value: string, alpha: string): string {
     const color = readFunctionColor(stop, true) ?? stop.match(/^(?:#[0-9a-f]{3,8}\b|[a-z][a-z-]*)/i)?.[0];
     // Keep directions, interpolation spaces, positions and transition hints intact.
     if (!color || !CSS.supports("color", color)) return stop;
-    return colorWithAlpha(color) + stop.slice(color.length);
+    return paint(color) + stop.slice(color.length);
   });
   return `${value.slice(0, open + 1)}${stops.join(", ")})`;
 }
@@ -110,4 +122,83 @@ export function getCssGradientColorStops(value: string | null | undefined, fallb
     .filter((color): color is string => Boolean(color));
 
   return colors.length > 0 ? colors : [fallback];
+}
+
+/** `#rrggbb` to unrounded [hue 0-360, saturation 0-100, brightness 0-100], so a round trip is exact. */
+export function hexToHsv(value: string): [number, number, number] {
+  const hex = value.slice(1);
+  const red = Number.parseInt(hex.slice(0, 2), 16) / 255;
+  const green = Number.parseInt(hex.slice(2, 4), 16) / 255;
+  const blue = Number.parseInt(hex.slice(4, 6), 16) / 255;
+  const max = Math.max(red, green, blue);
+  const delta = max - Math.min(red, green, blue);
+  const hue =
+    delta === 0
+      ? 0
+      : max === red
+        ? 60 * (((green - blue) / delta) % 6)
+        : max === green
+          ? 60 * ((blue - red) / delta + 2)
+          : 60 * ((red - green) / delta + 4);
+  return [(hue + 360) % 360, max ? (delta / max) * 100 : 0, max * 100];
+}
+
+/** Hue 0-359, saturation and brightness 0-100 to `#rrggbb`. */
+export function hsvToHex(hue: number, saturation: number, brightness: number) {
+  const v = brightness / 100;
+  const chroma = v * (saturation / 100);
+  const section = hue / 60;
+  const x = chroma * (1 - Math.abs((section % 2) - 1));
+  const [red, green, blue] =
+    section < 1
+      ? [chroma, x, 0]
+      : section < 2
+        ? [x, chroma, 0]
+        : section < 3
+          ? [0, chroma, x]
+          : section < 4
+            ? [0, x, chroma]
+            : section < 5
+              ? [x, 0, chroma]
+              : [chroma, 0, x];
+  const match = v - chroma;
+  return `#${[red, green, blue]
+    .map((channel) =>
+      Math.round((channel + match) * 255)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+/** `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` as lowercase `#rrggbb`, plus `aa` only when not opaque. */
+export function normalizeHexColor(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  const short = normalized.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])([0-9a-f])?$/);
+  const long = short
+    ? `#${short
+        .slice(1)
+        .map((digit) => (digit ? digit + digit : ""))
+        .join("")}`
+    : normalized;
+  if (!/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/.test(long)) return null;
+  return long.endsWith("ff") && long.length === 9 ? long.slice(0, 7) : long;
+}
+
+const alphaHex = (alpha: number) =>
+  Math.round(Math.min(1, Math.max(0, alpha)) * 255)
+    .toString(16)
+    .padStart(2, "0");
+/** `#rrggbb` with the alpha appended when it is not fully opaque. */
+export const withAlpha = (hex: string, alpha: number) => (alpha >= 1 ? hex : `${hex}${alphaHex(alpha)}`);
+/** Alpha (0-1) of a `#rrggbb` or `#rrggbbaa` colour. */
+export const hexAlpha = (hex: string) => (hex.length === 9 ? Number.parseInt(hex.slice(7), 16) / 255 : 1);
+
+/** Two gradient stops starting from `color`: it, then a shade lighter (dark colours) or darker; null without a colour. */
+export function gradientStopsFromColor(color: string | null | undefined): [string, string] | null {
+  const hex = color ? normalizeHexColor(color) : null;
+  if (!hex) return null;
+  const [hue, saturation, brightness] = hexToHsv(hex);
+  const shade = hsvToHex(hue, saturation, brightness < 50 ? brightness + 35 : brightness - 35);
+  return [hex, withAlpha(shade, hexAlpha(hex))];
 }

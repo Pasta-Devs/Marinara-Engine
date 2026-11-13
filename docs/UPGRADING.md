@@ -4,13 +4,13 @@ Update Marinara Engine to a newer version, check for updates in the app, and go 
 
 ## Which update method is mine?
 
-| How you installed | How to update |
-| --- | --- |
-| Windows installer or `start.bat` | Close Marinara and open it again. See [Windows](#windows). |
-| macOS or Linux | Run `./start.sh` again. See [macOS and Linux](#macos-and-linux). |
-| Docker or Podman | Pull the new image and restart. See [Docker or Podman](#docker-or-podman). |
-| Android app | Update the APK, then tap **Install / Start Marinara**. See [Android (Termux)](#android-termux). |
-| iPhone or iPad | Update the server device. See [iPhone and iPad](#iphone-and-ipad). |
+| How you installed                | How to update                                                                                   |
+| -------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Windows installer or `start.bat` | Close Marinara and open it again. See [Windows](#windows).                                      |
+| macOS or Linux                   | Run `./start.sh` again. See [macOS and Linux](#macos-and-linux).                                |
+| Docker or Podman                 | Pull the new image and restart. See [Docker or Podman](#docker-or-podman).                      |
+| Android app                      | Update the APK, then tap **Install / Start Marinara**. See [Android (Termux)](#android-termux). |
+| iPhone or iPad                   | Update the server device. See [iPhone and iPad](#iphone-and-ipad).                              |
 
 ## Back up first
 
@@ -210,7 +210,7 @@ The steps above are the same. A few changes affect a server that other devices o
 
 ## Downgrading to an older version
 
-Going back is not always possible. Newer versions save data in a newer storage format, and a build refuses data in a format newer than it knows. Current builds use storage format 10. Formats 8, 9 and 10 added MMD avatars, connection account links and GLB/FBX avatars. A build that knows only an older format cannot open data saved in them.
+Going back is not always possible. Newer versions save data in a newer storage format, and a build refuses data in a format newer than it knows. Current builds use storage format 11. Formats 8, 9 and 10 added MMD avatars, connection account links and GLB/FBX avatars. Format 11 stores personas in the same card format as characters. A build that knows only an older format cannot open data saved in them.
 
 The launcher skips an auto-update that would land on an incompatible version, and the in-app updater refuses to apply one. To go back to an older build, stop Marinara and restore a full backup made before you upgraded. The chat-file conversion command below cannot convert MMD avatar settings. Do not change the format number by hand.
 

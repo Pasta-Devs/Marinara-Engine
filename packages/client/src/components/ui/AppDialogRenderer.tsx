@@ -172,6 +172,8 @@ export function AppDialogRenderer() {
       chatFloatingPanel
       topLayer
       confirm
+      pullToClose={false}
+      closeButtonClassName="max-sm:hidden"
       panelClassName={dialog.chatStyle ? "mari-chat-style-surface mari-chat-action-panel" : undefined}
     >
       <div className="space-y-4">
@@ -201,9 +203,15 @@ export function AppDialogRenderer() {
               value={promptValue}
               onChange={(event) => setPromptValue(event.target.value)}
               placeholder={dialog.placeholder}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm text-[var(--foreground)] outline-none max-sm:text-base transition-colors focus:border-[var(--primary)]"
             />
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex flex-row-reverse items-center justify-start gap-2 max-sm:flex-col max-sm:items-stretch">
+              <button
+                type="submit"
+                className={`rounded-lg px-3 py-2 max-sm:py-3 text-sm font-medium transition-colors ${confirmToneClass}`}
+              >
+                {dialog.confirmLabel ?? "Confirm"}
+              </button>
               <button
                 type="button"
                 onClick={dismissActiveDialog}
@@ -246,12 +254,19 @@ export function AppDialogRenderer() {
               >
                 {dialog.confirmLabel ?? "Confirm"}
               </button>
+              <button
+                type="button"
+                onClick={dismissActiveDialog}
+                className={`rounded-lg px-3 py-2 max-sm:py-3 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] ${chatControlClass}`}
+              >
+                {dialog.cancelLabel ?? "Cancel"}
+              </button>
             </div>
           </div>
         )}
 
         {dialog.kind === "alert" && (
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end max-sm:flex-col max-sm:items-stretch">
             <button
               type="button"
               onClick={() => resolveActiveDialog(undefined)}
@@ -350,11 +365,13 @@ export function AppDialogRenderer() {
                     type="button"
                     onClick={() => resolveActiveDialog(choice.key)}
                     className={`w-full rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                      choice.tone === "destructive" || choice.tone === "accent"
-                        ? "mari-chrome-control mari-chrome-control--primary"
-                        : i === 0
-                          ? "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85"
-                          : "ring-1 ring-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]"
+                      choice.tone === "destructive"
+                        ? "mari-chrome-control--danger border font-semibold"
+                        : choice.tone === "accent"
+                          ? "mari-chrome-control mari-chrome-control--primary"
+                          : i === 0 && !dialog.choices.some((c) => c.tone)
+                            ? "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85"
+                            : "ring-1 ring-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]"
                     }`}
                   >
                     {choice.label}

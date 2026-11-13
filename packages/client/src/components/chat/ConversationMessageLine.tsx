@@ -186,7 +186,7 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
       </div>
 
       {/* Body column */}
-      <div className="mari-message-body min-w-0 flex-1">
+      <div className="mari-message-body mari-message-line-body min-w-0 flex-1">
         {/* Header */}
         {!isGrouped && (
           <div data-mari-part="header" className="mari-message-meta mb-0.5 flex items-baseline gap-2">

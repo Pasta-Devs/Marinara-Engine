@@ -5,7 +5,6 @@ import { openAddConnection } from "../../lib/add-connection";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { ROW_BUTTON } from "./ConnectionRow";
 import { ServiceRow } from "./ServiceRow";
-import { cn } from "../../lib/utils";
 
 const gb = (bytes: number) => (bytes / 1024 ** 3).toFixed(1);
 const ACCOUNT = { name: "", provider: "local_model", baseUrl: null, icon: null, imagePath: null };
@@ -66,7 +65,7 @@ export function BuiltInModelCard({ onOpenDevice }: { onOpenDevice: (item: Device
             <button
               type="button"
               onClick={setUp}
-              className={cn(ROW_BUTTON, "text-[var(--marinara-app-accent-static)]")}
+              className={ROW_BUTTON}
               title={t("connections.builtin.card.download")}
               aria-label={t("connections.builtin.card.download")}
             >

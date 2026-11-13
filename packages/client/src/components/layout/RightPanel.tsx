@@ -1,16 +1,7 @@
 // ──────────────────────────────────────────────
 // Layout: Right Panel (polished with panel transitions)
 // ──────────────────────────────────────────────
-import {
-  Activity,
-  lazy,
-  Suspense,
-  useRef,
-  useState,
-  type ComponentType,
-  type LazyExoticComponent,
-  type ReactNode,
-} from "react";
+import { Activity, Suspense, useRef, useState, type ReactNode } from "react";
 import { X, Users, BookOpen, FileText, Link, Sparkles, Settings, VenetianMask, Bot, Puzzle } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulActive } from "../../stores/overhaul.store";
@@ -20,34 +11,13 @@ import { usePersonalExtensionContributions } from "../../lib/personal-extension-
 import { PersonalExtensionContributionIcon } from "../extensions/PersonalExtensionContributionIcon";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { RIGHT_PANELS } from "./right-panel-panels";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { usePanelKeyboardFocus } from "./use-panel-keyboard-focus";
 import type { PersonalExtensionContributionSurface } from "@marinara-engine/shared";
 
-const CharactersPanel = lazy(() =>
-  import("../panels/CharactersPanel").then((module) => ({ default: module.CharactersPanel })),
-);
-const LorebooksPanel = lazy(() =>
-  import("../panels/LorebooksPanel").then((module) => ({ default: module.LorebooksPanel })),
-);
-const PresetsPanel = lazy(() => import("../panels/PresetsPanel").then((module) => ({ default: module.PresetsPanel })));
-const ConnectionsPanel = lazy(() =>
-  import("../panels/ConnectionsPanel").then((module) => ({ default: module.ConnectionsPanel })),
-);
-const AgentsPanel = lazy(() => import("../panels/AgentsPanel").then((module) => ({ default: module.AgentsPanel })));
-const PersonasPanel = lazy(() =>
-  import("../panels/PersonasPanel").then((module) => ({ default: module.PersonasPanel })),
-);
-const SettingsPanel = lazy(() =>
-  import("../panels/SettingsPanel").then((module) => ({ default: module.SettingsPanel })),
-);
-const BotBrowserPanel = lazy(() =>
-  import("../panels/BotBrowserPanel").then((module) => ({ default: module.BotBrowserPanel })),
-);
-const PersonalExtensionPanel = lazy(() =>
-  import("../panels/PersonalExtensionPanel").then((module) => ({ default: module.PersonalExtensionPanel })),
-);
+// Panels load through right-panel-panels so the top bar can preload them on hover.
 
 type PanelConfig = { title: string; icon: ReactNode; gradient?: string; gradientClass?: string; helpKey?: string };
 
@@ -99,18 +69,6 @@ const PANEL_CONFIG: Record<string, PanelConfig> = {
     helpKey: "navigation.sidebarHelp.settings",
   },
   extensions: { title: "Extensions", icon: <Puzzle size="0.875rem" /> },
-};
-
-const PANELS: Record<string, LazyExoticComponent<ComponentType>> = {
-  "bot-browser": BotBrowserPanel,
-  characters: CharactersPanel,
-  lorebooks: LorebooksPanel,
-  presets: PresetsPanel,
-  connections: ConnectionsPanel,
-  agents: AgentsPanel,
-  personas: PersonasPanel,
-  settings: SettingsPanel,
-  extensions: PersonalExtensionPanel,
 };
 
 const PANEL_CONTRIBUTION_SURFACES: Partial<Record<string, Exclude<PersonalExtensionContributionSurface, "top-bar">>> = {
@@ -223,7 +181,7 @@ function StandardRightPanel() {
 
       {/* Content — keep visited panels mounted but hidden to avoid re-animation */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {Object.entries(PANELS).map(([key, PanelComp]) => {
+        {Object.entries(RIGHT_PANELS).map(([key, PanelComp]) => {
           if (!mountedPanels.has(key)) return null;
           const active = key === panel && panelOpen;
           const panelContent = (

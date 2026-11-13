@@ -13,6 +13,7 @@ process.env.MARINARA_LITE = "true";
 const { buildApp } = await import("../../packages/server/src/app.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
+const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
 const { resolveConversationPresenceRuntime } =
   await import("../../packages/server/src/routes/generate/conversation-presence-runtime.js");
 const { resolveSceneBusyCharacterIds } =
@@ -356,21 +357,36 @@ try {
   );
   assert.deepEqual(noInitiatorPlan.plan.characterIds, [ids[0], ids[1]], "the opening character is listed first");
   providerContent = JSON.stringify(plan);
-  // The starred Roleplay settings profile, as a new Roleplay chat would get it, with its own prompt preset.
+  // The starred Roleplay settings profile, as a new Roleplay chat would get it, with its own prompt preset and the
+  // choice it saved for that preset's variable (#8957); the preset's first option is the other one.
   const writingPreset = await api("POST", "/api/prompts", { name: "House style" });
   await api("POST", `/api/prompts/${writingPreset.id}/sections`, {
     presetId: writingPreset.id,
     identifier: "house-style",
     name: "House style",
-    content: "HOUSE-STYLE: write dialogue in double quotes.",
+    content: "HOUSE-STYLE: write dialogue in {{quotes}} quotes.",
+  });
+  await createPromptsStorage(app.db).createChoiceBlock({
+    presetId: writingPreset.id,
+    variableName: "quotes",
+    question: "Quotes?",
+    options: [
+      { id: "single", label: "Single", value: "single" },
+      { id: "double", label: "Double", value: "double" },
+    ],
   });
   const profile = await api("POST", "/api/chat-presets", {
     name: "Scene defaults",
     mode: "roleplay",
-    settings: { promptPresetId: writingPreset.id, metadata: { illustratorRunInterval: 7, enableAgents: false } },
+    settings: {
+      promptPresetId: writingPreset.id,
+      presetVariables: { presetId: writingPreset.id, choices: { quotes: "double" } },
+      metadata: { illustratorRunInterval: 7, enableAgents: false },
+    },
   });
   await api("POST", `/api/chat-presets/${profile.id}/set-active`);
-  // With no preset picked for the scene, the planner follows the profile's prompt preset, as the scene chat will.
+  // With no preset picked for the scene, the planner follows the profile's prompt preset and saved choice, as the
+  // scene chat will.
   await api("POST", "/api/scene/plan", {
     chatId: origin.id,
     connectionId: conn.id,
@@ -384,6 +400,51 @@ try {
       .join("\n"),
     /<scene_writing_instructions>[\s\S]*HOUSE-STYLE: write dialogue in double quotes\./u,
     "the starred profile's writing rules reach the planner",
+  );
+  const plannedWith = async (promptPreferences: Record<string, unknown>) => {
+    await api("POST", "/api/scene/plan", {
+      chatId: origin.id,
+      connectionId: conn.id,
+      prompt: "Visit the library",
+      promptPreferences: { ...selected, ...promptPreferences },
+    });
+    return requests
+      .at(-1)!
+      .messages.map((m) => m.content)
+      .join("\n");
+  };
+  // The scene picks the profile's own preset without choices: the planner uses the profile's saved choice, as
+  // /scene/create will store it on the scene chat.
+  assert.match(
+    await plannedWith({ promptPresetId: writingPreset.id }),
+    /HOUSE-STYLE: write dialogue in double quotes\./u,
+    "the same preset, no choices: the profile's saved choice",
+  );
+  assert.match(
+    await plannedWith({ promptPresetId: writingPreset.id, presetChoices: { quotes: "single" } }),
+    /HOUSE-STYLE: write dialogue in single quotes\./u,
+    "the scene's own choice still wins",
+  );
+  const otherPreset = await api("POST", "/api/prompts", { name: "Other style" });
+  await api("POST", `/api/prompts/${otherPreset.id}/sections`, {
+    presetId: otherPreset.id,
+    identifier: "other-style",
+    name: "Other style",
+    content: "OTHER-STYLE: write dialogue in {{quotes}} quotes.",
+  });
+  await createPromptsStorage(app.db).createChoiceBlock({
+    presetId: otherPreset.id,
+    variableName: "quotes",
+    question: "Quotes?",
+    options: [
+      { id: "single", label: "Single", value: "single" },
+      { id: "double", label: "Double", value: "double" },
+    ],
+  });
+  assert.doesNotMatch(
+    await plannedWith({ promptPresetId: otherPreset.id }),
+    /OTHER-STYLE: write dialogue in double quotes\./u,
+    "another preset never gets the profile's choice",
   );
   const payload = {
     originChatId: origin.id,
@@ -407,6 +468,8 @@ try {
   assert.equal(sceneMeta.appliedChatPresetId, profile.id, "the starred Roleplay profile is applied");
   assert.equal(sceneMeta.illustratorRunInterval, 7);
   assert.equal(sceneMeta.enableAgents, false);
+  assert.equal(scene.promptPresetId, writingPreset.id, "the scene uses the profile's prompt preset");
+  assert.deepEqual(sceneMeta.presetChoices, { quotes: "double" }, "with the variable choice the profile saved for it");
   assert.equal(sceneMeta.sceneStatus, "active", "the scene's own settings stay");
   assert.equal(scene.connectionId, conn.id, "the connection the scene was given stays");
   assert.deepEqual(scene.characterIds, selected.participantCharacterIds);
