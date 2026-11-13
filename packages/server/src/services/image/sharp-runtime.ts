@@ -1,5 +1,6 @@
 import { getSharp as loadSharp } from "../../utils/sharp.js";
 
+// Kept untyped: utils/sharp.ts's SharpFn type finds 3 errors in callers (tile-pack-images, sprites) to fix separately.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SharpFn = any;
 
