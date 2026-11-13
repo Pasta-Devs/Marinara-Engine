@@ -321,7 +321,7 @@ export function CharacterPickerList({
     looseCharacters.length > 0 ? characterGroups.filter((group) => group !== ungroupedGroup) : characterGroups;
   const characterList =
     characterGroups.length === 1 && !groupPickable(characterGroups[0]!.id) ? (
-      <Capped listKey="single" items={characterGroups[0]!.members} render={(c) => characterRow(c, false)} />
+      <Capped listKey={`${listId}:single`} items={characterGroups[0]!.members} render={(c) => characterRow(c, false)} />
     ) : (
       <>
         {folderGroups.map((group) => {
@@ -351,7 +351,7 @@ export function CharacterPickerList({
               busy={busy}
               open={open}
             >
-              <Capped listKey={group.id} items={group.members} render={(c) => characterRow(c, true)} />
+              <Capped listKey={`${listId}:${group.id}`} items={group.members} render={(c) => characterRow(c, true)} />
             </PickerFolder>
           );
         })}
@@ -502,7 +502,7 @@ export function CharacterPickerList({
                 {isOpen(group.id) && group.members.map((p) => personaRow(p, true))}
               </div>
             ))}
-            <Capped listKey="ungrouped" items={ungroupedPersonas} render={(p) => personaRow(p, false)} />
+            <Capped listKey={`${listId}:ungrouped`} items={ungroupedPersonas} render={(p) => personaRow(p, false)} />
             {offersCharacters && characterCount > 0 && (
               <>
                 <FolderToggle

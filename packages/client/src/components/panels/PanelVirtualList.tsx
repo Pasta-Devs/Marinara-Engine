@@ -59,6 +59,8 @@ export function PanelVirtualList({
     getScrollElement: () => scroller,
     getItemKey,
     estimateSize: () => estimateSize,
+    // The default rounds to whole pixels, which drifts rows that have fractional heights.
+    measureElement: (el) => el.getBoundingClientRect().height,
     gap,
     overscan: 6,
     scrollMargin,
@@ -99,10 +101,12 @@ export function PanelVirtualList({
   }, [listEl]);
 
   useEffect(() => {
+    // Only a new highlight scrolls; rows streaming in (count) must not pull the list back.
     if (scrollToIndex !== undefined && scrollToIndex >= 0 && scrollToIndex < count) {
       virtualizer.scrollToIndex(scrollToIndex, { align: "auto" });
     }
-  }, [scrollToIndex, count, virtualizer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToIndex, virtualizer]);
 
   const items = virtualizer.getVirtualItems();
   const lastVisibleIndex = items.length > 0 ? items[items.length - 1]!.index : undefined;

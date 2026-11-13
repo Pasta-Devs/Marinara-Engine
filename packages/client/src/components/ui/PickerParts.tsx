@@ -158,22 +158,46 @@ export function usePickerKeyboard({
     if (!searched) activeEl.current?.scrollIntoView?.({ block: "nearest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, query]);
-  // A virtual list mounts the far end only after it scrolls there; wrap once it has.
+  // A virtual list mounts the far end only after it scrolls there, so a wrap waits for it.
   const wrapping = useRef(false);
+  const wrapFrame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(wrapFrame.current), []);
+  const ringRow = (end: "first" | "last") => {
+    const all = rows();
+    const row = end === "first" ? all[0] : all[all.length - 1];
+    if (!row) return;
+    activeEl.current = row;
+    setActive(end === "first" ? 0 : all.length - 1);
+    redraw();
+    row.scrollIntoView?.({ block: "nearest" });
+  };
   const wrapTo = (end: "first" | "last") => {
     const list = listRef.current;
-    if (list) list.scrollTop = end === "first" ? 0 : list.scrollHeight;
-    // Wait for the virtual rows at the new scroll position to mount.
+    if (!list?.querySelector("[data-virtual-list]")) return ringRow(end);
     wrapping.current = true;
-    window.setTimeout(() => {
-      wrapping.current = false;
+    let previous: Element | undefined;
+    let frames = 0;
+    const step = () => {
+      list.scrollTop = end === "first" ? 0 : list.scrollHeight;
       const all = rows();
       const row = end === "first" ? all[0] : all[all.length - 1];
-      if (!row) return;
-      activeEl.current = row;
-      setActive(end === "first" ? 0 : all.length - 1);
-      redraw();
-    }, 150);
+      const atEnd = end === "first" ? list.scrollTop <= 2 : list.scrollTop + list.clientHeight >= list.scrollHeight - 2;
+      if ((row && row === previous && atEnd) || ++frames > 30) {
+        wrapping.current = false;
+        ringRow(end);
+        return;
+      }
+      previous = row;
+      wrapFrame.current = requestAnimationFrame(step);
+    };
+    wrapFrame.current = requestAnimationFrame(step);
+  };
+  // True when the virtual list holding this row has more rows past it that are not mounted.
+  const moreBeyond = (row: HTMLElement, down: boolean) => {
+    const box = row.closest("[data-virtual-list]")?.getBoundingClientRect();
+    const wrapper = row.closest("[data-index]")?.getBoundingClientRect();
+    if (!box || !wrapper) return false;
+    return down ? box.bottom - wrapper.bottom > 2 : wrapper.top - box.top > 2;
   };
   return (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -187,9 +211,8 @@ export function usePickerKeyboard({
       const down = event.key === "ArrowDown";
       const next = activeIndex(all) + (down ? 1 : -1);
       if (next < 0 || next >= count) {
-        // Past the mounted rows is only the end of the list once the list has scrolled there.
         const list = listRef.current;
-        if (list && (down ? list.scrollTop + list.clientHeight < list.scrollHeight - 2 : list.scrollTop > 2)) {
+        if (list && moreBeyond(all[down ? count - 1 : 0]!, down)) {
           list.scrollBy({ top: (down ? 1 : -1) * list.clientHeight * 0.5 });
         } else wrapTo(down ? "first" : "last");
         return;
@@ -197,6 +220,8 @@ export function usePickerKeyboard({
       activeEl.current = all[next]!;
       setActive(next);
       redraw();
+      // Not left to the effect: a recycled virtual row keeps its index, so `active` may not change.
+      all[next]!.scrollIntoView?.({ block: "nearest" });
     } else if (event.key === "Enter") {
       event.preventDefault();
       all[activeIndex(all)]?.click();
