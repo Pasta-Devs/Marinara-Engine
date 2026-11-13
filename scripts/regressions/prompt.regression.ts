@@ -3952,7 +3952,7 @@ const cases: RegressionCase[] = [
         "utf8",
       );
       const drawerSource = readFileSync(
-        new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+        new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
         "utf8",
       );
       const settingsOrderSource = readFileSync(
@@ -3964,7 +3964,7 @@ const cases: RegressionCase[] = [
         "utf8",
       ).replace(/\r\n/gu, "\n");
       const storyboardChatSettingsSource = readFileSync(
-        new URL("../../packages/client/src/components/chat/StoryboardChatSettingsPanel.tsx", import.meta.url),
+        new URL("../../packages/client/src/features/chat-settings/StoryboardChatSettingsPanel.tsx", import.meta.url),
         "utf8",
       );
       const setupSource = readFileSync(
@@ -4413,7 +4413,7 @@ const cases: RegressionCase[] = [
       assert.equal(resolveGameSetupArtStylePrompt({ useCampaignArtStyle: true }), "");
 
       const drawerSource = readFileSync(
-        new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+        new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
         "utf8",
       );
       const gameSurfaceSource = readFileSync(
@@ -5847,7 +5847,7 @@ const cases: RegressionCase[] = [
       );
 
       const chatSettingsSource = readFileSync(
-        new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+        new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
         "utf8",
       );
       const storyboardSettingsSource = readFileSync(
@@ -5855,7 +5855,7 @@ const cases: RegressionCase[] = [
         "utf8",
       );
       const storyboardChatSettingsSource = readFileSync(
-        new URL("../../packages/client/src/components/chat/StoryboardChatSettingsPanel.tsx", import.meta.url),
+        new URL("../../packages/client/src/features/chat-settings/StoryboardChatSettingsPanel.tsx", import.meta.url),
         "utf8",
       );
       const roleplaySettingsStart = storyboardChatSettingsSource.indexOf(
@@ -6792,7 +6792,7 @@ const cases: RegressionCase[] = [
       }
 
       const drawerSource = readFileSync(
-        new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+        new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
         "utf8",
       );
       const executorSource = readFileSync(
@@ -10947,7 +10947,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(retryRouteSource, /getTrackerAgentTypes\(\)/u);
 
       const chatSettingsSource = readFileSync(
-        new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+        new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
         "utf8",
       );
       const trackerControlsComment = chatSettingsSource.indexOf(

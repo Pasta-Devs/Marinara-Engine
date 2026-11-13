@@ -19,7 +19,13 @@ export async function getSharp(): Promise<SharpFn | null> {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - optional native dep, may not load on some platforms
       const mod = await import("sharp");
-      cachedSharp = (mod.default ?? mod) as SharpFn;
+      const sharp = (mod.default ?? mod) as SharpFn;
+      // libvips keeps up to 20 of the files it has read open, and a file read only for its metadata (an animated
+      // image served at full size) stays open. Windows cannot delete an open file, so deleting such an image left it on
+      // disk. The in-memory cache is kept; only open files are not. Every path-reading caller loads sharp here.
+      // Kept only once this succeeds, so a failure here counts as sharp not loading, for every later call too.
+      sharp.cache({ files: 0 });
+      cachedSharp = sharp;
       return cachedSharp;
     } catch (error) {
       sharpLoadFailed = true;

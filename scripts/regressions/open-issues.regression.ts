@@ -142,7 +142,7 @@ import {
   resolveManagedGenerationParameters,
 } from "../../packages/shared/src/utils/managed-generation-parameters.js";
 import { isAgentManifestAvailableInChatMode } from "../../packages/shared/src/constants/chat-mode-agent-policy.js";
-import { CHAT_SETTINGS_SURFACES } from "../../packages/client/src/components/chat/chat-settings-surfaces.js";
+import { CHAT_SETTINGS_SURFACES } from "../../packages/client/src/features/chat-settings/chat-settings-surfaces.js";
 import {
   isBundledGameAssetFolderPath,
   isBundledGameAssetPath,
@@ -5390,7 +5390,7 @@ assert.deepEqual(
   "Conversation setup should persist both the enabled Selfie command and its default image connection",
 );
 const conversationGroupSettingsSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
   "utf8",
 );
 const conversationGenerationSource = readFileSync(
@@ -5460,7 +5460,7 @@ const contextBudgetGameInputSource = readFileSync(
   "utf8",
 );
 const contextBudgetChatSettingsSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
   "utf8",
 );
 const contextBudgetConnectionSectionSource = readFileSync(
@@ -6376,7 +6376,7 @@ const gameSetupWizardSource = readFileSync(
   "utf8",
 );
 const chatSettingsDrawerSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
   "utf8",
 );
 assert.match(
@@ -9513,7 +9513,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
 // focused UI/cache ordering fixes from being lost in future refactors.
 {
   const chatSettingsSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
     "utf8",
   );
   assert.match(
@@ -10108,7 +10108,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   }
 
   const chatSettingsSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
     "utf8",
   );
   assert.match(
@@ -10307,7 +10307,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   // hasNextPage. Read-only newest-N windows must go through the peek hook,
   // which keys by limit.
   const drawerSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
     "utf8",
   );
   assert.doesNotMatch(
@@ -10565,7 +10565,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     "utf8",
   );
   const settingsDrawerSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
     "utf8",
   );
   const gameMapSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/components/game/GameMap.tsx"), "utf8");
@@ -10907,7 +10907,7 @@ assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!stor
 // the drawer's guarded close (drafts and the inline card editor's saves finished; a pinned drawer stays open).
 {
   const drawerSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
     "utf8",
   );
   const cardOpens = drawerSource.match(

@@ -31,7 +31,7 @@ import { api } from "../../lib/api-client";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { ChatBranchGraphButton } from "./ChatBranchGraphWindow";
+import { ChatBranchGraphButton } from "../../components/chat/ChatBranchGraphWindow";
 
 type BranchRow = {
   id: string;

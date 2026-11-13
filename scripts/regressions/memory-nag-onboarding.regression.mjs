@@ -4,7 +4,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const drawer = readFileSync(join(repositoryRoot, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"), "utf8");
+const drawer = readFileSync(
+  join(repositoryRoot, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
+  "utf8",
+);
 const english = JSON.parse(
   readFileSync(join(repositoryRoot, "packages/client/src/localization/locales/en.json"), "utf8"),
 );

@@ -163,7 +163,7 @@ These files are the most likely to slow future work because they mix many concer
 | `packages/server/src/routes/generate.routes.ts` | shared generation and agents | Route, streaming, prompt, agents, storage, and side effects live in one file. |
 | `packages/server/src/routes/game.routes.ts` | `MODE-GAME` | API handlers, GM flow, scene analysis, assets, combat, and persistence are coupled. |
 | `packages/client/src/components/game/GameSurface.tsx` | `MODE-GAME` | Rendering, state orchestration, assets, logs, narration, combat, and effects are coupled. |
-| `packages/client/src/components/chat/ChatSettingsDrawer.tsx` | mixed chat settings | Section extraction is underway in `features/chat-settings`, but the drawer is still large. |
+| `packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx` | mixed chat settings | Section extraction into `features/chat-settings/sections` is underway, but the drawer is still large. |
 | `packages/client/src/components/game/GameNarration.tsx` | `MODE-GAME` | Display rendering and command formatting are tightly coupled. |
 | `packages/client/src/components/game/GameCombatUI.tsx` | `MODE-GAME` | Combat display, controls, and logs can become smaller panels and hooks. |
 | `packages/client/src/components/chat/RoleplayHUD.tsx` | `MODE-ROLEPLAY` | A split is partly done via `RoleplayHUDActionsMenu.tsx` and `RoleplayHUDPanels.tsx`. |

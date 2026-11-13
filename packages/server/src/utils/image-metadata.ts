@@ -1,41 +1,12 @@
 import { readFile } from "fs/promises";
 import { logger } from "../lib/logger.js";
+// sharp can fail to load on Android/Termux (no native prebuild); getSharp then returns null and the
+// lightweight header parsing below reads the common formats instead.
+import { getSharp } from "./sharp.js";
 
 export interface ImageDimensions {
   width: number;
   height: number;
-}
-
-// sharp can fail to load on Android/Termux because it has no native Android
-// prebuild. Use lightweight header parsing as a fallback for common formats.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SharpFn = any;
-let cachedSharp: SharpFn | null = null;
-let sharpLoadFailed = false;
-let sharpLoadPromise: Promise<SharpFn | null> | null = null;
-
-async function getSharp(): Promise<SharpFn | null> {
-  if (cachedSharp) return cachedSharp;
-  if (sharpLoadFailed) return null;
-  if (sharpLoadPromise) return sharpLoadPromise;
-
-  sharpLoadPromise = (async () => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - optional native dep, may not load on some platforms
-      const mod = await import("sharp");
-      cachedSharp = (mod.default ?? mod) as SharpFn;
-      return cachedSharp;
-    } catch (error) {
-      sharpLoadFailed = true;
-      logger.debug(error, "[image-metadata] sharp unavailable; falling back to header parsing");
-      return null;
-    } finally {
-      sharpLoadPromise = null;
-    }
-  })();
-
-  return sharpLoadPromise;
 }
 
 function readUInt24LE(buffer: Buffer, offset: number): number {
