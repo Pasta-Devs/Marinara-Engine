@@ -96,6 +96,7 @@ import {
   IllustratorRunIntervalField,
 } from "./agents/IllustratorControls";
 import { ConversationCommandsSettings } from "./agents/ConversationCommandsSettings";
+import { LongTermMemoryCapabilitySettings, LongTermMemoryEnableSwitch } from "./agents/LongTermMemorySettings";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
@@ -2889,31 +2890,14 @@ export function ChatSettingsDrawer({
       );
     } else if (agent.id === "long-term-memory" && ltmPackage) {
       settings = (
-        <CapabilityElement
+        <LongTermMemoryCapabilitySettings
+          chat={chat}
+          metadata={metadata}
           packageId={ltmPackage.id}
-          view="settings"
-          capabilityProps={{
-            chatId: chat.id,
-            enabledForChat: metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id),
-            chatSettings: {
-              longTermMemoryRecallStyle: metadata.longTermMemoryRecallStyle,
-              longTermMemoryBudgetTokens: metadata.longTermMemoryBudgetTokens,
-              longTermMemoryMaxChunks: metadata.longTermMemoryMaxChunks,
-            },
-            onEnabledForChatChange: setLtmEnabledForChat,
-            onChatSettingsChange: async (patch: Record<string, unknown>) => {
-              await updateMeta.mutateAsync({ id: chat.id, ...patch });
-            },
-            onOpenAgentSettings: () => {
-              void requestClose().then((closed) => {
-                if (closed) {
-                  rememberSettingsReturn();
-                  useUIStore.getState().openAgentDetail("long-term-memory");
-                }
-              });
-            },
-            onDirtyChange: setEditorDirty,
-          }}
+          enabledForChat={metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id)}
+          setLtmEnabledForChat={setLtmEnabledForChat}
+          requestClose={requestClose}
+          rememberSettingsReturn={rememberSettingsReturn}
           className="block overflow-hidden"
         />
       );
@@ -5182,56 +5166,18 @@ export function ChatSettingsDrawer({
                         title={localizeUi("ui.chat.chatsettingsdrawer.longTermMemory")}
                         description={localizeUi("ui.chat.chatsettingsdrawer.enableLongTermMemoryForThisConversation")}
                       >
-                        <SettingsSwitch
-                          label={localizeUi("ui.chat.chatsettingsdrawer.longTermMemory")}
-                          description={localizeUi("ui.chat.chatsettingsdrawer.enableLongTermMemoryForThisConversation")}
-                          checked={metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id)}
-                          onChange={(enabled) => {
-                            void setLtmEnabledForChat(enabled).catch((error) => {
-                              void showAlertDialog({
-                                title: localizeUi("ui.chat.chatsettingsdrawer.longTermMemory"),
-                                message:
-                                  error instanceof Error
-                                    ? error.message
-                                    : localizeUi("ui.chat.chatsettingsdrawer.failedToUpdateLongTermMemory"),
-                              });
-                            });
-                          }}
-                          labelPosition="start"
-                          className={cn(
-                            "justify-between rounded-lg px-3 py-2.5 text-left",
-                            metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id)
-                              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                              : "bg-[var(--background)]/75 ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
-                          )}
-                          labelClassName="text-xs font-medium"
+                        <LongTermMemoryEnableSwitch
+                          enabledForChat={metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id)}
+                          setLtmEnabledForChat={setLtmEnabledForChat}
                         />
-                        <CapabilityElement
+                        <LongTermMemoryCapabilitySettings
+                          chat={chat}
+                          metadata={metadata}
                           packageId={ltmPackage.id}
-                          view="settings"
-                          capabilityProps={{
-                            chatId: chat.id,
-                            enabledForChat: metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id),
-                            chatSettings: {
-                              longTermMemoryRecallStyle: metadata.longTermMemoryRecallStyle,
-                              longTermMemoryBudgetTokens: metadata.longTermMemoryBudgetTokens,
-                              longTermMemoryMaxChunks: metadata.longTermMemoryMaxChunks,
-                            },
-                            onEnabledForChatChange: setLtmEnabledForChat,
-                            onChatSettingsChange: async (patch: Record<string, unknown>) => {
-                              await updateMeta.mutateAsync({ id: chat.id, ...patch });
-                            },
-                            onOpenAgentSettings: () => {
-                              void requestClose().then((closed) => {
-                                if (closed) {
-                                  rememberSettingsReturn();
-                                  useUIStore.getState().openAgentDetail("long-term-memory");
-                                }
-                              });
-                            },
-                            onDirtyChange: setEditorDirty,
-                          }}
-                          className="block overflow-hidden rounded-lg"
+                          enabledForChat={metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id)}
+                          setLtmEnabledForChat={setLtmEnabledForChat}
+                          requestClose={requestClose}
+                          rememberSettingsReturn={rememberSettingsReturn}
                         />
                       </AgentSettingsCard>
                     ) : null}
@@ -6634,33 +6580,16 @@ export function ChatSettingsDrawer({
                                         title={agent.name}
                                         description={getActiveAgentMenuDescription(agent.description)}
                                       >
-                                        <CapabilityElement
+                                        <LongTermMemoryCapabilitySettings
+                                          chat={chat}
+                                          metadata={metadata}
                                           packageId={ltmPackage.id}
-                                          view="settings"
-                                          capabilityProps={{
-                                            chatId: chat.id,
-                                            enabledForChat:
-                                              metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id),
-                                            chatSettings: {
-                                              longTermMemoryRecallStyle: metadata.longTermMemoryRecallStyle,
-                                              longTermMemoryBudgetTokens: metadata.longTermMemoryBudgetTokens,
-                                              longTermMemoryMaxChunks: metadata.longTermMemoryMaxChunks,
-                                            },
-                                            onEnabledForChatChange: setLtmEnabledForChat,
-                                            onChatSettingsChange: async (patch: Record<string, unknown>) => {
-                                              await updateMeta.mutateAsync({ id: chat.id, ...patch });
-                                            },
-                                            onOpenAgentSettings: () => {
-                                              void requestClose().then((closed) => {
-                                                if (closed) {
-                                                  rememberSettingsReturn();
-                                                  useUIStore.getState().openAgentDetail("long-term-memory");
-                                                }
-                                              });
-                                            },
-                                            onDirtyChange: setEditorDirty,
-                                          }}
-                                          className="block overflow-hidden rounded-lg"
+                                          enabledForChat={
+                                            metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id)
+                                          }
+                                          setLtmEnabledForChat={setLtmEnabledForChat}
+                                          requestClose={requestClose}
+                                          rememberSettingsReturn={rememberSettingsReturn}
                                         />
                                       </AgentSettingsCard>
                                     </div>

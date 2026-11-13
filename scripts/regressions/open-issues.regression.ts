@@ -6143,7 +6143,10 @@ assert.match(
   "Conversation group settings should not show the roleplay-only Name Prefix History toggle",
 );
 assert.match(
-  conversationGroupSettingsSource,
+  readFileSync(
+    new URL("../../packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx", import.meta.url),
+    "utf8",
+  ),
   /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\) \{\s+rememberSettingsReturn\(\);\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
   "Long-Term Memory settings navigation must wait for the guarded drawer close, then record the Chat Settings return",
 );
@@ -10688,13 +10691,18 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.match(stopGenerationActionSource, /text-\[var\(--muted-foreground\)\]/u);
   assert.doesNotMatch(stopGenerationActionSource, /red-/u);
   assert.equal(
-    (
-      settingsDrawerSource.match(
-        /packageId=\{ltmPackage\.id\}[\s\S]*?className="block overflow-hidden(?: rounded-lg)?"/gu,
-      ) ?? []
-    ).length,
+    (settingsDrawerSource.match(/<LongTermMemoryCapabilitySettings\s[\s\S]*?packageId=\{ltmPackage\.id\}/gu) ?? [])
+      .length,
     3,
     "Long-Term Memory must use the same un-nested Agent Settings surface in every chat mode",
+  );
+  assert.match(
+    readFileSync(
+      join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx"),
+      "utf8",
+    ),
+    /className = "block overflow-hidden rounded-lg"[\s\S]*?className=\{className\}/u,
+    "the shared Long-Term Memory surface must stay un-nested",
   );
 
   assert.match(

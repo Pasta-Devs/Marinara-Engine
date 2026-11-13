@@ -788,8 +788,16 @@ try {
   );
   assert.match(
     chatSettingsSource,
-    /gameAgentPool\.map\(\(agent\)[\s\S]{0,7000}agent\.id === "long-term-memory" && ltmPackage[\s\S]{0,2500}<CapabilityElement/u,
+    /gameAgentPool\.map\(\(agent\)[\s\S]{0,7000}agent\.id === "long-term-memory" && ltmPackage[\s\S]{0,2500}<LongTermMemoryCapabilitySettings/u,
     "Game chat settings must render the Long-Term Memory package controls",
+  );
+  assert.match(
+    readFileSync(
+      join(repositoryRoot, "packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx"),
+      "utf8",
+    ),
+    /<CapabilityElement\s+packageId=\{packageId\}\s+view="settings"/u,
+    "the shared Long-Term Memory settings must render the package's own settings view",
   );
   assert.match(
     chatSettingsSource,
