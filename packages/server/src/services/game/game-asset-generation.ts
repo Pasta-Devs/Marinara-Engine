@@ -1579,7 +1579,6 @@ export async function generateChatBackgroundWeatherVersion(
         signal: req.signal,
         referenceImage: reference,
         referenceIsCanvas: true,
-        admissionMode: { kind: "background" },
         preserveProviderOutput: true,
       },
     );
