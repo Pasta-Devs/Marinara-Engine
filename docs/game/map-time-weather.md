@@ -72,7 +72,18 @@ In a game with a world, time also passes on its own:
 
 ## Weather
 
-The game tracks weather with fixed math, not the AI. Weather depends on the biome (the kind of place the party is in, such as desert, arctic, coastal or mountain) and the season. Examples are clear, cloudy, rain, storm, snow, blizzard, fog and sandstorm. Weather changes most often when you travel or take a long rest, sometimes when you explore, and rarely otherwise. It flavors how the GM describes each scene.
+The game tracks weather with fixed math, not the AI. Examples are clear, cloudy, rain, storm, snow, blizzard, fog, heat wave and sandstorm. The weather flavors how the GM describes each scene.
+
+In a game with a generated world, the weather comes from the climate where the party stands on the map:
+
+- **The land around the party.** Deserts are dry and rarely rain, jungles are wet and warm, snowfields are cold, and mountains are colder and foggier than the valleys below them.
+- **Latitude and the sea.** On a map of a whole world, the top and bottom are near the poles and the middle is near the equator. How far the sea is counts too: coasts have mild winters, and places far inland have hot summers and bitter winters.
+- **The local season.** South of the equator, summer comes in the calendar's winter. Near the equator the year has a wet season and a dry season instead of winter.
+- **Weather that drifts.** Weather systems move across the map over hours and days, so the sky doesn't jump from a heat wave to fog in one step, and places near each other share their weather. Showers and thunderstorms in warm climates build in the afternoon.
+
+When the story or the GM calls for a weather the place can't have right now, such as snow in a hot desert in summer, the game uses the nearest weather that fits instead (a cold, hard wind, in that case). The GM is told the climate and what can't happen there.
+
+A game without a generated world guesses the climate from the name of the location, such as "desert", "harbor" or "mountain".
 
 To see weather on screen, turn on **Dynamic weather effects (rain, snow, fog, etc.)** in the appearance settings. It is on by default. Rain, snow and fog particles then appear over the game and match the weather and time of day. See [Appearance Settings](../appearance/appearance-settings.md).
 

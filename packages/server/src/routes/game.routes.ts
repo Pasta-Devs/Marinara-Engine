@@ -23,6 +23,7 @@ import {
   rollDieSecurely,
   rollSymbolDiceNotation,
   normalizeWeatherType,
+  type WeatherType,
   combatWeatherSchema,
   readImageAppearanceOverride,
   applyRulesetSheetOp,
@@ -255,7 +256,7 @@ import {
   type GameTime,
   type TimeOfDay,
 } from "../services/game/time.service.js";
-import { generateWeather, inferBiome, shouldWeatherChange } from "../services/game/weather.service.js";
+import { gameWeatherNow } from "../services/game/world-weather.service.js";
 import { rollEncounter, rollEnemyCount } from "../services/game/encounter.service.js";
 import { processReputationActions } from "../services/game/reputation.service.js";
 import {
@@ -375,7 +376,6 @@ import {
   worldTrip,
   worldIsSite,
   worldSettlementOf,
-  worldSeason,
   worldSiteLocks,
   worldWalkFromMetadata,
   worldWalkJoined,
@@ -11860,22 +11860,17 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     return { time: newTime, formatted: formatGameTime(newTime) };
   });
 
-  /** The season where the party is, in a game with a world (1.351): held by its story, else the day's. */
-  const gameSeasonHere = async (chatId: string, mode: string, meta: Record<string, unknown>) => {
-    const world = mode === "game" ? await loadGameWorld(app.db, chatId, meta) : null;
-    if (!world) return null;
-    const day = ((meta.gameTime as GameTime | undefined) ?? createInitialTime()).day;
-    const { here, seasons } = await overworldPlace(chatId, meta, world);
-    return (here ? seasons[here] : undefined) ?? seasons["*"] ?? worldSeason(day);
-  };
-
   // ── POST /game/weather/update ──
+  // The weather where the party is (world-weather.service): read from the world's climate at the party's
+  // map cell and the game's clock, so it drifts instead of being rolled fresh. "set" (the scene analyzer,
+  // the Game Master) asks for a weather, which is fitted to the place: never snow in a hot desert.
   app.post("/weather/update", async (req) => {
     const schema = z.object({
       chatId: z.string().min(1),
       action: z.string().min(1).max(50),
       location: z.string().max(500).default(""),
-      season: z.enum(["spring", "summer", "autumn", "winter"]).default("summer"),
+      // Kept for older clients; the season is now always the place's own.
+      season: z.enum(["spring", "summer", "autumn", "winter"]).optional(),
       type: z.string().max(100).optional(),
     });
     const { chatId, action, location, type } = schema.parse(req.body);
@@ -11884,45 +11879,30 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     if (!chat) throw new Error("Chat not found");
 
     const meta = parseMeta(chat.metadata);
-    // A game with a world has its own season where the party is: the one the story holds it at (1.351),
-    // else the day's. Without one, the season sent.
-    const season = (await gameSeasonHere(chat.id, chat.mode, meta)) ?? schema.parse(req.body).season;
-
-    // "set" action from scene analyzer — apply the exact weather type
+    const previous = meta.gameWeather as { type?: string; temperature?: number } | undefined;
+    let wanted: WeatherType | null = null;
     if (action === "set" && type) {
-      const biome = inferBiome(location);
-      const weatherType = normalizeWeatherType(type);
-      if (!weatherType) return { changed: false, weather: meta.gameWeather ?? null };
-      const weather = generateWeather(biome, season, weatherType);
-
-      // #5076: narrow queued patch so a concurrent metadata write is merged, not clobbered.
-      await chats.patchMetadata(chatId, { gameWeather: weather });
-      const gameStateStore = createGameStateStorage(app.db);
-      await updateLatestGameStateWithTrackerLocks(gameStateStore, chatId, {
-        weather: weather.type,
-        temperature: `${weather.temperature}°C`,
-      });
-      return { changed: true, weather };
+      wanted = normalizeWeatherType(type) ?? null;
+      if (!wanted) return { changed: false, weather: meta.gameWeather ?? null };
     }
-
-    if (!shouldWeatherChange(action)) {
+    const weather = await gameWeatherNow(app.db, chatId, meta, { location, wanted });
+    const changed =
+      !!wanted ||
+      previous?.type !== weather.type ||
+      Math.abs((previous?.temperature ?? NaN) - weather.temperature) >= 1;
+    if (!changed && previous && (previous as { note?: string }).note === weather.note) {
       return { changed: false, weather: meta.gameWeather ?? null };
     }
 
-    const biome = inferBiome(location);
-    const weather = generateWeather(biome, season);
-
     // #5076: narrow queued patch so a concurrent metadata write is merged, not clobbered.
     await chats.patchMetadata(chatId, { gameWeather: weather });
-
     // Also update the game state snapshot so WeatherEffects picks it up
     const gameStateStore = createGameStateStorage(app.db);
     await updateLatestGameStateWithTrackerLocks(gameStateStore, chatId, {
       weather: weather.type,
       temperature: `${weather.temperature}°C`,
     });
-
-    return { changed: true, weather };
+    return { changed, weather };
   });
 
   // ── POST /game/encounter/roll ──

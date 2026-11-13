@@ -387,6 +387,9 @@ export async function injectGameGmPromptRuntime(args: {
     if (snap) {
       if (snap.weather)
         weatherContext = `Current weather: ${snap.weather}${snap.temperature ? `, ${snap.temperature}` : ""}`;
+      // The climate the weather is read from (world-weather.service): the Game Master keeps to it.
+      const note = (args.chatMetadata.gameWeather as { note?: unknown } | undefined)?.note;
+      if (weatherContext && typeof note === "string" && note.trim()) weatherContext += `\n${note.trim()}`;
       if (snap.time || snap.date) gameTime = [snap.date, snap.time].filter(Boolean).join(", ");
     }
   } catch {

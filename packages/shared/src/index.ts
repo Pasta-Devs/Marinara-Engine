@@ -102,6 +102,7 @@ export * from "./features/world/art-family.js";
 export * from "./features/world/journal.js";
 export * from "./features/world/atlas.js";
 export * from "./features/world/overworld.js";
+export * from "./features/world/climate.js";
 export * from "./features/world/town.js";
 export * from "./features/world/interior.js";
 export * from "./features/world/edges.js";

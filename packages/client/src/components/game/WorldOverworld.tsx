@@ -33,7 +33,7 @@ import {
   type CharacterFacing,
   type TilePack,
   type WorldPlace,
-  worldSeason,
+  worldDrawnSeason,
   worldSeasonCells,
   type WorldSeason,
 } from "@marinara-engine/shared";
@@ -166,8 +166,11 @@ export function WorldOverworld({
   const lit = darkness > 0.25;
 
   // ── The family's tiles: drawn plain until (and unless) they load ──
-  // Drawn in the season of the game's day (seasonal tiles, where the pack has them).
-  const drawTile = useOverworldAtlas(family, tilePack, time ? worldSeason(time.day) : undefined);
+  // Drawn in the season of the game's day (seasonal tiles, where the pack has them), as the map's climate
+  // has it: the south's summer in the north's winter, no winter at all in the tropics (climate.ts).
+  const day = time?.day;
+  const drawnSeason = useMemo(() => (day ? worldDrawnSeason(game, day) : undefined), [game, day]);
+  const drawTile = useOverworldAtlas(family, tilePack, drawnSeason);
   // The places the story holds at a season of their own (1.351): each cell drawn in its nearest place's.
   const seasonsKey = JSON.stringify(overworld?.seasons ?? {});
   const heldCells = useMemo(
