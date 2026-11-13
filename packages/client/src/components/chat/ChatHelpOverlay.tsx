@@ -526,7 +526,14 @@ function MessageActionLegend({ mode }: { mode: ChatMode }) {
       className="border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2.5"
     >
       <h3 className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--marinara-chat-chrome-panel-title)]">
-        {t(mode === "game" ? "chat.help.actions.logTitle" : "chat.help.actions.messageTitle")}
+        {/* Touch screens have no hover toolbar: the same actions open from a long-press. */}
+        {t(
+          mode === "game"
+            ? "chat.help.actions.logTitle"
+            : typeof window !== "undefined" && window.matchMedia("(hover: none)").matches
+              ? "chat.help.actions.messageTitleTouch"
+              : "chat.help.actions.messageTitle",
+        )}
       </h3>
       <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
         {ACTIONS_BY_MODE[mode].map(({ icon: Icon, labelKey }) => (

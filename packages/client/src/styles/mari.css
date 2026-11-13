@@ -5510,11 +5510,12 @@ html[data-mari-software-keyboard-open]
 html[data-mari-software-keyboard-open]
   [data-component="GlobalOmnibar"][data-mari-companion="sheet"][data-mari-composer-focused]
   > .mari-companion-panel {
-  top: calc(var(--mari-visual-viewport-offset-top, 0px) + var(--mari-visual-viewport-height, 100dvh));
-  bottom: auto;
+  /* From the bottom, not top + translate: the protected layer (index.html) resets translate on the
+     omnibar panel, which dropped the sheet behind the keyboard. 100% is the layout viewport here. */
+  top: auto;
+  bottom: calc(100% - var(--mari-visual-viewport-offset-top, 0px) - var(--mari-visual-viewport-height, 100dvh));
   height: auto;
   padding-bottom: 0;
-  translate: 0 -100%;
 }
 
 html[data-mari-software-keyboard-open]

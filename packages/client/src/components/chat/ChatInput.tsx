@@ -249,6 +249,7 @@ export const ChatInput = memo(function ChatInput({
   const charPickerBtnRef = useRef<HTMLButtonElement>(null);
   const charPickerMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastSendTapAtRef = useRef(0);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const inputBarRef = useRef<HTMLDivElement>(null);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2224,7 +2225,23 @@ export const ChatInput = memo(function ChatInput({
 
         <button
           type="button"
-          onClick={isStreaming ? () => useChatStore.getState().stopGeneration(activeChatId ?? undefined) : handleSend}
+          // Keep the keyboard up: a tap on Send must not take focus from the message box.
+          onPointerDown={(event) => {
+            if (event.pointerType !== "mouse") event.preventDefault();
+          }}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={
+            isStreaming
+              ? () => {
+                  // A Stop right after a send is a second tap on Send, not a decision to stop.
+                  if (Date.now() - lastSendTapAtRef.current < 1200) return;
+                  useChatStore.getState().stopGeneration(activeChatId ?? undefined);
+                }
+              : () => {
+                  lastSendTapAtRef.current = Date.now();
+                  void handleSend();
+                }
+          }
           disabled={
             (!isStreaming && (isInputBusy || isReadingAttachments)) ||
             (!hasInput && !attachments.length && !canSubmitSpatialMove && !isStreaming && !canRetry && !canContinue) ||

@@ -90,6 +90,17 @@
           mask: none !important;
           content-visibility: visible !important;
         }
+        /* iPhone/iPad keyboard: Safari slides the visible area up, and the shell follows it (AppShell.tsx
+           writes the visible area's top and height; globals.css holds the same rule for the app's own layer).
+           Only while the keyboard is up, and clamped, so a theme still can't move or hide the shell. */
+        @media (max-width: 767px), (max-width: 1440px) and (hover: none) and (any-pointer: coarse) {
+          html[data-mari-ios-webkit][data-mari-software-keyboard-open]:not([data-ov-split-phone]) [data-component="AppShell"] {
+            position: absolute !important;
+            top: clamp(0px, var(--mari-visual-viewport-offset-top, 0px), 75lvh) !important;
+            bottom: auto !important;
+            height: clamp(8rem, var(--mari-visual-viewport-height, 100dvh), 100lvh) !important;
+          }
+        }
         [data-component="OverhaulShellRow"],
         [data-component="TopBar"],
         [data-component="ChatSidebarSlot"]:not([aria-hidden="true"]),

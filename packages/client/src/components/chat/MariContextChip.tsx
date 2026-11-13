@@ -44,37 +44,46 @@ export function MariContextChip({
   );
 
   const genericLabel = t("mari.contextChip.generic", "Ask Professor Mari");
-  const effectiveLabel = suggestion
-    ? t(suggestion.labelKey, suggestion.label, suggestion.labelValues ?? {})
-    : genericLabel;
+  const suggestionLabel = suggestion ? t(suggestion.labelKey, suggestion.label, suggestion.labelValues ?? {}) : null;
 
-  const handleOpen = () => {
+  // Two buttons: "Ask Professor Mari" always keeps its name and opens her with an empty box; the
+  // suggestion for the field being edited ("Tighten this") sits beside it and fills her box with it.
+  const open = (withSuggestion: boolean) => {
     const context: ProfessorMariAskContext = {
       source: entryPoint,
-      capability: suggestion?.capability ?? "explain",
-      query: suggestion?.draft,
+      capability: withSuggestion ? (suggestion?.capability ?? "explain") : "explain",
+      query: withSuggestion ? suggestion?.draft : undefined,
       resource,
       field,
     };
     requestProfessorMariOpen({
       destination: "omnibar",
-      draft: suggestion?.draft,
+      draft: withSuggestion ? suggestion?.draft : undefined,
       context,
     });
   };
 
+  const chipClass =
+    className ??
+    "inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--muted)]/40 px-2.5 py-1 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)]";
+
   return (
-    <button
-      type="button"
-      onClick={handleOpen}
-      className={
-        className ??
-        "inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--muted)]/40 px-2.5 py-1 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
-      }
-      title={effectiveLabel}
-    >
-      <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span className="truncate">{effectiveLabel}</span>
-    </button>
+    <>
+      <button type="button" onClick={() => open(false)} className={chipClass} title={genericLabel}>
+        <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span className="truncate">{genericLabel}</span>
+      </button>
+      {suggestionLabel && (
+        <button
+          type="button"
+          onClick={() => open(true)}
+          className={chipClass}
+          data-mari-suggestion="true"
+          title={suggestionLabel}
+        >
+          <span className="truncate">{suggestionLabel}</span>
+        </button>
+      )}
+    </>
   );
 }

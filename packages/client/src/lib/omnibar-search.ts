@@ -810,11 +810,24 @@ export function getUnambiguousOmnibarResult(results: readonly OmnibarResult[]): 
  * agents are the same kind of navigation row, just reached via a `resource`
  * target instead of `chat` (O4 item 7).
  */
+const DIRECT_TAP_RESOURCE_CATEGORIES = new Set<OmnibarCategory>([
+  "character",
+  "agent",
+  "persona",
+  "lorebook",
+  "preset",
+  "connection",
+]);
+
 export function resultOpensDirectlyOnTap(result: Pick<OmnibarResult, "target" | "action" | "category">): boolean {
+  // Phone/tablet panel (Nov 13): docs, settings and every Library item open on the first tap too; the
+  // preview-first tap looked broken to newcomers and closed the keyboard for nothing.
   return (
     result.target?.kind === "chat" ||
     result.action?.kind === "goto-message" ||
-    (result.target?.kind === "resource" && (result.category === "character" || result.category === "agent"))
+    result.category === "docs" ||
+    result.category === "settings" ||
+    (result.target?.kind === "resource" && DIRECT_TAP_RESOURCE_CATEGORIES.has(result.category))
   );
 }
 
