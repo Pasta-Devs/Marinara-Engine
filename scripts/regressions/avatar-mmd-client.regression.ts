@@ -1,6 +1,7 @@
 // The shipped loader/mixer compose imported bone/morph motion with the existing chat director.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import { checkedPmx } from "../../packages/server/src/services/avatars/formats/mmd.js";
 import {
   bindMmdStageClock,
@@ -14,6 +15,8 @@ import { ExpressionBindings } from "../../packages/client/src/features/avatars/s
 import { mmdPmx, mmdVmd } from "./fixtures/avatar-mmd-fixtures.js";
 
 const require = createRequire(new URL("../../packages/client/package.json", import.meta.url));
+// import() needs a file URL: a bare Windows path such as C:\… reads as the scheme "c:".
+const importClientPackage = (id: string) => import(pathToFileURL(require.resolve(id)).href);
 let stopped = 0;
 const clock = {
   frames: 0,
@@ -35,13 +38,12 @@ advance();
 advance();
 assert.equal(clock.frames, 2, "only explicit stage draws advance the library's frame clock");
 assert.throws(() => bindMmdStageClock({}), /cannot use the avatar stage clock/u, "a changed private API fails closed");
-const { createElement } = await import(require.resolve("react"));
-const { renderToStaticMarkup } = await import(require.resolve("react-dom/server"));
-const { AnimationClip, AnimationMixer, LoadingManager, Loader, NumberKeyframeTrack, Texture } = await import(
-  require.resolve("three")
-);
-const { MMDLoader } = await import(require.resolve("@takahirox/three-mmd/loaders/MMDLoader.js"));
-const { Parser } = await import(require.resolve("mmd-parser"));
+const { createElement } = await importClientPackage("react");
+const { renderToStaticMarkup } = await importClientPackage("react-dom/server");
+const { AnimationClip, AnimationMixer, LoadingManager, Loader, NumberKeyframeTrack, Texture } =
+  await importClientPackage("three");
+const { MMDLoader } = await importClientPackage("@takahirox/three-mmd/loaders/MMDLoader.js");
+const { Parser } = await importClientPackage("mmd-parser");
 // No image decoding is claimed here; browser coverage verifies actual texture pixels under server CSP.
 class NoImageLoader extends Loader {
   load() {
