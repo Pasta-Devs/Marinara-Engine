@@ -868,12 +868,47 @@ function protectPromptPresetSystemKeys(changes: PlanChange[]): void {
   }
 }
 
+const dataUrlBytes = (src: unknown) =>
+  typeof src === "string" ? Math.floor(((src.length - src.indexOf(",") - 1) * 3) / 4) : 0;
+
+/**
+ * The theme package as Mari reads it: names and sizes, never the picture or font data. A starter's
+ * package is several MB of base64 that would fill her context and that she can't use as text anyway.
+ */
+export function summarizeThemeMeta(raw: unknown): Row | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  let meta: Record<string, unknown>;
+  try {
+    meta = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return { unreadable: true };
+  }
+  const list = (value: unknown) => (Array.isArray(value) ? (value as Array<Record<string, unknown>>) : []);
+  const { images, backgrounds, fonts, thumbnail, ...rest } = meta;
+  return {
+    ...rest,
+    images: list(images).map((image) => ({
+      name: image.name,
+      bytes: dataUrlBytes(image.src),
+      css: `url("theme:${String(image.name)}")`,
+    })),
+    backgrounds: list(backgrounds).map((background) => ({
+      name: background.name,
+      bytes: dataUrlBytes(background.src),
+    })),
+    fonts: list(fonts).map((font) => ({ family: font.family, license: font.license, bytes: dataUrlBytes(font.src) })),
+    thumbnail: thumbnail ? { bytes: dataUrlBytes(thumbnail) } : null,
+    packageBytes: Buffer.byteLength(raw, "utf8"),
+  };
+}
+
 function parseThemeRow(row: Row): Row {
   const parsed = parseRow(THEME_TABLE, row);
   return {
     ...parsed,
     css: typeof parsed.css === "string" ? normalizeThemeCss(parsed.css) : parsed.css,
     isActive: row.isActive === THEME_ACTIVE_TRUE,
+    meta: summarizeThemeMeta(parsed.meta),
   };
 }
 
