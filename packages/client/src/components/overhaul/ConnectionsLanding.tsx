@@ -295,6 +295,7 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
 }
 
 export function ConnectionsLanding() {
+  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const { t } = useTranslation();
   const { data: connections } = useConnections();
@@ -520,7 +521,10 @@ export function ConnectionsLanding() {
       danger: true,
       onSelect: () =>
         void showConfirmDialog({
-          title: `${t("connections.folders.delete")}: ${folder.name}?`,
+          title: localizeUi("ui.overhaul.connectionslanding.value1Value2", {
+            value1: t("connections.folders.delete"),
+            value2: folder.name,
+          }),
           message: t("connections.folders.deleteMessage"),
           confirmLabel: localize("Delete"),
           tone: "destructive",

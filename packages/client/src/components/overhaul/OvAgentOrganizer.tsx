@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { CapabilityStoreKit } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { translate } from "../../localization/i18n";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { EditorCrumbs } from "./EditorRail";
 import { openLibraryPane } from "./library-navigation";
@@ -96,7 +97,7 @@ function useOwnAgentTools(own: readonly OvAgentRow[]) {
       const filename =
         picked.length === 1 ? createAgentFolderPackageFilename(picked[0]!.name, "agent") : "marinara-agents.zip";
       const status = await downloadZipFile(files, filename);
-      if (status === "saved") toast.success(`${localize("Exported")} ${picked.length}`);
+      if (status === "saved") toast.success(translate("ui.overhaul.text.exportedNumber", { number: picked.length }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : localize("Export failed"));
     }
@@ -121,7 +122,7 @@ function useOwnAgentTools(own: readonly OvAgentRow[]) {
         onSelect: () =>
           void createAgent.mutateAsync(createDuplicateAgentInput(config)).then(
             (created) => {
-              toast.success(`${localize("Copied")} ${row.name}`);
+              toast.success(translate("ui.overhaul.text.copiedName", { name: row.name }));
               if (created?.id) openAgentDetail(created.id);
             },
             (error: unknown) => toast.error(error instanceof Error ? error.message : localize("Couldn't duplicate")),
