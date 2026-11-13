@@ -177,6 +177,7 @@
     "scripts/regressions/character-id-macro-modes.regression.ts",
     "scripts/regressions/character-identity.regression.ts",
     "scripts/regressions/character-library-token-estimate.regression.ts",
+    "scripts/regressions/character-list-paged.regression.ts",
     "scripts/regressions/character-name-aliases.regression.ts",
     "scripts/regressions/character-schedule-ownership.regression.ts",
     "scripts/regressions/character-schedule-transfer.regression.ts",
