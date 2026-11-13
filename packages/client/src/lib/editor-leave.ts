@@ -9,7 +9,15 @@ const EDITOR_IDS = [
   "regexDetailId",
 ] as const;
 type EditorIds = Partial<Record<(typeof EDITOR_IDS)[number], string | null>>;
-type LeaveHandler = { key: string; request: (proceed: () => void) => boolean };
+type LeaveHandler = {
+  key: string;
+  request: (proceed: () => void) => boolean;
+  /**
+   * New layout: an editor that has its own tab keeps its unsaved edits as a draft in that tab instead of
+   * asking, so switching tabs (or opening anything else) just switches. True when it parked them.
+   */
+  park?: () => boolean;
+};
 let handler: LeaveHandler | null = null;
 
 export function editorLeaveKey(state: EditorIds): string | null {
@@ -52,5 +60,31 @@ export function leaveWithoutSaving(proceed: () => void) {
 export function deferEditorLeave(state: EditorIds, patch: EditorIds, proceed: () => void): boolean {
   if (!handler || editorLeaveKey(state) !== handler.key) return false;
   if (editorLeaveKey({ ...state, ...patch }) === handler.key) return false;
+  if (handler.park?.()) return false;
   return handler.request(proceed);
 }
+
+/**
+ * Closing the open editor's own tab: that is leaving for real, so it asks (Save / Don't save / Keep
+ * editing) and only then runs `proceed`. False when nothing needs asking and the caller goes on.
+ */
+export function requestEditorClose(key: string, proceed: () => void): boolean {
+  if (!handler || handler.key !== key) return false;
+  return handler.request(proceed);
+}
+
+/** The leave key an editor tab's editor registers (`characterDetailId:<id>`), or null for other tabs. */
+export function editorLeaveKeyForTab(tab: { kind: string; id: string }): string | null {
+  const field = TAB_EDITOR_FIELDS[tab.kind];
+  return field ? `${field}:${tab.id}` : null;
+}
+
+const TAB_EDITOR_FIELDS: Record<string, (typeof EDITOR_IDS)[number]> = {
+  character: "characterDetailId",
+  persona: "personaDetailId",
+  lorebook: "lorebookDetailId",
+  preset: "presetDetailId",
+  connection: "connectionDetailId",
+  agent: "agentDetailId",
+  regex: "regexDetailId",
+};

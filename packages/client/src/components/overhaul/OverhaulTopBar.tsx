@@ -57,6 +57,10 @@ import { selectHomeBrowserPackages, useInstalledCapabilityPackages } from "../..
 import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-localization";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
+import { editorLeaveKeyForTab, requestEditorClose } from "../../lib/editor-leave";
+import { showChoiceDialog } from "../../lib/app-dialogs";
+import { discardParkedDraft, useParkedDraftsStore } from "../../hooks/use-editor-leave-save";
+import { translate } from "../../localization/i18n";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
 import { splitDragProps } from "./split-view";
 // Its own chunk, so the app shell stays under the bundle budget.
@@ -416,6 +420,17 @@ export function TabPresence({ tab, chats, dotOnly = false }: { tab: OverhaulTab;
   );
 }
 
+/** An editor tab with unsaved changes (open now, or waiting as a draft) shows a small dot. */
+export function TabDraftDot({ tab, current }: { tab: OverhaulTab; current: boolean }) {
+  const { t: localizeUi } = useUiTranslation();
+  const editorKey = editorLeaveKeyForTab(tab);
+  const parked = useParkedDraftsStore((s) => (editorKey ? s.keys.includes(editorKey) : false));
+  const openDirty = useUIStore((s) => current && s.editorDirty);
+  if (!editorKey || !(parked || openDirty)) return null;
+  const label = localizeUi("editor.draft.tabUnsaved");
+  return <i className="ov-tab__draft" role="img" aria-label={label} title={label} />;
+}
+
 /** Game chats: show or hide the right game pane (Party, Inventory, Journal, Map, Sessions). */
 export function GamePaneToggle() {
   const { t: localizeUi } = useUiTranslation();
@@ -544,13 +559,42 @@ export function useTabBookkeeping(current: OverhaulTab | null, chats: Chat[]) {
 export function closeTabAndMove(tab: OverhaulTab, tabs: OverhaulTab[], currentKey: string | null) {
   const key = overhaulTabKey(tab);
   const index = tabs.findIndex((entry) => overhaulTabKey(entry) === key);
-  useOverhaulStore.getState().rememberClosedTab(tab);
-  useOverhaulStore.getState().closeTab(tab);
-  if (key !== currentKey) return;
-  const remaining = tabs.filter((entry) => overhaulTabKey(entry) !== key);
-  const next = remaining[Math.min(index, remaining.length - 1)];
-  if (next) activateTab(next);
-  else goHome();
+  const close = () => {
+    useOverhaulStore.getState().rememberClosedTab(tab);
+    useOverhaulStore.getState().closeTab(tab);
+    if (key !== currentKey) return;
+    const remaining = useOverhaulStore.getState().tabs;
+    const next = remaining[Math.min(index, remaining.length - 1)];
+    if (next) activateTab(next);
+    else goHome();
+  };
+  const editorKey = editorLeaveKeyForTab(tab);
+  if (editorKey && key === currentKey) {
+    // Closing the open editor's tab is leaving for real: Save / Don't save / Keep editing first.
+    if (!requestEditorClose(editorKey, close)) close();
+    return;
+  }
+  if (editorKey && useParkedDraftsStore.getState().keys.includes(editorKey)) {
+    // Its edits wait as a draft in this tab: closing it would throw them away, so ask.
+    void showChoiceDialog({
+      title: translate("editor.leave.title"),
+      message: translate("editor.draft.closeTabMessage"),
+      choices: [
+        { key: "open", label: translate("editor.draft.openToSave") },
+        { key: "discard", label: translate("editor.leave.discard"), tone: "destructive" },
+      ],
+      cancelLabel: translate("editor.draft.keepTab"),
+      layout: "row",
+    }).then((choice) => {
+      if (choice === "open") activateTab(tab);
+      else if (choice === "discard") {
+        discardParkedDraft(editorKey);
+        close();
+      }
+    });
+    return;
+  }
+  close();
 }
 
 /** Brings back the tab closed most recently (tab menu, Ctrl+Shift+T where the browser allows it). */
