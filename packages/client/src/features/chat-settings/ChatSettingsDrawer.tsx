@@ -86,6 +86,7 @@ import { HoldForRewriteToggle } from "./agents/HoldForRewriteToggle";
 import { EchoChamberSettings } from "./agents/EchoChamberSettings";
 import { DirectorSettings } from "./agents/DirectorSettings";
 import { LorebookKeeperSettings } from "./agents/LorebookKeeperSettings";
+import { SPOTIFY_SOURCE_OPTIONS } from "../../lib/spotify-source-options";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
@@ -233,7 +234,6 @@ import type {
   Message,
   MusicDjFolderSource,
   PromptPreset,
-  SpotifySourceType,
 } from "@marinara-engine/shared";
 import {
   MAX_ILLUSTRATOR_IMAGES_PER_GENERATION,
@@ -414,13 +414,6 @@ interface ChatSettingsDrawerProps {
   avatarLayout?: AvatarLayoutControls;
   onOpenScheduleEditor?: (characterId: string, options?: { initialDay?: string | null }) => void;
 }
-
-const SPOTIFY_SOURCE_OPTIONS: Array<{ id: SpotifySourceType; label: string; description: string }> = [
-  { id: "liked", label: "Liked Songs", description: "Pick from the user's saved tracks first." },
-  { id: "playlist", label: "Playlist", description: "Keep choices inside one Spotify playlist." },
-  { id: "artist", label: "Artist", description: "Search only around a named artist, like HOYO-MiX." },
-  { id: "any", label: "Any Spotify", description: "Let the DJ use Spotify search when it fits." },
-];
 
 function getMusicProviderLabel(provider: MusicProvider): string {
   return provider === "spotify" ? "Spotify" : provider === "youtube" ? "YouTube" : "Custom";
