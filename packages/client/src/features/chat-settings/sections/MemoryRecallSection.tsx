@@ -17,7 +17,8 @@ interface MemoryRecallSectionProps {
   isConversation: boolean;
   isRoleplayMode: boolean;
   isGame: boolean;
-  initialSection?: string | null;
+  /** Required, not optional: the "memory-recall" link opens this section in Roleplay and Game. */
+  initialSection: string | null | undefined;
   groupChatMode: GroupChatMode;
   chatCharIds: string[];
   charNameMap: Map<string, string>;

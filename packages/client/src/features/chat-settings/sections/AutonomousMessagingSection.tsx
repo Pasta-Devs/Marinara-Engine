@@ -19,7 +19,8 @@ interface AutonomousMessagingSectionProps {
   chatCharIds: string[];
   charNameMap: Map<string, string>;
   open: boolean;
-  initialSection?: string | null;
+  /** Required, not optional: the "autonomous" link from the presence card opens and scrolls to this section. */
+  initialSection: string | null | undefined;
   isConversation: boolean;
   onOpenScheduleEditor?: (characterId: string) => void;
 }
