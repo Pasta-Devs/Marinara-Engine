@@ -1321,7 +1321,7 @@ export function LorebookEntryRow({
                 patch({ probability: clamped === 100 ? null : clamped });
               }}
               title={localizeUi("ui.lorebooks.lorebookentryrow.triggerProbability0100100AlwaysFiresWhenKeys")}
-              ariaLabel="Trigger probability"
+              ariaLabel={localizeUi("ui.overhaul.text.triggerProbability")}
               prefix="p"
               suffix="%"
               min={0}
