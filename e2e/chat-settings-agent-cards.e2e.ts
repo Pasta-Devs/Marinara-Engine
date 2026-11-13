@@ -17,6 +17,7 @@ const AGENTS = [
   { id: "echo-chamber", name: "Echo Chamber", category: "misc", phase: "post_processing" },
   { id: "lorebook-keeper", name: "Lorebook Keeper", category: "writer", phase: "post_processing" },
   { id: "spotify", name: "Music DJ", category: "misc", phase: "post_processing" },
+  { id: "haptic", name: "Haptic", category: "misc", phase: "post_processing" },
 ];
 
 /** A saved agent config, as `/api/agents` returns it, with the prompt templates beyond Default. */
@@ -336,5 +337,29 @@ test("Music DJ's Spotify source saves per chat in Roleplay and Game", async ({ p
   } finally {
     await request.delete(`/api/chats/${roleplayId}?force=true`);
     await request.delete(`/api/chats/${gameId}?force=true`);
+  }
+});
+
+test("the Haptic card turns touch cues on and saves their sensitivity and incidental contact", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createRoleplayChat(request, ["haptic"]);
+  try {
+    await openApp(page, chatId);
+    const { card } = await openAgentCard(page, chatId, "haptic");
+    // The sensitivity and contact controls only appear once touch cues are on.
+    await expect(card.getByText("Touch sensitivity", { exact: true })).toHaveCount(0);
+    await card.getByText("Haptic Feedback", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).enableHapticFeedback).toBe(true);
+
+    await card.getByRole("button", { name: "Intense", exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).hapticSensitivity).toBe("intense");
+    await expect(card.getByRole("button", { name: "Intense", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+    await card.getByText("Incidental contact", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).hapticIncidentalContact).toBe(true);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
   }
 });
