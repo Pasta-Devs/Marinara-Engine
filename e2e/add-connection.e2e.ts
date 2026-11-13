@@ -349,11 +349,11 @@ for (const dismiss of ["Escape", "the close button"] as const) {
       // The shared server has a Main model, so Main is a quiet link that acts only when pressed.
       await expect(dialog.locator("[data-add-connection-set-main]")).toBeVisible();
 
-      if (dismiss === "Escape") {
-        // Escape only closes a window that holds focus; adding a model re-renders its row and drops focus to the page.
-        await dialog.locator("[data-model-search]").focus();
-        await page.keyboard.press("Escape");
-      } else await dialog.getByRole("button", { name: "Close Add models to E2E setup", exact: true }).click();
+      // Closing is blocked while the added model saves; a key press does not wait the way a click does.
+      const close = dialog.getByRole("button", { name: "Close Add models to E2E setup", exact: true });
+      await expect(close).toBeEnabled();
+      if (dismiss === "Escape") await page.keyboard.press("Escape");
+      else await close.click();
       await expect(dialog).toHaveCount(0);
 
       // The added model stays, but only Done or Set as Main changes Main.
