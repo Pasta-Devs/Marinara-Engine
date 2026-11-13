@@ -711,9 +711,9 @@ export function ConnectionsPanel() {
   const deviceOpen = !collapsedConnections.includes(DEVICE_FOLD_ID);
   const deviceTitle = t("connections.accounts.section.device");
   const deviceEngines = visible.engines;
-  // Found servers no account or connection uses yet; hidden while a search narrows the list or before both lists load.
+  // Found servers need nothing yet; hidden while a search or the needs-attention filter narrows the list, or before both lists load.
   const servers =
-    query || !accountsQuery.isSuccess || !connectionsQuery.isSuccess
+    query || needsAttention || !accountsQuery.isSuccess || !connectionsQuery.isSuccess
       ? []
       : newLocalServers(localServers ?? [], [
           ...(accounts ?? []),

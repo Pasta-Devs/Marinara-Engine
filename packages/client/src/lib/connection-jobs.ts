@@ -248,6 +248,8 @@ export function voiceJobMigration(
   rows: readonly VoiceRow[],
 ): { config: TTSConfig; row?: { id: string; baseUrl?: string; model?: string } } | null {
   if (!config.enabled || config.connectionId.trim()) return null;
+  // Built-in PocketTTS needs no row; it was picked in the Voice job, so keep it.
+  if (config.source === "pockettts") return null;
   const { row } = voiceRowOf(rows, "");
   if (!row) return null;
   const own = config.connectionProfiles?.[row.id];

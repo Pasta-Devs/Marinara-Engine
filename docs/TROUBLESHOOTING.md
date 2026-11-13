@@ -305,7 +305,7 @@ If the model returns broken JSON (structured text), Marinara opens the **Repair 
 ## Voice, calls and TTS
 
 - **Characters do not speak in a call.** The **Voice** job has no model. Open **Connections**, click the **Voice** row in the **Jobs** box, and pick a voice model. Then click its gear and pick a voice. A character with no voice shows as text only.
-- **Speech stops with "No audio after N s".** Your voice server is slower than Marinara waits, which is common for a local server on a laptop. `N` is your current timeout. Raise **Request timeout (seconds)** in **Connections → Text to Speech**, or in the audio account the message names. See [Request timeout](media/tts-setup.md#request-timeout).
+- **Speech stops with "No audio after N s".** Your voice server is slower than Marinara waits, which is common for a local server on a laptop. `N` is your current timeout. Raise **Request timeout (seconds)** under **More** in **Voice settings** (the gear on the **Voice** row in the **Jobs** box), or in the **Edit model** window of the audio model the message names. See [Request timeout](media/tts-setup.md#request-timeout).
 - **The microphone does not work.** Install **Calls** from **Agents → Agent Organizer**. Then open **Connections**, find **Local speech model** in the **On this device** card, choose a Whisper model and click **Download Whisper**. Firefox needs this because it has no browser speech recognition. Uninstalling Calls deletes its Whisper models. You can also use your own server: see [Use your own speech-to-text server](conversation/calls.md#use-your-own-speech-to-text-server).
 - **Local Whisper is disabled in Lite mode.** The lite image cannot run the local speech model. Use a full install.
 

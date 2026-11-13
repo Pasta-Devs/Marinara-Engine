@@ -146,12 +146,14 @@ export function DecisionModelModal() {
 
   /** One click from the row: consent to turn it on (with the verdict), then the download confirm. */
   const handleDownload = async () => {
-    if (!enabled && !(await handleEnable(true))) return;
-    await handleInstall();
+    const wasOff = !enabled;
+    if (wasOff && !(await handleEnable(true))) return;
+    // Declining (or failing) the download must not leave the sidecar on with no model.
+    if (!(await handleInstall()) && wasOff) await enable.mutateAsync({ enabled: false }).catch(report);
   };
 
   const handleInstall = async () => {
-    if (!selected) return;
+    if (!selected) return false;
     // The verdict is re-stated here rather than trusted from enable time: a bigger
     // sidecar model or a game can have taken the headroom since, and a download is
     // the expensive step to agree to blind.
@@ -170,12 +172,14 @@ export function DecisionModelModal() {
       confirmLabel: localizeUi("ui.modals.decisionmodelmodal.download"),
       ...(warning ? { tone: "destructive" as const } : {}),
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
     try {
       await install.mutateAsync(selected.id);
       toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
+      return true;
     } catch (error) {
       report(error);
+      return false;
     }
   };
 

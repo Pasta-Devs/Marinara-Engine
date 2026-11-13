@@ -93,6 +93,8 @@ const own = { ...base, connectionProfiles: { eleven: { voice: "own-voice" } } } 
 assert.equal(voiceJobMigration(own, audioRows)?.config.voice, "own-voice");
 // Nothing to move: voice off, a row already saved, or no audio default.
 assert.equal(voiceJobMigration({ ...base, enabled: false }, audioRows), null);
+// A built-in source picked in the Voice job is not pinned back to the audio default row.
+assert.equal(voiceJobMigration({ ...base, source: "pockettts" }, audioRows), null);
 assert.equal(voiceJobMigration({ ...base, connectionId: "eleven" }, audioRows), null);
 assert.equal(voiceJobMigration(base, [{ ...audioRows[0], defaultForAgents: "false" }]), null);
 

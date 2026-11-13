@@ -283,6 +283,21 @@ export function CreateConnectionModalContent({
   const makeMainOn = makeMain ?? !hasMain;
   // Adding for Main sets Main on Done, so the box would say the same thing twice.
   const offerMain = !hasMain && !alreadyMain && !modelsFor?.chat && job !== "main";
+  // The picker that opened Add waits for its job to be set; Undo restores the job's previous model.
+  const assignJob = (connectionId: string, model: string) => {
+    if (!jobFor?.assign) return;
+    jobFor.assign(connectionId);
+    toast.success(
+      t("connections.picker.nowUses", {
+        job: job ? t(jobLabelKey(JOB[job])) : t("connections.picker.model"),
+        model,
+      }),
+      {
+        duration: 8000,
+        action: { label: t("connections.switcher.undo"), onClick: () => jobFor.assign?.(jobFor.previous ?? null) },
+      },
+    );
+  };
   const applyChoices = async (includeMain = true) => {
     const jobPick =
       jobFor?.assign &&
@@ -299,19 +314,7 @@ export function CreateConnectionModalContent({
                   ? "video"
                   : "chat"),
       );
-    if (jobPick && jobFor?.assign) {
-      jobFor.assign(jobPick.connectionId);
-      toast.success(
-        t("connections.picker.nowUses", {
-          job: job ? t(jobLabelKey(JOB[job])) : t("connections.picker.model"),
-          model: modelName(jobPick.modelId),
-        }),
-        {
-          duration: 8000,
-          action: { label: t("connections.switcher.undo"), onClick: () => jobFor.assign?.(jobFor.previous ?? null) },
-        },
-      );
-    }
+    if (jobPick) assignJob(jobPick.connectionId, modelName(jobPick.modelId));
     // Added for the Decision job ("Use this key for decisions", a feature with no Decision model): the model that
     // passed its test becomes the Decision model, with Undo, as a pick in "Model for Decision" does.
     const decisionPick = job === "decision" ? picks.find((pick) => pick.kind === "decision") : undefined;
@@ -665,6 +668,7 @@ export function CreateConnectionModalContent({
                 : { provider: "video_generation", videoGenerationSource: source, videoService: source }),
         });
         if (!forJob?.assign && !newChatMode) return openUseFor(current);
+        assignJob(current.connectionId, selectedMedia.name);
         await finishAdded(current);
         return;
       }
@@ -678,7 +682,8 @@ export function CreateConnectionModalContent({
       const available: AddableKind[] = service
         ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local")
         : ["chat"];
-      if (newChatMode) {
+      // A job picker waits for a real model, so it picks one in step 3 like a new chat.
+      if (newChatMode || forJob?.assign) {
         setSetupKind(startKind(available));
         setStep(3);
         return;

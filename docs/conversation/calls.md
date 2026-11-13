@@ -40,14 +40,13 @@ The master **Commands** switch in the same section must be on for in-call comman
 
 ### Set up Text to Speech
 
-Text to Speech decides which characters can speak and with which voice. Read [Text to Speech (TTS) Setup](../media/tts-setup.md) for the full walkthrough. In short, open **Connections**, click the gear of the **Voice** row in the **Jobs** box, and pick a voice model. Then:
+Text to Speech decides which characters can speak and with which voice. Read [Text to Speech (TTS) Setup](../media/tts-setup.md) for the full walkthrough. In short:
 
-1. Turn on Text to Speech.
-2. Choose a source: **OpenAI-compatible**, **ElevenLabs**, **PocketTTS** or **xAI Voice**.
-3. Enter the API key or local server address for that source.
-4. Pick a model and a voice.
-5. Set **Voice option** to **One voice for all** or **Selected per character or persona**. Per-character voices make group calls easier to follow.
-6. Save, then use the preview button to confirm you hear audio.
+1. Open **Connections** and click the **Voice** row in the **Jobs** box.
+2. Pick a voice model or a voice service. Picking one turns Text to Speech on. The account of that model supplies the key and address.
+3. Click the gear of the **Voice** row to open **Voice settings**.
+4. In **Who speaks**, pick a **Shared voice**, or give characters and personas their own voices under **Character and persona voices**. Per-character voices make group calls easier to follow.
+5. Click **Preview** to confirm you hear audio.
 
 If a character has no voice Marinara can resolve, that character is text only for the call.
 

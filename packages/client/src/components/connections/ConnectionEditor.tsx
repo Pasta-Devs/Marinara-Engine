@@ -437,6 +437,10 @@ export function ConnectionEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   useKeepFocusedFieldAboveKeyboard(contentRef);
+  // The unsaved and save-error banners sit at the top of the scrolling body; bring them into view when they appear.
+  useEffect(() => {
+    if (showUnsavedWarning || saveError) contentRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [showUnsavedWarning, saveError]);
 
   const editorBusy =
     isLoading ||
@@ -1146,13 +1150,12 @@ export function ConnectionEditor({
       if (!isMediaProvider) {
         await saveConnectionDefaults.mutateAsync({
           id: connectionDetailId,
-          params: localDefaultParametersEnabled
-            ? buildLanguageDefaultParameters(
-                localDefaultParameters,
-                localImageCaptioningEnabled,
-                localImageCaptioningConnectionId,
-              )
-            : null,
+          params: languageDefaultsToSave(
+            localDefaultParametersEnabled,
+            localDefaultParameters,
+            localImageCaptioningEnabled,
+            localImageCaptioningConnectionId,
+          ),
         });
       } else if (isImageProvider) {
         const nextImageDefaults =
@@ -1329,13 +1332,12 @@ export function ConnectionEditor({
           )
         : isAudioProvider || isGenerativeAudioProvider
           ? null
-          : localDefaultParametersEnabled
-            ? buildLanguageDefaultParameters(
-                localDefaultParameters,
-                localImageCaptioningEnabled,
-                localImageCaptioningConnectionId,
-              )
-            : null;
+          : languageDefaultsToSave(
+              localDefaultParametersEnabled,
+              localDefaultParameters,
+              localImageCaptioningEnabled,
+              localImageCaptioningConnectionId,
+            );
     const imageService = isImageProvider ? localImageGenerationSource || localImageService || null : null;
     const videoProvider = isVideoProvider ? selectedVideoProvider || null : null;
     const videoService = isVideoProvider
@@ -2631,7 +2633,10 @@ export function ConnectionEditor({
                     { accountId: accountId!, anchorId: connectionDetailId, model: localModel, name: localName },
                     true,
                   )
-                  .then(closeEditor, () => {});
+                  .then(
+                    (removed) => removed === true && closeEditor(),
+                    () => {},
+                  );
               }}
               className="mari-chrome-control px-3 text-xs disabled:opacity-50"
             >
@@ -5420,4 +5425,17 @@ function parseDefaultParametersRoot(raw: unknown): Record<string, unknown> {
   return parsed && typeof parsed === "object" && !Array.isArray(parsed)
     ? { ...(parsed as Record<string, unknown>) }
     : {};
+}
+
+// Captioning is stored in the default parameters, so a captioning choice is saved even with the defaults switch off.
+function languageDefaultsToSave(
+  enabled: boolean,
+  params: Parameters<typeof buildLanguageDefaultParameters>[0],
+  captioning: boolean,
+  captioningConnectionId: string,
+) {
+  if (enabled) return buildLanguageDefaultParameters(params, captioning, captioningConnectionId);
+  return captioning || captioningConnectionId
+    ? { imageCaptioningEnabled: captioning, imageCaptioningConnectionId: captioningConnectionId || null }
+    : null;
 }

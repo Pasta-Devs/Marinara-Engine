@@ -835,7 +835,7 @@ export function ConnectionSwitcherBody({
   const acceptsCatalog = (model: string, facts?: CachedModelFacts) =>
     (!modelFilter || modelFilter(model)) &&
     (!catalogFilter || catalogFilter(model, facts)) &&
-    (kind === "all" || catalogMatchesKind(model, facts, kind));
+    (kind === "all" || !!modelFilter || catalogMatchesKind(model, facts, kind));
   // Your models: each Connection's starred models, plus the saved Models a role or their own settings keep.
   const listed = useMemo(
     () =>
