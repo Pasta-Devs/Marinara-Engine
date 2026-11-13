@@ -36,7 +36,7 @@ assert.match(
 );
 assert.match(
   read("../../packages/client/src/hooks/use-tts.ts"),
-  /voiceRowOf\(\(rows \?\? \[\]\) as ConnectionModelRow\[\], tts\?\.connectionId\)\.row\?\.id/,
+  /if \(!tts\?\.enabled\) return null;\s*return voiceRowOf\(\(rows \?\? \[\]\) as ConnectionModelRow\[\], tts\.connectionId\)\.row\?\.id/,
 );
 // Defaults warns about a missing card row instead of showing the flagged row as the voice.
 assert.match(

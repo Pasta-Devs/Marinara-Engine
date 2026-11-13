@@ -126,7 +126,9 @@ export function useMigrateVoiceJob() {
 export function useVoiceRowId() {
   const { data: tts } = useTTSConfig();
   const { data: rows } = useConnections();
-  return voiceRowOf((rows ?? []) as ConnectionModelRow[], tts?.connectionId).row?.id ?? null;
+  // With speech off no row speaks, so nothing shows as the Voice model.
+  if (!tts?.enabled) return null;
+  return voiceRowOf((rows ?? []) as ConnectionModelRow[], tts.connectionId).row?.id ?? null;
 }
 
 /** Sets or clears one character's voice on the server, leaving every other TTS setting as stored. */

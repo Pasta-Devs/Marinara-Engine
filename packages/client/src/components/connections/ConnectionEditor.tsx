@@ -691,7 +691,8 @@ export function ConnectionEditor({
     setLocalTreatAsLocalEndpoint(c.treatAsLocalEndpoint === "true" || c.treatAsLocalEndpoint === true);
     const imageCaptioningDefaults = parseConnectionImageCaptioningDefaults(c.defaultParameters);
     setLocalDefaultParametersEnabled(
-      !!parseEditableGenerationParameters(c.defaultParameters) || Object.keys(imageCaptioningDefaults).length > 0,
+      // Captioning is read on its own below; it alone must not turn the defaults switch on.
+      !!parseEditableGenerationParameters(c.defaultParameters),
     );
     setLocalDefaultParameters(
       getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, c.defaultParameters, c.provider as string),

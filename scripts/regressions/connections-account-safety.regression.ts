@@ -57,9 +57,9 @@ const mutation = (name: string, value?: unknown) => ({
 const createHandler = new Function("context", `with(context) { ${javascript} }`);
 const context = {
   savingRef: { current: false },
-    setSaving: () => {},
-    forJob: { assign: true },
-    openUseFor: () => {},
+  setSaving: () => {},
+  forJob: { assign: true },
+  openUseFor: () => {},
   provider: "custom",
   accountFields: () => ({}),
   name: "",
@@ -123,21 +123,21 @@ result = { success: true };
 target = null;
 rows = [];
 await runHandler(true);
-assert.deepEqual(calls, ["create", "done"]);
+assert.deepEqual(calls, ["create", "models"]);
 calls.length = 0;
 target = { accountId: "account", connectionId: "", fresh: true };
 await runHandler(true);
-assert.deepEqual(calls, ["update", "create-row", "done"]);
+assert.deepEqual(calls, ["update", "create-row", "models"]);
 assert.equal(target?.connectionId, "restored-row");
 calls.length = 0;
 rows = [{ id: "restored-row", accountId: "account" }];
 await runHandler(true);
-assert.deepEqual(calls, ["update", "done"]);
+assert.deepEqual(calls, ["update", "models"]);
 calls.length = 0;
 result = { success: true };
 target = null;
 await runHandler();
-assert.deepEqual(calls, ["create", "test", "done"]);
+assert.deepEqual(calls, ["create", "test", "models"]);
 calls.length = 0;
 result = { success: false };
 rows = [{ id: "row", accountId: "existing" }];
