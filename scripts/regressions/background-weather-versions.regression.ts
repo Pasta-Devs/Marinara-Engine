@@ -94,6 +94,11 @@ assert.equal(paintedWeatherRenderConfig(rain, "outdoors").count, Math.round(rain
 const fog = resolveWeatherRenderConfig("thick fog", "noon");
 assert.equal(paintedWeatherRenderConfig(fog, "outdoors").type, "dust", "no fog banks over painted fog");
 assert.equal(paintedWeatherRenderConfig(fog, "outdoors").count, 0);
+assert.equal(
+  paintedWeatherRenderConfig(resolveWeatherRenderConfig("rain", "night"), "outdoors").celestial,
+  "none",
+  "no drawn moon over a painted sky",
+);
 
 // ── File names ──
 assert.deepEqual(shared.parseBackgroundWeatherVersionName("generated-old-inn--wx-rain.png"), {
