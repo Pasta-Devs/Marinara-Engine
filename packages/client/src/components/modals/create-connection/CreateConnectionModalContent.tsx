@@ -202,7 +202,9 @@ export function CreateConnectionModalContent({
   // LinkAPI rides the custom provider, but it is a hosted service with a key, not a local server.
   const isLocal = (provider === "custom" && service !== LINKAPI_SERVICE) || service === "decision:custom";
   const isMedia = !!provider && !isChatProvider(provider);
-  const busy = createAccount.isPending || updateAccount.isPending || testConnection.isPending;
+  // Mirrors savingRef so the buttons stay disabled until a failed check has also cleaned up.
+  const [saving, setSaving] = useState(false);
+  const busy = saving || createAccount.isPending || updateAccount.isPending || testConnection.isPending;
   const accessCheck = useAccessCheck({
     provider: step === 2 && !isMedia && !selectedMedia ? provider : null,
     // Check the address Save will store, so "localhost:11434/v1" works here too.
@@ -543,10 +545,12 @@ export function CreateConnectionModalContent({
     // A fast double-click lands before the button disables, which saved the account twice.
     if (!provider || savingRef.current) return;
     savingRef.current = true;
+    setSaving(true);
     try {
       await saveAndTestOnce(continueAnyway);
     } finally {
       savingRef.current = false;
+      setSaving(false);
     }
   };
   const saveAndTestOnce = async (continueAnyway: boolean) => {
