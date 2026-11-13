@@ -53,6 +53,8 @@ Small constants, types and helpers that only one future section uses, like the S
 
 Agents can't move in small cut-and-paste pieces from the top down: its render helpers read the drawer's state directly, so that state has to move in one go. Step 6 moved the cards that need few values, which left about 1,850 lines of Agents JSX, too much for one review alongside the state. So step 7 moves the state first into one hook (7a) and then each face of Agents (7b, 7c); the two faces never show at once, and the drawer passes both the same hook result.
 
+Step 7 also moves the seven files that only Agents uses from the top of `features/chat-settings/` into `agents/`: `AgentSuiteModal`, `AgentPromptTemplateSelect`, `AgentLorebookAttachment`, `ExpressionSpriteSettings`, `RoleplayCommandsSettings`, `HapticConnectionPanel` and `roleplay-agent-menu-icon`. They are plain renames, so everything Agents uses ends up in one folder.
+
 Before step 7 starts, the stack of open steps should be merged down: each step waiting on another adds hand work whenever someone else changes the drawer.
 
 ## What the drawer keeps after step 7
