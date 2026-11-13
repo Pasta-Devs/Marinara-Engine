@@ -194,6 +194,19 @@ function flagNumber(flags: Map<string, string | boolean>, name: string, fallback
   return Number.isFinite(parsed) ? Math.round(parsed) : fallback;
 }
 
+export const MAX_IMAGE_VERSIONS = 4;
+
+/** `--count <n>`: how many versions one generate/edit makes (1 to 4, one request each). */
+export function imageCount(flags: Map<string, string | boolean>): number {
+  const raw = flagString(flags, "count", "n");
+  if (raw === undefined) return 1;
+  const count = Number(raw);
+  if (!Number.isInteger(count) || count < 1 || count > MAX_IMAGE_VERSIONS) {
+    throw new Error(`--count takes a whole number from 1 to ${MAX_IMAGE_VERSIONS}`);
+  }
+  return count;
+}
+
 function normalizeId(value: string | undefined | null) {
   const trimmed = value?.trim() ?? "";
   return trimmed.length > 0 ? trimmed : null;
@@ -875,6 +888,7 @@ export class MariImagesService {
     const target = this.parseTarget(flags, false);
     const prompt = flagString(flags, "prompt")?.trim() ?? "";
     if (!prompt) throw new Error("Missing --prompt <text>");
+    const count = imageCount(flags);
     const negativePrompt = flagString(flags, "negative", "negative-prompt") ?? "";
     const connection = await this.getConnection(flagString(flags, "connection", "connection-id"), operation === "edit");
     const capability = capabilityForConnection(connection);
@@ -904,32 +918,49 @@ export class MariImagesService {
     const imgSource = connection.imageGenerationSource || imgModel;
     const imgServiceHint = connection.imageService || imgSource;
     const fallback = await resolveImageConnectionFallback(createConnectionsStorage(this.db), connection.id);
-    const result = await generateImage(imgSource, imgBaseUrl, connection.apiKey || "", imgServiceHint, {
-      prompt: compiled.prompt,
-      negativePrompt: compiled.negativePrompt || undefined,
-      model: imgModel || undefined,
-      width: size.width,
-      height: size.height,
-      referenceImage: sourceImage?.base64,
-      imageEndpointId: connection.imageEndpointId || undefined,
-      comfyWorkflow: connection.comfyuiWorkflow || undefined,
-      imageDefaults,
-      quality: resolveConnectionImageQuality(connection),
-      fallback,
-    });
-
-    const asset = await savePreviewAsset({
-      result,
-      operation,
-      kind,
-      prompt: compiled.prompt,
-      negativePrompt: compiled.negativePrompt,
-      width: size.width,
-      height: size.height,
-      connection,
-      capability,
-      sourceImage: sourceImage?.label ?? null,
-    });
+    const assets: MariImageAsset[] = [];
+    let failure: string | null = null;
+    // One request per version, one after another: providers rate-limit parallel calls, and a
+    // fixed seed is stepped so the versions differ.
+    for (let index = 0; index < count; index += 1) {
+      try {
+        const versionDefaults =
+          index > 0 && imageDefaults && imageDefaults.seed >= 0
+            ? { ...imageDefaults, seed: imageDefaults.seed + index }
+            : imageDefaults;
+        const result = await generateImage(imgSource, imgBaseUrl, connection.apiKey || "", imgServiceHint, {
+          prompt: compiled.prompt,
+          negativePrompt: compiled.negativePrompt || undefined,
+          model: imgModel || undefined,
+          width: size.width,
+          height: size.height,
+          referenceImage: sourceImage?.base64,
+          imageEndpointId: connection.imageEndpointId || undefined,
+          comfyWorkflow: connection.comfyuiWorkflow || undefined,
+          imageDefaults: versionDefaults,
+          quality: resolveConnectionImageQuality(connection),
+          fallback,
+        });
+        assets.push(
+          await savePreviewAsset({
+            result,
+            operation,
+            kind,
+            prompt: compiled.prompt,
+            negativePrompt: compiled.negativePrompt,
+            width: size.width,
+            height: size.height,
+            connection,
+            capability,
+            sourceImage: sourceImage?.label ?? null,
+          }),
+        );
+      } catch (error) {
+        if (assets.length === 0) throw error;
+        failure = error instanceof Error ? error.message : String(error);
+        break;
+      }
+    }
 
     return {
       ok: true,
@@ -939,8 +970,12 @@ export class MariImagesService {
         saved: true,
         assigned: false,
         message:
-          "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
-        asset,
+          assets.length > 1
+            ? `${assets.length} versions created as preview assets. None is assigned anywhere yet. Show them to the user and use mari images assign on the one they pick.`
+            : "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
+        asset: assets[0],
+        ...(count > 1 ? { assets } : {}),
+        ...(failure ? { stoppedEarly: `Made ${assets.length} of ${count}; the next one failed: ${failure}` } : {}),
         targetSuggestion: target,
         ...(verbatim
           ? {
@@ -1684,7 +1719,7 @@ export class MariImagesService {
       "Usage: mari images <command>",
       "Discovery: connections [--edit], capabilities [--edit], list assets|backgrounds|sprites|chat-gallery|character-gallery, get <asset-id>",
       "HITL preview: preview --operation generate|edit --prompt <text> [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>]",
-      "Create preview asset: generate --prompt <text> [--target <target>] [--width <n>] [--height <n>]",
+      "Create preview asset: generate --prompt <text> [--target <target>] [--width <n>] [--height <n>] [--count 1-4] (--count makes that many versions in one go, one request each, for the user to pick from)",
       "Theme art: generate --prompt <text> --target theme-image --theme <theme-id> --name <name> [--width <n>] [--height <n>] (prompt sent exactly as written: the user's style profiles and prompt prefixes are left out; --verbatim does the same for any target)",
       "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>]",
       "Apply: assign --asset <asset-id> --target character-avatar --character <id>",
