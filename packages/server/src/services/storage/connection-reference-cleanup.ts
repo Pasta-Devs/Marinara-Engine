@@ -133,7 +133,9 @@ export async function sweepDanglingConnectionReferences(
         // #9126: the chat's own Model is gone. Record the Model's name, so the next reply says which one was deleted
         // rather than passed over in silence; choosing "Use default" afterwards clears it (chats.routes.ts).
         const cleared = JSON.parse(metadata ?? chat.metadata ?? "{}") as Record<string, unknown>;
-        cleared[CHAT_MODEL_DELETED_KEY] = (deletedModelName ?? "").trim() || chat.id;
+        // The Model's own name when the row had one; otherwise the Connection it was, never the chat's own id,
+        // which the notice would then report as the deleted Model (#9126, Dottore LOW).
+        cleared[CHAT_MODEL_DELETED_KEY] = (deletedModelName ?? "").trim() || deletedConnectionId;
         delete cleared[CHAT_FOLLOWS_MAIN_KEY];
         metadata = JSON.stringify(cleared);
       }
