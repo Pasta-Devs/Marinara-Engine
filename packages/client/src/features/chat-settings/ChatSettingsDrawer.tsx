@@ -325,7 +325,7 @@ import {
   type KnowledgeAgentType,
   isKnowledgeAgentType,
   normalizeKnowledgeAgentSourceSettings,
-} from "./lib/knowledge-agent-settings";
+} from "./agents/knowledge-agent-settings";
 import {
   normalizeGameVideoPromptTemplates,
   getGameVideoPromptTemplateOptions,
@@ -337,7 +337,7 @@ import {
 } from "./lib/conversation-command-toggles";
 import { renderRoleplayAgentMenuIcon } from "./roleplay-agent-menu-icon";
 import { MemoryRecallMemoriesModal } from "./MemoryRecallMemoriesModal";
-import { KnowledgeAgentSettingsCard } from "./KnowledgeAgentSettingsCard";
+import { KnowledgeAgentSettingsCard } from "./agents/KnowledgeAgentSettingsCard";
 
 const QuickPresetSectionsEditor = lazy(() =>
   import("../../components/presets/PresetEditor").then((module) => ({ default: module.QuickPresetSectionsEditor })),

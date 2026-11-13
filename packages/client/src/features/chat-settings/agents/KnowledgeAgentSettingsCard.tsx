@@ -1,15 +1,15 @@
-import type { KnowledgeAgentType } from "./lib/knowledge-agent-settings";
+import type { KnowledgeAgentType } from "./knowledge-agent-settings";
 import type { Lorebook, KnowledgeAgentSourceSettings } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useRef, useMemo } from "react";
-import { useKnowledgeSources, useUploadKnowledgeSource } from "../../hooks/use-knowledge-sources";
-import { useEntriesAcrossLorebooks } from "../../hooks/use-lorebooks";
-import { AgentSettingsCard, AgentSettingsToggle } from "../../components/chat/AgentSettingsControls";
-import { renderRoleplayAgentMenuIcon } from "./roleplay-agent-menu-icon";
-import { cn } from "../../lib/utils";
-import { LorebookListField } from "../../components/ui/LibraryPickers";
+import { useKnowledgeSources, useUploadKnowledgeSource } from "../../../hooks/use-knowledge-sources";
+import { useEntriesAcrossLorebooks } from "../../../hooks/use-lorebooks";
+import { AgentSettingsCard, AgentSettingsToggle } from "../../../components/chat/AgentSettingsControls";
+import { renderRoleplayAgentMenuIcon } from "../roleplay-agent-menu-icon";
+import { cn } from "../../../lib/utils";
+import { LorebookListField } from "../../../components/ui/LibraryPickers";
 import { Check, Loader2, Upload } from "lucide-react";
-import { showAlertDialog } from "../../lib/app-dialogs";
+import { showAlertDialog } from "../../../lib/app-dialogs";
 
 export function KnowledgeAgentSettingsCard({
   attachment,

@@ -1,4 +1,4 @@
-import { isRecord } from "./is-record";
+import { isRecord } from "../lib/is-record";
 import { type KnowledgeAgentSourceSettings, getDefaultBuiltInAgentSettings } from "@marinara-engine/shared";
 
 export type KnowledgeAgentType = "knowledge-retrieval" | "knowledge-router";
