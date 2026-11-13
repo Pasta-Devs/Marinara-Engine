@@ -1767,8 +1767,8 @@ export async function encounterRoutes(app: FastifyInstance) {
   });
 
   // ───────────────────────── SUMMARY ─────────────────────────
-  app.post<{ Body: EncounterSummaryRequest }>("/summary", async (req, reply) => {
-    const { chatId, connectionId, encounterLog, result: combatResult, settings } = req.body;
+  app.post<{ Body: EncounterSummaryRequest }>("/summary", async (request, reply) => {
+    const { chatId, connectionId, encounterLog, result: combatResult, settings } = request.body;
 
     const validResults = ["victory", "defeat", "fled", "interrupted"];
     if (!chatId || !encounterLog?.length || !combatResult || !settings) {
@@ -1832,6 +1832,9 @@ export async function encounterRoutes(app: FastifyInstance) {
       }
 
       const summary = result.content.replace(/\[FIGHT CONCLUDED\]\s*/i, "").trim();
+
+      // #9117: the window was closed, or its request dropped, while the summary was written: it is not added.
+      if (request.signal.aborted) return reply.status(499).send({ error: "Summary cancelled" });
 
       // Save the summary as a narrator message (not attributed to a specific character)
       const msg = await chats.createMessage({

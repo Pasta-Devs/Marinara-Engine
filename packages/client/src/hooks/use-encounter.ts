@@ -12,43 +12,11 @@ import type {
   EncounterActionResponse,
   EncounterSummaryResponse,
   EncounterSettings,
-  CombatPartyMember,
-  CombatEnemy,
 } from "@marinara-engine/shared";
+import { sanitizeEnemies, sanitizeParty } from "../lib/encounter-combatants";
 
-/** Ensure each party member has all required numeric/string fields so components don't crash. */
-function sanitizeParty(arr: unknown[], fallback: CombatPartyMember[]): CombatPartyMember[] {
-  return arr.map((raw, i) => {
-    if (!raw || typeof raw !== "object") return fallback[i] ?? fallback[0];
-    const m = raw as Record<string, unknown>;
-    return {
-      name: typeof m.name === "string" && m.name ? m.name : (fallback[i]?.name ?? "Unknown"),
-      hp: typeof m.hp === "number" ? m.hp : (fallback[i]?.hp ?? 0),
-      maxHp: typeof m.maxHp === "number" && m.maxHp > 0 ? m.maxHp : (fallback[i]?.maxHp ?? 1),
-      attacks: Array.isArray(m.attacks) ? m.attacks : (fallback[i]?.attacks ?? []),
-      items: Array.isArray(m.items) ? m.items : (fallback[i]?.items ?? []),
-      statuses: Array.isArray(m.statuses) ? m.statuses : (fallback[i]?.statuses ?? []),
-      isPlayer: typeof m.isPlayer === "boolean" ? m.isPlayer : (fallback[i]?.isPlayer ?? false),
-    } satisfies CombatPartyMember;
-  });
-}
-
-/** Ensure each enemy has all required numeric/string fields so components don't crash. */
-function sanitizeEnemies(arr: unknown[], fallback: CombatEnemy[]): CombatEnemy[] {
-  return arr.map((raw, i) => {
-    if (!raw || typeof raw !== "object") return fallback[i] ?? fallback[0];
-    const m = raw as Record<string, unknown>;
-    return {
-      name: typeof m.name === "string" && m.name ? m.name : (fallback[i]?.name ?? "Enemy"),
-      hp: typeof m.hp === "number" ? m.hp : (fallback[i]?.hp ?? 0),
-      maxHp: typeof m.maxHp === "number" && m.maxHp > 0 ? m.maxHp : (fallback[i]?.maxHp ?? 1),
-      attacks: Array.isArray(m.attacks) ? m.attacks : (fallback[i]?.attacks ?? []),
-      statuses: Array.isArray(m.statuses) ? m.statuses : (fallback[i]?.statuses ?? []),
-      description: typeof m.description === "string" ? m.description : (fallback[i]?.description ?? ""),
-      sprite: typeof m.sprite === "string" ? m.sprite : (fallback[i]?.sprite ?? ""),
-    } satisfies CombatEnemy;
-  });
-}
+/** #9117: the summary in flight, so closing the window can cancel it before it writes to the chat. */
+let summaryAbort: AbortController | null = null;
 
 export function useEncounter() {
   const qc = useQueryClient();
@@ -97,15 +65,21 @@ export function useEncounter() {
       const { encounterLog, settings } = useEncounterStore.getState();
 
       store.setSummaryStatus("generating");
+      const controller = new AbortController();
+      summaryAbort = controller;
 
       try {
-        await api.post<EncounterSummaryResponse>("/encounter/summary", {
-          chatId: activeChatId,
-          connectionId: null,
-          encounterLog,
-          result,
-          settings,
-        });
+        await api.post<EncounterSummaryResponse>(
+          "/encounter/summary",
+          {
+            chatId: activeChatId,
+            connectionId: null,
+            encounterLog,
+            result,
+            settings,
+          },
+          { signal: controller.signal },
+        );
 
         store.setSummaryStatus("done");
 
@@ -114,7 +88,10 @@ export function useEncounter() {
           queryKey: chatKeys.messages(activeChatId),
         });
       } catch {
-        store.setSummaryStatus("error");
+        // #9117: closing the window cancels the summary; the gone encounter is not an error to show.
+        store.setSummaryStatus(useEncounterStore.getState().active ? "error" : "idle");
+      } finally {
+        if (summaryAbort === controller) summaryAbort = null;
       }
     },
     [activeChatId, store, qc],
@@ -227,8 +204,13 @@ export function useEncounter() {
     await generateSummary("interrupted");
   }, [store, generateSummary]);
 
-  /** Close encounter without summary. */
+  /**
+   * #9117: close the window. Closing while the summary is being written cancels that write, so a fight closed at
+   * "Generating combat summary..." leaves nothing behind.
+   */
   const closeEncounter = useCallback(() => {
+    summaryAbort?.abort();
+    summaryAbort = null;
     store.reset();
   }, [store]);
 
