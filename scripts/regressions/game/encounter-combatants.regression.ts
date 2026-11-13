@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 
-const { sanitizeParty, sanitizeEnemies } = await import("../../packages/client/src/lib/encounter-combatants.ts");
+const { sanitizeParty, sanitizeEnemies } = await import("../../../packages/client/src/lib/encounter-combatants.ts");
 
 const party = [
   {

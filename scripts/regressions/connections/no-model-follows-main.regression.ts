@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 
 const { resolveChatConnectionOrFallback } =
-  await import("../../packages/server/src/services/generation/connection-resolution.js");
+  await import("../../../packages/server/src/services/generation/connection-resolution.js");
 
 const MAIN = { id: "main-1", name: "Main", model: "m-1" };
 const GONE = { id: "gone-1", name: "Gone", model: "g-1", accountId: "account-1" };
