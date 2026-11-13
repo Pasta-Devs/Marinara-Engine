@@ -8,6 +8,7 @@
 // party's. Nothing here applies to a game with a ruleset, a Legacy game or a game without a world.
 // ──────────────────────────────────────────────
 import {
+  gameDungeonMapFromMetadata,
   lastGamePlace,
   marinaraBestiaryMenu,
   marinaraBestiarySetting,
@@ -58,6 +59,8 @@ export function regionSpawnGame(
 ): RegionSpawnGame | null {
   const setup = chatMeta?.gameSetupConfig as Record<string, unknown> | undefined;
   if (!game || setup?.marinaraClasses !== true || chatMeta?.gameRuleset) return null;
+  // On a dungeon map the site's own foes hold (the dungeon spawns): the region's never apply there.
+  if (gameDungeonMapFromMetadata(chatMeta) !== null) return null;
   const setting = marinaraBestiarySetting(
     typeof chatMeta?.gameWorldKit?.id === "string" ? chatMeta.gameWorldKit.id : null,
     typeof setup?.genre === "string" ? setup.genre : null,
