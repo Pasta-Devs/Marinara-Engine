@@ -193,3 +193,53 @@ test("the tab menu opens under the tab row, alone, and keeps keyboard focus", as
     await expect(menu).toHaveCount(0);
   }
 });
+
+test("Back from an editor returns to the Home tab you left; opening a chat starts Home fresh", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "the desktop shell unmounts Home; phones keep it mounted");
+  const character = await (
+    await request.post("/api/characters", {
+      data: { data: { name: `Back tab ${testInfo.project.name}` } },
+      failOnStatusCode: true,
+    })
+  ).json();
+  const chat = await (
+    await request.post("/api/chats", {
+      data: { name: `Back tab chat ${testInfo.project.name}`, mode: "roleplay", characterIds: [] },
+      failOnStatusCode: true,
+    })
+  ).json();
+  try {
+    await page.setViewportSize({ width: 1920, height: 1000 });
+    await page.goto("/");
+    await page.getByRole("tab", { name: "Story Writer" }).click();
+    await expect(page.getByRole("tab", { name: "Story Writer" })).toHaveAttribute("aria-selected", "true");
+
+    // An editor opens over Home (the desktop shell unmounts Home underneath it).
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openCharacterDetail(id);
+    }, character.id);
+    await expect(page.getByRole("tab", { name: "Story Writer" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Back to Home" }).click();
+    await expect(page.getByRole("tab", { name: "Story Writer" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("marinara-capability-menu-story")).toBeVisible();
+
+    // Opening a chat resets Home to its first tab.
+    await page.evaluate(async (id) => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      useChatStore.getState().setActiveChatId(id);
+    }, chat.id);
+    await expect(page.getByRole("tab", { name: "Story Writer" })).toHaveCount(0);
+    await page.evaluate(async () => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      useChatStore.getState().setActiveChatId(null);
+    });
+    await expect(page.getByRole("tab", { name: "Home" })).toHaveAttribute("aria-selected", "true");
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+    await request.delete(`/api/characters/${character.id}`);
+  }
+});

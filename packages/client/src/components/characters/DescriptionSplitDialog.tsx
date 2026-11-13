@@ -2,7 +2,7 @@ import { Check, Scissors, Sparkles, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { DescriptionSplitField, DescriptionSplitResult } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
-import { SETTINGS_BUTTON_CLASS, SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS } from "../panels/settings/SettingControls";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 
 type MovedField = Exclude<DescriptionSplitField, "description">;
 
@@ -61,6 +61,45 @@ export function DescriptionSplitDialog({
       onClose={onClose}
       title={localizeUi("ui.characters.descriptionsplitdialog.title")}
       width="max-w-md"
+      pullToClose={false}
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        result ? (
+          <>
+            {!applied && result.status === "changed" && (
+              <button type="button" onClick={onApply} className={SHEET_BUTTON_PRIMARY}>
+                <Check size="0.75rem" />
+                {localizeUi("ui.characters.descriptionsplitdialog.apply")}
+              </button>
+            )}
+            {canSplitAnyway && (
+              <button type="button" onClick={onSplitAnyway} className={SHEET_BUTTON_PRIMARY}>
+                <Scissors size="0.75rem" />
+                {localizeUi("ui.characters.descriptionsplitdialog.splitAnyway")}
+              </button>
+            )}
+            {onAskMari && (
+              <button
+                type="button"
+                onClick={onAskMari}
+                className={SHEET_BUTTON_SECONDARY}
+                title={localizeUi("ui.characters.descriptionsplitdialog.askMariHelp")}
+              >
+                <Sparkles size="0.75rem" />
+                {localizeUi("ui.characters.descriptionsplitdialog.askMari")}
+              </button>
+            )}
+            <button type="button" onClick={onClose} className={SHEET_BUTTON_QUIET}>
+              <X size="0.75rem" />
+              {localizeUi(
+                applied || result.status === "unchanged"
+                  ? "ui.characters.descriptionsplitdialog.close"
+                  : "ui.characters.descriptionsplitdialog.cancel",
+              )}
+            </button>
+          </>
+        ) : undefined
+      }
     >
       {result && (
         <div className="space-y-3 text-xs">
@@ -125,39 +164,6 @@ export function DescriptionSplitDialog({
               {localizeUi("ui.characters.descriptionsplitdialog.mariUsesSavedCard")}
             </p>
           )}
-          <div className="flex flex-wrap justify-end gap-2 pt-1">
-            {onAskMari && (
-              <button
-                type="button"
-                onClick={onAskMari}
-                className={SETTINGS_BUTTON_CLASS}
-                title={localizeUi("ui.characters.descriptionsplitdialog.askMariHelp")}
-              >
-                <Sparkles size="0.75rem" />
-                {localizeUi("ui.characters.descriptionsplitdialog.askMari")}
-              </button>
-            )}
-            <button type="button" onClick={onClose} className={SETTINGS_BUTTON_CLASS}>
-              <X size="0.75rem" />
-              {localizeUi(
-                applied || result.status === "unchanged"
-                  ? "ui.characters.descriptionsplitdialog.close"
-                  : "ui.characters.descriptionsplitdialog.cancel",
-              )}
-            </button>
-            {!applied && result.status === "changed" && (
-              <button type="button" onClick={onApply} className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}>
-                <Check size="0.75rem" />
-                {localizeUi("ui.characters.descriptionsplitdialog.apply")}
-              </button>
-            )}
-            {canSplitAnyway && (
-              <button type="button" onClick={onSplitAnyway} className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}>
-                <Scissors size="0.75rem" />
-                {localizeUi("ui.characters.descriptionsplitdialog.splitAnyway")}
-              </button>
-            )}
-          </div>
         </div>
       )}
     </Modal>

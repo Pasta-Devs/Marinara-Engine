@@ -352,6 +352,10 @@ after 90 and 120 s while the resent reply still has the role's whole `minutes` b
 review is under its cost limit (`EMPTY_REPLY_DELAYS`); its prompt tokens still count toward the cost limit. Each wait
 is up to a third longer, by an amount fixed by the request, so calls that failed together do not resend together.
 The time a call loses to failed attempts and these waits does not count against the role's box.
+A Claude reply stream that ends before `message_start`, such as a gateway's empty 200 stream, is resent at once like a
+dropped connection (`MODEL_MAX_RETRIES`); its error names the reply's content type and request ID and the events that
+came instead, with any error message they carry. When a review still fails, the run log keeps the error's
+traceback, and the summary names an error that has no message by the file, line and function that raised it.
 On Claude, thinking counts inside `max_tokens`; the judging roles use 64000 so Opus 5.5 at extra-high effort has room
 for both thinking and its submission, following [Anthropic's migration guidance](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide).
 

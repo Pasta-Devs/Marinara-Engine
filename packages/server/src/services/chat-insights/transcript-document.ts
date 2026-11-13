@@ -119,7 +119,19 @@ function renderStoryBody(content: string): string {
     .join("");
 }
 
-const SAFE_AVATAR_URI = /^data:image\/(png|jpe?g|gif|webp|avif);base64,[A-Za-z0-9+/=]+$/u;
+const SAFE_AVATAR_URI_HEADER = /^data:image\/(png|jpe?g|gif|webp|avif);base64,/u;
+const NON_AVATAR_URI_BODY = /[^A-Za-z0-9+/=]/u;
+
+/**
+ * A data: URI safe to inline in the exported stylesheet. The base64 body is checked by a negative test: V8's regexp
+ * interpreter recurses once per character, so `^…[A-Za-z0-9+/=]+$` over a large image exhausted the stack (#9060).
+ */
+function isSafeAvatarUri(uri: string): boolean {
+  const header = SAFE_AVATAR_URI_HEADER.exec(uri);
+  if (!header) return false;
+  const body = uri.slice(header[0].length);
+  return body.length > 0 && !NON_AVATAR_URI_BODY.test(body);
+}
 
 function speakerHue(key: string): number {
   let hash = 0;
@@ -168,7 +180,7 @@ export function renderTranscriptHtml(input: TranscriptDocumentInput): string {
   const avatarClasses = new Map<string, string>();
   for (const entry of input.entries) {
     const avatar = input.avatars?.get(entry.speakerKey);
-    if (avatar && !avatarClasses.has(avatar) && SAFE_AVATAR_URI.test(avatar)) {
+    if (avatar && !avatarClasses.has(avatar) && isSafeAvatarUri(avatar)) {
       avatarClasses.set(avatar, `avatar-${avatarClasses.size}`);
     }
   }

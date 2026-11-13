@@ -253,6 +253,7 @@ The full guide library is browsable inside the app: open **Documentation** from 
 | [docs/development/localization.md](docs/development/localization.md)                 | Supported UI languages and contribution steps for new or corrected translations                                    |
 | [docs/development/frontend.md](docs/development/frontend.md)                         | Frontend architecture, components, hooks, and API reference                                                        |
 | [docs/development/architecture-map.md](docs/development/architecture-map.md)         | Code ownership map and module-boundary refactor groundwork                                                         |
+| [docs/development/ruleset-creators-guide.md](docs/development/ruleset-creators-guide.md) | Planning a Game Mode ruleset: how the parts fit, combat depth, fight AI keys, and publishing |
 | [android/README.md](android/README.md)                                               | Android Termux bootstrap + WebView shell guide                                                                     |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                                                   | Contributor workflow, validation, versioning, and release steps                                                    |
 | [CHANGELOG.md](CHANGELOG.md)                                                         | Release notes                                                                                                      |

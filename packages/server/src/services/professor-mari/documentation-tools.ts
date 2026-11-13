@@ -11,6 +11,7 @@ export const USER_DEVELOPMENT_DOCS = [
   "file-storage.md",
   "noodle-internals.md",
   "ios-pwa-safe-area.md",
+  "ruleset-creators-guide.md",
 ];
 
 /**

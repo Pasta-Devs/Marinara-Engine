@@ -555,6 +555,11 @@ export function createConnectionsStorage(db: DB) {
 
     /** Get the connection marked as default for agents (with decrypted key). */
     async getDefaultForAgents() {
+      // The built-in model has no row to flag: while it is the agents default and has a model, it answers as one,
+      // exactly as `getDefault()` does for Main and as agent runs resolve it (#5539). A stale row flag loses.
+      if (sidecarModelService.getConfig().useAsAgentsDefault && sidecarModelService.getConfiguredModelRef() !== null) {
+        return createLocalSidecarGenerationConnection() as never;
+      }
       const rows = await db
         .select()
         .from(apiConnections)

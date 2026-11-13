@@ -1,6 +1,9 @@
 import { findKnownModel, type APIProvider } from "@marinara-engine/shared";
 
-function resolveKnownMaxOutputTokens(provider: APIProvider | string | null | undefined, model: string): number | null {
+export function resolveKnownMaxOutputTokens(
+  provider: APIProvider | string | null | undefined,
+  model: string,
+): number | null {
   const knownModel = provider ? findKnownModel(provider as APIProvider, model.trim()) : undefined;
   return knownModel?.maxOutput && knownModel.maxOutput > 0 ? Math.floor(knownModel.maxOutput) : null;
 }

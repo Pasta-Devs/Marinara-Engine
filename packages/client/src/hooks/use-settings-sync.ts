@@ -25,6 +25,7 @@ import { api } from "../lib/api-client";
 import { translate } from "../localization/i18n";
 import { normalizeConversationTimeZone } from "../lib/conversation-time-zone";
 import { normalizeApprovedRemoteImageUrls } from "../lib/remote-images";
+import { normalizeUiStyleOverrides, normalizeUiStylePresets } from "../lib/ui-style-overrides";
 import { normalizeChatWidgetFont } from "../lib/font-family";
 import {
   normalizeChatWidgetColor,
@@ -116,6 +117,12 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
   }
   if ("omnibarWindowHeightRem" in sanitized) {
     sanitized.omnibarWindowHeightRem = normalizeOmnibarWindowHeightRem(sanitized.omnibarWindowHeightRem);
+  }
+  if ("uiStyleOverrides" in sanitized) {
+    sanitized.uiStyleOverrides = normalizeUiStyleOverrides(sanitized.uiStyleOverrides);
+  }
+  if ("uiStylePresets" in sanitized) {
+    sanitized.uiStylePresets = normalizeUiStylePresets(sanitized.uiStylePresets);
   }
   return sanitized;
 }
@@ -316,6 +323,8 @@ export function useSettingsSync() {
               // corrected value back to the server; without it the stale array survives
               // and re-arrives on every other device.
               let staleSyncedShape = false;
+              // Staging folds Background color into the UI Editor's Whole app part here; the overhaul keeps
+              // it as its own per-scheme setting, so the synced value is left as it is.
               if ("trackerPanelSectionOrder" in parsed.settings) {
                 const normalizedOrder = normalizeTrackerPanelSectionOrder(parsed.settings.trackerPanelSectionOrder);
                 if (!Array.isArray(parsed.settings.trackerPanelSectionOrder)) {

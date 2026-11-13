@@ -1015,11 +1015,16 @@ export function ConnectionSwitcherBody({
     const entry: Entry = { ...rawEntry, ...(niceName ? { title: niceName } : {}) };
     const sameTitle = rawEntry.group?.rows.some((row) => row.model !== entry.model && rowLabel(row) === entry.title);
     if (entry.subtitle === entry.model && !sameTitle) entry.subtitle = "";
-    if (away && rawEntry.group?.account) {
-      const via = viaName(rawEntry.group.account.provider, entry.model);
-      entry.subtitle = [rawEntry.group.name, via && t("connections.accounts.section.via", { service: via })]
+    const via = viaName(rawEntry.group?.account?.provider, entry.model);
+    let routeId = via && entry.model !== entry.title ? entry.model : undefined;
+    if (rawEntry.group?.account) {
+      entry.subtitle = [
+        away ? rawEntry.group.name : entry.subtitle,
+        via && t("connections.accounts.section.via", { service: via }),
+      ]
         .filter(Boolean)
         .join(" · ");
+      if (routeId && entry.subtitle.includes(routeId)) routeId = undefined;
     }
     const isCurrent = now || isNow(entry) || sameChoice(entry.choice, current);
     const highlighted = index !== undefined && index === highlight;
@@ -1054,6 +1059,7 @@ export function ConnectionSwitcherBody({
         aria-label={[
           entry.title,
           entry.subtitle,
+          routeId,
           stateLabel ?? roleLabels.join(", "),
           custom && t("connections.row.customSettings"),
         ]
@@ -1093,6 +1099,7 @@ export function ConnectionSwitcherBody({
           </span>
         }
         title={entry.title}
+        routeId={routeId}
         // The Now strip folds its heading into line 2 to stay one compact row.
         subtitle={now ? [nowLabel, entry.subtitle].filter(Boolean).join(" · ") : entry.subtitle}
         roles={roleLabels}
@@ -1427,7 +1434,7 @@ export function ConnectionSwitcherBody({
   const paneTitle = (title: ReactNode, summary: string) => (
     <div className="flex min-w-0 shrink-0 items-baseline gap-2.5 px-3.5 pb-1 pt-2.5">
       <strong className="truncate text-[0.8125rem] font-semibold">{title}</strong>
-      <span className="truncate text-[0.6875rem] text-foreground/50">{summary}</span>
+      <span className="truncate text-[0.6875rem] max-sm:text-[13px] text-foreground/50">{summary}</span>
     </div>
   );
   const starredAccounts = new Set(starredEntries.map((entry) => entry.group?.key)).size;
@@ -1644,7 +1651,7 @@ export function ConnectionSwitcherBody({
                 .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
                 .finally(() => setBusy(false));
             }}
-            className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait @max-xl:w-11 @max-xl:px-0"
+            className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] max-sm:text-[13px] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait @max-xl:w-11 @max-xl:px-0"
           >
             <House size="0.8125rem" className="shrink-0" aria-hidden />
             <span className="@max-xl:sr-only">{followDefault.label ?? t("connections.switcher.useDefaultNone")}</span>

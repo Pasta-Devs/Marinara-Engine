@@ -171,12 +171,12 @@ Generated sounds and tracks are saved with your game assets, so the same sound i
 
 ## Custom music folder for Music DJ
 
-**Music DJ** is a helper agent that can play music during a game. In its Custom mode it plays tracks from a folder you choose. When you enable **Music DJ** for a chat, the setup form follows the source saved on the agent. **Game Assets** shows a path inside your game assets, such as `music` or `music/combat`. **Folder on this device** shows the saved server-device path and a **Choose Folder** button.
+**Music DJ** is a helper agent that can play music during a game. In its Custom mode it plays tracks from a folder you choose. When you enable **Music DJ** for a chat, its settings show **Apply to**. It saves the folder for this chat, for the chat's only character or for all chats. **In use:** shows the folder the chat plays. With **All chats (default)**, the **Game Assets** source takes a path inside your game assets, such as `music` or `music/combat`. To give a chat or character its own folder, see [Use a different folder for a chat or character](../media/music.md#use-a-different-folder-for-a-chat-or-character).
 
 The full **Music DJ** editor has a **Custom Music Library** section. **Use Game Assets music folder** picks between two modes:
 
 - On: the **Game Assets music folder** field reads a folder inside your game assets. **Open Folder** opens it on the server computer.
-- Off: **Music folder on this device** plays music from any folder on the computer that runs the server. Click **Select Folder**, or paste the path.
+- Off: **Default music folder on this device** plays music from any folder on the computer that runs the server. Click **Select Folder**, or paste the path.
 
 Picking a folder outside the app needs privileged access. On the same computer as the server it works with no extra setup. From another device or over remote access, set up admin access first. See [Remote Access](../REMOTE_ACCESS.md). For the rest of the music player, see [Music DJ](../media/music.md).
 

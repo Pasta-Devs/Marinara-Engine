@@ -40,7 +40,6 @@ import {
 } from "../../hooks/use-connections";
 import { usePresets } from "../../hooks/use-presets";
 import {
-  ArrowLeft,
   Save,
   Trash2,
   Upload,
@@ -153,6 +152,8 @@ import {
   type VideoReferenceUploadExpiry,
   type VideoResolution,
 } from "@marinara-engine/shared";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 
 /** Links where users can obtain API keys for each provider */
 const DEFAULT_CACHING_AT_DEPTH = 5;
@@ -2443,17 +2444,8 @@ export function ConnectionEditor({
         />
       ) : (
         <div className={"mari-editor-header"}>
-          <div className="mari-editor-header-main">
-            {/* On desktop the new layout's Library > Connections crumb goes back instead. */}
-            {!ovDesktop && (
-              <button
-                onClick={handleClose}
-                className="mari-editor-action inline-flex shrink-0"
-                aria-label={localizeUi("connections.editor.back")}
-              >
-                <ArrowLeft size="1.125rem" />
-              </button>
-            )}
+          <div className="mari-editor-header-main max-md:basis-0!">
+            <SurfaceBackButton onClick={handleClose} className="mari-editor-action inline-flex shrink-0" />
 
             <ProviderIcon
               provider={localProvider}
@@ -2482,7 +2474,7 @@ export function ConnectionEditor({
               aria-label={localizeUi("connections.editor.modelName")}
             />
           </div>
-          <div className="mari-editor-actions flex shrink-0">
+          <div className="mari-editor-actions flex shrink-0 max-md:order-2">
             {saveError && (
               <span className="mari-editor-status mr-2 text-[var(--destructive)]">
                 <AlertCircle size="0.6875rem" />{" "}
@@ -2536,6 +2528,7 @@ export function ConnectionEditor({
               </button>
             </>
           </div>
+          <SurfaceCloseButton dividerClassName="max-md:hidden" />
         </div>
       )}
 
@@ -4480,6 +4473,15 @@ function ImageGenerationDefaultsPanel({
     });
   };
 
+  const updateCustomHeaders = (next: Record<string, unknown>) => {
+    const headers = next as Record<string, string>;
+    onChange({ ...value, customHeaders: Object.keys(headers).length > 0 ? headers : undefined });
+  };
+
+  /** Extra headers only reach the server for backends the user runs themselves. */
+  const showCustomHeaders =
+    (service === "comfyui" && source !== "runpod_comfyui") || (service === "automatic1111" && source !== "arli");
+
   const updateNovelAi = (patch: Partial<typeof novelai>) => {
     onChange({
       ...value,
@@ -4745,6 +4747,9 @@ function ImageGenerationDefaultsPanel({
                   className="border border-[var(--border)] px-3 py-2"
                   labelClassName="text-[var(--foreground)]"
                 />
+                {showCustomHeaders && (
+                  <CustomParametersInput headers value={value.customHeaders ?? {}} onChange={updateCustomHeaders} />
+                )}
               </>
             ) : service === "comfyui" ? (
               <>
@@ -4801,6 +4806,9 @@ function ImageGenerationDefaultsPanel({
                   availableLoras={remoteLoras}
                   onChange={(loras) => updateComfyUi({ loras })}
                 />
+                {showCustomHeaders && (
+                  <CustomParametersInput headers value={value.customHeaders ?? {}} onChange={updateCustomHeaders} />
+                )}
                 <p className="text-[0.55rem] text-[var(--muted-foreground)]">
                   {localizeUi(
                     "ui.connections.imagegenerationdefaultspanel.customComfyuiWorkflowsCanUseStepsCfgSamplerScheduler",
@@ -5068,6 +5076,11 @@ function VideoGenerationDefaultsPanel({
     });
   };
 
+  const updateCustomHeaders = (next: Record<string, unknown>) => {
+    const headers = next as Record<string, string>;
+    onChange({ ...value, customHeaders: Object.keys(headers).length > 0 ? headers : undefined });
+  };
+
   return (
     <FieldGroup label={localizeUi("ui.connections.videogenerationdefaultspanel.videoDefaults")}>
       <div className="rounded-xl border border-[var(--border)]">
@@ -5252,6 +5265,9 @@ function VideoGenerationDefaultsPanel({
                     availableLoras={remoteLoras}
                     onChange={(loras) => updateComfyUi({ loras })}
                   />
+                )}
+                {service === "comfyui" && (
+                  <CustomParametersInput headers value={value.customHeaders ?? {}} onChange={updateCustomHeaders} />
                 )}
                 <p className="text-[0.55rem] text-[var(--muted-foreground)]">
                   {service === "xai"

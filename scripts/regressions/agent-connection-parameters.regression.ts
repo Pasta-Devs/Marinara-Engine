@@ -794,6 +794,56 @@ try {
     }
   }
 
+  // ── Both resolvers pass the chat's roster, so a solo chat gets its character's Music DJ folder (#8901) ───────────
+  {
+    const musicDj = {
+      ...agentConfig("spotify", "music", null),
+      settings: {
+        customMusicExternalFolder: "/music/default",
+        customMusicCharacterFolders: { nazuna: "/music/nazuna" },
+      },
+    };
+    const metadata = { enableAgents: true, activeAgentIds: ["spotify"] };
+    const [pipelineDj] = await resolveAgents({
+      provider: "openai",
+      model: "fixture-model",
+      defaultParameters: {},
+      agents: [musicDj],
+      chat: { chatMetadata: metadata, chatCharacterIds: ["nazuna"] },
+    });
+    assert.equal(pipelineDj?.settings.customMusicExternalFolder, "/music/nazuna", "the generation pipeline");
+    const retryConnection = {
+      id: "retry-connection",
+      name: "Retry fixture",
+      provider: "custom",
+      baseUrl: `${base}/v1`,
+      apiKey: "fixture-key",
+      model: "fixture-model",
+      maxContext: 200_000,
+      defaultParameters: "{}",
+      maxParallelJobs: 1,
+    };
+    const { resolvedAgents: retried } = await retryRoute.resolveRetryAgents({
+      agentTypes: ["spotify"],
+      chat: {
+        mode: "roleplay",
+        connectionId: retryConnection.id,
+        characterIds: JSON.stringify(["nazuna"]),
+        metadata: JSON.stringify(metadata),
+      },
+      conns: {
+        getDefaultForAgents: async () => null,
+        getFallbackForAgents: async () => null,
+        getWithKey: async (id: string) => (id === retryConnection.id ? retryConnection : null),
+        listRandomPool: async () => [],
+      } as any,
+      agentsStore: { list: async () => [musicDj] } as any,
+      allowExternalAgentImports: true,
+      managedParameterDefinitions,
+    });
+    assert.equal(retried[0]?.resolved.settings.customMusicExternalFolder, "/music/nazuna", "the retry route");
+  }
+
   db = await getDB();
   const connections = createConnectionsStorage(db);
   await createAppSettingsStorage(db).set(

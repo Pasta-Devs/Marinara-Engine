@@ -101,6 +101,7 @@ export async function generateAndSaveChatVideo(
       resolution: runtime.resolution,
       comfyWorkflow: runtime.comfyWorkflow,
       comfyLoras: runtime.comfyLoras,
+      customHeaders: runtime.customHeaders,
       fps: runtime.comfyFps,
       atlasModelOptions: runtime.atlasModelOptions,
       referenceImage: args.referenceImage,

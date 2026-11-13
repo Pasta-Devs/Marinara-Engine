@@ -12,6 +12,8 @@ export type CardLibrarySearchQuery = {
 
 export type CardLibrarySearchDocument = {
   name?: unknown;
+  /** Other names (`nameAliases`), matched like the name. */
+  aliases?: readonly string[];
   title?: unknown;
   meta?: unknown;
   summary?: unknown;
@@ -63,6 +65,7 @@ export function matchesCardLibrarySearch(document: CardLibrarySearchDocument, qu
 
   return [
     document.name,
+    ...(document.aliases ?? []),
     document.title,
     document.meta,
     document.summary,

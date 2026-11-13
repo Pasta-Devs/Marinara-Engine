@@ -53,6 +53,7 @@ import {
   hasPlanUsageWindows,
   isLocalAuthProvider,
   isChatProvider,
+  isGeminiArgonOrCarbonModel,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
   isOpenAIGpt6Model,
@@ -60,6 +61,7 @@ import {
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
   modelCost,
+  normalizeCustomRequestHeaders,
   OUTSIDE_READS_SETTINGS_KEY,
   rankModelMoveCandidates,
   normalizeVideoGenerationProfile,
@@ -107,6 +109,7 @@ import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
 } from "../services/image/image-generation-defaults.js";
+import { resolveLocalBackendHeaders } from "../services/image/image-generation.js";
 import { buildVeniceApiUrl, normalizeVeniceImageModels } from "../services/image/venice-image.js";
 import { buildFalImageUrl } from "../services/image/fal-image.js";
 import { buildSpicyApiUrl, normalizeSpicyApiImageModels } from "../services/image/spicyapi-image.js";
@@ -354,6 +357,40 @@ export function parseComfyLoaderModelNames(info: unknown, nodeName: string, inpu
   return options.filter((option): option is string => typeof option === "string");
 }
 
+export interface ComfyUiLoaderModelsResult {
+  ok: boolean;
+  status: number;
+  names: string[] | null;
+}
+
+/**
+ * Read one ComfyUI loader node's model list through object_info, with the
+ * connection's auth/custom headers. HTTP statuses never throw; a non-JSON
+ * answer reads as missing metadata instead of a JSON SyntaxError.
+ */
+export async function fetchComfyUiLoaderModelNames(
+  baseUrl: string,
+  nodeName: string,
+  inputName: string,
+  extraHeaders: Record<string, string>,
+  policy: ReturnType<typeof localUrlPolicyForProvider>,
+): Promise<ComfyUiLoaderModelsResult> {
+  const res = await safeFetch(`${baseUrl.replace(/\/+$/, "")}/object_info/${nodeName}`, {
+    headers: extraHeaders,
+    policy,
+    maxResponseBytes: 5 * 1024 * 1024,
+    decodeCompressedResponse: true,
+  });
+  if (!res.ok) return { ok: false, status: res.status, names: null };
+  let info: unknown;
+  try {
+    info = await res.json();
+  } catch {
+    return { ok: true, status: res.status, names: null };
+  }
+  return { ok: true, status: res.status, names: parseComfyLoaderModelNames(info, nodeName, inputName) };
+}
+
 /** Atlas Cloud's live catalog, or the curated starter list when the catalog cannot be read. */
 async function listAtlasCloudModels(
   baseUrl: string,
@@ -398,10 +435,16 @@ function swarmUiHeaders(apiKey: string): Record<string, string> {
   return headers;
 }
 
-async function postSwarmUiJson(baseUrl: string, apiKey: string, route: string, body: Record<string, unknown>) {
+export async function postSwarmUiJson(
+  baseUrl: string,
+  apiKey: string,
+  route: string,
+  body: Record<string, unknown>,
+  extraHeaders: Record<string, string> = {},
+) {
   const response = await safeFetch(`${baseUrl.replace(/\/+$/, "")}/API/${route}`, {
     method: "POST",
-    headers: swarmUiHeaders(apiKey),
+    headers: { ...extraHeaders, ...swarmUiHeaders(apiKey) },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(SWARMUI_CONTROL_REQUEST_TIMEOUT_MS),
     policy: localUrlPolicyForProvider("image_generation", "swarmui"),
@@ -430,8 +473,12 @@ async function postSwarmUiJson(baseUrl: string, apiKey: string, route: string, b
   return result;
 }
 
-async function createSwarmUiSession(baseUrl: string, apiKey: string): Promise<string> {
-  const result = await postSwarmUiJson(baseUrl, apiKey, "GetNewSession", {});
+async function createSwarmUiSession(
+  baseUrl: string,
+  apiKey: string,
+  extraHeaders: Record<string, string> = {},
+): Promise<string> {
+  const result = await postSwarmUiJson(baseUrl, apiKey, "GetNewSession", {}, extraHeaders);
   const sessionId = isRecord(result) && typeof result.session_id === "string" ? result.session_id.trim() : "";
   if (!sessionId) throw new Error("SwarmUI did not return a session_id");
   return sessionId;
@@ -508,6 +555,25 @@ function normalizeConnectionTestBaseUrl(baseUrl: string, provider: string): stri
 function getStoredVideoDefaults(raw: unknown) {
   const root = parseDefaultParametersRoot(raw);
   return normalizeVideoGenerationProfile(root[VIDEO_DEFAULTS_STORAGE_KEY]).profile;
+}
+
+/** Auth + custom headers for a user-run local backend, read from the stored connection row. */
+export function localBackendDiscoveryHeaders(conn: {
+  apiKey?: string | null;
+  provider?: string | null;
+  defaultParameters?: string | Record<string, unknown> | null;
+}): Record<string, string> {
+  // Read the stored profile directly instead of resolving the defaults service:
+  // service inference needs baseUrl/model hints that a proxied connection may not
+  // carry, and a null service would drop the headers along with the profile.
+  // Callers already limited this to ComfyUI/SwarmUI/AUTOMATIC1111 connections.
+  // A row switched between image and video can keep the other kind's profile,
+  // so the provider picks which one applies.
+  const root = parseDefaultParametersRoot(conn.defaultParameters);
+  const rawProfile =
+    conn.provider === "video_generation" ? root[VIDEO_DEFAULTS_STORAGE_KEY] : root[IMAGE_DEFAULTS_STORAGE_KEY];
+  const customHeaders = normalizeCustomRequestHeaders(isRecord(rawProfile) ? rawProfile.customHeaders : undefined);
+  return resolveLocalBackendHeaders(conn.apiKey || "", customHeaders);
 }
 
 function parseDefaultParametersRoot(raw: unknown): Record<string, unknown> {
@@ -1030,7 +1096,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
           // ComfyUI: ping the system stats endpoint
           testUrl = `${baseUrl}/system_stats`;
         } else if (conn.provider === "image_generation" && imageSource === "swarmui") {
-          await createSwarmUiSession(baseUrl, conn.apiKey || "");
+          const extraHeaders = localBackendDiscoveryHeaders(conn);
+          await createSwarmUiSession(baseUrl, conn.apiKey || "", extraHeaders);
           return {
             success: true,
             message: "Connection successful",
@@ -1064,7 +1131,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
             ? hordeHeaders(conn.apiKey)
             : conn.provider === "audio"
               ? ttsCatalogHeaders(conn.audioSource ?? "elevenlabs", conn.apiKey)
-              : headers;
+              : conn.provider === "image_generation" &&
+                  (imageSource === "comfyui" || imageSource === "swarmui" || imageSource === "automatic1111")
+                ? { ...headers, ...localBackendDiscoveryHeaders(conn) }
+                : headers;
         debugLog("[connections/test] provider=%s model=%s catalogUrl=%s", conn.provider, conn.model ?? "", testUrl);
         const keyCheck = buildKeyCheck(conn.provider, baseUrl);
         const res = await safeFetch(keyCheck?.url ?? testUrl, {
@@ -1401,8 +1471,15 @@ export async function connectionsRoutes(app: FastifyInstance) {
       }
 
       if ((conn.provider === "image_generation" || conn.provider === "video_generation") && mediaSource === "swarmui") {
-        const sessionId = await createSwarmUiSession(baseUrl, conn.apiKey || "");
-        const result = await postSwarmUiJson(baseUrl, conn.apiKey || "", "ListT2IParams", { session_id: sessionId });
+        const extraHeaders = localBackendDiscoveryHeaders(conn);
+        const sessionId = await createSwarmUiSession(baseUrl, conn.apiKey || "", extraHeaders);
+        const result = await postSwarmUiJson(
+          baseUrl,
+          conn.apiKey || "",
+          "ListT2IParams",
+          { session_id: sessionId },
+          extraHeaders,
+        );
         const modelGroups = isRecord(result) && isRecord(result.models) ? result.models : {};
         const modelNames = Array.isArray(modelGroups["Stable-Diffusion"])
           ? modelGroups["Stable-Diffusion"].filter((model): model is string => typeof model === "string")
@@ -1418,21 +1495,15 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
       // ComfyUI: fetch checkpoints and diffusion models from object_info
       if ((conn.provider === "image_generation" || conn.provider === "video_generation") && mediaSource === "comfyui") {
-        const fetchComfyLoaderModelNames = async (nodeName: string, inputName: string) => {
-          const res = await safeFetch(`${baseUrl}/object_info/${nodeName}`, {
-            policy: localUrlPolicyForProvider(conn.provider, mediaSource),
-            maxResponseBytes: 5 * 1024 * 1024,
-            decodeCompressedResponse: true,
-          });
-          if (!res.ok) return { ok: false, status: res.status, names: null };
-          return {
-            ok: true,
-            status: res.status,
-            names: parseComfyLoaderModelNames(await res.json(), nodeName, inputName),
-          };
-        };
-
-        const checkpoints = await fetchComfyLoaderModelNames("CheckpointLoaderSimple", "ckpt_name");
+        const extraHeaders = localBackendDiscoveryHeaders(conn);
+        const policy = localUrlPolicyForProvider(conn.provider, mediaSource);
+        const checkpoints = await fetchComfyUiLoaderModelNames(
+          baseUrl,
+          "CheckpointLoaderSimple",
+          "ckpt_name",
+          extraHeaders,
+          policy,
+        );
         if (!checkpoints.names) {
           return reply.status(502).send({
             error: checkpoints.ok
@@ -1443,11 +1514,23 @@ export async function connectionsRoutes(app: FastifyInstance) {
         // Models in ComfyUI's diffusion_models folder (e.g. Anima, zImage) load
         // through UNETLoader, not CheckpointLoaderSimple. Listing failures here
         // must not hide the checkpoints on ComfyUI builds without that node.
-        const diffusionModels = await fetchComfyLoaderModelNames("UNETLoader", "unet_name").catch(() => ({
+        const diffusionModels = await fetchComfyUiLoaderModelNames(
+          baseUrl,
+          "UNETLoader",
+          "unet_name",
+          extraHeaders,
+          policy,
+        ).catch(() => ({
           status: 0,
           names: null,
         }));
-        const loraModels = await fetchComfyLoaderModelNames("LoraLoader", "lora_name").catch(() => ({
+        const loraModels = await fetchComfyUiLoaderModelNames(
+          baseUrl,
+          "LoraLoader",
+          "lora_name",
+          extraHeaders,
+          policy,
+        ).catch(() => ({
           status: 0,
           names: null,
         }));
@@ -1485,6 +1568,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       // AUTOMATIC1111 / SD Web UI: fetch models from /sdapi/v1/sd-models
       if (conn.provider === "image_generation" && imageSource === "automatic1111") {
         const res = await safeFetch(`${baseUrl}/sdapi/v1/sd-models`, {
+          headers: localBackendDiscoveryHeaders(conn),
           policy: localUrlPolicyForProvider(conn.provider, imageSource),
           maxResponseBytes: 5 * 1024 * 1024,
           decodeCompressedResponse: true,
@@ -2274,6 +2358,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
                       : undefined,
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
         comfyLoras: isComfyUiVideo ? defaults.comfyui.loras : [],
+        customHeaders: defaults.customHeaders,
         atlasModelOptions: isAtlasVideo ? defaults.atlas.modelOptions[videoModel.trim()] : undefined,
         fps: isComfyUiVideo ? defaults.comfyui.fps : undefined,
       });
@@ -2450,11 +2535,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
       );
 
       const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, model);
-      // Reasoning models (GLM 5.3, Mistral reasoning models) spend one output budget on
-      // thinking and on text. At 200 tokens the whole budget is thinking and the test reports
-      // success with nothing to show, so give them room for a one-line answer.
+      // Reasoning models (GLM 5.3, Mistral reasoning models, Gemini 4 Argon and Carbon, which
+      // think at medium with no level saved) spend one output budget on thinking and on text.
+      // At 200 tokens the whole budget is thinking and the test reports success with nothing to
+      // show, so give them room for a one-line answer.
       const reasoningTest =
         isGlm53MandatoryReasoningModel(model) ||
+        isGeminiArgonOrCarbonModel(model) ||
         (conn.provider === "mistral" && (isMistralAdjustableReasoningModel(model) || isMistralGlm53Model(model)));
       const maxTokens = resolveStoredMaxTokens(conn.defaultParameters, reasoningTest ? 1024 : 200);
       let fullResponse = "";

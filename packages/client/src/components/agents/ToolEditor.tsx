@@ -13,7 +13,6 @@ import {
   type CustomToolRow,
 } from "../../hooks/use-custom-tools";
 import {
-  ArrowLeft,
   Save,
   Wrench,
   Check,
@@ -39,6 +38,8 @@ import { createFolderEntry } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { OvEditorHead } from "../overhaul/EditorChrome";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 
 const EXEC_TYPES = [
   { value: "static", label: "Static Result", icon: FileText, description: "Returns a fixed string when called." },
@@ -363,14 +364,7 @@ export function ToolEditor() {
         />
       ) : (
         <div className="mari-editor-header">
-          <button
-            type="button"
-            onClick={handleClose}
-            aria-label={localizeUi("ui.agents.tooleditor.backToTools")}
-            className="mari-editor-action inline-flex"
-          >
-            <ArrowLeft size="1.125rem" />
-          </button>
+          <SurfaceBackButton onClick={handleClose} />
           <div className="mari-editor-icon-tile">
             <Wrench size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
           </div>
@@ -383,7 +377,7 @@ export function ToolEditor() {
             className="mari-editor-title-input min-w-0 flex-1 font-mono placeholder:text-[var(--marinara-editor-muted)]"
             placeholder={localizeUi("ui.agents.tooleditor.toolName")}
           />
-          <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
+          <div className="mari-editor-actions flex max-md:order-2 max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
             {saveError && (
               <span className="mari-editor-status mr-2 text-red-400">
                 <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.tooleditor.error")}
@@ -429,6 +423,7 @@ export function ToolEditor() {
               </button>
             )}
           </div>
+          <SurfaceCloseButton dividerClassName="max-md:hidden" />
         </div>
       )}
 

@@ -100,10 +100,15 @@ export function CostBadge({
       className={cn(
         PILL,
         "tabular-nums",
-        // A multiplier is plan information, not a warning, so it stays neutral like "Paid".
-        cost === "paid" || multiplier
+        // One accent family, so the pills follow the user's accent (Mari asked for UI colours, not green/red).
+        // A status, not an action: covered at the normal rate ("Plan", "Free") is grey text in a faint accent
+        // outline, so a column of them stays quieter than the model names. A boosted rate ("Plan ×2") adds the
+        // accent tint, text and a stronger border, since it draws more from the allowance. "Paid" stays neutral.
+        cost === "paid"
           ? "border-[var(--border)] text-[var(--muted-foreground)]"
-          : "border-transparent bg-[color-mix(in_srgb,var(--color-emerald-500)_13%,transparent)] text-[color-mix(in_srgb,var(--color-emerald-500)_70%,var(--foreground)_30%)]",
+          : multiplier
+            ? "border-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_55%,transparent)] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_18%,transparent)] text-[var(--marinara-chat-chrome-accent)]"
+            : "border-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_30%,transparent)] bg-transparent text-[var(--muted-foreground)]",
       )}
     >
       {label}

@@ -11,7 +11,7 @@ import {
   useState,
   type UIEvent,
 } from "react";
-import { ArrowLeft, ArrowUpDown, Download, Hash, MessageCircle, Pencil, Plus, Search, Star, User } from "lucide-react";
+import { ArrowUpDown, Download, Hash, MessageCircle, Pencil, Plus, Search, Star, User } from "lucide-react";
 import { estimateTextTokens, type CharacterData, type Persona } from "@marinara-engine/shared";
 import type { CharacterCatalogEntry } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -32,8 +32,9 @@ import {
 import { estimateCharacterCardTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { resolveSelfCardAssets } from "../../lib/card-asset-links";
-import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
+import { normalizeAvatarCrop, normalizeNameAliases, type AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { useLoadMoreWhenNear } from "../panels/PanelLoadMoreBar";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
   useUIStore,
@@ -43,6 +44,8 @@ import {
 } from "../../stores/ui.store";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { CardGallery } from "../overhaul/CardGallery";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
 
 const libraryToolbarButtonClass =
   "mari-chrome-control mari-chrome-control--primary h-10 min-h-10 min-w-0 px-3 text-[0.75rem]";
@@ -64,6 +67,7 @@ type LibrarySection = { title: string; content: string };
 type LibraryCard = {
   id: string;
   name: string;
+  aliases: string[];
   title: string | null;
   meta: string | null;
   summary: string;
@@ -114,7 +118,12 @@ function parseCharacterRow(char: CharacterRow): ParsedCharacterRow {
       tags: char.tags,
       creator: char.creator,
       character_version: char.version,
-      extensions: { fav: char.favorite, avatarCrop: char.avatarCrop, nameColor: char.nameColor },
+      extensions: {
+        fav: char.favorite,
+        avatarCrop: char.avatarCrop,
+        nameColor: char.nameColor,
+        nameAliases: char.nameAliases,
+      },
     };
     return { ...char, parsed: parsed as unknown as ParsedCharacterRow["parsed"] };
   } catch {
@@ -199,6 +208,7 @@ function toCharacterLibraryCard(char: ParsedCharacterRow): LibraryCard {
   return {
     id: char.id,
     name,
+    aliases: normalizeNameAliases(char.parsed.extensions?.nameAliases),
     title: getCharacterTitle({ name, comment: char.comment }),
     meta: formatCardLibraryMeta(char.parsed.creator, char.parsed.character_version),
     summary: getCharacterSummary(char),
@@ -219,6 +229,7 @@ function toPersonaLibraryCard(persona: Persona): LibraryCard {
   return {
     id: persona.id,
     name: getText(persona.name) || "Unnamed",
+    aliases: persona.nameAliases,
     title: getText(persona.comment) || null,
     meta: formatCardLibraryMeta(persona.creator, persona.personaVersion),
     summary: getPersonaSummary(persona),
@@ -384,9 +395,9 @@ export function CharacterLibraryView() {
   const { t } = useTranslation();
   const localize = useLocalizedUiText();
   const kind = useUIStore((s) => s.cardLibraryKind);
+  const showsClose = useUIStore(selectShowsSurfaceClose);
   const copy = LIBRARY_COPY[kind];
   const isPersonaLibrary = kind === "personas";
-  const closeLibrary = useUIStore((s) => s.closeCharacterLibrary);
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
   const openPersonaDetail = useUIStore((s) => s.openPersonaDetail);
   const openModal = useUIStore((s) => s.openModal);
@@ -585,6 +596,13 @@ export function CharacterLibraryView() {
     if (isPersonaLibrary) void personaPages.fetchNextPage();
     else void characterPages.fetchNextPage();
   };
+  const loadMoreSentinelRef = useLoadMoreWhenNear(
+    fetchNextPage,
+    isLoading ||
+      !hasNextPage ||
+      isFetchingNextPage ||
+      (isPersonaLibrary ? personaPages.isFetchNextPageError : characterPages.isFetchNextPageError),
+  );
 
   if (overhaulActive) {
     return (
@@ -636,15 +654,12 @@ export function CharacterLibraryView() {
       className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_14%,transparent),_transparent_30%),radial-gradient(circle_at_top_right,_color-mix(in_srgb,var(--marinara-chat-chrome-text)_10%,transparent),_transparent_26%),var(--background)] text-[var(--marinara-chat-chrome-panel-text)] lg:overflow-hidden"
     >
       <div className="sticky top-0 z-10 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--card)]/85 backdrop-blur-xl">
-        <div className="flex flex-col gap-2 px-3 py-2 md:px-6 md:py-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              onClick={closeLibrary}
+        <div className="relative flex flex-col gap-2 px-3 py-2 md:px-6 md:py-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className={cn("flex min-w-0 items-center gap-3", showsClose && "max-lg:pr-12")}>
+            <SurfaceBackButton
               className="mari-chrome-control h-9 w-9 rounded-2xl p-0 md:h-10 md:w-10"
-              title={localizeUi("ui.characters.characterlibraryview.closeLibrary")}
-            >
-              <ArrowLeft size="0.95rem" />
-            </button>
+              iconSize="0.95rem"
+            />
             <div className="min-w-0">
               <p className="text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-[var(--marinara-chat-chrome-panel-muted)]">
                 {copy.title}
@@ -721,6 +736,12 @@ export function CharacterLibraryView() {
               />
             </div>
           </div>
+          <SurfaceCloseButton
+            className="absolute right-3 top-2 md:right-6 md:top-3 lg:static"
+            buttonClassName="mari-chrome-control h-9 w-9 rounded-2xl p-0 md:h-10 md:w-10"
+            iconSize="0.95rem"
+            dividerClassName="max-lg:hidden"
+          />
         </div>
       </div>
 
@@ -788,6 +809,7 @@ export function CharacterLibraryView() {
             </div>
           )}
 
+          {!isLoading && hasNextPage && <div ref={loadMoreSentinelRef} aria-hidden className="h-px" />}
           {!isLoading && hasNextPage && (
             <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex justify-center border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--background)]/92 px-4 py-3 backdrop-blur-md md:-mx-6 md:px-6">
               <button
@@ -798,7 +820,12 @@ export function CharacterLibraryView() {
               >
                 {isFetchingNextPage
                   ? localizeUi("ui.characters.characterlibraryview.loading")
-                  : localizeUi("ui.characters.characterlibraryview.loadMoreValue1Loaded", { value1: cards.length })}
+                  : isPersonaLibrary
+                    ? localizeUi("ui.characters.characterlibraryview.loadMoreValue1Loaded", { value1: cards.length })
+                    : localizeUi("ui.panels.characterspanel.loadMoreValue1OfValue2", {
+                        value1: cards.length,
+                        value2: characterPages.data?.pages[0]?.total ?? cards.length,
+                      })}
               </button>
             </div>
           )}

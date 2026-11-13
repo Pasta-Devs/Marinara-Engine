@@ -6,6 +6,7 @@
 // ──────────────────────────────────────────────
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { usePresetFull, useUpdatePreset } from "../../hooks/use-presets";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { ListChecks, Shuffle, Save } from "lucide-react";
@@ -217,6 +218,28 @@ function ChatChoiceSelectionModal({
       width="max-w-lg"
       chatFloatingPanel={chatFloatingPanel}
       closeDisabled={updateMetadata.isPending}
+      footer={
+        variables.length > 0 ? (
+          <>
+            <button
+              onClick={handleConfirm}
+              disabled={!allSelected || updateMetadata.isPending}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {updateMetadata.isPending
+                ? localizeUi("chat.settings.inlineEditor.saving")
+                : localizeUi("ui.presets.choiceselectionmodal.confirmChoices")}
+            </button>
+            <button
+              onClick={() => (onConfirm ? onConfirm(baseSelections) : onClose())}
+              disabled={updateMetadata.isPending}
+              className={SHEET_BUTTON_QUIET}
+            >
+              {localizeUi("onboarding.actions.skip")}
+            </button>
+          </>
+        ) : undefined
+      }
     >
       {variables.length === 0 ? (
         isLoading ? (
@@ -277,24 +300,6 @@ function ChatChoiceSelectionModal({
               />
               <Save size="0.75rem" />
               {localizeUi("ui.presets.choiceselectionmodal.saveAsDefault")}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => (onConfirm ? onConfirm(baseSelections) : onClose())}
-                disabled={updateMetadata.isPending}
-                className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-              >
-                {localizeUi("onboarding.actions.skip")}
-              </button>
-              <button
-                onClick={handleConfirm}
-                disabled={!allSelected || updateMetadata.isPending}
-                className="rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] shadow-md transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
-              >
-                {updateMetadata.isPending
-                  ? localizeUi("chat.settings.inlineEditor.saving")
-                  : localizeUi("ui.presets.choiceselectionmodal.confirmChoices")}
-              </button>
             </div>
           </div>
         </fieldset>

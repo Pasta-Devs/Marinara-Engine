@@ -52,7 +52,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: pnpm
+          # Only Linux has a staging-saved pnpm cache to restore; the other runners would write PR-only entries (see #8950, #8967).
+          cache: ${{ matrix.os == 'ubuntu-latest' && 'pnpm' || '' }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Install NSIS for native prerequisite command proof
@@ -125,8 +126,7 @@ jobs:
             BUILD_BRANCH=${{ github.head_ref || github.ref_name }}
           push: false
           load: true
-          cache-from: type=gha,scope=platform-${{ matrix.variant }}-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=platform-${{ matrix.variant }}-${{ matrix.arch }}
+          # This check does not use the Actions cache, to stay within its budget (see #8950, #8967).
       - name: Verify startup, native dependencies and data after replacement
         run: node scripts/smoke-container.mjs marinara-platform-proof:${{ matrix.variant }} ${{ matrix.variant }} ${{ matrix.arch }}
 

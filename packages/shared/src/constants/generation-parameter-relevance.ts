@@ -265,7 +265,7 @@ export function relevantGenerationParameters(context: GenerationParameterContext
       }
     }
 
-    // Argon and the newer Gemini Flash models ignore temperature, top-p and top-k and reject penalties, so every
+    // Argon, Carbon and the newer Gemini Flash models ignore temperature, top-p and top-k and reject penalties, so every
     // request but a custom endpoint's leaves them out, including OpenRouter's and NanoGPT's.
     if (isGeminiStrictRequestModel(model) && provider !== "custom") hide(...SAMPLING);
 
@@ -396,7 +396,7 @@ export function reasoningEffortChoices(
     group.push(level);
     groups.set(sent, group);
   }
-  // A model that cannot turn thinking off (Gemini 4 Argon) sends a level for Off too, so Off is not offered.
+  // A model that cannot turn thinking off (Gemini 4 Argon or Carbon) sends a level for Off too, so Off is not offered.
   const offSendsLevel = !!resolveProviderReasoningEffort({ provider, model, reasoningEffort: null });
   const choices: Array<GenerationParameterChoice<StoredEffortLevel | null>> = offSendsLevel ? [] : [off];
   for (const [sent, levels] of groups) {

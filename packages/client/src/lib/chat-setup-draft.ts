@@ -3,6 +3,7 @@ import {
   CHAT_PRESET_EXCLUDED_METADATA_KEYS,
   CHAT_PRESET_EXCLUDED_PACKAGE_METADATA_KEYS,
   TRANSLATOR_SETTINGS_KEYS,
+  chatPresetVariablesFor,
   normalizeTranslatorSettings,
   type Chat,
   type ChatPreset,
@@ -80,6 +81,8 @@ export function advanceStarredProfileDraft(
   }
   // Starting picks the server just copied in (persona, lorebooks).
   if (profile.settings.lorebookIds?.length) metadata.activeLorebookIds = response.metadata.activeLorebookIds;
+  const presetChoices = chatPresetVariablesFor(profile.settings, profile.settings.promptPresetId);
+  if (presetChoices) metadata.presetChoices = presetChoices;
   const nextConnectionId = connectionId !== undefined ? connectionId : (profile.settings.connectionId ?? null);
   // A profile without a Model leaves the chat following Main.
   metadata[CHAT_FOLLOWS_MAIN_KEY] = !nextConnectionId;

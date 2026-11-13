@@ -403,7 +403,7 @@ export function ModelPicker({
                 slot === entry.key ? "bg-[var(--mari-connection-tint)]" : "hover:bg-foreground/[0.05]",
               )}
             >
-              <span className="text-[0.625rem] text-[var(--muted-foreground)]">{entry.label}</span>
+              <span className="text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">{entry.label}</span>
               <span className="w-full truncate text-xs font-medium">{entry.value}</span>
             </button>
           ))}

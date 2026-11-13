@@ -28,6 +28,7 @@ import { stripConversationPromptTimestamps } from "../services/conversation/tran
 import { DATA_DIR } from "../utils/data-dir.js";
 import type { ChatCompletionResult, ChatMessage } from "../services/llm/base-provider.js";
 import {
+  chatPresetVariablesFor,
   normalizeGroupChatMode,
   parseChoiceOptions,
   defaultGameRatingGuidelines,
@@ -546,14 +547,15 @@ export async function sceneRoutes(app: FastifyInstance) {
 
     // A scene is a new Roleplay chat, so it starts from the starred Roleplay settings profile, as a new Roleplay
     // chat does. The connection is the profile's unless the request named one; a prompt preset picked for the
-    // scene stays; the scene's own settings below are written on top.
+    // scene stays (the profile's preset variable choices then apply only if saved for that preset); the scene's
+    // own settings below are written on top.
     const chatPresetsStorage = createChatPresetsStorage(app.db);
     const starredProfile = await chatPresetsStorage.getActive("roleplay");
     if (starredProfile && !starredProfile.isDefault) {
       await chatPresetsStorage.applyToChat(starredProfile.id, sceneChat.id, {
         connectionId: connectionId ?? starredProfile.settings.connectionId ?? origin.connectionId ?? null,
+        ...(selectedPresetId && { promptPresetId: selectedPresetId }),
       });
-      if (selectedPresetId) await chats.update(sceneChat.id, { promptPresetId: selectedPresetId });
     }
 
     // Build conversation transcript as hidden context (NOT displayed)
@@ -1299,7 +1301,7 @@ export async function sceneRoutes(app: FastifyInstance) {
     ];
 
     // With no preset picked for the scene, the opening follows the writing rules the scene chat will use: the prompt
-    // preset of the starred Roleplay settings profile, which /scene/create applies.
+    // preset of the starred Roleplay settings profile, with its saved variable choices, which /scene/create applies.
     const profilePresetId =
       !preset && starredRoleplayProfile && !starredRoleplayProfile.isDefault
         ? (starredRoleplayProfile.settings.promptPresetId ?? null)
@@ -1322,7 +1324,15 @@ export async function sceneRoutes(app: FastifyInstance) {
         sections: sections.filter((section) => section.isMarker !== "true"),
         chatChoices: {
           ...(parsePromptPresetChoices(writingPreset.defaultChoices) ?? {}),
-          ...(preset ? (presetChoices ?? {}) : {}),
+          // As /scene/create stores them: the request's own choices, else the starred profile's when it saved them
+          // for this same preset (#8957).
+          ...(preset
+            ? (presetChoices ??
+              (starredRoleplayProfile && !starredRoleplayProfile.isDefault
+                ? chatPresetVariablesFor(starredRoleplayProfile.settings, preset.id)
+                : undefined) ??
+              {})
+            : (chatPresetVariablesFor(starredRoleplayProfile?.settings, profilePresetId) ?? {})),
         },
         chatId: origin.chat?.id ?? "",
         characterIds,

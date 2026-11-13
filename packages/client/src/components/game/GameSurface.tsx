@@ -374,7 +374,16 @@ import {
 import { PinnedImageOverlay } from "../chat/PinnedImageOverlay";
 import { CHAT_TOOLBAR_ICON_GAP_CLASS } from "../chat/ChatToolbarControls";
 import { HISTORY_PAGER_BUTTON_CLASS } from "../chat/TranscriptWindowControls";
-import { NEUTRAL_PANEL_SCROLL_AREA, NEUTRAL_PANEL_SUBTITLE } from "../ui/neutral-surface-styles";
+import {
+  NEUTRAL_PANEL_SCROLL_AREA,
+  NEUTRAL_PANEL_SUBTITLE,
+  SHEET_BUTTON_QUIET,
+  SHEET_BUTTON_DESTRUCTIVE,
+  SHEET_BUTTON_PRIMARY,
+  SHEET_BUTTON_SECONDARY,
+  SHEET_CHOICE_GROUP_CLASS,
+  SHEET_CHOICE_ROW_CLASS,
+} from "../ui/neutral-surface-styles";
 import type { ReadableTag } from "../../lib/game-tag-parser";
 import type { DirectionCommand, GameNpc, GameStoryboardViewerDisplayMode } from "@marinara-engine/shared";
 import { GAME_CHECKPOINT_LOADED_EVENT } from "../../lib/game-checkpoint-events";
@@ -15268,7 +15277,14 @@ function GameSurfaceComponent({
         {imagePromptReviewModal}
 
         <Modal
+          footer={
+            <button onClick={closeInterruptModal} className={SHEET_BUTTON_SECONDARY}>
+              {localizeUi("chat.delete.dialog.cancel")}
+            </button>
+          }
+          closeButtonClassName="max-sm:hidden"
           open={interruptModalOpen}
+          pullToClose={false}
           onClose={closeInterruptModal}
           title={localizeUi("ui.game.gamesurfacecomponent.attemptToInterrupt")}
           width="max-w-md"
@@ -15284,38 +15300,45 @@ function GameSurfaceComponent({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                onClick={closeInterruptModal}
-                className="rounded-lg bg-zinc-950/80 px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800/80 hover:text-[var(--foreground)]"
-              >
-                {localizeUi("ui.game.gamesurfacecomponent.no")}
-              </button>
+            <div className={SHEET_CHOICE_GROUP_CLASS}>
               <button
                 onClick={() => confirmInterrupt("force")}
-                className="rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 transition-colors"
-                style={{
-                  color: "#20C20E",
-                  backgroundColor: "rgba(32, 194, 14, 0.12)",
-                  borderColor: "rgba(32, 194, 14, 0.35)",
-                  boxShadow: "0 0 0 1px rgba(32, 194, 14, 0.35) inset",
-                }}
+                className={`${SHEET_CHOICE_ROW_CLASS} font-semibold`}
+                style={{ color: "#20C20E" }}
                 title={localizeUi("ui.game.gamesurfacecomponent.cutInWithoutTellingTheGmItWasAn")}
               >
                 {localizeUi("ui.game.gamesurfacecomponent.forceInterrupt")}
               </button>
               <button
                 onClick={() => confirmInterrupt("risky")}
-                className="rounded-lg bg-[var(--marinara-app-accent-static)]/20 px-3 py-1.5 text-xs font-semibold text-[var(--marinara-app-accent-static)] ring-1 ring-[var(--marinara-app-accent-static)]/40 transition-colors hover:bg-[var(--marinara-app-accent-static)]/30"
+                className={`${SHEET_CHOICE_ROW_CLASS} font-semibold text-[var(--marinara-app-accent-static)]`}
                 title={localizeUi("ui.game.gamesurfacecomponent.attemptAnInFictionInterruptionOutcomesCanFail")}
               >
-                {localizeUi("ui.game.gamesurfacecomponent.yes")}
+                {localizeUi("ui.game.gamesurfacecomponent.tryToInterrupt")}
               </button>
             </div>
           </div>
         </Modal>
 
         <Modal
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  closeStoryEnding();
+                  handleRequestEndSession();
+                }}
+                className={SHEET_BUTTON_PRIMARY}
+              >
+                {localizeUi("ui.game.storyEnding.endSession")}
+              </button>
+              <button type="button" onClick={closeStoryEnding} className={SHEET_BUTTON_QUIET}>
+                {localizeUi("ui.game.storyEnding.keepReading")}
+              </button>
+            </>
+          }
+          closeButtonClassName="max-sm:hidden"
           open={
             storyEnding !== null &&
             storyEndingKey !== storyEndingClosed &&
@@ -15333,30 +15356,34 @@ function GameSurfaceComponent({
               {localizeUi("ui.game.storyEnding.theEnd")}
             </p>
             <p className="whitespace-pre-line text-sm leading-relaxed">{storyEnding?.epilogue}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeStoryEnding}
-                className="rounded-xl px-3 py-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-              >
-                {localizeUi("ui.game.storyEnding.keepReading")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  closeStoryEnding();
-                  handleRequestEndSession();
-                }}
-                className="rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)]"
-              >
-                {localizeUi("ui.game.storyEnding.endSession")}
-              </button>
-            </div>
           </div>
         </Modal>
 
         <Modal
+          footer={
+            <>
+              <button
+                onClick={handleConfirmEndSession}
+                disabled={concludeSession.isPending}
+                className={SHEET_BUTTON_DESTRUCTIVE}
+              >
+                {concludeSession.isPending
+                  ? localizeUi("ui.game.gamesurfacecomponent.endingSession_06ef62f")
+                  : localizeUi("ui.game.gamesurfacecomponent.endSession")}
+              </button>
+              <button
+                onClick={handleCloseEndSessionDialog}
+                disabled={concludeSession.isPending}
+                className={SHEET_BUTTON_QUIET}
+              >
+                {localizeUi("chat.delete.dialog.cancel")}
+              </button>
+            </>
+          }
+          closeButtonClassName="max-sm:hidden"
+          closeDisabled={concludeSession.isPending}
           open={confirmEndSessionOpen}
+          pullToClose={false}
           onClose={handleCloseEndSessionDialog}
           title={
             concludeSession.isPending
@@ -15395,29 +15422,10 @@ function GameSurfaceComponent({
                   rows={4}
                   maxLength={5000}
                   placeholder={localizeUi("ui.game.gamesurfacecomponent.leaveEmptyToLetTheGmSteerNaturally")}
-                  className="resize-none rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm leading-relaxed text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/70 focus:border-zinc-400/60"
+                  className="resize-none rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm leading-relaxed text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/70 focus:border-zinc-400/60 max-sm:text-base"
                 />
               </label>
             )}
-
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={handleCloseEndSessionDialog}
-                disabled={concludeSession.isPending}
-                className="rounded-lg bg-zinc-950/80 px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800/80 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {localizeUi("chat.delete.dialog.cancel")}
-              </button>
-              <button
-                onClick={handleConfirmEndSession}
-                disabled={concludeSession.isPending}
-                className="rounded-lg bg-[var(--destructive)]/15 px-3 py-1.5 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/25 transition-colors hover:bg-[var(--destructive)]/25 disabled:opacity-50"
-              >
-                {concludeSession.isPending
-                  ? localizeUi("ui.game.gamesurfacecomponent.endingSession_06ef62f")
-                  : localizeUi("ui.game.gamesurfacecomponent.endSession")}
-              </button>
-            </div>
           </div>
         </Modal>
 

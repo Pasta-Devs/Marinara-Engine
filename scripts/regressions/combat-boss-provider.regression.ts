@@ -22,6 +22,7 @@ let payload: {
     temperature?: number;
     max_tokens?: number;
     top_p?: number;
+    generationConfig?: { maxOutputTokens?: number; thinkingConfig?: { thinkingLevel?: string } };
   },
   replyText = '{"candidateId":"0"}',
   broken = false;
@@ -36,6 +37,10 @@ const server = createServer(async (req, res) => {
     return;
   }
   res.setHeader("Content-Type", "application/json");
+  if (req.url?.includes(":generateContent")) {
+    res.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: replyText }] }, finishReason: "STOP" }] }));
+    return;
+  }
   res.end(
     JSON.stringify({
       id: "local-proof",
@@ -225,6 +230,43 @@ try {
     assert.deepEqual(noItems.json().combatState.itemEffects, []);
     assert.doesNotMatch(JSON.stringify(payload!.messages), /itemEffects\\": \[/);
     assert.match(JSON.stringify(payload!.messages), /says what its own items do in a fight, so give no itemEffects/);
+
+    // Gemini 4 Argon thinks at medium with nothing saved, so a fight's action and its summary keep room for that.
+    const argon = await createConnectionsStorage(db).create({
+      name: "Argon fixture",
+      provider: "google",
+      baseUrl: `http://127.0.0.1:${addr.port}`,
+      apiKey: "synthetic",
+      model: "gemini-4-argon",
+    });
+    replyText = "The fight is over.";
+    const narrative = { tense: "past", person: "third", narration: "omniscient", pov: "" };
+    const settings = { combatNarrative: narrative, summaryNarrative: narrative, historyDepth: 8 };
+    for (const [url, body] of [
+      ["/encounter/action", { action: "Attack", combatStats: { party: [], enemies: [] } }],
+      ["/encounter/summary", { encounterLog: [{ message: "Hero wins." }], result: "victory" }],
+    ] as const) {
+      const sent = await app.inject({
+        method: "POST",
+        url,
+        payload: { chatId: chat.id, connectionId: argon.id, settings, ...body },
+      });
+      assert.equal(sent.statusCode, 200, sent.body);
+      assert.equal(payload!.generationConfig?.thinkingConfig?.thinkingLevel, "medium", `${url} thinks at medium`);
+      assert.ok(payload!.generationConfig!.maxOutputTokens! > 8192, `${url} keeps room for thinking`);
+    }
+    // The GM's boss pick answers in 300 tokens: on Argon with nothing saved, medium thinking needs room beside them.
+    const argonChat = await chats.create({
+      name: "GM proof on Argon",
+      mode: "game",
+      characterIds: [],
+      connectionId: argon.id,
+    });
+    await chats.patchMetadata(argonChat.id, { gameGmCharacterId: gm!.id });
+    replyText = '{"candidateId":"0"}';
+    assert.equal(await chooseGmCombatOption(db, argonChat.id, state, false, AbortSignal.timeout(3000)), "0");
+    assert.equal(payload!.generationConfig?.thinkingConfig?.thinkingLevel, "medium", "the boss pick thinks at medium");
+    assert.ok(payload!.generationConfig!.maxOutputTokens! > 300, "the boss pick keeps room for thinking");
   } finally {
     logger.warn = warn;
     await app.close();

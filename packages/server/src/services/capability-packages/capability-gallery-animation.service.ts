@@ -99,6 +99,7 @@ export async function animateCapabilityGalleryImage(
     resolution: runtime.resolution,
     comfyWorkflow: runtime.comfyWorkflow,
     comfyLoras: runtime.comfyLoras,
+    customHeaders: runtime.customHeaders,
     fps: runtime.comfyFps,
     atlasModelOptions: runtime.atlasModelOptions,
     publicReferenceUpload: runtime.publicReferenceUpload,

@@ -1,5 +1,6 @@
 import {
   relevantGenerationParameters,
+  resolveProviderReasoningEffort,
   type CapabilityLanguageModelCompletionOptions,
   type ChatOptions,
   type GenerationParameterSendMap,
@@ -28,7 +29,10 @@ export type AgentGenerationParameters = {
   serviceTier?: "flex" | "priority";
   /** The model rejects sampling parameters, so the agent's own temperature is not sent either. */
   omitTemperature?: true;
-  /** Present only when the connection chose a reasoning level or Off; it replaces the agent's own default. */
+  /**
+   * Present only when the connection chose a reasoning level or Off, or saved none on a model that thinks without one
+   * (Gemini 4 Argon and Carbon); it replaces the agent's own default.
+   */
   reasoning?: { reasoningEffort?: ChatOptions["reasoningEffort"]; enableThinking: boolean };
   /** The provider counts thinking inside max tokens, so a call that thinks needs room left for the answer. */
   thinkingHeadroom?: true;
@@ -115,14 +119,26 @@ function connectionSends(resolved: ResolvedGenerationParameters, key: keyof Gene
   return resolved.enabledParameters?.[key] !== false;
 }
 
+/** Gemini 4 Argon and Carbon on Google and Vertex think at medium even when asked for no level or Off. */
+function thinksWithoutLevel(provider: string, model: string): boolean {
+  return resolveProviderReasoningEffort({ provider, model, reasoningEffort: null }) !== null;
+}
+
 /**
  * A level counts as chosen only when the connection saved one, sends it, and shows Reasoning Effort for this model.
- * Codex keeps its own level while the saved value is Default (null).
+ * Codex keeps its own level while the saved value is Default (null). With `unsetCountsAsOff`, no saved level counts as
+ * a saved Off when Off still names a level: Gemini 4 Argon and Carbon think at medium either way, so the call sends
+ * that level and gets room for it.
  */
-function connectionChoseReasoning(source: ConnectionParameterSource, resolved: ResolvedGenerationParameters): boolean {
-  if (resolved.parameterSources.reasoningEffort !== "connection" || !connectionSends(resolved, "reasoningEffort")) {
-    return false;
-  }
+function connectionChoseReasoning(
+  source: ConnectionParameterSource,
+  resolved: ResolvedGenerationParameters,
+  unsetCountsAsOff = false,
+): boolean {
+  const chosen =
+    resolved.parameterSources.reasoningEffort === "connection" ||
+    (unsetCountsAsOff && thinksWithoutLevel(source.provider, source.model));
+  if (!chosen || !connectionSends(resolved, "reasoningEffort")) return false;
   if (source.provider.toLowerCase() === "openai_chatgpt" && resolved.reasoningEffort == null) return false;
   return relevantGenerationParameters({ provider: source.provider, model: source.model }).has("reasoningEffort");
 }
@@ -139,7 +155,7 @@ export function resolveAgentConnectionParameters(source: ConnectionParameterSour
   const resolved = resolveConnectionGenerationParameters(source);
   const sent = <T>(key: keyof GenerationParameterSendMap, value: T) =>
     connectionSends(resolved, key) ? value : undefined;
-  const reasoning = connectionChoseReasoning(source, resolved)
+  const reasoning = connectionChoseReasoning(source, resolved, true)
     ? { reasoningEffort: resolved.providerReasoningEffort, enableThinking: resolved.enableThinking }
     : undefined;
   return {
@@ -197,6 +213,21 @@ export function withConnectionThinkingHeadroom(args: {
       maxTokensOverride: args.maxTokensOverride,
     }),
   );
+}
+
+/**
+ * The answer budget for a helper call that sends resolveStoredChatOptions' level. On a model that thinks without a
+ * level (Gemini 4 Argon and Carbon) that level is there even with nothing saved, so the call gets the room an agent
+ * gets; every other model keeps the budget its helper calls always had.
+ */
+export function withAlwaysOnThinkingHeadroom(args: Parameters<typeof withConnectionThinkingHeadroom>[0]): number {
+  if (!thinksWithoutLevel(args.provider, args.model)) return args.maxTokens;
+  // They think at their default even when no level is sent (Reasoning Effort's Send switch off, or none), so the room
+  // is sized from that level; the request itself still leaves the level out.
+  const sent = args.reasoningEffort && args.reasoningEffort !== "none" ? args.reasoningEffort : null;
+  const effort =
+    sent ?? resolveProviderReasoningEffort({ provider: args.provider, model: args.model, reasoningEffort: null });
+  return withConnectionThinkingHeadroom({ ...args, reasoningEffort: effort });
 }
 
 type CapabilityChatOptions = Pick<

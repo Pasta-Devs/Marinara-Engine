@@ -12,6 +12,7 @@ import {
   parseChatImageGenerationRecord,
   LOCAL_SIDECAR_CONNECTION_ID,
   readImageAppearanceOverride,
+  resolveImageBackend,
   resolveGameSetupArtStylePrompt,
   VIDEO_GENERATION_SETTINGS_KEY,
   normalizeVideoGenerationUserSettings,
@@ -40,6 +41,12 @@ import {
 } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import {
+  NOVELAI_CHARACTER_PROMPT_RULES,
+  NOVELAI_V5_MAX_CHARACTER_PROMPTS,
+  resolveNovelAiCharacterPromptLimit,
+  supportsNovelAiCharacterPrompts,
+} from "../services/image/character-prompts.js";
+import {
   compileImagePrompt,
   formatImageStylePromptGuidance,
   removeCopiedPromptGuidance,
@@ -60,6 +67,10 @@ import {
 } from "../services/image/gallery-file-lifecycle.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
 import { resolveIllustratorPromptRuntime } from "../services/generation/illustrator-prompt-runtime.js";
+import { normalizeAgentMaxTokens } from "../services/generation/generation-parameters.js";
+import { resolveAgentsDefaultConnectionId } from "../services/generation/agent-resolution.js";
+import { sidecarModelService } from "../services/sidecar/sidecar-model.service.js";
+import type { ChatMessage } from "../services/llm/base-provider.js";
 import { resolveIllustratorImageConnectionId } from "../services/generation/illustrator-background-generation.js";
 import { resolveConversationSelfieSystemPrompt } from "../services/conversation/selfie-prompt.js";
 import { appendImagePromptInstructions } from "../services/generation/image-prompt-instructions.js";
@@ -123,6 +134,7 @@ import {
   validateVideoAssetFile,
 } from "../utils/media-file-security.js";
 import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
+import { tryParseJsonRecord } from "../lib/json-repair.js";
 
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const SPRITES_DIR = join(DATA_DIR, "sprites");
@@ -131,6 +143,7 @@ const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]
 const GALLERY_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 const SCENE_VIDEO_FILENAME_RE = /^[A-Za-z0-9_-]+\.mp4$/;
 const SCENE_VIDEO_GENERATION_TIMEOUT_MS = 31 * 60 * 1000;
+const IMAGE_PROMPT_REWRITE_TIMEOUT_MS = 3 * 60 * 1000;
 
 type ChatGalleryImageRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createGalleryStorage>["getById"]>>>;
 type ChatRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createChatsStorage>["getById"]>>>;
@@ -216,27 +229,59 @@ const generateGalleryImageSchema = z.object({
   debugMode: z.boolean().optional().default(false),
 });
 
+const galleryCharacterPromptSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  prompt: z.string().trim().min(1).max(20_000),
+  negativePrompt: z.string().max(20_000).optional(),
+  position: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
+});
+
+const extractedGalleryCharacterPromptSchema = galleryCharacterPromptSchema
+  .extend({ position: galleryCharacterPromptSchema.shape.position.catch(undefined) })
+  .strict();
+
 /** Re-send an existing image's final request, possibly edited (#7767). */
 const regenerateGalleryImageSchema = z.object({
   prompt: z.string().trim().min(1).max(200_000),
   negativePrompt: z.string().max(200_000).optional(),
-  characterPrompts: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1).max(200),
-        prompt: z.string().trim().min(1).max(20_000),
-        negativePrompt: z.string().max(20_000).optional(),
-        position: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
-      }),
-    )
-    .max(6)
-    .optional(),
+  characterPrompts: z.array(galleryCharacterPromptSchema).max(NOVELAI_V5_MAX_CHARACTER_PROMPTS).optional(),
   /** Another image connection to try; defaults to the one that made the image. */
   connectionId: z.string().trim().min(1).max(200).optional(),
   /** Message the image was opened from, so its attachment is swapped without scanning swipes. */
   messageId: z.string().trim().min(1).max(200).optional(),
   debugMode: z.boolean().optional().default(false),
 });
+
+const rewriteGalleryImagePromptSchema = regenerateGalleryImageSchema
+  .omit({ messageId: true })
+  .required({ negativePrompt: true, characterPrompts: true })
+  .extend({ guidance: z.string().trim().max(4_000).optional() });
+
+const rewrittenGalleryBasePromptSchema = regenerateGalleryImageSchema
+  .pick({ prompt: true, negativePrompt: true })
+  .required({ negativePrompt: true });
+
+const extractedGalleryImagePromptSchema = rewrittenGalleryBasePromptSchema
+  .extend({ characterPrompts: z.array(extractedGalleryCharacterPromptSchema).max(NOVELAI_V5_MAX_CHARACTER_PROMPTS) })
+  .strict();
+
+const rewrittenGalleryImagePromptSchema = rewrittenGalleryBasePromptSchema
+  .extend({
+    characterPrompts: z
+      .array(
+        z
+          .object({
+            id: z.number().int().nonnegative(),
+            name: galleryCharacterPromptSchema.shape.name.optional(),
+            prompt: z.string().trim().min(1).max(20_000),
+            negativePrompt: z.string().max(20_000),
+            position: extractedGalleryCharacterPromptSchema.shape.position,
+          })
+          .strict(),
+      )
+      .max(NOVELAI_V5_MAX_CHARACTER_PROMPTS),
+  })
+  .strict();
 
 const previewGalleryImagesSchema = z.object({
   items: z
@@ -392,6 +437,60 @@ async function resolveGalleryImageConnection(
   }
   connection ??= await connections.getDefaultForImageGeneration();
   return { connection, connections };
+}
+
+function resolveGalleryImageTarget(connection: {
+  model: string | null;
+  baseUrl: string | null;
+  imageGenerationSource?: string | null;
+  imageService?: string | null;
+}) {
+  const imageModel = connection.model || "";
+  const imageSource = connection.imageGenerationSource || imageModel;
+  return {
+    imageModel,
+    imageBaseUrl: connection.baseUrl || "https://image.pollinations.ai",
+    imageSource,
+    imageServiceHint: connection.imageService || imageSource,
+  };
+}
+
+function resolveGalleryCaptionLimit({
+  imageModel,
+  imageBaseUrl,
+  imageSource,
+  imageServiceHint,
+}: ReturnType<typeof resolveGalleryImageTarget>): number {
+  return supportsNovelAiCharacterPrompts({ baseUrl: imageBaseUrl, model: imageModel }) &&
+    resolveImageBackend(imageSource, imageBaseUrl, imageServiceHint, imageModel) === "novelai"
+    ? resolveNovelAiCharacterPromptLimit(imageModel)
+    : 0;
+}
+
+function galleryCaptionLimitError(limit: number, count: number): string | null {
+  return limit > 0 && count > limit
+    ? `This NovelAI model accepts up to ${limit} character prompts. Clear the extra character prompts or select another image model.`
+    : null;
+}
+
+async function resolveRegenerationImageConnection(
+  app: FastifyInstance,
+  connections: ReturnType<typeof createConnectionsStorage>,
+  chatMode: string,
+  metadata: Record<string, unknown>,
+  selectedId: string | undefined,
+  recordedId: string | null | undefined,
+) {
+  const preferredId = selectedId ?? recordedId;
+  const preferred = preferredId ? await connections.getWithKey(preferredId) : null;
+  if (preferred?.provider === "image_generation") return preferred;
+  if (selectedId) return null;
+
+  // Conversation selfies use the image connection configured for the chat.
+  const conversationId = chatMode === "conversation" ? readTrimmedString(metadata.imageGenConnectionId) : null;
+  const conversation = conversationId ? await connections.getWithKey(conversationId) : null;
+  if (conversation?.provider === "image_generation") return conversation;
+  return (await resolveGalleryImageConnection(app, chatMode, metadata)).connection;
 }
 
 function readStringArray(value: unknown): string[] {
@@ -593,10 +692,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const setting = readTrimmedString(setupConfig.setting);
     const worldOverview = readTrimmedString(metadata.gameWorldOverview);
     const imagePromptInstructions = readTrimmedString(metadata.gameImagePromptInstructions);
-    const imageModel = imageConnection.model || "";
-    const imageBaseUrl = imageConnection.baseUrl || "https://image.pollinations.ai";
-    const imageSource = imageConnection.imageGenerationSource || imageModel;
-    const imageServiceHint = imageConnection.imageService || imageSource;
+    const imageTarget = resolveGalleryImageTarget(imageConnection);
     const imageFallback = await resolveImageConnectionFallback(connections, imageConnection.id);
 
     return {
@@ -611,10 +707,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       setting,
       worldOverview,
       imagePromptInstructions,
-      imageModel,
-      imageBaseUrl,
-      imageSource,
-      imageServiceHint,
+      ...imageTarget,
       imageFallback,
       debugLog,
       promptOverridesStorage: createPromptOverridesStorage(app.db),
@@ -2048,6 +2141,230 @@ export async function galleryRoutes(app: FastifyInstance) {
     }
   });
 
+  // Revise the editor's current draft. Only the image regeneration route saves and swaps images.
+  app.post<{ Params: { chatId: string; imageId: string } }>(
+    "/:chatId/images/:imageId/regenerate/prompt",
+    async (req, reply) => {
+      const { chatId, imageId } = req.params;
+      if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+
+      const input = rewriteGalleryImagePromptSchema.parse(req.body);
+      const chat = await chats.getById(chatId);
+      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      const original = await storage.getById(imageId, chatId);
+      if (!original) return reply.status(404).send({ error: "Image not found" });
+
+      const metadata = parseChatMetadata(chat.metadata);
+      const connections = createConnectionsStorage(app.db);
+      const imageConnection = await resolveRegenerationImageConnection(
+        app,
+        connections,
+        chat.mode,
+        metadata,
+        input.connectionId,
+        parseChatImageGenerationRecord(original.generation)?.connectionId,
+      );
+      if (input.connectionId && !imageConnection) {
+        return reply.status(400).send({ error: "That image connection no longer exists." });
+      }
+
+      const imageTarget = imageConnection ? resolveGalleryImageTarget(imageConnection) : null;
+      const captionLimit = imageTarget ? resolveGalleryCaptionLimit(imageTarget) : 0;
+      const captionLimitError = galleryCaptionLimitError(captionLimit, input.characterPrompts.length);
+      if (captionLimitError) return reply.status(400).send({ error: captionLimitError });
+      const hasDraftCaptions = input.characterPrompts.length > 0;
+      const userPrompt = JSON.stringify({
+        prompt: input.prompt,
+        negativePrompt: input.negativePrompt,
+        // Without native captions, generation appends them to the prompt, so the model revises them too.
+        ...(captionLimit > 0 || hasDraftCaptions
+          ? { characterPrompts: input.characterPrompts.map((character, id) => ({ ...character, id })) }
+          : {}),
+        guidance: input.guidance ?? "",
+      });
+      if (userPrompt.length > 24_000) {
+        return reply
+          .status(400)
+          .send({ error: "This prompt draft is too long for AI rewriting. Shorten the draft and try again." });
+      }
+
+      let runtime;
+      let visibleMaxTokens;
+      try {
+        const illustrator = await createAgentsStorage(app.db).getByType("illustrator");
+        visibleMaxTokens = normalizeAgentMaxTokens(parseJsonRecord(illustrator?.settings).maxTokens);
+        const promptConnectionId =
+          readTrimmedString(metadata.illustratorPromptConnectionId) ??
+          readTrimmedString(illustrator?.connectionId) ??
+          resolveAgentsDefaultConnectionId({
+            useLocalSidecarAsAgentsDefault: sidecarModelService.getConfig().useAsAgentsDefault,
+            localSidecarAvailable: sidecarModelService.getConfiguredModelRef() !== null,
+            rowDefaultConnectionId: (await connections.getDefaultForAgents())?.id ?? null,
+          }) ??
+          chat.connectionId;
+        runtime = await resolveIllustratorPromptRuntime({
+          chatMetadata: metadata,
+          defaultConnection: null,
+          defaultConnectionId: promptConnectionId,
+          connections,
+          resolveBaseUrl,
+        });
+      } catch {
+        logger.warn("[gallery/regenerate/prompt] Prompt Model unavailable for chat %s", chatId);
+        return reply
+          .status(400)
+          .send({ error: "The Prompt Model is unavailable. Check the Illustrator and Agents model settings." });
+      }
+
+      const systemPrompt = appendImagePromptInstructions(
+        [
+          "Revise this existing image-generation draft according to the guidance field.",
+          "Preserve the draft's subject, details, style and prompt syntax except where the guidance requests changes.",
+          "If guidance is empty, offer alternate wording that faithfully describes the same image.",
+          ...(captionLimit > 0
+            ? [
+                "This image connection supports native NovelAI character prompts. Apply changes to the main, negative and character prompts where relevant. Keep the main scene and individual character captions separate.",
+                ...(hasDraftCaptions
+                  ? [
+                      'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
+                      "Return one entry for each input character with the same id. Add entries only for new characters requested in the guidance. For each new character, include a short name and assign the next unused id starting at the number of input characters. Update the main prompt's character counts and shared actions as needed.",
+                      `Return at most ${captionLimit} captions in total.`,
+                      "Omit position to keep an existing character's placement or leave a new character's placement automatic. If the guidance requests placement, include position as an object with numeric x and y between 0 and 1, where x runs left to right and y runs top to bottom.",
+                    ]
+                  : [
+                      'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"name":"…","prompt":"…","negativePrompt":"…"}]}.',
+                      "When a separate caption helps fulfill the guidance, move character-specific details from the draft into one caption per visible subject, including solo subjects. Use a short descriptive name if the draft gives no name. Keep counts, shared actions, composition and setting in the main prompt.",
+                      `Return at most ${captionLimit} captions. Use an empty array when no separate caption is needed. Preserve the draft's characters.`,
+                      ...NOVELAI_CHARACTER_PROMPT_RULES,
+                      'Omit "position" unless the layout is clear and you can give both x and y as numbers.',
+                    ]),
+              ]
+            : hasDraftCaptions
+              ? [
+                  'This image model has no native character prompts. Each character caption is appended to the main prompt as "name: prompt", so apply changes to the main, negative and character prompts where relevant, and keep them consistent.',
+                  'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
+                  "Return one entry for each input character with the same id. Do not add or remove characters; describe any new character in the main prompt.",
+                ]
+              : [
+                  "Apply changes to the main and negative prompts where relevant. Keep character descriptions in the main prompt.",
+                  'Return only JSON in the format {"prompt":"…","negativePrompt":"…"}.',
+                ]),
+          "Use an empty string for any negative prompt that should be blank.",
+          "Image prompt instructions apply to the strings inside this JSON format.",
+        ].join("\n"),
+        imageConnection?.imagePromptInstructions,
+      );
+      logDebugOverride(
+        input.debugMode || isDebugAgentsEnabled(),
+        "[debug/gallery/regenerate/prompt] system:\n%s\nuser:\n%s",
+        systemPrompt,
+        userPrompt,
+      );
+      const rejectRewrite = (error: string) => {
+        logger.warn("[gallery/regenerate/prompt] Rewrite failed for chat %s: %s", chatId, error);
+        return reply.status(502).send({ error });
+      };
+      const messages: ChatMessage[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ];
+      let result;
+      try {
+        result = await runtime.provider.chatComplete(messages, {
+          model: runtime.model,
+          ...(runtime.suppressModelParameters
+            ? {}
+            : runtime.resolveAgentPromptOptions(visibleMaxTokens, messages, 0.55)),
+          suppressModelParameters: runtime.suppressModelParameters,
+          preserveContext: true,
+          enableCaching: runtime.enableCaching,
+          anthropicExtendedCacheTtl: runtime.anthropicExtendedCacheTtl,
+          signal: createResponseAbortSignal(reply, IMAGE_PROMPT_REWRITE_TIMEOUT_MS, "Gallery prompt rewriting"),
+        });
+      } catch {
+        return rejectRewrite("The Prompt Model request failed. Try again or check its connection.");
+      }
+      if (result.finishReason === "length") {
+        return rejectRewrite(
+          "The Prompt Model reached its output limit. Increase the limit or shorten the draft and try again.",
+        );
+      }
+      const raw = (result.content ?? "").replace(/^\s*<think>[\s\S]*?<\/think>/i, "").trim();
+      const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)?.[1] ?? raw;
+      // Repair syntax only when the model supplied an object with a closing brace.
+      const json = fenced.match(/\{[\s\S]*\}/)?.[0];
+      const parsed = json ? tryParseJsonRecord(json) : null;
+      if (!parsed) return rejectRewrite("The Prompt Model did not return a valid JSON object. Try revising again.");
+
+      const invalidFields = "The Prompt Model returned missing or invalid prompt fields. Try revising again.";
+      if (captionLimit === 0 && !hasDraftCaptions) {
+        const base = rewrittenGalleryBasePromptSchema.safeParse(parsed);
+        if (!base.success) return rejectRewrite(invalidFields);
+        return { ...base.data, characterPrompts: [] };
+      }
+      if (captionLimit === 0) {
+        // Revised in place: names and positions stay, so the captions still work if the user switches back to NovelAI.
+        const revision = rewrittenGalleryImagePromptSchema.safeParse(parsed);
+        if (!revision.success) return rejectRewrite(invalidFields);
+        const byId = new Map(revision.data.characterPrompts.map((character) => [character.id, character]));
+        if (
+          byId.size !== input.characterPrompts.length ||
+          revision.data.characterPrompts.length !== byId.size ||
+          input.characterPrompts.some((_, id) => !byId.has(id))
+        ) {
+          return rejectRewrite(
+            "The Prompt Model returned missing, duplicate, or extra character IDs. Try revising again.",
+          );
+        }
+        return {
+          prompt: revision.data.prompt,
+          negativePrompt: revision.data.negativePrompt,
+          characterPrompts: input.characterPrompts.map((original, id) => {
+            const { prompt, negativePrompt } = byId.get(id)!;
+            return { ...original, prompt, negativePrompt };
+          }),
+        };
+      }
+      if (Array.isArray(parsed.characterPrompts) && parsed.characterPrompts.length > captionLimit) {
+        return rejectRewrite(
+          `The Prompt Model returned ${parsed.characterPrompts.length} character prompts, but this NovelAI model accepts up to ${captionLimit}. Ask for fewer characters or select another image model.`,
+        );
+      }
+      if (!hasDraftCaptions) {
+        const extracted = extractedGalleryImagePromptSchema.safeParse(parsed);
+        if (!extracted.success) return rejectRewrite(invalidFields);
+        return extracted.data;
+      }
+      const revision = rewrittenGalleryImagePromptSchema.safeParse(parsed);
+      if (!revision.success) return rejectRewrite(invalidFields);
+      const revised = revision.data;
+      const byId = new Map(revised.characterPrompts.map((character) => [character.id, character]));
+      if (
+        byId.size < input.characterPrompts.length ||
+        byId.size !== revised.characterPrompts.length ||
+        revised.characterPrompts.some((_, id) => !byId.has(id))
+      ) {
+        return rejectRewrite(
+          "The Prompt Model returned missing, duplicate, or out-of-sequence character IDs. Try revising again.",
+        );
+      }
+      return {
+        prompt: revised.prompt,
+        negativePrompt: revised.negativePrompt,
+        characterPrompts: Array.from({ length: byId.size }, (_, id) => {
+          const original = input.characterPrompts[id];
+          const { name, prompt, negativePrompt, position } = byId.get(id)!;
+          return {
+            name: original?.name ?? name ?? `Character ${id + 1}`,
+            prompt,
+            negativePrompt,
+            position: position ?? original?.position,
+          };
+        }),
+      };
+    },
+  );
+
   // Regenerate an existing image from its final request, optionally edited (#7767). The new image
   // replaces the old one wherever a message or storyboard frame shows it; the old one stays in the
   // gallery.
@@ -2064,24 +2381,19 @@ export async function galleryRoutes(app: FastifyInstance) {
       if (!original) return reply.status(404).send({ error: "Image not found" });
       const record = parseChatImageGenerationRecord(original.generation);
 
-      // The connection that made the image, unless the user picked another; images from before
-      // records existed (or whose connection is gone) use the chat's current image connection.
       const connectionsStore = createConnectionsStorage(app.db);
-      const preferredConnectionId = input.connectionId ?? record?.connectionId ?? null;
-      let imageConnection = preferredConnectionId ? await connectionsStore.getWithKey(preferredConnectionId) : null;
-      if (imageConnection && imageConnection.provider !== "image_generation") imageConnection = null;
+      const chatMeta = parseChatMetadata(chat.metadata);
+      const imageConnection = await resolveRegenerationImageConnection(
+        app,
+        connectionsStore,
+        chat.mode,
+        chatMeta,
+        input.connectionId,
+        record?.connectionId,
+      );
       if (input.connectionId && !imageConnection) {
         return reply.status(400).send({ error: "That image connection no longer exists." });
       }
-      const chatMeta = parseChatMetadata(chat.metadata);
-      // Conversation selfies use the chat's own image connection, not the Illustrator's.
-      const conversationConnectionId =
-        chat.mode === "conversation" ? readTrimmedString(chatMeta.imageGenConnectionId) : null;
-      if (!imageConnection && conversationConnectionId) {
-        const conversationConnection = await connectionsStore.getWithKey(conversationConnectionId);
-        if (conversationConnection?.provider === "image_generation") imageConnection = conversationConnection;
-      }
-      imageConnection ??= (await resolveGalleryImageConnection(app, chat.mode, chatMeta)).connection;
       if (!imageConnection) {
         return reply
           .status(400)
@@ -2090,15 +2402,18 @@ export async function galleryRoutes(app: FastifyInstance) {
 
       const imageSettings = await loadImageGenerationUserSettings(app.db);
       const imageDefaults = resolveConnectionImageDefaults(imageConnection);
-      const imageModel = imageConnection.model || "";
-      const imageBaseUrl = imageConnection.baseUrl || "https://image.pollinations.ai";
-      const imageSource = imageConnection.imageGenerationSource || imageModel;
-      const imageServiceHint = imageConnection.imageService || imageSource;
+      const imageTarget = resolveGalleryImageTarget(imageConnection);
+      const { imageModel, imageBaseUrl, imageSource, imageServiceHint } = imageTarget;
       const imageFallback = await resolveImageConnectionFallback(connectionsStore, imageConnection.id);
       const width = original.width ?? imageSettings.illustration.width;
       const height = original.height ?? imageSettings.illustration.height;
       const negativePrompt = (input.negativePrompt ?? record?.negativePrompt ?? "").trim();
       const characterPrompts = input.characterPrompts ?? record?.characterPrompts ?? [];
+      const captionLimitError = galleryCaptionLimitError(
+        resolveGalleryCaptionLimit(imageTarget),
+        characterPrompts.length,
+      );
+      if (captionLimitError) return reply.status(400).send({ error: captionLimitError });
 
       const references = record?.references ?? {
         characterIds: [],

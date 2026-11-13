@@ -139,6 +139,29 @@ test("all six editors share the dark sidebar surface and preserve theme override
           }),
         )
         .toBe(true);
+      // Sections and fields are mixed from the editor's grey shell, never from the navy app background: none of them
+      // leans bluer than the shell itself (blue minus the larger of red and green, in sRGB 0-1).
+      const leans = await editor.evaluate((element) => {
+        const lean = (color: string) => {
+          const [r, g, b] = color.match(/-?[\d.]+/g)!.map(Number);
+          return (b! - Math.max(r!, g!)) * (color.startsWith("color(") ? 1 : 1 / 255);
+        };
+        const shell = lean(getComputedStyle(element).backgroundColor);
+        // Accent-coloured controls (Save, the selected tab) follow the animated app accent, so they are left out.
+        const neutral =
+          ".mari-editor-panel, input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), textarea, " +
+          ".mari-editor-action:not(.mari-editor-action--primary, .mari-editor-action--accent, [aria-selected='true'], [aria-pressed='true'])";
+        const ranked = [...element.querySelectorAll(neutral)]
+          .map((node) => ({
+            lean: lean(getComputedStyle(node).backgroundColor),
+            name: `${node.tagName}.${node.className}`,
+          }))
+          .sort((a, b) => b.lean - a.lean);
+        return { shell, worst: ranked[0]?.lean ?? shell, name: ranked[0]?.name ?? "" };
+      });
+      expect(leans.worst, `${kind}: ${leans.name.slice(0, 120)} leans bluer than the shell`).toBeLessThanOrEqual(
+        leans.shell + 0.004,
+      );
       await editor.screenshot({ path: info.outputPath(`${kind}-dark.png`), animations: "disabled" });
     }
     const editor = await open(page, "character", entries[0]![1]);

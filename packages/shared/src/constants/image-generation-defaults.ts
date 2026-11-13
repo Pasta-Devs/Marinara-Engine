@@ -5,6 +5,7 @@ import type {
   ImageGenerationDefaultsProfile,
   NovelAiDefaults,
 } from "../types/image-generation-defaults.js";
+import { normalizeCustomRequestHeaders } from "../schemas/prompt.schema.js";
 
 export const IMAGE_DEFAULTS_STORAGE_KEY = "imageGeneration";
 export const IMAGE_GENERATION_DEFAULTS_VERSION = 1 as const;
@@ -199,6 +200,9 @@ function normalizeImageGenerationProfileValue(
   } else {
     profile.novelai = normalizeNovelAiDefaults(rawProfile.novelai);
   }
+
+  const customHeaders = normalizeCustomRequestHeaders(isRecord(rawProfile) ? rawProfile.customHeaders : undefined);
+  if (customHeaders) profile.customHeaders = customHeaders;
 
   return profile;
 }

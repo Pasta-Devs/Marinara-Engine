@@ -346,7 +346,7 @@ function ModelStep({
                 spellCheck={false}
                 autoCapitalize="off"
                 autoCorrect="off"
-                className="mari-chrome-field h-11 w-full px-3 text-xs font-normal md:h-9"
+                className="mari-chrome-field h-11 w-full px-3 text-xs font-normal max-sm:text-base md:h-9"
               />
             </label>
           )}

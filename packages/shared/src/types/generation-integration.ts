@@ -397,6 +397,11 @@ export interface VideoGenerationRequest {
   ltxDirectorPrompt?: LtxDirectorPromptInput;
   /** Up to five connection-scoped LoRAs for custom ComfyUI workflow placeholders. */
   comfyLoras?: ComfyUiLoraSetting[];
+  /**
+   * Non-secret extra HTTP headers for local-backend requests (ComfyUI, SwarmUI).
+   * Authentication stays host-managed: use the connection's API key field for that.
+   */
+  customHeaders?: Record<string, string>;
   /** Model-specific Atlas Cloud inputs saved on the connection for the selected model. */
   atlasModelOptions?: Record<string, unknown>;
   /** ComfyUI workflow frame rate exposed through %fps% and used by the legacy %length% macro. */
@@ -423,6 +428,8 @@ export interface VideoGenerationRequest {
     model: string;
     comfyWorkflow?: string;
     comfyLoras?: ComfyUiLoraSetting[];
+    /** Non-secret extra HTTP headers for the fallback connection's local-backend requests. */
+    customHeaders?: Record<string, string>;
     atlasModelOptions?: Record<string, unknown>;
     fps?: number;
   };

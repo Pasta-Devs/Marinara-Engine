@@ -17,6 +17,10 @@ import { eq } from "../../../packages/server/src/db/file-query.js";
 import { personas } from "../../../packages/server/src/db/schema/characters.js";
 import { lorebookEntries } from "../../../packages/server/src/db/schema/lorebooks.js";
 import { MariDbService } from "../../../packages/server/src/services/mari-db/mari-db.service.js";
+import {
+  personaRowFromStored,
+  type StoredPersonaRow,
+} from "../../../packages/server/src/services/personas/persona-card-storage.js";
 
 // Mirrors PENDING_REVIEW_LIMIT in mari-db.service.ts (module-local constant).
 const PENDING_REVIEW_LIMIT = 50;
@@ -28,6 +32,15 @@ function tempStorageDir() {
 }
 
 const previousFileStorageDir = process.env.FILE_STORAGE_DIR;
+
+// Mari previews show the stored persona row (card JSON parsed in `data`); decode it to the flat view.
+function decodePreviewPersona(after: unknown) {
+  const row = after as Record<string, unknown>;
+  return personaRowFromStored({
+    ...row,
+    data: typeof row.data === "string" ? row.data : JSON.stringify(row.data),
+  } as StoredPersonaRow);
+}
 
 const sidecarPath = (dir: string, id: string) => join(dir, "journal", "pending", `${id}.json`);
 
@@ -77,7 +90,7 @@ try {
       });
       assert.equal(preview.ok, true, "an empty alternatives default passes preview validation");
       assert.equal(preview.mode, "dry-run");
-      assert.deepEqual(preview.summary?.preview[0]?.after?.cardFieldAlternatives, []);
+      assert.deepEqual(JSON.parse(decodePreviewPersona(preview.summary?.preview[0]?.after).cardFieldAlternatives), []);
       const created = await mari.executeAction({
         action: "persona.create",
         personaId: "created-persona",
@@ -99,20 +112,16 @@ try {
 
       const fetched = await mari.executeAction({ action: "persona.get", personaId: "created-persona" });
       assert.equal(fetched.ok, true, "the created persona is persisted");
-      assert.deepEqual(created.summary?.preview[0]?.after?.cardFieldAlternatives, []);
+      assert.deepEqual(JSON.parse(decodePreviewPersona(created.summary?.preview[0]?.after).cardFieldAlternatives), []);
       assert.deepEqual((fetched.output as Record<string, unknown>).cardFieldAlternatives, []);
       const [stored] = await db.select().from(personas).where(eq(personas.id, "created-persona"));
-      assert.equal(stored?.cardFieldAlternatives, "[]", "alternatives use the JSON-text storage contract");
       assert.equal(
-        (fetched.output as Record<string, unknown>).summary,
-        "",
-        "a legacy create defaults summary",
+        stored && personaRowFromStored(stored).cardFieldAlternatives,
+        "[]",
+        "alternatives use the JSON-text storage contract",
       );
-      assert.equal(
-        (fetched.output as Record<string, unknown>).mes_example,
-        "",
-        "a legacy create defaults dialogue",
-      );
+      assert.equal((fetched.output as Record<string, unknown>).summary, "", "a legacy create defaults summary");
+      assert.equal((fetched.output as Record<string, unknown>).mes_example, "", "a legacy create defaults dialogue");
       assert.equal(
         (fetched.output as Record<string, unknown>).useCharacterSheetAsReference,
         "false",
@@ -130,11 +139,7 @@ try {
       const authoredRead = await mari.executeAction({ action: "persona.get", personaId: "authored-persona" });
       assert.equal(authoredRead.ok, true);
       for (const [field, value] of Object.entries(authored)) {
-        assert.equal(
-          (authoredRead.output as Record<string, unknown>)[field],
-          value,
-          `${field} survives creation`,
-        );
+        assert.equal((authoredRead.output as Record<string, unknown>)[field], value, `${field} survives creation`);
       }
 
       const directCreate = await mari.executeAction({
@@ -201,11 +206,7 @@ try {
         expectedFields[field] = "";
         await assertDirectFields();
       }
-      for (const payload of [
-        {},
-        { summary: null, mes_example: 17 },
-        { patch: { summary: 17, mes_example: null } },
-      ]) {
+      for (const payload of [{}, { summary: null, mes_example: 17 }, { patch: { summary: 17, mes_example: null } }]) {
         const ignored = await mari.executeAction({
           action: "persona.update",
           personaId: "direct-fields-persona",
@@ -295,7 +296,11 @@ try {
       assert.equal((restored.output as Record<string, unknown>).name, "Created Persona");
       assert.deepEqual((restored.output as Record<string, unknown>).cardFieldAlternatives, []);
       const [restoredRow] = await db.select().from(personas).where(eq(personas.id, "created-persona"));
-      assert.equal(restoredRow?.cardFieldAlternatives, "[]", "restored alternatives remain serialized JSON text");
+      assert.equal(
+        restoredRow && personaRowFromStored(restoredRow).cardFieldAlternatives,
+        "[]",
+        "restored alternatives remain serialized JSON text",
+      );
     } finally {
       if (db) await db._fileStore.close();
       if (previousBlockStorageDir === undefined) delete process.env.FILE_STORAGE_DIR;
@@ -479,7 +484,11 @@ try {
           apply: true,
         }),
       );
-      assert.equal(appliedPastLockedCap.approval?.status, "pending", "retention cleanup cannot report an applied mutation as failed");
+      assert.equal(
+        appliedPastLockedCap.approval?.status,
+        "pending",
+        "retention cleanup cannot report an applied mutation as failed",
+      );
       assert.equal(
         mari.getPendingApprovals().length,
         PENDING_REVIEW_LIMIT + 1,
@@ -520,9 +529,11 @@ try {
       const reviewId = updated.approval?.id;
       assert.ok(reviewId, "an update registers a pending review");
       const readName = async (service: MariDbService) =>
-        ((await service.executeAction({ action: "character.get", id: "revert-durable" })).output as {
-          data?: { name?: string };
-        })?.data?.name;
+        (
+          (await service.executeAction({ action: "character.get", id: "revert-durable" })).output as {
+            data?: { name?: string };
+          }
+        )?.data?.name;
       assert.equal(await readName(mari), "Changed", "the update is applied before the undo");
 
       const restarted = new MariDbService(db);
@@ -612,9 +623,11 @@ try {
     try {
       const mari = new MariDbService(db);
       const readName = async (service: MariDbService) =>
-        ((await service.executeAction({ action: "character.get", id: "sc-durable" })).output as {
-          data?: { name?: string };
-        })?.data?.name;
+        (
+          (await service.executeAction({ action: "character.get", id: "sc-durable" })).output as {
+            data?: { name?: string };
+          }
+        )?.data?.name;
 
       const created = await mari.executeAction({
         action: "character.create",
@@ -653,7 +666,11 @@ try {
         outcome && "outcome" in outcome && outcome.outcome === "state_changed",
         "Restoring a superseded review reports state_changed instead of clobbering",
       );
-      assert.equal(await readName(mari), "Newer", "the newer write is left untouched (the stale Restore did not clobber it)");
+      assert.equal(
+        await readName(mari),
+        "Newer",
+        "the newer write is left untouched (the stale Restore did not clobber it)",
+      );
       assert.ok(
         mari.getPendingApprovals().some((approval) => approval.id === staleReviewId),
         "a refused (state_changed) Restore leaves its pending review in place for a fresh review",
@@ -680,9 +697,15 @@ try {
       const reviewId = created.approval?.id;
       assert.ok(reviewId);
       await withRenameFailure(sidecarPath(dir, reviewId), async () => {
-        await assert.rejects(mari.keepAppliedReview(reviewId), (error: unknown) => (error as NodeJS.ErrnoException).code === "EBUSY");
+        await assert.rejects(
+          mari.keepAppliedReview(reviewId),
+          (error: unknown) => (error as NodeJS.ErrnoException).code === "EBUSY",
+        );
       });
-      assert.ok(mari.getPendingApprovals().some((approval) => approval.id === reviewId), "failed Keep stays pending");
+      assert.ok(
+        mari.getPendingApprovals().some((approval) => approval.id === reviewId),
+        "failed Keep stays pending",
+      );
       assert.ok(
         new MariDbService(db).getPendingApprovals().some((approval) => approval.id === reviewId),
         "failed Keep survives restart",
@@ -756,7 +779,9 @@ try {
           items: Array<{ id: string }>;
         }
       ).items[0]!;
-      const deleted = await mari.executeCli({ argv: ["lorebooks", "delete", "cascade-supersede", "--cascade", "--apply"] });
+      const deleted = await mari.executeCli({
+        argv: ["lorebooks", "delete", "cascade-supersede", "--cascade", "--apply"],
+      });
       const reviewId = deleted.approval?.id;
       assert.ok(reviewId);
       const timestamp = new Date().toISOString();

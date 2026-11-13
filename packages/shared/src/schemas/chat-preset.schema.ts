@@ -10,6 +10,14 @@ export const chatPresetSettingsSchema = z
     promptPresetId: z.string().nullable().optional(),
     personaId: z.string().nullable().optional(),
     lorebookIds: z.array(z.string()).max(200).optional(),
+    // Malformed choices are dropped rather than failing the whole profile save or import.
+    presetVariables: z
+      .object({
+        presetId: z.string().min(1),
+        choices: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
+      })
+      .optional()
+      .catch(undefined),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();

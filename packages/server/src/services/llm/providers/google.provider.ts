@@ -18,7 +18,7 @@ import {
 } from "../base-provider.js";
 import {
   capabilityModelId,
-  isGeminiArgonModel,
+  isGeminiArgonOrCarbonModel,
   isGeminiStrictRequestModel,
   isGeminiThinkingLevelModel,
   shouldSuppressUnknownModelParameters,
@@ -147,9 +147,10 @@ function supportsGoogleThinkingStreaming(baseUrl: string, model: string): boolea
   try {
     const host = new URL(baseUrl).hostname;
     if (host === "generativelanguage.googleapis.com") return true;
-    // Argon stops a non-streamed reply at 32,768 tokens, half its streamed limit, so it streams on Vertex too.
+    // Argon and Carbon stop a non-streamed reply at 32,768 tokens, half their streamed limit, so they stream on Vertex
+    // too.
     // ponytail: other models still buffer thinking on Vertex; drop the model check once Vertex is verified for them.
-    return isGeminiArgonModel(model) && host.endsWith(".googleapis.com");
+    return isGeminiArgonOrCarbonModel(model) && host.endsWith(".googleapis.com");
   } catch {
     return false;
   }
@@ -598,8 +599,8 @@ function formatGoogleContents(
 }
 
 /**
- * Argon and the newer Flash models reject a prefilled final model turn: keep it as history and ask for only the rest of
- * the reply. https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-argon
+ * Argon, Carbon and the newer Flash models reject a prefilled final model turn: keep it as history and ask for only the
+ * rest of the reply. https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-argon
  */
 function withGeminiContinuation(model: string, contents: Array<{ role: string; parts: object[] }>) {
   const last = contents.at(-1);
@@ -636,7 +637,8 @@ function geminiUsage(usage?: GeminiUsageMetadata): LLMUsage | undefined {
 
 function normalizeGeminiFinishReason(reason: string | null | undefined): string {
   const normalized = typeof reason === "string" ? reason.trim().toUpperCase() : "";
-  // Argon ends a reply cut at its per-request output limit with CONTINUATION (a long-decode token Marinara does not use).
+  // Argon and Carbon end a reply cut at the per-request output limit with CONTINUATION (a long-decode token Marinara does
+  // not use).
   if (normalized === "MAX_TOKENS" || normalized === "CONTINUATION") return "length";
   if (normalized === "STOP") return "stop";
   return reason ?? "stop";
@@ -663,7 +665,7 @@ export class GoogleProvider extends BaseLLMProvider {
     );
   }
 
-  // Argon and the newer Flash models ignore temperature, top-p and top-k and reject both penalties with HTTP 400.
+  // Argon, Carbon and the newer Flash models ignore temperature, top-p and top-k and reject both penalties with HTTP 400.
   protected override shouldSendParameter(options: ChatOptions, key: GenerationParameterSendKey): boolean {
     if (isGeminiStrictRequestModel(options.model) && GEMINI_STRICT_UNSENT.has(key)) return false;
     return super.shouldSendParameter(options, key);

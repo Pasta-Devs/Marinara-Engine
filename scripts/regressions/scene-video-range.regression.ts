@@ -20,7 +20,7 @@ try {
     const handle = await open(join(temporaryDirectory, filename), "r");
     return sendValidatedMediaFile(
       reply,
-      { handle, size: contents.length, mimeType: "video/mp4" },
+      { handle, size: contents.length, mtimeMs: (await handle.stat()).mtimeMs, mimeType: "video/mp4" },
       {
         method: request.method,
         rangeHeader: request.headers.range,

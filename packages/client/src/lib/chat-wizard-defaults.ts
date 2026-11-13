@@ -18,9 +18,19 @@ export interface ChatWizardDefaults {
 
 // Reuse the profile's generated-state exclusions, but keep identity/setup choices:
 // defaults are a wizard snapshot, not a profile or a copy of a running chat.
+// ponytail: Author's Notes stay in wizard defaults only because #8957 scoped them out of profiles alone;
+// dropping them here too needs reusableChatWizardDefaults to strip them from defaults saved earlier.
 const excluded = new Set([
   ...CHAT_PRESET_EXCLUDED_METADATA_KEYS.filter(
-    (key) => !["activeLorebookIds", "agentLorebookAttachments", "presetChoices", "spriteCharacterIds"].includes(key),
+    (key) =>
+      ![
+        "activeLorebookIds",
+        "agentLorebookAttachments",
+        "presetChoices",
+        "authorNotes",
+        "authorNotesDepth",
+        "spriteCharacterIds",
+      ].includes(key),
   ),
   "conversationSetupComplete",
   "advancedMemoryState",

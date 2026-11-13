@@ -13,6 +13,7 @@ import { useChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useCharacter, usePersonas } from "../../hooks/use-characters";
 import { useConversationCustomEmojis } from "../../hooks/use-conversation-custom-emojis";
 import { useChatStore } from "../../stores/chat.store";
+import { BOTTOM_SHEET_CLASS } from "../ui/neutral-surface-styles";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
@@ -345,7 +346,7 @@ export function AboutMeViewerModal({
         className={cn(
           "mari-about-me-popout mari-modal-panel border border-[var(--border)] bg-[var(--card)] shadow-2xl",
           isMobile
-            ? "absolute inset-x-0 bottom-0 top-16 flex flex-col overflow-hidden rounded-t-2xl pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]"
+            ? `absolute inset-x-0 bottom-0 top-16 flex flex-col overflow-hidden ${BOTTOM_SHEET_CLASS}`
             : "absolute w-80 max-w-[calc(100vw-1rem)] rounded-2xl",
         )}
         style={

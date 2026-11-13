@@ -248,13 +248,15 @@ export async function resolveMemoryRecallEmbeddingSource(
 /**
  * Connections > Test embedding: the source one connection's own settings resolve to, exactly as semantic search
  * resolves them (Embedding Connection, Embedding endpoint URL, model), without the app-wide default filling in,
- * and with the provider error thrown so the test can show it.
+ * and with the provider error thrown so the test can show it. Capability `embeddingsFor` (API 1.818) resolves the same
+ * source with `throwErrors` false, so a failed call resolves null like other package embeddings.
  */
 export async function resolveConnectionTestEmbeddingSource(
   db: DB,
   connection: EmbeddingConnectionLike,
+  throwErrors = true,
 ): Promise<MemoryRecallEmbeddingSource | null> {
-  return resolveEmbeddingSource(db, { activeConnection: connection }, false, true);
+  return resolveEmbeddingSource(db, { activeConnection: connection }, false, throwErrors);
 }
 
 async function resolveEmbeddingSource(

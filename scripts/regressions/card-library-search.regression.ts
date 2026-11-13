@@ -95,4 +95,13 @@ assert.equal(matchesAllCardSearchTags(["male"], []), false, "empty terms do not 
 assert.equal(matchesAllCardSearchTags([null, 12, "Male"], ["male"]), true);
 assert.equal(matchesAllCardSearchTags("male", ["male"]), false);
 
+// #9040: other names match like the name, in any case and in part.
+const aliasedLibrarySearchDocument = { name: "Clark Kent", aliases: ["Kal-El", "Superman"], tags: [] };
+assert.equal(matchesCardLibrarySearch(aliasedLibrarySearchDocument, parseCardLibrarySearchQuery("kal-el")), true);
+assert.equal(matchesCardLibrarySearch(aliasedLibrarySearchDocument, parseCardLibrarySearchQuery("SUPER")), true);
+assert.equal(
+  matchesCardLibrarySearch({ ...aliasedLibrarySearchDocument, aliases: [] }, parseCardLibrarySearchQuery("kal-el")),
+  false,
+);
+
 console.info("Card library search regression checks passed.");

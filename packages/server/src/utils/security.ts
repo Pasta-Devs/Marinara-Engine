@@ -96,6 +96,27 @@ export function safeBasename(value: string, fallback = "file"): string {
   return name || fallback;
 }
 
+const IMAGE_DATA_URL_MIME_RE = /^image\/(?:png|jpe?g|webp|gif|avif|bmp)$/;
+
+/**
+ * A `data:` URL's image type and encoded body, or null when it is not one. The header is sliced, never matched over
+ * the whole URL: V8's regexp interpreter recurses once per subject character, so a multi-megabyte inline image
+ * exhausted the stack with "Maximum call stack size exceeded" in a server that had stopped tiering the pattern up
+ * (#9060).
+ */
+export function parseImageDataUrl(value: string): { mimeType: string; encoded: string } | null {
+  const trimmed = value.trim();
+  const separator = trimmed.indexOf(",");
+  if (separator < 0 || trimmed.slice(0, "data:".length).toLowerCase() !== "data:") return null;
+  const header = trimmed.slice("data:".length, separator);
+  if (!header.toLowerCase().endsWith(";base64")) return null;
+  const mimeType = header.slice(0, -";base64".length).toLowerCase();
+  if (!IMAGE_DATA_URL_MIME_RE.test(mimeType)) return null;
+  const encoded = trimmed.slice(separator + 1);
+  // No body is not an image, as the `([\s\S]+)` each parser used before required.
+  return encoded ? { mimeType: mimeType.replace("image/jpg", "image/jpeg"), encoded } : null;
+}
+
 export function isAllowedImageBuffer(buffer: Buffer, _expectedExt?: string): { ext: string; mimeType: string } | null {
   if (
     buffer.length >= 8 &&
@@ -444,7 +465,14 @@ function usesEnvProxy(): boolean {
   );
 }
 
-function createDispatcher(hostname: string, options: AgentOptions): Dispatcher {
+/**
+ * An Agent for `hostname`, or an EnvHttpProxyAgent when Node's env proxy is on (see usesEnvProxy). `proxyTls` is used
+ * only for the connection to the proxy. Throws when the env proxy URL is malformed.
+ */
+export function createDispatcher(
+  hostname: string,
+  options: AgentOptions & Pick<EnvHttpProxyAgent.Options, "proxyTls">,
+): Dispatcher {
   if (!usesEnvProxy() || isLoopbackHostname(hostname)) return new Agent(options);
   // A proxied request tunnels through the proxy, which looks up the name itself, so `connect` only reaches NO_PROXY
   // hosts. The address check still runs first, but cannot pin what the proxy connects to (the same as Node's own
@@ -455,7 +483,7 @@ function createDispatcher(hostname: string, options: AgentOptions): Dispatcher {
     ...options,
     // Preserve CONNECT tunnels for HTTP providers rather than Undici 8's forward-proxy default.
     proxyTunnel: true,
-    ...(keepAliveInitialDelay ? { proxyTls: { keepAliveInitialDelay } } : {}),
+    ...(keepAliveInitialDelay ? { proxyTls: { ...options.proxyTls, keepAliveInitialDelay } } : {}),
   });
 }
 

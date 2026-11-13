@@ -1,5 +1,7 @@
 // Voice job: the Defaults tile and the Voice badge use the audio row the server uses (tts.routes.ts): the TTS card's
 // row first, the audio default flag only while the card is empty, and nothing when the card's row is gone.
+// A voice server the user hosts (#8921, the server's `local` flag) is listed On this device, and its Voice row opens
+// that page. The server side of the flag is proved in tts-local-voice-server.regression.ts.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { voiceRowOf } from "../../packages/client/src/lib/connection-jobs.js";
@@ -34,6 +36,27 @@ assert.match(
 assert.match(
   read("../../packages/client/src/components/connections/ConnectionDefaults.tsx"),
   /voiceRowOf\(connectionsList, tts\?\.connectionId\)\.missing[\s\S]*?connections\.defaults\.warning\.voiceMissing/,
+);
+
+// #8921: a local voice server has a place in Connections to turn it off. The On this device row and the Voice row
+// decide with the same server flag, so the row always has a page to open.
+assert.match(read("../../packages/client/src/hooks/use-tts.ts"), /api\.get<TTSConfigResponse>\("\/tts\/config"\)/);
+const deviceDetail = read("../../packages/client/src/components/connections/DeviceDetail.tsx");
+assert.match(deviceDetail, /if \(setup\.tts\.setUp && tts\?\.local\)/);
+// A server on another source shows its address there, not a cloud name such as "OpenAI".
+assert.match(
+  deviceDetail,
+  /detail: \(tts\.source !== "pockettts" && hostOf\(tts\.baseUrl\)\) \|\| t\(`connections\.device\.ttsSource\.\$\{tts\.source\}`\)/,
+);
+assert.match(
+  read("../../packages/client/src/components/connections/ConnectionDefaults.tsx"),
+  /role\.key === "voice" && tts\?\.enabled\)[\s\S]*?const device = tts\.local \? \("tts" as const\) : undefined;[\s\S]*?muted: true, device \}/,
+);
+// Its page saves the Base URL as it is typed, so it stays open while text to speech is on, even when a half-typed
+// address takes its row off the list for a moment.
+assert.match(
+  read("../../packages/client/src/components/panels/ConnectionsPanel.tsx"),
+  /const validKey = [\s\S]*?if \(key === "device:tts" && deviceSetup\.tts\.setUp\) return true;\s*if \(key\.startsWith\("device:"\)\)/,
 );
 
 console.log("connection-voice-row regression passed");

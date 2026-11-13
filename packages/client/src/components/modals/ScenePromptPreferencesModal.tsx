@@ -1,10 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { ScenePromptPreferences, ScenePromptPov, ScenePromptTense } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { normalizeScenePromptPreferences } from "../../stores/ui.store";
 import { usePresets } from "../../hooks/use-presets";
 import { useChat } from "../../hooks/use-chats";
-import { useCharacterSummaries, usePersonas } from "../../hooks/use-characters";
+import { useCharacterSummaries } from "../../hooks/use-characters";
+import { CharacterSelect } from "../characters/CharacterSelect";
+import { PresetPickerField } from "../ui/LibraryPickers";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -47,7 +50,6 @@ export function ScenePromptPreferencesModal({
     isPending: charactersLoading,
     isError: charactersError,
   } = useCharacterSummaries(originCharacterIds, !!chatId);
-  const { data: personas = [] } = usePersonas(!!chatId);
   const [participantCharacterIds, setParticipantCharacterIds] = useState<string[] | undefined>();
   const [personaSelection, setPersonaSelection] = useState("source");
   const {
@@ -125,6 +127,26 @@ export function ScenePromptPreferencesModal({
       onClose={handleClose}
       title={localizeUi("ui.modals.scenepromptpreferencesmodal.scenePromptSetup")}
       width="max-w-lg"
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={
+              (!!promptPresetId && (presetsUnverified || unavailablePreset)) ||
+              (participantCharacterIds !== undefined &&
+                (charactersLoading || charactersError || participantCharacterIds.length === 0))
+            }
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {localizeUi("ui.modals.scenepromptpreferencesmodal.planScene")}
+          </button>
+          <button type="button" onClick={handleClose} className={SHEET_BUTTON_QUIET}>
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
     >
       <div className="flex flex-col gap-4 p-4">
         <div className="space-y-1">
@@ -140,24 +162,27 @@ export function ScenePromptPreferencesModal({
 
         {chatId && (
           <div className="space-y-3">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-[var(--foreground)]">
+            <div className="space-y-1.5">
+              <span className="block text-xs font-semibold text-[var(--foreground)]">
                 {localizeUi("scene.setup.persona")}
               </span>
-              <select
-                value={personaSelection}
-                onChange={(event) => setPersonaSelection(event.target.value)}
-                className="mari-preset-native-select min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-sm text-[var(--foreground)]"
-              >
-                <option value="source">{localizeUi("scene.setup.sourcePersona")}</option>
-                <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-                {personas.map((persona) => (
-                  <option key={persona.id} value={persona.id}>
-                    {persona.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <CharacterSelect
+                kind="persona"
+                withCharacters={false}
+                allowNone
+                value={personaSelection && personaSelection !== "source" ? { persona: personaSelection } : null}
+                nonePicked={personaSelection === ""}
+                placeholder={personaSelection === "source" ? localizeUi("scene.setup.sourcePersona") : undefined}
+                defaultChoice={{
+                  label: localizeUi("scene.setup.sourcePersona"),
+                  picked: personaSelection === "source",
+                  onPick: () => setPersonaSelection("source"),
+                }}
+                onChange={(choice) => setPersonaSelection(choice && "persona" in choice ? choice.persona : "")}
+                aria-label={localizeUi("scene.setup.persona")}
+                className="min-h-11 text-sm max-sm:text-base"
+              />
+            </div>
             <fieldset className="space-y-1.5">
               <legend className="text-xs font-semibold text-[var(--foreground)]">
                 {localizeUi("scene.setup.characters")}
@@ -211,33 +236,26 @@ export function ScenePromptPreferencesModal({
           </div>
         )}
 
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-[var(--foreground)]">
+        <div className="space-y-1.5">
+          <span className="block text-xs font-semibold text-[var(--foreground)]">
             {localizeUi("scene.setup.promptPreset")}
           </span>
-          <select
+          <PresetPickerField
             value={promptPresetId}
+            presets={presets}
+            ariaLabel={localizeUi("scene.setup.promptPreset")}
+            missingLabel={localizeUi(
+              presetsUnverified ? "scene.setup.unverifiedPreset" : "scene.setup.unavailablePreset",
+            )}
             disabled={presetsLoading}
-            onChange={(event) => {
-              setPromptPresetId(event.target.value);
+            onChange={(id) => {
+              setPromptPresetId(id);
               setPresetChoices(null);
               setSubmitAfterChoices(false);
-              setConfiguringPresetId(event.target.value || null);
+              setConfiguringPresetId(id || null);
             }}
-            className="mari-preset-native-select min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)] disabled:opacity-50"
-          >
-            <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-            {promptPresetId && (presetsUnverified || unavailablePreset) && (
-              <option value={promptPresetId}>
-                {localizeUi(presetsUnverified ? "scene.setup.unverifiedPreset" : "scene.setup.unavailablePreset")}
-              </option>
-            )}
-            {presets.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name}
-              </option>
-            ))}
-          </select>
+            triggerClassName="mari-preset-native-select min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-sm max-sm:text-base text-[var(--foreground)] outline-none focus-visible:border-[var(--primary)] disabled:opacity-50"
+          />
           <span className="block text-xs text-[var(--muted-foreground)]">
             {localizeUi("scene.setup.rememberPreset")}
           </span>
@@ -246,7 +264,7 @@ export function ScenePromptPreferencesModal({
               {localizeUi("scene.setup.chooseAvailablePreset")}
             </span>
           )}
-        </label>
+        </div>
         {presetLoadFailed && (
           <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-[var(--foreground)]">
             <span>{localizeUi("scene.setup.loadPresetsFailed")}</span>
@@ -254,7 +272,7 @@ export function ScenePromptPreferencesModal({
               type="button"
               disabled={presetsFetching}
               onClick={() => void retryPresets()}
-              className="min-h-10 rounded-lg border border-[var(--border)] px-3 py-2 font-semibold transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+              className="min-h-10 rounded-lg border border-[var(--border)] px-3 py-2 font-semibold max-sm:min-h-11 transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
             >
               {localizeUi("scene.setup.retryPresets")}
             </button>
@@ -293,31 +311,9 @@ export function ScenePromptPreferencesModal({
             maxLength={2000}
             rows={4}
             placeholder={localizeUi("ui.modals.scenepromptpreferencesmodal.optionalNotesForTheGeneratedScenePrompt")}
-            className="min-h-24 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/50 focus:border-[var(--primary)]/45 focus:ring-1 focus:ring-[var(--primary)]/25"
+            className="min-h-24 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed text-[var(--foreground)] outline-none max-sm:text-base placeholder:text-[var(--muted-foreground)]/50 focus:border-[var(--primary)]/45 focus:ring-1 focus:ring-[var(--primary)]/25"
           />
         </label>
-
-        <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-semibold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          >
-            {localizeUi("chat.delete.dialog.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={
-              (!!promptPresetId && (presetsUnverified || unavailablePreset)) ||
-              (participantCharacterIds !== undefined &&
-                (charactersLoading || charactersError || participantCharacterIds.length === 0))
-            }
-            className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {localizeUi("ui.modals.scenepromptpreferencesmodal.planScene")}
-          </button>
-        </div>
       </div>
     </Modal>
   );
@@ -339,10 +335,10 @@ function OptionButton({ active, label, onClick }: { active: boolean; label: stri
       onClick={onClick}
       aria-pressed={active}
       className={[
-        "min-h-10 rounded-md border px-2 text-xs font-semibold transition-colors",
+        "min-h-10 rounded-md border px-2 text-xs font-semibold transition-colors max-sm:min-h-11 max-sm:text-[13px]",
         active
           ? "border-[var(--primary)] bg-[var(--primary)]/20 text-[var(--foreground)]"
-          : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+          : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] max-sm:text-[var(--foreground)]",
       ].join(" ")}
     >
       {label}

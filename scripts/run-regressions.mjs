@@ -36,8 +36,9 @@ export function regressionTimeoutMs(relativePath) {
   if (relativePath === 'scripts/regressions/ruleset-combat-director.regression.ts') return 300_000;
   // An out-of-memory control and a small-heap 64 MB gallery round trip: 20 s alone, 26 s to over 60 s in the CI pool.
   if (relativePath === 'scripts/regressions/native-export-memory.regression.ts') return 90_000;
-  // Real large-text, multipart and 10,001-entry transfers exceed 30 s on the CI file-backed store.
-  if (relativePath === 'scripts/regressions/chat-request-validation.regression.ts') return 90_000;
+  // Real large-text, multipart and 10,001-entry transfers exceed 30 s on the CI file-backed store, and over 90 s on slow
+  // CI runners (about 1.6x slower), where it was being retried.
+  if (relativePath === 'scripts/regressions/chat-request-validation.regression.ts') return 150_000;
   // Eighteen blink and talk pictures lined up with their face at full size: about 10 s, more on a busy runner.
   if (relativePath === 'scripts/regressions/avatar-variant-composite.regression.ts') return 120_000;
   // Every cap of the ruleset schema proved at its edge, against the whole 5e ruleset: about 40 s.
@@ -60,7 +61,7 @@ function discoverRegressions(directory = regressionsRoot) {
   return files.sort();
 }
 
-const USAGE = 'Usage: node scripts/run-regressions.mjs [--list] [--filter <text>] [--concurrency <n>] [--shard <i>/<n>]';
+const USAGE = 'Usage: node scripts/run-regressions.mjs [--list] [--filter <text>]... [--concurrency <n>] [--shard <i>/<n>]';
 
 function parseConcurrency(value, message = USAGE) {
   if (!/^[1-9][0-9]*$/.test(value ?? '')) throw new Error(message);
@@ -76,7 +77,8 @@ function parseShard(value) {
 
 function parseArguments(args) {
   let list = false;
-  let filter;
+  // A file runs when any --filter matches it.
+  const filters = [];
   let concurrency;
   let shard;
 
@@ -87,10 +89,8 @@ function parseArguments(args) {
     } else if (argument === '--list') {
       list = true;
     } else if (argument === '--filter') {
-      if (filter !== undefined || index + 1 === args.length || args[index + 1] === '') {
-        throw new Error(USAGE);
-      }
-      filter = args[index + 1];
+      if (index + 1 === args.length || args[index + 1] === '') throw new Error(USAGE);
+      filters.push(args[index + 1]);
       index += 1;
     } else if (argument === '--concurrency') {
       if (concurrency !== undefined) throw new Error(USAGE);
@@ -109,7 +109,7 @@ function parseArguments(args) {
   concurrency ??= fromEnv
     ? parseConcurrency(fromEnv, 'REGRESSION_CONCURRENCY must be a positive whole number.')
     : os.availableParallelism();
-  return { concurrency, filter, list, shard };
+  return { concurrency, filters, list, shard };
 }
 
 // Deal the slow-first order round-robin so every shard gets its share of the known slow files.
@@ -262,12 +262,12 @@ async function main() {
   for (const signal of process.platform === 'win32' ? ['SIGINT', 'SIGTERM', 'SIGBREAK'] : ['SIGINT', 'SIGTERM']) {
     process.on(signal, () => handleRunnerSignal(signal));
   }
-  const { concurrency, filter, list, shard } = parseArguments(process.argv.slice(2));
+  const { concurrency, filters, list, shard } = parseArguments(process.argv.slice(2));
   const discovered = discoverRegressions();
   if (discovered.length === 0) throw new Error('No regression files were discovered.');
 
-  const matched = filter === undefined ? discovered : discovered.filter((file) => file.includes(filter));
-  if (matched.length === 0) throw new Error(`No regression files matched filter: ${filter}`);
+  const matched = filters.length === 0 ? discovered : discovered.filter((file) => filters.some((filter) => file.includes(filter)));
+  if (matched.length === 0) throw new Error(`No regression files matched filter: ${filters.join(', ')}`);
   const selected = shard ? shardOf(matched, shard) : matched;
   if (selected.length === 0) throw new Error(`Shard ${shard.index}/${shard.total} has no regression files.`);
 

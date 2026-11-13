@@ -53,7 +53,6 @@ import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import {
-  ArrowLeft,
   Save,
   BookOpen,
   FileText,
@@ -90,6 +89,7 @@ import {
   Upload,
   ArrowUp,
   ArrowDown,
+  ArrowLeft,
 } from "lucide-react";
 import { cn, copyToClipboard } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";

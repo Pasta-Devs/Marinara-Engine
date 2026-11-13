@@ -1,8 +1,16 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
+import { HelpTooltip } from "./HelpTooltip";
 
+/**
+ * "Other names" (stored as `nameAliases`): nicknames, full names and titles a card also goes by.
+ * Sits under Name in the Metadata tab of the character and persona editors, styled like the
+ * identity labels around it (`cards/CardIdentityFields.tsx`) and the Tags field on the same tab
+ * (chips, comma-separated input, Add button: `CharacterEditor.tsx` MetadataTab).
+ */
 interface NameAliasesSectionProps {
+  kind: "character" | "persona";
   aliases: string[];
   onChange: (aliases: string[]) => void;
   nameColor?: string;
@@ -31,10 +39,10 @@ function NameAliasInput({ existing, onAdd }: { existing: string[]; onAdd: (alias
   };
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
+    <div className="flex gap-1.5">
       <input
         type="text"
-        aria-label={localizeUi("ui.characters.colorstab.nameAliases")}
+        aria-label={localizeUi("ui.cards.otherNames.label")}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
@@ -43,41 +51,39 @@ function NameAliasInput({ existing, onAdd }: { existing: string[]; onAdd: (alias
             submit();
           }
         }}
-        placeholder={localizeUi("ui.characters.colorstab.nameAliasesPlaceholder")}
-        className="w-full min-w-0 rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[0.6875rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-        autoFocus={false}
+        placeholder={localizeUi("ui.cards.otherNames.placeholder")}
+        className="w-full min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none focus:border-[var(--primary)]/40"
       />
       <button
         type="button"
         onClick={submit}
         disabled={!value.trim()}
-        className="mari-editor-action mari-editor-action--accent mari-editor-action--primary rounded-xl px-3 py-1 text-[0.625rem]"
+        className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected px-3 py-1.5"
       >
-        {localizeUi("ui.characters.colorstab.nameAliasesAdd")}
+        {localizeUi("ui.cards.otherNames.add")}
       </button>
     </div>
   );
 }
 
-export function NameAliasesSection({ aliases, onChange, nameColor }: NameAliasesSectionProps) {
+export function NameAliasesSection({ kind, aliases, onChange, nameColor }: NameAliasesSectionProps) {
   const { t: localizeUi } = useTranslation();
 
   return (
-    <div className="space-y-2">
-      <label className="block text-[0.6875rem] font-medium text-[var(--foreground)]">
-        {localizeUi("ui.characters.colorstab.nameAliases")}
-      </label>
-      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-        {localizeUi("ui.characters.colorstab.nameAliasesDescription")}
-      </p>
+    <div className="space-y-2" data-card-field="other-names">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+        {localizeUi("ui.cards.otherNames.label")}{" "}
+        <HelpTooltip
+          text={localizeUi(
+            kind === "character" ? "ui.cards.otherNames.helpCharacter" : "ui.cards.otherNames.helpPersona",
+          )}
+        />
+      </span>
 
       {aliases.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {aliases.map((alias, idx) => (
-            <span
-              key={`${alias}-${idx}`}
-              className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-0.5 text-[0.625rem] text-[var(--foreground)]"
-            >
+            <span key={`${alias}-${idx}`} className="mari-chrome-control mari-chrome-control--compact">
               <span
                 className="font-medium"
                 style={
@@ -100,12 +106,13 @@ export function NameAliasesSection({ aliases, onChange, nameColor }: NameAliases
               </span>
               <button
                 type="button"
-                aria-label={localizeUi("ui.characters.colorstab.nameAliasesRemove", { alias })}
+                aria-label={localizeUi("ui.cards.otherNames.remove", { alias })}
                 onClick={() => {
                   const next = aliases.filter((_, i) => i !== idx);
                   onChange(next);
                 }}
-                className="text-[var(--muted-foreground)] hover:text-[var(--destructive)]"
+                title={localizeUi("ui.cards.otherNames.remove", { alias })}
+                className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
               >
                 <X size="0.625rem" />
               </button>

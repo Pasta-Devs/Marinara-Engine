@@ -40,6 +40,7 @@ import {
 import { getMonorepoRoot } from "../config/runtime-config.js";
 import { saveGamePartySheet } from "../services/game/game-party-sheet.service.js";
 import { moveGameRulesetVersion } from "../services/game/game-ruleset-version.service.js";
+import { pinRoleplayRuleset } from "../services/game/roleplay-ruleset.service.js";
 import { logger } from "../lib/logger.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { GAME_RULESETS_RATE_LIMIT } from "../middleware/rate-limit.js";
@@ -248,6 +249,14 @@ const partySheetRequestSchema = z
   })
   .strict();
 
+const roleplayPinRequestSchema = z
+  .object({
+    chatId: z.string().min(1).max(200),
+    rulesetId: z.string().min(1).max(200).nullable(),
+    options: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  })
+  .strict();
+
 export async function gameRulesetsRoutes(app: FastifyInstance) {
   // A game moved onto a newer stored version of its imported ruleset, from the Journal. The game's
   // own choice, as its other settings are: not an administrative gate.
@@ -274,6 +283,19 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
       return reply.status(status).send(refused);
     }
     return { revision: saved.revision, sheet: saved.sheet };
+  });
+
+  // A Roleplay chat pinned to a ruleset (or unpinned, with null), from its Chat Settings. Like a
+  // game's own settings, the chat's choice rather than an administrative gate. Pinning the ruleset the
+  // chat already plays gives any member without one a sheet card.
+  app.post("/roleplay-pin", { config: { rateLimit: GAME_RULESETS_RATE_LIMIT } }, async (req, reply) => {
+    const parsed = roleplayPinRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Invalid request", issues: parsed.error.issues.slice(0, 10) });
+    }
+    const pinned = await pinRoleplayRuleset(app.db, parsed.data);
+    if (!pinned.ok) return reply.status(pinned.status).send({ error: pinned.error, code: pinned.code });
+    return { gameRuleset: pinned.gameRuleset, cards: pinned.cards, added: pinned.added };
   });
 
   app.post("/import", { bodyLimit: IMPORT_BODY_LIMIT }, async (req, reply) => {

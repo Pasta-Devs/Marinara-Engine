@@ -17,6 +17,7 @@ export type ValidatedImageAsset = {
 export type ValidatedImageFile = ValidatedImageAsset & {
   handle: FileHandle;
   size: number;
+  mtimeMs: number;
 };
 
 export type ValidatedVideoAsset = {
@@ -26,6 +27,7 @@ export type ValidatedVideoAsset = {
 export type ValidatedVideoFile = ValidatedVideoAsset & {
   handle: FileHandle;
   size: number;
+  mtimeMs: number;
 };
 
 type ByteRange = { start: number; end: number } | "unsatisfiable" | null;
@@ -58,17 +60,46 @@ function parseSingleByteRange(header: string | undefined, size: number): ByteRan
   return { start, end: Math.min(requestedEnd, size - 1) };
 }
 
-/** Send the already-validated descriptor, retaining ordinary single-range video playback. */
+/**
+ * Send the already-validated descriptor, retaining ordinary single-range video playback.
+ * ETag and Last-Modified come from the descriptor's own fstat, so a revisit costs a 304.
+ */
 export async function sendValidatedMediaFile(
   reply: FastifyReply,
   media: ValidatedImageFile | ValidatedVideoFile,
   options: { method?: string; rangeHeader?: string; cacheControl?: string } = {},
 ) {
-  const range = parseSingleByteRange(options.rangeHeader, media.size);
+  const etag = `W/"${media.size}-${media.mtimeMs}"`;
+  const lastModified = new Date(media.mtimeMs).toUTCString();
+  const lastModifiedTime = Date.parse(lastModified);
+  const {
+    "if-none-match": ifNoneMatch,
+    "if-modified-since": ifModifiedSince,
+    "if-range": ifRange,
+  } = reply.request.headers;
   reply
-    .header("Content-Type", media.mimeType)
     .header("Cache-Control", options.cacheControl ?? "public, max-age=0")
-    .header("Accept-Ranges", "bytes");
+    .header("ETag", etag)
+    .header("Last-Modified", lastModified);
+
+  // RFC 9110 §13.2.2: If-None-Match (weak comparison) replaces If-Modified-Since, and both precede Range.
+  const notModified =
+    ifNoneMatch !== undefined
+      ? ifNoneMatch.split(",").some((tag) => {
+          const value = tag.trim();
+          return value === "*" || value.replace(/^W\//u, "") === etag.slice("W/".length);
+        })
+      : lastModifiedTime <= Date.parse(ifModifiedSince ?? "");
+  if (notModified) {
+    await media.handle.close().catch(() => undefined);
+    return reply.status(304).send();
+  }
+
+  // As @fastify/send did, an If-Range naming this ETag or Last-Modified keeps the Range; any other
+  // value asks for the whole current file rather than a slice of changed bytes.
+  const rangeIsFresh = ifRange === undefined || ifRange === etag || Date.parse(String(ifRange)) === lastModifiedTime;
+  const range = parseSingleByteRange(rangeIsFresh ? options.rangeHeader : undefined, media.size);
+  reply.header("Content-Type", media.mimeType).header("Accept-Ranges", "bytes");
 
   if (range === "unsatisfiable") {
     await media.handle.close().catch(() => undefined);
@@ -368,7 +399,7 @@ export async function validateImageAssetFile(
       if (bytesRead !== file.size) throw new Error("Incomplete SVG read");
       const image = validateImageAssetBuffer(bytes.subarray(0, bytesRead), filename, options);
       if (!image) throw new Error("Unsafe SVG file");
-      return { ...image, handle, size: file.size };
+      return { ...image, handle, size: file.size, mtimeMs: file.mtimeMs };
     } catch {
       await handle?.close().catch(() => undefined);
       return null;
@@ -383,7 +414,7 @@ export async function validateImageAssetFile(
     if (!image) throw new Error("Invalid image file");
     const file = await handle.stat();
     if (!file.isFile()) throw new Error("Invalid image file");
-    return { ...image, handle, size: file.size };
+    return { ...image, handle, size: file.size, mtimeMs: file.mtimeMs };
   } catch {
     await handle?.close().catch(() => undefined);
     return null;
@@ -406,7 +437,7 @@ export async function validateVideoAssetFile(
     if (!video) throw new Error("Invalid video file");
     const file = await handle.stat();
     if (!file.isFile()) throw new Error("Invalid video file");
-    return { ...video, handle, size: file.size };
+    return { ...video, handle, size: file.size, mtimeMs: file.mtimeMs };
   } catch {
     await handle?.close().catch(() => undefined);
     return null;

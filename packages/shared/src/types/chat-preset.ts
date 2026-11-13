@@ -6,7 +6,8 @@
 // when creating new chats. One "active" profile per chat mode determines
 // the starting state for any newly created chat in that mode.
 //
-// What profiles DO carry: connection, prompt preset selection, and most metadata
+// What profiles DO carry: connection, prompt preset selection with the choices made for its preset
+// variables (presetVariables, applied only to a chat on that preset), and most metadata
 // (agents, tools, lorebook settings, translation, advanced parameters,
 // context limit, memory recall, discord mirror, etc.). Exported profile files leave out the outside
 // addresses and keys (CHAT_METADATA_LOCAL_DESTINATION_KEYS), and imported ones never bring them.
@@ -18,7 +19,7 @@
 // profile never receive them.
 //
 // What profiles DO NOT carry: per-chat identity (name, characters,
-// group, sprites, scene prompt, generated summaries, tags,
+// group, sprites, scene prompt, Author's Notes, generated summaries, tags,
 // ephemeral lorebook overrides, generated schedules, scene lifecycle
 // state, connected chat link, hierarchical map state, folder/sort placement,
 // or running state such as multiplayer rooms and macro variables).
@@ -34,8 +35,25 @@ export interface ChatPresetSettings {
   personaId?: string | null;
   /** Starting pick: lorebooks switched on in the chat when the profile is applied by hand. */
   lorebookIds?: string[];
+  /** The chat's preset variable choices, kept only while they belong to `promptPresetId`. Never in exported files. */
+  presetVariables?: ChatPresetVariables;
   /** Subset of ChatMetadata — chat-specific keys (sprites, summary, tags, etc.) are stripped before saving. */
   metadata?: Partial<ChatMetadata>;
+}
+
+/** Preset variable choices (a chat's `presetChoices`) and the prompt preset they were made for. */
+export interface ChatPresetVariables {
+  presetId: string;
+  choices: Record<string, string | string[]>;
+}
+
+/** The profile's preset variable choices for a chat on this prompt preset; none for any other preset. */
+export function chatPresetVariablesFor(
+  settings: ChatPresetSettings | null | undefined,
+  promptPresetId: string | null | undefined,
+): Record<string, string | string[]> | undefined {
+  const saved = settings?.presetVariables;
+  return saved && promptPresetId && saved.presetId === promptPresetId ? saved.choices : undefined;
 }
 
 /** A chat settings profile stored in the database. */
@@ -72,7 +90,11 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "branchParentMessageId",
   "branchMessageId",
   "agentVariables",
+  // Saved apart, with the preset they belong to (ChatPresetSettings.presetVariables).
   "presetChoices",
+  // The Author's Notes are written for this one chat.
+  "authorNotes",
+  "authorNotesDepth",
   "spriteCharacterIds",
   "spritePlacements",
   "spriteCharacterVisualSettings",
@@ -189,6 +211,9 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   // This chat's latest scene video and the message its last automatic video joined (the Video Run Interval anchor).
   "sceneLastVideoId",
   "lastAutomaticVideoMessageId",
+  // A Music DJ folder on this device (#8901) or Game Assets music subfolder (#8916) chosen for this one chat.
+  "customMusicExternalFolder",
+  "customMusicGameAssetsFolder",
 ] as const;
 
 /**
@@ -219,7 +244,9 @@ export const CHAT_PRESET_EXCLUDED_PACKAGE_METADATA_KEYS: readonly string[] = [
  * defaults. Character schedules change only when the profile has a value, because without one they
  * follow each chat's own characters. The agents each chat sets up itself (knowledge sources, a target
  * lorebook, sprite characters) stay on or off, with their prompt templates, as the chat has them.
- * Older names of listed settings are listed too, so a chat's old value cannot come back.
+ * Older names of listed settings are listed too, so a chat's old value cannot come back. Preset
+ * variable choices are not listed: they reach only chats on the profile's prompt preset, and only when
+ * the profile saved some (see applyToChat).
  */
 export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   // Generation and context
@@ -236,6 +263,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "activeToolIds", // Tools the model may call
   "cardCssMode", // How character card styles apply
   "colorInlineNames", // Colour character names in message text
+  "colorPersonaInlineNames", // Colour the persona's names in message text
   "scopedRegexMode", // Which scoped regex scripts run
   // Group chats
   "groupChatMode", // Merged or individual narration
@@ -299,7 +327,6 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "proseGuardianStyleInstructions", // Prose Guardian: preferred style
   "proseGuardianHoldForRewrite", // Hold a reply until it is rewritten
   "lorebookKeeperReadBehindMessages", // Lorebook Keeper: how far behind it reads
-  "customMusicFolder", // Music DJ: music folder
   "spotifySourceType", // Music DJ: playlist or artist
   "spotifyPlaylistId", // Music DJ: playlist
   "spotifyPlaylistName", // Music DJ: playlist name
@@ -391,15 +418,16 @@ export function chatFollowsChatPreset(
 export const CHAT_PRESET_INCLUDED_CHAT_KEYS: readonly string[] = ["connectionId", "promptPresetId"] as const;
 
 /**
- * Chat settings that send chat text to an address outside the app, or hold the key for one. They stay
- * on the install where the user entered them: profiles saved there keep them, but chat logs, settings
- * profiles and full profiles are exported without them, and imports drop them.
+ * Chat settings that send chat text to an address outside the app, hold the key for one, or name a folder
+ * on the server device. They stay on the install where the user entered them: profiles saved there keep
+ * them, but chat logs, settings profiles and full profiles are exported without them, and imports drop them.
  */
 export const CHAT_METADATA_LOCAL_DESTINATION_KEYS: readonly string[] = [
   "discordWebhookUrl", // Discord mirror
   "translationDeeplxUrl", // DeepLX address
   "translationDeeplApiKey", // DeepL key
   "hapticIntifaceUrl", // Haptics: device server address
+  "customMusicExternalFolder", // Music DJ: this chat's folder on the server device
 ] as const;
 
 /** A copy of chat metadata without the settings that stay on this install. */

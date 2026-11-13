@@ -29,6 +29,7 @@ Which sections you see depends on the chat mode. The **Impersonate** section is 
 - **Advanced Parameters**: Overrides generation settings such as temperature for this chat. See [Generation Parameters](../prompts/generation-parameters.md).
 - **Persona**: Who you play. See [Choosing Your Persona in a Chat](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
 - **Characters**: The characters in the chat. (Conversation, Roleplay.)
+- **Ruleset**: Plays the chat by a tabletop ruleset, with dice checks and character sheets. See [Roleplay: Playing by a Ruleset](../roleplay/rulesets.md). (Roleplay.)
 - **Party**: Replaces **Persona** and **Characters** in one place. (Game.)
 - **Group Chat**: Who speaks in a group. See [Group Chats](group-chats.md). (Chats with more than one character.)
 - **Scoped Regex Scripts**: Per-chat control for regex scripts that belong to a character. See [Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting). (Shown only when a chat character has scoped scripts.)

@@ -315,6 +315,28 @@ try {
     assert.match(maukieView, /SHARED_WALK SHARED_LATER/u);
     assert.doesNotMatch(maukieView, /DOTTORE|CYNO/u);
   });
+  await test("(#8983) a reasoning level chosen on the connection gets its thinking room in each compaction request", async () => {
+    // At medium the room is 4096 rather than 1,024, so thinking cannot use up a short part's reply.
+    await createConnectionsStorage(db).updateDefaultParameters(connection.id, { reasoningEffort: "medium" });
+    try {
+      answer = shortening;
+      requests.length = 0;
+      const reasoned = await fixture("reasoned", [early, late]);
+      await update(reasoned.chat.id);
+      assert.equal(requests.length, 1);
+      const [request] = requests;
+      assert.equal(request!.maxTokens, Math.min(8196 + 4096, 2 * half(request!.messages[1]!.content) + 4096));
+      // At low the level's room (1,024 here: twice a short reply, at least 1,024) is no larger than the floor's.
+      await createConnectionsStorage(db).updateDefaultParameters(connection.id, { reasoningEffort: "low" });
+      requests.length = 0;
+      const low = await fixture("reasoned-low", [early, late]);
+      await update(low.chat.id);
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0]!.maxTokens, cap(requests[0]!.messages[1]!.content), "the 1,024 floor stands at low");
+    } finally {
+      await createConnectionsStorage(db).updateDefaultParameters(connection.id, null);
+    }
+  });
   console.log(
     "Advanced Memory halves continuity summaries with only the combine prompt, one set of readers at a time.",
   );
