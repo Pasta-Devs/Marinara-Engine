@@ -212,6 +212,10 @@ export function useEncounter() {
 
   /** Manually conclude encounter early. */
   const concludeEncounter = useCallback(async () => {
+    // A reply still in flight belongs to the fight that is ending: it must not start its own summary.
+    encounterRun += 1;
+    summaryAbort?.abort();
+    summaryAbort = null;
     store.endCombat("interrupted");
     await generateSummary("interrupted");
   }, [store, generateSummary]);

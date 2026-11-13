@@ -13,12 +13,15 @@ import type { CombatPartyMember, CombatEnemy } from "@marinara-engine/shared";
  * (case-insensitive) that no earlier entry has consumed, so two combatants sharing a name are matched one for the
  * other. -1 when every combatant of that name is already accounted for, or the entry names no one.
  */
+/** A name as matching reads it: trimmed, without case, so "Wolf" and "wolf" are the same foe. */
+export const combatantNameKey = (name: string) => name.trim().toLowerCase();
+
 export function nextIndexOf<T extends { name: string }>(name: string, current: T[], consumed: Set<number>): number {
-  const key = name.trim().toLowerCase();
+  const key = combatantNameKey(name);
   if (!key) return -1;
   const exact = current.findIndex((one, index) => !consumed.has(index) && one.name === name);
   if (exact >= 0) return exact;
-  return current.findIndex((one, index) => !consumed.has(index) && one.name.trim().toLowerCase() === key);
+  return current.findIndex((one, index) => !consumed.has(index) && combatantNameKey(one.name) === key);
 }
 
 /** The name an entry gives, when it gives one; "" for an entry with none. */
@@ -70,7 +73,7 @@ export function sanitizeEnemies(arr: unknown[], current: CombatEnemy[]): CombatE
     if (!name) return [];
     // #9117: a reply naming one foe more often than the fight has foes of that name adds no extra: the extra
     // would arrive with no attacks or statuses and hp 1, not a foe that joined (Dottore LOW).
-    if (!matched && current.some((enemy) => enemy.name === name)) return [];
+    if (!matched && current.some((enemy) => combatantNameKey(enemy.name) === combatantNameKey(name))) return [];
     if (matched) consumed.add(index);
     return [
       {

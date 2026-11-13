@@ -134,4 +134,21 @@ assert.deepEqual(
   ],
 );
 
+// A repeat spelled with other case is the same foe: matching reads names without case, so the guard does too.
+const cased = sanitizeEnemies(
+  [
+    { name: "wolf", hp: 2 },
+    { name: "wolf", hp: 4 },
+  ],
+  twins,
+);
+assert.deepEqual(
+  cased.map(({ name, hp }) => ({ name, hp })),
+  [
+    { name: "Wolf", hp: 2 },
+    { name: "Wolf", hp: 4 },
+  ],
+  "a second wolf is the fight's other Wolf, not a new foe",
+);
+
 console.log("Encounter combatants: merged by name, never by list position (#9117).");
