@@ -11,12 +11,12 @@ process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
 process.env.AUTO_CREATE_DEFAULT_CONNECTION = "false";
 
-const { buildApp } = await import("../../packages/server/src/app.js");
+const { buildApp } = await import("../../../packages/server/src/app.js");
 const { createLibraryFoldersStorage } =
-  await import("../../packages/server/src/services/storage/library-folders.storage.js");
+  await import("../../../packages/server/src/services/storage/library-folders.storage.js");
 const { createRegexScriptsStorage } =
-  await import("../../packages/server/src/services/storage/regex-scripts.storage.js");
-const { applyRegexScriptsToPromptText } = await import("../../packages/server/src/services/regex/regex-application.js");
+  await import("../../../packages/server/src/services/storage/regex-scripts.storage.js");
+const { applyRegexScriptsToPromptText } = await import("../../../packages/server/src/services/regex/regex-application.js");
 
 const app = await buildApp();
 try {
