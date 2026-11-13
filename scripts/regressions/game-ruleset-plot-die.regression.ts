@@ -116,6 +116,23 @@ try {
     assert.deepEqual([opportunity.total, opportunity.success, opportunity.plot?.symbol], [13, false, "opportunity"]);
     const blank = roll(true, 0, 10, 12, 3);
     assert.deepEqual(blank.plot, { face: 3, bonus: 0, label: "Plot die" });
+    // A face that carries a bonus with no symbol is not blank: the summary says what it gave (Dottore LOW).
+    const said = formatSkillCheckResultSummary({
+      skill: "Scrap",
+      dc: 10,
+      resolution: "sum",
+      rolls: [12],
+      modifier: 0,
+      total: 14,
+      success: true,
+      rollMode: "normal",
+      dice: "1d12",
+      plotFace: 3,
+      plotBonus: 2,
+      plotLabel: "Plot die",
+    } as Parameters<typeof formatSkillCheckResultSummary>[0]);
+    assert.match(said, /Plot die 3 \(\+2\)\./);
+    assert.doesNotMatch(said, /blank/);
     // Not asked for: one die thrown, and nothing said.
     const unasked = roll(false, 0, 10, 12);
     assert.deepEqual([unasked.rolls, unasked.plot], [[12], undefined]);

@@ -113,8 +113,16 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
       }.`
     : "";
   // The plot die (1.822): its face and what the face carried.
+  // "blank" only for a face that carried neither a symbol nor a bonus; one that gave a bonus is what it gave.
+  const plotFace = result.plotFace
+    ? result.plotSymbol
+      ? `: ${result.plotSymbol}`
+      : result.plotBonus
+        ? ""
+        : ": blank"
+    : "";
   const plot = result.plotFace
-    ? ` ${result.plotLabel ?? "Plot die"} ${result.plotFace}${result.plotSymbol ? `: ${result.plotSymbol}` : ": blank"}${
+    ? ` ${result.plotLabel ?? "Plot die"} ${result.plotFace}${plotFace}${
         result.plotBonus ? ` (${result.plotBonus > 0 ? "+" : ""}${result.plotBonus})` : ""
       }.`
     : "";
