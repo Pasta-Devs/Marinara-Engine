@@ -1,5 +1,5 @@
-// The per-agent cards in Chat Settings' Agents section show and save their own settings. The drawer is being split
-// into one component per card (#9119), so each card is covered here before it moves.
+// The per-agent cards in Chat Settings' Agents section show and save their own settings: each test clicks the real
+// control and reads the saved value back through the API.
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -327,8 +327,11 @@ test("Music DJ's Spotify source saves per chat in Roleplay and Game", async ({ p
     const toggle = agents.locator(":scope > .mari-drawer__header [data-drawer-toggle]");
     await toggle.scrollIntoViewIfNeeded();
     if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
-    const expandMusicDj = agents.getByRole("button", { name: "Expand Music DJ", exact: true });
-    if (await expandMusicDj.count()) await expandMusicDj.click();
+    // Wait for the card's toggle in either state, so a late render can't skip the expand.
+    const musicDjToggle = agents.getByRole("button", { name: /^(Expand|Collapse) Music DJ$/u });
+    await expect(musicDjToggle).toBeVisible();
+    if ((await musicDjToggle.getAttribute("aria-expanded")) !== "true") await musicDjToggle.click();
+    await expect(musicDjToggle).toHaveAttribute("aria-expanded", "true");
     await exerciseSpotifySource(
       agents,
       () => readMetadata(request, gameId),
