@@ -20,6 +20,7 @@ import {
   isQuickPickerShortcut,
   isShortcutsHelpKey,
   isTypingTarget,
+  shortcutKeyTypesText,
 } from "../../packages/client/src/lib/keyboard-shortcuts.js";
 import {
   createOmnibarContext,
@@ -1275,6 +1276,12 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.equal(isAskMariShortcut(j({ ctrlKey: true, key: "о" }), false), true, "physical J on a non-Latin layout");
   assert.equal(isAskMariShortcut(key({ ctrlKey: true }), false), false, "Ctrl+K is not Ask Mari");
   assert.equal(isOmnibarShortcut(j({ ctrlKey: true }), false), false, "Ctrl+J is not the omnibar");
+  // #9129: beside a field being typed in, Ctrl+J belongs to the IME (SKK's on switch), not to Mari.
+  const field = { tagName: "TEXTAREA" };
+  const page = { tagName: "BODY", closest: () => null };
+  assert.equal(shortcutKeyTypesText({ composedPath: () => [field, page] }), true);
+  assert.equal(shortcutKeyTypesText({ composedPath: () => [page] }), false);
+  assert.equal(shortcutKeyTypesText({}), false);
 }
 
 {
