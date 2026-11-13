@@ -233,7 +233,10 @@ function ChatChoiceSelectionModal({
           {variables.map((v) => {
             return (
               <div key={v.id} className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
-                <h4 className="mb-1 text-xs font-semibold text-[var(--foreground)]" title={`{{${v.variableName}}}`}>
+                <h4
+                  className="mb-1 text-xs font-semibold text-[var(--foreground)]"
+                  title={"{{" + v.variableName + "}}"}
+                >
                   {v.question}
                 </h4>
                 <div className="mb-2 flex items-center gap-2 empty:hidden">

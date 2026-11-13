@@ -194,7 +194,7 @@ export function CardGallery({
       icon: <Copy size={14} />,
       onSelect: () =>
         void (isCharacters ? duplicateCharacter.mutateAsync(card.id) : duplicatePersona.mutateAsync(card.id)).then(
-          () => toast.success(`${localize("Copied")} ${card.name}`),
+          () => toast.success(localizeUi("ui.overhaul.text.copiedName", { name: card.name })),
           (error: unknown) => toast.error(error instanceof Error ? error.message : localize("Couldn't duplicate")),
         ),
     },
