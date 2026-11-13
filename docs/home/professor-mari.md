@@ -37,7 +37,7 @@ She reads an item before she edits it, and she asks when your request is vague.
 - Create or edit a theme, an agent, a prompt preset or a Personal Extension draft. A draft stays off until you read its code and approve it in **Library → Extensions**.
 - Edit one section of a preset in place, instead of replacing the whole preset.
 - Compare the downloadable agents and tell you which fit your goal. She sends you to **Library → Agents** to install them. See [Downloadable Agents Reference](../agents/built-in-agents.md).
-- Make or assign images such as avatars, sprites and backgrounds. You need an image generation account first. She does not create one.
+- Make or assign images such as avatars, sprites, backgrounds and a theme's pictures, and crop, trim, resize or clear a flat background on them. You need an image generation account first. She does not create one. For theme art, see [Ask Professor Mari to make the art](../appearance/theme-author-guide.md#ask-professor-mari-to-make-the-art).
 - Look up public Fandom wiki pages when you research a character or world.
 
 ### Start with a chip
