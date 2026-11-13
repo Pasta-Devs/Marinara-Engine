@@ -83,6 +83,7 @@ import { CharactersSection } from "./sections/CharactersSection";
 import { GamePartySection } from "./sections/GamePartySection";
 import { CardEvolutionAuditorSettings } from "./agents/CardEvolutionAuditorSettings";
 import { HoldForRewriteToggle } from "./agents/HoldForRewriteToggle";
+import { EchoChamberSettings } from "./agents/EchoChamberSettings";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
@@ -6529,24 +6530,10 @@ export function ChatSettingsDrawer({
                           onRemove={getRoleplayAgentMenuRemoveHandler("echo-chamber", echoChamberAgentMeta.name)}
                         >
                           {renderAgentLorebookAttachment("echo-chamber")}
-                          {renderAgentPromptTemplateSelect("echo-chamber")}
-                          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
-                            <p className="min-w-0 flex-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-                              {localizeUi(
-                                "ui.chat.chatsettingsdrawer.promptModeControlsTheFictionalAudienceStyleUsedFor",
-                              )}
-                            </p>
-                            <AgentSettingsActionButton
-                              onClick={() => {
-                                closeForSurface();
-                                useUIStore.getState().openAgentDetail("echo-chamber");
-                              }}
-                              className="shrink-0"
-                            >
-                              <Settings2 size="0.75rem" />
-                              <span>{localizeUi("ui.chat.chatsettingsdrawer.openSetup")}</span>
-                            </AgentSettingsActionButton>
-                          </div>
+                          <EchoChamberSettings
+                            promptTemplateSelect={renderAgentPromptTemplateSelect("echo-chamber")}
+                            closeForSurface={closeForSurface}
+                          />
                         </AgentSettingsCard>
                       )}
 
