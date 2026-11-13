@@ -56,7 +56,7 @@ virtualStoreDirMaxLength: 80
 overrides:
   "@babel/core": "7.29.7"
   "@babel/plugin-transform-modules-systemjs": "7.29.8"
-  "@earendil-works/pi-coding-agent>undici@>=8 <8.12.2": "8.12.3"
+  "@earendil-works/pi-coding-agent>undici@>=8 <8.12.2": "8.12.4"
   "@fastify/busboy@<3.2.3": "3.2.3"
   "@hono/node-server": "2.1.5"
   "@modelcontextprotocol/sdk": "1.32.2"
