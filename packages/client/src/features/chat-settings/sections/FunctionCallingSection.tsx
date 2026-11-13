@@ -1,4 +1,11 @@
+import { useMemo, useState } from "react";
 import { Check, FilePlus2, Plus, Trash2, Wrench } from "lucide-react";
+import {
+  isCustomToolSelectable,
+  useCustomToolCapabilities,
+  useCustomTools,
+  type CustomToolRow,
+} from "../../../hooks/use-custom-tools";
 import { cn } from "../../../lib/utils";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
@@ -7,12 +14,13 @@ import { ChatSettingsSection } from "../ChatSettingsSection";
 import { PickerDropdown } from "../PickerDropdown";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
+  BUILT_IN_TOOLS,
   MAX_GAME_DICE_POOL_AGE_TURNS,
   MAX_GAME_DICE_POOL_WINDOW,
   supportsNativeToolCalls,
 } from "@marinara-engine/shared";
 
-export interface FunctionToolOption {
+interface FunctionToolOption {
   id: string;
   name: string;
   description: string;
@@ -21,6 +29,8 @@ export interface FunctionToolOption {
 interface FunctionCallingSectionProps {
   /** Game chats get the dice tool regardless of this toggle, so they need the extra context. */
   isGameMode: boolean;
+  /** update_about_me is Conversation-only, so other modes don't offer it. */
+  isConversation: boolean;
   narratorProvider?: string;
   connections: Array<{ id: string; name: string; model?: string; provider?: string }>;
   toolConnectionId: string;
@@ -45,22 +55,16 @@ interface FunctionCallingSectionProps {
   enableTools: boolean | undefined;
   forceToolCall: boolean | undefined;
   activeToolIds: string[];
-  pendingToolIds: string[];
-  availableTools: FunctionToolOption[];
-  showToolPicker: boolean;
-  toolSearch: string;
   onEnableToolsChange: (enabled: boolean) => void;
   onForceToolCallChange: (enabled: boolean) => void;
-  onToggleTool: (toolId: string) => void;
-  onShowToolPickerChange: (show: boolean) => void;
-  onToolSearchChange: (value: string) => void;
-  onPendingToolIdsChange: (updater: (previous: string[]) => string[]) => void;
-  onAddPendingTools: () => void;
+  onActiveToolIdsChange: (activeToolIds: string[]) => void;
+  /** Leaves Chat Settings for the tool editor; the section clears its picker first. */
   onCreateCustomTool: () => void;
 }
 
 export function FunctionCallingSection({
   isGameMode,
+  isConversation,
   narratorProvider,
   connections,
   toolConnectionId,
@@ -81,20 +85,54 @@ export function FunctionCallingSection({
   enableTools,
   forceToolCall,
   activeToolIds,
-  pendingToolIds,
-  availableTools,
-  showToolPicker,
-  toolSearch,
   onEnableToolsChange,
   onForceToolCallChange,
-  onToggleTool,
-  onShowToolPickerChange,
-  onToolSearchChange,
-  onPendingToolIdsChange,
-  onAddPendingTools,
+  onActiveToolIdsChange,
   onCreateCustomTool,
 }: FunctionCallingSectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const { data: customTools } = useCustomTools();
+  const { data: customToolCapabilities } = useCustomToolCapabilities();
+  const [showToolPicker, setShowToolPicker] = useState(false);
+  const [pendingToolIds, setPendingToolIds] = useState<string[]>([]);
+  const [toolSearch, setToolSearch] = useState("");
+  // Build the available tool list: built-in + custom tools from DB
+  const availableTools = useMemo(() => {
+    const tools: FunctionToolOption[] = [];
+    for (const t of BUILT_IN_TOOLS) {
+      // update_about_me is Conversation-only (enforced server-side); hide the
+      // toggle in other modes so it doesn't look available where it can't run.
+      if (t.name === "update_about_me" && !isConversation) continue;
+      tools.push({ id: t.name, name: t.name, description: t.description });
+    }
+    if (customTools) {
+      for (const ct of customTools as CustomToolRow[]) {
+        if (isCustomToolSelectable(ct, customToolCapabilities)) {
+          tools.push({ id: ct.name, name: ct.name, description: ct.description });
+        }
+      }
+    }
+    return tools;
+  }, [customToolCapabilities, customTools, isConversation]);
+  const toggleTool = (toolId: string) => {
+    const current = [...activeToolIds];
+    const idx = current.indexOf(toolId);
+    if (idx >= 0) current.splice(idx, 1);
+    else current.push(toolId);
+    onActiveToolIdsChange(current);
+  };
+  const addPendingTools = () => {
+    const next = [...activeToolIds, ...pendingToolIds];
+    onActiveToolIdsChange(next);
+    setPendingToolIds([]);
+    setShowToolPicker(false);
+  };
+  const createCustomTool = () => {
+    setShowToolPicker(false);
+    setPendingToolIds([]);
+    setToolSearch("");
+    onCreateCustomTool();
+  };
   const toolProvider =
     isGameMode && toolConnectionId
       ? connections.find((connection) => connection.id === toolConnectionId)?.provider
@@ -227,7 +265,7 @@ export function FunctionCallingSection({
               disabled={!nativeToolsAvailable}
               onChange={(enabled) => {
                 if (!enabled) {
-                  onPendingToolIdsChange((previous) =>
+                  setPendingToolIds((previous) =>
                     previous.filter((id) => availableTools.find((tool) => tool.id === id)?.name !== "search_lorebook"),
                   );
                 }
@@ -320,7 +358,7 @@ export function FunctionCallingSection({
                         )}
                       </div>
                       <button
-                        onClick={() => onToggleTool(tool.id)}
+                        onClick={() => toggleTool(tool.id)}
                         className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                         title={localizeUi("ui.chatSettings.functioncallingsection.removeFromChat")}
                       >
@@ -337,9 +375,9 @@ export function FunctionCallingSection({
                 <button
                   type="button"
                   onClick={() => {
-                    onShowToolPickerChange(true);
-                    onToolSearchChange("");
-                    onPendingToolIdsChange(() => []);
+                    setShowToolPicker(true);
+                    setToolSearch("");
+                    setPendingToolIds(() => []);
                   }}
                   className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
                 >
@@ -347,7 +385,7 @@ export function FunctionCallingSection({
                 </button>
                 <button
                   type="button"
-                  onClick={onCreateCustomTool}
+                  onClick={createCustomTool}
                   className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
                 >
                   <FilePlus2 size="0.75rem" /> {localizeUi("ui.chatSettings.functioncallingsection.newCustomFunction")}
@@ -356,14 +394,14 @@ export function FunctionCallingSection({
             ) : (
               <PickerDropdown
                 search={toolSearch}
-                onSearchChange={onToolSearchChange}
-                onClose={() => onShowToolPickerChange(false)}
+                onSearchChange={setToolSearch}
+                onClose={() => setShowToolPicker(false)}
                 placeholder={localizeUi("ui.chatSettings.functioncallingsection.searchFunctions")}
                 footer={
                   <div className="grid gap-2 border-t border-[var(--border)] px-3 py-2 @lg:grid-cols-2">
                     <button
                       type="button"
-                      onClick={onCreateCustomTool}
+                      onClick={createCustomTool}
                       className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                     >
                       <FilePlus2 size="0.75rem" />{" "}
@@ -372,7 +410,7 @@ export function FunctionCallingSection({
                     <button
                       type="button"
                       disabled={pendingToolIds.length === 0}
-                      onClick={onAddPendingTools}
+                      onClick={addPendingTools}
                       className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       <Plus size="0.75rem" />
@@ -392,7 +430,7 @@ export function FunctionCallingSection({
                     <button
                       key={tool.id}
                       onClick={() =>
-                        onPendingToolIdsChange((previous) =>
+                        setPendingToolIds((previous) =>
                           previous.includes(tool.id) ? previous.filter((id) => id !== tool.id) : [...previous, tool.id],
                         )
                       }

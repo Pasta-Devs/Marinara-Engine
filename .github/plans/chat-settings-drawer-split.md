@@ -1,6 +1,6 @@
 # Chat Settings Drawer split
 
-Status: in progress, one section per pull request. Tracking issue: #9119. This file is the progress record: each pull request in the series updates the table below.
+Status: in progress, one step per pull request. Tracking issue: #9119. This file is the progress record: each pull request in the series updates the table below.
 
 ## Outcome
 
@@ -19,7 +19,7 @@ Measured on `staging` on 2026-11-12:
 ## Rules for every pull request in the series
 
 - **Link the tracking issue without closing it.** Put `Part of #9119` on a line of its own, with no "close", "fix" or "resolve" on that line: the issue status workflow treats any issue on such a line as fixed. The required closing line references #1469, the earlier request for this split.
-- **One section per pull request, merged quickly.** Before starting a section, list the open pull requests that change files in the folder, and skip any section one of them is changing. Search by changed files, not text: `gh pr list --search` only matches a pull request's title and description.
+- **One step per pull request, one section per commit.** Each step in the table below is one pull request, and each section in it is its own commit with its own checks, so a reviewer can go commit by commit. Connected chats (move, then merge) and Agents (cards, then the shell) are split further, as the table says. Separate pull requests for every section would pile up into a deep stack while each waits for review, and every pull request costs a hand test, a review and a CI run. Before starting a section, list the open pull requests that change files in the folder, and skip any section one of them is changing. Search by changed files, not text: `gh pr list --search` only matches a pull request's title and description.
 
   ```sh
   gh pr list --repo Pasta-Devs/Marinara-Engine --base staging --state open --limit 200 --json number,title,files \
@@ -38,8 +38,8 @@ Measured on `staging` on 2026-11-12:
 | Step | What moves | Lines today | Goes to | Status |
 | --- | --- | --- | --- | --- |
 | 1 | The drawer and the 14 files only it uses | n/a | `features/chat-settings/` | Merged: #9120 |
-| 2 | The three separate components at the bottom of the drawer (Memory recall's memories window, the Knowledge agents card, Conversation notes), and the helper groups at the top that stand on their own: game video prompt templates, conversation command toggles, Knowledge agent source settings, the agent menu icons | about 1,080 | Their own files, and `features/chat-settings/lib/` for plain helpers | This pull request |
-| 3 | First, a browser test that opens Chat Settings in a Conversation, a Roleplay and a Game chat and checks that every section for that mode shows. Then settings profiles, scoped regex, group chat, function calling, game widgets, the rest of Lorebooks | about 700 | `e2e/` for the test; `sections/`, one file each | The test merged as #9150; the sections are #9123 |
+| 2 | The three separate components at the bottom of the drawer (Memory recall's memories window, the Knowledge agents card, Conversation notes), and the helper groups at the top that stand on their own: game video prompt templates, conversation command toggles, Knowledge agent source settings, the agent menu icons | about 1,080 | Their own files, and `features/chat-settings/lib/` for plain helpers | Merged: #9121 |
+| 3 | First, a browser test that opens Chat Settings in a Conversation, a Roleplay and a Game chat and checks that every section for that mode shows. Then settings profiles, scoped regex, group chat, function calling, game widgets, the rest of Lorebooks | about 700 | `e2e/` for the test; `sections/`, one file each | The test merged as #9150; the sections are this pull request |
 | 4 | Connected chats: four near-copies, one per mode | 7,796–8,088 | First moved as they are, then merged into one component in a second pull request | Not started |
 | 5 | Memory recall, autonomous messaging, automatic summarization; then Characters, Persona and Game party | about 400; 6,130–6,762 | `sections/` | Not started |
 | 6 | Agents, part 1: the per-agent cards, one or a few per pull request. The cards that need the fewest drawer values go first. Each becomes a component that gets its values as props. The Knowledge agents card and `lib/knowledge-agent-settings.ts` move here too | most of about 2,400 lines of JSX | `features/chat-settings/agents/` | Not started |
