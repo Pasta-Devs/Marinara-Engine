@@ -235,7 +235,7 @@ The `src/hooks/` folder also contains many feature-specific hooks. A representat
 | `use-knowledge-sources.ts`     | Knowledge source management                |
 | `use-gallery.ts`               | Chat gallery images                        |
 | `use-chat-folders.ts`          | Chat folder CRUD plus reordering           |
-| `use-regex-scripts.ts`         | Regex script CRUD                          |
+| `use-regex-scripts.ts`         | Regex script CRUD, reordering and bulk toggles |
 | `use-haptic.ts`                | Haptic device connection and commands      |
 
 ## Component guide
@@ -467,7 +467,10 @@ The server (`packages/server`) exposes REST APIs under `/api`. This is a high-le
 | `/api/agents`        | GET, POST, PATCH, DELETE | Agent CRUD, echo messages, runs; built-in toggles use `PUT /api/agents/toggle/:agentType` |
 | `/api/lorebooks`     | GET, POST, PATCH, DELETE | Lorebook CRUD, entries, export                                                            |
 | `/api/custom-tools`  | GET, POST, PATCH, DELETE | Custom tool CRUD                                                                          |
-| `/api/regex-scripts` | GET, POST, PATCH, DELETE | Regex script CRUD                                                                         |
+| `/api/regex-scripts` | GET, POST, PUT, PATCH, DELETE | Regex script CRUD, `PUT /reorder` and `PUT /enabled`                                       |
+| `/api/library-folders/regex` | GET, POST, PATCH, DELETE | Regex folder CRUD, pause state and `POST /move`                                            |
+
+`PUT /api/regex-scripts/enabled` accepts `scriptIds` and `enabled`. It returns 404 without updating any script if an ID is missing. The regex list includes `pausedByFolder` separately from the saved `enabled` state.
 
 Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType` is the agent type string and `chatId` is the target chat id.
 

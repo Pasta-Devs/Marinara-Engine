@@ -1,11 +1,13 @@
 // ──────────────────────────────────────────────
 // Storage: Regex Scripts
 // ──────────────────────────────────────────────
-import { eq, asc } from "../../db/file-query.js";
+import { eq, asc, inArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { regexScripts } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import type { CreateRegexScriptInput, RegexApplyMode } from "@marinara-engine/shared";
+
+import { createLibraryFoldersStorage } from "./library-folders.storage.js";
 
 function deriveApplyMode(input: { applyMode?: RegexApplyMode; promptOnly?: boolean }): RegexApplyMode {
   if (input.applyMode === "prompt" || input.applyMode === "display" || input.applyMode === "both") {
@@ -26,10 +28,15 @@ export function createRegexScriptsStorage(db: DB) {
 
   return {
     async list() {
-      return db
-        .select()
-        .from(regexScripts)
-        .orderBy(asc(regexScripts.order), asc(regexScripts.createdAt), asc(regexScripts.id));
+      const [scripts, folders] = await Promise.all([
+        db
+          .select()
+          .from(regexScripts)
+          .orderBy(asc(regexScripts.order), asc(regexScripts.createdAt), asc(regexScripts.id)),
+        createLibraryFoldersStorage(db).list("regex"),
+      ]);
+      const pausedIds = new Set(folders.filter((folder) => folder.paused).flatMap((folder) => folder.itemIds));
+      return scripts.map((script) => ({ ...script, pausedByFolder: pausedIds.has(script.id) }));
     },
 
     async getById(id: string) {
@@ -118,8 +125,25 @@ export function createRegexScriptsStorage(db: DB) {
       return this.list();
     },
 
+    async setEnabled(scriptIds: string[], enabled: boolean) {
+      const ids = [...new Set(scriptIds)];
+      return db.transaction(async (tx) => {
+        const matchingIds = inArray(regexScripts.id, ids);
+        const rows = await tx.select({ id: regexScripts.id }).from(regexScripts).where(matchingIds);
+        if (rows.length !== ids.length) return false;
+        await tx
+          .update(regexScripts)
+          .set({ enabled: String(enabled), updatedAt: now() })
+          .where(matchingIds);
+        return true;
+      });
+    },
+
     async remove(id: string) {
-      await db.delete(regexScripts).where(eq(regexScripts.id, id));
+      await db.transaction(async (tx) => {
+        await tx.delete(regexScripts).where(eq(regexScripts.id, id));
+        await createLibraryFoldersStorage(tx).removeItemReferences("regex", [id]);
+      });
     },
   };
 }

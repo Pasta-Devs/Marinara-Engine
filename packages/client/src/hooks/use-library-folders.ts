@@ -4,15 +4,19 @@ import {
   type LibraryFolderScope,
   type MigrateLibraryFolderInput,
 } from "@marinara-engine/shared";
+import { regexKeys } from "./use-regex-scripts";
 import { api } from "../lib/api-client";
+import { libraryFolderKeys } from "../lib/library-folder-keys";
 
 export type { LibraryFolderScope } from "@marinara-engine/shared";
+export { libraryFolderKeys } from "../lib/library-folder-keys";
 
 export type LibraryFolder = {
   id: string;
   scope: LibraryFolderScope;
   name: string;
   collapsed: boolean;
+  paused?: boolean;
   sortOrder: number;
   itemIds: string[];
   createdAt: string;
@@ -24,11 +28,6 @@ const MAX_MIGRATION_FOLDERS = 1_000;
 
 type LegacyLibraryFolder = MigrateLibraryFolderInput & {
   scope: LibraryFolderScope;
-};
-
-export const libraryFolderKeys = {
-  all: ["library-folders"] as const,
-  list: (scope: LibraryFolderScope) => [...libraryFolderKeys.all, scope] as const,
 };
 
 function readLegacyFolders(): LegacyLibraryFolder[] {
@@ -131,10 +130,25 @@ export function useCreateLibraryFolder(scope: LibraryFolderScope) {
 export function useUpdateLibraryFolder(scope: LibraryFolderScope) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; name?: string; collapsed?: boolean; itemIds?: string[] }) => {
+    mutationFn: async ({
+      id,
+      ...data
+    }: {
+      id: string;
+      name?: string;
+      collapsed?: boolean;
+      paused?: boolean;
+      itemIds?: string[];
+    }) => {
       return api.patch<LibraryFolder>(`/library-folders/${scope}/${id}`, data);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: libraryFolderKeys.list(scope) }),
+    onSuccess: (_folder, input) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: libraryFolderKeys.list(scope) }),
+        scope === "regex" &&
+          (input.paused !== undefined || input.itemIds !== undefined) &&
+          qc.invalidateQueries({ queryKey: regexKeys.all }),
+      ]),
   });
 }
 
@@ -144,7 +158,11 @@ export function useDeleteLibraryFolder(scope: LibraryFolderScope) {
     mutationFn: async (id: string) => {
       await api.delete(`/library-folders/${scope}/${id}`);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: libraryFolderKeys.list(scope) }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: libraryFolderKeys.list(scope) }),
+        scope === "regex" && qc.invalidateQueries({ queryKey: regexKeys.all }),
+      ]),
   });
 }
 
@@ -164,6 +182,10 @@ export function useMoveLibraryItem(scope: LibraryFolderScope) {
       if (ids.length === 0) return;
       await api.post(`/library-folders/${scope}/move`, { itemIds: ids, folderId });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: libraryFolderKeys.list(scope) }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: libraryFolderKeys.list(scope) }),
+        scope === "regex" && qc.invalidateQueries({ queryKey: regexKeys.all }),
+      ]),
   });
 }

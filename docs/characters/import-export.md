@@ -34,7 +34,7 @@ If it did not work: read the red message next to the file. The other files in th
 | | **No tags**: skip them. |
 | | **Existing only**: keep tags already in your library. |
 | **Imported regex scripts** | **Character only** (default): rules run for this character. |
-| | **Global**: rules go to **Presets → Regexes** and run in every chat. |
+| | **Global**: rules go to **Presets → Regexes** and can run across chats. |
 | **Split description into fields** | Off by default. Tick it to move labelled personality, appearance and similar text out of **Description** into their own fields. |
 
 Regex scripts are small text-replacement rules. Keep **Character only** unless you want the rules everywhere. The split leaves narrator, world and multi-character cards as they are.
