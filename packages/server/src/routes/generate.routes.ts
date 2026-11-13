@@ -556,8 +556,11 @@ import {
   illustratorDecisionChecks,
 } from "../services/generation/illustrator-decision-checks.js";
 import {
+  findExistingSceneBackground,
   locationBackgroundPinsApply,
+  matchLibraryBackgroundForLocation,
   pinnedBackgroundMetadataPatch,
+  readChatBackgroundLibrary,
   pinnedSceneBackground,
 } from "../services/generation/location-background-pins.js";
 import {
@@ -12763,21 +12766,56 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   latestGameState?.location,
                 );
               }
-              const generated = await generateIllustratorSceneBackground({
-                db: app.db,
-                chatId: input.chatId,
-                chatName: chat.name,
-                chatMode: chatMode === "game" ? "game" : "roleplay",
+              // A place the chat already has a picture of (pin, then library by name/tags) is shown, not painted again.
+              const weatherForReuse = trackedWeather || decided.weather || "";
+              const existingHere = findExistingSceneBackground({
+                chatMode,
                 chatMetadata: freshMeta,
-                currentBackground: backgroundBeforeGeneration ?? currentBackground,
-                illustratorAgent: tail.illustratorAgent,
-                assistantResponse: agentCompletedResponse,
-                decisionReason: backgroundDecisionReason,
-                gameState: latestGameState,
-                recentMessages: agentContext.recentMessages,
-                signal: agentSignal,
-                debugLog,
+                location: latestGameState?.location ?? null,
+                projection: hierarchicalMapsEnabledForChat
+                  ? await resolveOwnerSpatialProjection(input.chatId, {}, chatMeta)
+                  : null,
+                userName: personaName,
+                characterNames: charInfo.map((character) => character.name),
+                weather: weatherForReuse,
+                weatherVersions: weatherVersionsEnabled,
               });
+              const reuseFromPlan = (plan: { locationName: string }) => {
+                // No tracker location to go by: the Prompt Model's place name is matched instead.
+                const found = matchLibraryBackgroundForLocation(plan.locationName, readChatBackgroundLibrary());
+                if (!found) return null;
+                if (!weatherVersionsEnabled || !weatherForReuse) return found;
+                const weatherPlan = planChatBackgroundWeather(found, weatherForReuse);
+                return weatherPlan.kind === "switch" ? weatherPlan.filename : found;
+              };
+              const generated = existingHere
+                ? {
+                    filename: existingHere.filename,
+                    locationName: latestGameState?.location ?? existingHere.filename,
+                    reason: `Already in the library for ${latestGameState?.location ?? "this place"}.`,
+                    tags: [] as string[],
+                    reused: true,
+                  }
+                : await generateIllustratorSceneBackground({
+                    db: app.db,
+                    chatId: input.chatId,
+                    chatName: chat.name,
+                    chatMode: chatMode === "game" ? "game" : "roleplay",
+                    chatMetadata: freshMeta,
+                    currentBackground: backgroundBeforeGeneration ?? currentBackground,
+                    illustratorAgent: tail.illustratorAgent,
+                    assistantResponse: agentCompletedResponse,
+                    decisionReason: backgroundDecisionReason,
+                    gameState: latestGameState,
+                    recentMessages: agentContext.recentMessages,
+                    signal: agentSignal,
+                    debugLog,
+                    reuseExisting: chatMode === "roleplay" ? reuseFromPlan : undefined,
+                  });
+              if (generated.filename === backgroundBeforeGeneration) {
+                logger.info('[illustrator-background] "%s" already shows this place', generated.filename);
+                return;
+              }
 
               const chatAfterGeneration = await chats.getById(input.chatId);
               const metaAfterGeneration = parseExtra(chatAfterGeneration?.metadata) as Record<string, unknown>;
@@ -12802,7 +12840,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   resultType: "background_change",
                   data: {
                     chosen: generated.filename,
-                    generated: true,
+                    generated: generated.reused !== true,
                     location: generated.locationName,
                     reason: generated.reason,
                     tags: generated.tags,
@@ -12812,7 +12850,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 },
               });
               logger.info(
-                '[illustrator-background] Generated and activated "%s" for %s',
+                '[illustrator-background] %s and activated "%s" for %s',
+                generated.reused ? "Reused" : "Generated",
                 generated.filename,
                 generated.locationName,
               );
