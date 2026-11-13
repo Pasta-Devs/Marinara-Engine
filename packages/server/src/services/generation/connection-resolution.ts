@@ -72,13 +72,12 @@ export async function resolveChatConnectionOrFallback(
   }
   const connection = connectionId ? await connections.getWithKey(connectionId) : null;
   if (connection) return applyChatModelOverride(connection, override);
-  if (!connections.getFallbackForMain) return null;
+  if (!connections.getFallbackForMain || (connectionId && !connections.unavailableReason)) return null;
   // No id: the chat's Model was deleted (the reference sweep cleared it) or never set, and there is no row to ask
-  // about, so the fallback alone answers. Only an id needs the connection store's own look-up.
-  const unavailableReason = connections.unavailableReason;
-  if (connectionId && !unavailableReason) return null;
+  // about, so the fallback alone answers. Only an id needs the connection store's look-up, called on the store
+  // itself: it reads `this.getById`, and a detached call loses its receiver.
   const unavailable = connectionId
-    ? await unavailableReason!(connectionId)
+    ? await connections.unavailableReason!(connectionId)
     : deletedModel
       ? { reason: "deleted" as const, row: null }
       : null;
