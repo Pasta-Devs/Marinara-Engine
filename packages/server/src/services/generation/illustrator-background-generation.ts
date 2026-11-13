@@ -20,6 +20,8 @@ import {
   buildBackgroundProviderPrompt,
   generateChatBackground,
   generateChatBackgroundWeatherVersion,
+  generateChatBackgroundWindowMask,
+  chatBackgroundWindowMaskKnown,
   type ChatBackgroundGenRequest,
 } from "../game/game-asset-generation.js";
 import { imageConnectionTakesReferencePicture } from "../image/image-generation.js";
@@ -533,12 +535,19 @@ export async function generateIllustratorBackgroundWeatherVersion(
     );
     return null;
   }
-  const filename = await generateChatBackgroundWeatherVersion({
-    ...request,
-    baseFilename: args.baseFilename,
-    version: args.version,
-    shelter,
-    scenePrompt: args.scenePrompt,
-  });
+  // The window stencil is made alongside the first indoor (or unsure) version, once per picture.
+  const needsStencil = shelter !== "outdoors" && !chatBackgroundWindowMaskKnown(args.baseFilename);
+  const [filename] = await Promise.all([
+    generateChatBackgroundWeatherVersion({
+      ...request,
+      baseFilename: args.baseFilename,
+      version: args.version,
+      shelter,
+      scenePrompt: args.scenePrompt,
+    }),
+    needsStencil
+      ? generateChatBackgroundWindowMask({ ...request, baseFilename: args.baseFilename })
+      : Promise.resolve(null),
+  ]);
   return filename ? { filename, url: `/api/backgrounds/file/${encodeURIComponent(filename)}` } : null;
 }

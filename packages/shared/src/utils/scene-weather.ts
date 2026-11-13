@@ -49,27 +49,78 @@ export function sceneWeatherCategory(weather: string | null | undefined): SceneW
 }
 
 /**
- * Weather a background picture is worth repainting for. Everything else (clear, cloudy, wind,
- * blossom, embers, aurora) keeps the original picture.
+ * Weather kinds a background picture is repainted for. Clear, cloudy and wind keep the plain
+ * picture (they barely change a painting), and so does anything the drawn weather already covers
+ * with no visible difference.
  */
-export const BACKGROUND_WEATHER_VERSIONS = ["rain", "storm", "snow", "hail", "fog", "sand", "ash"] as const;
+export const BACKGROUND_WEATHER_VERSIONS = [
+  "rain",
+  "storm",
+  "snow",
+  "blizzard",
+  "hail",
+  "fog",
+  "sand",
+  "ash",
+  "embers",
+  "blossom",
+  "aurora",
+] as const;
 export type BackgroundWeatherVersion = (typeof BACKGROUND_WEATHER_VERSIONS)[number];
 
-/** The background weather version a weather word needs, or "" for the plain picture. */
-export function backgroundWeatherVersion(weather: string | null | undefined): BackgroundWeatherVersion | "" {
-  const category = sceneWeatherCategory(weather);
-  return (BACKGROUND_WEATHER_VERSIONS as readonly string[]).includes(category)
-    ? (category as BackgroundWeatherVersion)
-    : "";
-}
+// Words that say nothing a painter could show, dropped before an unusual weather becomes its own
+// version ("Clear skies, 24°C" is just the plain picture; "a meteor shower" is `meteor-shower`).
+const MILD_WEATHER_WORDS = new Set(
+  (
+    "a an the and or with of in on at to by from some few light heavy slight strong mild gentle soft " +
+    "very quite rather mostly partly partial scattered occasional bit little lots lot " +
+    "clear clean fair fine nice pleasant sunny sun sunshine sunlit bright dry calm still " +
+    "warm hot cool cold chilly crisp brisk balmy humid muggy temperate mild freezing frosty " +
+    "cloud clouds cloudy overcast grey gray gloomy dull dim " +
+    "wind winds windy breeze breezy gust gusts gusty draft " +
+    "weather sky skies day night morning afternoon evening noon midnight dawn dusk today tonight " +
+    "temperature temp degrees degree celsius fahrenheit c f high low air outside"
+  ).split(" "),
+);
 
 /**
- * A file's weather version key: one of BACKGROUND_WEATHER_VERSIONS, or "clear" for the dry copy of
- * a picture that was first painted in bad weather.
+ * A background weather version key: one of BACKGROUND_WEATHER_VERSIONS, "clear" for the dry copy
+ * of a picture that was first painted in bad weather, or a slug of an unusual weather in the
+ * story's own words (`meteor-shower`, `blood-moon`).
  */
-export type BackgroundWeatherVersionKey = BackgroundWeatherVersion | "clear";
+export type BackgroundWeatherVersionKey = string;
 
-const VERSION_SUFFIX = /--wx-(rain|storm|snow|hail|fog|sand|ash|clear)$/u;
+/** The slug of an unusual weather, or "" when nothing paintable is left after the mild words. */
+export function unusualWeatherSlug(weather: string | null | undefined): string {
+  const words = (weather ?? "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .split(/[^a-z]+/u)
+    .filter((word) => word.length > 1 && !MILD_WEATHER_WORDS.has(word));
+  const kept: string[] = [];
+  for (const word of words) {
+    if (kept.includes(word)) continue;
+    if ([...kept, word].join("-").length > 32) break;
+    kept.push(word);
+    if (kept.length === 3) break;
+  }
+  return kept.join("-");
+}
+
+/** The background weather version a weather needs, or "" for the plain picture. */
+export function backgroundWeatherVersion(weather: string | null | undefined): BackgroundWeatherVersionKey | "" {
+  const category = sceneWeatherCategory(weather);
+  if (!category) return "";
+  if (category === "snow" && /blizzard|whiteout|white-out|snowstorm|snow storm/u.test(weather!.toLowerCase())) {
+    return "blizzard";
+  }
+  if ((BACKGROUND_WEATHER_VERSIONS as readonly string[]).includes(category)) return category;
+  // Clear, cloudy or windy by keyword: still its own version when the words name something else.
+  return unusualWeatherSlug(weather);
+}
+
+const VERSION_SUFFIX = /--wx-([a-z]+(?:-[a-z]+){0,2})$/u;
 
 /** Split a background file name into its plain picture's stem and its weather version. */
 export function parseBackgroundWeatherVersionName(filename: string): {
@@ -81,8 +132,8 @@ export function parseBackgroundWeatherVersionName(filename: string): {
   const stem = dot > 0 ? filename.slice(0, dot) : filename;
   const ext = dot > 0 ? filename.slice(dot + 1) : "";
   const match = VERSION_SUFFIX.exec(stem);
-  if (!match) return { baseStem: stem, ext, version: "" };
-  return { baseStem: stem.slice(0, match.index), ext, version: match[1] as BackgroundWeatherVersionKey };
+  if (!match || match[1]!.length > 32) return { baseStem: stem, ext, version: "" };
+  return { baseStem: stem.slice(0, match.index), ext, version: match[1]! };
 }
 
 /** File stem of a weather version: `<plain stem>--wx-<weather>`. */
@@ -141,16 +192,25 @@ export function sceneShelter(location: string | null | undefined, mapKind?: stri
   return "";
 }
 
-const WEATHER_VERSION_WORDS: Record<BackgroundWeatherVersionKey, string> = {
+const WEATHER_VERSION_WORDS: Record<string, string> = {
   clear: "clear, dry weather with no rain, snow or fog",
   rain: "steady rain",
   storm: "a heavy thunderstorm with dark clouds and lashing rain",
   snow: "falling snow, with fresh snow settled outside",
+  blizzard: "a howling blizzard: driving snow, deep drifts and a near white-out sky",
   hail: "a hailstorm",
   fog: "thick fog",
   sand: "a blowing sandstorm",
   ash: "falling volcanic ash under a smoky sky",
+  embers: "drifting embers and smoke, with a fiery orange glow from a fire nearby",
+  blossom: "blossom petals drifting on the breeze, with the trees outside in full bloom",
+  aurora: "a night sky lit by a shimmering green and violet aurora",
 };
+
+/** What the image model is told the weather is. Unusual weather is its slug read back as words. */
+function weatherVersionWords(version: BackgroundWeatherVersionKey): string {
+  return WEATHER_VERSION_WORDS[version] ?? `this weather: ${version.replace(/-/gu, " ")}`;
+}
 
 /**
  * The instruction that turns a background into its weather version. Indoors the weather is only
@@ -160,7 +220,7 @@ export function backgroundWeatherVersionInstruction(
   version: BackgroundWeatherVersionKey,
   shelter: SceneShelter,
 ): string {
-  const weather = WEATHER_VERSION_WORDS[version];
+  const weather = weatherVersionWords(version);
   const where =
     shelter === "indoors"
       ? `The scene is indoors: show the ${weather} only through the windows, doorways and other openings (streaks or flakes on the glass, a darker or greyer sky outside, wet or dusty sills where it fits), with the room itself dry and the indoor light adjusted to match.`

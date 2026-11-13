@@ -44,7 +44,7 @@ If it did not work: the message "Choose an image generation connection for the I
 
 ## Weather versions of backgrounds
 
-With this on, the background follows the story's weather. When it starts raining in the inn, Illustrator repaints the inn's background with rain on the windows. Indoors, the full-screen weather is turned off, so the rain shows only through the windows.
+With this on, the background follows the story's weather. When it starts raining in the inn, Illustrator repaints the inn's background with rain on the windows. Indoors, the moving rain falls only behind the window glass, never across the room.
 
 1. Open **Chat Settings** with the sliders button in the chat, and open **Agents → Illustrator**.
 2. Turn on **Weather Versions of Backgrounds**.
@@ -52,8 +52,10 @@ With this on, the background follows the story's weather. When it starts raining
 What happens:
 
 - Each picture and weather is made **once**. When the weather changes back, or the story returns to the inn in the rain, the saved version is shown again at no cost.
-- The version is saved next to the original as `name--wx-rain.png` (or `snow`, `storm`, `fog`, `hail`, `sand`, `ash`, or `clear` for a dry copy of a picture first made in bad weather). The **Background** agent picks among your plain pictures and then shows the matching weather version when one exists.
-- Clear, cloudy, windy and other light weather keep the plain picture.
+- The version is saved next to the original as `name--wx-rain.png`. The other kinds are `storm`, `snow`, `blizzard`, `hail`, `fog`, `sand`, `ash`, `embers`, `blossom` and `aurora`, plus `clear` for a dry copy of a picture first made in bad weather. The **Background** agent picks among your plain pictures and then shows the matching weather version when one exists.
+- Unusual weather gets a version in the story's own words: a meteor shower is `name--wx-meteor-shower.png`, a blood moon `name--wx-blood-moon.png`.
+- Clear, sunny, cloudy, windy and other light weather keep the plain picture.
+- **Window stencil:** the first time an indoor picture gets a weather version, Illustrator also asks the image model where its windows are. It saves that as a small black and white stencil in `backgrounds/weather-masks`, and every weather version of that room shares it. The moving weather (rain lines, snowflakes, the aurora) is then drawn only on the glass. A room with no windows gets no moving weather, only the colour of the weather and lightning flashes.
 - It needs the **World State** agent for the weather, and the Illustrator image model has to be able to start from a picture (most can, including OpenAI, Gemini, NovelAI and ComfyUI with an image input). Models that can't are skipped, and the picture stays as it is.
 - It works for backgrounds in your library, whether you picked them, the Background agent did or Illustrator made them.
 
