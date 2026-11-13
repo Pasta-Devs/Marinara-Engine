@@ -527,7 +527,7 @@ async function buildPendingCardUpdates(
     try {
       characters = await qc.fetchQuery({
         queryKey: characterKeys.list(),
-        queryFn: () => api.get<Array<{ id: string; data?: unknown; name?: string }>>("/characters"),
+        queryFn: () => fetchAllCharacterPages<{ id: string; data?: unknown; name?: string }>(),
       });
     } catch {
       characters = undefined;
@@ -683,7 +683,7 @@ import {
   preserveRecentMessageContentEdit,
   rememberRecentMessageContentEdit,
 } from "./use-chats";
-import { characterKeys } from "./use-characters";
+import { characterKeys, fetchAllCharacterPages } from "./use-characters";
 import { connectionKeys } from "./use-connections";
 import { lorebookKeys } from "./use-lorebooks";
 import { presetKeys } from "./use-presets";
