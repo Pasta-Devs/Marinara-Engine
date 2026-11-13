@@ -4391,9 +4391,12 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   onChange={handleAppAccentColorChange}
                   gradient
                   compact
-                  label={`${localizeUi("settings.controls.accentColor.label")} (${localizeUi(
-                    theme === "light" ? "ui.panels.appearancesettings.light" : "ui.panels.appearancesettings.dark",
-                  )})`}
+                  label={localizeUi("ui.panels.ttsconfigcard.value1Value2", {
+                    value1: localizeUi("settings.controls.accentColor.label"),
+                    value2: localizeUi(
+                      theme === "light" ? "ui.panels.appearancesettings.light" : "ui.panels.appearancesettings.dark",
+                    ),
+                  })}
                   helpText={localizeUi("settings.controls.accentColor.help")}
                   emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
                     value1: localizeUi("ui.ui.colorpicker.marinaraGradient"),
@@ -6299,7 +6302,10 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             disabled={cloningId === t.id}
             className={cn(SETTINGS_ICON_BUTTON_CLASS, "disabled:opacity-50")}
             title={localizeUi("theming.starter.clone", { defaultValue: "Clone + edit" })}
-            aria-label={`${localizeUi("theming.starter.clone", { defaultValue: "Clone + edit" })}: ${t.name}`}
+            aria-label={localizeUi("ui.panels.settingspanel.value1Value2", {
+              value1: localizeUi("theming.starter.clone", { defaultValue: "Clone + edit" }),
+              value2: t.name,
+            })}
             data-theme-clone={t.id}
           >
             {cloningId === t.id ? <Loader2 size="0.75rem" className="animate-spin" /> : <Copy size="0.75rem" />}
@@ -6310,7 +6316,10 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             onClick={() => openEditTheme(t)}
             className={SETTINGS_ICON_BUTTON_CLASS}
             title={localizeUi("settings.actions.editThemeCss")}
-            aria-label={`${localizeUi("settings.actions.editThemeCss")}: ${t.name}`}
+            aria-label={localizeUi("ui.panels.settingspanel.value1Value2", {
+              value1: localizeUi("settings.actions.editThemeCss"),
+              value2: t.name,
+            })}
           >
             <Code size="0.75rem" />
           </button>
@@ -6322,7 +6331,10 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
           }}
           className={SETTINGS_ICON_BUTTON_CLASS}
           title={localizeUi("settings.actions.exportTheme")}
-          aria-label={`${localizeUi("settings.actions.exportTheme")}: ${t.name}`}
+          aria-label={localizeUi("ui.panels.settingspanel.value1Value2", {
+            value1: localizeUi("settings.actions.exportTheme"),
+            value2: t.name,
+          })}
         >
           <Upload size="0.75rem" />
         </button>
@@ -6359,7 +6371,10 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             }}
             className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger")}
             title={localizeUi("settings.actions.removeTheme")}
-            aria-label={`${localizeUi("settings.actions.removeTheme")}: ${t.name}`}
+            aria-label={localizeUi("ui.panels.settingspanel.value1Value2", {
+              value1: localizeUi("settings.actions.removeTheme"),
+              value2: t.name,
+            })}
           >
             <Trash2 size="0.75rem" />
           </button>
@@ -6531,10 +6546,13 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
         : localizeUi("theming.import.installed", { name: theme.name });
       if (skipped > 0) {
         toast.warning(
-          `${done} ${localizeUi("theming.import.backgroundsSkipped", {
-            count: skipped,
-            defaultValue: "{{count}} background(s) couldn't be added.",
-          })}`,
+          localizeUi("ui.chat.scheduletimeline.value1Value2", {
+            value1: done,
+            value2: localizeUi("theming.import.backgroundsSkipped", {
+              count: skipped,
+              defaultValue: "{{count}} background(s) couldn't be added.",
+            }),
+          }),
         );
       } else toast.success(done);
       setImportQueue((queue) => queue.slice(1));

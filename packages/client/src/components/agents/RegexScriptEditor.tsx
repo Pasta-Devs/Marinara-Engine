@@ -768,7 +768,7 @@ export function RegexScriptEditor() {
               </OvRow>
               <OvRow
                 label={localizeUi("ui.agents.regexscripteditor.trimStrings_f0be26a")}
-                hint="Removed from the result"
+                hint={localizeUi("ui.overhaul.text.removedFromTheResult")}
                 top
               >
                 <OvChipInput
@@ -911,7 +911,7 @@ export function RegexScriptEditor() {
               </OvRow>
               <OvRow
                 label={localizeUi("ui.agents.regexscripteditor.depthRange_61afeee")}
-                hint="Messages back from the newest"
+                hint={localizeUi("ui.overhaul.text.messagesBackFromTheNewest")}
               >
                 <OvNum
                   value={localMinDepth}

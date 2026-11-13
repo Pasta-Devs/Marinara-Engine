@@ -64,6 +64,7 @@ import {
   type RegexScriptRow,
 } from "../../hooks/use-regex-scripts";
 import { downloadJsonFile } from "../../lib/download-json";
+import { translate } from "../../localization/i18n";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
@@ -99,6 +100,7 @@ import {
   type KitSelection,
 } from "./LibraryKit";
 import { TagFilter, countItemTags, matchesPickedTags } from "./TagFilter";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 // ── Shared pieces ──
 
@@ -627,6 +629,7 @@ const LOREBOOK_CATEGORY_LABEL: Record<string, string> = {
 };
 
 export function LorebooksLanding() {
+  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const { data } = useLorebooks();
   const updateLorebook = useUpdateLorebook();
@@ -675,7 +678,7 @@ export function LorebooksLanding() {
   const duplicate = async (book: Lorebook) => {
     try {
       const id = await duplicateLorebook(book, (input) => createLorebook.mutateAsync(input));
-      toast.success(`${localize("Copied")} ${book.name}`);
+      toast.success(localizeUi("ui.overhaul.text.copiedName", { name: book.name }));
       openLorebookDetail(id);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : localize("Couldn't copy the lorebook."));
@@ -840,6 +843,7 @@ function isDefaultPreset(preset: { isDefault?: unknown } | undefined) {
 }
 
 export function PresetsLanding() {
+  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const { data } = usePresets();
   const duplicatePreset = useDuplicatePreset();
@@ -913,7 +917,7 @@ export function PresetsLanding() {
           void duplicatePreset
             .mutateAsync(preset.id)
             .then((copy) => {
-              toast.success(`${localize("Copied")} ${preset.name}`);
+              toast.success(localizeUi("ui.overhaul.text.copiedName", { name: preset.name }));
               openPresetDetail(copy.id);
             })
             .catch((error: unknown) =>
@@ -1075,7 +1079,7 @@ export function useRegexImport() {
         await importRegex.mutateAsync(normalized);
         imported += 1;
       }
-      if (imported) toast.success(`${localize("Imported")} ${imported}`);
+      if (imported) toast.success(translate("ui.overhaul.text.importedNumber", { number: imported }));
       else toast.error(localize("No valid regex scripts found in file."));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : localize("Failed to import regex scripts"));
@@ -1116,7 +1120,9 @@ export function useRegexKitActions(allScripts: RegexScriptRow[], selection: KitS
           getNextRegexOrderBase(allScripts),
         );
         if (entry)
-          void importRegex.mutateAsync(entry).then(() => toast.success(`${localize("Copied")} ${script.name}`));
+          void importRegex
+            .mutateAsync(entry)
+            .then(() => toast.success(translate("ui.overhaul.text.copiedName", { name: script.name })));
       },
     },
     ...(folders ? [moveToFolderAction(folders, () => [script.id], folders.folderOf(script.id))] : []),
@@ -1243,7 +1249,7 @@ function useRegexFolderImport(allScripts: RegexScriptRow[], folders: KitFolders)
         added ? `${localize("Added")} ${added}` : null,
       ].filter(Boolean);
       if (parts.length) toast.success(parts.join(" · "));
-      if (failed) toast.error(`${localize("Couldn't import")} ${failed}`);
+      if (failed) toast.error(translate("ui.overhaul.text.couldntImportNumber", { number: failed }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : localize("Failed to import regex scripts"));
     }
@@ -1306,7 +1312,9 @@ export function useRegexFolders(scripts: RegexScriptRow[]) {
       trail: list.length ? (
         <Toggle
           on={on > 0}
-          label={`${localize(on > 0 ? "Turn off" : "Turn on")} ${folder.name}`}
+          label={translate(on > 0 ? "ui.overhaul.text.turnOffName" : "ui.overhaul.text.turnOnName", {
+            name: folder.name,
+          })}
           onChange={(next) => setEnabledMany.mutate({ ids: list.map((script) => script.id), enabled: next })}
         />
       ) : undefined,
