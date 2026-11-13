@@ -3492,14 +3492,13 @@ export function useGenerate() {
                 "Generation is still finishing in the background. Refresh the chat in a moment if it has not appeared.",
               );
             } else if (
-              isGameGeneration &&
-              !params.impersonate &&
-              assistantMessagesBeforeGeneration.cacheWasLoaded &&
+              expectedMessagesBeforeGeneration.cacheWasLoaded &&
               recoveryRefetchSucceeded &&
               !recoveredReply()
             ) {
-              // A game turn always ends in a Game Master message, so a run that settled without one failed: say so
-              // and offer Retry rather than leave the player with nothing, and hand an unsaved turn back to the input.
+              // The server finished without saving this run's reply (an assistant row, or the impersonated user turn),
+              // so the run failed: say so and offer Retry rather than leave the user with nothing, and report an
+              // unsaved turn so the input hands back what was typed.
               replyErrorSeen = true;
               setGenerateReplyError(showError(translate("generation.stoppedWithoutReply")), params.chatId, qc);
               window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
