@@ -445,6 +445,12 @@ export interface ChatMetadata {
   illustratorAutoBackgroundsEnabled?: boolean;
   /** Whether Illustrator repaints the active library background in the story's weather (made once per picture and weather, then reused). */
   illustratorWeatherBackgroundsEnabled?: boolean;
+  /** Decision model reads every Roleplay reply for "the scene moves to a new place" (needs auto backgrounds). */
+  illustratorDecisionLocationCheck?: boolean;
+  /** Decision model reads every Roleplay reply for "the weather changes" (needs weather versions). */
+  illustratorDecisionWeatherCheck?: boolean;
+  /** The weather the Decision model last picked, for chats without a World State weather. */
+  illustratorDecisionWeather?: string | null;
   /** Whether Conversation selfie commands should send the matching character avatar as a reference image. */
   selfieUseAvatarReferences?: boolean;
   /** Whether Conversation selfie commands should append matched character card appearance text to image prompts. */

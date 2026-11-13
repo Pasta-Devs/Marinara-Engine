@@ -191,7 +191,7 @@ How it runs:
 - A timeout, an unavailable model or an invalid answer lets the agent run normally. The time limit depends on the model type and on whether the model has to think first. See [Time limits](../connections/decision-models.md#time-limits).
 - Imported agents with an activation question or decision statements show a notice linking to the Decision Models guide. Without a Decision model, the agent runs whenever keywords and **Trigger Cadence** allow, and prompt statements read as no.
 
-Activation questions apply to custom agents only.
+Activation questions apply to custom agents only. The built-in Illustrator has its own fixed checks for new places and weather, see [Decision model checks](../roleplay/backgrounds.md#decision-model-checks-for-new-places-and-weather).
 
 ## Decision statements in the agent's prompt
 

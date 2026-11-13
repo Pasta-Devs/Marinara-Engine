@@ -551,6 +551,10 @@ import {
   resolveIllustratorPromptStyle,
 } from "../services/generation/illustrator-background-generation.js";
 import {
+  askIllustratorDecisionChecks,
+  illustratorDecisionChecks,
+} from "../services/generation/illustrator-decision-checks.js";
+import {
   chatBackgroundPlainPicture,
   isChatBackgroundWeatherVersion,
   planChatBackgroundWeather,
@@ -12549,6 +12553,245 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             : allResponses
                 .map((response, index) => agentReplyText(response, responseMessageIds.get(index)))
                 .join("\n\n");
+        // The Illustrator's scene-background tail: a new place gets a new background, the same place its
+        // weather version. Made by the Illustrator's own result, or by the optional Decision model checks
+        // on a reply the Illustrator skipped. Runs after "done", once the trackers have saved.
+        const illustratorAutomaticBackgrounds = illustratorBackgroundGenerationEnabled(chatMode, chatMeta);
+        const illustratorWeatherVersions = illustratorWeatherVersionsEnabled(chatMode, chatMeta);
+        const illustratorChecks = illustratorDecisionChecks(chatMeta, {
+          automaticBackgrounds: illustratorAutomaticBackgrounds,
+          weatherVersions: illustratorWeatherVersions,
+        });
+        const askIllustratorBackgroundDecisions = async (pickWeather: boolean) => {
+          if (!illustratorChecks.location && !illustratorChecks.weather) {
+            return { locationChanged: null, weatherChanged: null, weather: null };
+          }
+          const backend = await resolveDecisionBackend(
+            {
+              getLocalDefault: () => appSettings.get(DECISION_SETTINGS_KEYS.localDefault),
+              getThinkingPreGeneration: async () =>
+                (await appSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration)) === "true",
+              getDefaultConnection: () => connections.getDefaultForDecision(),
+              getConnectionWithKey: (id) => connections.getWithKey(id),
+              debugMode: requestDebug,
+            },
+            agentSignal,
+          ).catch(() => null);
+          if (!backend) return { locationChanged: null, weatherChanged: null, weather: null };
+          return askIllustratorDecisionChecks({
+            backend,
+            checks: illustratorChecks,
+            pickWeather,
+            messages: [
+              ...agentContext.recentMessages
+                .slice(-4)
+                .map((message) => ({ role: message.role, content: message.content })),
+              { role: "assistant", content: agentCompletedResponse },
+            ],
+            signal: agentSignal,
+          });
+        };
+        const makeIllustratorBackgroundTail = (tail: {
+          illustratorAgent: ResolvedAgent;
+          /** The Illustrator ran on this reply (its run interval), not only the Decision model checks. */
+          illustratorRan: boolean;
+          requestedBackground: boolean;
+          illustratorReason?: string;
+          messageId: string;
+          swipeIndex: number;
+        }) => {
+          const automaticBackgroundsEnabled = illustratorAutomaticBackgrounds;
+          const weatherVersionsEnabled = illustratorWeatherVersions;
+          const backgroundAtDecision =
+            typeof chatMeta.background === "string" && chatMeta.background.trim() ? chatMeta.background.trim() : null;
+          const trackedLocationAtDecision = gameState?.location ?? null;
+          return async () => {
+            try {
+              const freshChat = await chats.getById(input.chatId);
+              const freshMeta = parseExtra(freshChat?.metadata) as Record<string, unknown>;
+              const backgroundBeforeGeneration =
+                typeof freshMeta.background === "string" && freshMeta.background.trim()
+                  ? freshMeta.background.trim()
+                  : null;
+              if (backgroundBeforeGeneration !== backgroundAtDecision) {
+                logger.info(
+                  "[illustrator-background] Skipping automatic background because the active background changed after the Illustrator decision",
+                );
+                return;
+              }
+
+              const latestSnapshot = tail.messageId
+                ? await gameStateStore.getByChatAndMessage(input.chatId, tail.messageId, tail.swipeIndex)
+                : await gameStateStore.getForGeneration(input.chatId, { preferLatestVisible: true });
+              const latestGameState = latestSnapshot
+                ? parseGameStateRow(latestSnapshot as Record<string, unknown>)
+                : gameState;
+              const trackerLocationChanged = illustratorTrackerLocationChanged(
+                trackedLocationAtDecision,
+                latestGameState?.location,
+              );
+              // Optional Decision model checks (off by default): they read every reply and only add reasons to act.
+              const trackedWeather = latestGameState?.weather?.trim() ?? "";
+              const decided = await askIllustratorBackgroundDecisions(trackedWeather.length === 0);
+              if (decided.weather) {
+                try {
+                  await chats.patchMetadata(input.chatId, { illustratorDecisionWeather: decided.weather });
+                } catch {
+                  /* only a fallback for later replies */
+                }
+              }
+              const decidedNewPlace = decided.locationChanged === true;
+              if (
+                !automaticBackgroundsEnabled ||
+                (!tail.requestedBackground && !trackerLocationChanged && !decidedNewPlace)
+              ) {
+                // Same place: show it in the story's weather (a version made once, then reused).
+                // Without a World State weather, the Decision model's last pick stands in for it.
+                const weatherNow =
+                  trackedWeather ||
+                  decided.weather ||
+                  (illustratorChecks.weather && typeof freshMeta.illustratorDecisionWeather === "string"
+                    ? freshMeta.illustratorDecisionWeather
+                    : "");
+                if (!weatherVersionsEnabled || !weatherNow) return;
+                // A reply the Illustrator skipped is only looked at when the Decision model saw the weather change.
+                if (!tail.illustratorRan && decided.weatherChanged !== true) return;
+                const weatherPlan = planChatBackgroundWeather(backgroundBeforeGeneration, weatherNow);
+                if (weatherPlan.kind === "keep") return;
+                let weatherFilename: string | null = null;
+                let weatherGenerated = false;
+                if (weatherPlan.kind === "switch") {
+                  weatherFilename = weatherPlan.filename;
+                } else {
+                  const made = await generateIllustratorBackgroundWeatherVersion({
+                    db: app.db,
+                    chatId: input.chatId,
+                    chatName: chat.name,
+                    chatMode: chatMode === "game" ? "game" : "roleplay",
+                    chatMetadata: freshMeta,
+                    currentBackground: backgroundBeforeGeneration,
+                    illustratorAgent: tail.illustratorAgent,
+                    assistantResponse: agentCompletedResponse,
+                    gameState: latestGameState,
+                    recentMessages: agentContext.recentMessages,
+                    signal: agentSignal,
+                    debugLog,
+                    baseFilename: weatherPlan.baseFilename,
+                    version: weatherPlan.version,
+                    scenePrompt: weatherPlan.scenePrompt,
+                  });
+                  if (!made) return;
+                  weatherFilename = made.filename;
+                  weatherGenerated = true;
+                }
+                const chatAfterWeather = await chats.getById(input.chatId);
+                const metaAfterWeather = parseExtra(chatAfterWeather?.metadata) as Record<string, unknown>;
+                const backgroundAfterWeather =
+                  typeof metaAfterWeather.background === "string" && metaAfterWeather.background.trim()
+                    ? metaAfterWeather.background.trim()
+                    : null;
+                if (backgroundAfterWeather !== backgroundAtDecision) return;
+                await chats.patchMetadata(input.chatId, { background: weatherFilename });
+                sendSseEvent(reply, {
+                  type: "agent_result",
+                  data: {
+                    agentType: "illustrator",
+                    agentName: tail.illustratorAgent.name ?? "Illustrator",
+                    resultType: "background_change",
+                    data: {
+                      chosen: weatherFilename,
+                      generated: weatherGenerated,
+                      weatherVersion: true,
+                      reason: `Weather: ${weatherNow}`,
+                    },
+                    success: true,
+                    error: null,
+                  },
+                });
+                logger.info('[background-weather] Showing "%s" for weather "%s"', weatherFilename, weatherNow);
+                return;
+              }
+              const backgroundDecisionReason = tail.requestedBackground
+                ? tail.illustratorReason
+                : trackerLocationChanged
+                  ? `Tracker location changed from ${trackedLocationAtDecision || "an unspecified location"} to ${latestGameState?.location}.`
+                  : "The Decision model read that the latest message moves the scene to a new place.";
+              if (trackerLocationChanged && !tail.requestedBackground) {
+                logger.info(
+                  '[illustrator-background] Tracker location changed from "%s" to "%s"; generating despite a false Illustrator background decision',
+                  trackedLocationAtDecision || "(none)",
+                  latestGameState?.location,
+                );
+              }
+              const generated = await generateIllustratorSceneBackground({
+                db: app.db,
+                chatId: input.chatId,
+                chatName: chat.name,
+                chatMode: chatMode === "game" ? "game" : "roleplay",
+                chatMetadata: freshMeta,
+                currentBackground: backgroundBeforeGeneration ?? currentBackground,
+                illustratorAgent: tail.illustratorAgent,
+                assistantResponse: agentCompletedResponse,
+                decisionReason: backgroundDecisionReason,
+                gameState: latestGameState,
+                recentMessages: agentContext.recentMessages,
+                signal: agentSignal,
+                debugLog,
+              });
+
+              const chatAfterGeneration = await chats.getById(input.chatId);
+              const metaAfterGeneration = parseExtra(chatAfterGeneration?.metadata) as Record<string, unknown>;
+              const backgroundAfterGeneration =
+                typeof metaAfterGeneration.background === "string" && metaAfterGeneration.background.trim()
+                  ? metaAfterGeneration.background.trim()
+                  : null;
+              if (backgroundAfterGeneration !== backgroundAtDecision) {
+                logger.info(
+                  "[illustrator-background] Saved %s to the library without activating it because the background changed during generation",
+                  generated.filename,
+                );
+                return;
+              }
+
+              await chats.patchMetadata(input.chatId, { background: generated.filename });
+              sendSseEvent(reply, {
+                type: "agent_result",
+                data: {
+                  agentType: "illustrator",
+                  agentName: tail.illustratorAgent.name ?? "Illustrator",
+                  resultType: "background_change",
+                  data: {
+                    chosen: generated.filename,
+                    generated: true,
+                    location: generated.locationName,
+                    reason: generated.reason,
+                    tags: generated.tags,
+                  },
+                  success: true,
+                  error: null,
+                },
+              });
+              logger.info(
+                '[illustrator-background] Generated and activated "%s" for %s',
+                generated.filename,
+                generated.locationName,
+              );
+            } catch (backgroundError) {
+              logger.error(backgroundError, "[illustrator-background] Automatic scene background failed");
+              sendSseEvent(reply, {
+                type: "agent_error",
+                data: {
+                  agentType: "illustrator",
+                  agentName: tail.illustratorAgent.name ?? "Illustrator",
+                  retryTarget: "background",
+                  error: `Background generation failed: ${
+                    backgroundError instanceof Error ? backgroundError.message : String(backgroundError)
+                  }`,
+                },
+              });
+            }
+          };
+        };
         let assistantMessageReadySent = false;
         const sendAssistantMessageReady = async (savedMessage?: typeof currentIterationSavedMsg) => {
           if (assistantMessageReadySent || generationSignal.aborted || input.impersonate) return;
@@ -13666,9 +13909,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               if (
                 bgData.chosen &&
                 illustratorWeatherVersionsEnabled(chatMode, chatMeta) &&
-                gameState?.weather?.trim()
+                (gameState?.weather?.trim() ||
+                  (chatMeta.illustratorDecisionWeatherCheck === true &&
+                    typeof chatMeta.illustratorDecisionWeather === "string"))
               ) {
-                const weatherPlan = planChatBackgroundWeather(bgData.chosen, gameState.weather);
+                // Without a World State weather, the Decision model's last pick (when its weather check is on).
+                const weatherPlan = planChatBackgroundWeather(
+                  bgData.chosen,
+                  gameState?.weather?.trim() || (chatMeta.illustratorDecisionWeather as string),
+                );
                 if (weatherPlan.kind === "switch") bgData.chosen = weatherPlan.filename;
               }
 
@@ -14784,181 +15033,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 (automaticBackgroundsEnabled || weatherVersionsEnabled) &&
                 illustratorBackgroundAgent
               ) {
-                const backgroundAtDecision =
-                  typeof chatMeta.background === "string" && chatMeta.background.trim()
-                    ? chatMeta.background.trim()
-                    : null;
-                const trackedLocationAtDecision = gameState?.location ?? null;
-                pendingIllustratorBackground = async () => {
-                  try {
-                    const freshChat = await chats.getById(input.chatId);
-                    const freshMeta = parseExtra(freshChat?.metadata) as Record<string, unknown>;
-                    const backgroundBeforeGeneration =
-                      typeof freshMeta.background === "string" && freshMeta.background.trim()
-                        ? freshMeta.background.trim()
-                        : null;
-                    if (backgroundBeforeGeneration !== backgroundAtDecision) {
-                      logger.info(
-                        "[illustrator-background] Skipping automatic background because the active background changed after the Illustrator decision",
-                      );
-                      return;
-                    }
-
-                    const latestSnapshot = messageId
-                      ? await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex)
-                      : await gameStateStore.getForGeneration(input.chatId, { preferLatestVisible: true });
-                    const latestGameState = latestSnapshot
-                      ? parseGameStateRow(latestSnapshot as Record<string, unknown>)
-                      : gameState;
-                    const trackerLocationChanged = illustratorTrackerLocationChanged(
-                      trackedLocationAtDecision,
-                      latestGameState?.location,
-                    );
-                    if (!automaticBackgroundsEnabled || (!requestedBackground && !trackerLocationChanged)) {
-                      // Same place: show it in the story's weather (a version made once, then reused).
-                      if (!weatherVersionsEnabled || !latestGameState?.weather?.trim()) return;
-                      const weatherPlan = planChatBackgroundWeather(
-                        backgroundBeforeGeneration,
-                        latestGameState.weather,
-                      );
-                      if (weatherPlan.kind === "keep") return;
-                      let weatherFilename: string | null = null;
-                      let weatherGenerated = false;
-                      if (weatherPlan.kind === "switch") {
-                        weatherFilename = weatherPlan.filename;
-                      } else {
-                        const made = await generateIllustratorBackgroundWeatherVersion({
-                          db: app.db,
-                          chatId: input.chatId,
-                          chatName: chat.name,
-                          chatMode: chatMode === "game" ? "game" : "roleplay",
-                          chatMetadata: freshMeta,
-                          currentBackground: backgroundBeforeGeneration,
-                          illustratorAgent: illustratorBackgroundAgent,
-                          assistantResponse: agentCompletedResponse,
-                          gameState: latestGameState,
-                          recentMessages: agentContext.recentMessages,
-                          signal: agentSignal,
-                          debugLog,
-                          baseFilename: weatherPlan.baseFilename,
-                          version: weatherPlan.version,
-                          scenePrompt: weatherPlan.scenePrompt,
-                        });
-                        if (!made) return;
-                        weatherFilename = made.filename;
-                        weatherGenerated = true;
-                      }
-                      const chatAfterWeather = await chats.getById(input.chatId);
-                      const metaAfterWeather = parseExtra(chatAfterWeather?.metadata) as Record<string, unknown>;
-                      const backgroundAfterWeather =
-                        typeof metaAfterWeather.background === "string" && metaAfterWeather.background.trim()
-                          ? metaAfterWeather.background.trim()
-                          : null;
-                      if (backgroundAfterWeather !== backgroundAtDecision) return;
-                      await chats.patchMetadata(input.chatId, { background: weatherFilename });
-                      sendSseEvent(reply, {
-                        type: "agent_result",
-                        data: {
-                          agentType: "illustrator",
-                          agentName: illustratorBackgroundAgent.name ?? "Illustrator",
-                          resultType: "background_change",
-                          data: {
-                            chosen: weatherFilename,
-                            generated: weatherGenerated,
-                            weatherVersion: true,
-                            reason: `Weather: ${latestGameState.weather}`,
-                          },
-                          success: true,
-                          error: null,
-                        },
-                      });
-                      logger.info(
-                        '[background-weather] Showing "%s" for weather "%s"',
-                        weatherFilename,
-                        latestGameState.weather,
-                      );
-                      return;
-                    }
-                    const backgroundDecisionReason = requestedBackground
-                      ? typeof illData.reason === "string"
-                        ? illData.reason
-                        : undefined
-                      : `Tracker location changed from ${trackedLocationAtDecision || "an unspecified location"} to ${latestGameState?.location}.`;
-                    if (trackerLocationChanged && !requestedBackground) {
-                      logger.info(
-                        '[illustrator-background] Tracker location changed from "%s" to "%s"; generating despite a false Illustrator background decision',
-                        trackedLocationAtDecision || "(none)",
-                        latestGameState?.location,
-                      );
-                    }
-                    const generated = await generateIllustratorSceneBackground({
-                      db: app.db,
-                      chatId: input.chatId,
-                      chatName: chat.name,
-                      chatMode: chatMode === "game" ? "game" : "roleplay",
-                      chatMetadata: freshMeta,
-                      currentBackground: backgroundBeforeGeneration ?? currentBackground,
-                      illustratorAgent: illustratorBackgroundAgent,
-                      assistantResponse: agentCompletedResponse,
-                      decisionReason: backgroundDecisionReason,
-                      gameState: latestGameState,
-                      recentMessages: agentContext.recentMessages,
-                      signal: agentSignal,
-                      debugLog,
-                    });
-
-                    const chatAfterGeneration = await chats.getById(input.chatId);
-                    const metaAfterGeneration = parseExtra(chatAfterGeneration?.metadata) as Record<string, unknown>;
-                    const backgroundAfterGeneration =
-                      typeof metaAfterGeneration.background === "string" && metaAfterGeneration.background.trim()
-                        ? metaAfterGeneration.background.trim()
-                        : null;
-                    if (backgroundAfterGeneration !== backgroundAtDecision) {
-                      logger.info(
-                        "[illustrator-background] Saved %s to the library without activating it because the background changed during generation",
-                        generated.filename,
-                      );
-                      return;
-                    }
-
-                    await chats.patchMetadata(input.chatId, { background: generated.filename });
-                    sendSseEvent(reply, {
-                      type: "agent_result",
-                      data: {
-                        agentType: "illustrator",
-                        agentName: illustratorBackgroundAgent.name ?? "Illustrator",
-                        resultType: "background_change",
-                        data: {
-                          chosen: generated.filename,
-                          generated: true,
-                          location: generated.locationName,
-                          reason: generated.reason,
-                          tags: generated.tags,
-                        },
-                        success: true,
-                        error: null,
-                      },
-                    });
-                    logger.info(
-                      '[illustrator-background] Generated and activated "%s" for %s',
-                      generated.filename,
-                      generated.locationName,
-                    );
-                  } catch (backgroundError) {
-                    logger.error(backgroundError, "[illustrator-background] Automatic scene background failed");
-                    sendSseEvent(reply, {
-                      type: "agent_error",
-                      data: {
-                        agentType: "illustrator",
-                        agentName: illustratorBackgroundAgent.name ?? "Illustrator",
-                        retryTarget: "background",
-                        error: `Background generation failed: ${
-                          backgroundError instanceof Error ? backgroundError.message : String(backgroundError)
-                        }`,
-                      },
-                    });
-                  }
-                };
+                pendingIllustratorBackground = makeIllustratorBackgroundTail({
+                  illustratorAgent: illustratorBackgroundAgent,
+                  illustratorRan: true,
+                  requestedBackground,
+                  illustratorReason: typeof illData.reason === "string" ? illData.reason : undefined,
+                  messageId,
+                  swipeIndex: targetSwipeIndex,
+                });
               }
 
               if (storyboardSuppressesForeground) {
@@ -15756,6 +15838,34 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 },
               });
             }
+          }
+        }
+
+        // Optional Decision model checks also look at replies the Illustrator skipped (its run interval).
+        if (
+          !pendingIllustratorBackground &&
+          (illustratorChecks.location || illustratorChecks.weather) &&
+          chatEnableAgents &&
+          !input.impersonate &&
+          !recoveredAlreadyAppliedOwnerTurn &&
+          latestAssistantMessageId &&
+          agentCompletedResponse &&
+          !generationSignal.aborted
+        ) {
+          const illustratorForChecks = resolvedAgents.find((agent) => agent.type === "illustrator");
+          if (illustratorForChecks) {
+            pendingIllustratorBackground = makeIllustratorBackgroundTail({
+              illustratorAgent: illustratorForChecks,
+              illustratorRan: false,
+              requestedBackground: false,
+              messageId: latestAssistantMessageId,
+              swipeIndex:
+                typeof lastSavedSwipeIndex === "number"
+                  ? lastSavedSwipeIndex
+                  : typeof (lastSavedMsg as { activeSwipeIndex?: unknown } | null)?.activeSwipeIndex === "number"
+                    ? (lastSavedMsg as { activeSwipeIndex: number }).activeSwipeIndex
+                    : 0,
+            });
           }
         }
 
