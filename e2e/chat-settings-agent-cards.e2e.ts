@@ -15,6 +15,7 @@ const AGENTS = [
   { id: "continuity", name: "Continuity", category: "writer", phase: "post_processing" },
   { id: "html", name: "HTML", category: "writer", phase: "post_processing" },
   { id: "echo-chamber", name: "Echo Chamber", category: "misc", phase: "post_processing" },
+  { id: "lorebook-keeper", name: "Lorebook Keeper", category: "writer", phase: "post_processing" },
 ];
 
 /** A saved agent config, as `/api/agents` returns it, with the prompt templates beyond Default. */
@@ -172,5 +173,46 @@ test("Echo Chamber's card picks its prompt for this chat and opens its setup", a
     await expect.poll(() => readAgentDetailId(page)).toBe("echo-chamber");
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Lorebook Keeper's card saves its target and read-behind, and starts a backfill", async ({ page, request }) => {
+  const bookResponse = await request.post("/api/lorebooks", { data: { name: `Keeper target ${Date.now()}` } });
+  expect(bookResponse.ok()).toBeTruthy();
+  const book = (await bookResponse.json()) as { id: string; name: string };
+  const chatId = await createRoleplayChat(request, ["lorebook-keeper"]);
+  const backfills: unknown[] = [];
+  // The backfill streams from the server; only the request it sends matters here.
+  await page.route("**/api/generate/retry-agents", async (route) => {
+    backfills.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, contentType: "text/event-stream", body: "" });
+  });
+  try {
+    await openApp(page, chatId);
+    const { card } = await openAgentCard(page, chatId, "lorebook-keeper");
+
+    await card
+      .locator("label")
+      .filter({ hasText: /^Target Lorebook/u })
+      .locator("select")
+      .selectOption(book.id);
+    await expect.poll(async () => (await readMetadata(request, chatId)).lorebookKeeperTargetLorebookId).toBe(book.id);
+
+    const readBehind = card
+      .locator("label")
+      .filter({ hasText: /^Read Behind/u })
+      .locator("input");
+    await readBehind.fill("7");
+    await expect.poll(async () => (await readMetadata(request, chatId)).lorebookKeeperReadBehindMessages).toBe(7);
+
+    await card.getByRole("button", { name: "Backfill Unprocessed", exact: true }).click();
+    await expect
+      .poll(() => backfills)
+      .toContainEqual(
+        expect.objectContaining({ chatId, agentTypes: ["lorebook-keeper"], lorebookKeeperBackfill: true }),
+      );
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+    await request.delete(`/api/lorebooks/${book.id}`);
   }
 });
