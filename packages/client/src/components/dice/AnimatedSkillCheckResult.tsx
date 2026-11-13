@@ -152,7 +152,7 @@ export function AnimatedSkillCheckResult({
         <div className="skill-check-roll-meta">
           <span>
             {localizeUi("ui.dice.animatedskillcheckresult.noDice", {
-              value: result.total - (result.modifier ?? 0),
+              value: result.total,
               dc: result.dc,
             })}
           </span>

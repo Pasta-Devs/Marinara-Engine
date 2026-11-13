@@ -151,6 +151,45 @@ try {
       "Stalemate",
       "Loses",
     ]);
+    // A band the Game Master moves moves here too, held to the ruleset's own limit (Dottore).
+    const shifted = (shift: number) =>
+      rollDiceSumCheck(banded, { modifier: 3, dc: 3, isSave: false, shift }, () => 0);
+    assert.deepEqual([shifted(0).outcome, shifted(1).outcome, shifted(-1).outcome], [
+      "Stalemate",
+      "Wins",
+      "Loses",
+    ]);
+    assert.equal(shifted(5).outcome, "Wins", "a shift past the limit is held to it");
+
+    // A critical band's own result is written and read back, never lost on a reload (Dottore).
+    const critical = parsed(
+      doc((d) => {
+        d.resolution.dice.sides = 6;
+        d.resolution.outcomes = {
+          by: "margin",
+          tiers: [
+            { id: "best", label: "Best", on: "critical-success", success: true, critical: true },
+            { id: "wins", label: "Wins", atLeast: 0, success: true },
+            { id: "loses", label: "Loses" },
+          ],
+        };
+        d.resolution.tierShift = { max: 1 };
+      }),
+    );
+    // The engine never makes a no-dice check critical on its own, so the record is written by hand:
+    // what matters is that a record saying critical_success survives a reload.
+    const criticalRecord =
+      '[skill_check: skill="Warfare" dc="3" rolls="" used="0" modifier="4" total="4" result="critical_success" mode="normal" resolution="sum" dice="0d6"]';
+    const criticalBack = parseSkillCheckTagBody(
+      criticalRecord.slice("[skill_check:".length, -1),
+    )?.resolvedResult;
+    assert.ok(criticalBack, "a critical no-dice record is read back, not dropped");
+    assert.deepEqual([criticalBack.criticalSuccess, criticalBack.total, criticalBack.modifier], [true, 4, 4]);
+    assert.equal(
+      rollDiceSumCheck(critical, { modifier: 4, dc: 3, isSave: false }, () => 0).criticalSuccess,
+      false,
+      "nothing was rolled, so the engine claims no natural critical",
+    );
 
     // The record says what it compared, reads back, and the summary never shows an empty roll.
     const result = resolveSkillCheckWithContext(

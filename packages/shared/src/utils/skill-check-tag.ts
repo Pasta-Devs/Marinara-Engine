@@ -708,7 +708,9 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     (resultValue === "failure" ||
       resultValue === "critical_failure" ||
       resultValue === "critical failure" ||
-      resultValue === "success" ||
+      // Only a check with no dice may read back as a success, or a critical band's own result: an
+      // empty pool has nothing to succeed with, whatever the record says.
+      (noDice && (resultValue === "success" || resultValue === "critical_success")) ||
       (!!symbolRecord && resultValue === "success"));
   if (emptyPool && (!symbolRecord || symbolRecord.thrown.length === 0)) {
     const summedTotal = Number.parseInt(values.get("total") ?? "", 10);
@@ -721,9 +723,9 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
       modifier: noDice ? (Number.isFinite(summedModifier) ? summedModifier : 0) : 0,
       total: noDice ? (Number.isFinite(summedTotal) ? summedTotal : 0) : 0,
       // A check with no dice is a success on its own number, as the record says; a pool with none
-      // has nothing to succeed with.
-      success: noDice ? resultValue === "success" : !!symbolRecord && resultValue === "success",
-      criticalSuccess: false,
+      // has nothing to succeed with. A critical band's own result is kept too.
+      success: noDice ? resultValue === "success" || resultValue === "critical_success" : !!symbolRecord && resultValue === "success",
+      criticalSuccess: noDice && resultValue === "critical_success",
       criticalFailure: noDice ? resultValue === "critical_failure" || resultValue === "critical failure" : resultValue !== "failure",
       rollMode: "normal",
       resolution,

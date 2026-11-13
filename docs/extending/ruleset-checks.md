@@ -110,7 +110,7 @@ Some systems roll nothing at all: in Amber and Nobilis a check is a rating compa
 
 ```json
 "kind": "dice-sum",
-"dice": { "count": 0 },
+"dice": { "count": 0, "sides": 6 },
 "abilityModifier": { "op": "identity" }
 ```
 

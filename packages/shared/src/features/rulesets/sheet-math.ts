@@ -1404,6 +1404,11 @@ export function rollDiceSumCheck(
   // exactly as a summed check is. Nothing is thrown, so nothing claims a face, a natural or a mode.
   if (dice.count === 0) {
     const total = Math.max(input.modifier, input.totalFloor ?? -Infinity);
+    // A band the Game Master may move (1.823) moves here too, held to the ruleset's own limit.
+    const shift =
+      resolution.tierShift && Number.isFinite(input.shift)
+        ? clampInteger(input.shift!, -resolution.tierShift.max, resolution.tierShift.max)
+        : 0;
     const roll: RulesetCheckRoll = {
       rolls: [],
       usedRoll: 0,
@@ -1416,7 +1421,7 @@ export function rollDiceSumCheck(
       // it back as the comparison it was instead of as a check nobody rolled.
       dice: `0d${dice.sides}`,
     };
-    return applyRulesetCheckOutcome(resolution.outcomes, roll, { margin: total - input.dc, total, natural: 0, shift: 0 });
+    return applyRulesetCheckOutcome(resolution.outcomes, roll, { margin: total - input.dc, total, natural: 0, shift });
   }
   const single = dice.count === 1;
   const preRolled =
