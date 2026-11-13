@@ -35,12 +35,11 @@ In the classic layout, these sections sit in the **Appearance** tab behind four 
 | **Look on this device** | **Same as my other devices** (the default) shares your Visual Style, colors, font and custom theme with every device. **Only this device** gives this device its own look, for example light on your phone and dark on your computer. |
 | **Color Scheme** | **Dark** (the default), **Light**, **Follow system**, or **Follow time of day**, which switches by this device's clock at the times you pick. |
 | **Custom Mouse Pointer** | On by default. Uses Marinara's accent-colored cursor. Turn it off for your system cursor, or to let a custom theme set it. |
-| **Background Color** | The main app background. Default `#050312` in Dark and `#faf8ff` in Light. |
 | **Accent Color** | Buttons, active icons, focus rings, highlights and outlines. Default **Marinara Gradient**, a pink, orange and cyan blend. |
 | **Accent Pulse** | Makes the accent gently brighten and darken, or cycle through a gradient's colors. On by default on desktop, off on phones. |
 | **RGB Mode** | Cycles the accent through a rainbow. Your saved **Accent Color** stays as it is. Off by default. |
 
-Colors accept a plain color or a gradient, a smooth blend of two or more colors. A value such as `#050312` is a hex color code, a short way to write a color. Click **Reset to default** to go back to the default. Only one of **Accent Pulse** and **RGB Mode** can be on at a time.
+**Accent Color** accepts a plain color or a gradient, a smooth blend of two or more colors. Click **Reset to default** to go back to the default. The app background follows Dark or Light mode, and a custom theme can set its own. Only one of **Accent Pulse** and **RGB Mode** can be on at a time.
 
 ## Fonts & Text Size
 
