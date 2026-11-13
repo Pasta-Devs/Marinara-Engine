@@ -15,6 +15,7 @@ import {
 import { Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { findScrollParent } from "../../lib/panel-virtual-list";
 import { FOCUS } from "./ModelRow";
 
 /** The search field: an icon, the input and, once there is text, a clear button. Escape clears the text first. */
@@ -110,6 +111,11 @@ export function ListStatus({ children, className }: { children: ReactNode; class
   );
 }
 
+function canScroll(from: Element, down: boolean) {
+  const s = findScrollParent(from);
+  return !!s && (down ? s.scrollTop + s.clientHeight < s.scrollHeight - 1 : s.scrollTop > 0);
+}
+
 export function ListFrame({
   search,
   header,
@@ -161,7 +167,24 @@ export function ListFrame({
     event.preventDefault();
     const next = options[index + (down ? 1 : -1)];
     if (next) next.focus();
-    else if (!down) input?.focus();
+    else if (from && canScroll(from, down)) {
+      // A virtualized list mounts rows near the view only: scroll one row, then focus the row that lands where this one was.
+      const scroller = findScrollParent(from)!;
+      const top = from.getBoundingClientRect().top;
+      scroller.scrollBy({ top: (down ? 1 : -1) * from.offsetHeight });
+      requestAnimationFrame(() => {
+        const rows = Array.from(scroller.querySelectorAll<HTMLElement>(option)).filter((row) => row !== from);
+        const near = rows.reduce<HTMLElement | null>(
+          (best, row) =>
+            !best || Math.abs(row.getBoundingClientRect().top - top) < Math.abs(best.getBoundingClientRect().top - top)
+              ? row
+              : best,
+          null,
+        );
+        if (near) near.focus();
+        else if (!down) input?.focus();
+      });
+    } else if (!down) input?.focus();
   };
   return (
     <div className={cn("flex min-h-0 min-w-0 flex-col", className)} onKeyDown={onKeyDown}>
