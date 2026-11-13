@@ -350,12 +350,15 @@ export function OvGamePane({
       const room = host.clientWidth - paneWidth;
       // A little slack before it comes back, so dragging the window edge doesn't flicker it.
       setNarrow((was) => (was ? room < GAME_SCENE_MIN_WIDTH + 32 : room < GAME_SCENE_MIN_WIDTH));
+      // Opened with room to spare: the "float it" request from the top-bar button isn't needed, and
+      // must not make it float later when the Library opens (it folds then, as before).
+      if (room >= GAME_SCENE_MIN_WIDTH && useOverhaulStore.getState().gamePaneForced) setForced(false);
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(host);
     return () => observer.disconnect();
-  }, [open, forced]);
+  }, [open, forced, setForced]);
   useEffect(() => {
     if (!narrow) setForced(false);
   }, [narrow, setForced]);
@@ -411,6 +414,9 @@ export function OvGamePane({
     const onPointerDown = (event: PointerEvent) => {
       if (pane.contains(event.target as Node)) return;
       if (!host.contains(event.target as Node)) return;
+      // Typing your action (or using the composer's buttons) keeps the pane up to look at while you write.
+      if ((event.target as Element).closest?.("textarea, input, [data-chat-composer], [data-mari-part='composer']"))
+        return;
       setForced(false);
     };
     host.addEventListener("pointerdown", onPointerDown);

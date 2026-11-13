@@ -2,7 +2,7 @@
 
 Every message, yours or the AI's, has a toolbar. Use it to edit, delete, regenerate, hide or branch from one message.
 
-The toolbar appears when you tap a message on a phone or tablet, or point at it on a computer.
+On a computer, point at a message and its toolbar appears. On a phone or tablet, long-press a message: the same actions open in a sheet.
 
 ## The message toolbar
 

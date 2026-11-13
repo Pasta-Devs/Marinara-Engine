@@ -427,7 +427,12 @@ export function GamePaneToggle() {
   const open = paneOpen && !madeRoom;
   const setOpen = (next: boolean) => {
     if (next && paneOpen && madeRoom) setForced(true);
-    else setPaneOpen(next);
+    else {
+      // Opening it with no room beside the scene floats it straight away; it used to fold away on the
+      // same tap, so the first tap looked like it did nothing (phone/tablet panel TL7).
+      if (next) setForced(true);
+      setPaneOpen(next);
+    }
   };
   return (
     <button

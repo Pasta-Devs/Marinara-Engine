@@ -70,6 +70,7 @@ export function DesktopTabStrip({
   // Split view: the tab on the second side is marked too.
   const splitKey = useOverhaulStore((s) => (s.split && s.splitShown ? splitPageKey(s.split.page) : null));
   const splitRoom = useOverhaulStore((s) => s.splitRoom);
+  const touchScreen = typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
   const store = useOverhaulStore.getState;
   const stripRef = useRef<HTMLDivElement | null>(null);
   const lastMoveRef = useRef<{ key: string; width: number } | null>(null);
@@ -642,6 +643,34 @@ export function DesktopTabStrip({
                     <button type="button" role="menuitem" onClick={() => store().setTabGroup(menu.entry.key, null)}>
                       {localize("Remove from group")}
                     </button>
+                  ) : null}
+                  {/* Touch: tabs can't be dragged with a finger here, so the menu moves them. */}
+                  {touchScreen && !menu.entry.tab.group && tabs.length > 1 ? (
+                    <>
+                      <div className="ov-menu__sep" role="separator" />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={tabs.findIndex((tab) => overhaulTabKey(tab) === menu.entry.key) <= 0}
+                        onClick={() => {
+                          const from = store().tabs.findIndex((tab) => overhaulTabKey(tab) === menu.entry.key);
+                          if (from > 0) store().moveTab(menu.entry.key, from - 1);
+                        }}
+                      >
+                        {localize("Move left")}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={tabs.findIndex((tab) => overhaulTabKey(tab) === menu.entry.key) >= tabs.length - 1}
+                        onClick={() => {
+                          const from = store().tabs.findIndex((tab) => overhaulTabKey(tab) === menu.entry.key);
+                          if (from >= 0 && from < store().tabs.length - 1) store().moveTab(menu.entry.key, from + 2);
+                        }}
+                      >
+                        {localize("Move right")}
+                      </button>
+                    </>
                   ) : null}
                   <div className="ov-menu__sep" role="separator" />
                   {!splitRoom ? null : menu.entry.key === splitKey ? (

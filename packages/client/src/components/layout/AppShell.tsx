@@ -33,6 +33,7 @@ import { useSetupDraftJanitor } from "../../hooks/use-setup-drafts";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { useIdleDetection } from "../../hooks/use-idle-detection";
 import { dispatchChatVisualViewportChange } from "../../hooks/use-visual-viewport-chat-bottom";
+import { useKeepAnyFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 import { usePageActivity } from "../../hooks/use-page-activity";
 import { useCapabilityAgentRegistry, useCapabilityClientModules } from "../../hooks/use-capability-packages";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
@@ -323,6 +324,8 @@ export function AppShell({
 
   // Auto idle detection (10 min inactivity → idle, activity → active)
   useIdleDetection();
+  // Editors, sheets and dialogs: the field being typed in stays above the on-screen keyboard.
+  useKeepAnyFocusedFieldAboveKeyboard();
 
   useEffect(() => {
     const handleGlobalSearchShortcut = (event: KeyboardEvent) => {

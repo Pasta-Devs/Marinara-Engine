@@ -48,6 +48,25 @@
     position: absolute;
   }
 
+  /* Search on an iPhone/iPad: when Safari slides the page up for the keyboard, the results start at the
+     top of what is visible instead of above it. */
+  html[data-mari-ios-webkit][data-mari-software-keyboard-open]
+    [data-component="GlobalOmnibar"]:not([data-pane="mari"]):not([data-mari-companion]) {
+    position: absolute;
+    top: var(--mari-visual-viewport-offset-top, 0px);
+    bottom: auto;
+    height: var(--mari-visual-viewport-height, 100dvh);
+  }
+
+  /* The phone search sheet then fills that visible area; it no longer needs the keyboard padding it
+     uses when it covers the whole page. */
+  html[data-mari-ios-webkit][data-mari-software-keyboard-open]
+    [data-component="GlobalOmnibar"][data-ovm-omni]:not([data-pane="mari"])
+    > [data-component="GlobalOmnibar.Panel"] {
+    height: 100% !important;
+    padding-bottom: 0 !important;
+  }
+
   [data-component="GlobalOmnibar"] .omnibar-settings-section:has([data-size-group="mari"]) {
     display: none;
   }

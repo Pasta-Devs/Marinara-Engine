@@ -19,7 +19,8 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { closeAfterAction } from "./RpMessageFooter";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
-const LONG_PRESS_MS = 450;
+// Close to the system long-press: a thumb resting before a scroll must not open the sheet (panel IR9).
+const LONG_PRESS_MS = 550;
 
 /** Where the last long-press happened; the desktop layout on a touch tablet opens the menu there. */
 let lastPressPoint: { x: number; y: number } | null = null;

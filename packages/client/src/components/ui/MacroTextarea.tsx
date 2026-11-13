@@ -288,7 +288,8 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
                 <p>{localizeUi("ui.ui.macrosreferencemodal.macrosAreReplacedWithLiveChatCharacterAndPreset")}</p>
               </div>
               <input
-                autoFocus
+                // Not on touch: the keyboard would cover the list you opened to read.
+                autoFocus={typeof window === "undefined" || !window.matchMedia("(pointer: coarse)").matches}
                 className="ov-mref__search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}

@@ -7555,10 +7555,18 @@ strong {
 
   /* A window you type in on a touch screen (the phone Chat Settings sheet, or the window on a phone
      turned sideways) fits the same visible screen; its scroll area keeps the field in view. */
-  html[data-mari-software-keyboard-open] .mari-window:focus-within {
+  html[data-mari-software-keyboard-open] .mari-window:not(.ov-cs--docked):focus-within {
     top: calc(var(--mari-visual-viewport-offset-top, 0px) + 0.5rem) !important;
     bottom: auto !important;
     height: calc(var(--mari-visual-viewport-height, 100dvh) - 1rem) !important;
+    max-height: none !important;
+  }
+
+  /* The docked drawer (touch tablet in landscape) stays under the top bar and only gets shorter. */
+  html[data-mari-software-keyboard-open] .mari-window.ov-cs--docked:focus-within {
+    top: calc(var(--mari-visual-viewport-offset-top, 0px) + var(--ov-topbar-height, 0px)) !important;
+    bottom: auto !important;
+    height: calc(var(--mari-visual-viewport-height, 100dvh) - var(--ov-topbar-height, 0px)) !important;
     max-height: none !important;
   }
 
@@ -7570,12 +7578,46 @@ strong {
     display: none;
   }
 
+  /* Library pages, editors, Settings, Docs and the Mari page sit in a fixed sheet under the top bar. On
+     iPhone/iPad the shell follows what Safari shows while the keyboard is up, so the sheet does too:
+     otherwise it stays on the page Safari slid away and its field ends up under the keyboard. */
+  html[data-mari-ios-webkit] [data-component="MobileDetailSheet"] {
+    top: calc(
+      var(--mari-visual-viewport-offset-top, 0px) + env(safe-area-inset-top) + var(--mari-topbar-height, 3rem)
+    ) !important;
+    bottom: auto !important;
+    height: calc(
+      var(--mari-visual-viewport-height, 100dvh) - env(safe-area-inset-top) - var(--mari-topbar-height, 3rem)
+    ) !important;
+  }
+
+  html[data-mari-ios-webkit] .ovm-sidepage {
+    top: calc(
+      var(--mari-visual-viewport-offset-top, 0px) + var(--mari-top-bar-height, calc(3rem + env(safe-area-inset-top)))
+    );
+    bottom: auto;
+    height: calc(
+      var(--mari-visual-viewport-height, 100dvh) - var(--mari-top-bar-height, calc(3rem + env(safe-area-inset-top)))
+    );
+  }
+
   html[data-mari-ios-webkit] body > [data-component="ExpandedTextarea"] {
     position: absolute;
     top: var(--mari-visual-viewport-offset-top, 0px);
     bottom: auto;
     height: var(--mari-visual-viewport-height, 100dvh);
     min-height: 0;
+  }
+
+  /* The Expand editor and the macro reference fit the space the keyboard leaves (dvh does not shrink
+     for it on iPhone/iPad), so the line being typed and the window's close button stay in view. */
+  html[data-mari-software-keyboard-open] [data-macro-modal="true"] {
+    top: var(--mari-visual-viewport-offset-top, 0px);
+    bottom: auto;
+    height: var(--mari-visual-viewport-height, 100dvh);
+  }
+  html[data-mari-software-keyboard-open] [data-macro-modal="true"] > div {
+    max-height: 100%;
   }
 }
 
