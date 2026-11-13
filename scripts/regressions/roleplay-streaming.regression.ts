@@ -497,10 +497,17 @@ assert.doesNotMatch(professorMariTokenBranch, /setWorkspaceTimeline/u);
 assert.match(professorMariHomeSource, /void refreshAfterWorkspaceRun\(chat\.id, runId\)/u);
 assert.match(professorMariHelpersSource, /WORKSPACE_SETTLE_REQUEST_TIMEOUT_MS/u);
 assert.doesNotMatch(personalExtensionsHookSource, /refetchInterval/u);
-assert.match(chatSettingsDrawerSource, /active && agent\.id !== "illustrator"[\s\S]*?<AgentPromptTemplateSelect/u);
+assert.match(
+  chatSettingsDrawerSource,
+  /const renderAgentPromptTemplateSelect = \(agentId: string\) => \(\s*<AgentPromptTemplateSelect/u,
+);
+assert.match(
+  chatSettingsDrawerSource,
+  /active && agent\.id !== "illustrator" && renderAgentPromptTemplateSelect\(agent\.id\)/u,
+);
 assert.match(
   roleplayTrackerSettingsBranch,
-  /cat\.key === "tracker"[\s\S]*?<AgentPromptTemplateSelect/u,
+  /cat\.key === "tracker" && renderAgentPromptTemplateSelect\(agent\.id\)/u,
   "active Roleplay tracker agents should expose their saved prompt templates",
 );
 assert.match(reducedAmbientEffectsHookSource, /manualPreference \|\| systemPreference/u);

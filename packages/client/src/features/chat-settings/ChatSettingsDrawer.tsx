@@ -3119,6 +3119,14 @@ export function ChatSettingsDrawer({
     },
     [chat.id, getDefaultPromptTemplateIdForAgent, readLatestAgentPromptTemplateSelections, updateMeta],
   );
+  const renderAgentPromptTemplateSelect = (agentId: string) => (
+    <AgentPromptTemplateSelect
+      options={getPromptOptionsForAgent(agentId)}
+      selectedId={agentPromptTemplateSelections[agentId] ?? getDefaultPromptTemplateIdForAgent(agentId)}
+      overridden={typeof agentPromptTemplateSelections[agentId] === "string"}
+      onChange={(promptTemplateId) => updateAgentPromptTemplateSelection(agentId, promptTemplateId)}
+    />
+  );
 
   const handleLorebookKeeperBackfill = useCallback(async () => {
     await retryAgents(chat.id, ["lorebook-keeper"], { lorebookKeeperBackfill: true });
@@ -4268,7 +4276,6 @@ export function ChatSettingsDrawer({
             const backfillEnabled = backfillAvailable && agentSettings.lorebookBackfillEnabled === true;
             const backfillChunkSize = customLorebookBackfillChunkSize(agentSettings);
             const tokenEst = agentLoadCost.tokensByType.get(agent.id);
-            const promptOptions = getPromptOptionsForAgent(agent.id);
             const imageCapable = isImageCapableCustomAgent(agent.id);
             const agentImageConnectionId = customAgentImageSelections[agent.id]?.imageConnectionId ?? "";
             const agentImageStyleProfileId = customAgentImageSelections[agent.id]?.styleProfileId ?? "";
@@ -4352,12 +4359,7 @@ export function ChatSettingsDrawer({
                     <Trash2 size="0.6875rem" />
                   </button>
                 </div>
-                <AgentPromptTemplateSelect
-                  options={promptOptions}
-                  selectedId={agentPromptTemplateSelections[agent.id] ?? getDefaultPromptTemplateIdForAgent(agent.id)}
-                  overridden={typeof agentPromptTemplateSelections[agent.id] === "string"}
-                  onChange={(promptTemplateId) => updateAgentPromptTemplateSelection(agent.id, promptTemplateId)}
-                />
+                {renderAgentPromptTemplateSelect(agent.id)}
                 {renderAgentLorebookAttachment(agent.id)}
                 {backfillAvailable && agentConfig && (
                   <div className="space-y-2">
@@ -6527,17 +6529,7 @@ export function ChatSettingsDrawer({
                           onRemove={getRoleplayAgentMenuRemoveHandler("echo-chamber", echoChamberAgentMeta.name)}
                         >
                           {renderAgentLorebookAttachment("echo-chamber")}
-                          <AgentPromptTemplateSelect
-                            options={getPromptOptionsForAgent("echo-chamber")}
-                            selectedId={
-                              agentPromptTemplateSelections["echo-chamber"] ??
-                              getDefaultPromptTemplateIdForAgent("echo-chamber")
-                            }
-                            overridden={typeof agentPromptTemplateSelections["echo-chamber"] === "string"}
-                            onChange={(promptTemplateId) =>
-                              updateAgentPromptTemplateSelection("echo-chamber", promptTemplateId)
-                            }
-                          />
+                          {renderAgentPromptTemplateSelect("echo-chamber")}
                           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
                             <p className="min-w-0 flex-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
                               {localizeUi(
@@ -6568,17 +6560,7 @@ export function ChatSettingsDrawer({
                           onRemove={getRoleplayAgentMenuRemoveHandler("illustrator", illustratorAgentMeta.name)}
                         >
                           {renderAgentLorebookAttachment("illustrator")}
-                          <AgentPromptTemplateSelect
-                            options={getPromptOptionsForAgent("illustrator")}
-                            selectedId={
-                              agentPromptTemplateSelections["illustrator"] ??
-                              getDefaultPromptTemplateIdForAgent("illustrator")
-                            }
-                            overridden={typeof agentPromptTemplateSelections["illustrator"] === "string"}
-                            onChange={(promptTemplateId) =>
-                              updateAgentPromptTemplateSelection("illustrator", promptTemplateId)
-                            }
-                          />
+                          {renderAgentPromptTemplateSelect("illustrator")}
                           {renderIllustratorPromptConnectionSelect()}
                           {renderIllustratorImageConnectionSelect()}
                           {/* Clips only runs on the Video Run Interval, shown with the clip settings. */}
@@ -7316,36 +7298,14 @@ export function ChatSettingsDrawer({
                                         }
                                       />
                                     )}
-                                    {active && agent.id !== "illustrator" && (
-                                      <AgentPromptTemplateSelect
-                                        options={getPromptOptionsForAgent(agent.id)}
-                                        selectedId={
-                                          agentPromptTemplateSelections[agent.id] ??
-                                          getDefaultPromptTemplateIdForAgent(agent.id)
-                                        }
-                                        overridden={typeof agentPromptTemplateSelections[agent.id] === "string"}
-                                        onChange={(promptTemplateId) =>
-                                          updateAgentPromptTemplateSelection(agent.id, promptTemplateId)
-                                        }
-                                      />
-                                    )}
+                                    {active && agent.id !== "illustrator" && renderAgentPromptTemplateSelect(agent.id)}
                                     {active && agent.id === "illustrator" && (
                                       <AgentSettingsCard
                                         icon={<Paintbrush size="0.75rem" className="mt-0.5 text-[var(--primary)]" />}
                                         title={agent.name}
                                         description={getActiveAgentMenuDescription(agent.description)}
                                       >
-                                        <AgentPromptTemplateSelect
-                                          options={getPromptOptionsForAgent(agent.id)}
-                                          selectedId={
-                                            agentPromptTemplateSelections[agent.id] ??
-                                            getDefaultPromptTemplateIdForAgent(agent.id)
-                                          }
-                                          overridden={typeof agentPromptTemplateSelections[agent.id] === "string"}
-                                          onChange={(promptTemplateId) =>
-                                            updateAgentPromptTemplateSelection(agent.id, promptTemplateId)
-                                          }
-                                        />
+                                        {renderAgentPromptTemplateSelect(agent.id)}
                                         {renderIllustratorPromptConnectionSelect()}
                                         {renderIllustratorImagesPerGeneration()}
                                         <AgentSettingsToggle
@@ -7521,19 +7481,7 @@ export function ChatSettingsDrawer({
                                               <Trash2 size="0.6875rem" />
                                             </button>
                                           </div>
-                                          {cat.key === "tracker" && (
-                                            <AgentPromptTemplateSelect
-                                              options={getPromptOptionsForAgent(agent.id)}
-                                              selectedId={
-                                                agentPromptTemplateSelections[agent.id] ??
-                                                getDefaultPromptTemplateIdForAgent(agent.id)
-                                              }
-                                              overridden={typeof agentPromptTemplateSelections[agent.id] === "string"}
-                                              onChange={(promptTemplateId) =>
-                                                updateAgentPromptTemplateSelection(agent.id, promptTemplateId)
-                                              }
-                                            />
-                                          )}
+                                          {cat.key === "tracker" && renderAgentPromptTemplateSelect(agent.id)}
                                           {renderAgentLorebookAttachment(agent.id)}
                                           {renderDownloadedAgentChatSettings(agent)}
                                         </div>
