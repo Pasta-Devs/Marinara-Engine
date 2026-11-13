@@ -86,7 +86,7 @@ async function createGameChat(request: APIRequestContext, extra = {}) {
 type OpenAppOptions = {
   agentConfigs?: unknown[];
   uiState?: Parameters<typeof seedUIState>[1];
-  mode?: "roleplay" | "game";
+  mode?: "conversation" | "roleplay" | "game";
 };
 
 async function openApp(page: Page, chatId: string, options: OpenAppOptions = {}) {
@@ -126,9 +126,14 @@ async function openApp(page: Page, chatId: string, options: OpenAppOptions = {})
 }
 
 /** Opens Chat Settings' Agents section and returns the named agent's card, expanded. */
-async function openAgentCard(page: Page, chatId: string, agentId: string) {
+async function openAgentCard(
+  page: Page,
+  chatId: string,
+  agentId: string,
+  mode: "conversation" | "roleplay" = "roleplay",
+) {
   const settings = await openChatSettings(page);
-  const agents = settings.locator('[data-drawer="roleplay-agents"]');
+  const agents = settings.locator(`[data-drawer="${mode}-agents"]`);
   const toggle = agents.locator(":scope > .mari-drawer__header [data-drawer-toggle]");
   await toggle.scrollIntoViewIfNeeded();
   if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
@@ -414,6 +419,33 @@ test("Illustrator's card saves this chat's run intervals and images per generati
     await expect.poll(async () => (await readMetadata(request, chatId)).imageStyleProfileId).toBe(chosenStyle);
     await style.selectOption("");
     await expect.poll(async () => (await readMetadata(request, chatId)).imageStyleProfileId ?? null).toBeNull();
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Conversation's Commands card turns single commands and all commands off", async ({ page, request }) => {
+  const response = await request.post("/api/chats", {
+    data: { name: "Agent cards conversation", mode: "conversation", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chatId = ((await response.json()) as { id: string }).id;
+  try {
+    await openApp(page, chatId, { mode: "conversation" });
+    const { card } = await openAgentCard(page, chatId, "conversation-commands", "conversation");
+    // Memories needs no extra agent, so it's always offered.
+    await card.getByText("Memories", { exact: true }).click();
+    await expect
+      .poll(async () => (await readMetadata(request, chatId)).conversationCommandToggles)
+      .toMatchObject({ memory: false });
+
+    // The card's title is also "Commands", so reach the switch through its checkbox's label.
+    await card
+      .getByRole("checkbox", { name: /^Commands/u })
+      .locator("xpath=ancestor::label[1]")
+      .click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).characterCommands).toBe(false);
+    await expect(card.getByText("Memories", { exact: true })).toHaveCount(0);
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
   }
