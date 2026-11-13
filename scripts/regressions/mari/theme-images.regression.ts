@@ -210,6 +210,19 @@ await withHandbook(
       imageDefaults: userDefaults,
     });
     assert.notEqual(character.prompt, "a knight", "character art still uses the user's style");
+
+    // --count makes 1 to 4 versions in one command.
+    const { imageCount } = await import("../../../packages/server/src/services/mari-db/mari-images.service.js");
+    assert.equal(imageCount(new Map()), 1);
+    assert.equal(imageCount(new Map([["count", "3"]])), 3);
+    assert.throws(() => imageCount(new Map([["count", "9"]])), /1 to 4/);
+    assert.throws(() => imageCount(new Map([["count", "2.5"]])), /1 to 4/);
+    const tooMany: any = await run("generate", "--prompt", "x", "--count", "9").catch((error: Error) => ({
+      ok: false,
+      error: error.message,
+    }));
+    assert.equal(tooMany.ok, false);
+    assert.match(String(tooMany.error), /1 to 4/);
   },
   { dataDir: true },
 );
