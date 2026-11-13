@@ -386,6 +386,68 @@ test("a fresh ComfyUI connection can finish as video without leaving its image p
   }
 });
 
+test("an OpenAI-compatible address can be used for Images with a typed model", async ({ page, request }, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "The new account uses one shared browser server.");
+  const endpoint = "http://127.0.0.1:19095/v1";
+  const initialAccounts = new Set(
+    ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).map(
+      (account) => account.id,
+    ),
+  );
+  const createdIds = new Set<string>();
+  let accountId: string | null = null;
+  try {
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false, theme: "dark" });
+    await page.addInitScript(
+      (version) => localStorage.setItem("marinara:whats-new:seen-version", version),
+      APP_VERSION,
+    );
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
+      openAddConnection();
+    });
+    const dialog = page.getByRole("dialog", { name: "Add account", exact: true });
+    await dialog.locator('[data-add-connection-service="custom"]').click();
+    const connectSecond = dialog.getByRole("button", { name: "Make a new connection" });
+    if (await connectSecond.isVisible()) await connectSecond.click();
+    await dialog.getByLabel("Server address", { exact: true }).fill(endpoint);
+    await dialog.locator("[data-add-connection-connect]").click();
+    // Nothing answers at the fake address. When the check fails, the account is kept anyway.
+    const images = page.locator('[data-add-connection-use="images"]');
+    const unreachable = dialog.getByText("Marinara could not reach 127.0.0.1:19095", { exact: false });
+    await expect(images.or(unreachable).first()).toBeVisible();
+    if (await unreachable.isVisible()) await dialog.getByRole("button", { name: "Continue anyway" }).click();
+    // The server has no model list, so the Images row asks for the model ID.
+    await images.locator('input[type="checkbox"]').check();
+    await images.locator('input:not([type="checkbox"])').fill("flux-dev");
+    await page.locator("[data-add-connection-done]").click();
+    await expect(images).toHaveCount(0);
+
+    const accounts = (await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>;
+    accountId = accounts.find((account) => !initialAccounts.has(account.id))?.id ?? null;
+    const imageRows = (await rows(request)).filter(
+      (row) => row.accountId === accountId && row.provider === "image_generation",
+    );
+    for (const row of imageRows) createdIds.add(row.id);
+    expect(imageRows).toHaveLength(1);
+    expect(imageRows[0]).toMatchObject({ baseUrl: endpoint, model: "flux-dev", imageGenerationSource: "openai" });
+  } finally {
+    accountId ??=
+      ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).find(
+        (account) => !initialAccounts.has(account.id),
+      )?.id ?? null;
+    for (const id of await rows(request).then((all) =>
+      all.filter((row) => row.accountId === accountId).map((row) => row.id),
+    ))
+      createdIds.add(id);
+    for (const id of createdIds) await request.delete(`/api/connections/${id}`).catch(() => undefined);
+    if (accountId && !initialAccounts.has(accountId))
+      await request.delete(`/api/connection-accounts/${accountId}`).catch(() => undefined);
+  }
+});
+
 test("opening an empty connection initializes once while the account refresh is pending", async ({
   page,
   request,

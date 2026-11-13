@@ -139,7 +139,14 @@ export function JobRow({
             {/* The settings and the chevron sit on the name's line, out of the flow, with the badges under them:
                 they take no width from the badges' line, so every row's badges end at the row's end. */}
             {end && (
-              <span className={cn("absolute right-7 flex [[dir=rtl]_&]:left-7 [[dir=rtl]_&]:right-auto", RAISED)}>
+              <span
+                className={
+                  // Without a Model the buttons stay in the flow, so a long note stops before them.
+                  chosen
+                    ? cn("absolute right-7 flex [[dir=rtl]_&]:left-7 [[dir=rtl]_&]:right-auto", RAISED)
+                    : cn("flex shrink-0", trailing && !tile.warning && "me-7")
+                }
+              >
                 {end}
               </span>
             )}
@@ -167,14 +174,14 @@ export function JobRow({
         rowProps={{
           className: cn(
             "mari-connection-defaults-job pe-0",
-            tile.warning && trailing && (end ? "pe-14 max-md:pe-[4.5rem]" : "pe-7"),
+            tile.warning && trailing && (end && chosen ? "pe-14 max-md:pe-[4.5rem]" : "pe-7"),
             className,
           ),
         }}
         className={cn(
           "min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1",
           // The name keeps clear of the chevron and the settings beside it.
-          end
+          end && chosen
             ? "[&_[data-model-title]]:pe-12 max-md:[&_[data-model-title]]:pe-[4.25rem]"
             : trailing && "[&_[data-model-title]]:pe-5 max-md:[&_[data-model-title]]:pe-6",
         )}

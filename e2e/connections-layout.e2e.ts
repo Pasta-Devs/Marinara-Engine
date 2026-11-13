@@ -347,7 +347,16 @@ test("a narrow Connections page keeps Connections pinned and phone Back returns 
     // The device page's button opens the Voice settings window itself.
     await row.click();
     await panel.getByRole("button", { name: "Open its settings" }).click();
-    await expect(page.getByRole("dialog", { name: "Voice settings" })).toBeVisible();
+    const voice = page.getByRole("dialog", { name: "Voice settings" });
+    await expect(voice).toBeVisible();
+    // The long Text to speech settings scroll inside the window; its bottom stays on screen.
+    const panelBox = voice.locator(".mari-modal-panel");
+    await expect
+      .poll(async () => {
+        const box = await panelBox.boundingBox();
+        return box ? box.y + box.height : Infinity;
+      })
+      .toBeLessThanOrEqual(page.viewportSize()!.height + 1);
   } finally {
     await request.delete(`/api/connections/${created.connectionId}`);
     await request.delete(`/api/connection-accounts/${created.account.id}`);
