@@ -280,9 +280,13 @@ function runRegression(relativePath, buffered) {
 
 // Runs `files` in one shared process. Returns the files that passed there, each with its own output, and the files that
 // must run alone: those that failed or never finished, or every file when the process exits non-zero, since an error
-// one file leaves behind can surface while another runs. The options shorten the time limits for the runner's own test.
-export function runBatch(files, buffered, { timeoutMs = regressionTimeoutMs, idleMs = FILE_TIMEOUT_MS } = {}) {
-  const batchPath = 'scripts/run-regression-batch.mjs';
+// one file leaves behind can surface while another runs. The options shorten the time limits and swap the shared
+// process's script for the runner's own test.
+export function runBatch(
+  files,
+  buffered,
+  { timeoutMs = regressionTimeoutMs, idleMs = FILE_TIMEOUT_MS, batchPath = 'scripts/run-regression-batch.mjs' } = {},
+) {
   const outputs = new Map(files.map((file) => [file, []]));
   const startedAt = new Map();
   const passed = new Map();
@@ -302,6 +306,11 @@ export function runBatch(files, buffered, { timeoutMs = regressionTimeoutMs, idl
       windowsHide: true,
     });
     activeChildren.set(child, undefined);
+    // Starting up, before its first file, the process must also get going; each marker replaces this timer.
+    fileTimer = setTimeout(() => {
+      timedOut = `the shared process did not start a file within ${idleMs / 1000}s`;
+      terminateActiveChild(child);
+    }, idleMs);
 
     // Output belongs to the file running when it was printed; buffered, it is held back and printed with that file.
     const write = (destination, text) => {
@@ -380,7 +389,8 @@ export function queueItems(files, isolated) {
   if (isolated) return [...files];
   const batched = files.filter((file) => batchable(file, fs.readFileSync(path.join(repositoryRoot, file), 'utf8')));
   if (batched.length < 2) return [...files];
-  const alone = files.filter((file) => !batched.includes(file));
+  const batchedSet = new Set(batched);
+  const alone = files.filter((file) => !batchedSet.has(file));
   const batches = [];
   for (let index = 0; index < batched.length; index += BATCH_SIZE) batches.push(batched.slice(index, index + BATCH_SIZE));
   return [...batches, ...alone];

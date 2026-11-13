@@ -67,6 +67,12 @@ test("a file that hangs, or leaves the process running, sends the whole batch to
     passed: [],
     alone: [fixture("passes"), fixture("leaves-timer")],
   });
+  // A shared process that stalls while starting, before its first file.
+  const stalled = await runBatch([fixture("passes"), fixture("checks-env")], true, {
+    ...short,
+    batchPath: fixture("stalled-host"),
+  });
+  assert.deepEqual(stalled, { passed: [], alone: [fixture("passes"), fixture("checks-env")] });
 });
 
 test("only listed files without node:test, process.exit, process.exitCode or process.argv are batched", () => {
