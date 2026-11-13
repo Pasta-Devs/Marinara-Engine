@@ -724,9 +724,13 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
       total: noDice ? (Number.isFinite(summedTotal) ? summedTotal : 0) : 0,
       // A check with no dice is a success on its own number, as the record says; a pool with none
       // has nothing to succeed with. A critical band's own result is kept too.
-      success: noDice ? resultValue === "success" || resultValue === "critical_success" : !!symbolRecord && resultValue === "success",
+      success: noDice
+        ? resultValue === "success" || resultValue === "critical_success"
+        : !!symbolRecord && resultValue === "success",
       criticalSuccess: noDice && resultValue === "critical_success",
-      criticalFailure: noDice ? resultValue === "critical_failure" || resultValue === "critical failure" : resultValue !== "failure",
+      criticalFailure: noDice
+        ? resultValue === "critical_failure" || resultValue === "critical failure"
+        : resultValue !== "failure",
       rollMode: "normal",
       resolution,
       dice: declaredDice,
