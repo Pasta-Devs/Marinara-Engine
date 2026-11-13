@@ -272,6 +272,57 @@ test("Chat Settings switches, pins, removes and opens the chat's characters", as
   }
 });
 
+test("Chat Settings removes a Game party member and persona, and opens a member's card", async ({ page, request }) => {
+  const adaId = await createCharacter(request, "Party Ada");
+  const boId = await createCharacter(request, "Party Bo");
+  const chatId = await createChat(request, "game", [adaId, boId]);
+  const personaResponse = await request.post("/api/characters/personas", { data: { name: "Party Hero" } });
+  expect(personaResponse.ok()).toBeTruthy();
+  const personaId = ((await personaResponse.json()) as { id: string }).id;
+  expect((await request.patch(`/api/chats/${chatId}`, { data: { personaId } })).ok()).toBeTruthy();
+  const readChat = async () =>
+    (await (await request.get(`/api/chats/${chatId}`)).json()) as { characterIds: string[]; personaId: string | null };
+  try {
+    await openApp(page, chatId);
+    await expect(page.locator('[data-chat-mode="game"]')).toBeVisible();
+    const settings = await openChatSettings(page);
+    const party = settings.locator('[data-drawer="game-party"]');
+    await setOpen(party, true);
+    const body = party.locator(":scope > .mari-drawer__body");
+    await expect(body.getByText("Party Hero", { exact: true })).toBeVisible();
+
+    await body.locator('[data-chat-settings-remove-resource="persona"]').click();
+    await expect.poll(async () => (await readChat()).personaId).toBeNull();
+    await expect(body.getByRole("button", { name: /Choose\s+Persona/u })).toBeVisible();
+
+    const memberName = (name: string) =>
+      body.getByTitle("Open character card", { exact: true }).filter({ hasText: name });
+    // The row holding the name also holds the member's edit and remove buttons.
+    await memberName("Party Bo").locator("xpath=..").getByTitle("Remove from party", { exact: true }).click();
+    await expect.poll(async () => (await readChat()).characterIds).toEqual([adaId]);
+    await expect(memberName("Party Bo")).toHaveCount(0);
+
+    // The name closes Chat Settings and opens the full card on its Card tab.
+    await memberName("Party Ada").click();
+    await expect(settings).toBeHidden();
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const module = (await import("/src/stores/ui.store.ts" as string)) as {
+            useUIStore: { getState(): { characterDetailId: string | null; characterDetailInitialTab: string | null } };
+          };
+          const state = module.useUIStore.getState();
+          return [state.characterDetailId, state.characterDetailInitialTab];
+        }),
+      )
+      .toEqual([adaId, "card"]);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+    await request.delete(`/api/characters/personas/${personaId}`);
+    await Promise.all([adaId, boId].map((id) => request.delete(`/api/characters/${id}`)));
+  }
+});
+
 // Connected chats differs by mode: Conversation links to a Roleplay or Game chat and has Cross-Chat Awareness,
 // Roleplay shows the linked conversation and has Allow character DMs, and Game can start the link from its side.
 test("Chat Settings links and unlinks chats from every mode", async ({ page, request }) => {
