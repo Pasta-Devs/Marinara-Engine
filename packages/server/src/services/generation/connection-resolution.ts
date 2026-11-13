@@ -49,6 +49,8 @@ export function applyChatModelOverride<T extends { id: string }>(conn: T, overri
  * (then the main fallback). With `override`, the chat's own Model runs the per-chat catalog pick. With
  * `followsMain` (the user chose "Use default"), a chat without a Model uses the Main default without a notice;
  * only a Main that cannot answer is reported.
+ * #9126: a chat that stores no Model at all follows Main whatever its metadata says (a chat made before the flag, or
+ * one whose flag was never written). Only a stored Model that no longer exists is reported as deleted.
  */
 export async function resolveChatConnectionOrFallback(
   connections: ChatConnectionStorage,
@@ -57,9 +59,10 @@ export async function resolveChatConnectionOrFallback(
   override: ChatModelOverride | null = null,
   followsMain = false,
 ): Promise<Awaited<ReturnType<ChatConnectionStorage["getWithKey"]>>> {
-  if (!connectionId && followsMain && connections.getDefault) {
+  if (!connectionId && connections.getDefault) {
     const main = await connections.getDefault();
-    if (main) return resolveChatConnectionOrFallback(connections, main.id, onFallback);
+    // Main cannot answer: it is resolved below as a deleted Model, but only a chat that chose to follow it is told.
+    if (main) return resolveChatConnectionOrFallback(connections, main.id, onFallback, null, followsMain);
   }
   const connection = connectionId ? await connections.getWithKey(connectionId) : null;
   if (connection) return applyChatModelOverride(connection, override);
