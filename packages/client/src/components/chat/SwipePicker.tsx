@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { ChevronDown, Search, Shuffle, X } from "lucide-react";
+import { Search, Shuffle, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
@@ -7,12 +7,14 @@ import { useMessageSwipes } from "../../hooks/use-chats";
 import { parseGreeting, parseGreetings, type GreetingEntry } from "../../lib/character-greetings";
 import { cn } from "../../lib/utils";
 
-interface GreetingSwitcherProps {
+interface SwipePickerProps {
   chatId: string;
   messageId: string;
   activeSwipeIndex: number;
   swipeCount: number;
   currentContent: string;
+  /** The chat's first message, whose swipes are the card's greetings. */
+  greeting: boolean;
   onSetActiveSwipe: (index: number) => void;
 }
 
@@ -28,17 +30,18 @@ const hasTag = (row: Row, slot: number, value: string) =>
   slot < 3 ? row.tags[slot] === value : row.tags.slice(3).includes(value);
 
 /**
- * Greeting picker for the chat's first message. Every alternate greeting is a swipe on that message,
- * so picking one only changes the active swipe; leading `[tag]` groups in the text become filter chips.
+ * Swipe picker for any message. On the chat's first message every alternate greeting is a swipe,
+ * so this is also the greeting picker; leading `[tag]` groups in the text become filter chips.
  */
-export function GreetingSwitcher({
+export function SwipePicker({
   chatId,
   messageId,
   activeSwipeIndex,
   swipeCount,
   currentContent,
+  greeting,
   onSetActiveSwipe,
-}: GreetingSwitcherProps) {
+}: SwipePickerProps) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -50,7 +53,7 @@ export function GreetingSwitcher({
   const scrollToCurrent = useRef(false);
   const swipes = useMessageSwipes(chatId, messageId, open);
 
-  const currentTitle = parseGreeting(currentContent).title || localizeUi("ui.chat.greetingswitcher.untitled");
+  const currentTitle = parseGreeting(currentContent).title || localizeUi("ui.chat.swipepicker.untitled");
   const rows = useMemo<Row[]>(() => {
     const sorted = [...(swipes.data ?? [])].sort((a, b) => a.index - b.index);
     return parseGreetings(sorted.map((swipe) => swipe.content)).map((entry, i) => ({
@@ -120,11 +123,11 @@ export function GreetingSwitcher({
     const previous = activeSwipeIndex;
     onSetActiveSwipe(row.index);
     toast.success(
-      localizeUi("ui.chat.greetingswitcher.switched", {
-        title: row.title || localizeUi("ui.chat.greetingswitcher.untitled"),
+      localizeUi("ui.chat.swipepicker.switched", {
+        title: row.title || localizeUi("ui.chat.swipepicker.untitled"),
       }),
       {
-        action: { label: localizeUi("ui.chat.greetingswitcher.undo"), onClick: () => onSetActiveSwipe(previous) },
+        action: { label: localizeUi("ui.chat.swipepicker.undo"), onClick: () => onSetActiveSwipe(previous) },
       },
     );
   };
@@ -197,7 +200,7 @@ export function GreetingSwitcher({
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={localizeUi("ui.chat.greetingswitcher.open", {
+        aria-label={localizeUi(greeting ? "ui.chat.swipepicker.open" : "ui.chat.swipepicker.openSwipe", {
           current: activeSwipeIndex + 1,
           total: swipeCount,
           title: currentTitle,
@@ -207,19 +210,16 @@ export function GreetingSwitcher({
           event.stopPropagation();
           openPicker();
         }}
-        className="mari-chrome-control inline-flex h-8 max-w-[min(20rem,60vw)] min-w-0 items-center gap-1.5 rounded-full border border-[var(--marinara-chat-chrome-input-border)] px-2.5 text-[0.75rem] text-[var(--marinara-chat-message-action-text-hover)] transition-colors hover:border-[var(--marinara-chat-chrome-input-border-focus)] hover:bg-[var(--marinara-chat-chrome-highlight-bg)] focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] focus-visible:outline-none max-md:h-11"
+        className="mari-swipe-input mari-chat-style-control inline-flex h-[1.375rem] w-9 items-center justify-center rounded-full border border-[var(--marinara-chat-message-action-bg-hover)] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-text)_5%,transparent)] text-[0.625rem] font-medium text-[var(--marinara-chat-message-action-text-hover)] tabular-nums transition-[background-color,border-color,box-shadow,color] hover:border-[var(--marinara-chat-chrome-button-border-active)] hover:bg-[var(--marinara-chat-chrome-button-bg-active)] focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] focus-visible:outline-none"
       >
-        <span className="min-w-0 truncate font-medium">{currentTitle}</span>
-        <span className="shrink-0 tabular-nums opacity-75">
-          {activeSwipeIndex + 1}/{swipeCount}
-        </span>
-        <ChevronDown size="1em" className="shrink-0" aria-hidden="true" />
+        {activeSwipeIndex + 1}
       </button>
+      <span className="tabular-nums">/{swipeCount}</span>
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={localizeUi("ui.chat.greetingswitcher.title")}
+        title={localizeUi(greeting ? "ui.chat.swipepicker.title" : "ui.chat.swipepicker.titleSwipes")}
         width="max-w-lg"
         opaque
         initialFocusRef={large && window.matchMedia("(pointer: fine)").matches ? searchRef : undefined}
@@ -230,13 +230,15 @@ export function GreetingSwitcher({
           <div className="flex items-center gap-2 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
             <span className="tabular-nums" aria-live="polite">
               {needle || pickedCount
-                ? localizeUi("ui.chat.greetingswitcher.countFiltered", { shown: visible.length, total: rows.length })
-                : localizeUi("ui.chat.greetingswitcher.count", { total: swipeCount })}
+                ? localizeUi("ui.chat.swipepicker.countFiltered", { shown: visible.length, total: rows.length })
+                : localizeUi(greeting ? "ui.chat.swipepicker.count" : "ui.chat.swipepicker.countSwipes", {
+                    total: swipeCount,
+                  })}
             </span>
             {large && (
               <button
                 type="button"
-                title={localizeUi("ui.chat.greetingswitcher.surpriseTitle")}
+                title={localizeUi("ui.chat.swipepicker.surpriseTitle")}
                 onClick={() => {
                   const others = visible
                     .map((row, i) => (row.index === activeSwipeIndex ? -1 : i))
@@ -246,7 +248,7 @@ export function GreetingSwitcher({
                 className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-lg px-2 transition-colors hover:bg-[var(--marinara-chat-message-action-bg-hover)] hover:text-[var(--marinara-chat-chrome-panel-text)] max-md:h-9"
               >
                 <Shuffle size="1em" aria-hidden="true" />
-                {localizeUi("ui.chat.greetingswitcher.surprise")}
+                {localizeUi("ui.chat.swipepicker.surprise")}
               </button>
             )}
           </div>
@@ -264,8 +266,10 @@ export function GreetingSwitcher({
                 aria-expanded="true"
                 aria-controls={`greetings-${messageId}`}
                 aria-activedescendant={visible[activeRow] ? optionId(visible[activeRow]!) : undefined}
-                aria-label={localizeUi("ui.chat.greetingswitcher.searchLabel")}
-                placeholder={localizeUi("ui.chat.greetingswitcher.searchPlaceholder")}
+                aria-label={localizeUi(
+                  greeting ? "ui.chat.swipepicker.searchLabel" : "ui.chat.swipepicker.searchLabelSwipes",
+                )}
+                placeholder={localizeUi("ui.chat.swipepicker.searchPlaceholder")}
                 autoComplete="off"
                 spellCheck={false}
                 value={query}
@@ -280,7 +284,7 @@ export function GreetingSwitcher({
               {query && (
                 <button
                   type="button"
-                  aria-label={localizeUi("ui.chat.greetingswitcher.clearSearch")}
+                  aria-label={localizeUi("ui.chat.swipepicker.clearSearch")}
                   onClick={() => {
                     setQuery("");
                     searchRef.current?.focus();
@@ -295,7 +299,7 @@ export function GreetingSwitcher({
           {chips.length > 0 && (
             <div
               role="toolbar"
-              aria-label={localizeUi("ui.chat.greetingswitcher.filterLabel")}
+              aria-label={localizeUi("ui.chat.swipepicker.filterLabel")}
               className="-mx-5 flex items-center gap-1.5 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {pickedCount > 0 && (
@@ -305,7 +309,7 @@ export function GreetingSwitcher({
                   className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-[var(--primary)] px-2.5 text-xs font-semibold text-[var(--primary)] max-md:h-9"
                 >
                   <X size="0.8rem" aria-hidden="true" />
-                  {localizeUi("ui.chat.greetingswitcher.clearTags", { count: pickedCount })}
+                  {localizeUi("ui.chat.swipepicker.clearTags", { count: pickedCount })}
                 </button>
               )}
               {chips}
@@ -315,19 +319,19 @@ export function GreetingSwitcher({
 
         {swipes.isLoading ? (
           <p className="py-8 text-center text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
-            {localizeUi("ui.chat.greetingswitcher.loading")}
+            {localizeUi("ui.chat.swipepicker.loading")}
           </p>
         ) : swipes.isError ? (
           <p role="alert" className="py-8 text-center text-sm text-[var(--destructive)]">
-            {localizeUi("ui.chat.greetingswitcher.loadFailed")}
+            {localizeUi("ui.chat.swipepicker.loadFailed")}
           </p>
         ) : !visible.length ? (
           <div className="grid justify-items-center gap-1 py-10 text-center">
-            <span className="text-sm font-semibold">{localizeUi("ui.chat.greetingswitcher.empty")}</span>
+            <span className="text-sm font-semibold">{localizeUi("ui.chat.swipepicker.empty")}</span>
             <span className="text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
               {needle
-                ? localizeUi("ui.chat.greetingswitcher.emptySearch", { query: query.trim() })
-                : localizeUi("ui.chat.greetingswitcher.emptyTags")}
+                ? localizeUi("ui.chat.swipepicker.emptySearch", { query: query.trim() })
+                : localizeUi("ui.chat.swipepicker.emptyTags")}
             </span>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               {needle && (
@@ -336,7 +340,7 @@ export function GreetingSwitcher({
                   onClick={() => setQuery("")}
                   className="mari-chrome-control rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-3 py-1.5 text-xs max-md:min-h-11"
                 >
-                  {localizeUi("ui.chat.greetingswitcher.clearSearch")}
+                  {localizeUi("ui.chat.swipepicker.clearSearch")}
                 </button>
               )}
               {pickedCount > 0 && (
@@ -345,7 +349,7 @@ export function GreetingSwitcher({
                   onClick={() => setFilters([[], [], [], []])}
                   className="mari-chrome-control rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-3 py-1.5 text-xs max-md:min-h-11"
                 >
-                  {localizeUi("ui.chat.greetingswitcher.clearTags", { count: pickedCount })}
+                  {localizeUi("ui.chat.swipepicker.clearTags", { count: pickedCount })}
                 </button>
               )}
             </div>
@@ -356,7 +360,7 @@ export function GreetingSwitcher({
             id={`greetings-${messageId}`}
             role="listbox"
             tabIndex={large ? -1 : 0}
-            aria-label={localizeUi("ui.chat.greetingswitcher.title")}
+            aria-label={localizeUi(greeting ? "ui.chat.swipepicker.title" : "ui.chat.swipepicker.titleSwipes")}
             aria-activedescendant={visible[activeRow] ? optionId(visible[activeRow]!) : undefined}
             onKeyDown={onListKeyDown}
             className="-mx-3 outline-none"
@@ -365,14 +369,14 @@ export function GreetingSwitcher({
               <div
                 key={section || "-"}
                 role="group"
-                aria-label={section || (sections.length > 1 ? localizeUi("ui.chat.greetingswitcher.other") : undefined)}
+                aria-label={section || (sections.length > 1 ? localizeUi("ui.chat.swipepicker.other") : undefined)}
               >
                 {(section || sections.length > 1) && (
                   <div
                     aria-hidden="true"
                     className="px-3 pt-3 pb-1 text-[0.6875rem] font-semibold tracking-wide text-[var(--marinara-chat-chrome-panel-muted)] uppercase"
                   >
-                    {section || localizeUi("ui.chat.greetingswitcher.other")}{" "}
+                    {section || localizeUi("ui.chat.swipepicker.other")}{" "}
                     <span className="font-normal tracking-normal">{sectionRows.length}</span>
                   </div>
                 )}
@@ -395,12 +399,12 @@ export function GreetingSwitcher({
                       )}
                     >
                       <span className="line-clamp-2 text-[0.8125rem] leading-snug font-semibold [overflow-wrap:anywhere]">
-                        {row.title || localizeUi("ui.chat.greetingswitcher.untitled")}
+                        {row.title || localizeUi("ui.chat.swipepicker.untitled")}
                       </span>
                       <span className="pt-px text-[0.6875rem] whitespace-nowrap text-[var(--marinara-chat-chrome-panel-muted)]">
                         {isCurrent ? (
                           <span className="font-semibold text-[var(--primary)]">
-                            {localizeUi("ui.chat.greetingswitcher.current")}
+                            {localizeUi("ui.chat.swipepicker.current")}
                           </span>
                         ) : (
                           row.tags.slice(1).join(" · ")

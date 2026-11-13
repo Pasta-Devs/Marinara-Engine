@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { GreetingSwitcher } from "./GreetingSwitcher";
+import { SwipePicker } from "./SwipePicker";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 const SWIPE_BUTTON_CLASS =
@@ -15,8 +15,8 @@ interface SwipeJumpControlProps {
   onSetActiveSwipe: (index: number) => void;
   onCreateNextSwipe?: () => void;
   className?: string;
-  /** Set on the chat's first message: the counter becomes the greeting picker. */
-  greeting?: { chatId: string; content: string };
+  /** When set, the counter becomes a list of the swipes; `greeting` marks the chat's first message. */
+  picker?: { chatId: string; content: string; greeting: boolean };
 }
 
 export function SwipeJumpControl({
@@ -27,7 +27,7 @@ export function SwipeJumpControl({
   onSetActiveSwipe,
   onCreateNextSwipe,
   className,
-  greeting,
+  picker,
 }: SwipeJumpControlProps) {
   const { t: localizeUi } = useUiTranslation();
   const [inputValue, setInputValue] = useState(() => String(activeSwipeIndex + 1));
@@ -80,13 +80,14 @@ export function SwipeJumpControl({
       >
         <ChevronLeft size="1.15em" />
       </button>
-      {greeting && swipeCount > 1 ? (
-        <GreetingSwitcher
-          chatId={greeting.chatId}
+      {picker && swipeCount > 1 ? (
+        <SwipePicker
+          chatId={picker.chatId}
           messageId={messageId}
           activeSwipeIndex={activeSwipeIndex}
           swipeCount={swipeCount}
-          currentContent={greeting.content}
+          currentContent={picker.content}
+          greeting={picker.greeting}
           onSetActiveSwipe={onSetActiveSwipe}
         />
       ) : (

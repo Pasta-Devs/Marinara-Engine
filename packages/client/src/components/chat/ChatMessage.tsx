@@ -3550,8 +3550,11 @@ export const ChatMessage = memo(function ChatMessage({
   // ─── Swipe navigation ───
   const swipeCount = message.swipeCount ?? 0;
   // Alternate greetings are swipes on the chat's first message.
-  const greetingSwitch =
-    messageOrderIndex === 0 && !isUser ? { chatId: message.chatId, content: message.content } : undefined;
+  const swipePicker = {
+    chatId: message.chatId,
+    content: message.content,
+    greeting: messageOrderIndex === 0 && !isUser,
+  };
   const hasSwipes = swipeCount > 1;
   // A reply still being written shows its stream on every swipe, and a held rewrite would then save
   // into the swipe picked meanwhile (#8636). Switch once it is done.
@@ -4489,7 +4492,7 @@ export const ChatMessage = memo(function ChatMessage({
                 swipeCount={swipeCount}
                 onSetActiveSwipe={handleSetActiveSwipe}
                 onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
-                greeting={greetingSwitch}
+                picker={swipePicker}
               />
             )}
 
@@ -4958,7 +4961,7 @@ export const ChatMessage = memo(function ChatMessage({
               swipeCount={swipeCount}
               onSetActiveSwipe={handleSetActiveSwipe}
               onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
-              greeting={greetingSwitch}
+              picker={swipePicker}
             />
           )}
 

@@ -2153,7 +2153,6 @@ export function useMessageSwipes(chatId: string, messageId: string, enabled: boo
     queryKey: [...chatKeys.all, "swipes", messageId],
     queryFn: () => api.get<MessageSwipe[]>(`/chats/${chatId}/messages/${messageId}/swipes`),
     enabled,
-    staleTime: 30_000,
   });
 }
 
