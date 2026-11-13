@@ -16,7 +16,7 @@ The Illustrator writes the prompt, but a separate image model draws the picture.
 
 Give it an image model one of two ways.
 
-1. Set the **Images** job under **Defaults** in the **Connections** panel.
+1. Set the **Images** job in the **Jobs** box in the **Connections** panel.
 2. Or give the Illustrator its own image model on its **Open Setup** screen.
 
 If no image model can be found, the picture fails and the app asks you to choose one.

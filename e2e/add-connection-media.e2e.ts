@@ -344,6 +344,7 @@ test("a fresh ComfyUI connection can finish as video without leaving its image p
     };
     accountId = created.account.id;
     createdIds.add(created.connectionId);
+    // Connect opens "Found in ComfyUI — use it for": untick Images, keep Video, name the checkpoint.
     // Connect left one empty image row; Video makes its own row and replaces that empty one.
     const videoRowResponse = page.waitForResponse(
       (response) =>
@@ -351,23 +352,16 @@ test("a fresh ComfyUI connection can finish as video without leaving its image p
         response.request().method() === "POST" &&
         new URL(response.url()).pathname === "/api/connections",
     );
-    // Connect closes the Add window; open the models screen only after it is gone.
-    await expect(dialog).toHaveCount(0);
-    await openAddModels(page, accountId!, "video");
-    const modelsDialog = page.getByRole("dialog", { name: /^Add models to /u });
-    await expect(modelsDialog.locator('[data-add-connection-capability="video"]')).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    const useDialog = page.getByRole("dialog", { name: "ComfyUI is connected", exact: true });
+    await expect(useDialog.locator('[data-add-connection-use="video"]')).toBeVisible();
+    await useDialog.locator('[data-add-connection-use="images"] input[type="checkbox"]').uncheck();
+    await useDialog
+      .locator('[data-add-connection-use="video"] input:not([type="checkbox"])')
+      .fill("fresh-video-checkpoint.safetensors");
+    await useDialog.locator("[data-add-connection-done]").click();
     const videoCreated = (await (await videoRowResponse).json()) as { id: string };
     createdIds.add(videoCreated.id);
-    await modelsDialog.locator("[data-model-search]").fill("fresh-video-checkpoint.safetensors");
-    await modelsDialog.locator("[data-model-search]").press("Enter");
-    await expect
-      .poll(async () => (await rows(request)).find((row) => row.id === videoCreated.id)?.model)
-      .toBe("fresh-video-checkpoint.safetensors");
-    await modelsDialog.locator("[data-add-connection-done]").click();
-    await expect(modelsDialog).toHaveCount(0);
+    await expect(useDialog).toHaveCount(0);
 
     const accountRows = (await rows(request)).filter((row) => row.accountId === accountId);
     expect(accountRows).toHaveLength(1);
@@ -389,6 +383,80 @@ test("a fresh ComfyUI connection can finish as video without leaving its image p
     if (accountId && !initialAccounts.has(accountId)) {
       await request.delete(`/api/connection-accounts/${accountId}`).catch(() => undefined);
     }
+  }
+});
+
+test("an OpenAI-compatible address can be used for Images with a typed model", async ({ page, request }, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "The new account uses one shared browser server.");
+  const endpoint = "http://127.0.0.1:19095/v1";
+  const initialAccounts = new Set(
+    ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).map(
+      (account) => account.id,
+    ),
+  );
+  const createdIds = new Set<string>();
+  let accountId: string | null = null;
+  try {
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false, theme: "dark" });
+    await page.addInitScript(
+      (version) => localStorage.setItem("marinara:whats-new:seen-version", version),
+      APP_VERSION,
+    );
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
+      openAddConnection();
+    });
+    const dialog = page.getByRole("dialog", { name: "Add account", exact: true });
+    await dialog.locator('[data-add-connection-service="custom"]').click();
+    const connectSecond = dialog.getByRole("button", { name: "Make a new connection" });
+    if (await connectSecond.isVisible()) await connectSecond.click();
+    // Hold the live address check so Connect runs its own test, and hold the cleanup after that test fails.
+    let releaseCleanup = () => {};
+    const cleanupHeld = new Promise<void>((resolve) => (releaseCleanup = resolve));
+    await page.route("**/api/connections/check", () => new Promise(() => {}));
+    await page.route("**/api/connections/*", async (route) => {
+      if (route.request().method() === "DELETE") await cleanupHeld;
+      await route.fallback();
+    });
+    await dialog.getByLabel("Server address", { exact: true }).fill(endpoint);
+    const cleanup = page.waitForRequest(
+      (req) => req.method() === "DELETE" && new URL(req.url()).pathname.startsWith("/api/connections/"),
+    );
+    await dialog.locator("[data-add-connection-connect]").click();
+    await cleanup;
+    // Nothing answers at the fake address. Until the failed attempt has cleaned up, a click would be lost.
+    await expect(dialog.locator("[data-add-connection-connect]")).toBeDisabled();
+    releaseCleanup();
+    await dialog.locator("button:not([data-add-connection-connect])", { hasText: "Continue anyway" }).click();
+    const images = page.locator('[data-add-connection-use="images"]');
+    // The server has no model list, so the Images row asks for the model ID.
+    await images.locator('input[type="checkbox"]').check();
+    await images.locator('input:not([type="checkbox"])').fill("flux-dev");
+    await page.locator("[data-add-connection-done]").click();
+    await expect(images).toHaveCount(0);
+
+    const accounts = (await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>;
+    accountId = accounts.find((account) => !initialAccounts.has(account.id))?.id ?? null;
+    const imageRows = (await rows(request)).filter(
+      (row) => row.accountId === accountId && row.provider === "image_generation",
+    );
+    for (const row of imageRows) createdIds.add(row.id);
+    expect(imageRows).toHaveLength(1);
+    expect(imageRows[0]).toMatchObject({ baseUrl: endpoint, model: "flux-dev", imageGenerationSource: "openai" });
+  } finally {
+    accountId ??=
+      ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).find(
+        (account) => !initialAccounts.has(account.id),
+      )?.id ?? null;
+    for (const id of await rows(request).then((all) =>
+      all.filter((row) => row.accountId === accountId).map((row) => row.id),
+    ))
+      createdIds.add(id);
+    for (const id of createdIds) await request.delete(`/api/connections/${id}`).catch(() => undefined);
+    if (accountId && !initialAccounts.has(accountId))
+      await request.delete(`/api/connection-accounts/${accountId}`).catch(() => undefined);
   }
 });
 
@@ -488,19 +556,12 @@ test("switching kinds keeps a fresh connection's chat catalog available", async 
     await setupDialog.locator("[data-add-connection-connect]").click();
     accountId = ((await (await createdAccount).json()) as { account: { id: string } }).account.id;
 
-    // With no Main model yet, a passing Connect opens the account's models in the same window (#8456).
-    const dialog = setupDialog;
-    await expect(dialog.locator('[data-add-connection-capability="chat"]')).toHaveAttribute("aria-pressed", "true");
-    await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
-    await dialog.locator('[data-add-connection-capability="image"]').click();
-    await expect
-      .poll(async () => (await rows(request)).filter((row) => row.accountId === accountId).map((row) => row.provider))
-      .toEqual(expect.arrayContaining(["openai", "image_generation"]));
-    await dialog.locator('[data-add-connection-capability="chat"]').click();
-    await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
-    await dialog.getByRole("button", { name: "Close Add account", exact: true }).click();
+    // With no Main model yet, a passing Connect opens "Found in OpenAI — use it for" with the catalog's pick (#8456).
+    const dialog = page.getByRole("dialog", { name: "OpenAI is connected", exact: true });
+    await expect(dialog.locator('[data-add-connection-use="main"]')).toContainText("Fixture chat");
+    await dialog.getByRole("button", { name: "Skip", exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    // The account stays; only the image row made by the chip switch is thrown away.
+    // The account stays; looking at the image job made no image row.
     await expect
       .poll(async () => (await rows(request)).filter((row) => row.accountId === accountId).map((row) => row.provider))
       .not.toContain("image_generation");

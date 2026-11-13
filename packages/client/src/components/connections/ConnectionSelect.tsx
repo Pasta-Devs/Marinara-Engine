@@ -11,6 +11,7 @@ import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { groupModelsByAccount, viaName, type ConnectionModelRow } from "../../lib/connection-groups";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { FLAG_JOBS, matchesKind } from "../../lib/connection-jobs";
+import type { JobKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
 import { ModelTile } from "./ModelRow";
 
@@ -196,6 +197,7 @@ export function ConnectionSelect({
   label: rowLabel,
   title,
   job,
+  jobKey,
   className,
   scope,
   embedding,
@@ -230,6 +232,7 @@ export function ConnectionSelect({
   /** The picker window's title. */
   /** The job this slot is, for the window title: "Model for <job>". */
   job?: string;
+  jobKey?: JobKey;
   title?: string;
   className?: string;
   /** Where a picked Model is set, so the field can say so ("Set for this chat"). */
@@ -275,11 +278,11 @@ export function ConnectionSelect({
 
   const { current } = choices;
   // Empty with no custom first-option text means "follow the job's default": say whose.
-  const jobKey = FLAG_JOBS.find((job) => job.kind === kind)?.key;
+  const defaultJobKey = FLAG_JOBS.find((entry) => entry.kind === kind)?.key;
   const source = value
     ? scope && t(`connections.select.scope.${scope}`)
-    : !defaultLabel && choices.resolved && jobKey
-      ? t("connections.select.fromDefaults", { job: t(`connections.defaults.role.${jobKey}`) })
+    : !defaultLabel && choices.resolved && defaultJobKey
+      ? t("connections.select.fromDefaults", { job: t(`connections.defaults.role.${defaultJobKey}`) })
       : null;
   // A chosen Model reads as it does in the Jobs box: picture, name, account and upstream.
   const via = current.row ? viaName(current.row.provider, current.row.model) : null;
@@ -356,6 +359,7 @@ export function ConnectionSelect({
             onClose={() => setOpen(false)}
             title={jobName ? t("connections.picker.modelFor", { job: jobName }) : t("connections.switcher.chooseModel")}
             jobName={jobName || t("connections.picker.model")}
+            jobKey={jobKey}
             kind={kind}
             embedding={embedding}
             value={value}

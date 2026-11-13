@@ -18,7 +18,7 @@ import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-f
 // Full-Page Connection Editor
 // Click a connection → opens this editor (like presets/characters)
 // ──────────────────────────────────────────────
-import { useState, useCallback, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
+import { useState, useCallback, useEffect, useId, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import {
   useConnection,
@@ -39,7 +39,6 @@ import {
 } from "../../hooks/use-connections";
 import { usePresets } from "../../hooks/use-presets";
 import {
-  Save,
   Trash2,
   Upload,
   Wifi,
@@ -75,7 +74,11 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
 import { ServiceRow } from "./ServiceRow";
-import { confirmModelDelete, type ConnectionRowData } from "./ConnectionRow";
+import { confirmModelDelete, useUseFor, type ConnectionRowData } from "./ConnectionRow";
+import { menuAt, type MenuAt } from "./ModelRow";
+import { Modal } from "../ui/Modal";
+import { ContextMenu } from "../ui/ContextMenu";
+import { useModelStar } from "../../hooks/use-model-star";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { groupModelsByAccount } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
@@ -149,8 +152,6 @@ import {
   type VideoReferenceUploadExpiry,
   type VideoResolution,
 } from "@marinara-engine/shared";
-import { SurfaceBackButton } from "../ui/SurfaceBackButton";
-import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 
 /** Links where users can obtain API keys for each provider */
 const DEFAULT_CACHING_AT_DEPTH = 5;
@@ -355,6 +356,18 @@ interface ConnectionEditorProps {
   onSaved?: () => void;
   onBusyChange?: (busy: boolean) => void;
   closeRequestToken?: number;
+  /** Only the fields one job owns, for that job's settings window. */
+  part?: "decision" | "voice" | "captioning" | "embeddings";
+}
+
+// Several part editors can be open in one job window; the store flags stay true while any one of them is.
+const dirtyEditors = new Set<string>();
+const savingEditors = new Set<string>();
+function markEditor(editors: Set<string>, key: string, on: boolean, publish: (any: boolean) => void) {
+  if (editors.has(key) === on) return;
+  if (on) editors.add(key);
+  else editors.delete(key);
+  publish(editors.size > 0);
 }
 
 export function ConnectionEditor({
@@ -362,6 +375,7 @@ export function ConnectionEditor({
   onSaved,
   onBusyChange,
   closeRequestToken = 0,
+  part,
 }: ConnectionEditorProps = {}) {
   const { t: localizeUi } = useUiTranslation();
   const { t, i18n } = useTranslation();
@@ -372,11 +386,14 @@ export function ConnectionEditor({
 
   const { data: conn, isLoading } = useConnection(connectionDetailId);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [useForMenu, setUseForMenu] = useState<MenuAt | null>(null);
+  const modelStar = useModelStar();
   const contentRef = useRef<HTMLDivElement>(null);
   const openModal = useUIStore((s) => s.openModal);
   const { data: connectionAccounts } = useConnectionAccounts();
   const accountId = (conn as { accountId?: string | null } | undefined)?.accountId ?? null;
   const linkedAccount = accountId ? (connectionAccounts ?? []).find((account) => account.id === accountId) : undefined;
+  const useFor = useUseFor((conn ?? { id: "", provider: "" }) as ConnectionRowData);
   const parameterPreview = useEffectiveGenerationParameters(
     connectionDetailId,
     !!conn && isLanguageGenerationConnection(conn),
@@ -413,13 +430,17 @@ export function ConnectionEditor({
   const [dirty, setDirty] = useState(false);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const imageStyleProfiles = useUIStore((s) => s.imageStyleProfiles);
-  useEffect(() => {
-    setEditorDirty(dirty);
-  }, [dirty, setEditorDirty]);
+  const editorKey = useId();
+  useEffect(() => markEditor(dirtyEditors, editorKey, dirty, setEditorDirty), [dirty, editorKey, setEditorDirty]);
+  useEffect(() => () => markEditor(dirtyEditors, editorKey, false, setEditorDirty), [editorKey, setEditorDirty]);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   useKeepFocusedFieldAboveKeyboard(contentRef);
+  // The unsaved and save-error banners sit at the top of the scrolling body; bring them into view when they appear.
+  useEffect(() => {
+    if (showUnsavedWarning || saveError) contentRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [showUnsavedWarning, saveError]);
 
   const editorBusy =
     isLoading ||
@@ -433,6 +454,16 @@ export function ConnectionEditor({
   useEffect(() => {
     onBusyChange?.(editorBusy);
   }, [editorBusy, onBusyChange]);
+  const setConnectionSaving = useUIStore((s) => s.setConnectionSaving);
+  const saving = updateConnection.isPending || saveConnectionDefaults.isPending;
+  useEffect(
+    () => markEditor(savingEditors, editorKey, saving, setConnectionSaving),
+    [saving, editorKey, setConnectionSaving],
+  );
+  useEffect(
+    () => () => markEditor(savingEditors, editorKey, false, setConnectionSaving),
+    [editorKey, setConnectionSaving],
+  );
   useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
   // Local editable state
@@ -660,7 +691,8 @@ export function ConnectionEditor({
     setLocalTreatAsLocalEndpoint(c.treatAsLocalEndpoint === "true" || c.treatAsLocalEndpoint === true);
     const imageCaptioningDefaults = parseConnectionImageCaptioningDefaults(c.defaultParameters);
     setLocalDefaultParametersEnabled(
-      !!parseEditableGenerationParameters(c.defaultParameters) || Object.keys(imageCaptioningDefaults).length > 0,
+      // Captioning is read on its own below; it alone must not turn the defaults switch on.
+      !!parseEditableGenerationParameters(c.defaultParameters),
     );
     setLocalDefaultParameters(
       getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, c.defaultParameters, c.provider as string),
@@ -1119,13 +1151,12 @@ export function ConnectionEditor({
       if (!isMediaProvider) {
         await saveConnectionDefaults.mutateAsync({
           id: connectionDetailId,
-          params: localDefaultParametersEnabled
-            ? buildLanguageDefaultParameters(
-                localDefaultParameters,
-                localImageCaptioningEnabled,
-                localImageCaptioningConnectionId,
-              )
-            : null,
+          params: languageDefaultsToSave(
+            localDefaultParametersEnabled,
+            localDefaultParameters,
+            localImageCaptioningEnabled,
+            localImageCaptioningConnectionId,
+          ),
         });
       } else if (isImageProvider) {
         const nextImageDefaults =
@@ -1302,13 +1333,12 @@ export function ConnectionEditor({
           )
         : isAudioProvider || isGenerativeAudioProvider
           ? null
-          : localDefaultParametersEnabled
-            ? buildLanguageDefaultParameters(
-                localDefaultParameters,
-                localImageCaptioningEnabled,
-                localImageCaptioningConnectionId,
-              )
-            : null;
+          : languageDefaultsToSave(
+              localDefaultParametersEnabled,
+              localDefaultParameters,
+              localImageCaptioningEnabled,
+              localImageCaptioningConnectionId,
+            );
     const imageService = isImageProvider ? localImageGenerationSource || localImageService || null : null;
     const videoProvider = isVideoProvider ? selectedVideoProvider || null : null;
     const videoService = isVideoProvider
@@ -1795,6 +1825,8 @@ export function ConnectionEditor({
   // A Model of a Connection gets key, token, usage and local flag from it. Image/video/audio/decision Models
   // keep their own endpoint (decision 20), so only that field stays here.
   const accountLinked = !!accountId;
+  // Every saved chat Model has a star (decision 30); media Models have none.
+  const canUnstar = accountLinked && isChatProvider(localProvider);
   // The server keeps a Model's own address only when its kind differs from the account's (an image
   // Model on a chat account) or for a TypeSafe Decision (#7084); otherwise an edit here was dropped.
   const hasOwnEndpoint =
@@ -2212,15 +2244,359 @@ export function ConnectionEditor({
       )}
     </div>
   );
+  const decisionFields = (
+    <>
+      {isDecisionProvider && (
+        <section className="space-y-3">
+          <p className="block text-xs font-medium">{t("connections.decision.source")}</p>
+          <LockedService id={localDecisionSource} name={t(`connections.decision.sources.${localDecisionSource}`)} />
+          {localDecisionSource !== "typesafe" && (
+            <>
+              <label className="block text-xs" htmlFor="decision-credentials">
+                {t("connections.decision.credentials")}
+              </label>
+              <select
+                id="decision-credentials"
+                value={localCredentialsFrom}
+                className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                onChange={(event) => {
+                  setLocalCredentialsFrom(event.target.value);
+                  setLocalApiKey("");
+                  setClearStoredApiKeyOnSave(true);
+                  markDirty();
+                }}
+              >
+                <option value="">{t("connections.decision.separateKey")}</option>
+                {localCredentialsFrom &&
+                  !credentialSources(localDecisionSource).some((row) => row.id === localCredentialsFrom) && (
+                    <option value={localCredentialsFrom} disabled>
+                      {t("connections.decision.errors.needs_relinking")}
+                    </option>
+                  )}
+                {credentialSources(localDecisionSource).map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {t("connections.decision.useKeyFrom", { name: row.name })}
+                  </option>
+                ))}
+              </select>
+              {localCredentialsFrom && (
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {t(
+                    localDecisionSource === "openrouter"
+                      ? "connections.decision.billing"
+                      : "connections.decision.sameHost",
+                  )}
+                </p>
+              )}
+            </>
+          )}
+          <label className="block text-xs" htmlFor="decision-state-tokens">
+            {t("connections.decision.stateTokens")}
+          </label>
+          <input
+            id="decision-state-tokens"
+            type="number"
+            min={1}
+            max={30000}
+            value={localMaxStateTokens}
+            onChange={(event) => {
+              setLocalMaxStateTokens(Math.min(30000, Math.max(1, Math.trunc(Number(event.target.value)) || 1)));
+              markDirty();
+            }}
+            className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
+          />
+          <label className="block text-xs" htmlFor="decision-time-limit">
+            {t("connections.decision.timeLimit")}
+          </label>
+          <DraftNumberInput
+            id="decision-time-limit"
+            integer={false}
+            min={DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.min / 1000}
+            max={DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.max / 1000}
+            value={localDecisionTimeoutMs / 1000}
+            ariaDescribedBy="decision-time-limit-help"
+            onCommit={(seconds) => {
+              setLocalDecisionTimeoutMs(resolveDecisionConnectionTimeoutMs(seconds * 1000));
+              markDirty();
+            }}
+            className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
+          />
+          <p id="decision-time-limit-help" className="text-xs text-[var(--muted-foreground)]">
+            {t("connections.decision.timeLimitHelp", {
+              min: DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.min / 1000,
+              max: DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.max / 1000,
+              default: defaultDecisionTimeoutMs(localDecisionSource) / 1000,
+            })}
+          </p>
+        </section>
+      )}
+    </>
+  );
+  const voiceFields = (
+    <>
+      <label className="block space-y-1.5">
+        <span className="text-xs font-medium text-[var(--muted-foreground)]">
+          {localizeUi("ui.connections.connectioneditor.defaultVoice")}
+        </span>
+        <input
+          value={localAudioVoice}
+          onChange={(event) => {
+            setLocalAudioVoice(event.target.value);
+            markDirty();
+          }}
+          className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+          placeholder={
+            AUDIO_SOURCE_OPTIONS.find((candidate) => candidate.id === localAudioSource)?.defaultVoice ||
+            localizeUi("ui.connections.connectioneditor.eGAVoiceIdFromYourProvider")
+          }
+        />
+        <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+          {localizeUi("ui.connections.connectioneditor.voiceIdOrNameUsedWhenNothingMoreSpecific")}
+        </p>
+      </label>
+      <label className="block space-y-1.5">
+        <span className="block text-xs font-medium text-[var(--muted-foreground)]">{t("tts.requestTimeout")}</span>
+        <DraftNumberInput
+          ariaLabel={t("tts.requestTimeout")}
+          min={TTS_REQUEST_TIMEOUT_MS.min / 1000}
+          max={TTS_REQUEST_TIMEOUT_MS.max / 1000}
+          value={localAudioTimeoutMs / 1000}
+          onCommit={(seconds) => {
+            setLocalAudioTimeoutMs(seconds * 1000);
+            markDirty();
+          }}
+          className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
+        />
+      </label>
+      {localAudioSource === "elevenlabs" ? (
+        <div className="space-y-2">
+          <SettingsSwitch
+            label={localizeUi("ui.connections.connectioneditor.gameSoundEffects")}
+            description={localizeUi(
+              "ui.connections.connectioneditor.letGameModeGenerateSoundEffectsWithThisConnection",
+            )}
+            checked={localAudioSoundEffects}
+            onChange={(checked) => {
+              setLocalAudioSoundEffects(checked);
+              markDirty();
+            }}
+          />
+          <SettingsSwitch
+            label={localizeUi("ui.connections.connectioneditor.gameMusic")}
+            description={localizeUi("ui.connections.connectioneditor.letGameModeGenerateMusicWithThisConnection")}
+            checked={localAudioMusic}
+            onChange={(checked) => {
+              setLocalAudioMusic(checked);
+              markDirty();
+            }}
+          />
+        </div>
+      ) : (
+        <p className="rounded-xl border border-[var(--border)] px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
+          {localizeUi("ui.connections.connectioneditor.soundEffectAndMusicGenerationCurrentlyRequiresTheElevenlabs")}
+        </p>
+      )}
+    </>
+  );
+  const captioningFields = (
+    <>
+      <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
+        <SettingsSwitch
+          label={localizeUi("ui.connections.connectioneditor.imageCaptioning")}
+          description={localizeUi(
+            "ui.connections.connectioneditor.describeImageAttachmentsBeforeSendingThemToTextOnlyModels",
+          )}
+          checked={localImageCaptioningEnabled}
+          onChange={(checked) => {
+            setLocalImageCaptioningEnabled(checked);
+            markDirty();
+          }}
+        />
+        {localImageCaptioningEnabled && (
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.connections.connectioneditor.captioningConnection")}
+            </span>
+            <ConnectionSelect
+              job={t("connections.picker.job.captioning")}
+              kind="chat"
+              value={localImageCaptioningConnectionId || null}
+              onChange={(value) => {
+                setLocalImageCaptioningConnectionId(value ?? "");
+                markDirty();
+              }}
+              defaultLabel={localizeUi("ui.connections.connectioneditor.useThisConnection")}
+              extraOptions={[{ value: "", label: localizeUi("ui.connections.connectioneditor.useThisConnection") }]}
+              rowFilter={(row) => row.id !== connectionDetailId && isChatProvider(row.provider)}
+              className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+            />
+            <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+              {localizeUi(
+                "ui.connections.connectioneditor.chooseADifferentVisionCapableConnectionWhenThisModelCannotSeeImages",
+              )}
+            </p>
+          </label>
+        )}
+      </div>
+    </>
+  );
+  const embeddingFields = (
+    <>
+      {/* ── Embedding Model (for lorebook vectorization) ── */}
+      {!isMediaGenerationProvider && (
+        <FieldGroup label={localizeUi("ui.connections.connectioneditor.semanticSearchEmbeddings")}>
+          {supportsDirectEmbeddingConfig ? (
+            <>
+              <input
+                value={localEmbeddingModel}
+                onChange={(e) => {
+                  setLocalEmbeddingModel(e.target.value);
+                  markDirty();
+                }}
+                className="mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9"
+                placeholder={localizeUi("ui.connections.connectioneditor.eGTextEmbedding3Small")}
+              />
+
+              {/* Embedding Base URL Override */}
+              <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
+                  {localizeUi("ui.connections.connectioneditor.embeddingEndpointUrl")}
+                </label>
+                <input
+                  value={localEmbeddingBaseUrl}
+                  onChange={(e) => {
+                    setLocalEmbeddingBaseUrl(e.target.value);
+                    markDirty();
+                  }}
+                  className={cn(
+                    "mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9",
+                    embeddingBaseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
+                  )}
+                  placeholder={localizeUi("ui.connections.connectioneditor.eGHttpLocalhost5002V1")}
+                />
+                {embeddingBaseUrlValidation.error && (
+                  <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{embeddingBaseUrlValidation.error}</p>
+                )}
+                {!embeddingBaseUrlValidation.error &&
+                  embeddingBaseUrlValidation.value !== localEmbeddingBaseUrl.trim() && (
+                    <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.willSaveAs")} {embeddingBaseUrlValidation.value}
+                    </p>
+                  )}
+              </div>
+            </>
+          ) : null}
+
+          {/* Embedding Connection Override */}
+          <div className="mt-3 pt-3 border-t border-[var(--border)]">
+            <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
+              {localizeUi("ui.connections.connectioneditor.embeddingConnection")}
+            </label>
+            <select
+              value={localEmbeddingConnectionId}
+              onChange={(e) => {
+                setLocalEmbeddingConnectionId(e.target.value);
+                markDirty();
+              }}
+              className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+            >
+              <option value="">{localizeUi("ui.connections.connectioneditor.sameAsThisConnection")}</option>
+              {import.meta.env.VITE_MARINARA_LITE !== "true" && (
+                <option value={LOCAL_SIDECAR_CONNECTION_ID}>
+                  {localizeUi("ui.connections.connectioneditor.localModelSidecar")}
+                </option>
+              )}
+              {((allConnections ?? []) as Record<string, unknown>[])
+                .filter((c) => c.id !== connectionDetailId && isChatProvider(c.provider))
+                .map((c) => (
+                  <option key={c.id as string} value={c.id as string}>
+                    {c.name as string}
+                    {c.embeddingModel
+                      ? localizeUi("ui.connections.connectioneditor.value1", { value1: c.embeddingModel })
+                      : ""}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div className="mt-3 space-y-3">
+            <button
+              type="button"
+              onClick={handleTestEmbedding}
+              disabled={testEmbedding.isPending || !canTestEmbedding}
+              className="mari-chrome-control px-3"
+            >
+              {testEmbedding.isPending ? (
+                <Loader2 size="0.8125rem" className="animate-spin" />
+              ) : (
+                <Search size="0.8125rem" />
+              )}
+              {t("connections.embeddingTest.button")}
+            </button>
+            {embeddingTestResult && (
+              <TestResultCard
+                label={t("connections.embeddingTest.button")}
+                success={embeddingTestResult.success}
+                latencyMs={embeddingTestResult.latencyMs}
+              >
+                {embeddingTestResult.success && embeddingTestResult.dimensions
+                  ? t("connections.embeddingTest.dimensions", {
+                      dimensions: embeddingTestResult.dimensions,
+                    })
+                  : embeddingTestResult.message}
+              </TestResultCard>
+            )}
+          </div>
+        </FieldGroup>
+      )}
+    </>
+  );
   const testSection = isGenerativeAudioProvider ? musicTestSection : standardTestSection;
 
-  return (
-    <div className={cn("mari-editor-shell mari-connection-scope flex flex-1 flex-col overflow-hidden")}>
-      {/* ── Header ── */}
-      <div className={"mari-editor-header"}>
-        <div className="mari-editor-header-main max-md:basis-0!">
-          <SurfaceBackButton onClick={handleClose} className="mari-editor-action inline-flex shrink-0" />
+  if (part)
+    return (
+      <div className="space-y-4" data-connection-part={part}>
+        {part === "decision" && decisionFields}
+        {part === "voice" && voiceFields}
+        {part === "captioning" && captioningFields}
+        {part === "embeddings" && embeddingFields}
+        {saveError && <p className="text-xs text-[var(--destructive)]">{saveError}</p>}
+        {dirty && (
+          <button
+            type="button"
+            onClick={() => void handleSave().catch(() => {})}
+            disabled={editorBusy}
+            className="mari-chrome-control mari-chrome-control--primary text-xs disabled:opacity-50"
+          >
+            {localizeUi("ui.noodle.noodlehome.save")}
+          </button>
+        )}
+      </div>
+    );
 
+  const usedFor = useFor.filter((item) => item.checked);
+  const save = async () => {
+    try {
+      await handleSave();
+      return true;
+    } catch {
+      // The error banner explains what must be fixed; keep the window open.
+      return false;
+    }
+  };
+  const done = async () => {
+    if (!dirty || (await save())) closeEditor();
+  };
+  return (
+    <Modal
+      open
+      onClose={handleClose}
+      title={localName || localModel}
+      width="max-w-lg"
+      panelClassName="mari-editor-shell"
+      closeDisabled={editorBusy}
+      titleSlot={
+        <div className="flex min-w-0 items-center gap-2.5">
           <ProviderIcon
             provider={localProvider}
             baseUrl={localBaseUrl}
@@ -2237,1887 +2613,1608 @@ export function ConnectionEditor({
             name={localName}
             size="sm"
           />
-          <input
-            value={localName}
-            onChange={(e) => {
-              setLocalName(e.target.value);
-              markDirty();
-            }}
-            className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
-            placeholder={localizeUi("connections.editor.modelName")}
-            aria-label={localizeUi("connections.editor.modelName")}
-          />
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold">{localName || localModel}</h2>
+            <p className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
+              {[localModel, linkedAccount?.name].filter(Boolean).join(" · ")}
+            </p>
+          </div>
         </div>
-        <div className="mari-editor-actions flex shrink-0 max-md:order-2">
-          {saveError && (
-            <span className="mari-editor-status mr-2 text-[var(--destructive)]">
-              <AlertCircle size="0.6875rem" />{" "}
-              <span className="max-md:hidden">{localizeUi("ui.connections.connectioneditor.saveFailed")}</span>
-            </span>
-          )}
-          {savedFlash && !dirty && (
-            <span className="mari-editor-status mr-2 text-emerald-400">
-              <Check size="0.6875rem" />{" "}
-              <span className="max-md:hidden">{localizeUi("chat.settings.inlineEditor.saved")}</span>
-            </span>
-          )}
-          {dirty && !saveError && (
-            <span className="mari-editor-status mr-2 text-amber-400 max-md:hidden">
-              {localizeUi("ui.connections.connectioneditor.unsaved")}
-            </span>
+      }
+      footer={
+        <div className="mari-connection-scope flex w-full flex-wrap items-center gap-2">
+          {canUnstar && (
+            <button
+              type="button"
+              disabled={editorBusy}
+              onClick={() => {
+                if (dirty) return setShowUnsavedWarning(true);
+                void modelStar
+                  .toggle(
+                    { accountId: accountId!, anchorId: connectionDetailId, model: localModel, name: localName },
+                    true,
+                  )
+                  .then(
+                    (removed) => removed === true && closeEditor(),
+                    () => {},
+                  );
+              }}
+              className="mari-chrome-control px-3 text-xs disabled:opacity-50"
+            >
+              {t("connections.editor.unstar")}
+            </button>
           )}
           <button
-            onClick={async () => {
-              try {
-                await handleSave();
-              } catch {
-                // The existing error banner explains what must be fixed; keep the editor open.
-              }
-            }}
-            aria-label={localizeUi("ui.noodle.noodlehome.save")}
-            title={localizeUi("ui.noodle.noodlehome.save")}
-            disabled={updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError}
-            className="mari-editor-action mari-editor-action--primary inline-flex max-md:order-first disabled:opacity-50"
+            type="button"
+            onClick={handleExportConnection}
+            className="mari-editor-action inline-flex"
+            title={localizeUi("ui.connections.connectioneditor.exportConnection")}
+            aria-label={localizeUi("ui.connections.connectioneditor.exportConnection")}
           >
-            <Save size="0.8125rem" />
-            <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
+            <Upload size="0.9375rem" />
           </button>
-
-          <>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="mari-editor-action inline-flex"
+            title={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+            aria-label={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+          >
+            <Trash2 size="0.9375rem" />
+          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {savedFlash && !dirty && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                <Check size="0.75rem" aria-hidden="true" />
+                {localizeUi("chat.settings.inlineEditor.saved")}
+              </span>
+            )}
+            {dirty && !saveError && (
+              <span className="text-xs text-amber-400">{localizeUi("ui.connections.connectioneditor.unsaved")}</span>
+            )}
             <button
-              onClick={handleExportConnection}
-              className="mari-editor-action inline-flex"
-              title={localizeUi("ui.connections.connectioneditor.exportConnection")}
-              aria-label={localizeUi("ui.connections.connectioneditor.exportConnection")}
+              type="button"
+              onClick={() => void save()}
+              disabled={editorBusy || !!swarmUiWorkflowError}
+              className="mari-chrome-control px-3 text-xs disabled:opacity-50"
             >
-              <Upload size="0.9375rem" />
+              {localizeUi("ui.noodle.noodlehome.save")}
             </button>
             <button
-              onClick={handleDelete}
-              className="mari-editor-action inline-flex"
-              title={localizeUi("ui.connections.connectioneditor.deleteConnection")}
-              aria-label={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+              type="button"
+              onClick={() => void done()}
+              disabled={editorBusy || !!swarmUiWorkflowError}
+              className="mari-chrome-control mari-chrome-control--primary text-xs disabled:opacity-50"
             >
-              <Trash2 size="0.9375rem" />
-            </button>
-          </>
-        </div>
-        <SurfaceCloseButton dividerClassName="max-md:hidden" />
-      </div>
-
-      {/* Unsaved warning */}
-      {showUnsavedWarning && (
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
-          <span>{localizeUi("ui.connections.connectioneditor.youHaveUnsavedChanges")}</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowUnsavedWarning(false)}
-              disabled={editorBusy}
-              className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-3 py-1 disabled:opacity-50"
-            >
-              {localizeUi("ui.connections.connectioneditor.keepEditing")}
-            </button>
-            <button
-              onClick={closeEditor}
-              disabled={editorBusy}
-              className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex rounded-lg px-3 py-1 disabled:opacity-50"
-            >
-              {localizeUi("ui.connections.connectioneditor.discard")}
-            </button>
-            <button
-              onClick={async () => {
-                try {
-                  await handleSave();
-                  closeEditor();
-                } catch {
-                  // Keep the editor open so the user can fix the failed save.
-                }
-              }}
-              disabled={editorBusy}
-              className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex rounded-lg px-3 py-1 disabled:opacity-50"
-            >
-              {localizeUi("ui.connections.connectioneditor.saveClose")}
+              {t("connections.editor.done")}
             </button>
           </div>
         </div>
-      )}
-
-      {/* Save error banner */}
-      {saveError && (
-        <div className="flex items-center gap-2 bg-[var(--destructive)]/10 px-4 py-2 text-xs text-[var(--destructive)]">
-          <AlertCircle size="0.8125rem" />
-          <span className="flex-1">{saveError}</span>
-          <button
-            onClick={() => setSaveError(null)}
-            aria-label={localizeUi("editor.save.dismissError")}
-            className="rounded-lg px-2 py-0.5 text-[var(--marinara-app-accent-static)] hover:bg-[var(--marinara-app-accent-static)]/20"
-          >
-            <X size="0.75rem" />
-          </button>
-        </div>
-      )}
-
-      {/* ── Body ── */}
-      <div ref={contentRef} className="mari-editor-content max-md:p-4">
-        <div className={"mari-editor-content-inner flex flex-col gap-6"}>
-          <>
-            {/* ── Model Name ── */}
-
-            <FieldGroup label={localizeUi("connections.editor.name")}>
-              <input
-                value={localName}
-                onChange={(e) => {
-                  setLocalName(e.target.value);
-                  markDirty();
+      }
+    >
+      <div ref={contentRef} className="mari-connection-scope flex flex-col gap-6">
+        {/* Unsaved warning */}
+        {showUnsavedWarning && (
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
+            <span>{localizeUi("ui.connections.connectioneditor.youHaveUnsavedChanges")}</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowUnsavedWarning(false)}
+                disabled={editorBusy}
+                className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-3 py-1 disabled:opacity-50"
+              >
+                {localizeUi("ui.connections.connectioneditor.keepEditing")}
+              </button>
+              <button
+                onClick={closeEditor}
+                disabled={editorBusy}
+                className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex rounded-lg px-3 py-1 disabled:opacity-50"
+              >
+                {localizeUi("ui.connections.connectioneditor.discard")}
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await handleSave();
+                    closeEditor();
+                  } catch {
+                    // Keep the editor open so the user can fix the failed save.
+                  }
                 }}
-                className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                placeholder={localizeUi("ui.connections.connectioneditor.eGClaudeSonnetRp")}
-              />
-            </FieldGroup>
-
-            {/* ── Provider (or the Connection that owns the credentials) ── */}
-            {accountLinked ? (
+                disabled={editorBusy}
+                className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex rounded-lg px-3 py-1 disabled:opacity-50"
+              >
+                {localizeUi("ui.connections.connectioneditor.saveClose")}
+              </button>
+            </div>
+          </div>
+        )}
+        {/* Save error banner */}
+        {saveError && (
+          <div className="flex items-center gap-2 bg-[var(--destructive)]/10 px-4 py-2 text-xs text-[var(--destructive)]">
+            <AlertCircle size="0.8125rem" />
+            <span className="flex-1">{saveError}</span>
+            <button
+              onClick={() => setSaveError(null)}
+              aria-label={localizeUi("editor.save.dismissError")}
+              className="rounded-lg px-2 py-0.5 text-[var(--marinara-app-accent-static)] hover:bg-[var(--marinara-app-accent-static)]/20"
+            >
+              <X size="0.75rem" />
+            </button>
+          </div>
+        )}
+        <EditorSection title={t("connections.editor.section.usedFor")}>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {usedFor.map((item) => (
+              <span
+                key={item.label}
+                className="rounded-full bg-[var(--secondary)] px-2.5 py-1 text-[0.6875rem] font-medium"
+              >
+                {item.label}
+              </span>
+            ))}
+            {useFor.length > 0 && (
               <button
                 type="button"
-                onClick={() => openModal("connection-account", { accountId })}
-                aria-label={t("connections.editor.editConnection")}
-                className="mari-connection-group block w-full text-left text-sm transition-colors hover:bg-[var(--accent)]/40"
+                onClick={(event) => setUseForMenu(menuAt(event))}
+                className="mari-chrome-control mari-chrome-control--small text-[0.6875rem]"
               >
-                <ServiceRow
-                  account={linkedAccount ?? { name: "…", provider: localProvider, baseUrl: localBaseUrl }}
-                  rows={[
-                    {
-                      provider: localProvider,
-                      model: localModel,
-                      imageGenerationSource: localImageGenerationSource,
-                      imageService: localImageService,
-                      videoGenerationSource: localVideoGenerationSource,
-                      videoService: localVideoService,
-                      audioSource: localAudioSource,
-                    },
-                  ]}
-                  density="sm"
-                  trailing={
-                    <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
-                  }
-                />
+                {t("connections.row.useFor")}
               </button>
-            ) : (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.provider")}>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                  {(Object.entries(PROVIDERS) as [APIProvider, typeof providerDef][]).map(([key, info]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => {
-                        if (key === localProvider) return;
-                        const defaultModel = MODEL_LISTS[key]?.[0];
-                        setLocalProvider(key);
-                        // Auto-fill base URL
-                        setLocalBaseUrl(info.defaultBaseUrl);
-                        // The base URL and model are reset, so the old image service must be picked again;
-                        // otherwise a hidden-field service like ChatGPT (Codex login) keeps a stale URL.
-                        setLocalImageGenerationSource("");
-                        setLocalImageService(null);
-                        // Leave Grok CLI blank so the local CLI can use its
-                        // account/default model until the user fetches
-                        // `grok models`. Other providers keep their usual seeded
-                        // default model when we know one.
-                        setLocalModel(
-                          key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.5" : "")),
-                        );
-                        setLocalMaxContext(
-                          key === "grok_subscription"
-                            ? GROK_CLI_DEFAULT_CONTEXT_TOKENS
-                            : Number(defaultModel?.context) || 128000,
-                        );
-                        setLocalMaxTokensOverride(null);
-                        setLocalDefaultParametersEnabled(false);
-                        setLocalDefaultParameters(
-                          getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, null, key),
-                        );
-                        if (key === "decision") {
-                          setLocalDecisionSource("typesafe");
-                          setLocalCredentialsFrom("");
-                          setLocalMaxStateTokens(30000);
-                          setLocalDecisionTimeoutMs(DECISION_TIMEOUT_MS.systemOne);
-                          setLocalModel("jev-latest");
-                        }
-                        if (key === "audio") {
-                          // The provider tile seeds ElevenLabs base URL/model, so
-                          // the audio source must reset to match — otherwise a
-                          // pockettts/openai/xai source survives the switch under
-                          // ElevenLabs endpoints and saves a self-inconsistent row.
-                          setLocalAudioSource("elevenlabs");
-                          setLocalAudioVoice("");
-                          setLocalAudioSoundEffects(false);
-                          setLocalAudioMusic(false);
-                        }
-                        // Provider switches must not keep an encrypted key from
-                        // the previous provider under the new provider identity.
-                        setLocalApiKey("");
-                        setClearStoredApiKeyOnSave(true);
-                        markDirty();
-                      }}
-                      aria-pressed={localProvider === key}
-                      className={cn(
-                        "truncate rounded-md px-3 py-2.5 text-xs font-medium transition-all",
-                        localProvider === key
-                          ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
-                          : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                      )}
-                    >
-                      {key === "decision" ? t("connections.decision.label") : info.name}
-                    </button>
-                  ))}
-                </div>
-              </FieldGroup>
             )}
+          </div>
+          {useForMenu && (
+            <ContextMenu
+              x={useForMenu.x}
+              y={useForMenu.y}
+              // Save pending edits first: the job change reloads the row, which would reset them.
+              items={useFor.map((item) => ({
+                ...item,
+                onSelect: () => void (dirty ? save() : Promise.resolve(true)).then((ok) => ok && item.onSelect()),
+              }))}
+              autoFocus={useForMenu.keyboard}
+              onClose={() => setUseForMenu(null)}
+            />
+          )}
+        </EditorSection>
+        <>
+          {/* ── Model Name ── */}
 
-            {/* ── Claude (Subscription) — prerequisites notice ── */}
-            {isClaudeSubscriptionProvider && (
-              <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-                <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
-                  <AlertCircle size="0.75rem" className="mt-px shrink-0" />
-                  <span>
-                    {localizeUi("ui.connections.connectioneditor.routesChatThroughYourLocal")}{" "}
-                    <strong>{localizeUi("ui.connections.connectioneditor.claudeCode")}</strong>{" "}
-                    {localizeUi("ui.connections.connectioneditor.installSoItBillsAgainstYourAnthropic")}{" "}
-                    <strong>{localizeUi("ui.connections.connectioneditor.proMax")}</strong>{" "}
-                    {localizeUi("ui.connections.connectioneditor.subscriptionInsteadOfAnApiKeyPrerequisitesOnThe")}
-                  </span>
-                </p>
-                <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  <li>
-                    {localizeUi("ui.connections.connectioneditor.installClaudeCode")}{" "}
-                    <code className="rounded bg-[var(--secondary)] px-1">{"npm i -g @anthropic-ai/claude-code"}</code>
-                  </li>
-                  <li>
-                    {localizeUi("ui.connections.connectioneditor.signInOnce")}{" "}
-                    <code className="rounded bg-[var(--secondary)] px-1">{"claude login"}</code>
-                  </li>
-                  <li>{localizeUi("ui.connections.connectioneditor.apiKeyAndBaseUrlAreNotRequiredFor")}</li>
-                </ol>
-                <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("ui.connections.connectioneditor.subscriptionAuthIsTheSameMechanismVisualStudioCode")}
-                </p>
-              </div>
-            )}
+          <FieldGroup label={localizeUi("connections.editor.name")}>
+            <input
+              value={localName}
+              onChange={(e) => {
+                setLocalName(e.target.value);
+                markDirty();
+              }}
+              className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+              placeholder={localizeUi("connections.editor.modelName")}
+            />
+          </FieldGroup>
 
-            {/* ── Claude (Subscription) — plan usage ── */}
-            {isClaudeSubscriptionProvider && !accountLinked && <div className="space-y-3">{usageWidgetControls}</div>}
-
-            {/* ── OpenAI (ChatGPT) — prerequisites notice ── */}
-            {isOpenAIChatGPTProvider && (
-              <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-                <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
-                  <AlertCircle size="0.75rem" className="mt-px shrink-0" />
-                  <span>
-                    {localizeUi("ui.connections.connectioneditor.routesChatThroughYourLocal")}{" "}
-                    <strong>{localizeUi("ui.connections.connectioneditor.codexChatgpt")}</strong>{" "}
-                    {localizeUi("ui.connections.connectioneditor.loginSoItUsesYourChatgptAccountInsteadOf")}
-                  </span>
-                </p>
-                <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  <li>
-                    {localizeUi("ui.connections.connectioneditor.installCodexCli")}{" "}
-                    <code className="rounded bg-[var(--secondary)] px-1">{"npm i -g @openai/codex"}</code>
-                  </li>
-                  <li>
-                    {localizeUi("ui.connections.connectioneditor.signInOnce")}{" "}
-                    <code className="rounded bg-[var(--secondary)] px-1">{"codex login"}</code>
-                  </li>
-                  <li>{localizeUi("ui.connections.connectioneditor.apiKeyAndBaseUrlAreNotRequiredFor")}</li>
-                </ol>
-                <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("ui.connections.connectioneditor.marinaraReadsTheLocalCodexAuthFileAndRefreshes")}
-                </p>
-              </div>
-            )}
-
-            {/* ── OpenAI (ChatGPT) — plan usage ── */}
-            {isOpenAIChatGPTProvider && !accountLinked && <div className="space-y-3">{usageWidgetControls}</div>}
-
-            {/* ── Grok CLI (Subscription) — prerequisites notice ── */}
-            {isGrokSubscriptionProvider && (
-              <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-                <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
-                  <AlertCircle size="0.75rem" className="mt-px shrink-0" />
-                  <span>
-                    {localizeUi("ui.connections.connectioneditor.routesChatThroughYourLocal")}{" "}
-                    <strong>{localizeUi("ui.connections.connectioneditor.grokCli")}</strong>{" "}
-                    {localizeUi("ui.connections.connectioneditor.installSoItUsesYourSignedIn")}{" "}
-                    <strong>{localizeUi("ui.connections.connectioneditor.supergrokXPremium")}</strong>{" "}
-                    {localizeUi("ui.connections.connectioneditor.accountInsteadOfAnXaiApiKeyPrerequisitesOn")}
-                  </span>
-                </p>
-                <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  <li>
-                    {localizeUi("ui.connections.connectioneditor.installGrokCli")}{" "}
-                    <code className="rounded bg-[var(--secondary)] px-1">
-                      {"curl -fsSL https://x.ai/cli/install.sh | bash"}
-                    </code>
-                  </li>
-                  <li>
-                    {localizeUi("ui.connections.connectioneditor.signInOnce")}{" "}
-                    <code className="rounded bg-[var(--secondary)] px-1">{"grok login"}</code>
-                  </li>
-                  <li>{localizeUi("ui.connections.connectioneditor.apiKeyAndBaseUrlAreNotRequiredFor")}</li>
-                </ol>
-                <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("ui.connections.connectioneditor.marinaraRuns")}{" "}
-                  <code className="rounded bg-[var(--secondary)] px-1">{"grok"}</code>{" "}
-                  {localizeUi("ui.connections.connectioneditor.headlesslyWithGrokSideToolsMemoryWebSearchPlans")}{" "}
-                  <code className="rounded bg-[var(--secondary)] px-1">{"grok-composer-2.5-fast"}</code>
-                  {localizeUi("ui.connections.connectioneditor.leaveTheModelBlankToUseTheCliDefault")}
-                </p>
-              </div>
-            )}
-
-            {localProvider === "google_vertex" && (
-              <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-                <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
-                  <AlertCircle size="0.75rem" className="mt-px shrink-0" />
-                  <span>{localizeUi("ui.connections.connectioneditor.usesVertexAiSGeminiEndpointSetBaseUrl")}</span>
-                </p>
-                <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("ui.connections.connectioneditor.exampleBaseUrl")}{" "}
-                  <code className="rounded bg-[var(--secondary)] px-1">
-                    {"https://us-central1-aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1"}
-                  </code>
-                </p>
-              </div>
-            )}
-
-            {isDecisionProvider && (
-              <section className="space-y-3">
-                <p className="block text-xs font-medium">{t("connections.decision.source")}</p>
-                <LockedService
-                  id={localDecisionSource}
-                  name={t(`connections.decision.sources.${localDecisionSource}`)}
-                />
-                {localDecisionSource !== "typesafe" && (
-                  <>
-                    <label className="block text-xs" htmlFor="decision-credentials">
-                      {t("connections.decision.credentials")}
-                    </label>
-                    <select
-                      id="decision-credentials"
-                      value={localCredentialsFrom}
-                      className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                      onChange={(event) => {
-                        setLocalCredentialsFrom(event.target.value);
-                        setLocalApiKey("");
-                        setClearStoredApiKeyOnSave(true);
-                        markDirty();
-                      }}
-                    >
-                      <option value="">{t("connections.decision.separateKey")}</option>
-                      {localCredentialsFrom &&
-                        !credentialSources(localDecisionSource).some((row) => row.id === localCredentialsFrom) && (
-                          <option value={localCredentialsFrom} disabled>
-                            {t("connections.decision.errors.needs_relinking")}
-                          </option>
-                        )}
-                      {credentialSources(localDecisionSource).map((row) => (
-                        <option key={row.id} value={row.id}>
-                          {t("connections.decision.useKeyFrom", { name: row.name })}
-                        </option>
-                      ))}
-                    </select>
-                    {localCredentialsFrom && (
-                      <p className="text-xs text-[var(--muted-foreground)]">
-                        {t(
-                          localDecisionSource === "openrouter"
-                            ? "connections.decision.billing"
-                            : "connections.decision.sameHost",
-                        )}
-                      </p>
+          {/* ── Provider (or the Connection that owns the credentials) ── */}
+          {accountLinked ? (
+            <button
+              type="button"
+              onClick={() => openModal("connection-account", { accountId })}
+              aria-label={t("connections.editor.editConnection")}
+              className="mari-connection-group block w-full text-left text-sm transition-colors hover:bg-[var(--accent)]/40"
+            >
+              <ServiceRow
+                account={linkedAccount ?? { name: "…", provider: localProvider, baseUrl: localBaseUrl }}
+                rows={[
+                  {
+                    provider: localProvider,
+                    model: localModel,
+                    imageGenerationSource: localImageGenerationSource,
+                    imageService: localImageService,
+                    videoGenerationSource: localVideoGenerationSource,
+                    videoService: localVideoService,
+                    audioSource: localAudioSource,
+                  },
+                ]}
+                density="sm"
+                trailing={<ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />}
+              />
+            </button>
+          ) : (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.provider")}>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                {(Object.entries(PROVIDERS) as [APIProvider, typeof providerDef][]).map(([key, info]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      if (key === localProvider) return;
+                      const defaultModel = MODEL_LISTS[key]?.[0];
+                      setLocalProvider(key);
+                      // Auto-fill base URL
+                      setLocalBaseUrl(info.defaultBaseUrl);
+                      // The base URL and model are reset, so the old image service must be picked again;
+                      // otherwise a hidden-field service like ChatGPT (Codex login) keeps a stale URL.
+                      setLocalImageGenerationSource("");
+                      setLocalImageService(null);
+                      // Leave Grok CLI blank so the local CLI can use its
+                      // account/default model until the user fetches
+                      // `grok models`. Other providers keep their usual seeded
+                      // default model when we know one.
+                      setLocalModel(
+                        key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.5" : "")),
+                      );
+                      setLocalMaxContext(
+                        key === "grok_subscription"
+                          ? GROK_CLI_DEFAULT_CONTEXT_TOKENS
+                          : Number(defaultModel?.context) || 128000,
+                      );
+                      setLocalMaxTokensOverride(null);
+                      setLocalDefaultParametersEnabled(false);
+                      setLocalDefaultParameters(
+                        getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, null, key),
+                      );
+                      if (key === "decision") {
+                        setLocalDecisionSource("typesafe");
+                        setLocalCredentialsFrom("");
+                        setLocalMaxStateTokens(30000);
+                        setLocalDecisionTimeoutMs(DECISION_TIMEOUT_MS.systemOne);
+                        setLocalModel("jev-latest");
+                      }
+                      if (key === "audio") {
+                        // The provider tile seeds ElevenLabs base URL/model, so
+                        // the audio source must reset to match — otherwise a
+                        // pockettts/openai/xai source survives the switch under
+                        // ElevenLabs endpoints and saves a self-inconsistent row.
+                        setLocalAudioSource("elevenlabs");
+                        setLocalAudioVoice("");
+                        setLocalAudioSoundEffects(false);
+                        setLocalAudioMusic(false);
+                      }
+                      // Provider switches must not keep an encrypted key from
+                      // the previous provider under the new provider identity.
+                      setLocalApiKey("");
+                      setClearStoredApiKeyOnSave(true);
+                      markDirty();
+                    }}
+                    aria-pressed={localProvider === key}
+                    className={cn(
+                      "truncate rounded-md px-3 py-2.5 text-xs font-medium transition-all",
+                      localProvider === key
+                        ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
+                        : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                     )}
-                  </>
-                )}
-                <label className="block text-xs" htmlFor="decision-state-tokens">
-                  {t("connections.decision.stateTokens")}
-                </label>
-                <input
-                  id="decision-state-tokens"
-                  type="number"
-                  min={1}
-                  max={30000}
-                  value={localMaxStateTokens}
-                  onChange={(event) => {
-                    setLocalMaxStateTokens(Math.min(30000, Math.max(1, Math.trunc(Number(event.target.value)) || 1)));
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
-                />
-                <label className="block text-xs" htmlFor="decision-time-limit">
-                  {t("connections.decision.timeLimit")}
-                </label>
-                <DraftNumberInput
-                  id="decision-time-limit"
-                  integer={false}
-                  min={DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.min / 1000}
-                  max={DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.max / 1000}
-                  value={localDecisionTimeoutMs / 1000}
-                  ariaDescribedBy="decision-time-limit-help"
-                  onCommit={(seconds) => {
-                    setLocalDecisionTimeoutMs(resolveDecisionConnectionTimeoutMs(seconds * 1000));
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
-                />
-                <p id="decision-time-limit-help" className="text-xs text-[var(--muted-foreground)]">
-                  {t("connections.decision.timeLimitHelp", {
-                    min: DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.min / 1000,
-                    max: DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.max / 1000,
-                    default: defaultDecisionTimeoutMs(localDecisionSource) / 1000,
-                  })}
-                </p>
-              </section>
-            )}
+                  >
+                    {key === "decision" ? t("connections.decision.label") : info.name}
+                  </button>
+                ))}
+              </div>
+            </FieldGroup>
+          )}
 
-            {!isLocalAuthProvider && !isCodexImageService && (
-              <>
-                {/* ── API Key ── */}
-                {!accountLinked && (
-                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.apiKey")}>
+          {/* ── Claude (Subscription) — prerequisites notice ── */}
+          {isClaudeSubscriptionProvider && (
+            <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
+              <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
+                <AlertCircle size="0.75rem" className="mt-px shrink-0" />
+                <span>
+                  {localizeUi("ui.connections.connectioneditor.routesChatThroughYourLocal")}{" "}
+                  <strong>{localizeUi("ui.connections.connectioneditor.claudeCode")}</strong>{" "}
+                  {localizeUi("ui.connections.connectioneditor.installSoItBillsAgainstYourAnthropic")}{" "}
+                  <strong>{localizeUi("ui.connections.connectioneditor.proMax")}</strong>{" "}
+                  {localizeUi("ui.connections.connectioneditor.subscriptionInsteadOfAnApiKeyPrerequisitesOnThe")}
+                </span>
+              </p>
+              <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                <li>
+                  {localizeUi("ui.connections.connectioneditor.installClaudeCode")}{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">{"npm i -g @anthropic-ai/claude-code"}</code>
+                </li>
+                <li>
+                  {localizeUi("ui.connections.connectioneditor.signInOnce")}{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">{"claude login"}</code>
+                </li>
+                <li>{localizeUi("ui.connections.connectioneditor.apiKeyAndBaseUrlAreNotRequiredFor")}</li>
+              </ol>
+              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.connections.connectioneditor.subscriptionAuthIsTheSameMechanismVisualStudioCode")}
+              </p>
+            </div>
+          )}
+
+          {/* ── Claude (Subscription) — plan usage ── */}
+          {isClaudeSubscriptionProvider && !accountLinked && <div className="space-y-3">{usageWidgetControls}</div>}
+
+          {/* ── OpenAI (ChatGPT) — prerequisites notice ── */}
+          {isOpenAIChatGPTProvider && (
+            <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
+              <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
+                <AlertCircle size="0.75rem" className="mt-px shrink-0" />
+                <span>
+                  {localizeUi("ui.connections.connectioneditor.routesChatThroughYourLocal")}{" "}
+                  <strong>{localizeUi("ui.connections.connectioneditor.codexChatgpt")}</strong>{" "}
+                  {localizeUi("ui.connections.connectioneditor.loginSoItUsesYourChatgptAccountInsteadOf")}
+                </span>
+              </p>
+              <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                <li>
+                  {localizeUi("ui.connections.connectioneditor.installCodexCli")}{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">{"npm i -g @openai/codex"}</code>
+                </li>
+                <li>
+                  {localizeUi("ui.connections.connectioneditor.signInOnce")}{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">{"codex login"}</code>
+                </li>
+                <li>{localizeUi("ui.connections.connectioneditor.apiKeyAndBaseUrlAreNotRequiredFor")}</li>
+              </ol>
+              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.connections.connectioneditor.marinaraReadsTheLocalCodexAuthFileAndRefreshes")}
+              </p>
+            </div>
+          )}
+
+          {/* ── OpenAI (ChatGPT) — plan usage ── */}
+          {isOpenAIChatGPTProvider && !accountLinked && <div className="space-y-3">{usageWidgetControls}</div>}
+
+          {/* ── Grok CLI (Subscription) — prerequisites notice ── */}
+          {isGrokSubscriptionProvider && (
+            <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
+              <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
+                <AlertCircle size="0.75rem" className="mt-px shrink-0" />
+                <span>
+                  {localizeUi("ui.connections.connectioneditor.routesChatThroughYourLocal")}{" "}
+                  <strong>{localizeUi("ui.connections.connectioneditor.grokCli")}</strong>{" "}
+                  {localizeUi("ui.connections.connectioneditor.installSoItUsesYourSignedIn")}{" "}
+                  <strong>{localizeUi("ui.connections.connectioneditor.supergrokXPremium")}</strong>{" "}
+                  {localizeUi("ui.connections.connectioneditor.accountInsteadOfAnXaiApiKeyPrerequisitesOn")}
+                </span>
+              </p>
+              <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                <li>
+                  {localizeUi("ui.connections.connectioneditor.installGrokCli")}{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">
+                    {"curl -fsSL https://x.ai/cli/install.sh | bash"}
+                  </code>
+                </li>
+                <li>
+                  {localizeUi("ui.connections.connectioneditor.signInOnce")}{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">{"grok login"}</code>
+                </li>
+                <li>{localizeUi("ui.connections.connectioneditor.apiKeyAndBaseUrlAreNotRequiredFor")}</li>
+              </ol>
+              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.connections.connectioneditor.marinaraRuns")}{" "}
+                <code className="rounded bg-[var(--secondary)] px-1">{"grok"}</code>{" "}
+                {localizeUi("ui.connections.connectioneditor.headlesslyWithGrokSideToolsMemoryWebSearchPlans")}{" "}
+                <code className="rounded bg-[var(--secondary)] px-1">{"grok-composer-2.5-fast"}</code>
+                {localizeUi("ui.connections.connectioneditor.leaveTheModelBlankToUseTheCliDefault")}
+              </p>
+            </div>
+          )}
+
+          {localProvider === "google_vertex" && (
+            <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
+              <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
+                <AlertCircle size="0.75rem" className="mt-px shrink-0" />
+                <span>{localizeUi("ui.connections.connectioneditor.usesVertexAiSGeminiEndpointSetBaseUrl")}</span>
+              </p>
+              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.connections.connectioneditor.exampleBaseUrl")}{" "}
+                <code className="rounded bg-[var(--secondary)] px-1">
+                  {"https://us-central1-aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1"}
+                </code>
+              </p>
+            </div>
+          )}
+
+          {!isLocalAuthProvider && !isCodexImageService && (
+            <>
+              {/* ── API Key ── */}
+              {!accountLinked && (
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.apiKey")}>
+                  <input
+                    disabled={isDecisionProvider && !!localCredentialsFrom}
+                    value={localApiKey}
+                    onChange={(e) => {
+                      setLocalApiKey(e.target.value);
+                      markDirty();
+                    }}
+                    type="password"
+                    className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                    placeholder={localizeUi("ui.connections.connectioneditor.leaveEmptyToKeepExistingKey")}
+                  />
+                  {apiKeyLink && (
+                    <a
+                      href={apiKeyLink.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)]"
+                    >
+                      <ExternalLink size="0.625rem" />
+                      {apiKeyLink.label}
+                    </a>
+                  )}
+                  {localProvider === "custom" && (
+                    <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.forLocalModelsOllamaLmStudioKoboldcppEtcYou")}
+                    </p>
+                  )}
+                </FieldGroup>
+              )}
+
+              {/* ── NanoGPT management token + subscription usage ── */}
+              {isNanoGptProvider && !accountLinked && (
+                // A fragment's children are not direct children of the parent's
+                // space-y-6, so this block carries its own vertical rhythm.
+                <div className="space-y-6">
+                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.managementToken")}>
                     <input
-                      disabled={isDecisionProvider && !!localCredentialsFrom}
-                      value={localApiKey}
+                      value={localManagementToken}
                       onChange={(e) => {
-                        setLocalApiKey(e.target.value);
+                        setLocalManagementToken(e.target.value);
                         markDirty();
                       }}
                       type="password"
                       className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                       placeholder={localizeUi("ui.connections.connectioneditor.leaveEmptyToKeepExistingKey")}
                     />
-                    {apiKeyLink && (
-                      <a
-                        href={apiKeyLink.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)]"
-                      >
-                        <ExternalLink size="0.625rem" />
-                        {apiKeyLink.label}
-                      </a>
-                    )}
-                    {localProvider === "custom" && (
-                      <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.connections.connectioneditor.forLocalModelsOllamaLmStudioKoboldcppEtcYou")}
-                      </p>
-                    )}
-                  </FieldGroup>
-                )}
-
-                {/* ── NanoGPT management token + subscription usage ── */}
-                {isNanoGptProvider && !accountLinked && (
-                  // A fragment's children are not direct children of the parent's
-                  // space-y-6, so this block carries its own vertical rhythm.
-                  <div className="space-y-6">
-                    <FieldGroup label={localizeUi("ui.connections.connectioneditor.managementToken")}>
+                    <label className="mt-1.5 flex w-fit cursor-pointer items-center gap-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
                       <input
-                        value={localManagementToken}
+                        type="checkbox"
+                        checked={clearStoredManagementTokenOnSave}
                         onChange={(e) => {
-                          setLocalManagementToken(e.target.value);
+                          setClearStoredManagementTokenOnSave(e.target.checked);
+                          if (e.target.checked) setLocalManagementToken("");
                           markDirty();
                         }}
-                        type="password"
-                        className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                        placeholder={localizeUi("ui.connections.connectioneditor.leaveEmptyToKeepExistingKey")}
+                        className="h-3 w-3 shrink-0 accent-[var(--destructive)]"
                       />
-                      <label className="mt-1.5 flex w-fit cursor-pointer items-center gap-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                        <input
-                          type="checkbox"
-                          checked={clearStoredManagementTokenOnSave}
-                          onChange={(e) => {
-                            setClearStoredManagementTokenOnSave(e.target.checked);
-                            if (e.target.checked) setLocalManagementToken("");
-                            markDirty();
-                          }}
-                          className="h-3 w-3 shrink-0 accent-[var(--destructive)]"
-                        />
-                        {localizeUi("ui.connections.connectioneditor.clearStoredManagementToken")}
-                      </label>
-                      <a
-                        href="https://nano-gpt.com/settings#management-api-tokens"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)]"
-                      >
-                        <ExternalLink size="0.625rem" />
-                        {localizeUi("ui.connections.connectioneditor.createAManagementToken")}
-                      </a>
-                    </FieldGroup>
+                      {localizeUi("ui.connections.connectioneditor.clearStoredManagementToken")}
+                    </label>
+                    <a
+                      href="https://nano-gpt.com/settings#management-api-tokens"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)]"
+                    >
+                      <ExternalLink size="0.625rem" />
+                      {localizeUi("ui.connections.connectioneditor.createAManagementToken")}
+                    </a>
+                  </FieldGroup>
 
-                    {usageWidgetControls}
-                  </div>
-                )}
+                  {usageWidgetControls}
+                </div>
+              )}
 
-                {/* ── Base URL ── */}
-                {(!accountLinked || hasOwnEndpoint) && (
-                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.baseUrl")}>
-                    <input
-                      disabled={isDecisionProvider && localDecisionSource === "openrouter"}
-                      value={localBaseUrl}
-                      onChange={(e) => {
-                        setLocalBaseUrl(e.target.value);
+              {/* ── Base URL ── */}
+              {(!accountLinked || hasOwnEndpoint) && (
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.baseUrl")}>
+                  <input
+                    disabled={isDecisionProvider && localDecisionSource === "openrouter"}
+                    value={localBaseUrl}
+                    onChange={(e) => {
+                      setLocalBaseUrl(e.target.value);
+                      markDirty();
+                    }}
+                    className={cn(
+                      "mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9",
+                      baseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
+                    )}
+                    placeholder={providerDef?.defaultBaseUrl || "https://api.example.com/v1"}
+                  />
+                  {providerDef?.defaultBaseUrl && !localBaseUrl && (
+                    <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.default")} {providerDef.defaultBaseUrl}
+                    </p>
+                  )}
+                  {baseUrlValidation.error && (
+                    <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{baseUrlValidation.error}</p>
+                  )}
+                  {!baseUrlValidation.error && baseUrlValidation.value !== localBaseUrl.trim() && (
+                    <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.willSaveAs")} {baseUrlValidation.value}
+                    </p>
+                  )}
+                  {localProvider === "custom" && (
+                    <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.localModelExamplesOllama")}{" "}
+                      <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:11434/v1"}</code>{" "}
+                      {localizeUi("ui.connections.connectioneditor.lmStudio")}{" "}
+                      <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:1234/v1"}</code>{" "}
+                      {localizeUi("ui.connections.connectioneditor.koboldcpp")}{" "}
+                      <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:5001/v1"}</code>
+                    </p>
+                  )}
+                  <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
+                    <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                    <span>
+                      {localizeUi("ui.connections.connectioneditor.onlyUseUrlsFromProvidersYouTrustAMalicious")}
+                    </span>
+                  </p>
+                  {localProvider === "custom" && (
+                    <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                      <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                      <span>
+                        <strong>{localizeUi("ui.connections.connectioneditor.windowsUsers")}</strong>{" "}
+                        {localizeUi("ui.connections.connectioneditor.ifYourProxyOrLocalServerIsnTDetected")}{" "}
+                        <em>
+                          {localizeUi(
+                            "ui.connections.connectioneditor.windowsSecurityFirewallNetworkProtectionAllowAnAppThrough",
+                          )}
+                        </em>{" "}
+                        {localizeUi("ui.connections.connectioneditor.andAddNodeJsOrYourProxyApplication")}
+                      </span>
+                    </p>
+                  )}
+                </FieldGroup>
+              )}
+            </>
+          )}
+
+          {/* ── Image Service (only for image_generation provider) ── */}
+          {!accountLinked && localProvider === "image_generation" && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.service")}>
+              <div className="grid grid-cols-2 gap-1.5">
+                {imageSources.map((src) => {
+                  const isActive = selectedImageService === src.id;
+                  const sourceName =
+                    src.id === "atlas"
+                      ? t("connections.mediaSources.atlas.name")
+                      : src.id === "swarmui"
+                        ? t("connections.mediaSources.swarmui.name")
+                        : src.id === "zai"
+                          ? t("connections.mediaSources.zai.name")
+                          : src.id === "arli"
+                            ? t("connections.mediaSources.arli.name")
+                            : src.id === "codex_chatgpt"
+                              ? t("connections.mediaSources.codexChatgpt.name")
+                              : src.name;
+                  const sourceDescription =
+                    src.id === "fal"
+                      ? t("connections.mediaSources.fal.imageDescription")
+                      : src.id === "atlas"
+                        ? t("connections.mediaSources.atlas.imageDescription")
+                        : src.id === "swarmui"
+                          ? t("connections.mediaSources.swarmui.imageDescription")
+                          : src.id === "zai"
+                            ? t("connections.mediaSources.zai.imageDescription")
+                            : src.id === "arli"
+                              ? t("connections.mediaSources.arli.imageDescription")
+                              : src.id === "codex_chatgpt"
+                                ? t("connections.mediaSources.codexChatgpt.imageDescription")
+                                : src.id === "spicyapi"
+                                  ? t("connections.mediaSources.spicyapi.imageDescription")
+                                  : src.description;
+                  if (imageLocked)
+                    return <LockedService key={src.id} id={src.id} name={sourceName} description={sourceDescription} />;
+                  return (
+                    <button
+                      key={src.id}
+                      onClick={() => {
+                        const previousSource = IMAGE_GENERATION_SOURCES.find(
+                          (candidate) => candidate.id === selectedImageService,
+                        );
+                        const shouldSeedBaseUrl = !localBaseUrl || localBaseUrl === previousSource?.defaultBaseUrl;
+                        setLocalImageGenerationSource(src.id);
+                        setLocalImageService(src.id);
+                        if (shouldSeedBaseUrl) {
+                          setLocalBaseUrl(src.defaultBaseUrl);
+                        }
+                        if (src.id === "zai" && !ZAI_IMAGE_MODELS.some((model) => model.id === localModel.trim())) {
+                          setLocalModel("glm-image");
+                        }
+                        if (src.id === "fal" && selectedImageService !== "fal") {
+                          setLocalModel("fal-ai/flux/schnell");
+                        }
+                        if (src.id === "spicyapi" && selectedImageService !== "spicyapi") {
+                          setLocalModel(SPICYAPI_IMAGE_MODELS[0]!.id);
+                        }
+                        if (src.id === "codex_chatgpt" && selectedImageService !== "codex_chatgpt") {
+                          // The hidden Base URL and API key fields must not keep another service's values.
+                          setLocalBaseUrl(src.defaultBaseUrl);
+                          setLocalApiKey("");
+                          setClearStoredApiKeyOnSave(true);
+                          setLocalModel(CODEX_IMAGE_MODEL);
+                        }
                         markDirty();
                       }}
                       className={cn(
-                        "mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9",
-                        baseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
+                        "flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[0.6875rem] transition-all",
+                        isActive
+                          ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
+                          : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                       )}
-                      placeholder={providerDef?.defaultBaseUrl || "https://api.example.com/v1"}
-                    />
-                    {providerDef?.defaultBaseUrl && !localBaseUrl && (
-                      <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.connections.connectioneditor.default")} {providerDef.defaultBaseUrl}
-                      </p>
-                    )}
-                    {baseUrlValidation.error && (
-                      <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{baseUrlValidation.error}</p>
-                    )}
-                    {!baseUrlValidation.error && baseUrlValidation.value !== localBaseUrl.trim() && (
-                      <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.connections.connectioneditor.willSaveAs")} {baseUrlValidation.value}
-                      </p>
-                    )}
-                    {localProvider === "custom" && (
-                      <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.connections.connectioneditor.localModelExamplesOllama")}{" "}
-                        <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:11434/v1"}</code>{" "}
-                        {localizeUi("ui.connections.connectioneditor.lmStudio")}{" "}
-                        <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:1234/v1"}</code>{" "}
-                        {localizeUi("ui.connections.connectioneditor.koboldcpp")}{" "}
-                        <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:5001/v1"}</code>
-                      </p>
-                    )}
-                    <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
-                      <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                      <span>
-                        {localizeUi("ui.connections.connectioneditor.onlyUseUrlsFromProvidersYouTrustAMalicious")}
-                      </span>
-                    </p>
-                    {localProvider === "custom" && (
-                      <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                        <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                        <span>
-                          <strong>{localizeUi("ui.connections.connectioneditor.windowsUsers")}</strong>{" "}
-                          {localizeUi("ui.connections.connectioneditor.ifYourProxyOrLocalServerIsnTDetected")}{" "}
-                          <em>
-                            {localizeUi(
-                              "ui.connections.connectioneditor.windowsSecurityFirewallNetworkProtectionAllowAnAppThrough",
-                            )}
-                          </em>{" "}
-                          {localizeUi("ui.connections.connectioneditor.andAddNodeJsOrYourProxyApplication")}
-                        </span>
-                      </p>
-                    )}
-                  </FieldGroup>
-                )}
-              </>
-            )}
-
-            {/* ── Image Service (only for image_generation provider) ── */}
-            {!accountLinked && localProvider === "image_generation" && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.service")}>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {imageSources.map((src) => {
-                    const isActive = selectedImageService === src.id;
-                    const sourceName =
-                      src.id === "atlas"
-                        ? t("connections.mediaSources.atlas.name")
-                        : src.id === "swarmui"
-                          ? t("connections.mediaSources.swarmui.name")
-                          : src.id === "zai"
-                            ? t("connections.mediaSources.zai.name")
-                            : src.id === "arli"
-                              ? t("connections.mediaSources.arli.name")
-                              : src.id === "codex_chatgpt"
-                                ? t("connections.mediaSources.codexChatgpt.name")
-                                : src.name;
-                    const sourceDescription =
-                      src.id === "fal"
-                        ? t("connections.mediaSources.fal.imageDescription")
-                        : src.id === "atlas"
-                          ? t("connections.mediaSources.atlas.imageDescription")
-                          : src.id === "swarmui"
-                            ? t("connections.mediaSources.swarmui.imageDescription")
-                            : src.id === "zai"
-                              ? t("connections.mediaSources.zai.imageDescription")
-                              : src.id === "arli"
-                                ? t("connections.mediaSources.arli.imageDescription")
-                                : src.id === "codex_chatgpt"
-                                  ? t("connections.mediaSources.codexChatgpt.imageDescription")
-                                  : src.id === "spicyapi"
-                                    ? t("connections.mediaSources.spicyapi.imageDescription")
-                                    : src.description;
-                    if (imageLocked)
-                      return (
-                        <LockedService key={src.id} id={src.id} name={sourceName} description={sourceDescription} />
-                      );
-                    return (
-                      <button
-                        key={src.id}
-                        onClick={() => {
-                          const previousSource = IMAGE_GENERATION_SOURCES.find(
-                            (candidate) => candidate.id === selectedImageService,
-                          );
-                          const shouldSeedBaseUrl = !localBaseUrl || localBaseUrl === previousSource?.defaultBaseUrl;
-                          setLocalImageGenerationSource(src.id);
-                          setLocalImageService(src.id);
-                          if (shouldSeedBaseUrl) {
-                            setLocalBaseUrl(src.defaultBaseUrl);
-                          }
-                          if (src.id === "zai" && !ZAI_IMAGE_MODELS.some((model) => model.id === localModel.trim())) {
-                            setLocalModel("glm-image");
-                          }
-                          if (src.id === "fal" && selectedImageService !== "fal") {
-                            setLocalModel("fal-ai/flux/schnell");
-                          }
-                          if (src.id === "spicyapi" && selectedImageService !== "spicyapi") {
-                            setLocalModel(SPICYAPI_IMAGE_MODELS[0]!.id);
-                          }
-                          if (src.id === "codex_chatgpt" && selectedImageService !== "codex_chatgpt") {
-                            // The hidden Base URL and API key fields must not keep another service's values.
-                            setLocalBaseUrl(src.defaultBaseUrl);
-                            setLocalApiKey("");
-                            setClearStoredApiKeyOnSave(true);
-                            setLocalModel(CODEX_IMAGE_MODEL);
-                          }
-                          markDirty();
-                        }}
-                        className={cn(
-                          "flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[0.6875rem] transition-all",
-                          isActive
-                            ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
-                            : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                        )}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <BrandMark of={src.id} className="h-3 w-3" />
-                          <span className="font-medium">{sourceName}</span>
-                          {isActive && <Check size="0.625rem" />}
-                        </div>
-                        <span className="text-[0.5625rem] opacity-70">{sourceDescription}</span>
-                      </button>
-                    );
-                  })}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <BrandMark of={src.id} className="h-3 w-3" />
+                        <span className="font-medium">{sourceName}</span>
+                        {isActive && <Check size="0.625rem" />}
+                      </div>
+                      <span className="text-[0.5625rem] opacity-70">{sourceDescription}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedImageService === "runpod_comfyui" && (
+                <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-[0.625rem] text-amber-300/80">
+                  <strong>{localizeUi("ui.connections.connectioneditor.runpodConfiguration")}</strong>{" "}
+                  {localizeUi("ui.connections.connectioneditor.yourEndpointIdGoesInThe")}{" "}
+                  <strong>{localizeUi("ui.connections.connectioneditor.endpointId")}</strong>{" "}
+                  {localizeUi("ui.connections.connectioneditor.fieldBelowTheApiKeyIsYourRunpodApi")}{" "}
+                  <strong>{localizeUi("ui.connections.connectioneditor.required")}</strong>{" "}
+                  {localizeUi("ui.connections.connectioneditor.theEndpointExecutesTheWorkflowYouSupplyUse")}{" "}
+                  <code>{"%prompt%"}</code>{" "}
+                  {localizeUi("ui.connections.connectioneditor.placeholdersInTheCliptextencodeNode")}
                 </div>
-                {selectedImageService === "runpod_comfyui" && (
-                  <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-[0.625rem] text-amber-300/80">
-                    <strong>{localizeUi("ui.connections.connectioneditor.runpodConfiguration")}</strong>{" "}
-                    {localizeUi("ui.connections.connectioneditor.yourEndpointIdGoesInThe")}{" "}
-                    <strong>{localizeUi("ui.connections.connectioneditor.endpointId")}</strong>{" "}
-                    {localizeUi("ui.connections.connectioneditor.fieldBelowTheApiKeyIsYourRunpodApi")}{" "}
-                    <strong>{localizeUi("ui.connections.connectioneditor.required")}</strong>{" "}
-                    {localizeUi("ui.connections.connectioneditor.theEndpointExecutesTheWorkflowYouSupplyUse")}{" "}
-                    <code>{"%prompt%"}</code>{" "}
-                    {localizeUi("ui.connections.connectioneditor.placeholdersInTheCliptextencodeNode")}
-                  </div>
-                )}
-              </FieldGroup>
-            )}
+              )}
+            </FieldGroup>
+          )}
 
-            {!accountLinked && localProvider === "video_generation" && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.videoService")}>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {videoSources.map((src) => {
-                    const isActive = selectedVideoProvider === src.id;
-                    const sourceName =
-                      src.id === "atlas"
-                        ? t("connections.mediaSources.atlas.name")
-                        : src.id === "swarmui"
-                          ? t("connections.mediaSources.swarmui.name")
-                          : src.name;
-                    const sourceDescription =
-                      src.id === "atlas"
-                        ? t("connections.mediaSources.atlas.videoDescription")
-                        : src.id === "swarmui"
-                          ? t("connections.mediaSources.swarmui.videoDescription")
-                          : src.description;
-                    if (videoLocked)
-                      return (
-                        <LockedService key={src.id} id={src.id} name={sourceName} description={sourceDescription} />
-                      );
-                    return (
-                      <button
-                        key={src.id}
-                        onClick={() => {
-                          const previousSource = VIDEO_GENERATION_SOURCES.find(
-                            (candidate) => candidate.id === selectedVideoProvider,
-                          );
-                          const shouldSeedBaseUrl = !localBaseUrl || localBaseUrl === previousSource?.defaultBaseUrl;
-                          const previousDefaultModel = defaultVideoModelForService(selectedVideoDefaultsService);
-                          const nextDefaultModel = defaultVideoModelForService(src.id);
-                          const shouldSeedModel = !localModel || localModel === previousDefaultModel;
-                          const nextDefaultsService = videoProviderServiceForModel(
-                            src.id,
-                            nextDefaultModel,
-                            src.defaultBaseUrl,
-                          );
-                          setLocalVideoGenerationSource(src.id);
-                          setLocalVideoService(nextDefaultsService);
-                          setLocalVideoDefaults(createDefaultVideoGenerationProfile(nextDefaultsService));
-                          if (shouldSeedBaseUrl) {
-                            setLocalBaseUrl(src.defaultBaseUrl);
-                          }
-                          if (shouldSeedModel) {
-                            setLocalModel(nextDefaultModel);
-                          }
-                          markDirty();
-                        }}
-                        className={cn(
-                          "flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[0.6875rem] transition-all",
-                          isActive
-                            ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
-                            : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                        )}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <BrandMark of={src.id} className="h-3 w-3" />
-                          <span className="font-medium">{sourceName}</span>
-                          {isActive && <Check size="0.625rem" />}
-                        </div>
-                        <span className="text-[0.5625rem] opacity-70">{sourceDescription}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("ui.connections.connectioneditor.sceneVideosAreGeneratedFromTheCurrentGameIllustration")}
-                </p>
-              </FieldGroup>
-            )}
-
-            {/* ── Audio Source (only for audio provider) ── */}
-            {isAudioProvider && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.audioSource")}>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {AUDIO_SOURCE_OPTIONS.filter((src) => src.id === localAudioSource).map((src) => (
-                    <LockedService
+          {!accountLinked && localProvider === "video_generation" && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.videoService")}>
+              <div className="grid grid-cols-2 gap-1.5">
+                {videoSources.map((src) => {
+                  const isActive = selectedVideoProvider === src.id;
+                  const sourceName =
+                    src.id === "atlas"
+                      ? t("connections.mediaSources.atlas.name")
+                      : src.id === "swarmui"
+                        ? t("connections.mediaSources.swarmui.name")
+                        : src.name;
+                  const sourceDescription =
+                    src.id === "atlas"
+                      ? t("connections.mediaSources.atlas.videoDescription")
+                      : src.id === "swarmui"
+                        ? t("connections.mediaSources.swarmui.videoDescription")
+                        : src.description;
+                  if (videoLocked)
+                    return <LockedService key={src.id} id={src.id} name={sourceName} description={sourceDescription} />;
+                  return (
+                    <button
                       key={src.id}
-                      id={src.id}
-                      name={src.name}
-                      description={
-                        src.id === "elevenlabs"
-                          ? localizeUi("ui.connections.connectioneditor.speechSoundEffectsAndMusicGeneration")
-                          : src.id === "openai"
-                            ? localizeUi("ui.connections.connectioneditor.openaiOrAnyCompatibleAudioSpeechEndpoint")
-                            : src.id === "pockettts"
-                              ? localizeUi("ui.connections.connectioneditor.localPocketttsServerFreePrivateOffline")
-                              : localizeUi("ui.connections.connectioneditor.xaiGrokVoiceSynthesis")
-                      }
-                    />
-                  ))}
-                </div>
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-medium text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.defaultVoice")}
-                  </span>
-                  <input
-                    value={localAudioVoice}
-                    onChange={(event) => {
-                      setLocalAudioVoice(event.target.value);
-                      markDirty();
-                    }}
-                    className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                    placeholder={
-                      AUDIO_SOURCE_OPTIONS.find((candidate) => candidate.id === localAudioSource)?.defaultVoice ||
-                      localizeUi("ui.connections.connectioneditor.eGAVoiceIdFromYourProvider")
+                      onClick={() => {
+                        const previousSource = VIDEO_GENERATION_SOURCES.find(
+                          (candidate) => candidate.id === selectedVideoProvider,
+                        );
+                        const shouldSeedBaseUrl = !localBaseUrl || localBaseUrl === previousSource?.defaultBaseUrl;
+                        const previousDefaultModel = defaultVideoModelForService(selectedVideoDefaultsService);
+                        const nextDefaultModel = defaultVideoModelForService(src.id);
+                        const shouldSeedModel = !localModel || localModel === previousDefaultModel;
+                        const nextDefaultsService = videoProviderServiceForModel(
+                          src.id,
+                          nextDefaultModel,
+                          src.defaultBaseUrl,
+                        );
+                        setLocalVideoGenerationSource(src.id);
+                        setLocalVideoService(nextDefaultsService);
+                        setLocalVideoDefaults(createDefaultVideoGenerationProfile(nextDefaultsService));
+                        if (shouldSeedBaseUrl) {
+                          setLocalBaseUrl(src.defaultBaseUrl);
+                        }
+                        if (shouldSeedModel) {
+                          setLocalModel(nextDefaultModel);
+                        }
+                        markDirty();
+                      }}
+                      className={cn(
+                        "flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[0.6875rem] transition-all",
+                        isActive
+                          ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
+                          : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <BrandMark of={src.id} className="h-3 w-3" />
+                        <span className="font-medium">{sourceName}</span>
+                        {isActive && <Check size="0.625rem" />}
+                      </div>
+                      <span className="text-[0.5625rem] opacity-70">{sourceDescription}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.connections.connectioneditor.sceneVideosAreGeneratedFromTheCurrentGameIllustration")}
+              </p>
+            </FieldGroup>
+          )}
+
+          {/* ── Audio Source (only for audio provider) ── */}
+          {isAudioProvider && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.audioSource")}>
+              <div className="grid grid-cols-2 gap-1.5">
+                {AUDIO_SOURCE_OPTIONS.filter((src) => src.id === localAudioSource).map((src) => (
+                  <LockedService
+                    key={src.id}
+                    id={src.id}
+                    name={src.name}
+                    description={
+                      src.id === "elevenlabs"
+                        ? localizeUi("ui.connections.connectioneditor.speechSoundEffectsAndMusicGeneration")
+                        : src.id === "openai"
+                          ? localizeUi("ui.connections.connectioneditor.openaiOrAnyCompatibleAudioSpeechEndpoint")
+                          : src.id === "pockettts"
+                            ? localizeUi("ui.connections.connectioneditor.localPocketttsServerFreePrivateOffline")
+                            : localizeUi("ui.connections.connectioneditor.xaiGrokVoiceSynthesis")
                     }
                   />
-                  <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.voiceIdOrNameUsedWhenNothingMoreSpecific")}
-                  </p>
-                </label>
+                ))}
+              </div>
+            </FieldGroup>
+          )}
+
+          {/* ── Generative audio source (only for audio_generation provider) ── */}
+          {isGenerativeAudioProvider && (
+            <FieldGroup label={t("connections.audioGeneration.source")}>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                {GENERATIVE_AUDIO_SOURCES.map((source) => (
+                  <button
+                    key={source}
+                    type="button"
+                    aria-pressed={localAudioGenerationSource === source}
+                    onClick={() => {
+                      if (source === localAudioGenerationSource) return;
+                      const before = GENERATIVE_AUDIO_DEFAULTS[localAudioGenerationSource];
+                      const next = GENERATIVE_AUDIO_DEFAULTS[source];
+                      if (!before.baseUrl || !localBaseUrl || localBaseUrl === before.baseUrl)
+                        setLocalBaseUrl(next.baseUrl);
+                      if (!before.model || !localModel || localModel === before.model) setLocalModel(next.model);
+                      if (
+                        !before.soundEffectsModel ||
+                        !localAudioSoundEffectsModel ||
+                        localAudioSoundEffectsModel === before.soundEffectsModel
+                      )
+                        setLocalAudioSoundEffectsModel(next.soundEffectsModel);
+                      setLocalAudioGenerationSource(source);
+                      // Credentials cannot silently move to a different service.
+                      setLocalApiKey("");
+                      setClearStoredApiKeyOnSave(
+                        conn?.provider !== "audio_generation" ||
+                          source !== (conn.audioGenerationSource ?? "elevenlabs"),
+                      );
+                      markDirty();
+                    }}
+                    className={cn(
+                      "flex min-w-0 flex-col gap-1 rounded-lg px-2.5 py-2 text-left text-xs ring-1 transition-colors",
+                      localAudioGenerationSource === source
+                        ? "bg-[var(--primary)]/10 text-[var(--foreground)] ring-[var(--primary)]/40"
+                        : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5 font-medium">
+                      {t(`connections.audioGeneration.sources.${source}`)}
+                      {localAudioGenerationSource === source && <Check size="0.625rem" />}
+                    </span>
+                    <span className="text-[0.625rem] leading-relaxed">
+                      {t(`connections.audioGeneration.sourceDescriptions.${source}`)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {localAudioGenerationSource === "sunoapi" && (
                 <label className="block space-y-1.5">
-                  <span className="block text-xs font-medium text-[var(--muted-foreground)]">
-                    {t("tts.requestTimeout")}
+                  <span className="text-xs font-medium">{t("connections.audioGeneration.callbackUrl")}</span>
+                  <input
+                    value={localAudioGenerationCallbackUrl}
+                    type="url"
+                    onChange={(event) => {
+                      setLocalAudioGenerationCallbackUrl(event.target.value);
+                      markDirty();
+                    }}
+                    className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                </label>
+              )}
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium">{t("connections.audioGeneration.sfxModel")}</span>
+                <input
+                  value={localAudioSoundEffectsModel}
+                  onChange={(event) => {
+                    setLocalAudioSoundEffectsModel(event.target.value);
+                    markDirty();
+                  }}
+                  placeholder={
+                    GENERATIVE_AUDIO_DEFAULTS[localAudioGenerationSource].soundEffectsModel ||
+                    t("connections.audioGeneration.sameModel")
+                  }
+                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                />
+              </label>
+              {localAudioGenerationSource === "custom" && (
+                <div className="space-y-3">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs">{t("connections.gameAudio.format")}</span>
+                    <select
+                      value={localAudioGenerationFormat}
+                      onChange={(event) => {
+                        setLocalAudioGenerationFormat(event.target.value as "binary" | "chat_completions");
+                        markDirty();
+                      }}
+                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
+                    >
+                      <option value="binary">{t("connections.gameAudio.binary")}</option>
+                      <option value="chat_completions">{t("connections.gameAudio.chatCompletions")}</option>
+                    </select>
+                  </label>
+                  {(
+                    [
+                      ["music", localAudioMusicEndpoint, setLocalAudioMusicEndpoint],
+                      ["sfx", localAudioSoundEffectsEndpoint, setLocalAudioSoundEffectsEndpoint],
+                    ] as const
+                  ).map(([kind, value, setValue]) => (
+                    <label key={kind} className="block space-y-1.5">
+                      <span className="text-xs">
+                        {t(
+                          kind === "music"
+                            ? "connections.gameAudio.musicEndpoint"
+                            : "connections.gameAudio.sfxEndpoint",
+                        )}
+                      </span>
+                      <input
+                        value={value}
+                        onChange={(event) => {
+                          setValue(event.target.value);
+                          markDirty();
+                        }}
+                        placeholder={t("connections.gameAudio.endpointExample", {
+                          path:
+                            localAudioGenerationFormat === "chat_completions"
+                              ? "chat/completions"
+                              : "audio/generations",
+                        })}
+                        className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+              <SettingsSwitch
+                label={t("connections.audioGeneration.soundEffects")}
+                checked={localAudioSoundEffects}
+                onChange={(value) => {
+                  setLocalAudioSoundEffects(value);
+                  markDirty();
+                }}
+              />
+              <SettingsSwitch
+                label={t("connections.audioGeneration.music")}
+                checked={localAudioMusic}
+                onChange={(value) => {
+                  setLocalAudioMusic(value);
+                  markDirty();
+                }}
+              />
+            </FieldGroup>
+          )}
+
+          {/* ── Model Selection ── */}
+          <FieldGroup
+            label={
+              isGenerativeAudioProvider
+                ? t("connections.audioGeneration.musicModel")
+                : localizeUi("ui.connections.connectioneditor.model")
+            }
+          >
+            {isGrokSubscriptionProvider && (
+              // An empty model id lets the Grok CLI pick its own default.
+              <button
+                type="button"
+                aria-pressed={!localModel}
+                onClick={() => selectModel({ model: "" })}
+                className="mari-chrome-control mb-2"
+              >
+                {!localModel && <Check aria-hidden="true" />}
+                {localizeUi("ui.connections.connectioneditor.useGrokCliDefault")}
+              </button>
+            )}
+            <ConnectionModelPicker
+              className="h-80 overflow-hidden rounded-xl border border-[var(--border)]"
+              connection={{
+                id: connectionDetailId,
+                name: localName,
+                provider: localProvider,
+                model: localModel,
+                pinnedModels: (conn as { pinnedModels?: unknown }).pinnedModels,
+                accountId,
+              }}
+              accountName={linkedAccount?.name}
+              builtInModels={providerModels}
+              onChoose={async (choice) => selectModel(choice)}
+            />
+            {!!selectedModelInfo?.context && (
+              <p className="mt-2 flex flex-wrap gap-x-4 text-[0.6875rem] text-[var(--muted-foreground)]">
+                <span>
+                  {localizeUi("ui.connections.connectioneditor.context")}{" "}
+                  <strong className="font-medium text-[var(--foreground)]">
+                    {formatContext(selectedModelInfo.context)}
+                  </strong>
+                </span>
+                {selectedModelInfo.maxOutput > 0 && (
+                  <span>
+                    {localizeUi("ui.connections.connectioneditor.maxOutput")}{" "}
+                    <strong className="font-medium text-[var(--foreground)]">
+                      {formatContext(selectedModelInfo.maxOutput)}
+                    </strong>
                   </span>
+                )}
+              </p>
+            )}
+            {selectedPrice && (
+              <p
+                data-model-price
+                className="mt-2 whitespace-pre-line px-3 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]"
+              >
+                {selectedPrice.full}
+              </p>
+            )}
+          </FieldGroup>
+
+          {/* ── Image reading ── */}
+          {isChatProvider(localProvider) && (
+            <FieldGroup label={t("connections.editor.imageInput.label")}>
+              <select
+                value={localImageInput}
+                aria-label={t("connections.editor.imageInput.label")}
+                onChange={(event) => {
+                  setLocalImageInput(event.target.value as "" | "reads" | "text");
+                  markDirty();
+                }}
+                className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+              >
+                <option value="">{t("connections.editor.imageInput.auto")}</option>
+                <option value="reads">{t("connections.editor.imageInput.reads")}</option>
+                <option value="text">{t("connections.editor.imageInput.text")}</option>
+              </select>
+            </FieldGroup>
+          )}
+
+          {/* ── RunPod Endpoint ID ── */}
+          {localProvider === "image_generation" && selectedImageService === "runpod_comfyui" && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.runpodEndpointId")}>
+              <input
+                type="text"
+                value={localImageEndpointId}
+                onChange={(e) => {
+                  setLocalImageEndpointId(e.target.value);
+                  markDirty();
+                }}
+                placeholder={localizeUi("ui.connections.connectioneditor.abc123def456")}
+                className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+              />
+            </FieldGroup>
+          )}
+
+          {/* ── ComfyUI Workflow ── */}
+          {usesComfyUiWorkflow && (
+            <FieldGroup
+              label={localizeUi("ui.connections.connectioneditor.comfyuiWorkflowValue1", {
+                value1:
+                  localProvider === "video_generation" || selectedImageService === "runpod_comfyui"
+                    ? localizeUi("ui.agents.tooleditor.required")
+                    : localizeUi("ui.connections.connectioneditor.optional"),
+              })}
+            >
+              <textarea
+                ref={comfyWorkflowTextareaRef}
+                value={localComfyuiWorkflow}
+                onChange={(e) => {
+                  setLocalComfyuiWorkflow(e.target.value);
+                  markDirty();
+                }}
+                placeholder={localizeUi(
+                  "ui.connections.connectioneditor.pasteWorkflowJsonHereExportedFromComfyuiViaSave",
+                )}
+                className={cn(
+                  "mari-chrome-field max-h-[300px] min-h-[120px] w-full resize-y px-3 py-2 font-mono text-xs",
+                  comfyWorkflowValidation?.parseError || swarmUiWorkflowError
+                    ? "border-[var(--destructive)]"
+                    : undefined,
+                )}
+              />
+              {swarmUiWorkflowError && (
+                <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-[var(--destructive)]">
+                  <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                  {swarmUiWorkflowError}
+                </p>
+              )}
+              {comfyWorkflowValidation?.parseError && (
+                <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-[var(--destructive)]">
+                  <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                  {comfyWorkflowValidation.charPos !== null ? (
+                    <button
+                      onClick={handleJumpToJsonError}
+                      className="underline decoration-dotted cursor-pointer text-left text-[var(--marinara-app-accent-static)] hover:text-[var(--marinara-app-accent-static)]/80"
+                    >
+                      {comfyWorkflowValidation.label}
+                    </button>
+                  ) : (
+                    comfyWorkflowValidation.label
+                  )}
+                </p>
+              )}
+              {comfyWorkflowValidation &&
+                !comfyWorkflowValidation.parseError &&
+                comfyWorkflowValidation.missing.length > 0 && (
+                  <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-amber-400">
+                    <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                    <span>
+                      {comfyWorkflowValidation.missing.some((m) => m.critical) && (
+                        <>
+                          <strong>{localizeUi("ui.connections.connectioneditor.prompt")}</strong>{" "}
+                          {localizeUi("ui.connections.connectioneditor.placeholderNotFoundPromptsWonTBeInjected")}{" "}
+                        </>
+                      )}
+                      {comfyWorkflowValidation.missing.some((m) => !m.critical) && (
+                        <>
+                          {localizeUi("ui.connections.connectioneditor.unused")}{" "}
+                          {comfyWorkflowValidation.missing
+                            .filter((m) => !m.critical)
+                            .map((m) => m.label)
+                            .join(", ")}
+                          .
+                        </>
+                      )}
+                    </span>
+                  </p>
+                )}
+              <p className="text-[0.55rem] text-[var(--muted-foreground)] mt-1">
+                {localizeUi("ui.connections.connectioneditor.exportYourWorkflowFromComfyuiUsing")}{" "}
+                <strong>{localizeUi("ui.connections.connectioneditor.saveApiFormat")}</strong>{" "}
+                {localizeUi("ui.connections.connectioneditor.inTheMenu")}{" "}
+                {localProvider === "video_generation" ? (
+                  <>
+                    {localizeUi("ui.connections.connectioneditor.useAVideoOutputNodeSuchAs")}{" "}
+                    <strong>{localizeUi("ui.connections.connectioneditor.savevideo")}</strong>
+                    {localizeUi("ui.connections.connectioneditor.marinaraDownloadsTheMp4ReportedInTheWorkflowS")}{" "}
+                    <code>{"gifs"}</code> {localizeUi("ui.noodle.noodlehome.or")} <code>{"images"}</code>{" "}
+                    {localizeUi("ui.connections.connectioneditor.output")}
+                  </>
+                ) : (
+                  <>
+                    {localizeUi("ui.connections.connectioneditor.placeholdersLike")} <code>{"%prompt%"}</code>,{" "}
+                    <code>{"%steps%"}</code>, <code>{"%sampler%"}</code>
+                    {localizeUi(
+                      "ui.connections.connectioneditor.andReferenceImagePlaceholdersWillBeReplacedAtGeneration",
+                    )}
+                  </>
+                )}
+              </p>
+            </FieldGroup>
+          )}
+
+          {localProvider === "image_generation" && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.imagePromptingInstructions")}>
+              <textarea
+                value={localImagePromptInstructions}
+                maxLength={MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH}
+                onChange={(event) => {
+                  setLocalImagePromptInstructions(event.target.value);
+                  markDirty();
+                }}
+                placeholder={localizeUi("ui.connections.connectioneditor.imagePromptingInstructionsPlaceholder")}
+                className="mari-chrome-field min-h-[96px] w-full resize-y px-3 py-2 text-xs"
+              />
+            </FieldGroup>
+          )}
+
+          {isVideoGenerationProvider && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.videoPromptingInstructions")}>
+              <textarea
+                value={localVideoPromptInstructions}
+                maxLength={MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH}
+                onChange={(event) => {
+                  setLocalVideoPromptInstructions(event.target.value);
+                  markDirty();
+                }}
+                placeholder={localizeUi("ui.connections.connectioneditor.videoPromptingInstructionsPlaceholder")}
+                className="mari-chrome-field min-h-[96px] w-full resize-y px-3 py-2 text-xs"
+              />
+            </FieldGroup>
+          )}
+
+          {supportsGptImageQuality && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.gptImageQuality")}>
+              <select
+                value={effectiveImageGenerationQuality}
+                onChange={(event) => {
+                  setLocalImageGenerationQuality(event.target.value as ImageGenerationQuality);
+                  markDirty();
+                }}
+                className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+              >
+                <option value="auto">{localizeUi("ui.connections.connectioneditor.imageQualityAuto")}</option>
+                <option value="low">{localizeUi("ui.connections.connectioneditor.imageQualityLow")}</option>
+                <option value="medium">{localizeUi("ui.connections.connectioneditor.imageQualityMedium")}</option>
+                <option value="high">{localizeUi("ui.connections.connectioneditor.imageQualityHigh")}</option>
+                {isOpenAIGptImage25Model(localModel) && (
+                  <>
+                    <option value="xhigh">{localizeUi("ui.connections.connectioneditor.imageQualityExtraHigh")}</option>
+                    <option value="max">{localizeUi("ui.connections.connectioneditor.imageQualityMax")}</option>
+                  </>
+                )}
+              </select>
+            </FieldGroup>
+          )}
+
+          {localProvider === "image_generation" &&
+            !["comfyui", "swarmui", "runpod_comfyui", "automatic1111", "drawthings", "pollinations"].includes(
+              selectedImageService,
+            ) && (
+              <CustomParametersInput
+                value={localDefaultParameters.customParameters}
+                onChange={(customParameters) => {
+                  setLocalDefaultParameters((current) => ({ ...current, customParameters }));
+                  markDirty();
+                }}
+                placeholder={localizeUi("settings.connection.imageCustomParameters.example")}
+              />
+            )}
+
+          {localProvider === "image_generation" && selectedImageDefaultsService && localImageDefaults && (
+            <ImageGenerationDefaultsPanel
+              service={selectedImageDefaultsService}
+              model={localModel}
+              source={selectedImageService}
+              value={localImageDefaults}
+              styleProfiles={imageStyleProfiles}
+              remoteLoras={remoteLoras}
+              expanded={imageDefaultsExpanded}
+              onExpandedChange={setImageDefaultsExpanded}
+              onChange={(next) => {
+                const current = localImageDefaultsRef.current;
+                if (!current) return;
+                const resolved = typeof next === "function" ? next(current) : next;
+                const sanitized = sanitizeImageGenerationProfile(resolved, selectedImageDefaultsService);
+                localImageDefaultsRef.current = sanitized;
+                setLocalImageDefaults(sanitized);
+                markDirty();
+              }}
+              onReset={() => {
+                const defaults = createDefaultImageGenerationProfile(selectedImageDefaultsService);
+                localImageDefaultsRef.current = defaults;
+                setLocalImageDefaults(defaults);
+                markDirty();
+              }}
+            />
+          )}
+
+          {localProvider === "video_generation" && localVideoDefaults && (
+            <VideoGenerationDefaultsPanel
+              value={localVideoDefaults}
+              source={selectedVideoProvider}
+              model={localModel}
+              remoteLoras={remoteLoras}
+              expanded={videoDefaultsExpanded}
+              onExpandedChange={setVideoDefaultsExpanded}
+              onChange={(next) => {
+                setLocalVideoDefaults(sanitizeVideoGenerationProfile(next));
+                markDirty();
+              }}
+              onReset={() => {
+                // Reset keeps the picked OpenRouter model's own defaults, as the model-change effect above does.
+                const defaults = createDefaultVideoGenerationProfile(selectedVideoDefaultsService);
+                if (selectedVideoDefaultsService === "openrouter" && effectiveVideoGenerationSource !== "nanogpt") {
+                  defaults.openrouter = resolveOpenRouterVideoModelDefaults(localModel, defaults.openrouter);
+                }
+                setLocalVideoDefaults(defaults);
+                markDirty();
+              }}
+            />
+          )}
+
+          {!isMediaGenerationProvider && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxContextWindow")}>
+              <div className="flex items-center gap-3">
+                <DraftNumberInput
+                  value={localMaxContext}
+                  min={1}
+                  selectOnFocus
+                  onCommit={(nextValue) => {
+                    setLocalMaxContext(nextValue);
+                    markDirty();
+                  }}
+                  className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
+                />
+                <span className="text-xs text-[var(--muted-foreground)]">
+                  {formatContext(localMaxContext)} {localizeUi("ui.connections.connectioneditor.tokens")}
+                </span>
+              </div>
+            </FieldGroup>
+          )}
+          {/* ── Max Output Tokens Override ── */}
+          {!isMediaGenerationProvider && !isLocalAuthProvider && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxOutputTokensOverride")}>
+              <div className="flex items-center gap-3">
+                <DraftNumberInput
+                  allowEmpty
+                  value={localMaxTokensOverride}
+                  min={0}
+                  selectOnFocus
+                  placeholder={t("connections.editor.maxOutputAutomatic")}
+                  onCommit={(nextValue) => {
+                    setLocalMaxTokensOverride(nextValue && nextValue > 0 ? nextValue : null);
+                    markDirty();
+                  }}
+                  className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
+                />
+                {localMaxTokensOverride ? (
+                  <span className="text-xs text-[var(--muted-foreground)]">
+                    {localizeUi("ui.connections.connectioneditor.value1TokensMax", {
+                      value1: localMaxTokensOverride.toLocaleString(),
+                    })}
+                  </span>
+                ) : null}
+              </div>
+            </FieldGroup>
+          )}
+        </>
+
+        <EditorSection
+          title={t(
+            isMediaGenerationProvider
+              ? "connections.editor.section.generationDefaults"
+              : "connections.editor.section.chatDefaults",
+          )}
+        >
+          {/* ── Prompt Preset Override ── */}
+          {!isMediaGenerationProvider && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptPresetOverride")}>
+              <select
+                value={localPromptPresetId}
+                onChange={(e) => {
+                  setLocalPromptPresetId(e.target.value);
+                  markDirty();
+                }}
+                className="mari-preset-native-select mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+              >
+                <option value="">{localizeUi("ui.connections.connectioneditor.useChatSPromptPreset")}</option>
+                {(allPresets ?? []).map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.name}
+                  </option>
+                ))}
+              </select>
+            </FieldGroup>
+          )}
+
+          {/* ── Default Chat Parameters ── */}
+          {!isMediaGenerationProvider && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.defaultChatParameters")}>
+              <SettingsSwitch
+                label={localizeUi("ui.connections.connectioneditor.useCustomDefaultsForThisConnection")}
+                checked={localDefaultParametersEnabled}
+                onChange={(checked) => {
+                  setLocalDefaultParametersEnabled(checked);
+                  markDirty();
+                }}
+              />
+
+              {localDefaultParametersEnabled ? (
+                <div className="rounded-xl border border-[var(--border)] p-3">
+                  <p className="mb-3 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi(
+                      parameterPreview.isError
+                        ? "generationParameters.effective.unavailable"
+                        : parameterPreview.data?.chatName
+                          ? "generationParameters.effective.connectionChat"
+                          : "generationParameters.effective.connectionBaseline",
+                      { chat: parameterPreview.data?.chatName },
+                    )}
+                  </p>
+                  <GenerationParametersFields
+                    effectiveParameters={parameterPreview.data?.parameters}
+                    provider={localProvider}
+                    model={localModel}
+                    baseUrl={localBaseUrl}
+                    modelCapabilities={selectedModelCapabilities}
+                    value={localDefaultParameters}
+                    showServiceTier={localProvider === "openrouter" || localProvider === "nanogpt"}
+                    showCustomHeaders={
+                      !["openai_chatgpt", "claude_subscription", "grok_subscription"].includes(localProvider)
+                    }
+                    enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
+                    onChange={(next) => {
+                      setLocalDefaultParameters(next);
+                      markDirty();
+                    }}
+                  />
+                </div>
+              ) : null}
+            </FieldGroup>
+          )}
+
+          {/* ── Prompt Caching (Anthropic + compatible OpenRouter models) ── */}
+          {(localProvider === "anthropic" || localProvider === "openrouter") && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptCaching")}>
+              <SettingsSwitch
+                label={localizeUi("ui.connections.connectioneditor.enablePromptCaching")}
+                checked={localEnableCaching}
+                onChange={(checked) => {
+                  setLocalEnableCaching(checked);
+                  if (!checked) setLocalAnthropicExtendedCacheTtl(false);
+                  markDirty();
+                }}
+              />
+              <p className="text-[0.625rem] text-[var(--muted-foreground)] px-2">
+                {localProvider === "anthropic"
+                  ? localizeUi("ui.connections.connectioneditor.cachesTheSystemPromptExplicitlyAndUsesAutomaticCaching")
+                  : localizeUi(
+                      "ui.connections.connectioneditor.onOpenrouterAddsCacheControlForModelsThatSupportExplicitCaching",
+                    )}
+              </p>
+              {localProvider === "anthropic" && localEnableCaching && (
+                <div className="mt-2 space-y-2">
+                  <SettingsSwitch
+                    label={localizeUi("ui.connections.connectioneditor.extendedTokenCaching1Hour")}
+                    checked={localAnthropicExtendedCacheTtl}
+                    onChange={(checked) => {
+                      setLocalAnthropicExtendedCacheTtl(checked);
+                      markDirty();
+                    }}
+                  />
+                  <p className="px-2 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.connections.connectioneditor.keepsAnthropicCacheEntriesAliveForOneHourInstead")}
+                  </p>
+                  <label className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2">
+                    <div className="min-w-0">
+                      <span className="block text-sm font-medium">
+                        {localizeUi("ui.connections.connectioneditor.cacheDepth")}
+                      </span>
+                      <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
+                        {localizeUi("ui.connections.connectioneditor.messagesBackFromTheNewestTurn")}
+                      </span>
+                    </div>
+                    <DraftNumberInput
+                      value={localCachingAtDepth}
+                      min={0}
+                      max={MAX_CACHING_AT_DEPTH}
+                      onCommit={(value) => {
+                        setLocalCachingAtDepth(normalizeCachingAtDepth(value));
+                        markDirty();
+                      }}
+                      className="mari-chrome-field mari-chrome-field--compact h-8 w-16 px-2 text-right text-xs"
+                      selectOnFocus
+                    />
+                  </label>
+                </div>
+              )}
+            </FieldGroup>
+          )}
+
+          {isVideoGenerationProvider && selectedVideoDefaultsService === "seedance" && localVideoDefaults && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.seedanceReferences")}>
+              <div className="mx-2 mt-2 space-y-2 rounded-lg border border-[var(--border)] p-2">
+                <SettingsSwitch
+                  label={localizeUi("ui.connections.connectioneditor.uploadSeedanceReferenceFramesTemporarily")}
+                  checked={localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled}
+                  onChange={(checked) => {
+                    setLocalVideoDefaults(
+                      sanitizeVideoGenerationProfile({
+                        ...localVideoDefaults,
+                        service: "seedance",
+                        seedance: {
+                          ...localVideoDefaults.seedance,
+                          temporaryPublicReferenceUploadEnabled: checked,
+                        },
+                      }),
+                    );
+                    markDirty();
+                  }}
+                  description={localizeUi(
+                    "ui.connections.connectioneditor.usesTemporaryPublicLinksWhenSeedanceNeedsFirstLast",
+                  )}
+                  className="p-1"
+                />
+                {localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled && (
+                  <label className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-2 py-1.5">
+                    <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.temporaryLinkLifetime")}
+                    </span>
+                    <select
+                      value={localVideoDefaults.seedance.temporaryPublicReferenceUploadExpiry}
+                      onChange={(event) => {
+                        const expiry = event.target.value as VideoReferenceUploadExpiry;
+                        setLocalVideoDefaults(
+                          sanitizeVideoGenerationProfile({
+                            ...localVideoDefaults,
+                            service: "seedance",
+                            seedance: {
+                              ...localVideoDefaults.seedance,
+                              temporaryPublicReferenceUploadExpiry: expiry,
+                            },
+                          }),
+                        );
+                        markDirty();
+                      }}
+                      className="mari-chrome-field mari-chrome-field--compact h-8 px-2 text-xs"
+                    >
+                      {VIDEO_REFERENCE_UPLOAD_EXPIRY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <p className="px-1 text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">
+                  {localizeUi("ui.connections.connectioneditor.keepThisOffIfYouDoNotWantLocal")}
+                </p>
+              </div>
+            </FieldGroup>
+          )}
+
+          {isClaudeSubscriptionProvider && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptCaching")}>
+              <SettingsSwitch
+                label={localizeUi("ui.connections.connectioneditor.extendedTokenCaching1Hour")}
+                description={localizeUi("ui.connections.connectioneditor.subscriptionExtendedCacheDescription")}
+                checked={localAnthropicExtendedCacheTtl}
+                onChange={(checked) => {
+                  setLocalAnthropicExtendedCacheTtl(checked);
+                  markDirty();
+                }}
+              />
+            </FieldGroup>
+          )}
+
+          {/* ── Claude (Subscription) — Fast Mode toggle ── */}
+          {isClaudeSubscriptionProvider && (
+            <FieldGroup label={localizeUi("ui.connections.connectioneditor.fastMode")}>
+              <SettingsSwitch
+                label={
+                  <span className="font-medium text-[var(--foreground)]">
+                    {localizeUi("ui.connections.connectioneditor.useClaudeCodeFastModeRouting")}
+                  </span>
+                }
+                description={
+                  <>
+                    <span className="mt-0.5 block text-[var(--muted-foreground)]">
+                      <strong className="text-amber-400">
+                        {localizeUi("ui.connections.connectioneditor.mostUsersShouldLeaveThisOff")}
+                      </strong>{" "}
+                      {localizeUi("ui.connections.connectioneditor.fastModeIsEffectivelyADeadFeatureTodayClaude")}
+                    </span>
+                    <span className="mt-1.5 flex items-start gap-1 text-[var(--muted-foreground)]">
+                      <AlertCircle size="0.625rem" className="mt-px shrink-0 text-amber-400" />
+                      <span>
+                        <strong className="text-amber-400">
+                          {localizeUi("ui.connections.connectioneditor.doesnTWorkOnClaudeOpus47Yet")}
+                        </strong>{" "}
+                        {localizeUi("ui.connections.connectioneditor.thereIsNoFasterOpus47VariantFor")}
+                      </span>
+                    </span>
+                  </>
+                }
+                checked={localClaudeFastMode}
+                onChange={async (next) => {
+                  if (next) {
+                    const confirmed = await showConfirmDialog({
+                      title: localizeUi("ui.connections.connectioneditor.youDonTWantThisSettingOn"),
+                      message: localizeUi(
+                        "ui.connections.connectioneditor.fastModeIsEffectivelyADeadFeatureTodayClaude_41c07ae",
+                      ),
+                      confirmLabel: localizeUi("ui.connections.connectioneditor.enableAnyway"),
+                      cancelLabel: "Keep it off",
+                      tone: "destructive",
+                    });
+                    if (!confirmed) return;
+                  }
+                  setLocalClaudeFastMode(next);
+                  markDirty();
+                }}
+                labelPosition="start"
+                className="items-start justify-between rounded-xl border border-[var(--border)] px-3 py-2.5"
+                labelClassName="min-w-0 flex-1 text-[0.6875rem] leading-relaxed"
+              />
+            </FieldGroup>
+          )}
+        </EditorSection>
+
+        {/* A row's own job fields; the job settings window shows the same part for the job's current model. */}
+        {decisionFields}
+        {isAudioProvider && voiceFields}
+
+        <EditorSection title={t("connections.editor.section.advanced")} advanced>
+          <div className="grid gap-6 empty:hidden sm:grid-cols-2">
+            {/* ── Agent Parallel Jobs ── */}
+            {!isMediaGenerationProvider && (
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}>
+                <div className="flex items-center gap-3">
                   <DraftNumberInput
-                    ariaLabel={t("tts.requestTimeout")}
-                    min={TTS_REQUEST_TIMEOUT_MS.min / 1000}
-                    max={TTS_REQUEST_TIMEOUT_MS.max / 1000}
-                    value={localAudioTimeoutMs / 1000}
-                    onCommit={(seconds) => {
-                      setLocalAudioTimeoutMs(seconds * 1000);
+                    value={localMaxParallelJobs}
+                    min={1}
+                    max={MAX_PARALLEL_JOBS}
+                    selectOnFocus
+                    onCommit={(nextValue) => {
+                      setLocalMaxParallelJobs(normalizeMaxParallelJobs(nextValue));
+                      markDirty();
+                    }}
+                    className="mari-chrome-field h-11 w-24 px-3 text-xs md:h-9"
+                  />
+                  <span className="text-xs text-[var(--muted-foreground)]">
+                    {localMaxParallelJobs === 1
+                      ? localizeUi("ui.connections.connectioneditor.oneAgentJobAtATime")
+                      : localizeUi("ui.connections.connectioneditor.value1AgentJobs", {
+                          value1: localMaxParallelJobs,
+                        })}
+                  </span>
+                </div>
+              </FieldGroup>
+            )}
+
+            {/* ── Rate Limit (requests per minute) ── */}
+            {!isMediaGenerationProvider && (
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}>
+                <div className="flex items-center gap-3">
+                  <DraftNumberInput
+                    allowEmpty
+                    value={localMaxRequestsPerMinute}
+                    ariaLabel={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}
+                    min={0}
+                    max={600}
+                    selectOnFocus
+                    placeholder={localizeUi("ui.connections.connectioneditor.requestsPerMinuteUnlimited")}
+                    onCommit={(nextValue) => {
+                      setLocalMaxRequestsPerMinute(nextValue && nextValue > 0 ? Math.floor(nextValue) : null);
                       markDirty();
                     }}
                     className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
                   />
-                </label>
-                {localAudioSource === "elevenlabs" ? (
-                  <div className="space-y-2">
-                    <SettingsSwitch
-                      label={localizeUi("ui.connections.connectioneditor.gameSoundEffects")}
-                      description={localizeUi(
-                        "ui.connections.connectioneditor.letGameModeGenerateSoundEffectsWithThisConnection",
-                      )}
-                      checked={localAudioSoundEffects}
-                      onChange={(checked) => {
-                        setLocalAudioSoundEffects(checked);
-                        markDirty();
-                      }}
-                    />
-                    <SettingsSwitch
-                      label={localizeUi("ui.connections.connectioneditor.gameMusic")}
-                      description={localizeUi(
-                        "ui.connections.connectioneditor.letGameModeGenerateMusicWithThisConnection",
-                      )}
-                      checked={localAudioMusic}
-                      onChange={(checked) => {
-                        setLocalAudioMusic(checked);
-                        markDirty();
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <p className="rounded-xl border border-[var(--border)] px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi(
-                      "ui.connections.connectioneditor.soundEffectAndMusicGenerationCurrentlyRequiresTheElevenlabs",
-                    )}
-                  </p>
-                )}
-              </FieldGroup>
-            )}
-
-            {/* ── Generative audio source (only for audio_generation provider) ── */}
-            {isGenerativeAudioProvider && (
-              <FieldGroup label={t("connections.audioGeneration.source")}>
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                  {GENERATIVE_AUDIO_SOURCES.map((source) => (
-                    <button
-                      key={source}
-                      type="button"
-                      aria-pressed={localAudioGenerationSource === source}
-                      onClick={() => {
-                        if (source === localAudioGenerationSource) return;
-                        const before = GENERATIVE_AUDIO_DEFAULTS[localAudioGenerationSource];
-                        const next = GENERATIVE_AUDIO_DEFAULTS[source];
-                        if (!before.baseUrl || !localBaseUrl || localBaseUrl === before.baseUrl)
-                          setLocalBaseUrl(next.baseUrl);
-                        if (!before.model || !localModel || localModel === before.model) setLocalModel(next.model);
-                        if (
-                          !before.soundEffectsModel ||
-                          !localAudioSoundEffectsModel ||
-                          localAudioSoundEffectsModel === before.soundEffectsModel
-                        )
-                          setLocalAudioSoundEffectsModel(next.soundEffectsModel);
-                        setLocalAudioGenerationSource(source);
-                        // Credentials cannot silently move to a different service.
-                        setLocalApiKey("");
-                        setClearStoredApiKeyOnSave(
-                          conn?.provider !== "audio_generation" ||
-                            source !== (conn.audioGenerationSource ?? "elevenlabs"),
-                        );
-                        markDirty();
-                      }}
-                      className={cn(
-                        "flex min-w-0 flex-col gap-1 rounded-lg px-2.5 py-2 text-left text-xs ring-1 transition-colors",
-                        localAudioGenerationSource === source
-                          ? "bg-[var(--primary)]/10 text-[var(--foreground)] ring-[var(--primary)]/40"
-                          : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",
-                      )}
-                    >
-                      <span className="flex items-center gap-1.5 font-medium">
-                        {t(`connections.audioGeneration.sources.${source}`)}
-                        {localAudioGenerationSource === source && <Check size="0.625rem" />}
-                      </span>
-                      <span className="text-[0.625rem] leading-relaxed">
-                        {t(`connections.audioGeneration.sourceDescriptions.${source}`)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                {localAudioGenerationSource === "sunoapi" && (
-                  <label className="block space-y-1.5">
-                    <span className="text-xs font-medium">{t("connections.audioGeneration.callbackUrl")}</span>
-                    <input
-                      value={localAudioGenerationCallbackUrl}
-                      type="url"
-                      onChange={(event) => {
-                        setLocalAudioGenerationCallbackUrl(event.target.value);
-                        markDirty();
-                      }}
-                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    />
-                  </label>
-                )}
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-medium">{t("connections.audioGeneration.sfxModel")}</span>
-                  <input
-                    value={localAudioSoundEffectsModel}
-                    onChange={(event) => {
-                      setLocalAudioSoundEffectsModel(event.target.value);
-                      markDirty();
-                    }}
-                    placeholder={
-                      GENERATIVE_AUDIO_DEFAULTS[localAudioGenerationSource].soundEffectsModel ||
-                      t("connections.audioGeneration.sameModel")
-                    }
-                    className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                  />
-                </label>
-                {localAudioGenerationSource === "custom" && (
-                  <div className="space-y-3">
-                    <label className="block space-y-1.5">
-                      <span className="text-xs">{t("connections.gameAudio.format")}</span>
-                      <select
-                        value={localAudioGenerationFormat}
-                        onChange={(event) => {
-                          setLocalAudioGenerationFormat(event.target.value as "binary" | "chat_completions");
-                          markDirty();
-                        }}
-                        className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
-                      >
-                        <option value="binary">{t("connections.gameAudio.binary")}</option>
-                        <option value="chat_completions">{t("connections.gameAudio.chatCompletions")}</option>
-                      </select>
-                    </label>
-                    {(
-                      [
-                        ["music", localAudioMusicEndpoint, setLocalAudioMusicEndpoint],
-                        ["sfx", localAudioSoundEffectsEndpoint, setLocalAudioSoundEffectsEndpoint],
-                      ] as const
-                    ).map(([kind, value, setValue]) => (
-                      <label key={kind} className="block space-y-1.5">
-                        <span className="text-xs">
-                          {t(
-                            kind === "music"
-                              ? "connections.gameAudio.musicEndpoint"
-                              : "connections.gameAudio.sfxEndpoint",
-                          )}
-                        </span>
-                        <input
-                          value={value}
-                          onChange={(event) => {
-                            setValue(event.target.value);
-                            markDirty();
-                          }}
-                          placeholder={t("connections.gameAudio.endpointExample", {
-                            path:
-                              localAudioGenerationFormat === "chat_completions"
-                                ? "chat/completions"
-                                : "audio/generations",
-                          })}
-                          className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                )}
-                <SettingsSwitch
-                  label={t("connections.audioGeneration.soundEffects")}
-                  checked={localAudioSoundEffects}
-                  onChange={(value) => {
-                    setLocalAudioSoundEffects(value);
-                    markDirty();
-                  }}
-                />
-                <SettingsSwitch
-                  label={t("connections.audioGeneration.music")}
-                  checked={localAudioMusic}
-                  onChange={(value) => {
-                    setLocalAudioMusic(value);
-                    markDirty();
-                  }}
-                />
-              </FieldGroup>
-            )}
-
-            {/* ── Model Selection ── */}
-            <FieldGroup
-              label={
-                isGenerativeAudioProvider
-                  ? t("connections.audioGeneration.musicModel")
-                  : localizeUi("ui.connections.connectioneditor.model")
-              }
-            >
-              {isGrokSubscriptionProvider && (
-                // An empty model id lets the Grok CLI pick its own default.
-                <button
-                  type="button"
-                  aria-pressed={!localModel}
-                  onClick={() => selectModel({ model: "" })}
-                  className="mari-chrome-control mb-2"
-                >
-                  {!localModel && <Check aria-hidden="true" />}
-                  {localizeUi("ui.connections.connectioneditor.useGrokCliDefault")}
-                </button>
-              )}
-              <ConnectionModelPicker
-                className="h-80 overflow-hidden rounded-xl border border-[var(--border)]"
-                connection={{
-                  id: connectionDetailId,
-                  name: localName,
-                  provider: localProvider,
-                  model: localModel,
-                  pinnedModels: (conn as { pinnedModels?: unknown }).pinnedModels,
-                  accountId,
-                }}
-                accountName={linkedAccount?.name}
-                builtInModels={providerModels}
-                onChoose={async (choice) => selectModel(choice)}
-              />
-              {!!selectedModelInfo?.context && (
-                <p className="mt-2 flex flex-wrap gap-x-4 text-[0.6875rem] text-[var(--muted-foreground)]">
-                  <span>
-                    {localizeUi("ui.connections.connectioneditor.context")}{" "}
-                    <strong className="font-medium text-[var(--foreground)]">
-                      {formatContext(selectedModelInfo.context)}
-                    </strong>
-                  </span>
-                  {selectedModelInfo.maxOutput > 0 && (
-                    <span>
-                      {localizeUi("ui.connections.connectioneditor.maxOutput")}{" "}
-                      <strong className="font-medium text-[var(--foreground)]">
-                        {formatContext(selectedModelInfo.maxOutput)}
-                      </strong>
-                    </span>
-                  )}
-                </p>
-              )}
-              {selectedPrice && (
-                <p
-                  data-model-price
-                  className="mt-2 whitespace-pre-line px-3 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]"
-                >
-                  {selectedPrice.full}
-                </p>
-              )}
-            </FieldGroup>
-
-            {/* ── Image reading ── */}
-            {isChatProvider(localProvider) && (
-              <FieldGroup label={t("connections.editor.imageInput.label")}>
-                <select
-                  value={localImageInput}
-                  aria-label={t("connections.editor.imageInput.label")}
-                  onChange={(event) => {
-                    setLocalImageInput(event.target.value as "" | "reads" | "text");
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                >
-                  <option value="">{t("connections.editor.imageInput.auto")}</option>
-                  <option value="reads">{t("connections.editor.imageInput.reads")}</option>
-                  <option value="text">{t("connections.editor.imageInput.text")}</option>
-                </select>
-              </FieldGroup>
-            )}
-
-            {/* ── RunPod Endpoint ID ── */}
-            {localProvider === "image_generation" && selectedImageService === "runpod_comfyui" && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.runpodEndpointId")}>
-                <input
-                  type="text"
-                  value={localImageEndpointId}
-                  onChange={(e) => {
-                    setLocalImageEndpointId(e.target.value);
-                    markDirty();
-                  }}
-                  placeholder={localizeUi("ui.connections.connectioneditor.abc123def456")}
-                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                />
-              </FieldGroup>
-            )}
-
-            {/* ── ComfyUI Workflow ── */}
-            {usesComfyUiWorkflow && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.comfyuiWorkflowValue1", {
-                  value1:
-                    localProvider === "video_generation" || selectedImageService === "runpod_comfyui"
-                      ? localizeUi("ui.agents.tooleditor.required")
-                      : localizeUi("ui.connections.connectioneditor.optional"),
-                })}
-              >
-                <textarea
-                  ref={comfyWorkflowTextareaRef}
-                  value={localComfyuiWorkflow}
-                  onChange={(e) => {
-                    setLocalComfyuiWorkflow(e.target.value);
-                    markDirty();
-                  }}
-                  placeholder={localizeUi(
-                    "ui.connections.connectioneditor.pasteWorkflowJsonHereExportedFromComfyuiViaSave",
-                  )}
-                  className={cn(
-                    "mari-chrome-field max-h-[300px] min-h-[120px] w-full resize-y px-3 py-2 font-mono text-xs",
-                    comfyWorkflowValidation?.parseError || swarmUiWorkflowError
-                      ? "border-[var(--destructive)]"
-                      : undefined,
-                  )}
-                />
-                {swarmUiWorkflowError && (
-                  <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-[var(--destructive)]">
-                    <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                    {swarmUiWorkflowError}
-                  </p>
-                )}
-                {comfyWorkflowValidation?.parseError && (
-                  <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-[var(--destructive)]">
-                    <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                    {comfyWorkflowValidation.charPos !== null ? (
-                      <button
-                        onClick={handleJumpToJsonError}
-                        className="underline decoration-dotted cursor-pointer text-left text-[var(--marinara-app-accent-static)] hover:text-[var(--marinara-app-accent-static)]/80"
-                      >
-                        {comfyWorkflowValidation.label}
-                      </button>
-                    ) : (
-                      comfyWorkflowValidation.label
-                    )}
-                  </p>
-                )}
-                {comfyWorkflowValidation &&
-                  !comfyWorkflowValidation.parseError &&
-                  comfyWorkflowValidation.missing.length > 0 && (
-                    <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-amber-400">
-                      <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                      <span>
-                        {comfyWorkflowValidation.missing.some((m) => m.critical) && (
-                          <>
-                            <strong>{localizeUi("ui.connections.connectioneditor.prompt")}</strong>{" "}
-                            {localizeUi(
-                              "ui.connections.connectioneditor.placeholderNotFoundPromptsWonTBeInjected",
-                            )}{" "}
-                          </>
-                        )}
-                        {comfyWorkflowValidation.missing.some((m) => !m.critical) && (
-                          <>
-                            {localizeUi("ui.connections.connectioneditor.unused")}{" "}
-                            {comfyWorkflowValidation.missing
-                              .filter((m) => !m.critical)
-                              .map((m) => m.label)
-                              .join(", ")}
-                            .
-                          </>
-                        )}
-                      </span>
-                    </p>
-                  )}
-                <p className="text-[0.55rem] text-[var(--muted-foreground)] mt-1">
-                  {localizeUi("ui.connections.connectioneditor.exportYourWorkflowFromComfyuiUsing")}{" "}
-                  <strong>{localizeUi("ui.connections.connectioneditor.saveApiFormat")}</strong>{" "}
-                  {localizeUi("ui.connections.connectioneditor.inTheMenu")}{" "}
-                  {localProvider === "video_generation" ? (
-                    <>
-                      {localizeUi("ui.connections.connectioneditor.useAVideoOutputNodeSuchAs")}{" "}
-                      <strong>{localizeUi("ui.connections.connectioneditor.savevideo")}</strong>
-                      {localizeUi("ui.connections.connectioneditor.marinaraDownloadsTheMp4ReportedInTheWorkflowS")}{" "}
-                      <code>{"gifs"}</code> {localizeUi("ui.noodle.noodlehome.or")} <code>{"images"}</code>{" "}
-                      {localizeUi("ui.connections.connectioneditor.output")}
-                    </>
-                  ) : (
-                    <>
-                      {localizeUi("ui.connections.connectioneditor.placeholdersLike")} <code>{"%prompt%"}</code>,{" "}
-                      <code>{"%steps%"}</code>, <code>{"%sampler%"}</code>
-                      {localizeUi(
-                        "ui.connections.connectioneditor.andReferenceImagePlaceholdersWillBeReplacedAtGeneration",
-                      )}
-                    </>
-                  )}
-                </p>
-              </FieldGroup>
-            )}
-
-            {localProvider === "image_generation" && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.imagePromptingInstructions")}>
-                <textarea
-                  value={localImagePromptInstructions}
-                  maxLength={MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH}
-                  onChange={(event) => {
-                    setLocalImagePromptInstructions(event.target.value);
-                    markDirty();
-                  }}
-                  placeholder={localizeUi("ui.connections.connectioneditor.imagePromptingInstructionsPlaceholder")}
-                  className="mari-chrome-field min-h-[96px] w-full resize-y px-3 py-2 text-xs"
-                />
-              </FieldGroup>
-            )}
-
-            {isVideoGenerationProvider && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.videoPromptingInstructions")}>
-                <textarea
-                  value={localVideoPromptInstructions}
-                  maxLength={MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH}
-                  onChange={(event) => {
-                    setLocalVideoPromptInstructions(event.target.value);
-                    markDirty();
-                  }}
-                  placeholder={localizeUi("ui.connections.connectioneditor.videoPromptingInstructionsPlaceholder")}
-                  className="mari-chrome-field min-h-[96px] w-full resize-y px-3 py-2 text-xs"
-                />
-              </FieldGroup>
-            )}
-
-            {supportsGptImageQuality && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.gptImageQuality")}>
-                <select
-                  value={effectiveImageGenerationQuality}
-                  onChange={(event) => {
-                    setLocalImageGenerationQuality(event.target.value as ImageGenerationQuality);
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                >
-                  <option value="auto">{localizeUi("ui.connections.connectioneditor.imageQualityAuto")}</option>
-                  <option value="low">{localizeUi("ui.connections.connectioneditor.imageQualityLow")}</option>
-                  <option value="medium">{localizeUi("ui.connections.connectioneditor.imageQualityMedium")}</option>
-                  <option value="high">{localizeUi("ui.connections.connectioneditor.imageQualityHigh")}</option>
-                  {isOpenAIGptImage25Model(localModel) && (
-                    <>
-                      <option value="xhigh">
-                        {localizeUi("ui.connections.connectioneditor.imageQualityExtraHigh")}
-                      </option>
-                      <option value="max">{localizeUi("ui.connections.connectioneditor.imageQualityMax")}</option>
-                    </>
-                  )}
-                </select>
-              </FieldGroup>
-            )}
-
-            {localProvider === "image_generation" &&
-              !["comfyui", "swarmui", "runpod_comfyui", "automatic1111", "drawthings", "pollinations"].includes(
-                selectedImageService,
-              ) && (
-                <CustomParametersInput
-                  value={localDefaultParameters.customParameters}
-                  onChange={(customParameters) => {
-                    setLocalDefaultParameters((current) => ({ ...current, customParameters }));
-                    markDirty();
-                  }}
-                  placeholder={localizeUi("settings.connection.imageCustomParameters.example")}
-                />
-              )}
-
-            {localProvider === "image_generation" && selectedImageDefaultsService && localImageDefaults && (
-              <ImageGenerationDefaultsPanel
-                service={selectedImageDefaultsService}
-                model={localModel}
-                source={selectedImageService}
-                value={localImageDefaults}
-                styleProfiles={imageStyleProfiles}
-                remoteLoras={remoteLoras}
-                expanded={imageDefaultsExpanded}
-                onExpandedChange={setImageDefaultsExpanded}
-                onChange={(next) => {
-                  const current = localImageDefaultsRef.current;
-                  if (!current) return;
-                  const resolved = typeof next === "function" ? next(current) : next;
-                  const sanitized = sanitizeImageGenerationProfile(resolved, selectedImageDefaultsService);
-                  localImageDefaultsRef.current = sanitized;
-                  setLocalImageDefaults(sanitized);
-                  markDirty();
-                }}
-                onReset={() => {
-                  const defaults = createDefaultImageGenerationProfile(selectedImageDefaultsService);
-                  localImageDefaultsRef.current = defaults;
-                  setLocalImageDefaults(defaults);
-                  markDirty();
-                }}
-              />
-            )}
-
-            {localProvider === "video_generation" && localVideoDefaults && (
-              <VideoGenerationDefaultsPanel
-                value={localVideoDefaults}
-                source={selectedVideoProvider}
-                model={localModel}
-                remoteLoras={remoteLoras}
-                expanded={videoDefaultsExpanded}
-                onExpandedChange={setVideoDefaultsExpanded}
-                onChange={(next) => {
-                  setLocalVideoDefaults(sanitizeVideoGenerationProfile(next));
-                  markDirty();
-                }}
-                onReset={() => {
-                  // Reset keeps the picked OpenRouter model's own defaults, as the model-change effect above does.
-                  const defaults = createDefaultVideoGenerationProfile(selectedVideoDefaultsService);
-                  if (selectedVideoDefaultsService === "openrouter" && effectiveVideoGenerationSource !== "nanogpt") {
-                    defaults.openrouter = resolveOpenRouterVideoModelDefaults(localModel, defaults.openrouter);
-                  }
-                  setLocalVideoDefaults(defaults);
-                  markDirty();
-                }}
-              />
-            )}
-
-            {!isMediaGenerationProvider && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxContextWindow")}>
-                <div className="flex items-center gap-3">
-                  <DraftNumberInput
-                    value={localMaxContext}
-                    min={1}
-                    selectOnFocus
-                    onCommit={(nextValue) => {
-                      setLocalMaxContext(nextValue);
-                      markDirty();
-                    }}
-                    className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
-                  />
-                  <span className="text-xs text-[var(--muted-foreground)]">
-                    {formatContext(localMaxContext)} {localizeUi("ui.connections.connectioneditor.tokens")}
-                  </span>
-                </div>
-              </FieldGroup>
-            )}
-          </>
-
-          <EditorSection
-            title={t(
-              isMediaGenerationProvider
-                ? "connections.editor.section.generationDefaults"
-                : "connections.editor.section.chatDefaults",
-            )}
-          >
-            {/* ── Prompt Preset Override ── */}
-            {!isMediaGenerationProvider && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptPresetOverride")}>
-                <select
-                  value={localPromptPresetId}
-                  onChange={(e) => {
-                    setLocalPromptPresetId(e.target.value);
-                    markDirty();
-                  }}
-                  className="mari-preset-native-select mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                >
-                  <option value="">{localizeUi("ui.connections.connectioneditor.useChatSPromptPreset")}</option>
-                  {(allPresets ?? []).map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.name}
-                    </option>
-                  ))}
-                </select>
-              </FieldGroup>
-            )}
-
-            {/* ── Default Chat Parameters ── */}
-            {!isMediaGenerationProvider && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.defaultChatParameters")}>
-                <SettingsSwitch
-                  label={localizeUi("ui.connections.connectioneditor.useCustomDefaultsForThisConnection")}
-                  checked={localDefaultParametersEnabled}
-                  onChange={(checked) => {
-                    setLocalDefaultParametersEnabled(checked);
-                    markDirty();
-                  }}
-                />
-
-                {localDefaultParametersEnabled ? (
-                  <div className="rounded-xl border border-[var(--border)] p-3">
-                    <p className="mb-3 text-[0.625rem] text-[var(--muted-foreground)]">
-                      {localizeUi(
-                        parameterPreview.isError
-                          ? "generationParameters.effective.unavailable"
-                          : parameterPreview.data?.chatName
-                            ? "generationParameters.effective.connectionChat"
-                            : "generationParameters.effective.connectionBaseline",
-                        { chat: parameterPreview.data?.chatName },
-                      )}
-                    </p>
-                    <GenerationParametersFields
-                      effectiveParameters={parameterPreview.data?.parameters}
-                      provider={localProvider}
-                      model={localModel}
-                      baseUrl={localBaseUrl}
-                      modelCapabilities={selectedModelCapabilities}
-                      value={localDefaultParameters}
-                      showServiceTier={localProvider === "openrouter" || localProvider === "nanogpt"}
-                      showCustomHeaders={
-                        !["openai_chatgpt", "claude_subscription", "grok_subscription"].includes(localProvider)
-                      }
-                      enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
-                      onChange={(next) => {
-                        setLocalDefaultParameters(next);
-                        markDirty();
-                      }}
-                    />
-                    <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
-                      <SettingsSwitch
-                        label={localizeUi("ui.connections.connectioneditor.imageCaptioning")}
-                        description={localizeUi(
-                          "ui.connections.connectioneditor.describeImageAttachmentsBeforeSendingThemToTextOnlyModels",
-                        )}
-                        checked={localImageCaptioningEnabled}
-                        onChange={(checked) => {
-                          setLocalImageCaptioningEnabled(checked);
-                          markDirty();
-                        }}
-                      />
-                      {localImageCaptioningEnabled && (
-                        <label className="block space-y-1.5">
-                          <span className="text-xs font-medium text-[var(--muted-foreground)]">
-                            {localizeUi("ui.connections.connectioneditor.captioningConnection")}
-                          </span>
-                          <ConnectionSelect
-                            job={t("connections.picker.job.captioning")}
-                            kind="chat"
-                            value={localImageCaptioningConnectionId || null}
-                            onChange={(value) => {
-                              setLocalImageCaptioningConnectionId(value ?? "");
-                              markDirty();
-                            }}
-                            defaultLabel={localizeUi("ui.connections.connectioneditor.useThisConnection")}
-                            extraOptions={[
-                              { value: "", label: localizeUi("ui.connections.connectioneditor.useThisConnection") },
-                            ]}
-                            rowFilter={(row) => row.id !== connectionDetailId && isChatProvider(row.provider)}
-                            className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                          />
-                          <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                            {localizeUi(
-                              "ui.connections.connectioneditor.chooseADifferentVisionCapableConnectionWhenThisModelCannotSeeImages",
-                            )}
-                          </p>
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-              </FieldGroup>
-            )}
-
-            {/* ── Prompt Caching (Anthropic + compatible OpenRouter models) ── */}
-            {(localProvider === "anthropic" || localProvider === "openrouter") && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptCaching")}>
-                <SettingsSwitch
-                  label={localizeUi("ui.connections.connectioneditor.enablePromptCaching")}
-                  checked={localEnableCaching}
-                  onChange={(checked) => {
-                    setLocalEnableCaching(checked);
-                    if (!checked) setLocalAnthropicExtendedCacheTtl(false);
-                    markDirty();
-                  }}
-                />
-                <p className="text-[0.625rem] text-[var(--muted-foreground)] px-2">
-                  {localProvider === "anthropic"
-                    ? localizeUi(
-                        "ui.connections.connectioneditor.cachesTheSystemPromptExplicitlyAndUsesAutomaticCaching",
-                      )
-                    : localizeUi(
-                        "ui.connections.connectioneditor.onOpenrouterAddsCacheControlForModelsThatSupportExplicitCaching",
-                      )}
-                </p>
-                {localProvider === "anthropic" && localEnableCaching && (
-                  <div className="mt-2 space-y-2">
-                    <SettingsSwitch
-                      label={localizeUi("ui.connections.connectioneditor.extendedTokenCaching1Hour")}
-                      checked={localAnthropicExtendedCacheTtl}
-                      onChange={(checked) => {
-                        setLocalAnthropicExtendedCacheTtl(checked);
-                        markDirty();
-                      }}
-                    />
-                    <p className="px-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                      {localizeUi("ui.connections.connectioneditor.keepsAnthropicCacheEntriesAliveForOneHourInstead")}
-                    </p>
-                    <label className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2">
-                      <div className="min-w-0">
-                        <span className="block text-sm font-medium">
-                          {localizeUi("ui.connections.connectioneditor.cacheDepth")}
-                        </span>
-                        <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
-                          {localizeUi("ui.connections.connectioneditor.messagesBackFromTheNewestTurn")}
-                        </span>
-                      </div>
-                      <DraftNumberInput
-                        value={localCachingAtDepth}
-                        min={0}
-                        max={MAX_CACHING_AT_DEPTH}
-                        onCommit={(value) => {
-                          setLocalCachingAtDepth(normalizeCachingAtDepth(value));
-                          markDirty();
-                        }}
-                        className="mari-chrome-field mari-chrome-field--compact h-8 w-16 px-2 text-right text-xs"
-                        selectOnFocus
-                      />
-                    </label>
-                  </div>
-                )}
-              </FieldGroup>
-            )}
-
-            {isVideoGenerationProvider && selectedVideoDefaultsService === "seedance" && localVideoDefaults && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.seedanceReferences")}>
-                <div className="mx-2 mt-2 space-y-2 rounded-lg border border-[var(--border)] p-2">
-                  <SettingsSwitch
-                    label={localizeUi("ui.connections.connectioneditor.uploadSeedanceReferenceFramesTemporarily")}
-                    checked={localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled}
-                    onChange={(checked) => {
-                      setLocalVideoDefaults(
-                        sanitizeVideoGenerationProfile({
-                          ...localVideoDefaults,
-                          service: "seedance",
-                          seedance: {
-                            ...localVideoDefaults.seedance,
-                            temporaryPublicReferenceUploadEnabled: checked,
-                          },
-                        }),
-                      );
-                      markDirty();
-                    }}
-                    description={localizeUi(
-                      "ui.connections.connectioneditor.usesTemporaryPublicLinksWhenSeedanceNeedsFirstLast",
-                    )}
-                    className="p-1"
-                  />
-                  {localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled && (
-                    <label className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-2 py-1.5">
-                      <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                        {localizeUi("ui.connections.connectioneditor.temporaryLinkLifetime")}
-                      </span>
-                      <select
-                        value={localVideoDefaults.seedance.temporaryPublicReferenceUploadExpiry}
-                        onChange={(event) => {
-                          const expiry = event.target.value as VideoReferenceUploadExpiry;
-                          setLocalVideoDefaults(
-                            sanitizeVideoGenerationProfile({
-                              ...localVideoDefaults,
-                              service: "seedance",
-                              seedance: {
-                                ...localVideoDefaults.seedance,
-                                temporaryPublicReferenceUploadExpiry: expiry,
-                              },
-                            }),
-                          );
-                          markDirty();
-                        }}
-                        className="mari-chrome-field mari-chrome-field--compact h-8 px-2 text-xs"
-                      >
-                        {VIDEO_REFERENCE_UPLOAD_EXPIRY_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                  <p className="px-1 text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.keepThisOffIfYouDoNotWantLocal")}
-                  </p>
-                </div>
-              </FieldGroup>
-            )}
-
-            {isClaudeSubscriptionProvider && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptCaching")}>
-                <SettingsSwitch
-                  label={localizeUi("ui.connections.connectioneditor.extendedTokenCaching1Hour")}
-                  description={localizeUi("ui.connections.connectioneditor.subscriptionExtendedCacheDescription")}
-                  checked={localAnthropicExtendedCacheTtl}
-                  onChange={(checked) => {
-                    setLocalAnthropicExtendedCacheTtl(checked);
-                    markDirty();
-                  }}
-                />
-              </FieldGroup>
-            )}
-
-            {/* ── Claude (Subscription) — Fast Mode toggle ── */}
-            {isClaudeSubscriptionProvider && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.fastMode")}>
-                <SettingsSwitch
-                  label={
-                    <span className="font-medium text-[var(--foreground)]">
-                      {localizeUi("ui.connections.connectioneditor.useClaudeCodeFastModeRouting")}
-                    </span>
-                  }
-                  description={
-                    <>
-                      <span className="mt-0.5 block text-[var(--muted-foreground)]">
-                        <strong className="text-amber-400">
-                          {localizeUi("ui.connections.connectioneditor.mostUsersShouldLeaveThisOff")}
-                        </strong>{" "}
-                        {localizeUi("ui.connections.connectioneditor.fastModeIsEffectivelyADeadFeatureTodayClaude")}
-                      </span>
-                      <span className="mt-1.5 flex items-start gap-1 text-[var(--muted-foreground)]">
-                        <AlertCircle size="0.625rem" className="mt-px shrink-0 text-amber-400" />
-                        <span>
-                          <strong className="text-amber-400">
-                            {localizeUi("ui.connections.connectioneditor.doesnTWorkOnClaudeOpus47Yet")}
-                          </strong>{" "}
-                          {localizeUi("ui.connections.connectioneditor.thereIsNoFasterOpus47VariantFor")}
-                        </span>
-                      </span>
-                    </>
-                  }
-                  checked={localClaudeFastMode}
-                  onChange={async (next) => {
-                    if (next) {
-                      const confirmed = await showConfirmDialog({
-                        title: localizeUi("ui.connections.connectioneditor.youDonTWantThisSettingOn"),
-                        message: localizeUi(
-                          "ui.connections.connectioneditor.fastModeIsEffectivelyADeadFeatureTodayClaude_41c07ae",
-                        ),
-                        confirmLabel: localizeUi("ui.connections.connectioneditor.enableAnyway"),
-                        cancelLabel: "Keep it off",
-                        tone: "destructive",
-                      });
-                      if (!confirmed) return;
-                    }
-                    setLocalClaudeFastMode(next);
-                    markDirty();
-                  }}
-                  labelPosition="start"
-                  className="items-start justify-between rounded-xl border border-[var(--border)] px-3 py-2.5"
-                  labelClassName="min-w-0 flex-1 text-[0.6875rem] leading-relaxed"
-                />
-              </FieldGroup>
-            )}
-          </EditorSection>
-
-          <EditorSection title={t("connections.editor.section.advanced")} advanced>
-            <div className="grid gap-6 empty:hidden sm:grid-cols-2">
-              {/* ── Max Output Tokens Override ── */}
-              {!isMediaGenerationProvider && !isLocalAuthProvider && (
-                <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxOutputTokensOverride")}>
-                  <div className="flex items-center gap-3">
-                    <DraftNumberInput
-                      allowEmpty
-                      value={localMaxTokensOverride}
-                      min={0}
-                      selectOnFocus
-                      placeholder={t("connections.editor.maxOutputAutomatic")}
-                      onCommit={(nextValue) => {
-                        setLocalMaxTokensOverride(nextValue && nextValue > 0 ? nextValue : null);
-                        markDirty();
-                      }}
-                      className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
-                    />
-                    {localMaxTokensOverride ? (
-                      <span className="text-xs text-[var(--muted-foreground)]">
-                        {localizeUi("ui.connections.connectioneditor.value1TokensMax", {
-                          value1: localMaxTokensOverride.toLocaleString(),
-                        })}
-                      </span>
-                    ) : null}
-                  </div>
-                </FieldGroup>
-              )}
-            </div>
-            <div className="grid gap-6 empty:hidden sm:grid-cols-2">
-              {/* ── Agent Parallel Jobs ── */}
-              {!isMediaGenerationProvider && (
-                <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}>
-                  <div className="flex items-center gap-3">
-                    <DraftNumberInput
-                      value={localMaxParallelJobs}
-                      min={1}
-                      max={MAX_PARALLEL_JOBS}
-                      selectOnFocus
-                      onCommit={(nextValue) => {
-                        setLocalMaxParallelJobs(normalizeMaxParallelJobs(nextValue));
-                        markDirty();
-                      }}
-                      className="mari-chrome-field h-11 w-24 px-3 text-xs md:h-9"
-                    />
+                  {localMaxRequestsPerMinute !== null && (
                     <span className="text-xs text-[var(--muted-foreground)]">
-                      {localMaxParallelJobs === 1
-                        ? localizeUi("ui.connections.connectioneditor.oneAgentJobAtATime")
-                        : localizeUi("ui.connections.connectioneditor.value1AgentJobs", {
-                            value1: localMaxParallelJobs,
-                          })}
+                      {localizeUi("ui.connections.connectioneditor.value1RequestsPerMinute", {
+                        value1: localMaxRequestsPerMinute,
+                      })}
                     </span>
-                  </div>
+                  )}
+                </div>
+              </FieldGroup>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setMoreOpen((open) => !open)}
+            aria-expanded={moreOpen}
+            className="mari-chrome-control mari-chrome-control--small text-xs self-start"
+          >
+            <ChevronDown size="0.75rem" aria-hidden className={cn("transition-transform", moreOpen && "rotate-180")} />
+            {t("connections.editor.more")}
+          </button>
+          {moreOpen && (
+            <div className="space-y-6">
+              {canTreatAsLocalEndpoint && !accountLinked && (
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.localCustomEndpoint")}>
+                  <SettingsSwitch
+                    label={localizeUi("ui.connections.connectioneditor.treatAsLocalCustomEndpoint")}
+                    checked={localTreatAsLocalEndpoint}
+                    onChange={(checked) => {
+                      setLocalTreatAsLocalEndpoint(checked);
+                      markDirty();
+                    }}
+                  />
                 </FieldGroup>
               )}
 
-              {/* ── Rate Limit (requests per minute) ── */}
-              {!isMediaGenerationProvider && (
-                <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}>
-                  <div className="flex items-center gap-3">
-                    <DraftNumberInput
-                      allowEmpty
-                      value={localMaxRequestsPerMinute}
-                      ariaLabel={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}
-                      min={0}
-                      max={600}
-                      selectOnFocus
-                      placeholder={localizeUi("ui.connections.connectioneditor.requestsPerMinuteUnlimited")}
-                      onCommit={(nextValue) => {
-                        setLocalMaxRequestsPerMinute(nextValue && nextValue > 0 ? Math.floor(nextValue) : null);
-                        markDirty();
-                      }}
-                      className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
-                    />
-                    {localMaxRequestsPerMinute !== null && (
-                      <span className="text-xs text-[var(--muted-foreground)]">
-                        {localizeUi("ui.connections.connectioneditor.value1RequestsPerMinute", {
-                          value1: localMaxRequestsPerMinute,
-                        })}
-                      </span>
-                    )}
-                  </div>
+              {/* ── OpenRouter Provider Preference ── */}
+              {localProvider === "openrouter" && (
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.preferredProvider")}>
+                  <input
+                    value={localOpenrouterProvider}
+                    onChange={(e) => {
+                      setLocalOpenrouterProvider(e.target.value);
+                      markDirty();
+                    }}
+                    className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                    placeholder={localizeUi("ui.connections.connectioneditor.eGAnthropicGoogleAmazonBedrock")}
+                  />
                 </FieldGroup>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setMoreOpen((open) => !open)}
-              aria-expanded={moreOpen}
-              className="mari-chrome-control mari-chrome-control--small text-xs self-start"
-            >
-              <ChevronDown
-                size="0.75rem"
-                aria-hidden
-                className={cn("transition-transform", moreOpen && "rotate-180")}
-              />
-              {t("connections.editor.more")}
-            </button>
-            {moreOpen && (
-              <div className="space-y-6">
-                {canTreatAsLocalEndpoint && !accountLinked && (
-                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.localCustomEndpoint")}>
-                    <SettingsSwitch
-                      label={localizeUi("ui.connections.connectioneditor.treatAsLocalCustomEndpoint")}
-                      checked={localTreatAsLocalEndpoint}
-                      onChange={(checked) => {
-                        setLocalTreatAsLocalEndpoint(checked);
-                        markDirty();
-                      }}
-                    />
-                  </FieldGroup>
-                )}
+          )}
+          {isChatProvider(localProvider) && captioningFields}
+          {embeddingFields}
+        </EditorSection>
 
-                {/* ── OpenRouter Provider Preference ── */}
-                {localProvider === "openrouter" && (
-                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.preferredProvider")}>
-                    <input
-                      value={localOpenrouterProvider}
-                      onChange={(e) => {
-                        setLocalOpenrouterProvider(e.target.value);
-                        markDirty();
-                      }}
-                      className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                      placeholder={localizeUi("ui.connections.connectioneditor.eGAnthropicGoogleAmazonBedrock")}
-                    />
-                  </FieldGroup>
-                )}
-
-                {/* ── Embedding Model (for lorebook vectorization) ── */}
-                {!isMediaGenerationProvider && (
-                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.semanticSearchEmbeddings")}>
-                    {supportsDirectEmbeddingConfig ? (
-                      <>
-                        <input
-                          value={localEmbeddingModel}
-                          onChange={(e) => {
-                            setLocalEmbeddingModel(e.target.value);
-                            markDirty();
-                          }}
-                          className="mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9"
-                          placeholder={localizeUi("ui.connections.connectioneditor.eGTextEmbedding3Small")}
-                        />
-
-                        {/* Embedding Base URL Override */}
-                        <div className="mt-3 pt-3 border-t border-[var(--border)]">
-                          <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
-                            {localizeUi("ui.connections.connectioneditor.embeddingEndpointUrl")}
-                          </label>
-                          <input
-                            value={localEmbeddingBaseUrl}
-                            onChange={(e) => {
-                              setLocalEmbeddingBaseUrl(e.target.value);
-                              markDirty();
-                            }}
-                            className={cn(
-                              "mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9",
-                              embeddingBaseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
-                            )}
-                            placeholder={localizeUi("ui.connections.connectioneditor.eGHttpLocalhost5002V1")}
-                          />
-                          {embeddingBaseUrlValidation.error && (
-                            <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">
-                              {embeddingBaseUrlValidation.error}
-                            </p>
-                          )}
-                          {!embeddingBaseUrlValidation.error &&
-                            embeddingBaseUrlValidation.value !== localEmbeddingBaseUrl.trim() && (
-                              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                                {localizeUi("ui.connections.connectioneditor.willSaveAs")}{" "}
-                                {embeddingBaseUrlValidation.value}
-                              </p>
-                            )}
-                        </div>
-                      </>
-                    ) : null}
-
-                    {/* Embedding Connection Override */}
-                    <div className="mt-3 pt-3 border-t border-[var(--border)]">
-                      <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
-                        {localizeUi("ui.connections.connectioneditor.embeddingConnection")}
-                      </label>
-                      <select
-                        value={localEmbeddingConnectionId}
-                        onChange={(e) => {
-                          setLocalEmbeddingConnectionId(e.target.value);
-                          markDirty();
-                        }}
-                        className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                      >
-                        <option value="">{localizeUi("ui.connections.connectioneditor.sameAsThisConnection")}</option>
-                        {import.meta.env.VITE_MARINARA_LITE !== "true" && (
-                          <option value={LOCAL_SIDECAR_CONNECTION_ID}>
-                            {localizeUi("ui.connections.connectioneditor.localModelSidecar")}
-                          </option>
-                        )}
-                        {((allConnections ?? []) as Record<string, unknown>[])
-                          .filter((c) => c.id !== connectionDetailId && isChatProvider(c.provider))
-                          .map((c) => (
-                            <option key={c.id as string} value={c.id as string}>
-                              {c.name as string}
-                              {c.embeddingModel
-                                ? localizeUi("ui.connections.connectioneditor.value1", { value1: c.embeddingModel })
-                                : ""}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-
-                    <div className="mt-3 space-y-3">
-                      <button
-                        type="button"
-                        onClick={handleTestEmbedding}
-                        disabled={testEmbedding.isPending || !canTestEmbedding}
-                        className="mari-chrome-control px-3"
-                      >
-                        {testEmbedding.isPending ? (
-                          <Loader2 size="0.8125rem" className="animate-spin" />
-                        ) : (
-                          <Search size="0.8125rem" />
-                        )}
-                        {t("connections.embeddingTest.button")}
-                      </button>
-                      {embeddingTestResult && (
-                        <TestResultCard
-                          label={t("connections.embeddingTest.button")}
-                          success={embeddingTestResult.success}
-                          latencyMs={embeddingTestResult.latencyMs}
-                        >
-                          {embeddingTestResult.success && embeddingTestResult.dimensions
-                            ? t("connections.embeddingTest.dimensions", {
-                                dimensions: embeddingTestResult.dimensions,
-                              })
-                            : embeddingTestResult.message}
-                        </TestResultCard>
-                      )}
-                    </div>
-                  </FieldGroup>
-                )}
-              </div>
-            )}
-          </EditorSection>
-
-          {testSection}
-        </div>
+        {testSection}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -5329,4 +5426,17 @@ function parseDefaultParametersRoot(raw: unknown): Record<string, unknown> {
   return parsed && typeof parsed === "object" && !Array.isArray(parsed)
     ? { ...(parsed as Record<string, unknown>) }
     : {};
+}
+
+// Captioning is stored in the default parameters, so a captioning choice is saved even with the defaults switch off.
+function languageDefaultsToSave(
+  enabled: boolean,
+  params: Parameters<typeof buildLanguageDefaultParameters>[0],
+  captioning: boolean,
+  captioningConnectionId: string,
+) {
+  if (enabled) return buildLanguageDefaultParameters(params, captioning, captioningConnectionId);
+  return captioning || captioningConnectionId
+    ? { imageCaptioningEnabled: captioning, imageCaptioningConnectionId: captioningConnectionId || null }
+    : null;
 }

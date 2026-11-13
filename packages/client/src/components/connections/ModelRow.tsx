@@ -197,7 +197,7 @@ export function ModelRow({
     <div
       {...rowProps}
       className={cn(
-        "mari-connection-model group group/row relative flex min-w-0 items-center gap-1 pe-1 transition-colors hover:bg-foreground/[0.04]",
+        "mari-connection-model group group/row relative flex min-w-0 items-center gap-1 pe-0.5 transition-colors hover:bg-foreground/[0.04]",
         current && "bg-foreground/[0.06]",
         rowProps?.className,
       )}
@@ -239,7 +239,7 @@ export function ModelRow({
             data-model-title
             className={cn(
               "block min-w-0 text-[0.8125rem] font-medium leading-5",
-              wrapTitle ? "break-words" : "line-clamp-2 [overflow-wrap:anywhere]",
+              wrapTitle ? "break-words" : line2 ? "truncate" : "line-clamp-2 [overflow-wrap:anywhere]",
               dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
             )}
             title={tooltip ?? title}

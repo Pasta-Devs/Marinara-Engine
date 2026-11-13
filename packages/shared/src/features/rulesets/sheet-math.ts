@@ -1287,6 +1287,8 @@ export interface RulesetCheckRoll {
   faces?: number[];
   /** The single die's face, where the ruleset marks it as rolled unmodified (1.136). */
   unmodified?: number;
+  /** Two named dice (1.821): the label of the one that showed more, or "tie". */
+  duality?: string;
 }
 
 /** A check that threw nothing at all: the shape every "no roll happened" answer takes, so no path
@@ -1430,7 +1432,19 @@ export function rollDiceSumCheck(
   const natural = floor || kept.thrown[0]!;
 
   const policy = input.isSave ? naturals.save : naturals.check;
-  const criticalSuccess = single && natural === dice.sides && (policy === "both" || policy === "max-only");
+  // Two named dice (1.821): the one that showed more, and a tie, which may be a critical on its own.
+  const { duality } = resolution;
+  const [first0, first1] = kept.thrown;
+  const dualityWinner = !duality
+    ? undefined
+    : first0! > first1!
+      ? duality.dice[0].label
+      : first1! > first0!
+        ? duality.dice[1].label
+        : "tie";
+  const criticalSuccess =
+    (single && natural === dice.sides && (policy === "both" || policy === "max-only")) ||
+    (dualityWinner === "tie" && duality!.tieIsCritical);
   const criticalFailure = single && natural === 1 && (policy === "both" || policy === "min-only");
   const unmodified = single && resolution.unmodified?.includes(natural) ? natural : undefined;
   const total = Math.max(usedRoll + input.modifier, input.totalFloor ?? -Infinity);
@@ -1446,6 +1460,7 @@ export function rollDiceSumCheck(
     dice: `${rolls.length}d${dice.sides}`,
     ...(faces ? { faces: [...faces] } : {}),
     ...(unmodified !== undefined ? { unmodified } : {}),
+    ...(dualityWinner ? { duality: dualityWinner } : {}),
   };
   // Bands, where the ruleset declares them: a natural the policy makes automatic pins the best or the
   // worst band, and a natural the bands shift on moves one band either way.

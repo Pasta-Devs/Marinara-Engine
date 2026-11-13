@@ -35,7 +35,7 @@ If you already run a local model, try it first, and test turns from your own cha
 
 Jev and Open-Jev are different models. Jev is TypeSafe's hosted model, available directly or through OpenRouter. [Open-Jev](https://huggingface.co/ZefanCai/Open-Jev-2B) is a separately published model built on Qwen, which Marinara can run locally. The Open-Jev tests do not measure hosted Jev.
 
-On Android (Termux), the **Built-in decision model** cannot run, and a small local model on a phone's processor can be too slow. A hosted account is the practical choice, for example Jev through OpenRouter. See [Set up a Decision connection](#set-up-a-decision-connection).
+On Android (Termux), the **Built-in decision model** cannot run, and a small local model on a phone's processor can be too slow. A hosted account is the practical choice, for example Jev through OpenRouter. See [Set up a Decision account](#set-up-a-decision-account).
 
 Write presets, cards, and agents for "a decision model", never "requires Jev". They use the same statement syntax with any model, but models can give different answers. When you import content that uses decisions, including custom agents and Agent Organizer installs, Marinara shows a notice that links here. Restoring a whole profile ZIP does not show it.
 
@@ -65,29 +65,27 @@ A general chat model's yes-or-no probabilities work for a threshold, but they we
 
 If your chat model runs in Ollama, LM Studio, llama.cpp, or another OpenAI-compatible server, it can answer decisions without Marinara loading a second copy.
 
-1. Click **⋯** on that model in the **Connections** panel and choose **Use this model for decisions**. The **Add account** window opens on the decision step with the same address, model, and key.
-2. Pick the model, then click **Test decision**. A passing test says whether the server returned log-probabilities and whether the model had to think first. Click **Done**.
-3. Click the **Decision** row under **Behind the scenes** and pick the new model.
-
+1. Click the **Decision** row under **Behind the scenes** in the **Jobs** box. The picker lists the models of every account, including your chat model. Or click **⋯** on the model and choose **Use for…** → **Decision**.
+2. Click the gear of the **Decision** row, then click **Test**. A passing test says whether the server returned log-probabilities and whether the model had to think first. Click **Done**.
 You can also create one yourself. Use a Decision account with the source **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**, the same address as your chat account (for example `http://localhost:11434/v1` for Ollama), and the model name the server uses.
 
 It is asked like the Built-in model: one yes-or-no word per statement. Statements go one at a time, because Marinara cannot know how many requests your server handles at once. **Thinking** is always **Auto** for an account. A server on another computer needs `PROVIDER_LOCAL_URLS_ENABLED`. See [Connecting a Local or Self-Hosted Model](local-self-hosted.md).
 
-## Set up a Decision connection
+## Set up a Decision account
 
 A hosted Decision account sends the selected recent messages and statements to the service and can cost money. Smart response order also sends a [character roster](#what-the-model-sees).
 
 1. Click **Connections** in the top bar, then click **Add**.
-2. Under **Decisions**, click **TypeSafe** or **Own decision server**. For OpenRouter, click **OpenRouter** under **Chat**, connect it, then use **Use this key for decisions** in the model's **⋯** menu.
-3. Enter the **API key**, or for **Own decision server** the **Server address**. Click **Connect**. The window closes and the panel shows the new account.
-4. Click the **Decision** row under **Behind the scenes** and pick the new model.
+2. Search for **TypeSafe** or **Own decision server**, or click **Text** in the type chips. For OpenRouter, click **OpenRouter** instead.
+3. Enter the **API key**, or for **Own decision server** the **Server address**. Click **Connect**.
+4. Under **Found in TypeSafe — use it for:**, tick **Decision**, then click **Done**. The **Decision** row under **Behind the scenes** in the **Jobs** box now shows the model.
 5. To test it, click the model in the panel to open **Edit model**, then click **Test provider** in the **Provider tests** card. An **Own decision server** model has no **Test provider** button there. Open the account's **⋯** menu in the panel and click **Test** instead.
 
 A passing **Test provider** shows the probability, how long the answer took, and the account's time limit. The account's **Test** in the **⋯** menu only says whether it worked and how long it took. The test waits at least 10 seconds, or 5 seconds past a longer limit. If the answer took longer than the limit, the result says so: in chats that answer would count as no answer.
 
 If it did not work, see [Troubleshooting](#troubleshooting).
 
-The Decision editor (**Edit model** on a decision model) has these fields:
+A decision model has these fields. Click the model in the panel to open **Edit model**, or click the gear on the **Decision** row in the **Jobs** box to open **Decision settings** for the current decision model:
 
 | Field | What it does |
 | --- | --- |

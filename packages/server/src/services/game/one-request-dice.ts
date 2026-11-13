@@ -145,6 +145,15 @@ export interface GameTurnChanceSession {
    * the caller gave none, and every `rolls="N"` is read as it always was.
    */
   readonly issuedD20s: number[] | null;
+  /**
+   * The check records a branch arm wrote this turn, as written. The tag pass that follows leaves
+   * these alone: they are the Engine's own rolls, and a second roll could contradict the half of the
+   * branch already kept. Vouching cannot say so for a ruleset whose records are never vouched for.
+   */
+  readonly engineRecords: Map<string, number>;
+  /** The faces those records' dice showed, exactly as this arm put them among the dice thrown this
+   *  turn (`issuedD20s`), so the tag pass can take them back out without reading the records. */
+  readonly engineDice: number[];
 }
 
 export interface GameTurnChanceSessionOptions {
@@ -199,6 +208,8 @@ export function createGameTurnChanceSession(options: GameTurnChanceSessionOption
     placeholders: [],
     failed: false,
     issuedD20s: options.playerD20s ? [...options.playerD20s] : null,
+    engineRecords: new Map(),
+    engineDice: [],
   };
 }
 
@@ -392,17 +403,21 @@ export async function resolveGameTurnBranches(
         const group = resolveRulesetGroupCheck(context, request, groupRollers, () => session.roll(20));
         outcome = group.success;
         for (const one of group.results) {
-          if (session.issuedD20s && one.resolution === "sum") session.issuedD20s.push(...one.rolls);
+          if (session.issuedD20s && one.resolution === "sum") {
+            session.issuedD20s.push(...one.rolls);
+            session.engineDice.push(...one.rolls);
+          }
         }
-        edits.push({
-          start: plan.check.start,
-          end: plan.check.end,
-          replacement: serializeRulesetGroupCheck(request, group, {
-            ...(request.difficulty ? { difficulty: request.difficulty } : {}),
-            ...(request.withAbility ? { with: request.withAbility } : {}),
-            ...(request.purpose ? { for: request.purpose } : {}),
-          }),
+        const groupRecord = serializeRulesetGroupCheck(request, group, {
+          ...(request.difficulty ? { difficulty: request.difficulty } : {}),
+          ...(request.withAbility ? { with: request.withAbility } : {}),
+          ...(request.purpose ? { for: request.purpose } : {}),
         });
+        // Only what was rolled is the Engine's record; a member's refusal stays an ask the tag pass reads.
+        for (const one of groupRecord.match(/\[skill_check:[^\]]*\]/gi) ?? []) {
+          if (/\srolls="/.test(one)) session.engineRecords.set(one, (session.engineRecords.get(one) ?? 0) + 1);
+        }
+        edits.push({ start: plan.check.start, end: plan.check.end, replacement: groupRecord });
       } else if (
         context.ruleset &&
         (rulesetCheckRollerRefused(context.ruleset, request.who) || rulesetRefusesUntrained(context.ruleset, request))
@@ -438,15 +453,19 @@ export async function resolveGameTurnBranches(
           ),
         });
       } else {
+        // The roller handed over stands in for a d20 only. A ruleset's other dice (2d12, 3d6, a pool)
+        // are thrown by the resolver itself at their own size, so a record never holds a face its die
+        // cannot show.
         result = resolveSkillCheckWithContext(context, request, () => session.roll(20));
         outcome = result.success;
         // The record this writes is the Engine's own, so the tag pass after this one must vouch for it.
-        if (session.issuedD20s && result.resolution === "sum") session.issuedD20s.push(...result.rolls);
-        edits.push({
-          start: plan.check.start,
-          end: plan.check.end,
-          replacement: serializeResolvedSkillCheckTag(result),
-        });
+        if (session.issuedD20s && result.resolution === "sum") {
+          session.issuedD20s.push(...result.rolls);
+          session.engineDice.push(...result.rolls);
+        }
+        const record = serializeResolvedSkillCheckTag(result);
+        session.engineRecords.set(record, (session.engineRecords.get(record) ?? 0) + 1);
+        edits.push({ start: plan.check.start, end: plan.check.end, replacement: record });
       }
     }
 

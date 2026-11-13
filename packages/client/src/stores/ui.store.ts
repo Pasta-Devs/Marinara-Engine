@@ -952,6 +952,8 @@ interface UIState {
   libraryManualOrders: Record<string, { active: boolean; ids: string[] }>;
   /** True when any open detail editor has unsaved changes */
   editorDirty: boolean;
+  /** True while a Connections editor saves; job settings windows stay open until it ends */
+  connectionSaving: boolean;
   /** Mobile-only return target for detail editors opened from a right panel */
   detailReturnRightPanel: Panel | null;
   /** Surfaces Back returns to, oldest first. In memory only: never persisted or synced. */
@@ -1458,6 +1460,7 @@ interface UIState {
   closeTopMainSurface: () => void;
   /** Update the editor dirty flag (called by detail editors when their dirty state changes) */
   setEditorDirty: (dirty: boolean) => void;
+  setConnectionSaving: (saving: boolean) => void;
 
   // Settings actions
   setFontSize: (size: FontSize) => void;
@@ -2473,6 +2476,7 @@ export const useUIStore = create<UIState>()(
         agentPanelSort: "name-asc" as ResourcePanelSort,
         libraryManualOrders: {},
         editorDirty: false,
+        connectionSaving: false,
         detailReturnRightPanel: null,
         mainSurfaceHistory: [],
 
@@ -3093,6 +3097,7 @@ export const useUIStore = create<UIState>()(
           else actions.closeAllDetails();
         },
         setEditorDirty: (dirty) => set({ editorDirty: dirty }),
+        setConnectionSaving: (connectionSaving) => set({ connectionSaving }),
         requestChatModeShortcut: (mode) =>
           set((state) => ({
             ...CLOSED_MAIN_SURFACE,

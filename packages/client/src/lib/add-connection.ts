@@ -2,11 +2,16 @@
 import type { APIProvider, ChatModelChoice } from "@marinara-engine/shared";
 import type { DeviceItem } from "../hooks/use-device-setup";
 import { useUIStore } from "../stores/ui.store";
+import { queryClient } from "./query-client";
 import type { JobKey } from "./connection-jobs";
 
-/** A set-up screen in the Add window: an on-device engine, or the built-in decision model's own window. */
+/** An engine on this device, or the built-in decision model: opens its This device page or its job. */
 export type SetupItem = DeviceItem | "decision-builtin";
-export type AddConnectionTarget = { category: "device"; item: SetupItem } | { provider: APIProvider } | AddFor;
+export type AddConnectionTarget =
+  | { category: "device"; item: SetupItem }
+  /** A provider; a found local server also fills in its address and name. */
+  | { provider: APIProvider; baseUrl?: string; name?: string }
+  | AddFor;
 
 /** A job the Add window can start from ("For a job..."); the jobs live in `connection-jobs.ts`. */
 export type AddJob = JobKey;
@@ -37,22 +42,23 @@ export type ModelsFor = {
   chat?: { currentModel: string | null; onChoose: (choice: ChatModelChoice) => Promise<void> };
 };
 
-/** `decision_builtin` is the Add window's id for the built-in decision model (DECISION_BUILTIN). */
-const DEVICE_SERVICES = {
-  "local-model": "local_model",
-  tts: "tts",
-  stt: "stt",
-  "decision-builtin": "decision_builtin",
-} as const;
-
-/** Opens the Add window, on one service's set-up screen when a target is given. */
+/**
+ * Opens the Add window, on one provider's address step when a target is given. Engines on this device are no
+ * providers: the built-in model (and its decision model) opens its This device page, voice and dictation their jobs.
+ */
 export function openAddConnection(target?: AddConnectionTarget) {
-  if (target && !("item" in target) && !("provider" in target)) {
-    useUIStore.getState().openModal("create-connection", { forJob: target });
-    return;
+  const { openModal } = useUIStore.getState();
+  if (target && "item" in target) {
+    if (target.item === "stt") return openModal("job-settings", { job: "stt" });
+    if (target.item === "tts") {
+      // With voice on, its settings; with voice off, the picker that turns it on.
+      const on = queryClient.getQueryData<{ enabled?: boolean }>(["tts", "config"])?.enabled;
+      return openModal(on ? "job-settings" : "job-picker", { job: "voice" });
+    }
+    return openModal("device-detail", { item: "local-model" });
   }
-  const service = !target ? undefined : "item" in target ? DEVICE_SERVICES[target.item] : target.provider;
-  useUIStore.getState().openModal("create-connection", service ? { service } : undefined);
+  if (target && !("provider" in target)) return openModal("create-connection", { forJob: target });
+  openModal("create-connection", target && { service: target.provider, baseUrl: target.baseUrl, name: target.name });
 }
 
 /** Opens the big model screen for one Connection (Add model, Browse all models). */
