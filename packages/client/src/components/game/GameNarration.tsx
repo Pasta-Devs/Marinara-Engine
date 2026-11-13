@@ -5657,7 +5657,7 @@ export function GameNarration({
                   !showActiveTranslationOnly &&
                   renderTranslationPanel(activeSourceMessage, activeTranslatedSegmentText, activeIsTranslating, "mt-2")}
 
-                <div className="mt-2 flex items-center justify-between">
+                <div className="mt-2 flex items-center justify-between" data-mari-part="game-tools-row">
                   <div className="flex items-center gap-1.5" data-mari-part="game-tools">
                     {showLogsButton && (
                       <button
@@ -5734,7 +5734,7 @@ export function GameNarration({
                   !showActiveTranslationOnly &&
                   renderTranslationPanel(activeSourceMessage, activeTranslatedSegmentText, activeIsTranslating, "mt-2")}
 
-                <div className="mt-2 flex items-center justify-between">
+                <div className="mt-2 flex items-center justify-between" data-mari-part="game-tools-row">
                   <div className="flex items-center gap-1.5" data-mari-part="game-tools">
                     {showLogsButton && (
                       <button
@@ -5809,7 +5809,7 @@ export function GameNarration({
                   !showActiveTranslationOnly &&
                   renderTranslationPanel(activeSourceMessage, activeTranslatedSegmentText, activeIsTranslating, "mt-2")}
 
-                <div className="mt-2 flex items-center justify-between">
+                <div className="mt-2 flex items-center justify-between" data-mari-part="game-tools-row">
                   <div className="flex items-center gap-1.5" data-mari-part="game-tools">
                     {showLogsButton && (
                       <button

@@ -572,7 +572,13 @@
   justify-content: flex-start;
   gap: 0.375rem;
 }
-.ov-libpage__body div:has(> .mari-panel-gradient-button) > button {
+.ov-libpage__body
+  div
+  > button:is(
+    .mari-panel-gradient-button,
+    .mari-panel-gradient-button ~ *,
+    :has(~ .mari-panel-gradient-button)
+  ) {
   flex: 0 0 auto;
   width: auto;
   min-width: 2.25rem;
@@ -1790,8 +1796,12 @@
   display: contents !important;
 }
 [data-ov-settings-sections]
-  div:has([id^="settings-section-"]):not([id^="settings-section-"] *)
-  > :not([id^="settings-section-"]):not(div:has([id^="settings-section-"])):not(style) {
+  div:not([id^="settings-section-"] *)
+  > :not([id^="settings-section-"]):not(style):not(:has([id^="settings-section-"])):is(
+    [id^="settings-section-"] ~ *,
+    :has([id^="settings-section-"]) ~ *,
+    :has(~ [id^="settings-section-"], ~ * [id^="settings-section-"])
+  ) {
   display: none !important;
 }
 [data-ov-settings-sections] [id^="settings-section-"] {
@@ -4667,7 +4677,7 @@ input.ov-edhead__title:focus {
   flex-wrap: wrap;
   gap: 0.375rem !important;
 }
-.ov-cs .mari-drawer__body .grid:has(> button) > button {
+.ov-cs .mari-drawer__body .grid > button {
   flex: 0 0 auto;
 }
 .ov-cs .mari-drawer__body svg {
@@ -5234,7 +5244,7 @@ input.ov-edhead__title:focus {
   font-size: 0.8125rem !important;
   font-weight: 400 !important;
 }
-.ov-gsw .space-y-4 > div:has(> :is(label, span).mb-1\.5:first-child) > :not(:first-child) {
+.ov-gsw .space-y-4 > div > :is(label, span).mb-1\.5:first-child ~ * {
   grid-column: 2;
 }
 /* Flatten the inner cards. */
@@ -5251,7 +5261,7 @@ input.ov-edhead__title:focus {
   border: 1px solid var(--ov-line) !important;
   border-radius: 0.4375rem !important;
 }
-.ov-gsw .space-y-4 div.rounded-lg:is([class*="ring-1"]):has(> div > input, > div > svg) > div {
+.ov-gsw .space-y-4 div.rounded-lg:is([class*="ring-1"]) > div:is(:has(> input, > svg), :has(> input, > svg) ~ div, :has(~ div > input, ~ div > svg)) {
   padding-left: 0.5rem;
   padding-right: 0.5rem;
 }
@@ -6120,8 +6130,11 @@ input.ov-edhead__title:focus {
 }
 .ov-cs.ov-cs
   .mari-drawer__body
-  .flex-col:has(> .mari-chrome-control + .mari-chrome-control)
-  > :not(.mari-chrome-control) {
+  .flex-col
+  > :not(.mari-chrome-control):is(
+    .mari-chrome-control + .mari-chrome-control ~ *,
+    :has(~ .mari-chrome-control + .mari-chrome-control)
+  ) {
   flex: 1 1 100%;
 }
 .ov-cs.ov-cs .mari-drawer__body .mari-chrome-control {
@@ -6233,8 +6246,9 @@ input.ov-edhead__title:focus {
 }
 .ov-cs.ov-cs
   .mari-drawer__body
-  div:has(> label:first-child + :is(input:not([type="checkbox"]), select):last-child)
-  > :last-child {
+  div
+  > label:first-child
+  + :is(input:not([type="checkbox"]), select):last-child {
   margin: 0 !important;
 }
 /* Switch rows: no tinted box; the long description moves into the row's hover title. */
@@ -6249,8 +6263,10 @@ input.ov-edhead__title:focus {
   font-size: 0.75rem !important;
   font-weight: 400 !important;
 }
-.ov-cs.ov-cs .mari-drawer__body .space-y-2:has(> .justify-between) > * + *,
-.ov-cs.ov-cs .mari-drawer__body .space-y-3:has(> .justify-between) > * + * {
+.ov-cs.ov-cs
+  .mari-drawer__body
+  :is(.space-y-2, .space-y-3)
+  > * + *:is(.justify-between, .justify-between ~ *, :has(~ .justify-between)) {
   margin-top: 0.125rem !important;
 }
 /* Connection is a section like Prompt Preset: header with "?" help, then one dense
@@ -7568,8 +7584,11 @@ input.ov-edhead__title:focus {
   align-items: center;
 }
 :root[data-overhaul="on"]
-  .flex-col:has(> .mari-chrome-control + .mari-chrome-control):not([data-component="GlobalOmnibar"] *)
-  > :not(.mari-chrome-control) {
+  .flex-col:not([data-component="GlobalOmnibar"] *)
+  > :not(.mari-chrome-control):is(
+    .mari-chrome-control + .mari-chrome-control ~ *,
+    :has(~ .mari-chrome-control + .mari-chrome-control)
+  ) {
   flex: 1 1 100%;
 }
 /* Checkbox choice cards in Settings (Danger zone...): plain checkbox rows. */
@@ -12479,7 +12498,11 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-ov-split-phone] [data-component="AppShell"] {
   --mari-topbar-height: 0px;
 }
-:root[data-ov-split-phone] :has(> [data-component="MobileDetailSheet"]) > :not([data-component="MobileDetailSheet"]) {
+:root[data-ov-split-phone]
+  :not([data-component="MobileDetailSheet"]):is(
+    [data-component="MobileDetailSheet"] ~ *,
+    :has(~ [data-component="MobileDetailSheet"])
+  ) {
   visibility: hidden;
 }
 .ov-splitbar {
@@ -13217,7 +13240,7 @@ input.ov-edhead__title:not(#ov-x) {
    tools drop their words like on a phone, so the row fits instead of running past the card; only
    if it still can't fit do the controls wrap to a second line, still pinned right. ⌄ always stays
    right after Combat. */
-:root[data-overhaul] [data-game-narration] div:has(> [data-mari-part="game-tools"]) {
+:root[data-overhaul] [data-game-narration] [data-mari-part="game-tools-row"] {
   flex-wrap: wrap;
   row-gap: 0.375rem;
 }
@@ -13236,11 +13259,11 @@ input.ov-edhead__title:not(#ov-x) {
 @container mari-main (max-width: 22rem) {
   :root[data-overhaul]
     [data-game-narration]
-    div:has(> [data-mari-part="game-tools"])
-    :is([data-mari-part="game-tools"], [data-mari-part="game-tools"] + *) {
+    [data-mari-part="game-tools-row"]
+    > :is([data-mari-part="game-tools"], [data-mari-part="game-tools"] + *) {
     gap: 0.25rem;
   }
-  :root[data-overhaul] [data-game-narration] div:has(> [data-mari-part="game-tools"]) button {
+  :root[data-overhaul] [data-game-narration] [data-mari-part="game-tools-row"] button {
     padding-inline: 0.5rem;
   }
 }
