@@ -12,7 +12,7 @@ interface SwipeJumpControlProps {
   activeSwipeIndex: number;
   swipeCount: number;
   alwaysShow?: boolean;
-  onSetActiveSwipe: (index: number) => void;
+  onSetActiveSwipe: (index: number) => void | Promise<boolean | undefined>;
   onCreateNextSwipe?: () => void;
   className?: string;
   /** When set, the counter becomes a list of the swipes; `greeting` marks the chat's first message. */

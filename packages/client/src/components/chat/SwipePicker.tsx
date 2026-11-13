@@ -15,7 +15,8 @@ interface SwipePickerProps {
   currentContent: string;
   /** The chat's first message, whose swipes are the card's greetings. */
   greeting: boolean;
-  onSetActiveSwipe: (index: number) => void;
+  /** Resolves `true` once the switch is saved. */
+  onSetActiveSwipe: (index: number) => void | Promise<boolean | undefined>;
 }
 
 type Row = GreetingEntry & { index: number; haystack: string };
@@ -53,7 +54,6 @@ export function SwipePicker({
   const scrollToCurrent = useRef(false);
   const swipes = useMessageSwipes(chatId, messageId, open);
 
-  const currentTitle = parseGreeting(currentContent).title || localizeUi("ui.chat.swipepicker.untitled");
   const rows = useMemo<Row[]>(() => {
     const sorted = [...(swipes.data ?? [])].sort((a, b) => a.index - b.index);
     return parseGreetings(sorted.map((swipe) => swipe.content)).map((entry, i) => ({
@@ -62,6 +62,12 @@ export function SwipePicker({
       haystack: `${entry.tags.join(" ")} ${entry.title} ${entry.preview}`.toLowerCase(),
     }));
   }, [swipes.data]);
+
+  // Prefer the loaded row so tag parsing matches the list (a lone `[OOC]` stays in the title).
+  const currentTitle =
+    rows.find((row) => row.index === activeSwipeIndex)?.title ||
+    parseGreeting(currentContent).title ||
+    localizeUi("ui.chat.swipepicker.untitled");
 
   const groups = useMemo(() => {
     const values = [new Set<string>(), new Set<string>(), new Set<string>(), new Set<string>()];
@@ -117,17 +123,17 @@ export function SwipePicker({
     );
   };
 
-  const choose = (row: Row) => {
+  const choose = async (row: Row) => {
     setOpen(false);
     if (row.index === activeSwipeIndex) return;
     const previous = activeSwipeIndex;
-    onSetActiveSwipe(row.index);
+    if ((await onSetActiveSwipe(row.index)) !== true) return;
     toast.success(
       localizeUi("ui.chat.swipepicker.switched", {
         title: row.title || localizeUi("ui.chat.swipepicker.untitled"),
       }),
       {
-        action: { label: localizeUi("ui.chat.swipepicker.undo"), onClick: () => onSetActiveSwipe(previous) },
+        action: { label: localizeUi("ui.chat.swipepicker.undo"), onClick: () => void onSetActiveSwipe(previous) },
       },
     );
   };
@@ -139,7 +145,7 @@ export function SwipePicker({
       moveActive(activeRow + steps[event.key]!);
     } else if (event.key === "Enter" && visible[activeRow]) {
       event.preventDefault();
-      choose(visible[activeRow]!);
+      void choose(visible[activeRow]!);
     }
   };
 
@@ -389,7 +395,7 @@ export function SwipePicker({
                       id={optionId(row)}
                       role="option"
                       aria-selected={isCurrent}
-                      onClick={() => choose(row)}
+                      onClick={() => void choose(row)}
                       onMouseMove={() => !isActive && setActiveRow(visible.indexOf(row))}
                       className={cn(
                         "relative grid cursor-pointer grid-cols-[1fr_auto] gap-x-2.5 gap-y-0.5 rounded-lg py-2 pr-3 pl-4 [contain-intrinsic-size:auto_4rem] [content-visibility:auto] max-md:py-2.5",

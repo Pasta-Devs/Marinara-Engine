@@ -2877,7 +2877,7 @@ const LocalChatArea = memo(function LocalChatArea({
     (messageId: string, index: number) => {
       const actionId = ++swipeActionSeq.current;
       const refreshChatId = activeChatId;
-      void (async () => {
+      return (async (): Promise<boolean | undefined> => {
         const gameStateStore = useGameStateStore.getState();
         if (shouldRefreshGameStateOnSwipe && refreshChatId) gameStateStore.setRefreshingChat(refreshChatId);
         try {
@@ -2917,9 +2917,11 @@ const LocalChatArea = memo(function LocalChatArea({
           }
           if (swipeActionSeq.current !== actionId) return;
           await refreshVisibleGameState();
+          return true;
         } catch {
           if (swipeActionSeq.current !== actionId) return;
           toast.error(localizeUi("ui.chat.chatarea.couldNotSwitchSwipes"));
+          return false;
         } finally {
           if (swipeActionSeq.current === actionId) {
             useGameStateStore.getState().clearRefreshingChat(refreshChatId);

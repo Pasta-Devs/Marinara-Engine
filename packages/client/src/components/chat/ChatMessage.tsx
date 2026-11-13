@@ -1023,7 +1023,7 @@ interface ChatMessageProps {
   onRetryFailedReply?: () => void;
   /** R2: the reply checkup's quiet line, set only on the reply it describes. */
   replyCheckup?: ReactNode;
-  onSetActiveSwipe?: (messageId: string, index: number) => void;
+  onSetActiveSwipe?: (messageId: string, index: number) => void | Promise<boolean | undefined>;
   onToggleConversationStart?: ToggleConversationStart;
   memoryStartCharacterIds?: string[];
   onToggleHiddenFromAI?: ToggleHiddenFromAI;
@@ -2735,7 +2735,7 @@ export const ChatMessage = memo(function ChatMessage({
       if (index === message.activeSwipeIndex) return;
       editSwipeIndexRef.current = null;
       setEditing(false);
-      onSetActiveSwipe?.(message.id, index);
+      return onSetActiveSwipe?.(message.id, index);
     },
     [message.activeSwipeIndex, message.id, onSetActiveSwipe],
   );
