@@ -2431,11 +2431,15 @@ export function marinaraBuildEncounter(input: {
   boss?: boolean;
   /** Families the story wants (a cult's hideout, a wolf pack); the others are picked at random. */
   families?: readonly string[];
+  /** The only families the fight may draw on (a place's spawn table); every family of the setting when absent. */
+  pool?: readonly string[];
 }): { foes: MarinaraEncounterFoe[]; threat: number } {
   const { party, random } = input;
   const level = Math.max(1, Math.min(MARINARA_LEVEL_CAP, Math.round(party.level)));
   const budget = MARINARA_ENCOUNTER_BUDGET[input.difficulty] * party.size;
-  const pool = marinaraBestiaryFor(input.setting, level);
+  const pool = marinaraBestiaryFor(input.setting, level).filter(
+    (family) => !input.pool || input.pool.includes(family.id),
+  );
   if (!pool.length) return { foes: [], threat: 0 };
   // A Brutal game lifts the whole fight a few levels above the party, where each family's names reach.
   const lift = party.brutal ? Math.floor(random() * (MARINARA_LEVEL_GAP_BRUTAL.lift + 1)) : 0;

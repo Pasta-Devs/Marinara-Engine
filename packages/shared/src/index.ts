@@ -119,6 +119,7 @@ export * from "./features/world/experience-people.js";
 export * from "./features/world/experience-rulesets.js";
 export * from "./features/world/dungeon-map.js";
 export * from "./features/world/sites.js";
+export * from "./features/world/spawns.js";
 export * from "./features/world/overused-names.js";
 export * from "./schemas/capability-package.schema.js";
 export * from "./schemas/gm-verb-table.schema.js";

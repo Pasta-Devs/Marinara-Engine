@@ -43,6 +43,14 @@ import {
   RULESET_INVENTED_CASTER_MOST,
 } from "@marinara-engine/shared";
 import { loadGameFightItems } from "../services/game/game-inventory.service.js";
+import { loadGameWorld } from "../services/game/game-world.service.js";
+import {
+  regionFightEnemies,
+  regionFightMenu,
+  regionFightPlan,
+  regionFightPromptText,
+  regionSpawnGame,
+} from "../services/game/region-spawns.service.js";
 import { cardsWithFreshTemperaments, keepPartyTemperaments } from "../services/game/party-temperament.service.js";
 import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.service.js";
 import {
@@ -846,7 +854,7 @@ export function marinaraEncounterBrief(
   chatMeta: Record<string, any> | null | undefined,
   setupConfig: Record<string, any> | null | undefined,
   hasRuleset: boolean,
-): { menu: ReturnType<typeof marinaraBestiaryMenu> } | null {
+): { menu: ReturnType<typeof marinaraBestiaryMenu>; region?: string } | null {
   if (hasRuleset || setupConfig?.marinaraClasses !== true) return null;
   const setting = marinaraBestiarySetting(
     typeof chatMeta?.gameWorldKit?.id === "string" ? chatMeta.gameWorldKit.id : null,
@@ -885,7 +893,7 @@ export function buildInitPrompt(
   battlefields?: WorldBattlefields,
   ttsEmotionIndicatorsEnabled = false,
   /** Classic Marinara classes (combat overhaul): the setting's bestiary families at the party's level. */
-  marinara?: { menu: ReturnType<typeof marinaraBestiaryMenu> } | null,
+  marinara?: { menu: ReturnType<typeof marinaraBestiaryMenu>; region?: string } | null,
 ): ChatMessage[] {
   const msgs: ChatMessage[] = [];
   // What an attack's element may be: one of the setting's own, none in a setting without them.
@@ -1099,8 +1107,9 @@ export function buildInitPrompt(
     inst += `- Give every enemy a tier: minion (fodder that goes down fast), standard, elite (a captain, a veteran beast) or boss (one per fight at most, only a true boss, never below party level 5). The Engine fits the fight to the party: too many or too strong enemies are lowered a tier or held back.\n`;
     inst += `- A boss only when the story calls for one (a climax, a named villain), never in a chance encounter.\n`;
     inst += `- Add a top-level "encounterKind": "chance" for a chance meeting (wandering beasts, roadside bandits, whatever the party stumbles on), or "story" for a fight the story set up. In a chance encounter the Engine now and then adds a rare treasure creature that flees after a few rounds. Add "treasure": true only when the story itself has found such a rare treasure creature.\n`;
+    if (marinara.region) inst += `- ${marinara.region}\n`;
     if (marinara.menu.length) {
-      inst += `- Bestiary for this setting at the party's level. When an enemy is one of these, give its family id exactly as written and keep its name as listed or the story's own name for it; HP and attacks you write for it are ignored, the bestiary decides them:\n`;
+      inst += `- ${marinara.region ? "Bestiary of what lives where this fight is" : "Bestiary for this setting at the party's level"}. When an enemy is one of these, give its family id exactly as written and keep its name as listed or the story's own name for it; HP and attacks you write for it are ignored, the bestiary decides them:\n`;
       for (const one of marinara.menu)
         inst += `  - ${one.familyId}: ${one.name} (${one.kind}, ${one.role}; tiers ${one.tiers.join("/")}). ${one.summary}\n`;
     }
@@ -1420,6 +1429,20 @@ export async function encounterRoutes(app: FastifyInstance) {
           );
         }
       }
+      // Region spawns (Overworld): the land's own foes, at the land's levels; never in a story's own fight.
+      const storyFightFirst = await latestStoryFight(app.db, chatId, chatMeta);
+      const regionGame =
+        !fightRuleset && !storyFightFirst
+          ? regionSpawnGame(await loadGameWorld(app.db, chatId, chatMeta), chatMeta)
+          : null;
+      const regionPlan = regionGame
+        ? regionFightPlan(
+            regionGame,
+            chatMessages as Array<{ role: string; content: string; extra?: unknown }>,
+            chatMeta?.gameRegionWalkFought,
+          )
+        : null;
+      const marinaraBrief = marinaraEncounterBrief(chatMeta, setupConfig, !!fightRuleset);
       const prompt = buildInitPrompt(
         personaName,
         personaCtx,
@@ -1434,11 +1457,13 @@ export async function encounterRoutes(app: FastifyInstance) {
         gameWorldElementSet(chatMeta),
         gameWorldBattlefields(chatMeta),
         gameTtsEmotionIndicatorsEnabled(await createAppSettingsStorage(app.db).get(TTS_SETTINGS_KEY)),
-        marinaraEncounterBrief(chatMeta, setupConfig, !!fightRuleset),
+        marinaraBrief && regionGame && regionPlan
+          ? { menu: regionFightMenu(regionGame, regionPlan), region: regionFightPromptText(regionGame, regionPlan) }
+          : marinaraBrief,
       );
       // A fight the story set (Capability API 1.343): its opponents are the story's, never the model's.
       // Creatures the ruleset doesn't have are refused (and logged); with none left, the model picks them.
-      const storyFight = await latestStoryFight(app.db, chatId, chatMeta);
+      const storyFight = storyFightFirst;
       const storyRoster = storyFight
         ? await storyFightOpponents(storyFight, fightRuleset?.definition.combat ? fightRuleset : null)
         : null;
@@ -1574,6 +1599,24 @@ export async function encounterRoutes(app: FastifyInstance) {
           logger.info("[game/combat:init] chatId=%s boss fight with no boss marked: %s is the boss", chatId, made.name);
         }
       }
+      // The land's own foes (region spawns): a walk's meeting is exactly what was rolled; other unnamed foes
+      // take the land's levels. Kept once fought, so the same meeting is never fought twice.
+      if (regionGame && regionPlan && !storyOpponents?.length) {
+        combatState = {
+          ...combatState,
+          enemies: regionFightEnemies(
+            regionGame,
+            regionPlan,
+            (combatState.enemies as Array<Record<string, any>>) ?? [],
+            `${chatId}:${chatMessages.length}`,
+          ),
+          ...(regionPlan.met ? { encounterKind: "chance" } : {}),
+        };
+        if (regionPlan.walkId) {
+          const walkId = regionPlan.walkId;
+          await chats.patchMetadata(chatId, () => ({ gameRegionWalkFought: walkId }));
+        }
+      }
       // Classic Marinara classes: each enemy's bestiary family and tier, and the fight's own difficulty,
       // ride on the enemy as `marinara` for the fight's start to read.
       if (!fightRuleset && setupConfig?.marinaraClasses === true) {
@@ -1589,10 +1632,24 @@ export async function encounterRoutes(app: FastifyInstance) {
           enemies: ((combatState.enemies as Array<Record<string, unknown>>) ?? []).map((enemy) => {
             const tier = tiers.includes(String(enemy.tier)) ? String(enemy.tier) : undefined;
             const family = typeof enemy.family === "string" && enemy.family.trim() ? enemy.family.trim() : undefined;
+            // A foe of the land (region spawns) keeps the level the land gave it.
+            const { regionFoe, ...unit } = enemy as Record<string, unknown> & {
+              regionFoe?: { familyId?: string; tier?: string; level: number };
+            };
+            const level = regionFoe?.level;
             return {
-              ...enemy,
+              ...unit,
               marinara: {
-                ...(family ? { family: { familyId: family, ...(tier ? { tier } : {}) } } : {}),
+                ...(family
+                  ? {
+                      family: {
+                        familyId: family,
+                        ...(tier ? { tier } : {}),
+                        ...(level !== undefined ? { level } : {}),
+                      },
+                    }
+                  : {}),
+                ...(regionFoe ? { region: true, level } : {}),
                 ...(tier ? { tier } : {}),
                 ...(encounter ? { encounter } : {}),
                 ...(chance ? { chance: true } : {}),

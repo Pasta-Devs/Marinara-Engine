@@ -70,6 +70,7 @@ import {
   type DecisionMessage,
 } from "../services/generation/agent-activation-questions.js";
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
+import { regionDangerLine, regionSpawnGame, regionWalkEncounterText } from "../services/game/region-spawns.service.js";
 import { loadGameWorld } from "../services/game/game-world.service.js";
 import { readMapPackPeople } from "../services/game/map-pack.service.js";
 import {
@@ -5807,7 +5808,18 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 const visit = await turnVisitPromise;
                 const visitTown = visit ? worldTown(promptWorld, visit.settlementId, present) : null;
                 // In the order they happened: a visit in a town the party then walked away from comes first.
-                const walkLine = walk ? `${worldWalkText(promptWorld, walk)}\n` : "";
+                // Region spawns (Overworld): a walk may meet the land's own foes on the way, rolled here and
+                // seeded by the walk, for the Game Master to tell; the land's danger is told where the party is.
+                const spawns = regionSpawnGame(promptWorld, chatMeta);
+                const met = spawns && walk ? regionWalkEncounterText(spawns, walk) : "";
+                const walkLine = walk ? `${worldWalkText(promptWorld, walk)}${met ? ` ${met}` : ""}\n` : "";
+                const danger = (place: { at: { x: number; y: number } } | undefined) => (where: string) =>
+                  spawns && place
+                    ? where.replace(
+                        /<\/where_you_are>\s*$/,
+                        `- ${regionDangerLine(spawns, place.at)}\n</where_you_are>`,
+                      )
+                    : where;
                 const visitInside = visit && visitTown ? worldInterior(promptWorld, visitTown, visit.to) : null;
                 const visitLine =
                   visit && visitTown
@@ -5817,16 +5829,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   walk && visit && visit.settlementId !== walk.to ? visitLine + walkLine : walkLine + visitLine;
                 if (!before?.name) {
                   const start = promptWorld.world.places.find((place) => place.id === promptWorld.world.startId);
-                  return walked + worldWhereYouAreText(promptWorld, { place: start, met: promptMet, present });
+                  return (
+                    walked + danger(start)(worldWhereYouAreText(promptWorld, { place: start, met: promptMet, present }))
+                  );
                 }
+                const here = worldPlaceByName(promptWorld.world, before.name);
                 return (
                   walked +
-                  worldWhereYouAreText(promptWorld, {
-                    place: worldPlaceByName(promptWorld.world, before.name),
-                    name: before.name,
-                    met: promptMet,
-                    present,
-                  })
+                  danger(here)(
+                    worldWhereYouAreText(promptWorld, {
+                      place: here,
+                      name: before.name,
+                      met: promptMet,
+                      present,
+                    }),
+                  )
                 );
               })()
             : undefined;
