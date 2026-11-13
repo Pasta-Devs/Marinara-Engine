@@ -118,6 +118,13 @@ export interface SkillCheckTag {
   /** Independent setback dice and optional own-pool upgrades (1.150). */
   setback?: number;
   upgradeOwn?: number;
+  /** `plot="true"`: the plot die thrown (1.822). Carried, never judged: the resolver holds it to the
+   *  ruleset. */
+  plot?: boolean;
+  /** `shift="+1"`: bands to move the outcome (1.823). Carried, never judged, as `plot` is. */
+  shift?: number;
+  /** `hunger="2"`: special dice among a pool (1.824). Carried, never judged, as `plot` is. */
+  hunger?: number;
   /**
    * `spend="willpower:1"` as the GM wrote it, read into a pool name and a whole number of points.
    *
@@ -508,6 +515,13 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     const dark = Number(darkValue);
     if (Number.isInteger(dark) && dark >= 0) tag.darkDice = dark;
   }
+  if (values.get("plot")?.trim().toLowerCase() === "true") tag.plot = true;
+  const hungerValue = values.get("hunger")?.trim();
+  if (hungerValue && Number.isInteger(Number(hungerValue)) && Number(hungerValue) >= 0)
+    tag.hunger = Number(hungerValue);
+  const shiftValue = values.get("shift")?.trim();
+  if (shiftValue && Number.isInteger(Number(shiftValue)) && Number(shiftValue) !== 0)
+    tag.shift = Math.max(-3, Math.min(3, Number(shiftValue)));
   const rerollName = values.get("reroll")?.trim();
   if (rerollName) tag.reroll = rerollName.slice(0, 40);
   const reason = values.get("reason")?.trim().toLowerCase();
@@ -603,6 +617,15 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const tensCount = Number(values.get("tens"));
   // Two named dice (1.821), said by the Engine's own record and read back so a reloaded card says them.
   const dualityLabel = values.get("duality")?.trim().slice(0, 80);
+  // Special dice (1.824): the count is the tag's own `hunger=`, and the record adds what they did.
+  const hungerLabel = values.get("hungerlabel")?.trim().slice(0, 40);
+  // The plot die (1.822), read back the same way.
+  const plotFace = Number(values.get("plotface"));
+  const plotSymbolRaw = values.get("plotsymbol")?.trim().toLowerCase();
+  const plotSymbol: SkillCheckResult["plotSymbol"] =
+    plotSymbolRaw === "complication" || plotSymbolRaw === "opportunity" ? plotSymbolRaw : undefined;
+  const plotBonus = Number(values.get("plotbonus"));
+  const plotLabel = values.get("plotlabel")?.trim().slice(0, 40);
   const symbolRecord = readSymbolRecord(values);
   if (values.has("symbols") && !symbolRecord) return tag;
   const effected = {
@@ -632,7 +655,27 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
       ? { dark: darkCount, ...(darkLabel ? { darkLabel } : {}), ...(darkHighest ? { darkHighest: true } : {}) }
       : {}),
     ...(dualityLabel ? { duality: dualityLabel } : {}),
+    ...(Number.isInteger(plotFace) && plotFace > 0 && plotFace <= 20
+      ? {
+          plotFace,
+          ...(plotSymbol ? { plotSymbol } : {}),
+          ...(Number.isInteger(plotBonus) && plotBonus !== 0 ? { plotBonus } : {}),
+          ...(plotLabel ? { plotLabel } : {}),
+        }
+      : {}),
+    ...(tag.shift ? { shift: tag.shift } : {}),
   };
+  // Special dice are some of a pool's dice, so a count above the dice thrown, or one on a summed
+  // check, names no dice and is left out.
+  const special = (thrown: number) =>
+    tag.hunger && declaredResolution === "successes" && tag.hunger <= thrown
+      ? {
+          hunger: tag.hunger,
+          ...(hungerLabel ? { hungerLabel } : {}),
+          ...(values.get("messy")?.trim().toLowerCase() === "true" ? { messy: true } : {}),
+          ...(values.get("bestial")?.trim().toLowerCase() === "true" ? { bestial: true } : {}),
+        }
+      : {};
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
   const total = Number.parseInt(values.get("total") ?? "", 10);
@@ -772,7 +815,12 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     const rollIsD20 = actualRoll >= 1 && actualRoll <= 20;
     const usedRollHolds = usedRoll === actualRoll;
     const arithmeticHolds = actualRoll + modifier === total;
-    const outcomeHolds = criticalSuccess || criticalFailure || success === total >= recordDc;
+    // A shifted band (1.823) may succeed below the dc or fail above it, and the record names it.
+    // Only a shift that explains the disagreement: a better band for a success below the dc, a worse
+    // one for a failure at or above it.
+    const shifted =
+      !!tag.shift && !!outcomeLabel && (tag.shift > 0 ? success && total < recordDc : !success && total >= recordDc);
+    const outcomeHolds = criticalSuccess || criticalFailure || shifted || success === total >= recordDc;
     if (!rollIsD20 || !usedRollHolds || !arithmeticHolds || !outcomeHolds) return tag;
   }
 
@@ -794,6 +842,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     ...adjust,
     ...thrownAgain,
     ...effected,
+    ...special(rolls.length),
   };
 
   return tag;
