@@ -686,7 +686,7 @@ export function OvToolsViewer({ children }: { children: ReactNode }) {
       createCustomToolFolderPackageFiles(picked.map(serializeCustomToolForTransfer)),
       picked.length === 1 ? `${picked[0]!.name}.zip` : "marinara-functions.zip",
     );
-    if (status === "saved") toast.success(`${localize("Exported")} ${picked.length}`);
+    if (status === "saved") toast.success(localizeUi("ui.overhaul.text.exportedNumber", { number: picked.length }));
   };
   const removeMany = async (ids: string[], names?: string) => {
     const failed = await kitDelete(ids, (id) => deleteTool.mutateAsync(id), {
@@ -720,7 +720,10 @@ export function OvToolsViewer({ children }: { children: ReactNode }) {
       // Webhook and script tools come in switched off, for you to check first.
       if (reviews.length > 0)
         toast.warning(
-          `${reviews.map((review) => review.name).join(", ")}: ${localizeUi("ui.panels.functionssection.executableImportReviewDescription")}`,
+          localizeUi("ui.chat.quickreplymenu.value1Value2", {
+            value1: reviews.map((review) => review.name).join(", "),
+            value2: localizeUi("ui.panels.functionssection.executableImportReviewDescription"),
+          }),
           { duration: 12000 },
         );
     } catch (error) {

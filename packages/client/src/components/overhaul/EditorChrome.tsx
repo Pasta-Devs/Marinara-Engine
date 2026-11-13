@@ -410,7 +410,10 @@ export function OvSaveButton({
             .catch(() => undefined)
         }
         disabled={!dirty || saving || disabled}
-        title={`${t("ui.noodle.noodlehome.save")} (${shortcut})`}
+        title={t("ui.layout.personalextensiontopbarbuttons.value1Value2", {
+          value1: t("ui.noodle.noodlehome.save"),
+          value2: shortcut,
+        })}
         data-ov-save=""
       >
         <Save size={14} aria-hidden="true" />
