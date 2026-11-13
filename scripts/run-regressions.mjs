@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { BATCH_MARKER } from './run-regression-batch.mjs';
 
 const FILE_TIMEOUT_MS = 30_000;
 const SERIAL_RETRY_LIMIT = 20;
@@ -48,7 +49,22 @@ export function regressionTimeoutMs(relativePath) {
   return FILE_TIMEOUT_MS;
 }
 
-function discoverRegressions(directory = regressionsRoot) {
+// Files that only call engine code, with no saved data, servers or child processes, run BATCH_SIZE at a time in one
+// shared process (scripts/run-regression-batch.mjs): most of a separate file's time is starting up and loading the same
+// modules. A file that does not pass there, or a batch that crashes or hangs, runs alone as usual, so batching can only
+// save time, never fail a file. Add a prefix only for files that pass in a shared process and touch nothing but memory.
+// --isolated (or REGRESSION_ISOLATED=1) turns batching off; the full nightly run uses it, so a file that passes only
+// because of what an earlier file left behind still shows up.
+export const BATCHED_REGRESSION_PREFIXES = ['scripts/regressions/game-ruleset-combat-'];
+const BATCH_SIZE = 20;
+// A shared process cannot tell these files' results apart or would skip their checks.
+const NOT_BATCHABLE = /node:test|process\.exit\(|process\.exitCode|process\.argv/u;
+
+export function batchable(relativePath, text) {
+  return BATCHED_REGRESSION_PREFIXES.some((prefix) => relativePath.startsWith(prefix)) && !NOT_BATCHABLE.test(text);
+}
+
+export function discoverRegressions(directory = regressionsRoot) {
   const files = [];
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const entryPath = path.join(directory, entry.name);
@@ -61,7 +77,7 @@ function discoverRegressions(directory = regressionsRoot) {
   return files.sort();
 }
 
-const USAGE = 'Usage: node scripts/run-regressions.mjs [--list] [--filter <text>]... [--concurrency <n>] [--shard <i>/<n>]';
+const USAGE = 'Usage: node scripts/run-regressions.mjs [--list] [--filter <text>]... [--concurrency <n>] [--shard <i>/<n>] [--isolated]';
 
 function parseConcurrency(value, message = USAGE) {
   if (!/^[1-9][0-9]*$/.test(value ?? '')) throw new Error(message);
@@ -77,6 +93,7 @@ function parseShard(value) {
 
 function parseArguments(args) {
   let list = false;
+  let isolated = process.env.REGRESSION_ISOLATED === '1';
   // A file runs when any --filter matches it.
   const filters = [];
   let concurrency;
@@ -88,6 +105,8 @@ function parseArguments(args) {
       continue;
     } else if (argument === '--list') {
       list = true;
+    } else if (argument === '--isolated') {
+      isolated = true;
     } else if (argument === '--filter') {
       if (index + 1 === args.length || args[index + 1] === '') throw new Error(USAGE);
       filters.push(args[index + 1]);
@@ -109,7 +128,7 @@ function parseArguments(args) {
   concurrency ??= fromEnv
     ? parseConcurrency(fromEnv, 'REGRESSION_CONCURRENCY must be a positive whole number.')
     : os.availableParallelism();
-  return { concurrency, filters, list, shard };
+  return { concurrency, filters, isolated, list, shard };
 }
 
 // Deal the slow-first order round-robin so every shard gets its share of the known slow files.
@@ -258,11 +277,121 @@ function runRegression(relativePath, buffered) {
   });
 }
 
+// Runs `files` in one shared process. Returns the files that passed there, each with its own output, and the files that
+// must run alone: those that failed or never finished, or every file when the process exits non-zero, since an error
+// one file leaves behind can surface while another runs. The options shorten the time limits for the runner's own test.
+export function runBatch(files, buffered, { timeoutMs = regressionTimeoutMs, idleMs = FILE_TIMEOUT_MS } = {}) {
+  const batchPath = 'scripts/run-regression-batch.mjs';
+  const outputs = new Map(files.map((file) => [file, []]));
+  const startedAt = new Map();
+  const passed = new Map();
+  const failedHere = new Set();
+  let current;
+  let timedOut;
+  let fileTimer;
+  const scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'marinara-regression-'));
+  const label = `[runner] batch of ${files.length} (${files[0]} …)`;
+
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [serverRequire.resolve('tsx/cli'), path.join(repositoryRoot, batchPath), ...files], {
+      cwd: path.join(repositoryRoot, 'packages', 'server'),
+      detached: process.platform !== 'win32',
+      env: regressionEnvironment(scratchDir),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    activeChildren.set(child, undefined);
+
+    // Output belongs to the file running when it was printed; buffered, it is held back and printed with that file.
+    const write = (destination, text) => {
+      if (buffered && current) outputs.get(current).push([destination, text]);
+      else destination.write(text);
+    };
+    const record = (stream, line) =>
+      write(stream === 'stdout' ? process.stdout : process.stderr, `[${current ?? batchPath}] ${stream}: ${line}\n`);
+    readline.createInterface({ input: child.stdout, crlfDelay: Infinity }).on('line', (text) => {
+      // A file whose output did not end its line leaves the marker after that output.
+      const at = text.indexOf(BATCH_MARKER);
+      if (at < 0) return record('stdout', text);
+      if (at > 0) record('stdout', text.slice(0, at));
+      const line = text.slice(at);
+      const [, event, file] = /^\S+ (start|pass|fail) (.+)$/u.exec(line) ?? [];
+      if (!outputs.has(file)) return record('stdout', line);
+      clearTimeout(fileTimer);
+      if (event === 'start') {
+        current = file;
+        startedAt.set(file, Date.now());
+        write(process.stdout, `[${file}] START (shared process)\n`);
+        fileTimer = setTimeout(() => {
+          timedOut = `${file} timed out after ${timeoutMs(file) / 1000}s`;
+          terminateActiveChild(child);
+        }, timeoutMs(file));
+        return;
+      }
+      if (event === 'pass') passed.set(file, Date.now() - startedAt.get(file));
+      else failedHere.add(file);
+      current = undefined;
+      // Between files, and after the last one, the process must move on or end, as a lone file's process would.
+      fileTimer = setTimeout(() => {
+        timedOut = `the shared process did not move on or exit within ${idleMs / 1000}s after ${file}`;
+        terminateActiveChild(child);
+      }, idleMs);
+    });
+    readline.createInterface({ input: child.stderr, crlfDelay: Infinity }).on('line', (line) => record('stderr', line));
+
+    let settled = false;
+    const finish = (reason) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(fileTimer);
+      releaseActiveChild(child);
+      try {
+        fs.rmSync(scratchDir, { recursive: true, force: true, maxRetries: 3 });
+      } catch {
+        // A child still exiting can hold a file open on Windows; the OS temp cleaner removes it.
+      }
+      const trusted = reason ? new Map() : passed;
+      const alone = files.filter((file) => !trusted.has(file));
+      if (alone.length > 0 && !interruption) {
+        const why = reason ?? (failedHere.size > 0 ? `${failedHere.size} did not pass here` : 'the shared process ended early');
+        process.stdout.write(`${label}: ${trusted.size} passed; running ${alone.length} alone (${why}).\n`);
+        // What a file printed before failing here, or before the process died or stalled while it ran, helps when it
+        // passes alone: it may depend on what ran before it.
+        const shown = new Set([...failedHere, ...(current ? [current] : [])]);
+        if (buffered) for (const file of shown) for (const [destination, text] of outputs.get(file)) destination.write(text);
+      }
+      resolve({
+        passed: [...trusted].map(([file, durationMs]) => ({ file, durationMs, output: buffered ? outputs.get(file) : [] })),
+        alone,
+      });
+    };
+    child.once('error', (error) => finish(`could not start: ${error.message}`));
+    child.once('close', (code, signal) => {
+      if (timedOut) finish(timedOut);
+      else if (code !== 0) finish(`the shared process exited with ${code ?? signal}`);
+      else finish();
+    });
+  });
+}
+
+// Queue items: a file path, or a batch of batchable files run in one process.
+export function queueItems(files, isolated) {
+  if (isolated) return [...files];
+  const batched = files.filter((file) => batchable(file, fs.readFileSync(path.join(repositoryRoot, file), 'utf8')));
+  if (batched.length < 2) return [...files];
+  const alone = files.filter((file) => !batched.includes(file));
+  const batches = [];
+  for (let index = 0; index < batched.length; index += BATCH_SIZE) batches.push(batched.slice(index, index + BATCH_SIZE));
+  return [...batches, ...alone];
+}
+
+const itemWeight = (item) => (Array.isArray(item) ? item.reduce((sum, file) => sum + regressionTimeoutMs(file), 0) : regressionTimeoutMs(item));
+
 async function main() {
   for (const signal of process.platform === 'win32' ? ['SIGINT', 'SIGTERM', 'SIGBREAK'] : ['SIGINT', 'SIGTERM']) {
     process.on(signal, () => handleRunnerSignal(signal));
   }
-  const { concurrency, filters, list, shard } = parseArguments(process.argv.slice(2));
+  const { concurrency, filters, isolated, list, shard } = parseArguments(process.argv.slice(2));
   const discovered = discoverRegressions();
   if (discovered.length === 0) throw new Error('No regression files were discovered.');
 
@@ -276,14 +405,27 @@ async function main() {
     return;
   }
 
-  const workers = Math.min(concurrency, selected.length);
+  const items = queueItems(selected, isolated);
+  const workers = Math.min(concurrency, items.length);
   const pooled = workers > 1;
   // A longer timeout marks a known slow file; in a pool those start first so they do not finish last.
-  const queue = pooled ? [...selected].sort(slowFirst) : [...selected];
+  const queue = pooled ? items.sort((a, b) => itemWeight(b) - itemWeight(a)) : items;
   let results = [];
   const worker = async (buffered) => {
     while (!interruption && queue.length > 0) {
-      const file = queue.shift();
+      const item = queue.shift();
+      if (Array.isArray(item)) {
+        const batch = await runBatch(item, buffered);
+        if (interruption) return;
+        for (const { file, durationMs, output } of batch.passed) {
+          for (const [destination, text] of output) destination.write(text);
+          results.push({ file, status: 'passed', durationMs });
+          process.stdout.write(`[${file}] PASSED (${durationMs}ms, shared process)\n`);
+        }
+        queue.push(...batch.alone);
+        continue;
+      }
+      const file = item;
       const { output, ...result } = await runRegression(file, buffered);
       for (const [destination, text] of output) destination.write(text);
       if (interruption) return;
