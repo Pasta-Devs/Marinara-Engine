@@ -2213,12 +2213,25 @@ const LocalChatArea = memo(function LocalChatArea({
     () => chatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
     [chatCharIds, characterMap],
   );
+  // Who wrote the message the World State belongs to: "my bedroom" in John's reply is John's.
+  const trackedMessageId = useGameStateStore((state) =>
+    state.current?.chatId === chat?.id ? (state.current?.messageId ?? null) : null,
+  );
+  const trackedMessage = trackedMessageId ? messages?.find((message) => message.id === trackedMessageId) : undefined;
+  const pinSpeakerName = !trackedMessage
+    ? null
+    : trackedMessage.role === "user"
+      ? (personaInfo?.name ?? null)
+      : trackedMessage.characterId
+        ? (characterMap.get(trackedMessage.characterId)?.name ?? null)
+        : null;
   useLocationBackgroundPinFollower({
     chatId: chat?.id ?? null,
     chatMode: chat?.mode,
     chatMetadata: chat?.metadata,
     userName: personaInfo?.name ?? null,
     characterNames: pinCharacterNames,
+    speakerName: pinSpeakerName,
   });
 
   const expressionSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);

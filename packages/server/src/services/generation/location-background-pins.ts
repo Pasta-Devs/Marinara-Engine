@@ -52,6 +52,8 @@ export function pinnedSceneBackground(args: {
   projection?: ResolvedOwnerSpatialProjection | null;
   userName?: string | null;
   characterNames?: readonly string[];
+  /** Who wrote the message the location belongs to ("my bedroom" is theirs). */
+  speakerName?: string | null;
   weather?: string | null;
   weatherVersions?: boolean;
 }): PinnedSceneBackground | null {
@@ -62,6 +64,7 @@ export function pinnedSceneBackground(args: {
     places: placesFromProjection(args.projection),
     userName: args.userName,
     characterNames: args.characterNames,
+    speakerName: args.speakerName,
   });
   if (!match) return null;
   let filename = match.pin.background;
