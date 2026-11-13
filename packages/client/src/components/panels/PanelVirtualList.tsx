@@ -128,6 +128,7 @@ export function PanelVirtualList({
     <div
       ref={setListEl}
       data-virtual-list
+      data-count={count}
       className={className}
       style={{ position: "relative", height: virtualizer.getTotalSize() }}
     >

@@ -111,11 +111,6 @@ export function ListStatus({ children, className }: { children: ReactNode; class
   );
 }
 
-function canScroll(from: Element, down: boolean) {
-  const s = findScrollParent(from);
-  return !!s && (down ? s.scrollTop + s.clientHeight < s.scrollHeight - 1 : s.scrollTop > 0);
-}
-
 export function ListFrame({
   search,
   header,
@@ -165,26 +160,28 @@ export function ListFrame({
     const index = from ? options.indexOf(from as HTMLElement) : -1;
     if (index < 0) return;
     event.preventDefault();
-    const next = options[index + (down ? 1 : -1)];
+    // A virtual list mounts rows near the view only, so DOM order is not list order: ask the row's own list for its neighbour.
+    const row = from?.closest<HTMLElement>("[data-index]");
+    const list = row?.parentElement?.hasAttribute("data-virtual-list") ? row.parentElement : null;
+    const step = down ? 1 : -1;
+    const want = row && list ? Number(row.dataset.index) + step : -1;
+    if (list && want >= 0 && want < Number(list.dataset.count)) {
+      const scroller = findScrollParent(row!);
+      let tries = 10;
+      const go = () => {
+        const el = list.querySelector<HTMLElement>(`[data-index="${want}"]`)?.querySelector<HTMLElement>(option);
+        if (el) el.focus();
+        else if (tries-- > 0 && scroller) {
+          scroller.scrollBy({ top: step * row!.offsetHeight });
+          requestAnimationFrame(go);
+        }
+      };
+      go();
+      return;
+    }
+    const next = options[index + step];
     if (next) next.focus();
-    else if (from && canScroll(from, down)) {
-      // A virtualized list mounts rows near the view only: scroll one row, then focus the row that lands where this one was.
-      const scroller = findScrollParent(from)!;
-      const top = from.getBoundingClientRect().top;
-      scroller.scrollBy({ top: (down ? 1 : -1) * from.offsetHeight });
-      requestAnimationFrame(() => {
-        const rows = Array.from(scroller.querySelectorAll<HTMLElement>(option)).filter((row) => row !== from);
-        const near = rows.reduce<HTMLElement | null>(
-          (best, row) =>
-            !best || Math.abs(row.getBoundingClientRect().top - top) < Math.abs(best.getBoundingClientRect().top - top)
-              ? row
-              : best,
-          null,
-        );
-        if (near) near.focus();
-        else if (!down) input?.focus();
-      });
-    } else if (!down) input?.focus();
+    else if (!down) input?.focus();
   };
   return (
     <div className={cn("flex min-h-0 min-w-0 flex-col", className)} onKeyDown={onKeyDown}>
