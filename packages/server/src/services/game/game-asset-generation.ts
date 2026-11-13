@@ -1665,6 +1665,19 @@ function rememberChatBackgroundMask(baseFilename: string, value: string): void {
   }
 }
 
+/** Turn a picture's window stencil off ("none"): its weather versions then draw no moving weather. */
+export function turnOffChatBackgroundWindowMask(baseFilename: string): void {
+  const plain = chatBackgroundPlainPicture(baseFilename);
+  if (plain) rememberChatBackgroundMask(plain, "none");
+}
+
+/** The scene prompt Illustrator saved for a picture (or for the plain picture of a version), or "". */
+export function chatBackgroundScenePrompt(filename: string): string {
+  const scenes = readChatBackgroundScenes();
+  const plain = chatBackgroundPlainPicture(filename);
+  return scenes[filename]?.prompt ?? (plain ? scenes[plain]?.prompt : "") ?? "";
+}
+
 /** Whether a stencil was already made (or tried and found no windows) for this plain picture. */
 export function chatBackgroundWindowMaskKnown(baseFilename: string): boolean {
   return Object.prototype.hasOwnProperty.call(readChatBackgroundMasks(), baseFilename);
@@ -1731,7 +1744,7 @@ export async function cleanWindowMask(
 const WINDOW_MASK_INSTRUCTION = [
   "Turn the reference image into a black and white stencil of its windows, at exactly the same framing.",
   "Paint pure white every area where the outside or the sky can be seen: window glass, skylights, open doorways and other openings to the outdoors.",
-  "Paint everything else pure black: walls, window frames and bars, curtains, furniture, objects in front of the glass, the floor and the ceiling.",
+  "Paint everything else pure black: walls, window frames and bars, curtains, furniture, the floor and the ceiling, and anything standing in front of the glass, such as cushions, pillows, plants, people or a window seat.",
   "Flat black and white only, no grey, no shading, no outlines, no text.",
   "If no outside can be seen at all, return an all-black image.",
 ].join(" ");

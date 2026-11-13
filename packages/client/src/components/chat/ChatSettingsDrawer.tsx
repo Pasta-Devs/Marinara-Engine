@@ -335,6 +335,7 @@ import {
   customAgentHasCapability,
   normalizeIllustratorImagesPerGeneration,
   normalizeIllustratorRunInterval,
+  parseBackgroundWeatherVersionName,
   normalizeSpotifySourceType,
   parseAgentSettingsRecord,
 } from "@marinara-engine/shared";
@@ -2429,6 +2430,48 @@ export function ChatSettingsDrawer({
       illustratorAutoBackgroundsEnabled: !illustratorAutoBackgroundsEnabled,
     });
   }, [chat.id, illustratorAutoBackgroundsEnabled, updateMeta]);
+  const WEATHER_ART_LABELS = {
+    picture: "ui.chat.chatsettingsdrawer.weatherArtRemakePicture",
+    stencil: "ui.chat.chatsettingsdrawer.weatherArtRemakeStencil",
+    "no-stencil": "ui.chat.chatsettingsdrawer.weatherArtNoStencil",
+  } as const;
+  const WEATHER_ART_DONE = {
+    picture: "ui.chat.chatsettingsdrawer.weatherArtDonePicture",
+    stencil: "ui.chat.chatsettingsdrawer.weatherArtDoneStencil",
+    "no-stencil": "ui.chat.chatsettingsdrawer.weatherArtDoneNoStencil",
+  } as const;
+  // The weather version the chat shows now (`inn--wx-rain.png` -> "rain"), for the remake buttons.
+  const shownWeatherVersion =
+    typeof metadata.background === "string" ? parseBackgroundWeatherVersionName(metadata.background).version : "";
+  const [remakingWeatherArt, setRemakingWeatherArt] = useState<"picture" | "stencil" | "no-stencil" | null>(null);
+  const remakeWeatherArt = useCallback(
+    async (part: "picture" | "stencil" | "no-stencil") => {
+      setRemakingWeatherArt(part);
+      try {
+        const result = await api.post<{ filename: string; stencil?: "made" | "none" }>(
+          "/backgrounds/weather-art/remake",
+          { chatId: chat.id, part },
+        );
+        // A fresh address so the new picture and stencil show instead of the cached ones.
+        useUIStore
+          .getState()
+          .setChatBackground(`/api/backgrounds/file/${encodeURIComponent(result.filename)}?v=${Date.now()}`);
+        qc.invalidateQueries({ queryKey: ["chats"] });
+        toast.success(
+          localizeUi(
+            part === "stencil" && result.stencil === "none"
+              ? "ui.chat.chatsettingsdrawer.weatherArtNoWindows"
+              : WEATHER_ART_DONE[part],
+          ),
+        );
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
+      } finally {
+        setRemakingWeatherArt(null);
+      }
+    },
+    [chat.id, qc],
+  );
   const toggleIllustratorWeatherBackgrounds = useCallback(() => {
     updateMeta.mutate({
       id: chat.id,
@@ -9465,6 +9508,33 @@ export function ChatSettingsDrawer({
                             enabled={illustratorWeatherBackgroundsEnabled}
                             onToggle={toggleIllustratorWeatherBackgrounds}
                           />
+                          {illustratorWeatherBackgroundsEnabled && shownWeatherVersion && (
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
+                                {localizeUi("ui.chat.chatsettingsdrawer.weatherArtTitle", {
+                                  weather: shownWeatherVersion.replace(/-/gu, " "),
+                                })}
+                              </span>
+                              <div className="flex gap-1.5">
+                                {(["picture", "stencil", "no-stencil"] as const).map((part) => (
+                                  <button
+                                    key={part}
+                                    type="button"
+                                    disabled={remakingWeatherArt !== null}
+                                    onClick={() => remakeWeatherArt(part)}
+                                    className="mari-chrome-control mari-chrome-control--small min-w-0 flex-1 truncate text-[0.6875rem]"
+                                  >
+                                    {remakingWeatherArt === part
+                                      ? localizeUi("ui.chat.chatsettingsdrawer.weatherArtRemaking")
+                                      : localizeUi(WEATHER_ART_LABELS[part])}
+                                  </button>
+                                ))}
+                              </div>
+                              <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                                {localizeUi("ui.chat.chatsettingsdrawer.weatherArtHelp")}
+                              </span>
+                            </div>
+                          )}
                           {renderIllustratorDecisionChecks()}
                           <label className="flex flex-col gap-1">
                             <span className="text-[0.625rem] font-medium text-[var(--foreground)]">

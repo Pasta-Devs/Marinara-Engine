@@ -31,6 +31,12 @@ import {
   generateChatBackground,
   replacedGeneratedChatBackgroundPath,
   chatBackgroundWindowMaskPath,
+  chatBackgroundPlainPicture,
+  chatBackgroundScenePrompt,
+  generateChatBackgroundWeatherVersion,
+  generateChatBackgroundWindowMask,
+  turnOffChatBackgroundWindowMask,
+  type ChatBackgroundGenRequest,
 } from "../services/game/game-asset-generation.js";
 import {
   resolveConnectionImageDefaults,
@@ -40,7 +46,11 @@ import { loadImageGenerationUserSettings } from "../services/image/image-generat
 import { resolveImagePromptReviewSize } from "../services/image/image-prompt-review.js";
 import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
-import { resolveGameSetupArtStylePrompt } from "@marinara-engine/shared";
+import {
+  parseBackgroundWeatherVersionName,
+  resolveGameSetupArtStylePrompt,
+  sceneShelter,
+} from "@marinara-engine/shared";
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
 const META_PATH = join(BG_DIR, "meta.json");
@@ -621,6 +631,85 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       url,
       tag: backgroundTagForFilename(filename),
     };
+  });
+
+  // Remake the open chat's weather art when the user doesn't like it: the weather version itself
+  // (repainted from its plain picture), its window stencil, or no stencil at all.
+  const remakeWeatherArtSchema = z.object({
+    chatId: z.string().min(1).max(200),
+    part: z.enum(["picture", "stencil", "no-stencil"]),
+  });
+  app.post("/weather-art/remake", async (req, reply) => {
+    const input = remakeWeatherArtSchema.parse(req.body);
+    const chats = createChatsStorage(app.db);
+    const chat = await chats.getById(input.chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    const metadata = parseRecord(chat.metadata);
+    const background = readTrimmedString(metadata.background);
+    const plain = background ? chatBackgroundPlainPicture(background) : null;
+    if (!background || !plain) {
+      return reply.status(400).send({ error: "This chat's background isn't a picture from your library." });
+    }
+    if (input.part === "no-stencil") {
+      turnOffChatBackgroundWindowMask(plain);
+      return { success: true, filename: background };
+    }
+    const version = parseBackgroundWeatherVersionName(background).version;
+    if (input.part === "picture" && !version) {
+      return reply.status(400).send({ error: "The background is the plain picture, not a weather version." });
+    }
+    const mode = String(chat.mode ?? "");
+    const connections = createConnectionsStorage(app.db);
+    const imgConn = await resolveSceneBackgroundImageConnection(
+      connections,
+      createAgentsStorage(app.db),
+      mode,
+      metadata,
+    );
+    if (!imgConn) {
+      return reply.status(400).send({
+        error: "Choose an image connection for the Illustrator agent, or mark one as the default image connection.",
+      });
+    }
+    const gameState = await createGameStateStorage(app.db)
+      .getLatest(input.chatId)
+      .catch(() => null);
+    const imageSettings = await loadImageGenerationUserSettings(app.db);
+    const request: ChatBackgroundGenRequest = {
+      chatId: input.chatId,
+      locationSlug: plain,
+      sceneDescription: chatBackgroundScenePrompt(plain) || gameState?.location || "the same place",
+      currentLocation: gameState?.location ?? null,
+      imgModel: imgConn.model || "",
+      imgBaseUrl: imgConn.baseUrl || "https://image.pollinations.ai",
+      imgApiKey: imgConn.apiKey || "",
+      imgSource: (imgConn as any).imageGenerationSource || imgConn.model || "",
+      imgService: imgConn.imageService || (imgConn as any).imageGenerationSource || "",
+      imgEndpointId: imgConn.imageEndpointId || undefined,
+      imgComfyWorkflow: imgConn.comfyuiWorkflow || undefined,
+      imgDefaults: resolveConnectionImageDefaults(imgConn),
+      imgQuality: resolveConnectionImageQuality(imgConn),
+      imgFallback: await resolveImageConnectionFallback(connections, imgConn.id),
+      styleProfiles: imageSettings.styleProfiles,
+      size: imageSettings.background,
+      providerReadyPrompt: true,
+    };
+    if (input.part === "stencil") {
+      const mask = await generateChatBackgroundWindowMask({ ...request, baseFilename: plain });
+      return { success: true, filename: background, stencil: mask ? "made" : "none" };
+    }
+    const filename = await generateChatBackgroundWeatherVersion({
+      ...request,
+      baseFilename: plain,
+      version,
+      shelter: sceneShelter(gameState?.location ?? null),
+      scenePrompt: chatBackgroundScenePrompt(plain),
+    });
+    if (!filename) {
+      return reply.status(500).send({ error: "The picture couldn't be made. Check the Illustrator image connection." });
+    }
+    if (filename !== background) await chats.patchMetadata(input.chatId, { background: filename });
+    return { success: true, filename };
   });
 
   // Set tags for a background
