@@ -1,6 +1,6 @@
 // The per-agent cards in Chat Settings' Agents section show and save their own settings. The drawer is being split
 // into one component per card (#9119), so each card is covered here before it moves.
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import { openChatSettings } from "./chat-settings-tools.js";
@@ -16,6 +16,7 @@ const AGENTS = [
   { id: "html", name: "HTML", category: "writer", phase: "post_processing" },
   { id: "echo-chamber", name: "Echo Chamber", category: "misc", phase: "post_processing" },
   { id: "lorebook-keeper", name: "Lorebook Keeper", category: "writer", phase: "post_processing" },
+  { id: "spotify", name: "Music DJ", category: "misc", phase: "post_processing" },
 ];
 
 /** A saved agent config, as `/api/agents` returns it, with the prompt templates beyond Default. */
@@ -58,7 +59,36 @@ async function createRoleplayChat(request: APIRequestContext, activeAgentIds: st
   return chat.id;
 }
 
-async function openApp(page: Page, chatId: string, agentConfigs: unknown[] = []) {
+/** A Game chat past its setup, so Chat Settings shows the Game agents. */
+async function createGameChat(request: APIRequestContext, extra = {}) {
+  const response = await request.post("/api/chats", {
+    data: { name: "Agent cards game", mode: "game", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  const metadata = {
+    gameId: "agent-cards-game",
+    gameSessionStatus: "active",
+    gameSessionNumber: 1,
+    gameIntroPresented: true,
+    ...extra,
+  };
+  expect((await request.patch(`/api/chats/${chat.id}/metadata`, { data: metadata })).ok()).toBeTruthy();
+  const message = await request.post(`/api/chats/${chat.id}/messages`, {
+    data: { role: "assistant", content: "The agent card game begins." },
+  });
+  expect(message.ok()).toBeTruthy();
+  return chat.id;
+}
+
+type OpenAppOptions = {
+  agentConfigs?: unknown[];
+  uiState?: Parameters<typeof seedUIState>[1];
+  mode?: "roleplay" | "game";
+};
+
+async function openApp(page: Page, chatId: string, options: OpenAppOptions = {}) {
+  const { agentConfigs = [], uiState = {}, mode = "roleplay" } = options;
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await page.route("**/api/capability-packages/agents", (route) =>
     route.fulfill({
@@ -68,7 +98,7 @@ async function openApp(page: Page, chatId: string, agentConfigs: unknown[] = [])
         author: "Pasta Devs",
         execution: "host",
         enabledByDefault: false,
-        modeAllowlist: ["roleplay"],
+        modeAllowlist: ["roleplay", "game"],
         defaultPromptTemplate: "Test prompt.",
       })),
     }),
@@ -80,6 +110,7 @@ async function openApp(page: Page, chatId: string, agentConfigs: unknown[] = [])
     sidebarOpen: false,
     rightPanelOpen: false,
     chatHelpSeenModes: ["conversation", "roleplay", "game"],
+    ...uiState,
   });
   await page.addInitScript(
     ({ id, version }) => {
@@ -89,7 +120,7 @@ async function openApp(page: Page, chatId: string, agentConfigs: unknown[] = [])
     { id: chatId, version: APP_VERSION },
   );
   await page.goto("/");
-  await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible();
+  await expect(page.locator(`[data-chat-mode="${mode}"]`)).toBeVisible();
 }
 
 /** Opens Chat Settings' Agents section and returns the named agent's card, expanded. */
@@ -153,7 +184,7 @@ test("Continuity and HTML share one Hold Message Until Rewrite switch", async ({
 test("Echo Chamber's card picks its prompt for this chat and opens its setup", async ({ page, request }) => {
   const chatId = await createRoleplayChat(request, ["echo-chamber"]);
   try {
-    await openApp(page, chatId, [agentConfig("echo-chamber", [{ id: "crowd", name: "Crowd" }])]);
+    await openApp(page, chatId, { agentConfigs: [agentConfig("echo-chamber", [{ id: "crowd", name: "Crowd" }])] });
     const { settings, card } = await openAgentCard(page, chatId, "echo-chamber");
     const prompt = card
       .locator("label")
@@ -214,5 +245,97 @@ test("Lorebook Keeper's card saves its target and read-behind, and starts a back
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
     await request.delete(`/api/lorebooks/${book.id}`);
+  }
+});
+
+const SPOTIFY_PLAYLISTS = [
+  { id: "pl-road", name: "Road trip", uri: "spotify:playlist:pl-road", trackCount: 12, owned: true },
+  { id: "pl-shared", name: "Shared mix", uri: "spotify:playlist:pl-shared", trackCount: null, owned: false },
+];
+
+/** Walks Music DJ's Spotify source, playlist and artist, reading back the keys that mode saves under. */
+async function exerciseSpotifySource(
+  card: Locator,
+  read: () => Promise<Record<string, unknown>>,
+  keys: { sourceType: string; playlistId: string; playlistName: string; artist: string },
+  followedLabel: string,
+) {
+  const source = card
+    .locator("label")
+    .filter({ hasText: /^Spotify source/u })
+    .locator("select");
+  await source.selectOption("playlist");
+  await expect.poll(async () => (await read())[keys.sourceType]).toBe("playlist");
+
+  const playlist = card
+    .locator("label")
+    .filter({ hasText: /^Playlist/u })
+    .locator("select");
+  await expect(playlist.locator("option")).toHaveText(["Choose playlist...", "Road trip (12)", followedLabel]);
+  await playlist.selectOption("pl-road");
+  await expect.poll(async () => (await read())[keys.playlistId]).toBe("pl-road");
+  expect((await read())[keys.playlistName]).toBe("Road trip");
+
+  // Switching to Artist drops the playlist, and the artist saves when the box loses focus.
+  await source.selectOption("artist");
+  await expect.poll(async () => (await read())[keys.sourceType]).toBe("artist");
+  expect((await read())[keys.playlistId]).toBeNull();
+  const artist = card
+    .locator("label")
+    .filter({ hasText: /^Artist/u })
+    .locator("input");
+  await artist.fill("HOYO-MiX");
+  await artist.blur();
+  await expect.poll(async () => (await read())[keys.artist]).toBe("HOYO-MiX");
+}
+
+test("Music DJ's Spotify source saves per chat in Roleplay and Game", async ({ page, request }) => {
+  const roleplayId = await createRoleplayChat(request, ["spotify"]);
+  const gameId = await createGameChat(request, { gameUseMusicDj: true });
+  await page.route("**/api/spotify/playlists**", (route) => route.fulfill({ json: { playlists: SPOTIFY_PLAYLISTS } }));
+  try {
+    await openApp(page, roleplayId, { uiState: { musicPlayerSource: "spotify" } });
+    const { card: roleplayCard } = await openAgentCard(page, roleplayId, "spotify");
+    await exerciseSpotifySource(
+      roleplayCard,
+      () => readMetadata(request, roleplayId),
+      {
+        sourceType: "spotifySourceType",
+        playlistId: "spotifyPlaylistId",
+        playlistName: "spotifyPlaylistName",
+        artist: "spotifyArtist",
+      },
+      "Shared mix (followed, unavailable)",
+    );
+
+    await page.evaluate(async (id) => {
+      const module = (await import("/src/stores/chat.store.ts" as string)) as {
+        useChatStore: { getState(): { setActiveChatId(id: string): void } };
+      };
+      module.useChatStore.getState().setActiveChatId(id);
+    }, gameId);
+    await expect(page.locator('[data-chat-mode="game"]')).toBeVisible();
+    const settings = await openChatSettings(page);
+    const agents = settings.locator('[data-drawer="game-agents"]');
+    const toggle = agents.locator(":scope > .mari-drawer__header [data-drawer-toggle]");
+    await toggle.scrollIntoViewIfNeeded();
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+    const expandMusicDj = agents.getByRole("button", { name: "Expand Music DJ", exact: true });
+    if (await expandMusicDj.count()) await expandMusicDj.click();
+    await exerciseSpotifySource(
+      agents,
+      () => readMetadata(request, gameId),
+      {
+        sourceType: "gameSpotifySourceType",
+        playlistId: "gameSpotifyPlaylistId",
+        playlistName: "gameSpotifyPlaylistName",
+        artist: "gameSpotifyArtist",
+      },
+      // Game's copy of this list drifted from Roleplay's wording; merging the two copies fixes it.
+      "Shared mix (followed — unavailable)",
+    );
+  } finally {
+    await request.delete(`/api/chats/${roleplayId}?force=true`);
+    await request.delete(`/api/chats/${gameId}?force=true`);
   }
 });
