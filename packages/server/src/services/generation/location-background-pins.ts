@@ -11,11 +11,15 @@ import {
   LOCATION_BACKGROUND_PINS_KEY,
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   normalizeLocationBackgroundPins,
+  normalizeLocationText,
   resolveLocationBackgroundPin,
   type LocationBackgroundMatch,
   type ResolvedOwnerSpatialProjection,
 } from "@marinara-engine/shared";
-import { planChatBackgroundWeather } from "../game/game-asset-generation.js";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { extname, join } from "node:path";
+import { isChatBackgroundWeatherVersion, planChatBackgroundWeather } from "../game/game-asset-generation.js";
+import { DATA_DIR } from "../../utils/data-dir.js";
 
 export type PinnedSceneBackground = {
   match: LocationBackgroundMatch;
@@ -71,4 +75,94 @@ export function pinnedSceneBackground(args: {
 /** Metadata patch that shows a pin and remembers it was shown (a manual pick then lasts until the place changes). */
 export function pinnedBackgroundMetadataPatch(pinned: PinnedSceneBackground): Record<string, unknown> {
   return { background: pinned.filename, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: pinned.match.pin.id };
+}
+
+const LIBRARY_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
+
+/** A library picture's place words: its file name (without "generated-", numbering and weather) and longer tags. */
+function libraryPlaceNames(filename: string, tags: readonly string[]): string[] {
+  const stem = filename
+    .slice(0, filename.length - extname(filename).length)
+    .replace(/^generated-/u, "")
+    .replace(/[-_ ]\d+$/u, "");
+  const names = [normalizeLocationText(stem.replace(/[-_]+/gu, " "))];
+  // One-word tags ("interior", "night") say what a picture looks like, not which place it is.
+  for (const tag of tags) {
+    const name = normalizeLocationText(tag);
+    if (name.includes(" ")) names.push(name);
+  }
+  return names.filter(Boolean);
+}
+
+/** The best library picture whose name is found in the location text (most words wins), or null. */
+export function matchLibraryBackgroundForLocation(
+  location: string | null | undefined,
+  library: ReadonlyArray<{ filename: string; tags?: readonly string[] }>,
+): string | null {
+  const text = normalizeLocationText(location);
+  if (!text) return null;
+  let best: { filename: string; words: number; length: number } | null = null;
+  for (const item of library) {
+    if (isChatBackgroundWeatherVersion(item.filename)) continue;
+    for (const name of libraryPlaceNames(item.filename, item.tags ?? [])) {
+      if (!` ${text} `.includes(` ${name} `)) continue;
+      const words = name.split(" ").length;
+      if (!best || words > best.words || (words === best.words && name.length > best.length)) {
+        best = { filename: item.filename, words, length: name.length };
+      }
+    }
+  }
+  return best?.filename ?? null;
+}
+
+function readChatBackgroundLibrary(): Array<{ filename: string; tags: string[] }> {
+  const dir = join(DATA_DIR, "backgrounds");
+  if (!existsSync(dir)) return [];
+  let meta: Record<string, { tags?: unknown }> = {};
+  try {
+    meta = JSON.parse(readFileSync(join(dir, "meta.json"), "utf-8")) as typeof meta;
+  } catch {
+    /* no tags */
+  }
+  return readdirSync(dir)
+    .filter((file) => LIBRARY_EXTS.has(extname(file).toLowerCase()))
+    .map((filename) => ({
+      filename,
+      tags: Array.isArray(meta[filename]?.tags)
+        ? (meta[filename]!.tags as unknown[]).filter((tag): tag is string => typeof tag === "string")
+        : [],
+    }));
+}
+
+export type ExistingSceneBackground = {
+  /** What to show (the weather version when the library has one). */
+  filename: string;
+  source: "pin" | "library";
+  /** The pin, when a pinned place matched. */
+  pinned?: PinnedSceneBackground;
+};
+
+/**
+ * The background the chat already has for a place, before anything paints a new one:
+ * 1. the chat's pinned place (Chat settings > Background > Pinned places);
+ * 2. a library picture whose file name (or a multi-word tag) is found in the location text,
+ *    so "generated-guest-bedroom.png" serves "Smith House, guest bedroom";
+ * 3. otherwise null (paint a new one).
+ * The weather version is swapped in when weatherVersions is on and that version exists.
+ */
+export function findExistingSceneBackground(
+  args: Parameters<typeof pinnedSceneBackground>[0],
+): ExistingSceneBackground | null {
+  const pinned = pinnedSceneBackground(args);
+  if (pinned) return { filename: pinned.filename, source: "pin", pinned };
+  if (String(args.chatMode ?? "") !== "roleplay") return null;
+  const location = args.location || args.projection?.breadcrumb.at(-1)?.name || "";
+  const found = matchLibraryBackgroundForLocation(location, readChatBackgroundLibrary());
+  if (!found) return null;
+  let filename = found;
+  if (args.weatherVersions && args.weather?.trim()) {
+    const plan = planChatBackgroundWeather(found, args.weather);
+    if (plan.kind === "switch") filename = plan.filename;
+  }
+  return { filename, source: "library" };
 }
