@@ -19,7 +19,7 @@ for (const name of ["ancient_library.jpg", "dark_forest.jpg"]) {
   copyFileSync(join(assets, name), join(outDir, name));
 }
 
-const { generateChatBackgroundWeatherVersion } =
+const { generateChatBackground, generateChatBackgroundWeatherVersion } =
   await import("../../packages/server/src/services/game/game-asset-generation.js");
 const { sceneShelter } = await import("../../packages/shared/src/utils/scene-weather.js");
 
