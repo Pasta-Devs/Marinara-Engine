@@ -12,7 +12,18 @@ const APP_VERSION = (
 /** The downloadable agents these cards belong to, as the agent catalog would list them. */
 const AGENTS = [
   { id: "card-evolution-auditor", name: "Card Evolution Auditor", category: "writer", phase: "post_processing" },
+  { id: "continuity", name: "Continuity", category: "writer", phase: "post_processing" },
+  { id: "html", name: "HTML", category: "writer", phase: "post_processing" },
 ];
+
+async function readMetadata(request: APIRequestContext, chatId: string) {
+  const stored = (await (await request.get(`/api/chats/${chatId}`)).json()) as {
+    metadata: string | Record<string, unknown>;
+  };
+  return typeof stored.metadata === "string"
+    ? (JSON.parse(stored.metadata) as Record<string, unknown>)
+    : stored.metadata;
+}
 
 async function createRoleplayChat(request: APIRequestContext, activeAgentIds: string[], extra = {}) {
   const response = await request.post("/api/chats", {
@@ -90,6 +101,28 @@ test("Card Evolution Auditor's card closes Chat Settings and opens the auditor's
     await card.getByRole("button", { name: "Open Auditor Setup", exact: true }).click();
     await expect(settings).toBeHidden();
     await expect.poll(() => readAgentDetailId(page)).toBe("card-evolution-auditor");
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Continuity and HTML share one Hold Message Until Rewrite switch", async ({ page, request }) => {
+  const chatId = await createRoleplayChat(request, ["continuity", "html"], { proseGuardianHoldForRewrite: false });
+  try {
+    await openApp(page, chatId);
+    const { card: continuity } = await openAgentCard(page, chatId, "continuity");
+    const { card: html } = await openAgentCard(page, chatId, "html");
+    const hold = (card: typeof continuity) => card.getByRole("checkbox", { name: /^Hold Message Until Rewrite/u });
+    await expect(hold(continuity)).not.toBeChecked();
+    await expect(hold(html)).not.toBeChecked();
+
+    await continuity.getByText("Hold Message Until Rewrite", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).proseGuardianHoldForRewrite).toBe(true);
+    await expect(hold(html)).toBeChecked();
+
+    await html.getByText("Hold Message Until Rewrite", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).proseGuardianHoldForRewrite).toBe(false);
+    await expect(hold(continuity)).not.toBeChecked();
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
   }
