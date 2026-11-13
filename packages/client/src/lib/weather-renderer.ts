@@ -21,8 +21,7 @@ export interface WeatherParticle {
     | "ash"
     | "sand"
     | "hail"
-    | "aurora"
-    | "meteor";
+    | "aurora";
   wobble: number;
   life: number;
   maxLife: number;
@@ -42,8 +41,6 @@ export interface WeatherRenderConfig {
   tint: string;
   addFireflies: boolean;
   addStars: boolean;
-  /** A few shooting stars now and then (meteor shower, shooting stars, comet). */
-  addMeteors?: boolean;
   celestial: CelestialBody;
   hour: number;
   sunRays: boolean;
@@ -106,10 +103,10 @@ export interface WeatherLook {
   /** Reduced paint effects: no tint, glow or sunset wash, and 60% of the particles. */
   flat: boolean;
   /**
-   * Drawn over a painted weather picture (behind a window stencil, or over a painted outdoor sky):
-   * faint particles (aurora, rain, stars) are drawn stronger so they read against the painting.
+   * Drawn behind a window stencil: only a small part of the screen shows, far away, so faint
+   * particles (rain, hail) are drawn stronger to read through the glass.
    */
-  glass?: "window" | "sky";
+  glass?: boolean;
   kinds: Partial<Record<WeatherLookKind, WeatherKindLook>>;
 }
 
@@ -130,7 +127,6 @@ export const STOCK_WEATHER_LOOK: WeatherLook = {
 
 export const WEATHER_FIREFLY_COUNT = 10;
 export const WEATHER_STAR_COUNT = 18;
-export const WEATHER_METEOR_COUNT = 3;
 
 /** How many particles of each type a weather gets, after the theme's amount and Reduced paint effects. */
 export function weatherPopulation(config: WeatherRenderConfig, look: WeatherLook = STOCK_WEATHER_LOOK) {
@@ -140,7 +136,6 @@ export function weatherPopulation(config: WeatherRenderConfig, look: WeatherLook
   if (config.count > 0) out.push([config.type, scaled(config.count)]);
   if (config.addFireflies) out.push(["firefly", scaled(WEATHER_FIREFLY_COUNT)]);
   if (config.addStars) out.push(["star", scaled(WEATHER_STAR_COUNT)]);
-  if (config.addMeteors) out.push(["meteor", scaled(WEATHER_METEOR_COUNT * (look.glass ? 2 : 1))]);
   return out;
 }
 
@@ -632,7 +627,6 @@ export function resolveWeatherRenderConfig(weather?: string | null, timeOfDay?: 
   return {
     ...weatherConfig,
     ...timeConfig,
-    addMeteors: !!weather && /meteor|shooting star|falling star|comet/i.test(weather),
     isClearSky,
     category: weatherCategory(weather),
     period: weatherPeriod(timeConfig),
@@ -667,13 +661,28 @@ export function shelterWeatherRenderConfig(config: WeatherRenderConfig, shelter:
  * carries it. Unless the scene is known to be outdoors, nothing falls (the weather is in the window);
  * outdoors, no fog banks and a third of the particles, so the painted rain or snow isn't doubled.
  */
+const STILL_SKY = { count: 0, addStars: false, addFireflies: false } as const;
+
+/**
+ * Weather with nothing falling (an aurora, a clear or unusual sky such as a meteor shower): the
+ * painted picture says it all, so nothing is drawn over it.
+ */
+export function paintedSkyStill(config: WeatherRenderConfig): boolean {
+  return config.type === "aurora" || config.category === "clear" || config.category === "cloudy";
+}
+
+/** A painted weather version's sky with nothing drawn over it (only the tint stays). */
+export function stillPaintedSky(config: WeatherRenderConfig): WeatherRenderConfig {
+  return { ...config, ...STILL_SKY, celestial: "none", sunRays: false };
+}
+
 export function paintedWeatherRenderConfig(config: WeatherRenderConfig, shelter: SceneShelter): WeatherRenderConfig {
   if (shelter !== "outdoors") return shelterWeatherRenderConfig(config, "indoors");
   // The painted sky already has its own sun or moon (or clouds hiding them).
   const sky = { celestial: "none" as const, sunRays: false };
   if (config.type === "fog") return { ...config, ...sky, type: "dust", count: 0 };
-  // Aurora ribbons are few and faint already; the rest falls at a third over the painted weather.
-  return { ...config, ...sky, count: config.type === "aurora" ? config.count : Math.round(config.count / 3) };
+  if (paintedSkyStill(config)) return { ...config, ...sky, ...STILL_SKY };
+  return { ...config, ...sky, count: Math.round(config.count / 3) };
 }
 
 function weatherPeriod(time: ReturnType<typeof parseTime>): WeatherPeriod | "" {
@@ -802,26 +811,13 @@ export function createWeatherParticle(
       base.opacity = 0.4 + Math.random() * 0.3;
       base.maxLife = 150;
       break;
-    case "meteor":
-      // Waits most of its life at its starting point, then streaks across for its last 45 frames
-      // (drawn from life alone, so it never drifts off screen while waiting).
-      base.vy = 0;
-      base.vx = 0;
-      base.size = 1.5 + Math.random();
-      base.opacity = 0.8 + Math.random() * 0.2;
-      base.maxLife = 70 + Math.random() * 320;
-      base.life = fromTop ? 0 : Math.random() * base.maxLife * 0.6;
-      base.x = w * (0.25 + Math.random() * 0.85);
-      base.y = Math.random() * h * 0.35;
-      base.wobble = 0.35 + Math.random() * 0.35; // fall angle
-      break;
     case "aurora":
       base.vy = 0;
       base.vx = 0.1 + Math.random() * 0.2;
       base.size = 80 + Math.random() * 120;
       base.opacity = 0.04 + Math.random() * 0.03;
       base.maxLife = 1200 + Math.random() * 600;
-      base.y = Math.random() * h * (look.glass === "window" ? 0.55 : 0.35); // upper sky (any pane behind glass)
+      base.y = Math.random() * h * 0.35; // upper sky
       break;
   }
 
@@ -836,8 +832,6 @@ export function createWeatherParticle(
 }
 
 // ── Draw helpers ──
-const METEOR_STREAK_FRAMES = 45;
-
 /** How much stronger each kind is drawn behind a window stencil. */
 const GLASS_BOOST: Record<WeatherParticle["type"], number> = {
   rain: 2.2,
@@ -852,47 +846,14 @@ const GLASS_BOOST: Record<WeatherParticle["type"], number> = {
   ash: 1.3,
   sand: 1.3,
   hail: 1.6,
-  aurora: 8,
-  meteor: 1,
+  aurora: 1,
 };
-
-/** A shooting star: a bright head with a fading tail, crossing for its last frames of life. */
-function drawWeatherMeteor(ctx: WeatherCanvasContext, p: WeatherParticle, look: WeatherLook) {
-  const phase = p.life - (p.maxLife - METEOR_STREAK_FRAMES);
-  if (phase < 0) return;
-  const t = phase / METEOR_STREAK_FRAMES;
-  const speed = 11 * Math.max(0.5, Math.min(2, look.speed));
-  const dx = -Math.cos(p.wobble);
-  const dy = Math.sin(p.wobble);
-  const headX = p.x + dx * speed * phase;
-  const headY = p.y + dy * speed * phase;
-  const tail = Math.min(phase, 14) * speed;
-  const fade = t < 0.15 ? t / 0.15 : t > 0.7 ? Math.max(0, (1 - t) / 0.3) : 1;
-  const alpha = Math.min(1, p.opacity * fade * Math.max(0.5, Math.min(1.5, look.strength)));
-  if (alpha <= 0) return;
-  const tone = look.kinds.meteor?.color ?? STOCK_TONES.meteor!;
-  const grad = ctx.createLinearGradient(headX, headY, headX - dx * tail, headY - dy * tail);
-  grad.addColorStop(0, `rgba(${tone},${alpha})`);
-  grad.addColorStop(1, `rgba(${tone},0)`);
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = grad;
-  ctx.lineWidth = p.size * (look.kinds.meteor?.size ?? 1);
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(headX, headY);
-  ctx.lineTo(headX - dx * tail, headY - dy * tail);
-  ctx.stroke();
-}
 
 export function drawWeatherParticle(
   ctx: WeatherCanvasContext,
   p: WeatherParticle,
   look: WeatherLook = STOCK_WEATHER_LOOK,
 ) {
-  if (p.type === "meteor") {
-    drawWeatherMeteor(ctx, p, look);
-    return;
-  }
   // Fog banks fade in and out slowly and stay full in between; everything else fades over its life.
   const fadeIn = Math.min(p.life / (p.type === "fog" ? 240 : 60), 1);
   const fadeOut =
@@ -1073,23 +1034,21 @@ export function drawWeatherParticle(
       // Tall vertical ribbon of colour that sways gently
       const hue = (p.wobble * 60 + p.life * 0.3) % 360;
       const auroraGrad = ctx.createLinearGradient(p.x, p.y - p.size, p.x, p.y + p.size);
-      // Behind a window the ribbons cover a few panes, so they glow stronger; over a painted sky a little.
-      const glow = look.glass === "window" ? 3 : look.glass === "sky" ? 1.6 : 1;
       if (tone) {
         auroraGrad.addColorStop(0, `rgba(${tone},0)`);
-        auroraGrad.addColorStop(0.5, `rgba(${tone},${0.12 * glow})`);
+        auroraGrad.addColorStop(0.5, `rgba(${tone},0.12)`);
         auroraGrad.addColorStop(1, `rgba(${tone},0)`);
       } else {
         auroraGrad.addColorStop(0, `hsla(${hue},80%,60%,0)`);
-        auroraGrad.addColorStop(0.3, `hsla(${hue},80%,60%,${0.08 * glow})`);
-        auroraGrad.addColorStop(0.5, `hsla(${(hue + 40) % 360},70%,55%,${0.12 * glow})`);
-        auroraGrad.addColorStop(0.7, `hsla(${(hue + 80) % 360},80%,60%,${0.08 * glow})`);
+        auroraGrad.addColorStop(0.3, `hsla(${hue},80%,60%,0.08)`);
+        auroraGrad.addColorStop(0.5, `hsla(${(hue + 40) % 360},70%,55%,0.12)`);
+        auroraGrad.addColorStop(0.7, `hsla(${(hue + 80) % 360},80%,60%,0.08)`);
         auroraGrad.addColorStop(1, `hsla(${(hue + 80) % 360},80%,60%,0)`);
       }
       ctx.fillStyle = auroraGrad;
       ctx.beginPath();
       const ribbonW = p.size * 0.6;
-      const sway = Math.sin(p.life * (look.glass ? 0.02 : 0.008) + p.wobble) * 30;
+      const sway = Math.sin(p.life * 0.008 + p.wobble) * 30;
       ctx.moveTo(p.x + sway - ribbonW, p.y - p.size);
       ctx.quadraticCurveTo(p.x + sway * 0.5, p.y, p.x + sway + ribbonW, p.y + p.size);
       ctx.lineTo(p.x + sway - ribbonW, p.y + p.size);
@@ -1117,7 +1076,6 @@ const STOCK_TONES: Partial<Record<WeatherParticle["type"], string>> = {
   sand: "215,185,120",
   hail: "230,240,255",
   aurora: "120,220,170",
-  meteor: "255,250,235",
 };
 
 function stockTone(p: WeatherParticle) {
@@ -1162,7 +1120,6 @@ const SPRITE_BASE_SIZE: Record<WeatherParticle["type"], number> = {
   sand: 1.5,
   hail: 3.5,
   aurora: 140,
-  meteor: 2,
 };
 
 /** Pixel style: every particle lands on the theme's pixel grid as one or a few square cells. */

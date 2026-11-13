@@ -48,9 +48,14 @@ assert.equal(shared.unusualWeatherSlug("Crème brûlée haze"), "creme-brulee-ha
 assert.equal(resolveWeatherRenderConfig("blizzard", "noon").category, "snow");
 assert.equal(resolveWeatherRenderConfig("cherry blossoms drifting", "noon").category, "blossom");
 
-// Meteor showers draw shooting stars; other weather doesn't.
-assert.equal(resolveWeatherRenderConfig("meteor shower", "night").addMeteors, true);
-assert.equal(resolveWeatherRenderConfig("rain", "night").addMeteors, false);
+// A painted aurora or unusual clear sky (meteor shower) is left still: nothing drawn over it.
+const { paintedSkyStill, stillPaintedSky } = await import("../../packages/client/src/lib/weather-renderer.js");
+assert.equal(paintedSkyStill(resolveWeatherRenderConfig("aurora borealis", "night")), true);
+assert.equal(paintedSkyStill(resolveWeatherRenderConfig("meteor shower", "night")), true);
+assert.equal(paintedSkyStill(resolveWeatherRenderConfig("heavy rain", "night")), false);
+const stillMeteors = stillPaintedSky(resolveWeatherRenderConfig("meteor shower", "night"));
+assert.equal(stillMeteors.count + Number(stillMeteors.addStars) + Number(stillMeteors.addFireflies), 0);
+assert.equal(paintedWeatherRenderConfig(resolveWeatherRenderConfig("aurora", "night"), "outdoors").count, 0);
 
 // ── Indoors / outdoors ──
 assert.equal(shared.sceneShelter("Tideglass Inn, Brinewatch"), "indoors");
