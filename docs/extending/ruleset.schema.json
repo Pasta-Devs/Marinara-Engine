@@ -100,7 +100,7 @@
               "properties": {
                 "count": {
                   "type": "integer",
-                  "minimum": 1,
+                  "minimum": 0,
                   "maximum": 10
                 },
                 "sides": {
@@ -1097,6 +1097,110 @@
               },
               "required": [
                 "dice"
+              ],
+              "additionalProperties": false
+            },
+            "plotDie": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "sides": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 20
+                },
+                "faces": {
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "face": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20
+                      },
+                      "symbol": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "complication",
+                              "opportunity"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "bonus": {
+                        "type": "integer",
+                        "minimum": -20,
+                        "maximum": 20
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "face",
+                      "symbol"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
+              "required": [
+                "label",
+                "sides",
+                "faces"
+              ],
+              "additionalProperties": false
+            },
+            "naturalTotal": {
+              "type": "object",
+              "properties": {
+                "atLeast": {
+                  "type": "integer",
+                  "minimum": -1000,
+                  "maximum": 10000
+                },
+                "atMost": {
+                  "type": "integer",
+                  "minimum": -1000,
+                  "maximum": 10000
+                },
+                "$comment": {}
+              },
+              "additionalProperties": false
+            },
+            "tierShift": {
+              "type": "object",
+              "properties": {
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
+              "required": [
+                "max"
               ],
               "additionalProperties": false
             },
@@ -2698,6 +2802,53 @@
               },
               "required": [
                 "successes"
+              ],
+              "additionalProperties": false
+            },
+            "pairs": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 100
+                },
+                "successes": {
+                  "type": "integer",
+                  "minimum": 3,
+                  "maximum": 10
+                },
+                "$comment": {}
+              },
+              "required": [
+                "from",
+                "successes"
+              ],
+              "additionalProperties": false
+            },
+            "hunger": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
+              "required": [
+                "label",
+                "max"
               ],
               "additionalProperties": false
             },

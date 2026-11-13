@@ -147,6 +147,26 @@ export function AnimatedSkillCheckResult({
             </button>
           )}
         </div>
+      ) : result.resolution === "sum" && result.rolls.length === 0 ? (
+        // A check with no dice (1.825) compares the sheet's own number: there is no die to show.
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi("ui.dice.animatedskillcheckresult.noDice", {
+              value: result.total,
+              dc: result.dc,
+            })}
+          </span>
+          {onDismiss && (
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="dice-roll-dismiss"
+              aria-label={localizeUi("ui.dice.animateddiceroll.dismissDiceRollResult")}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
       ) : (
         <AnimatedDiceRoll
           notation={result.dice ?? `${result.rolls.length}d20`}
@@ -203,6 +223,64 @@ export function AnimatedSkillCheckResult({
             {result.duality === "tie"
               ? localizeUi("ui.dice.animatedskillcheckresult.dualityTie")
               : localizeUi("ui.dice.animatedskillcheckresult.duality", { label: result.duality })}
+          </span>
+        </div>
+      )}
+      {/* The plot die (1.822): its face and what the face carried. It is not one of the dice above. */}
+      {result.plotFace !== undefined && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi(
+              result.plotSymbol === "complication"
+                ? result.plotBonus
+                  ? "ui.dice.animatedskillcheckresult.plotComplicationBonus"
+                  : "ui.dice.animatedskillcheckresult.plotComplication"
+                : result.plotSymbol === "opportunity"
+                  ? result.plotBonus
+                    ? "ui.dice.animatedskillcheckresult.plotOpportunityBonus"
+                    : "ui.dice.animatedskillcheckresult.plotOpportunity"
+                  : result.plotBonus
+                    ? "ui.dice.animatedskillcheckresult.plotBlankBonus"
+                    : "ui.dice.animatedskillcheckresult.plotBlank",
+              {
+                label: result.plotLabel ?? localizeUi("ui.dice.animatedskillcheckresult.plotDefault"),
+                face: result.plotFace,
+                bonus: result.plotBonus ? (result.plotBonus > 0 ? `+${result.plotBonus}` : `${result.plotBonus}`) : "",
+              },
+            )}
+          </span>
+        </div>
+      )}
+      {/* A band the Game Master moved (1.823). */}
+      {result.shift !== undefined && result.shift !== 0 && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi(
+              result.shift > 0
+                ? "ui.dice.animatedskillcheckresult.shiftBetter"
+                : "ui.dice.animatedskillcheckresult.shiftWorse",
+              { count: Math.abs(result.shift) },
+            )}
+          </span>
+        </div>
+      )}
+      {/* Special dice (1.824): how many of the pool they were, and what they made of the result. */}
+      {result.hunger !== undefined && result.hunger > 0 && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi("ui.dice.animatedskillcheckresult.specialDice", {
+              count: result.hunger,
+              label: result.hungerLabel ?? localizeUi("ui.dice.animatedskillcheckresult.specialLabel"),
+            })}
+          </span>
+        </div>
+      )}
+      {(result.messy || result.bestial) && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi(
+              result.messy ? "ui.dice.animatedskillcheckresult.messy" : "ui.dice.animatedskillcheckresult.bestial",
+            )}
           </span>
         </div>
       )}

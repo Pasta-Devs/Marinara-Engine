@@ -18,7 +18,16 @@ export function LazyEditorSection({ id, children }: { id: string; children: Reac
   }, [reached]);
   return (
     <section ref={ref} data-editor-section={id} aria-busy={!reached} className={reached ? undefined : "min-h-64"}>
-      {reached ? children : <div className="shimmer h-5 w-24 rounded-md" aria-hidden="true" />}
+      {/* A still bar, not .shimmer: these sit off screen until scrolled to, and an endless shimmer there repainted
+          the whole editor every frame (phone heat/battery). */}
+      {reached ? (
+        children
+      ) : (
+        <div
+          className="h-5 w-24 rounded-md bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)]"
+          aria-hidden="true"
+        />
+      )}
     </section>
   );
 }

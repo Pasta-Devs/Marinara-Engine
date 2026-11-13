@@ -55,7 +55,7 @@ try {
     syncBuiltinESMExports();
 
     const { lorebookImagesDirectory, readLorebookImageDataUrl } =
-      await import("../../packages/server/src/services/lorebook/lorebook-images.js");
+      await import("../../../packages/server/src/services/lorebook/lorebook-images.js");
     mkdirSync(lorebookImagesDirectory(), { recursive: true });
     for (const volume of ["with file IDs", "without file IDs"]) {
       noFileIds = volume === "without file IDs";

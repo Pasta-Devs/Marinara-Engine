@@ -189,6 +189,49 @@ try {
     assert.deepEqual([again.trusted, again.results?.length], [0, 1], "a written record is rolled again");
     assert.ok(again.results![0]!.duality, "the Engine's roll says which die led");
 
+    // A check the ruleset rolls its own way (1.140) is audited under its own resolution: here the ruleset
+    // throws two named dice, but the override takes them away for Sneak. The Engine's own record for that
+    // check carries no duality, and reading the ruleset's own resolution instead would refuse it.
+    {
+      const overridden = parsed(
+        doc((d) => {
+          d.resolution.overrides = [
+            {
+              id: "quiet",
+              label: "Quiet work",
+              skills: ["sneak"],
+              set: { duality: null },
+              text: "Sneaking is a plain sum here.",
+            },
+          ];
+        }),
+      );
+      const overrideCards = [
+        { name: "Wren", rulesetSheet: { v: overridden.sheet.version, build: defaultRulesetSheetBuild(overridden) } },
+      ];
+      const overrideContext = {
+        skills: null,
+        attributes: null,
+        sheetAttributes: {},
+        ruleset: buildSkillCheckRulesetContext(overridden, overrideCards, overrideCards[0]),
+      };
+      const sneak = resolveSkillCheckWithContext(overrideContext as any, { skill: "Sneak", dc: 12 });
+      assert.equal(sneak.duality, undefined, "the override takes the two named dice away for Sneak");
+      const own = serializeResolvedSkillCheckTag({ skill: "Sneak", dc: 12, ...sneak });
+      const held = await resolveSkillCheckTagsInContent(own, {
+        loadContext: async () => overrideContext as any,
+        rulesetPinned: true,
+      });
+      assert.deepEqual(
+        [held.trusted, held.resolved],
+        [1, 0],
+        "the Engine keeps its own record for the overridden check",
+      );
+      // The ruleset's own checks still carry the two dice and are still rolled by the Engine.
+      const scrap = resolveSkillCheckWithContext(overrideContext as any, { skill: "Scrap", dc: 12 });
+      assert.ok(scrap.duality, "Scrap still throws two named dice");
+    }
+
     // The Engine's own record from a branch is the exception: the tag pass that follows the branch arm
     // leaves it alone, because rolling it again could contradict the half of the branch already kept.
     const { createGameTurnChanceSession, resolveGameTurnBranches } =

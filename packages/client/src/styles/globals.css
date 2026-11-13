@@ -4563,6 +4563,35 @@ html[data-marinara-effects-paused="true"] .mari-home-browser-star {
   opacity: 0.18;
 }
 
+/* Phones and tablets: the stars hold still. Twinkling kept the GPU drawing 60 frames a second on an idle Home. */
+@media (hover: none) and (pointer: coarse) {
+  .mari-home-browser-star {
+    animation: none;
+    opacity: 0.3;
+    will-change: auto;
+  }
+}
+
+/* Home stays mounted under Professor Mari, editors and full panels. While it is covered
+   (hooks/use-covered-surface-flag.ts), nothing on it animates: not the stars, the blink, the logo,
+   nor anything a theme adds. On phones these hidden loops kept a CPU core 40-60% busy. */
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage"],
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage"] *,
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage"] *::before,
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage"] *::after {
+  animation-play-state: paused !important;
+}
+
+/* Home's own wordmark (its top bar) also stops shifting while Home is covered. */
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub"] .mari-logo-gradient-text--active {
+  animation-play-state: paused;
+}
+
+html[data-marinara-home-covered="true"] .mari-home-browser-star {
+  animation: none;
+  will-change: auto;
+}
+
 html[data-marinara-reduced-effects="true"] .mari-home-widget,
 html[data-marinara-effects-paused="true"] .mari-home-widget {
   --mari-home-widget-hover-filter: none;

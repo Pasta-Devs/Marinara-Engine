@@ -2440,7 +2440,7 @@ for (const layout of ["Roleplay", "Classic Conversation", "Bubble Conversation"]
         await expect(messageRow.locator(".mari-message-actions")).toHaveCSS("opacity", "1");
 
         await messageRow.getByRole("button", { name: "Delete", exact: true }).tap();
-        const deleteDialog = page.getByRole("dialog", { name: "Delete message", exact: true });
+        const deleteDialog = page.getByRole("dialog", { name: "Delete message?", exact: true });
         await expect(deleteDialog).toBeVisible();
         await deleteDialog.getByRole("button", { name: "Cancel", exact: true }).tap();
         await expect(deleteDialog).toBeHidden();
@@ -20294,6 +20294,10 @@ test("a phone turned sideways keeps the app out from under its camera", async ({
     });
     const panelSheet = page.locator('[data-component="RightPanelMobile"]');
     await expectInside(panelSheet, "the panel sheet");
+    await panelSheet
+      .getByRole("group", { name: "Presets", exact: true })
+      .getByRole("button", { name: "Regexes", exact: true })
+      .click();
     await page.getByRole("button", { name: "Select regex scripts", exact: true }).click();
     await page.getByRole("checkbox", { name: `Select ${regexName}`, exact: true }).check();
     const actionBar = page.locator(".mari-selection-action-bar");

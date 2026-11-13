@@ -98,6 +98,11 @@ export const reorderRegexScriptsSchema = z.object({
   scriptIds: z.array(z.string().min(1)),
 });
 
+export const bulkSetRegexEnabledSchema = z.object({
+  scriptIds: z.array(z.string().min(1).max(256)).min(1).max(10_000),
+  enabled: z.boolean(),
+});
+
 export type CreateRegexScriptInput = z.infer<typeof createRegexScriptSchema>;
 export type ImportRegexScriptInput = z.infer<typeof importRegexScriptSchema>;
 export type UpdateRegexScriptInput = z.infer<typeof updateRegexScriptSchema>;

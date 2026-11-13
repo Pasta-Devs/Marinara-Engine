@@ -439,7 +439,7 @@ assert.match(
 );
 // Grids inside the window follow its width, not the screen's: a narrow window must not squeeze four columns.
 assert.match(
-  read("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
+  read("packages/client/src/features/chat-settings/sections/GameWidgetsSection.tsx"),
   /<GameWidgetSetupEditor\b(?:(?!\/>)[\s\S])*?\bcontainerQueries\b/u,
 );
 assert.match(

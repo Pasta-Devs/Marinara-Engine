@@ -92,3 +92,14 @@ export function handleFolderRenameKeyDown(
     onRename();
   }
 }
+
+export function handleFolderRenameInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>, onCancel: () => void) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    event.currentTarget.blur();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    onCancel();
+  }
+}

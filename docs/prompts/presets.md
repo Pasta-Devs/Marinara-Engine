@@ -36,7 +36,7 @@ To export a preset, click the up-arrow icon in the top bar (tooltip **Export pre
 
 ## The Presets panel
 
-**Prompts** is the section for presets. The other sections are **Regexes** and **Functions**. The top buttons are **New**, **Import** (load a `.json` file) and **Select** (export or delete several at once).
+The **Presets** tab contains **Prompts** and **Functions**. Use **Create preset** to make one, **Import preset** to load a `.json` file, or **Select presets** to export or delete several at once. Use the **Regexes** tab to organize scripts into folders or turn several on or off together. See [Regex Scripts](../extending/regex-scripts.md#manage-your-scripts).
 
 - **Search presets** filters the list.
 - The sort menu offers **Manual order**, **A-Z**, **Z-A**, **Newest** and **Oldest**. With **Manual order**, drag a row, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused row. On a touch screen, press and hold a row to pick it up.

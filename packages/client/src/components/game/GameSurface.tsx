@@ -5490,6 +5490,9 @@ function GameSurfaceComponent({
                     double:
                       Number.isInteger(sc.double) && sc.double! >= 2 && sc.double! <= 1000 ? sc.double : undefined,
                     reroll: sc.reroll,
+                    ...(sc.plot ? { plot: true } : {}),
+                    shift: sc.shift,
+                    hunger: Number.isInteger(sc.hunger) && sc.hunger! >= 0 && sc.hunger! <= 100 ? sc.hunger : undefined,
                     messageId: msg.id,
                   })
                 ).result

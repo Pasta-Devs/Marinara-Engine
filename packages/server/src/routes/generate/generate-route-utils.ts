@@ -464,10 +464,6 @@ export function parseSnapshotPlayerStats(snapshot: { playerStats?: unknown } | n
   }
 }
 
-export function shouldAbortOnPassiveGenerationDisconnect(args: { impersonate?: boolean }): boolean {
-  return args.impersonate === true;
-}
-
 export function resolveProviderTopK(topK: number): number | undefined {
   const normalized = Number.isFinite(topK) ? Math.max(0, Math.trunc(topK)) : 0;
   return normalized > 0 ? normalized : undefined;
