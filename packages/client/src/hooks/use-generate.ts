@@ -221,12 +221,16 @@ function showAgentWarning(raw: unknown, chatId: string) {
   toast.warning(message, { duration: 20000 });
 }
 
+let agentBackgroundChoiceSeq = 0;
 function applyAgentBackgroundChoice(chosen: string | null | undefined) {
   const url = chatBackgroundMetadataToUrl(chosen);
   if (!url) return;
+  // A later choice wins even if its check answers first (a pinned place corrects the agent's pick).
+  const seq = ++agentBackgroundChoiceSeq;
 
   fetch(url, { method: "HEAD" })
     .then((res) => {
+      if (seq !== agentBackgroundChoiceSeq) return;
       if (res.ok) {
         useUIStore.getState().setChatBackground(url);
       } else {

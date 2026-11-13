@@ -113,6 +113,7 @@ import {
   MobileChatSettingsQuick,
 } from "../../features/chat-settings/MobileChatSettingsNav";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
+import { LocationBackgroundPins } from "./LocationBackgroundPins";
 import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
 import { CardFieldAlternativesSection } from "../../features/chat-settings/sections/CardFieldAlternativesSection";
 import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameSection";
@@ -10534,6 +10535,7 @@ export function ChatSettingsDrawer({
               help={localizeUi("chat.settings.backgroundHelp")}
             >
               <ActiveChatBackgroundPicker game={isGame} />
+              {isRoleplayMode && <LocationBackgroundPins chatId={chat.id} metadata={chat.metadata} />}
             </Section>
           )}
 

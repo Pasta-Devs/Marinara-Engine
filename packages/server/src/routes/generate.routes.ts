@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import {
+  LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   applyClockCommandTags,
   rulesetChargesStart,
   normalizeVideoGenerationUserSettings,
@@ -554,6 +555,11 @@ import {
   askIllustratorDecisionChecks,
   illustratorDecisionChecks,
 } from "../services/generation/illustrator-decision-checks.js";
+import {
+  locationBackgroundPinsApply,
+  pinnedBackgroundMetadataPatch,
+  pinnedSceneBackground,
+} from "../services/generation/location-background-pins.js";
 import {
   chatBackgroundPlainPicture,
   isChatBackgroundWeatherVersion,
@@ -3305,6 +3311,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       let pendingAdvancedMemory: Promise<void> | null = null;
       const pendingRoleplayMedia: Promise<void>[] = [];
       let pendingIllustratorBackground: (() => Promise<void>) | null = null;
+      // Shows a pinned place's background when this turn arrives there (runs before the Illustrator tail).
+      let pendingLocationPin: (() => Promise<void>) | null = null;
       const collectedCommands: Array<{
         command: CharacterCommand;
         characterId: string | null;
@@ -12591,6 +12599,26 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             signal: agentSignal,
           });
         };
+        // Where this turn's story is (tracker text + World Maps place) checked against the chat's pinned places.
+        const pinnedSceneBackgroundForTurn = async (snapshotMessageId: string, snapshotSwipeIndex: number) => {
+          const snapshot = snapshotMessageId
+            ? await gameStateStore.getByChatAndMessage(input.chatId, snapshotMessageId, snapshotSwipeIndex)
+            : null;
+          const state = snapshot ? parseGameStateRow(snapshot as Record<string, unknown>) : gameState;
+          const projection = hierarchicalMapsEnabledForChat
+            ? await resolveOwnerSpatialProjection(input.chatId, {}, chatMeta)
+            : null;
+          return pinnedSceneBackground({
+            chatMode,
+            chatMetadata: chatMeta,
+            location: state?.location ?? null,
+            projection,
+            userName: personaName,
+            characterNames: charInfo.map((character) => character.name),
+            weather: state?.weather ?? null,
+            weatherVersions: illustratorWeatherVersionsEnabled(chatMode, chatMeta),
+          });
+        };
         const makeIllustratorBackgroundTail = (tail: {
           illustratorAgent: ResolvedAgent;
           /** The Illustrator ran on this reply (its run interval), not only the Decision model checks. */
@@ -12613,7 +12641,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 typeof freshMeta.background === "string" && freshMeta.background.trim()
                   ? freshMeta.background.trim()
                   : null;
-              if (backgroundBeforeGeneration !== backgroundAtDecision) {
+              // A pinned place keeps its picture: no new background, only its weather version.
+              const pinnedHere = locationBackgroundPinsApply(chatMode, freshMeta)
+                ? await pinnedSceneBackgroundForTurn(tail.messageId, tail.swipeIndex)
+                : null;
+              if (backgroundBeforeGeneration !== backgroundAtDecision && !pinnedHere) {
                 logger.info(
                   "[illustrator-background] Skipping automatic background because the active background changed after the Illustrator decision",
                 );
@@ -12643,6 +12675,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               const decidedNewPlace = decided.locationChanged === true;
               if (
                 !automaticBackgroundsEnabled ||
+                pinnedHere ||
                 (!tail.requestedBackground && !trackerLocationChanged && !decidedNewPlace)
               ) {
                 // Same place: show it in the story's weather (a version made once, then reused).
@@ -12690,7 +12723,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   typeof metaAfterWeather.background === "string" && metaAfterWeather.background.trim()
                     ? metaAfterWeather.background.trim()
                     : null;
-                if (backgroundAfterWeather !== backgroundAtDecision) return;
+                if (backgroundAfterWeather !== backgroundBeforeGeneration) return;
                 await chats.patchMetadata(input.chatId, { background: weatherFilename });
                 sendSseEvent(reply, {
                   type: "agent_result",
@@ -13869,6 +13902,46 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           const defaultResultMessageId = messageId;
           const defaultResultSwipeIndex = targetSwipeIndex;
+          if (messageId && locationBackgroundPinsApply(chatMode, chatMeta)) {
+            pendingLocationPin = async () => {
+              try {
+                const pinned = await pinnedSceneBackgroundForTurn(messageId, targetSwipeIndex);
+                const freshChat = await chats.getById(input.chatId);
+                const freshMeta = parseExtra(freshChat?.metadata) as Record<string, unknown>;
+                const shownPinId =
+                  typeof freshMeta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] === "string"
+                    ? (freshMeta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] as string)
+                    : null;
+                if (!pinned) {
+                  // Left the pinned place: the next arrival there shows its picture again.
+                  if (shownPinId)
+                    await chats.patchMetadata(input.chatId, { [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: null });
+                  return;
+                }
+                // Same pinned place as before: a picture the user picked by hand here stays.
+                if (shownPinId === pinned.match.pin.id) return;
+                await chats.patchMetadata(input.chatId, pinnedBackgroundMetadataPatch(pinned));
+                sendSseEvent(reply, {
+                  type: "agent_result",
+                  data: {
+                    agentType: "location-backgrounds",
+                    agentName: "Pinned place",
+                    resultType: "background_change",
+                    data: { chosen: pinned.filename, pinnedPlace: pinned.match.matched },
+                    success: true,
+                    error: null,
+                  },
+                });
+                logger.info(
+                  '[location-backgrounds] Arrived at "%s"; showing "%s"',
+                  pinned.match.matched,
+                  pinned.filename,
+                );
+              } catch (pinError) {
+                logger.warn(pinError, "[location-backgrounds] Could not show the pinned background");
+              }
+            };
+          }
           for (const result of sortedResults) {
             const commandTarget = roleplayMediaTargets.get(result);
             const messageId = commandTarget?.messageId ?? defaultResultMessageId;
@@ -13921,8 +13994,55 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 if (weatherPlan.kind === "switch") bgData.chosen = weatherPlan.filename;
               }
 
+              // A pinned place owns its picture: the agent can't swap it for another one there.
+              let pinnedPatch: Record<string, unknown> | null = null;
+              if (bgData.chosen && locationBackgroundPinsApply(chatMode, chatMeta)) {
+                try {
+                  const pinned = await pinnedSceneBackgroundForTurn(messageId, targetSwipeIndex);
+                  if (pinned) {
+                    const current =
+                      typeof chatMeta.background === "string" && chatMeta.background.trim()
+                        ? chatMeta.background.trim()
+                        : null;
+                    logger.info(
+                      '[location-backgrounds] "%s" is pinned to "%s"; Background agent pick "%s" not used',
+                      pinned.match.matched,
+                      pinned.filename,
+                      bgData.chosen,
+                    );
+                    bgData.chosen = pinned.filename === current ? null : pinned.filename;
+                    (bgData as Record<string, unknown>).pinnedPlace = pinned.match.matched;
+                    pinnedPatch = pinnedBackgroundMetadataPatch(pinned);
+                  }
+                } catch (pinError) {
+                  logger.warn(pinError, "[location-backgrounds] Could not check pinned places");
+                }
+              }
+              if (pinnedPatch) {
+                try {
+                  await updateChatMetadataForTools(pinnedPatch);
+                } catch {
+                  /* non-critical */
+                }
+                // The agent's own pick already went out with its result; put the pinned picture back.
+                sendSseEvent(reply, {
+                  type: "agent_result",
+                  data: {
+                    agentType: "location-backgrounds",
+                    agentName: "Pinned place",
+                    resultType: "background_change",
+                    data: {
+                      chosen: pinnedPatch.background,
+                      pinnedPlace: (bgData as Record<string, unknown>).pinnedPlace,
+                    },
+                    success: true,
+                    error: null,
+                  },
+                });
+              }
+
               // Persist the validated background to chat metadata so it restores on reload
-              if (bgData.chosen) {
+              if (bgData.chosen && !pinnedPatch) {
                 try {
                   await updateChatMetadataForTools({ background: bgData.chosen });
                 } catch {
@@ -16400,6 +16520,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       // Start the independent scene-background tail after tracker persistence,
       // then keep the SSE stream open for visual jobs and Advanced Recall activity.
       if (chatMode === "game" && chatMeta.gameSequentialAgents === true) await pendingIllustration;
+      if (pendingLocationPin) await pendingLocationPin();
       const pendingBackground = pendingIllustratorBackground ? pendingIllustratorBackground() : null;
       if (pendingIllustration || pendingBackground || pendingAdvancedMemory || pendingRoleplayMedia.length) {
         await Promise.allSettled(
