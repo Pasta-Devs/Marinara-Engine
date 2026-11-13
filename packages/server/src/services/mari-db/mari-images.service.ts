@@ -41,6 +41,7 @@ import type { MariDbCommandResult } from "@marinara-engine/shared";
 import { createThemesStorage } from "../storage/themes.storage.js";
 import { isStarterThemeId } from "../storage/starter-themes.js";
 import { themeImageName, themePackageImage } from "../image/theme-package-image.js";
+import { adjustPicture, parseHexColour, type PictureAdjustments } from "../image/picture-adjust.js";
 import { deleteChatGalleryImageEverywhere } from "../image/chat-gallery-cascade-deletion.js";
 import {
   collectPersonaAvatarPaths,
@@ -100,7 +101,7 @@ type MariImageAsset = {
   url: string;
   mimeType: string;
   ext: string;
-  operation: "generate" | "edit";
+  operation: "generate" | "edit" | "adjust";
   kind: ImagePromptKind;
   prompt: string;
   negativePrompt: string;
@@ -137,7 +138,18 @@ type ImageTarget =
   | { type: "character-gallery"; characterId: string; imageId?: string | null }
   | { type: "theme-image"; themeId: string; name: string };
 
-const BOOLEAN_FLAGS = new Set(["apply", "help", "edit", "generate", "json", "delete-file", "force"]);
+const BOOLEAN_FLAGS = new Set([
+  "apply",
+  "help",
+  "edit",
+  "generate",
+  "json",
+  "delete-file",
+  "force",
+  "trim",
+  "everywhere",
+  "verbatim",
+]);
 const PREVIEW_CHAT_ID = "mari-images";
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const PREVIEW_DIR = join(GALLERY_DIR, PREVIEW_CHAT_ID);
@@ -192,6 +204,88 @@ function flagNumber(flags: Map<string, string | boolean>, name: string, fallback
   if (raw === undefined) return fallback;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? Math.round(parsed) : fallback;
+}
+
+/** The `mari images adjust` flags, checked before any picture is read. */
+export function pictureAdjustments(flags: Map<string, string | boolean>): PictureAdjustments {
+  const adjust: PictureAdjustments = {};
+  const crop = flagString(flags, "crop");
+  if (crop !== undefined) {
+    const parts = crop.split(/[,\s]+/).filter(Boolean);
+    if (parts.length !== 4)
+      throw new Error("--crop takes left,top,width,height in pixels or %, e.g. --crop 0,10%,100%,80%");
+    adjust.crop = { left: parts[0]!, top: parts[1]!, width: parts[2]!, height: parts[3]! };
+  }
+  if (hasFlag(flags, "trim")) adjust.trim = true;
+  const transparent = flagString(flags, "transparent", "remove-background");
+  if (transparent !== undefined) adjust.transparent = transparent;
+  else if (hasFlag(flags, "transparent") || hasFlag(flags, "remove-background")) adjust.transparent = "auto";
+  if (adjust.transparent && adjust.transparent.toLowerCase() !== "auto") parseHexColour(adjust.transparent);
+  const tolerance = flagString(flags, "tolerance");
+  if (tolerance !== undefined) {
+    const value = Number(tolerance);
+    if (!Number.isFinite(value) || value < 0 || value > 255) throw new Error("--tolerance takes 0 to 255");
+    adjust.tolerance = value;
+  }
+  if (hasFlag(flags, "everywhere")) adjust.everywhere = true;
+  const resize = flagString(flags, "resize");
+  const width = flagString(flags, "width");
+  const height = flagString(flags, "height");
+  if (resize !== undefined || width !== undefined || height !== undefined) {
+    let w: number | undefined;
+    let h: number | undefined;
+    if (resize !== undefined) {
+      const match = resize.trim().match(/^(\d+)?\s*[x×]\s*(\d+)?$|^(\d+)$/i);
+      if (!match)
+        throw new Error(
+          "--resize takes WIDTHxHEIGHT (either may be left out, e.g. 512x) or one number for the longest side",
+        );
+      if (match[3]) {
+        w = Number(match[3]);
+        h = Number(match[3]);
+      } else {
+        w = match[1] ? Number(match[1]) : undefined;
+        h = match[2] ? Number(match[2]) : undefined;
+      }
+    }
+    if (width !== undefined) w = Number(width);
+    if (height !== undefined) h = Number(height);
+    if (w === undefined && h === undefined) throw new Error("--resize needs a width, a height or both");
+    const fit = (flagString(flags, "fit") ?? "inside").toLowerCase();
+    if (fit !== "inside" && fit !== "cover" && fit !== "fill") throw new Error("--fit takes inside, cover or fill");
+    adjust.resize = { width: w, height: h, fit };
+  }
+  const flip = flagString(flags, "flip")?.toLowerCase();
+  if (flip !== undefined) {
+    const map: Record<string, PictureAdjustments["flip"]> = {
+      h: "horizontal",
+      horizontal: "horizontal",
+      x: "horizontal",
+      v: "vertical",
+      vertical: "vertical",
+      y: "vertical",
+      both: "both",
+    };
+    if (!map[flip]) throw new Error("--flip takes horizontal, vertical or both");
+    adjust.flip = map[flip];
+  } else if (hasFlag(flags, "flip")) adjust.flip = "horizontal";
+  const rotate = flagString(flags, "rotate");
+  if (rotate !== undefined) {
+    const angle = ((Number(rotate) % 360) + 360) % 360;
+    if (angle !== 90 && angle !== 180 && angle !== 270) throw new Error("--rotate takes 90, 180 or 270");
+    adjust.rotate = angle;
+  }
+  const tint = flagString(flags, "tint");
+  if (tint !== undefined) {
+    parseHexColour(tint);
+    adjust.tint = tint;
+  }
+  if (Object.keys(adjust).length === 0) {
+    throw new Error(
+      "Say what to change: --crop, --trim, --transparent [auto|#hex], --resize, --flip, --rotate or --tint",
+    );
+  }
+  return adjust;
 }
 
 export const MAX_IMAGE_VERSIONS = 4;
@@ -530,14 +624,15 @@ async function writeManifest(assets: MariImageAsset[]) {
 
 async function savePreviewAsset(args: {
   result: ImageGenResult;
-  operation: "generate" | "edit";
+  operation: "generate" | "edit" | "adjust";
   kind: ImagePromptKind;
   prompt: string;
   negativePrompt: string;
   width?: number;
   height?: number;
-  connection: ImageConnection;
-  capability: ImageCapability;
+  /** Absent for `adjust`, which runs in the app without an image connection. */
+  connection?: ImageConnection;
+  capability?: ImageCapability;
   sourceImage?: string | null;
 }) {
   // Read first, so a refused manifest leaves no unlisted image behind.
@@ -563,12 +658,12 @@ async function savePreviewAsset(args: {
     negativePrompt: args.negativePrompt,
     width: args.width ?? null,
     height: args.height ?? null,
-    connectionId: args.connection.id,
-    connectionName: args.connection.name,
-    provider: args.connection.provider,
-    source: args.capability.source,
-    serviceHint: args.capability.serviceHint,
-    model: args.connection.model || "",
+    connectionId: args.connection?.id ?? "",
+    connectionName: args.connection?.name ?? "",
+    provider: args.connection?.provider ?? "",
+    source: args.capability?.source ?? "",
+    serviceHint: args.capability?.serviceHint ?? "",
+    model: args.connection?.model || "",
     sourceImage: args.sourceImage ?? null,
     createdAt: now(),
   };
@@ -738,6 +833,10 @@ export class MariImagesService {
         return this.generateOrEdit("generate", context, parsed.flags);
       case "edit":
         return this.generateOrEdit("edit", context, parsed.flags);
+      case "adjust":
+      case "crop":
+      case "transform":
+        return this.adjust(context, parsed.flags);
       case "assign":
       case "add":
       case "replace":
@@ -983,6 +1082,42 @@ export class MariImagesService {
                 "Sent exactly as written: the user's image style profiles, prompt prefixes, LoRAs and style reference were left out.",
             }
           : {}),
+      },
+    };
+  }
+
+  private async adjust(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+  ): Promise<MariDbCommandResult> {
+    const adjustments = pictureAdjustments(flags);
+    const target = this.parseTarget(flags, false);
+    const source = await this.resolveSourceImage(flags, target, context, true);
+    const adjusted = await adjustPicture(source.buffer, adjustments);
+    const asset = await savePreviewAsset({
+      result: { base64: adjusted.buffer.toString("base64"), mimeType: "image/png", ext: "png" },
+      operation: "adjust",
+      kind: source.asset?.kind ?? detectImageKind(target, flagString(flags, "kind")),
+      prompt: source.asset?.prompt ?? "",
+      negativePrompt: source.asset?.negativePrompt ?? "",
+      width: adjusted.width,
+      height: adjusted.height,
+      sourceImage: source.label,
+    });
+    return {
+      ok: true,
+      mode: "read",
+      command: context.command,
+      output: {
+        saved: true,
+        assigned: false,
+        message:
+          "Adjusted copy saved as a new preview asset; the original is unchanged. Show it to the user, then use mari images assign on the one they want.",
+        asset,
+        steps: adjusted.steps,
+        width: adjusted.width,
+        height: adjusted.height,
+        targetSuggestion: target,
       },
     };
   }
@@ -1721,6 +1856,7 @@ export class MariImagesService {
       "HITL preview: preview --operation generate|edit --prompt <text> [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>]",
       "Create preview asset: generate --prompt <text> [--target <target>] [--width <n>] [--height <n>] [--count 1-4] (--count makes that many versions in one go, one request each, for the user to pick from)",
       "Theme art: generate --prompt <text> --target theme-image --theme <theme-id> --name <name> [--width <n>] [--height <n>] (prompt sent exactly as written: the user's style profiles and prompt prefixes are left out; --verbatim does the same for any target)",
+      "Adjust a picture without an image model (new preview asset, original kept): adjust --source <asset|url|file> [--crop left,top,width,height (px or %)] [--trim] [--transparent [auto|#hex] --tolerance 0-255 [--everywhere]] [--resize WxH|N --fit inside|cover|fill] [--flip horizontal|vertical|both] [--rotate 90|180|270] [--tint #hex]",
       "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>]",
       "Apply: assign --asset <asset-id> --target character-avatar --character <id>",
       "Apply: assign --asset <asset-id> --target persona-avatar --persona <id>",
