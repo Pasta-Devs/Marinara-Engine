@@ -87,6 +87,7 @@ import { EchoChamberSettings } from "./agents/EchoChamberSettings";
 import { DirectorSettings } from "./agents/DirectorSettings";
 import { LorebookKeeperSettings } from "./agents/LorebookKeeperSettings";
 import { GAME_SPOTIFY_KEYS, ROLEPLAY_SPOTIFY_KEYS, SpotifySourceSettings } from "./agents/SpotifySourceSettings";
+import { HapticSettings } from "./agents/HapticSettings";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
@@ -153,8 +154,6 @@ import { ExpressionSpriteSettings } from "./ExpressionSpriteSettings";
 import { AvatarLayoutSettings, type AvatarLayoutControls } from "../../components/chat/AvatarLayoutSettings";
 import { AgentPromptTemplateSelect } from "./AgentPromptTemplateSelect";
 import { AgentLorebookAttachment } from "./AgentLorebookAttachment";
-import { HapticConnectionPanel } from "./HapticConnectionPanel";
-import { HAPTIC_SENSITIVITY_OPTIONS } from "../../components/chat/haptic-sensitivity-options";
 import { SettingsSwitch } from "../../components/panels/settings/SettingControls";
 import { ChoiceSelectionModal } from "../../components/presets/ChoiceSelectionModal";
 import { CharacterOnboardingModal } from "../../components/characters/CharacterOnboardingModal";
@@ -229,7 +228,6 @@ import type {
   AgentPhase,
   ChatMode,
   ChatPreset,
-  HapticFeedbackSensitivity,
   KnowledgeAgentSourceSettings,
   Message,
   MusicDjFolderSource,
@@ -1552,10 +1550,6 @@ export function ChatSettingsDrawer({
   const htmlActive = activeAgentIds.includes("html");
   const directorActive = activeAgentIds.includes("director");
   const hapticActive = activeAgentIds.includes("haptic");
-  const hapticSensitivity: HapticFeedbackSensitivity =
-    metadata.hapticSensitivity === "subtle" || metadata.hapticSensitivity === "intense"
-      ? metadata.hapticSensitivity
-      : "standard";
   const agentWriteApprovalRequired = metadata.agentWriteApprovalRequired === true;
   const renderReviewAgentOutputsToggle = (surface: "card" | "secondary") => (
     <AgentSettingsToggle
@@ -4471,51 +4465,7 @@ export function ChatSettingsDrawer({
         onRemove={getRoleplayAgentMenuRemoveHandler("haptic", hapticAgentMeta.name)}
       >
         {renderAgentLorebookAttachment("haptic")}
-        <AgentSettingsToggle
-          label={localizeUi("ui.chat.hapticsetupfields.hapticFeedback")}
-          description={
-            metadata.enableHapticFeedback
-              ? localizeUi("ui.chat.hapticsetupfields.touchCuesAreEnabledForThisChat")
-              : localizeUi("ui.chat.hapticsetupfields.allowThisAgentToSendTouchCuesDuringThe")
-          }
-          enabled={metadata.enableHapticFeedback}
-          onToggle={() => updateMeta.mutate({ id: chat.id, enableHapticFeedback: !metadata.enableHapticFeedback })}
-        />
-        {metadata.enableHapticFeedback && (
-          <>
-            <div className="space-y-2 rounded-lg bg-[var(--background)]/75 p-2.5 ring-1 ring-[var(--border)]">
-              <div className="space-y-1">
-                <span className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                  {localizeUi("ui.chat.chatsettingsdrawer.touchSensitivity")}
-                </span>
-                <AgentSettingsSegmentedControl<HapticFeedbackSensitivity>
-                  value={hapticSensitivity}
-                  columns={3}
-                  options={HAPTIC_SENSITIVITY_OPTIONS.map((option) => ({
-                    id: option.id,
-                    label: localizeUi(option.labelKey),
-                  }))}
-                  onChange={(hapticSensitivity) => updateMeta.mutate({ id: chat.id, hapticSensitivity })}
-                />
-              </div>
-              <AgentSettingsToggle
-                label={localizeUi("ui.chat.chatsettingsdrawer.incidentalContact")}
-                description={localizeUi("ui.chat.hapticsetupfields.tinyTapsForAccidentalBrushesAndBumps")}
-                enabled={metadata.hapticIncidentalContact === true}
-                onToggle={() =>
-                  updateMeta.mutate({
-                    id: chat.id,
-                    hapticIncidentalContact: metadata.hapticIncidentalContact !== true,
-                  })
-                }
-              />
-            </div>
-            <HapticConnectionPanel
-              intifaceUrl={typeof metadata.hapticIntifaceUrl === "string" ? metadata.hapticIntifaceUrl : undefined}
-              onIntifaceUrlChange={(hapticIntifaceUrl) => updateMeta.mutate({ id: chat.id, hapticIntifaceUrl })}
-            />
-          </>
-        )}
+        <HapticSettings chat={chat} metadata={metadata} />
       </AgentSettingsCard>
     );
   };
