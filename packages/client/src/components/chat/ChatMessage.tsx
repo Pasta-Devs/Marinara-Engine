@@ -1023,7 +1023,7 @@ interface ChatMessageProps {
   onRetryFailedReply?: () => void;
   /** R2: the reply checkup's quiet line, set only on the reply it describes. */
   replyCheckup?: ReactNode;
-  onSetActiveSwipe?: (messageId: string, index: number) => void;
+  onSetActiveSwipe?: (messageId: string, index: number) => void | Promise<boolean | undefined>;
   onToggleConversationStart?: ToggleConversationStart;
   memoryStartCharacterIds?: string[];
   onToggleHiddenFromAI?: ToggleHiddenFromAI;
@@ -2735,7 +2735,7 @@ export const ChatMessage = memo(function ChatMessage({
       if (index === message.activeSwipeIndex) return;
       editSwipeIndexRef.current = null;
       setEditing(false);
-      onSetActiveSwipe?.(message.id, index);
+      return onSetActiveSwipe?.(message.id, index);
     },
     [message.activeSwipeIndex, message.id, onSetActiveSwipe],
   );
@@ -3549,6 +3549,12 @@ export const ChatMessage = memo(function ChatMessage({
 
   // ─── Swipe navigation ───
   const swipeCount = message.swipeCount ?? 0;
+  // Alternate greetings are swipes on the chat's first message.
+  const swipePicker = {
+    chatId: message.chatId,
+    content: message.content,
+    greeting: messageOrderIndex === 0 && !isUser,
+  };
   const hasSwipes = swipeCount > 1;
   // A reply still being written shows its stream on every swipe, and a held rewrite would then save
   // into the swipe picked meanwhile (#8636). Switch once it is done.
@@ -4486,6 +4492,7 @@ export const ChatMessage = memo(function ChatMessage({
                 swipeCount={swipeCount}
                 onSetActiveSwipe={handleSetActiveSwipe}
                 onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
+                picker={swipePicker}
               />
             )}
 
@@ -4954,6 +4961,7 @@ export const ChatMessage = memo(function ChatMessage({
               swipeCount={swipeCount}
               onSetActiveSwipe={handleSetActiveSwipe}
               onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
+              picker={swipePicker}
             />
           )}
 

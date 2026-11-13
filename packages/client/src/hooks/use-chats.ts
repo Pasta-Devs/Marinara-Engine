@@ -2147,6 +2147,15 @@ export function useClearAllData() {
   });
 }
 
+/** All swipes of one message, for the greeting switcher. Shares the cache key the swipe mutations update. */
+export function useMessageSwipes(chatId: string, messageId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...chatKeys.all, "swipes", messageId],
+    queryFn: () => api.get<MessageSwipe[]>(`/chats/${chatId}/messages/${messageId}/swipes`),
+    enabled,
+  });
+}
+
 /** Set the active swipe for a message */
 export function useSetActiveSwipe(chatId: string | null) {
   const qc = useQueryClient();
