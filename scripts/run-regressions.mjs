@@ -48,7 +48,7 @@ export function regressionTimeoutMs(relativePath) {
   return FILE_TIMEOUT_MS;
 }
 
-function discoverRegressions(directory = regressionsRoot) {
+export function discoverRegressions(directory = regressionsRoot) {
   const files = [];
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const entryPath = path.join(directory, entry.name);

@@ -163,6 +163,17 @@ To run the full hosted matrix on the current staging candidate, use `gh workflow
 
 **Rollout:** GitHub schedules workflows from the default branch, so the nightly trigger becomes active only after this workflow reaches `main`. Its scheduler only dispatches a full run on `staging`; test code and cache writes stay in the selected branch's own context. Until then, use manual dispatch from `staging` for full coverage. Promotion PRs into `main` run the full matrix from their proposed workflow. A nightly green result on an older staging commit does not validate a later release candidate.
 
+### Where a Node regression goes
+
+The Node lane has grown past 1,700 files, most of them in one flat folder and many repeating the same setup. To keep new ones findable and fast:
+
+- Put a new regression in the folder for the part of the app it covers, such as `scripts/regressions/chat/` or `scripts/regressions/game-ruleset/`. `REGRESSION_AREAS` in `scripts/check-regression-layout.mjs` lists the folders and what each one covers. Add a folder there when none fits.
+- When a file already covers the feature you changed, add your case to it rather than starting a new file. Each file starts its own process and loads its imports from scratch: for a ruleset regression that takes more than a second before its first check runs.
+- Test what the code does: import it, call it and assert on the result. Don't read the app's source files as text and match patterns in them. Those checks break on harmless refactors and still pass when the behavior is broken. If a file names source for another reason the check can't tell apart (it starts the real server, say), or reading the source is the point (a build or packaging check), give the reason in a `regression-layout: source-path <reason>` comment.
+- Don't set `DATA_DIR`, `FILE_STORAGE_DIR` or a `.env` yourself. The runner already gives each file its own throwaway ones.
+
+`pnpm check` runs `pnpm regression:layout-check`, which enforces the folder rule and the source-text rule for new files. The files that predate it are listed in `scripts/regressions/layout-exceptions.json`, and that list never gains a file. Remove a `topLevel` entry when its file moves into an area folder. Remove a `readsSource` entry when its file stops reading source, and change its path when the file moves.
+
 ## Logging
 
 All server-side logging goes through a shared [Pino](https://getpino.io/) logger instance exported from `packages/server/src/lib/logger.ts`. The `LOG_LEVEL` environment variable controls the minimum severity that gets printed (default: `warn`). See `docs/CONFIGURATION.md` for user-facing level descriptions.
