@@ -87,6 +87,23 @@ The die is thrown only when the Game Master asks, by adding `plot="true"` to the
 
 Each listed face must be a face the die has, listed once.
 
+#### A natural total and a moved band
+
+Two optional keys cover summed systems that read tiers off more than one die (Capability API 1.823). A community ruleset needs nothing; a packaged one declares 1.823.
+
+```json
+"dice": { "count": 2, "sides": 10 },
+"naturalTotal": { "atLeast": 19 },
+"tierShift": { "max": 1, "text": "A double edge is +1, a double bane -1." }
+```
+
+- `naturalTotal`: the dice's own total, before anything is added, that is a critical. `atLeast` is a critical success and `atMost` a critical failure; give one or both. It works on any number of dice, where `naturals` needs a single die. A critical lands in the band `on` that critical, or else in the best or the worst band.
+- `tierShift`: lets the Game Master move one check's outcome band with `shift="+1"` or `shift="-1"`, up to `max` bands (1 to 3) and never past the ends. It needs `outcomes`. The record says `shift="+1"` when the band moved, and the dice card says so. `text` is an optional line telling the Game Master when to use it.
+
+A flat bonus such as a single edge's +2 is a number, which a condition's modifier adds. `tierShift` is for rules that move a whole band.
+
+Each `naturalTotal` bound must be a total the dice can show (2d10 shows 2 to 20, read through `dice.faces` where the ruleset gives them), and `atMost` must be below `atLeast`.
+
 ### `dice-pool`: throw the dice and count them
 
 The sheet's number is the **size of the pool**, not a bonus on top of it. A rating of 3 and a trade worth 2 throw five dice. That is the whole trick: no new sheet vocabulary, no new editor, and a system whose ratings are handfuls of dice is written with the same `abilities`, `skills` and `proficiencyTiers` as any other.

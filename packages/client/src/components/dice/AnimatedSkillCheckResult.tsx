@@ -231,6 +231,19 @@ export function AnimatedSkillCheckResult({
           </span>
         </div>
       )}
+      {/* A band the Game Master moved (1.823). */}
+      {result.shift !== undefined && result.shift !== 0 && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi(
+              result.shift > 0
+                ? "ui.dice.animatedskillcheckresult.shiftBetter"
+                : "ui.dice.animatedskillcheckresult.shiftWorse",
+              { count: Math.abs(result.shift) },
+            )}
+          </span>
+        </div>
+      )}
       {/* A roll read against the sheet's number (1.139): the card's DC is the number it had to stay under. */}
       {result.against && (
         <div className="skill-check-roll-meta">

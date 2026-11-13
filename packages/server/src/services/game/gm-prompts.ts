@@ -1488,6 +1488,26 @@ function renderRulesetKindCheckLine(
           `Add plot="true" to throw the ${resolution.plotDie.label} with the check; the engine marks plotFace, plotSymbol (complication or opportunity) and any plotBonus it added${resolution.plotDie.text ? `: ${resolution.plotDie.text}` : "."}`,
         ]
       : []),
+    // A natural total and a moved band (1.823).
+    ...(resolution.naturalTotal
+      ? [
+          [
+            resolution.naturalTotal.atLeast !== undefined
+              ? `The dice showing ${resolution.naturalTotal.atLeast} or more before anything is added is a critical success.`
+              : "",
+            resolution.naturalTotal.atMost !== undefined
+              ? `The dice showing ${resolution.naturalTotal.atMost} or less before anything is added is a critical failure.`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
+        ]
+      : []),
+    ...(resolution.tierShift
+      ? [
+          `Add shift="+1" or shift="-1" to move the outcome that many bands better or worse, up to ${resolution.tierShift.max}${resolution.tierShift.text ? `: ${resolution.tierShift.text}` : "."}`,
+        ]
+      : []),
     ...(resolution.unmodified
       ? [
           `A check the engine marks unmodified="N" rolled that face before anything was added or rolled again (${resolution.unmodified.join(", ")}): apply what the rules say about it.`,

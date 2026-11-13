@@ -121,6 +121,8 @@ export interface SkillCheckTag {
   /** `plot="true"`: the plot die thrown (1.822). Carried, never judged: the resolver holds it to the
    *  ruleset. */
   plot?: boolean;
+  /** `shift="+1"`: bands to move the outcome (1.823). Carried, never judged, as `plot` is. */
+  shift?: number;
   /**
    * `spend="willpower:1"` as the GM wrote it, read into a pool name and a whole number of points.
    *
@@ -512,6 +514,9 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     if (Number.isInteger(dark) && dark >= 0) tag.darkDice = dark;
   }
   if (values.get("plot")?.trim().toLowerCase() === "true") tag.plot = true;
+  const shiftValue = values.get("shift")?.trim();
+  if (shiftValue && Number.isInteger(Number(shiftValue)) && Number(shiftValue) !== 0)
+    tag.shift = Math.max(-3, Math.min(3, Number(shiftValue)));
   const rerollName = values.get("reroll")?.trim();
   if (rerollName) tag.reroll = rerollName.slice(0, 40);
   const reason = values.get("reason")?.trim().toLowerCase();
@@ -651,6 +656,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
           ...(plotLabel ? { plotLabel } : {}),
         }
       : {}),
+    ...(tag.shift ? { shift: tag.shift } : {}),
   };
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
@@ -791,7 +797,12 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     const rollIsD20 = actualRoll >= 1 && actualRoll <= 20;
     const usedRollHolds = usedRoll === actualRoll;
     const arithmeticHolds = actualRoll + modifier === total;
-    const outcomeHolds = criticalSuccess || criticalFailure || success === total >= recordDc;
+    // A shifted band (1.823) may succeed below the dc or fail above it, and the record names it.
+    // Only a shift that explains the disagreement: a better band for a success below the dc, a worse
+    // one for a failure at or above it.
+    const shifted =
+      !!tag.shift && !!outcomeLabel && (tag.shift > 0 ? success && total < recordDc : !success && total >= recordDc);
+    const outcomeHolds = criticalSuccess || criticalFailure || shifted || success === total >= recordDc;
     if (!rollIsD20 || !usedRollHolds || !arithmeticHolds || !outcomeHolds) return tag;
   }
 

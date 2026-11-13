@@ -1600,7 +1600,10 @@ const capabilityPackageManifestBaseSchema = z
 // 1.822: a summed check's plot die (`resolution.plotDie`, asked for with `plot="true"`): one more die whose
 //        faces are blank or carry a complication or an opportunity, a face's `bonus` added to the total. Not a
 //        soft seam: an Engine that cannot read it refuses the whole ruleset file. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 822 } as const);
+// 1.823: a summed check's natural total as a critical (`resolution.naturalTotal`) and a band the Game Master
+//        moves (`resolution.tierShift`, asked for with `shift="+1"`). Not a soft seam: an Engine that cannot
+//        read them refuses the whole ruleset file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 823 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

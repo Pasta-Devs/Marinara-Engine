@@ -1167,6 +1167,43 @@
               ],
               "additionalProperties": false
             },
+            "naturalTotal": {
+              "type": "object",
+              "properties": {
+                "atLeast": {
+                  "type": "integer",
+                  "minimum": -1000,
+                  "maximum": 10000
+                },
+                "atMost": {
+                  "type": "integer",
+                  "minimum": -1000,
+                  "maximum": 10000
+                },
+                "$comment": {}
+              },
+              "additionalProperties": false
+            },
+            "tierShift": {
+              "type": "object",
+              "properties": {
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
+              "required": [
+                "max"
+              ],
+              "additionalProperties": false
+            },
             "difficultyLadder": {
               "minItems": 1,
               "maxItems": 12,

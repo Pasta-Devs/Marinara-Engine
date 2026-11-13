@@ -1291,6 +1291,8 @@ export interface RulesetCheckRoll {
   duality?: string;
   /** The plot die (1.822), where the check threw it: its face, symbol, what it added and its name. */
   plot?: { face: number; symbol?: "complication" | "opportunity"; bonus: number; label: string };
+  /** Bands the outcome was moved (1.823), after the ruleset's limit. */
+  shift?: number;
 }
 
 /** A check that threw nothing at all: the shape every "no roll happened" answer takes, so no path
@@ -1320,7 +1322,15 @@ function noRoll(): RulesetCheckRoll {
 export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
   outcomes: RulesetResolution["outcomes"],
   roll: T,
-  input: { margin: number; total: number; fraction?: number; natural?: -1 | 0 | 1; forced?: "best" | "worst" },
+  input: {
+    margin: number;
+    total: number;
+    fraction?: number;
+    natural?: -1 | 0 | 1;
+    forced?: "best" | "worst";
+    /** Bands better (+) or worse (-) the Game Master moved this check (1.823). */
+    shift?: number;
+  },
 ): T {
   if (!outcomes) return roll;
   // The bands the measure reads; a band `on` a critical is reached by that critical alone.
@@ -1330,6 +1340,11 @@ export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
   let index = read.findIndex((tier) => tier.atLeast === undefined || measure >= tier.atLeast);
   if (index < 0) index = read.length - 1;
   if (outcomes.naturals === "shift" && input.natural) index -= input.natural;
+  // Where the roll stood before the Game Master's shift (1.823), to say how far it really moved: an
+  // ask past the last band, or on a roll a critical pins, moves nothing.
+  const held = (at: number) => Math.min(read.length - 1, Math.max(0, at));
+  const unshifted = held(index);
+  if (input.shift) index -= input.shift;
   if (input.forced === "best") index = 0;
   if (input.forced === "worst") index = read.length - 1;
   const onCritical =
@@ -1338,7 +1353,8 @@ export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
       : input.forced === "worst"
         ? outcomes.tiers.find((tier) => tier.on === "critical-failure")
         : undefined;
-  const tier = onCritical ?? read[Math.min(read.length - 1, Math.max(0, index))]!;
+  const tier = onCritical ?? read[held(index)]!;
+  const moved = input.forced ? 0 : unshifted - held(index);
   // A forced end keeps the critical it came from: a botch is still a botch in a worst band that is not
   // marked critical, and an automatic success still a critical one.
   return {
@@ -1347,6 +1363,7 @@ export function applyRulesetCheckOutcome<T extends RulesetCheckRoll>(
     criticalSuccess: tier.success && (tier.critical || !!tier.on || input.forced === "best"),
     criticalFailure: !tier.success && (tier.critical || !!tier.on || input.forced === "worst"),
     outcome: tier.label,
+    ...(moved ? { shift: moved } : {}),
   };
 }
 
@@ -1374,6 +1391,8 @@ export function rollDiceSumCheck(
     totalFloor?: number;
     /** `plot="true"` (1.822): throw the plot die, where the ruleset has one. */
     plot?: boolean;
+    /** `shift=` (1.823): bands to move the outcome, held to the ruleset's `tierShift.max`. */
+    shift?: number;
   },
   /** `beside` marks a die thrown beside the check, which is never one of its own dice. */
   rollDie: (sides: number, beside?: "plot") => number,
@@ -1447,10 +1466,18 @@ export function rollDiceSumCheck(
       : first1! > first0!
         ? duality.dice[1].label
         : "tie";
+  // The dice's own total, before anything is added (1.823): a natural 19 or 20 on 2d10.
+  const { naturalTotal } = resolution;
+  // Faces worth other numbers are read by their worth, floor included; a plain single die by its face.
+  const ownTotal = faces ? usedRoll : single ? natural : kept.worth;
+  const naturalHigh = naturalTotal?.atLeast !== undefined && ownTotal >= naturalTotal.atLeast;
+  const naturalLow = naturalTotal?.atMost !== undefined && ownTotal <= naturalTotal.atMost;
   const criticalSuccess =
     (single && natural === dice.sides && (policy === "both" || policy === "max-only")) ||
-    (dualityWinner === "tie" && duality!.tieIsCritical);
-  const criticalFailure = single && natural === 1 && (policy === "both" || policy === "min-only");
+    (dualityWinner === "tie" && duality!.tieIsCritical) ||
+    naturalHigh;
+  const criticalFailure =
+    !criticalSuccess && ((single && natural === 1 && (policy === "both" || policy === "min-only")) || naturalLow);
   const unmodified = single && resolution.unmodified?.includes(natural) ? natural : undefined;
   // The plot die (1.822) is thrown after the check's own dice, and adds only what its face says.
   const { plotDie } = resolution;
@@ -1458,6 +1485,10 @@ export function rollDiceSumCheck(
   const plotEntry = plotFace === undefined ? undefined : plotDie!.faces.find((entry) => entry.face === plotFace);
   const plotBonus = plotEntry?.bonus ?? 0;
   const total = Math.max(usedRoll + input.modifier + plotBonus, input.totalFloor ?? -Infinity);
+  const shift =
+    resolution.tierShift && Number.isFinite(input.shift)
+      ? clampInteger(input.shift!, -resolution.tierShift.max, resolution.tierShift.max)
+      : 0;
 
   const roll: RulesetCheckRoll = {
     rolls,
@@ -1488,6 +1519,7 @@ export function rollDiceSumCheck(
     margin: total - input.dc,
     total,
     natural: single ? (natural === dice.sides ? 1 : natural === 1 ? -1 : 0) : 0,
+    shift,
     ...(criticalSuccess ? { forced: "best" as const } : criticalFailure ? { forced: "worst" as const } : {}),
   });
 }
