@@ -20,6 +20,10 @@ export async function getSharp(): Promise<SharpFn | null> {
       // @ts-ignore - optional native dep, may not load on some platforms
       const mod = await import("sharp");
       cachedSharp = (mod.default ?? mod) as SharpFn;
+      // libvips keeps up to 20 of the files it has read open, and a file read only for its metadata (an animated
+      // image served at full size) stays open. Windows cannot delete an open file, so deleting such an image left it on
+      // disk. The in-memory cache is kept; only open files are not. Every path-reading caller loads sharp here.
+      cachedSharp.cache({ files: 0 });
       return cachedSharp;
     } catch (error) {
       sharpLoadFailed = true;
