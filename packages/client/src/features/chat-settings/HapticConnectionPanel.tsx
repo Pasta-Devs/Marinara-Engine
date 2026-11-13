@@ -8,7 +8,7 @@ import {
   useHapticStartScan,
   useHapticStatus,
 } from "../../hooks/use-haptic";
-import { AgentSettingsActionButton } from "./AgentSettingsControls";
+import { AgentSettingsActionButton } from "../../components/chat/AgentSettingsControls";
 
 interface HapticConnectionPanelProps {
   intifaceUrl?: string;

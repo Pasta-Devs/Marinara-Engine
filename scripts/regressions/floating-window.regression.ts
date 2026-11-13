@@ -388,7 +388,7 @@ assert.match(
   /<Drawer\b[^>]*\bfill=\{fill\}/u,
 );
 assert.match(
-  read("packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+  read("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
   /help=\{localizeUi\("chat\.settings\.authorNotesHelp"\)\}\s+fill\s*>/u,
 );
 const authorNotesPanel = read("packages/client/src/components/chat/ChatRoleplayPanels.tsx").split(
@@ -422,14 +422,14 @@ assert.match(
   /mari-drawer__help[\s\S]*?mari-drawer__actions[\s\S]*?data-drawer-control="pop-out"[\s\S]*?mari-drawer__arrow/u,
 );
 for (const host of [
-  "packages/client/src/components/chat/ChatSettingsDrawer.tsx",
+  "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx",
   "packages/client/src/components/chat/RoleplayTrackerWindow.tsx",
 ]) {
   assert.match(read(host), /<FloatingWindow\b(?:(?!>\n)[\s\S])*?\bdrawerHost=\{\{/u, `${host} hosts pop-out drawers`);
 }
 
 // Chat Settings renders through the shared window and its sections through the shared drawer.
-assert.match(read("packages/client/src/components/chat/ChatSettingsDrawer.tsx"), /<FloatingWindow\b/u);
+assert.match(read("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"), /<FloatingWindow\b/u);
 assert.match(read("packages/client/src/components/chat/ChatCommonOverlays.tsx"), /<FloatingWindow\b/u);
 assert.match(read("packages/client/src/features/chat-settings/ChatSettingsSection.tsx"), /<Drawer\b/u);
 assert.match(
@@ -439,7 +439,7 @@ assert.match(
 );
 // Grids inside the window follow its width, not the screen's: a narrow window must not squeeze four columns.
 assert.match(
-  read("packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+  read("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
   /<GameWidgetSetupEditor\b(?:(?!\/>)[\s\S])*?\bcontainerQueries\b/u,
 );
 assert.match(

@@ -783,7 +783,7 @@ try {
   );
 
   const chatSettingsSource = readFileSync(
-    join(repositoryRoot, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+    join(repositoryRoot, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
     "utf8",
   );
   assert.match(

@@ -71,7 +71,7 @@ assert.deepEqual(staticChain(join(clientSource, "components/chat/RoleplayRuleset
 for (const screen of [
   "main.tsx",
   "components/chat/ChatArea.tsx",
-  "components/chat/ChatSettingsDrawer.tsx",
+  "features/chat-settings/ChatSettingsDrawer.tsx",
   "features/tracker-panel/components/TrackerDataSidebar.tsx",
 ]) {
   const chain = staticChain(join(clientSource, screen), GAME_MODE_SCREEN);
