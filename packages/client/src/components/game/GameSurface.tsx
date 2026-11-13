@@ -5492,6 +5492,7 @@ function GameSurfaceComponent({
                     reroll: sc.reroll,
                     ...(sc.plot ? { plot: true } : {}),
                     shift: sc.shift,
+                    hunger: Number.isInteger(sc.hunger) && sc.hunger! >= 0 && sc.hunger! <= 100 ? sc.hunger : undefined,
                     messageId: msg.id,
                   })
                 ).result

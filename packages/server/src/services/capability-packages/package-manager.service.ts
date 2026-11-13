@@ -9383,6 +9383,13 @@ function capabilityPackageInstallIssueFor(
   ) {
     return "A ruleset with a natural total or a band shift requires schemaVersion 2 and capabilityApi 1.823 or newer";
   }
+  // Special dice and paired faces in a pool, 1.824: strict keys, including per-check overrides.
+  if (
+    !declaresApi(824) &&
+    diceSettings.some((setting) => setting?.hunger !== undefined || setting?.pairs !== undefined)
+  ) {
+    return "A ruleset whose pool has special dice or paired faces requires schemaVersion 2 and capabilityApi 1.824 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||

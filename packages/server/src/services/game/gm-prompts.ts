@@ -1257,6 +1257,17 @@ function renderRulesetKindCheckLine(
         : []),
       ...faceClause("explode", explode, "roll one more die"),
       ...faceClause("double", double, "count twice"),
+      // Paired faces and special dice (1.824), each where declared.
+      ...(resolution.pairs
+        ? [
+            `Each pair of dice showing ${resolution.pairs.from} or more counts ${resolution.pairs.successes} successes, and a check that succeeds with a pair is a critical success.`,
+          ]
+        : []),
+      ...(resolution.hunger
+        ? [
+            `Add hunger="N" to make N of the pool's dice ${resolution.hunger.label} dice, up to ${resolution.hunger.max}; they are never thrown again. The engine marks messy="true" on a critical with a ${resolution.hunger.label} die on the critical face, and bestial="true" on a failure with a ${resolution.hunger.label} die showing 1${resolution.hunger.text ? `: ${resolution.hunger.text}` : "."}`,
+          ]
+        : []),
       ...withClause,
       ...untrainedClause,
       ...effectsClause,

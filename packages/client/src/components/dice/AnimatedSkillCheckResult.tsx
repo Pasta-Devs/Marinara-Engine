@@ -244,6 +244,26 @@ export function AnimatedSkillCheckResult({
           </span>
         </div>
       )}
+      {/* Special dice (1.824): how many of the pool they were, and what they made of the result. */}
+      {result.hunger !== undefined && result.hunger > 0 && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi("ui.dice.animatedskillcheckresult.specialDice", {
+              count: result.hunger,
+              label: result.hungerLabel ?? localizeUi("ui.dice.animatedskillcheckresult.specialLabel"),
+            })}
+          </span>
+        </div>
+      )}
+      {(result.messy || result.bestial) && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi(
+              result.messy ? "ui.dice.animatedskillcheckresult.messy" : "ui.dice.animatedskillcheckresult.bestial",
+            )}
+          </span>
+        </div>
+      )}
       {/* A roll read against the sheet's number (1.139): the card's DC is the number it had to stay under. */}
       {result.against && (
         <div className="skill-check-roll-meta">

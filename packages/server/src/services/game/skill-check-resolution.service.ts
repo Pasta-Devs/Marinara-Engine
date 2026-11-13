@@ -252,6 +252,8 @@ export interface SkillCheckRequest {
   plot?: boolean;
   /** `shift=` (1.823): bands to move this check's outcome. */
   shift?: number;
+  /** `hunger=` (1.824): special dice among this check's pool. */
+  hunger?: number;
   /** `spend=`: what the player said they were spending on this check, where the ruleset offers
    *  such a purchase. The Engine decides what it costs and what it buys. */
   spend?: { pool: string; amount: number };
@@ -1115,6 +1117,7 @@ export function diceAsk(tag: SkillCheckTag | SkillCheckRequest) {
   return {
     ...(tag.plot ? { plot: true } : {}),
     ...(tag.shift != null ? { shift: tag.shift } : {}),
+    ...(tag.hunger != null ? { hunger: tag.hunger } : {}),
   };
 }
 
@@ -1451,6 +1454,7 @@ function resolveRulesetSkillCheck(
         bonusDice: request.bonusDice,
         explode: request.explode,
         double: request.double,
+        hunger: request.hunger,
         ...(sheetTarget !== undefined ? { sheetTarget } : {}),
         ...(stance ? { stance: stance.count } : {}),
         ...(bought ? { bought } : {}),
@@ -1475,6 +1479,7 @@ function resolveRulesetSkillCheck(
       complication: rolled.complication || undefined,
       exact: rolled.exact || undefined,
       exactLabel: rolled.exact && resolution.exact ? resolution.exact.label : undefined,
+      hungerLabel: rolled.hunger && resolution.hunger ? resolution.hunger.label : undefined,
       // Named only when it was the standing one that was thrown, and it actually threw something.
       reroll: standing && reroll === standing && rolled.rerolled > 0 ? standing.id : undefined,
       ...applied,
@@ -1888,9 +1893,9 @@ function isRulesetRollableSkillCheckTag(tag: SkillCheckTag, definition: RulesetD
 }
 
 /** Whether a complete record says or asks for something only a ruleset's own roll can give: which
- * of two named dice led (1.821); a plot die asked for or shown (1.822); a band moved (1.823). In a
- * game with no ruleset such a record is the model's claim, never the Engine's roll. A bare ask is
- * not a claim: it carries no numbers to keep. */
+ * of two named dice led (1.821); a plot die asked for or shown (1.822); a band moved (1.823);
+ * special dice in a pool (1.824). In a game with no ruleset such a record is the model's claim,
+ * never the Engine's roll. A bare ask is not a claim: it carries no numbers to keep. */
 function claimsRulesetDice(tag: SkillCheckTag): boolean {
   const result = tag.resolvedResult;
   if (!result) return false;
@@ -1899,14 +1904,10 @@ function claimsRulesetDice(tag: SkillCheckTag): boolean {
     !!tag.plot ||
     result.plotFace !== undefined ||
     tag.shift !== undefined ||
-    result.shift !== undefined
+    result.shift !== undefined ||
+    tag.hunger !== undefined ||
+    result.hunger !== undefined
   );
-}
-
-/** What a claim keeps, beside its dice, wherever it is written back as an ask: the system it named,
- *  so nothing later rolls another system's check as a d20. Every write-back in the tag pass uses it. */
-function claimedSystem(tag: SkillCheckTag): { declaredResolution?: string } {
-  return claimsRulesetDice(tag) && tag.declaredResolution ? { declaredResolution: tag.declaredResolution } : {};
 }
 
 /** Whether a complete tag's numbers are the ones this ruleset and this sheet would have produced.
@@ -1933,6 +1934,8 @@ function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag
   if (resolution.duality || tag.plot || result.duality != null || result.plotFace != null) return false;
   // Nor one whose critical is read off the dice's own total, or that asks to move a band (1.823).
   if (resolution.naturalTotal || tag.shift) return false;
+  // Nor one that asks for special dice (1.824): those are a pool's, and a pool is the Engine's roll.
+  if (tag.hunger != null) return false;
   // A check the character's conditions or items change is always the Engine's own: the Game Master
   // cannot have counted what it is not shown, and a bonus in dice has no one right number.
   const changed = rulesetCheckEffectsFor(
@@ -2658,7 +2661,9 @@ export async function resolveSkillCheckTagsInContent(
                 disadvantage: tag.disadvantage,
                 // The "0dN" of a record that claims no roll labels no dice anybody would throw.
                 declaredDice: claimsNoRoll ? undefined : tag.declaredDice,
-                ...claimedSystem(tag),
+                ...(claimsRulesetDice(tag) && tag.declaredResolution
+                  ? { declaredResolution: tag.declaredResolution }
+                  : {}),
               },
               askExtras(tag),
             ),
@@ -2732,7 +2737,6 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
-            ...claimedSystem(entry.tag),
           },
           { ...(askExtras(entry.tag) ?? {}), reason: "unknown-roller" },
         );
@@ -2746,7 +2750,6 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
-            ...claimedSystem(entry.tag),
           },
           { ...(askExtras(entry.tag) ?? {}), reason: "untrained" },
         );
@@ -2759,7 +2762,6 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
-            ...claimedSystem(entry.tag),
           },
           askExtras(entry.tag),
         );
@@ -2787,7 +2789,6 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
-            ...claimedSystem(entry.tag),
           },
           askExtras(entry.tag),
         );
@@ -2861,7 +2862,11 @@ export async function resolveSkillCheckTagsInContent(
           disadvantage: entry.request.disadvantage,
           preRolledD20: entry.request.preRolledD20,
           declaredDice: entry.tag.declaredDice,
-          ...claimedSystem(entry.tag),
+          // A claim cut back to its ask keeps the system it named with its dice, here as at the other
+          // two places one is cut back, so nothing rolls another system's check as a d20 later.
+          ...(claimsRulesetDice(entry.tag) && entry.tag.declaredResolution
+            ? { declaredResolution: entry.tag.declaredResolution }
+            : {}),
         },
         askExtras(entry.tag),
       ),

@@ -666,6 +666,8 @@ export function useSkillCheck() {
       plot?: boolean;
       /** `shift=` (1.823): bands to move the outcome. */
       shift?: number;
+      /** `hunger=` (1.824): special dice among the pool. */
+      hunger?: number;
       messageId?: string;
     }) =>
       api.post<{ result: import("@marinara-engine/shared").SkillCheckResult; updatedContent?: string }>(

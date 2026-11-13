@@ -1550,6 +1550,11 @@ export interface RulesetPoolRoll extends RulesetCheckRoll {
   compare?: "below" | "above";
   /** How many dice showed exactly the target, where the ruleset names that face (1.137). */
   exact?: number;
+  /** Special dice (1.824): how many of `rolls`, first, they were; and a messy critical or a bestial
+   *  failure they made. */
+  hunger?: number;
+  messy?: boolean;
+  bestial?: boolean;
 }
 
 /** The hard ceiling on how many dice ONE check may throw again, whatever a ruleset asks for. An
@@ -1591,6 +1596,8 @@ export function rollDicePoolCheck(
     /** `explode=` and `double=`, honoured only where the ruleset gives that rule a `min`. */
     explode?: number;
     double?: number;
+    /** `hunger=` (1.824): special dice among the pool, held to the ruleset's `hunger.max`. */
+    hunger?: number;
     /** What a purchase bought for this one check, already validated and paid for by the caller:
      *  dice thrown on top of the pool, successes added after the dice are counted, a per-die target
      *  for this one roll, and a re-throw of the low faces. The roller never decides whether a spend
@@ -1657,6 +1664,11 @@ export function rollDicePoolCheck(
   );
   const rolls: number[] = [];
   for (let i = 0; i < count; i++) rolls.push(rollDie(die.sides));
+  // Special dice (1.824) are the first of the pool, never more than it has.
+  const hunger =
+    resolution.hunger && Number.isFinite(input.hunger)
+      ? clampInteger(input.hunger!, 0, Math.min(resolution.hunger.max, count))
+      : 0;
 
   // A re-throw of the low faces, bought by the character and applied BEFORE anything else reads the
   // pool, so a rerolled die can still explode, still count and still cancel. `once` replaces each
@@ -1666,7 +1678,8 @@ export function rollDicePoolCheck(
   let rerolled = 0;
   const reroll = input.bought?.reroll;
   if (reroll && reroll.upTo >= 1 && reroll.upTo < die.sides) {
-    for (let i = 0; i < rolls.length && rerolled < RULESET_POOL_MAX_REROLLS; i++) {
+    // Special dice are never thrown again (1.824), so the re-throw starts after them.
+    for (let i = hunger; i < rolls.length && rerolled < RULESET_POOL_MAX_REROLLS; i++) {
       if (rolls[i]! > reroll.upTo) continue;
       rolls[i] = rollDie(die.sides);
       rerolled += 1;
@@ -1710,6 +1723,11 @@ export function rollDicePoolCheck(
     if (counts(roll)) successes += doubleFrom !== undefined && roll >= doubleFrom ? 2 : 1;
     if (cancel && roll <= cancel.upTo) cancelled += 1;
   }
+  // Each pair of paired faces (1.824) is worth `successes` rather than the two it already counted.
+  const pairs = resolution.pairs
+    ? Math.floor(rolls.filter((roll) => roll >= resolution.pairs!.from && counts(roll)).length / 2)
+    : 0;
+  successes += pairs * ((resolution.pairs?.successes ?? 2) - 2);
   // Bought successes are added after the dice are counted and after cancelling, because they were
   // never rolled: a die that cancels a success cannot cancel one nobody threw.
   const autoSuccesses = Math.max(0, Math.floor(input.bought?.successes ?? 0));
@@ -1732,12 +1750,13 @@ export function rollDicePoolCheck(
       : successes === 0 && rolls.some((roll) => roll <= botch.upTo);
   const complication = lowOnHalf && !criticalFailure;
   const success = !criticalFailure && total >= input.required;
+  const paired = success && pairs > 0;
   const roll: RulesetPoolRoll = {
     rolls,
     usedRoll: total,
     total,
     success,
-    criticalSuccess: success && !!exceptional && total >= exceptional.successes,
+    criticalSuccess: paired || (success && !!exceptional && total >= exceptional.successes),
     criticalFailure,
     rollMode: "normal",
     dice: `${rolls.length}d${die.sides}`,
@@ -1751,12 +1770,24 @@ export function rollDicePoolCheck(
     ...(stance ? { compare: stance } : {}),
     ...(resolution.exact ? { exact } : {}),
   };
-  // Bands, where the ruleset declares them, read from the net successes; a botch is the worst band.
-  return applyRulesetCheckOutcome(resolution.outcomes, roll, {
+  // Bands, where the ruleset declares them, read from the net successes; a botch is the worst band and
+  // a pair (1.824) the best.
+  const banded = applyRulesetCheckOutcome(resolution.outcomes, roll, {
     margin: total - input.required,
     total,
-    ...(criticalFailure ? { forced: "worst" as const } : {}),
+    ...(criticalFailure ? { forced: "worst" as const } : paired ? { forced: "best" as const } : {}),
   });
+  if (!hunger) return banded;
+  // What the special dice made of the result (1.824), read once the outcome is settled: a critical with
+  // one of them on the critical face is messy, a failure with one of them on a 1 is bestial.
+  const special = rolls.slice(0, hunger);
+  const criticalFace = resolution.pairs?.from ?? die.sides;
+  return {
+    ...banded,
+    hunger,
+    ...(banded.criticalSuccess && special.some((face) => face >= criticalFace) ? { messy: true } : {}),
+    ...(!banded.success && special.includes(1) ? { bestial: true } : {}),
+  };
 }
 
 /** A `dice-highest` check's roll (1.138): the light dice and then the dark ones, in `rolls`. */

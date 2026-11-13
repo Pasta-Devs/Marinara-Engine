@@ -1603,7 +1603,10 @@ const capabilityPackageManifestBaseSchema = z
 // 1.823: a summed check's natural total as a critical (`resolution.naturalTotal`) and a band the Game Master
 //        moves (`resolution.tierShift`, asked for with `shift="+1"`). Not a soft seam: an Engine that cannot
 //        read them refuses the whole ruleset file. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 823 } as const);
+// 1.824: a pool's special dice (`resolution.hunger`, asked for with `hunger="N"`) and paired faces
+//        (`resolution.pairs`): Vampire V5's Hunger dice, messy criticals, bestial failures and paired 10s. Not a
+//        soft seam: an Engine that cannot read them refuses the whole ruleset file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 824 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
