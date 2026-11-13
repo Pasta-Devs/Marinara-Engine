@@ -1002,6 +1002,7 @@ import { resolveAgentPipelineAgents, resolveEffectiveAgentSettings } from "../se
 import { createReplyFallbackNotifier } from "./generate/fallback-notification.js";
 import {
   applyChatModelOverride,
+  readChatDeletedModel,
   readChatFollowsMain,
   readChatModelOverride,
   resolveChatConnectionOrFallback,
@@ -1768,6 +1769,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         },
         null,
         !connId && readChatFollowsMain(chat),
+        // #9126: a chat whose own Model was deleted says so; one that never had a Model stays silent.
+        readChatDeletedModel(chat),
       ).catch(releaseActiveGenerationAndRethrow);
       if (conn) connId = conn.id;
     }
