@@ -278,4 +278,29 @@ assert.ok(underFilled / built < 0.05, `${underFilled} of ${built} fights under 7
     assert.ok(foe.tier !== "boss" || foe.level >= 17, `boss at level ${foe.level} for a level 20 party`);
 }
 
+// Location spawns: every family but the treasure foes lives somewhere, and a place's own foes keep their
+// levels (fixedLevels): a level 12 crypt stays level 12 for a level 3 party, its boss is never cut or
+// lowered, and its escort shrinks instead.
+{
+  for (const family of MARINARA_BESTIARY)
+    if (family.role !== "treasure") assert.ok(family.habitats?.length, `${family.id} has no habitats`);
+  const crypt = marinaraFitEncounter({
+    setting: "high_fantasy",
+    party: { level: 3, size: 4 },
+    difficulty: "normal",
+    fixedLevels: true,
+    foes: [
+      { familyId: "grave-duelist", tier: "boss", level: 12 },
+      { familyId: "bones", tier: "standard", level: 12 },
+      { familyId: "bones", tier: "standard", level: 12 },
+    ],
+  });
+  assert.ok(
+    crypt.foes.some((foe) => foe.tier === "boss" && foe.level === 12),
+    "the crypt's boss stays",
+  );
+  for (const foe of crypt.foes) assert.equal(foe.level, 12, `${foe.familyId} pulled to level ${foe.level}`);
+  assert.ok(crypt.foes.length < 3, "the escort shrinks instead");
+}
+
 console.log(`marinara bestiary: ${MARINARA_BESTIARY.length} families, ${built} built fights checked`);
