@@ -2475,7 +2475,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                       </HomeNewChatLauncher>
                     </div>
                     {/* Outside the launchers: a button can't sit inside another, and it would cover the Game button. */}
-                    {noChatModel && (
+                    {noChatModel && !overhaulActive && (
                       <button
                         type="button"
                         onClick={() => openAddConnection()}
@@ -2487,6 +2487,13 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     )}
                     {overhaulActive ? (
                       <div className="ov-home-hero-actions">
+                        {/* Same button as its siblings (height, shape, type), so it lines up in the row in every theme. */}
+                        {noChatModel && (
+                          <button type="button" className="ov-btn ov-home-connect" onClick={() => openAddConnection()}>
+                            <Plug size={14} aria-hidden="true" />
+                            {t("home.connectModel.cta")}
+                          </button>
+                        )}
                         <button type="button" className="ov-btn" onClick={openProfessor}>
                           {t("home.browser.professorTab")}
                         </button>

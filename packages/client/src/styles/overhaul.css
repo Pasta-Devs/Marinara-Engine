@@ -3126,11 +3126,17 @@
 }
 .ov-home-hero-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 .ov-home-hero-actions .ov-btn {
   height: 2.25rem;
   border-radius: 999px;
+}
+/* "Connect a model" stands out with an accent tint, but keeps the sibling buttons' size and shape. */
+.ov-home-hero-actions .ov-home-connect {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 :root[data-overhaul] [data-component="HomeBrowserHub.HomePage"] > .relative {
   max-width: 82rem;
