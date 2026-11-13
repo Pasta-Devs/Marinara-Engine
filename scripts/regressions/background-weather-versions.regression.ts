@@ -48,6 +48,10 @@ assert.equal(shared.unusualWeatherSlug("Crème brûlée haze"), "creme-brulee-ha
 assert.equal(resolveWeatherRenderConfig("blizzard", "noon").category, "snow");
 assert.equal(resolveWeatherRenderConfig("cherry blossoms drifting", "noon").category, "blossom");
 
+// Meteor showers draw shooting stars; other weather doesn't.
+assert.equal(resolveWeatherRenderConfig("meteor shower", "night").addMeteors, true);
+assert.equal(resolveWeatherRenderConfig("rain", "night").addMeteors, false);
+
 // ── Indoors / outdoors ──
 assert.equal(shared.sceneShelter("Tideglass Inn, Brinewatch"), "indoors");
 assert.equal(shared.sceneShelter("Brinewatch harbour docks"), "outdoors");

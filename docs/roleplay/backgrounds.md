@@ -61,6 +61,16 @@ What happens:
 
 If it did not work: check that the chat's World State shows a **Weather** (or that the weather check below is on), and that **Illustrator** is added to the chat with an image model.
 
+### Remake a weather picture or its windows
+
+When the chat shows a weather version, **Chat Settings → Agents → Illustrator** shows a row under **Weather Versions of Backgrounds** named after the weather (for example **This rain picture**):
+
+- **Remake picture** paints this weather version again from the plain picture.
+- **Remake windows** asks the image model for the window stencil again. Use it when the moving weather falls on cushions or misses a window.
+- **No moving weather** turns the stencil off for this room. Its weather versions then show no moving weather, only the weather's colour and lightning. **Remake windows** brings it back.
+
+A meteor shower draws shooting stars across the window or sky.
+
 ## Decision model checks for new places and weather
 
 Illustrator normally looks at the scene only on its **Run Interval**, so a new place can wait a few replies for its background. With a [Decision model](../connections/decision-models.md), a small yes-or-no model, it can check every reply instead.

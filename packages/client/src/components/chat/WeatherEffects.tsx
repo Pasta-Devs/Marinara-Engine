@@ -97,8 +97,12 @@ export function WeatherEffects({
   const look = useMemo<WeatherLook>(() => {
     const painted = reducedPaintEffects ? { ...themeLook, flat: true } : themeLook;
     // A drawn bolt would cross the room; indoors only the flash comes through the windows.
-    return indoors && !masked && painted.bolt > 0 ? { ...painted, bolt: 0 } : painted;
-  }, [themeLook, reducedPaintEffects, indoors, masked]);
+    // Behind the glass the drops are far away and few: longer streaks read as rain at that size.
+    if (masked) return { ...painted, glass: "window", rainLength: Math.min(3, painted.rainLength * 1.6) };
+    // Over a painted outdoor sky the faint kinds (aurora, stars) need the same lift to show at all.
+    if (paintedWeather && shelter === "outdoors") return { ...painted, glass: "sky" };
+    return indoors && painted.bolt > 0 ? { ...painted, bolt: 0 } : painted;
+  }, [themeLook, reducedPaintEffects, indoors, masked, paintedWeather, shelter]);
   const particlesRef = useRef<WeatherParticle[]>([]);
   const frameRef = useRef<number>(0);
   const workerRef = useRef<Worker | null>(null);
@@ -114,7 +118,9 @@ export function WeatherEffects({
 
   const config = useMemo(() => {
     const resolved = resolveWeatherRenderConfig(weather, timeOfDay);
-    if (masked) return resolved;
+    // Only the windows show (often a sixth of the screen), so three times the falling weather keeps
+    // the glass as busy as the open screen would be.
+    if (masked) return { ...resolved, count: Math.min(400, resolved.count * 3) };
     return paintedWeather
       ? paintedWeatherRenderConfig(resolved, shelter)
       : shelterWeatherRenderConfig(resolved, shelter);
