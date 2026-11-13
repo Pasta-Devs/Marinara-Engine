@@ -23,10 +23,10 @@ export const REGRESSION_AREAS = {
   chat: "chats, messages, branches, summaries, the gallery and Conversation mode",
   connections: "connections, providers, models and the requests sent to them",
   decision: "the Decision sidecar",
+  extensions: "personal extensions and their IPC",
   game: "Game mode outside the ruleset engine: worlds, experiences, scenes and NPCs",
   "game-ruleset": "the ruleset format and engine: combat, sheets, checks, items and dice",
   image: "image generation and image processing",
-  extensions: "personal extensions and their IPC",
   launcher: "the launchers, installers and the app updater",
   lorebook: "lorebooks and their keyword matching",
   mari: "Mari's app-data tools: the handbooks and the reads and edits Mari makes to characters, chats, presets and more",
@@ -83,7 +83,7 @@ export function checkRegressionLayout(files, exceptions, areas = REGRESSION_AREA
   const problems = [];
   const topLevel = new Set(exceptions.topLevel);
   const readsSource = new Set(exceptions.readsSource);
-  const present = new Set(files.map((file) => file.path));
+  const texts = new Map(files.map((file) => [file.path, file.text]));
   const areaList = Object.entries(areas)
     .map(([name, covers]) => `    ${name}/  ${covers}`)
     .join("\n");
@@ -117,11 +117,10 @@ export function checkRegressionLayout(files, exceptions, areas = REGRESSION_AREA
   }
 
   for (const listed of topLevel) {
-    if (!present.has(listed)) {
+    if (!texts.has(listed)) {
       problems.push(`${EXCEPTIONS_FILE}: "${listed}" is no longer in ${REGRESSIONS}; remove it from "topLevel".`);
     }
   }
-  const texts = new Map(files.map((file) => [file.path, file.text]));
   for (const listed of readsSource) {
     if (!texts.has(listed)) {
       problems.push(
@@ -143,7 +142,11 @@ export function readRegressionFiles() {
   }));
 }
 
-if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  fs.existsSync(process.argv[1]) &&
+  fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   const exceptions = JSON.parse(fs.readFileSync(path.join(repositoryRoot, EXCEPTIONS_FILE), "utf8"));
   const problems = checkRegressionLayout(readRegressionFiles(), exceptions);
   if (problems.length > 0) {
