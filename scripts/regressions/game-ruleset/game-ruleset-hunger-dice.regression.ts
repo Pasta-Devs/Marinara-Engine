@@ -24,7 +24,7 @@ import {
   rulesetPoolMaxSuccesses,
   serializeResolvedSkillCheckTag,
   type RulesetDefinition,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-ruleset-hunger-"));
 const previousDataDir = process.env.DATA_DIR;
@@ -36,12 +36,12 @@ try {
     { buildGmFormatReminder },
     { getCapabilityPackageInstallIssue },
   ] = await Promise.all([
-    import("../../packages/server/src/services/game/skill-check-resolution.service.js"),
-    import("../../packages/server/src/services/game/gm-prompts.js"),
-    import("../../packages/server/src/services/capability-packages/package-manager.service.js"),
+    import("../../../packages/server/src/services/game/skill-check-resolution.service.js"),
+    import("../../../packages/server/src/services/game/gm-prompts.js"),
+    import("../../../packages/server/src/services/capability-packages/package-manager.service.js"),
   ]);
   const gravewatchText = readFileSync(
-    fileURLToPath(new URL("../../docs/examples/rulesets/gravewatch.json", import.meta.url)),
+    fileURLToPath(new URL("../../../docs/examples/rulesets/gravewatch.json", import.meta.url)),
     "utf8",
   );
   /** Gravewatch thrown as V5: a fixed 6+ on d10s, no explosions, cancels or botches. */
@@ -174,7 +174,7 @@ try {
     // A summed check that asks for special dice is the Engine's to roll, however tidy its numbers: on a
     // plain d20 ruleset the record alone is kept, and the same record with `hunger=` is rolled again.
     const emberDoc = JSON.parse(
-      readFileSync(fileURLToPath(new URL("../../docs/examples/rulesets/ember-roads.json", import.meta.url)), "utf8"),
+      readFileSync(fileURLToPath(new URL("../../../docs/examples/rulesets/ember-roads.json", import.meta.url)), "utf8"),
     ) as Record<string, any>;
     delete emberDoc.combat;
     delete emberDoc.layers;
