@@ -82,6 +82,7 @@ import { PersonaSection } from "./sections/PersonaSection";
 import { CharactersSection } from "./sections/CharactersSection";
 import { GamePartySection } from "./sections/GamePartySection";
 import { CardEvolutionAuditorSettings } from "./agents/CardEvolutionAuditorSettings";
+import { HoldForRewriteToggle } from "./agents/HoldForRewriteToggle";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
@@ -6275,17 +6276,7 @@ export function ChatSettingsDrawer({
                               }
                             }}
                           />
-                          <AgentSettingsToggle
-                            label={localizeUi("ui.chat.agentaddsetupfields.holdMessageUntilRewrite")}
-                            description={
-                              proseGuardianHoldForRewrite
-                                ? localizeUi(
-                                    "ui.chat.agentaddsetupfields.showTheRewriteWorkingIndicatorThenRevealTheEdited",
-                                  )
-                                : localizeUi(
-                                    "ui.chat.chatsettingsdrawer.streamTheOriginalMessageNormallyThenReplaceItWhen",
-                                  )
-                            }
+                          <HoldForRewriteToggle
                             enabled={proseGuardianHoldForRewrite}
                             onToggle={() =>
                               commitProseGuardianSettings({ proseGuardianHoldForRewrite: !proseGuardianHoldForRewrite })
@@ -6368,17 +6359,7 @@ export function ChatSettingsDrawer({
                           onRemove={getRoleplayAgentMenuRemoveHandler("continuity", continuityAgentMeta.name)}
                         >
                           {renderAgentLorebookAttachment("continuity")}
-                          <AgentSettingsToggle
-                            label={localizeUi("ui.chat.agentaddsetupfields.holdMessageUntilRewrite")}
-                            description={
-                              proseGuardianHoldForRewrite
-                                ? localizeUi(
-                                    "ui.chat.agentaddsetupfields.showTheRewriteWorkingIndicatorThenRevealTheEdited",
-                                  )
-                                : localizeUi(
-                                    "ui.chat.chatsettingsdrawer.streamTheOriginalMessageNormallyThenReplaceItWhen",
-                                  )
-                            }
+                          <HoldForRewriteToggle
                             enabled={proseGuardianHoldForRewrite}
                             onToggle={() =>
                               commitProseGuardianSettings({ proseGuardianHoldForRewrite: !proseGuardianHoldForRewrite })
@@ -6397,17 +6378,7 @@ export function ChatSettingsDrawer({
                           onRemove={getRoleplayAgentMenuRemoveHandler("html", htmlAgentMeta.name)}
                         >
                           {renderAgentLorebookAttachment("html")}
-                          <AgentSettingsToggle
-                            label={localizeUi("ui.chat.agentaddsetupfields.holdMessageUntilRewrite")}
-                            description={
-                              proseGuardianHoldForRewrite
-                                ? localizeUi(
-                                    "ui.chat.agentaddsetupfields.showTheRewriteWorkingIndicatorThenRevealTheEdited",
-                                  )
-                                : localizeUi(
-                                    "ui.chat.chatsettingsdrawer.streamTheOriginalMessageNormallyThenReplaceItWhen",
-                                  )
-                            }
+                          <HoldForRewriteToggle
                             enabled={proseGuardianHoldForRewrite}
                             onToggle={() =>
                               commitProseGuardianSettings({ proseGuardianHoldForRewrite: !proseGuardianHoldForRewrite })
