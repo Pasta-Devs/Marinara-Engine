@@ -104,6 +104,20 @@ A flat bonus such as a single edge's +2 is a number, which a condition's modifie
 
 Each `naturalTotal` bound must be a total the dice can show (2d10 shows 2 to 20, read through `dice.faces` where the ruleset gives them), and `atMost` must be below `atLeast`.
 
+#### A check with no dice
+
+Some systems roll nothing at all: in Amber and Nobilis a check is a rating compared with a difficulty, and the higher one wins (Capability API 1.825). A community ruleset needs nothing; a packaged one declares 1.825.
+
+```json
+"kind": "dice-sum",
+"dice": { "count": 0 },
+"abilityModifier": { "op": "identity" }
+```
+
+The total is the character sheet's own number, compared with the difficulty exactly as a summed check is: the same ability, proficiency, `adjust` and wound penalty, the same outcome bands, ladders and overrides. The record says `dice="0d6" rolls=""` with the modifier and the total, the dice card shows the comparison ("Warfare 4 vs 3") instead of a die, and the Game Master is told the engine compares rather than rolls.
+
+Everything that reads a die is refused here, so a check with no dice cannot quietly ignore a key that needs one: `advantage`, `openEnded`, `unmodified`, `dice.faces`, `duality`, `plotDie`, `naturalTotal`, and a `naturals` policy. An override may still give particular checks their own dice.
+
 ### `dice-pool`: throw the dice and count them
 
 The sheet's number is the **size of the pool**, not a bonus on top of it. A rating of 3 and a trade worth 2 throw five dice. That is the whole trick: no new sheet vocabulary, no new editor, and a system whose ratings are handfuls of dice is written with the same `abilities`, `skills` and `proficiencyTiers` as any other.
