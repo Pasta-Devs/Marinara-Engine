@@ -5,6 +5,17 @@ import { cn, getAvatarCropStyle } from "../../../lib/utils";
 
 export const PICKER_EXCLUDED_IDS = [PROFESSOR_MARI_ID];
 
+/** A character card as Chat Settings reads it from the library list. */
+export type CastCharacter = {
+  id: string;
+  data: string;
+  comment?: string | null;
+  avatarPath: string | null;
+};
+
+/** Anything with card data a name, title or avatar crop can be read from. */
+export type CastCardLike = { id?: string; data: string | Record<string, unknown>; comment?: string | null };
+
 export const CHAT_RESOURCE_REMOVE_BUTTON_CLASS =
   "mari-accent-animated flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-accent)] focus-visible:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] focus-visible:text-[var(--marinara-chat-chrome-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
 
