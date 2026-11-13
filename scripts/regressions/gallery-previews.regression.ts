@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -42,6 +42,7 @@ function pngChunk(type: string, data: Buffer) {
   return chunk;
 }
 
+let passed = false;
 try {
   const original = await sharp({ create: { width: 2048, height: 3072, channels: 3, background: "#164e63" } })
     .png()
@@ -168,11 +169,18 @@ try {
     ["animated.webp", animatedWebp],
     ["animated.gif", gif],
   ] as const) {
-    await seed("animated", `animated/${filename}`, bytes);
+    const animationPath = await seed("animated", `animated/${filename}`, bytes);
     const response = await app.inject(`/api/gallery/file/animated/${filename}?w=320`);
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.rawPayload, bytes, "Animations retain their original bytes");
+    // The preview read only the animation's metadata. Windows cannot delete a file that is still open (EBUSY), so
+    // sharp must not keep it open afterwards, or deleting the image leaves it on disk.
+    unlinkSync(animationPath);
   }
+  // Linux and macOS can delete an open file, so the delete above only fails on Windows. This holds everywhere: the
+  // sharp the previews above used (through sharp-runtime, as image-thumbnail loads it) keeps no files open.
+  const appSharp = await (await import("../../packages/server/src/services/image/sharp-runtime.js")).getSharp();
+  assert.equal(appSharp.cache().files.max, 0, "the app's sharp keeps no files open");
   // Metadata payloads must not make static generated PNGs bypass mobile previews.
   const largeMetadata = Buffer.concat([original.subarray(0, 33), metadataChunk, original.subarray(33)]);
   await seed("large-metadata", "large-metadata/image.png", largeMetadata);
@@ -188,8 +196,14 @@ try {
   console.info(
     "Gallery preview sizes, original downloads, animation fallbacks, ownership and media validation passed.",
   );
+  passed = true;
 } finally {
   await app.close();
   await closeDB();
-  rmSync(fixtureDir, { recursive: true, force: true });
+  try {
+    rmSync(fixtureDir, { recursive: true, force: true });
+  } catch (error) {
+    // On Windows a file the app left open also blocks this cleanup; that must not hide the check that found it.
+    if (passed) throw error;
+  }
 }

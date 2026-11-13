@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const clientSource = resolve(dirname(fileURLToPath(import.meta.url)), "../../packages/client/src");
@@ -33,16 +33,19 @@ function resolveSource(from: string, specifier: string): string | null {
   return null;
 }
 
+/** `file` relative to the client source, with `/` between folders on every platform. */
+const sourceName = (file: string) => relative(clientSource, file).split(sep).join("/");
+
 /** The first static chain from `start` to a file `forbidden` matches, or null. */
 function staticChain(start: string, forbidden: RegExp): string[] | null {
   const parent = new Map<string, string | null>([[start, null]]);
   const queue = [start];
   while (queue.length) {
     const file = queue.shift()!;
-    const name = relative(clientSource, file);
+    const name = sourceName(file);
     if (forbidden.test(name)) {
       const chain = [name];
-      for (let at = parent.get(file); at; at = parent.get(at)) chain.unshift(relative(clientSource, at));
+      for (let at = parent.get(file); at; at = parent.get(at)) chain.unshift(sourceName(at));
       return chain;
     }
     for (const [, specifier] of readFileSync(file, "utf8").matchAll(STATIC_IMPORT)) {
@@ -68,7 +71,7 @@ assert.deepEqual(staticChain(join(clientSource, "components/chat/RoleplayRuleset
 for (const screen of [
   "main.tsx",
   "components/chat/ChatArea.tsx",
-  "components/chat/ChatSettingsDrawer.tsx",
+  "features/chat-settings/ChatSettingsDrawer.tsx",
   "features/tracker-panel/components/TrackerDataSidebar.tsx",
 ]) {
   const chain = staticChain(join(clientSource, screen), GAME_MODE_SCREEN);

@@ -24,7 +24,7 @@ import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
 
 const loadChatSettingsDrawer = async () => {
-  const module = await import("./ChatSettingsDrawer");
+  const module = await import("../../features/chat-settings/ChatSettingsDrawer");
   return { default: module.ChatSettingsDrawer };
 };
 

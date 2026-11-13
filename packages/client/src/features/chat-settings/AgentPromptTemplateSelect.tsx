@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { DEFAULT_AGENT_PROMPT_TEMPLATE_ID, type AgentPromptTemplateOption } from "@marinara-engine/shared";
-import { AgentDefaultStatus } from "./AgentSettingsControls";
+import { AgentDefaultStatus } from "../../components/chat/AgentSettingsControls";
 
 interface AgentPromptTemplateSelectProps {
   options: AgentPromptTemplateOption[];

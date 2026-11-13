@@ -2861,6 +2861,7 @@ type PreparedNovelAiCharacterPrompt = {
   prompt: string;
   negativePrompt: string;
   center: { x: number; y: number };
+  hasPosition: boolean;
 };
 
 function clampNovelAiCharacterCoordinate(value: unknown, fallback: number): number {
@@ -2909,6 +2910,7 @@ function prepareNovelAiCharacterPrompts(
           x: clampNovelAiCharacterCoordinate(entry.position?.x, fallbackCenter.x),
           y: clampNovelAiCharacterCoordinate(entry.position?.y, fallbackCenter.y),
         },
+        hasPosition: Number.isFinite(entry.position?.x) && Number.isFinite(entry.position?.y),
       };
     })
     .filter((entry): entry is PreparedNovelAiCharacterPrompt => Boolean(entry));
@@ -2930,7 +2932,7 @@ export function buildNovelAiV4CharacterPromptPayload(
       char_caption: entry.negativePrompt,
       centers: [entry.center],
     })),
-    useCoords: prepared.length > 1,
+    useCoords: prepared.length > 1 || prepared.some((entry) => entry.hasPosition),
   };
 }
 

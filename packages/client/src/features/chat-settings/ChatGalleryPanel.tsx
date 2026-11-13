@@ -2,7 +2,7 @@
 // Chat: Gallery — per-chat image gallery (a Chat Settings drawer)
 // ──────────────────────────────────────────────
 import { useMemo } from "react";
-import { ChatGallery } from "./ChatGallery";
+import { ChatGallery } from "../../components/chat/ChatGallery";
 import {
   BUILT_IN_AGENTS,
   customAgentHasCapability,

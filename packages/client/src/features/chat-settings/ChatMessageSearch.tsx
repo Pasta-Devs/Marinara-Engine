@@ -8,7 +8,7 @@ import { isMessageHiddenFromUser } from "../../lib/chat-message-visibility";
 import { normalizeHydratedMessage } from "../../lib/message-hydration";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chat.store";
-import { ChatBookmarksList, ChatTrashList } from "./ChatMessageMarksPanels";
+import { ChatBookmarksList, ChatTrashList } from "../../components/chat/ChatMessageMarksPanels";
 
 type SearchPanelView = "search" | "bookmarks" | "trash";
 const PANEL_VIEWS = [

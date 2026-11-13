@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Eye, Loader2, Settings2 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client";
-import { AgentSettingsActionButton } from "./AgentSettingsControls";
+import { AgentSettingsActionButton } from "../../components/chat/AgentSettingsControls";
 
 type Damage = "pristine" | "damaged" | "cracked" | "broken";
 type WoundSeverity = "minor" | "serious" | "critical";

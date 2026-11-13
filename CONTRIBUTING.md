@@ -163,6 +163,18 @@ To run the full hosted matrix on the current staging candidate, use `gh workflow
 
 **Rollout:** GitHub schedules workflows from the default branch, so the nightly trigger becomes active only after this workflow reaches `main`. Its scheduler only dispatches a full run on `staging`; test code and cache writes stay in the selected branch's own context. Until then, use manual dispatch from `staging` for full coverage. Promotion PRs into `main` run the full matrix from their proposed workflow. A nightly green result on an older staging commit does not validate a later release candidate.
 
+### Writing a Node regression
+
+CI runs the full Node lane on Linux only (Platform Artifact Checks runs a few launcher and shutdown regressions on Windows and macOS), and most regressions are written on Linux or macOS, so one can pass every check and still fail on every Windows machine. Write each one to run on all three:
+
+- Give `import()` and `--import` a file URL, never a bare path: wrap the resolved path in `pathToFileURL(…).href` (from `node:url`), as `debug-log-line-breaks.regression.ts` does for `tsx/esm`. On Windows, `C:\…` reads as a URL with the scheme `c:`.
+- Build paths with `join`, and compare them with `/`-based strings or patterns only after `.split(sep).join("/")`. Escape a path before putting it in a regular expression, since Windows paths contain `\`.
+- Name the encoding when a test reads or writes text: `"utf8"` in Node, `"utf-8"` in Python, whose default on Windows is the system code page.
+- Pass a long script to a child process on stdin, not as a `-c` or `-e` argument: Windows limits a whole command line to 32,767 characters.
+- Point `GIT_CONFIG_GLOBAL` at an empty file in the test's temporary folder. Git for Windows cannot open `os.devNull` (`\\.\nul`) as a config file.
+- Treat `EBUSY` or `EPERM` while deleting a fixture as a possible bug. Windows cannot delete a file that is still open, so the code under test may be leaving it open (sharp's file cache did).
+- Say when a check needs POSIX: `O_NOFOLLOW` is undefined on Windows, `chmod` cannot make a file unreadable there, and Windows cannot run a `/bin/sh` script as a fake command. Skip only what cannot run, with a printed reason. Skip a whole file only when all of it needs POSIX or covers a feature that runs only there, as `decision-sidecar-runtime.regression.ts` does for a sidecar that runs only on Linux x64.
+
 ## Logging
 
 All server-side logging goes through a shared [Pino](https://getpino.io/) logger instance exported from `packages/server/src/lib/logger.ts`. The `LOG_LEVEL` environment variable controls the minimum severity that gets printed (default: `warn`). See `docs/CONFIGURATION.md` for user-facing level descriptions.

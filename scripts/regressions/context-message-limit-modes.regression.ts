@@ -101,7 +101,7 @@ try {
   // component harness (QueryClient + i18n) exists for regressions.
   const repositoryRoot = join(import.meta.dirname, "../..");
   const drawer = readFileSync(
-    join(repositoryRoot, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+    join(repositoryRoot, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
     "utf8",
   );
   assert.ok(

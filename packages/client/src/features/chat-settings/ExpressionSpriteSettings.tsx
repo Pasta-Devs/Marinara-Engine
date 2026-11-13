@@ -7,7 +7,7 @@ import {
   AgentSettingsSegmentedControl,
   AgentSettingsToggle,
   SpriteRangeSlider,
-} from "./AgentSettingsControls";
+} from "../../components/chat/AgentSettingsControls";
 import {
   SPRITE_DISPLAY_OPACITY_PERCENT_MAX,
   SPRITE_DISPLAY_OPACITY_PERCENT_MIN,
@@ -15,7 +15,7 @@ import {
   SPRITE_DISPLAY_SCALE_PERCENT_MIN,
   hasSpriteDisplayMode,
   type SpriteDisplayMode,
-} from "./sprite-display-modes";
+} from "../../components/chat/sprite-display-modes";
 
 type SpriteOwnerKind = "character" | "persona";
 

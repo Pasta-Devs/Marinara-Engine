@@ -1,35 +1,20 @@
-import { logger } from "../../lib/logger.js";
+import { getSharp as loadSharp } from "../../utils/sharp.js";
 
-// sharp is optional on platforms without native prebuilds (notably some
-// Android/Termux installations). Keep one lazy loader so every image path gets
-// the same cached failure and actionable error message.
+// Kept untyped: utils/sharp.ts's SharpFn type finds 3 errors in callers (tile-pack-images, sprites) to fix separately.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SharpFn = any;
 
-let sharpModule: SharpFn | null = null;
-let sharpLoadError: Error | null = null;
-
+/**
+ * sharp, for the image paths that cannot go on without it. The one loader in utils/sharp.ts loads it (and logs once
+ * where it cannot load, notably some Android/Termux installations); this turns that into an actionable error.
+ */
 export async function getSharp(): Promise<SharpFn> {
-  if (sharpModule) return sharpModule;
-  if (sharpLoadError) throw sharpLoadError;
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - optional native dependency
-    const mod = await import("sharp");
-    sharpModule = (mod.default ?? mod) as SharpFn;
-    return sharpModule;
-  } catch (error) {
-    logger.warn(
-      error instanceof Error ? error : new Error(String(error)),
-      "[sprites] Image processing unavailable because sharp could not be loaded",
-    );
-    sharpLoadError = new Error(
-      "Image processing is unavailable on this platform (native 'sharp' module could not be loaded). " +
-        "Sprite generation and background removal are disabled.",
-    );
-    throw sharpLoadError;
-  }
+  const sharp = await loadSharp();
+  if (sharp) return sharp;
+  throw new Error(
+    "Image processing is unavailable on this platform (native 'sharp' module could not be loaded). " +
+      "Sprite generation and background removal are disabled.",
+  );
 }
 
 export type RgbColor = { red: number; green: number; blue: number };
