@@ -146,6 +146,7 @@ import { CUSTOM_AGENT_RESULT_EXAMPLES, type CustomAgentResultType } from "../../
 import { downloadZipFile } from "../../lib/download-zip";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
+import { LorebookListField, LorebookPickerField } from "../ui/LibraryPickers";
 
 // The 2D and 3D Avatars setup loads only on those agents' pages.
 const AvatarAgentSetup = lazy(() =>
@@ -1524,6 +1525,8 @@ export function AgentEditor() {
       // YouTube key is encrypted server-side and not exposed by the form — preserve it
       // so a normal agent Save doesn't wipe the stored key.
       "youtubeApiKey",
+      // Folders linked to characters are set from Chat Settings, not this form (#8901).
+      "customMusicCharacterFolders",
       "customAgentRepositorySource",
       CUSTOM_AGENT_IMPORT_SOURCE_SETTING,
       CUSTOM_AGENT_PERMISSIONS_EXPLICIT_SETTING,
@@ -2079,9 +2082,6 @@ export function AgentEditor() {
             musicProvider: localMusicProvider,
             customMusicSource: localCustomMusicSource,
             customMusicFolder: normalizeCustomMusicFolderInput(localCustomMusicFolder),
-            ...(localCustomMusicExternalFolder.trim()
-              ? { customMusicExternalFolder: localCustomMusicExternalFolder.trim() }
-              : {}),
           }
         : {}),
       enabledTools: exportingMusicAgent && localMusicProvider !== "spotify" ? [] : effectiveEnabledTools,
@@ -3090,22 +3090,18 @@ export function AgentEditor() {
                     {localizeUi("ui.agents.agenteditor.targetLorebook")}
                   </p>
                   {allLorebooks && allLorebooks.length > 0 ? (
-                    <select
+                    <LorebookPickerField
                       value={localWritableLorebookId}
+                      lorebooks={allLorebooks}
+                      ariaLabel={localizeUi("ui.agents.agenteditor.targetLorebook")}
+                      noneLabel={localizeUi("ui.agents.agenteditor.selectALorebook")}
                       disabled={!canConfigureLorebookTarget}
-                      onChange={(event) => {
-                        setLocalWritableLorebookId(event.target.value);
+                      onChange={(id) => {
+                        setLocalWritableLorebookId(id);
                         markDirty();
                       }}
-                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    >
-                      <option value="">{localizeUi("ui.agents.agenteditor.selectALorebook")}</option>
-                      {allLorebooks.map((lorebook) => (
-                        <option key={lorebook.id} value={lorebook.id}>
-                          {lorebook.name}
-                        </option>
-                      ))}
-                    </select>
+                      triggerClassName="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                    />
                   ) : (
                     <p className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[0.625rem] text-amber-200">
                       {localizeUi("ui.agents.agenteditor.createALorebookBeforeEnablingWritesForThisAgent")}
@@ -4560,7 +4556,7 @@ export function AgentEditor() {
                 ) : (
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                     <label className="mb-1 block text-[0.6875rem] font-medium text-white/60">
-                      {localizeUi("ui.agents.agenteditor.musicFolderOnThisDevice")}
+                      {localizeUi("ui.agents.agenteditor.defaultMusicFolderOnThisDevice")}
                     </label>
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <input
@@ -4672,48 +4668,22 @@ export function AgentEditor() {
                       ))}
                   </div>
                   {allLorebooks && allLorebooks.length > 0 ? (
-                    <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/30 p-2">
-                      {allLorebooks.map((lb) => {
-                        const selected = localSourceLorebookIds.includes(lb.id);
-                        return (
-                          <button
-                            key={lb.id}
-                            type="button"
-                            onClick={() => {
-                              setLocalSourceLorebookIds((prev) =>
-                                selected ? prev.filter((id) => id !== lb.id) : [...prev, lb.id],
-                              );
-                              setDirty(true);
-                            }}
-                            className={cn(
-                              "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all text-xs",
-                              selected
-                                ? "bg-amber-500/10 border border-amber-500/20 text-amber-300"
-                                : "bg-[var(--secondary)] border border-transparent text-[var(--foreground)] hover:bg-[var(--accent)]",
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all",
-                                selected
-                                  ? "border-amber-500/50 bg-amber-500/20"
-                                  : "border-[var(--border)] bg-[var(--background)]",
-                              )}
-                            >
-                              {selected && <Check size="0.625rem" />}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium">{lb.name}</p>
-                              {lb.description && (
-                                <p className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                                  {lb.description}
-                                </p>
-                              )}
-                            </div>
-                          </button>
+                    <LorebookListField
+                      lorebooks={allLorebooks}
+                      selectedIds={localSourceLorebookIds}
+                      onToggle={(id) => {
+                        setLocalSourceLorebookIds((prev) =>
+                          prev.includes(id) ? prev.filter((other) => other !== id) : [...prev, id],
                         );
-                      })}
-                    </div>
+                        setDirty(true);
+                      }}
+                      onAdd={(ids) => {
+                        setLocalSourceLorebookIds((prev) => [...prev, ...ids.filter((id) => !prev.includes(id))]);
+                        setDirty(true);
+                      }}
+                      ariaLabel={localizeUi("ui.agents.agenteditor.fixedSourceOverride")}
+                      triggerClassName="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                    />
                   ) : (
                     <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                       {localizeUi("ui.agents.agenteditor.noLorebooksAvailable")}

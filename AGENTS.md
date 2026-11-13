@@ -26,7 +26,7 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 ## Expected Completion and Authorization
 
 - Carry the requested work through implementation, appropriate validation, review fixes and the authorized publication steps. Do not stop at a plan, a clean local review, or a local commit when the user has asked for a PR.
-- Local CodeRabbit review, including uploading the relevant branch changes, is part of this repository's expected review workflow. Do not ask the maintainer for a separate confirmation on each run. Honor any explicit restriction on external uploads and the host's permission controls.
+- Do not run CodeRabbit locally or upload branch changes to an outside review service. Dottore Review on the pull request is the repository's review.
 - A request to publish or update a PR covers the necessary feature-branch commit/push, PR creation/update and transition to ready for review. Reuse that authorization across turns. Do not infer authorization to merge, promote to `main`, deploy or release.
 - Ask only for missing decisions that materially block the task or for actions outside its authorized scope. A previously agreed phase does not need another phase-approval question. Current maintainer instructions override default workflow or skill guidance within the platform's instruction hierarchy.
 - Report what was completed and verified, link the PR, and identify real remaining blockers. Do not imply that queued, skipped or pending checks passed.
@@ -75,17 +75,22 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 - When preparing a PR, make the why explicit in the description so reviewers can see the user problem or rationale, not just the file changes.
 - Check `README.md`, `android/README.md`, `CONTRIBUTING.md`, `docs/CONFIGURATION.md`, `docs/TROUBLESHOOTING.md`, and `docs/FAQ.md` together when install, update, or release behavior changes.
 - When writing or editing user guides under `docs/`, follow `.agents/skills/docs-writing/SKILL.md`.
+- Before you post prose you wrote for people to read (PR and issue bodies, commit messages, review replies, docs, README text), give it the plain-prose pass in `.agents/skills/declauding/SKILL.md` (from oaustegard/claude-skills `declauding-v0.13.0`, MIT):
+  - Check the draft against `references/register.md` and `references/exceptions.md`.
+  - Run `python3 .agents/skills/declauding/scripts/declaude_lint.py <file>`, and `python3 .agents/skills/declauding/scripts/declaude_diff.py <source> <rewrite>` when you rewrite an existing text. Only those two scripts are vendored, so skip steps 2a and 2b, and do step 4a's newcomer read yourself unless delegation is already authorized.
+  - Repository rules win where they disagree. Keep template headings such as "What changed", checkbox text, `Closes #` lines, trailers and the attribution line, keep a "You can no longer …" line at the top of "What changed", and never drop a required section. Under `docs/`, the docs-writing skill wins (its word list, bold UI labels and exact headings).
+  - Never give the pass to model-facing text (prompt constants and templates, `packages/server/src/assets/mari-skills/`, image prompts), story or user-authored content, quoted text, UI copy and locale files, `CHANGELOG.md`, `docs-i18n` packs, or text someone else wrote.
 - When a change adds, renames, or edits user-facing docs under `docs/`, also update every translated language pack on the `docs-i18n` branch to match — or open a `[docs-i18n] <paths>` follow-up issue. Renames/deletions must be mirrored there or the translation is silently orphaned. See `CONTRIBUTING.md § Translated documentation`.
 
 ## AI-Generated Pull Request
 
 1. Open a draft early while implementation is in progress, so issue ownership and work status are visible.
-2. Finish implementation and the required local checks. Run CodeRabbit locally; reproduce or trace each finding, fix legitimate defects and rerun review after substantive fixes. Record code-based reasons for rejecting false positives, non-regressions and purely pedantic suggestions. Do not claim zero findings when findings were dismissed.
-3. Once implementation, required local validation and substantive local review are complete, **push and mark the PR ready for review in the same workflow without asking again**, except when `.github/agents/chai-workflow.md` requires a maintainer decision first. If the first PR is only being created at that point, create it ready rather than draft. A user request to keep it draft is an exception.
-4. Keep a PR draft only for unfinished implementation, unresolved substantive local findings, blocked required local validation, a required maintainer decision, or an explicit maintainer instruction. Unchecked human checklist items and documented optional follow-ups are not automatic draft blockers. Pending GitHub CI and Dottore Review are merge gates, not reasons to leave completed local work in draft. If automatic review does not start, follow the [Dottore request fallback](.github/dottore-review/README.md#asking-for-a-review).
+2. Finish implementation and the required local checks.
+3. Once implementation and required local validation are complete, **push and mark the PR ready for review in the same workflow without asking again**, except when `.github/agents/chai-workflow.md` requires a maintainer decision first. If the first PR is only being created at that point, create it ready rather than draft. A user request to keep it draft is an exception.
+4. Keep a PR draft only for unfinished implementation, blocked required local validation, a required maintainer decision, or an explicit maintainer instruction. Unchecked human checklist items and documented optional follow-ups are not automatic draft blockers. Pending GitHub CI and Dottore Review are merge gates, not reasons to leave completed local work in draft. If automatic review does not start, follow the [Dottore request fallback](.github/dottore-review/README.md#asking-for-a-review).
 5. Inspect CI/review feedback when preparing a PR for review or shipping it. Address valid failures within scope. Never merge until all repository merge gates pass and merging is authorized.
 
-The local CodeRabbit review complements Dottore Review on GitHub. Use an existing PR rather than creating another for follow-up fixes.
+Use an existing PR rather than creating another for follow-up fixes.
 
 - **Never auto-check validation or test-plan checkboxes in a PR.** Those boxes are a to-do list for the human contributor, not evidence that work is done. If you generate a test plan, leave every box unchecked.
 - When preparing a PR description, list what needs manual verification clearly and explicitly. Write entries like "Manually verify X in browser" rather than "Works correctly."
@@ -138,4 +143,4 @@ Storage-format rule (separate from the app version — never touched by `version
 
 - **Read `packages/client/.instructions.md` before editing any client code.** It is the authoritative reference for architecture, patterns, conventions, and common-mistake avoidance.
 - Treat localization as part of every client UI change. New or changed user-facing labels, messages, tooltips, placeholders, toasts, confirmations, accessibility text, tutorials, and similar copy must use semantic localization keys and update the canonical English catalog in the same change. Community locale files are intentionally partial: update only translations the contributor can responsibly supply, and let missing keys fall back to English. Never touch every bundled locale merely to copy English or satisfy key parity. Do not translate model prompts or user-authored content. Run `pnpm localization:check` before shipping.
-- Validate with `pnpm check` (TypeScript + ESLint). Use `pnpm regression:prompt` for prompt/lorebook/macro regressions and `pnpm smoke:ui` for the browser shell smoke suite when the change touches those areas.
+- Validate with `pnpm check` (Prettier, ESLint, type checks and production builds; `MARINARA_CHECK_JOBS=1` runs its lanes one at a time on low-memory machines). Use `pnpm regression:prompt` for prompt/lorebook/macro regressions and `pnpm smoke:ui` for the browser shell smoke suite when the change touches those areas.

@@ -9,7 +9,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pnpm-validate:
+  # The checks run as three parallel worker jobs. The pnpm-validate job below
+  # only judges their results, so the ruleset keeps one required name.
+  validate-check:
+    name: validate-check
     runs-on: ubuntu-latest
 
     permissions:
@@ -40,8 +43,64 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Prettier and the three small type-check lanes run in validate-guards, which has its own runner; the two
+      # builds and the lint keep this runner's four cores. A local pnpm check still runs every lane.
       - name: Run project checks
+        env:
+          MARINARA_CHECK_SKIP_LANES: format,e2e-types,token-estimation-types,character-activity-types
         run: pnpm check
+
+      - name: Install Chromium for smoke tests
+        if: github.base_ref == 'staging'
+        timeout-minutes: 5
+        run: pnpm exec playwright install chromium
+
+      # pnpm check has already built the server and client this step opens.
+      - name: Open the production frontend in Chromium
+        if: github.base_ref == 'staging'
+        timeout-minutes: 5
+        run: pnpm smoke:production --project=desktop-chromium
+
+      - name: Upload production smoke failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-pr-production-failure
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  validate-guards:
+    name: validate-guards
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    # Skip onnxruntime-node's CUDA 12 download from api.nuget.org: checks only
+    # need the bundled CPU binding, and a NuGet timeout fails the install.
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Test dependency update handoff
         run: pnpm regression:launcher-update
@@ -64,24 +123,73 @@ jobs:
       - name: Check tracked installer artifacts
         run: pnpm guard:installer-artifacts
 
-      # Keep the small browser suite inside this already-required check, so
-      # a failed smoke test blocks staging merges without new ruleset names.
+      # The lanes validate-check skips (MARINARA_CHECK_SKIP_LANES). They need shared's built declarations, as in pnpm check.
+      - name: Build shared package
+        run: pnpm build:shared
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Type-check the Playwright specs
+        run: pnpm check:e2e-types
+
+      - name: Type-check the token estimation regressions
+        run: pnpm check:token-estimation-types
+
+      - name: Type-check the character activity regressions
+        run: pnpm check:character-activity-types
+
+  # The job always runs and only its steps check the base branch, so it
+  # reports success on PRs that don't target staging.
+  validate-smoke:
+    name: validate-smoke
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    # Skip onnxruntime-node's CUDA 12 download from api.nuget.org: checks only
+    # need the bundled CPU binding, and a NuGet timeout fails the install.
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm build:shared
+
       - name: Install Chromium for smoke tests
         if: github.base_ref == 'staging'
         timeout-minutes: 5
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium
 
+      # The small browser suite runs behind the required pnpm-validate verdict,
+      # so a failed smoke test blocks staging merges without new ruleset names.
       - name: Run required Chromium smoke suite
         if: github.base_ref == 'staging'
         timeout-minutes: 10
         env:
           PLAYWRIGHT_ONLY_PROJECT: desktop
+          PLAYWRIGHT_SKIP_SHARED_BUILD: "true"
         run: pnpm smoke:ui
-
-      - name: Open the production frontend in Chromium
-        if: github.base_ref == 'staging'
-        timeout-minutes: 5
-        run: pnpm smoke:production --project=desktop-chromium
 
       - name: Upload browser failure evidence
         if: failure()
@@ -91,6 +199,30 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  # The required check. It fails unless every worker job succeeded, including
+  # when one was skipped or cancelled.
+  pnpm-validate:
+    name: pnpm-validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [validate-check, validate-guards, validate-smoke]
+    if: always()
+
+    permissions: {}
+
+    steps:
+      - name: Verdict
+        shell: bash
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Worker results: $RESULTS"
+          for result in $RESULTS; do
+            if [[ "$result" != "success" ]]; then
+              exit 1
+            fi
+          done
 
   windows-launcher-regressions:
     runs-on: windows-latest
@@ -104,10 +236,10 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           run_install: false
+      # No cache: no staging run saves a Windows pnpm cache, so this would only write a PR-only entry (#8979).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:shared
       - name: Verify package dependencies across Windows junction layouts
@@ -152,6 +284,6 @@ jobs:
         with:
           context: .
           platforms: linux/amd64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # PRs read the cache that build-container.yml writes on staging pushes and never write it (Actions cache budget).
+          cache-from: type=gha,scope=container-amd64
           push: false

@@ -40,18 +40,17 @@ assert.match(
   homeBrowserHub,
   /openCharacter: \(characterId: string, options\?: \{ tab\?: string \}\) => \{[\s\S]*?openCharacterDetail\(characterId, \{\s*initialTab:/u,
 );
-// Capability API 1.386: it can open a connection in the editor and comes back to its tab. The desktop
-// shell unmounts Home while the editor is open, so the store remembers the tab and queues it for the
-// remounted Home only when that editor closes; leaving the editor any other way queues nothing.
+// Capability API 1.386: it can open a connection in the editor. The desktop shell unmounts Home while an
+// editor is open, so the store remembers the Home tab and Home remounts on it when the editor closes.
 assert.match(
   homeBrowserHub,
-  /openConnection: \(connectionId: string\) => \{\s*if \(typeof connectionId !== "string" \|\| !connectionId\) return;[\s\S]*?\.openConnectionDetail\(connectionId, \{ returnToHomeTab: activeTab \}\);/u,
+  /openConnection: \(connectionId: string\) => \{\s*if \(typeof connectionId !== "string" \|\| !connectionId\) return;[\s\S]*?\.openConnectionDetail\(connectionId\);/u,
 );
-// Back (browser or hardware) closes a package-opened connection editor the same way, so it returns to the tab too;
-// every other editor keeps closing through closeAllDetails.
+assert.match(homeBrowserHub, /const activeTab = useUIStore\(\(state\) => state\.homeTab\);/u);
+// Back (browser or hardware) closes through closeTopMainSurface, which leaves every editor on the surface it came from.
 assert.match(
   read("packages/client/src/lib/back-layers.ts"),
-  /else if \(current\.connectionDetailId && current\.connectionDetailReturnTab\) current\.closeConnectionDetail\(\);\s*else current\.closeAllDetails\(\);/u,
+  /function requestCloseDetails\(\) \{\s*return requestSurfaceClose\(\(\) => useUIStore\.getState\(\)\.closeTopMainSurface\(\)\);/u,
 );
 const storage = new Map<string, string>();
 Object.defineProperty(globalThis, "localStorage", {
@@ -64,42 +63,17 @@ Object.defineProperty(globalThis, "localStorage", {
 });
 const { useUIStore, pickPersistedUIState } = await import("../../packages/client/src/stores/ui.store.js");
 const ui = () => useUIStore.getState();
-ui().openConnectionDetail("connection-1", { returnToHomeTab: "story-writer" });
+// Opening and closing editors from a package tab never moves the remembered Home tab.
+ui().setHomeTab("story-writer");
+ui().openConnectionDetail("connection-1");
 assert.equal(ui().connectionDetailId, "connection-1");
 assert.equal(ui().homeRequest, null, "nothing is queued while the editor is open");
 ui().closeConnectionDetail();
-assert.deepEqual(ui().homeRequest, { kind: "tab", tab: "story-writer" }, "closing the editor returns to the tab");
-ui().consumeHomeRequest();
-// Leaving for a chat (the sidebar closes every detail) or another editor queues nothing.
-ui().openConnectionDetail("connection-1", { returnToHomeTab: "story-writer" });
-ui().closeAllDetails();
-assert.equal(ui().homeRequest, null, "leaving through closeAllDetails queues no return");
-ui().openConnectionDetail("connection-1", { returnToHomeTab: "story-writer" });
-ui().openCharacterDetail("character-1");
-ui().closeCharacterDetail();
-assert.equal(ui().homeRequest, null, "another editor in between queues no return");
-ui().closeConnectionDetail();
-assert.equal(ui().homeRequest, null, "a stale close with no editor open queues nothing");
-// An editor opened the ordinary way never returns to a tab.
-ui().openConnectionDetail("connection-1");
-ui().closeConnectionDetail();
+assert.equal(ui().homeTab, "story-writer", "closing the connection editor leaves the tab");
 assert.equal(ui().homeRequest, null);
-// Switching the open editor to another connection (such as one it just created) keeps the return tab.
-ui().openConnectionDetail("connection-1", { returnToHomeTab: "story-writer" });
-ui().openConnectionDetail("connection-2");
-ui().closeConnectionDetail();
-assert.deepEqual(ui().homeRequest, { kind: "tab", tab: "story-writer" }, "a switch inside the editor keeps the tab");
-ui().consumeHomeRequest();
-// A tab left behind by an editor another editor replaced never reaches a later editor.
-ui().openConnectionDetail("connection-1", { returnToHomeTab: "story-writer" });
-ui().openCharacterDetail("character-1");
-ui().closeCharacterDetail();
-ui().openConnectionDetail("connection-2");
-ui().closeConnectionDetail();
-assert.equal(ui().homeRequest, null, "an editor opened afresh starts without a return tab");
 const persisted = pickPersistedUIState(ui());
 assert.ok(!("homeRequest" in persisted), "a Home request is never saved");
-assert.ok(!("connectionDetailReturnTab" in persisted), "nor is the editor's return tab");
+assert.ok(!("homeTab" in persisted), "nor is the Home tab");
 
 // Package prompt context carries the wrap format.
 assert.match(promptContext, /wrapFormat\?: "xml" \| "markdown" \| "none";/u);

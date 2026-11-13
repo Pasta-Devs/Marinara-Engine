@@ -1,21 +1,20 @@
 // ──────────────────────────────────────────────
 // CharacterSelect — picks characters or personas. One component for every screen, like
 // ConnectionSelect: a field (`picker`), a Settings label/value row (`menu`), or no trigger at
-// all (`controlled`, the caller's button opens it). Desktop opens a popover at the trigger;
-// a phone opens a bottom sheet. Multiple picks apply on each tap; Done only closes.
+// all (`controlled`, the caller's button opens it). The window is the shared PickerWindow
+// (popover on desktop, bottom sheet on a phone). Multiple picks apply on each tap.
 // ──────────────────────────────────────────────
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { avatarInitial } from "../../lib/avatar-initial";
-import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { Persona } from "@marinara-engine/shared";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import type { CharacterIdentityChoice } from "../../lib/character-identity-groups";
-import { Modal } from "../ui/Modal";
-import { CharacterPickerList, type CharacterPickerListProps } from "./CharacterPickerList";
+import { PickerWindow } from "../ui/PickerWindow";
+import { CharacterPickerList, type CharacterPickerListProps, type PickerDefaultChoice } from "./CharacterPickerList";
 
 /** A persona pick: a persona, a character played as the persona, or `null` for None. */
 export type PersonaChoice = { persona: string } | { character: string } | null;
@@ -38,6 +37,8 @@ type CommonProps = Pick<
   windowClassName?: string;
   id?: string;
   "aria-label"?: string;
+  /** Single pick: a row above None for a choice the caller defines; picking it closes the window. */
+  defaultChoice?: PickerDefaultChoice;
   /** Extra rows above the list, such as onboarding templates. */
   header?: ReactNode;
   /** `controlled`: open state, and the element the popover sits next to. */
@@ -78,33 +79,12 @@ export type CharacterSelectProps = CommonProps &
       }
   );
 
-const PHONE_QUERY = "(max-width: 767px)";
-
 /** The one id a multiple pick added or removed. */
 export const changedId = (prev: readonly string[], next: readonly string[]) =>
   next.find((id) => !prev.includes(id)) ?? prev.find((id) => !next.includes(id));
 
 const toggleId = (ids: readonly string[], id: string) =>
   ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
-
-type Placement = { left: number; width: number; maxHeight: number; top?: number; bottom?: number };
-
-/** Popover next to the anchor: below it, or above when there is more room there. */
-function place(anchor: HTMLElement): Placement {
-  const rect = anchor.getBoundingClientRect();
-  const viewport = window.visualViewport;
-  const top = viewport?.offsetTop ?? 0;
-  const bottom = top + (viewport?.height ?? window.innerHeight);
-  const width = Math.min(Math.max(rect.width, 352), window.innerWidth - 16);
-  const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
-  const below = bottom - rect.bottom - 12;
-  const above = rect.top - top - 12;
-  const openAbove = below < 320 && above > below;
-  const maxHeight = Math.max(160, Math.min(448, openAbove ? above : below));
-  return openAbove
-    ? { left, width, maxHeight, bottom: window.innerHeight - rect.top + 4 }
-    : { left, width, maxHeight, top: rect.bottom + 4 };
-}
 
 function TriggerAvatars({
   items,
@@ -135,7 +115,7 @@ function TriggerAvatars({
           <span
             key={item.id}
             className={cn(
-              "flex h-6 w-6 items-center justify-center rounded-full bg-foreground/15 text-[0.625rem] font-semibold ring-2 ring-[var(--background)]",
+              "flex h-6 w-6 items-center justify-center rounded-full bg-foreground/15 text-[0.625rem] max-sm:text-[13px] font-semibold ring-2 ring-[var(--background)]",
               index > 0 && "-ml-2",
             )}
           >
@@ -213,9 +193,12 @@ export function CharacterSelect(props: CharacterSelectProps) {
   const emptyText =
     placeholder ??
     (props.allowNone || isPersona ? t("ui.game.gamesurfacecomponent.none") : t("ui.characterselect.choose"));
-  const windowTitle =
+  const baseTitle =
     title ??
     (typeof label === "string" ? label : t(isPersona ? "navigation.topbar.personas" : "ui.characterselect.characters"));
+
+  // A multiple pick shows how many are picked in the title, since there is no footer to say it.
+  const windowTitle = props.multiple && items.length > 0 ? `${baseTitle} · ${items.length}` : baseTitle;
 
   const close = () => {
     setOpen(false);
@@ -262,27 +245,23 @@ export function CharacterSelect(props: CharacterSelectProps) {
       busy={props.busy}
       exclude={props.exclude}
       nonePicked={props.nonePicked}
+      defaultChoice={
+        props.defaultChoice && !props.multiple
+          ? {
+              ...props.defaultChoice,
+              onPick: () => {
+                props.defaultChoice?.onPick();
+                close();
+              },
+            }
+          : undefined
+      }
       unavailable={props.unavailable}
       badge={props.badge}
       onCreate={props.onCreate}
       autoFocusSearch={typeof window !== "undefined" && !!window.matchMedia?.("(pointer: fine)").matches}
     />
   );
-  const footer = props.multiple ? (
-    <div className="flex shrink-0 items-center gap-2 border-t border-foreground/10 p-2">
-      <span className="min-w-0 flex-1 truncate text-[0.6875rem] text-foreground/55">
-        {t("ui.characterselect.picked", { count: items.length })}
-      </span>
-      <button
-        type="button"
-        onClick={close}
-        className="h-9 rounded-lg bg-[var(--primary)] px-3.5 text-xs font-semibold text-[var(--primary-foreground)] max-md:h-11"
-      >
-        {t("ui.characterselect.done")}
-      </button>
-    </div>
-  ) : null;
-
   const trigger = {
     ref: triggerRef,
     type: "button" as const,
@@ -292,7 +271,7 @@ export function CharacterSelect(props: CharacterSelectProps) {
     "aria-describedby": props["aria-label"] ? valueId : undefined,
     "aria-haspopup": "dialog" as const,
     "aria-expanded": open,
-    onClick: () => setOpen(true),
+    onClick: () => (open ? close() : setOpen(true)),
   };
 
   return (
@@ -331,144 +310,28 @@ export function CharacterSelect(props: CharacterSelectProps) {
             {names || emptyText}
           </span>
           {items.length > 3 && (
-            <span className="shrink-0 rounded-full bg-foreground/10 px-1.5 text-[0.625rem] tabular-nums text-foreground/60">
+            <span className="shrink-0 rounded-full bg-foreground/10 px-1.5 text-[0.625rem] max-sm:text-[13px] tabular-nums text-foreground/60">
               +{items.length - 3}
             </span>
           )}
-          <ChevronDown size="0.75rem" className="shrink-0 opacity-60" aria-hidden="true" />
+          <ChevronDown
+            size="0.75rem"
+            className={cn("shrink-0 opacity-60 transition-transform", open && "rotate-180")}
+            aria-hidden="true"
+          />
         </button>
       ) : null}
       {open && (
-        <CharacterSelectWindow
+        <PickerWindow
           title={windowTitle}
           anchorRef={anchorRef ?? triggerRef}
           onClose={close}
-          footer={footer}
           className={props.windowClassName}
         >
           {props.header}
           {list}
-        </CharacterSelectWindow>
+        </PickerWindow>
       )}
     </>
-  );
-}
-
-function CharacterSelectWindow({
-  title,
-  anchorRef,
-  onClose,
-  footer,
-  className,
-  children,
-}: {
-  title: string;
-  anchorRef: RefObject<HTMLElement | null>;
-  onClose: () => void;
-  footer: ReactNode;
-  className?: string;
-  children: ReactNode;
-}) {
-  const { t } = useUiTranslation();
-  const [phone] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(PHONE_QUERY).matches);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<Placement | null>(null);
-
-  useLayoutEffect(() => {
-    if (phone) return;
-    const update = () => anchorRef.current && setPos(place(anchorRef.current));
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
-    window.visualViewport?.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
-      window.visualViewport?.removeEventListener("resize", update);
-    };
-  }, [phone, anchorRef]);
-
-  // Close on a click outside the popover or its trigger, and on Escape.
-  useEffect(() => {
-    if (phone) return;
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (panelRef.current?.contains(target) || anchorRef.current?.contains(target)) return;
-      onClose();
-    };
-    document.addEventListener("pointerdown", onPointer);
-    return () => document.removeEventListener("pointerdown", onPointer);
-  }, [phone, anchorRef, onClose]);
-
-  // autoFocus misses the search box while the popover is still hidden, so focus it once placed.
-  const placed = pos !== null;
-  useEffect(() => {
-    const panel = panelRef.current;
-    if (!placed || !panel || panel.contains(document.activeElement)) return;
-    const search = window.matchMedia?.("(pointer: fine)").matches ? panel.querySelector("input") : null;
-    (search ?? panel).focus();
-  }, [placed]);
-
-  if (phone) {
-    return (
-      <Modal
-        open
-        onClose={onClose}
-        title={title}
-        width="max-w-md"
-        restoreFocusRef={anchorRef}
-        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none"
-        contentClassName="flex flex-col !overflow-hidden !p-0"
-      >
-        {children}
-        {footer}
-      </Modal>
-    );
-  }
-
-  return createPortal(
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-modal="true"
-      tabIndex={-1}
-      aria-label={title}
-      data-chat-floating-panel
-      onPointerDown={(event) => event.stopPropagation()}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
-        event.stopPropagation();
-        onClose();
-      }}
-      className={cn(
-        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl",
-        className,
-      )}
-      style={
-        pos
-          ? {
-              left: pos.left,
-              width: pos.width,
-              maxHeight: pos.maxHeight,
-              ...(pos.top !== undefined ? { top: pos.top } : { bottom: pos.bottom }),
-            }
-          : { visibility: "hidden" }
-      }
-    >
-      <div className="flex shrink-0 items-center gap-1 py-1 pl-3.5 pr-1">
-        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t("common.close")}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/55 hover:bg-foreground/10 hover:text-foreground"
-        >
-          <X size="1rem" />
-        </button>
-      </div>
-      {children}
-      {footer}
-    </div>,
-    document.body,
   );
 }

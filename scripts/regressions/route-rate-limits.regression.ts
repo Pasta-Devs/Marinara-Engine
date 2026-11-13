@@ -8,6 +8,7 @@ import {
   EXPERIENCE_FILE_IMPORT_RATE_LIMIT,
   GAME_TILE_PACKS_RATE_LIMIT,
   GAME_WORLDS_RATE_LIMIT,
+  GLOBAL_GALLERY_FILE_RATE_LIMIT,
   LOGIN_PAGE_RATE_LIMIT,
   MARINARA_NOTICES_RATE_LIMIT,
   PACKAGE_UPDATE_DECLINE_RATE_LIMIT,
@@ -50,6 +51,10 @@ app.post("/api/utility-sidecar/start", { config: { rateLimit: UTILITY_SIDECAR_RA
   ok: true,
 }));
 app.get("/api/sprites/:characterId/:expression", async () => ({ ok: true }));
+// Gallery files read (and may resize) a file per request: their own bucket, never the shared default's.
+app.get("/api/global-gallery/file/:filename", { config: { rateLimit: GLOBAL_GALLERY_FILE_RATE_LIMIT } }, async () => ({
+  ok: true,
+}));
 app.patch("/api/sprites/:characterId/:expression", { config: { rateLimit: SPRITE_RENAME_RATE_LIMIT } }, async () => ({
   ok: true,
 }));
@@ -101,6 +106,16 @@ try {
   }
   await hitsWallAt(["/api/utility-sidecar/start"], UTILITY_SIDECAR_RATE_LIMIT.max);
   await hitsWallAt(["/api/sprites/c1/happy", "/api/sprites/c2/sad"], SPRITE_RENAME_RATE_LIMIT.max, "PATCH");
+  await hitsWallAt(
+    ["/api/global-gallery/file/a.png", "/api/global-gallery/file/b.png?w=320"],
+    GLOBAL_GALLERY_FILE_RATE_LIMIT.max,
+    "GET",
+  );
+  // The real route declares it, so that wall is the one it meets.
+  const galleryRoute = await import("node:fs").then((fs) =>
+    fs.readFileSync(new URL("../../packages/server/src/routes/global-gallery.routes.ts", import.meta.url), "utf8"),
+  );
+  assert.match(galleryRoute, /"\/file\/:filename",\s*\{ config: \{ rateLimit: GLOBAL_GALLERY_FILE_RATE_LIMIT \} \}/u);
   const spriteRead = await app.inject({ method: "GET", url: "/api/sprites/c1/happy" });
   assert.equal(spriteRead.statusCode, 200, "the rename limit binds only the route that declares it");
   assert.equal(spriteRead.headers["ratelimit-limit"], "600");

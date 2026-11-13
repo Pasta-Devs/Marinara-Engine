@@ -4,10 +4,16 @@ import assert from "node:assert/strict";
 // including storage filtering before pagination, rather than mock search results.
 process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
-const [{ buildApp }, { getDB }, { characters, personas }] = await Promise.all([
+const [
+  { buildApp },
+  { getDB },
+  { characters, characterGroups, personas },
+  { completePersonaRow, storedPersonaFromRow },
+] = await Promise.all([
   import("../../packages/server/src/app.js"),
   import("../../packages/server/src/db/connection.js"),
   import("../../packages/server/src/db/schema/index.js"),
+  import("../../packages/server/src/services/personas/persona-card-storage.js"),
 ]);
 const app = await buildApp();
 try {
@@ -33,13 +39,17 @@ try {
     })),
   );
   await db.insert(personas).values(
-    fixtures.map((row) => ({
-      id: row.id,
-      name: row.name,
-      tags: JSON.stringify(row.tags),
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    })),
+    fixtures.map((row) =>
+      storedPersonaFromRow(
+        completePersonaRow({
+          id: row.id,
+          name: row.name,
+          tags: JSON.stringify(row.tags),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        }),
+      ),
+    ),
   );
 
   // Corrupt or older storage rows must not throw or acquire tag matches.
@@ -53,24 +63,32 @@ try {
     })),
   );
   await db.insert(personas).values(
-    invalidTags.map((tags, index) => ({
-      id: `tag-search-invalid-${index}`,
-      name: "Malformed tag fixture",
-      tags: JSON.stringify(tags),
-      createdAt: "2022-01-01T00:00:00.000Z",
-      updatedAt: timestamp,
-    })),
+    invalidTags.map((tags, index) =>
+      storedPersonaFromRow(
+        completePersonaRow({
+          id: `tag-search-invalid-${index}`,
+          name: "Malformed tag fixture",
+          tags: JSON.stringify(tags),
+          createdAt: "2022-01-01T00:00:00.000Z",
+          updatedAt: timestamp,
+        }),
+      ),
+    ),
   );
   await db
     .insert(characters)
     .values({ id: "tag-search-invalid-json", data: "{", createdAt: timestamp, updatedAt: timestamp });
-  await db.insert(personas).values({
-    id: "tag-search-invalid-json",
-    name: "Malformed JSON fixture",
-    tags: "{",
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  });
+  await db.insert(personas).values(
+    storedPersonaFromRow(
+      completePersonaRow({
+        id: "tag-search-invalid-json",
+        name: "Malformed JSON fixture",
+        tags: "{",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }),
+    ),
+  );
 
   const getPage = async (endpoint: string, search: string, limit = 100, offset = 0, extra = "") => {
     const response = await app.inject({
@@ -130,6 +148,31 @@ try {
       );
     }
   }
+
+  // Tag chips, excluded tags and folders filter on the server, so they cover cards outside loaded pages.
+  type CatalogBody = { items: { id: string }[]; total: number; favoriteFolderIds: string[] };
+  const catalog = async (search: string, extra: string) =>
+    (await getPage("/api/characters/catalog", search, 100, 0, extra)) as unknown as CatalogBody;
+  const ids = (body: CatalogBody) => body.items.map((row) => row.id);
+  const modernAu = await catalog("", "&tag=modern%20au");
+  assert.deepEqual(ids(modernAu).sort(), ["tag-search-target-a", "tag-search-target-b"]);
+  assert.equal(modernAu.total, 2);
+  assert.equal(ids(await catalog("", "&tag=Genshin&tag=FATUI%2C%20HARBINGER"))[0], "tag-search-target-a");
+  assert.deepEqual(ids(await catalog("Target", "&excludeTag=Fatui%2C%20Harbinger")), ["tag-search-target-b"]);
+  await db.insert(characterGroups).values({
+    id: "tag-search-folder",
+    name: "Folder",
+    characterIds: JSON.stringify(["tag-search-target-a"]),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  const rootOnly = await catalog("Target", "&folder=none");
+  assert.deepEqual(ids(rootOnly), ["tag-search-target-b"]);
+  assert.deepEqual(rootOnly.favoriteFolderIds, ["tag-search-folder"]);
+  assert.deepEqual(ids(await catalog("Target", "&folder=any")), ["tag-search-target-a"]);
+  assert.deepEqual(ids(await catalog("", "&folder=tag-search-folder")), ["tag-search-target-a"]);
+  const tags = await app.inject({ method: "GET", url: "/api/characters/catalog/tags" });
+  assert.ok((tags.json() as string[]).includes("Modern AU"));
 } finally {
   await app.close();
 }

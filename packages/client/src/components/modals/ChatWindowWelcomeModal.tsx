@@ -5,6 +5,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 
 /** Keeps a tip this far from every screen edge. */
 const TIP_EDGE = 8;
@@ -117,7 +118,17 @@ export function ChatWindowWelcomeModal({
   if (overhaulLook) return open ? <OvChatSettingsTip onDismiss={dismiss} /> : null;
 
   return (
-    <Modal open={open} onClose={dismiss} title={t("chatWindowIntro.title")} width="max-w-3xl">
+    <Modal
+      open={open}
+      onClose={dismiss}
+      title={t("chatWindowIntro.title")}
+      width="max-w-3xl"
+      footer={
+        <button data-chat-window-intro-dismiss type="button" onClick={dismiss} className={SHEET_BUTTON_PRIMARY}>
+          {t("chatWindowIntro.gotIt")}
+        </button>
+      }
+    >
       <div data-chat-window-intro className="space-y-4">
         <video
           data-chat-window-intro-video
@@ -131,16 +142,6 @@ export function ChatWindowWelcomeModal({
         <p className="text-sm leading-6 text-[var(--marinara-chat-chrome-panel-text)]">
           {t("chatWindowIntro.description")}
         </p>
-        <div className="flex justify-end">
-          <button
-            data-chat-window-intro-dismiss
-            type="button"
-            onClick={dismiss}
-            className="mari-chrome-control mari-chrome-control--primary min-h-11 w-full justify-center px-5 py-2 text-sm sm:w-auto"
-          >
-            {t("chatWindowIntro.gotIt")}
-          </button>
-        </div>
       </div>
     </Modal>
   );

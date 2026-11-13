@@ -228,7 +228,7 @@ test("Personas are chosen per chat and Conversation names match that choice", as
     expect.soft(globalControls).toBe(0);
     expect.soft(activeBadges).toBe(0);
     expect(renderedGreeting).toContain("Hello Alice Persona. I am Bob Character.");
-    await library.getByTitle("Close library").click();
+    await library.getByRole("button", { name: /^Back to/ }).click();
     if (await aliceRow.isVisible()) await clickTopbarPanel(page, "personas");
     const composer = page.locator("textarea[data-chat-composer]");
     await expect(composer).toBeVisible();

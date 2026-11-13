@@ -27,8 +27,10 @@ import { useChatSettingsReflow } from "../../hooks/use-chat-settings-reflow";
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { getChatSettingsWindowProps } from "./chat-settings-window";
 import { ChatBranchGraphWindow } from "./ChatBranchGraphWindow";
+import { parseChatMetadata } from "../../lib/chat-display";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
 
 const loadChatSettingsDrawer = async () => {
   const module = await import("./ChatSettingsDrawer");
@@ -52,6 +54,12 @@ const ChatSetupWizard = lazy(async () => {
 const PeekPromptModal = lazy(async () => {
   const module = await import("./PeekPromptModal");
   return { default: module.PeekPromptModal };
+});
+
+// Game Mode's character sheet brings Game Mode's screen with it, so it loads only once a sheet opens.
+const RoleplayRulesetSheet = lazy(async () => {
+  const module = await import("./RoleplayRulesetSheet");
+  return { default: module.RoleplayRulesetSheet };
 });
 
 type ChatData = ComponentProps<typeof ChatSettingsDrawer>["chat"];
@@ -157,6 +165,8 @@ function DeleteConfirmationDialog({
       open={!!messageId}
       onClose={onClose}
       title={t("chat.delete.dialog.title")}
+      pullToClose={false}
+      closeButtonClassName="max-sm:hidden"
       width="max-w-sm"
       panelClassName="mari-chat-style-surface mari-chat-action-panel"
       chatFloatingPanel
@@ -303,6 +313,16 @@ function MultiSelectBar({
   const { t } = useTranslation();
   const overhaulActive = useOverhaulActive();
   const ovSlot = useComposerSlot(open && overhaulActive);
+  const deleting = open && !!onDelete;
+  // Tints the message selection in the danger colour while picking messages to delete.
+  useEffect(() => {
+    if (!deleting) return;
+    const root = document.documentElement;
+    root.dataset.messageDeleteSelect = "";
+    return () => {
+      delete root.dataset.messageDeleteSelect;
+    };
+  }, [deleting]);
   if (!open) return null;
   if (overhaulActive && ovSlot) {
     return createPortal(
@@ -346,7 +366,7 @@ function MultiSelectBar({
             type="button"
             onClick={onDelete}
             disabled={selectedCount === 0}
-            className="mari-chat-style-control mari-chrome-control min-h-10 w-full px-3 py-2 text-xs"
+            className="mari-chat-style-control mari-chrome-control min-h-10 w-full px-3 py-2 text-xs mari-chrome-control--danger"
           >
             <Trash2 size="0.75rem" />
             <span>{t("chat.delete.selection.delete")}</span>
@@ -539,6 +559,7 @@ export function ChatCommonOverlays({
         gameMode={(chat as unknown as { mode?: unknown }).mode === "game"}
       />
     ) : null;
+  const roleplaySheetChatId = useRoleplaySheetStore((state) => state.open?.chatId);
   return (
     <>
       {settingsMounted && !drawerReady && settingsLoading}
@@ -565,6 +586,11 @@ export function ChatCommonOverlays({
         </Suspense>
       )}
       {chat && <ChatBranchGraphWindow chatId={chat.id} groupId={chat.groupId ?? null} />}
+      {chat?.mode === "roleplay" && roleplaySheetChatId === chat.id && (
+        <Suspense fallback={null}>
+          <RoleplayRulesetSheet chatId={chat.id} metadata={parseChatMetadata(chat.metadata)} />
+        </Suspense>
+      )}
       {chat && (
         <Suspense fallback={null}>{wizardOpen && <ChatSetupWizard chat={chat} onFinish={onWizardFinish} />}</Suspense>
       )}

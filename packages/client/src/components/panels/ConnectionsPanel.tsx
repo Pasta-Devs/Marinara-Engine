@@ -45,7 +45,8 @@ import {
 } from "../../hooks/use-connections";
 import { useConnectionAccounts, useFeatureModels } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
-import type { DeviceItem } from "../../hooks/use-device-setup";
+import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -193,6 +194,8 @@ export function ConnectionsPanel() {
   const modelStar = useModelStar();
   const hiddenIds = useHiddenModelIds();
   const openModal = useUIStore((s) => s.openModal);
+  // The right panel keeps visited panels mounted while closed, so a page's Back layer needs the panel on screen.
+  const panelShowing = useUIStore((s) => s.rightPanelOpen && s.rightPanel === "connections");
   const collapsedConnections = useUIStore((s) => s.connectionsCollapsed);
   const accountManualOrder = useUIStore((s) => s.libraryManualOrders?.connection);
   const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
@@ -240,6 +243,7 @@ export function ConnectionsPanel() {
     [connections, hiddenIds],
   );
   const engines = useDeviceEngines();
+  const deviceSetup = useDeviceSetup();
   const localModelUsedBy = useLocalModelUsedBy();
   const grouped = useMemo(() => {
     const { groups, standalone } = groupModelsByAccount(connectionsList, accounts ?? []);
@@ -501,6 +505,9 @@ export function ConnectionsPanel() {
   const validKey = (key: string | null) => {
     if (!key) return false;
     if (key === "other") return grouped.standalone.length > 0;
+    // Text to speech stays open while it is on: its page saves the Base URL as it is typed, and a half-typed
+    // address can read as a cloud voice for a moment, which takes its row off On this device (#8921).
+    if (key === "device:tts" && deviceSetup.tts.setUp) return true;
     if (key.startsWith("device:")) return engines.some((engine) => `device:${engine.item}` === key);
     return false;
   };
@@ -1138,6 +1145,13 @@ export function ConnectionsPanel() {
     </div>
   );
 
+  // One step back for the "‹ Connections" button and the phone's back gesture: focus returns to the row it left.
+  const showList = () => {
+    returnKeyRef.current = current;
+    setSelected(null);
+  };
+  useBackDismiss(panelShowing && !wide && !!current && !!detail, showList);
+
   const body =
     wide && detail ? (
       <>
@@ -1149,22 +1163,22 @@ export function ConnectionsPanel() {
       </>
     ) : !wide && current && detail ? (
       <>
-        <button
-          ref={backRef}
-          type="button"
-          data-connections-back
-          onClick={() => {
-            returnKeyRef.current = current;
-            setSelected(null);
-          }}
-          className={cn(
-            "-ml-1 flex min-h-9 w-fit items-center gap-1 rounded-lg px-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] max-md:min-h-11",
-            FOCUS,
-          )}
-        >
-          <ChevronLeft size="0.875rem" />
-          {t("connections.list.back")}
-        </button>
+        {/* Pinned: the page can be long, and the way back stays in reach (the root's padding is pulled out so the row meets the panel edge). */}
+        <div className="sticky top-0 z-10 -mx-3 -mt-3 bg-[var(--background)] px-3 pb-1 pt-3 max-md:-mx-1.5 max-md:-mt-1.5 max-md:px-1.5 max-md:pt-1.5">
+          <button
+            ref={backRef}
+            type="button"
+            data-connections-back
+            onClick={showList}
+            className={cn(
+              "-ml-1 flex min-h-9 w-fit items-center gap-1 rounded-lg px-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] max-md:min-h-11",
+              FOCUS,
+            )}
+          >
+            <ChevronLeft size="0.875rem" />
+            {t("connections.list.back")}
+          </button>
+        </div>
         {detail}
       </>
     ) : (

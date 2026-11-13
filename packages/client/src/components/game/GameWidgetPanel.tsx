@@ -18,6 +18,7 @@ import { GAME_DIALOG_CLASS } from "../../lib/chat-widget-colors";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { PanelLockButton, useDraggablePanel } from "./DraggablePanel";
 import { GameWidgetSetupEditor } from "./GameWidgetSetupEditor";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -519,7 +520,7 @@ function WidgetEditorModal({
   description = "Adjust this widget manually when the model misses an update.",
   numericValueLabel = "Current value",
   syncStartingValue = false,
-  saveLabel = "Save Changes",
+  saveLabel = "Save changes",
 }: {
   widget: HudWidget | null;
   open: boolean;
@@ -552,8 +553,20 @@ function WidgetEditorModal({
 
   return createPortal(
     <Modal
+      footer={
+        <>
+          <button type="button" onClick={handleSave} disabled={isSaving} className={SHEET_BUTTON_PRIMARY}>
+            {isSaving ? localizeUi("ui.noodle.stageprofileform.saving") : saveLabel}
+          </button>
+          <button type="button" onClick={onClose} disabled={isSaving} className={SHEET_BUTTON_QUIET}>
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
+      closeButtonClassName="max-sm:hidden"
       open={open}
-      onClose={isSaving ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={isSaving}
       title={localizeUi("ui.game.mobilewidgetpanel.editValue1", { value1: widget.label })}
       width="max-w-lg"
       panelClassName={GAME_DIALOG_CLASS}
@@ -564,16 +577,18 @@ function WidgetEditorModal({
         {isNumericWidgetType(widget.type) && (
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1.5">
-              <span className="text-xs font-medium text-[var(--muted-foreground)]">{numericValueLabel}</span>
+              <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
+                {numericValueLabel}
+              </span>
               <input
                 type="number"
                 value={draft.value}
                 onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)]"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)] max-sm:text-base"
               />
             </label>
             <label className="space-y-1.5">
-              <span className="text-xs font-medium text-[var(--muted-foreground)]">
+              <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                 {localizeUi("ui.game.widgeteditormodal.maximumValue")}
               </span>
               <input
@@ -581,7 +596,7 @@ function WidgetEditorModal({
                 min={1}
                 value={draft.max}
                 onChange={(event) => setDraft((current) => ({ ...current, max: event.target.value }))}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)]"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)] max-sm:text-base"
               />
             </label>
           </div>
@@ -589,14 +604,14 @@ function WidgetEditorModal({
 
         {widget.type === "counter" && (
           <label className="space-y-1.5">
-            <span className="text-xs font-medium text-[var(--muted-foreground)]">
+            <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.game.widgeteditormodal.count")}
             </span>
             <input
               type="number"
               value={draft.count}
               onChange={(event) => setDraft((current) => ({ ...current, count: event.target.value }))}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)] max-sm:text-base"
             />
           </label>
         )}
@@ -620,7 +635,7 @@ function WidgetEditorModal({
                 >
                   {allowStructureEdit ? (
                     <label className="space-y-1.5">
-                      <span className="text-xs font-medium text-[var(--muted-foreground)]">
+                      <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                         {localizeUi("ui.game.widgeteditormodal.stat")}
                       </span>
                       <input
@@ -640,7 +655,7 @@ function WidgetEditorModal({
                     </label>
                   ) : (
                     <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-[var(--muted-foreground)]">
+                      <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                         {localizeUi("ui.game.widgeteditormodal.stat")}
                       </span>
                       <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]/75">
@@ -649,7 +664,7 @@ function WidgetEditorModal({
                     </div>
                   )}
                   <label className="space-y-1.5">
-                    <span className="text-xs font-medium text-[var(--muted-foreground)]">
+                    <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.game.widgeteditormodal.value")}
                     </span>
                     <input
@@ -703,16 +718,16 @@ function WidgetEditorModal({
 
         {widget.type === "list" && (
           <label className="space-y-1.5">
-            <span className="text-xs font-medium text-[var(--muted-foreground)]">
+            <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.game.widgeteditormodal.items")}
             </span>
             <textarea
               value={draft.items}
               onChange={(event) => setDraft((current) => ({ ...current, items: event.target.value }))}
               rows={6}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)] max-sm:text-base"
             />
-            <span className="block text-xs text-[var(--muted-foreground)]">
+            <span className="block text-xs max-sm:text-[13px] text-[var(--muted-foreground)]">
               {localizeUi("ui.game.widgeteditormodal.enterOneItemPerLine")}
             </span>
           </label>
@@ -721,7 +736,7 @@ function WidgetEditorModal({
         {widget.type === "timer" && (
           <div className="space-y-3">
             <label className="space-y-1.5">
-              <span className="text-xs font-medium text-[var(--muted-foreground)]">
+              <span className="text-xs max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                 {localizeUi("ui.game.widgeteditormodal.secondsRemaining")}
               </span>
               <input
@@ -729,7 +744,7 @@ function WidgetEditorModal({
                 min={0}
                 value={draft.seconds}
                 onChange={(event) => setDraft((current) => ({ ...current, seconds: event.target.value }))}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)]"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)] max-sm:text-base"
               />
             </label>
             <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
@@ -758,25 +773,6 @@ function WidgetEditorModal({
             </div>
           </div>
         )}
-
-        <div className="flex justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSaving}
-            className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
-          >
-            {localizeUi("chat.delete.dialog.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {isSaving ? localizeUi("ui.noodle.stageprofileform.saving") : saveLabel}
-          </button>
-        </div>
       </div>
     </Modal>,
     document.body,
@@ -910,8 +906,27 @@ export function GameWidgetSessionPrepModal({
   return (
     <>
       <Modal
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                void handleStart();
+              }}
+              disabled={interactionsLocked}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {interactionsLocked ? copy.startingLabel : copy.startLabel}
+            </button>
+            <button type="button" onClick={onClose} disabled={interactionsLocked} className={SHEET_BUTTON_QUIET}>
+              {copy.cancelLabel}
+            </button>
+          </>
+        }
+        closeButtonClassName="max-sm:hidden"
         open={open}
-        onClose={interactionsLocked ? () => {} : onClose}
+        onClose={onClose}
+        closeDisabled={interactionsLocked}
         title={copy.title}
         width="max-w-2xl"
         panelClassName={GAME_DIALOG_CLASS}
@@ -969,27 +984,6 @@ export function GameWidgetSessionPrepModal({
               ))}
             </div>
           )}
-
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={interactionsLocked}
-              className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
-            >
-              {copy.cancelLabel}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void handleStart();
-              }}
-              disabled={interactionsLocked}
-              className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {interactionsLocked ? copy.startingLabel : copy.startLabel}
-            </button>
-          </div>
         </div>
       </Modal>
 

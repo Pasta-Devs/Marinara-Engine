@@ -60,6 +60,7 @@ try {
   await connections.updateDefaultParameters(primary.id, {
     videoGeneration: {
       service: "openrouter",
+      customHeaders: { "X-Route": "gpu-a" },
       openrouter: { durationSeconds: 6, aspectRatio: "9:16", resolution: "480p" },
     },
   });
@@ -94,6 +95,7 @@ try {
   assert.equal(calls[0].request.durationSeconds, 6);
   assert.equal(calls[0].request.aspectRatio, "9:16");
   assert.equal(calls[0].request.resolution, "480p");
+  assert.deepEqual(calls[0].request.customHeaders, { "X-Route": "gpu-a" }, "saved custom headers reach the provider");
   assert.equal(calls[0].request.referenceImage?.mimeType, "image/png");
   assert.equal(calls[0].request.referenceImage?.base64, png.toString("base64"));
   assert.equal(calls[0].request.referenceImage?.url, "/api/global-gallery/file/fixture.png");

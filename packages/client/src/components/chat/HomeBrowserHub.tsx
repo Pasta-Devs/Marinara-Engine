@@ -90,6 +90,7 @@ import { startSceneWithPromptPreferences } from "../../lib/scene-generation";
 import { useChatStore } from "../../stores/chat.store";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { HomeAchievements } from "./HomeAchievements";
 import { ChatModeIcon } from "./ChatModeIcon";
@@ -1084,7 +1085,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     () => browserPackages.find((item) => item.id === "noodle") ?? null,
     [browserPackages],
   );
-  const [localActiveTab, setLocalActiveTab] = useState("home");
+  // Kept in the store: the desktop shell unmounts Home under every editor, and Back must find the tab left behind.
+  const localActiveTab = useUIStore((state) => state.homeTab);
+  const setLocalActiveTab = useUIStore((state) => state.setHomeTab);
   const overhaulActive = useOverhaulLook();
   // UI overhaul: each installed app gets its own tab in the top bar instead of Home's tab strip.
   const overhaulApp = useOverhaulStore((state) => state.activeApp);
@@ -1366,9 +1369,11 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   }, [tabFitKey]);
 
   useEffect(() => {
-    if (activeTab === "home" || activeTab === "professor" || !installed.data) return;
+    if (activeTab === "home" || activeTab === "professor") return;
+    // A remount before the installed list arrives must not mistake the remembered package for an uninstalled one.
+    if (installed.isPending) return;
     if (!browserPackages.some((item) => item.id === activeTab)) setActiveTab("home");
-  }, [activeTab, browserPackages, installed.data, setActiveTab]);
+  }, [activeTab, browserPackages, installed.isPending, setActiveTab]);
 
   // A scene that ended, or its Back button, asks for the package thread it started in.
   useEffect(() => {
@@ -1787,7 +1792,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     >
       <div
         className={cn(
-          "flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--marinara-home-page-wash)]",
+          "mari-home-page flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--marinara-home-page-wash)]",
           !browserFullscreen && "border border-[var(--border)]/75 shadow-2xl shadow-black/25 sm:rounded-xl",
         )}
         data-browser-fullscreen={browserFullscreen ? "" : undefined}
@@ -2368,14 +2373,13 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     initialTab: typeof options?.tab === "string" ? options.tab : undefined,
                   });
                 },
-                // Capability API 1.386: open a connection in the editor, and come back to this tab once it
-                // closes. The desktop shell unmounts Home while an editor is open, so the store remembers the
-                // tab and queues it for the remounted Home only when the editor itself closes.
+                // Capability API 1.386: open a connection in the editor. Back returns to this tab, which the
+                // store remembers while the desktop shell unmounts Home.
                 openConnection: (connectionId: string) => {
                   if (typeof connectionId !== "string" || !connectionId) return;
                   // A retained callback cannot act for a package that is no longer the active tab.
                   if (activeBrowserPackageIdRef.current !== activeTab) return;
-                  useUIStore.getState().openConnectionDetail(connectionId, { returnToHomeTab: activeTab });
+                  useUIStore.getState().openConnectionDetail(connectionId);
                 },
               }}
             />
@@ -3162,10 +3166,21 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
           setEditingCustomWidget(null);
         }}
         title={t("home.widgets.editTitle")}
+        footer={
+          <button
+            type="submit"
+            form="home-widget-edit-form"
+            disabled={updateCustomWidgetMutation.isPending}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {t("home.widgets.save")}
+          </button>
+        }
         width="max-w-md"
       >
         {editingCustomWidget && (
           <form
+            id="home-widget-edit-form"
             className="grid gap-3"
             onSubmit={(event) => {
               event.preventDefault();
@@ -3182,7 +3197,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 maxLength={80}
                 value={editingCustomWidget.title}
                 onChange={(event) => setEditingCustomWidget({ ...editingCustomWidget, title: event.target.value })}
-                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 max-sm:text-base"
               />
             </label>
             <label className="grid gap-1 text-sm">
@@ -3194,7 +3209,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 onChange={(event) =>
                   setEditingCustomWidget({ ...editingCustomWidget, description: event.target.value })
                 }
-                className="min-h-24 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+                className="min-h-24 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 max-sm:text-base"
               />
             </label>
             <label className="grid gap-1 text-sm">
@@ -3207,7 +3222,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     accent: event.target.value as HomeCustomWidget["accent"],
                   })
                 }
-                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 max-sm:text-base"
               >
                 {["cyan", "orange", "pink", "violet"].map((accent) => (
                   <option key={accent} value={accent}>
@@ -3226,7 +3241,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     icon: event.target.value as HomeCustomWidget["icon"],
                   })
                 }
-                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 max-sm:text-base"
               >
                 {["sparkles", "note", "heart", "star", "book", "compass"].map((icon) => (
                   <option key={icon} value={icon}>
@@ -3240,13 +3255,6 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 {t("home.widgets.editFailed")}
               </p>
             )}
-            <button
-              type="submit"
-              disabled={updateCustomWidgetMutation.isPending}
-              className="min-h-10 rounded-lg bg-[var(--primary)] px-3 text-sm font-semibold text-[var(--primary-foreground)]"
-            >
-              {t("home.widgets.save")}
-            </button>
           </form>
         )}
       </Modal>

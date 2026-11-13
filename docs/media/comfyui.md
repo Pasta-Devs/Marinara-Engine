@@ -15,12 +15,23 @@ A local language model and an image model may not fit in GPU memory at the same 
 ## Create the Marinara connection
 
 1. Open **Library → Connections** and click **Add connection**. On the **Images** tab, choose **ComfyUI** for a local server or **RunPod Serverless (ComfyUI)** for a RunPod endpoint.
-2. For local ComfyUI, enter its address (`http://127.0.0.1:8188`). No API key is needed. With an empty **ComfyUI workflow (optional)** field, Marinara uses a built-in basic text-to-image workflow.
+2. For local ComfyUI, enter its address (`http://127.0.0.1:8188`). No API key is needed, unless a proxy in front of ComfyUI asks for one (see [Use an authenticated proxy](#use-an-authenticated-proxy)). With an empty **ComfyUI workflow (optional)** field, Marinara uses a built-in basic text-to-image workflow.
 3. For RunPod, enter your API key and **RunPod endpoint ID**. A custom workflow is required.
 4. Set **Local image defaults** on the image model. These values replace the matching placeholders in your workflow.
 5. Paste the workflow, save, and click **Test image**.
 
 If it did not work, see [Troubleshooting](#troubleshooting).
+
+## Use an authenticated proxy
+
+ComfyUI itself has no login. When a proxy in front of it asks for a token or extra headers, Marinara sends them with every ComfyUI request: queue, history, image download, reference upload and model listing. The token is saved on the account, and the headers on the image or video model.
+
+1. If the proxy checks a token, open **Connections**, edit the ComfyUI account and enter the token under **API key**. Marinara sends it as an `Authorization: Bearer` header. A value that already carries a scheme, such as `Basic ...`, is sent as-is.
+2. Save the account.
+3. If the proxy needs extra non-secret headers, open the image or video model and expand **Local image defaults** or **Video defaults**. Enter a JSON object under **Custom Request Headers**.
+4. Save the model and choose **Test image** or **Test video**. A 401 or 403 means the proxy rejected the credentials.
+
+> **Warning:** Never paste secrets into **Custom Request Headers**. Use **API key** for secrets. Account exports leave the key out.
 
 ## Build and export a workflow
 
@@ -165,6 +176,7 @@ This can give more consistent results than one generic workflow, but each model 
 | The job completes but Marinara receives no image | Add a connected **SaveImage** output and test the workflow directly in ComfyUI again.                                                                                                                                         |
 | A reference-image node fails                     | For a normal local **LoadImage** node, use a `%reference_image_name...%` placeholder. Use raw base64 only with a node designed for it, and confirm that the Marinara feature actually supplied a reference.                   |
 | A remote/LAN ComfyUI URL is blocked              | For image connections, enable `IMAGE_LOCAL_URLS_ENABLED`. Make ComfyUI listen on the network interface and check the host firewall. Do not expose an unauthenticated ComfyUI server to the public internet.                   |
+| ComfyUI answers 401 or 403                       | The proxy in front of ComfyUI rejected the request. Enter its credential in **API key** and any extra headers under **Custom Request Headers**, then run **Test image** again. See [Use an authenticated proxy](#use-an-authenticated-proxy). |
 | Error: `Outbound response exceeded N bytes`      | The response exceeded the configured limit, which defaults to 30 MiB. Embedded workflow or reference-image metadata can cause this. Turn off metadata in ComfyUI, or raise `IMAGE_GEN_MAX_RESPONSE_BYTES` in Marinara's `.env` and restart Marinara.          |
 | A long image generation times out                | Increase `COMFYUI_GEN_TIMEOUT` in Marinara's `.env`. The value is measured in seconds and defaults to `2400`.                                                                                                                 |
 | A long video generation times out                | Increase `VIDEO_GEN_TIMEOUT_MS` in Marinara's `.env`. The value is measured in milliseconds and defaults to `1800000` (30 minutes).                                                                                           |

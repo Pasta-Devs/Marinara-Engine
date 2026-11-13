@@ -89,11 +89,14 @@ const runningState = (tag: string) => ({
   conversationSetupComplete: tag === "source",
   sceneLastVideoId: `video-${tag}`,
   lastAutomaticVideoMessageId: `video-msg-${tag}`,
+  // Not running state, but written for this one chat too (#8957).
+  authorNotes: `Notes for ${tag}`,
+  authorNotesDepth: tag === "source" ? 2 : 6,
   // Not on the exclusion list: every multiplayer room key stays out of profiles by its prefix.
   multiplayerFutureState: { room: `room-${tag}` },
 });
 // Keys a profile saves and an explicit apply sets, but a chat keeps when the profile updates it,
-// because they are not in the follower list: its own story choices, notes, who may use narrator-only
+// because they are not in the follower list: its own story choices, who may use narrator-only
 // commands (they need the chat's own narrator), Noodle's permission to use its messages, and state a
 // package keeps.
 const ownChoices = (tag: string) => ({
@@ -105,8 +108,6 @@ const ownChoices = (tag: string) => ({
     "knowledge-retrieval": { sourceLorebookIds: [`kb-${tag}`], sourceFileIds: [`file-${tag}`] },
   },
   hideSummarisedMessages: tag === "source",
-  authorNotes: `Notes for ${tag}`,
-  authorNotesDepth: tag === "source" ? 2 : 6,
   someFuturePackageState: { owner: tag },
   roleplayRollAudience: tag === "source" ? "narrator" : "all",
   roleplayDocumentAudience: tag === "source" ? "narrator" : "all",

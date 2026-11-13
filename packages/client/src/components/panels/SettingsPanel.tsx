@@ -240,6 +240,7 @@ import {
 } from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { TrackerPanelPreview } from "./settings/TrackerPanelPreview";
+import { UiStyleSettings } from "./settings/UiStyleSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
 import { AccessStatusSettings, AdminSecretMaker } from "./settings/AccessStatusSettings";
@@ -3830,12 +3831,11 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
   const rightPanelWidth = useUIStore((state) => state.rightPanelWidth);
   const setRightPanelWidth = useUIStore((state) => state.setRightPanelWidth);
-  // Background and accent pickers edit the scheme on screen; each scheme keeps its own (batch 2).
+  // The accent picker edits the scheme on screen; each scheme keeps its own (batch 2). Background color has
+  // no picker any more (retired upstream); a theme can still set one per scheme, and the accent notes check
+  // contrast against it.
   const appBackgroundColor = useUIStore((s) =>
     s.theme === "light" ? s.appBackgroundColorLight : s.appBackgroundColor,
-  );
-  const setAppBackgroundColor = useUIStore((s) =>
-    s.theme === "light" ? s.setAppBackgroundColorLight : s.setAppBackgroundColor,
   );
   const darkAccentColor = useUIStore((s) => s.appAccentColor);
   const appAccentColor = useUIStore((s) =>
@@ -3912,13 +3912,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
       );
     }
   };
-  const handleAppBackgroundColorChange = useCallback(
-    (color: string) => {
-      const normalized = color.trim();
-      setAppBackgroundColor(normalized.toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : normalized);
-    },
-    [defaultAppBackgroundColor, setAppBackgroundColor],
-  );
   const handleAppAccentColorChange = useCallback(
     (color: string) => {
       const normalized = color.trim();
@@ -4392,32 +4385,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 help={localizeUi("settings.controls.customPointer.help")}
               />
 
-              <SearchableSettingTarget controlId="app-background-color">
-                <ColorPicker
-                  value={displayedAppBackgroundColor}
-                  onChange={handleAppBackgroundColorChange}
-                  gradient
-                  compact
-                  label={`${localizeUi("settings.controls.backgroundColor.label")} (${localizeUi(
-                    theme === "light" ? "ui.panels.appearancesettings.light" : "ui.panels.appearancesettings.dark",
-                  )})`}
-                  helpText="Colors the main app shell background. Leave it on the scheme default to follow Dark and Light mode automatically. Gradients are supported for the shell paint."
-                  emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
-                    value1: defaultAppBackgroundColor,
-                  })}
-                  emptyPreviewValue={defaultAppBackgroundColor}
-                  clearLabel="Reset to default"
-                />
-                <ThemeColorNotes
-                  kind="background"
-                  value={displayedAppBackgroundColor || defaultAppBackgroundColor}
-                  background={displayedAppBackgroundColor || defaultAppBackgroundColor}
-                  themeCss={appearanceCustomTheme?.css ?? null}
-                  themeName={appearanceCustomTheme?.name ?? null}
-                  onFix={handleAppBackgroundColorChange}
-                />
-              </SearchableSettingTarget>
-
               <SearchableSettingTarget controlId="app-accent-color">
                 <ColorPicker
                   value={displayedAppAccentColor}
@@ -4448,6 +4415,13 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   onFix={handleAppAccentColorChange}
                 />
               </SearchableSettingTarget>
+
+              {/* The UI Editor is a classic-layout tool; the new layout styles the app through themes. */}
+              {!overhaulLayoutEnabled && (
+                <SearchableSettingTarget controlId="ui-element-styles">
+                  <UiStyleSettings />
+                </SearchableSettingTarget>
+              )}
 
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("accent-pulse")}

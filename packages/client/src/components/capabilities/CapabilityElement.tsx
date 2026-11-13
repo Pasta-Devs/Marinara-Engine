@@ -26,7 +26,8 @@ interface CapabilityElementProps {
     | "world-map"
     | "browser"
     | "widget"
-    | "tracker";
+    | "tracker"
+    | "activity";
   capabilityProps?: Record<string, unknown>;
   className?: string;
   onHostError?: (message: string) => void;

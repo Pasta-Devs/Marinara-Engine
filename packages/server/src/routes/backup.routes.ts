@@ -35,6 +35,8 @@ import { createInflateRaw, inflateRawSync } from "zlib";
 import AdmZip from "adm-zip";
 import { FILE_BACKED_TABLES, STORAGE_WRITER_LEASE_FILENAME } from "../db/file-backed-store.js";
 import { migrateLegacyNoodleAccountRow } from "../db/noodle-platform-migration.js";
+import { migrateLegacyPersonaRow } from "../db/persona-card-migration.js";
+import { personaRowFromStored, type StoredPersonaRow } from "../services/personas/persona-card-storage.js";
 import { migrateLegacyNoodlePostAccessRow } from "../db/noodle-access-migration.js";
 import { getFileTableConfig, isFileTable, type AnyFileTable } from "../db/file-schema.js";
 import * as schema from "../db/schema/index.js";
@@ -62,6 +64,7 @@ import {
   restoreBakedGreetingImages,
   withImportTags,
   type ImportTagOptions,
+  normalizeNameAliases,
 } from "@marinara-engine/shared";
 import { getDataDir } from "../utils/data-dir.js";
 import { uniqueExportName } from "../utils/export-stream.js";
@@ -699,9 +702,9 @@ for (const candidate of Object.values(schema)) {
 
 /**
  * Where profile rows hold the chat settings that stay on one install (CHAT_METADATA_LOCAL_DESTINATION_KEYS:
- * the Discord mirror, translator address and key, haptics server): chat metadata, a settings profile's
- * metadata and the translator defaults for new chats. Like the connection keys, profiles are exported
- * without them and an import brings none; a row restored over this install's own keeps its values.
+ * the Discord mirror, translator address and key, haptics server, a chat's music folder): chat metadata, a
+ * settings profile's metadata and the translator defaults for new chats. Like the connection keys, profiles are
+ * exported without them and an import brings none; a row restored over this install's own keeps its values.
  */
 const PROFILE_LOCAL_DESTINATION_ROWS: Record<string, { key: string; column: string }> = {
   chats: { key: "id", column: "metadata" },
@@ -744,6 +747,13 @@ export function withProfileLocalDestinations(
 
 export function sanitizeProfileTableRows(tableName: string, rows: Array<Record<string, unknown>>) {
   if (tableName === "noodler_fan_activity_state") return [];
+  // A profile is a portable file that an older install may import. Personas leave in the flat shape
+  // every build reads (storage format 11 keeps them as a card in `data`); import converts them back.
+  if (tableName === "personas") {
+    rows = rows.map(
+      (row) => personaRowFromStored(row as unknown as StoredPersonaRow) as unknown as Record<string, unknown>,
+    );
+  }
   if (PROFILE_LOCAL_DESTINATION_ROWS[tableName]) {
     rows = rows.map((row) => withProfileLocalDestinations(tableName, row));
   }
@@ -1570,6 +1580,7 @@ async function importProfileStorageSnapshot(
             // lets the column default fill `platform: "noodle"`, putting a restored NoodleR
             // account and its posts on the Noodle timeline.
             if (tableName === "noodle_accounts") cleanRow = migrateLegacyNoodleAccountRow(cleanRow);
+            if (tableName === "personas") cleanRow = migrateLegacyPersonaRow(cleanRow);
             if (tableName === "noodle_posts") cleanRow = migrateLegacyNoodlePostAccessRow(cleanRow);
             if (tableName === "api_connections") {
               const connectionPlan = connectionPlans[rowIndex];
@@ -4316,6 +4327,7 @@ export async function backupRoutes(app: FastifyInstance) {
                     typeof p.savedStatusOptions === "string"
                       ? p.savedStatusOptions
                       : JSON.stringify(p.savedStatusOptions ?? []),
+                  nameAliases: JSON.stringify(normalizeNameAliases(p.nameAliases)),
                   convoDisplayName: typeof p.convoDisplayName === "string" ? p.convoDisplayName : "",
                   aboutMe: typeof p.aboutMe === "string" ? p.aboutMe : "",
                   convoBehavior: typeof p.convoBehavior === "string" ? p.convoBehavior : "",

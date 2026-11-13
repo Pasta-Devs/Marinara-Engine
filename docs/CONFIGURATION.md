@@ -205,6 +205,8 @@ To turn notices off, set `MARINARA_NOTICES_ENABLED=false`.
 
 Forks can point `MARINARA_NOTICES_URL` at their own file.
 
+To find the notices server, and the proxy when an [outbound proxy](#outbound-http-proxy) is on, Marinara reads the hosts file and asks the DNS servers directly. Names that only your local network knows, such as `.local` names or short names without a domain other than `localhost`, do not work. On Termux, the DNS servers are the ones in `$PREFIX/etc/resolv.conf`: Google's `8.8.8.8` and `8.8.4.4` unless you edit that file.
+
 ## Optional multiplayer
 
 Multiplayer is off by default. It lets people share a private Conversation, Roleplay or Game room with no fixed roster cap. Each guest uses their own trusted Marinara. Guests need no AI account. The host provides the AI accounts and can read and keep shared content. While either gate is off, Marinara makes no background session, certificate or peer checks.
@@ -301,7 +303,7 @@ The tables above cover access control, storage, logging, timeouts, privileged ac
 | `AUTO_OPEN_BROWSER` | `true` | Whether the launchers open the app URL. `false` stops it. APK-managed setup turns it off. |
 | `AUTO_UPDATE_ENABLED` | `true` | Whether Git-based launchers fetch and apply updates before startup. `false` opts out from the next launch. The launcher still checks read-only for newer releases and prints a reminder. `--skip-update` skips both checks for one start. |
 | `MARINARA_NOTICES_ENABLED` | `true` | Whether the server fetches maintainer notices. See [Marinara notices](#marinara-notices). |
-| `MARINARA_NOTICES_URL` | `notices.json` on the `notices` branch | Notices file override for forks and mirrors. It is validated the same way, and links outside `https://github.com/Pasta-Devs/` are dropped. |
+| `MARINARA_NOTICES_URL` | `notices.json` on the `notices` branch | Notices file override for forks and mirrors. It is validated the same way, and links outside `https://github.com/Pasta-Devs/` are dropped. Its host must be in the hosts file or DNS. See [Marinara notices](#marinara-notices). |
 | `MARINARA_ENV_FILE` | project-root `.env` | Path override for the `.env` file. Set before startup. |
 | `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | Most image or video requests at once, across the whole server. Lower it to 1-2 if a local ComfyUI or SwarmUI runs out of VRAM. `0` removes the ceiling. Invalid values are ignored with a warning. Batch work never takes the last slot. Works on top of **Queue media generation requests** (**Settings → Media → Generation Defaults**, on by default), which queues image and video jobs per account. |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000` (10 min) | How long a request waits for a free slot before it fails. `0` waits forever. |

@@ -67,6 +67,7 @@ const persona: Persona = {
   },
   tags: ["regression", "persona"],
   savedStatusOptions: ["At the library", "Asleep"],
+  nameAliases: ["Countess", "Ada L."],
   convoDisplayName: "Ada",
   aboutMe: "Mathematician ",
   createdAt: metadata.createdAt,
@@ -125,3 +126,10 @@ assert.deepEqual(
     .personaStats?.bars,
   [],
 );
+
+// Name aliases ride the card extensions both ways, and a character card's aliases reach the persona.
+assert.deepEqual(card.extensions.nameAliases, ["Countess", "Ada L."]);
+assert.deepEqual(personaFromCard(card).nameAliases, ["Countess", "Ada L."]);
+assert.deepEqual(personaFromCard(cardFromPersona({ ...persona, nameAliases: undefined as never })).nameAliases, []);
+const aliasCard = { ...card, extensions: { ...card.extensions, nameAliases: [" Kit ", "", "Kit", "Kat", 3] } };
+assert.deepEqual(personaFromCard(aliasCard as never).nameAliases, ["Kit", "Kat"]);

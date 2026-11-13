@@ -43,6 +43,7 @@ import {
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DescriptionSplitDialog } from "../characters/DescriptionSplitDialog";
 import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { characterKeys } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api } from "../../lib/api-client";
@@ -75,6 +76,9 @@ import { translate } from "../../localization/i18n";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 import { ImportTagChecks, importTagsBody, useImportTagChoice } from "../modals/ImportTagChecks";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
 
 // ════════════════════════════════════════════════
 // Types
@@ -1608,7 +1612,7 @@ export function BotBrowserView() {
   const { t: localizeUi } = useUiTranslation();
   const qc = useQueryClient();
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
-  const closeBotBrowser = useUIStore((s) => s.closeBotBrowser);
+  const showsClose = useUIStore(selectShowsSurfaceClose);
 
   const browserRootRef = useRef<HTMLDivElement | null>(null);
   const [sourceId, setSourceId] = useState("chub");
@@ -1914,6 +1918,15 @@ export function BotBrowserView() {
     }
   }, [selectedCard]);
 
+  // One step-back for the button, a failed detail load and hardware Back.
+  const closeDetail = () => {
+    restoreResultsScrollRef.current = true;
+    setSelectedCard(null);
+    setDetail(null);
+  };
+  // The browser stays mounted while closed, so only a visible character page owns a Back layer.
+  useBackDismiss(botBrowserOpen && !!selectedCard, closeDetail);
+
   const openDetail = async (card: BrowseCard) => {
     resultsScrollTopRef.current = mainScrollRef.current?.scrollTop ?? 0;
     openDetailScrollRef.current = true;
@@ -1931,8 +1944,7 @@ export function BotBrowserView() {
       }
       if (err instanceof PygmalionSessionExpiredError) expirePygmalionSession();
       else toast.error(localizeUi("ui.botBrowser.botbrowserview.failedToLoadCharacterDetails"));
-      restoreResultsScrollRef.current = true;
-      setSelectedCard(null);
+      closeDetail();
     } finally {
       setDetailLoading(false);
     }
@@ -2368,16 +2380,11 @@ export function BotBrowserView() {
     >
       {/* ═══ Header ═══ */}
       <header className="relative z-10 flex shrink-0 flex-col gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--card)]/85 px-3 py-2 backdrop-blur-xl md:px-6 md:py-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={closeBotBrowser}
+        <div className={cn("flex min-w-0 items-center gap-3", showsClose && "max-lg:pr-12")}>
+          <SurfaceBackButton
             className="mari-chrome-control h-9 w-9 shrink-0 rounded-2xl p-0 md:h-10 md:w-10"
-            title={localizeUi("ui.characters.characterlibraryview.closeLibrary")}
-            aria-label={localizeUi("ui.characters.characterlibraryview.closeLibrary")}
-          >
-            <ArrowLeft size="0.95rem" />
-          </button>
+            iconSize="0.95rem"
+          />
           <div className="min-w-0">
             <p className="text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-[var(--marinara-chat-chrome-panel-muted)]">
               {localizeUi("ui.botBrowser.botbrowserview.cardsLibrary")}
@@ -2466,6 +2473,12 @@ export function BotBrowserView() {
             </span>
           )}
         </div>
+        <SurfaceCloseButton
+          className="absolute right-3 top-2 md:right-6 md:top-3 lg:static lg:self-start"
+          buttonClassName="mari-chrome-control h-9 w-9 shrink-0 rounded-2xl p-0 md:h-10 md:w-10"
+          iconSize="0.95rem"
+          dividerClassName="max-lg:hidden"
+        />
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -2617,11 +2630,7 @@ export function BotBrowserView() {
               loading={detailLoading}
               importing={importing}
               provider={provider}
-              onBack={() => {
-                restoreResultsScrollRef.current = true;
-                setSelectedCard(null);
-                setDetail(null);
-              }}
+              onBack={closeDetail}
               onImport={handleImport}
               tagImportMode={tagImportMode}
               onTagImportModeChange={setTagImportMode}
@@ -3006,6 +3015,38 @@ export function BotBrowserView() {
         title={localizeUi("ui.botBrowser.importDialog.importCard")}
         width="max-w-lg"
         closeDisabled={importing}
+        footer={
+          pendingImport?.target && pendingImport.prepared ? (
+            <>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => void finishImport(true)}
+                className={SHEET_BUTTON_PRIMARY}
+              >
+                {importing ? <Loader2 size="0.75rem" className="animate-spin" /> : <BookOpen size="0.75rem" />}
+                {localizeUi("ui.modals.importcharactermodal.importLorebook")}
+              </button>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => void finishImport(false)}
+                className={SHEET_BUTTON_SECONDARY}
+              >
+                {localizeUi("ui.modals.importcharactermodal.noImport")}
+              </button>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => setPendingImport({ card: pendingImport.card })}
+                className={SHEET_BUTTON_QUIET}
+              >
+                <ArrowLeft size="0.75rem" />
+                {localizeUi("ui.botBrowser.importDialog.back")}
+              </button>
+            </>
+          ) : undefined
+        }
       >
         {pendingImport && (
           <div className="flex flex-col gap-4" data-component="BotBrowserImportDialog">
@@ -3122,36 +3163,6 @@ export function BotBrowserView() {
                         })}
                       </p>
                     </div>
-                  </div>
-                </div>
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <button
-                    type="button"
-                    disabled={importing}
-                    onClick={() => setPendingImport({ card: pendingImport.card })}
-                    className="mari-chrome-control px-3 py-2 text-xs"
-                  >
-                    <ArrowLeft size="0.75rem" />
-                    {localizeUi("ui.botBrowser.importDialog.back")}
-                  </button>
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                    <button
-                      type="button"
-                      disabled={importing}
-                      onClick={() => void finishImport(false)}
-                      className="mari-chrome-control px-3 py-2 text-xs"
-                    >
-                      {localizeUi("ui.modals.importcharactermodal.noImport")}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={importing}
-                      onClick={() => void finishImport(true)}
-                      className="mari-panel-gradient-button mari-panel-gradient--lorebooks px-3 py-2 text-xs"
-                    >
-                      {importing ? <Loader2 size="0.75rem" className="animate-spin" /> : <BookOpen size="0.75rem" />}
-                      {localizeUi("ui.modals.importcharactermodal.importLorebook")}
-                    </button>
                   </div>
                 </div>
               </div>
@@ -3614,15 +3625,15 @@ function DetailView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 flex items-center gap-2 bg-[var(--background)] px-4 py-2">
         <button
           type="button"
           onClick={onBack}
           className="mari-editor-action inline-flex shrink-0"
           title={localizeUi("ui.botBrowser.detailview.backToResults")}
-          aria-label={localizeUi("ui.botBrowser.detailview.backToResults")}
         >
           <ArrowLeft size="1.125rem" />
+          {localizeUi("ui.botBrowser.detailview.backToResults")}
         </button>
         <div className="flex-1" />
         <a

@@ -103,7 +103,7 @@ Baseline validation:
 pnpm check
 ```
 
-This runs the Impeccable project-context guard, localization checks, Prettier verification, workspace lint/type checks, and the production build.
+This runs the Impeccable project-context guard and localization checks, builds the shared package, then runs side by side: Prettier verification, client ESLint, the type checks the builds do not cover, and the server and client production builds. The builds type-check shared and the server, so `pnpm check` skips the separate `tsc --noEmit` passes that `pnpm lint` (still available) runs for them; a low-memory build (`MARINARA_LOW_MEMORY_BUILD=1`, Android) does not type-check, so there `pnpm check` runs those passes first. Each output line names its lane, and every failed lane is listed at the end. On a machine with little memory (8 GB), set `MARINARA_CHECK_JOBS=1` to run one lane at a time.
 
 **Windows note:** the repo checks out with LF line endings on every platform (`.gitattributes` sets `* text=auto eol=lf`, which overrides Git for Windows' `core.autocrlf=true` default), so `pnpm check` behaves identically to CI. A clone made before this rule existed still has CRLF in its working tree and will fail Prettier on every file until you refresh it once — commit or stash any work first, then run:
 

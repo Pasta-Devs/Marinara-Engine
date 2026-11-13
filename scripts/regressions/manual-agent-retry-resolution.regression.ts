@@ -222,6 +222,56 @@ assert.equal(
   "chat-override",
 );
 
+// Music DJ folders (#8901): this chat's folder, then its only character's, then the default. A chat or character
+// folder also turns on folder mode over a Game Assets default; a group chat never follows one character.
+const musicFolderSettings = {
+  customMusicSource: "game-assets",
+  customMusicExternalFolder: "/music/default",
+  customMusicCharacterFolders: { nazuna: "/music/nazuna", keyleth: "/music/keyleth" },
+};
+const musicFolderFor = (chatMetadata: Record<string, unknown>, chatCharacterIds: string[]) => {
+  const settings = resolveEffectiveAgentSettings({
+    agentType: "spotify",
+    settings: musicFolderSettings,
+    chatMetadata,
+    chatCharacterIds,
+  });
+  return [settings.customMusicSource, settings.customMusicExternalFolder];
+};
+assert.deepEqual(
+  musicFolderFor({}, ["nazuna"]),
+  ["folder", "/music/nazuna"],
+  "a solo chat uses its character's folder",
+);
+assert.deepEqual(musicFolderFor({}, ["keyleth"]), ["folder", "/music/keyleth"], "each character keeps its own folder");
+assert.deepEqual(
+  musicFolderFor({ customMusicExternalFolder: " /music/chat " }, ["nazuna"]),
+  ["folder", "/music/chat"],
+  "this chat's folder wins over the character's",
+);
+assert.deepEqual(
+  musicFolderFor({ customMusicExternalFolder: "/music/chat" }, ["nazuna", "keyleth"]),
+  ["folder", "/music/chat"],
+  "a group chat can still have its own folder",
+);
+for (const [chatMetadata, chatCharacterIds, why] of [
+  [{}, ["nazuna", "keyleth"], "a group chat skips its characters' folders"],
+  [{ customMusicExternalFolder: null }, ["someone-unlinked"], "a character with no folder follows the default"],
+  [{ customMusicExternalFolder: "  " }, [], "an empty chat folder follows the default"],
+] as const) {
+  assert.deepEqual(musicFolderFor(chatMetadata, [...chatCharacterIds]), ["game-assets", "/music/default"], why);
+}
+assert.equal(
+  resolveEffectiveAgentSettings({
+    agentType: "parity-agent",
+    settings: { customMusicExternalFolder: "/music/default" },
+    chatMetadata: { customMusicExternalFolder: "/music/chat" },
+    chatCharacterIds: [],
+  }).customMusicExternalFolder,
+  "/music/default",
+  "only the Music DJ reads the chat folder",
+);
+
 const musicFallbackParity = [
   { agentType: "spotify", settings: {}, fallbackAgentType: "spotify" },
   { agentType: "spotify", settings: { musicProvider: "youtube" }, fallbackAgentType: "youtube" },

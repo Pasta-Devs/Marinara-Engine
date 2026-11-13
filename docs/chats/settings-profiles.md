@@ -71,7 +71,7 @@ The star beside the dropdown marks the profile used automatically for new chats 
 
 **Export settings profile (.json)** downloads a `.marinara-settings-profile.json` file you can keep as a backup or share. **Import settings profile (.json)** makes a new profile from a compatible file and never overwrites an existing one. Older exports still import. A failed import shows **Import failed**.
 
-Profiles store settings, not provider secrets. An exported or imported profile also leaves out the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. Profiles you save on this install keep them. Exported files leave out the persona and lorebooks, because they exist only on this install.
+Profiles store settings, not provider secrets. An exported or imported profile also leaves out the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. Profiles you save on this install keep them. Exported files leave out the persona, lorebooks and preset variable choices, because they belong to this install.
 
 ## The Default profile
 
@@ -88,7 +88,7 @@ When a new chat uses a default profile that has a saved layout, that layout take
 A profile stores how the chat talks to the model:
 
 - Connection.
-- Prompt preset (called the prompt source in Conversation).
+- Prompt preset (called the prompt source in Conversation), with the choices you made for its [preset variables](../prompts/preset-variables.md). Applying the profile gives the chat those choices. A profile saved before it held them leaves the chat's own choices.
 - Agents and tools.
 - Translation, Memory Recall and Advanced Parameters.
 - Window and button layout: positions, sizes, pins, locks, which tools are inside Chat Settings or popped out, open control windows, and button positions on computers and phones. Profiles without a saved layout, such as **Default**, leave the chat's layout as it is.
@@ -103,7 +103,7 @@ A profile can also hold **starting picks**: a persona, lorebooks to switch on, a
 - **Save current chat settings into this profile** keeps the profile's own persona, lorebooks and background. A profile without a background takes the chat's background when you save into it.
 - Updating other chats never changes their persona, lorebooks or background.
 
-A profile does not replace chat-owned content: characters, sprites, summary, tags and scene prompt. It also holds no conversation history and no running state such as macro variables, the characters you turned off, or a multiplayer room.
+A profile does not replace chat-owned content: characters, sprites, summary, tags, scene prompt and **Author's Notes**. It also holds no conversation history and no running state such as macro variables, the characters you turned off, or a multiplayer room. A profile saved in an earlier version may still hold **Author's Notes**, but applying it keeps the chat's own.
 
 ### What Save and update copies
 
@@ -116,13 +116,14 @@ A profile does not replace chat-owned content: characters, sprites, summary, tag
 - Memory and summary settings.
 - Translation.
 - The window layout.
+- Preset variable choices, only in chats that use the same prompt preset as the profile.
 
 Everything else stays as each chat has it:
 
 - Its connection, prompt preset and custom prompt.
 - Its story and characters.
 - Its lorebooks and background.
-- Its notes and progress.
+- Its **Author's Notes** and progress.
 - Which Roleplay commands only its narrator may use.
 - Whether Noodle may use its messages.
 

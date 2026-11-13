@@ -671,7 +671,7 @@ Run the API server only:
 pnpm dev:server
 ```
 
-Run the baseline validation (TypeScript plus ESLint):
+Run the baseline validation (Prettier, ESLint, type checks and production builds; set `MARINARA_CHECK_JOBS=1` on a low-memory machine):
 
 ```bash
 pnpm check

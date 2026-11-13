@@ -42,6 +42,9 @@ const TRANSFER_UNSAFE_AGENT_SETTING_KEYS = new Set([
   "spotifyExpiresAt",
   "spotifyScope",
   "youtubeApiKey",
+  // Music DJ folders are paths on this server device (#8901).
+  "customMusicExternalFolder",
+  "customMusicCharacterFolders",
   "sourceLorebookIds",
   "sourceFileIds",
   "writableLorebookId",

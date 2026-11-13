@@ -58,7 +58,7 @@ type Draft = {
 const capValue = (value: string) => (value.trim() ? Number(value) : null);
 const STATE_TONE: Record<ConnectionAccountState, EngineTone> = { ok: "ok", off: "off", needs_key: "warn" };
 const labelClass = "mb-1 block text-xs font-semibold text-[var(--foreground)]";
-const fieldClass = "mari-chrome-field h-11 w-full px-3 text-xs md:h-9";
+const fieldClass = "mari-chrome-field h-11 w-full px-3 text-xs max-sm:text-base md:h-9";
 
 function SecretField({
   label,
@@ -129,7 +129,7 @@ function SecretField({
         )}
       </Wrapper>
       {check.state === "idle" ? (
-        help && <p className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">{help}</p>
+        help && <p className="mt-1 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">{help}</p>
       ) : (
         <div className="mt-1">
           <CheckLine id="account-key-check" check={check} onRecheck={onRecheck} />
@@ -434,7 +434,7 @@ export function ConnectionAccountEditor({
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          <h3 className={SECTION_HEADING_CLASS}>{t("connections.accounts.editor.access")}</h3>
+          <h3 className={`${SECTION_HEADING_CLASS} max-sm:text-[13px]`}>{t("connections.accounts.editor.access")}</h3>
           {addressFirst && (
             <div className="block">
               <label htmlFor="account-address" className={labelClass}>
@@ -498,7 +498,7 @@ export function ConnectionAccountEditor({
                 role="status"
                 data-account-test-result
                 className={cn(
-                  "min-w-0 flex-1 break-words text-[0.6875rem]",
+                  "min-w-0 flex-1 break-words text-[0.6875rem] max-sm:text-[13px]",
                   testFailed
                     ? "text-[var(--marinara-app-accent-static)]"
                     : test.data?.success
@@ -512,7 +512,7 @@ export function ConnectionAccountEditor({
           )}
 
           <section>
-            <h3 className={cn("mb-2 flex items-baseline gap-1.5", SECTION_HEADING_CLASS)}>
+            <h3 className={cn("mb-2 flex items-baseline gap-1.5", SECTION_HEADING_CLASS, "max-sm:!text-[13px]")}>
               {t("connections.accounts.editor.modelsHeading")}
               <span className="font-normal text-[var(--muted-foreground)]">{models.length}</span>
             </h3>
@@ -521,7 +521,7 @@ export function ConnectionAccountEditor({
               rows={models}
               getKey={(row) => row.id}
               empty={
-                <p className="px-3 py-3 text-[0.6875rem] text-[var(--muted-foreground)]">
+                <p className="px-3 py-3 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                   {t("connections.accounts.noModels")}
                 </p>
               }
@@ -616,7 +616,7 @@ export function ConnectionAccountEditor({
 
           <div>
             {blockedBy.length > 0 && (
-              <div role="status" className="mt-1 text-[0.6875rem]">
+              <div role="status" className="mt-1 text-[0.6875rem] max-sm:text-[13px]">
                 <p className="text-[var(--marinara-app-accent-static)]">
                   {t("connections.accounts.editor.deleteBlocked")}
                 </p>

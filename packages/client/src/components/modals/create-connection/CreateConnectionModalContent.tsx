@@ -139,7 +139,7 @@ export function CreateConnectionModalContent({
   const startMedia = mediaBackendOf(startingService);
   const [service, setService] = useState<ServiceId | null>(startingService);
   const [provider, setProvider] = useState<APIProvider | null>(
-    startingService && !startDevice && !startMedia
+    startingService && !startDevice && !startMedia && startingService !== DECISION_BUILTIN
       ? (startingService as APIProvider)
       : startMedia
         ? startMedia.image

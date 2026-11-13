@@ -4,8 +4,6 @@
 
 # ── Stage 1: Build ──
 FROM node:24-trixie-slim@sha256:43b9ba1142b8dcf33fa8f922ca1be85714adc444e0586c7cf7726daaeabc1bea AS builder
-ARG BUILD_COMMIT
-ARG BUILD_BRANCH
 WORKDIR /app
 
 # Copy workspace config first (layer cache for deps)
@@ -35,6 +33,10 @@ COPY packages/client/ packages/client/
 # Build everything: shared → server + client in parallel
 # Increase heap for ARM64 emulation (QEMU) where memory pressure is high
 ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Declared here, not at the top: a build ARG that changes every commit invalidates every later layer,
+# including the dependency install. It must stay above `pnpm build`, whose client bundle reads BUILD_COMMIT.
+ARG BUILD_COMMIT
+ARG BUILD_BRANCH
 RUN pnpm build
 
 # Bake the git ref into build-meta.json because the runtime image has no .git directory.
