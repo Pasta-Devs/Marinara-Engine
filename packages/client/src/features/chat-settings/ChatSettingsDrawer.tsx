@@ -88,6 +88,13 @@ import { DirectorSettings } from "./agents/DirectorSettings";
 import { LorebookKeeperSettings } from "./agents/LorebookKeeperSettings";
 import { GAME_SPOTIFY_KEYS, ROLEPLAY_SPOTIFY_KEYS, SpotifySourceSettings } from "./agents/SpotifySourceSettings";
 import { HapticSettings } from "./agents/HapticSettings";
+import {
+  IllustratorImageConnectionSelect,
+  IllustratorImageStyleSelect,
+  IllustratorImagesPerGeneration,
+  IllustratorPromptConnectionSelect,
+  IllustratorRunIntervalField,
+} from "./agents/IllustratorControls";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
@@ -234,8 +241,6 @@ import type {
   PromptPreset,
 } from "@marinara-engine/shared";
 import {
-  MAX_ILLUSTRATOR_IMAGES_PER_GENERATION,
-  MAX_ILLUSTRATOR_RUN_INTERVAL,
   customAgentHasCapability,
   normalizeIllustratorImagesPerGeneration,
   normalizeIllustratorRunInterval,
@@ -1719,65 +1724,19 @@ export function ChatSettingsDrawer({
     },
     [chat.id, updateMeta],
   );
-  const updateIllustratorPromptConnection = useCallback(
-    (connectionId: string) => {
-      updateMeta.mutate({
-        id: chat.id,
-        illustratorPromptConnectionId: connectionId || null,
-      });
-    },
-    [chat.id, updateMeta],
-  );
   const renderIllustratorPromptConnectionSelect = () => (
-    <div className="flex flex-col gap-1">
-      <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
-        {localizeUi("ui.chat.chatsettingsdrawer.promptModel")}
-      </span>
-      <ConnectionSelect
-        job={t("connections.picker.job.illustratorPrompts")}
-        value={illustratorPromptConnectionId || null}
-        onChange={(connectionId) => updateIllustratorPromptConnection(connectionId ?? "")}
-        includeLocalSidecar={!isGame && sidecarModelDownloaded}
-        defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}
-        inherits="agents"
-      />
-      <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-        {localizeUi("ui.chat.chatsettingsdrawer.choosesTheTextModelThatWritesIllustratorSelfiePrompts")}
-      </span>
-      <AgentDefaultStatus
-        overridden={illustratorPromptConnectionId.length > 0}
-        onReset={() => updateIllustratorPromptConnection("")}
-      />
-    </div>
+    <IllustratorPromptConnectionSelect
+      chat={chat}
+      connectionId={illustratorPromptConnectionId}
+      includeLocalSidecar={!isGame && sidecarModelDownloaded}
+    />
   );
-  const updateIllustratorImageConnection = (connectionId: string) => {
-    updateMeta.mutate({
-      id: chat.id,
-      illustratorImageConnectionId: connectionId || null,
-    });
-  };
   const renderIllustratorImageConnectionSelect = () => (
-    <div className="flex flex-col gap-1">
-      <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
-        {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
-      </span>
-      <ConnectionSelect
-        job={t("connections.picker.job.images")}
-        value={illustratorImageConnectionId || null}
-        onChange={(connectionId) => updateIllustratorImageConnection(connectionId ?? "")}
-        kind="image"
-        defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}
-        inherits="agents"
-      />
-      <AgentDefaultStatus
-        overridden={illustratorImageConnectionId.length > 0}
-        onReset={() => updateIllustratorImageConnection("")}
-      />
-      <NeedsModelChip
-        kind="image"
-        own={illustratorImageConnectionId || agentModelNeed("illustrator", illustratorConfig?.settings)?.own}
-      />
-    </div>
+    <IllustratorImageConnectionSelect
+      chat={chat}
+      connectionId={illustratorImageConnectionId}
+      agentSettings={illustratorConfig?.settings}
+    />
   );
   const toggleIllustratorCharacterAppearance = useCallback(() => {
     updateMeta.mutate({
@@ -1810,117 +1769,31 @@ export function ChatSettingsDrawer({
     });
   }, [chat.id, illustratorAutoBackgroundsEnabled, updateMeta]);
   const renderIllustratorImageStyleSelect = (options: { emptyOptionLabel?: string; description?: string } = {}) => (
-    <label className="flex flex-col gap-1">
-      <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
-        {localizeUi("ui.chat.chatsettingsdrawer.imageStyle")}
-      </span>
-      <select
-        value={(metadata.imageStyleProfileId as string) ?? ""}
-        onChange={(event) => updateMeta.mutate({ id: chat.id, imageStyleProfileId: event.target.value || null })}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-      >
-        <option value="">
-          {options.emptyOptionLabel ?? "Use default style from Style Profiles in Advanced settings"}
-        </option>
-        {imageStyleProfiles.profiles.map((profile) => (
-          <option key={profile.id} value={profile.id}>
-            {profile.name}
-          </option>
-        ))}
-      </select>
-      {options.description ? (
-        <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">{options.description}</span>
-      ) : null}
-    </label>
+    <IllustratorImageStyleSelect
+      chat={chat}
+      styleProfileId={(metadata.imageStyleProfileId as string) ?? ""}
+      emptyOptionLabel={options.emptyOptionLabel}
+      description={options.description}
+    />
   );
   const renderIllustratorImagesPerGeneration = () => (
-    <label className="flex flex-col gap-1">
-      <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
-        {localizeUi("ui.chat.chatsettingsdrawer.imagesPerGeneration")}
-      </span>
-      <select
-        value={illustratorImagesPerGeneration}
-        onChange={(event) =>
-          updateMeta.mutate({
-            id: chat.id,
-            illustratorImagesPerGeneration: normalizeIllustratorImagesPerGeneration(event.target.value),
-          })
-        }
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-      >
-        {Array.from({ length: MAX_ILLUSTRATOR_IMAGES_PER_GENERATION }, (_, index) => index + 1).map((count) => (
-          <option key={count} value={count}>
-            {count}
-          </option>
-        ))}
-      </select>
-      <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-        {localizeUi("ui.chat.chatsettingsdrawer.generateThisManyVariantsForEachIllustrationOrSelfie")}
-      </span>
-    </label>
+    <IllustratorImagesPerGeneration chat={chat} value={illustratorImagesPerGeneration} />
   );
   const renderIllustratorRunInterval = () => (
-    <div className="flex flex-col gap-1">
-      <label className="flex flex-col gap-1">
-        <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
-          {localizeUi("ui.agents.agenteditor.imageRunInterval")}
-        </span>
-        <span className="flex items-center gap-2">
-          <DraftNumberInput
-            value={illustratorRunInterval}
-            min={0}
-            max={MAX_ILLUSTRATOR_RUN_INTERVAL}
-            onCommit={(value) => {
-              // Leaving the field unchanged must not turn the agent default into a chat value.
-              if (value !== illustratorRunInterval) updateMeta.mutate({ id: chat.id, illustratorRunInterval: value });
-            }}
-            className="w-24 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs tabular-nums text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-          />
-          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.agents.agenteditor.messages")}
-          </span>
-        </span>
-        <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-          {localizeUi("agents.illustrator.chatRunIntervalHelp")}
-        </span>
-      </label>
-      <AgentDefaultStatus
-        overridden={illustratorChatRunInterval !== null}
-        onReset={() => updateMeta.mutate({ id: chat.id, illustratorRunInterval: null })}
-      />
-    </div>
+    <IllustratorRunIntervalField
+      chat={chat}
+      kind="image"
+      value={illustratorRunInterval}
+      overridden={illustratorChatRunInterval !== null}
+    />
   );
   const renderIllustratorVideoRunInterval = () => (
-    <div className="flex flex-col gap-1">
-      <label className="flex flex-col gap-1">
-        <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
-          {localizeUi("ui.agents.agenteditor.videoRunInterval")}
-        </span>
-        <span className="flex items-center gap-2">
-          <DraftNumberInput
-            value={illustratorVideoRunInterval}
-            min={0}
-            max={MAX_ILLUSTRATOR_RUN_INTERVAL}
-            onCommit={(value) => {
-              if (value !== illustratorVideoRunInterval) {
-                updateMeta.mutate({ id: chat.id, illustratorVideoRunInterval: value });
-              }
-            }}
-            className="w-24 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs tabular-nums text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-          />
-          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.agents.agenteditor.messages")}
-          </span>
-        </span>
-        <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-          {localizeUi("agents.illustrator.chatVideoRunIntervalHelp")}
-        </span>
-      </label>
-      <AgentDefaultStatus
-        overridden={illustratorChatVideoRunInterval !== null}
-        onReset={() => updateMeta.mutate({ id: chat.id, illustratorVideoRunInterval: null })}
-      />
-    </div>
+    <IllustratorRunIntervalField
+      chat={chat}
+      kind="video"
+      value={illustratorVideoRunInterval}
+      overridden={illustratorChatVideoRunInterval !== null}
+    />
   );
   const proseGuardianBannedWords =
     typeof metadata.proseGuardianBannedWords === "string"
