@@ -81,6 +81,7 @@ import { type CastCharacter } from "./sections/cast-shared";
 import { PersonaSection } from "./sections/PersonaSection";
 import { CharactersSection } from "./sections/CharactersSection";
 import { GamePartySection } from "./sections/GamePartySection";
+import { CardEvolutionAuditorSettings } from "./agents/CardEvolutionAuditorSettings";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
@@ -6216,21 +6217,7 @@ export function ChatSettingsDrawer({
                           )}
                         >
                           {renderAgentLorebookAttachment("card-evolution-auditor")}
-                          <div className="space-y-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
-                            <p className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-                              {localizeUi("ui.chat.chatsettingsdrawer.thisAgentNeverEditsCardsDirectlyItProposesExact")}
-                            </p>
-                            <AgentSettingsActionButton
-                              onClick={() => {
-                                closeForSurface();
-                                useUIStore.getState().openAgentDetail("card-evolution-auditor");
-                              }}
-                              variant="primary"
-                            >
-                              <Settings2 size="0.75rem" />
-                              <span>{localizeUi("ui.chat.chatsettingsdrawer.openAuditorSetup")}</span>
-                            </AgentSettingsActionButton>
-                          </div>
+                          <CardEvolutionAuditorSettings closeForSurface={closeForSurface} />
                         </AgentSettingsCard>
                       )}
 
