@@ -20,6 +20,8 @@ interface PanelVirtualListProps {
   gap?: number;
   /** Row index that stays mounted while it is dragged, so drag handlers survive scrolling it away. */
   pinnedIndex?: number;
+  /** Scrolls this row into view when the value changes (keyboard highlight on rows that may be unmounted). */
+  scrollToIndex?: number;
   /** Paged lists: asks for the next page when the last rendered row is near the end. */
   paging?: {
     hasNextPage: boolean;
@@ -44,6 +46,7 @@ export function PanelVirtualList({
   estimateSize,
   gap = 0,
   pinnedIndex,
+  scrollToIndex,
   paging,
   className,
 }: PanelVirtualListProps) {
@@ -94,6 +97,12 @@ export function PanelVirtualList({
       mutation.disconnect();
     };
   }, [listEl]);
+
+  useEffect(() => {
+    if (scrollToIndex !== undefined && scrollToIndex >= 0 && scrollToIndex < count) {
+      virtualizer.scrollToIndex(scrollToIndex, { align: "auto" });
+    }
+  }, [scrollToIndex, count, virtualizer]);
 
   const items = virtualizer.getVirtualItems();
   const lastVisibleIndex = items.length > 0 ? items[items.length - 1]!.index : undefined;
