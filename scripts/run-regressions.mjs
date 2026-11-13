@@ -49,12 +49,13 @@ export function regressionTimeoutMs(relativePath) {
   return FILE_TIMEOUT_MS;
 }
 
-// Files that only call engine code, with no saved data, servers or child processes, run BATCH_SIZE at a time in one
-// shared process (scripts/run-regression-batch.mjs): most of a separate file's time is starting up and loading the same
-// modules. A file that does not pass there, or a batch that crashes or hangs, runs alone as usual, so batching can only
-// save time, never fail a file. Add a prefix only for files that pass in a shared process and touch nothing but memory.
-// --isolated (or REGRESSION_ISOLATED=1) turns batching off; the full nightly run uses it, so a file that passes only
-// because of what an earlier file left behind still shows up.
+// Files that only call engine code run BATCH_SIZE at a time in one shared process (scripts/run-regression-batch.mjs):
+// most of a separate file's time is starting up and loading the same modules. A file that does not pass there, or a
+// batch that crashes, hangs or sets an exit code, runs alone as usual, so batching never fails a file. Modules load once
+// per batch (a setting read at load, such as DATA_DIR, keeps the first file's value), so add a prefix only for files
+// that pass in a shared process and don't depend on saved data, servers or child processes. --isolated (or
+// REGRESSION_ISOLATED=1) turns batching off; full runs use it, so a file that passes only because of what an earlier
+// file left behind still shows up.
 export const BATCHED_REGRESSION_PREFIXES = ['scripts/regressions/game-ruleset-combat-'];
 const BATCH_SIZE = 20;
 // A shared process cannot tell these files' results apart or would skip their checks.
