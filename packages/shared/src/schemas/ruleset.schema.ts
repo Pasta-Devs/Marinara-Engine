@@ -550,7 +550,9 @@ const diceSumResolutionSchema = z
     kind: z.literal("dice-sum"),
     dice: z
       .object({
-        count: z.number().int().min(1).max(10),
+        /** 0 is a check with no dice (1.825): the sheet's own numbers against the difficulty, as
+         *  Amber or Nobilis read them. The rest of the summed shape works unchanged. */
+        count: z.number().int().min(0).max(10),
         sides: z.number().int().min(2).max(1000),
         /** What each face is worth, lowest face first, where it is not its own number (1.136): Fate's
          *  dice are three faces worth -1, 0 and +1. One value per face. */
@@ -18246,6 +18248,20 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
   if (resolution.kind === "dice-sum") {
     if (resolution.dice.count !== 1 && (resolution.naturals.check !== "none" || resolution.naturals.save !== "none")) {
       issue(["resolution", "naturals"], "Natural results need a single die; with several dice use none");
+    }
+    // A check with no dice (1.825) has no die to read: every one of these keys is about a face.
+    if (resolution.dice.count === 0) {
+      const { dice, advantage, openEnded, unmodified, duality, plotDie, naturalTotal } = resolution;
+      if (advantage) issue(["resolution", "advantage"], "A check with no dice has nothing to roll twice");
+      if (openEnded) issue(["resolution", "openEnded"], "An open-ended roll needs a die");
+      if (unmodified) issue(["resolution", "unmodified"], "An unmodified face is a die's");
+      if (dice.faces) issue(["resolution", "dice", "faces"], "A check with no dice has no faces");
+      if (duality) issue(["resolution", "duality"], "Two named dice need dice.count 2");
+      if (plotDie) issue(["resolution", "plotDie"], "A plot die is a die thrown beside the check's own");
+      if (naturalTotal) issue(["resolution", "naturalTotal"], "A natural total needs dice to show it");
+      if (resolution.naturals.check !== "none" || resolution.naturals.save !== "none") {
+        issue(["resolution", "naturals"], "Natural results need a single die; a check with no dice has none");
+      }
     }
     // Custom faces, open-ended rolls and unmodified faces (1.136).
     const { dice, openEnded, unmodified } = resolution;

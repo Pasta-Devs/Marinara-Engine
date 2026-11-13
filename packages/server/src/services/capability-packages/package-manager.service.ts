@@ -9390,6 +9390,10 @@ function capabilityPackageInstallIssueFor(
   ) {
     return "A ruleset whose pool has special dice or paired faces requires schemaVersion 2 and capabilityApi 1.824 or newer";
   }
+  // A check with no dice, 1.825: a summed check's dice.count of 0.
+  if (!declaresApi(825) && diceSettings.some((setting) => plainRecord(setting?.dice)?.count === 0)) {
+    return "A ruleset whose check has no dice requires schemaVersion 2 and capabilityApi 1.825 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||

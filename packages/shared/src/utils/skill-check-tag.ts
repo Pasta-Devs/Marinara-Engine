@@ -688,31 +688,43 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   // an empty `rolls=`, and the shape is never Engine-rollable, so this cannot adopt a model's claim
   // as a roll: it can only ever say "no dice, no successes". A save something made fail without a
   // roll (`automatic="true"`) has the same shape on a summed check too.
+  // A summed check with no dice (1.825) writes the same `dice="0dN" rolls=""`, but its total is the
+  // sheet's own number and it may succeed, so it is read back as the comparison it was.
+  const noDice = resolution === "sum" && /^0d[1-9]\d{0,3}$/.test(declaredDice ?? "");
   const emptyPool =
     recordDc !== undefined &&
     values.has("rolls") &&
     (rollsValue ?? "").trim() === "" &&
-    (resolution === "successes" || automatic || symbolRecord || (Number.isInteger(highestCount) && highestCount > 0)) &&
+    (resolution === "successes" ||
+      automatic ||
+      symbolRecord ||
+      (Number.isInteger(highestCount) && highestCount > 0) ||
+      noDice) &&
     // The written strings, not the parsed numbers: `parseInt` reads "0 or so" as 0, and only the
     // Engine's own exact record may be read back this way.
-    values.get("total")?.trim() === "0" &&
-    values.get("modifier")?.trim() === "0" &&
+    (noDice || values.get("total")?.trim() === "0") &&
+    (noDice || values.get("modifier")?.trim() === "0") &&
     /^0d[1-9]\d{0,3}$/.test(declaredDice ?? "") &&
     (resultValue === "failure" ||
       resultValue === "critical_failure" ||
       resultValue === "critical failure" ||
+      resultValue === "success" ||
       (!!symbolRecord && resultValue === "success"));
   if (emptyPool && (!symbolRecord || symbolRecord.thrown.length === 0)) {
+    const summedTotal = Number.parseInt(values.get("total") ?? "", 10);
+    const summedModifier = Number.parseInt(values.get("modifier") ?? "", 10);
     tag.resolvedResult = {
       skill,
       dc: recordDc!,
       rolls: [],
       usedRoll: 0,
-      modifier: 0,
-      total: 0,
-      success: !!symbolRecord && resultValue === "success",
+      modifier: noDice ? (Number.isFinite(summedModifier) ? summedModifier : 0) : 0,
+      total: noDice ? (Number.isFinite(summedTotal) ? summedTotal : 0) : 0,
+      // A check with no dice is a success on its own number, as the record says; a pool with none
+      // has nothing to succeed with.
+      success: noDice ? resultValue === "success" : !!symbolRecord && resultValue === "success",
       criticalSuccess: false,
-      criticalFailure: resultValue !== "failure",
+      criticalFailure: noDice ? resultValue === "critical_failure" || resultValue === "critical failure" : resultValue !== "failure",
       rollMode: "normal",
       resolution,
       dice: declaredDice,

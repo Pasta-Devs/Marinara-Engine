@@ -1606,7 +1606,10 @@ const capabilityPackageManifestBaseSchema = z
 // 1.824: a pool's special dice (`resolution.hunger`, asked for with `hunger="N"`) and paired faces
 //        (`resolution.pairs`): Vampire V5's Hunger dice, messy criticals, bestial failures and paired 10s. Not a
 //        soft seam: an Engine that cannot read them refuses the whole ruleset file. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 824 } as const);
+// 1.825: a summed check with no dice (`resolution.dice.count: 0`): the sheet's own numbers against the
+//        difficulty, as Amber and Nobilis read them. Not a soft seam: an Engine that cannot read it refuses the
+//        whole ruleset file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 825 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

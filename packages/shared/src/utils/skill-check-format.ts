@@ -78,9 +78,13 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
   const rollMode = result.rollMode !== "normal" ? ` (${result.rollMode})` : "";
   // Only claim the dice add up to the total when they actually do; otherwise
   // report the total on its own so the GM reads back what the player saw.
-  const arithmetic = skillCheckDiceSumToTotal(result)
-    ? `[${result.rolls.join(", ")}]${modifier}${rollMode} = ${result.total}`
-    : `[${result.rolls.map((face) => skillCheckFaceText(result, face)).join(", ")}]${result.resolution === "successes" ? "" : modifier}${rollMode} → ${result.total}${result.resolution === "successes" ? ` ${result.total === 1 ? "success" : "successes"}` : ""}`;
+  // A check with no dice (1.825) compares the sheet's own number: there is no roll to show.
+  const arithmetic =
+    result.resolution === "sum" && result.rolls.length === 0
+      ? `${result.skill} ${result.modifier} vs ${result.dc}`
+      : skillCheckDiceSumToTotal(result)
+        ? `[${result.rolls.join(", ")}]${modifier}${rollMode} = ${result.total}`
+        : `[${result.rolls.map((face) => skillCheckFaceText(result, face)).join(", ")}]${result.resolution === "successes" ? "" : modifier}${rollMode} → ${result.total}${result.resolution === "successes" ? ` ${result.total === 1 ? "success" : "successes"}` : ""}`;
   // A complication is alongside the outcome, never instead of it, so the outcome is still said first.
   const complication = result.complication ? " Something went wrong on the side." : "";
   const unmodified = result.unmodified !== undefined ? ` Unmodified ${result.unmodified}.` : "";

@@ -1526,7 +1526,10 @@ function renderRulesetKindCheckLine(
       : []),
     playerDie
       ? `Use the player's exact die. Do NOT write modifier, total or result: the engine applies the character sheet.`
-      : `Do NOT write rolls, modifier, total or result: the engine rolls ${rolledWords} and applies the character sheet.`,
+      : dice.count === 0
+        ? // A check with no dice (1.825) is compared, not thrown, so nothing about dice is said.
+          `Do NOT write rolls, modifier, total or result: the engine compares the character sheet's own number with the difficulty.`
+        : `Do NOT write rolls, modifier, total or result: the engine rolls ${rolledWords} and applies the character sheet.`,
     ...branchClause,
   ].join(" ");
 }
