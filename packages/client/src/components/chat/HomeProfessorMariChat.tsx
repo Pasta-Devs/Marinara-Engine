@@ -64,6 +64,8 @@ import { useMariDocs } from "../../hooks/use-mari-docs";
 import { agentKeys, useAgentConfigs } from "../../hooks/use-agents";
 import type { MariCommandId } from "../../lib/mari-commands";
 import { presetKeys, usePresets } from "../../hooks/use-presets";
+import { themeKeys, useTryThemeSwitchedByMari } from "../../hooks/use-themes";
+import type { Theme } from "@marinara-engine/shared";
 import { useMariWorkspaceContext } from "../../hooks/use-mari-workspace-context";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useInDialogFocusScope } from "../../hooks/use-in-dialog-focus-scope";
@@ -307,6 +309,9 @@ function withCapturedEditorField(
   const captured = value === null ? null : mariFieldDraft(field.id, value, null, null);
   return withEditorField(current, editor, { ...field, ...(captured ? { draft: { value: captured.value } } : {}) });
 }
+
+/** Mari workspace changes whose theme switch already got its "Keep this theme?" try (see the history effect). */
+const mariThemeTriesHandled = new Set<string>();
 
 export function HomeProfessorMariChat({
   pageActive = true,
@@ -1258,6 +1263,7 @@ export function HomeProfessorMariChat({
     void refreshWorkspaceStatus(() => activeChatIdRef.current === id).catch(() => undefined);
   }, [chatId, refreshWorkspaceStatus]);
 
+  const tryThemeSwitchedByMari = useTryThemeSwitchedByMari();
   const invalidateWorkspaceData = useCallback(async () => {
     // Invalidation marks every query stale either way; the default 'active'
     // refetch pulls only what is mounted now, and everything else refreshes on
@@ -1318,6 +1324,19 @@ export function HomeProfessorMariChat({
     for (const entry of appliedChanges) {
       handled.add(entry.id);
     }
+    // A theme switch from Mari gets "Keep this theme?" in this tab, like one picked in the Theme Library.
+    // Module-level, because the Mari page and the Ctrl+K pane can both be mounted and see the same change.
+    const themeChanges = appliedChanges.filter(
+      (entry) => (entry.affectedTables?.custom_themes ?? 0) > 0 && !mariThemeTriesHandled.has(entry.id),
+    );
+    themeChanges.forEach((entry) => mariThemeTriesHandled.add(entry.id));
+    const themesBefore = themeChanges.length ? qc.getQueryData<Theme[]>(themeKeys.list()) : undefined;
+    const activeBefore = themesBefore ? (themesBefore.find((theme) => theme.isActive)?.id ?? null) : undefined;
+    if (activeBefore !== undefined) {
+      void tryThemeSwitchedByMari(activeBefore).catch((error) => {
+        console.error("[Professor Mari] Failed to start Keep this theme? after her theme change", error);
+      });
+    }
     void invalidateWorkspaceData().catch((error) => {
       console.error("[Professor Mari] Failed to refresh app data after workspace change", error);
       toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariAppliedAWorkspaceChangeButAppData"), {
@@ -1325,7 +1344,7 @@ export function HomeProfessorMariChat({
         duration: 12_000,
       });
     });
-  }, [invalidateWorkspaceData, workspaceStatus, localizeUi]);
+  }, [invalidateWorkspaceData, workspaceStatus, localizeUi, qc, tryThemeSwitchedByMari]);
 
   useEffect(() => {
     latestConnectionSelectionRef.current = selectedConnectionId;

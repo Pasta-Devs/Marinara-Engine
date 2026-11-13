@@ -225,6 +225,36 @@ export function useActivateTheme() {
   );
 }
 
+/**
+ * Professor Mari turned a theme on (theme.setActive, or a create with activate). Her change lands on the
+ * server, so every device would get it with no "Keep this theme?". Put the server back to the theme from
+ * before, then try hers in this tab the way the Theme Library does: Keep makes it real everywhere, and no
+ * answer goes back after 15 seconds. Switching to Default never asks. A device with its own look ignores
+ * server picks, so there is nothing to undo there.
+ */
+export function useTryThemeSwitchedByMari() {
+  const qc = useQueryClient();
+  const activate = useActivateTheme();
+  return useCallback(
+    async (previousId: string | null) => {
+      if (useDeviceLookStore.getState().enabled) return;
+      const themes = await qc.fetchQuery({
+        queryKey: themeKeys.list(),
+        queryFn: () => api.get<Theme[]>("/themes"),
+        staleTime: 0,
+      });
+      const now = themes.find((theme) => theme.isActive) ?? null;
+      if (!now || now.id === previousId) return;
+      await api.put<Theme | null>("/themes/active", { id: previousId });
+      qc.setQueryData<Theme[]>(themeKeys.list(), (list) =>
+        list?.map((theme) => ({ ...theme, isActive: theme.id === previousId })),
+      );
+      await activate(now);
+    },
+    [activate, qc],
+  );
+}
+
 export function useLegacyThemeMigration() {
   const legacyThemes = useUIStore((s) => s.customThemes);
   const legacyActiveCustomTheme = useUIStore((s) => s.activeCustomTheme);
