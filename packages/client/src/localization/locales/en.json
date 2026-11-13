@@ -9586,7 +9586,6 @@
   "ui.characterselect.remove": "Remove {{name}}",
   "ui.characterselect.searchPersonas": "Search personas",
   "ui.characterselect.searchPersonasAndCharacters": "Search personas and characters",
-  "ui.characterselect.showMore": "Show {{count}} more",
   "ui.chat.activelorebookentriescontent.active": "active • ~",
   "ui.chat.activelorebookentriescontent.currentLocation": "Current location",
   "ui.chat.activelorebookentriescontent.currentLocationLore": "Current location lore",

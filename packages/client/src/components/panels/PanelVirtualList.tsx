@@ -20,6 +20,8 @@ interface PanelVirtualListProps {
   gap?: number;
   /** Row index that stays mounted while it is dragged, so drag handlers survive scrolling it away. */
   pinnedIndex?: number;
+  /** Scrolls this row into view when the value changes (keyboard highlight on rows that may be unmounted). */
+  scrollToIndex?: number;
   /** Paged lists: asks for the next page when the last rendered row is near the end. */
   paging?: {
     hasNextPage: boolean;
@@ -44,6 +46,7 @@ export function PanelVirtualList({
   estimateSize,
   gap = 0,
   pinnedIndex,
+  scrollToIndex,
   paging,
   className,
 }: PanelVirtualListProps) {
@@ -56,6 +59,8 @@ export function PanelVirtualList({
     getScrollElement: () => scroller,
     getItemKey,
     estimateSize: () => estimateSize,
+    // The default rounds to whole pixels, which drifts rows that have fractional heights.
+    measureElement: (el) => el.getBoundingClientRect().height,
     gap,
     overscan: 6,
     scrollMargin,
@@ -95,6 +100,14 @@ export function PanelVirtualList({
     };
   }, [listEl]);
 
+  useEffect(() => {
+    // Only a new highlight scrolls; rows streaming in (count) must not pull the list back.
+    if (scrollToIndex !== undefined && scrollToIndex >= 0 && scrollToIndex < count) {
+      virtualizer.scrollToIndex(scrollToIndex, { align: "auto" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToIndex, virtualizer]);
+
   const items = virtualizer.getVirtualItems();
   const lastVisibleIndex = items.length > 0 ? items[items.length - 1]!.index : undefined;
   const requestedRef = useRef(false);
@@ -115,6 +128,7 @@ export function PanelVirtualList({
     <div
       ref={setListEl}
       data-virtual-list
+      data-count={count}
       className={className}
       style={{ position: "relative", height: virtualizer.getTotalSize() }}
     >

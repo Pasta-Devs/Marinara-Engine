@@ -74,6 +74,7 @@ import {
 import { cn } from "../../lib/utils";
 import { modelBrand, ProviderIcon } from "./ProviderIcon";
 import { ServiceRow } from "./ServiceRow";
+import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { sortPanelFolders } from "../../lib/panel-sort";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { modelRoleLabels } from "./ModelRow";
@@ -126,6 +127,32 @@ type Entry = {
   model?: string;
   row?: SwitcherRow;
 };
+
+/** A long run of model lines draws only the rows in view; a short one renders in full. */
+const VIRTUAL_MIN = 60;
+function EntryRows({
+  listKey,
+  entries,
+  render,
+  scrollToIndex,
+}: {
+  listKey: string;
+  entries: readonly Entry[];
+  render: (entry: Entry) => ReactNode;
+  scrollToIndex?: number;
+}) {
+  if (entries.length < VIRTUAL_MIN) return <>{entries.map(render)}</>;
+  return (
+    <PanelVirtualList
+      listKey={`connection-switcher:${listKey}`}
+      count={entries.length}
+      getItemKey={(index) => entries[index]!.key}
+      renderRow={(index) => render(entries[index]!)}
+      estimateSize={window.matchMedia?.("(min-width: 768px)").matches ? 64 : 47}
+      scrollToIndex={scrollToIndex}
+    />
+  );
+}
 
 /** A model id under a Connection: its saved Model when there is one, otherwise a per-chat pick on `anchor`. */
 function entryFor(group: SwitcherGroup, anchor: SwitcherRow, model: string, title?: string): Entry {
@@ -1613,7 +1640,11 @@ export function ConnectionSwitcherBody({
             {shownEntries.rest.length > 0 && (
               <section data-switcher-section="all" aria-label={t("connections.switcher.allModels")}>
                 {heading(t("connections.switcher.allModels"), shownEntries.rest.length)}
-                {shownEntries.rest.map((entry) => renderEntry(entry, { star: "all" }))}
+                <EntryRows
+                  listKey={`rest:${paneKey}`}
+                  entries={shownEntries.rest}
+                  render={(entry) => renderEntry(entry, { star: "all" })}
+                />
               </section>
             )}
             {scopeModels.isError && !refreshModels.isPending ? (
@@ -1625,7 +1656,11 @@ export function ConnectionSwitcherBody({
             )}
           </>
         ) : paneFolder ? (
-          paneFolder.entries.map((entry) => renderEntry(entry, { star: "all" }))
+          <EntryRows
+            listKey={`folder:${paneKey}`}
+            entries={paneFolder.entries}
+            render={(entry) => renderEntry(entry, { star: "all" })}
+          />
         ) : (
           <>
             {knownEntries.length > 0 && (
@@ -1659,13 +1694,18 @@ export function ConnectionSwitcherBody({
         {searchSections.map((section) => (
           <section key={section.key} data-switcher-section={section.key} aria-label={section.label}>
             {section.label && heading(section.label, section.entries.length)}
-            {section.entries.map((entry) =>
-              renderEntry(entry, {
-                index: searchEntries.indexOf(entry),
-                star: "all",
-                away: section.key === "starred" && !scopeGroup,
-              }),
-            )}
+            <EntryRows
+              listKey={`search:${section.key}`}
+              entries={section.entries}
+              scrollToIndex={highlight - searchEntries.indexOf(section.entries[0]!)}
+              render={(entry) =>
+                renderEntry(entry, {
+                  index: searchEntries.indexOf(entry),
+                  star: "all",
+                  away: section.key === "starred" && !scopeGroup,
+                })
+              }
+            />
           </section>
         ))}
       </div>

@@ -1604,7 +1604,10 @@
   background: color-mix(in srgb, var(--mari-connection-blue) 20%, transparent);
 }
 .mari-connection-model-slot + .mari-connection-model-slot,
-.mari-connection-model-section-head + .mari-connection-model-slot {
+.mari-connection-model-section-head + .mari-connection-model-slot,
+/* Long lists draw each slot inside a virtual row wrapper (PanelVirtualList). */
+[data-virtual-list] > [data-index]:not([data-index="0"]) > .mari-connection-model-slot,
+.mari-connection-model-section-head + [data-virtual-list] > [data-index="0"] > .mari-connection-model-slot {
   border-block-start: 1px solid color-mix(in srgb, var(--foreground) 5%, transparent);
 }
 /* The empty state wears the connections tint, like .mari-suggestion-chip. A tint, no frame. */

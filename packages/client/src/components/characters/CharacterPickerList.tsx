@@ -10,6 +10,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { includesTextForMatch, type CharacterGroup, type Persona } from "@marinara-engine/shared";
 import { useCharacterGroups, useCharacters, usePersonaGroups, usePersonas } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
+import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import {
@@ -65,8 +66,6 @@ export interface CharacterPickerListProps {
   className?: string;
 }
 
-// The chat setup wizard paged its character list at 50; the picker keeps that limit per block.
-const PAGE = 50;
 const NO_IDS: readonly string[] = [];
 
 function parseIds(value: string): string[] {
@@ -101,24 +100,26 @@ function Avatar({
   );
 }
 
-/** Renders the first 50 items, then a "Show 50 more" row. */
-function Capped<T>({ items, render }: { items: readonly T[]; render: (item: T) => ReactNode }) {
-  const { t } = useUiTranslation();
-  const [limit, setLimit] = useState(PAGE);
+/** Long lists draw only the rows in view; short ones render in full. */
+const VIRTUAL_MIN = 60;
+function Capped<T extends { id: string }>({
+  items,
+  render,
+  listKey,
+}: {
+  items: readonly T[];
+  render: (item: T) => ReactNode;
+  listKey: string;
+}) {
+  if (items.length < VIRTUAL_MIN) return <>{items.map(render)}</>;
   return (
-    <>
-      {items.slice(0, limit).map(render)}
-      {items.length > limit && (
-        <button
-          type="button"
-          data-pick-row
-          onClick={() => setLimit((value) => value + PAGE)}
-          className="min-h-10 w-full rounded-lg text-xs text-foreground/55 hover:bg-foreground/[0.06] data-[active=true]:ring-2"
-        >
-          {t("ui.characterselect.showMore", { count: Math.min(PAGE, items.length - limit) })}
-        </button>
-      )}
-    </>
+    <PanelVirtualList
+      listKey={`character-picker:${listKey}`}
+      count={items.length}
+      getItemKey={(index) => items[index]!.id}
+      renderRow={(index) => render(items[index]!)}
+      estimateSize={48}
+    />
   );
 }
 
@@ -320,7 +321,7 @@ export function CharacterPickerList({
     looseCharacters.length > 0 ? characterGroups.filter((group) => group !== ungroupedGroup) : characterGroups;
   const characterList =
     characterGroups.length === 1 && !groupPickable(characterGroups[0]!.id) ? (
-      <Capped items={characterGroups[0]!.members} render={(c) => characterRow(c, false)} />
+      <Capped listKey={`${listId}:single`} items={characterGroups[0]!.members} render={(c) => characterRow(c, false)} />
     ) : (
       <>
         {folderGroups.map((group) => {
@@ -350,7 +351,7 @@ export function CharacterPickerList({
               busy={busy}
               open={open}
             >
-              <Capped items={group.members} render={(c) => characterRow(c, true)} />
+              <Capped listKey={`${listId}:${group.id}`} items={group.members} render={(c) => characterRow(c, true)} />
             </PickerFolder>
           );
         })}
@@ -501,7 +502,7 @@ export function CharacterPickerList({
                 {isOpen(group.id) && group.members.map((p) => personaRow(p, true))}
               </div>
             ))}
-            <Capped items={ungroupedPersonas} render={(p) => personaRow(p, false)} />
+            <Capped listKey={`${listId}:ungrouped`} items={ungroupedPersonas} render={(p) => personaRow(p, false)} />
             {offersCharacters && characterCount > 0 && (
               <>
                 <FolderToggle
