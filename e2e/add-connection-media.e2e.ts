@@ -412,13 +412,25 @@ test("an OpenAI-compatible address can be used for Images with a typed model", a
     await dialog.locator('[data-add-connection-service="custom"]').click();
     const connectSecond = dialog.getByRole("button", { name: "Make a new connection" });
     if (await connectSecond.isVisible()) await connectSecond.click();
+    // Hold the live address check so Connect runs its own test, and hold the cleanup after that test fails.
+    let releaseCleanup = () => {};
+    const cleanupHeld = new Promise<void>((resolve) => (releaseCleanup = resolve));
+    await page.route("**/api/connections/check", () => new Promise(() => {}));
+    await page.route("**/api/connections/*", async (route) => {
+      if (route.request().method() === "DELETE") await cleanupHeld;
+      await route.fallback();
+    });
     await dialog.getByLabel("Server address", { exact: true }).fill(endpoint);
+    const cleanup = page.waitForRequest(
+      (req) => req.method() === "DELETE" && new URL(req.url()).pathname.startsWith("/api/connections/"),
+    );
     await dialog.locator("[data-add-connection-connect]").click();
-    // Nothing answers at the fake address. When the check fails, the account is kept anyway.
+    await cleanup;
+    // Nothing answers at the fake address. Until the failed attempt has cleaned up, a click would be lost.
+    await expect(dialog.locator("[data-add-connection-connect]")).toBeDisabled();
+    releaseCleanup();
+    await dialog.locator("button:not([data-add-connection-connect])", { hasText: "Continue anyway" }).click();
     const images = page.locator('[data-add-connection-use="images"]');
-    const unreachable = dialog.getByText("Marinara could not reach 127.0.0.1:19095", { exact: false });
-    await expect(images.or(unreachable).first()).toBeVisible();
-    if (await unreachable.isVisible()) await dialog.getByRole("button", { name: "Continue anyway" }).click();
     // The server has no model list, so the Images row asks for the model ID.
     await images.locator('input[type="checkbox"]').check();
     await images.locator('input:not([type="checkbox"])').fill("flux-dev");
