@@ -25,7 +25,7 @@ const chatSettingsDrawer = readSource("packages/client/src/features/chat-setting
 const roleplayAgentMenuIcon = readSource("packages/client/src/features/chat-settings/roleplay-agent-menu-icon.tsx");
 const groupChatSection = readSource("packages/client/src/features/chat-settings/sections/GroupChatSection.tsx");
 const connectedChatsSections = readSource(
-  "packages/client/src/features/chat-settings/sections/ConnectedChatsSections.tsx",
+  "packages/client/src/features/chat-settings/sections/ConnectedChatsSection.tsx",
 );
 const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
 const homeBrowserHub = readSource("packages/client/src/components/chat/HomeBrowserHub.tsx");

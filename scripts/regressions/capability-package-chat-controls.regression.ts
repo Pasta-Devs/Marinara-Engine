@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
 const drawer = read("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
-const connectedChats = read("packages/client/src/features/chat-settings/sections/ConnectedChatsSections.tsx");
+const connectedChats = read("packages/client/src/features/chat-settings/sections/ConnectedChatsSection.tsx");
 const convoFields = read("packages/client/src/components/characters/ConvoProfileFields.tsx");
 const characterEditor = read("packages/client/src/components/characters/CharacterEditor.tsx");
 const homeBrowserHub = read("packages/client/src/components/chat/HomeBrowserHub.tsx");
@@ -16,7 +16,7 @@ const chatsRoutes = read("packages/server/src/routes/chats.routes.ts");
 const english = JSON.parse(read("packages/client/src/localization/locales/en.json")) as Record<string, string>;
 
 // Chat settings: each package's toggle is gated on that package. The drawer passes the install checks to the
-// Connected chats sections, which render the toggles.
+// Connected chats section, which every chat mode shares and which renders the toggles.
 assert.match(drawer, /noodleInstalled=\{isCapabilityPackageAvailable\(installedCapabilities, "noodle"\)\}/u);
 assert.match(drawer, /slurp2Installed=\{isCapabilityPackageAvailable\(installedCapabilities, "slurp2"\)\}/u);
 assert.match(connectedChats, /\{noodleInstalled && \(\s*<SettingsSwitch[\s\S]*?noodleTimelineContextEnabled: checked/u);
@@ -24,11 +24,9 @@ assert.match(connectedChats, /\{slurp2Installed && \(\s*<SettingsSwitch[\s\S]*?s
 for (const source of [drawer, connectedChats]) {
   assert.doesNotMatch(source, /renderNoodleTimelineContextToggle/u, "no render site may bypass the install gate");
 }
-assert.equal(
-  connectedChats.match(/\{renderPackageContextToggles\(\)\}/gu)?.length,
-  4,
-  "every chat mode renders the gated toggles",
-);
+for (const gate of [/\{noodleInstalled && \(/gu, /\{slurp2Installed && \(/gu]) {
+  assert.equal(connectedChats.match(gate)?.length, 1, "one gated toggle each, shared by every chat mode");
+}
 // Slurp activity is opt-in per chat.
 assert.match(connectedChats, /const slurp2ActivityContextEnabled = metadata\.slurp2ActivityContextEnabled === true;/u);
 assert.ok(english["ui.chat.chatsettingsdrawer.allowSlurpActivity"]);

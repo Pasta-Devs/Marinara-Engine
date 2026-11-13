@@ -286,7 +286,7 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
     }
     await talkOption.click();
     await expect.poll(() => readConnectedChatId(request, gameId)).toBe(conversationId);
-    // Linking swaps the unlinked Game section for the linked one under the same id, so retry until it settles.
+    // The section re-renders as linking lands, so retry until it shows the linked chat.
     await expect(async () => {
       await setOpen(game, true);
       await expect(game.getByText(`${stamp} Talk`, { exact: true })).toBeVisible({ timeout: 2000 });
