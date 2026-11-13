@@ -16,9 +16,14 @@ async function createCharacter(request: APIRequestContext, name: string) {
   return ((await response.json()) as { id: string }).id;
 }
 
-async function createChat(request: APIRequestContext, mode: "roleplay" | "game", characterIds: string[]) {
+async function createChat(
+  request: APIRequestContext,
+  mode: "conversation" | "roleplay" | "game",
+  characterIds: string[],
+  name = `${mode} Chat Settings state`,
+) {
   const response = await request.post("/api/chats", {
-    data: { name: `${mode} Chat Settings state`, mode, characterIds },
+    data: { name, mode, characterIds },
   });
   expect(response.ok()).toBeTruthy();
   const chat = (await response.json()) as { id: string };
@@ -45,6 +50,20 @@ async function readMetadata(request: APIRequestContext, chatId: string) {
   return typeof stored.metadata === "string"
     ? (JSON.parse(stored.metadata) as Record<string, unknown>)
     : stored.metadata;
+}
+
+async function readConnectedChatId(request: APIRequestContext, chatId: string) {
+  const stored = (await (await request.get(`/api/chats/${chatId}`)).json()) as { connectedChatId?: string | null };
+  return stored.connectedChatId ?? null;
+}
+
+async function setActiveChat(page: Page, chatId: string) {
+  await page.evaluate(async (nextChatId) => {
+    const module = (await import("/src/stores/chat.store.ts" as string)) as {
+      useChatStore: { getState(): { setActiveChatId(id: string): void } };
+    };
+    module.useChatStore.getState().setActiveChatId(nextChatId);
+  }, chatId);
 }
 
 async function openApp(page: Page, chatId: string) {
@@ -105,12 +124,7 @@ test("Chat Settings drafts survive collapsing and popping out their section", as
     }
 
     // Game widgets: an added widget stays unsaved until Save Widgets.
-    await page.evaluate(async (nextChatId) => {
-      const module = (await import("/src/stores/chat.store.ts" as string)) as {
-        useChatStore: { getState(): { setActiveChatId(id: string): void } };
-      };
-      module.useChatStore.getState().setActiveChatId(nextChatId);
-    }, gameId);
+    await setActiveChat(page, gameId);
     await expect(page.locator('[data-chat-mode="game"]')).toBeVisible();
     await openChatSettings(page);
     const widgets = settings.locator('[data-drawer="game-widgets"]');
@@ -184,6 +198,92 @@ test("Chat Settings saves the chat's lorebook choices", async ({ page, request }
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
     await Promise.all([pinnedA, pinnedB, linked].map((id) => request.delete(`/api/lorebooks/${id}`)));
+    await request.delete(`/api/characters/${characterId}`);
+  }
+});
+
+// Each chat mode has its own Connected chats section: Conversation links to a Roleplay or Game chat, Roleplay shows
+// the linked conversation, and Game has an unlinked and a linked variant.
+test("Chat Settings links and unlinks chats from every mode", async ({ page, request }) => {
+  const stamp = `Link ${Date.now()}`;
+  const characterId = await createCharacter(request, "Link Keeper");
+  const conversationId = await createChat(request, "conversation", [characterId], `${stamp} Talk`);
+  const roleplayId = await createChat(request, "roleplay", [characterId], `${stamp} Quest`);
+  const gameId = await createChat(request, "game", [characterId], `${stamp} Campaign`);
+  // An already-linked pair: neither picker may offer them.
+  const spareTalkId = await createChat(request, "conversation", [characterId], `${stamp} Spare Talk`);
+  const spareQuestId = await createChat(request, "roleplay", [characterId], `${stamp} Spare Quest`);
+  const pair = await request.post(`/api/chats/${spareTalkId}/connect`, { data: { targetChatId: spareQuestId } });
+  expect(pair.ok()).toBeTruthy();
+  try {
+    await openApp(page, conversationId);
+    await expect(page.locator('[data-chat-mode="conversation"]')).toBeVisible();
+    const settings = await openChatSettings(page);
+
+    // Conversation → Roleplay.
+    const conversation = settings.locator('[data-drawer="conversation-connected-chats"]');
+    await setOpen(conversation, true);
+    await conversation.getByRole("button", { name: "Link to Roleplay or Game" }).click();
+    await conversation.getByPlaceholder("Search roleplay or game chats").fill(stamp);
+    const questOption = conversation.getByRole("button", { name: `${stamp} Quest`, exact: true });
+    await expect(questOption, "the picker lists the Roleplay chat").toBeVisible();
+    await expect(conversation.getByRole("button", { name: `${stamp} Campaign`, exact: true })).toBeVisible();
+    for (const hidden of ["Talk", "Spare Talk", "Spare Quest"]) {
+      await expect(
+        conversation.getByRole("button", { name: `${stamp} ${hidden}`, exact: true }),
+        `the Conversation picker leaves out ${hidden}: itself, other conversations and linked chats`,
+      ).toHaveCount(0);
+    }
+    await questOption.click();
+    await expect.poll(() => readConnectedChatId(request, conversationId)).toBe(roleplayId);
+    await expect(conversation.getByText(`${stamp} Quest`, { exact: true })).toBeVisible();
+
+    // The Roleplay chat shows the conversation and can unlink it.
+    await setActiveChat(page, roleplayId);
+    await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible();
+    await openChatSettings(page);
+    const roleplay = settings.locator('[data-drawer="roleplay-connected-chats"]');
+    await setOpen(roleplay, true);
+    await expect(roleplay.getByText(`${stamp} Talk`, { exact: true })).toBeVisible();
+    // Notes from Conversation shows only while a conversation is linked.
+    const notes = settings.locator('[data-drawer="conversation-notes"]');
+    await expect(notes).toBeVisible();
+    await roleplay.getByRole("button", { name: "Disconnect", exact: true }).click();
+    await expect.poll(() => readConnectedChatId(request, roleplayId)).toBeNull();
+    await expect.poll(() => readConnectedChatId(request, conversationId)).toBeNull();
+    await expect(notes).toHaveCount(0);
+
+    // Game → Conversation, from the unlinked variant; then the linked variant unlinks it.
+    await setActiveChat(page, gameId);
+    await expect(page.locator('[data-chat-mode="game"]')).toBeVisible();
+    await openChatSettings(page);
+    const game = settings.locator('[data-drawer="game-connected-chats"]');
+    await setOpen(game, true);
+    await game.getByRole("button", { name: "Link to Conversation" }).click();
+    await game.getByPlaceholder("Search conversation chats").fill(stamp);
+    const talkOption = game.getByRole("button", { name: `${stamp} Talk`, exact: true });
+    await expect(talkOption, "the Game picker lists the Conversation chat").toBeVisible();
+    for (const hidden of ["Quest", "Spare Talk", "Spare Quest"]) {
+      await expect(
+        game.getByRole("button", { name: `${stamp} ${hidden}`, exact: true }),
+        `the Game picker leaves out ${hidden}: Roleplay chats and linked chats`,
+      ).toHaveCount(0);
+    }
+    await talkOption.click();
+    await expect.poll(() => readConnectedChatId(request, gameId)).toBe(conversationId);
+    // Linking swaps the unlinked Game section for the linked one under the same id, so retry until it settles.
+    await expect(async () => {
+      await setOpen(game, true);
+      await expect(game.getByText(`${stamp} Talk`, { exact: true })).toBeVisible({ timeout: 2000 });
+    }).toPass();
+    await game.getByRole("button", { name: "Disconnect", exact: true }).click();
+    await expect.poll(() => readConnectedChatId(request, gameId)).toBeNull();
+  } finally {
+    await Promise.all(
+      [conversationId, roleplayId, gameId, spareTalkId, spareQuestId].map((id) =>
+        request.delete(`/api/chats/${id}?force=true`),
+      ),
+    );
     await request.delete(`/api/characters/${characterId}`);
   }
 });
