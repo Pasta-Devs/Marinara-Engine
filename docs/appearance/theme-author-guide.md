@@ -383,8 +383,10 @@ While a chat's weather shows, `<html>` carries two words from fixed lists (never
 | ------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `data-mari-weather` | `clear`, `cloudy`, `rain`, `storm`, `snow`, `hail`, `fog`, `sand`, `ash`, `embers`, `wind`, `blossom`, `aurora` |
 | `data-mari-sky`     | `dawn`, `day`, `dusk`, `night`                                                                                  |
+| `data-mari-shelter` | `indoors` or `outdoors` (missing when the app can't tell)                                                       |
 
-They are set whether or not Reduce Ambient Animations is on (a backdrop swap doesn't move), and
+Indoors the app draws no particles, fog banks, sun, moon or stars, only the tint and the lightning
+flash, so a theme's weather tokens only show outdoors. They are set whether or not Reduce Ambient Animations is on (a backdrop swap doesn't move), and
 removed when the chat has no weather or the user turns weather off. Use them to grey a sunny
 backdrop over in the rain, or to step your own ambient layer aside so it doesn't double the weather:
 
@@ -443,6 +445,7 @@ Both stop under `prefers-reduced-motion` and the app's "Reduce ambient animation
 | `data-mari-cvd-safe`            | Present when colour-blind-safe colours are on                                                            |
 | `data-mari-weather`             | The story weather while it shows: `rain`, `snow`, `fog`… (see [Weather](#weather))                       |
 | `data-mari-sky`                 | `dawn`, `day`, `dusk` or `night` while the story weather shows                                           |
+| `data-mari-shelter`             | `indoors` or `outdoors` while the story weather shows, when the app can tell from the location           |
 
 ### Areas
 

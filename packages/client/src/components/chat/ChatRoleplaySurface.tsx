@@ -71,6 +71,7 @@ import {
   useUIStore,
 } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
+import { useSceneShelter } from "../../hooks/use-scene-shelter";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useChatComposerFocused, useChatKeyboardOpen } from "../../hooks/use-visual-viewport-chat-bottom";
 import { useActiveLorebookEntries, useLorebooks } from "../../hooks/use-lorebooks";
@@ -270,9 +271,13 @@ function useIsMobileToolbarViewport() {
 function WeatherEffectsConnected({ paused }: { paused: boolean }) {
   const weather = useGameStateStore((s) => s.current?.weather ?? null);
   const timeOfDay = useGameStateStore((s) => s.current?.time ?? null);
+  const location = useGameStateStore((s) => s.current?.location ?? null);
+  const chatId = useChatStore((s) => s.activeChat?.id ?? null);
+  const chatMetadata = useChatStore((s) => s.activeChat?.metadata);
+  const shelter = useSceneShelter(chatId, chatMetadata, location);
   return (
     <Suspense fallback={null}>
-      <WeatherEffects weather={weather} timeOfDay={timeOfDay} paused={paused} />
+      <WeatherEffects weather={weather} timeOfDay={timeOfDay} paused={paused} shelter={shelter} />
     </Suspense>
   );
 }

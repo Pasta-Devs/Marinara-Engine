@@ -1,4 +1,6 @@
 import {
+  sceneShelter,
+  type BackgroundWeatherVersionKey,
   findImageStyleProfile,
   removeCopiedPromptGuidance,
   resolveGameSetupArtStylePrompt,
@@ -17,8 +19,10 @@ import {
 import {
   buildBackgroundProviderPrompt,
   generateChatBackground,
+  generateChatBackgroundWeatherVersion,
   type ChatBackgroundGenRequest,
 } from "../game/game-asset-generation.js";
+import { imageConnectionTakesReferencePicture } from "../image/image-generation.js";
 import {
   buildIllustratorCharacterPromptInstruction,
   resolveNovelAiCharacterPromptLimit,
@@ -485,4 +489,56 @@ export async function generateIllustratorSceneBackground(
     filename,
     url: `/api/backgrounds/file/${encodeURIComponent(filename)}`,
   };
+}
+
+/** Whether the chat makes weather versions of its background (Chat settings > Illustrator). */
+export function illustratorWeatherVersionsEnabled(chatMode: unknown, chatMetadata: Record<string, unknown>): boolean {
+  return (
+    ROLEPLAY_BACKGROUND_MODES.has(String(chatMode ?? "")) && chatMetadata.illustratorWeatherBackgroundsEnabled === true
+  );
+}
+
+/**
+ * Make the weather version of a library background with the Illustrator's image connection. No
+ * prompt-writer call: the picture itself is the canvas, and its saved scene prompt (when Illustrator
+ * made it) says what the place is. Connections that can't take a picture are skipped (null), since
+ * a fresh picture from text alone would be a different room.
+ */
+export async function generateIllustratorBackgroundWeatherVersion(
+  args: IllustratorSceneBackgroundArgs & {
+    baseFilename: string;
+    version: BackgroundWeatherVersionKey;
+    scenePrompt: string;
+  },
+): Promise<{ filename: string; url: string } | null> {
+  const shelter = sceneShelter(args.gameState?.location ?? null);
+  const plan: IllustratorBackgroundPlan = {
+    locationName: args.baseFilename,
+    prompt: args.scenePrompt || args.gameState?.location || "the same place",
+    tags: [],
+    reason: `Weather changed to ${args.version}`,
+  };
+  const { imageConnection, request } = await prepareIllustratorSceneBackground(args, plan);
+  if (
+    !imageConnectionTakesReferencePicture({
+      source: imageConnection.imageGenerationSource || imageConnection.model || "",
+      baseUrl: imageConnection.baseUrl || "https://image.pollinations.ai",
+      serviceHint: imageConnection.imageService || imageConnection.imageGenerationSource || "",
+      model: imageConnection.model || "",
+      comfyWorkflow: imageConnection.comfyuiWorkflow || undefined,
+    })
+  ) {
+    logger.info(
+      "[background-weather] The Illustrator image connection can't start from a picture; no weather version made",
+    );
+    return null;
+  }
+  const filename = await generateChatBackgroundWeatherVersion({
+    ...request,
+    baseFilename: args.baseFilename,
+    version: args.version,
+    shelter,
+    scenePrompt: args.scenePrompt,
+  });
+  return filename ? { filename, url: `/api/backgrounds/file/${encodeURIComponent(filename)}` } : null;
 }

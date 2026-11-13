@@ -544,10 +544,17 @@ import {
   illustratorBackgroundGenerationEnabled,
   illustratorRequestedBackground,
   illustratorTrackerLocationChanged,
+  illustratorWeatherVersionsEnabled,
+  generateIllustratorBackgroundWeatherVersion,
   resolveIllustratorImageConnectionId,
   resolveIllustratorCharacterPromptInstruction,
   resolveIllustratorPromptStyle,
 } from "../services/generation/illustrator-background-generation.js";
+import {
+  chatBackgroundPlainPicture,
+  isChatBackgroundWeatherVersion,
+  planChatBackgroundWeather,
+} from "../services/game/game-asset-generation.js";
 import {
   findCharAvatarFuzzy,
   loadCharacterLibraryAvatarLookup,
@@ -7026,10 +7033,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               }
 
-              agentContext.memory._availableBackgrounds = files.map((f: string) => ({
-                filename: f,
-                tags: meta[f]?.tags ?? [],
-              }));
+              // Weather versions follow their plain picture; the agent picks among plain pictures.
+              agentContext.memory._availableBackgrounds = files
+                .filter((f: string) => !isChatBackgroundWeatherVersion(f))
+                .map((f: string) => ({
+                  filename: f,
+                  tags: meta[f]?.tags ?? [],
+                }));
+              if (currentBackground && isChatBackgroundWeatherVersion(currentBackground)) {
+                const plainName = chatBackgroundPlainPicture(currentBackground);
+                if (plainName) agentContext.memory._currentBackground = plainName;
+              }
             }
           } catch {
             /* non-critical */
@@ -13648,6 +13662,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               }
 
+              // Show the pick in the story's weather when that version already exists (never made here).
+              if (
+                bgData.chosen &&
+                illustratorWeatherVersionsEnabled(chatMode, chatMeta) &&
+                gameState?.weather?.trim()
+              ) {
+                const weatherPlan = planChatBackgroundWeather(bgData.chosen, gameState.weather);
+                if (weatherPlan.kind === "switch") bgData.chosen = weatherPlan.filename;
+              }
+
               // Persist the validated background to chat metadata so it restores on reload
               if (bgData.chosen) {
                 try {
@@ -14754,7 +14778,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 `[illustrator] shouldGenerate=${shouldGenerate}, generateBackground=${requestedBackground}, reason="${(illData.reason as string) ?? "none"}", prompt="${imagePrompt.slice(0, 500) || "(empty)"}"${illData.parseError ? " [JSON PARSE ERROR — raw: " + ((illData.raw as string) ?? "").slice(0, 300) + "]" : ""}`,
               );
 
-              if (!commandTarget && automaticBackgroundsEnabled && illustratorBackgroundAgent) {
+              const weatherVersionsEnabled = illustratorWeatherVersionsEnabled(chatMode, chatMeta);
+              if (
+                !commandTarget &&
+                (automaticBackgroundsEnabled || weatherVersionsEnabled) &&
+                illustratorBackgroundAgent
+              ) {
                 const backgroundAtDecision =
                   typeof chatMeta.background === "string" && chatMeta.background.trim()
                     ? chatMeta.background.trim()
@@ -14785,7 +14814,71 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       trackedLocationAtDecision,
                       latestGameState?.location,
                     );
-                    if (!requestedBackground && !trackerLocationChanged) return;
+                    if (!automaticBackgroundsEnabled || (!requestedBackground && !trackerLocationChanged)) {
+                      // Same place: show it in the story's weather (a version made once, then reused).
+                      if (!weatherVersionsEnabled || !latestGameState?.weather?.trim()) return;
+                      const weatherPlan = planChatBackgroundWeather(
+                        backgroundBeforeGeneration,
+                        latestGameState.weather,
+                      );
+                      if (weatherPlan.kind === "keep") return;
+                      let weatherFilename: string | null = null;
+                      let weatherGenerated = false;
+                      if (weatherPlan.kind === "switch") {
+                        weatherFilename = weatherPlan.filename;
+                      } else {
+                        const made = await generateIllustratorBackgroundWeatherVersion({
+                          db: app.db,
+                          chatId: input.chatId,
+                          chatName: chat.name,
+                          chatMode: chatMode === "game" ? "game" : "roleplay",
+                          chatMetadata: freshMeta,
+                          currentBackground: backgroundBeforeGeneration,
+                          illustratorAgent: illustratorBackgroundAgent,
+                          assistantResponse: agentCompletedResponse,
+                          gameState: latestGameState,
+                          recentMessages: agentContext.recentMessages,
+                          signal: agentSignal,
+                          debugLog,
+                          baseFilename: weatherPlan.baseFilename,
+                          version: weatherPlan.version,
+                          scenePrompt: weatherPlan.scenePrompt,
+                        });
+                        if (!made) return;
+                        weatherFilename = made.filename;
+                        weatherGenerated = true;
+                      }
+                      const chatAfterWeather = await chats.getById(input.chatId);
+                      const metaAfterWeather = parseExtra(chatAfterWeather?.metadata) as Record<string, unknown>;
+                      const backgroundAfterWeather =
+                        typeof metaAfterWeather.background === "string" && metaAfterWeather.background.trim()
+                          ? metaAfterWeather.background.trim()
+                          : null;
+                      if (backgroundAfterWeather !== backgroundAtDecision) return;
+                      await chats.patchMetadata(input.chatId, { background: weatherFilename });
+                      sendSseEvent(reply, {
+                        type: "agent_result",
+                        data: {
+                          agentType: "illustrator",
+                          agentName: illustratorBackgroundAgent.name ?? "Illustrator",
+                          resultType: "background_change",
+                          data: {
+                            chosen: weatherFilename,
+                            generated: weatherGenerated,
+                            weatherVersion: true,
+                            reason: `Weather: ${latestGameState.weather}`,
+                          },
+                          success: true,
+                          error: null,
+                        },
+                      });
+                      logger.info(
+                        '[background-weather] Showing "%s" for weather "%s"',
+                        weatherFilename,
+                        latestGameState.weather,
+                      );
+                      return;
+                    }
                     const backgroundDecisionReason = requestedBackground
                       ? typeof illData.reason === "string"
                         ? illData.reason

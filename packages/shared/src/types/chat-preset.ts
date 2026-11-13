@@ -314,6 +314,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "illustratorVideoIncludeCharacterAppearance", // Illustrator: add card appearance to video prompts
   "illustratorVideoUseAvatarReferences", // Illustrator: a Prompt only clip starts from the avatar
   "illustratorAutoBackgroundsEnabled", // Illustrator: make a background when the scene moves
+  "illustratorWeatherBackgroundsEnabled", // Illustrator: weather versions of the background
   "illustratorVideoMode", // Illustrator: pictures, pictures and clips, or clips only
   "illustratorImagesPerGeneration", // Illustrator: images per run
   "illustratorRunInterval", // Illustrator: run interval

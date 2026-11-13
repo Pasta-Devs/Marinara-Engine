@@ -30,7 +30,13 @@ import {
   GAME_SCENE_ILLUSTRATION,
 } from "../prompt-overrides/index.js";
 import {
+  backgroundWeatherVersion,
+  backgroundWeatherVersionInstruction,
+  backgroundWeatherVersionStem,
   inferImageSource,
+  parseBackgroundWeatherVersionName,
+  type BackgroundWeatherVersionKey,
+  type SceneShelter,
   type ImageGenerationDefaultsProfile,
   type ImageGenerationQuality,
   type ImageStyleProfileSettings,
@@ -44,6 +50,8 @@ import { SPATIAL_LOCATION_REFERENCE_PROMPT_LINE } from "../image/spatial-locatio
 const NPC_AVATAR_DIR = join(DATA_DIR, "avatars", "npc");
 const CHAT_BACKGROUND_DIR = join(DATA_DIR, "backgrounds");
 const CHAT_BACKGROUND_META_PATH = join(CHAT_BACKGROUND_DIR, "meta.json");
+/** Scene prompt and painted weather of each generated chat background, for its weather versions. */
+const CHAT_BACKGROUND_SCENES_PATH = join(CHAT_BACKGROUND_DIR, "scenes.json");
 export const DEFAULT_GAME_BACKGROUND_SIZE: ImageGenerationSize = { width: 1280, height: 720 };
 export const DEFAULT_GAME_PORTRAIT_SIZE: ImageGenerationSize = { width: 1024, height: 1024 };
 export const GENERATED_GAME_BACKGROUND_EXTS = ["png", "jpg", "jpeg", "webp", "avif", "gif"] as const;
@@ -1385,6 +1393,7 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
       tags: chatBackgroundTags(req, baseSlug),
     };
     writeChatBackgroundMeta(meta);
+    rememberChatBackgroundScene(filename, req.sceneDescription, backgroundWeatherVersion(req.currentWeather), replaced);
     if (replaced.length > 0) {
       // The new file takes over the replaced file's folder and star, as a rename does.
       let organization = readBackgroundLibraryOrganization(CHAT_BACKGROUND_DIR);
@@ -1405,6 +1414,192 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
     return filename;
   } catch (err) {
     logger.warn(err, '[background-agent] Failed to generate roleplay background "%s"', slug);
+    return null;
+  }
+}
+
+// ── Weather versions of chat backgrounds ──
+//
+// "the-inn.png" in the rain is "the-inn--wx-rain.png": the same picture repainted by the image
+// model from the original as its canvas. Made once per picture and weather, then reused for free.
+
+type ChatBackgroundScenes = Record<string, { prompt: string; weather: BackgroundWeatherVersionKey | "" }>;
+
+function readChatBackgroundScenes(): ChatBackgroundScenes {
+  if (!existsSync(CHAT_BACKGROUND_SCENES_PATH)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(CHAT_BACKGROUND_SCENES_PATH, "utf-8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as ChatBackgroundScenes) : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberChatBackgroundScene(
+  filename: string,
+  prompt: string,
+  weather: BackgroundWeatherVersionKey | "",
+  removed: string[] = [],
+): void {
+  try {
+    const scenes = readChatBackgroundScenes();
+    for (const name of removed) delete scenes[name];
+    scenes[filename] = { prompt: prompt.trim().slice(0, 4_000), weather };
+    atomicWriteText(CHAT_BACKGROUND_SCENES_PATH, JSON.stringify(scenes, null, 2));
+  } catch (err) {
+    logger.warn(err, '[background-weather] Could not remember the scene of "%s"', filename);
+  }
+}
+
+/** A plain file name in the chat background library that exists, or null. */
+function chatBackgroundFile(filename: string | null | undefined): string | null {
+  const name = (filename ?? "").trim();
+  if (!name || name !== basename(name) || name.startsWith(".")) return null;
+  const ext = extname(name).slice(1).toLowerCase();
+  if (!GAME_BACKGROUND_EXT_SET.has(ext)) return null;
+  return isUsableGeneratedImagePath(join(CHAT_BACKGROUND_DIR, name)) ? name : null;
+}
+
+function chatBackgroundFileForStem(stem: string, preferredExt: string): string | null {
+  const exts = [preferredExt, ...GENERATED_GAME_BACKGROUND_EXTS.filter((ext) => ext !== preferredExt)];
+  for (const ext of exts) {
+    if (!ext) continue;
+    const found = chatBackgroundFile(`${stem}.${ext}`);
+    if (found) return found;
+  }
+  return null;
+}
+
+export type ChatBackgroundWeatherPlan =
+  | { kind: "keep" }
+  | { kind: "switch"; filename: string }
+  | {
+      kind: "generate";
+      baseFilename: string;
+      version: BackgroundWeatherVersionKey;
+      scenePrompt: string;
+    };
+
+/**
+ * What the chat background should be for the story's weather now: keep it, switch to a picture
+ * that already exists (the plain one or a weather version), or make the missing version.
+ * Only pictures in the user's background library take part; anything else is kept as is.
+ */
+export function planChatBackgroundWeather(
+  currentBackground: string | null | undefined,
+  weather: string | null | undefined,
+): ChatBackgroundWeatherPlan {
+  const current = chatBackgroundFile(currentBackground);
+  if (!current) return { kind: "keep" };
+  const parsed = parseBackgroundWeatherVersionName(current);
+  const baseFilename = parsed.version ? chatBackgroundFileForStem(parsed.baseStem, parsed.ext) : current;
+  // The plain picture was renamed or deleted: leave the version alone.
+  if (!baseFilename) return { kind: "keep" };
+  const scenes = readChatBackgroundScenes();
+  const baseWeather = scenes[baseFilename]?.weather ?? "";
+  const wanted = backgroundWeatherVersion(weather);
+  // The plain picture already shows this weather (or both are dry).
+  if (wanted === baseWeather)
+    return current === baseFilename ? { kind: "keep" } : { kind: "switch", filename: baseFilename };
+  const versionKey: BackgroundWeatherVersionKey = wanted || "clear";
+  const baseStem = basename(baseFilename, extname(baseFilename));
+  const existing = chatBackgroundFileForStem(
+    backgroundWeatherVersionStem(baseStem, versionKey),
+    extname(baseFilename).slice(1),
+  );
+  if (existing) return existing === current ? { kind: "keep" } : { kind: "switch", filename: existing };
+  return {
+    kind: "generate",
+    baseFilename,
+    version: versionKey,
+    scenePrompt: scenes[baseFilename]?.prompt ?? "",
+  };
+}
+
+/** The plain picture a weather version was made from, when it is still in the library. */
+export function chatBackgroundPlainPicture(filename: string): string | null {
+  const parsed = parseBackgroundWeatherVersionName(filename);
+  return parsed.version ? chatBackgroundFileForStem(parsed.baseStem, parsed.ext) : chatBackgroundFile(filename);
+}
+
+/** Weather versions never take part in picking a background; they follow their plain picture. */
+export function isChatBackgroundWeatherVersion(filename: string): boolean {
+  return parseBackgroundWeatherVersionName(filename).version !== "";
+}
+
+/**
+ * Repaint a library background in other weather, with the original as the image model's canvas.
+ * Returns the new file name, or null when it failed.
+ */
+export async function generateChatBackgroundWeatherVersion(
+  req: ChatBackgroundGenRequest & {
+    baseFilename: string;
+    version: BackgroundWeatherVersionKey;
+    shelter: SceneShelter;
+    scenePrompt: string;
+  },
+): Promise<string | null> {
+  const baseFilename = chatBackgroundFile(req.baseFilename);
+  if (!baseFilename) return null;
+  const baseStem = basename(baseFilename, extname(baseFilename));
+  const stem = backgroundWeatherVersionStem(baseStem, req.version);
+  const instruction = backgroundWeatherVersionInstruction(req.version, req.shelter);
+  const scene = req.scenePrompt.trim() || req.sceneDescription.trim();
+  const compiled = await buildBackgroundProviderPrompt({
+    ...req,
+    sceneDescription: [instruction, scene ? `The place: ${scene}` : ""].filter(Boolean).join("\n\n"),
+    providerReadyPrompt: true,
+  });
+  const size = resolvedSize(req.size, DEFAULT_GAME_BACKGROUND_SIZE);
+  req.debugLog?.(
+    "[debug/background-weather/image-generation] base=%s version=%s shelter=%s prompt:\n%s",
+    baseFilename,
+    req.version,
+    req.shelter || "unknown",
+    compiled.prompt,
+  );
+  try {
+    const reference = readFileSync(join(CHAT_BACKGROUND_DIR, baseFilename)).toString("base64");
+    const result = await generateImage(
+      req.imgModel,
+      req.imgBaseUrl,
+      req.imgApiKey,
+      req.imgSource || req.imgService || "",
+      {
+        prompt: compiled.prompt,
+        negativePrompt: compiled.negativePrompt || undefined,
+        model: req.imgModel,
+        width: size.width,
+        height: size.height,
+        imageEndpointId: req.imgEndpointId || undefined,
+        comfyWorkflow: req.imgComfyWorkflow || undefined,
+        imageDefaults: req.imgDefaults ?? undefined,
+        quality: req.imgQuality,
+        fallback: req.imgFallback,
+        signal: req.signal,
+        referenceImage: reference,
+        referenceIsCanvas: true,
+        admissionMode: { kind: "background" },
+        preserveProviderOutput: true,
+      },
+    );
+    const image = await gameBackgroundImage(result, size);
+    const filename = `${stem}.${image.ext}`;
+    atomicWriteBuffer(join(CHAT_BACKGROUND_DIR, filename), image.buffer);
+    const replaced = removeOtherGeneratedBackgroundFormats(CHAT_BACKGROUND_DIR, stem, image.ext);
+    const meta = readChatBackgroundMeta();
+    for (const removed of replaced) delete meta[removed];
+    const baseTags = meta[baseFilename]?.tags ?? [];
+    meta[filename] = {
+      tags: Array.from(new Set([...baseTags, "weather version", req.version])).slice(0, 24),
+    };
+    writeChatBackgroundMeta(meta);
+    rememberChatBackgroundScene(filename, scene, req.version, replaced);
+    buildAssetManifest();
+    logger.info('[background-weather] Made "%s" (%s version of "%s")', filename, req.version, baseFilename);
+    return filename;
+  } catch (err) {
+    logger.warn(err, '[background-weather] Failed to make the %s version of "%s"', req.version, baseFilename);
     return null;
   }
 }

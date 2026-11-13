@@ -8,6 +8,7 @@ import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effect
 import { useSurfaceCovered } from "../../hooks/use-covered-surface-flag";
 import { useThemeWeatherLook } from "../../hooks/use-theme-weather";
 import { useUIStore } from "../../stores/ui.store";
+import type { SceneShelter } from "@marinara-engine/shared";
 import {
   createWeatherParticle,
   drawWeatherCelestial,
@@ -18,6 +19,7 @@ import {
   drawWeatherTint,
   populateWeatherParticles,
   resolveWeatherRenderConfig,
+  shelterWeatherRenderConfig,
   weatherCanvasScaleCap,
   type WeatherBolt,
   type WeatherLook,
@@ -34,6 +36,8 @@ interface WeatherEffectsProps {
   showCelestial?: boolean;
   /** Freeze ambient rendering while local text generation needs the GPU. */
   paused?: boolean;
+  /** "indoors": the weather stays outside (only its colour and lightning light come in). */
+  shelter?: SceneShelter;
 }
 
 // ═══════════════════════════════════════════════
@@ -45,6 +49,7 @@ export function WeatherEffects({
   timeOfDay,
   showCelestial = true,
   paused: pausedByCaller = false,
+  shelter = "",
 }: WeatherEffectsProps) {
   const reduceAmbientEffects = useReducedAmbientEffects();
   const reducedPaintEffects = useUIStore((state) => state.roleplayReducedPaintEffects);
@@ -53,10 +58,12 @@ export function WeatherEffects({
   const covered = useSurfaceCovered(canvasRef, !reduceAmbientEffects);
   const paused = pausedByCaller || covered;
   const themeLook = useThemeWeatherLook(!reduceAmbientEffects);
-  const look = useMemo<WeatherLook>(
-    () => (reducedPaintEffects ? { ...themeLook, flat: true } : themeLook),
-    [themeLook, reducedPaintEffects],
-  );
+  const indoors = shelter === "indoors";
+  const look = useMemo<WeatherLook>(() => {
+    const painted = reducedPaintEffects ? { ...themeLook, flat: true } : themeLook;
+    // A drawn bolt would cross the room; indoors only the flash comes through the windows.
+    return indoors && painted.bolt > 0 ? { ...painted, bolt: 0 } : painted;
+  }, [themeLook, reducedPaintEffects, indoors]);
   const particlesRef = useRef<WeatherParticle[]>([]);
   const frameRef = useRef<number>(0);
   const workerRef = useRef<Worker | null>(null);
@@ -71,8 +78,8 @@ export function WeatherEffects({
   }, [paused]);
 
   const config = useMemo(() => {
-    return resolveWeatherRenderConfig(weather, timeOfDay);
-  }, [weather, timeOfDay]);
+    return shelterWeatherRenderConfig(resolveWeatherRenderConfig(weather, timeOfDay), shelter);
+  }, [weather, timeOfDay, shelter]);
 
   // Weather-aware theme art: `<html data-mari-weather="rain" data-mari-sky="night">` while this chat's weather
   // shows. Both are words from a fixed list (never the story's own text), so a theme can match its backdrop.
@@ -82,18 +89,27 @@ export function WeatherEffects({
     else delete root.dataset.mariWeather;
     if (config.period) root.dataset.mariSky = config.period;
     else delete root.dataset.mariSky;
+    if (shelter) root.dataset.mariShelter = shelter;
+    else delete root.dataset.mariShelter;
     return () => {
       if (root.dataset.mariWeather === config.category) delete root.dataset.mariWeather;
       if (root.dataset.mariSky === config.period) delete root.dataset.mariSky;
+      if (shelter && root.dataset.mariShelter === shelter) delete root.dataset.mariShelter;
     };
-  }, [config.category, config.period]);
+  }, [config.category, config.period, shelter]);
 
   // Render when we have particles, celestial bodies, or time-based ambient effects
   const shouldDrawCelestial =
     showCelestial && config.celestial !== "none" && (config.celestial === "sun" ? look.sun : look.moon);
   const shouldRender =
     !reduceAmbientEffects &&
-    (config.count > 0 || config.addFireflies || config.addStars || shouldDrawCelestial || config.sunsetGlow);
+    (config.count > 0 ||
+      config.addFireflies ||
+      config.addStars ||
+      shouldDrawCelestial ||
+      config.sunsetGlow ||
+      // Indoors nothing falls, but the weather's colour and lightning still reach the room.
+      (indoors && (!!config.overlay || !!config.tint || config.lightning)));
 
   useEffect(() => {
     if (!shouldRender) return;

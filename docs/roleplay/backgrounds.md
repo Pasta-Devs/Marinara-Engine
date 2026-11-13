@@ -42,6 +42,23 @@ Manual generation uses the Illustrator agent's image account, then your default 
 
 If it did not work: the message "Choose an image generation connection for the Illustrator agent, or mark one as the default image connection." means Marinara found no image account. Set one, then try again. If the **Background** button is missing, Illustrator is not installed.
 
+## Weather versions of backgrounds
+
+With this on, the background follows the story's weather. When it starts raining in the inn, Illustrator repaints the inn's background with rain on the windows. Indoors, the full-screen weather is turned off, so the rain shows only through the windows.
+
+1. Open **Chat Settings** with the sliders button in the chat, and open **Agents → Illustrator**.
+2. Turn on **Weather Versions of Backgrounds**.
+
+What happens:
+
+- Each picture and weather is made **once**. When the weather changes back, or the story returns to the inn in the rain, the saved version is shown again at no cost.
+- The version is saved next to the original as `name--wx-rain.png` (or `snow`, `storm`, `fog`, `hail`, `sand`, `ash`, or `clear` for a dry copy of a picture first made in bad weather). The **Background** agent picks among your plain pictures and then shows the matching weather version when one exists.
+- Clear, cloudy, windy and other light weather keep the plain picture.
+- It needs the **World State** agent for the weather, and the Illustrator image model has to be able to start from a picture (most can, including OpenAI, Gemini, NovelAI and ComfyUI with an image input). Models that can't are skipped, and the picture stays as it is.
+- It works for backgrounds in your library, whether you picked them, the Background agent did or Illustrator made them.
+
+If it did not work: check that the chat's World State shows a **Weather**, and that **Illustrator** is added to the chat with an image model.
+
 ## Your library and blur
 
 The images you pick from live in the same **Backgrounds** section. Importing, tags, renaming, deleting, the **Background Blur** slider and the default backdrop for new Roleplay chats are in [Chat Backgrounds](../appearance/chat-backgrounds.md).

@@ -2261,6 +2261,7 @@ export function ChatSettingsDrawer({
   const illustratorVideoRunInterval =
     illustratorChatVideoRunInterval ?? normalizeIllustratorRunInterval(illustratorDefaults.videoRunInterval) ?? 5;
   const illustratorAutoBackgroundsEnabled = metadata.illustratorAutoBackgroundsEnabled === true;
+  const illustratorWeatherBackgroundsEnabled = metadata.illustratorWeatherBackgroundsEnabled === true;
   const selfieUseAvatarReferences = metadata.selfieUseAvatarReferences === true;
   const selfieIncludeCharacterAppearance = metadata.selfieIncludeCharacterAppearance === true;
   const gameImageUseAvatarReferences = metadata.gameImageUseAvatarReferences !== false;
@@ -2428,6 +2429,12 @@ export function ChatSettingsDrawer({
       illustratorAutoBackgroundsEnabled: !illustratorAutoBackgroundsEnabled,
     });
   }, [chat.id, illustratorAutoBackgroundsEnabled, updateMeta]);
+  const toggleIllustratorWeatherBackgrounds = useCallback(() => {
+    updateMeta.mutate({
+      id: chat.id,
+      illustratorWeatherBackgroundsEnabled: !illustratorWeatherBackgroundsEnabled,
+    });
+  }, [chat.id, illustratorWeatherBackgroundsEnabled, updateMeta]);
   const renderIllustratorImageStyleSelect = (options: { emptyOptionLabel?: string; description?: string } = {}) => (
     <label className="flex flex-col gap-1">
       <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
@@ -9398,6 +9405,12 @@ export function ChatSettingsDrawer({
                             )}
                             enabled={illustratorAutoBackgroundsEnabled}
                             onToggle={toggleIllustratorAutoBackgrounds}
+                          />
+                          <AgentSettingsToggle
+                            label={localizeUi("ui.chat.chatsettingsdrawer.weatherVersionsOfBackgrounds")}
+                            description={localizeUi("ui.chat.chatsettingsdrawer.weatherVersionsOfBackgroundsHelp")}
+                            enabled={illustratorWeatherBackgroundsEnabled}
+                            onToggle={toggleIllustratorWeatherBackgrounds}
                           />
                           <label className="flex flex-col gap-1">
                             <span className="text-[0.625rem] font-medium text-[var(--foreground)]">

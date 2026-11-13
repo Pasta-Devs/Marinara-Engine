@@ -10861,6 +10861,8 @@
   "ui.chat.chatsettingsdrawer.videoMessagesHelp": "Used by /video and the Gallery's Video button.",
   "ui.chat.chatsettingsdrawer.viewAndEditEverythingAgentsHaveStoredInThis": "View and edit everything agents have stored in this chat — manually or with AI.",
   "ui.chat.chatsettingsdrawer.viewerDisplay": "Viewer Display",
+  "ui.chat.chatsettingsdrawer.weatherVersionsOfBackgrounds": "Weather Versions of Backgrounds",
+  "ui.chat.chatsettingsdrawer.weatherVersionsOfBackgroundsHelp": "When the weather changes but the place stays the same, Illustrator repaints the current background in that weather (rain on the windows indoors). Each place and weather is made once and reused. Needs an image model that can start from a picture.",
   "ui.chat.chatsettingsdrawer.whenEnabledAiAgentsRunAutomaticallyDuringGenerationTo": "When enabled, AI agents run automatically during generation to enrich the chat with world state tracking, expression detection, and more.",
   "ui.chat.chatsettingsdrawer.whenEnabledRelevantFragmentsFromThisChatAreAutomatically": "Brings back related bits of earlier chat as memories when they matter. Uses the local embedding model if you have one, or your embedding provider.",
   "ui.chat.chatsettingsdrawer.whenTheStoryEntersANewLocationLetIllustrator": "When the story enters a new location, let Illustrator create a reusable background, add it to Appearance, and make it active.",
