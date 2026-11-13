@@ -36,6 +36,7 @@ import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import type { InsertEdge } from "../../lib/library-order";
 import { RowActionSheet } from "./RowActionSheet";
+import { translate } from "../../localization/i18n";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { confirmNonEmptyFolderDelete, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
@@ -718,7 +719,7 @@ export async function kitExport(
   if (!ids.length) return;
   try {
     const status = await api.downloadPost(path, { ids, ...body }, filename);
-    if (status === "saved") toast.success(`${localize("Exported")} ${ids.length}`);
+    if (status === "saved") toast.success(translate("ui.overhaul.text.exportedNumber", { number: ids.length }));
   } catch (error) {
     toast.error(error instanceof Error ? error.message : localize("Export failed"), { id: EXPORT_FAILED_TOAST_ID });
   }
@@ -732,7 +733,7 @@ export async function kitDelete(
 ): Promise<string[] | null> {
   if (!ids.length) return null;
   const ok = await showConfirmDialog({
-    title: `${localize("Delete")} ${names ?? `${ids.length} ${noun}`}?`,
+    title: translate("ui.overhaul.text.deleteNameQuestion", { name: names ?? `${ids.length} ${noun}` }),
     message: localize(
       ids.length === 1
         ? "This can't be undone. Export first if you might want it back."
@@ -745,7 +746,7 @@ export async function kitDelete(
   const results = await Promise.allSettled(ids.map((id) => remove(id)));
   const failed = ids.filter((_, index) => results[index]?.status === "rejected");
   const done = ids.length - failed.length;
-  if (done) toast.success(`${localize("Deleted")} ${done}`);
-  if (failed.length) toast.error(`${localize("Couldn't delete")} ${failed.length}`);
+  if (done) toast.success(translate("ui.overhaul.text.deletedNumber", { number: done }));
+  if (failed.length) toast.error(translate("ui.overhaul.text.couldntDeleteNumber", { number: failed.length }));
   return failed;
 }

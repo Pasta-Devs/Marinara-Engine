@@ -175,7 +175,12 @@ export function ThemeGallery({ starterThemes }: { starterThemes: Theme[] }) {
                     SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS,
                     "inline-flex shrink-0 flex-row items-center gap-1 whitespace-nowrap disabled:opacity-50",
                   )}
-                  aria-label={`${update ? localizeUi("theming.gallery.update", { defaultValue: "Update" }) : localizeUi("theming.gallery.download", { defaultValue: "Download" })}: ${entry.name}`}
+                  aria-label={localizeUi("ui.panels.settingspanel.value1Value2", {
+                    value1: update
+                      ? localizeUi("theming.gallery.update", { defaultValue: "Update" })
+                      : localizeUi("theming.gallery.download", { defaultValue: "Download" }),
+                    value2: entry.name,
+                  })}
                   data-theme-gallery-download={entry.id}
                 >
                   {busy ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}

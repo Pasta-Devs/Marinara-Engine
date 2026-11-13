@@ -268,7 +268,9 @@ export function useAgentImportFlow({ toasts = false }: { toasts?: boolean } = {}
             })();
         prepareAgentEntries(entries.agents, "file", entries.skippedFunctionCount);
       } catch (error) {
-        setAgentImportError(error instanceof Error ? error.message : "Failed to import agents");
+        setAgentImportError(
+          error instanceof Error ? error.message : localizeUi("ui.overhaul.text.failedToImportAgents"),
+        );
       }
 
       event.target.value = "";
@@ -298,11 +300,13 @@ export function useAgentImportFlow({ toasts = false }: { toasts?: boolean } = {}
         const skippedFunctionCount = countSkippedAgentImportFunctions(entries, functionEntries);
         prepareAgentEntries(entries, "folder", skippedFunctionCount);
       } catch (error) {
-        setAgentImportError(error instanceof Error ? error.message : "Failed to import agents");
+        setAgentImportError(
+          error instanceof Error ? error.message : localizeUi("ui.overhaul.text.failedToImportAgents"),
+        );
       }
       event.target.value = "";
     },
-    [agentImportsDisabledHelp, agentImportsEnabled, prepareAgentEntries],
+    [agentImportsDisabledHelp, agentImportsEnabled, localizeUi, prepareAgentEntries],
   );
 
   // A ruleset is parsed with the SAME shared parser the server stores it through, so a file that
