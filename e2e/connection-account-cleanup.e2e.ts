@@ -93,6 +93,9 @@ test("fresh connection retry restores its deleted placeholder under the retained
     expect(afterCleanup.filter(({ accountId }) => accountId === fresh[0]!.id)).toHaveLength(0);
 
     await dialog.getByRole("button", { name: "Try again", exact: true }).click();
+    // A passing retry goes on to "Found in OpenAI — use it for"; Skip keeps the account and closes the window.
+    await expect(page.getByRole("dialog", { name: "OpenAI is connected", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Skip", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     expect(placeholderCreates).toBe(1);
     expect(connectTests).toBe(2);

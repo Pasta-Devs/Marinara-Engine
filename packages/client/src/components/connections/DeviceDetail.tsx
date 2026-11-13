@@ -5,7 +5,6 @@
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  AlertTriangle,
   BrainCircuit,
   ChevronDown,
   HardDriveDownload,
@@ -34,20 +33,22 @@ import {
   useInstalledCapabilityPackages,
 } from "../../hooks/use-capability-packages";
 import { useFeatureModels } from "../../hooks/use-connection-accounts";
-import { useDefaultEmbeddingConnection } from "../../hooks/use-connections";
+import { useConnections, useDefaultEmbeddingConnection } from "../../hooks/use-connections";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store";
+import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { hostOf } from "../modals/create-connection/shared";
 import { ToggleSetting } from "../panels/settings/SettingControls";
-import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
-import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
 import { ProviderIcon } from "./ProviderIcon";
+import { closeIfClean, DEVICE_VOICE, DictationSettings, useJobModels, VoiceJobSettings } from "./ConnectionDefaults";
+import type { ConnectionRowData } from "./ConnectionRow";
+import { Modal } from "../ui/Modal";
 
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
 
@@ -165,7 +166,7 @@ export type DeviceEngine = {
   fix?: { label: string; run: () => void };
 };
 
-/** The engines set up on this device, with the state their row shows and its one inline fix. */
+/** The engines on this device, each with its state and its one action: the This device card's rows. */
 export function useDeviceEngines(): DeviceEngine[] {
   const { t } = useTranslation();
   const setup = useDeviceSetup();
@@ -173,11 +174,20 @@ export function useDeviceEngines(): DeviceEngine[] {
   const inferenceReady = useSidecarStore((s) => s.inferenceReady);
   const startupError = useSidecarStore((s) => s.startupError);
   const modelDisplayName = useSidecarStore((s) => s.modelDisplayName);
+  const modelDownloaded = useSidecarStore((s) => s.modelDownloaded);
   const quantization = useSidecarStore((s) => s.config.quantization);
+  const speechDownloaded = useSidecarStore((s) => s.speechModelDownloaded);
+  const speechModels = useSidecarStore((s) => s.speechModels);
+  const speechDownloading = useSidecarStore((s) => s.speechDownloadProgress?.status === "downloading");
   const { data: tts } = useTTSConfig();
+  const modelFor = useJobModels((useConnections().data ?? []) as ConnectionRowData[]);
+  const whisperAvailable = setup.stt.available;
+  useEffect(() => {
+    if (whisperAvailable) void useSidecarStore.getState().fetchSpeechStatus();
+  }, [whisperAvailable]);
 
   const engines: DeviceEngine[] = [];
-  if (setup["local-model"].setUp) {
+  if (setup["local-model"].available) {
     const sidecar = useSidecarStore.getState();
     const model = [modelDisplayName, quantization ? QUANT_LABEL[quantization] : null].filter(Boolean).join(" ");
     const base = { item: "local-model" as const, name: t("connections.add.device.local_model"), detail: model };
@@ -192,7 +202,7 @@ export function useDeviceEngines(): DeviceEngine[] {
       engines.push({ ...base, tone: "off", state: t("connections.device.state.starting") });
     } else if (inferenceReady) {
       engines.push({ ...base, tone: "ok", state: t("connections.device.state.running") });
-    } else {
+    } else if (modelDownloaded) {
       engines.push({
         ...base,
         tone: "off",
@@ -207,26 +217,80 @@ export function useDeviceEngines(): DeviceEngine[] {
               ),
         },
       });
+    } else {
+      // The same default pick as the detail page's "Download now".
+      const pick =
+        sidecar.curatedModels.find((entry) => entry.quantization === "q4_k_m")?.quantization ??
+        sidecar.curatedModels[0]?.quantization ??
+        "q4_k_m";
+      engines.push({
+        ...base,
+        tone: "off",
+        state: t("connections.device.state.notDownloaded"),
+        fix: {
+          label: t("connections.device.download"),
+          run: () => void sidecar.startDownload(pick).then((ok) => ok && toast.success(GEMMA_RESTART_MESSAGE)),
+        },
+      });
     }
   }
-  // Only a voice server the user hosts runs here; a cloud voice (ElevenLabs, OpenAI, xAI) shows on the Voice job row.
-  if (setup.tts.setUp && tts?.local) {
+  if (whisperAvailable) {
+    const dictation = t(jobLabelKey(JOB.stt));
+    const first = speechModels[0]?.id;
+    engines.push({
+      item: "stt",
+      name: "Whisper",
+      detail: dictation,
+      ...(speechDownloaded
+        ? { tone: "ok" as const, state: t("connections.device.whisper.ready") }
+        : speechDownloading
+          ? { tone: "off" as const, state: t("connections.device.whisper.downloadingShort") }
+          : {
+              tone: "off" as const,
+              state: t("connections.device.state.notDownloaded"),
+              ...(first && {
+                fix: {
+                  label: t("connections.device.download"),
+                  run: () =>
+                    void useSidecarStore
+                      .getState()
+                      .startSpeechDownload(first)
+                      .then((ok) => ok && toast.success(t("connections.device.whisper.downloadedRestart"))),
+                },
+              }),
+            }),
+    });
+  }
+  // A voice server the user hosts runs here; a cloud voice (ElevenLabs, OpenAI, xAI) shows on the Voice job row.
+  // Local PocketTTS always has a row, so the card shows the Voice engine even when voice is off or cloud.
+  const localVoice = setup.tts.setUp && !!tts?.local;
+  if (localVoice && tts.source !== "pockettts") {
     engines.push({
       item: "tts",
-      name: t("connections.add.device.tts"),
+      name: t(`connections.device.ttsSource.${tts.source}`),
       tone: "ok",
       state: t("connections.accounts.state.ok"),
       // A server the user runs on another source (a Kokoro at localhost:8880) shows its address, not a cloud name.
-      detail: (tts.source !== "pockettts" && hostOf(tts.baseUrl)) || t(`connections.device.ttsSource.${tts.source}`),
+      detail: [t(jobLabelKey(JOB.voice)), hostOf(tts.baseUrl)].filter(Boolean).join(" · "),
     });
-  }
-  if (setup.stt.setUp) {
+  } else {
     engines.push({
-      item: "stt",
-      name: t("connections.add.device.stt"),
-      tone: "ok",
-      state: t("connections.accounts.state.ok"),
-      detail: t("connections.add.device.stt"),
+      item: "tts",
+      name: t("connections.device.ttsSource.pockettts"),
+      detail: t(jobLabelKey(JOB.voice)),
+      ...(localVoice
+        ? { tone: "ok" as const, state: t("connections.device.state.inUse") }
+        : {
+            tone: "off" as const,
+            state: t("connections.device.state.notInUse"),
+            fix: {
+              label: t("connections.device.useForVoice"),
+              run: () => {
+                modelFor(JOB.voice)?.onChange(`${DEVICE_VOICE}pockettts`);
+                useUIStore.getState().openModal("job-settings", { job: "voice" });
+              },
+            },
+          }),
     });
   }
   return engines;
@@ -255,10 +319,8 @@ export function useLocalModelUsedBy(): string[] {
 }
 
 /** The Local Model's page: state, load, model variant, memory, what uses it, and its helper settings. */
-function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
+function LocalModelDetail() {
   const { t: localizeUi } = useTranslation();
-  /** The managed decision model installer, opened from inside this page. */
-  const [decisionModalOpen, setDecisionModalOpen] = useState(false);
   const { data: agentConfigs } = useAgentConfigs();
   const { data: capabilityAgents } = useCapabilityAgentRegistry();
   const createAgent = useCreateAgent();
@@ -437,10 +499,12 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
                 : localizeUi("connections.device.loadModel")}
           </button>
         )}
-        <button type="button" onClick={() => void retry()} disabled={retrying} className={SMALL_ACTION}>
-          <RefreshCw size="0.75rem" className={cn(retrying && "animate-spin")} />
-          {localizeUi("connections.device.retry")}
-        </button>
+        {failed && (
+          <button type="button" onClick={() => void retry()} disabled={retrying} className={SMALL_ACTION}>
+            <RefreshCw size="0.75rem" className={cn(retrying && "animate-spin")} />
+            {localizeUi("connections.device.retry")}
+          </button>
+        )}
         <button type="button" onClick={openLocalModelSettings} className={SMALL_ACTION}>
           <Settings2 size="0.75rem" />
           {localizeUi("connections.device.runtimeSettings")}
@@ -496,29 +560,22 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
             </span>
           )}
         </FactRow>
-        <FactRow label={localizeUi("connections.device.fact.memory")}>
-          {active
-            ? localizeUi("connections.device.memory", { size: formatBytes(active.ramBytes), backend: backendLabel })
-            : modelSize
-              ? localizeUi("connections.device.sizeBackend", { size: formatBytes(modelSize), backend: backendLabel })
-              : backendLabel}
-        </FactRow>
+        {(active || modelSize) && (
+          <FactRow label={localizeUi("connections.device.fact.memory")}>
+            {active
+              ? localizeUi("connections.device.memory", { size: formatBytes(active.ramBytes), backend: backendLabel })
+              : localizeUi("connections.device.sizeBackend", { size: formatBytes(modelSize!), backend: backendLabel })}
+          </FactRow>
+        )}
         <FactRow label={localizeUi("connections.device.fact.usedBy")}>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{usedBy.length ? usedBy.join(", ") : localizeUi("connections.device.usedBy.none")}</span>
-            <button type="button" onClick={onOpenDefaults} className={SMALL_ACTION}>
-              {localizeUi("connections.device.changeInDefaults")}
-            </button>
+            <span className="w-full text-[0.6875rem] text-[var(--muted-foreground)]">
+              {localizeUi("connections.device.notForRoleplay")}
+            </span>
           </span>
         </FactRow>
       </section>
-
-      <div className="rounded-lg border border-[var(--marinara-app-accent-static)]/30 bg-[var(--marinara-app-accent-static)]/10 p-2.5">
-        <div className="flex items-center gap-2 text-xs font-semibold text-[var(--marinara-app-accent-static)]">
-          <AlertTriangle size="0.875rem" className="shrink-0" />
-          {localizeUi("connections.device.notForRoleplay")}
-        </div>
-      </div>
 
       {isDownloaded ? (
         <div className="flex flex-col gap-1.5">
@@ -564,11 +621,11 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
           {isDownloading ? localizeUi("connections.device.downloading") : localizeUi("connections.device.downloadNow")}
         </button>
       )}
-      {/* The decision sidecar is its own model and its own process, so it does not wait for a chat model. */}
-      <button type="button" onClick={() => setDecisionModalOpen(true)} className={cn(SMALL_ACTION, "w-full")}>
-        {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
-      </button>
-      <DecisionModelModal open={decisionModalOpen} onClose={() => setDecisionModalOpen(false)} />
+      {/* The decision sidecar is its own model and its own process, so it does not wait for a chat model.
+          Picking it for Decision is the Decision job's; this is where it is installed and run. */}
+      <section className={DETAIL_CARD_CLASS}>
+        <DecisionModelModal />
+      </section>
     </div>
   );
 }
@@ -749,14 +806,14 @@ export function LocalWhisper() {
 }
 
 /** One "On this device" engine's page. */
-export function DeviceDetail({ item, onOpenDefaults }: { item: DeviceItem; onOpenDefaults: () => void }) {
+export function DeviceDetail({ item }: { item: DeviceItem }) {
   const { t } = useTranslation();
   const engine = useDeviceEngines().find((entry) => entry.item === item);
   const { data: installedPackages } = useInstalledCapabilityPackages();
   const callsInstalled = (installedPackages ?? []).some(
     (entry) => entry.status !== "error" && entry.manifest.kind.includes("conversation-calls"),
   );
-  if (item === "local-model") return isLite ? null : <LocalModelDetail onOpenDefaults={onOpenDefaults} />;
+  if (item === "local-model") return isLite ? null : <LocalModelDetail />;
   return (
     <div className="flex flex-col gap-3">
       <DetailHero
@@ -770,8 +827,43 @@ export function DeviceDetail({ item, onOpenDefaults }: { item: DeviceItem; onOpe
         )}
         <span>· {engine?.detail || t("connections.accounts.section.device")}</span>
       </DetailHero>
-      {item === "tts" ? <TTSConfigCard defaultExpanded /> : <SpeechToTextCard defaultExpanded />}
+      {/* The Voice and Dictation settings live in their jobs; this page keeps the engine. */}
+      <button
+        type="button"
+        onClick={() => useUIStore.getState().openModal("job-settings", { job: item === "tts" ? "voice" : "stt" })}
+        className={cn(SMALL_ACTION, "self-start")}
+      >
+        {t("connections.device.openJobSettings")}
+      </button>
       {item === "stt" && callsInstalled && !isLite && <LocalWhisper />}
     </div>
+  );
+}
+
+/** The built-in model's page as a window, for links from outside the Connections panel. */
+export function DeviceDetailWindow({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Modal open onClose={onClose} title={t("connections.add.device.local_model")} width="max-w-xl">
+      {/* Lite has no built-in model, but the decision model still installs here. */}
+      {isLite ? <DecisionModelModal /> : <DeviceDetail item="local-model" />}
+    </Modal>
+  );
+}
+
+/** Voice or Dictation settings on their own, for the character editor's "Open settings" and device links. */
+export function JobSettingsWindow({ job, onClose }: { job: "voice" | "stt"; onClose: () => void }) {
+  const { t } = useTranslation();
+  const connectionSaving = useUIStore((s) => s.connectionSaving);
+  return (
+    <Modal
+      open
+      onClose={() => void closeIfClean(onClose)}
+      closeDisabled={connectionSaving}
+      title={t("connections.defaults.settingsFor", { role: t(jobLabelKey(JOB[job])) })}
+      width="max-w-xl"
+    >
+      <div className="flex flex-col gap-3">{job === "voice" ? <VoiceJobSettings /> : <DictationSettings />}</div>
+    </Modal>
   );
 }

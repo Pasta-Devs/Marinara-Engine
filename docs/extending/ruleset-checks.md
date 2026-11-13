@@ -39,6 +39,27 @@ What the resulting number means is the kind's business: `dice-sum` adds it to th
 - `unmodified`: faces of a single die the record marks when the first die shows them (1.136), so tables that treat "an unmodified 66" apart can be applied: `[66, 100]`. The record says `unmodified="66"`, the card says it, and the Game Master is told to apply what the rules say about it.
 - `difficultyLadder`: the difficulties the Game Master is told to pick from. `dc` is the number the total must reach. The Game Master may name a step instead of writing its number, as `difficulty="Hard"`, and the Engine reads the number off the step.
 
+#### Two named dice
+
+A summed check can throw two dice that each have a name, where the story turns on which one showed more (Capability API 1.821). A community ruleset needs nothing; a packaged one declares 1.821.
+
+```json
+"dice": { "count": 2, "sides": 12 },
+"duality": {
+  "dice": [{ "id": "hope", "label": "Hope" }, { "id": "fear", "label": "Fear" }],
+  "tieIsCritical": true,
+  "text": "With Hope the player gains a Hope; with Fear the Game Master gains a Fear."
+}
+```
+
+- `dice`: the two names, in the order the dice are thrown. The first die in `rolls` is the first one named.
+- `tieIsCritical`: optional, `true` unless you say otherwise. A tie is then a critical success whatever the total.
+- `text`: optional. One line telling the Game Master what each die means at the table.
+
+The total is still the two dice plus the modifier, read against the difficulty as usual. The record says which die showed more, `duality="Hope"`, or `duality="tie"`, the dice card says it, and the Game Master is told to narrate the check as with that die.
+
+`duality` needs `dice.count` 2, plain faces (no `faces`), no `openEnded` and `advantage` false, and the two ids must differ. The two labels must differ too, and neither can be `tie`, because the record names the leading die by its label. An override may set or remove it for some checks.
+
 ### `dice-pool`: throw the dice and count them
 
 The sheet's number is the **size of the pool**, not a bonus on top of it. A rating of 3 and a trade worth 2 throw five dice. That is the whole trick: no new sheet vocabulary, no new editor, and a system whose ratings are handfuls of dice is written with the same `abilities`, `skills` and `proficiencyTiers` as any other.

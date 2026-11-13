@@ -225,7 +225,7 @@ The **Built-in model** runs on your computer with no API key. Some error message
 1. Open **Chat Settings → Memory Recall** and confirm **Enable Memory Recall** is on.
 2. Open **Access memories for this chat**. In **Memories for This Chat**, look at each chunk's status.
 3. **Waiting for vector** means the memory is still being processed. Wait, then chat again.
-4. **Embedding unavailable** means no embedding source works. Set up an embedding account, or let the built-in model load. To use one source for every chat, pick it under **Embeddings** in the **Defaults** section of **Connections**.
+4. **Embedding unavailable** means no embedding source works. Set up an embedding account, or let the built-in model load. To use one source for every chat, pick it on the **Embeddings** job in the **Jobs** box in **Connections**.
 
 A memory needs at least 5 new messages before it is created. Recall shows only memories that closely match your new message, so it can return nothing even when memories exist.
 
@@ -304,9 +304,9 @@ If the model returns broken JSON (structured text), Marinara opens the **Repair 
 
 ## Voice, calls and TTS
 
-- **Characters do not speak in a call.** Text to Speech is not set up. Open **Connections → Text to Speech**, turn it on, choose a source, enter your key, pick a voice and save. A character with no voice shows as text only.
-- **Speech stops with "No audio after N s".** Your voice server is slower than Marinara waits, which is common for a local server on a laptop. `N` is your current timeout. Raise **Request timeout (seconds)** in **Connections → Text to Speech**, or in the audio account the message names. See [Request timeout](media/tts-setup.md#request-timeout).
-- **The microphone does not work.** Install **Calls** from **Agents → Agent Organizer**. Then open **Connections → Speech to text**, find **Local speech model** under **On this device**, choose a Whisper model and click **Download Whisper**. Firefox needs this because it has no browser speech recognition. Uninstalling Calls deletes its Whisper models. You can also use your own server: see [Use your own speech-to-text server](conversation/calls.md#use-your-own-speech-to-text-server).
+- **Characters do not speak in a call.** The **Voice** job has no model. Open **Connections**, click the **Voice** row in the **Jobs** box, and pick a voice model. Then click its gear and pick a voice. A character with no voice shows as text only.
+- **Speech stops with "No audio after N s".** Your voice server is slower than Marinara waits, which is common for a local server on a laptop. `N` is your current timeout. Raise **Request timeout (seconds)** under **More** in **Voice settings** (the gear on the **Voice** row in the **Jobs** box), or in the **Edit model** window of the audio model the message names. See [Request timeout](media/tts-setup.md#request-timeout).
+- **The microphone does not work.** Install **Calls** from **Agents → Agent Organizer**. Then open **Connections**, find **Local speech model** in the **On this device** card, choose a Whisper model and click **Download Whisper**. Firefox needs this because it has no browser speech recognition. Uninstalling Calls deletes its Whisper models. You can also use your own server: see [Use your own speech-to-text server](conversation/calls.md#use-your-own-speech-to-text-server).
 - **Local Whisper is disabled in Lite mode.** The lite image cannot run the local speech model. Use a full install.
 
 ### Music DJ Spotify login fails on a remote or network install

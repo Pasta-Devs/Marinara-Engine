@@ -109,8 +109,8 @@ assert.equal(resolvePersonaInlineNames(true, false), true);
 assert.equal(resolvePersonaInlineNames("yes", false), false);
 
 // Wiring: both the message renderer and the settings switch resolve the persona setting the same way.
-for (const file of ["ChatMessage.tsx", "ChatSettingsDrawer.tsx"]) {
-  const source = readFileSync(new URL("../../packages/client/src/components/chat/" + file, import.meta.url), "utf8");
+for (const file of ["components/chat/ChatMessage.tsx", "features/chat-settings/ChatSettingsDrawer.tsx"]) {
+  const source = readFileSync(new URL("../../packages/client/src/" + file, import.meta.url), "utf8");
   assert.match(source, /resolvePersonaInlineNames\(/, file);
 }
 const chatMessage = readFileSync(

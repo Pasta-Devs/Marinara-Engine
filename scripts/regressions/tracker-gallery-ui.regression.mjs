@@ -21,10 +21,11 @@ const appShell = readSource("packages/client/src/components/layout/AppShell.tsx"
 const trackerHeader = readSource("packages/client/src/features/tracker-panel/components/TrackerSidebarHeader.tsx");
 const uiStore = readSource("packages/client/src/stores/ui.store.ts");
 const chatGallery = readSource("packages/client/src/components/chat/ChatGallery.tsx");
-const chatSettingsDrawer = readSource("packages/client/src/components/chat/ChatSettingsDrawer.tsx");
+const chatSettingsDrawer = readSource("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
+const roleplayAgentMenuIcon = readSource("packages/client/src/features/chat-settings/roleplay-agent-menu-icon.tsx");
 const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
 const homeBrowserHub = readSource("packages/client/src/components/chat/HomeBrowserHub.tsx");
-const storyboardChatSettings = readSource("packages/client/src/components/chat/StoryboardChatSettingsPanel.tsx");
+const storyboardChatSettings = readSource("packages/client/src/features/chat-settings/StoryboardChatSettingsPanel.tsx");
 const conversationView = readSource("packages/client/src/components/chat/ConversationView.tsx");
 const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
 const translationSection = readSource("packages/client/src/features/chat-settings/sections/TranslationSection.tsx");
@@ -167,12 +168,12 @@ assert.match(
   "the shared Gallery search must reuse the standard chat field",
 );
 assert.match(
-  chatSettingsDrawer,
+  roleplayAgentMenuIcon,
   /case "director":\s*return <Clapperboard/u,
   "Narrative Director must use a distinct clapperboard icon instead of the generic agent star",
 );
 assert.match(
-  chatSettingsDrawer,
+  roleplayAgentMenuIcon,
   /case "expression":\s*return <VenetianMask/u,
   "Expression Engine must use a distinct theatre-mask icon in Chat Settings",
 );

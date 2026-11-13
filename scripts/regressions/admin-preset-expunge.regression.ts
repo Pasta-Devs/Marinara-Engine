@@ -25,11 +25,18 @@ try {
   process.env.NODE_ENV = "test";
   process.env.MARINARA_LITE = "true";
 
-  const [{ buildApp }, { getDB }, { createPromptsStorage }, { createLibraryFoldersStorage }] = await Promise.all([
+  const [
+    { buildApp },
+    { getDB },
+    { createPromptsStorage },
+    { createLibraryFoldersStorage },
+    { createRegexScriptsStorage },
+  ] = await Promise.all([
     import("../../packages/server/src/app.js"),
     import("../../packages/server/src/db/connection.js"),
     import("../../packages/server/src/services/storage/prompts.storage.js"),
     import("../../packages/server/src/services/storage/library-folders.storage.js"),
+    import("../../packages/server/src/services/storage/regex-scripts.storage.js"),
   ]);
 
   app = await buildApp();
@@ -38,6 +45,7 @@ try {
   const db = await getDB();
   const presets = createPromptsStorage(db);
   const folders = createLibraryFoldersStorage(db);
+  const regexScripts = createRegexScriptsStorage(db);
 
   async function stockSnapshot() {
     const stockPreset = (await presets.list()).find(isStockMarinaraUniversalPreset);
@@ -124,6 +132,29 @@ try {
   await assertEditableFixtureDeleted(scopedEditablePresetId);
 
   const clearAllEditablePresetId = await createEditableFixture("clear_all", false);
+  const presetFolders = await folders.list("presets");
+  async function createRegexFolderFixture() {
+    const script = await regexScripts.create({ name: "Reset test", findRegex: "TAG", placement: ["ai_output"] });
+    assert.ok(script);
+    const folder = await folders.create("regex", { name: "Paused pack" });
+    assert.ok(folder);
+    await folders.moveItems("regex", { folderId: folder.id, itemIds: [script.id] });
+    await folders.update("regex", folder.id, { paused: true });
+    return script.id;
+  }
+
+  const scopedRegexId = await createRegexFolderFixture();
+  const automationResponse = await app.inject({
+    method: "POST",
+    url: "/api/admin/expunge",
+    payload: { confirm: true, scopes: ["automation"] },
+  });
+  assert.equal(automationResponse.statusCode, 200);
+  assert.equal(await regexScripts.getById(scopedRegexId), null);
+  assert.deepEqual(await folders.list("regex"), [], "automation expunge must clear the regex folders");
+  assert.deepEqual(await folders.list("presets"), presetFolders, "automation expunge must preserve preset folders");
+
+  const clearAllRegexId = await createRegexFolderFixture();
   const stockBeforeClearAll = await stockSnapshot();
   const clearAllResponse = await app.inject({
     method: "POST",
@@ -131,6 +162,8 @@ try {
     payload: { confirm: true },
   });
   assert.equal(clearAllResponse.statusCode, 200, "clear-all compatibility route must succeed");
+  assert.equal(await regexScripts.getById(clearAllRegexId), null);
+  assert.deepEqual(await folders.list("regex"), [], "clear-all must clear the regex folders");
   const stockAfterClearAll = await stockSnapshot();
   assert.deepEqual(stockAfterClearAll.groups, stockBeforeClearAll.groups);
   assert.deepEqual(stockAfterClearAll.sections, stockBeforeClearAll.sections);

@@ -1594,7 +1594,10 @@ const capabilityPackageManifestBaseSchema = z
 //        Also `__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })`: the Agent
 //        activity icon spins while a package is busy and shows its dot on an alert. A soft seam: older Engines leave
 //        the method out, so a package checks for it.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 820 } as const);
+// 1.821: a summed check's two named dice (`resolution.duality`): Daggerheart's Hope and Fear, the higher one
+//        recorded as `duality=`, and a tie a critical success. Not a soft seam: an Engine that cannot read
+//        it refuses the whole ruleset file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 821 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

@@ -18,6 +18,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const dir = mkdtempSync(join(tmpdir(), "marinara-avatar-glb-fbx-"));
 process.env.DATA_DIR = dir;
@@ -535,7 +536,7 @@ await assert.rejects(
     await import("../../packages/client/src/features/avatars/renderers/glb-fbx/glb-fbx-renderer.js");
   const motion = await import("../../packages/client/src/features/avatars/renderers/vrm/vrm-motion.js");
   const requireClient = createRequire(new URL("../../packages/client/package.json", import.meta.url));
-  const { FBXLoader } = await import(requireClient.resolve("three/addons/loaders/FBXLoader.js"));
+  const { FBXLoader } = await import(pathToFileURL(requireClient.resolve("three/addons/loaders/FBXLoader.js")).href);
   type Point = { x: number; y: number; z: number; sub(other: Point): Point; normalize(): Point };
   type Bone = {
     name: string;

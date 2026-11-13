@@ -60,7 +60,7 @@ try {
   });
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.json().connectionId, null, "A new chat follows Main until a model is picked");
-  const { readChatFollowsMain, resolveChatConnectionOrFallback } =
+  const { readChatDeletedModel, readChatFollowsMain, resolveChatConnectionOrFallback } =
     await import("../../packages/server/src/services/generation/connection-resolution.js");
   const created = (await chats.getById(response.json().id))!;
   assert.equal(readChatFollowsMain(created), true, "A new chat is marked as following Main");
@@ -91,6 +91,7 @@ try {
       async (notice) => void reasons.push(notice.reason),
       null,
       !chat.connectionId && readChatFollowsMain(chat),
+      readChatDeletedModel(chat),
     );
     return reasons;
   };

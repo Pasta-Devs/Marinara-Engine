@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { openDefaultsTile, ttsConfigCard } from "./connections-panel.js";
+import { openJobSettings, ttsConfigCard } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -39,10 +39,13 @@ test("Request timeout saves on the Text to Speech card and on an audio connectio
       await testInfo.attach(name, { path, contentType: "image/png" });
     };
 
-    // #8456 took the Text to Speech card out of the Connections panel; its settings open in the Add window.
+    // The Text to Speech card lives in the Voice settings window (the tile opens the picker while TTS is off).
     const openCard = async () => {
       await page.goto("/");
-      await openDefaultsTile(page, "voice");
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().openModal("job-settings", { job: "voice" });
+      });
       return ttsConfigCard(page).getByLabel("Request timeout (seconds)", { exact: true });
     };
     const cardTimeout = await openCard();
@@ -54,24 +57,25 @@ test("Request timeout saves on the Text to Speech card and on an audio connectio
     await capture("tts-card-request-timeout");
     await expect(await openCard()).toHaveValue("300");
 
+    // The audio connection's own timeout moved to the Voice settings window (Voice job's model).
+    const ttsNow = await (await request.get("/api/tts/config")).json();
+    expect(
+      (await request.put("/api/tts/config", { data: { ...ttsNow, enabled: true, connectionId: id } })).ok(),
+    ).toBeTruthy();
     const openConnection = async () => {
       await page.goto("/");
-      await page.evaluate(async (connectionId) => {
-        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-        useUIStore.getState().openConnectionDetail(connectionId);
-      }, id);
-      return page.locator(".mari-editor-shell").getByLabel("Request timeout (seconds)", { exact: true });
+      await openJobSettings(page, "voice");
+      return page.locator('[data-connection-part="voice"]').getByLabel("Request timeout (seconds)", { exact: true });
     };
     const connectionTimeout = await openConnection();
     await connectionTimeout.scrollIntoViewIfNeeded();
     await expect(connectionTimeout).toHaveValue("60");
     await connectionTimeout.fill("240");
     await connectionTimeout.blur();
-    await page.locator(".mari-editor-shell").getByRole("button", { name: "Save", exact: true }).click();
+    await page.locator('[data-connection-part="voice"]').getByRole("button", { name: "Save", exact: true }).click();
     await expect
       .poll(async () => (await (await request.get(`/api/connections/${id}`)).json()).audioTimeoutMs)
       .toBe(240_000);
-    await expect(page.locator(".mari-editor-shell").getByText("Unsaved", { exact: true })).toBeHidden();
     await capture("audio-connection-request-timeout");
     await expect(await openConnection()).toHaveValue("240");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

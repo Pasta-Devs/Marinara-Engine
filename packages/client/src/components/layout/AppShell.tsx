@@ -955,8 +955,6 @@ export function AppShell({
     ) : (
       <AgentEditor />
     )
-  ) : connectionDetailId ? (
-    <ConnectionEditor />
   ) : presetDetailId ? (
     <PresetEditor />
   ) : characterDetailId ? (
@@ -1755,6 +1753,12 @@ export function AppShell({
         />
       ) : null}
 
+      {/* The Starred model window opens over the page the user is on. */}
+      {connectionDetailId && (
+        <Suspense fallback={null}>
+          <ConnectionEditor />
+        </Suspense>
+      )}
       {/* First-time onboarding tutorial */}
       {!hasCompletedOnboarding && (
         <Suspense fallback={null}>

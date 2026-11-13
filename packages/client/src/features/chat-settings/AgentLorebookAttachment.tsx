@@ -4,8 +4,8 @@ import type { Chat } from "@marinara-engine/shared";
 import { useChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { readChatMetadata } from "../../lib/chat-wizard-defaults";
-import { AgentSettingsToggle } from "./AgentSettingsControls";
-import { LorebookPickerField } from "../ui/LibraryPickers";
+import { AgentSettingsToggle } from "../../components/chat/AgentSettingsControls";
+import { LorebookPickerField } from "../../components/ui/LibraryPickers";
 
 export function AgentLorebookAttachment({ chatId, agentType }: { chatId: string; agentType: string }) {
   const { t } = useTranslation();

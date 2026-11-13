@@ -38,10 +38,11 @@ import { useUIStore } from "../../../stores/ui.store";
 import { useSidecarStore } from "../../../stores/sidecar.store";
 import {} from "@marinara-engine/shared";
 import { flashConnectionCard, type AddFor, type ModelsFor } from "../../../lib/add-connection";
-import { jobAddKind } from "../../../lib/connection-jobs";
+import { JOB, jobAddKind, jobLabelKey } from "../../../lib/connection-jobs";
 import type { ModelKind } from "../../../lib/add-model-search";
 import { AccessStep } from "./AccessStep";
 import { ModelsStep } from "./ModelsStep";
+import { UseForStep } from "./UseForStep";
 import { ServiceListStep } from "./ServiceListStep";
 import { starAnchorOf } from "../../../hooks/use-model-star";
 import { isConnectionFlagTrue } from "../../../lib/connection-filters";
@@ -68,7 +69,6 @@ import {
   type AddableKind,
   type ChipKind,
   type ConnectionRowLite,
-  type DeviceService,
   type ModelPick,
   type ServiceId,
   type Target,
@@ -90,6 +90,9 @@ export interface CreateConnectionModalProps {
   onStartChat?: (connectionId?: string) => Promise<void>;
   /** Add for a job: step 1 starts filtered to it, and Done sets the new Model for it (with Undo). */
   forJob?: AddFor;
+  /** A found local server: its address and name are filled in on the address step. */
+  initialBaseUrl?: string;
+  initialName?: string;
 }
 
 /** A pasted "127.0.0.1:7999" is a valid address to the user; the server needs the scheme. */
@@ -103,6 +106,8 @@ export function CreateConnectionModalContent({
   newChatMode,
   onStartChat,
   forJob,
+  initialBaseUrl,
+  initialName,
 }: CreateConnectionModalProps) {
   const { t } = useTranslation();
   const { data: accounts } = useConnectionAccounts();
@@ -121,18 +126,16 @@ export function CreateConnectionModalContent({
   const setChatModel = useSetChatModel();
   const activeChatId = useChatStore((s) => s.activeChatId);
   const countModels = useCountConnectionModels();
-  const builtInReady = useSidecarStore((state) => state.modelDownloaded && state.inferenceReady);
   const builtInMain = useSidecarStore((state) => state.config.useAsMainDefault);
   const selectDecision = useSelectDecisionModel();
 
   // Old image/video deep links now land on real backend discovery instead of a generic credential form.
   const startingService =
     initialService === "image_generation" || initialService === "video_generation" ? null : (initialService ?? null);
-  const startDevice = isDevice(startingService) ? (startingService as DeviceService) : null;
   const startMedia = mediaBackendOf(startingService);
   const [service, setService] = useState<ServiceId | null>(startingService);
   const [provider, setProvider] = useState<APIProvider | null>(
-    startingService && !startDevice && !startMedia && startingService !== DECISION_BUILTIN
+    startingService && !startMedia && !isDevice(startingService) && startingService !== DECISION_BUILTIN
       ? (startingService as APIProvider)
       : startMedia
         ? startMedia.image
@@ -140,13 +143,12 @@ export function CreateConnectionModalContent({
           : "video_generation"
         : null,
   );
-  const [device, setDevice] = useState<DeviceService | null>(startDevice);
   const [step, setStep] = useState<1 | 2 | 3>(modelsFor ? 3 : startingService ? 2 : 1);
   const [target, setTarget] = useState<Target | null>(null);
   const [name, setName] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
-  const [baseUrl, setBaseUrl] = useState("");
+  const [baseUrl, setBaseUrl] = useState(initialBaseUrl ?? "");
   const [maxRpm, setMaxRpm] = useState("");
   const [maxJobs, setMaxJobs] = useState("");
   const [tested, setTested] = useState<TestResult | null>(null);
@@ -179,7 +181,7 @@ export function CreateConnectionModalContent({
   // A model chosen in step 1's search: step 3 starts on its kind and picks it once the list loads.
   const [want, setWant] = useState<{ model: string; kind: ModelKind } | null>(null);
   // A local server picked from its own tile names the form.
-  const [presetName, setPresetName] = useState<string | null>(null);
+  const [presetName, setPresetName] = useState<string | null>(initialName ?? null);
   // A service that is already connected: the user chose to connect a second account of it.
   // Step 3's footer; null = "Make Main" is on when there is no Main model yet.
   const [makeMain, setMakeMain] = useState<boolean | null>(null);
@@ -200,7 +202,9 @@ export function CreateConnectionModalContent({
   // LinkAPI rides the custom provider, but it is a hosted service with a key, not a local server.
   const isLocal = (provider === "custom" && service !== LINKAPI_SERVICE) || service === "decision:custom";
   const isMedia = !!provider && !isChatProvider(provider);
-  const busy = createAccount.isPending || updateAccount.isPending || testConnection.isPending;
+  // Mirrors savingRef so the buttons stay disabled until a failed check has also cleaned up.
+  const [saving, setSaving] = useState(false);
+  const busy = saving || createAccount.isPending || updateAccount.isPending || testConnection.isPending;
   const accessCheck = useAccessCheck({
     provider: step === 2 && !isMedia && !selectedMedia ? provider : null,
     // Check the address Save will store, so "localhost:11434/v1" works here too.
@@ -279,12 +283,43 @@ export function CreateConnectionModalContent({
   const makeMainOn = makeMain ?? !hasMain;
   // Adding for Main sets Main on Done, so the box would say the same thing twice.
   const offerMain = !hasMain && !alreadyMain && !modelsFor?.chat && job !== "main";
+  // The picker that opened Add waits for its job to be set; Undo restores the job's previous model.
+  const assignJob = (connectionId: string, model: string) => {
+    if (!jobFor?.assign) return;
+    jobFor.assign(connectionId);
+    toast.success(
+      t("connections.picker.nowUses", {
+        job: job ? t(jobLabelKey(JOB[job])) : t("connections.picker.model"),
+        model,
+      }),
+      {
+        duration: 8000,
+        action: { label: t("connections.switcher.undo"), onClick: () => jobFor.assign?.(jobFor.previous ?? null) },
+      },
+    );
+  };
   const applyChoices = async (includeMain = true) => {
+    const jobPick =
+      jobFor?.assign &&
+      picks.find(
+        (pick) =>
+          pick.kind ===
+          (kindFilter === "voice"
+            ? "voice"
+            : kindFilter === "decision"
+              ? "decision"
+              : kindFilter === "image"
+                ? "image"
+                : kindFilter === "video"
+                  ? "video"
+                  : "chat"),
+      );
+    if (jobPick) assignJob(jobPick.connectionId, modelName(jobPick.modelId));
     // Added for the Decision job ("Use this key for decisions", a feature with no Decision model): the model that
     // passed its test becomes the Decision model, with Undo, as a pick in "Model for Decision" does.
     const decisionPick = job === "decision" ? picks.find((pick) => pick.kind === "decision") : undefined;
     const previousDecision = decisionOptions.data?.selected ?? null;
-    if (decisionPick && decisionPick.connectionId !== previousDecision) {
+    if (decisionPick && !jobFor?.assign && decisionPick.connectionId !== previousDecision) {
       try {
         await selectDecision.mutateAsync(decisionPick.connectionId);
       } catch (error) {
@@ -302,7 +337,7 @@ export function CreateConnectionModalContent({
         },
       );
     }
-    if (!firstPick) return true;
+    if (!firstPick || jobPick) return true;
     if (includeMain && offerMain && makeMainOn) {
       try {
         // A first Main also becomes the Agents default when there is none, when the user chooses to make it Main.
@@ -441,7 +476,6 @@ export function CreateConnectionModalContent({
       setBaseUrl(LINKAPI.baseUrl);
       setName(LINKAPI.name);
     }
-    setDevice(isDevice(key) ? key : null);
     setStep(2);
   };
 
@@ -457,7 +491,6 @@ export function CreateConnectionModalContent({
     setWant(null);
     setProvider(null);
     setService(null);
-    setDevice(null);
     setStep(1);
   };
 
@@ -496,16 +529,31 @@ export function CreateConnectionModalContent({
     onClose();
   };
 
+  /** A saved, tested account goes on to "use for"; it is kept now, so closing never throws it away. */
+  const openUseFor = (current: Target) => {
+    setTarget({ ...current, fresh: false, ownedPlaceholderIds: [] });
+    setStep(3);
+  };
+  const finishUseFor = (applied: boolean) => {
+    if (!target) return;
+    if (!applied) return void finishAdded(target);
+    flashConnectionCard(target.accountId);
+    resetFields();
+    onClose();
+  };
+
   /** Creates the Connection with its empty first Model (or updates it on a retry), tests it, and on success goes on. */
   const savingRef = useRef(false);
   const saveAndTest = async (continueAnyway = false) => {
     // A fast double-click lands before the button disables, which saved the account twice.
     if (!provider || savingRef.current) return;
     savingRef.current = true;
+    setSaving(true);
     try {
       await saveAndTestOnce(continueAnyway);
     } finally {
       savingRef.current = false;
+      setSaving(false);
     }
   };
   const saveAndTestOnce = async (continueAnyway: boolean) => {
@@ -619,6 +667,8 @@ export function CreateConnectionModalContent({
                 ? { provider: "image_generation", imageGenerationSource: source, imageService: source }
                 : { provider: "video_generation", videoGenerationSource: source, videoService: source }),
         });
+        if (!forJob?.assign && !newChatMode) return openUseFor(current);
+        assignJob(current.connectionId, selectedMedia.name);
         await finishAdded(current);
         return;
       }
@@ -632,12 +682,13 @@ export function CreateConnectionModalContent({
       const available: AddableKind[] = service
         ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local")
         : ["chat"];
-      if (newChatMode || (!target && !hasMain && !modelsFor && !job)) {
+      // A job picker waits for a real model, so it picks one in step 3 like a new chat.
+      if (newChatMode || forJob?.assign) {
         setSetupKind(startKind(available));
-        if (!newChatMode && !hasMain && !modelsFor && !job) setMakeMain(true);
         setStep(3);
         return;
       }
+      if (!forJob?.assign && !modelsFor) return openUseFor(current);
       await finishAdded(current);
     } catch (error) {
       await discardFreshAccount();
@@ -750,9 +801,12 @@ export function CreateConnectionModalContent({
       ownedPlaceholderIds: placeholderId ? [placeholderId] : [],
       accountBaseUrl: account?.baseUrl,
     });
-    // Dedicated voice and decision rows use their editor for model/source options.
-    // Their service tiles do not supply the chat model picker used by the job steps.
-    if (row.provider === "audio" || row.provider === "decision") return editInstead(accountId, row.id);
+    // Old voice and decision rows have no models to add: their job's picker opens, not the Model window (#16).
+    if (row.provider === "audio" || row.provider === "decision") {
+      onClose();
+      useUIStore.getState().openModal("job-picker", { job: row.provider === "audio" ? "voice" : "decision" });
+      return;
+    }
     const supportedKinds = resolvedService
       ? kindsOf(resolvedService).filter((kind): kind is AddableKind => kind !== "local")
       : [];
@@ -832,29 +886,24 @@ export function CreateConnectionModalContent({
     modelId;
   const mediaRow = mediaRowId ? allRows.find((row) => row.id === mediaRowId) : undefined;
   const isJobKind = setupKind === "decision" || setupKind === "voice";
+  // A new account ends on "Found in <account> — use it for:" unless a job picker waits for it.
+  const useForStep = step === 3 && !newChatMode && !forJob?.assign && !modelsFor;
   // A chat service lists its own models for the job; the old Decision and Audio services keep theirs.
   const jobPicker = isJobKind && !!pickerRow && !!mediaRow && isChatProvider(pickerRow.provider ?? "");
-  // The built-in model does the jobs a small local model can do; the rest need a real model.
-  // The built-in model's own setup is the whole job.
-  const continueBuiltIn = () => {
-    toast.success(t("connections.add.added", { name: serviceName("local_model") }));
-    onClose();
-  };
   const finishModels = () => void close(true);
 
   const heading =
     step === 3
-      ? t("connections.add.heading.addModels", { name: targetName })
+      ? t(useForStep ? "connections.add.heading.connected" : "connections.add.heading.addModels", { name: targetName })
       : step === 1
         ? t("connections.add.heading.forProvider")
         : (presetName ?? serviceName(service ?? provider!));
-  // The account form names the account in the header; device and built-in screens have no name.
-  const nameInHeader =
-    step === 2 && !!provider && !device && service !== DECISION_BUILTIN && (!isMedia || !!selectedMedia);
+  // The account form names the account in the header; the lists have no name.
+  const nameInHeader = step === 2 && !!provider && (!isMedia || !!selectedMedia);
   const goBack =
     step === 2
       ? backToList
-      : step === 3 && !modelsFor && picks.length === 0
+      : step === 3 && !useForStep && !modelsFor && picks.length === 0
         ? target?.fresh
           ? () => setStep(2)
           : backToList
@@ -863,51 +912,36 @@ export function CreateConnectionModalContent({
   let footerLeft: ReactNode = null;
   let footerRight: ReactNode = null;
   if (step === 2) {
-    footerRight =
-      device || service === DECISION_BUILTIN ? (
-        device === "local_model" && builtInReady ? (
-          <button type="button" onClick={continueBuiltIn} className={PRIMARY_CLASS}>
-            {t("connections.add.continue")}
-          </button>
-        ) : (
+    footerRight = (
+      <div className="flex items-center gap-3">
+        {canContinueAnyway && (
           <button
             type="button"
-            onClick={onClose}
-            className={device === "local_model" ? SECONDARY_CLASS : PRIMARY_CLASS}
+            onClick={() => void saveAndTest(true)}
+            disabled={busy}
+            className="mari-chrome-control mari-chrome-control--small text-xs"
           >
-            {device === "local_model" ? t("connections.add.close") : t("connections.add.done")}
+            {t("connections.add.continueAnyway")}
           </button>
-        )
-      ) : (
-        <div className="flex items-center gap-3">
-          {canContinueAnyway && (
-            <button
-              type="button"
-              onClick={() => void saveAndTest(true)}
-              disabled={busy}
-              className="mari-chrome-control mari-chrome-control--small text-xs"
-            >
-              {t("connections.add.continueAnyway")}
-            </button>
+        )}
+        <button
+          type="button"
+          data-add-connection-connect
+          onClick={() => void saveAndTest(checkFailed)}
+          disabled={connectDisabled}
+          className={checkFailed ? SECONDARY_CLASS : PRIMARY_CLASS}
+        >
+          {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+          {t(
+            checkFailed
+              ? "connections.add.continueAnyway"
+              : failure
+                ? "connections.add.tryAgain"
+                : "connections.add.connect",
           )}
-          <button
-            type="button"
-            data-add-connection-connect
-            onClick={() => void saveAndTest(checkFailed)}
-            disabled={connectDisabled}
-            className={checkFailed ? SECONDARY_CLASS : PRIMARY_CLASS}
-          >
-            {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-            {t(
-              checkFailed
-                ? "connections.add.continueAnyway"
-                : failure
-                  ? "connections.add.tryAgain"
-                  : "connections.add.connect",
-            )}
-          </button>
-        </div>
-      );
+        </button>
+      </div>
+    );
   } else if (step === 3 && setupKind) {
     footerLeft = picks.length > 0 && (
       <p role="status" className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
@@ -962,8 +996,8 @@ export function CreateConnectionModalContent({
   // and the search field stays under the caret when typing switches to the tall results.
   const panelClass = cn(
     "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
-    // The key step fits its content; the lists and the built-in model keep the tall frame.
-    step === 2 && device !== "local_model" && service !== DECISION_BUILTIN ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
+    // The key step fits its content; the lists keep the tall frame.
+    step === 2 || useForStep ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
   );
 
   return (
@@ -972,7 +1006,7 @@ export function CreateConnectionModalContent({
       onClose={requestClose}
       // Picking models has no back step: its heading is the window title, not a second line under it.
       title={step === 3 && !goBack ? heading : t(modelsFor ? "connections.accounts.addModel" : "connections.add.title")}
-      width={step === 2 ? "max-w-xl" : "max-w-3xl lg:max-w-4xl"}
+      width={step === 2 || useForStep ? "max-w-xl" : "max-w-3xl lg:max-w-4xl"}
       mobileFullscreen
       opaque
       closeDisabled={closeBlocked}
@@ -1026,15 +1060,14 @@ export function CreateConnectionModalContent({
               setQuery={setQuery}
               chooseService={chooseService}
               choosePreset={choosePreset}
-              openDecisionServer={() => void chooseService(DECISION_BUILTIN)}
               serviceName={serviceName}
+              kind={kindFilter}
             />
           )}
           {step === 2 && (
             <AccessStep
               provider={provider}
               service={service}
-              device={device}
               selectedMedia={selectedMedia}
               def={def}
               closeBlocked={closeBlocked}
@@ -1059,11 +1092,20 @@ export function CreateConnectionModalContent({
               serviceName={serviceName}
               modelCount={modelCount}
               keyRef={keyRef}
-              onBuiltInDone={device === "local_model" && builtInReady ? continueBuiltIn : onClose}
             />
           )}
 
-          {
+          {useForStep && target && service ? (
+            <UseForStep
+              target={target}
+              service={service}
+              accounts={accounts}
+              accountName={targetName}
+              job={job}
+              serviceName={serviceName}
+              onFinish={finishUseFor}
+            />
+          ) : (
             <ModelsStep
               step={step}
               service={service}
@@ -1101,7 +1143,7 @@ export function CreateConnectionModalContent({
               onClose={onClose}
               recommended={recommended}
             />
-          }
+          )}
         </div>
 
         {step === 3 && firstPick && !chat && (
@@ -1152,8 +1194,7 @@ export function CreateConnectionModalContent({
           </div>
         )}
 
-        {/* The built-in model window brings its own footer. */}
-        {!(step === 2 && device === "local_model") && (
+        {!useForStep && (
           <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
             <div className="flex min-w-0 items-center gap-2">{footerLeft}</div>
             {footerRight}

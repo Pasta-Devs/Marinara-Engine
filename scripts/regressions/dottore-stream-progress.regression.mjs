@@ -477,13 +477,13 @@ class StreamProgress(unittest.TestCase):
             previous_dir = reviewer.os.getcwd()
             try:
                 reviewer.os.chdir(tree)
-                pathlib.Path("review.json").write_text(reviewer.json.dumps(report))
+                pathlib.Path("review.json").write_text(reviewer.json.dumps(report), "utf-8")
                 reviewer.render_review(NS(review_json="review.json", base=None, mode=None))
-                published = reviewer.json.loads(pathlib.Path("review.json").read_text())["published"]
-                inline = reviewer.json.loads(pathlib.Path("inline-comments.json").read_text())
+                published = reviewer.json.loads(pathlib.Path("review.json").read_text("utf-8"))["published"]
+                inline = reviewer.json.loads(pathlib.Path("inline-comments.json").read_text("utf-8"))
                 self.assertEqual(published, {"defects": 1, "notes": 0, "verdict": "Repair Required"})
                 self.assertEqual([(item["path"], item["line"]) for item in inline], [("f.py", 10)])
-                self.assertIn("Carried defect", pathlib.Path("review.md").read_text())
+                self.assertIn("Carried defect", pathlib.Path("review.md").read_text("utf-8"))
                 # A carried file can also be absent from the entire incremental diff.
                 with patch.object(reviewer, "touched_lines", side_effect=lambda base: full if base == "full-pr" else {"g.py": {"RIGHT": {20}, "LEFT": set()}}):
                     kept, _, _ = reviewer.validate_review_items(report, "previous", outside_ok=True)
@@ -588,7 +588,9 @@ class StreamProgress(unittest.TestCase):
 
 unittest.main(argv=["dottore-stream-progress"], verbosity=2)
 `;
-const result = spawnSync(python, ["-c", proof, reviewer], {
+// The proof goes in on stdin ("-"): as a -c argument it passes Windows' 32,767-character command-line limit.
+const result = spawnSync(python, ["-", reviewer], {
+  input: proof,
   encoding: "utf8",
   timeout: 10_000,
   env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },

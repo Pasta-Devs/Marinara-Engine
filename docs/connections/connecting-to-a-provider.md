@@ -15,12 +15,14 @@ Before you start, get an API key from a service you want to use. The **Add accou
 Most services ask you to sign up, and some ask you to add credit, before a key works. For other services, see [Supported AI Providers](providers-reference.md). To use a model on your own computer with no key, see [Built-in Model Setup](local-model.md).
 
 1. Click **Connections** in the top bar. The panel opens on the right. If you have no accounts yet, it asks **Where do your models come from?** and shows a few services. Click a service (not **Built-in model**). The **Add account** window opens on the key step. Go to step 4.
-2. Click **Add**. The **Add account** window opens.
-3. Click the service you want. Type in the box labeled **Search providers** to find it. The list has the sections **Chat**, **Images & video**, **Voice**, and **Decisions**. For a normal chat model, look under **Chat**.
+2. Click **Add**. The **Add account** window opens with one list of services.
+3. Click the service you want. Type in the box labeled **Search providers** to find it, or click **Text**, **Image**, **Video** or **Voice** to show only services that make that type. Each tile lists the types its service offers.
 4. Click **API key** and paste your key. Click the eye button to check that you pasted all of it.
 5. Click **Connect**. Marinara tests the key. When it works, you see **Connected** with the number of models it found.
-6. What happens next depends on whether you already have a Main model. Main is the job of writing your chat replies.
+6. Under **Found in … — use it for:**, each row is one job, such as **Main** or **Images**. Tick the jobs that should use the model Marinara found. If the service has no model list, type the model ID in the row. Click **Done**, or click **Skip** to keep the account without giving it a job.
+7. What happens next depends on whether you already have a Main model. Main is the job of writing your chat replies.
    - **No Main model yet, or you opened Add from a new chat:** the window shows the service's models. **Recommended** models are at the top. Click a model to add it, or type a name in **Search or enter model ID…**. If you do not know which to choose, take a **Recommended** one. You can change it later. Keep **Make … my Main model** checked. It shows only when you have no Main model. When you opened Add from a new chat and already have a Main model, a **Set … as Main** button shows instead. Then click **Done**, or **Start chatting** from a new chat.
+   - **You opened Add from a job picker:** the window closes and Marinara returns you to that job, with the new model in its list.
    - **You already have a Main model:** the window closes and a message says the account was added with its number of models. To add more models, click **⋯** on the account and choose **Add model**.
 
 The panel shows your account. **Connected** in step 5 already means the key works. If the new model is your Main model, start a chat and send a message: a reply means everything works. If you already had a Main model, new chats still use it. To use the new account, add a model to it (**⋯** → **Add model**), then choose that model for a chat or a job (see [Choosing the model for each job](#choosing-the-model-for-each-job)).
@@ -66,12 +68,12 @@ A job is something a model does for you. The **Jobs** box lists them in four gro
 | --- | --- |
 | **Chat** | **Main** writes replies in your chats. **Agents** runs the helper agents. **Impersonate** writes as you. |
 | **Omnibar** | **Professor Mari** and **Quick answers**. |
-| **Pictures & sound** | **Images**, **Video**, **Voice (Text to Speech)**, and **Dictation (Speech to Text)** when it is available. |
+| **Pictures & sound** | **Images**, **Video**, **Voice**, and **Dictation** when it is available. |
 | **Behind the scenes** | **Decision**, **Embeddings**, and **Image reading**. |
 
-Each row shows the model doing that job, or what the job does without one, such as **Follows Main** or **Off**. A job that needs a model shows **Choose a model**. Click **Jobs** to fold the box.
+Each row shows the model doing that job, or what the job does without one, such as **Follows Main** or **Off**. An empty job shows **N models found** with **Pick**, or **None in your accounts** with **Add**. The picker lists the models of every account that fit the job. **Add** opens the **Add account** window and returns you to the job. Click **Jobs** to fold the box.
 
-To change the model for a job, click its row. **Model for** that job opens, except for three rows. **Decision** and **Embeddings** open their own controls (see [Decision Models](decision-models.md) and [Supported AI Providers](providers-reference.md#embeddings)). **Dictation (Speech to Text)** opens speech setup.
+To change the model for a job, click its row. **Model for** that job opens, except for three rows. **Decision** and **Embeddings** open their own controls (see [Decision Models](decision-models.md) and [Supported AI Providers](providers-reference.md#embeddings)). **Dictation** opens speech setup. **Voice** and **Dictation** also have a gear that opens their settings window. Picking a **Voice** model turns text to speech on.
 
 In **Model for**:
 

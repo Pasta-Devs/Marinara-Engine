@@ -37,7 +37,7 @@ For **SwarmUI**, Marinara fills in `http://127.0.0.1:7801`. Paste an API-format 
 
 ### Make it the default video model
 
-To use a video model when a chat has none of its own, set the **Video** job under **Defaults** at the top of the **Connections** panel. Chat Settings shows it as **Default video provider**. Without a chat model and without a default, video actions warn you to pick one.
+To use a video model when a chat has none of its own, set the **Video** job in the **Jobs** box at the top of the **Connections** panel. Chat Settings shows it as **Default video provider**. Without a chat model and without a default, video actions warn you to pick one.
 
 ### Video prompting instructions
 

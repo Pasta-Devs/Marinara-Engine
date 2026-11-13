@@ -67,7 +67,7 @@ On Android, this setting is on by default when you do not set it.
 
 ## Use the model for decisions
 
-The same model can answer decision questions, such as agent activation checks, without loading a second copy. Click **⋯** on the model in the panel and choose **Use this model for decisions**. It shows for an OpenAI-compatible model that has a model name. See [Decision Models](decision-models.md#on-a-server-you-already-run).
+The same model can answer decision questions, such as agent activation checks, without loading a second copy. Click **⋯** on the model in the panel and choose **Use for…** → **Decision**. It shows for an OpenAI-compatible model that has a model name. See [Decision Models](decision-models.md#on-a-server-you-already-run).
 
 ## Treat as local/custom endpoint
 
