@@ -19,6 +19,7 @@ import {
   drawWeatherTint,
   populateWeatherParticles,
   resolveWeatherRenderConfig,
+  paintedWeatherRenderConfig,
   shelterWeatherRenderConfig,
   weatherCanvasScaleCap,
   type WeatherBolt,
@@ -38,6 +39,8 @@ interface WeatherEffectsProps {
   paused?: boolean;
   /** "indoors": the weather stays outside (only its colour and lightning light come in). */
   shelter?: SceneShelter;
+  /** The chat background is a weather version of this weather, so the picture already shows it. */
+  paintedWeather?: boolean;
 }
 
 // ═══════════════════════════════════════════════
@@ -50,6 +53,7 @@ export function WeatherEffects({
   showCelestial = true,
   paused: pausedByCaller = false,
   shelter = "",
+  paintedWeather = false,
 }: WeatherEffectsProps) {
   const reduceAmbientEffects = useReducedAmbientEffects();
   const reducedPaintEffects = useUIStore((state) => state.roleplayReducedPaintEffects);
@@ -58,7 +62,8 @@ export function WeatherEffects({
   const covered = useSurfaceCovered(canvasRef, !reduceAmbientEffects);
   const paused = pausedByCaller || covered;
   const themeLook = useThemeWeatherLook(!reduceAmbientEffects);
-  const indoors = shelter === "indoors";
+  // A painted weather version counts as indoors unless the scene is known to be outdoors.
+  const indoors = shelter === "indoors" || (paintedWeather && shelter !== "outdoors");
   const look = useMemo<WeatherLook>(() => {
     const painted = reducedPaintEffects ? { ...themeLook, flat: true } : themeLook;
     // A drawn bolt would cross the room; indoors only the flash comes through the windows.
@@ -78,8 +83,11 @@ export function WeatherEffects({
   }, [paused]);
 
   const config = useMemo(() => {
-    return shelterWeatherRenderConfig(resolveWeatherRenderConfig(weather, timeOfDay), shelter);
-  }, [weather, timeOfDay, shelter]);
+    const resolved = resolveWeatherRenderConfig(weather, timeOfDay);
+    return paintedWeather
+      ? paintedWeatherRenderConfig(resolved, shelter)
+      : shelterWeatherRenderConfig(resolved, shelter);
+  }, [weather, timeOfDay, shelter, paintedWeather]);
 
   // Weather-aware theme art: `<html data-mari-weather="rain" data-mari-sky="night">` while this chat's weather
   // shows. Both are words from a fixed list (never the story's own text), so a theme can match its backdrop.
