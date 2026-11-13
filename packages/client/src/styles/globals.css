@@ -9161,10 +9161,11 @@ html[data-marinara-reduced-effects="true"] .mari-window {
 
 /* Off-screen chat rows skip style and layout, so an accent tick (or any root variable write)
    restyles only the rows in view. `auto` in contain-intrinsic-size remembers a row's measured
-   height once it has rendered, so the scrollbar and scroll anchoring stay put. A row that is
-   streaming, hovered, focused or among the last few is rendered in full (a row that mounts at the
-   bottom, such as a finished reply, would otherwise render at its estimate first and jump the scroll), since paint containment would clip
-   its menus and overhanging controls. */
+   height once it has rendered, so the scrollbar and scroll anchoring stay put. Paint containment
+   applies to every matched row, so a streaming, hovered or focused row is rendered in full to keep
+   its menus and overhanging controls unclipped. The last few rows are rendered in full because a
+   row that mounts at the bottom (a finished reply) would otherwise render at its estimate first
+   and jump the scroll. */
 [data-message-id] {
   content-visibility: auto;
   contain-intrinsic-size: auto 6rem;
