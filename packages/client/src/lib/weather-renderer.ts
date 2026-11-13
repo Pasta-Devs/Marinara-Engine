@@ -658,8 +658,10 @@ export function shelterWeatherRenderConfig(config: WeatherRenderConfig, shelter:
  */
 export function paintedWeatherRenderConfig(config: WeatherRenderConfig, shelter: SceneShelter): WeatherRenderConfig {
   if (shelter !== "outdoors") return shelterWeatherRenderConfig(config, "indoors");
-  if (config.type === "fog") return { ...config, type: "dust", count: 0 };
-  return { ...config, count: Math.round(config.count / 3) };
+  // The painted sky already has its own sun or moon (or clouds hiding them).
+  const sky = { celestial: "none" as const, sunRays: false };
+  if (config.type === "fog") return { ...config, ...sky, type: "dust", count: 0 };
+  return { ...config, ...sky, count: Math.round(config.count / 3) };
 }
 
 function weatherPeriod(time: ReturnType<typeof parseTime>): WeatherPeriod | "" {
