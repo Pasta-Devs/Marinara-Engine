@@ -1056,21 +1056,13 @@ export async function charactersRoutes(app: FastifyInstance) {
       favoriteFilter?: string;
     };
   }>("/", async (req) => {
-    const includeBuiltIn = req.query.includeBuiltIn === "true";
-    const page = parseLibraryPageQuery(req.query);
-    if (page.hasPaging) {
-      return storage.listPage({
-        includeBuiltIn,
-        limit: page.limit,
-        offset: page.offset,
-        search: page.search,
-        sort: page.sort,
-        favoriteFilter: page.favoriteFilter,
-      });
-    }
-    const characters = await storage.list();
-    if (includeBuiltIn) return characters;
-    return characters.filter((character) => character.id !== PROFESSOR_MARI_ID);
+    // #9114: every response is one bounded page. The unpaged branch returned the whole library as a single
+    // JSON string, and a 21k-card library passed V8's string ceiling, so the request failed with an
+    // invalid-length error before any bytes were written. Callers that want the library drain the pages.
+    return storage.listPage({
+      includeBuiltIn: req.query.includeBuiltIn === "true",
+      ...parseLibraryPageQuery(req.query),
+    });
   });
 
   app.get<{

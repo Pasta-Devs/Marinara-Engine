@@ -128,6 +128,7 @@ import { showLocalMessageNotification, showNativeMessageNotification } from "../
 import {
   followTranscriptGrowth,
   isProfessorMariTranscriptNearBottom,
+  landProfessorMariTranscript,
   scrollProfessorMariTranscriptToBottom,
   transcriptScrollAction,
 } from "../../lib/professor-mari-transcript-scroll";
@@ -519,7 +520,7 @@ export function HomeProfessorMariChat({
   const messagesRef = useRef<Message[]>(messages);
   const messageLoadAbortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const transcriptScrollFrameRef = useRef<number | null>(null);
+  const landingCleanupRef = useRef<(() => void) | null>(null);
   const suggestionFocusFrameRef = useRef<number | null>(null);
   const transcriptFollowOutputRef = useRef(true);
   // M4: right after reserving the turn's height, "top of the question" and "bottom of the page" can be
@@ -566,10 +567,8 @@ export function HomeProfessorMariChat({
     () => () => {
       messageLoadAbortRef.current?.abort();
       messageLoadAbortRef.current = null;
-      if (transcriptScrollFrameRef.current !== null) {
-        window.cancelAnimationFrame(transcriptScrollFrameRef.current);
-        transcriptScrollFrameRef.current = null;
-      }
+      landingCleanupRef.current?.();
+      landingCleanupRef.current = null;
       if (suggestionFocusFrameRef.current !== null) {
         window.cancelAnimationFrame(suggestionFocusFrameRef.current);
         suggestionFocusFrameRef.current = null;
@@ -603,38 +602,32 @@ export function HomeProfessorMariChat({
     (node: HTMLDivElement | null) => {
       scrollRef.current = node;
       const cancelLanding = () => {
-        if (transcriptScrollFrameRef.current === null) return;
-        window.cancelAnimationFrame(transcriptScrollFrameRef.current);
-        transcriptScrollFrameRef.current = null;
+        if (!landingCleanupRef.current) return;
+        landingCleanupRef.current();
+        landingCleanupRef.current = null;
       };
       if (!node) {
         // A landing cut off before it finished (a detach, StrictMode's double attach) lands again.
-        if (transcriptScrollFrameRef.current !== null) landedTranscriptRef.current = null;
+        if (landingCleanupRef.current) landedTranscriptRef.current = null;
         return cancelLanding();
       }
       if (!chatId || loadedMessagesChatId !== chatId) return;
       if (landedTranscriptRef.current?.node === node && landedTranscriptRef.current.chatId === chatId) return;
       cancelLanding();
       landedTranscriptRef.current = { node, chatId };
-      // Older turns off screen have only an estimated height (content-visibility, mari.css). The ones the
-      // bottom brings into view take their real height a frame later and push the newest turn down, so pin
-      // again each frame until the height holds. While her window is still hidden (a cached thread is
-      // there from its first render) the transcript has no height yet, so it waits for one.
-      let pinnedHeight = -1;
-      let frames = 0;
-      const land = () => {
-        transcriptScrollFrameRef.current = null;
-        if (scrollRef.current !== node || frames++ > 60) return;
-        if (node.clientHeight > 0) {
-          if (node.scrollHeight === pinnedHeight) return;
-          pinnedHeight = node.scrollHeight;
-          transcriptFollowOutputRef.current = true;
-          scrollProfessorMariTranscriptToBottom(node);
-        }
-        transcriptScrollFrameRef.current = window.requestAnimationFrame(land);
-      };
+      // Older turns off screen have only an estimated height (content-visibility, mari.css), and the ones
+      // the bottom brings into view measure frames later (#9115), so the pin keeps its budget; see
+      // landProfessorMariTranscript. It is cancelled when this node, the chat or her window changes.
       transcriptFollowOutputRef.current = true;
-      transcriptScrollFrameRef.current = window.requestAnimationFrame(land);
+      const stopLanding = landProfessorMariTranscript(
+        node,
+        (frame) => window.requestAnimationFrame(frame),
+        (handle) => window.cancelAnimationFrame(handle),
+        () => {
+          transcriptFollowOutputRef.current = true;
+        },
+      );
+      landingCleanupRef.current = stopLanding;
     },
     [chatId, loadedMessagesChatId],
   );

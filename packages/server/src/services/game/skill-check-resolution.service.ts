@@ -1871,7 +1871,18 @@ function claimsRulesetDice(tag: SkillCheckTag): boolean {
 /** Whether a complete tag's numbers are the ones this ruleset and this sheet would have produced.
  *  A GM that writes its own modifier has not rolled the character's check, however tidy the sum. */
 function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag): boolean {
-  const resolution = ruleset.definition.resolution;
+  // A check the ruleset rolls its own way (1.140) is audited under the resolution it actually rolls with,
+  // not the ruleset's own: an override that adds two named dice (1.821) or a plot die (1.822) changes what
+  // the record must carry, and the clauses below have to see it.
+  const overridden = rulesetDefinitionForCheck(
+    ruleset.definition,
+    rulesetCheckOverride(
+      ruleset.definition,
+      rulesetCheckTargetFor(ruleset, tag.skill, tag.who, tag.withAbility, tag.purpose),
+      (ref) => (rulesetCheckValueFor(ruleset, ref, tag.who) ?? 0) !== 0,
+    ),
+  );
+  const resolution = overridden.resolution;
   // A pool is never vouched for. Its numbers are auditable, but a handful of dice has so many
   // consistent outcomes that an audit constrains nothing: the model could pick eight favourable
   // faces and count them correctly. So a pool check is always the Engine's own roll.

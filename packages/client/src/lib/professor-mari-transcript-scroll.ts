@@ -15,6 +15,62 @@ export function scrollProfessorMariTranscriptToBottom(container: ProfessorMariTr
 }
 
 /**
+ * #9115: pin a newly opened transcript to its newest line until its height holds still. Older turns off
+ * screen have only an estimated height (content-visibility), and the ones the bottom brings into view take
+ * their real height a frame or more later, pushing the newest line down again, and her window animates its
+ * height for a few hundred milliseconds as it opens - so both the content height and the viewport height
+ * move after the first pin, and only a geometry that holds still ends the loop. It stops as soon as the
+ * transcript moves without it (the reader scrolling), so it never pulls a reader back. A hidden transcript
+ * (no height yet) waits for one. Returns the cancel.
+ */
+export function landProfessorMariTranscript(
+  node: HTMLElement,
+  schedule: (frame: () => void) => number,
+  cancel: (handle: number) => void,
+  onPinned?: () => void,
+  frames = 120,
+  stableFrames = 6,
+): () => void {
+  let handle: number | null = null;
+  let geometry = "";
+  let stable = 0;
+  // The card's opening position is not a scroll the reader made: the bottom test applies only after a pin.
+  let pinned = false;
+  let pinnedTop = node.scrollTop;
+  let moved = false;
+  let used = 0;
+  const land = () => {
+    handle = null;
+    if (moved || used++ > frames) return;
+    if (node.clientHeight > 0) {
+      // A transcript the reader has scrolled up from leaves its newest line below the fold. Growth below
+      // that line leaves the position alone (the pin moves it back itself), and a viewport that grows lets
+      // the browser clamp the position down to the new bottom - neither is the reader, so the test is
+      // "is the newest line still on screen", not "is the position where I left it" (#9115, Dottore MEDIUM).
+      // Where the last pin left the transcript, or the bottom it clamped to when the viewport grew - any
+      // other position is the reader.
+      if (pinned) moved = node.scrollTop !== pinnedTop && node.scrollTop !== node.scrollHeight - node.clientHeight;
+      if (moved) return;
+      const next = `${node.scrollHeight}:${node.clientHeight}`;
+      if (next === geometry && ++stable >= stableFrames) return;
+      if (next !== geometry) stable = 0;
+      geometry = next;
+      scrollProfessorMariTranscriptToBottom(node);
+      pinned = true;
+      pinnedTop = node.scrollTop;
+      onPinned?.();
+    }
+    handle = schedule(land);
+  };
+  handle = schedule(land);
+  return () => {
+    if (handle !== null) cancel(handle);
+    handle = null;
+    moved = true;
+  };
+}
+
+/**
  * While the reader follows the newest output, keep the transcript pinned to the bottom on every size
  * change of its content, not only when state changes. Content that grows smoothly (Mari's live reply
  * animates its height) then pushes the older lines up smoothly too, instead of sliding out of view.

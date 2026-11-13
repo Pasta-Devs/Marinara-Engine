@@ -42,9 +42,8 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { DescriptionSplitDialog } from "../characters/DescriptionSplitDialog";
 import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
-import { characterKeys } from "../../hooks/use-characters";
+import { characterKeys, fetchAllCharacterPages } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
-import { api } from "../../lib/api-client";
 import { parsePngCharacterCard } from "../../lib/png-parser";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
@@ -357,7 +356,8 @@ async function filterPersonaImportTags(sourceTags: string[], mode: TagImportMode
   if (mode === "all" || sourceTags.length === 0) return sourceTags;
   if (mode === "none") return [];
 
-  const characters = await api.get<Array<{ data?: unknown }>>("/characters");
+  // #9114: one page per request; the whole library is drained for the tag comparison.
+  const characters = await fetchAllCharacterPages<{ data?: unknown }>();
   const existingTagKeys = new Set(
     characters
       .flatMap((character) => readCardTags(optionalRecord(character.data)?.tags))
