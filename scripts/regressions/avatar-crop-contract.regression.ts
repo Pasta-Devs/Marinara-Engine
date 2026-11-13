@@ -305,10 +305,14 @@ assert.match(
 );
 
 // ── 10. Drawer/wizard reuse decoded crop boundaries ──
-const drawerSource = readFileSync(
-  join(repoRoot, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
-  "utf8",
-);
+// Chat Settings' sections live beside the drawer, so these checks read the drawer and every section.
+const chatSettingsDir = join(repoRoot, "packages/client/src/features/chat-settings");
+const drawerSource = [
+  join(chatSettingsDir, "ChatSettingsDrawer.tsx"),
+  ...readdirSync(join(chatSettingsDir, "sections")).map((name) => join(chatSettingsDir, "sections", name)),
+]
+  .map((path) => readFileSync(path, "utf8"))
+  .join("\n");
 // The wizards pick through the shared CharacterSelect list, so its rows carry the decoded crops.
 const wizardSource = readFileSync(
   join(repoRoot, "packages/client/src/components/characters/CharacterPickerList.tsx"),
