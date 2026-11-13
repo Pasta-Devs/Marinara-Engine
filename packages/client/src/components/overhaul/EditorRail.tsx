@@ -234,11 +234,13 @@ export function EditorRail({
   const [tagDraft, setTagDraft] = useState("");
   const [tagOpen, setTagOpen] = useState(false);
 
-  const commitTag = () => {
+  // Enter/comma adds the tag and keeps the box open (and the keyboard up) for the next one;
+  // Enter on an empty box, blur or Escape closes it.
+  const commitTag = (keepOpen = false) => {
     const value = tagDraft.trim();
     if (value && onAddTag) onAddTag(value);
     setTagDraft("");
-    setTagOpen(false);
+    if (!keepOpen || !value) setTagOpen(false);
   };
 
   const jumpToElement = (id: string) => {
@@ -316,11 +318,11 @@ export function EditorRail({
               className="ov-tag ov-tag--input"
               value={tagDraft}
               onChange={(event) => setTagDraft(event.target.value)}
-              onBlur={commitTag}
+              onBlur={() => commitTag()}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === ",") {
                   event.preventDefault();
-                  commitTag();
+                  commitTag(true);
                 } else if (event.key === "Escape") {
                   setTagDraft("");
                   setTagOpen(false);

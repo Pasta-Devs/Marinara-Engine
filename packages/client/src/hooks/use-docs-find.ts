@@ -22,28 +22,50 @@ export function useDocsFind(container: HTMLElement | null, revision: unknown, te
       setMarks([]);
       return;
     }
-    const needle = term.toLowerCase();
-    if (needle.length !== term.length) {
+    const phrase = term.toLowerCase();
+    if (phrase.length !== term.length) {
       setMarks([]);
       return;
     }
-    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        const parent = node.parentElement;
-        if (!parent || parent.closest(".docs-copy-button, mark.docs-search-mark, figure")) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        const text = node.textContent ?? "";
-        const lower = text.toLowerCase();
-        // A few characters grow when lower-cased (İ), which would shift the offsets.
-        if (lower.length !== text.length) return NodeFilter.FILTER_REJECT;
-        return lower.includes(needle) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-      },
-    });
-    const targets: Text[] = [];
-    for (let node = walker.nextNode(); node && targets.length < MAX_MARKS; node = walker.nextNode()) {
-      targets.push(node as Text);
+    // The search that found this guide matches words anywhere in it, so when the whole
+    // phrase never appears, fall back to highlighting each word (3+ letters) on its own.
+    const collect = (needles: string[]) => {
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          const parent = node.parentElement;
+          if (!parent || parent.closest(".docs-copy-button, mark.docs-search-mark, figure")) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          const text = node.textContent ?? "";
+          const lower = text.toLowerCase();
+          // A few characters grow when lower-cased (İ), which would shift the offsets.
+          if (lower.length !== text.length) return NodeFilter.FILTER_REJECT;
+          return needles.some((needle) => lower.includes(needle)) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        },
+      });
+      const found: Text[] = [];
+      for (let node = walker.nextNode(); node && found.length < MAX_MARKS; node = walker.nextNode()) {
+        found.push(node as Text);
+      }
+      return found;
+    };
+    let needles = [phrase];
+    let targets = collect(needles);
+    if (!targets.length) {
+      const words = [...new Set(phrase.split(/\s+/).filter((word) => word.length >= 3))];
+      if (words.length > 1) {
+        needles = words;
+        targets = collect(needles);
+      }
     }
+    const nextHit = (lower: string, from: number) => {
+      let best: { at: number; length: number } | null = null;
+      for (const needle of needles) {
+        const at = lower.indexOf(needle, from);
+        if (at !== -1 && (!best || at < best.at)) best = { at, length: needle.length };
+      }
+      return best;
+    };
     const created: HTMLElement[] = [];
     const parents = new Set<Node>();
     for (const textNode of targets) {
@@ -51,14 +73,14 @@ export function useDocsFind(container: HTMLElement | null, revision: unknown, te
       const lower = text.toLowerCase();
       const frag = document.createDocumentFragment();
       let last = 0;
-      for (let i = lower.indexOf(needle); i !== -1 && created.length < MAX_MARKS; i = lower.indexOf(needle, last)) {
-        if (i > last) frag.appendChild(document.createTextNode(text.slice(last, i)));
+      for (let hit = nextHit(lower, 0); hit && created.length < MAX_MARKS; hit = nextHit(lower, last)) {
+        if (hit.at > last) frag.appendChild(document.createTextNode(text.slice(last, hit.at)));
         const mark = document.createElement("mark");
         mark.className = "docs-search-mark";
-        mark.textContent = text.slice(i, i + needle.length);
+        mark.textContent = text.slice(hit.at, hit.at + hit.length);
         frag.appendChild(mark);
         created.push(mark);
-        last = i + needle.length;
+        last = hit.at + hit.length;
       }
       if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
       const parent = textNode.parentNode;

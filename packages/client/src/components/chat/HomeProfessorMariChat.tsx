@@ -604,9 +604,26 @@ export function HomeProfessorMariChat({
   // land again: a cached thread is on screen from the first render, and the node it landed in can be
   // replaced right after mount.
   const landedTranscriptRef = useRef<{ node: HTMLDivElement; chatId: string } | null>(null);
+  // While she is followed to the bottom, a transcript that gets shorter from below (the keyboard
+  // opening, the composer growing) keeps her newest line in view.
+  const transcriptShrinkObserverRef = useRef<{ node: HTMLDivElement; observer: ResizeObserver } | null>(null);
   const setTranscriptScrollNode = useCallback(
     (node: HTMLDivElement | null) => {
       scrollRef.current = node;
+      if (transcriptShrinkObserverRef.current?.node !== node) {
+        transcriptShrinkObserverRef.current?.observer.disconnect();
+        transcriptShrinkObserverRef.current = null;
+        if (node && typeof ResizeObserver !== "undefined") {
+          let height = node.clientHeight;
+          const observer = new ResizeObserver(() => {
+            const shrank = height > 0 && node.clientHeight > 0 && node.clientHeight < height;
+            height = node.clientHeight;
+            if (shrank && transcriptFollowOutputRef.current) scrollProfessorMariTranscriptToBottom(node);
+          });
+          observer.observe(node);
+          transcriptShrinkObserverRef.current = { node, observer };
+        }
+      }
       const cancelLanding = () => {
         if (transcriptScrollFrameRef.current === null) return;
         window.cancelAnimationFrame(transcriptScrollFrameRef.current);
@@ -703,8 +720,10 @@ export function HomeProfessorMariChat({
     if (!window.matchMedia("(pointer: coarse)").matches) focusComposer();
   }, [focusComposer]);
 
+  // Opening her window puts the caret in her box, except on touch: there it would raise the keyboard
+  // over her latest answer before you've read it. A tap on the box brings it up.
   useEffect(() => {
-    if (controlledChatWindowOpen) focusComposer();
+    if (controlledChatWindowOpen && !window.matchMedia("(pointer: coarse)").matches) focusComposer();
   }, [controlledChatWindowOpen, focusComposer]);
 
   useLayoutEffect(() => {
@@ -888,7 +907,7 @@ export function HomeProfessorMariChat({
         setRecovery(null);
       }
       setChatWindowOpen(true);
-      focusComposer();
+      if (!window.matchMedia("(pointer: coarse)").matches) focusComposer();
     },
     [focusComposer, setChatWindowOpen, setDraft, setRecovery],
   );

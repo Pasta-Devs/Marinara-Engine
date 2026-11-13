@@ -2681,6 +2681,15 @@
   border: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--ov-line) 60%, transparent);
 }
+/* Narrow phones: table cells wrapped inside words ("Glob al"). Wrap only at spaces; a table wider than
+   the page scrolls sideways in its wrapper instead, and the first column keeps room for a short label. */
+.ov-docs .ov-docs__content .mari-md-table :is(th, td) {
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.ov-docs .ov-docs__content .mari-md-table :is(th, td):first-child {
+  min-width: 5rem;
+}
 .ov-docs .ov-docs__content .mari-md-table th {
   border-bottom-color: var(--ov-line);
   background: color-mix(in srgb, var(--ov-text) 4%, transparent);
@@ -3219,6 +3228,16 @@
   border-radius: 0.3125rem;
   color: var(--ov-muted);
   font-size: 0.75rem;
+}
+.ov-recent button.ov-recent__all {
+  display: flex;
+  justify-content: center;
+  color: var(--ov-accent-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.ov-recent__all-label {
+  padding: 0.5rem 0;
 }
 .ov-recent__time {
   white-space: nowrap;

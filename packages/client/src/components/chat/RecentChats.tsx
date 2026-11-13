@@ -13,6 +13,7 @@ import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { usePrefetchChatMessages } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
+import { useUIStore } from "../../stores/ui.store";
 import { useTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { ChatModeIcon } from "./ChatModeIcon";
@@ -231,9 +232,21 @@ export function RecentChats() {
   }
 
   if (overhaul) {
+    // One row per chat and its branches (the newest of them), so a branch doesn't show as a second
+    // row with the same name. When more chats than rows exist, the last row opens the full list.
+    const seenGroups = new Set<string>();
+    const rows = recentChats.filter(({ chat }) => {
+      const key = chat.groupId ?? chat.id;
+      if (seenGroups.has(key)) return false;
+      seenGroups.add(key);
+      return true;
+    });
+    const limit = Math.min(12, fitRows);
+    const more = rows.length > limit;
+    const shown = rows.slice(0, more ? Math.max(1, limit - 1) : limit);
     return (
       <ul ref={listRef} className="ov-recent" data-component="RecentChats" data-variant="list">
-        {recentChats.slice(0, Math.min(12, fitRows)).map(({ chat }) => {
+        {shown.map(({ chat }) => {
           const mode = MODE_BADGE[chat.mode];
           const characterId = chat.characterIds.find((id) => characterLookup.has(id)) ?? null;
           const character = characterId ? characterLookup.get(characterId) : null;
@@ -271,6 +284,13 @@ export function RecentChats() {
             </li>
           );
         })}
+        {more && (
+          <li>
+            <button type="button" className="ov-recent__all" onClick={() => useUIStore.getState().setSidebarOpen(true)}>
+              <span className="ov-recent__all-label">{t("home.recentChats.seeAll", "See all chats")}</span>
+            </button>
+          </li>
+        )}
       </ul>
     );
   }
