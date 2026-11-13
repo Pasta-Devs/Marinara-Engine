@@ -651,6 +651,17 @@ export function shelterWeatherRenderConfig(config: WeatherRenderConfig, shelter:
   };
 }
 
+/**
+ * The chat background already shows this weather (a weather version of the picture): the picture
+ * carries it. Unless the scene is known to be outdoors, nothing falls (the weather is in the window);
+ * outdoors, no fog banks and a third of the particles, so the painted rain or snow isn't doubled.
+ */
+export function paintedWeatherRenderConfig(config: WeatherRenderConfig, shelter: SceneShelter): WeatherRenderConfig {
+  if (shelter !== "outdoors") return shelterWeatherRenderConfig(config, "indoors");
+  if (config.type === "fog") return { ...config, type: "dust", count: 0 };
+  return { ...config, count: Math.round(config.count / 3) };
+}
+
 function weatherPeriod(time: ReturnType<typeof parseTime>): WeatherPeriod | "" {
   if (time.celestial === "moon") return "night";
   if (time.sunsetGlow) return "dusk";

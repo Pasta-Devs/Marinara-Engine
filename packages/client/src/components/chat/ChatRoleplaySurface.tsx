@@ -71,7 +71,12 @@ import {
   useUIStore,
 } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
-import { useSceneShelter } from "../../hooks/use-scene-shelter";
+import {
+  backgroundFileName,
+  backgroundShowsWeather,
+  readChatBackground,
+  useSceneShelter,
+} from "../../hooks/use-scene-shelter";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useChatComposerFocused, useChatKeyboardOpen } from "../../hooks/use-visual-viewport-chat-bottom";
 import { useActiveLorebookEntries, useLorebooks } from "../../hooks/use-lorebooks";
@@ -275,9 +280,20 @@ function WeatherEffectsConnected({ paused }: { paused: boolean }) {
   const chatId = useChatStore((s) => s.activeChat?.id ?? null);
   const chatMetadata = useChatStore((s) => s.activeChat?.metadata);
   const shelter = useSceneShelter(chatId, chatMetadata, location);
+  const shownBackground = useUIStore((s) => s.chatBackground);
+  const paintedWeather = backgroundShowsWeather(
+    backgroundFileName(shownBackground) ?? readChatBackground(chatMetadata),
+    weather,
+  );
   return (
     <Suspense fallback={null}>
-      <WeatherEffects weather={weather} timeOfDay={timeOfDay} paused={paused} shelter={shelter} />
+      <WeatherEffects
+        weather={weather}
+        timeOfDay={timeOfDay}
+        paused={paused}
+        shelter={shelter}
+        paintedWeather={paintedWeather}
+      />
     </Suspense>
   );
 }

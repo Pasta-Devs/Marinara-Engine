@@ -11,7 +11,7 @@ const bgDir = join(dataDir, "backgrounds");
 mkdirSync(bgDir, { recursive: true });
 
 const shared = await import("../../packages/shared/src/utils/scene-weather.js");
-const { resolveWeatherRenderConfig, shelterWeatherRenderConfig } =
+const { paintedWeatherRenderConfig, resolveWeatherRenderConfig, shelterWeatherRenderConfig } =
   await import("../../packages/client/src/lib/weather-renderer.js");
 const { planChatBackgroundWeather, chatBackgroundPlainPicture, isChatBackgroundWeatherVersion } =
   await import("../../packages/server/src/services/game/game-asset-generation.js");
@@ -54,6 +54,26 @@ assert.equal(
   "dust",
   "no fog banks indoors",
 );
+
+// ── The picture already shows the weather ──
+const { backgroundShowsWeather, backgroundFileName } =
+  await import("../../packages/client/src/hooks/use-scene-shelter.js");
+assert.equal(backgroundFileName("/api/backgrounds/file/old%20inn--wx-rain.png"), "old inn--wx-rain.png");
+assert.equal(backgroundShowsWeather("inn--wx-rain.png", "light rain"), true);
+assert.equal(backgroundShowsWeather("inn--wx-rain.png", "snow"), false, "an outdated version doesn't count");
+assert.equal(backgroundShowsWeather("inn.png", "rain"), false);
+assert.equal(backgroundShowsWeather("inn--wx-clear.png", "sunny"), false);
+const rain = resolveWeatherRenderConfig("heavy rain", "noon");
+assert.equal(
+  paintedWeatherRenderConfig(rain, "").count,
+  0,
+  "unknown shelter + painted weather: nothing falls (a window)",
+);
+assert.equal(paintedWeatherRenderConfig(rain, "indoors").count, 0);
+assert.equal(paintedWeatherRenderConfig(rain, "outdoors").count, Math.round(rain.count / 3), "outdoors: thinner");
+const fog = resolveWeatherRenderConfig("thick fog", "noon");
+assert.equal(paintedWeatherRenderConfig(fog, "outdoors").type, "dust", "no fog banks over painted fog");
+assert.equal(paintedWeatherRenderConfig(fog, "outdoors").count, 0);
 
 // ── File names ──
 assert.deepEqual(shared.parseBackgroundWeatherVersionName("generated-old-inn--wx-rain.png"), {
