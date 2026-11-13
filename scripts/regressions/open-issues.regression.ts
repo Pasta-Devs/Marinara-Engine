@@ -9573,8 +9573,12 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
     "utf8",
   );
+  const memoryRecallSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/sections/MemoryRecallSection.tsx"),
+    "utf8",
+  );
   assert.match(
-    chatSettingsSource,
+    memoryRecallSource,
     /<SettingsSwitch[\s\S]{0,220}checked=\{effectiveValue\}/u,
     "Memory Recall must expose its switch state to assistive technology",
   );

@@ -208,8 +208,10 @@ assert.match(
   /<SettingsSwitch\s+label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.addTurnToPrompt"\)\}/u,
   "Add Turn To Prompt must use the shared Settings toggle",
 );
+const memoryRecallSection = readSource("packages/client/src/features/chat-settings/sections/MemoryRecallSection.tsx");
 const memoryRecallAccessButton =
-  chatSettingsDrawer.match(/<button\b(?:(?!<button\b)[\s\S])*?accessMemoriesForThisChat[\s\S]*?<\/button>/u)?.[0] ?? "";
+  memoryRecallSection.match(/<button\b(?:(?!<button\b)[\s\S])*?accessMemoriesForThisChat[\s\S]*?<\/button>/u)?.[0] ??
+  "";
 assert.match(
   memoryRecallAccessButton,
   /className="mari-chrome-control\b/u,

@@ -2,18 +2,7 @@ import { ChatButtonLayoutSettings } from "./ChatButtonLayoutSettings";
 // ──────────────────────────────────────────────
 // Chat: Settings Drawer — per-chat configuration
 // ──────────────────────────────────────────────
-import {
-  Fragment,
-  lazy,
-  Suspense,
-  useState,
-  useRef,
-  useEffect,
-  useMemo,
-  useCallback,
-  useId,
-  type ReactNode,
-} from "react";
+import { Fragment, lazy, Suspense, useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from "react";
 import { useQuery, useQueryClient, useQueries } from "@tanstack/react-query";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -48,7 +37,6 @@ import {
   Settings2,
   Info,
   Archive,
-  Brain,
   Feather,
   Paintbrush,
   Activity,
@@ -97,6 +85,7 @@ import { SettingsProfilesSection } from "./sections/SettingsProfilesSection";
 import { ConnectedChatsSection } from "./sections/ConnectedChatsSection";
 import { AutonomousMessagingSection } from "./sections/AutonomousMessagingSection";
 import { AutomaticSummarizationSection } from "./sections/AutomaticSummarizationSection";
+import { MemoryRecallSection } from "./sections/MemoryRecallSection";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
@@ -170,8 +159,6 @@ import { ChoiceSelectionModal } from "../../components/presets/ChoiceSelectionMo
 import { CharacterOnboardingModal } from "../../components/characters/CharacterOnboardingModal";
 import { SecretPlotPanel } from "../../components/agents/SecretPlotPanel";
 import { SummariesEditorModal } from "./SummariesEditorModal";
-import { AdvancedMemorySettings } from "../../components/chat/AdvancedMemorySettings";
-import { AdvancedMemoryInspector } from "../../components/chat/AdvancedMemoryInspector";
 import { useAdvancedMemoryStatus } from "../../hooks/use-advanced-memory";
 import { AgentSuiteModal } from "./AgentSuiteModal";
 import { RoleplayMessagePreview } from "../../components/chat/ChatMessage";
@@ -3502,7 +3489,6 @@ export function ChatSettingsDrawer({
     const problems = advancedMemoryStatus.data ? advancedMemoryProblems(advancedMemoryStatus.data) : null;
     return !!problems && problems.fixSceneIds.length + problems.reviewSceneIds.length > 0;
   }, [advancedMemoryStatus.data]);
-  const advancedMemoryAttentionId = useId();
   const [inlineResourceEditor, setInlineResourceEditor] = useState<{
     kind: "character" | "persona" | "lorebook";
     id: string;
@@ -4301,74 +4287,6 @@ export function ChatSettingsDrawer({
     setEditingName(false);
   };
 
-  const renderMemoryRecallControls = (defaultOn: boolean) => {
-    const effectiveValue =
-      !advancedMemoryEnabled &&
-      (metadata.enableMemoryRecall !== undefined ? metadata.enableMemoryRecall === true : defaultOn);
-    return (
-      <div className="space-y-2">
-        <SettingsSwitch
-          label={localizeUi("ui.chat.chatsettingsdrawer.enableMemoryRecall")}
-          description={localizeUi("ui.chat.chatsettingsdrawer.recallRelevantFragmentsFromEarlierInThisChatAnd")}
-          checked={effectiveValue}
-          onChange={(enableMemoryRecall) => updateMeta.mutate({ id: chat.id, enableMemoryRecall })}
-          labelPosition="start"
-          className={cn(
-            "justify-between rounded-md px-3 py-2.5 text-left",
-            effectiveValue
-              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-          )}
-          labelClassName="text-[0.6875rem] font-medium"
-        />
-        {advancedMemoryAvailable && (
-          <AdvancedMemorySettings
-            chatId={chat.id}
-            metadataSettings={metadata.advancedMemory}
-            gameMode={isGame}
-            individual={!isGame && groupChatMode === "individual"}
-            characters={chatCharIds.map((id) => ({ id, name: charNameMap.get(id) ?? id }))}
-            hasHistory={!!chat.lastMessageAt}
-          />
-        )}
-        <button
-          type="button"
-          onClick={() =>
-            setMemoryView((current) =>
-              advancedMemoryEnabled ? (current === "advanced" ? null : "advanced") : "standard",
-            )
-          }
-          className="mari-chrome-control relative flex min-h-9 w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium disabled:opacity-50"
-          aria-expanded={advancedMemoryEnabled ? memoryView === "advanced" : undefined}
-          aria-describedby={advancedMemoryEnabled && advancedMemoryNeedsReview ? advancedMemoryAttentionId : undefined}
-        >
-          <Brain size="0.75rem" />
-          {localizeUi("ui.chat.chatsettingsdrawer.accessMemoriesForThisChat")}
-          {advancedMemoryEnabled && advancedMemoryNeedsReview && (
-            // The theme's accent held steady marks scenes that need attention.
-            <span
-              data-advanced-memory-attention
-              aria-hidden="true"
-              className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--marinara-app-accent-static)]"
-            />
-          )}
-        </button>
-        {advancedMemoryEnabled && advancedMemoryNeedsReview && (
-          <span id={advancedMemoryAttentionId} className="sr-only">
-            {localizeUi("chat.advancedMemory.fix.scenesNeedAttention")}
-          </span>
-        )}
-        {advancedMemoryEnabled && memoryView === "advanced" && (
-          <AdvancedMemoryInspector
-            chatId={chat.id}
-            individual={!isGame && groupChatMode === "individual"}
-            characters={chatCharIds.map((id) => ({ id, name: charNameMap.get(id) ?? id }))}
-          />
-        )}
-      </div>
-    );
-  };
-
   const renderCustomAgentPicker = ({ showWhenEmpty = false }: { showWhenEmpty?: boolean } = {}) => {
     if (customAgents.length === 0 && !showWhenEmpty) return null;
     return (
@@ -4702,6 +4620,25 @@ export function ChatSettingsDrawer({
   if (!open) return null;
   // Only the loaded settings add the Chat Settings classes below; themes and select styling target them.
   const windowProps = getChatSettingsWindowProps(anchor);
+  // Memory recall renders in two places, so keyboard order stays as before in every mode.
+  const memoryRecallSectionProps = {
+    order: CHAT_SETTINGS_ORDER.memoryRecall,
+    chat,
+    metadata,
+    chatMode,
+    isConversation,
+    isRoleplayMode,
+    isGame,
+    initialSection,
+    groupChatMode,
+    chatCharIds,
+    charNameMap,
+    memoryView,
+    setMemoryView,
+    advancedMemoryAvailable,
+    advancedMemoryEnabled,
+    advancedMemoryNeedsReview,
+  };
   const helpLayoutButton =
     showHelpLayout && !chatHelpButtonHidden ? (
       <span data-chat-help="help" className="inline-flex">
@@ -8343,15 +8280,7 @@ export function ChatSettingsDrawer({
 
           {/* Memory Recall — conversation mode: placed before Function Calling by section order */}
           {isConversation && import.meta.env.VITE_MARINARA_LITE !== "true" && (
-            <Section
-              id="conversation-memory-recall"
-              style={{ order: CHAT_SETTINGS_ORDER.memoryRecall }}
-              label={localizeUi("ui.chat.chatsettingsdrawer.memoryRecall")}
-              icon={<Brain size="0.875rem" />}
-              help={localizeUi("ui.chat.chatsettingsdrawer.whenEnabledRelevantFragmentsFromThisChatAreAutomatically")}
-            >
-              {renderMemoryRecallControls(true)}
-            </Section>
+            <MemoryRecallSection {...memoryRecallSectionProps} />
           )}
 
           {/* Automatic Summarization — conversation mode only. Opens a modal to edit per-day and per-week summaries. */}
@@ -8425,20 +8354,7 @@ export function ChatSettingsDrawer({
 
           {/* Memory Recall — roleplay/game modes: placed before Function Calling by section order */}
           {!isConversation && import.meta.env.VITE_MARINARA_LITE !== "true" && (
-            <Section
-              id={`${chatMode}-memory-recall`}
-              forceOpen={initialSection === "memory-recall"}
-              style={{ order: CHAT_SETTINGS_ORDER.memoryRecall }}
-              label={localizeUi("ui.chat.chatsettingsdrawer.memoryRecall")}
-              icon={<Brain size="0.875rem" />}
-              help={localizeUi(
-                isRoleplayMode
-                  ? "chat.advancedMemory.recallHelp"
-                  : "ui.chat.chatsettingsdrawer.whenEnabledRelevantFragmentsFromThisChatAreAutomatically",
-              )}
-            >
-              {renderMemoryRecallControls(metadata.sceneStatus === "active")}
-            </Section>
+            <MemoryRecallSection {...memoryRecallSectionProps} />
           )}
 
           <div style={{ order: CHAT_SETTINGS_ORDER.translation }}>
