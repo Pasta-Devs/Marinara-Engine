@@ -4,7 +4,14 @@
 import { existsSync, lstatSync } from "node:fs";
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import { inferImageSource, isOpenAIGptImageModel, type ImagePromptKind } from "@marinara-engine/shared";
+import {
+  inferImageSource,
+  isOpenAIGptImageModel,
+  MAX_THEME_META_BYTES,
+  themeMetaSchema,
+  type ImagePromptKind,
+  type ThemeMeta,
+} from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
 import { realPathInAppFolder } from "../../utils/app-folder.js";
@@ -26,6 +33,7 @@ import { generateImage, type ImageGenResult } from "../image/image-generation.js
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
+import type { ImageGenerationDefaultsProfile } from "@marinara-engine/shared";
 import { resolveImageConnectionFallback } from "../generation/media-connection-fallback.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
@@ -35,6 +43,10 @@ import { createCharacterGalleryStorage } from "../storage/character-gallery.stor
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { buildAssetManifest } from "../game/asset-manifest.service.js";
 import type { MariDbCommandResult } from "@marinara-engine/shared";
+import { createThemesStorage } from "../storage/themes.storage.js";
+import { isStarterThemeId } from "../storage/starter-themes.js";
+import { themeImageName, themePackageImage } from "../image/theme-package-image.js";
+import { adjustPicture, parseHexColour, type PictureAdjustments } from "../image/picture-adjust.js";
 import { deleteChatGalleryImageEverywhere } from "../image/chat-gallery-cascade-deletion.js";
 import {
   collectPersonaAvatarPaths,
@@ -94,7 +106,7 @@ type MariImageAsset = {
   url: string;
   mimeType: string;
   ext: string;
-  operation: "generate" | "edit";
+  operation: "generate" | "edit" | "adjust";
   kind: ImagePromptKind;
   prompt: string;
   negativePrompt: string;
@@ -128,9 +140,21 @@ type ImageTarget =
   | { type: "sprite"; ownerId: string; expression: string }
   | { type: "background"; filename?: string | null; name?: string | null; tags: string[] }
   | { type: "chat-gallery"; chatId: string; imageId?: string | null }
-  | { type: "character-gallery"; characterId: string; imageId?: string | null };
+  | { type: "character-gallery"; characterId: string; imageId?: string | null }
+  | { type: "theme-image"; themeId: string; name: string };
 
-const BOOLEAN_FLAGS = new Set(["apply", "help", "edit", "generate", "json", "delete-file", "force"]);
+const BOOLEAN_FLAGS = new Set([
+  "apply",
+  "help",
+  "edit",
+  "generate",
+  "json",
+  "delete-file",
+  "force",
+  "trim",
+  "everywhere",
+  "verbatim",
+]);
 const PREVIEW_CHAT_ID = "mari-images";
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const PREVIEW_DIR = join(GALLERY_DIR, PREVIEW_CHAT_ID);
@@ -187,6 +211,101 @@ function flagNumber(flags: Map<string, string | boolean>, name: string, fallback
   return Number.isFinite(parsed) ? Math.round(parsed) : fallback;
 }
 
+/** The `mari images adjust` flags, checked before any picture is read. */
+export function pictureAdjustments(flags: Map<string, string | boolean>): PictureAdjustments {
+  const adjust: PictureAdjustments = {};
+  const crop = flagString(flags, "crop");
+  if (crop !== undefined) {
+    const parts = crop.split(/[,\s]+/).filter(Boolean);
+    if (parts.length !== 4)
+      throw new Error("--crop takes left,top,width,height in pixels or %, e.g. --crop 0,10%,100%,80%");
+    adjust.crop = { left: parts[0]!, top: parts[1]!, width: parts[2]!, height: parts[3]! };
+  }
+  if (hasFlag(flags, "trim")) adjust.trim = true;
+  const transparent = flagString(flags, "transparent", "remove-background");
+  if (transparent !== undefined) adjust.transparent = transparent;
+  else if (hasFlag(flags, "transparent") || hasFlag(flags, "remove-background")) adjust.transparent = "auto";
+  if (adjust.transparent && adjust.transparent.toLowerCase() !== "auto") parseHexColour(adjust.transparent);
+  const tolerance = flagString(flags, "tolerance");
+  if (tolerance !== undefined) {
+    const value = Number(tolerance);
+    if (!Number.isFinite(value) || value < 0 || value > 255) throw new Error("--tolerance takes 0 to 255");
+    adjust.tolerance = value;
+  }
+  if (hasFlag(flags, "everywhere")) adjust.everywhere = true;
+  const resize = flagString(flags, "resize");
+  const width = flagString(flags, "width");
+  const height = flagString(flags, "height");
+  if (resize !== undefined || width !== undefined || height !== undefined) {
+    let w: number | undefined;
+    let h: number | undefined;
+    if (resize !== undefined) {
+      const match = resize.trim().match(/^(\d+)?\s*[x×]\s*(\d+)?$|^(\d+)$/i);
+      if (!match)
+        throw new Error(
+          "--resize takes WIDTHxHEIGHT (either may be left out, e.g. 512x) or one number for the longest side",
+        );
+      if (match[3]) {
+        w = Number(match[3]);
+        h = Number(match[3]);
+      } else {
+        w = match[1] ? Number(match[1]) : undefined;
+        h = match[2] ? Number(match[2]) : undefined;
+      }
+    }
+    if (width !== undefined) w = Number(width);
+    if (height !== undefined) h = Number(height);
+    if (w === undefined && h === undefined) throw new Error("--resize needs a width, a height or both");
+    const fit = (flagString(flags, "fit") ?? "inside").toLowerCase();
+    if (fit !== "inside" && fit !== "cover" && fit !== "fill") throw new Error("--fit takes inside, cover or fill");
+    adjust.resize = { width: w, height: h, fit };
+  }
+  const flip = flagString(flags, "flip")?.toLowerCase();
+  if (flip !== undefined) {
+    const map: Record<string, PictureAdjustments["flip"]> = {
+      h: "horizontal",
+      horizontal: "horizontal",
+      x: "horizontal",
+      v: "vertical",
+      vertical: "vertical",
+      y: "vertical",
+      both: "both",
+    };
+    if (!map[flip]) throw new Error("--flip takes horizontal, vertical or both");
+    adjust.flip = map[flip];
+  } else if (hasFlag(flags, "flip")) adjust.flip = "horizontal";
+  const rotate = flagString(flags, "rotate");
+  if (rotate !== undefined) {
+    const angle = ((Number(rotate) % 360) + 360) % 360;
+    if (angle !== 90 && angle !== 180 && angle !== 270) throw new Error("--rotate takes 90, 180 or 270");
+    adjust.rotate = angle;
+  }
+  const tint = flagString(flags, "tint");
+  if (tint !== undefined) {
+    parseHexColour(tint);
+    adjust.tint = tint;
+  }
+  if (Object.keys(adjust).length === 0) {
+    throw new Error(
+      "Say what to change: --crop, --trim, --transparent [auto|#hex], --resize, --flip, --rotate or --tint",
+    );
+  }
+  return adjust;
+}
+
+export const MAX_IMAGE_VERSIONS = 4;
+
+/** `--count <n>`: how many versions one generate/edit makes (1 to 4, one request each). */
+export function imageCount(flags: Map<string, string | boolean>): number {
+  const raw = flagString(flags, "count", "n");
+  if (raw === undefined) return 1;
+  const count = Number(raw);
+  if (!Number.isInteger(count) || count < 1 || count > MAX_IMAGE_VERSIONS) {
+    throw new Error(`--count takes a whole number from 1 to ${MAX_IMAGE_VERSIONS}`);
+  }
+  return count;
+}
+
 function normalizeId(value: string | undefined | null) {
   const trimmed = value?.trim() ?? "";
   return trimmed.length > 0 ? trimmed : null;
@@ -239,6 +358,56 @@ function parseTags(raw: string | undefined): string[] {
         .filter(Boolean),
     ),
   ];
+}
+
+/**
+ * Theme art (and anything Mari asks for with --verbatim) goes to the provider exactly as Mari wrote
+ * it. A user's image style profiles, prompt prefixes, LoRAs and NovelAI style reference are almost
+ * always set up for character art, so they would pull a backdrop or a button frame towards a
+ * portrait. Technical settings (sampler, steps, seed, size, quality) stay as the connection has them.
+ */
+export function verbatimImageDefaults(
+  defaults: ImageGenerationDefaultsProfile | null,
+): ImageGenerationDefaultsProfile | null {
+  if (!defaults) return null;
+  const { styleProfileId: _styleProfileId, ...rest } = defaults;
+  return {
+    ...rest,
+    ...(rest.automatic1111
+      ? { automatic1111: { ...rest.automatic1111, promptPrefix: "", negativePromptPrefix: "" } }
+      : {}),
+    ...(rest.comfyui ? { comfyui: { ...rest.comfyui, promptPrefix: "", negativePromptPrefix: "", loras: [] } } : {}),
+    ...(rest.novelai
+      ? { novelai: { ...rest.novelai, promptPrefix: "", negativePromptPrefix: "", styleReferenceImage: null } }
+      : {}),
+  };
+}
+
+export function mariImagePrompt(args: {
+  verbatim: boolean;
+  kind: ImagePromptKind;
+  prompt: string;
+  negativePrompt: string;
+  styleProfiles: Parameters<typeof compileImagePrompt>[0]["styleProfiles"];
+  styleProfileId?: string;
+  imageDefaults: ImageGenerationDefaultsProfile | null;
+}): { prompt: string; negativePrompt: string; imageDefaults: ImageGenerationDefaultsProfile | null } {
+  if (args.verbatim) {
+    return {
+      prompt: args.prompt,
+      negativePrompt: args.negativePrompt.trim(),
+      imageDefaults: verbatimImageDefaults(args.imageDefaults),
+    };
+  }
+  const compiled = compileImagePrompt({
+    kind: args.kind,
+    prompt: args.prompt,
+    negativePrompt: args.negativePrompt,
+    styleProfiles: args.styleProfiles,
+    styleProfileId: args.styleProfileId,
+    imageDefaults: args.imageDefaults,
+  });
+  return { prompt: compiled.prompt, negativePrompt: compiled.negativePrompt, imageDefaults: args.imageDefaults };
 }
 
 function detectImageKind(target: ImageTarget | null, explicit?: string): ImagePromptKind {
@@ -460,14 +629,15 @@ async function writeManifest(assets: MariImageAsset[]) {
 
 async function savePreviewAsset(args: {
   result: ImageGenResult;
-  operation: "generate" | "edit";
+  operation: "generate" | "edit" | "adjust";
   kind: ImagePromptKind;
   prompt: string;
   negativePrompt: string;
   width?: number;
   height?: number;
-  connection: ImageConnection;
-  capability: ImageCapability;
+  /** Absent for `adjust`, which runs in the app without an image connection. */
+  connection?: ImageConnection;
+  capability?: ImageCapability;
   sourceImage?: string | null;
 }) {
   // Read first, so a refused manifest leaves no unlisted image behind.
@@ -493,12 +663,12 @@ async function savePreviewAsset(args: {
     negativePrompt: args.negativePrompt,
     width: args.width ?? null,
     height: args.height ?? null,
-    connectionId: args.connection.id,
-    connectionName: args.connection.name,
-    provider: args.connection.provider,
-    source: args.capability.source,
-    serviceHint: args.capability.serviceHint,
-    model: args.connection.model || "",
+    connectionId: args.connection?.id ?? "",
+    connectionName: args.connection?.name ?? "",
+    provider: args.connection?.provider ?? "",
+    source: args.capability?.source ?? "",
+    serviceHint: args.capability?.serviceHint ?? "",
+    model: args.connection?.model || "",
     sourceImage: args.sourceImage ?? null,
     createdAt: now(),
   };
@@ -668,6 +838,10 @@ export class MariImagesService {
         return this.generateOrEdit("generate", context, parsed.flags);
       case "edit":
         return this.generateOrEdit("edit", context, parsed.flags);
+      case "adjust":
+      case "crop":
+      case "transform":
+        return this.adjust(context, parsed.flags);
       case "assign":
       case "add":
       case "replace":
@@ -770,14 +944,16 @@ export class MariImagesService {
     const negativePrompt = flagString(flags, "negative", "negative-prompt") ?? "";
     const kind = detectImageKind(target, flagString(flags, "kind"));
     const imageSettings = await loadImageGenerationUserSettings(this.db);
-    const imageDefaults = resolveConnectionImageDefaults(connection);
-    const compiled = compileImagePrompt({
+    const connectionImageDefaults = resolveConnectionImageDefaults(connection);
+    const verbatim = target?.type === "theme-image" || hasFlag(flags, "verbatim");
+    const compiled = mariImagePrompt({
+      verbatim,
       kind,
       prompt,
       negativePrompt,
       styleProfiles: imageSettings.styleProfiles,
       styleProfileId: flagString(flags, "style-profile", "style-profile-id"),
-      imageDefaults,
+      imageDefaults: connectionImageDefaults,
     });
     const size = this.resolveSize(flags, kind, imageSettings);
     const source = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
@@ -803,6 +979,7 @@ export class MariImagesService {
         height: size.height,
         prompt: compiled.prompt,
         negativePrompt: compiled.negativePrompt,
+        verbatim,
       },
     };
   }
@@ -815,6 +992,7 @@ export class MariImagesService {
     const target = this.parseTarget(flags, false);
     const prompt = flagString(flags, "prompt")?.trim() ?? "";
     if (!prompt) throw new Error("Missing --prompt <text>");
+    const count = imageCount(flags);
     const negativePrompt = flagString(flags, "negative", "negative-prompt") ?? "";
     const connection = await this.getConnection(flagString(flags, "connection", "connection-id"), operation === "edit");
     const capability = capabilityForConnection(connection);
@@ -824,49 +1002,69 @@ export class MariImagesService {
 
     const sourceImage = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
     const imageSettings = await loadImageGenerationUserSettings(this.db);
-    const imageDefaults = resolveConnectionImageDefaults(connection);
+    const connectionImageDefaults = resolveConnectionImageDefaults(connection);
     const kind = detectImageKind(target, flagString(flags, "kind"));
     const size = this.resolveSize(flags, kind, imageSettings);
-    const compiled = compileImagePrompt({
+    const verbatim = target?.type === "theme-image" || hasFlag(flags, "verbatim");
+    const compiled = mariImagePrompt({
+      verbatim,
       kind,
       prompt,
       negativePrompt,
       styleProfiles: imageSettings.styleProfiles,
       styleProfileId: flagString(flags, "style-profile", "style-profile-id"),
-      imageDefaults,
+      imageDefaults: connectionImageDefaults,
     });
+    const imageDefaults = compiled.imageDefaults;
 
     const imgModel = connection.model || "";
     const imgBaseUrl = connection.baseUrl || "https://image.pollinations.ai";
     const imgSource = connection.imageGenerationSource || imgModel;
     const imgServiceHint = connection.imageService || imgSource;
     const fallback = await resolveImageConnectionFallback(createConnectionsStorage(this.db), connection.id);
-    const result = await generateImage(imgSource, imgBaseUrl, connection.apiKey || "", imgServiceHint, {
-      prompt: compiled.prompt,
-      negativePrompt: compiled.negativePrompt || undefined,
-      model: imgModel || undefined,
-      width: size.width,
-      height: size.height,
-      referenceImage: sourceImage?.base64,
-      imageEndpointId: connection.imageEndpointId || undefined,
-      comfyWorkflow: connection.comfyuiWorkflow || undefined,
-      imageDefaults,
-      quality: resolveConnectionImageQuality(connection),
-      fallback,
-    });
-
-    const asset = await savePreviewAsset({
-      result,
-      operation,
-      kind,
-      prompt: compiled.prompt,
-      negativePrompt: compiled.negativePrompt,
-      width: size.width,
-      height: size.height,
-      connection,
-      capability,
-      sourceImage: sourceImage?.label ?? null,
-    });
+    const assets: MariImageAsset[] = [];
+    let failure: string | null = null;
+    // One request per version, one after another: providers rate-limit parallel calls, and a
+    // fixed seed is stepped so the versions differ.
+    for (let index = 0; index < count; index += 1) {
+      try {
+        const versionDefaults =
+          index > 0 && imageDefaults && imageDefaults.seed >= 0
+            ? { ...imageDefaults, seed: imageDefaults.seed + index }
+            : imageDefaults;
+        const result = await generateImage(imgSource, imgBaseUrl, connection.apiKey || "", imgServiceHint, {
+          prompt: compiled.prompt,
+          negativePrompt: compiled.negativePrompt || undefined,
+          model: imgModel || undefined,
+          width: size.width,
+          height: size.height,
+          referenceImage: sourceImage?.base64,
+          imageEndpointId: connection.imageEndpointId || undefined,
+          comfyWorkflow: connection.comfyuiWorkflow || undefined,
+          imageDefaults: versionDefaults,
+          quality: resolveConnectionImageQuality(connection),
+          fallback,
+        });
+        assets.push(
+          await savePreviewAsset({
+            result,
+            operation,
+            kind,
+            prompt: compiled.prompt,
+            negativePrompt: compiled.negativePrompt,
+            width: size.width,
+            height: size.height,
+            connection,
+            capability,
+            sourceImage: sourceImage?.label ?? null,
+          }),
+        );
+      } catch (error) {
+        if (assets.length === 0) throw error;
+        failure = error instanceof Error ? error.message : String(error);
+        break;
+      }
+    }
 
     return {
       ok: true,
@@ -876,8 +1074,54 @@ export class MariImagesService {
         saved: true,
         assigned: false,
         message:
-          "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
+          assets.length > 1
+            ? `${assets.length} versions created as preview assets. None is assigned anywhere yet. Show them to the user and use mari images assign on the one they pick.`
+            : "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
+        asset: assets[0],
+        ...(count > 1 ? { assets } : {}),
+        ...(failure ? { stoppedEarly: `Made ${assets.length} of ${count}; the next one failed: ${failure}` } : {}),
+        targetSuggestion: target,
+        ...(verbatim
+          ? {
+              promptSentAsWritten:
+                "Sent exactly as written: the user's image style profiles, prompt prefixes, LoRAs and style reference were left out.",
+            }
+          : {}),
+      },
+    };
+  }
+
+  private async adjust(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+  ): Promise<MariDbCommandResult> {
+    const adjustments = pictureAdjustments(flags);
+    const target = this.parseTarget(flags, false);
+    const source = await this.resolveSourceImage(flags, target, context, true);
+    const adjusted = await adjustPicture(source.buffer, adjustments);
+    const asset = await savePreviewAsset({
+      result: { base64: adjusted.buffer.toString("base64"), mimeType: "image/png", ext: "png" },
+      operation: "adjust",
+      kind: source.asset?.kind ?? detectImageKind(target, flagString(flags, "kind")),
+      prompt: source.asset?.prompt ?? "",
+      negativePrompt: source.asset?.negativePrompt ?? "",
+      width: adjusted.width,
+      height: adjusted.height,
+      sourceImage: source.label,
+    });
+    return {
+      ok: true,
+      mode: "read",
+      command: context.command,
+      output: {
+        saved: true,
+        assigned: false,
+        message:
+          "Adjusted copy saved as a new preview asset; the original is unchanged. Show it to the user, then use mari images assign on the one they want.",
         asset,
+        steps: adjusted.steps,
+        width: adjusted.width,
+        height: adjusted.height,
         targetSuggestion: target,
       },
     };
@@ -916,7 +1160,7 @@ export class MariImagesService {
     if (!target) {
       if (required)
         throw new Error(
-          "Missing --target <character-avatar|persona-avatar|lorebook-image|sprite|background|chat-gallery|character-gallery|asset>",
+          "Missing --target <character-avatar|persona-avatar|lorebook-image|sprite|background|chat-gallery|character-gallery|theme-image|asset>",
         );
       return null;
     }
@@ -970,6 +1214,15 @@ export class MariImagesService {
         const characterId = normalizeId(flagString(flags, "character", "character-id", "id"));
         if (!characterId) throw new Error("character-gallery target requires --character <id>");
         return { type: "character-gallery", characterId, imageId: normalizeId(flagString(flags, "image", "image-id")) };
+      }
+      case "theme-image":
+      case "theme": {
+        const themeId = normalizeId(flagString(flags, "theme", "theme-id", "id"));
+        if (!themeId) throw new Error("theme-image target requires --theme <theme id> and --name <picture>.webp");
+        const rawName = flagString(flags, "name", "image", "filename");
+        if (!rawName)
+          throw new Error('theme-image target requires --name <picture>.webp (the CSS uses url("theme:<name>"))');
+        return { type: "theme-image", themeId, name: themeImageName(rawName) };
       }
       default:
         throw new Error(`Unknown image target: ${target}`);
@@ -1045,6 +1298,11 @@ export class MariImagesService {
         return this.characterGalleryImageUrl(target.characterId, target.imageId);
       case "asset":
         return target.assetId ?? null;
+      case "theme-image": {
+        const theme = await createThemesStorage(this.db).getById(target.themeId);
+        if (!theme) throw new Error(`Theme not found: ${target.themeId}`);
+        return theme.meta?.images?.find((image) => image.name === target.name)?.src ?? null;
+      }
     }
   }
 
@@ -1159,7 +1417,58 @@ export class MariImagesService {
         return this.assignChatGallery(source, target.chatId);
       case "character-gallery":
         return this.assignCharacterGallery(source, target.characterId);
+      case "theme-image":
+        return this.assignThemeImage(source, target);
     }
+  }
+
+  /** The theme a picture goes into: it must exist and be the user's own (starters are read-only gallery copies). */
+  private async ownTheme(themeId: string) {
+    if (isStarterThemeId(themeId)) {
+      throw new Error(
+        "Starter themes are read-only. Ask the user to click Clone + Edit on it in CSS Themes, then add the picture to the copy.",
+      );
+    }
+    const theme = await createThemesStorage(this.db).getById(themeId);
+    if (!theme) throw new Error(`Theme not found: ${themeId}`);
+    return theme;
+  }
+
+  private async saveThemeMeta(themeId: string, meta: ThemeMeta) {
+    const parsed = themeMetaSchema.safeParse(meta);
+    if (!parsed.success) {
+      const message = parsed.error.issues[0]?.message ?? "invalid theme package";
+      throw new Error(`The theme's pictures can't be saved: ${message}`);
+    }
+    await createThemesStorage(this.db).update(themeId, { meta: parsed.data });
+    return parsed.data;
+  }
+
+  // A generated or edited picture goes into a theme's package, made the way the theme editor makes it
+  // (WebP, at most 2560 px, decode caps). The CSS then uses it as url("theme:<name>"). Same name replaces.
+  private async assignThemeImage(source: ResolvedImage, target: Extract<ImageTarget, { type: "theme-image" }>) {
+    const theme = await this.ownTheme(target.themeId);
+    const picture = await themePackageImage(source.buffer);
+    const images = [...(theme.meta?.images ?? [])];
+    const index = images.findIndex((image) => image.name === target.name);
+    const replaced = index >= 0;
+    if (replaced) images[index] = { name: target.name, src: picture.src };
+    else images.push({ name: target.name, src: picture.src });
+    const meta = await this.saveThemeMeta(target.themeId, { ...(theme.meta ?? {}), images });
+    const packageBytes = Buffer.byteLength(JSON.stringify(meta), "utf8");
+    return {
+      themeId: target.themeId,
+      name: target.name,
+      replaced,
+      css: `url("theme:${target.name}")`,
+      width: picture.width,
+      height: picture.height,
+      animated: picture.animated,
+      bytes: picture.bytes,
+      packageBytes,
+      packageLimitBytes: MAX_THEME_META_BYTES,
+      pictures: images.map((image) => image.name),
+    };
   }
 
   private async assignCharacterAvatar(source: ResolvedImage, characterId: string) {
@@ -1354,6 +1663,15 @@ export class MariImagesService {
       case "character-gallery":
         if (!target.imageId) throw new Error("character-gallery delete requires --image <id>");
         return this.deleteCharacterGallery(target.characterId, target.imageId);
+      case "theme-image": {
+        const theme = await this.ownTheme(target.themeId);
+        const images = (theme.meta?.images ?? []).filter((image) => image.name !== target.name);
+        if (images.length === (theme.meta?.images?.length ?? 0)) {
+          throw new Error(`Theme ${target.themeId} has no picture named ${target.name}`);
+        }
+        await this.saveThemeMeta(target.themeId, { ...(theme.meta ?? {}), images });
+        return { themeId: target.themeId, removed: target.name, pictures: images.map((image) => image.name) };
+      }
     }
   }
 
@@ -1542,7 +1860,9 @@ export class MariImagesService {
       "Usage: mari images <command>",
       "Discovery: connections [--edit], capabilities [--edit], list assets|backgrounds|sprites|chat-gallery|character-gallery, get <asset-id>",
       "HITL preview: preview --operation generate|edit --prompt <text> [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>]",
-      "Create preview asset: generate --prompt <text> [--target <target>] [--width <n>] [--height <n>]",
+      "Create preview asset: generate --prompt <text> [--target <target>] [--width <n>] [--height <n>] [--count 1-4] (--count makes that many versions in one go, one request each, for the user to pick from)",
+      "Theme art: generate --prompt <text> --target theme-image --theme <theme-id> --name <name> [--width <n>] [--height <n>] (prompt sent exactly as written: the user's style profiles and prompt prefixes are left out; --verbatim does the same for any target)",
+      "Adjust a picture without an image model (new preview asset, original kept): adjust --source <asset|url|file> [--crop left,top,width,height (px or %)] [--trim] [--transparent [auto|#hex] --tolerance 0-255 [--everywhere]] [--resize WxH|N --fit inside|cover|fill] [--flip horizontal|vertical|both] [--rotate 90|180|270] [--tint #hex]",
       "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>]",
       "Apply: assign --asset <asset-id> --target character-avatar --character <id>",
       "Apply: assign --asset <asset-id> --target persona-avatar --persona <id>",
@@ -1551,7 +1871,8 @@ export class MariImagesService {
       "Apply: assign --asset <asset-id> --target background --name <name> [--tags a,b]",
       "Apply: assign --asset <asset-id> --target chat-gallery --chat <id>",
       "Apply: assign --asset <asset-id> --target character-gallery --character <id>",
-      "Delete/clear: delete --target asset|character-avatar|persona-avatar|lorebook-image|sprite|background|chat-gallery|character-gallery ...",
+      'Apply: assign --asset <asset-id> --target theme-image --theme <theme-id> --name night-sky.webp (saved as WebP in the theme; its CSS uses url("theme:night-sky.webp"))',
+      "Delete/clear: delete --target asset|character-avatar|persona-avatar|lorebook-image|sprite|background|chat-gallery|character-gallery|theme-image ...",
       "Notes: preview never generates or saves. generate/edit save a review asset only. assign/delete mutate app image state.",
     ].join("\n");
   }

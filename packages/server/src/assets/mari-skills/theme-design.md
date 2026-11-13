@@ -23,11 +23,24 @@ Internal classes (`.ov-*`, Tailwind) work but can change in any update. When you
 
 ## What you can't do from chat (tell the user plainly)
 
-- **Pictures, fonts, thumbnails, credits, suggested settings** live in the theme package. `theme.create` and `theme.update` only write `name` and `css`. Ask the user to add pictures in **Library → Settings → Appearance → CSS Themes → their theme → Pictures and sharing details → Add pictures**, then tell you the picture names. An update keeps the pictures already on a theme; a create has none, so a `url("theme:…")` in a new theme points at nothing.
+- **Fonts, thumbnails, credits, suggested settings** live in the theme package. `theme.create` and `theme.update` only write `name` and `css`, and an update keeps the package as it is. The user adds those in **Library → Settings → Appearance → CSS Themes → their theme → Pictures and sharing details**. Pictures you can add yourself (next section).
 - **Starter themes** (ids starting `starter-`) are read-only downloads from the gallery. Never `theme.update` one: the next gallery update would overwrite it. To change one, have the user click **Clone + Edit** (the copy icon) on it, which keeps its pictures, then work on the copy. Copying its CSS into `theme.create` loses all its art.
 - **Trying a theme**: picking a theme in CSS Themes asks **Keep this theme?** for 15 seconds. When you switch one on (`theme.setActive`, or `activate: true`), the user's tab asks the same question and goes back if nobody answers. Still prefer creating the theme **inactive** and letting the user pick it when they're ready to look. Activate it yourself only when they ask you to, and tell them to press **Keep theme**.
 - **Seeing the screen**: you can't. Every visual check below ends with you asking the user to look at a named spot, or to send a screenshot.
-- Don't `theme.get` a starter or a theme with big pictures just to read its CSS if the user can paste the part you need: the result can carry megabytes of picture data.
+- `theme.get` shows a theme's pictures by name, size and the `url("theme:…")` to use, never the picture itself. Ask the user to describe or screenshot a picture you need to match.
+
+## Pictures for a theme
+
+When the user has an image connection (`mari images connections`), you can make a theme's art: backdrops, the Home picture, tiles, frames, icons.
+
+1. The theme must exist and be the user's own (create it inactive first; for a starter, have them **Clone + Edit** and use the copy's id).
+2. `mari images generate --prompt "<your prompt>" --target theme-image --theme <id> --name <name> [--width <n> --height <n>]`. With `--target theme-image` your prompt goes to the provider **exactly as you wrote it**: the user's image style profiles, prompt prefixes, LoRAs and style reference are left out, because those are set up for character art. So write the whole prompt yourself: subject, style, palette, "no people, no text" when that is what you want. Size it for the job: wide (e.g. 1536×864) for a backdrop, square for a tile or icon, and a 9-slice frame with a plain middle. Add `--count 3` (up to 4) to make several versions in one go so the user can pick; each is its own request, so it takes that many times as long.
+3. Show the user the preview and wait for a yes. Make another if they don't like it; nothing is saved to the theme yet.
+   - To fix a preview without generating again, use `mari images adjust --source <asset-id>` with `--crop left,top,width,height` (pixels or %), `--trim` (cut empty edges), `--transparent` (the corner colour becomes see-through where it touches the edge; `--transparent #hex`, `--tolerance 0-255`, `--everywhere` to clear it inside too), `--resize 512` or `--resize 1920x1080 --fit cover`, `--flip horizontal`, `--rotate 90`, `--tint #hex`. It makes a new preview (PNG, transparency kept) and leaves the original; show that one too. Image generators rarely give real transparency, so for an icon, sticker or frame ask for "on a plain flat white background" and clear it with `--transparent`.
+4. `mari images assign --asset <asset-id> --target theme-image --theme <id> --name <name> --apply`. It is saved as WebP (at most 2560 px a side; small pictures stay lossless, so pixel art and frames stay crisp). The same name replaces the old picture. The result gives the `css` to paste, e.g. `url("theme:night-sky.webp")`, and how much of the 6 MiB package is used.
+5. Put that `url()` in the CSS with `theme.update` (send the whole stylesheet). Remove a picture with `mari images delete --target theme-image --theme <id> --name <name> --apply`.
+
+A picture is art, not text: keep words, labels and the app's controls out of it, and check readability on top of it (Step 5).
 
 ## Hard rules (a theme that breaks these gets switched off, or rejected)
 
