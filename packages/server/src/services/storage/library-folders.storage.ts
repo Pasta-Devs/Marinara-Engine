@@ -207,6 +207,7 @@ export function createLibraryFoldersStorage(db: DB) {
             scope,
             name: folder.name,
             collapsed: folder.collapsed ? "true" : "false",
+            paused: String(scope === "regex" && folder.paused === true),
             sortOrder: folder.sortOrder,
             itemIds: JSON.stringify(folder.itemIds),
             createdAt: timestamp,

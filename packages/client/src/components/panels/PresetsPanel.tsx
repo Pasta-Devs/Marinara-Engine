@@ -97,7 +97,11 @@ import {
   useMoveLibraryItem,
   useUpdateLibraryFolder,
 } from "../../hooks/use-library-folders";
-import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
+import {
+  handleFolderRenameInputKeyDown,
+  handleFolderRenameKeyDown,
+  useFolderRenameGesture,
+} from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
@@ -1385,14 +1389,12 @@ export function PresetsPanel() {
                         autoFocus
                         value={editFolderName}
                         onChange={(event) => setEditFolderName(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") event.currentTarget.blur();
-                          if (event.key === "Escape") {
-                            event.preventDefault();
+                        onKeyDown={(event) =>
+                          handleFolderRenameInputKeyDown(event, () => {
                             setEditingFolderId(null);
                             setEditFolderName("");
-                          }
-                        }}
+                          })
+                        }
                         onClick={(event) => event.stopPropagation()}
                         onBlur={() => handleRenameFolder(folder.id)}
                         className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-[var(--marinara-chat-chrome-input-border-focus)]"
@@ -2100,13 +2102,7 @@ function RegexSection({
                             if (name && name !== folder.name)
                               updateFolder.mutate({ id: folder.id, name }, { onError: reportError });
                           }}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") event.currentTarget.blur();
-                            if (event.key === "Escape") {
-                              event.stopPropagation();
-                              setEditingFolder(null);
-                            }
-                          }}
+                          onKeyDown={(event) => handleFolderRenameInputKeyDown(event, () => setEditingFolder(null))}
                           className="mari-chrome-field min-w-0 flex-1 px-2 py-1 text-xs"
                         />
                       ) : (

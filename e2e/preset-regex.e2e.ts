@@ -317,6 +317,10 @@ test("regex library folders pause chat display and bulk toggles keep each script
     await folderName.fill("Test pack");
     await folderName.press("Enter");
     await expect(folder.getByRole("button", { name: "Test pack", exact: true })).toBeVisible();
+    await folder.getByRole("button", { name: "Rename folder", exact: true }).click();
+    await folderName.fill("Cancelled rename");
+    await folderName.press("Escape");
+    await expect(folder.getByRole("button", { name: "Test pack", exact: true })).toBeVisible();
     await selectRegex.click();
     await page.getByRole("checkbox", { name: "Select Pack format", exact: true }).check();
     await page.getByRole("checkbox", { name: "Select Pack experimental", exact: true }).check();

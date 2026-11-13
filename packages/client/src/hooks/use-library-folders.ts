@@ -6,8 +6,10 @@ import {
 } from "@marinara-engine/shared";
 import { regexKeys } from "./use-regex-scripts";
 import { api } from "../lib/api-client";
+import { libraryFolderKeys } from "../lib/library-folder-keys";
 
 export type { LibraryFolderScope } from "@marinara-engine/shared";
+export { libraryFolderKeys } from "../lib/library-folder-keys";
 
 export type LibraryFolder = {
   id: string;
@@ -26,11 +28,6 @@ const MAX_MIGRATION_FOLDERS = 1_000;
 
 type LegacyLibraryFolder = MigrateLibraryFolderInput & {
   scope: LibraryFolderScope;
-};
-
-export const libraryFolderKeys = {
-  all: ["library-folders"] as const,
-  list: (scope: LibraryFolderScope) => [...libraryFolderKeys.all, scope] as const,
 };
 
 function readLegacyFolders(): LegacyLibraryFolder[] {

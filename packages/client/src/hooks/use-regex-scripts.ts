@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
+import { libraryFolderKeys } from "../lib/library-folder-keys";
 
 export const regexKeys = {
   all: ["regex-scripts"] as const,
@@ -93,7 +94,7 @@ export function useDeleteRegexScript() {
     onSuccess: () =>
       Promise.all([
         qc.invalidateQueries({ queryKey: regexKeys.all }),
-        qc.invalidateQueries({ queryKey: ["library-folders", "regex"] }),
+        qc.invalidateQueries({ queryKey: libraryFolderKeys.list("regex") }),
       ]),
   });
 }

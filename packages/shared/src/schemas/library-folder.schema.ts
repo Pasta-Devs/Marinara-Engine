@@ -50,6 +50,7 @@ export const migrateLibraryFolderSchema = z.object({
   id: libraryFolderIdSchema,
   name: z.string().trim().min(1).max(200),
   collapsed: z.boolean().optional().default(false),
+  paused: z.boolean().optional(),
   sortOrder: z.number().int().nonnegative(),
   itemIds: libraryFolderItemIdsSchema,
 });
