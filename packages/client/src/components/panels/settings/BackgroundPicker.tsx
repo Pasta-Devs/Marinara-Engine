@@ -1,6 +1,6 @@
 import { useLibraryFolderDrag } from "../../../hooks/use-library-folder-drag";
 import { useLibraryOrder } from "../../../hooks/use-library-order";
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpDown,
@@ -92,6 +92,8 @@ type BackgroundPickerProps = {
   onSelect: (url: string | null) => void;
   defaultRoleplayBackground: string;
   onDefaultChange: (url: string) => void;
+  /** Replaces the preview, recent picks and Browse button with a custom opener (the library window stays). */
+  trigger?: (openLibrary: () => void) => ReactNode;
 };
 
 const BACKGROUND_QUERY_KEY = ["backgrounds"] as const;
@@ -240,6 +242,7 @@ export function BackgroundPicker({
   onSelect,
   defaultRoleplayBackground,
   onDefaultChange,
+  trigger,
 }: BackgroundPickerProps) {
   const manualOrder = useLibraryOrder("background");
   const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
@@ -1089,83 +1092,87 @@ export function BackgroundPicker({
 
   return (
     <>
-      {/* Big preview of the current value, the last picks one tap away, then the full library. */}
-      <div className="flex flex-col gap-3">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label={localizeUi("ui.panels.backgroundpicker.browseLibrary")}
-            className="relative block h-28 w-full overflow-hidden rounded-xl bg-[var(--secondary)] text-left shadow-lg ring-1 ring-[var(--border)] transition-shadow hover:ring-[var(--primary)]/45"
-          >
-            {previewUrl ? (
-              <img
-                src={`${previewUrl}?w=${CHAT_IMAGE_PREVIEW_WIDTH}`}
-                alt=""
-                className="h-full w-full object-cover"
-                decoding="async"
-              />
-            ) : (
-              <span className="flex h-full items-center justify-center text-[var(--muted-foreground)]/45">
-                <Image size="2rem" />
-              </span>
-            )}
-            <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/85 to-transparent px-3 pb-2.5 pt-7 text-sm font-semibold text-white">
-              {selectedBackground
-                ? getBackgroundLibraryTitle(selectedBackground)
-                : localizeUi("ui.panels.backgroundpicker.defaultBackground")}
-            </span>
-          </button>
-          {selected && (
+      {trigger ? (
+        trigger(() => setOpen(true))
+      ) : (
+        /* Big preview of the current value, the last picks one tap away, then the full library. */
+        <div className="flex flex-col gap-3">
+          <div className="relative">
             <button
               type="button"
-              onClick={() => onSelect(null)}
-              aria-label={localizeUi("ui.panels.backgroundpicker.clearSelection")}
-              title={localizeUi("ui.panels.backgroundpicker.clearSelection")}
-              className="absolute right-2 top-2 flex h-8 w-8 max-sm:h-11 max-sm:w-11 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/15 transition-transform active:scale-90"
+              onClick={() => setOpen(true)}
+              aria-label={localizeUi("ui.panels.backgroundpicker.browseLibrary")}
+              className="relative block h-28 w-full overflow-hidden rounded-xl bg-[var(--secondary)] text-left shadow-lg ring-1 ring-[var(--border)] transition-shadow hover:ring-[var(--primary)]/45"
             >
-              <X size="0.875rem" />
+              {previewUrl ? (
+                <img
+                  src={`${previewUrl}?w=${CHAT_IMAGE_PREVIEW_WIDTH}`}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  decoding="async"
+                />
+              ) : (
+                <span className="flex h-full items-center justify-center text-[var(--muted-foreground)]/45">
+                  <Image size="2rem" />
+                </span>
+              )}
+              <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/85 to-transparent px-3 pb-2.5 pt-7 text-sm font-semibold text-white">
+                {selectedBackground
+                  ? getBackgroundLibraryTitle(selectedBackground)
+                  : localizeUi("ui.panels.backgroundpicker.defaultBackground")}
+              </span>
             </button>
-          )}
-        </div>
-        {recentBackgrounds.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.backgroundpicker.recent")}
-            </span>
-            <div className="grid grid-cols-3 gap-2.5">
-              {recentBackgrounds.map((background) => {
-                const title = getBackgroundLibraryTitle(background);
-                return (
-                  <button
-                    key={background.id}
-                    type="button"
-                    onClick={() => onSelect(background.url)}
-                    aria-label={localizeUi("ui.panels.backgroundpicker.useValue1ForThisChat", { value1: title })}
-                    className="group flex min-w-0 flex-col gap-1.5 text-left"
-                  >
-                    <img
-                      src={`${background.url}?w=${BACKGROUND_THUMBNAIL_WIDTH}`}
-                      alt=""
-                      className="aspect-[4/3] w-full rounded-lg object-cover ring-1 ring-[var(--border)] transition-shadow group-hover:ring-[var(--primary)]/60"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    <span className="truncate text-[0.6875rem] max-sm:!text-[13px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
-                      {title}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            {selected && (
+              <button
+                type="button"
+                onClick={() => onSelect(null)}
+                aria-label={localizeUi("ui.panels.backgroundpicker.clearSelection")}
+                title={localizeUi("ui.panels.backgroundpicker.clearSelection")}
+                className="absolute right-2 top-2 flex h-8 w-8 max-sm:h-11 max-sm:w-11 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/15 transition-transform active:scale-90"
+              >
+                <X size="0.875rem" />
+              </button>
+            )}
           </div>
-        )}
-        <button type="button" onClick={() => setOpen(true)} className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}>
-          <Image size="0.8125rem" />
-          {localizeUi("ui.panels.backgroundpicker.browseLibrary")}
-          <span className="opacity-70">· {backgrounds.length}</span>
-        </button>
-      </div>
+          {recentBackgrounds.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-[var(--muted-foreground)]">
+                {localizeUi("ui.panels.backgroundpicker.recent")}
+              </span>
+              <div className="grid grid-cols-3 gap-2.5">
+                {recentBackgrounds.map((background) => {
+                  const title = getBackgroundLibraryTitle(background);
+                  return (
+                    <button
+                      key={background.id}
+                      type="button"
+                      onClick={() => onSelect(background.url)}
+                      aria-label={localizeUi("ui.panels.backgroundpicker.useValue1ForThisChat", { value1: title })}
+                      className="group flex min-w-0 flex-col gap-1.5 text-left"
+                    >
+                      <img
+                        src={`${background.url}?w=${BACKGROUND_THUMBNAIL_WIDTH}`}
+                        alt=""
+                        className="aspect-[4/3] w-full rounded-lg object-cover ring-1 ring-[var(--border)] transition-shadow group-hover:ring-[var(--primary)]/60"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <span className="truncate text-[0.6875rem] max-sm:!text-[13px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
+                        {title}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <button type="button" onClick={() => setOpen(true)} className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}>
+            <Image size="0.8125rem" />
+            {localizeUi("ui.panels.backgroundpicker.browseLibrary")}
+            <span className="opacity-70">· {backgrounds.length}</span>
+          </button>
+        </div>
+      )}
 
       <Modal
         open={open}

@@ -89,6 +89,32 @@ What happens after each reply:
 
 If it did not work: with no Decision model chosen, the list is greyed out and says where to pick one.
 
+## Pin a background to a place
+
+Use this when a place in your story should always look the same: John's bedroom always shows `john-bedroom`, and your own bedroom always shows `my-bedroom`. When the story arrives at a pinned place, its picture shows, whatever the Background agent would have picked.
+
+1. Open **Chat Settings** with the sliders button in the chat, and open **Background**.
+2. Under **Pinned places**, click **Add place**.
+3. Click the empty picture and choose the background. Type the place the way the story writes it, such as `John's bedroom`.
+4. Optional: under it, add other names the story might use, separated by commas, such as `John's room, the master bedroom`.
+
+Quicker: while the story is in a place and the right picture is showing, click **Pin this picture to "John's bedroom"**.
+
+How places are told apart:
+
+- The most specific name wins. `John's bedroom` and `{{user}}'s bedroom` never mix, and a plain `bedroom` pin fills in only for bedrooms nobody pinned.
+- `{{user}}` is your persona's name and `{{char}}` any character in the chat, so `{{user}}'s bedroom` matches "Alyssa's bedroom".
+- Case, accents and apostrophes don't matter. Names match whole words: `John` never matches "Johnson".
+- With **World Maps**, pick the place from the **World Maps place** list instead. A pinned building also covers its rooms that have no pin of their own.
+
+What happens:
+
+- The picture shows once on arrival. If you pick a different background by hand while you are there, yours stays until the story moves on.
+- In a pinned place, the Background agent can't switch the picture, and Illustrator doesn't paint a new background for it. With **Weather Versions of Backgrounds** on, the pinned picture still gets its rain, snow or fog version.
+- It needs the **World State** agent's location (or World Maps). The bottom of the list shows where the story is now, and **Here** marks the pin in use. Pins work in Roleplay chats.
+
+If it did not work: check that **Story is at** under the list shows the place, and that one of the pin's names appears in it word for word.
+
 ## Your library and blur
 
 The images you pick from live in the same **Backgrounds** section. Importing, tags, renaming, deleting, the **Background Blur** slider and the default backdrop for new Roleplay chats are in [Chat Backgrounds](../appearance/chat-backgrounds.md).

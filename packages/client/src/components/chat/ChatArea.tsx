@@ -80,6 +80,7 @@ import {
   resolveSpriteExpressionState,
 } from "../../lib/sprite-expression-state";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
+import { useLocationBackgroundPinFollower } from "../../hooks/use-location-background-pins";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
@@ -2206,6 +2207,19 @@ const LocalChatArea = memo(function LocalChatArea({
     updateMeta.mutate({ id: chat.id, background: nextBackground });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatBackground, chat?.id, pendingNewChatSetupId]);
+
+  // Pinned places (Chat settings > Background): arriving at one shows its picture.
+  const pinCharacterNames = useMemo(
+    () => chatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
+    [chatCharIds, characterMap],
+  );
+  useLocationBackgroundPinFollower({
+    chatId: chat?.id ?? null,
+    chatMode: chat?.mode,
+    chatMetadata: chat?.metadata,
+    userName: personaInfo?.name ?? null,
+    characterNames: pinCharacterNames,
+  });
 
   const expressionSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const pendingExpressions = useRef<Record<string, string>>(spriteExpressions);
