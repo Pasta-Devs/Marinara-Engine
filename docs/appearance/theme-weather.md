@@ -12,7 +12,7 @@ The app always does the drawing itself. Your theme doesn't draw anything. It set
 
 ### Indoors the weather stays outside
 
-When the story is inside, such as an inn, a bedroom or a World Maps room, the app doesn't rain across the whole screen. It keeps only the colour of the weather and the lightning flash, and the room stays dry. The app works out "inside" from the World State location ("Tideglass Inn, Brinewatch") or the World Maps place type. When it can't tell, the weather draws as usual. With **Weather Versions of Backgrounds** on (see [Roleplay Backgrounds](../roleplay/backgrounds.md#weather-versions-of-backgrounds)), the background picture itself shows the rain on the windows.
+When the story is inside, such as an inn, a bedroom or a World Maps room, the app doesn't rain across the whole screen. It keeps only the colour of the weather and the lightning flash, and the room stays dry. The app works out "inside" from the World State location ("Tideglass Inn, Brinewatch") or the World Maps place type. When it can't tell, the weather draws as usual. With **Weather Versions of Backgrounds** on (see [Roleplay Backgrounds](../roleplay/backgrounds.md#weather-versions-of-backgrounds)), the background picture itself shows the rain on the windows, and the moving weather comes back, drawn only on the window glass. Your theme's weather look applies there too.
 
 ### The weather with no theme
 
@@ -41,9 +41,9 @@ Let's give the rain a colour and make the streaks longer, the way the NEON//GRID
 3. Add these lines inside it, before the `}`:
 
 ```css
-  --mari-weather-rain-color: #3ff0ff;
-  --mari-weather-rain-length: 2.2;
-  --mari-weather-strength: 1.4;
+--mari-weather-rain-color: #3ff0ff;
+--mari-weather-rain-length: 2.2;
+--mari-weather-strength: 1.4;
 ```
 
 4. Click **Save**. If Marinara asks **Keep this theme?**, click **Keep theme**.
@@ -78,24 +78,24 @@ Colours that look good on a dark backdrop can vanish on a light one. Put day col
 
 Each kind of weather has a short name. You use that name in the token, such as `snow` in `--mari-weather-snow-color`.
 
-| When the story says | The app draws | Name in the tokens |
-| --- | --- | --- |
-| rain, downpour | Rain streaks | `rain` |
-| storm, thunder, lightning | Heavy rain with lightning flashes | `rain` (flash: `lightning-color`, bolts: `lightning-bolt`) |
-| snow, sleet, blizzard, frost, cold | Snowflakes | `snow` |
-| hail | Hailstones | `hail` |
-| fog, mist, haze | Soft fog banks low on the screen over ground mist | `fog` |
-| sand, dust storm | Blowing sand | `sand` |
-| ash, smoke, volcanic | Falling ash | `ash` |
-| fire, embers, inferno | Rising embers | `ember` |
-| wind, breeze, gusts | Falling leaves | `leaf` |
-| cherry blossom, petals | Falling petals | `petal` |
-| aurora, northern lights | Aurora ribbons | `aurora` |
-| clear, sunny, cloudy, anything else | A few floating motes | `dust` |
-| night (the time) | Stars and fireflies | `star`, `firefly` |
-| dusk, evening (the time) | Fireflies | `firefly` |
-| morning, day, dusk (clear sky) | The sun | `sun` |
-| night (clear sky) | The moon | `moon` |
+| When the story says                 | The app draws                                     | Name in the tokens                                         |
+| ----------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
+| rain, downpour                      | Rain streaks                                      | `rain`                                                     |
+| storm, thunder, lightning           | Heavy rain with lightning flashes                 | `rain` (flash: `lightning-color`, bolts: `lightning-bolt`) |
+| snow, sleet, blizzard, frost, cold  | Snowflakes                                        | `snow`                                                     |
+| hail                                | Hailstones                                        | `hail`                                                     |
+| fog, mist, haze                     | Soft fog banks low on the screen over ground mist | `fog`                                                      |
+| sand, dust storm                    | Blowing sand                                      | `sand`                                                     |
+| ash, smoke, volcanic                | Falling ash                                       | `ash`                                                      |
+| fire, embers, inferno               | Rising embers                                     | `ember`                                                    |
+| wind, breeze, gusts                 | Falling leaves                                    | `leaf`                                                     |
+| cherry blossom, petals              | Falling petals                                    | `petal`                                                    |
+| aurora, northern lights             | Aurora ribbons                                    | `aurora`                                                   |
+| clear, sunny, cloudy, anything else | A few floating motes                              | `dust`                                                     |
+| night (the time)                    | Stars and fireflies                               | `star`, `firefly`                                          |
+| dusk, evening (the time)            | Fireflies                                         | `firefly`                                                  |
+| morning, day, dusk (clear sky)      | The sun                                           | `sun`                                                      |
+| night (clear sky)                   | The moon                                          | `moon`                                                     |
 
 Stars skip foggy and snowy nights, and fireflies stay away from rain. The sun and moon only show when the sky is clear.
 
@@ -103,11 +103,11 @@ Stars skip foggy and snowy nights, and fireflies stay away from rain. The sun an
 
 Every kind in the table takes the same three settings. Put the kind's name in the middle of the token.
 
-| Token | What it does | Values |
-| --- | --- | --- |
-| `--mari-weather-snow-color` | The colour | A plain colour: `#fff0f7`, `white`, `rgb(...)`, `hsl(...)` |
-| `--mari-weather-snow-size` | How big each particle is | `0.5` (half) to `3` (three times) |
-| `--mari-weather-snow-shape` | Round dots or little squares | `round` or `square` |
+| Token                       | What it does                 | Values                                                     |
+| --------------------------- | ---------------------------- | ---------------------------------------------------------- |
+| `--mari-weather-snow-color` | The colour                   | A plain colour: `#fff0f7`, `white`, `rgb(...)`, `hsl(...)` |
+| `--mari-weather-snow-size`  | How big each particle is     | `0.5` (half) to `3` (three times)                          |
+| `--mari-weather-snow-shape` | Round dots or little squares | `round` or `square`                                        |
 
 Swap `snow` for any other name from the table, such as `--mari-weather-ember-color` or `--mari-weather-leaf-shape`.
 
@@ -199,14 +199,14 @@ If your backdrop already has a painted moon, turn the app's moon off so there ar
 
 These settings change the whole weather layer at once:
 
-| Token | What it does | Values |
-| --- | --- | --- |
-| `--mari-weather-amount` | How many particles fall | `0.25` (a quarter) to `1` (normal). A theme can thin the weather out but never add more. |
-| `--mari-weather-speed` | How fast things fall | `0.5` (half speed) to `1.5` |
-| `--mari-weather-strength` | How strongly particles show | `0.5` (faint) to `1.5` (bold) |
-| `--mari-weather-tint-strength` | The coloured wash over the chat (blue in rain, dark at night) | `0` (none) to `1` (normal) |
-| `--mari-weather-lightning-color` | The colour of the lightning flash | A plain colour. The flash stays gentle and slow, so it's safe for people sensitive to flashing light. |
-| `--mari-weather-lightning-bolt` | Draws a forked lightning bolt with each flash, in the lightning colour | `on`, or a width from `0.5` to `3`. `none` (the default) keeps the flash only. |
+| Token                            | What it does                                                           | Values                                                                                                |
+| -------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `--mari-weather-amount`          | How many particles fall                                                | `0.25` (a quarter) to `1` (normal). A theme can thin the weather out but never add more.              |
+| `--mari-weather-speed`           | How fast things fall                                                   | `0.5` (half speed) to `1.5`                                                                           |
+| `--mari-weather-strength`        | How strongly particles show                                            | `0.5` (faint) to `1.5` (bold)                                                                         |
+| `--mari-weather-tint-strength`   | The coloured wash over the chat (blue in rain, dark at night)          | `0` (none) to `1` (normal)                                                                            |
+| `--mari-weather-lightning-color` | The colour of the lightning flash                                      | A plain colour. The flash stays gentle and slow, so it's safe for people sensitive to flashing light. |
+| `--mari-weather-lightning-bolt`  | Draws a forked lightning bolt with each flash, in the lightning colour | `on`, or a width from `0.5` to `3`. `none` (the default) keeps the flash only.                        |
 
 For a quiet reading theme, try `--mari-weather-amount: 0.5;` and `--mari-weather-tint-strength: 0.3;`.
 

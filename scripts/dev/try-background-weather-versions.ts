@@ -3,6 +3,8 @@
 // counts against the ChatGPT image limit (one picture per case).
 //
 //   cd packages/server && npx tsx ../../scripts/dev/try-background-weather-versions.ts <output folder>
+//   ... <output folder> --window            (a room with a big window, then its rain and snow)
+//   ... <output folder> --more <inn.png>    (its window stencil, then aurora/blizzard/blossom/meteor shower)
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -19,7 +21,7 @@ for (const name of ["ancient_library.jpg", "dark_forest.jpg"]) {
   copyFileSync(join(assets, name), join(outDir, name));
 }
 
-const { generateChatBackground, generateChatBackgroundWeatherVersion } =
+const { generateChatBackground, generateChatBackgroundWeatherVersion, generateChatBackgroundWindowMask } =
   await import("../../packages/server/src/services/game/game-asset-generation.js");
 const { sceneShelter } = await import("../../packages/shared/src/utils/scene-weather.js");
 
@@ -30,6 +32,82 @@ const codex = {
   imgSource: "codex_chatgpt",
   imgService: "codex_chatgpt",
 };
+
+// `--more <inn picture>`: the window stencil of an indoor picture made earlier with --window, then
+// versions in the newer kinds of weather (aurora, blizzard, blossom, an unusual one), indoors and out.
+const moreIndex = process.argv.indexOf("--more");
+if (moreIndex > 0) {
+  const innPath = resolve(process.argv[moreIndex + 1] || "");
+  const inn = innPath.split(/[\\/]/u).pop()!;
+  copyFileSync(innPath, join(bgDir, inn));
+  const innScene = "A cozy old inn common room with a big multi-pane window and a window seat, a stone hearth";
+  const timed = async (label: string, run: () => Promise<string | null>, from = bgDir) => {
+    const started = Date.now();
+    const filename = await run();
+    console.log(`${label}: ${filename ?? "FAILED"} in ${Math.round((Date.now() - started) / 1000)} s`);
+    if (filename)
+      copyFileSync(
+        join(from, filename),
+        join(
+          outDir,
+          filename.replace(/\.png$/u, "") +
+            (from === bgDir ? "" : "--stencil") +
+            (filename.endsWith(".png") ? ".png" : ""),
+        ),
+      );
+    return filename;
+  };
+  const jobs: Array<() => Promise<unknown>> = [
+    () =>
+      timed(
+        `${inn} -> window stencil`,
+        () =>
+          generateChatBackgroundWindowMask({
+            chatId: "weather-version-test",
+            locationSlug: inn,
+            sceneDescription: innScene,
+            baseFilename: inn,
+            ...codex,
+          }),
+        join(bgDir, "weather-masks"),
+      ),
+    ...(
+      [
+        [inn, "aurora", "Tideglass Inn common room", innScene],
+        [inn, "blizzard", "Tideglass Inn common room", innScene],
+        [inn, "blossom", "Tideglass Inn common room", innScene],
+        [inn, "meteor-shower", "Tideglass Inn common room", innScene],
+        ["dark_forest.jpg", "aurora", "Dark forest trail", "Dark forest trail"],
+        ["dark_forest.jpg", "meteor-shower", "Dark forest trail", "Dark forest trail"],
+      ] as const
+    ).map(
+      ([base, version, location, scene]) =>
+        () =>
+          timed(`${base} -> ${version}`, () =>
+            generateChatBackgroundWeatherVersion({
+              chatId: "weather-version-test",
+              locationSlug: base,
+              sceneDescription: scene,
+              baseFilename: base,
+              version,
+              shelter: sceneShelter(location),
+              scenePrompt: scene,
+              providerReadyPrompt: true,
+              ...codex,
+            }),
+          ),
+    ),
+  ];
+  // Two at a time, so the ChatGPT image limit isn't hit all at once.
+  const queue = [...jobs];
+  await Promise.all(
+    [0, 1].map(async () => {
+      while (queue.length) await queue.shift()!();
+    }),
+  );
+  console.log("Output:", outDir, readdirSync(outDir));
+  process.exit(0);
+}
 
 // `--window`: first paint a room with big windows on a clear day, then its rain and snow versions.
 if (process.argv.includes("--window")) {

@@ -273,7 +273,7 @@ function useIsMobileToolbarViewport() {
   return isMobileViewport;
 }
 
-function WeatherEffectsConnected({ paused }: { paused: boolean }) {
+function WeatherEffectsConnected({ paused, backgroundBlurPx }: { paused: boolean; backgroundBlurPx: number }) {
   const weather = useGameStateStore((s) => s.current?.weather ?? null);
   const timeOfDay = useGameStateStore((s) => s.current?.time ?? null);
   const location = useGameStateStore((s) => s.current?.location ?? null);
@@ -281,9 +281,16 @@ function WeatherEffectsConnected({ paused }: { paused: boolean }) {
   const chatMetadata = useChatStore((s) => s.activeChat?.metadata);
   const shelter = useSceneShelter(chatId, chatMetadata, location);
   const shownBackground = useUIStore((s) => s.chatBackground);
-  const paintedWeather = backgroundShowsWeather(
-    backgroundFileName(shownBackground) ?? readChatBackground(chatMetadata),
-    weather,
+  const shownFile = backgroundFileName(shownBackground) ?? readChatBackground(chatMetadata);
+  const paintedWeather = backgroundShowsWeather(shownFile, weather);
+  const blurStyle = getBackgroundBlurStyle(backgroundBlurPx);
+  const maskScale = blurStyle.transform ? Math.min(1.08, 1 + backgroundBlurPx * 0.0025) : 1;
+  const windowMask = useMemo(
+    () =>
+      paintedWeather && shownFile
+        ? { url: `/api/backgrounds/weather-mask/${encodeURIComponent(shownFile)}`, scale: maskScale }
+        : null,
+    [paintedWeather, shownFile, maskScale],
   );
   return (
     <Suspense fallback={null}>
@@ -293,6 +300,7 @@ function WeatherEffectsConnected({ paused }: { paused: boolean }) {
         paused={paused}
         shelter={shelter}
         paintedWeather={paintedWeather}
+        windowMask={windowMask}
       />
     </Suspense>
   );
@@ -2033,7 +2041,9 @@ export function ChatRoleplaySurface({
         <CrossfadeBackground url={shownChatBackground} blurPx={chatBackgroundBlur} />
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
-        {weatherEffects && <WeatherEffectsConnected paused={weatherEffectsPaused} />}
+        {weatherEffects && (
+          <WeatherEffectsConnected paused={weatherEffectsPaused} backgroundBlurPx={chatBackgroundBlur} />
+        )}
         {visualNovel && !vnHistoryOpen && (
           // A theme's sprite slot (theming round 3): behind the dialogue box, reaching the bottom, and
           // named after whoever is speaking, so a theme can stand a picture of them there:

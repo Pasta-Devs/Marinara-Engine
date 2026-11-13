@@ -30,6 +30,7 @@ import {
   buildBackgroundProviderPrompt,
   generateChatBackground,
   replacedGeneratedChatBackgroundPath,
+  chatBackgroundWindowMaskPath,
 } from "../services/game/game-asset-generation.js";
 import {
   resolveConnectionImageDefaults,
@@ -745,6 +746,25 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     if (preview) await image.handle.close().catch(() => undefined);
 
     return sendValidatedMediaFile(reply, preview ?? image, {
+      method: req.method,
+      rangeHeader: req.headers.range,
+      cacheControl: "no-cache, must-revalidate",
+    });
+  });
+
+  // The window stencil of a background (or of the plain picture a weather version was made from):
+  // the drawn weather falls only where its glass is. 404 when the picture has none.
+  app.get("/weather-mask/:filename", async (req, reply) => {
+    ensureDir();
+    const { filename } = req.params as { filename: string };
+    if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+      return reply.status(400).send({ error: "Invalid filename" });
+    }
+    const maskPath = chatBackgroundWindowMaskPath(filename);
+    if (!maskPath) return reply.status(404).send({ error: "Not found" });
+    const image = await validateImageAssetFile(assertInsideDir(BG_DIR, maskPath), basename(maskPath));
+    if (!image) return reply.status(404).send({ error: "Not found" });
+    return sendValidatedMediaFile(reply, image, {
       method: req.method,
       rangeHeader: req.headers.range,
       cacheControl: "no-cache, must-revalidate",

@@ -1628,6 +1628,177 @@ export async function generateChatBackgroundWeatherVersion(
   }
 }
 
+// ── Window stencils ──
+//
+// An indoor weather version shows the weather through its windows; the drawn weather (rain lines,
+// snowflakes) then falls only where the glass is. The stencil is made once per plain picture by
+// the image model and shared by every weather version of it.
+
+const CHAT_BACKGROUND_MASK_DIR = join(CHAT_BACKGROUND_DIR, "weather-masks");
+const CHAT_BACKGROUND_MASKS_PATH = join(CHAT_BACKGROUND_MASK_DIR, "masks.json");
+/** Less glass than this is a speck; more is a wrong answer (the whole room lit up). */
+const WINDOW_MASK_MIN_COVERAGE = 0.005;
+const WINDOW_MASK_MAX_COVERAGE = 0.6;
+const WINDOW_MASK_WIDTH = 640;
+
+/** Plain picture file name -> its stencil file name, or "none" when it has no windows to use. */
+type ChatBackgroundMasks = Record<string, string>;
+
+function readChatBackgroundMasks(): ChatBackgroundMasks {
+  if (!existsSync(CHAT_BACKGROUND_MASKS_PATH)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(CHAT_BACKGROUND_MASKS_PATH, "utf-8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as ChatBackgroundMasks) : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberChatBackgroundMask(baseFilename: string, value: string): void {
+  try {
+    if (!existsSync(CHAT_BACKGROUND_MASK_DIR)) mkdirSync(CHAT_BACKGROUND_MASK_DIR, { recursive: true });
+    const masks = readChatBackgroundMasks();
+    masks[baseFilename] = value;
+    atomicWriteText(CHAT_BACKGROUND_MASKS_PATH, JSON.stringify(masks, null, 2));
+  } catch (err) {
+    logger.warn(err, '[background-weather] Could not remember the window stencil of "%s"', baseFilename);
+  }
+}
+
+/** Whether a stencil was already made (or tried and found no windows) for this plain picture. */
+export function chatBackgroundWindowMaskKnown(baseFilename: string): boolean {
+  return Object.prototype.hasOwnProperty.call(readChatBackgroundMasks(), baseFilename);
+}
+
+/**
+ * The stencil file for a background (plain picture or any of its weather versions), as an absolute
+ * path, or null. Only names from masks.json are used, never the requested name itself.
+ */
+export function chatBackgroundWindowMaskPath(filename: string): string | null {
+  const plain = chatBackgroundPlainPicture(filename);
+  if (!plain) return null;
+  const mask = readChatBackgroundMasks()[plain];
+  if (!mask || mask === "none" || mask !== basename(mask) || !mask.endsWith(".png")) return null;
+  const path = join(CHAT_BACKGROUND_MASK_DIR, mask);
+  return existsSync(path) ? path : null;
+}
+
+/**
+ * The image model's black and white answer as an alpha stencil PNG (white with the glass opaque),
+ * at the picture's aspect ratio, or null when it shows too little or too much glass to be windows.
+ */
+export async function cleanWindowMask(
+  answer: Buffer,
+  pictureWidth: number,
+  pictureHeight: number,
+): Promise<{ png: Buffer; coverage: number } | null> {
+  const sharp = await getSharp();
+  if (!sharp || !(pictureWidth > 0) || !(pictureHeight > 0)) return null;
+  const width = WINDOW_MASK_WIDTH;
+  const height = Math.max(32, Math.round((WINDOW_MASK_WIDTH * pictureHeight) / pictureWidth));
+  // Grey -> hard black/white (the model's soft edges and stray grey), a median to drop specks,
+  // then a slight feather for the edge.
+  const raw = (await sharp(answer, { limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS })
+    .flatten({ background: "#000000" })
+    .resize(width, height, { fit: "fill" })
+    .greyscale()
+    .threshold(140)
+    .median(3)
+    .raw()
+    .toBuffer({ resolveWithObject: true })) as { data: Buffer; info: { channels: number } };
+  const data = Buffer.alloc(width * height);
+  let lit = 0;
+  for (let i = 0; i < width * height; i++) {
+    const value = raw.data[i * raw.info.channels]!;
+    data[i] = value;
+    if (value > 127) lit++;
+  }
+  const coverage = lit / (width * height);
+  if (coverage < WINDOW_MASK_MIN_COVERAGE || coverage > WINDOW_MASK_MAX_COVERAGE) return null;
+  const alpha = (await sharp(data, { raw: { width, height, channels: 1 } })
+    .blur(1.2)
+    .extractChannel(0)
+    .raw()
+    .toBuffer()) as Buffer;
+  const rgba = Buffer.alloc(width * height * 4, 255);
+  for (let i = 0; i < width * height; i++) rgba[i * 4 + 3] = alpha[i]!;
+  const png = (await sharp(rgba, { raw: { width, height, channels: 4 } })
+    .png({ compressionLevel: 9 })
+    .toBuffer()) as Buffer;
+  return { png, coverage };
+}
+
+const WINDOW_MASK_INSTRUCTION = [
+  "Turn the reference image into a black and white stencil of its windows, at exactly the same framing.",
+  "Paint pure white every area where the outside or the sky can be seen: window glass, skylights, open doorways and other openings to the outdoors.",
+  "Paint everything else pure black: walls, window frames and bars, curtains, furniture, objects in front of the glass, the floor and the ceiling.",
+  "Flat black and white only, no grey, no shading, no outlines, no text.",
+  "If no outside can be seen at all, return an all-black image.",
+].join(" ");
+
+/**
+ * Ask the image model for the window stencil of a plain library picture, clean it into an alpha
+ * mask, and save it. Records "none" when the answer has no usable windows, so it isn't asked again.
+ */
+export async function generateChatBackgroundWindowMask(
+  req: ChatBackgroundGenRequest & { baseFilename: string },
+): Promise<string | null> {
+  const baseFilename = chatBackgroundFile(req.baseFilename);
+  if (!baseFilename || isChatBackgroundWeatherVersion(baseFilename)) return null;
+  const sharp = await getSharp();
+  if (!sharp) return null;
+  const basePath = join(CHAT_BACKGROUND_DIR, baseFilename);
+  try {
+    const meta = (await sharp(basePath, { limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS }).metadata()) as {
+      width?: number;
+      height?: number;
+    };
+    if (!meta.width || !meta.height) return null;
+    const size = await weatherVersionSize(basePath, req.size);
+    const result = await generateImage(
+      req.imgModel,
+      req.imgBaseUrl,
+      req.imgApiKey,
+      req.imgSource || req.imgService || "",
+      {
+        prompt: WINDOW_MASK_INSTRUCTION,
+        model: req.imgModel,
+        width: size.width,
+        height: size.height,
+        imageEndpointId: req.imgEndpointId || undefined,
+        comfyWorkflow: req.imgComfyWorkflow || undefined,
+        imageDefaults: req.imgDefaults ?? undefined,
+        quality: req.imgQuality,
+        fallback: req.imgFallback,
+        signal: req.signal,
+        referenceImage: readFileSync(basePath).toString("base64"),
+        referenceIsCanvas: true,
+        preserveProviderOutput: true,
+      },
+    );
+    const cleaned = await cleanWindowMask(Buffer.from(result.base64, "base64"), meta.width, meta.height);
+    if (!cleaned) {
+      rememberChatBackgroundMask(baseFilename, "none");
+      logger.info('[background-weather] No usable windows in "%s"', baseFilename);
+      return null;
+    }
+    const { png, coverage } = cleaned;
+    if (!existsSync(CHAT_BACKGROUND_MASK_DIR)) mkdirSync(CHAT_BACKGROUND_MASK_DIR, { recursive: true });
+    const maskName = `${basename(baseFilename, extname(baseFilename))}.png`;
+    atomicWriteBuffer(join(CHAT_BACKGROUND_MASK_DIR, maskName), png);
+    rememberChatBackgroundMask(baseFilename, maskName);
+    logger.info(
+      '[background-weather] Made the window stencil of "%s" (%s%% glass)',
+      baseFilename,
+      (coverage * 100).toFixed(1),
+    );
+    return maskName;
+  } catch (err) {
+    logger.warn(err, '[background-weather] Failed to make the window stencil of "%s"', baseFilename);
+    return null;
+  }
+}
+
 export async function generateSceneIllustration(req: SceneIllustrationGenRequest): Promise<string | null> {
   const slug = safeGeneratedAssetSlug(req.slug || req.reason || req.prompt.slice(0, 80) || "scene-illustration", {
     suffix: Date.now().toString(36),

@@ -2,7 +2,7 @@
 // Chat: Dynamic Weather Effects — ambient particles
 // that change based on roleplay weather + time of day
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState, type CSSProperties } from "react";
 import { advanceWeatherFrameClock } from "../../lib/weather-frame-clock";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { useSurfaceCovered } from "../../hooks/use-covered-surface-flag";
@@ -41,6 +41,32 @@ interface WeatherEffectsProps {
   shelter?: SceneShelter;
   /** The chat background is a weather version of this weather, so the picture already shows it. */
   paintedWeather?: boolean;
+  /**
+   * The window stencil of the painted background (an alpha PNG address on this server) and the
+   * background's own zoom. With it, the weather is drawn in full but shows only through the glass.
+   */
+  windowMask?: { url: string; scale?: number } | null;
+}
+
+/** The stencil address once the picture has loaded, so a missing stencil never hides the weather. */
+function useLoadedMask(url: string | null): string | null {
+  const [loaded, setLoaded] = useState<string | null>(null);
+  useEffect(() => {
+    if (!url) return;
+    let alive = true;
+    const img = new Image();
+    img.onload = () => {
+      if (alive) setLoaded(url);
+    };
+    img.onerror = () => {
+      if (alive) setLoaded(null);
+    };
+    img.src = url;
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  return url && loaded === url ? loaded : null;
 }
 
 // ═══════════════════════════════════════════════
@@ -54,6 +80,7 @@ export function WeatherEffects({
   paused: pausedByCaller = false,
   shelter = "",
   paintedWeather = false,
+  windowMask = null,
 }: WeatherEffectsProps) {
   const reduceAmbientEffects = useReducedAmbientEffects();
   const reducedPaintEffects = useUIStore((state) => state.roleplayReducedPaintEffects);
@@ -64,11 +91,14 @@ export function WeatherEffects({
   const themeLook = useThemeWeatherLook(!reduceAmbientEffects);
   // A painted weather version counts as indoors unless the scene is known to be outdoors.
   const indoors = shelter === "indoors" || (paintedWeather && shelter !== "outdoors");
+  // Behind the glass: the painted room has a window stencil, so the full weather falls only there.
+  const maskUrl = useLoadedMask(paintedWeather && shelter !== "outdoors" ? (windowMask?.url ?? null) : null);
+  const masked = !!maskUrl;
   const look = useMemo<WeatherLook>(() => {
     const painted = reducedPaintEffects ? { ...themeLook, flat: true } : themeLook;
     // A drawn bolt would cross the room; indoors only the flash comes through the windows.
-    return indoors && painted.bolt > 0 ? { ...painted, bolt: 0 } : painted;
-  }, [themeLook, reducedPaintEffects, indoors]);
+    return indoors && !masked && painted.bolt > 0 ? { ...painted, bolt: 0 } : painted;
+  }, [themeLook, reducedPaintEffects, indoors, masked]);
   const particlesRef = useRef<WeatherParticle[]>([]);
   const frameRef = useRef<number>(0);
   const workerRef = useRef<Worker | null>(null);
@@ -84,10 +114,11 @@ export function WeatherEffects({
 
   const config = useMemo(() => {
     const resolved = resolveWeatherRenderConfig(weather, timeOfDay);
+    if (masked) return resolved;
     return paintedWeather
       ? paintedWeatherRenderConfig(resolved, shelter)
       : shelterWeatherRenderConfig(resolved, shelter);
-  }, [weather, timeOfDay, shelter, paintedWeather]);
+  }, [weather, timeOfDay, shelter, paintedWeather, masked]);
 
   // Weather-aware theme art: `<html data-mari-weather="rain" data-mari-sky="night">` while this chat's weather
   // shows. Both are words from a fixed list (never the story's own text), so a theme can match its backdrop.
@@ -376,16 +407,39 @@ export function WeatherEffects({
   }, [look]);
   const lookVersion = useLookVersion(lookKey);
 
+  const maskScale = windowMask?.scale ?? 1;
+  const canvasStyle = useMemo<CSSProperties | undefined>(() => {
+    const style: CSSProperties = {};
+    if (look.pixel > 1) style.imageRendering = "pixelated";
+    if (maskUrl) {
+      // Lined up with the background picture: cover, centred, and the same zoom its blur adds.
+      const image = `url("${maskUrl}")`;
+      Object.assign(style, {
+        maskImage: image,
+        WebkitMaskImage: image,
+        maskSize: "cover",
+        WebkitMaskSize: "cover",
+        maskPosition: "center",
+        WebkitMaskPosition: "center",
+        maskRepeat: "no-repeat",
+        WebkitMaskRepeat: "no-repeat",
+        maskMode: "alpha",
+      });
+      if (maskScale !== 1) style.transform = `scale(${maskScale})`;
+    }
+    return Object.keys(style).length > 0 ? style : undefined;
+  }, [look.pixel, maskUrl, maskScale]);
+
   if (!shouldRender) return null;
 
   return (
     <canvas
-      key={`${weather ?? ""}:${timeOfDay ?? ""}:${showCelestial ? "celestial" : "particles"}:${workerFailed ? "fallback" : "worker"}:${lookVersion}`}
+      key={`${weather ?? ""}:${timeOfDay ?? ""}:${masked ? "masked:" : ""}${showCelestial ? "celestial" : "particles"}:${workerFailed ? "fallback" : "worker"}:${lookVersion}`}
       ref={canvasRef}
       data-mari-part="weather"
       data-paused={paused ? "true" : undefined}
       className="pointer-events-none absolute inset-0 z-0 h-full w-full [contain:strict]"
-      style={look.pixel > 1 ? { imageRendering: "pixelated" } : undefined}
+      style={canvasStyle}
     />
   );
 }
