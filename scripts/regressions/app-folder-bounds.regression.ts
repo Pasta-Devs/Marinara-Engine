@@ -53,10 +53,13 @@ assert.equal(insideByAsciiCase("C:\\", "C:\\data\\x"), "C:\\data\\x", "a drive r
 assert.throws(() => insideByAsciiCase(gameAssets, "C:\\M\\packages\\server\\data\\game-assets-old\\x"), {
   message: "Path escapes the allowed directory",
 });
-assert.equal(
-  insideByAsciiCase("/data/sprites", "/data/sprites/a.png"),
-  "/data/sprites/a.png",
-  "POSIX paths are unchanged",
-);
+// On Windows, a path from the root of the current drive (/data/…) resolves onto that drive (C:\data\…).
+if (process.platform !== "win32") {
+  assert.equal(
+    insideByAsciiCase("/data/sprites", "/data/sprites/a.png"),
+    "/data/sprites/a.png",
+    "POSIX paths are unchanged",
+  );
+}
 
 console.log("app-folder bounds: ok");
