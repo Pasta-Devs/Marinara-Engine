@@ -12,8 +12,13 @@ const bgDir = join(dataDir, "backgrounds");
 mkdirSync(bgDir, { recursive: true });
 
 const shared = await import("../../packages/shared/src/utils/location-backgrounds.js");
-const { pinnedSceneBackground, pinnedBackgroundMetadataPatch, locationBackgroundPinsApply } =
-  await import("../../packages/server/src/services/generation/location-background-pins.js");
+const {
+  pinnedSceneBackground,
+  pinnedBackgroundMetadataPatch,
+  locationBackgroundPinsApply,
+  matchLibraryBackgroundForLocation,
+  findExistingSceneBackground,
+} = await import("../../packages/server/src/services/generation/location-background-pins.js");
 
 const pins = [
   { id: "john", names: ["John's bedroom", "John's room"], background: "john.png" },
@@ -138,5 +143,44 @@ assert.equal(
   "house",
   "the server walks the World Maps breadcrumb up to a pinned building",
 );
+
+// ── Library lookup before painting a new place ──
+const library = [
+  { filename: "generated-guest-bedroom.png", tags: ["interior", "cozy"] },
+  { filename: "generated-guest-bedroom--wx-rain.png" },
+  { filename: "bedroom.jpg" },
+  { filename: "old_inn.webp", tags: ["the rusty anchor"] },
+  { filename: "generated-docks-2.png" },
+];
+assert.equal(matchLibraryBackgroundForLocation("Smith House, guest bedroom", library), "generated-guest-bedroom.png");
+assert.equal(matchLibraryBackgroundForLocation("a bedroom upstairs", library), "bedroom.jpg");
+assert.equal(
+  matchLibraryBackgroundForLocation("The Rusty Anchor tavern", library),
+  "old_inn.webp",
+  "multi-word tags name places",
+);
+assert.equal(matchLibraryBackgroundForLocation("cozy interior", library), null, "one-word tags don't");
+assert.equal(matchLibraryBackgroundForLocation("the docks", library), "generated-docks-2.png", "numbering ignored");
+assert.equal(matchLibraryBackgroundForLocation("spare room", library), null);
+
+writeFileSync(join(bgDir, "generated-guest-bedroom.png"), png);
+writeFileSync(join(bgDir, "generated-guest-bedroom--wx-rain.png"), png);
+const pinFirst = findExistingSceneBackground({
+  chatMode: "roleplay",
+  chatMetadata: meta,
+  location: "John's bedroom",
+  ...who,
+});
+assert.equal(pinFirst?.source, "pin");
+assert.equal(pinFirst?.filename, "john.png");
+const fromLibrary = findExistingSceneBackground({
+  chatMode: "roleplay",
+  chatMetadata: {},
+  location: "Smith House, guest bedroom",
+  weather: "rain",
+  weatherVersions: true,
+});
+assert.deepEqual(fromLibrary, { filename: "generated-guest-bedroom--wx-rain.png", source: "library" });
+assert.equal(findExistingSceneBackground({ chatMode: "roleplay", chatMetadata: {}, location: "the moon" }), null);
 
 console.log("location-background-pins regression passed");
