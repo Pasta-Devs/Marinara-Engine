@@ -1,6 +1,7 @@
 /**
- * #9126: a chat that stores no Model follows Main, whatever its metadata says, and is never told its Model was
- * deleted. Only a stored Model that no longer exists is reported, so a notice always names the Model it is about.
+ * #9126: a chat that stores no Model follows Main, silently, unless the reference sweep cleared its own Model: then
+ * the reply says that Model was deleted, and names it. A stored Model that no longer exists is likewise reported, so a
+ * notice always names the Model it is about.
  */
 import assert from "node:assert/strict";
 
@@ -22,7 +23,12 @@ const storage = (options: { withMain?: boolean } = {}) => {
   };
 };
 
-const resolve = (connections: ReturnType<typeof storage>, connectionId: string | null, followsMain: boolean) => {
+const resolve = (
+  connections: ReturnType<typeof storage>,
+  connectionId: string | null,
+  followsMain: boolean,
+  deletedModel: string | null = null,
+) => {
   const notices: unknown[] = [];
   const run = resolveChatConnectionOrFallback(
     connections as never,
@@ -32,6 +38,7 @@ const resolve = (connections: ReturnType<typeof storage>, connectionId: string |
     },
     null,
     followsMain,
+    deletedModel,
   );
   return run.then((connection) => ({ connection, notices }));
 };
@@ -42,6 +49,17 @@ for (const followsMain of [true, false]) {
   const { connection, notices } = await resolve(storage(), null, followsMain);
   assert.equal(connection?.id, MAIN.id, `no stored Model resolves to Main (followsMain=${followsMain})`);
   assert.deepEqual(notices, [], `no stored Model is never reported as deleted (followsMain=${followsMain})`);
+}
+
+// A chat the sweep cleared (no Model, and the deleted Model's name recorded): Main answers, and the notice says so.
+{
+  const { connection, notices } = await resolve(storage(), null, false, "Gone");
+  assert.equal(connection?.id, MAIN.id, "a swept chat still answers through Main");
+  assert.equal(notices.length, 1, "a swept chat is told its Model was deleted");
+  const notice = notices[0] as Record<string, unknown>;
+  assert.equal(notice.reason, "deleted");
+  assert.equal(notice.unavailableName, "Gone", "the notice names the Model the chat lost");
+  assert.equal("unavailableConnectionId" in notice, false, "there is no Model row left to point at");
 }
 
 // A stored Model that no longer exists is still reported, and the notice names what was deleted.

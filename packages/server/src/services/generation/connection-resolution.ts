@@ -1,7 +1,12 @@
 // ──────────────────────────────────────────────
 // Resolve a chat's Model: its per-chat catalog pick, and the fallback when its Model cannot answer
 // ──────────────────────────────────────────────
-import { readChatFollowsMain, readChatModelOverride, type ChatModelOverride } from "@marinara-engine/shared";
+import {
+  readChatDeletedModel,
+  readChatFollowsMain,
+  readChatModelOverride,
+  type ChatModelOverride,
+} from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import type { createConnectionsStorage } from "../storage/connections.storage.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "./fallback-notification.js";
@@ -11,7 +16,7 @@ type ConnectionsStorage = ReturnType<typeof createConnectionsStorage>;
 type ChatConnectionStorage = Pick<ConnectionsStorage, "getWithKey"> &
   Partial<Pick<ConnectionsStorage, "getById" | "getFallbackForMain" | "getDefault" | "unavailableReason">>;
 
-export { readChatFollowsMain, readChatModelOverride, type ChatModelOverride };
+export { readChatDeletedModel, readChatFollowsMain, readChatModelOverride, type ChatModelOverride };
 
 /** The fields a per-chat pick sets; everything else a saved Model tunes goes back to its neutral default. */
 const NEUTRAL_TUNING = {
@@ -49,8 +54,8 @@ export function applyChatModelOverride<T extends { id: string }>(conn: T, overri
  * (then the main fallback). With `override`, the chat's own Model runs the per-chat catalog pick. With
  * `followsMain` (the user chose "Use default"), a chat without a Model uses the Main default without a notice;
  * only a Main that cannot answer is reported.
- * #9126: a chat that stores no Model at all follows Main whatever its metadata says (a chat made before the flag, or
- * one whose flag was never written). Only a stored Model that no longer exists is reported as deleted.
+ * #9126: a chat that stores no Model follows Main silently when it chose to or never had one; a chat the reference
+ * sweep cleared is reported as deleted, naming the Model it lost (`deletedModel`).
  */
 export async function resolveChatConnectionOrFallback(
   connections: ChatConnectionStorage,
@@ -58,10 +63,11 @@ export async function resolveChatConnectionOrFallback(
   onFallback: GenerationFallbackNotifier = notifyGenerationFallback,
   override: ChatModelOverride | null = null,
   followsMain = false,
+  deletedModel: string | null = null,
 ): Promise<Awaited<ReturnType<ChatConnectionStorage["getWithKey"]>>> {
-  if (!connectionId && connections.getDefault) {
+  // #9126: a chat whose Model was deleted is not following Main by choice; its notice is reported below.
+  if (!connectionId && !deletedModel && connections.getDefault) {
     const main = await connections.getDefault();
-    // Main cannot answer: it is resolved below as a deleted Model, but only a chat that chose to follow it is told.
     if (main) return resolveChatConnectionOrFallback(connections, main.id, onFallback, null, followsMain);
   }
   const connection = connectionId ? await connections.getWithKey(connectionId) : null;
@@ -70,7 +76,9 @@ export async function resolveChatConnectionOrFallback(
   // No id: the chat's Model was deleted (the reference sweep cleared it) or never set.
   const unavailable = connectionId
     ? await connections.unavailableReason(connectionId)
-    : { reason: "deleted" as const, row: null };
+    : deletedModel
+      ? { reason: "deleted" as const, row: null }
+      : null;
   if (!unavailable) return null;
 
   let fallback = null;
@@ -94,6 +102,7 @@ export async function resolveChatConnectionOrFallback(
       model: fallback.model,
       reason: unavailable.reason,
       ...(connectionId ? { unavailableConnectionId: connectionId } : {}),
+      ...(!connectionId && deletedModel ? { unavailableName: deletedModel } : {}),
       ...(unavailable.row
         ? {
             unavailableName:

@@ -25,6 +25,8 @@
 // without requiring this file to be updated in lockstep.
 
 import {
+  CHAT_FOLLOWS_MAIN_KEY,
+  CHAT_MODEL_DELETED_KEY,
   CHAT_MODEL_OVERRIDE_KEY,
   type ChatModelOverride,
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
@@ -125,6 +127,13 @@ export async function sweepDanglingConnectionReferences(
         const moved = JSON.parse(metadata ?? chat.metadata ?? "{}") as Record<string, unknown>;
         moved[CHAT_MODEL_OVERRIDE_KEY] = { ...override, connectionId: overrideCarrierId };
         metadata = JSON.stringify(moved);
+      } else if (directMatch) {
+        // #9126: the chat's own Model is gone. Record its name, so the next reply says that Model was deleted rather
+        // than passed over in silence; choosing "Use default" afterwards clears it (chats.routes.ts).
+        const cleared = JSON.parse(metadata ?? chat.metadata ?? "{}") as Record<string, unknown>;
+        cleared[CHAT_MODEL_DELETED_KEY] = (chat.name ?? "").trim() || chat.id;
+        delete cleared[CHAT_FOLLOWS_MAIN_KEY];
+        metadata = JSON.stringify(cleared);
       }
 
       await db
