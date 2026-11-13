@@ -1,3 +1,5 @@
+import { sceneWeatherCategory, type SceneShelter } from "@marinara-engine/shared";
+
 // ── Particle types ──
 export interface WeatherParticle {
   x: number;
@@ -621,42 +623,32 @@ export function resolveWeatherRenderConfig(weather?: string | null, timeOfDay?: 
     ...weatherConfig,
     ...timeConfig,
     isClearSky,
-    category: weatherCategory(weather, weatherConfig),
+    category: weatherCategory(weather),
     period: weatherPeriod(timeConfig),
   };
 }
 
-/** The story weather as one word from WEATHER_CATEGORIES (never the story's own text). */
-function weatherCategory(
-  weather: string | null | undefined,
-  parsed: ReturnType<typeof parseWeather>,
-): WeatherCategory | "" {
-  if (!weather) return "";
-  if (parsed.lightning) return "storm";
-  switch (parsed.type) {
-    case "rain":
-      return /storm|downpour/i.test(weather) ? "storm" : "rain";
-    case "snow":
-      return "snow";
-    case "hail":
-      return "hail";
-    case "fog":
-      return "fog";
-    case "sand":
-      return "sand";
-    case "ash":
-      return "ash";
-    case "ember":
-      return "embers";
-    case "leaf":
-      return "wind";
-    case "petal":
-      return "blossom";
-    case "aurora":
-      return "aurora";
-    default:
-      return /cloud|overcast|grey|gray/i.test(weather) ? "cloudy" : "clear";
-  }
+/** The story weather as one word from WEATHER_CATEGORIES (never the story's own text). Shared with weather versions of backgrounds. */
+function weatherCategory(weather: string | null | undefined): WeatherCategory | "" {
+  return sceneWeatherCategory(weather);
+}
+
+/**
+ * Indoors the weather is outside: no particles, fog banks, stars, fireflies, sun or moon across the
+ * room, only the colour cast and lightning light through the windows. A weather version of the chat
+ * background shows the weather itself in the windows.
+ */
+export function shelterWeatherRenderConfig(config: WeatherRenderConfig, shelter: SceneShelter): WeatherRenderConfig {
+  if (shelter !== "indoors") return config;
+  return {
+    ...config,
+    type: "dust",
+    count: 0,
+    addFireflies: false,
+    addStars: false,
+    celestial: "none",
+    sunRays: false,
+  };
 }
 
 function weatherPeriod(time: ReturnType<typeof parseTime>): WeatherPeriod | "" {

@@ -10,6 +10,10 @@ The weather comes from the story. In a Roleplay or Game chat, the **World State*
 
 The app always does the drawing itself. Your theme doesn't draw anything. It sets a few `--mari-weather-` tokens (named settings, like `--primary`), and the app reads them and draws the weather your way. This keeps themes safe: nothing in a theme can run code, and the user's own settings, such as reduced motion, always win.
 
+### Indoors the weather stays outside
+
+When the story is inside, such as an inn, a bedroom or a World Maps room, the app doesn't rain across the whole screen. It keeps only the colour of the weather and the lightning flash, and the room stays dry. The app works out "inside" from the World State location ("Tideglass Inn, Brinewatch") or the World Maps place type. When it can't tell, the weather draws as usual. With **Weather Versions of Backgrounds** on (see [Roleplay Backgrounds](../roleplay/backgrounds.md#weather-versions-of-backgrounds)), the background picture itself shows the rain on the windows.
+
 ### The weather with no theme
 
 This is a rainy night with no theme: thin pale streaks over a dark blue wash. The pictures further down show the same chat with three starter themes.
@@ -263,6 +267,14 @@ If your theme has its own ambient overlay with falling leaves or rain (`--mari-a
 ```
 
 This reads: "when there is weather, and it's not clear or cloudy, hide the ambient overlay".
+
+Your own falling-leaf or rain overlay can stay outside too. `data-mari-shelter` is `indoors` or `outdoors` while the weather shows (and missing when the app can't tell):
+
+```css
+:root[data-mari-shelter="indoors"] {
+  --mari-ambient: none;
+}
+```
 
 ## What stays the user's choice
 

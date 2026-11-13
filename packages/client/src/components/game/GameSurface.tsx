@@ -168,6 +168,7 @@ import { useGenerate } from "../../hooks/use-generate";
 import { isVisibleGameMessage } from "../../lib/chat-message-visibility";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useGenerateSpatialMapDraft, useSpatialContext } from "../../hooks/use-spatial-context";
+import { useSceneShelter } from "../../hooks/use-scene-shelter";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   characterKeys,
@@ -2663,6 +2664,7 @@ function GameSurfaceComponent({
   const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
   const generationPhase = useChatStore((s) => s.generationPhase);
   const gameSnapshot = useGameStateStore((s) => (s.current?.chatId === activeChatId ? s.current : null));
+  const gameSceneShelter = useSceneShelter(activeChatId, chatMeta, gameSnapshot?.location ?? null);
   const chatCharacterIds = useMemo(
     () => getChatCharacterIds(chat.characterIds).filter((id) => id !== PROFESSOR_MARI_ID),
     [chat.characterIds],
@@ -14387,6 +14389,7 @@ function GameSurfaceComponent({
                           weather={gameSnapshot?.weather ?? null}
                           timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
                           showCelestial={false}
+                          shelter={gameSceneShelter}
                           paused={isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing}
                         />
                       </div>
