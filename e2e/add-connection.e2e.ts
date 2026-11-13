@@ -353,8 +353,7 @@ for (const dismiss of ["Escape", "the close button"] as const) {
         // Escape only closes a window that holds focus; adding a model re-renders its row and drops focus to the page.
         await dialog.locator("[data-model-search]").focus();
         await page.keyboard.press("Escape");
-      }
-      else await dialog.getByRole("button", { name: "Close Add models to E2E setup", exact: true }).click();
+      } else await dialog.getByRole("button", { name: "Close Add models to E2E setup", exact: true }).click();
       await expect(dialog).toHaveCount(0);
 
       // The added model stays, but only Done or Set as Main changes Main.
