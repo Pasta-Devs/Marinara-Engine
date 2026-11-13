@@ -98,6 +98,8 @@ Click **Create Theme**, or **Clone + Edit** on a starter theme to start from som
 
 The [Theme Author Guide](theme-author-guide.md#your-first-theme-step-by-step) has a step-by-step walkthrough for your first theme.
 
+You can also ask Professor Mari to build or change a theme for you, and, with an image model set up in Connections, to make its pictures. See [Ask Professor Mari to make the art](theme-author-guide.md#ask-professor-mari-to-make-the-art).
+
 ## Editing, exporting and removing your themes
 
 Your own themes have three buttons on their row:

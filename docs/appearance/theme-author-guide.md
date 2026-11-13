@@ -53,6 +53,17 @@ Open **Pictures and sharing details (author, version, thumbnail, fonts)** under 
 
 Pictures and fonts must be inside the theme. A theme can't load anything from another website, so a link to a picture or a Google Font in your CSS won't work.
 
+### Ask Professor Mari to make the art
+
+If you have an image model set up in **Connections** (Codex, NovelAI, ComfyUI, an OpenAI image model and so on), Professor Mari can make a theme's pictures for you and put them in it. Ask her in plain words, for example "make my Harbor theme a night-sky backdrop" or "give the Home cards a brass frame".
+
+1. Mari works on your own themes only. For a starter theme, click **Clone + Edit** first and ask her to work on the copy.
+2. She writes the picture prompt herself and sends it to your image model exactly as written. Your image style profiles and prompt prefixes (usually set up for character art) are left out, so a backdrop doesn't come back as a portrait.
+3. You see each picture before anything changes. Ask for a few versions to pick from (up to 4 at a time), or for fixes such as "crop it to the top half", "make the white background see-through" or "make it smaller". Each fix is a new version, and the earlier ones stay.
+4. When you say yes, Mari saves the picture into your theme (as WebP, the same way **Add pictures** does) and puts it in the theme's CSS. It shows up under **Pictures and sharing details** like any picture you added yourself.
+
+Each picture takes as long as your image model needs, often half a minute to a minute and a half. If your image connection uses your own ComfyUI workflow, text built into that workflow is still sent.
+
 ### Share your theme
 
 1. In **Pictures and sharing details**, fill in **Author**, **Version** (such as `1.0`), **Description** and **Thumbnail**, and pick **Made for** (Dark, Light or both). To suggest your colours and font along with the theme, click **Use my current Appearance** under **Settings**. Save.
