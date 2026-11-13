@@ -8409,15 +8409,23 @@ export class MariDbService {
     args: Row,
     context: { command: string; sessionId: string; cwd?: string },
   ): Promise<MariDbCommandResult> {
-    const chatId = requiredString(args, ["chatId", "chat_id"], "chat id");
-    const requestedMessageId = requiredString(args, ["messageId", "message_id", "id"], "message id");
+    // #9151: every other action takes its fields inside a "patch" or "data" carrier, so a caller who
+    // learned that shape nested the repaired reply there and this read saw no content at all. Read the
+    // same carriers here; a top-level field still wins, so neither shape is guessed at.
+    const fields = actionDataWithTopLevel(
+      args,
+      ["patch", "data"],
+      ["chatId", "chat_id", "messageId", "message_id", "id", "content", "reason", "apply"],
+    );
+    const chatId = requiredString(fields, ["chatId", "chat_id"], "chat id");
+    const requestedMessageId = requiredString(fields, ["messageId", "message_id", "id"], "message id");
     // Validate against the trimmed form, but store the reply as given — unlike requiredString's
     // trim-before-return, a fixed reply's own leading/trailing whitespace is content, not noise.
-    const rawContent = typeof args.content === "string" ? args.content : "";
+    const rawContent = typeof fields.content === "string" ? fields.content : "";
     if (!rawContent.trim()) throw new Error("chat.updateMessage needs non-empty content for the fixed reply.");
     const content = rawContent;
-    const reason = firstString(args, ["reason"]) ?? null;
-    const apply = firstBoolean(args, ["apply"]) === true;
+    const reason = firstString(fields, ["reason"]) ?? null;
+    const apply = firstBoolean(fields, ["apply"]) === true;
 
     const chatsStorage = createChatsStorage(this.db);
     const chat = await chatsStorage.getById(chatId);
