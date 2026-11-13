@@ -323,6 +323,37 @@ test("Chat Settings removes a Game party member and persona, and opens a member'
   }
 });
 
+// Playing as a character stores it in personaCharacterId; Remove leaves the chat with no persona of either kind.
+test("Chat Settings removes a played-as character persona", async ({ page, request }) => {
+  const heroId = await createCharacter(request, "Played Hero");
+  const partnerId = await createCharacter(request, "Played Partner");
+  const chatId = await createChat(request, "roleplay", [partnerId]);
+  expect((await request.patch(`/api/chats/${chatId}`, { data: { personaCharacterId: heroId } })).ok()).toBeTruthy();
+  const readPersona = async () => {
+    const stored = (await (await request.get(`/api/chats/${chatId}`)).json()) as {
+      personaId: string | null;
+      personaCharacterId: string | null;
+    };
+    return [stored.personaId ?? null, stored.personaCharacterId ?? null];
+  };
+  try {
+    await openApp(page, chatId);
+    await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible();
+    const settings = await openChatSettings(page);
+    const persona = settings.locator('[data-drawer="roleplay-persona"]');
+    await setOpen(persona, true);
+    const body = persona.locator(":scope > .mari-drawer__body");
+    await expect(body.getByTitle("Change persona", { exact: true })).toContainText("Played Hero");
+
+    await body.locator('[data-chat-settings-remove-resource="persona"]').click();
+    await expect.poll(readPersona).toEqual([null, null]);
+    await expect(body.getByRole("button", { name: /Choose\s+Persona/u })).toBeVisible();
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+    await Promise.all([heroId, partnerId].map((id) => request.delete(`/api/characters/${id}`)));
+  }
+});
+
 // Connected chats differs by mode: Conversation links to a Roleplay or Game chat and has Cross-Chat Awareness,
 // Roleplay shows the linked conversation and has Allow character DMs, and Game can start the link from its side.
 test("Chat Settings links and unlinks chats from every mode", async ({ page, request }) => {
