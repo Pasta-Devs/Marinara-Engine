@@ -82,12 +82,22 @@ Before you start: pick a Decision model in the **Defaults** box on the Connectio
 
 What happens after each reply:
 
-- The new-place check asks "The latest message moves the scene to a new place." A yes makes a new background, the same as when Illustrator asks for one. The Prompt Model only writes the background prompt after a yes.
+- The new-place check asks "The latest message moves the scene to a new place." A yes gets the place a background, the same as when Illustrator asks for one (see "Reusing pictures you already have" below). The Prompt Model only writes a background prompt after a yes.
 - The weather check asks "The weather changes in the latest message." A yes shows or makes the weather version of the current background. Without a World State weather, the Decision model also picks the weather from the list of kinds above, or clear.
 - The checks only add chances to act. Illustrator's own decision on its run interval and World State location changes still count.
 - With no answer (no model, a timeout or an error), the check is skipped and Illustrator works as it does without it.
 
 If it did not work: with no Decision model chosen, the list is greyed out and says where to pick one.
+
+### Reusing pictures you already have
+
+Before Illustrator paints a new place, it looks for a picture you already have, in this order:
+
+1. A background you pinned to the place (see the next section).
+2. A library picture whose name, or a tag of two or more words, appears in the World State location. For example, `generated-guest-bedroom.png` serves "Smith House, guest bedroom".
+3. Without a World State location, the place name the Prompt Model writes is matched the same way.
+
+If one fits, it is shown (in the story's weather when that version exists) and nothing is painted. Only a place with no match gets a new picture.
 
 ## Pin a background to a place
 

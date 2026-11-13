@@ -118,7 +118,7 @@ export function matchLibraryBackgroundForLocation(
   return best?.filename ?? null;
 }
 
-function readChatBackgroundLibrary(): Array<{ filename: string; tags: string[] }> {
+export function readChatBackgroundLibrary(): Array<{ filename: string; tags: string[] }> {
   const dir = join(DATA_DIR, "backgrounds");
   if (!existsSync(dir)) return [];
   let meta: Record<string, { tags?: unknown }> = {};
