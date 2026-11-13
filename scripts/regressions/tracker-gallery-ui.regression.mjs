@@ -24,6 +24,9 @@ const chatGallery = readSource("packages/client/src/components/chat/ChatGallery.
 const chatSettingsDrawer = readSource("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
 const roleplayAgentMenuIcon = readSource("packages/client/src/features/chat-settings/roleplay-agent-menu-icon.tsx");
 const groupChatSection = readSource("packages/client/src/features/chat-settings/sections/GroupChatSection.tsx");
+const connectedChatsSections = readSource(
+  "packages/client/src/features/chat-settings/sections/ConnectedChatsSections.tsx",
+);
 const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
 const homeBrowserHub = readSource("packages/client/src/components/chat/HomeBrowserHub.tsx");
 const storyboardChatSettings = readSource("packages/client/src/features/chat-settings/StoryboardChatSettingsPanel.tsx");
@@ -218,7 +221,7 @@ assert.match(
   /aria-expanded=\{advancedMemoryEnabled \? memoryView === "advanced" : undefined\}/u,
   "Memory Recall access must expose its inline Advanced Memory disclosure state",
 );
-const noodleTimelineSwitch = chatSettingsDrawer.match(
+const noodleTimelineSwitch = connectedChatsSections.match(
   /<SettingsSwitch\b(?:(?!\/>)[\s\S])*?checked=\{noodleTimelineContextEnabled\}(?:(?!\/>)[\s\S])*?\/>/u,
 )?.[0];
 assert.ok(noodleTimelineSwitch, "the Noodle timeline setting must retain its shared switch");

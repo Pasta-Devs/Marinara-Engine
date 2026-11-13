@@ -49,9 +49,7 @@ import {
   RotateCcw,
   Settings2,
   Info,
-  ArrowRightLeft,
   Archive,
-  Unlink,
   Brain,
   Feather,
   Paintbrush,
@@ -70,7 +68,6 @@ import {
   ScrollText,
   PenLine,
   Images,
-  Link2,
   Pin,
   ScanText,
   Shield,
@@ -87,7 +84,6 @@ import {
 import { FloatingWindow } from "../../components/ui/FloatingWindow";
 import { TrackerPanelIcon } from "../../components/ui/TrackerPanelIcon";
 import { type ChatToolbarFloatingPanelAnchor } from "../../components/chat/ChatToolbarControls";
-import { PickerDropdown } from "./PickerDropdown";
 import { CharacterSelect, changedId } from "../../components/characters/CharacterSelect";
 import { PersonaHistoryReassignDropdown } from "./sections/PersonaHistoryReassignDropdown";
 import { ChatSettingsSection as Section } from "./ChatSettingsSection";
@@ -100,13 +96,13 @@ import { ScopedRegexSection } from "./sections/ScopedRegexSection";
 import { GroupChatSection } from "./sections/GroupChatSection";
 import { GameWidgetsSection } from "./sections/GameWidgetsSection";
 import { SettingsProfilesSection } from "./sections/SettingsProfilesSection";
+import { ConnectedChatsSections } from "./sections/ConnectedChatsSections";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
 import { resolvePersonaInlineNames } from "../../lib/inline-name-colors";
 import { ConnectionSection, type ChatConnectionOption } from "./sections/ConnectionSection";
 import { ConversationPromptSection } from "./sections/ConversationPromptSection";
-import { DiscordMirrorControls } from "./sections/DiscordMirrorSection";
 import { FunctionCallingSection } from "./sections/FunctionCallingSection";
 import { GameExtraPromptSection } from "./sections/GameExtraPromptSection";
 import { ImpersonateSection } from "./sections/ImpersonateSection";
@@ -134,7 +130,6 @@ import {
   DEFAULT_GAME_DICE_POOL_WINDOW as DEFAULT_DICE_POOL_WINDOW,
   advancedMemoryProblems,
   estimateTextTokens,
-  isRoleplayCommandEnabled,
   normalizeAdvancedMemorySettings,
   normalizeGroupChatMode,
   normalizeSemanticSummaryRetrievalSettings,
@@ -171,7 +166,6 @@ import { AgentPromptTemplateSelect } from "./AgentPromptTemplateSelect";
 import { AgentLorebookAttachment } from "./AgentLorebookAttachment";
 import { HapticConnectionPanel } from "./HapticConnectionPanel";
 import { HAPTIC_SENSITIVITY_OPTIONS } from "../../components/chat/haptic-sensitivity-options";
-import { ChatModeIcon } from "../../components/chat/ChatModeIcon";
 import { SettingsSwitch } from "../../components/panels/settings/SettingControls";
 import { ChoiceSelectionModal } from "../../components/presets/ChoiceSelectionModal";
 import { CharacterOnboardingModal } from "../../components/characters/CharacterOnboardingModal";
@@ -206,8 +200,6 @@ import {
   useUpdateChatMetadata,
   useCreateMessage,
   useChats,
-  useConnectChat,
-  useDisconnectChat,
   useChatMessagePeek,
   useGenerationStatus,
   useChatGroup,
@@ -229,7 +221,6 @@ import {
   getChatExcludedLorebookIds,
   type ActiveLorebookView,
 } from "../../lib/chat-lorebooks";
-import { getConnectedChatDisplayName } from "../../lib/chat-display";
 import { getChatCharacterIds, resolveGreetingPreview } from "../../lib/chat-macros";
 import { cardAnswerValues } from "../../lib/onboarding-preview-highlight";
 import { insertLibraryItems } from "../../lib/library-order";
@@ -291,7 +282,6 @@ import {
   SUMMARY_TAIL_MESSAGES,
   estimateAgentLoadCost,
   getAgentPromptTemplateOptions,
-  includesTextForMatch,
   AGENT_COST_HIGH_CALLS,
   AGENT_COST_HIGH_TOKENS,
   CONVERSATION_COMMAND_AGENT_IDS,
@@ -374,7 +364,6 @@ import {
 import { renderRoleplayAgentMenuIcon } from "./roleplay-agent-menu-icon";
 import { MemoryRecallMemoriesModal } from "./MemoryRecallMemoriesModal";
 import { KnowledgeAgentSettingsCard } from "./KnowledgeAgentSettingsCard";
-import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 
 const PICKER_EXCLUDED_IDS = [PROFESSOR_MARI_ID];
 const QuickPresetSectionsEditor = lazy(() =>
@@ -702,8 +691,6 @@ export function ChatSettingsDrawer({
   const updateAgentConfig = useUpdateAgent();
   const createAgent = useCreateAgent();
   const createMessage = useCreateMessage(chat.id);
-  const connectChat = useConnectChat();
-  const disconnectChat = useDisconnectChat();
   const { retryAgents } = useGenerate();
   const agentProcessing = useAgentStore((s) => s.processingChatIds.includes(chat.id));
   const hasLocalGeneration = useChatStore((s) => s.abortControllers.has(chat.id));
@@ -802,9 +789,6 @@ export function ChatSettingsDrawer({
     setTrackerPanelOpen(true, chat.id);
   };
   const summaryRetrievalSettings = normalizeSemanticSummaryRetrievalSettings(metadata);
-  // Package integrations only show while their package is installed and usable.
-  const noodleInstalled = isCapabilityPackageAvailable(installedCapabilities, "noodle");
-  const slurp2Installed = isCapabilityPackageAvailable(installedCapabilities, "slurp2");
   // Chat variables live in the same map {{setvar}} writes, so a value a prompt
   // or lorebook set shows up here as an editable row.
   const chatMacroVariables = useMemo<Record<string, string>>(() => {
@@ -816,44 +800,6 @@ export function ChatSettingsDrawer({
       ),
     );
   }, [metadata.macroVariables]);
-  const noodleTimelineContextEnabled = metadata.noodleTimelineContextEnabled === true;
-  const slurp2ActivityContextEnabled = metadata.slurp2ActivityContextEnabled === true;
-  const renderPackageContextToggles = () => (
-    <>
-      {noodleInstalled && (
-        <SettingsSwitch
-          label={localizeUi("ui.chat.chatsettingsdrawer.allowNoodleReferences")}
-          description={localizeUi("ui.chat.chatsettingsdrawer.timelineRefreshesMayIncludeRecentMessagesFromThisChat")}
-          checked={noodleTimelineContextEnabled}
-          onChange={(checked) => updateMeta.mutate({ id: chat.id, noodleTimelineContextEnabled: checked })}
-          labelPosition="start"
-          className={cn(
-            "justify-between rounded-md px-3 py-2.5 text-left",
-            noodleTimelineContextEnabled
-              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-          )}
-          labelClassName="text-[0.6875rem] font-medium"
-        />
-      )}
-      {slurp2Installed && (
-        <SettingsSwitch
-          label={localizeUi("ui.chat.chatsettingsdrawer.allowSlurpActivity")}
-          description={localizeUi("ui.chat.chatsettingsdrawer.allowSlurpActivityDescription")}
-          checked={slurp2ActivityContextEnabled}
-          onChange={(checked) => updateMeta.mutate({ id: chat.id, slurp2ActivityContextEnabled: checked })}
-          labelPosition="start"
-          className={cn(
-            "justify-between rounded-md px-3 py-2.5 text-left",
-            slurp2ActivityContextEnabled
-              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-          )}
-          labelClassName="text-[0.6875rem] font-medium"
-        />
-      )}
-    </>
-  );
   const { data: currentPromptPresetFull } = usePresetFull(isRoleplayMode ? (chat.promptPresetId ?? null) : null);
   const promptPresetOptionsLoaded = Array.isArray(presets);
   const promptPresetOptions = useMemo(() => (presets ?? []) as PromptPreset[], [presets]);
@@ -3566,7 +3512,6 @@ export function ChatSettingsDrawer({
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const personaBtnRef = useRef<HTMLDivElement>(null);
   const gamePersonaBtnRef = useRef<HTMLDivElement>(null);
-  const [showConnectionPicker, setShowConnectionPicker] = useState(false);
   const [showSummariesModal, setShowSummariesModal] = useState(false);
   const [showAgentSuiteModal, setShowAgentSuiteModal] = useState(false);
   const [memoryView, setMemoryView] = useState<"advanced" | "standard" | null>(null);
@@ -3637,7 +3582,6 @@ export function ChatSettingsDrawer({
   useEffect(() => {
     setRolloverTouchedThisSession(false);
   }, [chat.id]);
-  const [connectionSearch, setConnectionSearch] = useState("");
   // The onboarding template whose questions window is open, picked from the
   // persona picker. A character, not a persona: nothing exists until Create.
   const [onboardingTemplateId, setOnboardingTemplateId] = useState<string | null>(null);
@@ -6609,302 +6553,19 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          {/* Connected Roleplay — conversation mode: link to a roleplay or game chat */}
-          {isConversation && (
-            <Section
-              id="conversation-connected-chats"
-              style={{ order: CHAT_SETTINGS_ORDER.connectedChat }}
-              label={localizeUi("ui.chat.chatsettingsdrawer.connectedChats")}
-              icon={<Link2 size="0.875rem" />}
-              help={localizeUi("ui.chat.chatsettingsdrawer.controlAwarenessOfSiblingChatsOrLinkThisConversation")}
-            >
-              <div className="space-y-2">
-                <SettingsSwitch
-                  label={localizeUi("ui.chat.chatsettingsdrawer.crossChatAwareness")}
-                  description={localizeUi("ui.chat.chatsettingsdrawer.charactersKnowWhatHappensInTheirOtherChats")}
-                  checked={metadata.crossChatAwareness !== false}
-                  onChange={(crossChatAwareness) => updateMeta.mutate({ id: chat.id, crossChatAwareness })}
-                  labelPosition="start"
-                  className={cn(
-                    "justify-between rounded-md px-3 py-2.5 text-left",
-                    metadata.crossChatAwareness !== false
-                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-                  )}
-                  labelClassName="text-xs font-medium"
-                />
-                {chat.connectedChatId ? (
-                  (() => {
-                    const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
-                    const linkedMode =
-                      linked?.mode === "conversation" || linked?.mode === "roleplay" || linked?.mode === "game"
-                        ? linked.mode
-                        : "roleplay";
-                    return (
-                      <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
-                        {linked ? (
-                          <ChatModeIcon mode={linkedMode} size="0.875rem" className="text-[var(--primary)]" />
-                        ) : (
-                          <ArrowRightLeft size="0.875rem" className="text-[var(--primary)]" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <span className="truncate text-xs font-medium">
-                            {linked
-                              ? getConnectedChatDisplayName(linked)
-                              : localizeUi("ui.chat.chatsettingsdrawer.unknownChat")}
-                          </span>
-                          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                            {linked
-                              ? linkedMode === "roleplay"
-                                ? localizeUi("settings.modes.roleplay")
-                                : linkedMode
-                              : localizeUi("ui.chat.chatsettingsdrawer.deleted")}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => disconnectChat.mutate(chat.id)}
-                          className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                          title={localizeUi("ui.agents.agenteditor.disconnect")}
-                        >
-                          <Unlink size="0.6875rem" />
-                        </button>
-                      </div>
-                    );
-                  })()
-                ) : !showConnectionPicker ? (
-                  <button
-                    onClick={() => {
-                      setShowConnectionPicker(true);
-                      setConnectionSearch("");
-                    }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-                  >
-                    <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.linkToRoleplayOrGame")}
-                  </button>
-                ) : (
-                  <PickerDropdown
-                    search={connectionSearch}
-                    onSearchChange={setConnectionSearch}
-                    onClose={() => setShowConnectionPicker(false)}
-                    placeholder={localizeUi("ui.chat.chatsettingsdrawer.searchRoleplayOrGameChats")}
-                  >
-                    {((allChats ?? []) as Chat[])
-                      .filter(
-                        (c) =>
-                          c.id !== chat.id &&
-                          (c.mode === "roleplay" || c.mode === "game") &&
-                          !c.connectedChatId &&
-                          includesTextForMatch(getConnectedChatDisplayName(c), connectionSearch),
-                      )
-                      .map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            connectChat.mutate({ chatId: chat.id, targetChatId: c.id });
-                            setShowConnectionPicker(false);
-                          }}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]"
-                        >
-                          <ChatModeIcon
-                            mode={c.mode}
-                            size="0.75rem"
-                            className="shrink-0 text-[var(--muted-foreground)]"
-                          />
-                          <span className="truncate">{getConnectedChatDisplayName(c)}</span>
-                        </button>
-                      ))}
-                  </PickerDropdown>
-                )}
-                {renderPackageContextToggles()}
-                <DiscordMirrorControls
-                  webhookUrl={(metadata.discordWebhookUrl as string) ?? ""}
-                  onWebhookUrlChange={(discordWebhookUrl) => updateMeta.mutate({ id: chat.id, discordWebhookUrl })}
-                />
-              </div>
-            </Section>
-          )}
-
-          {/* Connected Conversation — roleplay mode: linked OOC chat + optional in-world DM command */}
-          {isRoleplayMode && (
-            <Section
-              id="roleplay-connected-chats"
-              style={{ order: CHAT_SETTINGS_ORDER.connectedChat }}
-              label={localizeUi("ui.chat.chatsettingsdrawer.connectedChats")}
-              icon={<Link2 size="0.875rem" />}
-              help={localizeUi("ui.chat.chatsettingsdrawer.linkToAnOocConversationAndOptionallyLetRoleplay")}
-            >
-              <div className="space-y-2">
-                <SettingsSwitch
-                  label={localizeUi("ui.chat.chatsettingsdrawer.allowCharacterDms")}
-                  description={localizeUi("roleplay.commands.dm.shortcutDescription")}
-                  checked={isRoleplayCommandEnabled(metadata, "dm")}
-                  onChange={(enabled) =>
-                    updateMeta.mutate({
-                      id: chat.id,
-                      ...(enabled ? { roleplayCommandsEnabled: true } : {}),
-                      roleplayCommandToggles: { ...metadata.roleplayCommandToggles, dm: enabled },
-                    })
-                  }
-                  labelPosition="start"
-                  className="min-h-11 justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
-                  labelClassName="text-xs font-medium"
-                />
-                {chat.connectedChatId ? (
-                  (() => {
-                    const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
-                    return (
-                      <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
-                        <ChatModeIcon mode="conversation" size="0.875rem" className="text-[var(--primary)]" />
-                        <div className="flex-1 min-w-0">
-                          <span className="truncate text-xs font-medium">
-                            {linked
-                              ? getConnectedChatDisplayName(linked)
-                              : localizeUi("ui.chat.chatsettingsdrawer.unknownChat")}
-                          </span>
-                          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                            {localizeUi("settings.modes.conversation")}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => disconnectChat.mutate(chat.id)}
-                          className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                          title={localizeUi("ui.agents.agenteditor.disconnect")}
-                        >
-                          <Unlink size="0.6875rem" />
-                        </button>
-                      </div>
-                    );
-                  })()
-                ) : (
-                  <p className="rounded-lg bg-[var(--secondary)]/50 px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                    {localizeUi("ui.chat.chatsettingsdrawer.noOocConversationIsLinkedDirectMessageCommandsCan")}
-                  </p>
-                )}
-
-                {renderPackageContextToggles()}
-
-                <DiscordMirrorControls
-                  className="space-y-2"
-                  webhookUrl={(metadata.discordWebhookUrl as string) ?? ""}
-                  onWebhookUrlChange={(discordWebhookUrl) => updateMeta.mutate({ id: chat.id, discordWebhookUrl })}
-                />
-              </div>
-            </Section>
-          )}
-
-          {/* Connected Conversation — game mode: show linked OOC chat */}
-          {isGame && chat.connectedChatId && (
-            <Section
-              id="game-connected-chats"
-              style={{ order: CHAT_SETTINGS_ORDER.connectedChat }}
-              label={localizeUi("ui.chat.chatsettingsdrawer.connectedChats")}
-              icon={<Link2 size="0.875rem" />}
-              help={localizeUi("ui.chat.chatsettingsdrawer.linkedToAConversationInfluenceTagsFromTheConversation")}
-            >
-              <div className="space-y-2">
-                {(() => {
-                  const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
-                  return (
-                    <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
-                      <ChatModeIcon mode="conversation" size="0.875rem" className="text-[var(--primary)]" />
-                      <div className="min-w-0 flex-1">
-                        <span className="truncate text-xs font-medium">
-                          {linked
-                            ? getConnectedChatDisplayName(linked)
-                            : localizeUi("ui.chat.chatsettingsdrawer.unknownChat")}
-                        </span>
-                        <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                          {localizeUi("settings.modes.conversation")}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => disconnectChat.mutate(chat.id)}
-                        className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                        title={localizeUi("ui.agents.agenteditor.disconnect")}
-                      >
-                        <Unlink size="0.6875rem" />
-                      </button>
-                    </div>
-                  );
-                })()}
-                {renderPackageContextToggles()}
-                <DiscordMirrorControls
-                  webhookUrl={(metadata.discordWebhookUrl as string) ?? ""}
-                  onWebhookUrlChange={(discordWebhookUrl) => updateMeta.mutate({ id: chat.id, discordWebhookUrl })}
-                />
-              </div>
-            </Section>
-          )}
-
-          {/* Notes from Conversation — durable notes saved by the connected conversation's character */}
-          {!isConversation && chat.connectedChatId && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.connectedNotes }}>
-              <ConversationNotesSection chatId={chat.id} />
-            </div>
-          )}
-
-          {/* Connect to Conversation — game mode without existing link */}
-          {chatMode === "game" && !chat.connectedChatId && (
-            <Section
-              id="game-connected-chats"
-              style={{ order: CHAT_SETTINGS_ORDER.connectedChat }}
-              label={localizeUi("ui.chat.chatsettingsdrawer.connectedChats")}
-              icon={<Link2 size="0.875rem" />}
-              help={localizeUi("ui.chat.chatsettingsdrawer.linkThisGameToAnOocConversationTheConversation")}
-            >
-              <div className="space-y-2">
-                {!showConnectionPicker ? (
-                  <button
-                    onClick={() => {
-                      setShowConnectionPicker(true);
-                      setConnectionSearch("");
-                    }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-                  >
-                    <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.linkToConversation")}
-                  </button>
-                ) : (
-                  <PickerDropdown
-                    search={connectionSearch}
-                    onSearchChange={setConnectionSearch}
-                    onClose={() => setShowConnectionPicker(false)}
-                    placeholder={localizeUi("ui.chat.chatsettingsdrawer.searchConversationChats")}
-                  >
-                    {((allChats ?? []) as Chat[])
-                      .filter(
-                        (c) =>
-                          c.id !== chat.id &&
-                          c.mode === "conversation" &&
-                          !c.connectedChatId &&
-                          includesTextForMatch(getConnectedChatDisplayName(c), connectionSearch),
-                      )
-                      .map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            connectChat.mutate({ chatId: chat.id, targetChatId: c.id });
-                            setShowConnectionPicker(false);
-                          }}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]"
-                        >
-                          <ChatModeIcon
-                            mode="conversation"
-                            size="0.75rem"
-                            className="shrink-0 text-[var(--muted-foreground)]"
-                          />
-                          <span className="truncate">{getConnectedChatDisplayName(c)}</span>
-                        </button>
-                      ))}
-                  </PickerDropdown>
-                )}
-                {renderPackageContextToggles()}
-                <DiscordMirrorControls
-                  webhookUrl={(metadata.discordWebhookUrl as string) ?? ""}
-                  onWebhookUrlChange={(discordWebhookUrl) => updateMeta.mutate({ id: chat.id, discordWebhookUrl })}
-                />
-              </div>
-            </Section>
-          )}
+          <ConnectedChatsSections
+            order={CHAT_SETTINGS_ORDER.connectedChat}
+            notesOrder={CHAT_SETTINGS_ORDER.connectedNotes}
+            chat={chat}
+            metadata={metadata}
+            chatMode={chatMode}
+            isConversation={isConversation}
+            isRoleplayMode={isRoleplayMode}
+            isGame={isGame}
+            allChats={allChats as Chat[] | undefined}
+            noodleInstalled={isCapabilityPackageAvailable(installedCapabilities, "noodle")}
+            slurp2Installed={isCapabilityPackageAvailable(installedCapabilities, "slurp2")}
+          />
 
           <div style={{ order: CHAT_SETTINGS_ORDER.lorebooks }}>
             <LorebooksSection
