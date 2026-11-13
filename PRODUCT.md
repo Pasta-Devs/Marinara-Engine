@@ -27,6 +27,11 @@ immersive, pretty, playful
 
 Marinara should feel like a lovingly built engine for stories and characters: expressive, slightly magical, approachable, and full of personality. It can be cute, dramatic, romantic, game-like, and cozy, but it should still feel capable and well-made. The tone should make advanced features feel discoverable rather than scary.
 
+## Voice
+
+- We talk to users as ourselves, the developers.
+- Professor Mari, the in-app assistant, can add an occasional sidenote in her own voice. She does not replace the team voice.
+
 ## Anti-references
 
 Marinara should not look like:
