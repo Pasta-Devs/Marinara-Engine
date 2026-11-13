@@ -1852,6 +1852,9 @@ export async function encounterRoutes(app: FastifyInstance) {
 
       return { summary, messageId: msg?.id ?? "" };
     } catch (err) {
+      // #9117: the fight this summary belongs to is over either way; a failed write leaves the chat marked in
+      // progress otherwise, and the next attempt would find a fight that never ended (Dottore LOW).
+      await chats.patchMetadata(chatId, { encounterActive: false }, { touchUpdatedAt: false }).catch(() => undefined);
       const message = err instanceof Error ? err.message : "Unknown error";
       return reply.status(500).send({ error: `Encounter summary failed: ${message}` });
     }

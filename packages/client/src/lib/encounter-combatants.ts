@@ -68,6 +68,9 @@ export function sanitizeEnemies(arr: unknown[], current: CombatEnemy[]): CombatE
     const index = nextIndexOf(name, current, consumed);
     const matched = index >= 0 ? current[index] : undefined;
     if (!name) return [];
+    // #9117: a reply naming one foe more often than the fight has foes of that name adds no extra: the extra
+    // would arrive with no attacks or statuses and hp 1, not a foe that joined (Dottore LOW).
+    if (!matched && current.some((enemy) => enemy.name === name)) return [];
     if (matched) consumed.add(index);
     return [
       {

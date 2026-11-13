@@ -17,6 +17,11 @@ import { sanitizeEnemies, sanitizeParty } from "../lib/encounter-combatants";
 
 /** #9117: the summary in flight, so closing the window can cancel it before it writes to the chat. */
 let summaryAbort: AbortController | null = null;
+/**
+ * #9117: which fight is on screen. A reply to an action that lands after the window closed, or after another fight
+ * started, belongs to a fight that is gone: it writes no log, no stats and no summary (Dottore MEDIUM).
+ */
+let encounterRun = 0;
 
 export function useEncounter() {
   const qc = useQueryClient();
@@ -37,6 +42,7 @@ export function useEncounter() {
       store.setError(null);
 
       // Mark active so the modal renders in loading state
+      encounterRun += 1;
       useEncounterStore.setState({ active: true });
 
       const spellbookId = useEncounterStore.getState().spellbookId;
@@ -104,6 +110,7 @@ export function useEncounter() {
       if (useEncounterStore.getState().isProcessing) return;
       const { party, enemies, environment, playerActions, encounterLog, settings } = useEncounterStore.getState();
       const spellbookId = useEncounterStore.getState().spellbookId;
+      const run = encounterRun;
 
       store.setProcessing(true);
       store.setError(null);
@@ -119,6 +126,9 @@ export function useEncounter() {
           settings,
           spellbookId,
         });
+
+        // The window closed, or another fight took the screen, while this reply was in flight.
+        if (run !== encounterRun) return;
 
         if (res.invalid) {
           store.setError("AI returned an invalid response. Try again.");
@@ -191,6 +201,7 @@ export function useEncounter() {
           await generateSummary(r.result);
         }
       } catch (err) {
+        if (run !== encounterRun) return;
         const msg = err instanceof Error ? err.message : "Failed to process action";
         store.setError(msg);
         store.setProcessing(false);
@@ -210,6 +221,7 @@ export function useEncounter() {
    * "Generating combat summary..." leaves nothing behind.
    */
   const closeEncounter = useCallback(() => {
+    encounterRun += 1;
     summaryAbort?.abort();
     summaryAbort = null;
     store.reset();

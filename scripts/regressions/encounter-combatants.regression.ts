@@ -116,4 +116,22 @@ assert.deepEqual(
   ],
 );
 
+// A reply naming one foe more often than the fight has foes of that name adds no phantom: the pair is matched
+// one for the other and the third is dropped, rather than arriving with hp from the reply and no attacks.
+const repeated = sanitizeEnemies(
+  [
+    { name: "Wolf", hp: 2 },
+    { name: "Wolf", hp: 4 },
+    { name: "Wolf", hp: 6 },
+  ],
+  twins,
+);
+assert.deepEqual(
+  repeated.map(({ name, hp }) => ({ name, hp })),
+  [
+    { name: "Wolf", hp: 2 },
+    { name: "Wolf", hp: 4 },
+  ],
+);
+
 console.log("Encounter combatants: merged by name, never by list position (#9117).");
