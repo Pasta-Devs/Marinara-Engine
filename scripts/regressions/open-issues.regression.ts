@@ -108,6 +108,7 @@ import {
 } from "../../packages/client/src/lib/personal-extension-traffic.js";
 import {
   isProfessorMariTranscriptNearBottom,
+  landProfessorMariTranscript,
   scrollProfessorMariTranscriptToBottom,
 } from "../../packages/client/src/lib/professor-mari-transcript-scroll.js";
 import {
@@ -1194,7 +1195,10 @@ for (const dockerfile of ["Dockerfile", "Dockerfile.lite"]) {
   const installAt = dockerSource.indexOf("pnpm install --frozen-lockfile");
   const argAt = dockerSource.search(/^ARG BUILD_COMMIT$/mu);
   const buildAt = dockerSource.search(/^RUN pnpm build$/mu);
-  assert.ok(installAt >= 0 && installAt < argAt && argAt < buildAt, "Dockerfile must declare ARG BUILD_COMMIT between the dependency install and `pnpm build`");
+  assert.ok(
+    installAt >= 0 && installAt < argAt && argAt < buildAt,
+    "Dockerfile must declare ARG BUILD_COMMIT between the dependency install and `pnpm build`",
+  );
 }
 for (const workflow of ["build-container.yml", "build-container-lite.yml"]) {
   const workflowSource = readFileSync(join(REPOSITORY_ROOT, ".github/workflows", workflow), "utf8");
@@ -5717,6 +5721,32 @@ assert.equal(
   "Professor Mari transcript scrolling must align a mounted pane with its newest message",
 );
 assert.equal(isProfessorMariTranscriptNearBottom(professorMariTranscript), true);
+
+// #9115: opening her console left the transcript mid-history. The turns below the fold measure frames
+// after the first pin, and the landing must keep pinning through that, not stop at the first settle.
+{
+  const frame = { clientHeight: 600, scrollHeight: 4000, scrollTop: 0 };
+  const pending: Array<() => void> = [];
+  const run = landProfessorMariTranscript(
+    frame,
+    (callback) => pending.push(callback),
+    () => {},
+  );
+  const tick = () => pending.shift()?.();
+  tick();
+  assert.equal(frame.scrollTop, 4000, "the first frame pins to the newest line");
+  tick();
+  frame.scrollHeight = 5200; // a turn below the fold took its real height
+  tick();
+  assert.equal(frame.scrollTop, 5200, "a later measure pins again, rather than leaving the view mid-history");
+  frame.scrollTop = 3000; // the reader scrolled up to read
+  tick();
+  frame.scrollHeight = 5600;
+  tick();
+  assert.equal(frame.scrollTop, 3000, "a reader who scrolled away is never pulled back");
+  run();
+  assert.equal(pending.length, 0, "the landing stops when the node or chat goes");
+}
 professorMariTranscript.scrollTop = 200;
 assert.equal(
   isProfessorMariTranscriptNearBottom(professorMariTranscript),

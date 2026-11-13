@@ -15,6 +15,51 @@ export function scrollProfessorMariTranscriptToBottom(container: ProfessorMariTr
 }
 
 /**
+ * #9115: pin a newly opened transcript to its newest line until its height holds still. Older turns off
+ * screen have only an estimated height (content-visibility), and the ones the bottom brings into view take
+ * their real height a frame or more later, pushing the newest line down again - a settle that lasts a single
+ * frame is not the end. So the loop keeps its frame budget and pins again whenever the height changes, and
+ * stops as soon as the transcript moves without it (the reader scrolling), so it never pulls a reader back.
+ * A hidden transcript (no height yet) waits for one. Returns the cancel.
+ */
+export function landProfessorMariTranscript(
+  node: HTMLElement,
+  schedule: (frame: () => void) => number,
+  cancel: (handle: number) => void,
+  onPinned?: () => void,
+  frames = 60,
+): () => void {
+  let handle: number | null = null;
+  let pinnedHeight = -1;
+  // Where the card opens is not a scroll the reader made: only a move away from the last pin counts.
+  let pinnedTop = node.scrollTop;
+  let moved = false;
+  let used = 0;
+  const land = () => {
+    handle = null;
+    if (moved || used++ > frames) return;
+    if (node.clientHeight > 0) {
+      // Anywhere but where the last pin left it is the reader: growth below the fold leaves the scroll
+      // position alone (the pin moves it back itself), so this never mistakes our own pin for a scroll.
+      if (node.scrollTop !== pinnedTop) moved = true;
+      if (node.scrollHeight !== pinnedHeight) {
+        pinnedHeight = node.scrollHeight;
+        scrollProfessorMariTranscriptToBottom(node);
+        pinnedTop = node.scrollTop;
+        onPinned?.();
+      }
+    }
+    handle = schedule(land);
+  };
+  handle = schedule(land);
+  return () => {
+    if (handle !== null) cancel(handle);
+    handle = null;
+    moved = true;
+  };
+}
+
+/**
  * While the reader follows the newest output, keep the transcript pinned to the bottom on every size
  * change of its content, not only when state changes. Content that grows smoothly (Mari's live reply
  * animates its height) then pushes the older lines up smoothly too, instead of sliding out of view.
