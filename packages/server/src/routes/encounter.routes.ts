@@ -1,3 +1,9 @@
+import {
+  dungeonFightPromptText,
+  dungeonFoesHere,
+  dungeonSiteHere,
+  gameDay,
+} from "../services/game/dungeon-spawns.service.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import {
   withAlwaysOnThinkingHeadroom,
@@ -1470,6 +1476,16 @@ export async function encounterRoutes(app: FastifyInstance) {
       const storyOpponents = storyRoster?.opponents.length ? storyRoster.opponents : null;
       if (storyFight && storyRoster) {
         prompt.push({ role: "user", content: storyFightPromptText(storyFight, storyRoster.opponents) });
+      }
+      // A fight in a dungeon area (dungeon spawns): the place decides who fights, and the Engine fights them.
+      if (!storyFight && !fightRuleset && chatMeta) {
+        const site = dungeonSiteHere({
+          meta: chatMeta,
+          setup: setupConfig,
+          world: await loadGameWorld(app.db, chatId, chatMeta),
+        });
+        const held = site ? dungeonFoesHere(site, gameDay(chatMeta)) : null;
+        if (site && held) prompt.push({ role: "user", content: dungeonFightPromptText(site, held.foes) });
       }
       debugLog(
         "[debug/game/combat:init] request chatId=%s model=%s historyMessages=%d settings=%s",

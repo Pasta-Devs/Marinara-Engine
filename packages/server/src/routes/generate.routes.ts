@@ -71,6 +71,7 @@ import {
 } from "../services/generation/agent-activation-questions.js";
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 import { regionDangerLine, regionSpawnGame, regionWalkEncounterText } from "../services/game/region-spawns.service.js";
+import { dungeonSiteHere, gameDay, gamePartyLevel } from "../services/game/dungeon-spawns.service.js";
 import { loadGameWorld } from "../services/game/game-world.service.js";
 import { readMapPackPeople } from "../services/game/map-pack.service.js";
 import {
@@ -315,6 +316,11 @@ import {
   gameDungeonMapFromDungeon,
   gameStyleFromMetadata,
   gameDungeonMapFromMetadata,
+  dungeonSpawnPromptText,
+  readGameDungeonSiteTags,
+  gameDungeonSiteKey,
+  gameDungeonSitesFromMetadata,
+  gameDungeonSitesWith,
   gameDungeonMapPromptText,
   gameDungeonSeed,
   gameDungeonToldText,
@@ -5797,7 +5803,37 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   ),
                 )
               : "";
-            return [text, toldText, locksText].filter(Boolean).join("\n") || undefined;
+            // Who lives there (dungeon spawns): every area's foes, fixed by the world, and no others.
+            const here = map
+              ? dungeonSiteHere({
+                  meta: chatMeta,
+                  setup: chatMeta.gameSetupConfig as Record<string, unknown> | undefined,
+                  world: promptWorld,
+                  partyPlace: (await promptPlace())?.name,
+                })
+              : null;
+            // Its band is set the first time the party is there, and kept: it never moves after.
+            if (here?.fresh)
+              await chats.patchMetadata(
+                input.chatId,
+                (stored) => {
+                  const sites = gameDungeonSitesFromMetadata(stored);
+                  return sites[here.key] ? {} : { gameDungeonSites: gameDungeonSitesWith(sites, here.key, here.state) };
+                },
+                { touchUpdatedAt: false },
+              );
+            const spawnText = here
+              ? dungeonSpawnPromptText({
+                  map: here.map,
+                  site: here.site,
+                  areas: here.areas,
+                  state: here.state,
+                  setting: here.setting,
+                  today: gameDay(chatMeta),
+                  ...(gamePartyLevel(chatMeta) !== undefined ? { partyLevel: gamePartyLevel(chatMeta)! } : {}),
+                })
+              : "";
+            return [text, spawnText, toldText, locksText].filter(Boolean).join("\n") || undefined;
           })();
           const promptWhereYouAre = promptWorld
             ? await (async () => {
@@ -11347,6 +11383,32 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             } catch (err) {
               // The reply is saved either way.
               logger.error(err, "[generate] Dungeon map update failed for chat %s", input.chatId);
+            }
+          }
+          // `[site: displaced]`: the story drove the holders of the map the party is on out for good.
+          if (
+            savedMsg?.id &&
+            chatMode === "game" &&
+            !input.impersonate &&
+            readGameDungeonSiteTags(fullResponse).displaced
+          ) {
+            try {
+              await chats.patchMetadata(
+                input.chatId,
+                (stored) => {
+                  const map = gameDungeonMapFromMetadata(stored);
+                  if (!map) return {};
+                  const sites = gameDungeonSitesFromMetadata(stored);
+                  const key = gameDungeonSiteKey(map);
+                  const kept = sites[key];
+                  return kept && !kept.displaced
+                    ? { gameDungeonSites: gameDungeonSitesWith(sites, key, { ...kept, displaced: true }) }
+                    : {};
+                },
+                { touchUpdatedAt: false },
+              );
+            } catch (err) {
+              logger.error(err, "[generate] Dungeon site update failed for chat %s", input.chatId);
             }
           }
           // Permanent changes and their undo record are saved only with a durable reply.
