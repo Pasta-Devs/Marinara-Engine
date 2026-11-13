@@ -18,6 +18,7 @@ const AGENTS = [
   { id: "lorebook-keeper", name: "Lorebook Keeper", category: "writer", phase: "post_processing" },
   { id: "spotify", name: "Music DJ", category: "misc", phase: "post_processing" },
   { id: "haptic", name: "Haptic", category: "misc", phase: "post_processing" },
+  { id: "illustrator", name: "Illustrator", category: "misc", phase: "post_processing" },
 ];
 
 /** A saved agent config, as `/api/agents` returns it, with the prompt templates beyond Default. */
@@ -359,6 +360,60 @@ test("the Haptic card turns touch cues on and saves their sensitivity and incide
 
     await card.getByText("Incidental contact", { exact: true }).click();
     await expect.poll(async () => (await readMetadata(request, chatId)).hapticIncidentalContact).toBe(true);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Illustrator's card saves this chat's run intervals and images per generation, and resets them", async ({
+  page,
+  request,
+}) => {
+  // Pictures and clips shows both the image and the video Run Interval.
+  const chatId = await createRoleplayChat(request, ["illustrator"], { illustratorVideoMode: "pictures_and_clips" });
+  try {
+    await openApp(page, chatId);
+    const { card } = await openAgentCard(page, chatId, "illustrator");
+    // The field's label holds its input; the label's parent also holds its default status and reset button.
+    const interval = (label: string) =>
+      card
+        .locator("label")
+        .filter({ hasText: new RegExp(`^${label}`, "u") })
+        .locator("xpath=..");
+
+    for (const [label, key, value] of [
+      ["Image Run Interval", "illustratorRunInterval", 3],
+      ["Video Run Interval", "illustratorVideoRunInterval", 4],
+    ] as const) {
+      const field = interval(label);
+      await expect(field.getByText("Using agent default", { exact: true })).toBeVisible();
+      const input = field.locator("input");
+      await input.fill(String(value));
+      await input.blur();
+      await expect.poll(async () => (await readMetadata(request, chatId))[key]).toBe(value);
+      await field.getByRole("button", { name: "Use agent default", exact: true }).click();
+      await expect.poll(async () => (await readMetadata(request, chatId))[key] ?? null).toBeNull();
+    }
+
+    await card
+      .locator("label")
+      .filter({ hasText: /^Images Per Generation/u })
+      .locator("select")
+      .selectOption("2");
+    await expect.poll(async () => (await readMetadata(request, chatId)).illustratorImagesPerGeneration).toBe(2);
+
+    // The built-in style profiles are always listed after the "use default" choice.
+    const style = card
+      .locator("label")
+      .filter({ hasText: /^Image Style/u })
+      .locator("select");
+    await expect(style).toHaveValue("");
+    await style.selectOption({ index: 1 });
+    const chosenStyle = await style.inputValue();
+    expect(chosenStyle).not.toBe("");
+    await expect.poll(async () => (await readMetadata(request, chatId)).imageStyleProfileId).toBe(chosenStyle);
+    await style.selectOption("");
+    await expect.poll(async () => (await readMetadata(request, chatId)).imageStyleProfileId ?? null).toBeNull();
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
   }
