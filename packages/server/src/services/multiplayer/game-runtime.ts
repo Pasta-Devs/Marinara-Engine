@@ -19,7 +19,7 @@ import { createChatsStorage, withChatMetadataPatchQueue } from "../storage/chats
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createGameStateStorage } from "../storage/game-state.storage.js";
 import { processReputationActions } from "../game/reputation.service.js";
-import { generateWeather, inferBiome, shouldWeatherChange } from "../game/weather.service.js";
+import { gameWeatherNow } from "../game/world-weather.service.js";
 import { validateTransition } from "../game/state-machine.service.js";
 import { record } from "./room-projection.js";
 import { ensureRoomHumanGameCards } from "./game-persona.js";
@@ -149,8 +149,11 @@ export function createRoomGameRuntime(db: DB, operations: GameOperations) {
           const states = createGameStateStorage(tx);
           const latest = await states.getLatest(chatId);
           const weatherAction = resolveMessageWeatherAction(previousState, message.content);
-          if (weatherAction && shouldWeatherChange(weatherAction)) {
-            const weather = generateWeather(inferBiome(latest?.location ?? ""), "summer");
+          if (weatherAction) {
+            // The weather where the party is, in the place's own season (it used to be always summer here).
+            const weather = await gameWeatherNow(tx, chatId, metadata, {
+              location: latest?.location ?? "",
+            });
             patch.gameWeather = weather;
             if (latest) {
               const lockedPatch = applyTrackerFieldLocksToGameStatePatch(
