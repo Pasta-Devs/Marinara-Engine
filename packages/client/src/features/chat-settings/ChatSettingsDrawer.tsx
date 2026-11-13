@@ -84,6 +84,7 @@ import { GamePartySection } from "./sections/GamePartySection";
 import { CardEvolutionAuditorSettings } from "./agents/CardEvolutionAuditorSettings";
 import { HoldForRewriteToggle } from "./agents/HoldForRewriteToggle";
 import { EchoChamberSettings } from "./agents/EchoChamberSettings";
+import { DirectorSettings } from "./agents/DirectorSettings";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
@@ -155,7 +156,6 @@ import { HAPTIC_SENSITIVITY_OPTIONS } from "../../components/chat/haptic-sensiti
 import { SettingsSwitch } from "../../components/panels/settings/SettingControls";
 import { ChoiceSelectionModal } from "../../components/presets/ChoiceSelectionModal";
 import { CharacterOnboardingModal } from "../../components/characters/CharacterOnboardingModal";
-import { SecretPlotPanel } from "../../components/agents/SecretPlotPanel";
 import { SummariesEditorModal } from "./SummariesEditorModal";
 import { useAdvancedMemoryStatus } from "../../hooks/use-advanced-memory";
 import { AgentSuiteModal } from "./AgentSuiteModal";
@@ -6298,57 +6298,14 @@ export function ChatSettingsDrawer({
                           onRemove={getRoleplayAgentMenuRemoveHandler("director", directorAgentMeta.name)}
                         >
                           {renderAgentLorebookAttachment("director")}
-                          <p className="rounded-lg bg-[var(--background)]/45 px-2.5 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                            {localizeUi("ui.chat.agentaddsetupfields.chooseBetweenANaturalOrRandomPushEachTime")}
-                          </p>
-                          {supportsNarrativeDirectorSecretPlot && (
-                            <div className="mt-2 space-y-2">
-                              <AgentSettingsToggle
-                                label={localizeUi("ui.agents.agenteditor.secretPlot")}
-                                description={localizeUi(
-                                  "ui.chat.chatsettingsdrawer.maintainAHiddenLongTermArcForThisRoleplay",
-                                )}
-                                enabled={narrativeDirectorSecretPlotEnabled}
-                                onToggle={() =>
-                                  updateMeta.mutate({
-                                    id: chat.id,
-                                    narrativeDirectorSecretPlotEnabled: !narrativeDirectorSecretPlotEnabled,
-                                  })
-                                }
-                              />
-                              {narrativeDirectorSecretPlotEnabled && (
-                                <>
-                                  <label className="block rounded-lg bg-[var(--background)]/45 px-2.5 py-2 ring-1 ring-[var(--border)]">
-                                    <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                                      {localizeUi("ui.agents.agenteditor.runInterval")}
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                      <DraftNumberInput
-                                        value={narrativeDirectorSecretPlotRunInterval}
-                                        min={1}
-                                        max={100}
-                                        onCommit={(value) =>
-                                          updateMeta.mutate({
-                                            id: chat.id,
-                                            narrativeDirectorSecretPlotRunInterval: value,
-                                          })
-                                        }
-                                        className="w-24 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs tabular-nums text-[var(--foreground)] outline-none transition-colors focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)]"
-                                      />
-                                      <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                                        {localizeUi("ui.agents.agenteditor.assistantMessages")}
-                                      </span>
-                                    </div>
-                                  </label>
-                                  <SecretPlotPanel
-                                    chatId={chat.id}
-                                    messages={secretPlotMessages}
-                                    isAgentProcessing={agentProcessing}
-                                  />
-                                </>
-                              )}
-                            </div>
-                          )}
+                          <DirectorSettings
+                            chat={chat}
+                            agentProcessing={agentProcessing}
+                            supportsNarrativeDirectorSecretPlot={supportsNarrativeDirectorSecretPlot}
+                            narrativeDirectorSecretPlotEnabled={narrativeDirectorSecretPlotEnabled}
+                            narrativeDirectorSecretPlotRunInterval={narrativeDirectorSecretPlotRunInterval}
+                            secretPlotMessages={secretPlotMessages}
+                          />
                         </AgentSettingsCard>
                       )}
 
