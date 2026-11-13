@@ -1100,6 +1100,73 @@
               ],
               "additionalProperties": false
             },
+            "plotDie": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "sides": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 20
+                },
+                "faces": {
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "face": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20
+                      },
+                      "symbol": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "complication",
+                              "opportunity"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "bonus": {
+                        "type": "integer",
+                        "minimum": -20,
+                        "maximum": 20
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "face",
+                      "symbol"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
+              "required": [
+                "label",
+                "sides",
+                "faces"
+              ],
+              "additionalProperties": false
+            },
             "difficultyLadder": {
               "minItems": 1,
               "maxItems": 12,

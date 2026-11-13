@@ -206,6 +206,31 @@ export function AnimatedSkillCheckResult({
           </span>
         </div>
       )}
+      {/* The plot die (1.822): its face and what the face carried. It is not one of the dice above. */}
+      {result.plotFace !== undefined && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi(
+              result.plotSymbol === "complication"
+                ? result.plotBonus
+                  ? "ui.dice.animatedskillcheckresult.plotComplicationBonus"
+                  : "ui.dice.animatedskillcheckresult.plotComplication"
+                : result.plotSymbol === "opportunity"
+                  ? result.plotBonus
+                    ? "ui.dice.animatedskillcheckresult.plotOpportunityBonus"
+                    : "ui.dice.animatedskillcheckresult.plotOpportunity"
+                  : result.plotBonus
+                    ? "ui.dice.animatedskillcheckresult.plotBlankBonus"
+                    : "ui.dice.animatedskillcheckresult.plotBlank",
+              {
+                label: result.plotLabel ?? localizeUi("ui.dice.animatedskillcheckresult.plotDefault"),
+                face: result.plotFace,
+                bonus: result.plotBonus ? (result.plotBonus > 0 ? `+${result.plotBonus}` : `${result.plotBonus}`) : "",
+              },
+            )}
+          </span>
+        </div>
+      )}
       {/* A roll read against the sheet's number (1.139): the card's DC is the number it had to stay under. */}
       {result.against && (
         <div className="skill-check-roll-meta">

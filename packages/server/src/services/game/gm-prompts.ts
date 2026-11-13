@@ -1482,6 +1482,12 @@ function renderRulesetKindCheckLine(
           }. Narrate the check as with that die${resolution.duality.text ? `: ${resolution.duality.text}` : "."}`,
         ]
       : []),
+    // The plot die (1.822).
+    ...(resolution.plotDie
+      ? [
+          `Add plot="true" to throw the ${resolution.plotDie.label} with the check; the engine marks plotFace, plotSymbol (complication or opportunity) and any plotBonus it added${resolution.plotDie.text ? `: ${resolution.plotDie.text}` : "."}`,
+        ]
+      : []),
     ...(resolution.unmodified
       ? [
           `A check the engine marks unmodified="N" rolled that face before anything was added or rolled again (${resolution.unmodified.join(", ")}): apply what the rules say about it.`,

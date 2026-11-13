@@ -1289,6 +1289,8 @@ export interface RulesetCheckRoll {
   unmodified?: number;
   /** Two named dice (1.821): the label of the one that showed more, or "tie". */
   duality?: string;
+  /** The plot die (1.822), where the check threw it: its face, symbol, what it added and its name. */
+  plot?: { face: number; symbol?: "complication" | "opportunity"; bonus: number; label: string };
 }
 
 /** A check that threw nothing at all: the shape every "no roll happened" answer takes, so no path
@@ -1370,8 +1372,11 @@ export function rollDiceSumCheck(
     faceFloor?: number;
     /** A total below this counts as this (1.418): Indomitable Might's Strength score. */
     totalFloor?: number;
+    /** `plot="true"` (1.822): throw the plot die, where the ruleset has one. */
+    plot?: boolean;
   },
-  rollDie: (sides: number) => number,
+  /** `beside` marks a die thrown beside the check, which is never one of its own dice. */
+  rollDie: (sides: number, beside?: "plot") => number,
 ): RulesetCheckRoll {
   const resolution = definition.resolution;
   if (resolution.kind !== "dice-sum") return noRoll();
@@ -1447,7 +1452,12 @@ export function rollDiceSumCheck(
     (dualityWinner === "tie" && duality!.tieIsCritical);
   const criticalFailure = single && natural === 1 && (policy === "both" || policy === "min-only");
   const unmodified = single && resolution.unmodified?.includes(natural) ? natural : undefined;
-  const total = Math.max(usedRoll + input.modifier, input.totalFloor ?? -Infinity);
+  // The plot die (1.822) is thrown after the check's own dice, and adds only what its face says.
+  const { plotDie } = resolution;
+  const plotFace = plotDie && input.plot ? rollDie(plotDie.sides, "plot") : undefined;
+  const plotEntry = plotFace === undefined ? undefined : plotDie!.faces.find((entry) => entry.face === plotFace);
+  const plotBonus = plotEntry?.bonus ?? 0;
+  const total = Math.max(usedRoll + input.modifier + plotBonus, input.totalFloor ?? -Infinity);
 
   const roll: RulesetCheckRoll = {
     rolls,
@@ -1461,6 +1471,16 @@ export function rollDiceSumCheck(
     ...(faces ? { faces: [...faces] } : {}),
     ...(unmodified !== undefined ? { unmodified } : {}),
     ...(dualityWinner ? { duality: dualityWinner } : {}),
+    ...(plotFace !== undefined
+      ? {
+          plot: {
+            face: plotFace,
+            ...(plotEntry?.symbol ? { symbol: plotEntry.symbol } : {}),
+            bonus: plotBonus,
+            label: plotDie!.label,
+          },
+        }
+      : {}),
   };
   // Bands, where the ruleset declares them: a natural the policy makes automatic pins the best or the
   // worst band, and a natural the bands shift on moves one band either way.

@@ -9372,6 +9372,10 @@ function capabilityPackageInstallIssueFor(
   if (!declaresApi(821) && diceSettings.some((setting) => setting?.duality !== undefined)) {
     return "A ruleset that throws two named dice requires schemaVersion 2 and capabilityApi 1.821 or newer";
   }
+  // A plot die, 1.822: a strict key, including per-check overrides.
+  if (!declaresApi(822) && diceSettings.some((setting) => setting?.plotDie !== undefined)) {
+    return "A ruleset with a plot die requires schemaVersion 2 and capabilityApi 1.822 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||

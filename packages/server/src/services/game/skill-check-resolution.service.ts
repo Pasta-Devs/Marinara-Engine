@@ -248,6 +248,8 @@ export interface SkillCheckRequest {
   /** Independent setback dice and optional own-pool upgrades (1.150). */
   setback?: number;
   upgradeOwn?: number;
+  /** `plot=` (1.822): throw the plot die with this check. */
+  plot?: boolean;
   /** `spend=`: what the player said they were spending on this check, where the ruleset offers
    *  such a purchase. The Engine decides what it costs and what it buys. */
   spend?: { pool: string; amount: number };
@@ -1105,6 +1107,14 @@ export function rulesetRefusesUntrained(ruleset: SkillCheckRulesetContext, reque
   return rulesetUntrainedFor(ruleset, request) === "refuse";
 }
 
+/** The dice asks a tag carried beyond its numbers (1.822), under the same names on a request and on a
+ *  sparse ask's extras, so every path that copies a tag's freedoms copies these in one place. */
+export function diceAsk(tag: SkillCheckTag | SkillCheckRequest) {
+  return {
+    ...(tag.plot ? { plot: true } : {}),
+  };
+}
+
 /** One of the ruleset's standing re-throws, by the id the Game Master named with `reroll=`, matched
  *  without case. Null for a name nothing answers to, and on a summed ruleset, which has none. */
 export function rulesetStandingReroll(
@@ -1379,8 +1389,10 @@ function resolveRulesetSkillCheck(
     ...(purchase?.spent ? { spent: purchase.spent } : {}),
     ...(purchase?.used ? { used: purchase.used } : {}),
   };
-  // The injected d20 (tests, the sighted pool) stands in only where a d20 is what is rolled.
-  const rollDie = (sides: number) => (sides === 20 && rollD20 ? rollD20() : rollDieSecurely(sides));
+  // The injected d20 (tests, the sighted pool) stands in only where a d20 is what is rolled, and never
+  // for the plot die (1.822): that one is thrown beside the check, so it is not one of the check's dice.
+  const rollDie = (sides: number, beside?: "plot") =>
+    sides === 20 && rollD20 && !beside ? rollD20() : rollDieSecurely(sides);
   // The effects' own dice are never the check's: the sighted pool spent its d20s for the check alone.
   const boost = rollRulesetCheckModifiers(effects.modifiers, rollDieSecurely, (ref) =>
     rulesetCheckValueFor(ruleset, ref, request.who),
@@ -1582,16 +1594,28 @@ function resolveRulesetSkillCheck(
           : undefined,
       ...("faceFloor" in floors && floors.faceFloor !== undefined ? { faceFloor: floors.faceFloor } : {}),
       ...("totalFloor" in floors && floors.totalFloor !== undefined ? { totalFloor: floors.totalFloor } : {}),
+      plot: request.plot,
     },
     rollDie,
   );
   const floored = floors.from.filter((name) => !effected.from?.includes(name));
+  const { plot, ...summedRoll } = rolled;
   return {
     skill: request.skill,
     dc: askedDc,
-    modifier: summed,
+    // The plot die's bonus (1.822) is added like any other number, so the record's dice and modifier
+    // still add up to its total; the die itself is said apart, not as one of the rolls.
+    modifier: summed + (plot?.bonus ?? 0),
     resolution: "sum",
-    ...rolled,
+    ...summedRoll,
+    ...(plot
+      ? {
+          plotFace: plot.face,
+          ...(plot.symbol ? { plotSymbol: plot.symbol } : {}),
+          ...(plot.bonus ? { plotBonus: plot.bonus } : {}),
+          plotLabel: plot.label,
+        }
+      : {}),
     ...applied,
     ...effected,
     ...(floored.length ? { from: [...(effected.from ?? []), ...floored] } : {}),
@@ -1860,12 +1884,13 @@ function isRulesetRollableSkillCheckTag(tag: SkillCheckTag, definition: RulesetD
 }
 
 /** Whether a complete record says or asks for something only a ruleset's own roll can give: which
- * of two named dice led (1.821). In a game with no ruleset such a record is the model's claim,
- * never the Engine's roll. A bare ask is not a claim: it carries no numbers to keep. */
+ * of two named dice led (1.821); a plot die asked for or shown (1.822). In a game with no ruleset
+ * such a record is the model's claim, never the Engine's roll. A bare ask is not a claim: it
+ * carries no numbers to keep. */
 function claimsRulesetDice(tag: SkillCheckTag): boolean {
   const result = tag.resolvedResult;
   if (!result) return false;
-  return result.duality !== undefined;
+  return result.duality !== undefined || !!tag.plot || result.plotFace !== undefined;
 }
 
 /** Whether a complete tag's numbers are the ones this ruleset and this sheet would have produced.
@@ -1887,9 +1912,9 @@ function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag
   if (tag.apply?.length) return false;
   const result = tag.resolvedResult;
   if (!result || result.resolution !== "sum") return false;
-  // Nor a check with two named dice (1.821): only the Engine's own throw can say which die led,
-  // whatever the record claims.
-  if (resolution.duality || result.duality != null) return false;
+  // Nor a check with two named dice (1.821) or a plot die (1.822): only the Engine's own throw can
+  // say which die led or what the plot die showed, whatever the record claims.
+  if (resolution.duality || tag.plot || result.duality != null || result.plotFace != null) return false;
   // A check the character's conditions or items change is always the Engine's own: the Game Master
   // cannot have counted what it is not shown, and a bonus in dice has no one right number.
   const changed = rulesetCheckEffectsFor(
@@ -2285,6 +2310,7 @@ export async function resolveSkillCheckTagsInContent(
       ...(tag.upgrades != null ? { upgrade: tag.upgrades } : {}),
       ...(tag.setback != null ? { setback: tag.setback } : {}),
       ...(tag.upgradeOwn != null ? { upgradeOwn: tag.upgradeOwn } : {}),
+      ...diceAsk(tag),
       ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
       ...(tag.explode != null ? { explode: tag.explode } : {}),
       ...(tag.double != null ? { double: tag.double } : {}),
@@ -2316,6 +2342,7 @@ export async function resolveSkillCheckTagsInContent(
         ...(tag.upgrades != null ? { upgrades: tag.upgrades } : {}),
         ...(tag.setback != null ? { setback: tag.setback } : {}),
         ...(tag.upgradeOwn != null ? { upgradeOwn: tag.upgradeOwn } : {}),
+        ...diceAsk(tag),
         ...(tag.spend ? { spend: tag.spend } : {}),
         ...(tag.useEntry ? { useEntry: tag.useEntry } : {}),
         ...(tag.apply?.length ? { apply: tag.apply } : {}),
@@ -2901,6 +2928,7 @@ export function boundPoolCheckRequest(tag: SkillCheckTag): SkillCheckRequest | n
     ...(tag.upgrades != null ? { upgrades: tag.upgrades } : {}),
     ...(tag.setback != null ? { setback: tag.setback } : {}),
     ...(tag.upgradeOwn != null ? { upgradeOwn: tag.upgradeOwn } : {}),
+    ...diceAsk(tag),
     // The step a difficulty was named by still sets a pool's target, and the faces a check moved
     // are the same ask, so whichever path rolls it rolls what the tag asked for.
     ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
