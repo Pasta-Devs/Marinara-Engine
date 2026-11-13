@@ -36,67 +36,22 @@ export const characterCardVersions = fileTable("character_card_versions", {
 });
 
 /**
- * Storage-only Persona representation. JSON-backed fields and booleans remain
- * serialized text intentionally; do not cast these rows to the shared Persona
- * type. Public API responses must pass through `projectPersona()` in
+ * Storage-only Persona representation, shaped like `characters`: the authored
+ * card lives in `data` as CharacterData JSON (`cardFromPersona`), and only
+ * record metadata stays in columns. Storage methods rebuild the flat
+ * serialized view (`PersonaStorageRow`) through
+ * `services/personas/persona-card-storage.ts`; do not read `data` directly.
+ * Public API responses must pass through `projectPersona()` in
  * `services/personas/persona-projector.ts`.
  */
 export const personas = fileTable("personas", {
-  /** Chat-scoped card field alternatives (JSON). */
-  cardFieldAlternatives: text("card_field_alternatives").notNull().default("[]"),
   id: text("id").primaryKey(),
-  name: text("name").notNull(),
+  /** Authored persona card as CharacterData JSON (storage format 11+). */
+  data: text("data").notNull(),
   /** Short comment shown under the name (for disambiguation) */
   comment: text("comment").notNull().default(""),
-  /** Creator/author of this persona card */
-  creator: text("creator").notNull().default(""),
-  /** Human-visible persona card version string */
-  personaVersion: text("persona_version").notNull().default("1.0"),
-  /** Whether edits retain snapshots and automatically advance the card version. */
-  versioningEnabled: text("versioning_enabled").notNull().default("true"),
-  /** Private notes about intended use, quirks, or recommended settings */
-  creatorNotes: text("creator_notes").notNull().default(""),
-  /** Pronunciation override used when sending this persona name to TTS */
-  phoneticName: text("phonetic_name").notNull().default(""),
-  summary: text("summary").notNull().default(""),
-  mes_example: text("mes_example").notNull().default(""),
-  description: text("description").notNull().default(""),
-  personality: text("personality").notNull().default(""),
-  scenario: text("scenario").notNull().default(""),
-  backstory: text("backstory").notNull().default(""),
-  appearance: text("appearance").notNull().default(""),
-  /** Whether image prompts use `imageAppearance` instead of `appearance` (text boolean, like versioningEnabled). */
-  imageAppearanceEnabled: text("image_appearance_enabled").notNull().default("false"),
-  /** Appearance text used for image prompts while the override is enabled. Empty = fall back to `appearance`. */
-  imageAppearance: text("image_appearance").notNull().default(""),
   avatarPath: text("avatar_path"),
-  /** Persona gallery image selected as the optional visual identity sheet. */
-  characterSheetImageId: text("character_sheet_image_id"),
-  /** Whether image generation should prefer the selected sheet over the avatar. */
-  useCharacterSheetAsReference: text("use_character_sheet_as_reference").notNull().default("false"),
-  /** Avatar zoom/position settings (JSON of { zoom, offsetX, offsetY, fullImage? }). Empty string = unset. */
-  avatarCrop: text("avatar_crop").notNull().default(""),
   isActive: text("is_active").notNull().default("false"),
-  /** Name display color/gradient (CSS value) */
-  nameColor: text("name_color").notNull().default(""),
-  /** Dialogue highlight color */
-  dialogueColor: text("dialogue_color").notNull().default(""),
-  /** Chat bubble background color */
-  boxColor: text("box_color").notNull().default(""),
-  /** Tracker card color source + optional custom palette (JSON) */
-  trackerCardColors: text("tracker_card_colors").notNull().default('{"mode":"chat"}'),
-  /** Persona stats config (JSON) */
-  personaStats: text("persona_stats").notNull().default(""),
-  /** Tags for organizing personas (JSON array of strings) */
-  tags: text("tags").notNull().default("[]"),
-  /** Saved Conversation mode activity/status text options (JSON array of strings) */
-  savedStatusOptions: text("saved_status_options").notNull().default("[]"),
-  /** Conversation mode ONLY: display name shown in Convo (empty = fall back to name) */
-  convoDisplayName: text("convo_display_name").notNull().default(""),
-  /** Conversation mode ONLY: public "about me" profile (cross-chat default) */
-  aboutMe: text("about_me").notNull().default(""),
-  /** Conversation mode ONLY: behavior directive + insertion strategy (JSON, empty = unset) */
-  convoBehavior: text("convo_behavior").notNull().default(""),
   /** Pre-computed semantic embedding (JSON float[]), null until vectorized (#4768) */
   embedding: text("embedding"),
   createdAt: text("created_at").notNull(),

@@ -3123,7 +3123,7 @@ test("modal backdrops ignore drag releases but still close on a fresh outside cl
   await expect(dialog).toHaveCount(0);
 });
 
-test("connection model fetch errors use the Connections editor accent", async ({ page }, testInfo) => {
+test("connection model fetch errors use the app accent", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop connection editor chrome is covered here.");
 
   const connectionResponse = await page.request.post("/api/connections", {
@@ -3138,8 +3138,8 @@ test("connection model fetch errors use the Connections editor accent", async ({
   const connection = (await connectionResponse.json()) as { id: string };
   const networkError = "NetworkError when attempting to fetch resource.";
   const internalServerError = "Internal Server Error";
-  // The Connections scope paints its editor in the Connections type colour (#38bdf8), even over a teal app accent.
-  const accentColor = "rgb(56, 189, 248)";
+  // The Connections editor follows the app accent (teal here) like the other editors (#9053).
+  const accentColor = "rgb(20, 184, 166)";
   let fetchCount = 0;
 
   try {
@@ -3204,7 +3204,7 @@ test("connection model fetch errors use the Connections editor accent", async ({
   }
 });
 
-test("connection test-message errors use the Connections editor accent", async ({ page }, testInfo) => {
+test("connection test-message errors use the app accent", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop connection editor chrome is covered here.");
 
   const connectionResponse = await page.request.post("/api/connections", {
@@ -3218,8 +3218,8 @@ test("connection test-message errors use the Connections editor accent", async (
   expect(connectionResponse.ok()).toBeTruthy();
   const connection = (await connectionResponse.json()) as { id: string };
   const internalServerError = "Internal Server Error";
-  // The Connections scope paints its editor in the Connections type colour (#38bdf8), even over a teal app accent.
-  const accentColor = "rgb(56, 189, 248)";
+  // The Connections editor follows the app accent (teal here) like the other editors (#9053).
+  const accentColor = "rgb(20, 184, 166)";
 
   try {
     await page.route(`**/api/connections/${connection.id}/test-message`, async (route) => {
@@ -3604,7 +3604,7 @@ test("Connection image captioning defaults persist with a dedicated captioning c
   }
 });
 
-test("Connection Discard uses the Connections editor accent", async ({ page }, testInfo) => {
+test("Connection Discard uses the app accent", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop connection editor guard chrome is covered here.");
 
   const connectionResponse = await page.request.post("/api/connections", {
@@ -3617,8 +3617,8 @@ test("Connection Discard uses the Connections editor accent", async ({ page }, t
   });
   expect(connectionResponse.ok()).toBeTruthy();
   const connection = (await connectionResponse.json()) as { id: string };
-  // The Connections scope paints its editor in the Connections type colour (#38bdf8), even over a teal app accent.
-  const accentColor = "rgb(56, 189, 248)";
+  // The Connections editor follows the app accent (teal here) like the other editors (#9053).
+  const accentColor = "rgb(20, 184, 166)";
 
   try {
     await page.goto("/");
@@ -3683,7 +3683,7 @@ test("Character favorite tags and stars inherit the configured accent color", as
     await expect(favoriteToggle).toHaveAttribute("data-favorite", "true");
     await expect(favoriteToggle).toHaveCSS("color", accentColor);
     expect(await favoriteToggle.getAttribute("class")).not.toMatch(/amber|yellow/iu);
-    await editor.getByTitle("Back", { exact: true }).click();
+    await editor.getByTitle(/^Back to/).click();
 
     await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
@@ -4187,9 +4187,10 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
     await expect(connectionPicker).toBeHidden();
     await roleplayWizard.getByRole("button", { name: "Next", exact: true }).click();
     await expect(roleplayWizard.getByRole("heading", { name: "Pick a Preset", exact: true })).toBeVisible();
-    const presetSelect = roleplayWizard.getByRole("combobox", { name: "Preset", exact: true });
+    const presetSelect = roleplayWizard.getByRole("button", { name: "Preset", exact: true });
     await presetSelect.click();
-    const presetListbox = roleplayWizard.getByRole("listbox", { name: "Preset", exact: true });
+    // The preset field opens the shared picker window (#9076), held to the same legibility rules.
+    const presetListbox = page.getByRole("dialog", { name: "Preset", exact: true });
     await expect(presetListbox).toBeVisible();
     // The model field is no longer a listbox of the same kind (#8456), so the preset listbox is held to the same
     // legibility rules on its own.
@@ -4210,7 +4211,7 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
       }
       await route.continue();
     });
-    await presetListbox.getByRole("option", { name: "None", exact: true }).click();
+    await presetListbox.locator("[data-pick-row]").filter({ hasText: "None" }).first().click();
     await presetSaved.promise;
     await expect(roleplayWizard.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
     presetSaveGate.resolve();
@@ -10958,7 +10959,8 @@ test("roleplay quick preset editor uses chat settings spacing, surfaces, and saf
     await expect(quickEditor).toBeVisible();
     await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "true");
     await expect(quickEditorToggle).toContainText("Collapse preset editor");
-    await expect(drawer.locator('[data-prompt-preset-chevron="select"]')).toBeVisible();
+    await expect(drawer.locator("[data-preset-picker-trigger]")).toBeVisible();
+    await expect(drawer.locator("[data-preset-picker-trigger] svg")).toBeVisible();
 
     await quickEditor.getByRole("button", { name: "Add Section", exact: true }).click();
     await expect(quickEditor.getByRole("button", { name: "ID Macro Cards", exact: true })).toBeVisible();
@@ -14014,7 +14016,7 @@ test("Mobile Roleplay quick picker matches the character selector surface", asyn
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
         const ui = useUIStore.getState();
         ui.setTheme(theme === "light" ? "light" : "dark");
-        ui.setAppBackgroundColor(theme === "custom" ? "#0b1920" : "");
+        ui.saveUiStyleOverride("app", theme === "custom" ? { background: "#0b1920" } : null);
         ui.setChatChromeTextColor(theme === "custom" ? "#22d3ee" : "");
       }, theme);
       await page.getByTitle("Trigger character response", { exact: true }).click();
@@ -14642,7 +14644,7 @@ test("Character and Persona panels launch card downloads and their local librari
     expect(sourceMenuRight).toBeLessThanOrEqual(browserBox!.x + browserBox!.width);
   }
   await page.getByRole("button", { name: "Close provider menu" }).click();
-  const closeCardLibrary = cardLibrary.getByRole("button", { name: "Close library" });
+  const closeCardLibrary = cardLibrary.getByRole("button", { name: /^Back to/ });
   await expect(closeCardLibrary).toBeVisible();
   await closeCardLibrary.click();
 
@@ -14669,7 +14671,7 @@ test("Character and Persona panels launch card downloads and their local librari
     body: await page.screenshot({ fullPage: true }),
     contentType: "image/png",
   });
-  await characterLibrary.getByTitle("Close library").click();
+  await characterLibrary.getByRole("button", { name: /^Back to/ }).click();
 
   await clickTopbarPanel(page, "personas");
   const personaActions = page.locator('[data-component="PersonaLibraryActions"]');
@@ -17478,7 +17480,7 @@ test("Roleplay and Game chat settings link empty agent libraries to Download Age
       const catalog = page.locator('[data-component="AgentCatalogView"]');
       await expect(catalog).toBeVisible();
       await expect(page.locator('[data-component="RightPanelDesktop"]')).toBeVisible();
-      await catalog.getByRole("button", { name: "Back to Agents" }).click();
+      await catalog.getByRole("button", { name: /^Back to/ }).click();
       await expect(catalog).toHaveCount(0);
     }
     expect(errors).toEqual([]);
@@ -22822,7 +22824,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().setTheme("dark");
       useUIStore.getState().setVisualTheme("default");
-      useUIStore.getState().setAppBackgroundColor("");
+      useUIStore.getState().saveUiStyleOverride("app", null);
     });
     await page.locator("html").evaluate((element) => {
       element.style.setProperty("--mari-safe-area-inset-bottom", "34px");
@@ -23236,18 +23238,18 @@ test("mobile chat composer follows the visual viewport above the software keyboa
       const { useUIStore } = (await import(/* @vite-ignore */ storePath)) as {
         useUIStore: {
           getState: () => {
-            setAppBackgroundColor: (color: string) => void;
+            saveUiStyleOverride: (target: "app", override: { background: string } | null) => void;
             setVisualTheme: (theme: "default" | "sillytavern") => void;
           };
         };
       };
-      useUIStore.getState().setAppBackgroundColor("#123456");
+      useUIStore.getState().saveUiStyleOverride("app", { background: "#123456" });
     });
     await expect(topbar).not.toHaveCSS("background-color", defaultBacking);
     const customSolidBacking = await expectMatchingMobileBacking();
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-      useUIStore.getState().setAppBackgroundColor("linear-gradient(135deg, #345678, #987654)");
+      useUIStore.getState().saveUiStyleOverride("app", { background: "linear-gradient(135deg, #345678, #987654)" });
     });
     await expect(topbar).not.toHaveCSS("background-color", customSolidBacking);
     const gradientBacking = await expectMatchingMobileBacking();
@@ -23258,7 +23260,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
       const { useUIStore } = (await import(/* @vite-ignore */ storePath)) as {
         useUIStore: {
           getState: () => {
-            setAppBackgroundColor: (color: string) => void;
+            saveUiStyleOverride: (target: "app", override: { background: string } | null) => void;
             setVisualTheme: (theme: "default" | "sillytavern") => void;
           };
         };
@@ -23267,7 +23269,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
       style.id = "marinara-safe-area-theme-smoke";
       style.textContent = 'html[data-visual-theme="sillytavern"][data-theme] { --background: rgb(101, 67, 33); }';
       document.head.appendChild(style);
-      useUIStore.getState().setAppBackgroundColor("");
+      useUIStore.getState().saveUiStyleOverride("app", null);
       useUIStore.getState().setVisualTheme("sillytavern");
     });
     await expect(page.locator("html")).toHaveAttribute("data-visual-theme", "sillytavern");
@@ -23374,7 +23376,7 @@ test("page backing keeps the app running when the browser refuses canvas reads",
   await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
   await page.evaluate(async () => {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-    useUIStore.getState().setAppBackgroundColor("#234567");
+    useUIStore.getState().saveUiStyleOverride("app", { background: "#234567" });
   });
   await expect(page.getByText("Marinara hit a recoverable UI error.")).toHaveCount(0);
   // Without the canvas, the backing keeps the theme's own background color, unflattened.

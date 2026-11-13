@@ -19,6 +19,11 @@ import { PROFESSOR_MARI_ID, type CharacterData } from "@marinara-engine/shared";
 import { eq } from "../db/file-query.js";
 import type { DB } from "../db/connection.js";
 import { characters, chats, lorebooks, personas, promptPresets } from "../db/schema/index.js";
+import {
+  personaRowFromStored,
+  type PersonaStorageRow,
+  type StoredPersonaRow,
+} from "./personas/persona-card-storage.js";
 import { logger } from "../lib/logger.js";
 import type { EntityCandidate, EntitySearchType } from "./entity-semantic-search.js";
 
@@ -139,21 +144,28 @@ function projectCharacter(row: Row): Projection | null {
   };
 }
 
-function projectPersona(row: Row): Projection | null {
-  const name = typeof row.name === "string" ? row.name : "";
+function projectPersona(stored: Row): Projection | null {
+  // Authored persona fields live in `data`; read them through the flat view.
+  let row: PersonaStorageRow;
+  try {
+    row = personaRowFromStored(stored as StoredPersonaRow);
+  } catch {
+    return null;
+  }
+  const name = row.name;
   if (!name.trim()) return null;
   return {
     name,
     embedText: buildText([
       ["Name", name],
-      ["Description", row.description as string],
-      ["Personality", row.personality as string],
-      ["Scenario", row.scenario as string],
-      ["Backstory", row.backstory as string],
-      ["Appearance", row.appearance as string],
+      ["Description", row.description],
+      ["Personality", row.personality],
+      ["Scenario", row.scenario],
+      ["Backstory", row.backstory],
+      ["Appearance", row.appearance],
       ["Tags", parseJsonStringArray(row.tags)],
     ]),
-    blurb: blurb(name, (row.description as string) ?? ""),
+    blurb: blurb(name, row.description),
   };
 }
 

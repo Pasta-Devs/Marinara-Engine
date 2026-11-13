@@ -112,6 +112,7 @@ const LEGACY_PERSONA_FIELDS = [
   "personaStats",
   "tags",
   "savedStatusOptions",
+  "nameAliases",
   "convoBehavior",
 ] as const;
 
@@ -175,6 +176,7 @@ function canonicalizeLegacyPersonaField(field: LegacyPersonaField, value: unknow
     case "cardFieldAlternatives":
     case "tags":
     case "savedStatusOptions":
+    case "nameAliases":
       return decodeLegacyJson(value);
   }
 }
@@ -298,6 +300,7 @@ const personaFields = {
   personaStats: personaStatsSchema.nullable().optional(),
   tags: z.array(z.string()).optional(),
   savedStatusOptions: z.array(z.string()).optional(),
+  nameAliases: z.array(z.string()).optional(),
   convoDisplayName: z.string().optional(),
   aboutMe: z.string().optional(),
   convoBehavior: convoBehaviorSchema.nullable().optional(),

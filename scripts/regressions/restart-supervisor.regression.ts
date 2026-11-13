@@ -37,6 +37,9 @@ const child = spawn(
       LOG_LEVEL: "info",
       LOG_DISABLE_REQUEST_LOGGING: "true",
       AUTO_CREATE_DEFAULT_CONNECTION: "false",
+      // #8947: the startup notices fetch resolves raw.githubusercontent.com. process.exit() waits for a
+      // pending lookup (libuv joins its threadpool), so a slow runner resolver held the restart ~30 s.
+      MARINARA_NOTICES_ENABLED: "false",
     },
     stdio: ["ignore", "pipe", "pipe"],
   },
@@ -73,7 +76,16 @@ async function waitForPid(previous?: number): Promise<number> {
     }
     await new Promise((done) => setTimeout(done, 100));
   }
-  assert.fail(`Server did not become ready: ${output}\nLast request error: ${String(lastError)}`);
+  let oldServer = "";
+  if (previous !== undefined) {
+    try {
+      process.kill(previous, 0);
+      oldServer = ` (old server ${previous} has not exited yet)`;
+    } catch {
+      // The old server is gone, so the replacement is what is late.
+    }
+  }
+  assert.fail(`Server did not become ready${oldServer}: ${output}\nLast request error: ${String(lastError)}`);
 }
 try {
   const original = await waitForPid();

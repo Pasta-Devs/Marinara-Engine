@@ -37,7 +37,11 @@ import type {
   ExportEnvelope,
   ImageAnimation,
 } from "@marinara-engine/shared";
-import { createCharactersStorage, type PersonaStorageRow } from "../services/storage/characters.storage.js";
+import {
+  createCharactersStorage,
+  withCharacterUpdateQueue,
+  type PersonaStorageRow,
+} from "../services/storage/characters.storage.js";
 import { createCharacterCatalog } from "../services/storage/character-catalog.js";
 import { encodePersonaCreate, encodePersonaUpdate, projectPersona } from "../services/personas/persona-projector.js";
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
@@ -83,6 +87,7 @@ import { join, resolve, sep } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import {
   createJsonSlot,
+  DataUrl,
   singleChunk,
   streamExportZip,
   streamJsonWithSlot,
@@ -583,12 +588,12 @@ async function resolveAvatarGenerationConnection(app: FastifyInstance, body: Ava
 
 type ExportFormat = "native" | "compatible";
 
-// Read an image file and return it as a base64 data URL, or null if the file
-// is missing, outside the expected dir, or not a recognized image type. Used
-// by native exports to embed binary data (avatars, sprites, gallery shots)
-// directly into the JSON envelope so personas/characters round-trip with
-// every image intact.
-async function readImageAsDataUrl(rootDir: string, filename: string): Promise<string | null> {
+// Read an image file as a data URL, or null if the file is missing, outside
+// the expected dir, or not a recognized image type. Used by native exports to
+// embed binary data (avatars, sprites, gallery shots) directly into the JSON
+// envelope so personas/characters round-trip with every image intact; the
+// export writes the bytes as base64 a slice at a time (#8917).
+async function readImageAsDataUrl(rootDir: string, filename: string): Promise<DataUrl | null> {
   if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) return null;
   let filepath: string;
   try {
@@ -601,7 +606,7 @@ async function readImageAsDataUrl(rootDir: string, filename: string): Promise<st
     const buf = await readFile(filepath);
     const info = isAllowedImageBuffer(buf, extname(filename));
     if (!info) return null;
-    return `data:${info.mimeType};base64,${buf.toString("base64")}`;
+    return new DataUrl(info.mimeType, buf);
   } catch {
     return null;
   }
@@ -609,7 +614,7 @@ async function readImageAsDataUrl(rootDir: string, filename: string): Promise<st
 
 // Pull the avatar off disk for the persona/character row's avatarPath
 // (format: /api/avatars/file/<filename>). Returns null if missing/invalid.
-async function readAvatarDataUrl(avatarPath: string | null | undefined): Promise<string | null> {
+async function readAvatarDataUrl(avatarPath: string | null | undefined): Promise<DataUrl | null> {
   if (!avatarPath || typeof avatarPath !== "string") return null;
   const filename = avatarPath.split("?")[0]!.split("/").pop();
   if (!filename) return null;
@@ -687,7 +692,7 @@ async function readSpritesForId(
         continue;
       }
     }
-    const dataUrl = await readImageAsDataUrl(dir, entry);
+    const dataUrl = (await readImageAsDataUrl(dir, entry))?.toString();
     if (dataUrl) {
       if (enforcePortableLimits) {
         if (sprites.length >= MAX_EMBEDDED_SPRITE_COUNT) return null;
@@ -734,7 +739,7 @@ async function* galleryExportEntries(
 
 // Read each sprite in data/sprites/<id>/ as it is written; import restores the
 // same expression set under a new id.
-async function* spriteExportEntries(id: string): AsyncGenerator<{ filename: string; data: string }> {
+async function* spriteExportEntries(id: string): AsyncGenerator<{ filename: string; data: DataUrl }> {
   if (!id) return;
   const dir = spriteDirectory(id);
   if (!existsSync(dir)) return;
@@ -1025,7 +1030,6 @@ export async function charactersRoutes(app: FastifyInstance) {
   const lorebooksStorage = createLorebooksStorage(app.db);
   const connections = createConnectionsStorage(app.db);
   const promptOverridesStorage = createPromptOverridesStorage(app.db);
-  const characterUpdateQueues = new Map<string, Promise<unknown>>();
   const personaUpdateQueues = new Map<string, Promise<unknown>>();
 
   function enqueueUpdate<T>(queues: Map<string, Promise<unknown>>, id: string, update: () => Promise<T>): Promise<T> {
@@ -1077,18 +1081,31 @@ export async function charactersRoutes(app: FastifyInstance) {
       search?: string;
       sort?: string;
       favoriteFilter?: string;
+      tag?: string | string[];
+      excludeTag?: string | string[];
+      folder?: string;
+      view?: string;
     };
   }>("/catalog", async (req) => {
     const page = parseLibraryPageQuery(req.query);
+    const list = (value: string | string[] | undefined) => (value === undefined ? [] : [value].flat());
     return catalog.list({
+      view: req.query.view === "summary" ? "summary" : undefined,
       includeBuiltIn: req.query.includeBuiltIn === "true",
       limit: page.limit,
       offset: page.offset,
       search: page.search,
       sort: page.sort,
       favoriteFilter: page.favoriteFilter,
+      tags: list(req.query.tag),
+      excludeTags: list(req.query.excludeTag),
+      folder: typeof req.query.folder === "string" ? req.query.folder : undefined,
     });
   });
+
+  app.get<{ Querystring: { includeBuiltIn?: string } }>("/catalog/tags", async (req) =>
+    catalog.tags(req.query.includeBuiltIn === "true"),
+  );
 
   app.post<{ Body: { ids?: unknown } }>("/summaries", async (req) => {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter((id): id is string => typeof id === "string") : [];
@@ -1173,7 +1190,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         continue;
       }
       try {
-        const outcome = await enqueueUpdate(characterUpdateQueues, id, () =>
+        const outcome = await withCharacterUpdateQueue(id, () =>
           app.db.transaction(async () => {
             const current = await storage.getById(id);
             if (!current) return "missing" as const;
@@ -1506,7 +1523,8 @@ export async function charactersRoutes(app: FastifyInstance) {
     const promptOverride = promptOverrideById.get(avatarGenerationPromptId(body.name ?? "character", body.purpose));
     const referenceImages = (body.referenceImages ?? [])
       .map((image) => image.trim())
-      .filter((image) => image.startsWith("data:image/") || /^[A-Za-z0-9+/=\s]+$/.test(image))
+      // A negative test walks the string; `^[A-Za-z0-9+/=\s]+$` recurses once per character in V8's regexp interpreter.
+      .filter((image) => image.startsWith("data:image/") || (image.length > 0 && !/[^A-Za-z0-9+/=\s]/.test(image)))
       .slice(0, 4);
 
     const imgModel = conn.model || "";
@@ -1620,7 +1638,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Params: { id: string } }>("/:id/versions/reset", async (req, reply) => {
-    const reset = await enqueueUpdate(characterUpdateQueues, req.params.id, () => storage.resetVersions(req.params.id));
+    const reset = await withCharacterUpdateQueue(req.params.id, () => storage.resetVersions(req.params.id));
     if (!reset) return reply.status(404).send({ error: "Character not found" });
     return reset;
   });
@@ -1663,7 +1681,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     // in flight wins. Checked inside the per-character queue to stay atomic.
     const requireEmptySummary = body.requireEmptySummary === true;
     const characterDataUpdate = update.data ?? {};
-    const result = await enqueueUpdate(characterUpdateQueues, req.params.id, async () => {
+    const result = await withCharacterUpdateQueue(req.params.id, async () => {
       if (requireEmptySummary) {
         const current = await storage.getById(req.params.id);
         const currentData = current ? (parseCharacterDataRecord(current.data) as Partial<CharacterData>) : undefined;
@@ -1700,7 +1718,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Tracker-card paint must be a JSON object" });
     }
 
-    const updated = await enqueueUpdate(characterUpdateQueues, req.params.id, async () => {
+    const updated = await withCharacterUpdateQueue(req.params.id, async () => {
       const char = await storage.getById(req.params.id);
       if (!char) return null;
       const currentData = parseCharacterDataRecord(char.data);
@@ -2276,7 +2294,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     }
 
     await characterGallery.remove(imageId);
-    await enqueueUpdate(characterUpdateQueues, id, async () => {
+    await withCharacterUpdateQueue(id, async () => {
       const character = await storage.getById(id);
       if (!character) return null;
       const characterData = parseCharacterDataRecord(character.data);
@@ -2644,7 +2662,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       await writeFile(filepath, imageBuffer);
       const characterData =
         body.data === undefined ? {} : (updateCharacterSchema.parse({ data: body.data }).data ?? {});
-      const updated = await enqueueUpdate(characterUpdateQueues, id, async () => {
+      const updated = await withCharacterUpdateQueue(id, async () => {
         const validatedData = await validateCharacterGalleryReferences(id, characterData, (imageId) =>
           characterGallery.getById(imageId),
         );
@@ -2782,6 +2800,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const versionOptions = {
       versionSource: typeof rawBody.versionSource === "string" ? rawBody.versionSource : undefined,
       versionReason: typeof rawBody.versionReason === "string" ? rawBody.versionReason : undefined,
+      skipVersionSnapshot: rawBody.skipVersionSnapshot === true,
     };
     if (Object.keys(body).length === 0 && !hasCharacterSheetImageId && !hasUseCharacterSheetAsReference) {
       const current = await storage.getPersona(req.params.id);

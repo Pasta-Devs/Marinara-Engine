@@ -76,7 +76,7 @@ test("preset regex tab saves defaults, reuses the regex editor, and preserves ex
           .targetPromptPresetIds,
       ),
     ).toEqual(["other-preset"]);
-    await editor.getByRole("button", { name: "Back to regex scripts" }).click();
+    await editor.getByRole("button", { name: /^Back to/ }).click();
     await editor.getByRole("button", { name: "Discard", exact: true }).click();
     await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveValue("exclusive");
     await editor.getByRole("combobox", { name: "Add existing script", exact: true }).selectOption(script.id);
@@ -102,7 +102,7 @@ test("preset regex tab saves defaults, reuses the regex editor, and preserves ex
         ),
       )
       .toEqual(["other-preset", preset.id]);
-    await editor.getByRole("button", { name: "Back to regex scripts" }).click();
+    await editor.getByRole("button", { name: /^Back to/ }).click();
     await expect(page.locator("[data-preset-regex]")).toBeVisible();
     await expect(editor.getByRole("button", { name: "Existing scoped fixture" })).toBeVisible();
     await editor.getByRole("button", { name: "Existing scoped fixture" }).click();
@@ -118,7 +118,7 @@ test("preset regex tab saves defaults, reuses the regex editor, and preserves ex
       .toEqual(["other-preset"]);
     await expect(editor.getByRole("button", { name: "Remove Regex preset fixture", exact: true })).toHaveCount(0);
     await editor.getByRole("button", { name: "Save regex script", exact: true }).click();
-    await editor.getByRole("button", { name: "Back to regex scripts" }).click();
+    await editor.getByRole("button", { name: /^Back to/ }).click();
     await expect(page.locator("[data-preset-regex]")).toBeVisible();
     await expect(editor.getByRole("button", { name: "Existing scoped fixture" })).toHaveCount(0);
     await editor.getByRole("button", { name: "Create regex", exact: true }).click();
@@ -132,7 +132,7 @@ test("preset regex tab saves defaults, reuses the regex editor, and preserves ex
     const created = (await (await createdResponse).json()) as { id: string; targetPromptPresetIds: string };
     scriptIds.push(created.id);
     expect(JSON.parse(created.targetPromptPresetIds)).toEqual([preset.id]);
-    await editor.getByRole("button", { name: "Back to regex scripts" }).click();
+    await editor.getByRole("button", { name: /^Back to/ }).click();
     await expect(editor.getByRole("button", { name: "Created in preset fixture" })).toBeVisible();
     await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveValue("exclusive");
     await testInfo.attach("preset-regex-editor", { body: await page.screenshot(), contentType: "image/png" });

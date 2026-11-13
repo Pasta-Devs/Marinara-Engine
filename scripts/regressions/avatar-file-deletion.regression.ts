@@ -21,6 +21,10 @@ import {
   scanAbandonedAvatarFiles,
   unlinkAvatarFilesIfUnreferenced,
 } from "../../packages/server/src/services/image/avatar-file-lifecycle.js";
+import {
+  completePersonaRow,
+  storedPersonaFromRow,
+} from "../../packages/server/src/services/personas/persona-card-storage.js";
 import { createCharactersStorage } from "../../packages/server/src/services/storage/characters.storage.js";
 
 const storageRoot = mkdtempSync(join(tmpdir(), "marinara-avatar-delete-storage-"));
@@ -88,13 +92,17 @@ try {
     createdAt: now,
     updatedAt: now,
   });
-  await db.insert(personas).values({
-    id: "shared-persona",
-    name: "Shared Persona",
-    avatarPath: localAvatar("shared.png", "?v=new"),
-    createdAt: now,
-    updatedAt: now,
-  });
+  await db.insert(personas).values(
+    storedPersonaFromRow(
+      completePersonaRow({
+        id: "shared-persona",
+        name: "Shared Persona",
+        avatarPath: localAvatar("shared.png", "?v=new"),
+        createdAt: now,
+        updatedAt: now,
+      }),
+    ),
+  );
   await db.insert(personaCardVersions).values({
     id: "shared-persona-version",
     personaId: "shared-persona",
@@ -177,10 +185,12 @@ try {
   });
   await deletionStarted;
   let duplicateSettled = false;
-  const racingDuplicate = createCharactersStorage(db).duplicateCharacter("delete-race-character").then((result) => {
-    duplicateSettled = true;
-    return result;
-  });
+  const racingDuplicate = createCharactersStorage(db)
+    .duplicateCharacter("delete-race-character")
+    .then((result) => {
+      duplicateSettled = true;
+      return result;
+    });
   await Promise.resolve();
   assert.equal(duplicateSettled, false, "avatar reference creation must wait for in-flight cleanup");
   allowDeletion();
@@ -242,10 +252,10 @@ try {
     { files: 1, bytes: Buffer.byteLength("old-orphan.png") },
     "the optimizer must report only old, direct, unreferenced avatar images",
   );
-  assert.deepEqual(
-    await deleteAbandonedAvatarFiles({ db, avatarRoot, nowMs: optimizerNow, minimumAgeMs: 60_000 }),
-    { files: 1, bytes: Buffer.byteLength("old-orphan.png") },
-  );
+  assert.deepEqual(await deleteAbandonedAvatarFiles({ db, avatarRoot, nowMs: optimizerNow, minimumAgeMs: 60_000 }), {
+    files: 1,
+    bytes: Buffer.byteLength("old-orphan.png"),
+  });
   assert.equal(existsSync(oldOrphanFile), false, "an old unreferenced avatar must be deleted");
   assert.equal(existsSync(mariFile), true, "a referenced avatar must survive storage optimization");
   assert.equal(existsSync(recentOrphanFile), true, "a recent unreferenced avatar must keep its upload grace period");

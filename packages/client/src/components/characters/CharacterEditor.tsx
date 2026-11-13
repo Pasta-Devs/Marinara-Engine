@@ -179,6 +179,12 @@ import { ImageDownloadButton } from "../ui/ImageDownloadButton";
 import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
+import {
+  SHEET_BUTTON_DESTRUCTIVE,
+  SHEET_BUTTON_PRIMARY,
+  SHEET_BUTTON_QUIET,
+  SHEET_BUTTON_SECONDARY,
+} from "../ui/neutral-surface-styles";
 import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
 import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ContextMenu } from "../ui/ContextMenu";
@@ -2996,6 +3002,18 @@ function MetadataTab({
             else if (key !== "phoneticName") updateField(key, value);
           }}
           hide={compact ? ["name", "comment"] : undefined}
+          otherNames={
+            <NameAliasesSection
+              kind="character"
+              aliases={
+                Array.isArray(formData.extensions.nameAliases)
+                  ? formData.extensions.nameAliases.filter((alias): alias is string => typeof alias === "string")
+                  : []
+              }
+              onChange={(next) => updateExtension("nameAliases", next)}
+              nameColor={(formData.extensions.nameColor as string | undefined) || undefined}
+            />
+          }
         />
         {overhaulMeta && characterId ? (
           <CopyIdLine
@@ -5398,6 +5416,22 @@ function CharacterClipTrimModal({
         value1: clip.label || localizeUi("ui.panels.ttsconfigcard.clip"),
       })}
       width="max-w-2xl"
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button type="button" onClick={handleSave} disabled={saving || !canSave} className={SHEET_BUTTON_PRIMARY}>
+            {saving ? <Loader2 size="0.85rem" className="animate-spin" /> : <Scissors size="0.85rem" />}
+            {localizeUi("ui.characters.charactercliptrimmodal.saveTrim")}
+          </button>
+          <button type="button" onClick={handleReset} className={SHEET_BUTTON_SECONDARY}>
+            <RotateCcw size="0.85rem" />
+            {localizeUi("ui.characters.charactercliptrimmodal.reset")}
+          </button>
+          <button type="button" onClick={onClose} className={SHEET_BUTTON_QUIET}>
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
     >
       <div className="space-y-4">
         <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-black">
@@ -5457,35 +5491,6 @@ function CharacterClipTrimModal({
                 className="w-full accent-[var(--primary)]"
               />
             </label>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/50"
-          >
-            <RotateCcw size="0.85rem" />
-            {localizeUi("ui.characters.charactercliptrimmodal.reset")}
-          </button>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/50"
-            >
-              {localizeUi("chat.delete.dialog.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || !canSave}
-              className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? <Loader2 size="0.85rem" className="animate-spin" /> : <Scissors size="0.85rem" />}
-              {localizeUi("ui.characters.charactercliptrimmodal.saveTrim")}
-            </button>
           </div>
         </div>
       </div>
@@ -6648,33 +6653,36 @@ function SpritesTab({
             }}
             title={localizeUi("ui.characters.spritestab.deleteSprite")}
             width="max-w-sm"
+            pullToClose={false}
+            closeButtonClassName="max-sm:hidden"
+            closeDisabled={!!deletingSprites}
+            footer={
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteSingleSprite()}
+                  disabled={!!deletingSprites}
+                  className={SHEET_BUTTON_DESTRUCTIVE}
+                >
+                  {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
+                  {localizeUi("ui.personas.personaspritestab.deleteSprite")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteSpriteRequest(null)}
+                  disabled={!!deletingSprites}
+                  className={SHEET_BUTTON_QUIET}
+                >
+                  {localizeUi("chat.delete.dialog.cancel")}
+                </button>
+              </>
+            }
           >
             <div className="space-y-4">
               <p className="text-sm leading-relaxed text-[var(--foreground)]">
                 {localizeUi("ui.characters.spritestab.deleteSpriteFor")}
                 {displayExpression(deleteSpriteRequest.expression)}"?
               </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDeleteSpriteRequest(null)}
-                    disabled={!!deletingSprites}
-                    className="rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50 sm:px-3 sm:text-sm"
-                  >
-                    {localizeUi("chat.delete.dialog.cancel")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteSingleSprite()}
-                    disabled={!!deletingSprites}
-                    className="mari-chrome-accent-surface mari-accent-animated inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 sm:px-3 sm:text-sm"
-                  >
-                    {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
-                    {localizeUi("lorebook.editor.batch.delete")}
-                  </button>
-                </div>
-              </div>
             </div>
           </Modal>
         )}
@@ -6862,6 +6870,12 @@ function StatsTab({
         </>
       ) : (
         <>
+          {/* MRPG: the card's starting tree and strong and weak stats for MRPG games. */}
+          <ClassicCardSection
+            value={formData.extensions.classic}
+            onChange={(classic) => updateExtension("classic", classic)}
+            description={[formData.description, formData.personality].filter(Boolean).join(" ")}
+          />
           <SectionHeader
             title={localizeUi("ui.characters.statstab.rpgStats")}
             subtitle={localizeUi("ui.characters.statstab.toggleStatTrackingForThisCharacterWhenEnabledThe")}
@@ -7031,7 +7045,6 @@ function ColorsTab({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const nameColor = (formData.extensions.nameColor as string) ?? "";
-  const nameAliases = (formData.extensions.nameAliases as string[] | undefined) ?? [];
 
   return (
     <CardColors
@@ -7050,13 +7063,6 @@ function ColorsTab({
       dialogueColor={(formData.extensions.dialogueColor as string) ?? ""}
       boxColor={(formData.extensions.boxColor as string) ?? ""}
       onColorChange={(key, value) => updateExtension(key, value)}
-      aliases={
-        <NameAliasesSection
-          aliases={nameAliases}
-          onChange={(next) => updateExtension("nameAliases", next)}
-          nameColor={nameColor}
-        />
-      }
     />
   );
 }

@@ -201,7 +201,7 @@ export const MARINARA_HOST_STORE_FIELDS = {
     "clearPendingSpatialTransition",
     "setPendingSpatialTransitionStatus",
   ],
-  agent: ["setYoutubePlay", "reset"],
+  agent: ["setYoutubePlay", "setPackageActivity", "reset"],
   sidecar: ["modelDownloaded", "modelDisplayName", "fetchStatus"],
   dialog: ["dialog", "openDialog", "closeDialog"],
   gallery: ["pinImage", "pinVideo"],

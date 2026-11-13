@@ -712,6 +712,24 @@ try {
     payload: { name: npc.name, avatar: `data:image/png;base64,${uploadedPng.toString("base64")}` },
   });
   assert.equal(upload.statusCode, 200, upload.body);
+  // The header is now sliced instead of matched, so pin the two answers that differ from the replaced
+  // `/^data:image\/([\w.+-]+);base64,(.+)$/`: its marker was case-sensitive, and `.` also excluded U+2028/U+2029.
+  for (const [avatar, expected, why] of [
+    [`data:image/png;BASE64,${uploadedPng.toString("base64")}`, 400, ";BASE64 is not the marker the pattern accepted"],
+    [
+      `data:image/png;base64,${uploadedPng.toString("base64").slice(0, 8)}${String.fromCharCode(0x2028)}tail`,
+      400,
+      "U+2028 is a line terminator",
+    ],
+    [`data:image/png;base64,${uploadedPng.toString("base64")}`, 200, "a plain data URL still saves"],
+  ] as const) {
+    const answer = await app.inject({
+      method: "POST",
+      url: `/api/avatars/npc/${trackerChat.id}`,
+      payload: { name: npc.name, avatar },
+    });
+    assert.equal(answer.statusCode, expected, `${why}: ${answer.body}`);
+  }
   releaseImage();
   const late = await pending;
   assert.equal(late.statusCode, 409, late.body);

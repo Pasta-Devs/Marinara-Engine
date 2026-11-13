@@ -216,6 +216,17 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   );
   // Read before this dialog commits, so only another dialog (the wizard, a lightbox, a Modal) counts.
   const [overDialog] = useState(() => document.querySelector('[aria-modal="true"]') !== null);
+  // Published as an attribute for the sheet CSS: a `:has(:focus)` rule there restyled the whole app on every DOM insertion.
+  const [composerFocused, setComposerFocused] = useState(false);
+  // A focused composer that unmounts sends no blur, so let the next focus anywhere clear the flag.
+  useEffect(() => {
+    if (!composerFocused) return;
+    const clear = (event: FocusEvent) => {
+      if (!(event.target as Element).classList?.contains("mari-workspace-composer__input")) setComposerFocused(false);
+    };
+    document.addEventListener("focusin", clear);
+    return () => document.removeEventListener("focusin", clear);
+  }, [composerFocused]);
   useLayoutEffect(() => takePullHandoff()?.(dialogRef.current), []);
   // R33: how far the search field has to fall to land where Mari's composer sits.
   // Measured while the list is still up, because by the time it leaves the field
@@ -2086,6 +2097,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       data-ovm-omni={ovmFind ? "" : undefined}
       data-mari-companion={companionShape ?? undefined}
       data-mari-sheet-snap={companionShape === "sheet" ? sheetSnap : undefined}
+      data-mari-composer-focused={composerFocused ? "true" : undefined}
+      onFocus={(event) => setComposerFocused(event.target.classList.contains("mari-workspace-composer__input"))}
+      onBlur={() => setComposerFocused(false)}
       className={
         companion
           ? "pointer-events-none fixed inset-0 z-(--mari-layer-omnibar)"

@@ -26,7 +26,7 @@ import {
   type ImageGenerationDefaultsProfile,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
-import { safeFetch } from "../../utils/security.js";
+import { parseImageDataUrl, safeFetch } from "../../utils/security.js";
 import {
   COMFYUI_MAX_REFERENCE_IMAGES,
   findMissingComfyReferenceSlots,
@@ -223,8 +223,7 @@ function collectRunPodReferenceImages(request: ImageGenRequest, defaults: ComfyU
 }
 
 function normalizeRunPodReferenceImageBase64(reference: string): string {
-  const dataUrlMatch = reference.trim().match(/^data:image\/(?:png|jpe?g|webp|gif|avif|bmp);base64,([\s\S]+)$/i);
-  const rawBase64 = dataUrlMatch ? dataUrlMatch[1]! : reference;
+  const rawBase64 = parseImageDataUrl(reference)?.encoded ?? reference;
   const compact = rawBase64.replace(/\s+/g, "");
   const unpadded = compact.replace(/=+$/, "");
   if (!unpadded || /[^A-Za-z0-9+/]/.test(unpadded)) {
@@ -461,10 +460,10 @@ function imageExtensionFromMimeType(mimeType: string): string {
 }
 
 function decodeDataUrl(dataUrl: string): ImageGenResult {
-  const match = dataUrl.trim().match(/^data:(image\/(?:png|jpe?g|webp|gif|avif|bmp));base64,([\s\S]+)$/i);
-  if (!match) throw new Error("Invalid image data URL from RunPod output");
+  const parsed = parseImageDataUrl(dataUrl);
+  if (!parsed) throw new Error("Invalid image data URL from RunPod output");
 
-  const encoded = match[2]!.replace(/\s+/g, "");
+  const encoded = parsed.encoded.replace(/\s+/g, "");
   const decoded = decodeRawRunPodImageBase64(encoded);
   if (!decoded) throw new Error("Invalid image data from RunPod");
   return decoded;

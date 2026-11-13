@@ -120,7 +120,10 @@ const onlyProject = ["desktop", "mobile"].includes(process.env.PLAYWRIGHT_ONLY_P
 
 try {
   resetPlaywrightData();
-  await runPnpm(["--filter", "@marinara-engine/shared", "build:preserve"]);
+  // CI sets this when the job has already built the shared package.
+  if (process.env.PLAYWRIGHT_SKIP_SHARED_BUILD !== "true") {
+    await runPnpm(["--filter", "@marinara-engine/shared", "build:preserve"]);
+  }
   if (onlyProject !== "desktop") {
     startProject("mobile", mobileClientPort, mobileServerPort);
     await waitForUrl(`http://127.0.0.1:${mobileClientPort}`);

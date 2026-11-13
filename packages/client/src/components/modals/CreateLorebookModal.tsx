@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState } from "react";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
 import { Loader2, BookOpen, AlertCircle } from "lucide-react";
@@ -62,7 +63,32 @@ export function CreateLorebookModal({
   });
 
   return (
-    <Modal open={open} onClose={onClose} title={localizeUi("ui.modals.createlorebookmodal.createLorebook")}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={localizeUi("ui.modals.createlorebookmodal.createLorebook")}
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={() => createLorebook.mutate(form)}
+            disabled={!form.name.trim() || createLorebook.isPending}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {createLorebook.isPending ? (
+              <Loader2 size="0.75rem" className="animate-spin" />
+            ) : (
+              <BookOpen size="0.75rem" />
+            )}
+            {localizeUi("ui.modals.createlorebookmodal.createLorebook")}
+          </button>
+          <button type="button" onClick={onClose} className={SHEET_BUTTON_QUIET}>
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
+    >
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-400/20">
@@ -86,7 +112,7 @@ export function CreateLorebookModal({
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             autoFocus
             placeholder={localizeUi("ui.modals.createlorebookmodal.myWorldLore")}
-            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
+            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)] max-sm:text-base"
           />
         </label>
 
@@ -99,7 +125,7 @@ export function CreateLorebookModal({
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             placeholder={localizeUi("ui.modals.createlorebookmodal.briefDescriptionOfThisLorebook")}
             rows={3}
-            className="resize-none rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm leading-relaxed outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
+            className="resize-none rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm leading-relaxed outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)] max-sm:text-base"
           />
         </label>
 
@@ -110,7 +136,7 @@ export function CreateLorebookModal({
           <select
             value={form.category}
             onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as LorebookCategory }))}
-            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
+            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)] max-sm:text-base"
           >
             {LOREBOOK_CATEGORIES.map((category) => (
               <option key={category.id} value={category.id}>
@@ -128,29 +154,6 @@ export function CreateLorebookModal({
               : localizeUi("ui.modals.createlorebookmodal.failedToCreateLorebook")}
           </div>
         )}
-
-        <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            {localizeUi("chat.delete.dialog.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={() => createLorebook.mutate(form)}
-            disabled={!form.name.trim() || createLorebook.isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
-          >
-            {createLorebook.isPending ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <BookOpen size="0.75rem" />
-            )}
-            {localizeUi("ui.modals.createlorebookmodal.createLorebook")}
-          </button>
-        </div>
       </div>
     </Modal>
   );

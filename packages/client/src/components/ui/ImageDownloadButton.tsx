@@ -11,7 +11,15 @@ import {
 } from "../../lib/file-download";
 
 /** Prepare preview images before the tap so iOS sharing retains user activation. */
-export function ImageDownloadButton({ url, filename }: { url: string; filename: string }) {
+export function ImageDownloadButton({
+  url,
+  filename,
+  className,
+}: {
+  url: string;
+  filename: string;
+  className?: string;
+}) {
   const { t } = useTranslation();
   const useIosShare = shouldUseIosImageShare();
   const [preparedImage, setPreparedImage] = useState<PreparedImageSave | null>(null);
@@ -46,7 +54,9 @@ export function ImageDownloadButton({ url, filename }: { url: string; filename: 
       }}
       disabled={useIosShare && !currentPreparedImage}
       aria-label={t("ui.chat.chatgallery.downloadImage")}
-      className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
+      className={
+        className ?? "rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
+      }
     >
       <Download size="0.875rem" />
     </button>

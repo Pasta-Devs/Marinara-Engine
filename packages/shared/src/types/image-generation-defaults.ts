@@ -54,6 +54,11 @@ export interface ImageGenerationDefaultsProfile {
   seed: number;
   /** Extra top-level fields for API image-generation requests. */
   customParameters?: Record<string, unknown>;
+  /**
+   * Non-secret extra HTTP headers for local-backend requests (ComfyUI, SwarmUI, AUTOMATIC1111).
+   * Authentication stays host-managed: use the connection's API key field for that.
+   */
+  customHeaders?: Record<string, string>;
   /** Optional connection-scoped image style profile override. */
   styleProfileId?: string | null;
   automatic1111?: Automatic1111Defaults;

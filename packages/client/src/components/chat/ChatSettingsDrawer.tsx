@@ -1,4 +1,5 @@
 import { ChatButtonLayoutSettings } from "../../features/chat-settings/ChatButtonLayoutSettings";
+import { LorebookListField } from "../ui/LibraryPickers";
 // ──────────────────────────────────────────────
 // Chat: Settings Drawer — per-chat configuration
 // ──────────────────────────────────────────────
@@ -94,8 +95,10 @@ import {
   Wallpaper,
   Search,
   UserRound,
+  Dices,
 } from "lucide-react";
-import { NEUTRAL_PANEL_SCROLL_AREA } from "../ui/neutral-surface-styles";
+import { RoleplayRulesetSettings } from "./RoleplayRuleset";
+import { NEUTRAL_PANEL_SCROLL_AREA, SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { FloatingWindow } from "../ui/FloatingWindow";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { type ChatToolbarFloatingPanelAnchor } from "./ChatToolbarControls";
@@ -111,6 +114,7 @@ import {
 } from "../../features/chat-settings/MobileChatSettingsNav";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
+import { CardFieldAlternativesSection } from "../../features/chat-settings/sections/CardFieldAlternativesSection";
 import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameSection";
 import { ChatThemeSection } from "../../features/chat-settings/sections/ChatThemeSection";
 import { ChatVariablesSection } from "../../features/chat-settings/sections/ChatVariablesSection";
@@ -118,6 +122,7 @@ import { CombatStyleSection } from "../../features/chat-settings/sections/Combat
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { useHasDecisionModel } from "../../hooks/use-decision-model";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
+import { resolvePersonaInlineNames } from "../../lib/inline-name-colors";
 import { ConnectionSection, type ChatConnectionOption } from "../../features/chat-settings/sections/ConnectionSection";
 import { ConversationPromptSection } from "../../features/chat-settings/sections/ConversationPromptSection";
 import { DiscordMirrorControls } from "../../features/chat-settings/sections/DiscordMirrorSection";
@@ -318,6 +323,7 @@ import type {
   HudWidget,
   KnowledgeAgentSourceSettings,
   Message,
+  MusicDjFolderSource,
   PromptPreset,
   SpotifySourceType,
   WeekSchedule,
@@ -363,6 +369,9 @@ import {
   isBuiltInAgentRuntimeDisabled,
   isRetiredBuiltInAgentId,
   mergeBuiltInAgentSettings,
+  readMusicDjCharacterFolders,
+  resolveMusicDjExternalFolder,
+  withMusicDjCharacterFolder,
   normalizeManualTrackerAgentTypes,
   normalizeAgentPromptTemplateOptions,
   normalizeAgentPhaseForType,
@@ -403,7 +412,11 @@ import {
   applyAgentAddSetupToAgentSettings,
   buildAgentAddMetadataPatch,
   buildInitialAgentAddSetupState,
+  initialMusicFolderTarget,
+  MusicFolderScope,
+  normalizeChatCustomMusicFolder,
   normalizeCustomMusicExternalFolder,
+  normalizeCustomMusicFolder,
   normalizeCustomMusicSource,
   type AgentAddSetupState,
   type AgentAddSpriteSubject,
@@ -507,17 +520,6 @@ const SPOTIFY_SOURCE_OPTIONS: Array<{ id: SpotifySourceType; label: string; desc
 
 function getMusicProviderLabel(provider: MusicProvider): string {
   return provider === "spotify" ? "Spotify" : provider === "youtube" ? "YouTube" : "Custom";
-}
-
-function normalizeCustomMusicFolder(value: unknown): string {
-  const raw = typeof value === "string" ? value.trim().replace(/\\/g, "/") : "";
-  let start = 0;
-  let end = raw.length;
-  while (raw[start] === "/") start++;
-  while (end > start && raw[end - 1] === "/") end--;
-  const normalized = raw.slice(start, end);
-  if (!normalized || normalized.includes("..")) return "music";
-  return normalized.startsWith("music") ? normalized : `music/${normalized}`;
 }
 
 const DEFAULT_PROSE_GUARDIAN_BANNED_WORDS = "ozone";
@@ -764,6 +766,7 @@ const CHAT_SETTINGS_ORDER = {
   combatStyle: -475,
   persona: -1000,
   characters: -900,
+  cardFieldAlternatives: -890,
   groupChat: -800,
   scopedRegex: -750,
   chatVariables: -740,
@@ -1350,6 +1353,8 @@ export function ChatSettingsDrawer({
   const legacyColorInlineNames = useUIStore((s) => s.colorInlineNames);
   const colorInlineNames =
     typeof metadata.colorInlineNames === "boolean" ? metadata.colorInlineNames : legacyColorInlineNames;
+  // Unset follows the character switch, so a chat with coloring off stays unchanged.
+  const colorPersonaInlineNames = resolvePersonaInlineNames(metadata.colorPersonaInlineNames, colorInlineNames);
   const activeCardsHaveCss = useMemo(() => {
     if (!allCharacters) return false;
     const byId = new Map((allCharacters as Array<{ id: string; data: unknown }>).map((c) => [c.id, c]));
@@ -1427,19 +1432,28 @@ export function ChatSettingsDrawer({
     setSettingsTab("generations");
     openRightPanel("settings");
   }, [openRightPanel, setSettingsTab]);
-  const openDownloadAgents = useCallback(() => {
+  // A full-page surface opened from this drawer: Back from it reopens the drawer (see `chatSettingsReturn`).
+  const rememberSettingsReturn = useCallback(
+    () => useUIStore.getState().setChatSettingsReturn({ chatId: chat.id, section: initialSection ?? null }),
+    [chat.id, initialSection],
+  );
+  const closeForSurface = useCallback(() => {
+    rememberSettingsReturn();
     onClose();
+  }, [onClose, rememberSettingsReturn]);
+  const openDownloadAgents = useCallback(() => {
+    closeForSurface();
     openRightPanel("agents");
     openAgentCatalog();
-  }, [onClose, openAgentCatalog, openRightPanel]);
+  }, [closeForSurface, openAgentCatalog, openRightPanel]);
   const refreshLorebooks = useCallback(() => qc.invalidateQueries({ queryKey: lorebookKeys.all }), [qc]);
   const openLorebookFromSettings = useCallback(
     (lorebookId: string) => {
       void refreshLorebooks();
-      onClose();
+      closeForSurface();
       openLorebookDetail(lorebookId);
     },
-    [onClose, openLorebookDetail, refreshLorebooks],
+    [closeForSurface, openLorebookDetail, refreshLorebooks],
   );
   const inactiveCharacterIds = useMemo<string[]>(
     () =>
@@ -1728,11 +1742,42 @@ export function ChatSettingsDrawer({
     typeof metadata.gameSpotifyPlaylistId === "string" ? metadata.gameSpotifyPlaylistId : "";
   const gameSpotifyArtist = typeof metadata.gameSpotifyArtist === "string" ? metadata.gameSpotifyArtist : "";
   const musicDjSettings = mergeBuiltInAgentSettings("spotify", agentConfigsByType.get("spotify")?.settings);
+  // The default source and folder for all chats. A chat or character folder can take over (#8901), but only
+  // these defaults are ever written back to the Music DJ settings.
   const customMusicSource = normalizeCustomMusicSource(musicDjSettings);
-  const customMusicFolder = normalizeCustomMusicFolder(metadata.customMusicFolder ?? musicDjSettings.customMusicFolder);
-  const customMusicExternalFolder = normalizeCustomMusicExternalFolder(
+  const customMusicFolder = normalizeCustomMusicFolder(musicDjSettings.customMusicFolder);
+  // This chat's own Game Assets subfolder (#8916); empty uses the default above.
+  const chatCustomMusicFolder = normalizeChatCustomMusicFolder(metadata.customMusicGameAssetsFolder);
+  const defaultCustomMusicExternalFolder = normalizeCustomMusicExternalFolder(
     musicDjSettings.customMusicExternalFolder ?? musicDjSettings.localMusicExternalFolder,
   );
+  const musicFolderInUse = resolveMusicDjExternalFolder({
+    settings: musicDjSettings,
+    chatMetadata: metadata,
+    chatCharacterIds: chatCharIds,
+  });
+  const effectiveCustomMusicSource: CustomMusicSource =
+    musicFolderInUse.source === "default" ? customMusicSource : "folder";
+  const chatMusicFolder = normalizeCustomMusicExternalFolder(metadata.customMusicExternalFolder);
+  const characterMusicFolder = musicFolderInUse.characterId
+    ? (readMusicDjCharacterFolders(musicDjSettings)[musicFolderInUse.characterId] ?? "")
+    : "";
+  const [musicFolderTargetChoice, setMusicFolderTargetChoice] = useState<{
+    chatId: string;
+    target: MusicDjFolderSource;
+  } | null>(null);
+  const requestedMusicFolderTarget =
+    musicFolderTargetChoice?.chatId === chat.id
+      ? musicFolderTargetChoice.target
+      : initialMusicFolderTarget(musicFolderInUse, customMusicSource, chatCustomMusicFolder);
+  const musicFolderTarget: MusicDjFolderSource =
+    requestedMusicFolderTarget === "character" && !musicFolderInUse.characterId ? "chat" : requestedMusicFolderTarget;
+  const targetMusicFolder =
+    musicFolderTarget === "chat"
+      ? chatMusicFolder
+      : musicFolderTarget === "character"
+        ? characterMusicFolder
+        : defaultCustomMusicExternalFolder;
   const gameMusicDjEnabled =
     metadata.gameUseMusicDj === true || gameUseSpotifyMusic || activeAgentIds.includes("youtube");
   const spriteCharacterIds = useMemo<string[]>(
@@ -3017,6 +3062,7 @@ export function ChatSettingsDrawer({
           entityId={id}
           displayName={displayName}
           onClose={() => setInlineResourceEditor(null)}
+          onFlushChange={handleInlineCardFlushChange}
         />
       </Suspense>
     );
@@ -3470,6 +3516,14 @@ export function ChatSettingsDrawer({
     else current.push(lbId);
     updateMeta.mutate({ id: chat.id, activeLorebookIds: current });
   };
+  // "Add all" in the lorebook picker: one write with every id, so per-id toggles can't race.
+  const addLorebooks = (lbIds: string[]) => {
+    const current = readLatestActiveLorebookIds();
+    updateMeta.mutate({
+      id: chat.id,
+      activeLorebookIds: [...current, ...lbIds.filter((id) => !current.includes(id))],
+    });
+  };
 
   // Disable / re-enable an auto-activated (character/global/persona) lorebook for
   // this chat. Unlike unpinning, this does not touch activeLorebookIds — it adds
@@ -3688,7 +3742,10 @@ export function ChatSettingsDrawer({
             },
             onOpenAgentSettings: () => {
               void requestClose().then((closed) => {
-                if (closed) useUIStore.getState().openAgentDetail("long-term-memory");
+                if (closed) {
+                  rememberSettingsReturn();
+                  useUIStore.getState().openAgentDetail("long-term-memory");
+                }
               });
             },
             onDirtyChange: setEditorDirty,
@@ -3702,7 +3759,7 @@ export function ChatSettingsDrawer({
           <StoryboardChatSettingsPanel
             chatId={chat.id}
             metadata={metadata as Record<string, unknown>}
-            onClose={onClose}
+            onClose={closeForSurface}
             ownerMode="roleplay"
           />
         </Suspense>
@@ -3714,7 +3771,10 @@ export function ChatSettingsDrawer({
             chatId={chat.id}
             onOpenAgentSettings={() => {
               void requestClose().then((closed) => {
-                if (closed) useUIStore.getState().openAgentDetail("beholder");
+                if (closed) {
+                  rememberSettingsReturn();
+                  useUIStore.getState().openAgentDetail("beholder");
+                }
               });
             }}
           />
@@ -3921,6 +3981,7 @@ export function ChatSettingsDrawer({
     setShowToolPicker(false);
     setPendingToolIds([]);
     setToolSearch("");
+    rememberSettingsReturn();
     openToolDetail("__new__");
     onClose();
   };
@@ -4023,7 +4084,6 @@ export function ChatSettingsDrawer({
   const [showCharPicker, setShowCharPicker] = useState(false);
   const addCharBtnRef = useRef<HTMLButtonElement>(null);
   const partyBtnRef = useRef<HTMLButtonElement>(null);
-  const [showLbPicker, setShowLbPicker] = useState(false);
   const [showToolPicker, setShowToolPicker] = useState(false);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const personaBtnRef = useRef<HTMLDivElement>(null);
@@ -4064,22 +4124,33 @@ export function ChatSettingsDrawer({
   const handleAgentSuiteCloseGuardChange = useCallback((guard: (() => Promise<boolean>) | null) => {
     agentSuiteCloseGuardRef.current = guard;
   }, []);
-  const requestClose = useCallback(async () => {
-    if (drawerClosingRef.current) return false;
-    blurActiveChatFloatingUiControl();
-    drawerClosingRef.current = true;
-    try {
-      const canCloseAgentSuite =
-        !showAgentSuiteModal || (await (agentSuiteCloseGuardRef.current?.() ?? Promise.resolve(true)));
-      if (!canCloseAgentSuite) return false;
-      if (!(await flushProseGuardianDrafts())) return false;
-      setShowAgentSuiteModal(false);
-      onClose({ force: true });
-      return true;
-    } finally {
-      drawerClosingRef.current = false;
-    }
-  }, [flushProseGuardianDrafts, onClose, showAgentSuiteModal]);
+  // The open inline card editor's saves, finished before the drawer closes (#8933): a card opened next must not load
+  // the text an inline save is still writing, then overwrite it.
+  const inlineCardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
+  const handleInlineCardFlushChange = useCallback((flush: (() => Promise<boolean>) | null) => {
+    inlineCardFlushRef.current = flush;
+  }, []);
+  /** Closes after the drawer's guards pass; `force: false` keeps a pinned drawer open (opening a card from it). */
+  const requestClose = useCallback(
+    async (force = true) => {
+      if (drawerClosingRef.current) return false;
+      blurActiveChatFloatingUiControl();
+      drawerClosingRef.current = true;
+      try {
+        const canCloseAgentSuite =
+          !showAgentSuiteModal || (await (agentSuiteCloseGuardRef.current?.() ?? Promise.resolve(true)));
+        if (!canCloseAgentSuite) return false;
+        if (!(await flushProseGuardianDrafts())) return false;
+        if (!(await (inlineCardFlushRef.current?.() ?? Promise.resolve(true)))) return false;
+        setShowAgentSuiteModal(false);
+        onClose({ force });
+        return true;
+      } finally {
+        drawerClosingRef.current = false;
+      }
+    },
+    [flushProseGuardianDrafts, onClose, showAgentSuiteModal],
+  );
   // Session-ephemeral: did the user change Day Rollover Hour in this drawer mount?
   // Used to gate the "transitional duplication" warning so it only appears
   // immediately after a change (when the warning is operationally useful) and
@@ -4194,7 +4265,6 @@ export function ChatSettingsDrawer({
     setOnboardingQuestionsCharacterId(null);
   }, [continueAddedCardGreeting, onboardingQuestionsCharacterId]);
   const [pendingToolIds, setPendingToolIds] = useState<string[]>([]);
-  const [lbSearch, setLbSearch] = useState("");
   const [toolSearch, setToolSearch] = useState("");
   const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
   const [agentSetupQueue, setAgentSetupQueue] = useState<string[]>([]);
@@ -4515,10 +4585,19 @@ export function ChatSettingsDrawer({
           musicPlayerSource,
           roleplaySpriteScale,
           allowSecretPlot: supportsNarrativeDirectorSecretPlot,
+          chatCharacters: chatCharIds.map((id) => ({ id, name: charNameMap.get(id) ?? id })),
         }),
       });
     },
-    [agentConfigsByType, metadata, musicPlayerSource, roleplaySpriteScale, supportsNarrativeDirectorSecretPlot],
+    [
+      agentConfigsByType,
+      charNameMap,
+      chatCharIds,
+      metadata,
+      musicPlayerSource,
+      roleplaySpriteScale,
+      supportsNarrativeDirectorSecretPlot,
+    ],
   );
 
   useEffect(() => {
@@ -4653,7 +4732,7 @@ export function ChatSettingsDrawer({
         musicPlayerSource: provider,
         customMusicSource,
         customMusicFolder,
-        customMusicExternalFolder,
+        customMusicExternalFolder: defaultCustomMusicExternalFolder,
         enabledTools: provider === "spotify" ? (DEFAULT_AGENT_TOOLS.spotify ?? []) : [],
       };
 
@@ -4675,7 +4754,7 @@ export function ChatSettingsDrawer({
     [
       agentConfigsByType,
       createAgent,
-      customMusicExternalFolder,
+      defaultCustomMusicExternalFolder,
       customMusicFolder,
       customMusicSource,
       installedAgentManifests,
@@ -4706,24 +4785,13 @@ export function ChatSettingsDrawer({
     [activeAgentIds, chat.id, ensureMusicDjAgent, gameMusicDjEnabled, isGame, setMusicPlayerSource, updateMeta],
   );
 
-  const saveCustomMusicFolder = useCallback(
-    async (value: string) => {
-      const folder = normalizeCustomMusicFolder(value);
-      updateMeta.mutate({ id: chat.id, customMusicFolder: folder });
-      const config = agentConfigsByType.get("spotify") ?? null;
-      if (!config) return;
-      const nextSettings = {
-        ...mergeBuiltInAgentSettings("spotify", config.settings),
-        customMusicFolder: folder,
-      };
-      await updateAgentConfig.mutateAsync({ id: config.id, settings: nextSettings });
-    },
-    [agentConfigsByType, chat.id, updateAgentConfig, updateMeta],
-  );
-
   const updateCustomMusicLibrary = useCallback(
-    async (patch: { customMusicSource?: CustomMusicSource; customMusicExternalFolder?: string }) => {
+    async (patch: Record<string, unknown>, where: "agent" | "chat" = "agent") => {
       try {
+        if (where === "chat") {
+          await updateMeta.mutateAsync({ id: chat.id, ...patch });
+          return;
+        }
         const config = agentConfigsByType.get("spotify") ?? null;
         if (!config) throw new Error("Music DJ agent settings are missing.");
         const nextSettings = {
@@ -4738,64 +4806,105 @@ export function ChatSettingsDrawer({
         });
       }
     },
-    [agentConfigsByType, updateAgentConfig],
+    [agentConfigsByType, chat.id, updateAgentConfig, updateMeta],
   );
 
-  const selectCustomMusicExternalFolder = useCallback(async () => {
+  // The Game Assets subfolder of "All chats" or of this chat (#8916), each saved only to its own place.
+  const saveCustomMusicFolder = (target: "chat" | "default", value: string) => {
+    if (target === "chat") {
+      // Stay on This chat: once its subfolder is cleared, the derived target would fall back to All chats.
+      setMusicFolderTargetChoice({ chatId: chat.id, target: "chat" });
+      const folder = normalizeChatCustomMusicFolder(value);
+      if (folder !== chatCustomMusicFolder) {
+        void updateCustomMusicLibrary({ customMusicGameAssetsFolder: folder || null }, "chat");
+      }
+      return;
+    }
+    const folder = normalizeCustomMusicFolder(value);
+    if (folder !== customMusicFolder) void updateCustomMusicLibrary({ customMusicFolder: folder });
+  };
+
+  // Each "Apply to" choice writes only its own folder (#8901).
+  const saveCustomMusicExternalFolder = (target: MusicDjFolderSource, folder: string) => {
+    if (target === "chat") return updateCustomMusicLibrary({ customMusicExternalFolder: folder || null }, "chat");
+    if (target === "character") {
+      if (!musicFolderInUse.characterId) return;
+      return updateCustomMusicLibrary({
+        customMusicCharacterFolders: withMusicDjCharacterFolder(musicDjSettings, musicFolderInUse.characterId, folder),
+      });
+    }
+    return updateCustomMusicLibrary({ customMusicSource: "folder", customMusicExternalFolder: folder });
+  };
+
+  const selectCustomMusicExternalFolder = async (target: MusicDjFolderSource) => {
     try {
       const data = await api.post<{ success: boolean; path: string }>("/game-assets/pick-local-music-folder");
       if (data.success !== true || !data.path) throw new Error("No folder selected.");
-      await updateCustomMusicLibrary({
-        customMusicSource: "folder",
-        customMusicExternalFolder: data.path,
-      });
+      await saveCustomMusicExternalFolder(target, data.path);
     } catch (error) {
       await showAlertDialog({
         title: "Couldn't Select Music Folder",
         message: error instanceof Error ? error.message : "The music folder could not be selected.",
       });
     }
-  }, [updateCustomMusicLibrary]);
+  };
 
+  const musicFolderCharacter = musicFolderInUse.characterId
+    ? {
+        id: musicFolderInUse.characterId,
+        name: charNameMap.get(musicFolderInUse.characterId) ?? musicFolderInUse.characterId,
+      }
+    : null;
   const renderCustomMusicLibrarySettings = (surface: "game" | "roleplay") => (
     <div className="space-y-2">
-      <label className="flex flex-col gap-1">
-        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-          {localizeUi("ui.chat.chatsettingsdrawer.customMusicSource")}
-        </span>
-        <select
-          value={customMusicSource}
-          onChange={(event) =>
-            void updateCustomMusicLibrary({ customMusicSource: event.target.value as CustomMusicSource })
-          }
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
-        >
-          <option value="game-assets">{localizeUi("game.toolbar.assets")}</option>
-          <option value="folder">{localizeUi("ui.chat.musicdjsetupfields.folderOnThisDevice")}</option>
-        </select>
-      </label>
+      <MusicFolderScope
+        target={musicFolderTarget}
+        character={musicFolderCharacter}
+        inUse={musicFolderInUse}
+        showInUse={effectiveCustomMusicSource === "folder"}
+        canUseDefault={!!chatMusicFolder}
+        canUnlink={!!characterMusicFolder}
+        onTargetChange={(target) => setMusicFolderTargetChoice({ chatId: chat.id, target })}
+        onUseDefault={() => void saveCustomMusicExternalFolder("chat", "")}
+        onUnlink={() => void saveCustomMusicExternalFolder("character", "")}
+      />
+      {musicFolderTarget === "default" && (
+        <label className="flex flex-col gap-1">
+          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.chatsettingsdrawer.customMusicSource")}
+          </span>
+          <select
+            value={customMusicSource}
+            onChange={(event) =>
+              void updateCustomMusicLibrary({ customMusicSource: event.target.value as CustomMusicSource })
+            }
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+          >
+            <option value="game-assets">{localizeUi("game.toolbar.assets")}</option>
+            <option value="folder">{localizeUi("ui.chat.musicdjsetupfields.folderOnThisDevice")}</option>
+          </select>
+        </label>
+      )}
 
-      {customMusicSource === "folder" ? (
+      {musicFolderTarget !== "default" || customMusicSource === "folder" ? (
         <div className="flex flex-col gap-1">
           <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.agents.agenteditor.musicFolderOnThisDevice")}
           </span>
           <div className="flex flex-col gap-2 @lg:flex-row">
             <input
-              key={`${chat.id}-${surface}-custom-music-folder-${customMusicExternalFolder}`}
-              defaultValue={customMusicExternalFolder}
-              onBlur={(event) =>
-                void updateCustomMusicLibrary({
-                  customMusicSource: "folder",
-                  customMusicExternalFolder: normalizeCustomMusicExternalFolder(event.target.value),
-                })
-              }
+              key={`${chat.id}-${surface}-custom-music-folder-${musicFolderTarget}-${targetMusicFolder}`}
+              defaultValue={targetMusicFolder}
+              onBlur={(event) => {
+                const folder = normalizeCustomMusicExternalFolder(event.target.value);
+                if (folder !== targetMusicFolder) void saveCustomMusicExternalFolder(musicFolderTarget, folder);
+              }}
               placeholder={localizeUi("ui.agents.agenteditor.noFolderSelected")}
               className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
             />
             <button
               type="button"
-              onClick={() => void selectCustomMusicExternalFolder()}
+              onClick={() => void selectCustomMusicExternalFolder(musicFolderTarget)}
               className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
             >
               <FolderOpen size="0.75rem" />
@@ -4814,13 +4923,31 @@ export function ChatSettingsDrawer({
           <input
             key={`${chat.id}-${surface}-custom-music-${customMusicFolder}`}
             defaultValue={customMusicFolder}
-            onBlur={(event) => void saveCustomMusicFolder(event.target.value)}
+            onBlur={(event) => saveCustomMusicFolder("default", event.target.value)}
             placeholder={localizeUi("ui.agents.agenteditor.music")}
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
           />
           <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.musicdjsetupfields.readsLocalAudioFromGameAssetsForExample")} <code>music</code>{" "}
             {localizeUi("ui.noodle.noodlehome.or")} <code>music/combat</code>.
+          </span>
+        </label>
+      )}
+      {/* This chat's own Game Assets subfolder (#8916), while the chat plays Game Assets. */}
+      {musicFolderTarget === "chat" && effectiveCustomMusicSource === "game-assets" && (
+        <label className="flex flex-col gap-1">
+          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.agents.agenteditor.gameAssetsMusicFolder")}
+          </span>
+          <input
+            key={`${chat.id}-${surface}-chat-custom-music-${chatCustomMusicFolder}`}
+            defaultValue={chatCustomMusicFolder}
+            onBlur={(event) => saveCustomMusicFolder("chat", event.target.value)}
+            placeholder={customMusicFolder}
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
+          />
+          <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.musicdjsetupfields.gameAssetsMusicFolderForThisChatOnly")}
           </span>
         </label>
       )}
@@ -4924,6 +5051,10 @@ export function ChatSettingsDrawer({
     return {
       connectionId: chat.connectionId ?? null,
       promptPresetId: chat.promptPresetId ?? null,
+      // Preset variable choices belong to the chat's preset, so they are saved with its id.
+      ...(chat.promptPresetId && {
+        presetVariables: { presetId: chat.promptPresetId, choices: metadata.presetChoices ?? {} },
+      }),
       // The window layout as shown, even if its save to the chat is still waiting.
       metadata: { ...metadata, windowLayout: readCurrentWindowLayout() },
     };
@@ -5195,7 +5326,7 @@ export function ChatSettingsDrawer({
             <button
               type="button"
               onClick={() => {
-                onClose();
+                closeForSurface();
                 const ui = useUIStore.getState();
                 ui.openRightPanel("agents");
                 ui.openAgentDetail("__new__");
@@ -5227,7 +5358,7 @@ export function ChatSettingsDrawer({
         description={localizeUi("ui.chat.chatsettingsdrawer.configureCustomAgentsCurrentlyAttachedToThisChat")}
         order={customAgentSettingsOrder}
       >
-        <div className="space-y-1.5">
+        <div className="space-y-3">
           {activeCustomAgents.map((agent) => {
             const agentConfig = agentConfigsByType.get(agent.id);
             const agentSettings = parseAgentSettingsRecord(agentConfig?.settings);
@@ -5243,9 +5374,10 @@ export function ChatSettingsDrawer({
               agentImageStyleProfileId.length > 0 &&
               !imageStyleProfiles.profiles.some((profile) => profile.id === agentImageStyleProfileId);
             return (
+              // No box per agent: its toggles sit on the card like every other agent menu's; a rule separates agents.
               <div
                 key={agent.id}
-                className="rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]"
+                className="space-y-2 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
               >
                 <div className="flex items-start gap-2.5">
                   <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
@@ -5326,7 +5458,7 @@ export function ChatSettingsDrawer({
                 />
                 {renderAgentLorebookAttachment(agent.id)}
                 {backfillAvailable && agentConfig && (
-                  <div className="mt-2 space-y-2">
+                  <div className="space-y-2">
                     <AgentSettingsToggle
                       label={localizeUi("ui.agents.agenteditor.enableChunkedBackfill")}
                       description={localizeUi("ui.agents.agenteditor.enableChunkedBackfillDescription")}
@@ -5375,7 +5507,7 @@ export function ChatSettingsDrawer({
                   </div>
                 )}
                 {imageCapable && (
-                  <div className="mt-1.5 flex flex-col gap-1">
+                  <div className="flex flex-col gap-1">
                     <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                       {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
                     </span>
@@ -6166,7 +6298,7 @@ export function ChatSettingsDrawer({
                     <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-2.5 py-2 ring-1 ring-[var(--primary)]/30">
                       <button
                         type="button"
-                        onClick={() => setShowPersonaPicker(true)}
+                        onClick={() => setShowPersonaPicker((open) => !open)}
                         className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
                         title={localizeUi("ui.chat.chatsettingsdrawer.changePersona")}
                       >
@@ -6242,7 +6374,7 @@ export function ChatSettingsDrawer({
                 {!chat.personaId && (
                   <button
                     data-ov-change-persona={chat.personaId || chat.personaCharacterId ? "set" : "empty"}
-                    onClick={() => setShowPersonaPicker(true)}
+                    onClick={() => setShowPersonaPicker((open) => !open)}
                     className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
                   >
                     <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
@@ -6286,11 +6418,19 @@ export function ChatSettingsDrawer({
                       return (
                         <Fragment key={c.id}>
                           <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
+                            {/* The name opens the full card, as in Roleplay; Add Character below opens the picker (#8933). */}
                             <button
                               type="button"
-                              onClick={() => setShowCharPicker(true)}
+                              onClick={() => {
+                                void requestClose(false).then((closed) => {
+                                  if (closed) {
+                                    rememberSettingsReturn();
+                                    useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                                  }
+                                });
+                              }}
                               className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
-                              title={localizeUi("ui.chat.chatsettingsdrawer.changeCharacters")}
+                              title={localizeUi("ui.chat.chatsettingsdrawer.openCharacterCard")}
                             >
                               {c.avatarPath ? (
                                 <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full">
@@ -6344,7 +6484,7 @@ export function ChatSettingsDrawer({
 
               <button
                 ref={partyBtnRef}
-                onClick={() => setShowCharPicker(true)}
+                onClick={() => setShowCharPicker((open) => !open)}
                 className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
               >
                 <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.addCharacterToParty")}
@@ -6389,7 +6529,7 @@ export function ChatSettingsDrawer({
                     <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-2.5 py-2">
                       <button
                         type="button"
-                        onClick={() => setShowPersonaPicker(true)}
+                        onClick={() => setShowPersonaPicker((open) => !open)}
                         className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
                         title={localizeUi("ui.chat.chatsettingsdrawer.changePersona")}
                       >
@@ -6487,7 +6627,7 @@ export function ChatSettingsDrawer({
                 {/* Persona picker */}
                 {!(chat.personaId || chat.personaCharacterId) && (
                   <button
-                    onClick={() => setShowPersonaPicker(true)}
+                    onClick={() => setShowPersonaPicker((open) => !open)}
                     className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
                   >
                     <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
@@ -6575,6 +6715,22 @@ export function ChatSettingsDrawer({
                     : (personas.find((persona) => persona.id === chat.personaId)?.name ?? null)
                 }
               />
+              {isRoleplayMode && (
+                <SettingsSwitch
+                  label={localizeUi("ui.chat.chatsettingsdrawer.colorPersonaNameInText")}
+                  description={localizeUi("ui.chat.chatsettingsdrawer.colorPersonaNameInTextDescription")}
+                  checked={colorPersonaInlineNames}
+                  onChange={(checked) => updateMeta.mutate({ id: chat.id, colorPersonaInlineNames: checked })}
+                  labelPosition="start"
+                  className={cn(
+                    "mt-2 justify-between rounded-md px-3 py-2.5 text-left",
+                    colorPersonaInlineNames
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                  )}
+                  labelClassName="text-[0.6875rem] font-medium"
+                />
+              )}
             </Section>
           )}
 
@@ -6617,12 +6773,21 @@ export function ChatSettingsDrawer({
                               "bg-[var(--secondary)] opacity-70 ring-[var(--border)]",
                           )}
                         >
+                          {/* The name opens the full card editor (Depth Prompt, embedded lorebooks and more); the
+                              pencil edits a few fields inline. Add Character below opens the multi-picker (#8933). */}
                           <button
                             type="button"
                             data-drag-surface
-                            onClick={() => setShowCharPicker(true)}
+                            onClick={() => {
+                              void requestClose(false).then((closed) => {
+                                if (closed) {
+                                  rememberSettingsReturn();
+                                  useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                                }
+                              });
+                            }}
                             className="flex items-center gap-2.5 min-w-0 flex-1 text-left transition-colors hover:opacity-80"
-                            title={localizeUi("ui.chat.chatsettingsdrawer.changeCharacters")}
+                            title={localizeUi("ui.chat.chatsettingsdrawer.openCharacterCard")}
                           >
                             {c.avatarPath ? (
                               <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full">
@@ -6734,7 +6899,7 @@ export function ChatSettingsDrawer({
               {/* Add character picker */}
               <button
                 ref={addCharBtnRef}
-                onClick={() => setShowCharPicker(true)}
+                onClick={() => setShowCharPicker((open) => !open)}
                 className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
               >
                 <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.addCharacter")}
@@ -6795,6 +6960,27 @@ export function ChatSettingsDrawer({
               {cardThemingControls}
             </Section>
           )}
+
+          {/* Ruleset — a Roleplay chat played by a Game Mode ruleset */}
+          {isRoleplayMode && !metadata.multiplayer && (
+            <Section
+              id="roleplay-ruleset"
+              style={{ order: CHAT_SETTINGS_ORDER.characters + 1 }}
+              label={localizeUi("chat.settings.ruleset.label")}
+              icon={<Dices size="0.875rem" />}
+              help={localizeUi("chat.settings.ruleset.help")}
+            >
+              <RoleplayRulesetSettings chatId={chat.id} metadata={metadata} />
+            </Section>
+          )}
+
+          {/* Card field alternatives — hidden when no card in this chat has any */}
+          <CardFieldAlternativesSection
+            chat={chat}
+            characters={characters}
+            personas={personas}
+            style={{ order: CHAT_SETTINGS_ORDER.cardFieldAlternatives }}
+          />
 
           {/* Scoped Regex Scripts — only shown when a chat character has scoped scripts */}
           {chatScopedRegexGroups.length > 0 && (
@@ -7742,7 +7928,10 @@ export function ChatSettingsDrawer({
                             },
                             onOpenAgentSettings: () => {
                               void requestClose().then((closed) => {
-                                if (closed) useUIStore.getState().openAgentDetail("long-term-memory");
+                                if (closed) {
+                                  rememberSettingsReturn();
+                                  useUIStore.getState().openAgentDetail("long-term-memory");
+                                }
                               });
                             },
                             onDirtyChange: setEditorDirty,
@@ -8105,14 +8294,10 @@ export function ChatSettingsDrawer({
               chatId={chat.id}
               activeLorebooks={activeLorebooks}
               lorebooks={(lorebooks ?? []) as Lorebook[]}
-              lorebookSearch={lbSearch}
               lorebookTokenBudget={lorebookTokenBudget}
-              showLorebookPicker={showLbPicker}
-              onLorebookSearchChange={setLbSearch}
               onLorebookTokenBudgetChange={(lorebookTokenBudget) =>
                 updateMeta.mutate({ id: chat.id, lorebookTokenBudget })
               }
-              onShowLorebookPickerChange={setShowLbPicker}
               onEditLorebook={(lorebookId) => toggleInlineResourceEditor("lorebook", lorebookId)}
               editingLorebookId={inlineResourceEditor?.kind === "lorebook" ? inlineResourceEditor.id : null}
               inlineLorebookEditor={
@@ -8141,6 +8326,7 @@ export function ChatSettingsDrawer({
                 ) : null
               }
               onToggleLorebook={toggleLorebook}
+              onAddLorebooks={addLorebooks}
               onSetLorebookExcluded={setLorebookExcluded}
             />
           </div>
@@ -8707,7 +8893,7 @@ export function ChatSettingsDrawer({
                             <div className="flex w-full min-w-0 flex-col items-stretch gap-1.5 @lg:w-auto @lg:shrink-0 @lg:flex-row @lg:items-center">
                               <AgentSettingsActionButton
                                 onClick={() => {
-                                  onClose();
+                                  closeForSurface();
                                   useUIStore.getState().openAgentDetail("lorebook-keeper");
                                 }}
                                 className="!h-8 !min-h-8 w-full whitespace-nowrap !py-0 @lg:w-auto"
@@ -8801,7 +8987,7 @@ export function ChatSettingsDrawer({
                             </p>
                             <AgentSettingsActionButton
                               onClick={() => {
-                                onClose();
+                                closeForSurface();
                                 useUIStore.getState().openAgentDetail("card-evolution-auditor");
                               }}
                               variant="primary"
@@ -9104,7 +9290,7 @@ export function ChatSettingsDrawer({
                               };
                             })}
                             onOpenOwner={(kind, id) => {
-                              onClose();
+                              closeForSurface();
                               if (kind === "persona") {
                                 useUIStore.getState().openPersonaDetail(id);
                               } else {
@@ -9167,7 +9353,7 @@ export function ChatSettingsDrawer({
                             </p>
                             <AgentSettingsActionButton
                               onClick={() => {
-                                onClose();
+                                closeForSurface();
                                 useUIStore.getState().openAgentDetail("echo-chamber");
                               }}
                               className="shrink-0"
@@ -9325,7 +9511,7 @@ export function ChatSettingsDrawer({
                             </p>
                             <AgentSettingsActionButton
                               onClick={() => {
-                                onClose();
+                                closeForSurface();
                                 useUIStore.getState().openAgentDetail("illustrator");
                               }}
                               className="shrink-0"
@@ -9522,7 +9708,7 @@ export function ChatSettingsDrawer({
                                 )
                               : musicPlayerSource === "youtube"
                                 ? localizeUi("ui.chat.chatsettingsdrawer.youtubeModeUsesTheMusicDjAgentSYoutube")
-                                : customMusicSource === "folder"
+                                : effectiveCustomMusicSource === "folder"
                                   ? localizeUi(
                                       "ui.chat.chatsettingsdrawer.customModePicksFromTheSelectedDeviceFolderAnd",
                                     )
@@ -9860,6 +10046,7 @@ export function ChatSettingsDrawer({
                                             onOpenAgentSettings: () => {
                                               void requestClose().then((closed) => {
                                                 if (closed) {
+                                                  rememberSettingsReturn();
                                                   useUIStore.getState().openAgentDetail("long-term-memory");
                                                 }
                                               });
@@ -9884,7 +10071,7 @@ export function ChatSettingsDrawer({
                                           <StoryboardChatSettingsPanel
                                             chatId={chat.id}
                                             metadata={metadata as Record<string, unknown>}
-                                            onClose={onClose}
+                                            onClose={closeForSurface}
                                             ownerMode="game"
                                           />
                                         </Suspense>
@@ -10102,7 +10289,8 @@ export function ChatSettingsDrawer({
                                           id={hasSettingsTarget ? getAgentSettingsMenuId(chat.id, agent.id) : undefined}
                                           tabIndex={hasSettingsTarget ? -1 : undefined}
                                           data-chat-agent-entry={agent.id}
-                                          className="scroll-mt-3 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/60"
+                                          // The lorebook switch sits under the description with the prompt select's gap.
+                                          className="scroll-mt-3 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/60 [&>[data-agent-lorebook-attachment]]:mt-2 [&>[data-agent-lorebook-package-update]]:mt-2"
                                         >
                                           <div className="flex items-start gap-2.5">
                                             <Sparkles
@@ -10678,6 +10866,26 @@ export function ChatSettingsDrawer({
             ? localizeUi("ui.chat.chatsettingsdrawer.addValue1", { value1: agentAddPreview.agent.name })
             : localizeUi("ui.chat.chatsettingsdrawer.addAgent")
         }
+        footer={
+          <>
+            <button onClick={confirmAddAgent} disabled={addingAgentToChat} className={SHEET_BUTTON_PRIMARY}>
+              {addingAgentToChat
+                ? localizeUi("ui.chat.chatsettingsdrawer.adding")
+                : localizeUi("ui.chat.chatsettingsdrawer.addAgent")}
+            </button>
+            <button
+              onClick={() => {
+                setAgentAddPreview(null);
+                setAgentSetupQueue([]);
+              }}
+              disabled={addingAgentToChat}
+              className={SHEET_BUTTON_QUIET}
+            >
+              {localizeUi("chat.delete.dialog.cancel")}
+            </button>
+          </>
+        }
+        closeButtonClassName="max-sm:hidden"
         width="max-w-lg"
         chatFloatingPanel
       >
@@ -10689,13 +10897,13 @@ export function ChatSettingsDrawer({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-[var(--foreground)]">{agentAddPreview.agent.name}</p>
-                    <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.5625rem] uppercase tracking-wide text-[var(--muted-foreground)]">
+                    <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.5625rem] max-sm:text-[13px] uppercase tracking-wide text-[var(--muted-foreground)]">
                       {agentAddPreview.agent.builtIn
                         ? agentAddPreview.agent.category
                         : localizeUi("ui.agents.toolcard.custom")}
                     </span>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[var(--muted-foreground)]">
+                  <p className="mt-2 whitespace-pre-wrap text-xs max-sm:text-[13px] leading-5 text-[var(--muted-foreground)]">
                     {agentAddPreview.agent.description || "No description available."}
                   </p>
                   {(() => {
@@ -10707,21 +10915,21 @@ export function ChatSettingsDrawer({
             </div>
 
             {agentAddIsFeature ? (
-              <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+              <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] max-sm:text-[13px] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
                 {localizeUi("ui.chat.chatsettingsdrawer.thisLetsCharactersInitiateTheDownloadedFeatureInThis")}
               </div>
             ) : agentAddIsRuntimeDisabled ? (
-              <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+              <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] max-sm:text-[13px] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
                 {localizeUi("ui.chat.chatsettingsdrawer.thisAddsItsInstructionsToTheNextRoleplayPrompt")}
               </div>
             ) : (
               <div className="space-y-1.5">
-                <label className="block text-[0.6875rem] font-semibold text-[var(--foreground)]">
+                <label className="block text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--foreground)]">
                   {localizeUi("ui.agents.agenteditor.agentBudget")}
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                    <label className="mb-1 block text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.agents.agenteditor.contextSize")}
                     </label>
                     <div className="flex items-center gap-3">
@@ -10744,15 +10952,15 @@ export function ChatSettingsDrawer({
                           );
                         }}
                         disabled={addingAgentToChat}
-                        className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
-                      <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                      <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                         {localizeUi("ui.agents.agenteditor.messages")}
                       </span>
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                    <label className="mb-1 block text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.agents.agenteditor.maxOutputTokens")}
                     </label>
                     <div className="flex items-center gap-3">
@@ -10779,15 +10987,15 @@ export function ChatSettingsDrawer({
                           );
                         }}
                         disabled={addingAgentToChat}
-                        className="w-32 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-32 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
-                      <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                      <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                         {localizeUi("ui.agents.agenteditor.tokens")}
                       </span>
                     </div>
                   </div>
                 </div>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                   {localizeUi("ui.chat.chatsettingsdrawer.contextSizeControlsRecentChatMessagesMaxOutputReserves")}
                 </p>
               </div>
@@ -10795,7 +11003,7 @@ export function ChatSettingsDrawer({
 
             {agentAddIntervalMeta && agentAddPreview.runInterval != null && (
               <div className="space-y-1.5">
-                <label className="block text-[0.6875rem] font-semibold text-[var(--foreground)]">
+                <label className="block text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--foreground)]">
                   {localizeText(agentAddIntervalMeta.label)}
                 </label>
                 <div className="flex items-center gap-3">
@@ -10821,7 +11029,7 @@ export function ChatSettingsDrawer({
                         );
                       }}
                       disabled={addingAgentToChat}
-                      className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   ) : (
                     <div className="relative w-28">
@@ -10872,7 +11080,7 @@ export function ChatSettingsDrawer({
                           );
                         }}
                         disabled={addingAgentToChat}
-                        className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 pr-8 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 pr-8 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       <div className="absolute right-1 top-1/2 flex -translate-y-1/2 flex-col overflow-hidden rounded-md">
                         <button
@@ -10924,9 +11132,11 @@ export function ChatSettingsDrawer({
                       </div>
                     </div>
                   )}
-                  <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{agentAddIntervalMeta.unit}</span>
+                  <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                    {agentAddIntervalMeta.unit}
+                  </span>
                 </div>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                   {agentAddPreview.agent.id === "illustrator"
                     ? localizeUi("agents.illustrator.chatRunIntervalHelp")
                     : agentAddIntervalMeta.help}
@@ -10948,28 +11158,6 @@ export function ChatSettingsDrawer({
                 )
               }
             />
-
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                onClick={() => {
-                  setAgentAddPreview(null);
-                  setAgentSetupQueue([]);
-                }}
-                disabled={addingAgentToChat}
-                className="rounded-lg px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {localizeUi("chat.delete.dialog.cancel")}
-              </button>
-              <button
-                onClick={confirmAddAgent}
-                disabled={addingAgentToChat}
-                className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {addingAgentToChat
-                  ? localizeUi("ui.chat.chatsettingsdrawer.adding")
-                  : localizeUi("ui.characters.metadatatab.add")}
-              </button>
-            </div>
           </div>
         )}
       </Modal>
@@ -11265,7 +11453,7 @@ function MemoryRecallMemoriesModal({
     >
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--secondary)]/70 px-3 py-2 ring-1 ring-[var(--border)]">
-          <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
+          <div className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
             <span className="font-semibold text-[var(--foreground)]">{memories.length}</span>{" "}
             {memories.length === 1
               ? localizeUi("ui.chat.memoryrecallmemoriesmodal.memoryChunk")
@@ -11292,7 +11480,7 @@ function MemoryRecallMemoriesModal({
               type="button"
               onClick={() => void handleExport()}
               disabled={memories.length === 0 || exportMemories.isPending}
-              className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
+              className="max-sm:inline-flex max-sm:min-h-11 max-sm:min-w-11 max-sm:items-center max-sm:justify-center rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
               title={localizeUi("ui.chat.memoryrecallmemoriesmodal.exportMemories")}
               aria-label={localizeUi("ui.chat.memoryrecallmemoriesmodal.exportMemories")}
             >
@@ -11302,7 +11490,7 @@ function MemoryRecallMemoriesModal({
               type="button"
               onClick={() => importInputRef.current?.click()}
               disabled={importMemories.isPending}
-              className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
+              className="max-sm:inline-flex max-sm:min-h-11 max-sm:min-w-11 max-sm:items-center max-sm:justify-center rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
               title={localizeUi("ui.chat.memoryrecallmemoriesmodal.importMemories")}
               aria-label={localizeUi("ui.chat.memoryrecallmemoriesmodal.importMemories")}
             >
@@ -11312,7 +11500,7 @@ function MemoryRecallMemoriesModal({
               type="button"
               onClick={() => void handleRevectorize()}
               disabled={memoriesQuery.isFetching || refreshMemories.isPending || importMemories.isPending}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2 py-1.5 text-[0.625rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]/80 disabled:opacity-50"
+              className="max-sm:min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2 py-1.5 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]/80 disabled:opacity-50"
               title={localizeUi("ui.chat.memoryrecallmemoriesmodal.reVectorizeAllMemoriesDescription")}
               aria-label={localizeUi("ui.chat.memoryrecallmemoriesmodal.reVectorizeAllMemories")}
             >
@@ -11326,7 +11514,7 @@ function MemoryRecallMemoriesModal({
               type="button"
               onClick={handleClear}
               disabled={memories.length === 0 || clearMemories.isPending}
-              className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-40"
+              className="max-sm:inline-flex max-sm:min-h-11 max-sm:min-w-11 max-sm:items-center max-sm:justify-center rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-40"
               title={localizeUi("ui.chat.memoryrecallmemoriesmodal.clearAllMemories")}
             >
               <Trash2 size="0.8125rem" />
@@ -11335,19 +11523,19 @@ function MemoryRecallMemoriesModal({
         </div>
 
         {memoriesQuery.isLoading && (
-          <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs text-[var(--muted-foreground)]">
+          <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs max-sm:text-[13px] text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.memoryrecallmemoriesmodal.loadingMemories")}
           </div>
         )}
 
         {memoriesQuery.error && (
-          <div className="rounded-xl bg-[var(--destructive)]/10 px-4 py-3 text-xs text-[var(--destructive)] ring-1 ring-[var(--destructive)]/25">
+          <div className="rounded-xl bg-[var(--destructive)]/10 px-4 py-3 text-xs max-sm:text-[13px] text-[var(--destructive)] ring-1 ring-[var(--destructive)]/25">
             {localizeUi("ui.chat.memoryrecallmemoriesmodal.failedToLoadMemories")}
           </div>
         )}
 
         {!memoriesQuery.isLoading && !memoriesQuery.error && memories.length === 0 && (
-          <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs text-[var(--muted-foreground)]">
+          <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs max-sm:text-[13px] text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.memoryrecallmemoriesmodal.noRecallMemoriesHaveBeenCreatedForThisChat")}
           </div>
         )}
@@ -11357,7 +11545,7 @@ function MemoryRecallMemoriesModal({
             {memories.map((memory) => (
               <article key={memory.id} className="rounded-xl bg-[var(--card)] px-3 py-3 ring-1 ring-[var(--border)]">
                 <div className="mb-2 flex items-start justify-between gap-3">
-                  <div className="min-w-0 text-[0.625rem] text-[var(--muted-foreground)]">
+                  <div className="min-w-0 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                     <div className="font-medium text-[var(--foreground)]">
                       {formatMemoryDate(memory.firstMessageAt)} - {formatMemoryDate(memory.lastMessageAt)}
                     </div>
@@ -11381,7 +11569,7 @@ function MemoryRecallMemoriesModal({
                     type="button"
                     onClick={() => void handleDelete(memory)}
                     disabled={deleteMemory.isPending}
-                    className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-40"
+                    className="max-sm:inline-flex max-sm:min-h-11 max-sm:min-w-11 max-sm:items-center max-sm:justify-center shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-40"
                     title={localizeUi("ui.chat.memoryrecallmemoriesmodal.forgetThisMemory")}
                   >
                     <Trash2 size="0.75rem" />
@@ -11507,44 +11695,18 @@ function KnowledgeAgentSettingsCard({
             ))}
         </div>
         {lorebooks.length > 0 ? (
-          <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--background)]/75 p-2">
-            {lorebooks.map((lorebook) => {
-              const selected = sourceLorebookIds.includes(lorebook.id);
-              return (
-                <button
-                  key={lorebook.id}
-                  type="button"
-                  onClick={() => toggleLorebook(lorebook.id)}
-                  className={cn(
-                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-all",
-                    selected
-                      ? "bg-[var(--primary)]/10 text-[var(--foreground)] ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] text-[var(--foreground)] ring-1 ring-transparent hover:bg-[var(--accent)]",
-                  )}
-                  aria-pressed={selected}
-                >
-                  <span
-                    className={cn(
-                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all",
-                      selected
-                        ? "border-[var(--primary)]/60 bg-[var(--primary)]/20"
-                        : "border-[var(--border)] bg-[var(--background)]",
-                    )}
-                  >
-                    {selected && <Check size="0.625rem" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{lorebook.name}</span>
-                    {lorebook.description ? (
-                      <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                        {lorebook.description}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <LorebookListField
+            lorebooks={lorebooks}
+            selectedIds={sourceLorebookIds}
+            onToggle={toggleLorebook}
+            onAdd={(ids) =>
+              onChange({
+                sourceLorebookIds: [...sourceLorebookIds, ...ids.filter((id) => !sourceLorebookIds.includes(id))],
+              })
+            }
+            ariaLabel={localizeUi("ui.chat.knowledgeagentsettingscard.fixedSourceLorebooks")}
+            triggerClassName="mari-chrome-field min-h-10 w-full min-w-0 rounded-md px-2.5 py-2 text-base md:text-xs"
+          />
         ) : (
           <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
             {localizeUi("ui.agents.agenteditor.noLorebooksAvailable")}

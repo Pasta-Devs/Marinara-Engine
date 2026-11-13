@@ -18,6 +18,8 @@ const chat = {
     activeAgentIds: ["agent"],
     chatBackground: "/image.png",
     presetChoices: { path: "left" },
+    authorNotes: "Wizard defaults still carry the note",
+    authorNotesDepth: 2,
     spriteCharacterIds: ["a"],
     conversationSetupComplete: true,
     autoTranslate: false,
@@ -59,6 +61,9 @@ for (const binding of [null, {}, { disabled: { enabled: false, lorebookId: "refe
     ),
   );
 assert.deepEqual(saved.metadata.presetChoices, { path: "left" });
+// Settings profiles leave the Author's Notes out (#8957); wizard defaults keep them as before.
+assert.equal(saved.metadata.authorNotes, "Wizard defaults still carry the note");
+assert.equal(saved.metadata.authorNotesDepth, 2);
 assert.equal(saved.metadata.autonomousMessages, false);
 assert.equal(saved.metadata.autoTranslate, false, "Explicit saved wizard toggles override global translator defaults");
 assert.equal(saved.metadata.translationConnectionId, "");
@@ -74,6 +79,8 @@ const initial = captureChatWizardDefaults({ ...chat, name: "Fresh", metadata: {}
 const reset = wizardDefaultsMetadataPatch(saved, initial);
 assert.equal(reset.autonomousMessages, null);
 assert.equal(reset.activeLorebookIds, null);
+assert.equal(reset.authorNotes, null, "resetting wizard defaults still clears a note they applied");
+assert.equal(reset.authorNotesDepth, null);
 assert.deepEqual(reset.agentLorebookAttachments, { writer: { enabled: false, lorebookId: null } });
 assert(agentLorebookAttachmentsSchema.safeParse(reset.agentLorebookAttachments).success);
 const restored = wizardDefaultsMetadataPatch(saved, {

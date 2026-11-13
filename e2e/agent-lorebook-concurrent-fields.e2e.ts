@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseCharacter } from "./character-picker.js";
 import { chatSettingsDrawer, drawerToggle, openChatSettings } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -45,9 +46,10 @@ for (const theme of ["dark", "light"] as const) {
         return response.json();
       };
       try {
-        for (const name of ["Rendered reference", "Concurrent reference", "Chosen reference"]) {
-          ids.books.push((await create("lorebooks", { name: `${name} ${theme} ${control}` })).id);
-        }
+        const names = ["Rendered reference", "Concurrent reference", "Chosen reference"].map(
+          (name) => `${name} ${theme} ${control}`,
+        );
+        for (const name of names) ids.books.push((await create("lorebooks", { name })).id);
         ids.chat = (
           await create("chats", { name: "Independent attachment fields", mode: "roleplay", characterIds: [] })
         ).id;
@@ -94,18 +96,18 @@ for (const theme of ["dark", "light"] as const) {
         if ((await drawer.getAttribute("aria-expanded")) !== "true") await drawer.click();
         const attachment = page.locator('[data-agent-lorebook-attachment="prose-guardian"]').first();
         const toggle = attachment.getByRole("checkbox", { name: "Attach lorebook for the specific agent" });
-        const select = attachment.getByRole("combobox", { name: "Reference lorebook" });
+        const select = attachment.getByRole("button", { name: "Reference lorebook" });
         await expect(toggle).toBeChecked();
-        await expect(select).toHaveValue(ids.books[0]!);
+        await expect(select).toHaveText(names[0]!);
 
         // A real second HTTP writer changes the same entry without touching this browser's cache.
         await save({ "prose-guardian": { enabled: control === "toggle", lorebookId: ids.books[1] } });
         await expect(toggle).toBeChecked();
-        await expect(select).toHaveValue(ids.books[0]!);
+        await expect(select).toHaveText(names[0]!);
         if (control === "toggle") {
           await attachment.getByText("Attach lorebook for the specific agent", { exact: true }).click();
         } else {
-          await select.selectOption(ids.books[2]!);
+          await chooseCharacter(page, select, "Reference lorebook", names[2]!);
         }
         await expect.poll(() => writes.length).toBe(1);
         const expected = { enabled: false, lorebookId: ids.books[control === "toggle" ? 1 : 2] };

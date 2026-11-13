@@ -27,6 +27,7 @@ import { useThemeSafetyStore } from "./lib/theme-safety";
 import { applyAccessibilityCss } from "./lib/accessibility-css";
 import { removeRootVar, setRootVar } from "./lib/root-vars";
 import { useThemeChatHooks } from "./hooks/use-chat-theme";
+import { UiStyleOverridesInjector } from "./components/layout/UiStyleOverridesInjector";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { WhatsNewModal } from "./components/modals/WhatsNewModal";
@@ -51,6 +52,7 @@ import {
 } from "./stores/ui.store";
 import { useOverhaulLook, useOverhaulStore } from "./stores/overhaul.store";
 import { loadOverhaulStyles } from "./lib/overhaul-styles";
+import { normalizeUiStyleOverride } from "./lib/ui-style-overrides";
 import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
 import { api, requestTimeoutSignal } from "./lib/api-client";
@@ -556,9 +558,14 @@ export function App() {
   const chatWidgetApplyColors = useUIStore((s) => s.chatWidgetApplyColors);
   const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
   // Each scheme has its own background and accent (theming panel batch 2): Light mode's background
-  // never falls back to Dark's, and its accent follows Dark's until it gets its own.
-  const appBackgroundColor = useUIStore((s) =>
-    s.theme === "light" ? s.appBackgroundColorLight : s.appBackgroundColor,
+  // never falls back to Dark's, and its accent follows Dark's until it gets its own. The UI Editor's
+  // Whole app background (its draft first, as Save keeps it) paints over the scheme background while set.
+  const appBackgroundColor = useUIStore(
+    (s) =>
+      (s.uiStylePreview?.target === "app"
+        ? normalizeUiStyleOverride(s.uiStylePreview.override)?.background
+        : s.uiStyleOverrides.app?.background) ??
+      (s.theme === "light" ? s.appBackgroundColorLight : s.appBackgroundColor),
   );
   const appAccentColor = useUIStore((s) =>
     s.theme === "light" && s.appAccentColorLight.trim() ? s.appAccentColorLight : s.appAccentColor,
@@ -1115,8 +1122,15 @@ export function App() {
           stopAccentAnimation();
           return;
         }
-
-        applyLiveAccent();
+        // A tick restyles the whole app; skip it while a sidebar slides so the slide does not stall.
+        const sidebarSliding = document.getAnimations?.()?.some(
+          (animation) =>
+            // Only the slot's own width slide; a theme animation on the slot must not freeze the accent.
+            animation instanceof CSSTransition &&
+            animation.transitionProperty === "width" &&
+            (animation.effect as KeyframeEffect | null)?.target?.classList.contains("mari-shell-panel-slot"),
+        );
+        if (!sidebarSliding) applyLiveAccent();
         queueAccentAnimationTick();
       }, ACCENT_RGB_TICK_MS);
     };
@@ -1149,6 +1163,13 @@ export function App() {
     };
 
     if (accentAnimationEnabled) {
+      // Ticks only touch foreground tokens, so set surface, sidebar and glow once here.
+      if (accent) applyStaticAccent();
+      else {
+        for (const name of ["--accent", "--sidebar-accent", "--sidebar-accent-foreground", "--glow-primary"]) {
+          root.style.removeProperty(name);
+        }
+      }
       // Keep the custom cursor on the selected solid accent. Resolving it after
       // live root-token writes forces a synchronous app-wide style flush.
       applyCursorAccent(solidAccent);
@@ -1436,6 +1457,7 @@ export function App() {
       {/* The theme notices belong to the window, not each split side: one in the narrow second side
           covered its last messages and the composer (audit SV25). */}
       {SPLIT_PANE ? null : <ThemeSafetyHost />}
+      <UiStyleOverridesInjector />
       <PersonalExtensionInjector />
       {SPLIT_PANE ? null : <ChibiProfessorMariEasterEgg />}
       <Suspense fallback={null}>

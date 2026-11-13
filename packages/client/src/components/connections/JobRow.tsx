@@ -66,7 +66,7 @@ export function JobRow({
   hint?: string;
   /** The row's end mark, such as a chevron: drawn last, after the fix and `end`, and opens the row like the row itself. */
   trailing?: ReactNode;
-  /** Sibling controls after the row button, such as a settings gear. */
+  /** A control raised to the row's top end, left of the chevron, such as a settings gear. */
   end?: ReactNode;
   /** Goes on the row's outer element, such as an open state. */
   className?: string;
@@ -94,10 +94,17 @@ export function JobRow({
     return [account, via && t("connections.accounts.section.via", { service: via })].filter(Boolean).join(" · ");
   };
   const provider = chosen ? noteOf(tile.hint, chosen) : "";
+  // The model id under the name, with its badges (they describe the model, not the account); not twice when the name is the id.
+  const modelId =
+    chosen?.model && chosen.model.trim().toLowerCase() !== (tile.value ?? "").trim().toLowerCase()
+      ? chosen.model
+      : null;
   const fallbackNote = noteOf(tile.fallbackHint, tile.fallbackSource);
   // What the row is: the job, and the job it follows when it has no Model of its own.
   const label = [tile.title, tile.follows].filter(Boolean).join(" · ");
   const hintId = useId();
+  // On the name's line under a label; a row without one centres them.
+  const RAISED = chosen ? "top-[1.125rem] max-md:top-1" : "top-1/2 -translate-y-1/2";
   return (
     <>
       <ModelRow
@@ -125,15 +132,26 @@ export function JobRow({
                 </span>
               </button>
             )}
-            {end}
+            {/* The settings and the chevron sit on the name's line, out of the flow, with the badges under them:
+                they take no width from the badges' line, so every row's badges end at the row's end. */}
+            {end && (
+              <span className={cn("absolute right-7 flex [[dir=rtl]_&]:left-7 [[dir=rtl]_&]:right-auto", RAISED)}>
+                {end}
+              </span>
+            )}
             {trailing && (
-              // After the fix and the settings so every row's chevron sits in the same column; the row button stays the keyboard target.
+              // The row button stays the keyboard target.
               <button
                 type="button"
                 tabIndex={-1}
                 aria-hidden
                 onClick={button.onClick}
-                className="flex h-11 w-7 shrink-0 items-center justify-center"
+                className={cn(
+                  "absolute right-0 -mt-px flex h-[2.125rem] w-7 items-center justify-center max-md:-right-[0.1875rem] max-md:h-[2.875rem]",
+                  // Physical sides, flipped for right-to-left: logical insets break the client build (#8709).
+                  "[[dir=rtl]_&]:left-0 [[dir=rtl]_&]:right-auto max-md:[[dir=rtl]_&]:-left-[0.1875rem]",
+                  RAISED,
+                )}
               >
                 {trailing}
               </button>
@@ -141,34 +159,54 @@ export function JobRow({
           </>
         }
         aria-describedby={hint ? hintId : undefined}
-        rowProps={{ className: cn("mari-connection-defaults-job pe-0", className) }}
-        className="min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1"
+        // A warning chip stays in the flow, so it keeps clear of the chevron and the settings beside it.
+        rowProps={{
+          className: cn(
+            "mari-connection-defaults-job pe-0",
+            tile.warning && trailing && (end ? "pe-14 max-md:pe-[4.5rem]" : "pe-7"),
+            className,
+          ),
+        }}
+        className={cn(
+          "min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1",
+          // The name keeps clear of the chevron and the settings beside it.
+          end
+            ? "[&_[data-model-title]]:pe-12 max-md:[&_[data-model-title]]:pe-[4.25rem]"
+            : trailing && "[&_[data-model-title]]:pe-5 max-md:[&_[data-model-title]]:pe-6",
+        )}
         tile={chosen ? <ModelTile row={chosen} model={chosen.model} /> : <JobTile unset={!!unset}>{tile.icon}</JobTile>}
         label={chosen ? label : undefined}
         title={chosen ? tile.value : tile.title}
-        titleNote={chosen ? provider : undefined}
+        titleNote={modelId}
+        badgesWithNote
         tooltip={chosen ? `${label}: ${tile.value}` : undefined}
         wrapTitle
         details={
           chosen ? (
-            tile.fallback ? (
-              <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-                <span className="whitespace-nowrap">{t("connections.defaults.ifItFailsLabel")}</span>
-                {tile.fallbackSource && (
-                  <ModelTile row={tile.fallbackSource} model={tile.fallbackSource.model} size="xs" />
-                )}
-                <span className="min-w-0 truncate">
-                  <span className="font-medium">{tile.fallback}</span>
-                  {fallbackNote && <> {fallbackNote}</>}
+            <span className="flex min-w-0 flex-col gap-0.5">
+              {/* The account (and "via" upstream) on its own line. */}
+              {provider && (
+                <span className="min-w-0 truncate text-[0.6875rem] text-[var(--muted-foreground)]">{provider}</span>
+              )}
+              {tile.fallback ? (
+                <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                  <span className="whitespace-nowrap">{t("connections.defaults.ifItFailsLabel")}</span>
+                  {tile.fallbackSource && (
+                    <ModelTile row={tile.fallbackSource} model={tile.fallbackSource.model} size="xs" />
+                  )}
+                  <span className="min-w-0 truncate">
+                    <span className="font-medium">{tile.fallback}</span>
+                    {fallbackNote && <> {fallbackNote}</>}
+                  </span>
                 </span>
-              </span>
-            ) : (
-              tile.warning?.quiet && (
-                <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                  {tile.warning.short ?? tile.warning.text}
-                </span>
-              )
-            )
+              ) : (
+                tile.warning?.quiet && (
+                  <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                    {tile.warning.short ?? tile.warning.text}
+                  </span>
+                )
+              )}
+            </span>
           ) : (
             // The state line stays grey; only a warning chip at the row end is amber.
             <span className="min-w-0 truncate text-xs text-[var(--muted-foreground)]">

@@ -132,6 +132,7 @@ export function ConversationMessageGrouped({
       data-component="ConversationMessage.Grouped"
       tabIndex={0}
       data-message-id={message.id}
+      aria-busy={isStreaming || undefined}
       data-message-role={message.role}
       {...hooks?.attrs}
       style={hooks?.style}

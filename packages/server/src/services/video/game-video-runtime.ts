@@ -57,6 +57,8 @@ export interface GameVideoRuntime {
   comfyWorkflow?: string;
   comfyLoras: VideoGenerationDefaultsProfile["comfyui"]["loras"];
   comfyFps?: number;
+  /** Non-secret extra HTTP headers for local-backend requests (ComfyUI, SwarmUI). */
+  customHeaders?: Record<string, string>;
   /** Model-specific Atlas Cloud inputs saved for the connection's selected model. */
   atlasModelOptions?: Record<string, unknown>;
   resolution?: VideoResolution;
@@ -193,6 +195,7 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: isComfyUi ? videoDefaults.comfyui.loras : [],
     comfyFps: isComfyUi ? videoDefaults.comfyui.fps : undefined,
+    customHeaders: videoDefaults.customHeaders,
     atlasModelOptions: isAtlas
       ? videoDefaults.atlas.modelOptions[connection.model?.trim() || DEFAULT_ATLAS_CLOUD_VIDEO_MODEL]
       : undefined,

@@ -24,6 +24,8 @@ interface InlineChatCardEditorProps {
   entityKind: InlineCardKind;
   displayName: string;
   onClose: () => void;
+  /** Hands the drawer a function that saves any unsaved edit and resolves once every queued save is done (true if they all succeeded). */
+  onFlushChange?: (flush: (() => Promise<boolean>) | null) => void;
 }
 
 type SaveState = "saved" | "dirty" | "saving" | "error";
@@ -143,7 +145,13 @@ function CompactCardTextarea({
   );
 }
 
-export function InlineChatCardEditor({ entityId, entityKind, displayName, onClose }: InlineChatCardEditorProps) {
+export function InlineChatCardEditor({
+  entityId,
+  entityKind,
+  displayName,
+  onClose,
+  onFlushChange,
+}: InlineChatCardEditorProps) {
   const { t } = useTranslation();
   const characterQuery = useCharacter(entityKind === "character" ? entityId : null);
   const personaQuery = usePersona(entityKind === "persona" ? entityId : null);
@@ -163,6 +171,7 @@ export function InlineChatCardEditor({ entityId, entityKind, displayName, onClos
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const lastSubmittedCharacterRef = useRef("");
   const savedPersonaFieldsRef = useRef<Partial<Record<CardTextField, string>>>({});
+  const lastSaveFailedRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -211,6 +220,7 @@ export function InlineChatCardEditor({ entityId, entityKind, displayName, onClos
           await task();
           if (mountedRef.current) setSaveState("saved");
         } catch {
+          lastSaveFailedRef.current = true;
           if (mountedRef.current) setSaveState("error");
         }
       });
@@ -269,6 +279,19 @@ export function InlineChatCardEditor({ entityId, entityKind, displayName, onClos
     },
     [enqueueSave, entityId, entityKind, updateCharacter, updatePersona],
   );
+
+  useEffect(() => {
+    if (!onFlushChange) return;
+    onFlushChange(async () => {
+      // Any save that fails from here on keeps the drawer open, even if a later one succeeds (Dottore on #8937).
+      lastSaveFailedRef.current = false;
+      // Every field, so an edit still in its box is saved too; unchanged ones queue nothing.
+      for (const field of CARD_FIELD_ORDER) commitField(field);
+      await saveQueueRef.current;
+      return !lastSaveFailedRef.current;
+    });
+    return () => onFlushChange(null);
+  }, [commitField, onFlushChange]);
 
   const updateTextField = useCallback(
     (field: CardTextField, value: string) => {

@@ -6,7 +6,7 @@ import {
   findKnownModel,
   impliesProxyThinking,
   isClaudeOpus55Model,
-  isGeminiArgonModel,
+  isGeminiArgonOrCarbonModel,
   isXaiConfigurableReasoningModel,
   isZaiMaxReasoningEffortModel,
   resolveProviderReasoningEffort,
@@ -176,7 +176,9 @@ try {
     assert.equal(isClaudeOpus55Model("[SP]claude-opus-5-5-r"), true);
     assert.equal(isClaudeOpus55Model("claude-opus-5-5[1m]"), true);
     assert.equal(isClaudeOpus55Model("claude-opus-5-5@thinking:on"), true);
-    assert.equal(isGeminiArgonModel("[次]gemini-4-argon"), true);
+    assert.equal(isGeminiArgonOrCarbonModel("[次]gemini-4-argon"), true);
+    assert.equal(isGeminiArgonOrCarbonModel("[次]gemini-4-carbon"), true);
+    assert.equal(isGeminiArgonOrCarbonModel("gemini-4-carbonate"), false);
     assert.equal(isXaiConfigurableReasoningModel("[次]grok-4.7"), true);
     assert.equal(isZaiMaxReasoningEffortModel("[次]glm-5.3"), true);
     assert.equal(

@@ -729,12 +729,15 @@ for (const key of CHAT_PRESET_EXCLUDED_METADATA_KEYS) engineMetadataKeys.add(key
 
 // One canary per sub-source THAT HAS ONE — a key no OTHER source in the union supplies, so dropping
 // that source reds this file instead of quietly narrowing the pin: `mariPermissionsMode` is only
-// ever a written patch literal, `customMusicFolder` only a client mutation payload, `scenario` only
-// a `parseChatMetadata` local read, `crossChatAwareness` only a `chatMeta.*` property read, and
-// `spatialContext` only the excluded-key list. Two sub-sources have no such key and get no canary:
-// see the updater-callback and route arms below.
+// ever a written patch literal, `chatSettingsHintDismissed` only a client mutation payload,
+// `scenario` only a `parseChatMetadata` local read, `crossChatAwareness` only a `chatMeta.*`
+// property read, and `spatialContext` only the excluded-key list. Two sub-sources have no such key
+// and get no canary: see the updater-callback and route arms below.
 assert.ok(engineMetadataKeys.has("mariPermissionsMode"), "the patchMetadata literal walk is part of the sweep");
-assert.ok(engineMetadataKeys.has("customMusicFolder"), "the client metadata-mutation sweep is part of the sweep");
+assert.ok(
+  engineMetadataKeys.has("chatSettingsHintDismissed"),
+  "the client metadata-mutation sweep is part of the sweep",
+);
 assert.ok(engineMetadataKeys.has("scenario"), "the parseChatMetadata read sweep is part of the sweep");
 assert.ok(engineMetadataKeys.has("crossChatAwareness"), "the chat-metadata property-read sweep is part of the sweep");
 assert.ok(engineMetadataKeys.has("spatialContext"), "the chat-preset excluded-key list is part of the sweep");

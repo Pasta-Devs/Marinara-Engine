@@ -6,15 +6,10 @@ import type { CardFieldGenerationDraft, CardFieldGenerationKey, CardFieldKey } f
 import { api } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 
-/** Generates into a draft only; a late response must never replace newer authoring. */
-export function useCardFieldGeneration<Field extends CardFieldGenerationKey = CardFieldKey>(
-  kind: "character" | "persona",
-  id: string | null,
-  card: CardFieldGenerationDraft,
-  onApply: (field: Field, text: string) => void,
-) {
+/** Display names for card fields, shared by the editors and the Chat Settings alternative picker. */
+export function useCardFieldLabels(): Record<CardFieldGenerationKey, string> {
   const { t } = useTranslation();
-  const labels = {
+  return {
     summary: t("ui.characters.summary.label"),
     description: t("chat.settings.inlineEditor.fields.description"),
     personality: t("chat.settings.inlineEditor.fields.personality"),
@@ -24,6 +19,17 @@ export function useCardFieldGeneration<Field extends CardFieldGenerationKey = Ca
     mes_example: t("chat.settings.inlineEditor.fields.exampleDialogue"),
     first_mes: t("ui.characters.dialoguetab.firstMessage"),
   };
+}
+
+/** Generates into a draft only; a late response must never replace newer authoring. */
+export function useCardFieldGeneration<Field extends CardFieldGenerationKey = CardFieldKey>(
+  kind: "character" | "persona",
+  id: string | null,
+  card: CardFieldGenerationDraft,
+  onApply: (field: Field, text: string) => void,
+) {
+  const { t } = useTranslation();
+  const labels = useCardFieldLabels();
   const identity = `${kind}:${id}`;
   const latest = useRef({ identity, card, onApply });
   useLayoutEffect(() => {

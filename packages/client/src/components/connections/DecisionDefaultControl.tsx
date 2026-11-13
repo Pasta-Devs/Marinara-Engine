@@ -243,7 +243,7 @@ export function DecisionDefaultControl({
             onKeyDown={(event) => {
               if (event.key === "Enter") commitQuestionLimit();
             }}
-            className="w-24 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-sm ring-1 ring-[var(--border)]"
+            className="w-24 rounded-lg bg-[var(--sidebar)] px-3 py-1.5 text-sm ring-1 ring-[var(--border)]"
           />
         </div>
       )}
@@ -315,7 +315,7 @@ function LocalSlotControls({
   // pre-generation gating is actually being skipped.
   const thinks = entry.thinking === "allowed" || (entry.thinking === "auto" && entry.answerStyle === "thinks");
   return (
-    <div className="space-y-2 rounded-lg bg-[var(--secondary)]/40 p-2.5">
+    <div className="space-y-2 rounded-lg bg-[var(--sidebar)] p-2.5">
       <label htmlFor={`decision-thinking-${slot}`} className="block text-[0.6875rem] font-medium">
         {t("connections.decision.thinkingLabel")}
       </label>
@@ -323,7 +323,7 @@ function LocalSlotControls({
         id={`decision-thinking-${slot}`}
         value={entry.thinking ?? "auto"}
         onChange={(event) => onThinking(event.target.value as DecisionThinkingMode)}
-        className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
+        className="w-full rounded-lg bg-foreground/[0.06] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
       >
         {DECISION_THINKING_MODES.map((mode) => (
           <option key={mode} value={mode}>

@@ -1,4 +1,5 @@
 import { CardProseSectionHeader, type CardProseSectionHeaderProps } from "../cards/CardProse";
+import { ClassicCardSection } from "../overhaul/ClassicCardSection";
 import { useCardEditorDraft } from "../../hooks/use-card-editor-draft";
 import { useCardEditorSave } from "../../hooks/use-card-editor-save";
 import { CardEditor } from "../cards/CardEditor";
@@ -6,6 +7,8 @@ import { CardFieldsTab, type CardFieldsTabField } from "../cards/CardFieldsTab";
 import { CardRpgFields, DEFAULT_RPG_STATS } from "../cards/CardRpgFields";
 import { CardColors } from "../cards/CardColors";
 import { useCardGallerySelection } from "../cards/use-card-gallery-selection";
+import { CardIdentityFields } from "../cards/CardIdentityFields";
+import { NameAliasesSection } from "../ui/NameAliasesSection";
 import {
   useSpriteLibrary,
   SpriteLibraryShell,
@@ -144,6 +147,12 @@ import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
 import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { Modal } from "../ui/Modal";
+import {
+  SHEET_BUTTON_DESTRUCTIVE,
+  SHEET_BUTTON_PRIMARY,
+  SHEET_BUTTON_QUIET,
+  SHEET_BUTTON_SECONDARY,
+} from "../ui/neutral-surface-styles";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { formFieldValue } from "../../lib/mari-editor-fields";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
@@ -158,7 +167,6 @@ import { OvEditorHead } from "../overhaul/EditorChrome";
 import { MariContextChip } from "../chat/MariContextChip";
 import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
-import { ClassicCardSection } from "../overhaul/ClassicCardSection";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { EditorSectionJumps } from "../ui/EditorSectionJumps";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
@@ -310,6 +318,8 @@ interface PersonaFormData {
   tags: string[];
   /** Saved Conversation mode activity/status options, kept decoded in form state. */
   savedStatusOptions: string[];
+  /** Other names the persona goes by (Metadata → Other names): inline name coloring in chats. */
+  nameAliases: string[];
   /** Conversation-mode-only fields. */
   convoDisplayName: string;
   aboutMe: string;
@@ -424,6 +434,7 @@ function personaFormFromPersona(persona: Persona): PersonaFormData {
     personaStats: persona.personaStats ?? null,
     tags: persona.tags ?? [],
     savedStatusOptions: persona.savedStatusOptions ?? [],
+    nameAliases: persona.nameAliases ?? [],
     convoDisplayName: persona.convoDisplayName ?? "",
     aboutMe: persona.aboutMe ?? "",
     convoBehavior: persona.convoBehavior ?? null,
@@ -3331,24 +3342,27 @@ function PersonaSpritesTab({
         {deleteSpriteRequest && (
           <Modal
             open
-            onClose={() => {
-              if (!deletingSprites) setDeleteSpriteRequest(null);
-            }}
-            title={localizeUi("ui.personas.personaspritestab.deleteSprite")}
-            width="max-w-sm"
-          >
-            <div className="space-y-4">
-              <p className="text-sm leading-relaxed text-[var(--foreground)]">
-                {localizeUi("ui.personas.personaspritestab.deleteSpriteFor")}
-                {displayExpression(deleteSpriteRequest.expression)}"?
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
+            onClose={() => setDeleteSpriteRequest(null)}
+            closeDisabled={!!deletingSprites}
+            pullToClose={false}
+            closeButtonClassName="max-sm:hidden"
+            footer={
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteSingleSprite()}
+                  disabled={!!deletingSprites}
+                  className={SHEET_BUTTON_DESTRUCTIVE}
+                >
+                  {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
+                  {localizeUi("ui.personas.personaspritestab.deleteSprite")}
+                </button>
                 {categorySprites.length > 1 ? (
                   <button
                     type="button"
                     onClick={() => void handleDeleteVisibleSprites()}
                     disabled={!!deletingSprites}
-                    className="mr-auto inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50 sm:px-3 sm:text-sm"
+                    className={SHEET_BUTTON_SECONDARY + " text-[var(--destructive)]"}
                   >
                     {deletingSprites === "all" ? (
                       <Loader2 size="0.875rem" className="animate-spin" />
@@ -3361,26 +3375,24 @@ function PersonaSpritesTab({
                       : localizeUi("ui.personas.personaspritestab.expressions")}
                   </button>
                 ) : null}
-                <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDeleteSpriteRequest(null)}
-                    disabled={!!deletingSprites}
-                    className="rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50 sm:px-3 sm:text-sm"
-                  >
-                    {localizeUi("chat.delete.dialog.cancel")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteSingleSprite()}
-                    disabled={!!deletingSprites}
-                    className="mari-chrome-accent-surface mari-accent-animated inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 sm:px-3 sm:text-sm"
-                  >
-                    {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
-                    {localizeUi("lorebook.editor.batch.delete")}
-                  </button>
-                </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => setDeleteSpriteRequest(null)}
+                  disabled={!!deletingSprites}
+                  className={SHEET_BUTTON_QUIET}
+                >
+                  {localizeUi("chat.delete.dialog.cancel")}
+                </button>
+              </>
+            }
+            title={localizeUi("ui.personas.personaspritestab.deleteSprite")}
+            width="max-w-sm"
+          >
+            <div className="space-y-4">
+              <p className="text-sm leading-relaxed text-[var(--foreground)]">
+                {localizeUi("ui.personas.personaspritestab.deleteSpriteFor")}
+                {displayExpression(deleteSpriteRequest.expression)}"?
+              </p>
             </div>
           </Modal>
         )}
@@ -3644,6 +3656,15 @@ function PersonaStatsTab({
 
   return (
     <div className="space-y-6">
+      {/* MRPG: the persona's starting tree and strong and weak stats for MRPG games. */}
+      <ClassicCardSection
+        value={parsed.classic}
+        onChange={(classic) => {
+          const { classic: _old, ...rest } = parsed;
+          save(classic ? { ...rest, classic } : rest);
+        }}
+        description={formData.description ?? ""}
+      />
       <SectionHeader
         title={localizeUi("ui.personas.personastatstab.personaStatusBars")}
         subtitle={localizeUi("ui.personas.personastatstab.trackYourPersonaSPhysicalAndMentalNeedsThese")}
@@ -3936,75 +3957,31 @@ function PersonaMetadataTab({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className={cn("space-y-1.5 sm:col-span-2", compact && "hidden")}>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.personas.personastatstab.name")}{" "}
-            <HelpTooltip
-              text={localizeUi("ui.personas.personametadatatab.yourPersonaSDisplayNameThisIsInjectedInto")}
+        <CardIdentityFields
+          kind="persona"
+          fields={formData}
+          onChange={updateField}
+          hide={compact ? ["name", "comment"] : undefined}
+          otherNames={
+            <NameAliasesSection
+              kind="persona"
+              aliases={formData.nameAliases}
+              onChange={(next) => updateField("nameAliases", next)}
+              nameColor={formData.nameColor || undefined}
             />
-          </span>
-          <input
-            value={formData.name}
-            onChange={(e) => updateField("name", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={localizeUi("ui.personas.personaeditor.personaName")}
+          }
+        />
+        {overhaulMeta && personaId ? (
+          <CopyIdLine
+            label={localizeUi("ui.personas.personametadatatab.personaId")}
+            id={personaId}
+            copyLabel={localizeUi("ui.personas.personametadatatab.copyPersonaId")}
+            onCopy={() => {
+              void navigator.clipboard?.writeText(personaId);
+              toast.success(localizeUi("ui.personas.personametadatatab.personaIdCopied"));
+            }}
           />
-        </label>
-        <label className={cn("space-y-1.5 sm:col-span-2", compact && "hidden")}>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.personas.personametadatatab.titleComment")}{" "}
-            <HelpTooltip text={localizeUi("ui.personas.personametadatatab.aShortNoteShownUnderThePersonaNameIn")} />
-          </span>
-          <input
-            value={formData.comment}
-            onChange={(e) => updateField("comment", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={localizeUi("ui.personas.personametadatatab.modernAuVersion")}
-          />
-        </label>
-        <label className="space-y-1.5">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.personas.personametadatatab.phoneticName")}{" "}
-            <HelpTooltip
-              text={localizeUi(
-                "ui.personas.personametadatatab.optionalPronunciationOverrideUsedOnlyWhenYourPersonaName",
-              )}
-            />
-          </span>
-          <input
-            value={formData.phoneticName}
-            onChange={(e) => updateField("phoneticName", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={formData.name}
-          />
-        </label>
-        <div className={cn("space-y-1.5", overhaulMeta && "order-first")}>
-          <label className="block space-y-1.5">
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.personas.personametadatatab.creator")}{" "}
-              <HelpTooltip
-                text={localizeUi("ui.personas.personametadatatab.thePersonWhoMadeThisPersonaUsefulForCredit")}
-              />
-            </span>
-            <input
-              value={formData.creator}
-              onChange={(e) => updateField("creator", e.target.value)}
-              className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-              placeholder={localizeUi("ui.personas.personametadatatab.yourName")}
-            />
-          </label>
-          {overhaulMeta && personaId ? (
-            <CopyIdLine
-              label={localizeUi("ui.personas.personametadatatab.personaId")}
-              id={personaId}
-              copyLabel={localizeUi("ui.personas.personametadatatab.copyPersonaId")}
-              onCopy={() => {
-                void navigator.clipboard?.writeText(personaId);
-                toast.success(localizeUi("ui.personas.personametadatatab.personaIdCopied"));
-              }}
-            />
-          ) : null}
-        </div>
+        ) : null}
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
@@ -4274,6 +4251,7 @@ const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; la
   { key: "boxColor", label: "Box Color" },
   { key: "personaStats", label: "Persona Stats" },
   { key: "tags", label: "Tags" },
+  { key: "nameAliases", label: "Other names", labelKey: "ui.cards.otherNames.label" },
   { key: "savedStatusOptions", label: "Saved Status Options" },
   { key: "convoDisplayName", label: "Convo display name" },
   { key: "aboutMe", label: "About me" },
@@ -4306,6 +4284,7 @@ function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnap
     personaStats: formData.personaStats ? JSON.stringify(formData.personaStats) : "",
     tags: JSON.stringify(formData.tags),
     savedStatusOptions: JSON.stringify(formData.savedStatusOptions),
+    nameAliases: JSON.stringify(formData.nameAliases),
     convoDisplayName: formData.convoDisplayName,
     aboutMe: formData.aboutMe,
     convoBehavior:
@@ -4341,7 +4320,13 @@ function formatPersonaVersionValue(data: PersonaCardSnapshot, key: keyof Persona
   // look unchanged against a new one that explicitly stores "false".
   if (key === "imageAppearanceEnabled") return value === "true" ? "On" : "Off";
   if (!value.trim()) return "";
-  if (key === "avatarCrop" || key === "trackerCardColors" || key === "personaStats" || key === "tags") {
+  if (
+    key === "avatarCrop" ||
+    key === "trackerCardColors" ||
+    key === "personaStats" ||
+    key === "tags" ||
+    key === "nameAliases"
+  ) {
     try {
       return JSON.stringify(JSON.parse(value), null, 2);
     } catch {
@@ -4602,6 +4587,23 @@ function PersonaVersionHistoryPanel({
             : localizeUi("ui.personas.personaversionhistorypanel.compareVersion")
         }
         width="max-w-5xl"
+        footer={
+          selectedVersion ? (
+            <button
+              type="button"
+              onClick={() => handleRestore(selectedVersion)}
+              disabled={restoreVersion.isPending}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {restoreVersion.isPending ? (
+                <Loader2 size="0.75rem" className="animate-spin" />
+              ) : (
+                <RotateCcw size="0.75rem" />
+              )}
+              {localizeUi("ui.personas.personaversionhistorypanel.restoreThisVersion")}
+            </button>
+          ) : undefined
+        }
       >
         {selectedVersion && (
           <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto">
@@ -4668,22 +4670,6 @@ function PersonaVersionHistoryPanel({
                   </div>
                 );
               })}
-            </div>
-
-            <div className="flex justify-end border-t border-[var(--border)] pt-3">
-              <button
-                type="button"
-                onClick={() => handleRestore(selectedVersion)}
-                disabled={restoreVersion.isPending}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {restoreVersion.isPending ? (
-                  <Loader2 size="0.75rem" className="animate-spin" />
-                ) : (
-                  <RotateCcw size="0.75rem" />
-                )}
-                {localizeUi("ui.personas.personaversionhistorypanel.restoreThisVersion")}
-              </button>
             </div>
           </div>
         )}

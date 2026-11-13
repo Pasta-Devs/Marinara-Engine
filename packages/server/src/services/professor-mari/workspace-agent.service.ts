@@ -535,6 +535,8 @@ export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
   "character.onboarding.update",
   "character.rulesetSheet.get",
   "character.rulesetSheet.update",
+  "character.mrpg.get",
+  "character.mrpg.update",
   "character.folder.list",
   "character.moveToFolder",
   "persona.list",
@@ -544,6 +546,8 @@ export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
   "persona.update",
   "persona.rulesetSheet.get",
   "persona.rulesetSheet.update",
+  "persona.mrpg.get",
+  "persona.mrpg.update",
   "lorebook.list",
   "lorebook.get",
   "lorebook.entries",
@@ -1064,6 +1068,7 @@ export function workspaceCommandKnowledgePrompt() {
 - Reply diagnosis and repair: read skill \`builtin-repair\` with \`skill.get\` before you diagnose a bad reply (cut off, empty, a character who forgets or ignores their card) or fix one. Never present a hand-written "corrected" reply as text: \`chat.updateMessage\` is the only repair path and it adds a swipe. The skill has the diagnose-first order, the finding codes and the repair rules.
 - Deleting a lorebook entry: use \`lorebook.deleteEntry\` with the entry's \`entryId\` and \`apply:true\` — it removes that one entry and shows a change card. NEVER delete a lorebook entry with a raw \`mari db delete\`: its \`--where\` selector can match and permanently remove far more rows than you intend. If a raw \`mari db delete\` is ever unavoidable, dry-run it first (omit \`--apply\`) and confirm the exact affected-row count before applying.
 - Interactive onboarding (a card's persona template plus questions the player answers when a Roleplay chat starts) is a procedure with validation rules, not a plain field edit: call \`skill.get\` with top-level \`id: "builtin-onboarding"\` BEFORE you write or change one, and follow it. Read it with \`character.onboarding.get\` (\`characterId\`; also returns its problems and a sample persona), write it with \`character.onboarding.update\` (\`characterId\`, \`onboarding\`, \`reason\`, \`apply\`). User-facing reference: \`docs_read docs/characters/interactive-onboarding.md\`.
+- MRPG picks (Game Mode tree, strong and weak stats): \`character|persona.mrpg.get|update\`, \`patch\` {tree, strong, weak}. Read \`builtin-mrpg\` first (classes, build advice).
 - Game Mode ruleset sheets (a character's or persona's sheet for an installed ruleset, under Stats > Ruleset sheets): read with \`persona.rulesetSheet.get\` or \`character.rulesetSheet.get\` (\`personaId\`/\`characterId\`; without \`rulesetId\` it lists the stored sheets and installed rulesets, with it the sheet's \`build\`, worked-out \`values\` and the \`layout\` of ids and bounds). Write with \`persona.rulesetSheet.update\` or \`character.rulesetSheet.update\` (\`rulesetId\`, \`patch\`, \`reason\`, \`apply\`). \`patch\` merges into the build by the ruleset's own ids: \`abilities\` {id: score}, \`skills\`/\`saves\` {id: tier id}, \`bonuses\` {id: number}, \`fields\` {id: value}, with \`null\` clearing a value back to its default; \`lists\` {listId: {update: [{index, cells}], remove: [index], add: [row]}} or {set: [rows]} to replace a list. A missing sheet starts blank. Calculated values and live state (current hit points, spent slots) are not written here. The server refuses any id or value the ruleset does not allow and lists every problem: fix them and resend.
 - Prompt presets: read skill \`builtin-presets\` with \`skill.get\` BEFORE you create a preset, change a section, group, marker or choice block, or explain what a preset sends to the prompt. \`preset.update\` with \`data.sections\` replaces \`sectionOrder\` unless you send the complete order.
 - Custom image agents are supported by the live runtime. Use \`data.resultType: "image_prompt"\`, enable \`settings.customCapabilities.trigger_image_generation\`, and have the agent return \`shouldGenerate\` plus \`prompt\`. Marker-triggered agents should also set \`settings.activationKeywords\`. Do not claim that only Illustrator can generate image prompts.

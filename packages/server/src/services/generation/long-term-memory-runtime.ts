@@ -14,6 +14,9 @@ const MAX_RECALL_CHARACTERS = 100_000;
 // ponytail: a fixed cap keeps a long package instruction from crowding out the scene; size it from the summary
 // request's input budget if packages need more.
 const MAX_SUMMARY_INSTRUCTION_CHARACTERS = 4_000;
+// ponytail: a fixed few-second cap keeps a slow package from holding the branch response; make it a setting if a
+// package legitimately needs longer.
+const CHAT_BRANCHED_TIMEOUT_MS = 3_000;
 
 export type LongTermMemoryRecallReceipt = unknown;
 
@@ -23,6 +26,12 @@ export interface LongTermMemoryRuntimeService {
    * the reply's "memory" string is stored untouched. No method or `null` leaves the request unchanged.
    */
   summaryMemoryInstruction?(): string | null;
+  /**
+   * Optional (Capability API 1.817). Awaited once after a chat branch has been fully copied (messages, metadata and
+   * snapshots) and before the branch is returned, so a package can fix up the copy before the first read. Errors
+   * and a call slower than a few seconds are logged and ignored; the branch is returned either way.
+   */
+  chatBranched?(input: { chatId: string; parentChatId: string }): Promise<void>;
   /** Optional for older packages. The package owns freshness checks, locking and rebuilding. */
   refresh?(input: { signal: AbortSignal }): Promise<{ status: "refreshed" | "deferred" }>;
   recall(input: {
@@ -168,5 +177,18 @@ export async function recordLongTermMemoryPromptAccepted(
     await withLongTermMemoryRuntimeTimeout(getAgentCallTimeoutMs(), () => service.recordPromptAccepted(input));
   } catch (error) {
     logger.warn(error, "Long-term memory prompt accounting failed");
+  }
+}
+
+/** Tell the package a branch now exists. Never throws and never holds the branch response past the cap. */
+export async function notifyLongTermMemoryChatBranched(
+  input: Parameters<NonNullable<LongTermMemoryRuntimeService["chatBranched"]>>[0],
+): Promise<void> {
+  try {
+    const service = runtimeService();
+    if (typeof service?.chatBranched !== "function") return;
+    await withLongTermMemoryRuntimeTimeout(CHAT_BRANCHED_TIMEOUT_MS, () => service.chatBranched!(input));
+  } catch (error) {
+    logger.warn(error, "Long-term memory chat-branched notice failed; the branch is returned anyway");
   }
 }

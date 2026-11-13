@@ -105,6 +105,8 @@ export type GameCharacterSheetRuleset =
         recover?: Array<{ name: string; recover: RulesetUseRecover[] }>,
       ) => Promise<string | null>;
       onRestOffers?: (rest: string) => Promise<RulesetRestRecovery[]>;
+      /** Open the sheet's build editor at once, for a sheet nobody has built yet. */
+      startEditing?: boolean;
     };
 
 interface GameCharacterSheetProps {
@@ -773,6 +775,7 @@ export function GameCharacterSheet({
                   carrying={ruleset.carrying}
                   onRest={ruleset.onRest}
                   onRestOffers={ruleset.onRestOffers}
+                  startEditing={ruleset.startEditing}
                 />
               ) : (
                 <p className="text-xs text-[var(--muted-foreground)]">

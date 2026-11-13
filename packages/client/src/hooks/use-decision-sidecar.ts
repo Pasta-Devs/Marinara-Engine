@@ -31,6 +31,8 @@ export interface DecisionSidecarStatus {
   runtimeInstalled: boolean;
   /** On disk and was working, but an engine update changed its uv, Python or lock. */
   runtimeNeedsUpdate?: boolean;
+  /** Whether the installed model's weights are on disk and whole; null with no model installed. */
+  installedModelDownloaded: boolean | null;
   process: { running: boolean; baseUrl: string | null; modelId: string | null; error: string | null };
   logPath: string;
   models: DecisionSidecarModel[];

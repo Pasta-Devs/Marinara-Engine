@@ -379,16 +379,19 @@ function useLiveBounds(read: () => WindowBounds, active: boolean): WindowBounds 
   );
   const readRef = useRef(read);
   readRef.current = read;
-  useEffect(() => {
+  // Layout effect: bounds stop updating while inactive, so catch up before the window paints again.
+  useLayoutEffect(() => {
     if (!active) return;
     let frame = 0;
+    const apply = () => {
+      const next = readRef.current();
+      setBounds((current) => (sameBounds(current, next) ? current : next));
+    };
     const update = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const next = readRef.current();
-        setBounds((current) => (sameBounds(current, next) ? current : next));
-      });
+      frame = requestAnimationFrame(apply);
     };
+    apply();
     const viewport = window.visualViewport;
     window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
@@ -461,9 +464,11 @@ export function FloatingWindow({
   const stackIndex = useFloatingWindowStore((state) => state.stack.indexOf(id));
   const saveLayout = useFloatingWindowStore((state) => state.saveLayout);
   const bringToFront = useFloatingWindowStore((state) => state.bringToFront);
+  const readBounds = () => (window.innerWidth < 768 ? readPhoneBubbleBounds() : readFloatingWindowBounds());
   const bounds = useLiveBounds(
-    () => (window.innerWidth < 768 ? readPhoneBubbleBounds() : readFloatingWindowBounds()),
-    !sheet,
+    readBounds,
+    // A hidden window kept mounted must not re-measure the page on every sidebar slide frame.
+    !sheet && !hidden,
   );
   const [liveGeometry, setLiveGeometry] = useState<WindowGeometry | null>(null);
   const pointerSessionRef = useRef<PointerSession | null>(null);
@@ -574,8 +579,9 @@ export function FloatingWindow({
     if (!needsDesktopPlace) return;
     useFloatingWindowStore
       .getState()
-      .saveBubble(id, { ...findFreeBubble(bounds, { size: bubbleSize, except: id }), automatic: true });
-  }, [bounds, bubbleSize, id, needsDesktopPlace]);
+      .saveBubble(id, { ...findFreeBubble(readBounds(), { size: bubbleSize, except: id }), automatic: true });
+    // Read live, not `bounds`: those are still from before the window was shown in this same commit.
+  }, [bubbleSize, id, needsDesktopPlace]);
 
   const layoutRef = useRef(layout);
   layoutRef.current = layout;

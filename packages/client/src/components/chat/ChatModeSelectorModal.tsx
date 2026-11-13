@@ -77,8 +77,10 @@ export function ChatModeSelectorModal({
               <ChatModeIcon mode={mode} size="0.875rem" />
             </span>
             <span className="min-w-0">
-              <span className="block text-xs font-semibold text-[var(--foreground)]">{localizeUi(labelKey)}</span>
-              <span className="mt-1 block text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+              <span className="block text-xs max-sm:text-[13px] font-semibold text-[var(--foreground)]">
+                {localizeUi(labelKey)}
+              </span>
+              <span className="mt-1 block text-[0.6875rem] max-sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]">
                 {localizeUi(descriptionKey)}
               </span>
             </span>

@@ -321,7 +321,9 @@ export function ConnectionSelect({
               {current.label}
             </span>
             {current.hint && (
-              <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{current.hint}</span>
+              <span className="block truncate text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                {current.hint}
+              </span>
             )}
           </span>
           <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
@@ -330,7 +332,7 @@ export function ConnectionSelect({
         <button
           {...trigger}
           className={cn(
-            "mari-chrome-field flex h-9 w-full min-w-0 items-center gap-1.5 px-2 py-0 text-left text-[0.6875rem] max-md:min-h-11 [@media(pointer:coarse)]:min-h-11",
+            "mari-chrome-field flex h-9 w-full min-w-0 items-center gap-1.5 px-2 py-0 text-left text-[0.6875rem] max-sm:text-[13px] max-md:min-h-11 [@media(pointer:coarse)]:min-h-11",
             className,
           )}
         >
@@ -338,7 +340,7 @@ export function ConnectionSelect({
           <span id={valueId} className="min-w-0 flex-1 truncate">
             {current.label}
             {(note || source) && (
-              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+              <span className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                 {" · "}
                 {[note, source].filter(Boolean).join(" · ")}
               </span>

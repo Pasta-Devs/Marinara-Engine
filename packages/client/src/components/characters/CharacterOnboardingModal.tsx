@@ -29,6 +29,7 @@ import {
   type OnboardingCardFields,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { ChoiceOptionsField } from "../presets/ChoiceOptionsField";
 import { useCreatePersona } from "../../hooks/use-characters";
 import { HIGHLIGHT_CLASS, highlightAnswerValues } from "../../lib/onboarding-preview-highlight";
@@ -39,11 +40,6 @@ const FIELD_CLASS =
   "w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]";
 const ROW_CLASS = "flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-all";
 const ROW_SELECTED_CLASS = "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30";
-// The State Editor's secondary action (StateEditor.tsx: SECONDARY_BUTTON), with
-// this window's own corner radius: Review sits beside the ghost Back and the
-// primary Create, so it needs to read as a button without competing with Create.
-const SECONDARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-4 py-2 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";
 const PREVIEW_FIELD_CLASS =
   "whitespace-pre-wrap break-words rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs font-sans leading-relaxed text-[var(--foreground)] ring-1 ring-[var(--border)]/60";
 
@@ -436,6 +432,38 @@ export function CharacterOnboardingModal({
         width="max-w-lg"
         closeDisabled={busy}
         chatFloatingPanel={chatFloatingPanel}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => void handleCreate()}
+              disabled={!personaComplete || !hasAnything || busy}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {busy
+                ? localizeUi("chat.settings.inlineEditor.saving")
+                : // Only promise a persona when one is actually written: a card
+                  // that merely carries character questions saves answers alone.
+                  localizeUi(
+                    withPersona ? "ui.characters.onboarding.createPersona" : "ui.characters.onboarding.saveAnswers",
+                  )}
+            </button>
+            {/* Only when a persona is actually written: a card that merely carries character questions saves answers alone, so there is nothing to review. */}
+            {personaPreview && (
+              <button
+                type="button"
+                onClick={() => setReviewing(true)}
+                disabled={busy}
+                className={SHEET_BUTTON_SECONDARY}
+              >
+                {localizeUi("ui.characters.onboarding.reviewPersona")}
+              </button>
+            )}
+            <button type="button" onClick={onBack} disabled={busy} className={SHEET_BUTTON_QUIET}>
+              {localizeUi("navigation.common.back")}
+            </button>
+          </>
+        }
       >
         <fieldset disabled={busy} className="min-w-0 space-y-4 p-4">
           <p className="text-xs text-[var(--muted-foreground)]">
@@ -549,43 +577,6 @@ export function CharacterOnboardingModal({
               )}
             </section>
           )}
-
-          <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-            {/* Only when a persona is actually written: a card that merely carries
-              character questions saves answers alone, so there is nothing to
-              review. Pushed to the opposite end so Create stays the last, most
-              prominent button. */}
-            {personaPreview && (
-              <button
-                type="button"
-                onClick={() => setReviewing(true)}
-                className={cn(SECONDARY_BUTTON_CLASS, "mr-auto")}
-              >
-                {localizeUi("ui.characters.onboarding.reviewPersona")}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onBack}
-              className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-            >
-              {localizeUi("navigation.common.back")}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleCreate()}
-              disabled={!personaComplete || !hasAnything || busy}
-              className="rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] shadow-md transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
-            >
-              {busy
-                ? localizeUi("chat.settings.inlineEditor.saving")
-                : // Only promise a persona when one is actually written: a card
-                  // that merely carries character questions saves answers alone.
-                  localizeUi(
-                    withPersona ? "ui.characters.onboarding.createPersona" : "ui.characters.onboarding.saveAnswers",
-                  )}
-            </button>
-          </div>
         </fieldset>
       </Modal>
 
@@ -600,6 +591,11 @@ export function CharacterOnboardingModal({
           title={localizeUi("ui.characters.onboarding.reviewTitle")}
           width="max-w-lg"
           chatFloatingPanel={chatFloatingPanel}
+          footer={
+            <button type="button" onClick={() => setReviewing(false)} className={SHEET_BUTTON_SECONDARY}>
+              {localizeUi("navigation.common.close")}
+            </button>
+          }
         >
           <div className="space-y-4">
             <p className="text-xs text-[var(--muted-foreground)]">
@@ -648,11 +644,6 @@ export function CharacterOnboardingModal({
                 {localizeUi("ui.characters.onboarding.reviewEmpty")}
               </p>
             )}
-            <div className="flex justify-end pt-2">
-              <button type="button" onClick={() => setReviewing(false)} className={SECONDARY_BUTTON_CLASS}>
-                {localizeUi("navigation.common.close")}
-              </button>
-            </div>
           </div>
         </Modal>
       )}

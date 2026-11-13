@@ -134,6 +134,8 @@ import { useRegexScripts } from "../../hooks/use-regex-scripts";
 import { PresetVariablesEditor, reorderIdsByOffset, reorderIdsToGap } from "./PresetVariablesEditor";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 import { GameStoryBoundariesFields } from "../game/GameStoryBoundariesFields";
 
 // ── Tab definitions ──
@@ -1189,9 +1191,7 @@ export function PresetEditor() {
       {/* ── Header ── */}
       <div className="mari-editor-header mari-editor-header--with-nav">
         <div className="mari-editor-header-main">
-          <button onClick={handleClose} className="mari-editor-action inline-flex">
-            <ArrowLeft size="1.125rem" />
-          </button>
+          <SurfaceBackButton onClick={handleClose} />
           <div className="mari-editor-icon-tile mari-panel-gradient-surface mari-panel-gradient--presets overflow-hidden">
             {presetArtwork ? (
               <img src={presetArtwork} alt="" className="h-full w-full object-cover" draggable={false} />
@@ -1274,6 +1274,7 @@ export function PresetEditor() {
             <Trash2 size="0.9375rem" />
           </button>
         </div>
+        <SurfaceCloseButton dividerClassName="" />
       </div>
 
       {/* Saved toast */}
@@ -2937,7 +2938,8 @@ function SectionsTab({
 
                     {/* Rough cost of this section's own text. Markers are assembled per chat, so they say so
                         instead of showing a misleading zero; a disabled section keeps its count, struck through
-                        to show it is left out of the header total. */}
+                        to show it is left out of the header total. On a phone the count alone is shown, so the
+                        section's name keeps room (#8993); screen readers still hear "tokens". */}
                     <span
                       data-preset-section-tokens
                       className={cn(
@@ -2949,12 +2951,21 @@ function SectionsTab({
                       title={
                         sectionTokens === null
                           ? localizeUi("ui.presets.sectionstab.dynamicSectionDescription")
-                          : undefined
+                          : formatEstimatedTokens(sectionTokens, localizeUi)
                       }
                     >
-                      {sectionTokens === null
-                        ? localizeUi("ui.presets.sectionstab.dynamic")
-                        : formatEstimatedTokens(sectionTokens, localizeUi)}
+                      {sectionTokens === null ? (
+                        localizeUi("ui.presets.sectionstab.dynamic")
+                      ) : (
+                        <>
+                          <span aria-hidden="true" className="sm:hidden">
+                            {localizeUi("ui.presets.sectionstab.tokenEstimateShort", {
+                              tokens: sectionTokens.toLocaleString(),
+                            })}
+                          </span>
+                          <span className="max-sm:sr-only">{formatEstimatedTokens(sectionTokens, localizeUi)}</span>
+                        </>
+                      )}
                     </span>
 
                     <div className="flex shrink-0 items-center gap-0.5">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { normalizeAvatarCrop, type CharacterCatalogEntry } from "@marinara-engine/shared";
+import { normalizeAvatarCrop, type CharacterCatalogSummaryEntry } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { CardLibraryPreview } from "../characters/CardLibraryPreview";
 import { dailyCharacters } from "../../lib/daily-characters";
@@ -13,7 +13,7 @@ export function HomeCharacterLibrary({
   error,
   onRetry,
 }: {
-  characters: CharacterCatalogEntry[];
+  characters: CharacterCatalogSummaryEntry[];
   loading: boolean;
   error: boolean;
   onRetry: () => void;

@@ -33,9 +33,10 @@ interface ChatSettingsProfileExportPayload {
 }
 
 /** Outside addresses and keys in a profile stay on this install: shared files neither carry nor bring them.
- * Persona and lorebook picks are ids from this install, so they stay too. */
+ * Persona and lorebook picks, and the preset variable choices keyed to a prompt preset id, are ids from this
+ * install, so they stay too (released versions also refuse a file with presetVariables). */
 function withoutLocalDestinations(settings: ChatPresetSettings): ChatPresetSettings {
-  const { personaId: _personaId, lorebookIds: _lorebookIds, ...shared } = settings;
+  const { personaId: _personaId, lorebookIds: _lorebookIds, presetVariables: _presetVariables, ...shared } = settings;
   return shared.metadata ? { ...shared, metadata: omitChatMetadataLocalDestinations(shared.metadata) } : shared;
 }
 

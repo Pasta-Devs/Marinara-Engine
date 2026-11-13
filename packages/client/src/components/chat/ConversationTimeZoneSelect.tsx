@@ -80,7 +80,7 @@ export function ConversationTimeZoneSelect({
           <Clock3 size="0.75rem" className="text-[var(--muted-foreground)]" />
           {localizeUi("ui.chat.conversationtimezoneselect.scheduleTimezone")}
         </label>
-        <span className="inline-flex items-center gap-1 text-[0.59375rem] text-[var(--muted-foreground)]">
+        <span className="inline-flex items-center gap-1 text-[0.59375rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
           {isSaving ? <Loader2 size="0.625rem" className="animate-spin" /> : <Check size="0.625rem" />}
           {isSaving
             ? localizeUi("ui.noodle.noodlehome.saving")
@@ -101,7 +101,7 @@ export function ConversationTimeZoneSelect({
           disabled={isSaving}
           onChange={(event) => selectTimeZone(event.target.value)}
           className={cn(
-            "min-h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/60 focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-wait disabled:opacity-60",
+            "min-h-10 max-sm:min-h-11 max-sm:text-base w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/60 focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-wait disabled:opacity-60",
             compact && "min-h-9 bg-[var(--background)]",
           )}
         >
@@ -117,14 +117,14 @@ export function ConversationTimeZoneSelect({
             type="button"
             disabled={isSaving}
             onClick={() => selectTimeZone(detectedTimeZone)}
-            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[0.6875rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-10 max-sm:min-h-11 max-sm:text-[13px] items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[0.6875rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-wait disabled:opacity-60"
           >
             <LocateFixed size="0.75rem" /> {localizeUi("ui.chat.conversationtimezoneselect.useDevice")}
           </button>
         )}
       </div>
 
-      <p className="text-[0.59375rem] leading-4 text-[var(--muted-foreground)]/80">
+      <p className="text-[0.59375rem] max-sm:text-[13px] leading-4 text-[var(--muted-foreground)]/80">
         {localizeUi("ui.chat.conversationtimezoneselect.availabilityAndAutonomousMessagesFollowThisTimezoneYourDevice")}{" "}
         {detectedTimeZone}.
       </p>

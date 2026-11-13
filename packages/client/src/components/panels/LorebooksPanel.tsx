@@ -69,6 +69,8 @@ import { LorebookSelectionEnableActions } from "./library/LorebookSelectionEnabl
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
+import { PanelVirtualList } from "./PanelVirtualList";
+import { PanelListSkeleton } from "../ui/PanelStates";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 
@@ -1045,7 +1047,15 @@ export function LorebooksPanel() {
                     {localizeUi("ui.panels.lorebookspanel.dropLorebooksHere")}
                   </p>
                 ) : (
-                  folderItems.map((lb) => renderLorebookRow(lb))
+                  <PanelVirtualList
+                    listKey={`lorebooks:folder:${folder.id}`}
+                    count={folderItems.length}
+                    getItemKey={(index) => folderItems[index]!.id}
+                    estimateSize={64}
+                    gap={2}
+                    pinnedIndex={folderItems.findIndex((lb) => lb.id === draggedLorebookId)}
+                    renderRow={(index) => renderLorebookRow(folderItems[index]!)}
+                  />
                 )}
               </SmoothFolderContent>
             </div>
@@ -1054,13 +1064,7 @@ export function LorebooksPanel() {
       </div>
 
       {/* Loading */}
-      {isLoading && (
-        <div className="flex flex-col gap-2 py-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="shimmer h-14 rounded-xl" />
-          ))}
-        </div>
-      )}
+      {isLoading && <PanelListSkeleton rowClassName="h-14 rounded-xl" />}
 
       {/* Empty state */}
       {!isLoading && sorted.length === 0 && (
@@ -1097,9 +1101,22 @@ export function LorebooksPanel() {
             </div>
           )}
 
-          <div className="stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors">
-            {rootLorebooks.map((lb) => renderLorebookRow(lb))}
-          </div>
+          <PanelVirtualList
+            listKey="lorebooks:root"
+            count={rootLorebooks.length}
+            getItemKey={(index) => rootLorebooks[index]!.id}
+            estimateSize={64}
+            gap={4}
+            pinnedIndex={rootLorebooks.findIndex((lb) => lb.id === draggedLorebookId)}
+            paging={{
+              hasNextPage: lorebookPages.hasNextPage,
+              isFetchingNextPage: lorebookPages.isFetchingNextPage,
+              isFetchNextPageError: lorebookPages.isFetchNextPageError,
+              onNearEnd: () => void lorebookPages.fetchNextPage(),
+            }}
+            className="min-h-8 rounded-xl transition-colors"
+            renderRow={(index) => renderLorebookRow(rootLorebooks[index]!)}
+          />
         </>
       )}
 
@@ -1107,6 +1124,8 @@ export function LorebooksPanel() {
         <PanelLoadMoreBar
           onLoadMore={() => void lorebookPages.fetchNextPage()}
           disabled={lorebookPages.isFetchingNextPage}
+          // The virtual list asks for pages near its end; with no rows shown (e.g. a tag filter) it is not mounted.
+          autoLoad={sorted.length === 0 && !lorebookPages.isFetchNextPageError}
         >
           {lorebookPages.isFetchingNextPage
             ? localizeUi("ui.characters.characterlibraryview.loading")
@@ -1183,7 +1202,7 @@ function LorebookRow({
         onTouchStart?.(event);
       }}
       className={cn(
-        "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
+        "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-3 rounded-xl p-2.5 transition-[color,background-color,box-shadow,opacity] hover:bg-[var(--sidebar-accent)]",
         selectionMode &&
           isSelected &&
           "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",

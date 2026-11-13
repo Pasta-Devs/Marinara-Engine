@@ -61,6 +61,8 @@ export interface Persona {
   tags: string[];
   /** Saved Conversation mode activity/status text options for this persona */
   savedStatusOptions: string[];
+  /** Other names the persona answers to; they get the persona's name color in chat prose. */
+  nameAliases: string[];
   /** Conversation mode ONLY: display name shown as the user's sender label in Convo. */
   convoDisplayName?: string;
   /** Conversation mode ONLY: public "about me" profile (cross-chat default). */

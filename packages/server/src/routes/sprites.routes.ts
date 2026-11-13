@@ -452,6 +452,7 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: isComfyUiVideo ? videoDefaults.comfyui.loras : [],
     comfyFps: isComfyUiVideo ? videoDefaults.comfyui.fps : undefined,
+    customHeaders: videoDefaults.customHeaders,
     atlasModelOptions: isAtlasVideo
       ? videoDefaults.atlas.modelOptions[connection.model?.trim() || "google/veo3.1/text-to-video"]
       : undefined,
@@ -956,7 +957,8 @@ function buildFullBodyExpressionSheetPrompt({
 function looksLikeBase64(input: string): boolean {
   const trimmed = input.trim();
   if (!trimmed || trimmed.length < 32) return false;
-  return /^[A-Za-z0-9+/=\r\n]+$/.test(trimmed);
+  // A negative test walks the string; `^[A-Za-z0-9+/=\r\n]+$` recurses once per character in V8's regexp interpreter.
+  return !/[^A-Za-z0-9+/=\r\n]/.test(trimmed);
 }
 
 function extractBase64ImageData(input: string): string {
@@ -2374,6 +2376,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                   resolution: resolved.resolution,
                   comfyWorkflow: resolved.comfyWorkflow,
                   comfyLoras: resolved.comfyLoras,
+                  customHeaders: resolved.customHeaders,
                   fps: resolved.comfyFps,
                   atlasModelOptions: resolved.atlasModelOptions,
                   referenceImage,

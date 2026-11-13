@@ -50,6 +50,7 @@ import { inArray, isFileCondition, isFileOrdering, type FileCondition, type File
 import { migrateLegacyNoodleAccountRow } from "./noodle-platform-migration.js";
 import { migrateLegacyNoodlePostAccessRow } from "./noodle-access-migration.js";
 import { migrateRetiredChatModeRow, RETIRED_CHAT_MODE_TABLES } from "./retired-chat-mode-migration.js";
+import { migrateLegacyPersonaRow, personaRowNeedsCardMigration } from "./persona-card-migration.js";
 import {
   getFileTableConfig,
   FileUniqueConstraintError,
@@ -371,7 +372,9 @@ type InsertValuesBuilder = Executable<void> & {
 // accountId, icon and imageInput when rewriting model rows; no row conversion is needed.
 // Format 10 protects GLB and FBX avatar configurations: format-9 builds reject the new kind and could
 // overwrite that owner's avatar.json. Existing rows and avatar files need no conversion.
-export const STORAGE_VERSION = 10;
+// Format 11 moves persona authored fields into a CharacterData card in `data` (like characters);
+// older builds would read personas as empty. Rows are converted on load; shards copied to .pre-v11.
+export const STORAGE_VERSION = 11;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
 export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";
@@ -718,6 +721,7 @@ function migrateFileBackedRow(table: string, row: Row): Row {
   if (table === "noodle_accounts") return migrateLegacyNoodleAccountRow(row);
   if (table === "noodle_posts") return migrateLegacyNoodlePostAccessRow(row);
   if ((RETIRED_CHAT_MODE_TABLES as readonly string[]).includes(table)) return migrateRetiredChatModeRow(row);
+  if (table === "personas") return migrateLegacyPersonaRow(row);
   return row;
 }
 
@@ -727,6 +731,7 @@ function fileBackedRowNeedsMigration(table: string, row: Row): boolean {
   if (table === "noodle_posts") {
     return (row.access !== "public" && row.access !== "locked") || "ppvPrice" in row || "ppv_price" in row;
   }
+  if (table === "personas") return personaRowNeedsCardMigration(row);
   return false;
 }
 
@@ -1238,6 +1243,29 @@ async function unlinkIgnoringMissing(path: string) {
   } catch (err) {
     if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") throw err;
   }
+}
+
+/**
+ * Copy a shard's primary and .bak byte-for-byte to `.pre-v11` before the format-11 rewrite.
+ * Never clobbers: an identical copy (a crash before the first flush) is skipped, a different
+ * one gets a timestamped name. Returns the copies made.
+ */
+async function preservePreV11Copies(path: string): Promise<string[]> {
+  const preserved: string[] = [];
+  for (const source of [path, `${path}.bak`]) {
+    if (!existsSync(source)) continue;
+    const preferred = `${source}.pre-v11`;
+    let target = preferred;
+    if (existsSync(preferred)) {
+      if (readFileSync(preferred).equals(readFileSync(source))) continue;
+      target = `${preferred}-${corruptionTimestamp()}`;
+    }
+    await copyFile(source, target);
+    await chmod(target, PRIVATE_FILE_MODE).catch(() => undefined);
+    await flushFile(target);
+    preserved.push(target);
+  }
+  return preserved;
 }
 
 async function preserveMalformedRowSource(path: string, table: string): Promise<QuarantinedFile[]> {
@@ -2662,6 +2690,8 @@ class FileTableStore {
   private preMigrationManifestVersion: number | null = null;
   /** Tables migrated monolith -> shards THIS boot; feeds the #4756 notice. */
   private migratedTables: string[] = [];
+  /** Tables whose rows were rewritten into a new row format THIS boot (format 11: personas). */
+  private convertedTables: string[] = [];
   private shardDirsCreated = new Set<string>();
   /** Monotonic per-table write counters (#4705); bumped in markDirty, never rolled back. */
   private tableWriteGenerations = new Map<string, number>();
@@ -3258,6 +3288,17 @@ class FileTableStore {
       const bucket = rowsByShard.get(key);
       if (bucket) bucket.push(row);
       else rowsByShard.set(key, [row]);
+    }
+    // Persona rows were converted to the format-11 card above. As on the sharded path, raise the
+    // manifest first so a crash before the flush can't leave them under a manifest an older build
+    // accepts. The untouched monolith becomes `.pre-shard` below, so no `.pre-v11` copy is needed.
+    if (table === "personas" && normalized.length > 0) await this.raiseManifestVersionBeforeRewrite();
+    if (
+      table === "personas" &&
+      source.some((row) => fileBackedRowNeedsMigration(table, row)) &&
+      !this.convertedTables.includes(table)
+    ) {
+      this.convertedTables.push(table);
     }
     for (const [key, shardRows] of rowsByShard) {
       await atomicWriteFile(
@@ -4967,26 +5008,29 @@ class FileTableStore {
    * migrate nothing and never write one.
    */
   private recordMigrationNotice() {
-    if (this.migratedTables.length === 0) return;
+    if (this.migratedTables.length === 0 && this.convertedTables.length === 0) return;
     const rows = this.tables.get("app_settings") ?? [];
     const existing = rows.find((row) => row.key === STORAGE_MIGRATION_NOTICE_SETTINGS_KEY);
     let fromFormat = this.preMigrationManifestVersion;
     let tables = [...this.migratedTables];
+    let converted = [...this.convertedTables];
+    const mergeStrings = (prior: unknown, current: string[]) =>
+      Array.isArray(prior)
+        ? [...new Set([...prior.filter((entry): entry is string => typeof entry === "string"), ...current])]
+        : current;
     if (existing && typeof existing.value === "string" && existing.value) {
       try {
-        const prior = JSON.parse(existing.value) as { fromFormat?: unknown; migratedTables?: unknown };
+        const prior = JSON.parse(existing.value) as {
+          fromFormat?: unknown;
+          migratedTables?: unknown;
+          convertedTables?: unknown;
+        };
         // The ORIGINAL fromFormat wins the merge — including an explicit null
         // (no manifest existed); only an absent/invalid property falls back
         // to this boot's value.
         if (prior.fromFormat === null || typeof prior.fromFormat === "number") fromFormat = prior.fromFormat;
-        if (Array.isArray(prior.migratedTables)) {
-          tables = [
-            ...new Set([
-              ...prior.migratedTables.filter((entry): entry is string => typeof entry === "string"),
-              ...tables,
-            ]),
-          ];
-        }
+        tables = mergeStrings(prior.migratedTables, tables);
+        converted = mergeStrings(prior.convertedTables, converted);
       } catch {
         /* unparseable prior value -> replace it */
       }
@@ -4995,6 +5039,7 @@ class FileTableStore {
       fromFormat,
       toFormat: STORAGE_VERSION,
       migratedTables: tables,
+      convertedTables: converted,
       migratedAt: new Date().toISOString(),
     };
     const value = JSON.stringify(notice);
@@ -5019,6 +5064,23 @@ class FileTableStore {
    * through to the existing recovery paths — loadFileSnapshots re-checks the
    * version with full .bak recovery.
    */
+  /**
+   * Format 11 rewrites persona shards that a format-10 build reads as empty. The manifest is
+   * written last in a flush, so a flush failing after the persona shards would leave format-11
+   * rows under a format-10 manifest that the downgrade guards approve. Raise the version first;
+   * every other manifest field is left for the flush to rewrite.
+   */
+  private async raiseManifestVersionBeforeRewrite() {
+    const path = manifestPath(this.rootDir);
+    // A crash can leave only manifest.json.bak, and the format guards read the version from it.
+    // parseJsonFile recovers it the same way, and the raised version lands in a fresh primary.
+    if (!existsSync(path) && !existsSync(`${path}.bak`)) return;
+    const { value } = parseJsonFile<TableSnapshotManifest | null>(path, null);
+    if (!value || typeof value !== "object") return;
+    if (typeof value.version === "number" && value.version >= STORAGE_VERSION) return;
+    await atomicWriteFile(path, JSON.stringify({ ...value, version: STORAGE_VERSION }, null, 2));
+  }
+
   private assertStorageFormatSupported() {
     const path = manifestPath(this.rootDir);
     // A crash can leave only manifest.json.bak — parseJsonFile recovers the
@@ -5296,6 +5358,17 @@ class FileTableStore {
           this.backupRecoveredPaths.add(path);
         }
         const needsRowMigration = source.some((row) => fileBackedRowNeedsMigration(table, row));
+        if (needsRowMigration && table === "personas") {
+          // The rewrite is semantic, so keep the pre-format-11 bytes for manual recovery.
+          const copies = await preservePreV11Copies(path);
+          if (!this.convertedTables.includes(table)) {
+            this.convertedTables.push(table);
+            await this.raiseManifestVersionBeforeRewrite();
+          }
+          if (copies.length > 0) {
+            logger.info({ table, shard: encoded, copies }, "[file-storage] Preserved pre-format-11 persona shard");
+          }
+        }
         const normalized = source.map((row) => normalizeRow(meta, migrateFileBackedRow(table, row)));
         combined.push(...normalized);
         for (const row of normalized) rowSource.set(row, encoded);

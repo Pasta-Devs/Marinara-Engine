@@ -24,6 +24,7 @@ import {
   type GameTtsEmotion,
   type TTSSource,
   type TTSConfig,
+  type TTSConfigResponse,
   type TTSRoleplaySpeakerExtractorResponse,
   type TTSSourceProfiles,
   type TTSModelsResponse,
@@ -35,6 +36,7 @@ import { createConnectionsStorage } from "../services/storage/connections.storag
 import { encryptApiKey, decryptApiKey } from "../utils/crypto.js";
 import { getChatGenerationTimeoutMs, isTtsLocalUrlsEnabled } from "../config/runtime-config.js";
 import { safeFetch } from "../utils/security.js";
+import { isLocalInferenceBaseUrl } from "../middleware/ip-allowlist.js";
 import { detectTTSAudioMimeType, resolveTTSAudioResponseContentType } from "../services/audio/audio-content-type.js";
 export {
   isAllowedTTSAudioContentType,
@@ -47,6 +49,7 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
+import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 
 import { AudioGenerationConfigurationError, generateAudioAsset } from "../services/audio/generative-audio.service.js";
 
@@ -649,9 +652,17 @@ function fallbackVoices(source: TTSSource): TTSVoicesResponse {
   );
 }
 
-function configuredBaseUrl(cfg: TTSConfig) {
+function configuredBaseUrl(cfg: Pick<TTSConfig, "source" | "baseUrl">) {
   const fallbackBase = TTS_SOURCE_DEFAULTS[cfg.source].baseUrl;
   return (cfg.baseUrl || fallbackBase).replace(/\/+$/, "");
+}
+
+/**
+ * A voice server the user hosts (#8921): PocketTTS, or any source at an address chat connections count as local
+ * (loopback, private network, LAN or container host). Connections lists it On this device; a cloud voice it does not.
+ */
+export function ttsRunsLocally(cfg: Pick<TTSConfig, "source" | "baseUrl">): boolean {
+  return cfg.source === "pockettts" || isLocalInferenceBaseUrl(configuredBaseUrl(cfg));
 }
 
 function allowLocalTtsUrl(cfg: TTSConfig) {
@@ -1240,7 +1251,8 @@ export async function ttsRoutes(app: FastifyInstance) {
     const cfg = parseStoredConfig(raw);
     // With an Audio connection chosen, every reader sees the adapter, address and model it speaks with.
     const identity = await readChosenConnectionIdentity(connections, cfg.connectionId.trim());
-    return { ...maskTTSConfigForResponse(cfg), ...identity };
+    const view = { ...maskTTSConfigForResponse(cfg), ...identity };
+    return { ...view, local: ttsRunsLocally(view) } satisfies TTSConfigResponse;
   });
 
   /**
@@ -1393,10 +1405,16 @@ export async function ttsRoutes(app: FastifyInstance) {
     logDebugOverride(input.debugMode, "[debug/tts/speaker-extractor] user prompt:\n%s", userPrompt);
 
     const storedOptions = resolveStoredChatOptions(connection.defaultParameters, connection.provider, connection.model);
-    const maxTokens = clampGenerationMaxOutputTokens({
+    const maxTokens = withAlwaysOnThinkingHeadroom({
       provider: connection.provider,
       model: connection.model,
-      maxTokens: resolveStoredMaxTokens(connection.defaultParameters, 8192),
+      maxTokens: clampGenerationMaxOutputTokens({
+        provider: connection.provider,
+        model: connection.model,
+        maxTokens: resolveStoredMaxTokens(connection.defaultParameters, 8192),
+        maxTokensOverride: connection.maxTokensOverride,
+      }),
+      reasoningEffort: storedOptions.reasoningEffort,
       maxTokensOverride: connection.maxTokensOverride,
     });
     const provider = createLLMProvider(

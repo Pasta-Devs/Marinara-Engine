@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseCharacter } from "./character-picker.js";
 import { chatSettingsDrawer, drawerToggle, openChatSettings } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -104,7 +105,7 @@ for (const theme of ["dark", "light"] as const) {
       const attachment = page.locator('[data-agent-lorebook-attachment="prose-guardian"]').first();
       const toggle = attachment.getByRole("checkbox", { name: "Attach lorebook for the specific agent" });
       const toggleLabel = attachment.getByText("Attach lorebook for the specific agent", { exact: true });
-      const select = attachment.getByRole("combobox", { name: "Reference lorebook" });
+      const select = attachment.getByRole("button", { name: "Reference lorebook" });
       const metadata = async () => (await (await page.request.get(`/api/chats/${chat.id}`)).json()).metadata;
       const errorToast = page.locator('[data-sonner-toast][data-type="error"]').filter({ hasText: saveError });
       const dismissError = async () => {
@@ -117,7 +118,7 @@ for (const theme of ["dark", "light"] as const) {
       await toggleLabel.click();
       await expect.poll(() => writes.length).toBe(1);
       await expect(toggle).toBeChecked();
-      await expect(select).toHaveValue(first.id);
+      await expect(select).toHaveText(first.name);
       await expect.soft(errorToast).toBeVisible();
       await page.screenshot({
         path: testInfo.outputPath(`attachment-save-error-${theme}.png`),
@@ -127,10 +128,10 @@ for (const theme of ["dark", "light"] as const) {
 
       // A dropped selection request also rolls back, with the same accessible toast.
       behavior = "offline";
-      await select.selectOption(second.id);
+      await chooseCharacter(page, select, "Reference lorebook", second.name);
       await expect.poll(() => writes.length).toBe(2);
       await expect(select).toBeEnabled();
-      await expect(select).toHaveValue(first.id);
+      await expect(select).toHaveText(first.name);
       await expect.soft(errorToast).toBeVisible();
       await dismissError();
 
@@ -145,7 +146,7 @@ for (const theme of ["dark", "light"] as const) {
       await expect.poll(() => writes.length).toBe(4);
       await expect(select).toBeEnabled();
       await expect(toggle).toBeChecked();
-      await expect(select).toHaveValue(first.id);
+      await expect(select).toHaveText(first.name);
       await expect
         .poll(async () => (await metadata()).agentLorebookAttachments)
         .toEqual({

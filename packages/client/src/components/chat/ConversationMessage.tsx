@@ -120,7 +120,7 @@ interface ConversationMessageProps {
   replyCheckup?: ReactNode;
   onSetActiveSwipe?: (messageId: string, index: number) => void;
   onToggleHiddenFromAI?: (messageId: string, current: boolean) => void;
-  onPeekPrompt?: () => void;
+  onPeekPrompt?: (messageId: string) => void;
   onBranch?: (messageId: string) => void;
   isLastAssistantMessage?: boolean;
   characterMap?: CharacterMap;
@@ -976,7 +976,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     onSetActiveSwipe: handleSetActiveSwipe,
     onRegenerate,
     onToggleHiddenFromAI,
-    onPeekPrompt,
+    onPeekPrompt: onPeekPrompt ? () => onPeekPrompt(message.id) : undefined,
     onDelete,
     onShowGenerationReplay: () => setShowGenerationReplay(true),
     onShowThinking: () => setShowThinking(true),
@@ -1213,6 +1213,8 @@ export const ConversationMessage = memo(function ConversationMessage({
         data-message-id={message.id}
         {...messageHookProps.attrs}
         style={messageHookProps.style}
+        aria-busy={isStreaming || undefined}
+        data-message-role={message.role}
         onClick={handleMobileTap}
         {...longPress}
       >
@@ -1297,7 +1299,7 @@ export const ConversationMessage = memo(function ConversationMessage({
               onToggleHiddenFromAI={
                 onToggleHiddenFromAI ? () => onToggleHiddenFromAI(message.id, isHiddenFromAI) : undefined
               }
-              onPeekPrompt={onPeekPrompt}
+              onPeekPrompt={onPeekPrompt ? () => onPeekPrompt(message.id) : undefined}
               onDelete={onDelete ? () => onDelete(message.id) : undefined}
               onShowGenerationReplay={() => setShowGenerationReplay(true)}
               onShowThinking={() => setShowThinking(true)}

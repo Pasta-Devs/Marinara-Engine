@@ -7,10 +7,12 @@ import {
   useStorageMigrationNotice,
 } from "../../hooks/use-storage-migration-notice";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 
 /**
- * One-time notice shown after the store migrated chat data to the per-chat
- * shard layout (#4756). Purely informational — the migration is automatic by
+ * One-time notice shown after a storage-format migration: chat data split
+ * into the per-chat shard layout (#4756), or persona rows converted to
+ * character cards (format 11, #8688). Purely informational — the migration is automatic by
  * design (#4708); this explains what changed, why disk usage grew, and where
  * the downgrade path lives. Dismissing acknowledges server-side, so the
  * notice never returns (until a future storage-format bump migrates again).
@@ -35,6 +37,12 @@ export function StorageMigrationNoticeModal({ presentationAllowed }: { presentat
 
   if (!notice) return null;
 
+  // Format 11 converts persona rows in place without sharding anything, so the chat-split text
+  // only shows when a table was actually split.
+  const shardedCount = notice.migratedTables.length;
+  const personasConverted = (notice.convertedTables ?? []).includes("personas");
+  const showChatSplit = shardedCount > 0 || !personasConverted;
+
   const handleDismiss = () => {
     setDismissed(true);
     setOpen(false);
@@ -52,15 +60,35 @@ export function StorageMigrationNoticeModal({ presentationAllowed }: { presentat
       onClose={handleDismiss}
       title={localizeUi("ui.modals.storagemigrationnoticemodal.yourStorageGotAnUpgrade")}
       width="max-w-xl"
+      footer={
+        <>
+          <button type="button" onClick={handleDismiss} className={SHEET_BUTTON_PRIMARY}>
+            {localizeUi("ui.modals.storagemigrationnoticemodal.gotIt")}
+          </button>
+          <button type="button" onClick={openStorageGuide} className={SHEET_BUTTON_SECONDARY}>
+            <BookOpen size="0.875rem" aria-hidden="true" />
+            {localizeUi("ui.modals.storagemigrationnoticemodal.openTheStorageGuide")}
+          </button>
+        </>
+      }
     >
       <div data-component="StorageMigrationNoticeModal" className="space-y-4">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--sidebar)] text-[var(--primary)]">
             <Database size="1.25rem" aria-hidden="true" />
           </div>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-            {localizeUi("ui.modals.storagemigrationnoticemodal.marinaraReorganizedHowYourChatsAreSaved")}
-          </p>
+          <div className="space-y-4">
+            {showChatSplit ? (
+              <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+                {localizeUi("ui.modals.storagemigrationnoticemodal.marinaraReorganizedHowYourChatsAreSaved")}
+              </p>
+            ) : null}
+            {personasConverted ? (
+              <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+                {localizeUi("ui.modals.storagemigrationnoticemodal.personasNowUseTheCardFormat")}
+              </p>
+            ) : null}
+          </div>
         </div>
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">
           {localizeUi("ui.modals.storagemigrationnoticemodal.nothingWasLostBackupsWereKept")}
@@ -73,7 +101,7 @@ export function StorageMigrationNoticeModal({ presentationAllowed }: { presentat
           type="button"
           onClick={() => setShowTechnical((value) => !value)}
           aria-expanded={showTechnical}
-          className="flex items-center gap-1.5 text-sm font-medium text-[var(--primary)] active:scale-95"
+          className="flex items-center gap-1.5 text-sm font-medium max-sm:min-h-11 text-[var(--primary)] active:scale-95"
         >
           {showTechnical ? (
             <ChevronDown size="0.875rem" aria-hidden="true" />
@@ -88,39 +116,33 @@ export function StorageMigrationNoticeModal({ presentationAllowed }: { presentat
         {showTechnical ? (
           <ul className="list-disc space-y-2 rounded-lg border border-[var(--border)] bg-[var(--sidebar)] py-3 pl-8 pr-4 text-sm leading-6 text-[var(--muted-foreground)]">
             <li>
-              {notice.fromFormat === null
-                ? localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormatsUnknownFrom", {
-                    to: notice.toFormat,
-                    count: notice.migratedTables.length,
-                  })
-                : localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormats", {
-                    from: notice.fromFormat,
-                    to: notice.toFormat,
-                    count: notice.migratedTables.length,
-                  })}
+              {shardedCount === 0
+                ? notice.fromFormat === null
+                  ? localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormatOnlyUnknownFrom", {
+                      to: notice.toFormat,
+                    })
+                  : localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormatOnly", {
+                      from: notice.fromFormat,
+                      to: notice.toFormat,
+                    })
+                : notice.fromFormat === null
+                  ? localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormatsUnknownFrom", {
+                      to: notice.toFormat,
+                      count: shardedCount,
+                    })
+                  : localizeUi("ui.modals.storagemigrationnoticemodal.technicalFormats", {
+                      from: notice.fromFormat,
+                      to: notice.toFormat,
+                      count: shardedCount,
+                    })}
             </li>
-            <li>{localizeUi("ui.modals.storagemigrationnoticemodal.technicalBackups")}</li>
+            {shardedCount > 0 ? <li>{localizeUi("ui.modals.storagemigrationnoticemodal.technicalBackups")}</li> : null}
+            {personasConverted ? (
+              <li>{localizeUi("ui.modals.storagemigrationnoticemodal.technicalPersonaCards")}</li>
+            ) : null}
             <li>{localizeUi("ui.modals.storagemigrationnoticemodal.technicalDowngrade")}</li>
           </ul>
         ) : null}
-
-        <div className="flex flex-col-reverse gap-2 border-t border-[var(--border)] pt-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={openStorageGuide}
-            className="mari-chrome-control min-h-10 justify-center px-4 py-2 text-sm"
-          >
-            <BookOpen size="0.875rem" aria-hidden="true" />
-            {localizeUi("ui.modals.storagemigrationnoticemodal.openTheStorageGuide")}
-          </button>
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="mari-chrome-control mari-chrome-control--primary min-h-10 justify-center px-5 py-2 text-sm"
-          >
-            {localizeUi("ui.modals.storagemigrationnoticemodal.gotIt")}
-          </button>
-        </div>
       </div>
     </Modal>
   );

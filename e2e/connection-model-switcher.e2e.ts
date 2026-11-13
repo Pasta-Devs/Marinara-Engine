@@ -301,6 +301,29 @@ test("quick picker lists scroll in chat and Professor Mari", async ({ page, requ
   }
 });
 
+test("provider model rows retain upstream routing details", async ({ page, request }, testInfo) => {
+  const { provider, main, cleanup } = await setup(page, request, testInfo, "dark");
+  provider.state.catalog.push({ id: "nanogpt/vendor/routed", name: "Routed model" });
+  try {
+    const account = (await connectionRow(request, main.id))!.accountId as string;
+    await page.goto("/");
+    await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
+    const picker = await openModels(page, testInfo, account);
+    const routed = modelRow(picker, "all", "nanogpt/vendor/routed");
+    await expect(routed).toContainText("via NanoGPT");
+    await expect(routed).toHaveAccessibleName(/via NanoGPT/);
+    await expect(routed.locator("[data-model-route]")).toHaveText("nanogpt/vendor/routed");
+    await expect(routed).toHaveAccessibleName(/nanogpt\/vendor\/routed/);
+    await expect(modelRow(picker, "all", "vendor/alpha").locator("[data-model-route]")).toHaveCount(0);
+    await expect(modelRow(picker, "all", "vendor/alpha")).not.toContainText("via ");
+    await routed.scrollIntoViewIfNeeded();
+    await expectNoHorizontalScroll(page);
+    await capture(page, testInfo, "provider-upstream-details");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("the Connections menu lists, stars, picks, refreshes and types models without refetching (#7098)", async ({
   page,
   request,
@@ -325,11 +348,20 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
     await expect(menu.locator(`[data-switcher-pane="${otherAccount}"]`)).toHaveCount(1);
     let picker = await showModels(menu, testInfo, mainAccount);
     await expect(picker).toContainText("All models");
-    // The current model's check is connection blue (#38bdf8), never the app accent.
-    await expect(modelRow(picker, "all", "vendor/alpha").locator("svg.lucide-check")).toHaveCSS(
-      "color",
-      "rgb(56, 189, 248)",
-    );
+    // The current model's check follows the app accent like the sibling panels' marks (#9053), not connection blue.
+    // Read in one frame next to the check, because the accent may pulse.
+    const [checkColor, accentColor] = await modelRow(picker, "all", "vendor/alpha")
+      .locator("svg.lucide-check")
+      .evaluate((check) => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--marinara-chat-chrome-accent)";
+        check.parentElement!.append(probe);
+        const colors = [getComputedStyle(check).color, getComputedStyle(probe).color];
+        probe.remove();
+        return colors;
+      });
+    expect(checkColor).toBe(accentColor);
+    expect(checkColor).not.toBe("rgb(56, 189, 248)");
     await expect(modelRow(picker, "all", "vendor/gamma")).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/alpha")).toHaveAttribute("aria-current", "true");
     await expect(picker).not.toContainText("Applies to this chat");

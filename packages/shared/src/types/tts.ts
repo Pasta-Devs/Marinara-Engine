@@ -282,6 +282,12 @@ export const ttsConfigSchema = ttsConfigBaseSchema.extend({
 
 export type TTSConfig = z.infer<typeof ttsConfigSchema>;
 
+/** Returned by GET /api/tts/config: the settings with keys masked, and whether the voice server runs locally. */
+export type TTSConfigResponse = TTSConfig & {
+  /** PocketTTS, or a source at a loopback, private-network or LAN address: listed On this device (#8921). */
+  local: boolean;
+};
+
 export function ttsConnectionProfileFromConfig(config: TTSConfig): TTSConnectionProfile {
   const {
     baseUrl: _baseUrl,

@@ -4,6 +4,7 @@ import type { BuiltInAgentManifest, InstalledCapabilityPackage } from "@marinara
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { CommandCenterToggle } from "../command-center/CommandCenterToggle";
 import { useCapabilityCatalog } from "../../hooks/use-capability-packages";
+import { useUIStore } from "../../stores/ui.store";
 import { AgentDetailHeader } from "./AgentDetailHeader";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -43,6 +44,8 @@ export function FeatureAgentDetailHost({
   capabilityProps,
 }: FeatureAgentDetailHostProps) {
   const { t: localizeUi } = useUiTranslation();
+  // With nothing on the surface stack, AppShell closes this page onto the Agents panel.
+  const opensAgentsPanel = useUIStore((s) => s.mainSurfaceHistory.length === 0);
   const contributedAgentIds = installedPackage?.manifest.contributions?.agentDetail?.agentIds ?? [];
   const hasDetailContribution =
     Boolean(installedPackage?.manifest.entrypoints.client) && contributedAgentIds.includes(agent.id);
@@ -62,6 +65,7 @@ export function FeatureAgentDetailHost({
       storeEntry={storeEntry}
       compact={compact}
       onBack={onClose}
+      backLabel={opensAgentsPanel ? localizeUi("navigation.back.toAgentsPanel") : undefined}
       title={
         <h1 id="feature-agent-detail-title" className="mari-editor-title truncate">
           {agent.name}

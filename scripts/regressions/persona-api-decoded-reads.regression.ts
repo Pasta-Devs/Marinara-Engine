@@ -94,6 +94,7 @@ try {
     { resolveChatUserIdentity },
     { MariDbService },
     { PROFESSOR_MARI_APP_DATA_ACTIONS },
+    { completePersonaRow, personaRowFromStored, storedPersonaFromRow },
   ] = await Promise.all([
     import("../../packages/server/src/app.js"),
     import("../../packages/server/src/db/connection.js"),
@@ -102,6 +103,7 @@ try {
     import("../../packages/server/src/services/chat-user-identity.js"),
     import("../../packages/server/src/services/mari-db/mari-db.service.js"),
     import("../../packages/server/src/services/professor-mari/workspace-agent.service.js"),
+    import("../../packages/server/src/services/personas/persona-card-storage.js"),
   ]);
 
   app = await buildApp();
@@ -170,35 +172,37 @@ try {
     createdAt: "2099-01-01T00:00:00.000Z",
     updatedAt: "2099-01-02T00:00:00.000Z",
   };
-  await db.insert(personas).values([
-    {
-      id: activeId,
-      name: "Active Persona",
-      avatarCrop: JSON.stringify({ srcX: 0.1, srcY: 0.2, srcWidth: 0.5, srcHeight: 0.5 }),
-      isActive: "true",
-      trackerCardColors: JSON.stringify({ mode: "custom", nameColorOpacity: 42 }),
-      personaStats: JSON.stringify({
-        enabled: true,
-        bars: [{ name: "Energy", value: 4, max: 10, color: "#0c0" }],
-      }),
-      tags: JSON.stringify(["decoded"]),
-      savedStatusOptions: JSON.stringify(["Available"]),
-      convoBehavior: JSON.stringify({ instruction: "Stay in character.", insertionStrategy: "constant_after" }),
-      ...timestamps,
-    },
-    {
-      id: malformedId,
-      name: "Malformed Persona",
-      avatarCrop: "{bad",
-      isActive: "false",
-      trackerCardColors: "{bad",
-      personaStats: "{bad",
-      tags: "{bad",
-      savedStatusOptions: "{bad",
-      convoBehavior: "{bad",
-      ...timestamps,
-    },
-  ]);
+  await db.insert(personas).values(
+    [
+      {
+        id: activeId,
+        name: "Active Persona",
+        avatarCrop: JSON.stringify({ srcX: 0.1, srcY: 0.2, srcWidth: 0.5, srcHeight: 0.5 }),
+        isActive: "true",
+        trackerCardColors: JSON.stringify({ mode: "custom", nameColorOpacity: 42 }),
+        personaStats: JSON.stringify({
+          enabled: true,
+          bars: [{ name: "Energy", value: 4, max: 10, color: "#0c0" }],
+        }),
+        tags: JSON.stringify(["decoded"]),
+        savedStatusOptions: JSON.stringify(["Available"]),
+        convoBehavior: JSON.stringify({ instruction: "Stay in character.", insertionStrategy: "constant_after" }),
+        ...timestamps,
+      },
+      {
+        id: malformedId,
+        name: "Malformed Persona",
+        avatarCrop: "{bad",
+        isActive: "false",
+        trackerCardColors: "{bad",
+        personaStats: "{bad",
+        tags: "{bad",
+        savedStatusOptions: "{bad",
+        convoBehavior: "{bad",
+        ...timestamps,
+      },
+    ].map((row) => storedPersonaFromRow(completePersonaRow(row))),
+  );
 
   const list = (await requestJson("GET", "/api/characters/personas/list")) as unknown as Array<Record<string, unknown>>;
   const listedActive = list.find((persona) => persona.id === activeId)!;
@@ -334,7 +338,8 @@ try {
   assert.equal(rereadOverride.imageAppearance, overrideText);
 
   // The stored column is the text convention this table already uses.
-  const [storedOverrideRow] = await db.select().from(personas).where(eq(personas.id, createdId));
+  const [storedOverrideStored] = await db.select().from(personas).where(eq(personas.id, createdId));
+  const storedOverrideRow = storedOverrideStored ? personaRowFromStored(storedOverrideStored) : undefined;
   assert.equal(storedOverrideRow?.imageAppearanceEnabled, "true");
   assert.equal(storedOverrideRow?.imageAppearance, overrideText);
 
