@@ -4973,4 +4973,25 @@ try {
   }
 }
 
+// #9097: a base URL saved with a trailing slash must not reach the server as "//chat/completions" (llama.cpp 404s it).
+{
+  const paths: string[] = [];
+  const slashServer = createServer(async (request, response) => {
+    for await (const _chunk of request);
+    paths.push(request.url ?? "");
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ choices: [{ message: { content: "ok" }, finish_reason: "stop" }] }));
+  });
+  await new Promise<void>((resolve) => slashServer.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = slashServer.address();
+    assert.ok(address && typeof address === "object");
+    const provider = createLLMProvider("custom", `http://127.0.0.1:${address.port}/v1/`, "");
+    await provider.chatComplete([{ role: "user", content: "hi" }], { model: "local", stream: false });
+    assert.deepEqual(paths, ["/v1/chat/completions"]);
+  } finally {
+    await new Promise<void>((resolve) => slashServer.close(() => resolve()));
+  }
+}
+
 process.stdout.write("Provider compatibility regression passed.\n");
