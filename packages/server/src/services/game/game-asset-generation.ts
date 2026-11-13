@@ -1531,6 +1531,31 @@ export function isChatBackgroundWeatherVersion(filename: string): boolean {
  * Repaint a library background in other weather, with the original as the image model's canvas.
  * Returns the new file name, or null when it failed.
  */
+/**
+ * A weather version keeps its picture's shape: the background size setting's width, with the
+ * original's aspect ratio (so the repaint isn't cropped to 16:9).
+ */
+async function weatherVersionSize(
+  basePath: string,
+  requested: ImageGenerationSize | undefined,
+): Promise<ImageGenerationSize> {
+  const target = resolvedSize(requested, DEFAULT_GAME_BACKGROUND_SIZE);
+  const sharp = await getSharp();
+  if (!sharp) return target;
+  try {
+    const meta = (await sharp(basePath, { limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS }).metadata()) as {
+      width?: number;
+      height?: number;
+    };
+    if (!meta.width || !meta.height) return target;
+    const ratio = meta.height / meta.width;
+    if (!(ratio > 0.2 && ratio < 5)) return target;
+    return { width: target.width, height: Math.max(64, Math.round(target.width * ratio)) };
+  } catch {
+    return target;
+  }
+}
+
 export async function generateChatBackgroundWeatherVersion(
   req: ChatBackgroundGenRequest & {
     baseFilename: string;
@@ -1550,7 +1575,7 @@ export async function generateChatBackgroundWeatherVersion(
     sceneDescription: [instruction, scene ? `The place: ${scene}` : ""].filter(Boolean).join("\n\n"),
     providerReadyPrompt: true,
   });
-  const size = resolvedSize(req.size, DEFAULT_GAME_BACKGROUND_SIZE);
+  const size = await weatherVersionSize(join(CHAT_BACKGROUND_DIR, baseFilename), req.size);
   req.debugLog?.(
     "[debug/background-weather/image-generation] base=%s version=%s shelter=%s prompt:\n%s",
     baseFilename,
