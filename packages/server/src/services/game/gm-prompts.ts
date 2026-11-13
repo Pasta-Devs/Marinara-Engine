@@ -1474,6 +1474,14 @@ function renderRulesetKindCheckLine(
     ...untrainedClause,
     ...effectsClause,
     ...outcomesClause("points"),
+    // Two named dice (1.821).
+    ...(resolution.duality
+      ? [
+          `The two dice are ${resolution.duality.dice[0].label} and ${resolution.duality.dice[1].label}; the engine marks duality="..." with the one that showed more${
+            resolution.duality.tieIsCritical ? `, or duality="tie", which is a critical success` : `, or duality="tie"`
+          }. Narrate the check as with that die${resolution.duality.text ? `: ${resolution.duality.text}` : "."}`,
+        ]
+      : []),
     ...(resolution.unmodified
       ? [
           `A check the engine marks unmodified="N" rolled that face before anything was added or rolled again (${resolution.unmodified.join(", ")}): apply what the rules say about it.`,

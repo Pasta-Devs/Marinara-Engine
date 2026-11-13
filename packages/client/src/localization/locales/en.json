@@ -12369,6 +12369,8 @@
   "ui.dice.animatedskillcheckresult.dc": "DC",
   "ui.dice.animatedskillcheckresult.difficultyDice": "Difficulty dice",
   "ui.dice.animatedskillcheckresult.doubleFrom": "Dice showing {{face}} or more counted twice",
+  "ui.dice.animatedskillcheckresult.duality": "{{label}} showed more",
+  "ui.dice.animatedskillcheckresult.dualityTie": "The two dice tied",
   "ui.dice.animatedskillcheckresult.effects": "Conditions and items: {{value}} to this roll",
   "ui.dice.animatedskillcheckresult.effectsDice": "Conditions and items: {{value}} dice",
   "ui.dice.animatedskillcheckresult.exact": "{{label}}: {{count}} exactly on target",
