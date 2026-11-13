@@ -23,7 +23,7 @@ import {
   rollDiceSumCheck,
   serializeResolvedSkillCheckTag,
   type RulesetDefinition,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-ruleset-plot-die-"));
 const previousDataDir = process.env.DATA_DIR;
@@ -35,12 +35,12 @@ try {
     { buildGmFormatReminder },
     { getCapabilityPackageInstallIssue },
   ] = await Promise.all([
-    import("../../packages/server/src/services/game/skill-check-resolution.service.js"),
-    import("../../packages/server/src/services/game/gm-prompts.js"),
-    import("../../packages/server/src/services/capability-packages/package-manager.service.js"),
+    import("../../../packages/server/src/services/game/skill-check-resolution.service.js"),
+    import("../../../packages/server/src/services/game/gm-prompts.js"),
+    import("../../../packages/server/src/services/capability-packages/package-manager.service.js"),
   ]);
   const emberText = readFileSync(
-    fileURLToPath(new URL("../../docs/examples/rulesets/ember-roads.json", import.meta.url)),
+    fileURLToPath(new URL("../../../docs/examples/rulesets/ember-roads.json", import.meta.url)),
     "utf8",
   );
   /** Ember Roads thrown on a d20 with the Cosmere plot die, its fight and layers left out. */
@@ -197,7 +197,7 @@ try {
     // A check inside a branch throws the plot die too, and the tag pass that follows leaves the branch
     // arm's record alone: rolling it again could contradict the half of the branch already kept.
     const { createGameTurnChanceSession, resolveGameTurnBranches } =
-      await import("../../packages/server/src/services/game/one-request-dice.js");
+      await import("../../../packages/server/src/services/game/one-request-dice.js");
     const session = createGameTurnChanceSession({
       db: null as never,
       chatId: "plot-branch",
