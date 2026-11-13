@@ -104,6 +104,7 @@ How places are told apart:
 
 - The most specific name wins. `John's bedroom` and `{{user}}'s bedroom` never mix, and a plain `bedroom` pin fills in only for bedrooms nobody pinned.
 - `{{user}}` is your persona's name and `{{char}}` any character in the chat, so `{{user}}'s bedroom` matches "Alyssa's bedroom".
+- "My" and "our" belong to whoever wrote the message. When John's reply says the story is in "my bedroom", that is John's bedroom; "your bedroom" in his reply is yours. In your own message, "your bedroom" is the character's when the chat has only one.
 - Case, accents and apostrophes don't matter. Names match whole words: `John` never matches "Johnson".
 - With **World Maps**, pick the place from the **World Maps place** list instead. A pinned building also covers its rooms that have no pin of their own.
 
