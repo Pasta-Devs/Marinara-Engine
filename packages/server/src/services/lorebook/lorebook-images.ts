@@ -10,6 +10,7 @@ import {
 import { logger } from "../../lib/logger.js";
 import { getDataDir } from "../../config/runtime-config.js";
 import { isAllowedImageBuffer } from "../../utils/security.js";
+import { realPathInRealFolder } from "../../utils/app-folder.js";
 
 export const LOREBOOK_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const LOREBOOK_EXPORT_IMAGE_MAX_BYTES = 64 * 1024 * 1024;
@@ -43,7 +44,13 @@ export async function readLorebookImageDataUrl(
   if (!LOREBOOK_ENTRY_IMAGE_PATH_PATTERN.test(path)) return null;
   const filename = path.slice(path.lastIndexOf("/") + 1);
   try {
-    const file = await open(join(lorebookImagesDirectory(), filename), constants.O_RDONLY | constants.O_NOFOLLOW);
+    const directory = lorebookImagesDirectory();
+    const imagePath = join(directory, filename);
+    // Windows has no O_NOFOLLOW (it is undefined there, so the open would follow a link): the real-path check refuses a
+    // file link that leads out of the folder on every platform, and O_NOFOLLOW still refuses any link where it exists.
+    // Like O_NOFOLLOW, it follows a link to the images folder itself (moved to another disk), as before.
+    realPathInRealFolder(directory, imagePath);
+    const file = await open(imagePath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     try {
       const stat = await file.stat();
       if (!stat.isFile() || stat.size > LOREBOOK_IMAGE_MAX_BYTES) return null;
