@@ -33,6 +33,12 @@ assert.equal(
   22,
   "V5 retains exactly its full caption capacity",
 );
+const solo = crowdPrompts.slice(0, 1);
+assert.equal(buildNovelAiV4CharacterPromptPayload(solo, "nai-diffusion-5-full").useCoords, false);
+const center = { x: 0.2, y: 0.65 };
+const placedSolo = buildNovelAiV4CharacterPromptPayload([{ ...solo[0]!, position: center }], "nai-diffusion-5-full");
+assert.equal(placedSolo.useCoords, true, "an explicit solo position enables coordinate placement");
+assert.deepEqual(placedSolo.captions[0]?.centers, [center]);
 
 assert.equal(getNovelAiDisplayPrompt({ input: "legacy scene" }), "legacy scene");
 assert.equal(
