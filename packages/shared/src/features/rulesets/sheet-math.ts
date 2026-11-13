@@ -1400,6 +1400,29 @@ export function rollDiceSumCheck(
   const resolution = definition.resolution;
   if (resolution.kind !== "dice-sum") return noRoll();
   const { dice, naturals, advantage: allowsAdvantage } = resolution;
+  // A check with no dice (1.825): the sheet's own numbers are the total, read against the difficulty
+  // exactly as a summed check is. Nothing is thrown, so nothing claims a face, a natural or a mode.
+  if (dice.count === 0) {
+    const total = Math.max(input.modifier, input.totalFloor ?? -Infinity);
+    // A band the Game Master may move (1.823) moves here too, held to the ruleset's own limit.
+    const shift =
+      resolution.tierShift && Number.isFinite(input.shift)
+        ? clampInteger(input.shift!, -resolution.tierShift.max, resolution.tierShift.max)
+        : 0;
+    const roll: RulesetCheckRoll = {
+      rolls: [],
+      usedRoll: 0,
+      total,
+      success: total >= input.dc,
+      criticalSuccess: false,
+      criticalFailure: false,
+      rollMode: "normal",
+      // `0d6`, the shape the record already uses for a result with no dice in it, so a reload reads
+      // it back as the comparison it was instead of as a check nobody rolled.
+      dice: `0d${dice.sides}`,
+    };
+    return applyRulesetCheckOutcome(resolution.outcomes, roll, { margin: total - input.dc, total, natural: 0, shift });
+  }
   const single = dice.count === 1;
   const preRolled =
     single && Number.isInteger(input.preRolled) && input.preRolled! >= 1 && input.preRolled! <= dice.sides

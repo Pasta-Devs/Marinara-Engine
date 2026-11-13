@@ -12422,6 +12422,7 @@
   "ui.dice.animatedskillcheckresult.exact": "{{label}}: {{count}} exactly on target",
   "ui.dice.animatedskillcheckresult.explodeFrom": "Dice showing {{face}} or more rolled again",
   "ui.dice.animatedskillcheckresult.messy": "Messy critical",
+  "ui.dice.animatedskillcheckresult.noDice": "{{value}} vs {{dc}} (no dice)",
   "ui.dice.animatedskillcheckresult.noSymbols": "No net symbols",
   "ui.dice.animatedskillcheckresult.plotBlank": "{{label}} showed {{face}}: blank",
   "ui.dice.animatedskillcheckresult.plotBlankBonus": "{{label}} showed {{face}} ({{bonus}})",

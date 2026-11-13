@@ -147,6 +147,26 @@ export function AnimatedSkillCheckResult({
             </button>
           )}
         </div>
+      ) : result.resolution === "sum" && result.rolls.length === 0 ? (
+        // A check with no dice (1.825) compares the sheet's own number: there is no die to show.
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi("ui.dice.animatedskillcheckresult.noDice", {
+              value: result.total,
+              dc: result.dc,
+            })}
+          </span>
+          {onDismiss && (
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="dice-roll-dismiss"
+              aria-label={localizeUi("ui.dice.animateddiceroll.dismissDiceRollResult")}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
       ) : (
         <AnimatedDiceRoll
           notation={result.dice ?? `${result.rolls.length}d20`}
