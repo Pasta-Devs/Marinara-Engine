@@ -12379,7 +12379,7 @@
   "ui.dice.animatedskillcheckresult.messy": "Messy critical",
   "ui.dice.animatedskillcheckresult.noSymbols": "No net symbols",
   "ui.dice.animatedskillcheckresult.plotBlank": "{{label}} showed {{face}}: blank",
-  "ui.dice.animatedskillcheckresult.plotBlankBonus": "{{label}} showed {{face}}: blank ({{bonus}})",
+  "ui.dice.animatedskillcheckresult.plotBlankBonus": "{{label}} showed {{face}} ({{bonus}})",
   "ui.dice.animatedskillcheckresult.plotComplication": "{{label}} showed {{face}}: a complication",
   "ui.dice.animatedskillcheckresult.plotComplicationBonus": "{{label}} showed {{face}}: a complication ({{bonus}})",
   "ui.dice.animatedskillcheckresult.plotDefault": "Plot die",
