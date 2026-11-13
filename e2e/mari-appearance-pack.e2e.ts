@@ -177,13 +177,15 @@ test("a dated pack follows its seasonal theme and toggle, and another pick wins 
   expect((await storedUI(page)).mariAppearancePackId).toBe("safari");
 });
 
-test("the Halloween greeting's Turn it off takes Professor Mari's costume off for this year", async ({ page }) => {
+test("the Halloween greeting's Turn off seasonal themes takes Professor Mari's costume off for this year", async ({
+  page,
+}) => {
   await page.clock.setFixedTime(HALLOWEEN_NOON);
   const homePortrait = await openSeasonalHome(page, {});
   const greeting = page.getByRole("dialog", { name: "Happy Halloween!" });
   await expect(greeting).toBeVisible();
   await expect(homePortrait("raccoon")).toHaveJSProperty("naturalWidth", 512);
-  await greeting.getByRole("button", { name: "Turn it off" }).click();
+  await greeting.getByRole("button", { name: "Turn off seasonal themes" }).click();
   await expect(page.locator("html")).not.toHaveAttribute("data-seasonal-theme");
   await expect(homePortrait("basic")).toHaveCount(1);
   await expect(homePortrait("raccoon")).toHaveCount(0);
@@ -222,11 +224,11 @@ test("the Halloween preview dresses Professor Mari up, and nothing done in it is
   await expect.poll(async () => (await storedUI(page)).mariAppearancePackId).toBe("safari");
   expect((await storedUI(page)).mariSeasonOptOut).toBe("");
 
-  // A fresh preview dresses her again; its own Turn it off undresses her and records nothing.
+  // A fresh preview dresses her again; its own Turn off seasonal themes undresses her and records nothing.
   await page.reload();
   await expect(greeting).toBeVisible();
   await expect(homePortrait("raccoon")).toHaveJSProperty("naturalWidth", 512);
-  await greeting.getByRole("button", { name: "Turn it off" }).click();
+  await greeting.getByRole("button", { name: "Turn off seasonal themes" }).click();
   await expect(page.locator("html")).not.toHaveAttribute("data-seasonal-theme");
   await expect(homePortrait("safari")).toHaveCount(1);
   await expect(homePortrait("raccoon")).toHaveCount(0);

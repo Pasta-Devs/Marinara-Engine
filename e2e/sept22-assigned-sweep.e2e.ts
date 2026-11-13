@@ -331,7 +331,7 @@ for (const style of ["classic", "bubble"] as const) {
         return route.fulfill({ status: 500, json: { error: "Fixture planning failure" } });
       });
       await page.goto("/");
-      const setup = page.getByRole("dialog", { name: "Scene Prompt Setup", exact: true });
+      const setup = page.getByRole("dialog", { name: "Scene prompt setup", exact: true });
       const invitation = page.getByRole("button", { name: "Set up scene", exact: true });
       await expect(invitation).toBeVisible();
       await expect(setup).toBeHidden();
@@ -349,7 +349,7 @@ for (const style of ["classic", "bubble"] as const) {
       await expect(invitation).toBeVisible();
       await expect(setup).toBeHidden();
       await invitation.click();
-      await setup.getByRole("button", { name: "Plan Scene", exact: true }).click();
+      await setup.getByRole("button", { name: "Plan scene", exact: true }).click();
       await expect.poll(() => planningCalls).toBe(1);
       await expect(invitation).toBeEnabled();
     } finally {

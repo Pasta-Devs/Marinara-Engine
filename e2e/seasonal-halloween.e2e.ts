@@ -42,10 +42,10 @@ test("the Halloween preview greets, keeps or turns off the theme, and saves noth
   await expect(bat).toHaveCSS("pointer-events", "none");
   expect(await seasonalRecords(page)).toMatchObject({ greeted: {}, off: {} });
 
-  // Nothing was saved, so the preview greets again; "Turn it off" takes the costume off at once.
+  // Nothing was saved, so the preview greets again; "Turn off seasonal themes" takes the costume off at once.
   await page.reload();
   await expect(greeting).toBeVisible();
-  await greeting.getByRole("button", { name: "Turn it off" }).click();
+  await greeting.getByRole("button", { name: "Turn off seasonal themes" }).click();
   await expect(greeting).toBeHidden();
   await expect(root).not.toHaveAttribute("data-seasonal-theme");
   await expect(bat).toBeHidden();
