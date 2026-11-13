@@ -52,10 +52,17 @@ export async function readLorebookImageDataUrl(
     if (!checked.isFile()) return null;
     // Windows has no O_NOFOLLOW (it is undefined there), so the open follows a link swapped in after the check. Only
     // the file that was checked is read: the one opened must be that same file.
+    // ponytail: a volume with no file IDs (FAT32, exFAT) reports ino 0 for every file, so there the size and creation
+    // time alone tell the files apart. Upgrade path: open with FILE_FLAG_OPEN_REPARSE_POINT through a native helper.
     const file = await open(checkedPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     try {
       const stat = await file.stat({ bigint: true });
-      if (stat.ino !== checked.ino || stat.dev !== checked.dev) return null;
+      const sameFile =
+        stat.ino === checked.ino &&
+        stat.dev === checked.dev &&
+        stat.size === checked.size &&
+        stat.birthtimeNs === checked.birthtimeNs;
+      if (!sameFile) return null;
       if (!stat.isFile() || stat.size > BigInt(LOREBOOK_IMAGE_MAX_BYTES)) return null;
       const buffer = Buffer.alloc(Number(stat.size));
       const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);

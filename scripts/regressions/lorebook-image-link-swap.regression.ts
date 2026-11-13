@@ -34,25 +34,38 @@ try {
     console.info("Lorebook image link swap regression skipped: this Windows account cannot create symbolic links.");
   } else {
     const fsPromises = createRequire(import.meta.url)("node:fs/promises") as typeof import("node:fs/promises");
-    const realOpen = fsPromises.open;
+    const realOpen = fsPromises.open as (...args: unknown[]) => ReturnType<typeof fsPromises.open>;
+    const realLstat = fsPromises.lstat as (...args: unknown[]) => Promise<import("node:fs").BigIntStats>;
+    // A FAT32 or exFAT volume reports ino 0 (and here dev 0) for every file.
+    let noFileIds = false;
+    const withoutIds = <T>(stats: T) => (noFileIds ? Object.assign(stats as object, { ino: 0n, dev: 0n }) : stats) as T;
     let swapped = false;
-    fsPromises.open = (async (path: Parameters<typeof realOpen>[0], ...rest: unknown[]) => {
+    fsPromises.lstat = (async (...args: unknown[]) => withoutIds(await realLstat(...args))) as typeof fsPromises.lstat;
+    fsPromises.open = (async (path: unknown, ...rest: unknown[]) => {
       if (!swapped && String(path).endsWith(name)) {
         swapped = true;
         unlinkSync(path as string);
         symlinkSync(secret, path as string, "file");
       }
-      return (realOpen as (...args: unknown[]) => ReturnType<typeof realOpen>)(path, ...rest);
-    }) as typeof realOpen;
+      const handle = await realOpen(path, ...rest);
+      const realStat = handle.stat.bind(handle) as (...args: unknown[]) => Promise<unknown>;
+      handle.stat = (async (...args: unknown[]) => withoutIds(await realStat(...args))) as typeof handle.stat;
+      return handle;
+    }) as typeof fsPromises.open;
     syncBuiltinESMExports();
 
     const { lorebookImagesDirectory, readLorebookImageDataUrl } =
       await import("../../packages/server/src/services/lorebook/lorebook-images.js");
     mkdirSync(lorebookImagesDirectory(), { recursive: true });
-    writeFileSync(join(lorebookImagesDirectory(), name), pngBytes(0));
-    const result = await readLorebookImageDataUrl(`/api/lorebooks/entry-images/${name}`);
-    assert.ok(swapped, "the image was swapped for a link between the check and the open");
-    assert.equal(result, null, "a link swapped in after the real-path check is not read");
+    for (const volume of ["with file IDs", "without file IDs"]) {
+      noFileIds = volume === "without file IDs";
+      swapped = false;
+      writeFileSync(join(lorebookImagesDirectory(), name), pngBytes(0));
+      const result = await readLorebookImageDataUrl(`/api/lorebooks/entry-images/${name}`);
+      assert.ok(swapped, `${volume}: the image was swapped for a link between the check and the open`);
+      assert.equal(result, null, `${volume}: a link swapped in after the real-path check is not read`);
+      unlinkSync(join(lorebookImagesDirectory(), name));
+    }
     console.info("Lorebook image link swap regression passed.");
   }
 } finally {
