@@ -94,8 +94,10 @@ export function useLocationBackgroundPinFollower(args: {
   chatMetadata: unknown;
   userName?: string | null;
   characterNames: readonly string[];
+  /** Who wrote the message the World State belongs to ("my bedroom" is theirs). */
+  speakerName?: string | null;
 }) {
-  const { chatId, chatMode, chatMetadata, userName, characterNames } = args;
+  const { chatId, chatMode, chatMetadata, userName, characterNames, speakerName } = args;
   const meta = readMetadata(chatMetadata);
   const isRoleplay = chatMode === "roleplay";
   const pins = useMemo(
@@ -129,10 +131,11 @@ export function useLocationBackgroundPinFollower(args: {
             places: places?.map((entry) => ({ id: entry.id, name: entry.name, parentId: entry.parentId })),
             userName,
             characterNames,
+            speakerName,
           })
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isRoleplay, pins, location, placeId, places, userName, characterKey],
+    [isRoleplay, pins, location, placeId, places, userName, characterKey, speakerName],
   );
 
   const publish = useLocationPinStatus((state) => state.publish);

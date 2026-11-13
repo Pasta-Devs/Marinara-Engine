@@ -43,6 +43,11 @@ export interface LocationBackgroundContext {
   userName?: string | null;
   /** Fill {{char}} in pin names (each character of the chat). */
   characterNames?: readonly string[];
+  /**
+   * Who wrote the message this location belongs to: "my bedroom" in John's reply is John's
+   * bedroom. The persona's name when it is the user's own message.
+   */
+  speakerName?: string | null;
 }
 
 export interface LocationBackgroundMatch {
@@ -127,6 +132,26 @@ function expandNameMacros(name: string, context: LocationBackgroundContext): str
   return out;
 }
 
+/**
+ * The location with "my/our ..." read as the speaker's and "your ..." as the other side's
+ * (the persona in a character's message; the only character in the user's own), or "" when
+ * nothing changes. Works on normalized text, where "John's" is already "john".
+ */
+export function resolveSpeakerPossessives(text: string, context: LocationBackgroundContext): string {
+  const speaker = normalizeLocationText(readString(context.speakerName));
+  if (!speaker || !/(^| )(my|our|your)( |$)/u.test(text)) return "";
+  const user = normalizeLocationText(readString(context.userName));
+  const characters = (context.characterNames ?? []).map((name) => normalizeLocationText(readString(name)));
+  const speakerIsUser = !!user && speaker === user;
+  const otherCharacters = characters.filter((name) => name && name !== speaker);
+  const listener = speakerIsUser ? (otherCharacters.length === 1 ? otherCharacters[0]! : "") : user;
+  const out = text
+    .split(" ")
+    .map((word) => (word === "my" || word === "our" ? speaker : word === "your" ? listener || word : word))
+    .join(" ");
+  return out === text ? "" : out;
+}
+
 /** Where a pin's name sits in the normalized location, or -1. Whole words only. */
 function phraseIndex(haystack: string, needle: string): number {
   if (!needle) return -1;
@@ -160,7 +185,13 @@ export function resolveLocationBackgroundPin(
     if (exact) return { pin: exact, by: "place", matched: currentPlace?.name ?? exact.names[0] ?? "" };
   }
 
-  const texts = [context.location, currentPlace?.name].map(normalizeLocationText).filter(Boolean);
+  const locationText = normalizeLocationText(context.location);
+  // "my bedroom" in John's reply is tried as "john bedroom" first, then as written.
+  const texts = [
+    resolveSpeakerPossessives(locationText, context),
+    locationText,
+    normalizeLocationText(currentPlace?.name),
+  ].filter(Boolean);
   type Candidate = { match: LocationBackgroundMatch; words: number; length: number; index: number };
   let best = null as Candidate | null;
   for (const [textOrder, text] of texts.entries()) {

@@ -58,6 +58,20 @@ assert.equal(
   "{{char}} tries each character of the chat",
 );
 
+// ── "my ..." belongs to whoever wrote the message ──
+const both = { userName: "Alyssa", characterNames: ["John", "Mara"] };
+const said = (location: string, speakerName: string | null, characterNames = both.characterNames) =>
+  shared.resolveLocationBackgroundPin(pins, { ...both, characterNames, location, speakerName })?.pin.id ?? null;
+assert.equal(said("my bedroom", "John"), "john", "John's 'my bedroom' is John's bedroom");
+assert.equal(said("Smith House, my room", "John"), "john");
+assert.equal(said("my bedroom", "Alyssa"), "mine", "the user's 'my bedroom' is the persona's");
+assert.equal(said("your bedroom", "John"), "mine", "John's 'your bedroom' is the user's");
+assert.equal(said("your bedroom", "Alyssa", ["John"]), "john", "the user's 'your' is the only character's");
+assert.equal(said("your bedroom", "Alyssa"), "any", "with two characters 'your' stays unknown");
+assert.equal(said("my bedroom", null), "any", "no speaker: read as written");
+assert.equal(said("John's bedroom", "Mara"), "john", "a named owner beats the speaker");
+assert.equal(said("Myrtle's study", "John"), null, "only the whole word 'my'");
+
 // ── World Maps places ──
 const places = [
   { id: "house", name: "Smith House", parentId: null },

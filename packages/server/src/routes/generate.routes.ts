@@ -12615,6 +12615,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             projection,
             userName: personaName,
             characterNames: charInfo.map((character) => character.name),
+            // The reply's character: "my bedroom" in John's reply is John's.
+            speakerName:
+              (lastSavedMsg as { role?: string } | null)?.role === "user"
+                ? personaName
+                : (charInfo.find(
+                    (character) => character.id === (lastSavedMsg as { characterId?: string } | null)?.characterId,
+                  )?.name ?? null),
             weather: state?.weather ?? null,
             weatherVersions: illustratorWeatherVersionsEnabled(chatMode, chatMeta),
           });
