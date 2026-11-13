@@ -2485,6 +2485,59 @@ export function ChatSettingsDrawer({
       </span>
     </label>
   );
+  const illustratorDecisionLocationCheck =
+    illustratorAutoBackgroundsEnabled && metadata.illustratorDecisionLocationCheck === true;
+  const illustratorDecisionWeatherCheck =
+    illustratorWeatherBackgroundsEnabled && metadata.illustratorDecisionWeatherCheck === true;
+  const renderIllustratorDecisionChecks = () => {
+    if (!illustratorAutoBackgroundsEnabled && !illustratorWeatherBackgroundsEnabled) return null;
+    const value =
+      illustratorDecisionLocationCheck && illustratorDecisionWeatherCheck
+        ? "both"
+        : illustratorDecisionLocationCheck
+          ? "location"
+          : illustratorDecisionWeatherCheck
+            ? "weather"
+            : "off";
+    const options = [
+      "off",
+      ...(illustratorAutoBackgroundsEnabled ? ["location"] : []),
+      ...(illustratorWeatherBackgroundsEnabled ? ["weather"] : []),
+      ...(illustratorAutoBackgroundsEnabled && illustratorWeatherBackgroundsEnabled ? ["both"] : []),
+    ];
+    return (
+      <label className="flex flex-col gap-1">
+        <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
+          {localizeUi("ui.chat.chatsettingsdrawer.illustratorDecisionChecks")}
+        </span>
+        <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+          {localizeUi(
+            hasDecisionModel
+              ? "ui.chat.chatsettingsdrawer.illustratorDecisionChecksHelp"
+              : "ui.chat.chatsettingsdrawer.illustratorDecisionChecksNoModel",
+          )}
+        </span>
+        <select
+          value={value}
+          disabled={!hasDecisionModel && value === "off"}
+          onChange={(e) =>
+            updateMeta.mutate({
+              id: chat.id,
+              illustratorDecisionLocationCheck: e.target.value === "location" || e.target.value === "both",
+              illustratorDecisionWeatherCheck: e.target.value === "weather" || e.target.value === "both",
+            })
+          }
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50 disabled:opacity-60"
+        >
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {localizeUi(`ui.chat.chatsettingsdrawer.illustratorDecisionChecks.${option}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  };
   const renderIllustratorRunInterval = () => (
     <div className="flex flex-col gap-1">
       <label className="flex flex-col gap-1">
@@ -9412,6 +9465,7 @@ export function ChatSettingsDrawer({
                             enabled={illustratorWeatherBackgroundsEnabled}
                             onToggle={toggleIllustratorWeatherBackgrounds}
                           />
+                          {renderIllustratorDecisionChecks()}
                           <label className="flex flex-col gap-1">
                             <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                               {localizeUi("ui.chat.chatsettingsdrawer.illustratorMakes")}
