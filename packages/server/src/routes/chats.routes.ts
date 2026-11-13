@@ -1786,6 +1786,8 @@ export async function chatsRoutes(app: FastifyInstance) {
             [CHAT_MODEL_OVERRIDE_KEY]: choice?.model ? choice : null,
             [CHAT_RECENT_MODELS_KEY]: recent.slice(0, CHAT_RECENT_MODELS_LIMIT),
             [CHAT_FOLLOWS_MAIN_KEY]: !choice,
+            // #9126: a pick, Main included, is the player's answer to a Model the sweep recorded as deleted.
+            [CHAT_MODEL_DELETED_KEY]: null,
           };
         },
         { metadataQueueHeld: true },
