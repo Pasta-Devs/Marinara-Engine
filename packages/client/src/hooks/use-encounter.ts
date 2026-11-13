@@ -184,8 +184,9 @@ export function useEncounter() {
           narrative: r.narrative || "",
         });
 
-        // Check for combat end
-        if (r.combatEnd && r.result) {
+        // Check for combat end. #9117: a fight closed while this reply was in flight ends nothing and writes no
+        // summary; the window is already gone.
+        if (r.combatEnd && r.result && useEncounterStore.getState().active) {
           store.endCombat(r.result);
           await generateSummary(r.result);
         }

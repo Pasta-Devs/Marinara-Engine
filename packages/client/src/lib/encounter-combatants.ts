@@ -3,19 +3,22 @@
 // ──────────────────────────────────────────────
 // The reply may return the party or the enemies in another order, or leave one out. Merging by list position put every
 // attack, item, sprite and description on the wrong combatant and dropped the one left out. These merge by name
-// (case-insensitive): an entry updates the combatant with its name, a combatant the reply leaves out keeps its state,
+// (case-insensitive) and by occurrence: an entry updates the next unconsumed combatant with its name, so two foes
+// sharing a name are updated one for the other rather than collapsed, a combatant the reply leaves out keeps its state,
 // and an enemy name the fight does not have yet is added as a new foe. The player is never one of them.
 import type { CombatPartyMember, CombatEnemy } from "@marinara-engine/shared";
 
 /**
- * #9117: the combatant an entry is, matched by name (case-insensitive) and never by list position. The model may
- * return the fight in another order or leave someone out; a name match updates that combatant, and an entry with no
- * match is taken as a new one (the caller adds it after these).
+ * #9117: the index of the next current combatant an entry of this name stands for: the first one with that name
+ * (case-insensitive) that no earlier entry has consumed, so two combatants sharing a name are matched one for the
+ * other. -1 when every combatant of that name is already accounted for, or the entry names no one.
  */
-export function currentOf<T extends { name: string }>(name: string, current: T[]): T | undefined {
+export function nextIndexOf<T extends { name: string }>(name: string, current: T[], consumed: Set<number>): number {
   const key = name.trim().toLowerCase();
-  if (!key) return undefined;
-  return current.find((one) => one.name === name) ?? current.find((one) => one.name.trim().toLowerCase() === key);
+  if (!key) return -1;
+  const exact = current.findIndex((one, index) => !consumed.has(index) && one.name === name);
+  if (exact >= 0) return exact;
+  return current.findIndex((one, index) => !consumed.has(index) && one.name.trim().toLowerCase() === key);
 }
 
 /** The name an entry gives, when it gives one; "" for an entry with none. */
@@ -30,11 +33,13 @@ const entryName = (raw: unknown) => {
  * member with its name (#9117). A member the reply leaves out keeps the state it had.
  */
 export function sanitizeParty(arr: unknown[], current: CombatPartyMember[]): CombatPartyMember[] {
+  const consumed = new Set<number>();
   const kept = arr.flatMap((raw) => {
     const m = raw as Record<string, unknown> | null;
-    const name = entryName(raw);
-    const matched = name ? currentOf(name, current) : undefined;
+    const index = nextIndexOf(entryName(raw), current, consumed);
+    const matched = index >= 0 ? current[index] : undefined;
     if (!matched) return [];
+    consumed.add(index);
     return [
       {
         name: matched.name,
@@ -47,21 +52,23 @@ export function sanitizeParty(arr: unknown[], current: CombatPartyMember[]): Com
       } satisfies CombatPartyMember,
     ];
   });
-  const seen = new Set(kept.map((one) => one.name));
-  return [...kept, ...current.filter((one) => !seen.has(one.name))];
+  return [...kept, ...current.filter((_, index) => !consumed.has(index))];
 }
 
 /**
  * Ensure each enemy has all required numeric/string fields so components don't crash, and that each one is the enemy
- * with its name (#9117). A name the fight does not have yet is added as it came, so a foe that joins mid-fight shows
- * up; the player is never one of them.
+ * with its name (#9117). Two enemies of one name are matched one for the other. A name the fight does not have yet is
+ * added as it came, so a foe that joins mid-fight shows up; the player is never one of them.
  */
 export function sanitizeEnemies(arr: unknown[], current: CombatEnemy[]): CombatEnemy[] {
+  const consumed = new Set<number>();
   const kept = arr.flatMap((raw) => {
     const m = raw as Record<string, unknown> | null;
     const name = entryName(raw);
+    const index = nextIndexOf(name, current, consumed);
+    const matched = index >= 0 ? current[index] : undefined;
     if (!name) return [];
-    const matched = currentOf(name, current);
+    if (matched) consumed.add(index);
     return [
       {
         name: matched?.name ?? name,
@@ -74,6 +81,5 @@ export function sanitizeEnemies(arr: unknown[], current: CombatEnemy[]): CombatE
       } satisfies CombatEnemy,
     ];
   });
-  const seen = new Set(kept.map((one) => one.name));
-  return [...kept, ...current.filter((one) => !seen.has(one.name))];
+  return [...kept, ...current.filter((_, index) => !consumed.has(index))];
 }

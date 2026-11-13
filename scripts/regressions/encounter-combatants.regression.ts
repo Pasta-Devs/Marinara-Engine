@@ -79,6 +79,32 @@ assert.deepEqual(
 );
 assert.equal(foes[1]!.attacks[0]!.name, "claw");
 
+// Two foes of one name are matched one for the other: the reply's two entries update both, never both the first.
+const twins = [
+  { name: "Wolf", hp: 5, maxHp: 5, attacks: [], statuses: [], description: "grey", sprite: "a" },
+  { name: "Wolf", hp: 7, maxHp: 7, attacks: [], statuses: [], description: "dark", sprite: "b" },
+];
+const pair = sanitizeEnemies(
+  [
+    { name: "Wolf", hp: 1 },
+    { name: "Wolf", hp: 2 },
+  ],
+  twins,
+);
+assert.deepEqual(
+  pair.map(({ hp, description, sprite }) => ({ hp, description, sprite })),
+  [
+    { hp: 1, description: "grey", sprite: "a" },
+    { hp: 2, description: "dark", sprite: "b" },
+  ],
+);
+// A reply that names one other love interest's... one Wolf leaves the other as it was.
+const one = sanitizeEnemies([{ name: "Wolf", hp: 3 }], twins);
+assert.deepEqual(
+  one.map(({ hp }) => hp),
+  [3, 7],
+);
+
 // A foe the fight does not have yet joins it, as it came.
 const joined = sanitizeEnemies([{ name: "Mud thing", hp: 4, maxHp: 4 }], enemies);
 assert.deepEqual(

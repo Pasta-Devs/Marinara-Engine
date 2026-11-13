@@ -1833,8 +1833,12 @@ export async function encounterRoutes(app: FastifyInstance) {
 
       const summary = result.content.replace(/\[FIGHT CONCLUDED\]\s*/i, "").trim();
 
-      // #9117: the window was closed, or its request dropped, while the summary was written: it is not added.
-      if (request.signal.aborted) return reply.status(499).send({ error: "Summary cancelled" });
+      // #9117: the window was closed, or its request dropped, while the summary was written: it is not added, and the
+      // chat is left as a fight that ended, not one still marked in progress.
+      if (request.signal.aborted) {
+        await chats.patchMetadata(chatId, { encounterActive: false }, { touchUpdatedAt: false }).catch(() => undefined);
+        return reply.status(499).send({ error: "Summary cancelled" });
+      }
 
       // Save the summary as a narrator message (not attributed to a specific character)
       const msg = await chats.createMessage({
