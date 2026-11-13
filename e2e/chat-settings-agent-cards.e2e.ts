@@ -331,8 +331,7 @@ test("Music DJ's Spotify source saves per chat in Roleplay and Game", async ({ p
         playlistName: "gameSpotifyPlaylistName",
         artist: "gameSpotifyArtist",
       },
-      // Game's copy of this list drifted from Roleplay's wording; merging the two copies fixes it.
-      "Shared mix (followed — unavailable)",
+      "Shared mix (followed, unavailable)",
     );
   } finally {
     await request.delete(`/api/chats/${roleplayId}?force=true`);
