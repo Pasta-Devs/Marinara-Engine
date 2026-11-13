@@ -252,6 +252,28 @@ export function paintParty(ctx: Ctx, x: number, y: number, step: boolean) {
   px(ctx, "#5a3b22", x + (step ? 8 : 7), y + 11, 2, 3);
 }
 
+/** A post the holders keep on a dungeon map (dungeon spawns): a figure in red standing guard, crowned in
+ *  gold at the heart, in the party's own size and outline so it reads as people, not as a prop. */
+export function paintGuard(ctx: Ctx, x: number, y: number, heart: boolean) {
+  const outline = "#101018";
+  px(ctx, outline, x + 4, y, 6, 14);
+  px(ctx, outline, x + 3, y + 5, 8, 7);
+  px(ctx, "#3a2a2a", x + 5, y + 1, 4, 3);
+  px(ctx, "#e8b48a", x + 6, y + 2, 2, 1);
+  px(ctx, "#a8322a", x + 4, y + 5, 6, 6);
+  px(ctx, "#6e1d18", x + 4, y + 10, 6, 1);
+  px(ctx, "#cfcfd6", x + 11, y + 3, 1, 8);
+  px(ctx, outline, x + 11, y + 11, 1, 1);
+  px(ctx, "#2b1d14", x + 5, y + 11, 2, 3);
+  px(ctx, "#2b1d14", x + 7, y + 11, 2, 3);
+  if (heart) {
+    px(ctx, outline, x + 4, y - 3, 6, 3);
+    px(ctx, "#e0b23a", x + 5, y - 2, 4, 1);
+    px(ctx, "#e0b23a", x + 5, y - 3, 1, 1);
+    px(ctx, "#e0b23a", x + 8, y - 3, 1, 1);
+  }
+}
+
 /** How dark it is at an hour, 0 to 0.55, as Pixelforge's world darkens: night 21-05, dawn 05-07, dusk
  *  18-21. */
 export function overworldDarkness(hour: number, minute = 0): number {

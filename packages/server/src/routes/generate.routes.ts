@@ -313,7 +313,6 @@ import {
   worldTownVisitTags,
   worldTownVisitText,
   dungeonSetFor,
-  gameDungeonMapFromDungeon,
   gameStyleFromMetadata,
   gameDungeonMapFromMetadata,
   dungeonSpawnPromptText,
@@ -323,10 +322,10 @@ import {
   gameDungeonSitesWith,
   gameDungeonMapPromptText,
   gameDungeonSeed,
+  gameDungeonSiteMap,
   gameDungeonToldText,
   gameDungeonWalkFromMetadata,
   gameDungeonWalkSchema,
-  generateDungeonMap,
   readGameDungeonTags,
   type GameDungeonTag,
   worldSiteLocks,
@@ -11363,9 +11362,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     // A map the party is already on is kept as it stands: the Game Master may name it again.
                     before = { map: current, view: fresh.gameDungeonView ?? null };
                     const set = dungeonSetFor(last.kind, family, last.set);
-                    const map = generateDungeonMap(set.id, gameDungeonSeed(input.chatId, last.name), "medium");
                     Object.assign(patch, {
-                      gameDungeonMap: gameDungeonMapFromDungeon(map, last.name, randomUUID()),
+                      // Its first floor; a place deeper than one floor has its way down (owner 2026-11-13).
+                      gameDungeonMap: gameDungeonSiteMap({
+                        setId: set.id,
+                        name: last.name,
+                        siteSeed: gameDungeonSeed(input.chatId, last.name),
+                        id: randomUUID(),
+                      }),
                       gameDungeonWalk: null,
                       gameDungeonView: "map",
                     });
