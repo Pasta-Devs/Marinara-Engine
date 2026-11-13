@@ -263,11 +263,11 @@ assert.deepEqual(systemCommands.find((command) => command.id === "spotify-settin
   setupTarget: true,
 });
 assert.equal(systemCommands.find((command) => command.id === "spotify-settings")?.action.kind, "navigate");
-// Text to speech opens its set-up screen in the Add window (a modal), which works before TTS is set up too.
+// Text to speech opens the Voice job in its settings window.
 assert.deepEqual(systemCommands.find((command) => command.id === "tts-settings")?.action, {
   kind: "modal",
-  modal: "create-connection",
-  props: { service: "tts" },
+  modal: "job-settings",
+  props: { job: "voice" },
 });
 
 const presentationResults: CommandCenterPresentableResult[] = [

@@ -63,10 +63,6 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
     await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false, theme: "dark" });
     await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
     await page.goto("/");
-    await page.evaluate(async (id) => {
-      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-      useUIStore.getState().openConnectionDetail(id);
-    }, id);
     const capture = async (label: string) => {
       const path = testInfo.outputPath(`${label}.png`);
       await page.screenshot({ path, animations: "disabled" });
@@ -83,7 +79,8 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
     const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
     await actions.scrollIntoViewIfNeeded();
     await actions.click();
-    const shortcut = page.getByRole("menuitem", { name: "Use this model for decisions", exact: true });
+    await page.getByRole("menuitem", { name: "Use for…", exact: true }).click();
+    const shortcut = page.getByRole("menuitemradio", { name: "Decision", exact: true });
     await capture("decision-chat-shortcut");
     await shortcut.click();
 
