@@ -55,7 +55,7 @@ What happens:
 - The version is saved next to the original as `name--wx-rain.png`. The other kinds are `storm`, `snow`, `blizzard`, `hail`, `fog`, `sand`, `ash`, `embers`, `blossom` and `aurora`, plus `clear` for a dry copy of a picture first made in bad weather. The **Background** agent picks among your plain pictures and then shows the matching weather version when one exists.
 - Unusual weather gets a version in the story's own words: a meteor shower is `name--wx-meteor-shower.png`, a blood moon `name--wx-blood-moon.png`.
 - Clear, sunny, cloudy, windy and other light weather keep the plain picture.
-- **Window stencil:** the first time an indoor picture gets a weather version, Illustrator also asks the image model where its windows are. It saves that as a small black and white stencil in `backgrounds/weather-masks`, and every weather version of that room shares it. The moving weather (rain lines, snowflakes, the aurora) is then drawn only on the glass. A room with no windows gets no moving weather, only the colour of the weather and lightning flashes.
+- **Window stencil:** the first time an indoor picture gets a weather version, Illustrator also asks the image model where its windows are. It saves that as a small black and white stencil in `backgrounds/weather-masks`, and every weather version of that room shares it. The moving weather (rain lines, snowflakes, petals) is then drawn only on the glass. A room with no windows gets no moving weather, only the colour of the weather and lightning flashes.
 - It reads the weather from the **World State** agent, or from the Decision model when **Decision Model Checks** includes the weather (see below). The Illustrator image model has to be able to start from a picture (most can, including OpenAI, Gemini, NovelAI and ComfyUI with an image input). Models that can't are skipped, and the picture stays as it is.
 - It works for backgrounds in your library, whether you picked them, the Background agent did or Illustrator made them.
 
@@ -69,7 +69,7 @@ When the chat shows a weather version, **Chat Settings → Agents → Illustrato
 - **Remake windows** asks the image model for the window stencil again. Use it when the moving weather falls on cushions or misses a window.
 - **No moving weather** turns the stencil off for this room. Its weather versions then show no moving weather, only the weather's colour and lightning. **Remake windows** brings it back.
 
-A meteor shower draws shooting stars across the window or sky.
+An aurora, a meteor shower and other weather with nothing falling stay still: the picture shows them, and nothing moves over it.
 
 ## Decision model checks for new places and weather
 
