@@ -75,6 +75,7 @@ import {
 } from "./skill-check.service.js";
 import type { GameSkillModifierView } from "./gm-prompts.js";
 import {
+  diceAsk,
   inferRulesetCheckWho,
   isResolvableSkillCheckRequest,
   readRulesetDifficulty,
@@ -325,6 +326,7 @@ export function planGameTurnBranches(content: string, blocks: GameBranchBlock[])
               ...(tag.purpose ? { purpose: tag.purpose } : {}),
               threshold: tag.threshold,
               bonusDice: tag.bonusDice,
+              ...diceAsk(tag),
             }
           : null;
       // A difficulty named only by its ladder step is read when the sheet is, below, because that is
@@ -448,6 +450,7 @@ export async function resolveGameTurnBranches(
               ...(request.withAbility ? { with: request.withAbility } : {}),
               ...(request.bonusDice != null ? { bonus: request.bonusDice } : {}),
               ...(request.purpose ? { for: request.purpose } : {}),
+              ...diceAsk(request),
               reason: noRoller ? "unknown-roller" : "untrained",
             },
           ),

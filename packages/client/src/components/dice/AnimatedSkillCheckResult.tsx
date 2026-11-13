@@ -206,6 +206,64 @@ export function AnimatedSkillCheckResult({
           </span>
         </div>
       )}
+      {/* The plot die (1.822): its face and what the face carried. It is not one of the dice above. */}
+      {result.plotFace !== undefined && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi(
+              result.plotSymbol === "complication"
+                ? result.plotBonus
+                  ? "ui.dice.animatedskillcheckresult.plotComplicationBonus"
+                  : "ui.dice.animatedskillcheckresult.plotComplication"
+                : result.plotSymbol === "opportunity"
+                  ? result.plotBonus
+                    ? "ui.dice.animatedskillcheckresult.plotOpportunityBonus"
+                    : "ui.dice.animatedskillcheckresult.plotOpportunity"
+                  : result.plotBonus
+                    ? "ui.dice.animatedskillcheckresult.plotBlankBonus"
+                    : "ui.dice.animatedskillcheckresult.plotBlank",
+              {
+                label: result.plotLabel ?? localizeUi("ui.dice.animatedskillcheckresult.plotDefault"),
+                face: result.plotFace,
+                bonus: result.plotBonus ? (result.plotBonus > 0 ? `+${result.plotBonus}` : `${result.plotBonus}`) : "",
+              },
+            )}
+          </span>
+        </div>
+      )}
+      {/* A band the Game Master moved (1.823). */}
+      {result.shift !== undefined && result.shift !== 0 && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi(
+              result.shift > 0
+                ? "ui.dice.animatedskillcheckresult.shiftBetter"
+                : "ui.dice.animatedskillcheckresult.shiftWorse",
+              { count: Math.abs(result.shift) },
+            )}
+          </span>
+        </div>
+      )}
+      {/* Special dice (1.824): how many of the pool they were, and what they made of the result. */}
+      {result.hunger !== undefined && result.hunger > 0 && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi("ui.dice.animatedskillcheckresult.specialDice", {
+              count: result.hunger,
+              label: result.hungerLabel ?? localizeUi("ui.dice.animatedskillcheckresult.specialLabel"),
+            })}
+          </span>
+        </div>
+      )}
+      {(result.messy || result.bestial) && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi(
+              result.messy ? "ui.dice.animatedskillcheckresult.messy" : "ui.dice.animatedskillcheckresult.bestial",
+            )}
+          </span>
+        </div>
+      )}
       {/* A roll read against the sheet's number (1.139): the card's DC is the number it had to stay under. */}
       {result.against && (
         <div className="skill-check-roll-meta">
