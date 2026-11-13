@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseCharacter, runName } from "./character-picker";
 import { seedUIState } from "./ui-state-fixture";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -13,7 +14,10 @@ for (const theme of ["light", "dark"] as const) {
     for (const name of ["Alice", "Bob", "Charlie"]) {
       characters.push(await (await request.post("/api/characters", { data: { data: { name } } })).json());
     }
-    const persona = await (await request.post("/api/characters/personas", { data: { name: "Scene visitor" } })).json();
+    // The picker finds personas by name, so the light and dark runs each pick only their own.
+    const persona = await (
+      await request.post("/api/characters/personas", { data: { name: runName(`Scene visitor ${theme}`) } })
+    ).json();
     const origin = await (
       await request.post("/api/chats", {
         data: {
@@ -59,18 +63,23 @@ for (const theme of ["light", "dark"] as const) {
         const { startSceneWithPromptPreferences } = await import("/src/lib/scene-generation.ts" as string);
         void startSceneWithPromptPreferences({ chatId, prompt: "Visit a library" });
       }, origin.id);
-      const setup = page.getByRole("dialog", { name: "Scene Prompt Setup", exact: true });
+      const setup = page.getByRole("dialog", { name: "Scene prompt setup", exact: true });
       const automatic = setup.getByRole("checkbox", { name: "Let the scene planner choose characters" });
       await expect(automatic).toBeEnabled();
       await automatic.uncheck();
       await setup.getByRole("checkbox", { name: "Charlie", exact: true }).uncheck();
       await setup.getByRole("checkbox", { name: "Alice", exact: true }).uncheck();
       await setup.getByRole("checkbox", { name: "Bob", exact: true }).uncheck();
-      const plan = setup.getByRole("button", { name: "Plan Scene", exact: true });
+      const plan = setup.getByRole("button", { name: "Plan scene", exact: true });
       await expect(plan).toBeDisabled();
       await setup.getByRole("checkbox", { name: "Alice", exact: true }).check();
       await setup.getByRole("checkbox", { name: "Bob", exact: true }).check();
-      await setup.getByRole("combobox", { name: "Scene persona", exact: true }).selectOption(persona.id);
+      await chooseCharacter(
+        page,
+        setup.getByRole("button", { name: "Scene persona", exact: true }),
+        "Personas",
+        persona.name,
+      );
       await page.screenshot({ path: info.outputPath(`scene-participants-${theme}.png`) });
       const created = page.waitForResponse(
         (response) => response.url().endsWith("/api/scene/create") && response.request().method() === "POST",
@@ -202,9 +211,9 @@ test("Scene setup waits for character names and resets choices for a different C
         void requestScenePromptPreferences(undefined, chatId);
       }, chatId);
     await openSetup(chats[0]!.id);
-    const setup = page.getByRole("dialog", { name: "Scene Prompt Setup", exact: true });
+    const setup = page.getByRole("dialog", { name: "Scene prompt setup", exact: true });
     const automatic = setup.getByRole("checkbox", { name: "Let the scene planner choose characters" });
-    const plan = setup.getByRole("button", { name: "Plan Scene", exact: true });
+    const plan = setup.getByRole("button", { name: "Plan scene", exact: true });
     await expect(automatic).toBeEnabled();
     await automatic.uncheck();
     await expect(plan).toBeDisabled();
@@ -215,11 +224,19 @@ test("Scene setup waits for character names and resets choices for a different C
     await expect(plan).toBeDisabled();
     await automatic.check();
     await expect(plan).toBeEnabled();
-    await setup.getByRole("combobox", { name: "Scene persona" }).selectOption("");
+    // None shows only while the search box is empty, so pick it without searching.
+    const personaField = setup.getByRole("button", { name: "Scene persona", exact: true });
+    await personaField.click();
+    const personas = page.getByRole("dialog", { name: "Personas", exact: true });
+    await personas.locator("[data-pick-row]").filter({ hasText: "None" }).first().click();
+    await expect(personas).toHaveCount(0);
+    await expect(personaField).toHaveText("None");
     await page.unroute("**/api/characters/summaries");
     await openSetup(chats[1]!.id);
     await expect(automatic).toBeChecked();
-    await expect(setup.getByRole("combobox", { name: "Scene persona" })).toHaveValue("source");
+    await expect(setup.getByRole("button", { name: "Scene persona", exact: true })).toHaveText(
+      "Use the Conversation persona",
+    );
     await expect(automatic).toBeEnabled();
     await automatic.uncheck();
     await expect(setup.getByRole("checkbox", { name: "Bob", exact: true })).toBeChecked();
