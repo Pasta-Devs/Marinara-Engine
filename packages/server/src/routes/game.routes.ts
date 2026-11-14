@@ -25,6 +25,7 @@ import {
   normalizeWeatherType,
   environmentHeldPlaces,
   readEnvironmentHolds,
+  worldEnvironmentHolds,
   type WeatherType,
   combatWeatherSchema,
   readImageAppearanceOverride,
@@ -2480,6 +2481,8 @@ const worldBriefWriteSchema = z.object({
   canon: worldBriefSchema.shape.places.optional(),
   /** Dated events read from the player's lore, kept exactly. */
   canonEvents: worldBriefSchema.shape.events.optional(),
+  /** Places the player's lore holds outside nature, kept exactly. */
+  canonEnvironments: worldBriefSchema.shape.environments.optional(),
   grounding: z.enum(WORLD_GROUNDINGS).default("expand"),
   generationParameters: z.unknown().optional(),
   debugMode: z.boolean().optional(),
@@ -11038,7 +11041,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       prompt: buildWorldBriefPrompt({ ...input, canon, canonEvents, strict: input.grounding === "strict" }),
       notJson: "brief: The reply was not JSON",
       read: (data) => {
-        const read = readWrittenWorldBrief(input.kit, data, canon, canonEvents);
+        const read = readWrittenWorldBrief(input.kit, data, canon, canonEvents, input.canonEnvironments ?? []);
         return read.ok ? { ok: true, value: { brief: read.brief, repairs: read.repairs } } : read;
       },
       repair: worldBriefRepairPrompt,
@@ -12095,7 +12098,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       ? storyPlaceSeasons(story, storyState(story, readStoryLedger(replies.all)).seasons, world)
       : {};
     // The Game Master's holds (environment.ts) draw over the story's: a cursed autumn, a city of night.
-    const holds = readEnvironmentHolds(replies.all);
+    const holds = readEnvironmentHolds(replies.all, worldEnvironmentHolds(world));
     const seasons = { ...storySeasons, ...environmentHeldPlaces(holds, world, "season") };
     const lights = environmentHeldPlaces(holds, world, "light");
     const walk = worldWalkFromMetadata(meta);

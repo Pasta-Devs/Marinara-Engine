@@ -22,6 +22,10 @@ import {
   environmentHoldAt,
   environmentHoldNote,
   readEnvironmentHolds,
+  worldEnvironmentHolds,
+  checkWorldBrief,
+  withWorldCanon,
+  worldOverviewPromptText,
   worldDrawnSeason,
   worldGroundCells,
   worldGroundLooks,
@@ -210,6 +214,75 @@ assert.ok(southYear.winter!.wet > southYear.summer!.wet * 3, "and its rains come
   const cursed = worldWeatherFit({ seed: 7, climate: worldClimateOfBiome("desert"), day: 135, hour: 13 }, "snow", true);
   assert.equal(cursed.type, "snow");
   assert.ok(cursed.temperature <= 1, "and it is cold enough for it");
+}
+
+// ── Places a world starts holding: the lore's "cursed to forever winter" ──
+{
+  const kit = parsed.kit;
+  const emptyBrief = inputs.brief;
+  const region = kit.layers.find((layer) => !layer.settlements)!.id;
+  const checked = checkWorldBrief(kit, {
+    briefVersion: 1,
+    premise: "The Frost Queen's long reign.",
+    places: [{ name: "Rimehold", layer: region }],
+    environments: [
+      { place: "Rimehold", season: "winter", weather: "snowy", note: "the Frost Queen's curse" },
+      { place: "Nowhere", light: "dark" },
+      { place: "world", weather: "a rain of frogs" },
+      { place: "World", light: "dusk" },
+    ],
+  });
+  assert.ok(checked.ok, JSON.stringify(checked));
+  assert.deepEqual(
+    checked.brief.environments.map((each) => [each.place, each.weather, each.season, each.light]),
+    [
+      ["Rimehold", "snow", "winter", undefined],
+      ["world", undefined, undefined, "dusk"],
+    ],
+    "a brief place or the world; a weather the game knows; one hold a place",
+  );
+  assert.ok(checked.repairs.some((line) => line.includes("Nowhere")));
+  assert.ok(checked.repairs.some((line) => line.includes("a rain of frogs")));
+
+  const merged = withWorldCanon(
+    { briefVersion: 1, environments: [{ place: "Rimehold", light: "day" }] },
+    [],
+    [],
+    [{ place: "Rimehold", season: "winter" }],
+  ) as { environments: unknown[] };
+  assert.deepEqual(
+    merged.environments,
+    [{ place: "Rimehold", season: "winter" }],
+    "the lore's hold replaces the brief's",
+  );
+
+  const drawn = { kit, seed: 3, grounding: "expand" as const, brief: emptyBrief };
+  const world = compileGameWorld(drawn);
+  const place = world.places.find((each) => each.rank !== undefined && each.parentId)!;
+  const game: GameWorld = {
+    ...drawn,
+    brief: { ...emptyBrief, environments: [{ place: place.name, season: "winter", light: "dark", note: "the curse" }] },
+    world,
+  };
+  const start = worldEnvironmentHolds(game);
+  const atFirst = environmentHoldAt(readEnvironmentHolds([], start), game, place.id);
+  assert.deepEqual([atFirst.season, atFirst.light], ["winter", "dark"], "held from the first day");
+  const lifted = environmentHoldAt(
+    readEnvironmentHolds([`[environment: place="${place.name}" light="none"]`], start),
+    game,
+    place.id,
+  );
+  assert.deepEqual([lifted.season, lifted.light], ["winter", undefined], "the Game Master lets part of it go");
+  const released = environmentHoldAt(
+    readEnvironmentHolds([`[environment: place="${place.name}" release]`], start),
+    game,
+    place.id,
+  );
+  assert.deepEqual(released.places, [], "or all of it");
+  assert.match(
+    worldOverviewPromptText(game),
+    /Held outside nature since the world began[\s\S]*always winter, always night \(the curse\)/,
+  );
 }
 
 console.log("world-weather regression passed");

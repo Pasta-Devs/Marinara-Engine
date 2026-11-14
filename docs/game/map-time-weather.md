@@ -93,6 +93,8 @@ A curse, a god or another great power can lock a place to one environment: a cit
 - **Season.** The place stays in one season while the rest of the world moves on.
 - **Light.** The place is always night, dusk or day. The scene's lighting and weather effects follow, and the overworld map shades the held land.
 
+A world can start with locks already in place. When you build a world from your lorebooks, any place the lore says is held outside nature, such as "the Sallow Vale is always autumn" or "Gotham never sees the sun", is locked from the first day. The same goes for a lock the setting describes. The GM is told about these places and can still lift a lock in the story.
+
 A lock covers the place and everything inside it, so locking a region also locks its towns. When locks overlap, the nearest place wins, so a town inside a cursed region can be held to its own weather. A lock can also cover the whole world. The scene can't lift a lock by asking for other weather; only the GM can.
 
 To see weather on screen, turn on **Dynamic weather effects (rain, snow, fog, etc.)** in the appearance settings. It is on by default. Rain, snow and fog particles then appear over the game and match the weather and time of day. See [Appearance Settings](../appearance/appearance-settings.md).

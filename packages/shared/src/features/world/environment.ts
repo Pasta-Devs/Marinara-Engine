@@ -3,7 +3,9 @@
 // lock an area to an environment ... a city that is locked in darkness"). The Game Master puts a place,
 // and every place inside it, under a lasting weather, season or darkness with the `[environment: ...]`
 // tag, and lets it go the same way. A hold beats the climate (climate.ts): a cursed desert can snow. It
-// is read from the replies, like the story's ledger, so a swipe or a deleted reply takes it back.
+// is read from the replies, like the story's ledger, so a swipe or a deleted reply takes it back. A
+// world can start with holds of its own (user, 2026-11-14: a lorebook's "cursed to forever winters"): the
+// brief's `environments`, read from the lore or the setting at creation; the replies then change them.
 //
 //   [environment: place="Gotham" light="dark" weather="rain" note="the Court's long night"]
 //   [environment: place="Sallowmarch" season="autumn"]
@@ -34,9 +36,33 @@ const TAG = /\[environment:([^\]]*)\]/gi;
 const ATTRIBUTE = /(\w+)\s*=\s*"([^"]*)"/g;
 const fold = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
 
-/** The holds in force after these replies, oldest first: each tag sets or lets go its parts of a place's. */
-export function readEnvironmentHolds(replies: readonly string[]): GameEnvironmentHold[] {
+/** The holds a world starts with, from its brief (the lore's or setting's places outside nature). */
+export function worldEnvironmentHolds(game: Pick<GameWorld, "brief"> | null | undefined): GameEnvironmentHold[] {
+  const out: GameEnvironmentHold[] = [];
+  for (const each of game?.brief?.environments ?? []) {
+    const hold: GameEnvironmentHold = { place: each.place };
+    const weather = normalizeWeatherType(each.weather);
+    if (weather) hold.weather = weather;
+    if (each.season) hold.season = each.season;
+    if (each.light) hold.light = each.light;
+    if (each.note) hold.note = each.note;
+    if (hold.weather || hold.season || hold.light) out.push(hold);
+  }
+  return out;
+}
+
+/** The holds in force after these replies, oldest first: each tag sets or lets go its parts of a place's,
+ *  over the holds the world `start`s with (worldEnvironmentHolds). */
+export function readEnvironmentHolds(
+  replies: readonly string[],
+  start: readonly GameEnvironmentHold[] = [],
+): GameEnvironmentHold[] {
   const holds = new Map<string, GameEnvironmentHold>();
+  for (const hold of start) {
+    const key =
+      fold(hold.place) === "everywhere" || fold(hold.place) === "*" ? GAME_ENVIRONMENT_WORLD : fold(hold.place);
+    holds.set(key, { ...holds.get(key), ...hold });
+  }
   for (const reply of replies) {
     for (const match of reply.matchAll(TAG)) {
       const body = match[1] ?? "";
