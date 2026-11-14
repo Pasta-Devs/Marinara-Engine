@@ -25,7 +25,7 @@ import {
   type TilePack,
   type WorldPerson,
   type WorldTownBuilding,
-  worldSeason,
+  worldDrawnSeason,
 } from "@marinara-engine/shared";
 import { useDungeonEnter, useOverworld, useTown, useTownVisit } from "../../hooks/use-game";
 import {
@@ -104,7 +104,7 @@ export function TownView({
   const drawTile = useOverworldAtlas(
     family,
     tilePack,
-    (town && held?.[town.settlementId]) || held?.["*"] || (time ? worldSeason(time.day) : undefined),
+    (town && held?.[town.settlementId]) || held?.["*"] || (time ? worldDrawnSeason(game, time.day) : undefined),
   );
   const walkingRef = useRef(false);
   const [walking, setWalking] = useState(false);

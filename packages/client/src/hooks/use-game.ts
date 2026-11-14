@@ -55,6 +55,7 @@ import type {
   WorldTownVisit,
   WorldSeason,
   WorldWalk,
+  GameLightHold,
 } from "@marinara-engine/shared";
 import { isJsonRecord } from "@marinara-engine/shared";
 
@@ -1058,6 +1059,8 @@ export interface OverworldState {
   hidden?: string[];
   /** The places the story holds at a season whatever the day (1.351), by place id; none: the day's. */
   seasons?: Record<string, WorldSeason>;
+  /** Places the Game Master holds at night, dusk or day (environment.ts), by place id (`*` everywhere). */
+  lights?: Record<string, GameLightHold>;
 }
 
 /** The world as the party knows it (the Journal's World tab), read again after each turn (`turnKey`), so
@@ -1177,7 +1180,13 @@ export function useTownVisit() {
 export function useDungeonMap(chatId: string, turnKey: string | null, enabled: boolean) {
   return useQuery({
     queryKey: [...gameKeys.dungeonMap(chatId), turnKey],
-    queryFn: () => api.get<{ map: GameDungeonMap | null; walk: GameDungeonWalk | null }>(`/game/${chatId}/map`),
+    queryFn: () =>
+      api.get<{
+        map: GameDungeonMap | null;
+        walk: GameDungeonWalk | null;
+        /** The holders' posts the party can see (dungeon spawns); absent from an older server. */
+        guards?: Array<{ x: number; y: number; area: number; count: number; heart: boolean }>;
+      }>(`/game/${chatId}/map`),
     enabled: enabled && !!chatId,
     staleTime: 30_000,
   });
@@ -1215,6 +1224,20 @@ export function useDungeonLeave() {
   return useMutation({
     mutationFn: (data: { chatId: string; map: string }) =>
       api.post<{ left: string }>(`/game/${data.chatId}/map/leave`, { map: data.map }),
+    onSettled: (_res, _error, variables) => {
+      qc.invalidateQueries({ queryKey: gameKeys.dungeonMap(variables.chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
+    },
+  });
+}
+
+/** Taking the stairs the party stands on in a place deeper than one floor: down to the next floor, or up
+ *  to the one above (owner 2026-11-13: separate maps per floor). */
+export function useDungeonStairs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { chatId: string; map: string }) =>
+      api.post<{ map: GameDungeonMap }>(`/game/${data.chatId}/map/stairs`, { map: data.map }),
     onSettled: (_res, _error, variables) => {
       qc.invalidateQueries({ queryKey: gameKeys.dungeonMap(variables.chatId) });
       qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });

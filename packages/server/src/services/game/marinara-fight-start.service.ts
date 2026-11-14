@@ -17,6 +17,7 @@ import {
   MARINARA_CLASSES,
   type MarinaraBestiarySetting,
   type MarinaraEncounterDifficulty,
+  type MarinaraEncounterFoe,
   type MarinaraFightGrowth,
   gameCardTemperament,
   marinaraFoeFighters,
@@ -68,6 +69,27 @@ function kept(unit: Combatant): Partial<Combatant> {
   return rest;
 }
 
+/** A place's roster as the fight's foes: named as the setting names them, lettered where they repeat. */
+function placeBriefs(foes: readonly MarinaraEncounterFoe[], setting: MarinaraBestiarySetting): MarinaraFoeBrief[] {
+  const names = foes.map((foe) => {
+    const family = marinaraEnemyFamily(foe.familyId);
+    return (family && marinaraEnemyName(family, setting, foe.level)) ?? foe.familyId;
+  });
+  const seen = new Map<string, number>();
+  return foes.map((foe, index) => {
+    const name = names[index]!;
+    const repeats = names.filter((one) => one === name).length > 1;
+    const nth = (seen.get(name) ?? 0) + 1;
+    seen.set(name, nth);
+    return {
+      id: `place-${index + 1}`,
+      name: repeats ? `${name} ${String.fromCharCode(64 + nth)}` : name,
+      ...(foe.tier === "boss" ? { boss: true } : {}),
+      marinara: { family: { familyId: foe.familyId, tier: foe.tier, level: foe.level }, region: true },
+    };
+  });
+}
+
 export function marinaraFightStart(input: {
   gameId: string;
   cards: readonly Record<string, unknown>[];
@@ -94,6 +116,9 @@ export function marinaraFightStart(input: {
   woundingAmmo?: boolean;
   /** Room players' characters whose player isn't here, by lookup name: they sit this fight out. */
   away?: ReadonlySet<string>;
+  /** The foes the place itself holds (a dungeon area's roster): they are the fight's foes, at their own
+   *  levels, in place of those the setup wrote. Never in a story's own fight. */
+  placeFoes?: readonly MarinaraEncounterFoe[];
 }): MarinaraFightStart {
   const named = input.cards.filter(
     (card): card is Record<string, unknown> & { name: string } =>
@@ -130,8 +155,13 @@ export function marinaraFightStart(input: {
   marinaraApplyCompanions(keepers);
   for (const { fighter, member } of keepers) party.push(marinaraCombatant(fighter, kept(member)));
   const partyAverageHp = fighters.length ? fighters.reduce((sum, one) => sum + one.maxHp, 0) / fighters.length : 20;
+  // A place's own foes stand in for the bestiary foes the setup wrote (dungeon spawns): what the GM may not
+  // swap, at the levels the world gave them.
+  const placed =
+    input.setting && input.placeFoes?.length && !input.storyFight ? placeBriefs(input.placeFoes, input.setting) : null;
+  const written = input.enemies as unknown as MarinaraFoeBrief[];
   const foes = marinaraFoeFighters({
-    foes: input.enemies as unknown as MarinaraFoeBrief[],
+    foes: placed ?? written,
     partyLevels: fighters.map((one) => one.level),
     partyAverageHp,
     difficulty: input.difficulty,

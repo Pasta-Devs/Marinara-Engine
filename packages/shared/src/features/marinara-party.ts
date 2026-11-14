@@ -650,6 +650,10 @@ export interface MarinaraFoeBrief {
   > & {
     /** Levels above (or below) the party's. */
     levelOffset?: number;
+    /** The level the land gave it (region spawns): fixed, whatever the party's level, and never offset. */
+    level?: number;
+    /** A foe of the land itself (region spawns): its fight keeps its levels and shrinks instead. */
+    region?: boolean;
     /** A bestiary foe (marinara-bestiary.ts): its family, tier and level. */
     family?: { familyId: string; tier?: MarinaraEnemyTier; level?: number };
   };
@@ -770,7 +774,7 @@ export function marinaraFoeFighters(input: {
     }
     let tier = fit.tiers[index]!;
     // The bestiary's floors hold for every foe: no boss below level 5, and so on (strict balance rule).
-    const foeLevel = Math.max(1, level + (foe.marinara?.levelOffset ?? 0));
+    const foeLevel = Math.max(1, foe.marinara?.level ?? level + (foe.marinara?.levelOffset ?? 0));
     while (tier !== "minion" && foeLevel < MARINARA_TIER_RULES[tier].minLevel)
       tier = tier === "boss" ? "elite" : tier === "elite" ? "standard" : "minion";
     if (tier !== tiers[index])
@@ -830,7 +834,7 @@ function marinaraBestiaryFoes(input: {
       brief,
       familyId: family.familyId,
       tier: family.tier ?? brief.marinara?.tier ?? "standard",
-      level: family.level ?? level + (brief.marinara?.levelOffset ?? 0),
+      level: family.level ?? brief.marinara?.level ?? level + (brief.marinara?.levelOffset ?? 0),
     };
   });
   const notes: string[] = [];
@@ -846,6 +850,8 @@ function marinaraBestiaryFoes(input: {
       },
       foes: asked.map(({ familyId, tier, level }) => ({ familyId, tier, level })),
       difficulty: input.encounter ?? "normal",
+      // The land's own foes keep the levels it gave them: the fight shrinks instead (region spawns).
+      ...(input.foes.some((foe) => foe.marinara?.region) ? { fixedLevels: true } : {}),
     });
     fitted = fit.foes;
     notes.push(...fit.changes);

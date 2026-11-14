@@ -112,7 +112,13 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
 }
 
-/** Generate weather for a given biome and season. */
+/** A description of a weather, the same one for the same pick (the world's weather is deterministic). */
+export function weatherDescription(type: WeatherType, pickIndex: number): string {
+  const lines = DESCRIPTIONS[type] ?? DESCRIPTIONS.clear!;
+  return lines[Math.abs(Math.floor(pickIndex)) % lines.length]!;
+}
+
+/** Generate weather for a given biome and season. Legacy: games now read gameWeatherNow (world-weather.service). */
 export function generateWeather(biome: Biome, season: Season = "summer", forcedType?: WeatherType): WeatherState {
   const baseWeights = { ...BIOME_WEATHER[biome] };
   const mods = SEASON_MODIFIERS[season] ?? {};

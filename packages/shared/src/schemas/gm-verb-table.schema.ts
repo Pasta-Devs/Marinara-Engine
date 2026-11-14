@@ -88,6 +88,7 @@ export const RESERVED_GM_TAG_NAMES = Object.freeze([
   "dice",
   "direction",
   "element_attack",
+  "environment",
   "extra",
   "history",
   "inventory",

@@ -52,10 +52,10 @@ async function battlefieldHere(db: DB, chatId: string, meta: Record<string, unkn
   const fight = await latestStoryFight(db, chatId, meta);
   const board = fight?.battlefield ? world.edits.battlefields.find((map) => map.id === fight.battlefield) : undefined;
   if (board) {
-    const at = board.seasons ? await partyPlace(world, chatId, meta, replies) : null;
+    const at = board.seasons ? await gamePartyPlace(world, chatId, meta, replies) : null;
     return worldBattlefieldMade(board, board.seasons ? seasonAt(world, meta, replies.all, at) : undefined);
   }
-  const placeId = await partyPlace(world, chatId, meta, replies);
+  const placeId = await gamePartyPlace(world, chatId, meta, replies);
   return worldBattlefieldHere(world, placeId, seed, seasonAt(world, meta, replies.all, placeId));
 }
 
@@ -68,7 +68,7 @@ function seasonAt(world: GameWorld, meta: Record<string, unknown>, replies: read
 }
 
 /** Where the party is, as a fight starting now reads it. */
-async function partyPlace(
+export async function gamePartyPlace(
   world: GameWorld,
   chatId: string,
   meta: Record<string, unknown>,

@@ -1,3 +1,4 @@
+import { dungeonGuardMarks, dungeonSiteHere, gameDay } from "../services/game/dungeon-spawns.service.js";
 import { createRoomGameRuntime, type RoomGameRuntime } from "../services/multiplayer/game-runtime.js";
 import {
   currentRoomGeneration,
@@ -22,6 +23,10 @@ import {
   rollDieSecurely,
   rollSymbolDiceNotation,
   normalizeWeatherType,
+  environmentHeldPlaces,
+  readEnvironmentHolds,
+  worldEnvironmentHolds,
+  type WeatherType,
   combatWeatherSchema,
   readImageAppearanceOverride,
   applyRulesetSheetOp,
@@ -254,7 +259,7 @@ import {
   type GameTime,
   type TimeOfDay,
 } from "../services/game/time.service.js";
-import { generateWeather, inferBiome, shouldWeatherChange } from "../services/game/weather.service.js";
+import { gameWeatherNow } from "../services/game/world-weather.service.js";
 import { rollEncounter, rollEnemyCount } from "../services/game/encounter.service.js";
 import { processReputationActions } from "../services/game/reputation.service.js";
 import {
@@ -374,7 +379,6 @@ import {
   worldTrip,
   worldIsSite,
   worldSettlementOf,
-  worldSeason,
   worldSiteLocks,
   worldWalkFromMetadata,
   worldWalkJoined,
@@ -390,11 +394,13 @@ import {
   gameDungeonMapFromPlaceMap,
   gameDungeonMapSchema,
   gameDungeonOnWayOut,
+  gameDungeonOnWayDown,
+  gameDungeonOnWayUp,
+  gameDungeonMapForFloor,
+  gameDungeonSiteMap,
   worldPlaceMap,
   worldCast,
-  generateDungeonMap,
   gameDungeonSeed,
-  gameDungeonMapFromDungeon,
   dungeonFromGameDungeonMap,
   dungeonPath,
   dungeonWalkMinutes,
@@ -2475,6 +2481,8 @@ const worldBriefWriteSchema = z.object({
   canon: worldBriefSchema.shape.places.optional(),
   /** Dated events read from the player's lore, kept exactly. */
   canonEvents: worldBriefSchema.shape.events.optional(),
+  /** Places the player's lore holds outside nature, kept exactly. */
+  canonEnvironments: worldBriefSchema.shape.environments.optional(),
   grounding: z.enum(WORLD_GROUNDINGS).default("expand"),
   generationParameters: z.unknown().optional(),
   debugMode: z.boolean().optional(),
@@ -11033,7 +11041,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       prompt: buildWorldBriefPrompt({ ...input, canon, canonEvents, strict: input.grounding === "strict" }),
       notJson: "brief: The reply was not JSON",
       read: (data) => {
-        const read = readWrittenWorldBrief(input.kit, data, canon, canonEvents);
+        const read = readWrittenWorldBrief(input.kit, data, canon, canonEvents, input.canonEnvironments ?? []);
         return read.ok ? { ok: true, value: { brief: read.brief, repairs: read.repairs } } : read;
       },
       repair: worldBriefRepairPrompt,
@@ -11857,22 +11865,17 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     return { time: newTime, formatted: formatGameTime(newTime) };
   });
 
-  /** The season where the party is, in a game with a world (1.351): held by its story, else the day's. */
-  const gameSeasonHere = async (chatId: string, mode: string, meta: Record<string, unknown>) => {
-    const world = mode === "game" ? await loadGameWorld(app.db, chatId, meta) : null;
-    if (!world) return null;
-    const day = ((meta.gameTime as GameTime | undefined) ?? createInitialTime()).day;
-    const { here, seasons } = await overworldPlace(chatId, meta, world);
-    return (here ? seasons[here] : undefined) ?? seasons["*"] ?? worldSeason(day);
-  };
-
   // ── POST /game/weather/update ──
+  // The weather where the party is (world-weather.service): read from the world's climate at the party's
+  // map cell and the game's clock, so it drifts instead of being rolled fresh. "set" (the scene analyzer,
+  // the Game Master) asks for a weather, which is fitted to the place: never snow in a hot desert.
   app.post("/weather/update", async (req) => {
     const schema = z.object({
       chatId: z.string().min(1),
       action: z.string().min(1).max(50),
       location: z.string().max(500).default(""),
-      season: z.enum(["spring", "summer", "autumn", "winter"]).default("summer"),
+      // Kept for older clients; the season is now always the place's own.
+      season: z.enum(["spring", "summer", "autumn", "winter"]).optional(),
       type: z.string().max(100).optional(),
     });
     const { chatId, action, location, type } = schema.parse(req.body);
@@ -11881,45 +11884,30 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     if (!chat) throw new Error("Chat not found");
 
     const meta = parseMeta(chat.metadata);
-    // A game with a world has its own season where the party is: the one the story holds it at (1.351),
-    // else the day's. Without one, the season sent.
-    const season = (await gameSeasonHere(chat.id, chat.mode, meta)) ?? schema.parse(req.body).season;
-
-    // "set" action from scene analyzer — apply the exact weather type
+    const previous = meta.gameWeather as { type?: string; temperature?: number } | undefined;
+    let wanted: WeatherType | null = null;
     if (action === "set" && type) {
-      const biome = inferBiome(location);
-      const weatherType = normalizeWeatherType(type);
-      if (!weatherType) return { changed: false, weather: meta.gameWeather ?? null };
-      const weather = generateWeather(biome, season, weatherType);
-
-      // #5076: narrow queued patch so a concurrent metadata write is merged, not clobbered.
-      await chats.patchMetadata(chatId, { gameWeather: weather });
-      const gameStateStore = createGameStateStorage(app.db);
-      await updateLatestGameStateWithTrackerLocks(gameStateStore, chatId, {
-        weather: weather.type,
-        temperature: `${weather.temperature}°C`,
-      });
-      return { changed: true, weather };
+      wanted = normalizeWeatherType(type) ?? null;
+      if (!wanted) return { changed: false, weather: meta.gameWeather ?? null };
     }
-
-    if (!shouldWeatherChange(action)) {
+    const weather = await gameWeatherNow(app.db, chatId, meta, { location, wanted });
+    const changed =
+      !!wanted ||
+      previous?.type !== weather.type ||
+      Math.abs((previous?.temperature ?? NaN) - weather.temperature) >= 1;
+    if (!changed && previous && (previous as { note?: string }).note === weather.note) {
       return { changed: false, weather: meta.gameWeather ?? null };
     }
 
-    const biome = inferBiome(location);
-    const weather = generateWeather(biome, season);
-
     // #5076: narrow queued patch so a concurrent metadata write is merged, not clobbered.
     await chats.patchMetadata(chatId, { gameWeather: weather });
-
     // Also update the game state snapshot so WeatherEffects picks it up
     const gameStateStore = createGameStateStorage(app.db);
     await updateLatestGameStateWithTrackerLocks(gameStateStore, chatId, {
       weather: weather.type,
       temperature: `${weather.temperature}°C`,
     });
-
-    return { changed: true, weather };
+    return { changed, weather };
   });
 
   // ── POST /game/encounter/roll ──
@@ -12106,11 +12094,15 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const story = gameStoryFromMetadata(meta, world);
     const locks = worldSiteLocks(world, story, replies.all);
     // The places the story holds at a season whatever the day (1.351).
-    const seasons = story
+    const storySeasons = story
       ? storyPlaceSeasons(story, storyState(story, readStoryLedger(replies.all)).seasons, world)
       : {};
+    // The Game Master's holds (environment.ts) draw over the story's: a cursed autumn, a city of night.
+    const holds = readEnvironmentHolds(replies.all, worldEnvironmentHolds(world));
+    const seasons = { ...storySeasons, ...environmentHeldPlaces(holds, world, "season") };
+    const lights = environmentHeldPlaces(holds, world, "light");
     const walk = worldWalkFromMetadata(meta);
-    if (walk) return { here: walk.to, walk, present, placeName: undefined, locks, seasons };
+    if (walk) return { here: walk.to, walk, present, placeName: undefined, locks, seasons, lights };
     const place = worldPlaceInForce(
       world,
       lastGamePlace(replies.scoped),
@@ -12122,6 +12114,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       present,
       locks,
       seasons,
+      lights,
       placeName: place?.name,
     };
   };
@@ -12230,7 +12223,17 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     const meta = parseMeta(chat.metadata);
-    return { map: gameDungeonMapFromMetadata(meta), walk: gameDungeonWalkFromMetadata(meta) };
+    const map = gameDungeonMapFromMetadata(meta);
+    // Where the holders keep their posts (dungeon spawns; owner 2026-11-13: their guards show on the map,
+    // squatters stay hidden until the party walks in on them).
+    const site = map
+      ? dungeonSiteHere({
+          meta,
+          setup: meta.gameSetupConfig as Record<string, unknown> | undefined,
+          world: await loadGameWorld(app.db, chat.id, meta),
+        })
+      : null;
+    return { map, walk: gameDungeonWalkFromMetadata(meta), guards: site ? dungeonGuardMarks(site, gameDay(meta)) : [] };
   });
 
   // POST /game/:chatId/map/walk: the party walks to a cell by the shortest way; the minutes go on the
@@ -12312,6 +12315,44 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     return { left };
   });
 
+  // POST /game/:chatId/map/stairs: the party takes the stairs it stands on (owner 2026-11-13: separate
+  // maps per floor): the way down to the next floor, at its way in; the way up to the floor above, at its
+  // way down. Each floor is laid out again from the place's seed, the same every time.
+  app.post<{ Params: { chatId: string } }>("/:chatId/map/stairs", async (req, reply) => {
+    const { chatId } = req.params;
+    const body = z.object({ map: z.string().min(1).max(80) }).parse(req.body);
+    const chats = createChatsStorage(app.db);
+    let map: GameDungeonMap | undefined;
+    const updated = await chats.patchMetadata(chatId, (fresh) => {
+      const kept = gameDungeonMapFromMetadata(fresh);
+      if (!kept || kept.id !== body.map) {
+        throw Object.assign(new Error("The party is not on that map."), { statusCode: 409 });
+      }
+      const floor = kept.floor ?? 1;
+      const down = gameDungeonOnWayDown(kept);
+      if ((!down && !gameDungeonOnWayUp(kept)) || kept.siteSeed === undefined || !kept.floors) {
+        throw Object.assign(new Error("There are no stairs here."), { statusCode: 400 });
+      }
+      const next = gameDungeonMapForFloor({
+        setId: kept.set,
+        name: kept.name,
+        siteSeed: kept.siteSeed,
+        floor: down ? floor + 1 : floor - 1,
+        floors: kept.floors,
+        id: randomUUID(),
+      });
+      map = {
+        ...next,
+        ...(kept.place ? { place: kept.place } : {}),
+        // Up, the party comes out at the way down of the floor above.
+        ...(!down && next.down ? { at: next.down } : {}),
+      };
+      return { gameDungeonMap: map, gameDungeonWalk: null };
+    });
+    if (!updated || !map) return reply.status(404).send({ error: "Chat not found" });
+    return { map };
+  });
+
   // POST /game/:chatId/map/enter: the party goes down into the place in town it stands at (a cave, a
   // mine, a crypt, a sewer, by its words; map editor Phase 3): its map, laid out from the game and the
   // place's name as the Game Master's `[map:]` would be, or the one the party is already on.
@@ -12380,8 +12421,11 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         if (!kept.success) throw Object.assign(new Error("This place's map can't be read."), { statusCode: 400 });
         map = kept.data;
       } else {
-        const made = generateDungeonMap(set.id, gameDungeonSeed(chatId, name), "medium");
-        map = { ...gameDungeonMapFromDungeon(made, name, randomUUID()), place: placeKey };
+        // Its first floor; a place deeper than one floor has its way down (owner 2026-11-13).
+        map = {
+          ...gameDungeonSiteMap({ setId: set.id, name, siteSeed: gameDungeonSeed(chatId, name), id: randomUUID() }),
+          place: placeKey,
+        };
       }
       return { gameDungeonMap: map, gameDungeonWalk: null, gameDungeonLeft: null, gameDungeonView: "map" };
     });
@@ -12873,7 +12917,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const meta = parseMeta(chat.metadata);
     const world = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
     if (!world) return { overworld: null };
-    const { here, walk, present, locks, seasons } = await overworldPlace(req.params.chatId, meta, world);
+    const { here, walk, present, locks, seasons, lights } = await overworldPlace(req.params.chatId, meta, world);
     // A hidden site is never sent: the player does not know it is there.
     const locked = Object.fromEntries([...locks].filter(([, lock]) => lock === "sealed"));
     const hidden = new Set([...locks].filter(([, lock]) => lock === "hidden").map(([id]) => id));
@@ -12887,6 +12931,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         ...(hidden.size ? { hidden: [...hidden] } : {}),
         // Only when the story holds a place at a season (1.351).
         ...(Object.keys(seasons).length ? { seasons } : {}),
+        // Only when the Game Master holds a place at night, dusk or day (environment.ts).
+        ...(Object.keys(lights).length ? { lights } : {}),
       },
     };
   });

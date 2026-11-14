@@ -6,6 +6,7 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 import { promptSafeText } from "./ruleset.schema.js";
+import { normalizeWeatherType } from "../features/combat-conditions.js";
 import { WORLD_CHANGE_KINDS, type WorldKit } from "./world-kit.schema.js";
 import { isOverusedName } from "../features/world/overused-names.js";
 
@@ -18,6 +19,8 @@ export const WORLD_BRIEF_LIMITS = Object.freeze({
   peopleNames: 150,
   allPeopleNames: 1500,
   events: 30,
+  /** Places the setting holds outside nature: always winter, always night. */
+  environments: 24,
 });
 /** How a culture puts a person's names together. */
 export const WORLD_NAME_ORDERS = Object.freeze(["given-family", "family-given", "given"] as const);
@@ -60,6 +63,23 @@ const briefGroup = z
   })
   .strict();
 
+/** A place the setting holds outside nature (user, 2026-11-14: a lorebook's "cursed to forever winter"):
+ *  its weather, season or light, whatever the climate or the clock, from the game's first day. The Game
+ *  Master can let it go in play (environment.ts). `place` is a brief place's name, or "world". */
+const briefEnvironment = z
+  .object({
+    place: placeName,
+    /** A weather type (combat-conditions' names); one the Engine does not know is left out. */
+    weather: z.string().max(40).optional(),
+    season: z.enum(["spring", "summer", "autumn", "winter"]).optional(),
+    /** Always night, dusk or day. */
+    light: z.enum(["dark", "dusk", "day"]).optional(),
+    /** Why: the curse, the power. */
+    note: promptSafeText(200).optional(),
+    lore: z.array(z.string().max(64)).max(20).optional(),
+  })
+  .strict();
+
 /** A dated event of the world's past (worldgen W3): a fixed point its history is steered through. */
 const briefEvent = z
   .object({
@@ -92,6 +112,8 @@ export const worldBriefSchema = z
     events: z.array(briefEvent).max(WORLD_BRIEF_LIMITS.events).default([]),
     /** The groups that matter (worldgen W2): powers and the everyday groups the premise turns on. */
     groups: z.array(briefGroup).max(WORLD_BRIEF_LIMITS.groups).default([]),
+    /** Places held outside nature from the first day (environment.ts). */
+    environments: z.array(briefEnvironment).max(WORLD_BRIEF_LIMITS.environments).default([]),
     /** Names for the people the compile draws, per culture, in that culture's own sound and order. */
     peopleNames: z
       .array(
@@ -275,7 +297,35 @@ export function checkWorldBrief(
     }
     events.push({ ...event, places: placesKnown, groups: groupsKnown });
   }
-  return { ok: true, brief: { ...parsed.data, places, placeNames, peopleNames, groups, events }, repairs };
+  // Held places: one of the brief's places (or the whole world), a weather the Engine knows, and at least
+  // one thing held; one hold a place, a later one filling what the first left out.
+  const environments: WorldBrief["environments"] = [];
+  for (const each of parsed.data.environments) {
+    const key = each.place.trim().toLowerCase();
+    const isWorld = key === "world" || key === "everywhere";
+    if (!isWorld && !seen.has(key)) {
+      repairs.push(`A held environment on "${each.place}", not one of the brief's places, was left out`);
+      continue;
+    }
+    const next = { ...each, place: isWorld ? "world" : each.place.trim() };
+    if (each.weather !== undefined) {
+      const weather = normalizeWeatherType(each.weather);
+      if (weather) next.weather = weather;
+      else {
+        repairs.push(`${each.place}: the held weather "${each.weather}" is not one the game knows`);
+        delete next.weather;
+      }
+    }
+    if (!next.weather && !next.season && !next.light) continue;
+    const earlier = environments.find((other) => other.place.toLowerCase() === next.place.toLowerCase());
+    if (earlier) Object.assign(earlier, { ...next, ...earlier });
+    else environments.push(next);
+  }
+  return {
+    ok: true,
+    brief: { ...parsed.data, places, placeNames, peopleNames, groups, events, environments },
+    repairs,
+  };
 }
 
 const nameOf = (item: unknown) =>
@@ -293,10 +343,23 @@ export function withWorldCanon(
   written: unknown,
   canon: WorldBriefPlace[],
   canonEvents: WorldBriefEvent[] = [],
+  /** Places the lore holds outside nature: always winter, always night. */
+  canonEnvironments: WorldBrief["environments"] = [],
 ): unknown {
   if (!written || typeof written !== "object" || Array.isArray(written)) return written;
-  if (canon.length === 0 && canonEvents.length === 0) return written;
+  if (canon.length === 0 && canonEvents.length === 0 && canonEnvironments.length === 0) return written;
   const record = { ...(written as Record<string, unknown>) };
+  // The lore's held places replace the brief's own hold on the same place.
+  if (canonEnvironments.length) {
+    const own = Array.isArray(record.environments) ? (record.environments as unknown[]) : [];
+    const placeOf = (item: unknown) =>
+      item && typeof item === "object" ? String((item as { place?: unknown }).place ?? "").toLowerCase() : "";
+    const places = new Set(canonEnvironments.map((each) => each.place.toLowerCase()));
+    record.environments = [...canonEnvironments, ...own.filter((each) => !places.has(placeOf(each)))].slice(
+      0,
+      WORLD_BRIEF_LIMITS.environments,
+    );
+  }
   if (canonEvents.length > 0) {
     const events = Array.isArray(record.events) ? (record.events as unknown[]) : [];
     const texts = new Set(canonEvents.map((event) => event.text.toLowerCase()));

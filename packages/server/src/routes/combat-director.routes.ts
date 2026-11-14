@@ -1,3 +1,10 @@
+import { loadGameWorld } from "../services/game/game-world.service.js";
+import {
+  dungeonFightEndPatch,
+  dungeonFoesHere,
+  dungeonSiteHere,
+  gameDay,
+} from "../services/game/dungeon-spawns.service.js";
 import { createGameStateStorage, parseStoredRulesetLive } from "../services/storage/game-state.storage.js";
 import {
   normalizeGameDifficulty,
@@ -1166,7 +1173,12 @@ export async function combatDirectorRoutes(
                   : undefined,
                 [...marinara.fighters, ...(marinara.left ?? [])],
               );
-              return { ...(end.cards ? { gameCharacterCards: end.cards } : {}), gameMarinaraKnown: known };
+              return {
+                ...(end.cards ? { gameCharacterCards: end.cards } : {}),
+                gameMarinaraKnown: known,
+                // A won dungeon fight clears its area (dungeon spawns).
+                ...dungeonFightEndPatch(current, s.outcome),
+              };
             },
             { metadataQueueHeld: true, touchUpdatedAt: false },
           );
@@ -1400,8 +1412,21 @@ export async function combatDirectorRoutes(
         // Classic Marinara classes (combat overhaul): the party fights with the progressions kept on their
         // cards and the opponents by tier, in a Classic fight of a game without a ruleset.
         let marinara: MarinaraFightStart | null = null;
+        // A fight in a dungeon area is fought by the area's own foes (dungeon spawns), never the setup's.
+        let dungeonFight: { key: string; area: number } | null = null;
         if (setup.marinaraClasses === true && input.style !== "ruleset" && !meta.gameRuleset) {
+          const storyFight = !!(await latestStoryFight(app.db, input.chatId, meta));
+          const site = storyFight
+            ? null
+            : dungeonSiteHere({
+                meta,
+                setup: setup as Record<string, unknown>,
+                world: await loadGameWorld(app.db, input.chatId, meta),
+              });
+          const held = site ? dungeonFoesHere(site, gameDay(meta)) : null;
+          if (site && held) dungeonFight = { key: site.key, area: held.area.area };
           marinara = marinaraFightStart({
+            ...(held ? { placeFoes: held.foes } : {}),
             gameId: input.chatId,
             classic: await marinaraCardClassicByName(
               app.db,
@@ -1412,7 +1437,7 @@ export async function combatDirectorRoutes(
             party: input.party as Combatant[],
             enemies: input.enemies.map(({ creature: _c, tier: _t, proposed: _p, ...unit }) => unit) as Combatant[],
             difficulty: normalizeGameDifficulty(setup.difficulty),
-            storyFight: !!(await latestStoryFight(app.db, input.chatId, meta)),
+            storyFight,
             setting: marinaraBestiarySetting(
               typeof meta.gameWorldKit?.id === "string" ? meta.gameWorldKit.id : null,
               typeof setup.genre === "string" ? setup.genre : null,
@@ -1449,6 +1474,13 @@ export async function combatDirectorRoutes(
           // What the party already learned of these foes' kinds shows from the first turn (owner 2026-11-06).
           marinaraRecallAffinities(marinara.fighters, meta.gameMarinaraKnown);
           for (const note of marinara.notes) logger.info("[combat-director/start] %s", note);
+          // Which dungeon area this fight is in (or none), for its end to clear.
+          // A literal patch (null clears a stale area) so the metadata sweep can read its one key.
+          await chats.patchMetadata(
+            input.chatId,
+            { gameDungeonFight: dungeonFight ?? null },
+            { touchUpdatedAt: false },
+          );
         }
         const state = createCombatDirector({
           ...input,
@@ -1826,7 +1858,10 @@ export async function combatDirectorRoutes(
                 permadeath: (current.gameSetupConfig as { permadeath?: boolean } | undefined)?.permadeath === true,
               });
               fought.growth = end.growth;
-              return end.cards ? { gameCharacterCards: end.cards } : {};
+              return {
+                ...(end.cards ? { gameCharacterCards: end.cards } : {}),
+                ...dungeonFightEndPatch(current, state.outcome),
+              };
             },
             { touchUpdatedAt: false },
           );

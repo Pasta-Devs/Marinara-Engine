@@ -311,6 +311,21 @@ export const worldEditsSchema = z
       .array(z.object({ place: placeId, lock: z.enum(WORLD_SITE_LOCKS) }).strict())
       .max(WORLD_EDITS_MAX_PEOPLE)
       .optional(),
+    /** Level bands set by hand (region spawns, `editsVersion` 3): a settlement and the levels of the foes of
+     *  the land nearest it, low to high. Checked when saved (`worldBandEditIssues`). */
+    bands: z
+      .array(
+        z
+          .object({
+            place: placeId,
+            low: z.number().int().min(1).max(30),
+            high: z.number().int().min(1).max(30),
+          })
+          .strict()
+          .refine((band) => band.high >= band.low, { message: "A band's high level is below its low one" }),
+      )
+      .max(WORLD_EDITS_MAX_PEOPLE)
+      .optional(),
   })
   .strict();
 export type WorldEdits = z.infer<typeof worldEditsSchema>;
@@ -327,7 +342,7 @@ export function worldEditsVersioned(edits: WorldEdits): WorldEdits {
     (each) => each.place?.length || each.deco?.length || /[fp~bh]/.test(each.ground ?? ""),
   );
   const version =
-    freeTowns || edits.maps?.length || edits.sites?.length
+    freeTowns || edits.maps?.length || edits.sites?.length || edits.bands?.length
       ? 3
       : edits.interiors?.some((each) => each.ground !== undefined)
         ? 2
@@ -348,7 +363,8 @@ export function worldEditsEmpty(edits: WorldEdits | null | undefined): boolean {
       !edits.towns?.length &&
       !edits.interiors?.length &&
       !edits.maps?.length &&
-      !edits.sites?.length)
+      !edits.sites?.length &&
+      !edits.bands?.length)
   );
 }
 
