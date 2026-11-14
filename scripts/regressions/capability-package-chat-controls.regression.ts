@@ -31,8 +31,13 @@ assert.ok(english["ui.chat.chatsettingsdrawer.allowSlurpActivity"]);
 assert.ok(english["ui.chat.chatsettingsdrawer.allowSlurpActivityDescription"]);
 assert.match(chatsRoutes, /typeof incoming\.slurp2ActivityContextEnabled !== "boolean"/u);
 
-// Character editor: the image instructions stay; the Noodle checkbox moved into Noodle's own profile editor.
-assert.match(convoFields, /\{kind === "character" && onImageInstructionsChange && \(/u);
+// Character editor: the image instructions stay, as Selfie instructions in the Images tab (#9191, no longer on
+// Convo); the Noodle checkbox moved into Noodle's own profile editor.
+assert.match(
+  characterEditor,
+  /instructions=\{\s*<SelfieInstructionsField[\s\S]*?updateExtension\("conversationImageInstructions", value\)/u,
+);
+assert.doesNotMatch(convoFields, /ImageInstructions/u);
 assert.doesNotMatch(convoFields, /onApplyImageInstructionsToNoodleChange/u);
 assert.doesNotMatch(characterEditor, /applyConversationImageInstructionsToNoodle/u);
 // Capability API 1.67: the browser view can open a character in the editor, on a tab.

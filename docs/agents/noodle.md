@@ -82,7 +82,7 @@ Your own profile has **Edit Profile**. Change your **Display name**, **@name**, 
 
 When you edit a character's profile, two more settings appear below the fields and save at once.
 
-- **Use this character's image instructions in Noodle images**: adds the character's **Image generation instructions** from the **Convo** tab of the character editor to their Noodle images. **Edit image instructions** opens that tab. Slurp uses the same choice until you set one for this character in Slurp. Needs Noodle 1.5.4 or later.
+- **Use this character's image instructions in Noodle images**: adds the character's **Selfie instructions** from the **Images** tab of the character editor to their Noodle images. **Edit image instructions** opens the **Convo** tab; the field itself is in **Images** → **Selfie instructions**. Slurp uses the same choice until you set one for this character in Slurp. Needs Noodle 1.5.4 or later.
 - **Image connection**: picks the image model for this character's Noodle images. **Use Noodle image connection** keeps the one from [Noodle's settings](noodle-settings.md#image-generation). Needs Noodle 1.5.5 or later.
 
 A profile also shows **Following** and **Followers** counts and three tabs: **Posts**, **Likes** and **Media** (posts with an image).

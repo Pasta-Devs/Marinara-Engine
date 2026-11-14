@@ -1,10 +1,10 @@
 # Character and Persona Galleries
 
-The **Gallery** tab in the character and persona editors keeps images and videos attached to a character or persona, so they stay even if you delete chats. Use it for reference sheets, outfit variants and imported image packs. You can also tag a gallery image as a custom emoji or sticker.
+The **Gallery**, part of the **Images** tab in the character and persona editors, keeps images and videos attached to a character or persona, so they stay even if you delete chats. Use it for reference sheets, outfit variants and imported image packs. You can also tag a gallery image as a custom emoji or sticker.
 
-## The Gallery tab
+## Find the Gallery
 
-Every character and persona has its own **Gallery** tab (camera icon). Open the character in the Character Editor or the persona in the Persona Editor, then click **Gallery**. A character's gallery is titled **Character Gallery**, and a persona's is **Persona Gallery**. They work the same way.
+Every character and persona has its own gallery. Open the character in the Character Editor or the persona in the Persona Editor, click the **Images** tab, then **Gallery** at the top of it. A character's gallery is titled **Character Gallery**, and a persona's is **Persona Gallery**. They work the same way.
 
 The Gallery has two sub-tabs:
 
@@ -15,7 +15,7 @@ A chat's own gallery is different. It holds scene illustrations and generated at
 
 ### Add images
 
-1. Open the **Gallery** tab and select **Images**.
+1. Open **Images → Gallery** and select **Images**.
 2. Drag image files onto **Upload Character Images**, or click it to pick files. In a persona the box reads **Upload Persona Images**.
 3. Wait for the upload to finish. The new images appear in the grid.
 
@@ -23,7 +23,7 @@ Click an image to see it larger. Each tile has a download control and a delete c
 
 ### Add videos
 
-1. Open the **Gallery** tab and select **Videos**.
+1. Open **Images → Gallery** and select **Videos**.
 2. Drag video files onto **Upload Character Videos**, or click it to pick files. In a persona the box reads **Upload Persona Videos**.
 3. Wait for the upload to finish.
 
@@ -33,7 +33,7 @@ Supported types are MP4, WebM and MOV. Newest videos are listed first. To see wh
 
 A custom emoji is a small inline image written as `:name:`. A sticker is a larger block image written as `sticker:name:`. Both work only in Conversation Mode chats, the messenger-style mode.
 
-1. Open the **Gallery** tab and select **Images**.
+1. Open **Images → Gallery** and select **Images**.
 2. Click the small tag button in the image's top-left corner (tooltip **Tag as emoji or sticker**).
 3. Click **Make emoji** or **Make sticker**.
 4. In the **Custom Emoji** or **Custom Sticker** dialog, type a name and confirm.

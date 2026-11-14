@@ -1,4 +1,5 @@
 import { CardProseSectionHeader, type CardProseSectionHeaderProps } from "../cards/CardProse";
+import { CardImagesTab } from "../cards/CardImagesTab";
 import { ClassicCardSection } from "../overhaul/ClassicCardSection";
 import { useCardEditorDraft } from "../../hooks/use-card-editor-draft";
 import { useCardEditorSave } from "../../hooks/use-card-editor-save";
@@ -195,8 +196,7 @@ const TABS = [
   { id: "card", label: "Card", icon: IdCard },
   { id: "convo", label: "Convo", icon: MessageCircle },
   { id: "lorebook", label: "Lorebook", icon: Library },
-  { id: "sprites", label: "Sprites", icon: Image },
-  { id: "gallery", label: "Gallery", icon: Camera },
+  { id: "images", label: "Images", icon: Image },
   { id: "colors", label: "Colors", icon: Palette },
   { id: "stats", label: "Stats", icon: Activity },
 ] as const;
@@ -2197,32 +2197,43 @@ export function PersonaEditor() {
         <LazyEditorSection key={`lorebook:${personaId}`} id="lorebook">
           {personaId && <PersonaLorebookTab personaId={personaId} personaName={formData.name} />}
         </LazyEditorSection>
-        <LazyEditorSection key={`sprites:${personaId}`} id="sprites">
+        <section data-editor-section="images">
           {personaId && (
-            <PersonaSpritesTab
-              personaId={personaId}
-              personaName={formData.name}
-              defaultAppearance={formData.appearance || formData.description}
-              defaultAvatarUrl={avatarPreview}
-              characterSheetImageId={formData.characterSheetImageId}
-              useCharacterSheetAsReference={formData.useCharacterSheetAsReference}
-              updateField={updateField}
-              onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+            <CardImagesTab
+              variant="persona"
+              entityKey={personaId}
+              onJump={scrollToSection}
+              sheet={
+                <PersonaCharacterSheetSection
+                  personaId={personaId}
+                  personaName={formData.name ?? ""}
+                  characterSheetImageId={formData.characterSheetImageId}
+                  useAsReference={formData.useCharacterSheetAsReference}
+                  updateField={updateField}
+                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                />
+              }
+              sprites={
+                <PersonaSpritesTab
+                  personaId={personaId}
+                  personaName={formData.name}
+                  defaultAppearance={formData.appearance || formData.description}
+                  defaultAvatarUrl={avatarPreview}
+                />
+              }
+              gallery={
+                <PersonaGalleryTab
+                  personaId={personaId}
+                  personaName={formData.name}
+                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                  editorBusy={mutationBusy}
+                  galleryAvatarPending={mutationKind === "gallery-avatar"}
+                  onSetAvatar={handleSetGalleryAvatar}
+                />
+              }
             />
           )}
-        </LazyEditorSection>
-        <LazyEditorSection key={`gallery:${personaId}`} id="gallery">
-          {personaId && (
-            <PersonaGalleryTab
-              personaId={personaId}
-              personaName={formData.name}
-              onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
-              editorBusy={mutationBusy}
-              galleryAvatarPending={mutationKind === "gallery-avatar"}
-              onSetAvatar={handleSetGalleryAvatar}
-            />
-          )}
-        </LazyEditorSection>
+        </section>
         <section data-editor-section="colors">
           <PersonaColorsTab formData={formData} updateField={updateField} avatarUrl={avatarPreview} />
         </section>
@@ -2271,19 +2282,11 @@ function PersonaSpritesTab({
   personaName,
   defaultAppearance,
   defaultAvatarUrl,
-  characterSheetImageId,
-  useCharacterSheetAsReference,
-  updateField,
-  onCreateCharacterSheet,
 }: {
   personaId: string;
   personaName?: string;
   defaultAppearance?: string;
   defaultAvatarUrl?: string | null;
-  characterSheetImageId: string | null;
-  useCharacterSheetAsReference: boolean;
-  updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
-  onCreateCharacterSheet: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
@@ -2679,17 +2682,6 @@ function PersonaSpritesTab({
     [displayExpression, personaId, uploadSprite, wandCleanupSprite, localizeUi],
   );
 
-  const characterSheetSection = (
-    <PersonaCharacterSheetSection
-      personaId={personaId}
-      personaName={personaName ?? ""}
-      characterSheetImageId={characterSheetImageId}
-      useAsReference={useCharacterSheetAsReference}
-      updateField={updateField}
-      onCreateCharacterSheet={onCreateCharacterSheet}
-    />
-  );
-
   if (category === "clips") {
     return (
       <div className="space-y-6">
@@ -2698,8 +2690,6 @@ function PersonaSpritesTab({
           subtitle={localizeUi("ui.personas.personaspritestab.uploadVnStyleSpritesAndVideoCallClipsFor")}
           helpText={PERSONA_SPRITES_HELP}
         />
-
-        {characterSheetSection}
 
         {categoryTabs}
 
@@ -2715,8 +2705,6 @@ function PersonaSpritesTab({
         subtitle={localizeUi("ui.personas.personaspritestab.uploadVnStyleSpritesForYourPersonaTheseAre")}
         helpText={PERSONA_SPRITES_HELP}
       />
-
-      {characterSheetSection}
 
       {categoryTabs}
 

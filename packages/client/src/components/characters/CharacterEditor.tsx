@@ -1,4 +1,5 @@
 import { CardProseSectionHeader as SectionHeader, CardProseTextarea as TextareaTab } from "../cards/CardProse";
+import { CardImagesTab, SelfieInstructionsField } from "../cards/CardImagesTab";
 import { useCardEditorDraft } from "../../hooks/use-card-editor-draft";
 import { useCardEditorSave } from "../../hooks/use-card-editor-save";
 import { CardEditor } from "../cards/CardEditor";
@@ -248,8 +249,7 @@ const TABS = [
   { id: "onboarding", label: "Onboarding", icon: UserPlus },
   { id: "convo", label: "Convo", icon: MessageCircle },
   { id: "lorebook", label: "Lorebook", icon: Library },
-  { id: "sprites", label: "Sprites", icon: Image },
-  { id: "gallery", label: "Gallery", icon: Camera },
+  { id: "images", label: "Images", icon: Image },
   { id: "colors", label: "Colors", icon: Palette },
   { id: "voice", label: "Voice", icon: Volume2 },
   { id: "stats", label: "Stats", icon: Swords },
@@ -1547,37 +1547,54 @@ export function CharacterEditor() {
               onUnembed={handleLorebookUnembedded}
             />
           </LazyEditorSection>
-          <LazyEditorSection key={`sprites:${characterId}`} id="sprites">
+          <section data-editor-section="images">
             {characterId && (
-              <SpritesTab
-                characterId={characterId}
-                characterName={formData.name}
-                defaultAppearance={imageAppearanceGeneratorSeed(
-                  formData.extensions,
-                  (formData.extensions.appearance as string) ?? formData.description,
-                )}
-                defaultAvatarUrl={avatarPreview}
-                characterSheetImageId={
-                  typeof formData.extensions.characterSheetImageId === "string"
-                    ? formData.extensions.characterSheetImageId
-                    : null
+              <CardImagesTab
+                variant="character"
+                entityKey={characterId}
+                onJump={scrollToSection}
+                sheet={
+                  <CharacterSheetSection
+                    characterId={characterId}
+                    characterName={formData.name ?? ""}
+                    characterSheetImageId={
+                      typeof formData.extensions.characterSheetImageId === "string"
+                        ? formData.extensions.characterSheetImageId
+                        : null
+                    }
+                    useAsReference={formData.extensions.useCharacterSheetAsReference === true}
+                    onChange={updateCharacterSheet}
+                    saving={saving || updateSheet.isPending}
+                    onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                  />
                 }
-                useCharacterSheetAsReference={formData.extensions.useCharacterSheetAsReference === true}
-                onUpdateCharacterSheet={updateCharacterSheet}
-                characterSheetSaving={saving || updateSheet.isPending}
-                onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                instructions={
+                  <SelfieInstructionsField
+                    value={(formData.extensions.conversationImageInstructions as string) ?? ""}
+                    onChange={(value) => updateExtension("conversationImageInstructions", value)}
+                  />
+                }
+                sprites={
+                  <SpritesTab
+                    characterId={characterId}
+                    characterName={formData.name}
+                    defaultAppearance={imageAppearanceGeneratorSeed(
+                      formData.extensions,
+                      (formData.extensions.appearance as string) ?? formData.description,
+                    )}
+                    defaultAvatarUrl={avatarPreview}
+                  />
+                }
+                gallery={
+                  <CharacterGalleryTab
+                    characterId={characterId}
+                    characterName={formData.name}
+                    onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                  />
+                }
               />
             )}
-          </LazyEditorSection>
-          <LazyEditorSection key={`gallery:${characterId}`} id="gallery">
-            {characterId && (
-              <CharacterGalleryTab
-                characterId={characterId}
-                characterName={formData.name}
-                onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
-              />
-            )}
-          </LazyEditorSection>
+          </section>
           <section data-editor-section="colors">
             <ColorsTab formData={formData} updateExtension={updateExtension} avatarUrl={avatarPreview} />
           </section>
@@ -2483,8 +2500,6 @@ function ConvoTab({
                 })()
             : undefined
         }
-        imageInstructions={(ext.conversationImageInstructions as string) ?? ""}
-        onImageInstructionsChange={(value) => updateExtension("conversationImageInstructions", value)}
         schedule={schedule}
         onEditSchedule={kind === "character" && characterId ? () => setScheduleOpen(true) : undefined}
       />
@@ -5364,21 +5379,11 @@ function SpritesTab({
   characterName,
   defaultAppearance,
   defaultAvatarUrl,
-  characterSheetImageId,
-  useCharacterSheetAsReference,
-  onUpdateCharacterSheet,
-  characterSheetSaving,
-  onCreateCharacterSheet,
 }: {
   characterId: string;
   characterName?: string;
   defaultAppearance?: string;
   defaultAvatarUrl?: string | null;
-  characterSheetImageId: string | null;
-  useCharacterSheetAsReference: boolean;
-  onUpdateCharacterSheet: (patch: CharacterSheetUpdate) => Promise<void>;
-  characterSheetSaving: boolean;
-  onCreateCharacterSheet: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
@@ -5844,18 +5849,6 @@ function SpritesTab({
     [characterId, displayExpression, uploadSprite, wandCleanupSprite, localizeUi],
   );
 
-  const characterSheetSection = (
-    <CharacterSheetSection
-      characterId={characterId}
-      characterName={characterName ?? ""}
-      characterSheetImageId={characterSheetImageId}
-      useAsReference={useCharacterSheetAsReference}
-      onChange={onUpdateCharacterSheet}
-      saving={characterSheetSaving}
-      onCreateCharacterSheet={onCreateCharacterSheet}
-    />
-  );
-
   if (category === "clips") {
     return (
       <div className="space-y-6">
@@ -5864,8 +5857,6 @@ function SpritesTab({
           subtitle={localizeUi("ui.characters.spritestab.uploadVnStyleSpritesAndVideoCallClipsFor")}
           helpText={localizeUi("sprites.library.help")}
         />
-
-        {characterSheetSection}
 
         {categoryTabs}
 
@@ -5881,7 +5872,6 @@ function SpritesTab({
         subtitle={localizeUi("sprites.library.intro")}
         helpText={localizeUi("sprites.library.help")}
       />
-      {characterSheetSection}
       <SpriteLibraryShell
         library={library}
         busy={spriteBusy}

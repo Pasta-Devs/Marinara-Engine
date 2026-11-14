@@ -44,11 +44,22 @@ Tabs that have their own guide:
 | **Onboarding** | [Interactive Onboarding](interactive-onboarding.md) |
 | **Convo** | [Conversation Mode Profiles](../conversation/profiles.md) |
 | **Lorebook** | [Linking Lorebooks to Characters](../lorebooks/linking-to-characters.md) |
-| **Sprites** | [Character Sprites](sprites.md) |
-| **Gallery** | [Character and Persona Galleries](galleries.md) |
+| **Images** | [Character Sprites](sprites.md) and [Character and Persona Galleries](galleries.md). See [Images tab](#images-tab) below. |
 | **Colors** and **Stats** | [Character Colors and Roleplay Stats](colors-and-stats.md) |
 
-The sections below cover **Metadata**, **Card**, **Voice** and **Advanced**, plus avatars and version history.
+The sections below cover **Metadata**, **Card**, **Images**, **Voice** and **Advanced**, plus avatars and version history.
+
+
+## Images tab
+
+The **Images** tab gathers how a character looks in pictures. Its buttons at the top jump to each part:
+
+- **Character Sheet**: a reference image of the character. Click **Manage** to create, upload or pick one, and turn on **Use as reference image** to prefer it over the avatar when generating images. See [Character Sheet](sprites.md#character-sheet).
+- **Selfie instructions**: optional directions for this character's Conversation selfies, such as camera style or expressions. Noodle and Slurp can use them too when you turn that on in their settings. See [Selfies](../conversation/selfies.md).
+- **Sprites**: expressions, full-body sprites and call clips. See [Character Sprites](sprites.md).
+- **Gallery**: images and videos kept with the character. See [Character and Persona Galleries](galleries.md).
+
+A persona's **Images** tab has the same parts except **Selfie instructions**.
 
 ## Metadata tab
 
