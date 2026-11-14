@@ -61,7 +61,7 @@ UI는 Discord에서 착안한 3열 구성이며 `components/layout/AppShell.tsx`
 
 클라이언트는 UI 상태와 런타임 상태를 `packages/client/src/stores/`의 Zustand 스토어 묶음으로 관리합니다. 저장되는 스토어는 `ui.store.ts` 하나뿐입니다. 나머지는 채팅, 에이전트, 게임, 로컬 모델 런타임, 번역, 대화 상자, 백필의 런타임 상태를 담습니다.
 
-현재 스토어 파일은 `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `sidecar.store.ts`, `translation.store.ts`, `ui.store.ts`입니다. 테이블 게임 스토어는 다운로드 가능한 각 패키지로 옮겨졌으며, `conversation-games.store.ts`는 Conversation 게임 선택기와 설정만 추적합니다.
+현재 스토어 파일은 `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `combat-screen.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `roleplay-sheet.store.ts`, `sidecar.store.ts`, `translation.store.ts`, `ui.store.ts`입니다. 테이블 게임 스토어는 다운로드 가능한 각 패키지로 옮겨졌으며, `conversation-games.store.ts`는 Conversation 게임 선택기와 설정만 추적합니다. `combat-screen.store.ts`는 표시 중인 전투 화면과 라운드를 추적하므로, 그때만 상단 바에 전투 조작 버튼이 뜹니다. `roleplay-sheet.store.ts`는 Roleplay 채팅에서 어떤 멤버의 규칙 집합 시트를 열었는지 추적합니다.
 
 #### `ui.store.ts`: 설정과 UI 외형
 
@@ -126,7 +126,7 @@ Roleplay 모드의 장면과 세계 컨텍스트를 담습니다.
 
 ### React Query(서버 데이터)
 
-서버 데이터는 모두 TanStack React Query로 가져오고 캐시합니다. 설정은 `main.tsx`에 있습니다.
+서버 데이터는 모두 TanStack React Query로 가져오고 캐시합니다. 설정은 `lib/query-client.ts`에 있습니다.
 
 - 스테일 시간: 30초(전역 기본값).
 - 재시도: 1회.
@@ -137,7 +137,7 @@ Roleplay 모드의 장면과 세계 컨텍스트를 담습니다.
 
 ## 훅 레퍼런스
 
-모든 훅은 `src/hooks/`에 있으며 `use-{entity}.ts` 형태로 이름을 짓습니다.
+모든 훅은 `src/hooks/`에 있으며 `use-{entity}.ts` 형태로 이름을 짓습니다. 아래 표에는 주요 훅만 나열합니다. 전체 목록은 `packages/client/src/hooks/`에 있습니다.
 
 ### 채팅 훅(`use-chats.ts`)
 
@@ -181,27 +181,25 @@ Roleplay 모드의 장면과 세계 컨텍스트를 담습니다.
 | 훅 | 종류 | 설명 |
 | ------------------------------ | -------- | ---------------------------------------------------------- |
 | `usePresets()` | Query | 전체 프리셋 |
-| `usePreset(id)` | Query | 프리셋 하나 |
-| `usePresetFull(id)` | Query | 섹션, 그룹, 선택지를 포함한 프리셋 |
-| `useDefaultPreset()` | Query | 기본값 프리셋 |
-| `useCreatePreset()` | Mutation | 프리셋 만들기 |
+| `usePresetFull(id)` | Query | 섹션, 그룹, 변수를 포함한 프리셋 하나 |
+| `useDefaultPreset()` | Query | 기본 프리셋 |
 | `useUpdatePreset()` | Mutation | 프리셋 수정 |
 | `useDeletePreset()` | Mutation | 프리셋 삭제 |
-| `usePresetSections(presetId)` | Query | 프리셋의 프롬프트 섹션 |
-| `usePresetGroups(presetId)` | Query | 섹션 그룹 |
-| `usePresetVariables(presetId)` | Query | 프리셋 변수(예전의 선택 블록) |
-| `usePreviewPreset()` | Mutation | `{ presetId, chatId, choices }`에 대한 프롬프트 렌더링 미리보기 |
+| `useDuplicatePreset()` | Mutation | 프리셋 복제 |
+| `useSetDefaultPreset()` | Mutation | 프리셋을 기본값으로 지정 |
+| `useCreateSection()` | Mutation | 프롬프트 섹션 만들기(수정, 삭제, 순서 변경 훅도 같은 파일에 있음) |
+| `useCreateGroup()` | Mutation | 섹션 그룹 만들기(수정, 삭제 훅도 같은 파일에 있음) |
+| `useCreateVariable()` | Mutation | 프리셋 변수(이전의 선택 블록) 만들기(수정, 삭제, 순서 변경 훅도 같은 파일에 있음) |
 
 ### 에이전트 훅(`use-agents.ts`)
 
 | 훅 | 종류 | 설명 |
 | -------------------- | -------- | ------------------------------- |
 | `useAgentConfigs()` | Query | 전체 에이전트 설정 |
-| `useAgentConfig(id)` | Query | 에이전트 설정 하나 |
 | `useCreateAgent()` | Mutation | 사용자 지정 에이전트 만들기 |
 | `useUpdateAgent()` | Mutation | 에이전트 설정 수정 |
 | `useDeleteAgent()` | Mutation | 에이전트 삭제 |
-| `useToggleAgent()` | Mutation | 기본 제공 에이전트 켜기/끄기 |
+| `useUpdateAgentByType()` | Mutation | 에이전트 종류를 기준으로 설정 수정 |
 
 ### 생성 훅(`use-generate.ts`)
 
@@ -231,7 +229,7 @@ Roleplay 모드의 장면과 세계 컨텍스트를 담습니다.
 | `use-background-autonomous.ts` | 비활성 채팅을 뒤에서 주기적으로 폴링 |
 | `use-translate.ts` | 텍스트 번역 |
 | `use-apply-regex.ts` | 메시지에 정규식 스크립트 실행 |
-| `use-custom-tools.ts` | 사용자 지정 도구 CRUD |
+| `use-custom-tools.ts` | 사용자 지정 도구 CRUD, 순서 변경, 일괄 켜기/끄기 |
 | `use-knowledge-sources.ts` | 지식 소스 관리 |
 | `use-gallery.ts` | 채팅 갤러리 이미지 |
 | `use-chat-folders.ts` | 채팅 폴더 CRUD와 순서 변경 |
@@ -326,9 +324,9 @@ AI 게임 마스터(GM) 화면입니다. chat 폴더가 아니라 `components/ga
 패널은 `RightPanel.tsx`의 두 곳에 등록합니다.
 
 1. `PANEL_CONFIG`: 제목, 아이콘, 그라데이션 색.
-2. `PANELS`: 컴포넌트 맵.
+2. `RIGHT_PANELS`(`right-panel-panels.ts`에 있음): 컴포넌트 맵.
 
-패널은 모듈 수준에서 상태를 유지합니다. `mountedPanels` Set이 지금까지 열어 본 패널을 기록합니다. 한 번 마운트된 패널은 상태를 유지하려고 `display: none`이나 `aria-hidden`으로 숨긴 채 DOM에 남습니다.
+패널 상태는 `RightPanel` 안의 `useState`에 있는 `mountedPanels` Set으로 유지합니다. 이 Set은 열어 본 패널을 기록합니다. 한 번 마운트된 패널은 상태를 유지하도록 DOM에 남고 `display: none`이나 `aria-hidden`으로 숨깁니다.
 
 ### UI 기본 요소(`components/ui/`)
 
@@ -340,8 +338,11 @@ AI 게임 마스터(GM) 화면입니다. chat 폴더가 아니라 `components/ga
 | `EmojiPicker` | 검색할 수 있는 이모지 팝오버(포털로 렌더링) |
 | `GifPicker` | Giphy API를 이용한 GIF 검색 |
 | `HelpTooltip` | 마우스를 올리면 포털 위치에 툴팁을 띄우는 아이콘 |
+| `LibraryToolbar` | 모든 라이브러리 패널이 공유하는 도구 모음 |
 
 모든 UI 컴포넌트는 제어 방식 props(value와 onChange)를 쓰고, 오버레이는 포털로 렌더링합니다.
+
+캐릭터, 페르소나, 로어북, 에이전트 패널과 Presets 패널의 각 탭은 `LibraryToolbar`로 상단 컨트롤을 표시합니다. 선택 사항인 라이브러리 행(전체 너비 버튼 하나 또는 Download와 Open Library 버튼 두 개), 만들기·가져오기·내보내기·선택, 공통 정렬 메뉴가 있는 검색, New Folder, `children`으로 받은 패널 필터 순입니다. 행을 타입이 지정된 props로 받으므로 새 라이브러리 패널도 같은 마크업을 사용합니다. 패널에 도구 모음을 따로 만들기보다 이 컴포넌트에 prop을 추가하세요.
 
 ## API 클라이언트(`lib/api-client.ts`)
 
@@ -466,8 +467,13 @@ Personal Extensions는 서버에 저장하고 정확한 해시로 승인하는 �
 | `/api/connections` | GET, POST, PATCH, DELETE | API 연결 CRUD, 복제, 테스트 |
 | `/api/agents` | GET, POST, PATCH, DELETE | 에이전트 CRUD, echo 메시지, 실행 기록. 기본 제공 에이전트 켜고 끄기는 `PUT /api/agents/toggle/:agentType` |
 | `/api/lorebooks` | GET, POST, PATCH, DELETE | 로어북 CRUD, 항목, 내보내기 |
-| `/api/custom-tools` | GET, POST, PATCH, DELETE | 사용자 지정 도구 CRUD |
-| `/api/regex-scripts` | GET, POST, PATCH, DELETE | 정규식 스크립트 CRUD |
+| `/api/custom-tools` | GET, POST, PUT, PATCH, DELETE | 사용자 지정 도구 CRUD, `PUT /reorder`, `PUT /enabled` |
+| `/api/regex-scripts` | GET, POST, PUT, PATCH, DELETE | 정규식 스크립트 CRUD, `PUT /reorder`, `PUT /enabled` |
+| `/api/library-folders/regex` | GET, POST, PATCH, DELETE | 정규식 폴더 CRUD, 일시 중지 상태, `POST /move` |
+| `/api/library-folders/functions` | GET, POST, PATCH, DELETE | 사용자 지정 도구 폴더 CRUD, 일시 중지 상태, `POST /move` |
+
+
+`PUT /api/regex-scripts/enabled`는 `scriptIds`와 `enabled`를 받습니다. ID가 하나라도 없으면 스크립트를 하나도 수정하지 않고 404를 반환합니다. 목록은 저장된 `enabled`와 별도로 `pausedByFolder`를 포함합니다. `PUT /api/custom-tools/enabled`는 `toolIds`를 받아 같은 방식으로 동작하며, 도구 목록에도 `pausedByFolder`가 들어갑니다. 일시 중지된 폴더의 도구는 모델에 제공하지 않습니다.
 
 에이전트의 기억 도구는 `/api/agents/memory/:agentType/:chatId`를 씁니다. `agentType`은 에이전트 종류 문자열이고 `chatId`는 대상 채팅의 id입니다.
 
@@ -483,7 +489,7 @@ Personal Extensions는 서버에 저장하고 정확한 해시로 승인하는 �
 | 접두사 | 엔드포인트 | 설명 |
 | ------------------------- | -------------------------------- | ---------------------------- |
 | `/api/chat-folders` | CRUD와 순서 변경 | 채팅 폴더 관리 |
-| `/api/conversation` | schedule, status, message, check | 자율 메시지 시스템 |
+| `/api/conversation` | schedule, status, activity, autonomous | 자율 메시지 시스템 |
 | `/api/scene` | create, plan, conclude | 장면 분기 |
 | `/api/encounter` | init, action, summary | 전투 인카운터 |
 | `/api/translate` | POST | 텍스트 번역 |
@@ -492,8 +498,8 @@ Personal Extensions는 서버에 저장하고 정확한 해시로 승인하는 �
 | `/api/game-rulesets` | 가져오기, 스키마, 원본, 제거 | 가져온 Game Mode 규칙 집합 |
 | `/api/game-worlds` | 라이브러리 CRUD와 세계 편집 | 새 게임과 지도 팩용 세계 라이브러리 |
 | `/api/game-tile-packs` | 타일 팩, `/creatures`와 `/boards` 포함 | 지도, 크리처, 전투 보드 아트 팩 |
-| `/api/turn-games` | Chess, UNO, Poker 라우트 | Conversation 테이블 게임 |
-| `/api/conversation-calls` | 통화와 세션 라우트 | Conversation 음성 통화 |
+| `/api/turn-games` | catalog, state, start, move, resign | Conversation 테이블 게임(게임은 패키지에서 제공) |
+| `/api/conversation-calls` | 통화와 세션 라우트(Conversation 통화 패키지가 등록) | Conversation 음성 통화 |
 
 ### 미디어와 에셋
 
@@ -532,9 +538,9 @@ Personal Extensions는 서버에 저장하고 정확한 해시로 승인하는 �
 
 | 엔드포인트 | 설명 |
 | ------------------------------- | --------------------------------------- |
-| `/api/updates/check` | GitHub 릴리스와 버전 비교 |
-| `/api/updates/latest` | 최신 릴리스 정보 |
-| `/api/updates/commits-behind` | Git 설치본이 얼마나 뒤처졌는지 확인 |
+| `/api/updates/check` | GitHub 릴리스와 버전 비교. Git 설치본은 업데이트 채널보다 얼마나 뒤처졌는지도 확인 |
+| `/api/updates/channel` | 업데이트 채널, 현재 브랜치, 채널 목록 |
+| `/api/updates/apply` | 업데이트 적용 |
 | `/api/backup` | 전체 백업, 내보내기, 가져오기 |
 | `/api/import/*` | SillyTavern과 Marinara 프로필 가져오기 |
 | `/api/admin/clear-all` | 전체 데이터 삭제 |
@@ -557,13 +563,13 @@ Personal Extensions는 서버에 저장하고 정확한 해시로 승인하는 �
 
 - 매니페스트: `public/manifest.json`. 앱 이름은 "Marinara Engine", 표시 모드는 standalone, 테마는 다크입니다.
 - 아이콘: 64px 파비콘, 192px과 512px maskable 아이콘, 스플래시 로고.
-- 서비스 워커: 자동 업데이트 전략을 쓰는 Workbox.
+- 서비스 워커: Workbox의 `registerType: "prompt"`를 사용합니다. 새 버전은 사용자가 수락할 때까지 기다립니다.
 - 캐싱: 정적 에셋은 캐시하고 `/api/*` 라우트는 NetworkOnly를 씁니다.
 - 연결 유지: `lib/keep-alive.ts`가 Web Locks API와 BroadcastChannel 핑으로 탭이 잠들지 않게 합니다.
 
 ### 버전 불일치 감지
 
-`App.tsx`는 5분마다 `/api/health`를 확인합니다. 서버 버전이 클라이언트에 캐시된 버전과 다르면 클라이언트가 서비스 워커 등록을 해제합니다. 또한 캐시를 비워 강제로 업데이트합니다.
+`App.tsx`는 5분마다 `/api/health`를 폴링합니다. 서버 버전이 클라이언트에 캐시된 버전과 다르면 `lib/browser-runtime.ts`의 `forceRefreshSpa`로 클라이언트를 새로고침합니다. 이 함수는 서비스 워커 등록을 해제하고 캐시를 비웁니다.
 
 ## 에이전트 시스템
 
@@ -686,7 +692,7 @@ pnpm build
 ### 번들 예산
 
 - 메인 엔트리: 최대 1 MB.
-- 청크 하나: 최대 500 KB.
+- 청크별: `chunkSizeWarningLimit`는 512 KB입니다. 넘으면 빌드가 경고를 출력하고 계속 진행합니다.
 - 벤더 분리: react, tanstack, motion, zustand, icons, misc.
 
 ### 경로 별칭

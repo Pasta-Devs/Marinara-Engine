@@ -9,12 +9,12 @@
 - **Facial Expressions**(표정)는 기쁨, 슬픔, 분노 같은 감정을 나타내는 인물 그림입니다.
 - **Full-body**(전신) 이미지는 대기, 걷기, 전투 자세 같은 포즈를 나타내는 전신 그림입니다.
 
-스프라이트는 Roleplay Mode와 Game Mode(게임 모드)에서 화면에 나타나며, Conversation(대화) 채팅에서는 나타나지 않습니다. 캐릭터는 모든 채팅에서 자기 스프라이트를 그대로 가지므로, 업로드는 어느 모드에서든 할 수 있습니다. 페르소나에도 같은 **Sprites**(스프라이트) 탭이 있습니다.
+스프라이트는 Roleplay Mode와 Game Mode(게임 모드)에서 화면에 나타나며, Conversation(대화) 채팅에서는 나타나지 않습니다. 캐릭터는 모든 채팅에서 자기 스프라이트를 그대로 가지므로, 업로드는 어느 모드에서든 할 수 있습니다. 페르소나에도 같은 **Sprites**(스프라이트) 섹션이 있습니다.
 
-## Sprites 탭 찾기
+## 스프라이트 찾기
 
 1. 캐릭터(또는 페르소나)를 편집기에서 여세요.
-2. **Sprites** 탭을 클릭하세요.
+2. **Images**(이미지) 탭을 열고 상단의 **Sprites**를 클릭하세요.
 3. 위쪽에서 **Facial Expressions**, **Full-body**, **Clips**(클립) 중 하나를 고르세요.
 
 아래 절에서는 **Facial Expressions**와 **Full-body**를 설명합니다. **Clips**는 통화 기능의 일부입니다. [Conversation 음성 통화와 영상 통화](../conversation/calls.md)를 참고하세요.
@@ -27,7 +27,7 @@ PNG, JPEG, GIF, WebP, AVIF, SVG 이미지를 올릴 수 있습니다. 배경이 
 
 ### 스프라이트 한 장 이상 올리기
 
-1. **Sprites** 탭을 열고 **Facial Expressions** 또는 **Full-body**를 고르세요.
+1. **Images → Sprites**를 열고 **Facial Expressions** 또는 **Full-body**를 고르세요.
 2. **Add sprites**(스프라이트 추가)를 클릭하세요.
 3. **Upload images**(이미지 업로드)를 클릭한 다음, 폴더 안으로 들어가 그 안의 이미지를 선택하세요. 여러 장을 함께 선택할 수 있습니다.
 4. **Import images**(이미지 가져오기) 창에서 **Import**(가져오기)를 클릭하세요. **Cancel**은 아무것도 추가하지 않습니다.
@@ -40,7 +40,7 @@ PNG, JPEG, GIF, WebP, AVIF, SVG 이미지를 올릴 수 있습니다. 배경이 
 
 폴더째 올리기는 페르소나 편집기에서 할 수 있습니다. 캐릭터에서는 위의 **Upload images**로 폴더 안의 이미지를 선택하세요.
 
-1. 페르소나의 **Sprites** 탭을 여세요.
+1. 페르소나의 **Images** 탭을 열고 **Sprites**를 클릭하세요.
 2. **Add Sprite** 상자에서 **Upload Folder**(폴더 업로드)를 클릭하세요.
 3. 이미지가 들어 있는 폴더를 고르세요.
 
@@ -158,13 +158,15 @@ Marinara가 안전용 사본을 남겨 둡니다. "Last cleanup has a restore po
 
 **Select**를 클릭하면 체크 상자와 **Select all sprites**(모든 스프라이트 선택)가 나타납니다. 그런 다음 선택한 스프라이트를 함께 끌거나 정리와 삭제를 사용하세요. **Cancel**(취소)은 선택 모드에서 나갑니다. 검색은 보이는 스프라이트를 걸러 냅니다. 검색 결과가 없다고 해서 라이브러리가 비어 있다는 뜻은 아닙니다.
 
+<a id="character-sheet"></a>
+
 ### Character Sheet
 
-캐릭터 편집기의 **Character Sheet** 줄은 **Manage**(관리)로 엽니다. 그곳에서 시트를 만들거나 올리세요. 캐릭터의 생김새를 맞출 때 이 시트를 우선 쓰려면 **Use as reference image**(참조 이미지로 사용)를 켜세요.
+**Character Sheet**는 **Images** 탭의 상단에서 스프라이트 위에 있습니다. **Manage**(관리)를 열어 시트를 만들거나 업로드하세요. 캐릭터의 생김새를 맞출 때 이 시트를 우선 쓰려면 **Use as reference image**(참조 이미지로 사용)를 켜세요.
 
 ## 스프라이트 내보내기
 
-1. **Sprites** 탭을 여세요.
+1. **Images → Sprites**를 여세요.
 2. 캐릭터 격자 위나 페르소나의 **Add Sprite** 상자에서 **Export**(내보내기)를 클릭하세요.
 3. 현재 카테고리를 내보내려면 **Expressions only**(얼굴 표정만) 또는 **Full-body only**(전신만)를, 전부 내보내려면 **All sprites**(모든 스프라이트)를 고르세요.
 

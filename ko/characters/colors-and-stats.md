@@ -14,6 +14,8 @@
 
 **Extract Colors from Avatar**(아바타에서 색상 추출)는 아바타 이미지에서 3가지 색상을 모두 뽑아냅니다. 아바타가 생기기 전에는 버튼이 꺼져 있고 **Upload an avatar first**(먼저 아바타를 업로드하세요)라고 표시됩니다. 추출한 뒤에도 어떤 색상이든 직접 바꿀 수 있습니다.
 
+<a id="the-three-colors"></a>
+
 ### 3가지 색상
 
 색상 입력란에서 고르거나 값을 직접 입력하세요.
@@ -30,7 +32,7 @@
 linear-gradient(90deg, #f59e0b, #ef4444)
 ```
 
-캐릭터의 **Colors** 탭에는 **Name Aliases**(이름 별칭)도 있습니다. `Kate, Kitty, Katherine`처럼 추가 이름이나 별명을 쉼표로 구분해 입력하세요. 이 이름이 채팅 메시지에 나오면 캐릭터의 이름 색상이 적용됩니다. 본래 이름은 항상 포함됩니다. 채팅별로 **Chat Settings → Characters**(채팅 설정 → 캐릭터)에서 켜세요.
+**Other names**(다른 이름)는 **Metadata**(메타데이터) 탭에서 **Name**(이름) 아래에 있습니다. `Clark Kent, Kal-El, Mr. Kent`처럼 별명, 전체 이름, 호칭을 입력할 수 있습니다. Roleplay 채팅 메시지에서 기본 이름과 같은 색상으로 표시됩니다. 채팅별로 **Chat Settings → Characters**(채팅 설정 → 캐릭터)의 **Color Character Names in Text**(본문의 캐릭터 이름에 색상 적용)와 **Chat Settings → Persona**(채팅 설정 → 페르소나)의 **Color Persona Name in Text**(본문의 페르소나 이름에 색상 적용)를 켜세요.
 
 투명도를 바꾸려면 **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity**(설정 → 모양 → 롤플레이 표시 방식 → 롤플레이 메시지 배경 불투명도)를 사용하세요.
 

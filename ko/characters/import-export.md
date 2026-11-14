@@ -55,7 +55,7 @@ SillyTavern 설치본 전체를 옮기려면 **Settings**(설정)의 **Imports**
 ## 캐릭터 내보내기
 
 1. 편집기에서 캐릭터를 여세요.
-2. 머리글에서 **Export character**(캐릭터 내보내기)를 클릭하세요. **Export Character** 창이 열립니다.
+2. 헤더에서 **…**를 클릭한 다음 **Export character**(캐릭터 내보내기)를 클릭하세요. **Export Character** 창이 열립니다.
 3. 형식을 고르세요. Marinara가 파일을 다운로드합니다.
 
 | 형식 | 저장되는 내용 | 적합한 상황 |
