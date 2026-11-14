@@ -367,7 +367,14 @@ function ChatProfileBuilderBody({
   const trimmedName = name.trim();
   // A new profile is created once; a later save (a save on leave after step 2) updates that one.
   const createdRef = useRef<ChatPreset | null>(null);
-  const persist = async (): Promise<ChatPreset> => {
+  // Back can save while a Save click is still running (or the other way round); both share one request, so a
+  // new profile is never created twice.
+  const inFlightRef = useRef<Promise<ChatPreset> | null>(null);
+  const persist = (): Promise<ChatPreset> =>
+    (inFlightRef.current ??= persistNow().finally(() => {
+      inFlightRef.current = null;
+    }));
+  const persistNow = async (): Promise<ChatPreset> => {
     const target = profile ?? createdRef.current;
     let result: ChatPreset;
     if (target) {
@@ -770,6 +777,7 @@ function ChatProfileBuilderBody({
             mode === value && "mari-chrome-control--selected",
           )}
           aria-pressed={mode === value}
+          disabled={busy}
           onClick={() => {
             if (value === mode) return;
             // Slots depend on the mode (prompt presets are Roleplay-only, agents differ), so start them over.

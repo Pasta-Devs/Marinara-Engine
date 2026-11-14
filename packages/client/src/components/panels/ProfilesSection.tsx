@@ -304,7 +304,8 @@ export function ProfilesSection({ selectionMode, setSelectionMode, activeChatMod
           title: localizeUi(
             selectionMode ? "ui.panels.profilessection.exitSelection" : "ui.panels.profilessection.selectProfiles",
           ),
-          disabled: busy || profiles.every((profile) => profile.isDefault),
+          // Only entering select mode needs a deletable profile; leaving it must always work.
+          disabled: busy || (!selectionMode && profiles.every((profile) => profile.isDefault)),
           onToggle: () => {
             setSelectionMode(!selectionMode);
             if (selectionMode) setSelectedIds(new Set());
