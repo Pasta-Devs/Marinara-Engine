@@ -4,8 +4,10 @@
 //
 //   cd packages/server && npx tsx ../../scripts/dev/try-background-weather-versions.ts <output folder>
 //   ... <output folder> --window            (a room with a big window, then its rain and snow)
+//   ... <output folder> --stencil <inn.png> [runs] (the window repaint and the stencil made from it)
 //   ... <output folder> --more <inn.png>    (its window stencil, then aurora/blizzard/blossom/meteor shower)
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync } from "node:fs";
+import { createRequire } from "node:module";
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -32,6 +34,48 @@ const codex = {
   imgSource: "codex_chatgpt",
   imgService: "codex_chatgpt",
 };
+
+// `--stencil <picture> [runs]`: ask for the window repaint of a picture (default 2 runs) and save the
+// model's answer next to the stencil made from it, to judge the stencil prompt.
+const stencilIndex = process.argv.indexOf("--stencil");
+if (stencilIndex > 0) {
+  const { WINDOW_MASK_INSTRUCTION, windowMaskFromRepaint } =
+    await import("../../packages/server/src/services/game/game-asset-generation.js");
+  const { generateImage } = await import("../../packages/server/src/services/image/image-generation.js");
+  const picturePath = resolve(process.argv[stencilIndex + 1] || "");
+  const runs = Math.max(1, Math.min(4, Number(process.argv[stencilIndex + 2]) || 2));
+  const stem = picturePath
+    .split(/[\\/]/u)
+    .pop()!
+    .replace(/\.[^.]+$/u, "");
+  const sharp = createRequire(new URL("../../packages/server/package.json", import.meta.url))("sharp");
+  const meta = await sharp(picturePath).metadata();
+  for (let run = 1; run <= runs; run++) {
+    const started = Date.now();
+    try {
+      const result = await generateImage(codex.imgModel, codex.imgBaseUrl, codex.imgApiKey, codex.imgSource, {
+        prompt: WINDOW_MASK_INSTRUCTION,
+        model: codex.imgModel,
+        width: meta.width!,
+        height: meta.height!,
+        referenceImage: readFileSync(picturePath).toString("base64"),
+        referenceIsCanvas: true,
+        preserveProviderOutput: true,
+      });
+      const answer = Buffer.from(result.base64, "base64");
+      writeFileSync(join(outDir, `${stem}--repaint-${run}.png`), answer);
+      const mask = await windowMaskFromRepaint(answer, picturePath, meta.width!, meta.height!);
+      if (mask) writeFileSync(join(outDir, `${stem}--stencil-v3-${run}.png`), mask.png);
+      console.log(
+        `run ${run}: ${Math.round((Date.now() - started) / 1000)} s, ${mask ? `${(mask.coverage * 100).toFixed(1)}% glass` : "no usable windows"}`,
+      );
+    } catch (err) {
+      console.log(`run ${run}: FAILED`, err);
+    }
+  }
+  console.log("Output:", outDir, readdirSync(outDir));
+  process.exit(0);
+}
 
 // `--more <inn picture>`: the window stencil of an indoor picture made earlier with --window, then
 // versions in the newer kinds of weather (aurora, blizzard, blossom, an unusual one), indoors and out.
