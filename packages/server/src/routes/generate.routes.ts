@@ -3326,6 +3326,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       let pendingIllustratorBackground: (() => Promise<void>) | null = null;
       // Shows a pinned place's background when this turn arrives there (runs before the Illustrator tail).
       let pendingLocationPin: (() => Promise<void>) | null = null;
+      // Backgrounds this turn's own agents showed (Background agent, pinned place): the Illustrator tail
+      // doesn't read them as the user changing the background by hand.
+      const backgroundsShownThisTurn = new Set<string>();
       const collectedCommands: Array<{
         command: CharacterCommand;
         characterId: string | null;
@@ -12745,6 +12748,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   personaGallery,
                 }).catch(() => [])
               : Promise.resolve([]));
+        const replySpeakerName = () =>
+          (lastSavedMsg as { role?: string } | null)?.role === "user"
+            ? personaName
+            : (charInfo.find(
+                (character) => character.id === (lastSavedMsg as { characterId?: string } | null)?.characterId,
+              )?.name ?? null);
         const pinnedSceneBackgroundForTurn = async (snapshotMessageId: string, snapshotSwipeIndex: number) => {
           const snapshot = snapshotMessageId
             ? await gameStateStore.getByChatAndMessage(input.chatId, snapshotMessageId, snapshotSwipeIndex)
@@ -12761,12 +12770,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             userName: personaName,
             characterNames: charInfo.map((character) => character.name),
             // The reply's character: "my bedroom" in John's reply is John's.
-            speakerName:
-              (lastSavedMsg as { role?: string } | null)?.role === "user"
-                ? personaName
-                : (charInfo.find(
-                    (character) => character.id === (lastSavedMsg as { characterId?: string } | null)?.characterId,
-                  )?.name ?? null),
+            speakerName: replySpeakerName(),
             weather: state?.weather ?? null,
             weatherVersions: illustratorWeatherVersionsEnabled(chatMode, chatMeta),
             galleryPins: await galleryPinsForChat(),
@@ -12795,10 +12799,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   ? freshMeta.background.trim()
                   : null;
               // A pinned place keeps its picture: no new background, only its weather version.
-              const pinnedHere = locationBackgroundPinsApply(chatMode, freshMeta)
+              const pinnedHere = locationBackgroundPinsApply(chatMode, freshMeta, await galleryPinsForChat())
                 ? await pinnedSceneBackgroundForTurn(tail.messageId, tail.swipeIndex)
                 : null;
-              if (backgroundBeforeGeneration !== backgroundAtDecision && !pinnedHere) {
+              if (
+                backgroundBeforeGeneration !== backgroundAtDecision &&
+                !(backgroundBeforeGeneration && backgroundsShownThisTurn.has(backgroundBeforeGeneration)) &&
+                !pinnedHere
+              ) {
                 logger.info(
                   "[illustrator-background] Skipping automatic background because the active background changed after the Illustrator decision",
                 );
@@ -12920,6 +12928,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   : null,
                 userName: personaName,
                 characterNames: charInfo.map((character) => character.name),
+                speakerName: replySpeakerName(),
                 weather: weatherForReuse,
                 weatherVersions: weatherVersionsEnabled,
                 galleryPins: await galleryPinsForChat(),
@@ -12967,7 +12976,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 typeof metaAfterGeneration.background === "string" && metaAfterGeneration.background.trim()
                   ? metaAfterGeneration.background.trim()
                   : null;
-              if (backgroundAfterGeneration !== backgroundAtDecision) {
+              if (backgroundAfterGeneration !== backgroundBeforeGeneration) {
                 logger.info(
                   "[illustrator-background] Saved %s to the library without activating it because the background changed during generation",
                   generated.filename,
@@ -14092,7 +14101,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           const defaultResultMessageId = messageId;
           const defaultResultSwipeIndex = targetSwipeIndex;
-          if (messageId && locationBackgroundPinsApply(chatMode, chatMeta)) {
+          if (messageId && locationBackgroundPinsApply(chatMode, chatMeta, await galleryPinsForChat())) {
             pendingLocationPin = async () => {
               try {
                 const pinned = await pinnedSceneBackgroundForTurn(messageId, targetSwipeIndex);
@@ -14110,6 +14119,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
                 // Same pinned place as before: a picture the user picked by hand here stays.
                 if (shownPinId === pinned.match.pin.id) return;
+                backgroundsShownThisTurn.add(pinned.filename);
                 // A literal patch (pinnedBackgroundMetadataPatch's two keys) so the metadata sweep can read it.
                 await chats.patchMetadata(input.chatId, {
                   background: pinned.filename,
@@ -14190,7 +14200,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
               // A pinned place owns its picture: the agent can't swap it for another one there.
               let pinnedPatch: Record<string, unknown> | null = null;
-              if (bgData.chosen && locationBackgroundPinsApply(chatMode, chatMeta)) {
+              if (bgData.chosen && locationBackgroundPinsApply(chatMode, chatMeta, await galleryPinsForChat())) {
                 try {
                   const pinned = await pinnedSceneBackgroundForTurn(messageId, targetSwipeIndex);
                   if (pinned) {
@@ -14213,6 +14223,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               }
               if (pinnedPatch) {
+                if (typeof pinnedPatch.background === "string") backgroundsShownThisTurn.add(pinnedPatch.background);
                 try {
                   await updateChatMetadataForTools(pinnedPatch);
                 } catch {
@@ -14237,6 +14248,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
               // Persist the validated background to chat metadata so it restores on reload
               if (bgData.chosen && !pinnedPatch) {
+                backgroundsShownThisTurn.add(bgData.chosen);
                 try {
                   await updateChatMetadataForTools({ background: bgData.chosen });
                 } catch {

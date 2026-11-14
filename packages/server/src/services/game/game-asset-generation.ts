@@ -1451,6 +1451,72 @@ function rememberChatBackgroundScene(
   }
 }
 
+/**
+ * A character's or persona's gallery picture shown as the chat background (a pinned place from a
+ * gallery). Its weather versions and window stencil live in the library under a stem made from its
+ * address, and gallery-links.json maps that stem back to the address.
+ */
+const GALLERY_BACKGROUND_URL = /^\/api\/characters\/(personas\/)?([A-Za-z0-9_-]{1,128})\/gallery\/file\/([^/?#]+)$/u;
+const CHAT_BACKGROUND_GALLERY_LINKS_PATH = join(CHAT_BACKGROUND_DIR, "gallery-links.json");
+
+type GalleryBackground = { url: string; path: string; stem: string; ext: string };
+
+function galleryBackground(value: string | null | undefined): GalleryBackground | null {
+  const url = (value ?? "").trim();
+  const match = GALLERY_BACKGROUND_URL.exec(url);
+  if (!match) return null;
+  let file: string;
+  try {
+    file = decodeURIComponent(match[3]!);
+  } catch {
+    return null;
+  }
+  if (!file || file !== basename(file) || file.startsWith(".") || file.includes("\\")) return null;
+  const ext = extname(file).slice(1).toLowerCase();
+  if (!GAME_BACKGROUND_EXT_SET.has(ext)) return null;
+  const path = join(DATA_DIR, "gallery", match[1] ? "personas" : "characters", match[2]!, file);
+  if (!isUsableGeneratedImagePath(path)) return null;
+  const stem = `gallery-${createHash("sha1").update(url).digest("hex").slice(0, 12)}`;
+  return { url, path, stem, ext };
+}
+
+function readGalleryBackgroundLinks(): Record<string, string> {
+  if (!existsSync(CHAT_BACKGROUND_GALLERY_LINKS_PATH)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(CHAT_BACKGROUND_GALLERY_LINKS_PATH, "utf-8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberGalleryBackgroundLink(source: GalleryBackground): void {
+  try {
+    const links = readGalleryBackgroundLinks();
+    if (links[source.stem] === source.url) return;
+    links[source.stem] = source.url;
+    if (!existsSync(CHAT_BACKGROUND_DIR)) mkdirSync(CHAT_BACKGROUND_DIR, { recursive: true });
+    atomicWriteText(CHAT_BACKGROUND_GALLERY_LINKS_PATH, JSON.stringify(links, null, 2));
+  } catch (err) {
+    logger.warn(err, '[background-weather] Could not remember the gallery picture "%s"', source.url);
+  }
+}
+
+/** The gallery picture whose weather versions use this library stem, when it still exists. */
+function galleryBackgroundForStem(stem: string): GalleryBackground | null {
+  const url = readGalleryBackgroundLinks()[stem];
+  const source = url ? galleryBackground(url) : null;
+  return source && source.stem === stem ? source : null;
+}
+
+/** A plain picture (library file name or gallery address) -> the file to read, and the stem its versions use. */
+function plainPictureSource(name: string): { path: string; stem: string; gallery: GalleryBackground | null } | null {
+  const gallery = galleryBackground(name);
+  if (gallery) return { path: gallery.path, stem: gallery.stem, gallery };
+  const file = chatBackgroundFile(name);
+  return file ? { path: join(CHAT_BACKGROUND_DIR, file), stem: basename(file, extname(file)), gallery: null } : null;
+}
+
 /** A plain file name in the chat background library that exists, or null. */
 function chatBackgroundFile(filename: string | null | undefined): string | null {
   const name = (filename ?? "").trim();
@@ -1489,10 +1555,14 @@ export function planChatBackgroundWeather(
   currentBackground: string | null | undefined,
   weather: string | null | undefined,
 ): ChatBackgroundWeatherPlan {
-  const current = chatBackgroundFile(currentBackground);
+  // A gallery picture (pinned place) is its own plain picture; its versions sit in the library.
+  const gallery = galleryBackground(currentBackground);
+  const current = gallery?.url ?? chatBackgroundFile(currentBackground);
   if (!current) return { kind: "keep" };
-  const parsed = parseBackgroundWeatherVersionName(current);
-  const baseFilename = parsed.version ? chatBackgroundFileForStem(parsed.baseStem, parsed.ext) : current;
+  const parsed = gallery ? null : parseBackgroundWeatherVersionName(current);
+  const baseFilename = parsed?.version
+    ? (chatBackgroundFileForStem(parsed.baseStem, parsed.ext) ?? galleryBackgroundForStem(parsed.baseStem)?.url ?? null)
+    : current;
   // The plain picture was renamed or deleted: leave the version alone.
   if (!baseFilename) return { kind: "keep" };
   const scenes = readChatBackgroundScenes();
@@ -1502,10 +1572,11 @@ export function planChatBackgroundWeather(
   if (wanted === baseWeather)
     return current === baseFilename ? { kind: "keep" } : { kind: "switch", filename: baseFilename };
   const versionKey: BackgroundWeatherVersionKey = wanted || "clear";
-  const baseStem = basename(baseFilename, extname(baseFilename));
+  const baseGallery = galleryBackground(baseFilename);
+  const baseStem = baseGallery?.stem ?? basename(baseFilename, extname(baseFilename));
   const existing = chatBackgroundFileForStem(
     backgroundWeatherVersionStem(baseStem, versionKey),
-    extname(baseFilename).slice(1),
+    baseGallery?.ext ?? extname(baseFilename).slice(1),
   );
   if (existing) return existing === current ? { kind: "keep" } : { kind: "switch", filename: existing };
   return {
@@ -1518,8 +1589,12 @@ export function planChatBackgroundWeather(
 
 /** The plain picture a weather version was made from, when it is still in the library. */
 export function chatBackgroundPlainPicture(filename: string): string | null {
+  const gallery = galleryBackground(filename);
+  if (gallery) return gallery.url;
   const parsed = parseBackgroundWeatherVersionName(filename);
-  return parsed.version ? chatBackgroundFileForStem(parsed.baseStem, parsed.ext) : chatBackgroundFile(filename);
+  return parsed.version
+    ? (chatBackgroundFileForStem(parsed.baseStem, parsed.ext) ?? galleryBackgroundForStem(parsed.baseStem)?.url ?? null)
+    : chatBackgroundFile(filename);
 }
 
 /** Weather versions never take part in picking a background; they follow their plain picture. */
@@ -1564,10 +1639,11 @@ export async function generateChatBackgroundWeatherVersion(
     scenePrompt: string;
   },
 ): Promise<string | null> {
-  const baseFilename = chatBackgroundFile(req.baseFilename);
-  if (!baseFilename) return null;
-  const baseStem = basename(baseFilename, extname(baseFilename));
-  const stem = backgroundWeatherVersionStem(baseStem, req.version);
+  const source = plainPictureSource(req.baseFilename);
+  if (!source) return null;
+  const baseFilename = source.gallery?.url ?? basename(source.path);
+  if (source.gallery) rememberGalleryBackgroundLink(source.gallery);
+  const stem = backgroundWeatherVersionStem(source.stem, req.version);
   const instruction = backgroundWeatherVersionInstruction(req.version, req.shelter);
   const scene = req.scenePrompt.trim() || req.sceneDescription.trim();
   const compiled = await buildBackgroundProviderPrompt({
@@ -1575,7 +1651,7 @@ export async function generateChatBackgroundWeatherVersion(
     sceneDescription: [instruction, scene ? `The place: ${scene}` : ""].filter(Boolean).join("\n\n"),
     providerReadyPrompt: true,
   });
-  const size = await weatherVersionSize(join(CHAT_BACKGROUND_DIR, baseFilename), req.size);
+  const size = await weatherVersionSize(source.path, req.size);
   req.debugLog?.(
     "[debug/background-weather/image-generation] base=%s version=%s shelter=%s prompt:\n%s",
     baseFilename,
@@ -1584,7 +1660,7 @@ export async function generateChatBackgroundWeatherVersion(
     compiled.prompt,
   );
   try {
-    const reference = readFileSync(join(CHAT_BACKGROUND_DIR, baseFilename)).toString("base64");
+    const reference = readFileSync(source.path).toString("base64");
     const result = await generateImage(
       req.imgModel,
       req.imgBaseUrl,
@@ -1791,11 +1867,13 @@ export const WINDOW_MASK_INSTRUCTION = [
 export async function generateChatBackgroundWindowMask(
   req: ChatBackgroundGenRequest & { baseFilename: string },
 ): Promise<string | null> {
-  const baseFilename = chatBackgroundFile(req.baseFilename);
-  if (!baseFilename || isChatBackgroundWeatherVersion(baseFilename)) return null;
+  const source = plainPictureSource(req.baseFilename);
+  if (!source || (!source.gallery && isChatBackgroundWeatherVersion(basename(source.path)))) return null;
+  const baseFilename = source.gallery?.url ?? basename(source.path);
+  if (source.gallery) rememberGalleryBackgroundLink(source.gallery);
   const sharp = await getSharp();
   if (!sharp) return null;
-  const basePath = join(CHAT_BACKGROUND_DIR, baseFilename);
+  const basePath = source.path;
   try {
     const meta = (await sharp(basePath, { limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS }).metadata()) as {
       width?: number;
@@ -1837,7 +1915,7 @@ export async function generateChatBackgroundWindowMask(
     }
     const { png, coverage } = cleaned;
     if (!existsSync(CHAT_BACKGROUND_MASK_DIR)) mkdirSync(CHAT_BACKGROUND_MASK_DIR, { recursive: true });
-    const maskName = `${basename(baseFilename, extname(baseFilename))}.png`;
+    const maskName = `${source.stem}.png`;
     atomicWriteBuffer(join(CHAT_BACKGROUND_MASK_DIR, maskName), png);
     rememberChatBackgroundMask(baseFilename, maskName);
     logger.info(
