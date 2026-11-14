@@ -56,7 +56,7 @@ test("An Audio connection chosen as the Source is saved by ID and reported when 
     },
   });
   expect(created.ok()).toBeTruthy();
-  const { id } = await created.json();
+  const { id, accountId } = (await created.json()) as { id: string; accountId: string };
   let deleted = false;
   try {
     const saved = await request.put("/api/tts/config", {
@@ -85,12 +85,28 @@ test("An Audio connection chosen as the Source is saved by ID and reported when 
       return picker;
     };
 
+    // The card's own request timeout shows while voice uses a direct source; an Audio account keeps its own.
+    const cardTimeout = () => ttsConfigCard(page).getByText("Request timeout (seconds)", { exact: true });
+    await page.goto("/");
+    await openJobSettings(page, "voice");
+    await expect(cardTimeout()).toBeVisible();
+
     let picker = await openPicker();
+    // With nothing chosen the picker opens on the starred models or the first account by name, and the shared
+    // server can hold other specs' accounts, so open this one first. A phone shows one view at a time: go back to
+    // the account list before choosing it.
+    if (testInfo.project.name.includes("mobile"))
+      await picker.getByRole("button", { name: "All connections", exact: true }).click();
+    await picker.locator(`[data-switcher-pane="${accountId}"]`).click();
     await picker.getByRole("button", { name: new RegExp(`^${studio}, Audio\\b`, "u") }).click();
     await expect.poll(async () => (await (await request.get("/api/tts/config")).json()).connectionId).toBe(id);
     const view = await (await request.get("/api/tts/config")).text();
     expect(view).not.toContain("e2e-connection-secret");
     expect(JSON.parse(view)).toMatchObject({ connectionId: id, model: "studio-model" });
+    await page.goto("/");
+    await openJobSettings(page, "voice");
+    await expect(ttsConfigCard(page)).toBeVisible();
+    await expect(cardTimeout()).toBeHidden();
 
     picker = await openPicker();
     // The Model tab names the chosen model on every screen size.
