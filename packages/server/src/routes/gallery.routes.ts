@@ -2801,7 +2801,13 @@ export async function galleryRoutes(app: FastifyInstance) {
         ? reply.status(404).send({ error: "The picture's file is missing" })
         : reply.status(500).send({ error: "Could not add the picture" });
     }
-    return { targetType, targetId, image: result.image, alreadyThere: result.alreadyThere };
+    return {
+      targetType,
+      targetId,
+      image: result.image,
+      alreadyThere: result.alreadyThere,
+      labelUpdated: result.labelUpdated,
+    };
   });
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {

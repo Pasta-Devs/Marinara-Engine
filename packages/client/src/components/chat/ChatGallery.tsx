@@ -1344,7 +1344,9 @@ export function ChatGallery({
                     toast.success(
                       localizeUi(
                         result.alreadyThere
-                          ? "ui.chat.chatgallery.alreadyInNamedGallery"
+                          ? result.labelUpdated
+                            ? "ui.chat.chatgallery.alreadyInNamedGalleryLabelUpdated"
+                            : "ui.chat.chatgallery.alreadyInNamedGallery"
                           : image.customKind === "background"
                             ? "ui.chat.chatgallery.addedBackgroundToNamedGallery"
                             : "ui.chat.chatgallery.addedToNamedGallery",
