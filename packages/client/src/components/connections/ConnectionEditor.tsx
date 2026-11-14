@@ -1826,7 +1826,8 @@ export function ConnectionEditor({
   // keep their own endpoint (decision 20), so only that field stays here.
   const accountLinked = !!accountId;
   // Every saved chat Model has a star (decision 30); media Models have none.
-  const canUnstar = accountLinked && isChatProvider(localProvider);
+  // The Default model (no model id) has no star; Delete removes it.
+  const canUnstar = accountLinked && isChatProvider(localProvider) && !!localModel.trim();
   // The server keeps a Model's own address only when its kind differs from the account's (an image
   // Model on a chat account) or for a TypeSafe Decision (#7084); otherwise an edit here was dropped.
   const hasOwnEndpoint =
@@ -1906,7 +1907,9 @@ export function ConnectionEditor({
     </>
   );
   const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
-  const canSendTestMessage = isGrokSubscriptionProvider || Boolean(localModel.trim());
+  // The Default model sends no model id; its server answers with the model it has loaded.
+  const usesLoadedModel = !!linkedAccount?.loadedModel && isChatProvider(localProvider) && !localModel.trim();
+  const canSendTestMessage = isGrokSubscriptionProvider || usesLoadedModel || Boolean(localModel.trim());
 
   if (!connectionDetailId) return null;
 
@@ -2616,7 +2619,9 @@ export function ConnectionEditor({
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold">{localName || localModel}</h2>
             <p className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
-              {[localModel, linkedAccount?.name].filter(Boolean).join(" · ")}
+              {[usesLoadedModel ? t("connections.loadedModel.subtitle") : localModel, linkedAccount?.name]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           </div>
         </div>
@@ -3517,6 +3522,9 @@ export function ConnectionEditor({
               accountName={linkedAccount?.name}
               builtInModels={providerModels}
               onChoose={async (choice) => selectModel(choice)}
+              // The Grok CLI keeps its own "Use the Grok CLI default" button above.
+              offerDefault={!isGrokSubscriptionProvider}
+              onPickDefault={() => selectModel({ model: "" })}
             />
             {!!selectedModelInfo?.context && (
               <p className="mt-2 flex flex-wrap gap-x-4 text-[0.6875rem] text-[var(--muted-foreground)]">

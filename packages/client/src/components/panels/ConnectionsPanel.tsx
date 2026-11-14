@@ -650,7 +650,7 @@ export function ConnectionsPanel() {
     ]
       .filter(Boolean)
       .join(" · ");
-    return renderRow(row, modelSubtitle(row, upstream), where || undefined, catalog);
+    return renderRow(row, modelSubtitle(row, upstream, !!account?.loadedModel), where || undefined, catalog);
   };
   const accountRow = ({ account, rows, visibleRows = rows }: ConnectionGroupData, providerName: string) => (
     <ConnectionGroup

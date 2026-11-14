@@ -167,7 +167,7 @@ export function ConnectionRow({
   const badges = modelRoleLabels(row, t, voiceRowId);
   // Display only: which Models show stays with the star, role and settings rules (decision 30).
   const customSettings = chatModel && !!row.ownSettings;
-  const detail = subtitle ?? modelSubtitle(row);
+  const detail = subtitle ?? modelSubtitle(row, null, !!account?.loadedModel);
   const sub = [connectionName, detail.trim().toLowerCase() === title.trim().toLowerCase() ? null : detail]
     .filter(Boolean)
     .join(" · ");

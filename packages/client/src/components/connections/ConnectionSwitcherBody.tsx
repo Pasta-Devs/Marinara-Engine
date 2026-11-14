@@ -942,9 +942,10 @@ export function ConnectionSwitcherBody({
     const starredIn = (group: SwitcherGroup | undefined, model: string | null | undefined) =>
       !!group?.account && !!model && starsOfRows(group.rows).has(model);
     const saved = byRank(
-      // A row with no model yet (an account's placeholder) is not something a job can use.
+      // A row with no model yet (an account's placeholder) is not something a job can use, unless its server
+      // answers with the model it has loaded: then it is that account's Default model.
       rows
-        .filter((row) => row.model)
+        .filter((row) => row.model || groupOfRow.get(row.id)?.account?.loadedModel)
         .map((row) => {
           const model = { id: row.model ?? "", name: row.name };
           const group = groupOfRow.get(row.id);
