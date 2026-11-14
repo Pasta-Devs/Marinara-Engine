@@ -1,5 +1,6 @@
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { expect, test, type Page, type Locator } from "@playwright/test";
+import { chooseBackgroundCardAction, openBackgroundCardMenu } from "./background-card-actions.js";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 
@@ -416,8 +417,9 @@ test("UX sweep: Background library mobile toolbar, accent marker and settled mod
     expect(sortBox.width).toBeLessThanOrEqual(44);
   }
   const card = library.locator("[data-background-id]").first();
-  await card.locator("[data-background-default-toggle]").click();
-  await expect(card.locator("[data-background-default-toggle]")).toHaveAttribute("aria-pressed", "true");
+  const defaultToggle = card.locator("[data-background-default-toggle]");
+  await chooseBackgroundCardAction(page, card, defaultToggle, "Set as default for new Roleplay chats");
+  await expect(defaultToggle).toHaveAttribute("aria-pressed", "true");
   const useButton = card.getByRole("button", { name: /Use .* for this chat/ });
   await useButton.click();
   await expect(library).toBeHidden();
@@ -729,7 +731,13 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
       await section.getByRole("button", { name: "Browse library", exact: true }).click();
       const library = page.getByRole("dialog", { name: "Background Library" });
       if (mode === "game") await expect(library.locator("[data-background-default-toggle]")).toHaveCount(0);
-      else await expect(library.locator("[data-background-default-toggle]").first()).toBeVisible();
+      else if (testInfo.project.name.includes("mobile")) {
+        // Phones offer the Roleplay default in each card's menu.
+        const menu = await openBackgroundCardMenu(page, library.locator("[data-background-id]").first());
+        await expect(menu.getByRole("menuitem", { name: /Roleplay (default|chats)$/u })).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(menu).toBeHidden();
+      } else await expect(library.locator("[data-background-default-toggle]").first()).toBeVisible();
       const choice = library.locator('[data-background-id="user:ancient_library.jpg"]');
       await choice.getByRole("button", { name: /Use .* for this chat/ }).click();
       await expect(library).toBeHidden();

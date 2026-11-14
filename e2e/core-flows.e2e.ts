@@ -14,6 +14,7 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { downloadExport } from "./export-save.js";
+import { chooseBackgroundCardAction } from "./background-card-actions.js";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
 import { mockUILanguagePacks, selectUILanguage } from "./ui-language-fixtures.js";
 import { chooseConnection } from "./connection-picker.js";
@@ -938,12 +939,15 @@ test("default dialogue color fills only cards without their own dialogue color",
     await dialogueColorControl.getByRole("button", { name: /Scheme default/ }).click();
     const dialogueColorInput = dialogueColorControl.getByLabel("Default Dialogue Color hex or CSS color");
     await dialogueColorInput.fill("red");
-    const namedColorSliders = dialogueColorControl
-      .getByLabel("Pick Default Dialogue Color color")
-      .locator('input[type="range"]');
-    await expect(namedColorSliders.nth(0)).toHaveValue("0");
-    await expect(namedColorSliders.nth(1)).toHaveValue("100");
-    await expect(namedColorSliders.nth(2)).toHaveValue("50");
+    // The picker works in hue, saturation and brightness: a typed colour name moves it to that colour.
+    const namedColorPicker = dialogueColorControl.getByRole("group", { name: "Pick Default Dialogue Color color" });
+    await expect(namedColorPicker.getByRole("slider", { name: "Hue", exact: true })).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
+    await expect(
+      namedColorPicker.getByRole("slider", { name: "Saturation and brightness", exact: true }),
+    ).toHaveAttribute("aria-valuetext", "100% saturation, 100% brightness");
     await dialogueColorInput.fill("#d946ef");
 
     await expect(uncoloredDialogue).toHaveCSS("color", "rgb(217, 70, 239)");
@@ -966,16 +970,17 @@ test("default dialogue color fills only cards without their own dialogue color",
     const firstGradientStop = chatTextColorControl.locator("input:not([type])").first();
     await firstGradientStop.fill("red 20%");
     await firstGradientStop.fill("blue 35%");
-    const positionedStopSliders = chatTextColorControl
-      .locator('div[aria-label="Edit color stop 1"]')
-      .locator('input[type="range"]');
-    await expect(positionedStopSliders.nth(0)).toHaveValue("240");
-    await expect(positionedStopSliders.nth(1)).toHaveValue("100");
-    await expect(positionedStopSliders.nth(2)).toHaveValue("50");
-    await positionedStopSliders.nth(2).fill("0");
-    await positionedStopSliders.nth(2).fill("50");
+    const firstStopPicker = chatTextColorControl.getByRole("group", { name: "Edit color stop 1" });
+    const stopHue = firstStopPicker.getByRole("slider", { name: "Hue", exact: true });
+    const stopShade = firstStopPicker.getByRole("slider", { name: "Saturation and brightness", exact: true });
+    await expect(stopHue).toHaveAttribute("aria-valuenow", "240");
+    await expect(stopShade).toHaveAttribute("aria-valuetext", "100% saturation, 100% brightness");
+    // Through black and back, the stop keeps its hue and its position (Shift+arrow moves 10 at a time).
+    for (let step = 0; step < 10; step++) await stopShade.press("Shift+ArrowDown");
+    for (let step = 0; step < 10; step++) await stopShade.press("Shift+ArrowUp");
     await expect(firstGradientStop).toHaveValue("#0000ff 35%");
-    await positionedStopSliders.nth(0).fill("120");
+    for (let step = 0; step < 12; step++) await stopHue.press("Shift+ArrowLeft");
+    await expect(stopHue).toHaveAttribute("aria-valuenow", "120");
     await expect(firstGradientStop).toHaveValue("#00ff00 35%");
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
@@ -1936,7 +1941,7 @@ test("Author's Notes resolves the shared prompt macro engine and preset variable
   }
 });
 
-test("message deletion uses unified chroma controls and selection states", async ({ page }, testInfo) => {
+test("message deletion follows the sheet rules and tints the delete selection", async ({ page }, testInfo) => {
   const chatResponse = await page.request.post("/api/chats", {
     data: { name: "Message Delete Chroma Smoke", mode: "roleplay", characterIds: [] },
   });
@@ -1991,19 +1996,23 @@ test("message deletion uses unified chroma controls and selection states", async
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText("Choose what you want to remove from this message.")).toBeVisible();
 
-    const dialogActions = dialog.locator('[data-component="MessageDeleteActions"] > button');
-    await expect(dialogActions).toHaveCount(3);
-    await expect(dialog.getByRole("button", { name: "Delete this message" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Delete more" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Cancel" })).toBeVisible();
+    // Sheet rules: the choices sit in one group with Delete message in the danger colour, and Cancel apart below.
+    const deleteActions = dialog.locator('[data-component="MessageDeleteActions"]');
+    const choices = deleteActions.locator(":scope > div > button");
+    await expect(choices).toHaveCount(2);
+    const deleteMessage = dialog.getByRole("button", { name: "Delete message", exact: true });
+    const selectMore = dialog.getByRole("button", { name: "Select more messages…", exact: true });
+    await expect(deleteMessage).toBeVisible();
+    await expect(selectMore).toBeVisible();
+    await expect(deleteActions.locator(":scope > button")).toHaveText("Cancel");
 
     // Compare idle theme colors, not pointer hover or WebKit's retained transition serialization.
     await page.mouse.move(0, 0);
-    await dialogActions.evaluateAll((buttons) => {
+    await choices.evaluateAll((buttons) => {
       for (const button of buttons) (button as HTMLElement).style.transition = "none";
     });
 
-    const readChromeStyles = (locator: typeof dialogActions) =>
+    const readChromeStyles = (locator: typeof choices) =>
       locator.evaluateAll((buttons) =>
         buttons.map((button) => {
           const style = getComputedStyle(button);
@@ -2015,49 +2024,42 @@ test("message deletion uses unified chroma controls and selection states", async
           };
         }),
       );
-    const tealStyles = await readChromeStyles(dialogActions);
-    expect(new Set(tealStyles.map(({ backgroundColor }) => backgroundColor)).size).toBe(1);
-    expect(new Set(tealStyles.map(({ borderColor }) => borderColor)).size).toBe(1);
-    expect(new Set(tealStyles.map(({ color }) => color)).size).toBe(1);
-    for (const { className } of tealStyles) {
-      expect(className).not.toMatch(/destructive|pink|red|rose/iu);
-    }
+    const destructiveColor = await readCssVariableColor(page, "--destructive");
+    const [deleteMessageStyle] = await readChromeStyles(deleteMessage);
+    const [selectMoreStyle] = await readChromeStyles(selectMore);
+    // Both rows share the sheet row surface; only Delete message is in the danger colour.
+    expect(selectMoreStyle?.backgroundColor).toBe(deleteMessageStyle?.backgroundColor);
+    expect(selectMoreStyle?.borderColor).toBe(deleteMessageStyle?.borderColor);
+    expect(deleteMessageStyle?.color).toBe(destructiveColor);
+    expect(selectMoreStyle?.color).not.toBe(destructiveColor);
 
+    // The danger colour does not follow the accent.
     await setAppAccentColor(page, "#3b82f6");
-    await expect.poll(async () => (await readChromeStyles(dialogActions))[0]?.color).not.toBe(tealStyles[0]?.color);
-    const blueStyles = await readChromeStyles(dialogActions);
-    expect(new Set(blueStyles.map(({ backgroundColor }) => backgroundColor)).size).toBe(1);
-    expect(new Set(blueStyles.map(({ borderColor }) => borderColor)).size).toBe(1);
-    expect(new Set(blueStyles.map(({ color }) => color)).size).toBe(1);
+    expect((await readChromeStyles(deleteMessage))[0]?.color).toBe(destructiveColor);
 
     await testInfo.attach(`message-delete-dialog-${testInfo.project.name}.png`, {
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
     });
 
-    await dialog.getByRole("button", { name: "Delete more" }).click();
+    await selectMore.click();
     const selectionBar = page.locator('[data-component="MessageMultiSelectBar"]');
     await expect(selectionBar).toBeVisible();
     await expect(selectionBar).toContainText(/\d+ selected/);
 
     const deleteSelected = selectionBar.getByRole("button", { name: "Delete selected" });
     const cancelSelection = selectionBar.getByRole("button", { name: "Cancel" });
-    const selectionActions = selectionBar.locator("button").filter({ hasText: /Delete selected|Cancel/ });
     await expect(deleteSelected).toBeEnabled();
     await expect(cancelSelection).toBeVisible();
-    const selectionActionStyles = await readChromeStyles(selectionActions);
-    expect(selectionActionStyles).toHaveLength(2);
-    expect(selectionActionStyles[0]).toEqual(selectionActionStyles[1]);
+    // Picking messages to delete tints the bar's Delete and the selection in the danger colour, or in the steady
+    // accent while Accent Pulse animates it; Cancel keeps the chat chrome.
+    await expect(deleteSelected).toHaveClass(/mari-chrome-control--danger/u);
+    await expect(cancelSelection).not.toHaveClass(/mari-chrome-control--danger/u);
+    const pulse = (await page.locator("html").getAttribute("data-marinara-accent-animation")) !== null;
 
     const selectedCheckbox = messageRow.getByRole("checkbox", { name: "Deselect message" });
     await expect(selectedCheckbox).toBeVisible();
-    await expect(selectedCheckbox).toHaveCSS("background-color", "rgb(59, 130, 246)");
-    const selectionClassNames = await page
-      .locator('[aria-checked="true"], [data-component="MessageMultiSelectBar"]')
-      .evaluateAll((elements) => elements.map((element) => element.className));
-    for (const className of selectionClassNames) {
-      expect(className).not.toMatch(/destructive|pink|red|rose/iu);
-    }
+    await expect(selectedCheckbox).toHaveCSS("background-color", pulse ? "rgb(59, 130, 246)" : destructiveColor);
 
     await testInfo.attach(`message-delete-${testInfo.project.name}.png`, {
       body: await page.screenshot({ fullPage: true }),
@@ -2077,20 +2079,17 @@ test("message deletion uses unified chroma controls and selection states", async
     await assistantRow.getByRole("button", { name: "Delete" }).click();
     await expect(dialog).toBeVisible();
 
-    const assistantDialogActions = dialog.locator('[data-component="MessageDeleteActions"] > button');
-    await expect(assistantDialogActions).toHaveCount(5);
-    const deleteSwipe = dialog.getByRole("button", { name: "Delete only this swipe (2/2)" });
-    const deleteOtherSwipes = dialog.getByRole("button", { name: "Delete all other swipes" });
+    await expect(choices).toHaveCount(4);
+    const deleteSwipe = dialog.getByRole("button", { name: "Delete this swipe only (2 of 2)", exact: true });
+    const deleteOtherSwipes = dialog.getByRole("button", { name: "Delete other swipes", exact: true });
     await expect(deleteSwipe).toBeVisible();
     await expect(deleteOtherSwipes).toBeVisible();
-    const swipeStyles = await readChromeStyles(deleteSwipe);
-    const otherSwipeStyles = await readChromeStyles(deleteOtherSwipes);
-    const deleteMessageStyles = await readChromeStyles(dialog.getByRole("button", { name: "Delete this message" }));
-    expect(swipeStyles).toHaveLength(1);
-    expect(swipeStyles[0]).toEqual(deleteMessageStyles[0]);
-    expect(otherSwipeStyles).toEqual(deleteMessageStyles);
-    expect(swipeStyles[0]?.color).not.toBe(tealStyles[0]?.color);
-    expect(swipeStyles[0]?.className).not.toMatch(/destructive|pink|red|rose/iu);
+    // The swipe choices are ordinary rows; only Delete message is in the danger colour.
+    const [swipeStyle] = await readChromeStyles(deleteSwipe);
+    const [otherSwipeStyle] = await readChromeStyles(deleteOtherSwipes);
+    expect(otherSwipeStyle).toEqual(swipeStyle);
+    expect(swipeStyle?.backgroundColor).toBe((await readChromeStyles(deleteMessage))[0]?.backgroundColor);
+    expect(swipeStyle?.color).not.toBe(destructiveColor);
 
     await deleteOtherSwipes.click();
     await expect(dialog).toBeHidden();
@@ -3008,12 +3007,12 @@ test("resource panel sort fields share the canonical width", async ({ page }, te
   expect(lorebookWidth).toBe(personaWidth);
 });
 
-test("destructive confirmation actions use the shared accent button treatment", async ({ page }, testInfo) => {
+test("destructive confirmation actions use the shared danger button treatment", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop confirmation-dialog chrome is covered here.");
 
   await page.goto("/");
+  // Delete buttons keep the Settings danger look whatever the accent is.
   await setAppAccentColor(page, "#14b8a6");
-  const activeAccentColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");
   await page.evaluate(() => {
     document.documentElement.style.setProperty("--destructive", "rgb(255, 0, 0)");
   });
@@ -3037,9 +3036,8 @@ test("destructive confirmation actions use the shared accent button treatment", 
 
   const confirmDialog = page.getByRole("dialog", { name: "Delete Resource" });
   const confirmDelete = confirmDialog.getByRole("button", { name: "Delete", exact: true });
-  await expect(confirmDelete).toHaveClass(/mari-chrome-control--primary/u);
-  await expect(confirmDelete).toHaveCSS("color", activeAccentColor);
-  expect(await confirmDelete.getAttribute("class")).not.toMatch(/destructive|pink|red|rose/iu);
+  await expect(confirmDelete).toHaveClass(/mari-chrome-control--danger/u);
+  await expect(confirmDelete).toHaveCSS("color", "rgb(255, 0, 0)");
   await confirmDialog.getByRole("button", { name: "Cancel" }).click();
 
   await page.evaluate(async () => {
@@ -3059,9 +3057,8 @@ test("destructive confirmation actions use the shared accent button treatment", 
 
   const choiceDialog = page.getByRole("dialog", { name: "Delete Resources" });
   const deleteAll = choiceDialog.getByRole("button", { name: "Delete All", exact: true });
-  await expect(deleteAll).toHaveClass(/mari-chrome-control--primary/u);
-  await expect(deleteAll).toHaveCSS("color", activeAccentColor);
-  expect(await deleteAll.getAttribute("class")).not.toMatch(/destructive|pink|red|rose/iu);
+  await expect(deleteAll).toHaveClass(/mari-chrome-control--danger/u);
+  await expect(deleteAll).toHaveCSS("color", "rgb(255, 0, 0)");
   await choiceDialog.getByRole("button", { name: "Cancel" }).click();
 });
 
@@ -4957,7 +4954,7 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
     await savedNeutral.getByRole("img").click();
     await page.getByRole("dialog").last().getByRole("button", { name: "Delete Sprite", exact: true }).click();
     const deletion = page.getByRole("dialog", { name: "Delete Sprite", exact: true });
-    await deletion.getByRole("button", { name: "Delete", exact: true }).click();
+    await deletion.getByRole("button", { name: "Delete sprite", exact: true }).click();
     await expect(deletion).not.toBeVisible();
     await create.click();
     await expect(neutral).toHaveCount(0);
@@ -5064,8 +5061,8 @@ test("Persona sheets accept neutral full-body references and save the result", a
     const savedNeutral = editor.getByAltText("full_neutral", { exact: true }).locator("../..");
     await savedNeutral.hover();
     await savedNeutral.getByRole("button", { name: "Delete", exact: true }).click();
-    const deletion = page.getByRole("dialog", { name: "Delete Sprite", exact: true });
-    await deletion.getByRole("button", { name: "Delete", exact: true }).click();
+    const deletion = page.getByRole("dialog", { name: "Delete sprite", exact: true });
+    await deletion.getByRole("button", { name: "Delete sprite", exact: true }).click();
     await expect(deletion).not.toBeVisible();
     await create.click();
     await expect(neutral).toHaveCount(0);
@@ -9510,11 +9507,18 @@ for (const owner of ["character", "persona"] as const) {
         exact: true,
       });
       const cancelDelete = confirmation.getByRole("button", { name: "Cancel", exact: true });
-      await expect(confirmation.getByRole("button", { name: /^Close Delete /u })).toBeFocused();
+      const confirmDelete = confirmation.getByRole("button", { name: "Delete", exact: true });
+      // Focus moves into the dialog and onto a safe control, never Delete. A phone sheet has no Close beside Cancel.
+      if (ios || android) {
+        await expect.poll(() => confirmation.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+        await expect(confirmDelete).not.toBeFocused();
+      } else {
+        await expect(confirmation.getByRole("button", { name: /^Close Delete /u })).toBeFocused();
+      }
       await cancelDelete.focus();
-      // WebKit on macOS uses Option+Tab to visit every control.
-      await page.keyboard.press(ios ? "Alt+Tab" : "Tab");
-      await expect(confirmation.getByRole("button", { name: "Delete", exact: true })).toBeFocused();
+      // Delete comes first in the footer, just before Cancel. WebKit on macOS uses Option+Tab to visit every control.
+      await page.keyboard.press(ios ? "Alt+Shift+Tab" : "Shift+Tab");
+      await expect(confirmDelete).toBeFocused();
       await cancelDelete.click();
       await expect(confirmation).toHaveCount(0);
       await expect(deleteImage).toBeFocused();
@@ -11640,7 +11644,7 @@ test("Game widget editing and log deletion follow Chroma while weather effects r
     await logsButton.click();
     const logsDialog = page.getByRole("dialog").filter({ hasText: "Session Logs" });
     await expect(logsDialog).toBeVisible();
-    const deleteMessageButton = logsDialog.locator('button[title="Delete message"]').first();
+    const deleteMessageButton = logsDialog.locator('button[title="Delete message?"]').first();
     const logDeleteColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
     await expect(deleteMessageButton).toHaveCSS("color", logDeleteColor);
   } finally {
@@ -14816,8 +14820,10 @@ test("Downloaded cards use Marinara destination and lorebook choices", async ({ 
   await importDialog.getByRole("button", { name: /Import as Persona/u }).click();
   await expect(importDialog.getByText("Embedded lorebook found", { exact: true })).toBeVisible();
   await expect(importDialog.getByText(/includes 2 lorebook entries/u)).toBeVisible();
-  await expect(importDialog.getByRole("button", { name: "No Import", exact: true })).toBeVisible();
-  await importDialog.getByRole("button", { name: "Import Lorebook", exact: true }).click();
+  // The lorebook choices sit in the window's footer, outside the dialog body.
+  const importWindow = page.getByRole("dialog", { name: "Import Card", exact: true });
+  await expect(importWindow.getByRole("button", { name: "Skip lorebook", exact: true })).toBeVisible();
+  await importWindow.getByRole("button", { name: "Import lorebook", exact: true }).click();
 
   await expect(page.getByText(`Imported "${cardName}" as a persona.`, { exact: true })).toBeVisible();
   expect(importedPersona).toMatchObject({
@@ -16688,7 +16694,7 @@ test("Conversation Chat Settings can attach and retain custom agents", async ({ 
     await drawer.getByRole("button").filter({ hasText: agentName }).click();
     const addDialog = page.getByRole("dialog");
     await expect(addDialog.getByRole("heading", { name: `Add ${agentName}` })).toBeVisible();
-    await addDialog.getByRole("button", { name: "Add", exact: true }).click();
+    await addDialog.getByRole("button", { name: "Add agent", exact: true }).click();
     await expect.poll(readAgentState).toEqual({ enabled: true, active: true });
 
     await page.reload();
@@ -24868,7 +24874,12 @@ test("Background library organization works with desktop drag and touch drag", a
     await page.getByRole("button", { name: /My uploads/ }).click();
 
     const backgroundRowBeforeRename = page.locator(`[data-background-id="${backgroundId}"]:not([aria-hidden="true"])`);
-    await backgroundRowBeforeRename.getByTitle("Rename background").click();
+    await chooseBackgroundCardAction(
+      page,
+      backgroundRowBeforeRename,
+      backgroundRowBeforeRename.getByTitle("Rename background"),
+      "Rename background",
+    );
     const renameInput = backgroundRowBeforeRename.getByRole("textbox", { name: `Rename ${currentFilename}` });
     await renameInput.fill(`rainy-arcade-${suffix}`);
     const [renameResponse] = await Promise.all([
@@ -24916,22 +24927,28 @@ test("Background library organization works with desktop drag and touch drag", a
       await backgroundRow.hover();
       await expect(backgroundActions).toHaveCSS("opacity", "1");
     }
-    await defaultToggle.scrollIntoViewIfNeeded();
-    const starBefore = await defaultToggle.boundingBox();
-    await defaultToggle.click();
-    await expect(defaultToggle).toHaveAttribute("aria-pressed", "true");
-    const starAfter = await defaultToggle.boundingBox();
-    expect(Math.abs((starAfter?.x ?? 0) - (starBefore?.x ?? 0))).toBeLessThan(1);
-    expect(Math.abs((starAfter?.y ?? 0) - (starBefore?.y ?? 0))).toBeLessThan(1);
-    if (!testInfo.project.name.includes("mobile")) {
+    if (testInfo.project.name.includes("mobile")) {
+      // Phones set the Roleplay default from the card's menu.
+      await chooseBackgroundCardAction(page, backgroundRow, defaultToggle, "Set as default for new Roleplay chats");
+      await expect(defaultToggle).toHaveAttribute("aria-pressed", "true");
+      await chooseBackgroundCardAction(page, backgroundRow, defaultToggle, "Remove as Roleplay default");
+      await expect(defaultToggle).toHaveAttribute("aria-pressed", "false");
+    } else {
+      await defaultToggle.scrollIntoViewIfNeeded();
+      const starBefore = await defaultToggle.boundingBox();
+      await defaultToggle.click();
+      await expect(defaultToggle).toHaveAttribute("aria-pressed", "true");
+      const starAfter = await defaultToggle.boundingBox();
+      expect(Math.abs((starAfter?.x ?? 0) - (starBefore?.x ?? 0))).toBeLessThan(1);
+      expect(Math.abs((starAfter?.y ?? 0) - (starBefore?.y ?? 0))).toBeLessThan(1);
       await sortSelect.focus();
       await sortSelect.hover();
       await expect(backgroundActions).toHaveCSS("opacity", "0");
       await expect(backgroundRow.locator("[data-background-default-indicator]")).toBeVisible();
       await backgroundRow.hover();
       await expect(backgroundActions).toHaveCSS("opacity", "1");
+      await defaultToggle.click();
     }
-    await defaultToggle.click();
 
     await page.getByRole("button", { name: "New Folder" }).click();
     const newFolderPrompt = page.getByRole("dialog", { name: "New Folder" }).getByRole("textbox");
@@ -25022,9 +25039,14 @@ test("Background library organization works with desktop drag and touch drag", a
       })
       .toBe(folderId);
 
-    // Dragging is pointer-only, so the same move has to be reachable from the card's action row.
+    // Dragging is pointer-only, so the same move has to be reachable from the card's actions (its menu on a phone).
     await page.locator('[data-background-folder-filter-id="all"]').click();
-    await backgroundRow.locator("[data-background-move]").click();
+    await chooseBackgroundCardAction(
+      page,
+      backgroundRow,
+      backgroundRow.locator("[data-background-move]"),
+      "Move to folder",
+    );
     await page.getByRole("dialog").getByRole("button", { name: "Unfiled", exact: true }).click();
     await expect
       .poll(async () => {
@@ -25033,7 +25055,12 @@ test("Background library organization works with desktop drag and touch drag", a
         return backgrounds.find((background) => background.id === backgroundId)?.folderId ?? null;
       })
       .toBeNull();
-    await backgroundRow.locator("[data-background-move]").click();
+    await chooseBackgroundCardAction(
+      page,
+      backgroundRow,
+      backgroundRow.locator("[data-background-move]"),
+      "Move to folder",
+    );
     await page.getByRole("dialog").getByRole("button", { name: createdFolder.name, exact: true }).click();
     await expect
       .poll(async () => {

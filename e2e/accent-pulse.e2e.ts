@@ -82,10 +82,14 @@ test.describe("Marinara accent defaults", () => {
           color,
         );
       }
+      // The ready-made colours and gradients sit in the picker's Colors tab, beside Custom.
+      const showPalette = () => picker.getByRole("button", { name: "Colors", exact: true }).click();
+      await showPalette();
       await expect(picker.getByRole("button", { name: "Marinara Gradient", exact: true })).toBeVisible();
 
       // Exercise the actual picker and switch, then preserve both explicit choices through reload.
       await picker.getByRole("button", { name: "Solid", exact: true }).click();
+      await showPalette();
       await picker.getByRole("button", { name: "#1e90ff", exact: true }).click();
       await page.getByText("Accent Pulse", { exact: true }).click();
       await page.reload();
@@ -103,6 +107,7 @@ test.describe("Marinara accent defaults", () => {
       await expect(picker.getByRole("button", { name: "Default Marinara Gradient", exact: true })).toBeVisible();
       await expect(pulse).toBeChecked({ checked: !desktop });
       await picker.getByRole("button", { name: "Default Marinara Gradient", exact: true }).click();
+      await showPalette();
       await picker.getByRole("button", { name: "Gay RGB rainbow", exact: true }).click();
       await picker.getByRole("button", { name: "Marinara Gradient", exact: true }).click();
       // Choosing the default preset restores the existing "follow default" sentinel.
