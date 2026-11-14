@@ -190,7 +190,12 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
   const engines = useDeviceEngines();
   const usedBy = useLocalModelUsedBy();
   const decision = useDecisionEngine();
-  const builtInAvailable = setup["local-model"].available && !setup["local-model"].setUp;
+  // The engine list already carries the built-in model once it can run here (with its own Download), so the
+  // set-up row only fills in when it is missing there.
+  const builtInAvailable =
+    setup["local-model"].available &&
+    !setup["local-model"].setUp &&
+    !engines.some((engine) => engine.item === "local-model");
   if (engines.length === 0 && !builtInAvailable && !decision) return null;
   const rows = [
     ...engines.map((engine) => ({

@@ -13,10 +13,10 @@ Text to speech (TTS) reads chat messages and game narration out loud. This guide
 
 Picking a model for the **Voice** job turns text to speech on. It does not make anything speak by itself. It shows the **Speak** button on each message and the **Auto-play** options. You still choose what is read and when.
 
-1. Open **Library → Connections** and click **Add connection**. The list of services opens.
-2. On the **Voice** tab, choose **Text to speech**. The card opens. If text to speech already uses PocketTTS or another voice server on your computer or private network, the same card is also under **On this device**.
-3. Turn on **Use text to speech**. While it is off, nothing is read aloud.
-4. Open the **Source** list and pick a service.
+1. Open **Library → Connections**. In the **Defaults** box, click **Voice**. The **Model for Voice** window opens.
+2. Pick a voice model from one of your accounts, or a voice engine on this device such as **Local PocketTTS**. The **Voice** row shows your pick.
+3. No voice account yet? Click **Add account** at the bottom of the window, or **New connection** on the Connections page and open the **Voice** tab.
+4. To turn text to speech off, click **Voice** again and choose **Turn voice off**. While it is off, nothing is read aloud.
 
 A voice service is the service that makes the audio. Marinara supports these:
 

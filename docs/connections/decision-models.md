@@ -65,7 +65,7 @@ A general chat model's yes-or-no probabilities work for a threshold, but they we
 
 If your chat model runs in Ollama, LM Studio, llama.cpp, or another OpenAI-compatible server, it can answer decisions without Marinara loading a second copy.
 
-1. Open **Library → Connections**, click **Add connection**, open the **Decisions** tab and choose **Own decision server**. Type the same address and key your chat model uses. (In the classic layout, **⋯** on the model has **Use this model for decisions**, which fills these in.)
+1. Open **Library → Connections**, click **Add connection**, open the **Decision** tab and choose **Own decision server**. Type the same address and key your chat model uses. (In the classic layout, **⋯** on the model has **Use this model for decisions**, which fills these in.)
 2. Pick the model, then click **Test decision**. A passing test says whether the server returned log-probabilities and whether the model had to think first. Click **Done**.
 3. Click **Decision** in the **Defaults** box and pick the new model.
 
@@ -78,7 +78,7 @@ It is asked like the Built-in model: one yes-or-no word per statement. Statement
 A hosted Decision account sends the selected recent messages and statements to the service and can cost money. Smart response order also sends a [character roster](#what-the-model-sees).
 
 1. Open **Library → Connections** and click **Add connection**.
-2. On the **Decisions** tab, click **TypeSafe** or **Own decision server**. For OpenRouter, click **OpenRouter** on the **Chat** tab, connect it, then use **Use this key for decisions** in the model's **⋯** menu.
+2. On the **Decision** tab, click **TypeSafe** or **Own decision server**. For OpenRouter, click **OpenRouter** on the **Text** tab, connect it, then use **Use this key for decisions** in the model's **⋯** menu.
 3. Enter the **API key**, or for **Own decision server** the **Server address**. Click **Connect**. The window closes and the Connections page shows the new account.
 4. Click **Decision** in the **Defaults** box and pick the new model.
 5. To test it, click the model on the Connections page to open **Edit model**, then click **Test provider** in the **Provider tests** card. An **Own decision server** model has no **Test provider** button there. Click the account's **⋯**, choose **Edit account** and click **Test account** instead.
@@ -197,7 +197,7 @@ The Open-Jev models need Linux **x86-64**, an NVIDIA GPU of compute capability 7
 
 These are the catalog's estimates. The 9B model leaves little headroom on a 24 GB GPU. Check the installer's verdict for your card.
 
-1. Click **Add** in the **Connections** panel and click **Built-in model (decisions)** under **Decisions**. A window titled **Built-in decision model** opens. You can also open it from the **Built-in model** card's page.
+1. Click **Add** in the **Connections** panel and click **Built-in model (decisions)** on the **Decision** tab (shown when this computer can run it). A window titled **Built-in decision model** opens. You can also open it from the **Built-in model** card's page.
 2. Read the warning, then turn on **Use the built-in decision model**. A dialog titled **Turn on the built-in decision model?** shows the verdict for your computer. Click **Enable**, or **Enable anyway** when the verdict is a warning.
 3. Under **Available decision models**, pick **Open-Jev 2B** or **Open-Jev 9B**. Click **Download and install** and confirm the size, hardware verdict, and licenses. Nothing downloads before that.
 4. Click the **Decision** row under **Behind the scenes** and pick **Built-in model (decisions)**.

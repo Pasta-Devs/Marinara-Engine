@@ -27,7 +27,7 @@ If it did not work:
 - **Local runtime failed to start.** See [Troubleshooting](#troubleshooting).
 - **Download failed.** The window shows the error. Check your internet connection and free disk space, then click the download button again.
 
-You can also reach this window from **Add connection** on the Connections page: **Built-in model** is on the **Chat** tab under **Self-hosted**.
+You can also reach this window from the Connections page: **Built-in model** is listed under **On this device**.
 
 ### Curated presets
 

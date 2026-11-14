@@ -3663,6 +3663,10 @@
 :root[data-overhaul="mobile"] .mari-modal-panel.ov-add-sheet--list:not(#ovm-x) {
   height: 88dvh;
 }
+/* The sheet draws its own grabber (below); the Modal's pull-to-close grabber would make a second one. */
+:root[data-overhaul="mobile"] .ov-add-sheet > [aria-hidden="true"]:first-child {
+  display: none;
+}
 :root[data-overhaul="mobile"] .ov-add-sheet::before {
   content: "";
   position: absolute;
@@ -3674,16 +3678,16 @@
   background: var(--ovm-line);
   transform: translateX(-50%);
 }
-:root[data-overhaul="mobile"] .ov-add-sheet > :first-child {
+:root[data-overhaul="mobile"] .ov-add-sheet > :is(:first-child:not([aria-hidden="true"]), [aria-hidden="true"]:first-child + *) {
   min-height: 3rem;
   padding: 0.25rem 0.375rem 0.25rem 1rem;
   border-bottom: 0;
 }
-:root[data-overhaul="mobile"] .ov-add-sheet > :first-child h2 {
+:root[data-overhaul="mobile"] .ov-add-sheet > :is(:first-child:not([aria-hidden="true"]), [aria-hidden="true"]:first-child + *) h2 {
   font-size: 1.0625rem;
   font-weight: 700;
 }
-:root[data-overhaul="mobile"] .ov-add-sheet > :first-child :is(button, .mari-editor-action) {
+:root[data-overhaul="mobile"] .ov-add-sheet > :is(:first-child:not([aria-hidden="true"]), [aria-hidden="true"]:first-child + *) :is(button, .mari-editor-action) {
   min-width: 2.75rem;
   min-height: 2.75rem;
 }

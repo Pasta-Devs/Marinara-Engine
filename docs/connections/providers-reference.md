@@ -2,7 +2,7 @@
 
 This page is a reference for the main services Marinara Engine can connect to: where to get its API key, its default address, and its quirks. To add an account step by step, read [Connecting to an AI Provider](connecting-to-a-provider.md) first.
 
-You choose a service after **Add connection**, on the tab for what it does: **Chat**, **Images** (video services are here too), **Voice**, or **Decisions**. The list uses the name shown below. The address is the web address Marinara sends requests to. It is called **Address** in the account editor and **Base URL** in the model editor. Marinara fills it in for known services. Change it only for a proxy or a server you run.
+You choose a service after **Add connection**, on the tab for what it makes: **Text**, **Image**, **Video**, **Voice**, or **Decision**. Typing in the search box looks through every tab. The list uses the name shown below. The address is the web address Marinara sends requests to. It is called **Address** in the account editor and **Base URL** in the model editor. Marinara fills it in for known services. Change it only for a proxy or a server you run.
 
 Models change often, so this page does not list them. After you connect, the model list loads in the picker. Click **Refresh model list** in the picker to reload it.
 
@@ -145,7 +145,7 @@ See [Image Generation Providers and Setup](../media/image-providers.md) and [Sce
 
 ## Decision
 
-Under **Decisions**, the tiles are **TypeSafe** (default address `https://api.typesafe.ai`), **Own decision server**, and **Built-in model (decisions)**. Chat services that use the OpenAI chat format can also do decisions, but only with a model that returns log-probabilities (scores for each possible answer). A decision model answers yes-or-no questions about your chat. See [Decision Models](decision-models.md).
+On the **Decision** tab, the tiles are **TypeSafe** (default address `https://api.typesafe.ai`), **Own decision server**, and **Built-in model (decisions)**. Chat services that use the OpenAI chat format can also do decisions, but only with a model that returns log-probabilities (scores for each possible answer). A decision model answers yes-or-no questions about your chat. See [Decision Models](decision-models.md).
 
 ## Audio
 

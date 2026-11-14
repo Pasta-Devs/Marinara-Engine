@@ -11,7 +11,7 @@ Scene videos use a separate kind of account, **Video Generation**, not normal im
 ## Set up a video service
 
 1. Open **Library → Connections** and click **Add connection**. The list of services opens.
-2. Open the **Images** tab (it holds video services too) and choose a service. The services are listed below.
+2. Open the **Video** tab and choose a service. The services are listed below.
 3. Paste the API key for a cloud service. Local ComfyUI needs none. SwarmUI needs a Swarm Auth Token only if your server requires an account.
 4. Click **Connect**, then pick a model or keep the default. NanoGPT has no default, so pick one from its list. For ComfyUI, leave the model unset unless the workflow uses `%model%`. For SwarmUI the model is optional.
 5. Open the video model and click **Test video** to check it.

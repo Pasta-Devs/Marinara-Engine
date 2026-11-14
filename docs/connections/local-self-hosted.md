@@ -9,7 +9,7 @@ In the app, this kind of account is called **OpenAI-compatible**. It means the s
 Before you start, install a model server, start it, and load a model in it. For example, download Ollama from `ollama.com` and follow its steps to pull a model. Marinara connects to the server and does not start it for you. The server answers requests at a web address on your computer, called an endpoint.
 
 1. Open **Library → Connections** and click **Add connection**. The list of services opens.
-2. On the **Chat** tab, under **Self-hosted**, click your server: **Ollama**, **LM Studio**, **KoboldCpp**, or **llama.cpp**. These have the tag **Self-hosted**. For any other server, click **OpenAI-compatible address**.
+2. On the **Text** tab, under **Self-hosted**, click your server: **Ollama**, **LM Studio**, **KoboldCpp**, or **llama.cpp**. These have the tag **Self-hosted**. For any other server, click **OpenAI-compatible address**.
 3. Check **Server address**. For the four named servers it is filled in. For another server, type its address. See the table below.
 4. Leave **API key (optional)** empty. Most local servers need no key. To name the account, type a **Name (optional)**.
 5. Click **Connect**. Marinara tests the address. **Connected** means it reached the server.
@@ -67,7 +67,7 @@ On Android, this setting is on by default when you do not set it.
 
 ## Use the model for decisions
 
-The same model can answer decision questions, such as agent activation checks, without loading a second copy. Open **Library → Connections**, click **Add connection**, open the **Decisions** tab, choose **Own decision server** and type the same address. (In the classic layout, **⋯** on the model has a **Use this model for decisions** shortcut that fills it in for you.) See [Decision Models](decision-models.md#on-a-server-you-already-run).
+The same model can answer decision questions, such as agent activation checks, without loading a second copy. Open **Library → Connections**, click **Add connection**, open the **Decision** tab, choose **Own decision server** and type the same address. (In the classic layout, **⋯** on the model has a **Use this model for decisions** shortcut that fills it in for you.) See [Decision Models](decision-models.md#on-a-server-you-already-run).
 
 ## Treat as local/custom endpoint
 
