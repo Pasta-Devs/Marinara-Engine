@@ -1149,6 +1149,7 @@
   "chat.settingsProfile.builder.applyFailed_other": "Could not update {{count}} chats.",
   "chat.settingsProfile.builder.applyTo_one": "Apply to {{count}} chat",
   "chat.settingsProfile.builder.applyTo_other": "Apply to {{count}} chats",
+  "chat.settingsProfile.builder.chooseAgents": "Choose agents",
   "chat.settingsProfile.builder.clear": "Clear selection",
   "chat.settingsProfile.builder.defaultFailed": "Could not make this profile the default.",
   "chat.settingsProfile.builder.defaultName": "New profile",

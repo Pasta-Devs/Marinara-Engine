@@ -30,7 +30,10 @@ import {
   type ChatPreset,
   type ChatPresetSettings,
 } from "@marinara-engine/shared";
+import { CharacterSelect } from "../characters/CharacterSelect";
+import { LorebookListField, PresetPickerField } from "../ui/LibraryPickers";
 import { Modal } from "../ui/Modal";
+import { PickerField, PickerListField, PickerTileArt } from "../ui/PickerField";
 import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import {
   getActiveChatResourceDrag,
@@ -48,6 +51,7 @@ import { usePresets } from "../../hooks/use-presets";
 import { usePersonas } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { useAgentConfigs } from "../../hooks/use-agents";
+import { useLibraryFolders } from "../../hooks/use-library-folders";
 import { isCustomToolSelectable, useCustomToolCapabilities, useCustomTools } from "../../hooks/use-custom-tools";
 import { useCapabilityAgentRegistry, useCapabilityCatalog } from "../../hooks/use-capability-packages";
 import { useChats } from "../../hooks/use-chats";
@@ -216,6 +220,7 @@ function ChatProfileBuilderBody({
     queryFn: () => api.get<Array<{ filename: string; url: string }>>("/backgrounds"),
   });
   const { data: chats } = useChats();
+  const { data: agentFolders } = useLibraryFolders("agents");
   const createPreset = useCreateChatPreset();
   const saveSettings = useSaveChatPresetSettings();
   const renamePreset = useUpdateChatPreset();
@@ -368,6 +373,113 @@ function ChatProfileBuilderBody({
     }
   };
 
+  // The Agents panel files custom agents by their config id, while a profile stores their type.
+  const agentFolderList = useMemo(() => {
+    const typeById = new Map((agentConfigs ?? []).map((config) => [config.id, config.type]));
+    return (agentFolders ?? []).map((folder) => ({
+      ...folder,
+      itemIds: folder.itemIds.map((id) => typeById.get(id) ?? id),
+    }));
+  }, [agentConfigs, agentFolders]);
+
+  const setSlot = (key: SlotKey, ids: string[]) => setSettings((prev) => withSlot(key, prev, ids));
+  const toggleInSlot = (key: SlotKey, id: string) =>
+    setSettings((prev) => {
+      const current = slotIds(key, prev);
+      return withSlot(key, prev, current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
+    });
+  const addToSlot = (key: SlotKey, add: string[]) =>
+    setSettings((prev) => withSlot(key, prev, Array.from(new Set([...slotIds(key, prev), ...add]))));
+
+  // A slot's field: the shared picker window (#9077) instead of a native select. Presets, lorebooks
+  // and personas use their shared fields; the rest show their picture or their library's gradient tile.
+  const renderPicker = (key: SlotKey, ids: string[]) => {
+    const meta = SLOT_META[key];
+    const ariaLabel = label(key);
+    const pickOne = (id: string) => setSlot(key, id ? [id] : []);
+    const fieldClass =
+      "min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm font-normal text-[var(--foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+    if (key === "preset")
+      return (
+        <PresetPickerField
+          value={ids[0] ?? ""}
+          presets={presets ?? []}
+          ariaLabel={ariaLabel}
+          noneLabel={t("chat.settingsProfile.builder.none")}
+          missingLabel={ids[0]}
+          triggerClassName={fieldClass}
+          onChange={pickOne}
+        />
+      );
+    if (key === "lore")
+      return (
+        <LorebookListField
+          lorebooks={lorebooks ?? []}
+          selectedIds={ids}
+          onToggle={(id) => toggleInSlot(key, id)}
+          onAdd={(add) => addToSlot(key, add)}
+          ariaLabel={ariaLabel}
+          keepMissing
+          triggerClassName={fieldClass}
+        />
+      );
+    if (key === "persona")
+      return (
+        <CharacterSelect
+          kind="persona"
+          allowNone
+          withCharacters={false}
+          value={ids[0] ? { persona: ids[0] } : null}
+          onChange={(next) => pickOne(next && "persona" in next ? next.persona : "")}
+          aria-label={ariaLabel}
+          title={ariaLabel}
+          className={fieldClass}
+        />
+      );
+    const items = library[key].map((item) => ({
+      id: item.id,
+      label: item.name,
+      icon: <PickerTileArt src={item.image} type={meta.type} icon={meta.icon} />,
+      smallIcon: <PickerTileArt src={item.image} type={meta.type} icon={meta.icon} className="h-6 w-6 rounded-md" />,
+    }));
+    const texts = {
+      searchLabel: t("chat.wizard.select.search"),
+      emptyLabel: t("chat.settingsProfile.builder.noItems"),
+      noMatchesLabel: t("ui.lorebooks.linkedresourcepicker.noMatches"),
+    };
+    if (meta.multi)
+      return (
+        <PickerListField
+          items={items}
+          folders={key === "agent" ? agentFolderList : undefined}
+          selectedIds={ids}
+          onToggle={(id) => toggleInSlot(key, id)}
+          onAdd={(add) => addToSlot(key, add)}
+          title={ariaLabel}
+          triggerLabel={t("chat.settingsProfile.builder.chooseAgents")}
+          triggerIcon={<Bot size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />}
+          triggerClassName={fieldClass}
+          ariaLabel={ariaLabel}
+          removeLabel={(name) => t("chat.settingsProfile.builder.remove", { name })}
+          keepMissing
+          {...texts}
+          searchLabel={t("ui.agents.agentcatalogview.searchAgents")}
+        />
+      );
+    return (
+      <PickerField
+        value={ids[0] ?? ""}
+        items={items}
+        ariaLabel={ariaLabel}
+        noneLabel={t("chat.settingsProfile.builder.none")}
+        missingLabel={ids[0]}
+        triggerClassName={fieldClass}
+        onChange={pickOne}
+        {...texts}
+      />
+    );
+  };
+
   const renderSlot = (key: SlotKey) => {
     const meta = SLOT_META[key];
     const Icon = meta.icon;
@@ -468,36 +580,7 @@ function ChatProfileBuilderBody({
               ))}
             </div>
           ) : (
-            <select
-              aria-labelledby={`${fieldId}-${key}`}
-              multiple={!!meta.multi}
-              size={meta.multi ? Math.min(5, Math.max(2, items.length)) : undefined}
-              value={meta.multi ? ids : (ids[0] ?? "")}
-              onChange={(event) =>
-                setSettings((prev) =>
-                  withSlot(
-                    key,
-                    prev,
-                    Array.from(event.target.selectedOptions, (option) => option.value).filter(Boolean),
-                  ),
-                )
-              }
-              className="min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm font-normal text-[var(--foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-            >
-              {!meta.multi && <option value="">{t("chat.settingsProfile.builder.none")}</option>}
-              {ids
-                .filter((id) => !items.some((item) => item.id === id))
-                .map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-              {items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            renderPicker(key, ids)
           )}
         </div>
         {!summary && items.length === 0 && (
