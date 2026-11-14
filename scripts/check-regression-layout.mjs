@@ -13,7 +13,10 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const REGRESSIONS = "scripts/regressions/";
 const EXCEPTIONS_FILE = "scripts/regressions/layout-exceptions.json";
 
-/** The folders a new regression may go in, named after the part of the app it covers. Add one when no area fits. */
+/**
+ * The folders a new regression may go in, named after the part of the app it covers. Add one when no area fits.
+ * decision, security, server and ui hold only what no one feature owns; a feature's own checks go with the feature.
+ */
 export const REGRESSION_AREAS = {
   "advanced-memory": "Advanced Memory, memory recall and embeddings",
   agents: "built-in, custom and downloadable agents: Illustrator, Beholder, Music DJ and the rest",
@@ -22,7 +25,7 @@ export const REGRESSION_AREAS = {
   characters: "character cards, personas and groups",
   chat: "chats, messages, branches, summaries, the gallery and Conversation mode",
   connections: "connections, providers, models and the requests sent to them",
-  decision: "the Decision sidecar",
+  decision: "the Decision model itself: its connections, local models, sidecar, time limits and decision statements",
   extensions: "personal extensions and their IPC",
   game: "Game mode outside the ruleset engine: worlds, experiences, scenes and NPCs",
   "game-ruleset": "the ruleset format and engine: combat, sheets, checks, items and dice",
@@ -35,9 +38,9 @@ export const REGRESSION_AREAS = {
   "professor-mari": "Professor Mari's workspace agent: its queue, skills, sandbox, file access and round reviews",
   prompt: "prompt assembly, macros, presets, context fit and regex scripts",
   roleplay: "Roleplay mode and its trackers",
-  security: "authentication, sandboxes, extension security and file-access checks",
+  security: "app-wide access checks: authentication, remote access, request and file-access bounds",
   server:
-    "server start-up and shutdown, storage, backups, logging, the local utility sidecar and platforms (Android, Termux, Docker)",
+    "the server process and shared storage: start-up and shutdown, storage, backups, logging, the local utility sidecar and platforms (Android, Termux, Docker)",
   tooling: "repository scripts, CI workflows, Dottore Review and release tooling",
   tts: "text to speech, speech to text, music and other audio",
   ui: "the client shell: onboarding, omnibar, themes, localization and layout",
@@ -95,8 +98,9 @@ export function checkRegressionLayout(files, exceptions, areas = REGRESSION_AREA
         problems.push(
           `${file.path}: new regressions go in an area folder, not directly in ${REGRESSIONS}. ` +
             `If a file there already covers this feature, add your case to it; otherwise move this file into the ` +
-            `folder for the part of the app it covers (add a folder to REGRESSION_AREAS in ` +
-            `scripts/check-regression-layout.mjs when none fits):\n${areaList}`,
+            `folder for the part of the app it covers. When a feature's folder fits, use it rather than decision, ` +
+            `security, server or ui; add a folder to REGRESSION_AREAS in scripts/check-regression-layout.mjs when ` +
+            `none fits:\n${areaList}`,
         );
       }
     } else if (!Object.hasOwn(areas, folder)) {
