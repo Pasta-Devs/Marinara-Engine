@@ -8,24 +8,31 @@
 // (a sheet nobody has built yet opens in the ruleset's sheet builder) is in RoleplayRulesetSheet.tsx,
 // so Chat Settings and the tracker panel, which import this file, do not load Game Mode's screen.
 // ──────────────────────────────────────────────
-import { useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Dices, Hammer, ScrollText, Trash2, UserPlus } from "lucide-react";
+import { Dices, Hammer, PencilRuler, Plus, ScrollText, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   defaultRulesetSheetBuild,
   normalizeCharacterLookupName,
   readRulesetSheetEnvelope,
+  rulesetBuilderDraftFrom,
   type RulesetDefinition,
 } from "@marinara-engine/shared";
-import { useInstalledRulesets } from "../../hooks/use-capability-packages";
+import { useAgentImportPolicy } from "../../hooks/use-agents";
+import { useInstalledRulesets, useRulesetSource } from "../../hooks/use-capability-packages";
 import { chatKeys, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { api } from "../../lib/api-client";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
+
+// The builder's form loads when it opens, so Chat Settings and the tracker panel do not carry it.
+const RulesetBuilderModal = lazy(() =>
+  import("../rulesets/RulesetBuilderModal").then((module) => ({ default: module.RulesetBuilderModal })),
+);
 
 interface StoredCard {
   name?: unknown;
@@ -87,6 +94,8 @@ function usePinRoleplayRuleset(chatId: string) {
   return { pin, busy };
 }
 
+const builderButton =
+  "flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50";
 const smallButton =
   "flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.6875rem] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50";
 
@@ -105,6 +114,28 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
       : undefined;
   const members = roleplaySheetNames(metadata);
   const declined = declinedNames(metadata);
+  const [builder, setBuilder] = useState<"new" | "edit" | null>(null);
+  // The builder saves the way an import does, so it needs imports on.
+  const imports = useAgentImportPolicy();
+  const canBuild = imports.data?.enabled === true;
+  const pinnedEntry = pinnedId ? installed.data?.find((entry) => entry.definition.id === pinnedId) : undefined;
+  // The builder opens a ruleset only when it can write it back unchanged; any other is its author's file.
+  // Only the player's own (`local/`) rulesets open: saving a packaged or repository one would make a
+  // local copy under another id, a second sheet on every character.
+  // It opens the newest version, so only a chat that plays it may edit; another chat moves up first.
+  const playing = "ref" in resolved ? resolved.ref : null;
+  const playsNewest = !playing || playing.version === pinnedEntry?.definition.version;
+  // The stored file, not the listed definition: the list drops comments, which the form cannot keep.
+  const editable = !!pinnedEntry && !pinnedEntry.packageId && pinnedEntry.source?.kind === "local" && playsNewest;
+  const source = useRulesetSource(pinnedId, pinnedEntry?.definition.version, editable);
+  const pinnedDraft = useMemo(() => {
+    if (!editable || !source.data) return null;
+    try {
+      return rulesetBuilderDraftFrom(JSON.parse(source.data.ruleset));
+    } catch {
+      return null;
+    }
+  }, [editable, source.data]);
 
   // Taking a removal back, then pinning again, which gives that member a sheet like any newcomer.
   const giveSheet = async (name: string) => {
@@ -244,6 +275,46 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
             {localizeUi("chat.settings.ruleset.sync")}
           </button>
         </>
+      )}
+      <div className="flex flex-wrap gap-1.5">
+        {/* A new ruleset's id is picked against the installed list, so it waits for that list. */}
+        <button
+          type="button"
+          disabled={busy || !installed.data || !canBuild}
+          onClick={() => setBuilder("new")}
+          className={builderButton}
+        >
+          <Plus size="0.75rem" />
+          {localizeUi("chat.settings.ruleset.newRuleset")}
+        </button>
+        {pinnedDraft && (
+          <button type="button" disabled={busy} onClick={() => setBuilder("edit")} className={builderButton}>
+            <PencilRuler size="0.75rem" />
+            {localizeUi("chat.settings.ruleset.editRuleset")}
+          </button>
+        )}
+      </div>
+      {imports.data && !canBuild && (
+        <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+          {localizeUi("chat.settings.ruleset.builderNeedsImports")}
+        </p>
+      )}
+      {builder && (
+        <Suspense fallback={null}>
+          <RulesetBuilderModal
+            open
+            onClose={() => setBuilder(null)}
+            initial={builder === "edit" ? pinnedDraft : null}
+            installedVersion={builder === "edit" ? pinnedEntry?.definition.version : undefined}
+            installed={installed.data ?? []}
+            // Pinning again moves the chat onto the saved version and gives new members their sheets. A new
+            // ruleset is turned on only in a chat with none: switching would start this chat's sheets over.
+            onSaved={(rulesetId) => {
+              if (builder === "edit" || !pinnedId) void pin(rulesetId);
+              else toast.info(localizeUi("chat.settings.ruleset.newNotPinned"));
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );

@@ -34,6 +34,8 @@ export const capabilityPackageKeys = {
   turnGameCommands: () => [...capabilityPackageKeys.all, "turn-game-commands"] as const,
   rulesetCatalog: (rulesetId: string, catalogId: string, version: number | undefined) =>
     [...capabilityPackageKeys.rulesets(), "catalog", rulesetId, catalogId, version ?? "latest"] as const,
+  rulesetSource: (rulesetId: string, version: number) =>
+    [...capabilityPackageKeys.rulesets(), "source", rulesetId, version] as const,
   releaseNotes: (id: string) => [...capabilityPackageKeys.all, "release-notes", id] as const,
 };
 
@@ -43,6 +45,18 @@ export function useInstalledRulesets(enabled = true) {
     queryKey: capabilityPackageKeys.rulesets(),
     queryFn: () => api.get<InstalledRuleset[]>("/capability-packages/rulesets"),
     enabled,
+  });
+}
+
+/** One stored ruleset version as its file was written, comments and all (the list carries it parsed). */
+export function useRulesetSource(rulesetId: string | undefined, version: number | undefined, enabled = true) {
+  return useQuery({
+    queryKey: capabilityPackageKeys.rulesetSource(rulesetId ?? "", version ?? 0),
+    queryFn: () =>
+      api.get<{ ruleset: string }>(
+        `/game-rulesets/source?rulesetId=${encodeURIComponent(rulesetId!)}&version=${version}`,
+      ),
+    enabled: enabled && !!rulesetId && !!version,
   });
 }
 
