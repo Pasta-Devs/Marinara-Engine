@@ -74,7 +74,15 @@ export function useTabScrollMemory(tabKey: string | null) {
     let frame = 0;
     let stopped = false;
     const started = performance.now();
-    const reveal = () => root.removeAttribute(RESTORING_ATTR);
+    // Hidden at most once, at the start: a page that has been shown is never hidden again.
+    let shown = false;
+    const hide = () => {
+      if (!shown) root.setAttribute(RESTORING_ATTR, "");
+    };
+    const reveal = () => {
+      shown = true;
+      root.removeAttribute(RESTORING_ATTR);
+    };
     const stop = () => {
       stopped = true;
       reveal();
@@ -84,35 +92,52 @@ export function useTabScrollMemory(tabKey: string | null) {
       window.removeEventListener("keydown", stop, true);
       window.removeEventListener("pointerdown", stop, true);
     };
-    // Returns true when every area is in place and nothing had to move.
-    const restore = () => {
+    const resolved = new Set<string>();
+    // Returns "settled" when every area on the page is in place and nothing had to move, "waiting"
+    // while none of them is on the page, "moving" otherwise. Only "moving" keeps the page hidden: an
+    // area that is not on the page (an editor pane that has since closed, a section still loading)
+    // has nothing to show at the wrong place. It used to hide the whole page for 400 ms on every
+    // visit (Regex scripts flickered after a script's editor had been scrolled, Nov 14).
+    const restore = (): "settled" | "waiting" | "moving" => {
       let settled = true;
+      let found = false;
       for (const [path, top] of pending) {
         const element = findByPath(path);
-        if (!element || element.scrollHeight - element.clientHeight < top - 1) {
+        if (!element) continue;
+        found = true;
+        if (element.scrollHeight - element.clientHeight < top - 1) {
           settled = false;
           continue;
         }
-        if (Math.abs(element.scrollTop - top) > 1) {
-          element.scrollTop = top;
-          settled = false;
-        }
+        resolved.add(path);
+        // Put back before paint; it only counts as moving if it did not take (it is still filling in).
+        if (Math.abs(element.scrollTop - top) > 1) element.scrollTop = top;
+        if (Math.abs(element.scrollTop - top) > 1) settled = false;
       }
-      return settled;
+      return !found ? "waiting" : settled ? "settled" : "moving";
     };
-    // A section can re-render after the first restore and drop back to the top, so the page stays
-    // hidden until it has held its place for a few frames.
-    let calmFrames = 0;
+    // Places that never came back during the whole window belong to something no longer on this
+    // page; forget them so they cannot hide the page on later visits.
+    const forgetMissing = () => {
+      for (const path of pending.keys()) if (!resolved.has(path)) saved.delete(path);
+    };
+    // A section can re-render after the first restore and drop back to the top, so it is put back
+    // for a while; the page stays hidden only while a place cannot be reached yet.
     const tick = () => {
       if (stopped) return;
-      calmFrames = restore() ? calmFrames + 1 : 0;
+      const state = restore();
       const elapsed = performance.now() - started;
-      if (calmFrames >= 3 || elapsed >= HIDE_FOR_MS) reveal();
+      if (state === "moving" && elapsed < HIDE_FOR_MS) hide();
+      else reveal();
       if (elapsed < RESTORE_FOR_MS) frame = requestAnimationFrame(tick);
-      else stop();
+      else {
+        forgetMissing();
+        stop();
+      }
     };
-    restore();
-    root.setAttribute(RESTORING_ATTR, "");
+    // Hide only while an area on the page still has to move into place.
+    if (restore() === "moving") hide();
+    else reveal();
     window.addEventListener("wheel", stop, true);
     window.addEventListener("touchstart", stop, true);
     window.addEventListener("keydown", stop, true);
