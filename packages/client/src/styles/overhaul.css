@@ -1427,6 +1427,11 @@
   transform: translateX(0.875rem);
   background: #fff;
 }
+/* On, but its regex folder is paused: keeps its position, drops the accent so it reads as not running. */
+.ov-switch.is-held {
+  filter: saturate(0);
+  opacity: 0.7;
+}
 .ov-card__art--square {
   aspect-ratio: 1;
 }

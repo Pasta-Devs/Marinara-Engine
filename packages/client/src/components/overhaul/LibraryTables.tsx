@@ -49,6 +49,7 @@ import {
   useUpdateLorebook,
 } from "../../hooks/use-lorebooks";
 import { useLibraryOrder } from "../../hooks/use-library-order";
+import { useUpdateLibraryFolder } from "../../hooks/use-library-folders";
 import { duplicateLorebook } from "../../lib/lorebook-duplicate";
 import { api } from "../../lib/api-client";
 import { useDeletePreset, useDuplicatePreset, usePresets } from "../../hooks/use-presets";
@@ -140,14 +141,28 @@ export function Thumb({ id, src }: { id: string; src?: string | null }) {
   );
 }
 
-export function Toggle({ on, onChange, label }: { on: boolean; onChange: (next: boolean) => void; label: string }) {
+/** `held`: switched on but not running right now (its regex folder is paused), so it shows greyed out. */
+export function Toggle({
+  on,
+  onChange,
+  label,
+  held,
+  title,
+}: {
+  on: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+  held?: boolean;
+  title?: string;
+}) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
       aria-label={label}
-      className={cn("ov-switch", on && "is-on")}
+      title={title}
+      className={cn("ov-switch", on && "is-on", held && "is-held")}
       onClick={(event) => {
         event.stopPropagation();
         onChange(!on);
@@ -1267,6 +1282,7 @@ export function useRegexFolders(scripts: RegexScriptRow[]) {
   const manual = useScopeFolders("regex", localize("scripts"));
   const local = useLocalCollapsed("regex");
   const setEnabledMany = useSetRegexEnabledMany();
+  const updateFolder = useUpdateLibraryFolder("regex");
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
   const folderImport = useRegexFolderImport(scripts, manual);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1301,14 +1317,34 @@ export function useRegexFolders(scripts: RegexScriptRow[]) {
     folder.itemIds.map((id) => byId.get(id)).filter((script): script is RegexScriptRow => !!script);
   const presetOf = (folder: KitFolder) => (folder.virtual ? folder.id.slice(REGEX_PRESET_FOLDER.length) : null);
 
-  /** "3/12 on" and the folder's switch: on while any script inside runs; off stops them all, on starts them all. */
+  /**
+   * Your folders: the switch pauses the whole folder (scripts keep their own on/off and come back as they were).
+   * A preset's folder has no folder of its own to pause, so its switch turns all its scripts off or on.
+   */
   const extra = (folder: KitFolder) => {
     const list = members(folder);
     const on = list.filter((script) => script.enabled === "true").length;
+    const count = on === list.length ? String(list.length) : `${on}/${list.length} ${localize("on")}`;
+    if (!folder.virtual) {
+      const running = !folder.paused;
+      return {
+        icon: undefined,
+        note: running ? count : translate("regex.library.paused"),
+        trail: (
+          <Toggle
+            on={running}
+            label={translate(running ? "ui.overhaul.text.turnOffName" : "ui.overhaul.text.turnOnName", {
+              name: folder.name,
+            })}
+            onChange={(next) => updateFolder.mutate({ id: folder.id, paused: !next })}
+          />
+        ),
+      };
+    }
     return {
       // A preset's folder wears the Presets icon, so it reads as that preset's scripts, not one of yours.
-      icon: folder.virtual ? <FileText size={14} className="ov-vw__gicon" aria-hidden="true" /> : undefined,
-      note: on === list.length ? String(list.length) : `${on}/${list.length} ${localize("on")}`,
+      icon: <FileText size={14} className="ov-vw__gicon" aria-hidden="true" />,
+      note: count,
       trail: list.length ? (
         <Toggle
           on={on > 0}
@@ -1509,9 +1545,12 @@ export function RegexLanding() {
       onOpen={(script) => openRegexDetail(script.id)}
       leading={(script) => {
         const enabled = script.enabled === "true";
+        const held = enabled && !!script.pausedByFolder;
         return (
           <Toggle
             on={enabled}
+            held={held}
+            title={held ? translate("regex.library.pausedByFolder") : undefined}
             label={localize(enabled ? "Disable regex" : "Enable regex")}
             onChange={(next) => updateRegex.mutate({ id: script.id, enabled: next })}
           />

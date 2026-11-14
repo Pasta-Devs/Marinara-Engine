@@ -331,7 +331,7 @@ export function KitBulkBar({ selection, actions }: { selection: KitSelection; ac
 // ── Folders ──
 
 /** `virtual`: a folder the app makes on its own (a preset's regex scripts); nothing can be dropped or filed into it. */
-export type KitFolder = { id: string; name: string; itemIds: string[]; collapsed?: boolean; virtual?: boolean };
+export type KitFolder = { id: string; name: string; itemIds: string[]; collapsed?: boolean; virtual?: boolean; paused?: boolean };
 
 export type KitFolders = {
   folders: KitFolder[];
@@ -415,7 +415,7 @@ export function useScopeFolders(scope: LibraryFolderScope, kindLabel: string): K
   const remove = useDeleteLibraryFolder(scope);
   const move = useMoveLibraryItem(scope);
   const folders = useMemo(
-    () => (data ?? []).map((f) => ({ id: f.id, name: f.name, itemIds: f.itemIds, collapsed: f.collapsed })),
+    () => (data ?? []).map((f) => ({ id: f.id, name: f.name, itemIds: f.itemIds, collapsed: f.collapsed, paused: f.paused })),
     [data],
   );
   const basics = useFolderBasics(folders, kindLabel);
