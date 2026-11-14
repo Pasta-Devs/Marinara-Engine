@@ -98,9 +98,9 @@ export function checkRegressionLayout(files, exceptions, areas = REGRESSION_AREA
         problems.push(
           `${file.path}: new regressions go in an area folder, not directly in ${REGRESSIONS}. ` +
             `If a file there already covers this feature, add your case to it; otherwise move this file into the ` +
-            `folder for the part of the app it covers. When a feature's folder fits, use it rather than decision, ` +
-            `security, server or ui; add a folder to REGRESSION_AREAS in scripts/check-regression-layout.mjs when ` +
-            `none fits:\n${areaList}`,
+            `folder below for the part of the app it covers. A feature's folder comes before decision, security, ` +
+            `server and ui. If no folder fits, add one to REGRESSION_AREAS in scripts/check-regression-layout.mjs:\n` +
+            areaList,
         );
       }
     } else if (!Object.hasOwn(areas, folder)) {
