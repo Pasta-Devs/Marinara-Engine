@@ -23,6 +23,8 @@ import {
   rollDieSecurely,
   rollSymbolDiceNotation,
   normalizeWeatherType,
+  environmentHeldPlaces,
+  readEnvironmentHolds,
   type WeatherType,
   combatWeatherSchema,
   readImageAppearanceOverride,
@@ -12089,11 +12091,15 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const story = gameStoryFromMetadata(meta, world);
     const locks = worldSiteLocks(world, story, replies.all);
     // The places the story holds at a season whatever the day (1.351).
-    const seasons = story
+    const storySeasons = story
       ? storyPlaceSeasons(story, storyState(story, readStoryLedger(replies.all)).seasons, world)
       : {};
+    // The Game Master's holds (environment.ts) draw over the story's: a cursed autumn, a city of night.
+    const holds = readEnvironmentHolds(replies.all);
+    const seasons = { ...storySeasons, ...environmentHeldPlaces(holds, world, "season") };
+    const lights = environmentHeldPlaces(holds, world, "light");
     const walk = worldWalkFromMetadata(meta);
-    if (walk) return { here: walk.to, walk, present, placeName: undefined, locks, seasons };
+    if (walk) return { here: walk.to, walk, present, placeName: undefined, locks, seasons, lights };
     const place = worldPlaceInForce(
       world,
       lastGamePlace(replies.scoped),
@@ -12105,6 +12111,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       present,
       locks,
       seasons,
+      lights,
       placeName: place?.name,
     };
   };
@@ -12907,7 +12914,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const meta = parseMeta(chat.metadata);
     const world = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
     if (!world) return { overworld: null };
-    const { here, walk, present, locks, seasons } = await overworldPlace(req.params.chatId, meta, world);
+    const { here, walk, present, locks, seasons, lights } = await overworldPlace(req.params.chatId, meta, world);
     // A hidden site is never sent: the player does not know it is there.
     const locked = Object.fromEntries([...locks].filter(([, lock]) => lock === "sealed"));
     const hidden = new Set([...locks].filter(([, lock]) => lock === "hidden").map(([id]) => id));
@@ -12921,6 +12928,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         ...(hidden.size ? { hidden: [...hidden] } : {}),
         // Only when the story holds a place at a season (1.351).
         ...(Object.keys(seasons).length ? { seasons } : {}),
+        // Only when the Game Master holds a place at night, dusk or day (environment.ts).
+        ...(Object.keys(lights).length ? { lights } : {}),
       },
     };
   });

@@ -2578,6 +2578,15 @@ export function buildGmFormatReminder(
       );
   }
 
+  // Holds on a place's weather, season or light (environment.ts): a curse, a power, a city of endless night.
+  if (S)
+    lines.push(
+      "",
+      "LASTING ENVIRONMENTS (curses, powers, places outside nature):",
+      `Hold a place and everything inside it: [environment: place="Name" weather="snow" season="winter" light="dark" note="the Frost Queen's curse"]. Any part may be left out. light is dark (always night), dusk or day (the sun never sets). place="world" holds the whole world.`,
+      `Let part of it go with weather="none" (or season/light), or the whole place with [environment: place="Name" release]. A hold beats the climate and the clock until you let it go, so use it only for something in the story that lasts: an ordinary change of weather needs no tag.`,
+    );
+
   // The installed experience's own verbs, last in the block so the built-ins keep their order. Each
   // line already arrives fully rendered from the verb runtime; nothing here inspects or reformats it.
   const experienceGmVerbs = normalizePromptTextList(ctx.experienceGmVerbs);

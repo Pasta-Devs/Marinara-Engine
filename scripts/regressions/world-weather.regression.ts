@@ -17,6 +17,11 @@ import {
   worldBriefSchema,
   worldClimateAt,
   worldClimateOfBiome,
+  environmentHeldCells,
+  environmentHeldPlaces,
+  environmentHoldAt,
+  environmentHoldNote,
+  readEnvironmentHolds,
   worldDrawnSeason,
   worldGroundCells,
   worldGroundLooks,
@@ -156,6 +161,55 @@ assert.ok(southYear.winter!.wet > southYear.summer!.wet * 3, "and its rains come
   const input = { seed: 3, climate: worldClimateAt(game, land), day: 47, hour: 17.5 };
   assert.deepEqual(worldWeatherAt(input), worldWeatherAt(input), "the same every time");
   assert.equal(worldWeatherAt({ ...input, climate: worldClimateOfBiome("underground") }).type, "clear");
+}
+
+// ── Holds the Game Master puts on a place ──
+{
+  const holds = readEnvironmentHolds([
+    'The Court seals the city. [environment: place="Gotham" light="dark" weather="rain" note="the Court\'s long night"]',
+    'The year turns no further. [environment: place="Sallowmarch" season="autumn"]',
+    '[environment: place="Ashby" weather="snow"] And later: [environment: place="Ashby" release]',
+    '[environment: place="Gotham" weather="none"]',
+  ]);
+  assert.deepEqual(
+    holds.map((hold) => [hold.place, hold.weather, hold.season, hold.light]),
+    [
+      ["Gotham", undefined, undefined, "dark"],
+      ["Sallowmarch", undefined, "autumn", undefined],
+    ],
+    "set, let go part by part, and released",
+  );
+  const here = environmentHoldAt(holds, null, null, "Gotham, the Narrows");
+  assert.equal(here.light, "dark", "a game with no map reads the place from the location");
+  assert.match(environmentHoldNote(here), /Held here \(Gotham\), by the Court's long night: it is always night/);
+  assert.equal(environmentHoldAt(holds, null, null, "Metropolis").light, undefined, "elsewhere is not held");
+
+  // On a world: a place and every place inside it, the nearest hold deciding; "world" holds everything.
+  const settlements = game.world.places.filter((place) => place.rank !== undefined && place.parentId);
+  const town = settlements[0]!;
+  const region = game.world.places.find((place) => place.id === town.parentId)!;
+  const other = settlements.find((place) => place.parentId !== region.id && place.id !== region.id)!;
+  const onWorld = readEnvironmentHolds([
+    `[environment: place="${region.name}" season="winter" weather="blizzard"]`,
+    `[environment: place="${town.name}" weather="clear" light="day"]`,
+    `[environment: place="world" light="dusk"]`,
+  ]);
+  const atTown = environmentHoldAt(onWorld, game, town.id);
+  assert.deepEqual(
+    [atTown.weather, atTown.season, atTown.light],
+    ["clear", "winter", "day"],
+    "the nearest hold decides",
+  );
+  const atOther = environmentHoldAt(onWorld, game, other.id);
+  assert.deepEqual([atOther.weather, atOther.season, atOther.light], [undefined, undefined, "dusk"]);
+  assert.equal(environmentHeldPlaces(onWorld, game, "season")[town.id], "winter", "the town is inside the held region");
+  const cells = environmentHeldCells(game, environmentHeldPlaces(onWorld, game, "light"));
+  assert.ok(cells && cells.includes("day") && cells.includes("dusk"), "the overworld draws held light by cell");
+
+  // A held weather beats the climate: snow in a summer desert, under a curse.
+  const cursed = worldWeatherFit({ seed: 7, climate: worldClimateOfBiome("desert"), day: 135, hour: 13 }, "snow", true);
+  assert.equal(cursed.type, "snow");
+  assert.ok(cursed.temperature <= 1, "and it is cold enough for it");
 }
 
 console.log("world-weather regression passed");

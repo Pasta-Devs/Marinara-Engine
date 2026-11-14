@@ -10,12 +10,16 @@ import {
   readStoryLedger,
   storySeasonAt,
   storyState,
+  environmentHoldAt,
+  environmentHoldNote,
+  readEnvironmentHolds,
   worldClimateAt,
   worldClimateOfBiome,
   worldWeatherAt,
   worldWeatherFit,
   worldWeatherNote,
   WORLD_CLIMATE_LABELS,
+  type GameLightHold,
   type WeatherType,
   type WorldClimate,
   type WorldClimateZone,
@@ -41,6 +45,16 @@ export interface GameWeatherState extends WeatherState {
   /** A weather the Game Master or scene asked for, held until `until` (game minutes); `asked` when it was
    *  changed to fit the place. */
   forced?: { type: WeatherType; asked: WeatherType; until: number };
+  /** Always night, dusk or day where the party is, by a hold (environment.ts). */
+  light?: GameLightHold;
+  /** The holds over where the party is, part by part, and the places holding them. */
+  held?: {
+    places: string[];
+    weather?: WeatherType;
+    season?: WorldSeason;
+    light?: GameLightHold;
+    note?: string;
+  };
 }
 
 function minutesOf(time: GameTime) {
@@ -53,19 +67,21 @@ function chatSeed(chatId: string) {
   return h >>> 0;
 }
 
-/** The climate where the party is, and the season the story holds the place at, if any. */
+/** The climate where the party is, the season the story holds the place at, if any, and the Game
+ *  Master's holds over it (environment.ts). */
 async function climateHere(
   db: DB,
   chatId: string,
   meta: Record<string, unknown>,
   location: string,
   day: number,
-): Promise<{ climate: WorldClimate; seed: number; held: WorldSeason | null }> {
+): Promise<{ climate: WorldClimate; seed: number; held: WorldSeason | null; hold: GameEnvironmentHoldHere }> {
   const indoorsByName = inferBiome(location) === "underground";
+  const replies = await gameRepliesBefore(db, chatId).catch(() => null);
+  const holds = replies ? readEnvironmentHolds(replies.all) : [];
   try {
     const world = await loadGameWorld(db, chatId, meta);
-    if (world) {
-      const replies = await gameRepliesBefore(db, chatId);
+    if (world && replies) {
       const placeId = await gamePartyPlace(world, chatId, meta, replies);
       const place = world.world.places.find((each) => each.id === placeId);
       const start = world.world.places.find((each) => each.id === world.world.startId);
@@ -79,15 +95,29 @@ async function climateHere(
         climate: indoorsByName ? { ...climate, zone: "underground", meanTemp: 13, swing: 0 } : climate,
         seed: world.seed,
         held: season?.held ? season.season : null,
+        hold: environmentHoldAt(holds, world, placeId, location),
       };
     }
   } catch (err) {
     logger.warn(err, "Game weather: could not read the world for chat %s; using the place name", chatId);
   }
-  return { climate: worldClimateOfBiome(inferBiome(location)), seed: chatSeed(chatId), held: null };
+  return {
+    climate: worldClimateOfBiome(inferBiome(location)),
+    seed: chatSeed(chatId),
+    held: null,
+    hold: environmentHoldAt(holds, null, null, location),
+  };
 }
 
-function stateOf(weather: WorldWeather, seed: number, minutes: number): GameWeatherState {
+type GameEnvironmentHoldHere = ReturnType<typeof environmentHoldAt>;
+
+function stateOf(
+  weather: WorldWeather,
+  seed: number,
+  minutes: number,
+  hold?: GameEnvironmentHoldHere,
+): GameWeatherState {
+  const holdNote = hold ? environmentHoldNote(hold) : "";
   return {
     type: weather.type,
     temperature: weather.temperature,
@@ -100,13 +130,20 @@ function stateOf(weather: WorldWeather, seed: number, minutes: number): GameWeat
       season: weather.season,
       seasonLabel: weather.seasonLabel,
     },
-    note: worldWeatherNote(weather),
+    // Under a held weather the climate's "not possible" list no longer binds the Game Master.
+    note: hold?.weather
+      ? `Climate here: ${WORLD_CLIMATE_LABELS[weather.zone]}, ${weather.seasonLabel}. ${holdNote}`
+      : [worldWeatherNote(weather), holdNote].filter(Boolean).join(" "),
+    ...(hold?.light ? { light: hold.light } : {}),
+    ...(hold && hold.places.length ? { held: { ...hold } } : {}),
   };
 }
 
 /**
- * The weather where the party is now. `wanted` is a weather the Game Master or scene asks for: fitted to
- * the place and held for a while. Without it, a weather set earlier still holds until its time is up.
+ * The weather where the party is now. A hold the Game Master put on the place (a curse: always night,
+ * always autumn, always snow) beats everything. Else `wanted` is a weather the Game Master or scene asks
+ * for: fitted to the place and held for a while; without it, a weather set earlier still holds until its
+ * time is up.
  */
 export async function gameWeatherNow(
   db: DB,
@@ -116,18 +153,25 @@ export async function gameWeatherNow(
 ): Promise<GameWeatherState> {
   const time = (meta.gameTime as GameTime | undefined) ?? createInitialTime();
   const minutes = minutesOf(time);
-  const { climate, seed, held } = await climateHere(db, chatId, meta, options.location ?? "", time.day);
-  const input = { seed, climate, day: time.day, hour: time.hour + time.minute / 60, heldSeason: held };
+  const { climate, seed, held, hold } = await climateHere(db, chatId, meta, options.location ?? "", time.day);
+  const input = {
+    seed,
+    climate,
+    day: time.day,
+    hour: time.hour + time.minute / 60,
+    heldSeason: hold.season ?? held,
+  };
+  if (hold.weather) return stateOf(worldWeatherFit(input, hold.weather, true), seed, minutes, hold);
   const previous = meta.gameWeather as GameWeatherState | undefined;
   const standing =
     !options.wanted && previous?.forced && previous.forced.until > minutes && previous.forced.until - minutes <= 24 * 60
       ? previous.forced
       : null;
   const wanted = options.wanted ?? standing?.asked ?? null;
-  if (!wanted) return stateOf(worldWeatherAt(input), seed, minutes);
+  if (!wanted) return stateOf(worldWeatherAt(input), seed, minutes, hold);
   const fitted = worldWeatherFit(input, wanted);
   return {
-    ...stateOf(fitted, seed, minutes),
+    ...stateOf(fitted, seed, minutes, hold),
     forced: {
       type: fitted.type,
       asked: wanted,

@@ -925,22 +925,28 @@ const NEAREST: Partial<Record<WeatherType, WeatherType[]>> = {
  * here now (a rare desert storm can), else the nearest that could (snow in a hot desert is a cold wind,
  * a blizzard in the jungle a thunderstorm). The temperature follows what is falling.
  */
-export function worldWeatherFit(input: WorldWeatherInput, wanted: WeatherType): WorldWeather & { asked: WeatherType } {
+export function worldWeatherFit(
+  input: WorldWeatherInput,
+  wanted: WeatherType,
+  /** A hold the Game Master put on the place (a curse, a power, environment.ts): kept whatever the climate. */
+  held = false,
+): WorldWeather & { asked: WeatherType } {
   const natural = worldWeatherAt(input);
   const local = { zone: natural.zone, season: natural.season, seasonLabel: natural.seasonLabel };
   let type = wanted;
-  if (natural.impossible.includes(type)) {
+  if (!held && natural.impossible.includes(type)) {
     const options = NEAREST[type] ?? [];
     type = options.find((each) => !natural.impossible.includes(each)) ?? natural.type;
   }
-  if (input.climate.zone === "space" || input.climate.zone === "underground") type = "clear";
+  if (!held && (input.climate.zone === "space" || input.climate.zone === "underground")) type = "clear";
   const air = airAt(input);
   let temperature = temperatureFor(air, input.hour, type);
   if (type === "snow") temperature = Math.min(temperature, 1);
   if (type === "blizzard") temperature = Math.min(temperature, -3);
   if (type === "heat_wave") temperature = Math.max(temperature + 3, 32);
   if (type === "storm" || type === "hail") temperature = Math.max(temperature, 8);
-  if (input.climate.zone === "space" || input.climate.zone === "underground") temperature = input.climate.meanTemp;
+  if (!held && (input.climate.zone === "space" || input.climate.zone === "underground"))
+    temperature = input.climate.meanTemp;
   return {
     ...local,
     type,
