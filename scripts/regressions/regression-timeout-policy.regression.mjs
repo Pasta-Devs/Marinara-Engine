@@ -91,8 +91,10 @@ try {
   }
   // Shards are disjoint, cover every file and each carry one of the slowest files.
   const everyFile = canonical.trim().split("\n");
-  const shards = [1, 2, 3, 4].map((index) =>
-    execFileSync(process.execPath, [join(scripts, "run-regressions.mjs"), "--list", "--shard", `${index}/4`], {
+  // The node-shards matrix in .github/workflows/playwright.yml.
+  const shardCount = 8;
+  const shards = Array.from({ length: shardCount }, (_, offset) => offset + 1).map((index) =>
+    execFileSync(process.execPath, [join(scripts, "run-regressions.mjs"), "--list", "--shard", `${index}/${shardCount}`], {
       encoding: "utf8",
       timeout: 10_000,
     })
@@ -101,7 +103,7 @@ try {
   );
   assert.deepEqual(shards.flat().sort(), everyFile);
   assert.equal(new Set(shards.flat()).size, everyFile.length, "a file must run in exactly one shard");
-  const slowest = [...everyFile].sort((a, b) => regressionTimeoutMs(b) - regressionTimeoutMs(a)).slice(0, 4);
+  const slowest = [...everyFile].sort((a, b) => regressionTimeoutMs(b) - regressionTimeoutMs(a)).slice(0, shardCount);
   for (const [index, shard] of shards.entries()) {
     assert.equal(shard.filter((file) => slowest.includes(file)).length, 1, `shard ${index + 1} takes one of the slowest files`);
   }
