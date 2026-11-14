@@ -19,6 +19,7 @@ settings (**Settings → Secrets and variables → Actions**) and in `rules.json
 | `../workflows/dottore-review-command.yml` | Dispatcher for `/dottore` comments and the autofix tick box (`issue_comment`). |
 | `../workflows/dottore-review-auto.yml` | Dispatcher for pull request events (`pull_request_target`): Dottore's own repair pushes, and every event when `DOTTORE_AUTO_REVIEW` is `true`. |
 | `../workflows/dottore-review-approve.yml` | Dispatcher that re-tries the approval when a listed check workflow finishes on a discharged head. |
+| `../workflows/dottore-coderabbit-fallback.yml` | Sets the Dottore Review status from a CodeRabbit review when Dottore failed on a head (see [When Dottore is down](#when-dottore-is-down)). |
 
 The dispatchers read the event and call `gh workflow run` on the trusted workflow at the pull request's base ref; they
 check out and run no pull request code. The review job checks out the reviewer from the commit of the workflow file
@@ -207,6 +208,19 @@ GitHub accepts it only when the repository allows it, under **Settings → Actio
 Allow GitHub Actions to create and approve pull requests**. Without that, the approval step logs a warning and the review
 is unaffected. A repository that calls the shared workflow keeps its own copy of `dottore-review-approve.yml`, listing
 the workflows that report its required checks.
+
+## When Dottore is down
+
+When Dottore cannot finish a review, the **Dottore Review** status on that head is a failure and the pull request
+cannot merge. If `/dottore` does not recover it, a Pasta-Devs owner or member comments `@coderabbitai review`
+(`@coderabbitai full review` when CodeRabbit already reviewed the pull request). When CodeRabbit's `CodeRabbit` check
+succeeds on the same head, `dottore-coderabbit-fallback.yml` sets **Dottore Review** to success, linked to that review.
+Only a request posted after the failure, by someone GitHub shows as the organization's owner or member, counts;
+collaborators and outside contributors ask a maintainer. It replaces only a failure:
+a Dottore pass or a head Dottore never tried is left alone, and a new push needs a new review. A `/dottore` run still in
+progress posts its own result when it ends, replacing the fallback; if that is another failure, re-run the fallback's
+workflow run. CodeRabbit's inline findings are review threads, which the ruleset requires resolved, as it does
+Dottore's. GitHub runs this `check_run` workflow only from the default branch.
 
 ## Models
 
