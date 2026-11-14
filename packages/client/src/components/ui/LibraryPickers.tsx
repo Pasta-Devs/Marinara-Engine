@@ -1,23 +1,22 @@
 // ──────────────────────────────────────────────
-// Library pickers: the preset field and the lorebook window, shared by the New Chat wizards
-// and the Chat Settings drawer. Both open PickerWindow with PickerFolderList over the
-// Presets / Lorebooks panels' folders, and show each item's picture like character rows
-// show avatars.
+// Library pickers: the preset field and the lorebook window, shared by the New Chat wizards,
+// the Chat Settings drawer and the profile builder. They are the generic picker fields
+// (PickerField.tsx) over the Presets / Lorebooks panels' folders, with each item's picture
+// like character rows show avatars.
 // ──────────────────────────────────────────────
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Ban, BookOpen, ChevronDown, FileText, Trash2 } from "lucide-react";
+import { useMemo, type RefObject } from "react";
+import { BookOpen, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLibraryFolders } from "../../hooks/use-library-folders";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
 import { cn } from "../../lib/utils";
-import { PickerFolderList } from "./PickerFolderList";
-import { PickerWindow } from "./PickerWindow";
+import { PICKER_ROW_ART, PickerField, PickerListField, PickerListWindow, type PickerListItem } from "./PickerField";
 
 export type LibraryPreset = { id: string; name: string; author?: string | null; imagePath?: string | null };
 export type LibraryLorebook = { id: string; name: string; imagePath?: string | null; enabled?: boolean };
 
 /** Size of the picture in a picker row. */
-export const LIBRARY_ROW_ART = "h-8 w-8 rounded-lg";
+export const LIBRARY_ROW_ART = PICKER_ROW_ART;
 
 // A preset's or lorebook's picture, as its panel shows it: the uploaded image, or the panel's
 // placeholder (the presets gradient with a page, the lorebooks amber with a book).
@@ -88,24 +87,16 @@ type LibraryFieldProps = {
   onChange: (value: string) => void;
 };
 
-// A single-pick library field: a trigger that opens the picker window with search, a None row and
-// the panel's folders, like the persona and character pickers. A pick closes it.
+// A single-pick library field: PickerField over the panel's folders, with a None row and each
+// item's picture, like the persona and character pickers. A pick closes it.
 function LibraryPickerField({
   kind,
-  value,
   items: source,
-  ariaLabel,
   noneLabel,
-  missingLabel,
-  triggerClassName,
-  disabled,
-  onChange,
+  ...rest
 }: LibraryFieldProps & { kind: "preset" | "lorebook"; items: readonly LibraryFieldItem[] }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const { data: folders } = useLibraryFolders(kind === "preset" ? "presets" : "lorebooks");
-  const none = noneLabel ?? t("ui.game.gamesurfacecomponent.none");
   const items = useMemo(
     () =>
       source.map((item) => ({
@@ -123,77 +114,22 @@ function LibraryPickerField({
       })),
     [source, kind],
   );
-  const leadingItems = useMemo(
-    () => [
-      {
-        id: "",
-        label: none,
-        icon: (
-          <span
-            aria-hidden="true"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-dashed border-foreground/35 text-foreground/40"
-          >
-            <Ban size="0.8rem" />
-          </span>
-        ),
-      },
-    ],
-    [none],
-  );
-  const selectedLabel = value ? (source.find((item) => item.id === value)?.name ?? missingLabel ?? none) : none;
-
-  const close = () => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
 
   return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        data-preset-picker-trigger={kind === "preset" ? "" : undefined}
-        data-lorebook-picker-trigger={kind === "lorebook" ? "" : undefined}
-        aria-label={ariaLabel}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={() => (open ? close() : setOpen(true))}
-        className={cn(triggerClassName, "flex items-center justify-between gap-2 pr-3 text-left")}
-      >
-        <span className="min-w-0 flex-1 truncate">{selectedLabel}</span>
-        <ChevronDown
-          size="0.75rem"
-          aria-hidden="true"
-          className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
-        />
-      </button>
-      {open && (
-        <PickerWindow title={ariaLabel} anchorRef={triggerRef} onClose={close}>
-          <PickerFolderList
-            items={items}
-            folders={folders ?? []}
-            selectedIds={[value]}
-            leadingItems={leadingItems}
-            onToggle={(id) => {
-              // Re-picking the current choice is no change: callers such as the conversation prompt
-              // reset other state on a change, which the old select never fired for.
-              if (id !== value) onChange(id);
-              close();
-            }}
-            searchLabel={t(
-              kind === "preset" ? "chat.wizard.select.search" : "ui.chat.roleplaysetupwizard.searchLorebooks",
-            )}
-            emptyLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
-            noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
-          />
-        </PickerWindow>
-      )}
-    </>
+    <PickerField
+      {...rest}
+      items={items}
+      folders={folders}
+      noneLabel={noneLabel ?? t("ui.game.gamesurfacecomponent.none")}
+      triggerData={kind === "preset" ? { "data-preset-picker-trigger": "" } : { "data-lorebook-picker-trigger": "" }}
+      searchLabel={t(kind === "preset" ? "chat.wizard.select.search" : "ui.chat.roleplaysetupwizard.searchLorebooks")}
+      emptyLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
+      noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
+    />
   );
 }
 
-/** The preset field (wizards, Chat Settings, scene setup). */
+/** The preset field (wizards, Chat Settings, scene setup, the profile builder). */
 export function PresetPickerField(props: LibraryFieldProps & { presets: readonly LibraryFieldItem[] }) {
   const { presets, ...rest } = props;
   return <LibraryPickerField kind="preset" items={presets} {...rest} />;
@@ -203,6 +139,20 @@ export function PresetPickerField(props: LibraryFieldProps & { presets: readonly
 export function LorebookPickerField(props: LibraryFieldProps & { lorebooks: readonly LibraryFieldItem[] }) {
   const { lorebooks, ...rest } = props;
   return <LibraryPickerField kind="lorebook" items={lorebooks} {...rest} />;
+}
+
+function useLorebookItems(lorebooks: readonly LibraryLorebook[]) {
+  return useMemo(
+    (): PickerListItem[] =>
+      lorebooks.map((lb) => ({
+        id: lb.id,
+        label: lb.name,
+        badge: offBadge(lb),
+        icon: <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className={LIBRARY_ROW_ART} />,
+        smallIcon: <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className="h-6 w-6 rounded-md" />,
+      })),
+    [lorebooks],
+  );
 }
 
 // The lorebook window: search, checkboxes and the Lorebooks panel's folders ("Add all" per
@@ -225,39 +175,26 @@ export function LorebookPickerWindow({
 }) {
   const { t } = useTranslation();
   const { data: folders } = useLibraryFolders("lorebooks");
-  const items = useMemo(
-    () =>
-      lorebooks.map((lb) => ({
-        id: lb.id,
-        label: lb.name,
-        badge: offBadge(lb),
-        icon: <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className={LIBRARY_ROW_ART} />,
-      })),
-    [lorebooks],
-  );
-  const count = selectedIds.filter((id) => lorebooks.some((lb) => lb.id === id)).length;
-  const baseTitle = t("navigation.topbar.lorebooks");
-  const title = count > 0 ? baseTitle + " · " + count : baseTitle;
-
+  const items = useLorebookItems(lorebooks);
   return (
-    <PickerWindow title={title} anchorRef={anchorRef} onClose={onClose}>
-      <PickerFolderList
-        items={items}
-        folders={folders ?? []}
-        selectedIds={selectedIds}
-        multiple
-        onToggle={onToggle}
-        onPickGroup={onAdd}
-        searchLabel={t("ui.chat.roleplaysetupwizard.searchLorebooks")}
-        emptyLabel={t("ui.panels.lorebookspanel.noLorebooksYet")}
-        noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
-      />
-    </PickerWindow>
+    <PickerListWindow
+      title={t("navigation.topbar.lorebooks")}
+      anchorRef={anchorRef}
+      items={items}
+      folders={folders}
+      selectedIds={selectedIds}
+      onToggle={onToggle}
+      onAdd={onAdd}
+      onClose={onClose}
+      searchLabel={t("ui.chat.roleplaysetupwizard.searchLorebooks")}
+      emptyLabel={t("ui.panels.lorebookspanel.noLorebooksYet")}
+      noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
+    />
   );
 }
 
-// A several-lorebooks field (New Chat lorebook step, agents' fixed sources): a trigger that opens the
-// lorebook window, with the picked lorebooks listed under it, a remove button each.
+// A several-lorebooks field (New Chat lorebook step, agents' fixed sources, the profile builder): a
+// trigger that opens the lorebook window, with the picked lorebooks listed under it, a remove button each.
 export function LorebookListField({
   lorebooks,
   selectedIds,
@@ -265,6 +202,7 @@ export function LorebookListField({
   onAdd,
   triggerClassName,
   ariaLabel,
+  keepMissing,
   disabled,
 }: {
   lorebooks: readonly LibraryLorebook[];
@@ -275,81 +213,32 @@ export function LorebookListField({
   triggerClassName: string;
   /** Names the trigger, when a visible label isn't tied to it. */
   ariaLabel?: string;
+  /** Lists picked ids that aren't loaded lorebooks by their id, so they can be removed. */
+  keepMissing?: boolean;
   disabled?: boolean;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
-  const picked = selectedIds
-    .map((id) => lorebooks.find((lb) => lb.id === id))
-    .filter((lb): lb is LibraryLorebook => Boolean(lb));
-
-  const close = () => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-
+  const { data: folders } = useLibraryFolders("lorebooks");
+  const items = useLorebookItems(lorebooks);
   return (
-    <div className="space-y-2">
-      <button
-        ref={triggerRef}
-        type="button"
-        data-lorebook-list-trigger=""
-        aria-label={ariaLabel}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={() => (open ? close() : setOpen(true))}
-        className={cn(triggerClassName, "flex items-center justify-between gap-2 pr-3 text-left")}
-      >
-        <BookOpen size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />
-        <span className="min-w-0 flex-1 truncate text-[var(--muted-foreground)]">
-          {t("ui.chat.roleplaysetupwizard.chooseLorebooks")}
-        </span>
-        <ChevronDown
-          size="0.75rem"
-          aria-hidden="true"
-          className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
-        />
-      </button>
-      {picked.length > 0 && (
-        <div className="flex flex-col gap-1">
-          {picked.map((lb) => (
-            <div
-              key={lb.id}
-              className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
-            >
-              <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className="h-6 w-6 rounded-md" />
-              <span className="min-w-0 flex-1 truncate text-xs">{lb.name}</span>
-              {offBadge(lb)}
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onToggle(lb.id)}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-50 max-md:-my-2 max-md:h-11 max-md:w-11"
-                title={t("settings.notifications.customSound.actions.remove")}
-                aria-label={t("ui.chat.roleplaysetupwizard.removeLorebook", { name: lb.name })}
-              >
-                <Trash2 size="0.6875rem" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      {/* The window goes away if the field turns disabled while it is open (such as during a save). */}
-      {open && !disabled && (
-        <LorebookPickerWindow
-          anchorRef={triggerRef}
-          lorebooks={lorebooks}
-          selectedIds={selectedIds}
-          onToggle={onToggle}
-          onAdd={onAdd}
-          onClose={close}
-        />
-      )}
-    </div>
+    <PickerListField
+      items={items}
+      folders={folders}
+      selectedIds={selectedIds}
+      onToggle={onToggle}
+      onAdd={onAdd}
+      title={t("navigation.topbar.lorebooks")}
+      triggerLabel={t("ui.chat.roleplaysetupwizard.chooseLorebooks")}
+      triggerIcon={<BookOpen size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />}
+      triggerClassName={triggerClassName}
+      triggerData={{ "data-lorebook-list-trigger": "" }}
+      ariaLabel={ariaLabel}
+      removeLabel={(name) => t("ui.chat.roleplaysetupwizard.removeLorebook", { name })}
+      keepMissing={keepMissing}
+      disabled={disabled}
+      searchLabel={t("ui.chat.roleplaysetupwizard.searchLorebooks")}
+      emptyLabel={t("ui.panels.lorebookspanel.noLorebooksYet")}
+      noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
+    />
   );
 }
