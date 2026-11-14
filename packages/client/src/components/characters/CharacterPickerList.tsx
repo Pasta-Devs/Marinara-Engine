@@ -29,6 +29,7 @@ import {
   UNGROUPED_CHARACTER_GROUP_ID,
   type CharacterIdentityChoice,
 } from "../../lib/character-identity-groups";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 export type CharacterSelectKind = "persona" | "character";
 
@@ -90,7 +91,13 @@ function Avatar({
   if (src) {
     return (
       <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-foreground/10">
-        <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" style={getAvatarCropStyle(crop)} />
+        <img
+          src={avatarPreviewSrc(src, "icon")}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover"
+          style={getAvatarCropStyle(crop)}
+        />
       </div>
     );
   }
