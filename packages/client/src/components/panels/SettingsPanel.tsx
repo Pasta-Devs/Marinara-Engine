@@ -34,6 +34,7 @@ import {
   selectDefaultDialogueColor,
 } from "../../stores/ui.store";
 import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { goHome } from "../overhaul/OverhaulTopBar";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { LanguagePicker } from "../ui/LanguagePicker";
 import { MultiplayerSettings } from "../../features/multiplayer/MultiplayerSettings";
@@ -2170,6 +2171,19 @@ function CustomQuickRepliesManager() {
  * the in-app guides are served from. The choice is server-authoritative (a
  * data-dir app-setting), so it survives updates and applies to every device.
  */
+/** A replayed tour starts from Home, not over Settings (phones kept Settings open under it, Nov 14). */
+function leaveSettingsForTour() {
+  const overhaul = useOverhaulStore.getState();
+  if (overhaul.enabled) {
+    // The sidebar stays as it was; only the Settings page closes.
+    overhaul.setMobileSidePageOpen(false);
+    goHome();
+    return;
+  }
+  // Classic layout: Settings is the right panel itself.
+  useUIStore.getState().closeRightPanel();
+}
+
 /**
  * Replay the walkthroughs. The welcome tour is synced; the device walkthrough and each mode's chat help are
  * remembered per kind of device (computer, tablet, phone), so these buttons act on this device only.
@@ -2190,7 +2204,10 @@ function WalkthroughSettings() {
           type="button"
           className={SETTINGS_BUTTON_CLASS}
           data-walkthrough-replay="welcome"
-          onClick={() => useUIStore.getState().setHasCompletedOnboarding(false)}
+          onClick={() => {
+            leaveSettingsForTour();
+            useUIStore.getState().setHasCompletedOnboarding(false);
+          }}
         >
           {localizeUi("settings.walkthroughs.replayWelcome")}
         </button>
@@ -2199,7 +2216,10 @@ function WalkthroughSettings() {
             type="button"
             className={SETTINGS_BUTTON_CLASS}
             data-walkthrough-replay="device"
-            onClick={() => resetDeviceWalkthrough(device)}
+            onClick={() => {
+              leaveSettingsForTour();
+              resetDeviceWalkthrough(device);
+            }}
           >
             {localizeUi("settings.walkthroughs.replayDevice", { device: deviceLabel })}
           </button>

@@ -42,6 +42,9 @@ function closeMobilePanels() {
   const ui = useUIStore.getState();
   ui.setSidebarOpen(false);
   if (ui.rightPanelOpen) ui.closeRightPanel();
+  // The Chats / Library page too: swiping to another tab left it open over the new tab (Nov 14).
+  const overhaul = useOverhaulStore.getState();
+  if (overhaul.mobileSidePageOpen) overhaul.setMobileSidePageOpen(false);
 }
 
 function useWideEnoughForLabel() {

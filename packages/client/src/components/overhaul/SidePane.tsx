@@ -7,7 +7,7 @@
 // that slides over from the right (the Library button at the top right), with
 // Settings, Docs and All Tabs pinned at the bottom of its Library view.
 // ──────────────────────────────────────────────
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CircleHelp, Layers, MessageCircle, Settings } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
@@ -51,14 +51,31 @@ function SidePaneSwitch() {
 /** Desktop: the right pane. */
 export function OverhaulSidePane() {
   const view = useOverhaulStore((s) => s.sidePane);
+  const chatsKept = useKeptOnceShown(view === "chats");
   return (
     <div className="ov-sidepane" data-component="OverhaulSidePane" data-view={view}>
       <SidePaneSwitch />
       <div className="ov-sidepane__body" data-tour={view === "chats" ? "sidebar" : undefined}>
-        {view === "chats" ? <ChatSidebar /> : <LibraryNav />}
+        {chatsKept ? (
+          <div className="ov-sidepane__view" hidden={view !== "chats"}>
+            <ChatSidebar />
+          </div>
+        ) : null}
+        {view === "chats" ? null : <LibraryNav />}
       </div>
     </div>
   );
+}
+
+/**
+ * True from the first time `shown` is true. The chat list stays mounted (hidden) once it has been seen:
+ * building it again (40 rows and their pictures) each time Chats was picked took half a second on a
+ * phone and longer on an iPad (Nov 14).
+ */
+function useKeptOnceShown(shown: boolean) {
+  const [kept, setKept] = useState(shown);
+  if (shown && !kept) setKept(true);
+  return kept || shown;
 }
 
 /** Close the phone page, then run what a row asked for. */
@@ -145,12 +162,26 @@ export function MobileSidePage() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
-  if (!open) return null;
+  // Once opened, the page stays mounted (hidden while closed) so the chat list isn't built again on
+  // every open.
+  const kept = useKeptOnceShown(open);
+  const chatsKept = useKeptOnceShown(open && view === "chats");
+  if (!kept) return null;
   return createPortal(
-    <div className="ovm-sidepage" role="dialog" aria-label={localize(view === "chats" ? "Chats" : "Library")}>
+    <div
+      className="ovm-sidepage"
+      role="dialog"
+      aria-label={localize(view === "chats" ? "Chats" : "Library")}
+      hidden={!open}
+    >
       <SidePaneSwitch />
-      <div className="ovm-sidepage__body" data-tour={view === "chats" ? "sidebar" : undefined}>
-        {view === "chats" ? <ChatSidebar /> : <MobileLibraryList />}
+      <div className="ovm-sidepage__body" data-tour={open && view === "chats" ? "sidebar" : undefined}>
+        {chatsKept ? (
+          <div className="ov-sidepane__view" hidden={view !== "chats"}>
+            <ChatSidebar />
+          </div>
+        ) : null}
+        {view === "chats" ? null : <MobileLibraryList />}
       </div>
     </div>,
     document.body,

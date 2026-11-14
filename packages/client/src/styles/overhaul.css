@@ -278,6 +278,21 @@
   min-height: 0;
   flex: 1;
 }
+/* The chat list stays mounted once seen (SidePane.tsx useKeptOnceShown); this holds it while hidden. */
+.ov-sidepane__view {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.ov-sidepane__view > * {
+  min-height: 0;
+  flex: 1;
+}
+.ov-sidepane__view[hidden],
+.ovm-sidepage[hidden] {
+  display: none !important;
+}
 .ov-sideswitch {
   display: flex;
   flex: none;

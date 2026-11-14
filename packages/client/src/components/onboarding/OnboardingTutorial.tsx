@@ -10,7 +10,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useTrackAchievement } from "../../hooks/use-achievements";
 import { docsLanguageKeys, useDocsLanguage, type DocsLanguageStatus } from "../../hooks/use-docs-language";
 import { api } from "../../lib/api-client";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { BookOpen, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -930,6 +930,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
 
   // Track the target element position (handles resize/scroll)
   const lastSpotlightRectsRef = useRef<SpotlightRect[]>([]);
+  const missingSinceRef = useRef<number | null>(null);
   const updateRect = useCallback(() => {
     if (!currentStep?.target) {
       if (lastSpotlightRectsRef.current.length > 0) {
@@ -938,9 +939,17 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
       }
       return;
     }
-    const nextRects = [currentStep.target, ...(currentStep.highlightTargets ?? [])]
+    let nextRects = [currentStep.target, ...(currentStep.highlightTargets ?? [])]
       .map(getTargetRect)
       .filter((rect): rect is SpotlightRect => rect !== null);
+    // A step that opens a page first finds its control a few frames later. Keep the last highlight (and
+    // the dimming around it) meanwhile, so the screen doesn't flash undimmed between steps; give up
+    // after 400 ms.
+    if (nextRects.length === 0 && lastSpotlightRectsRef.current.length > 0) {
+      const now = performance.now();
+      missingSinceRef.current ??= now;
+      if (now - missingSinceRef.current < 400) nextRects = lastSpotlightRectsRef.current;
+    } else if (nextRects.length > 0) missingSinceRef.current = null;
     if (!spotlightRectsMatch(lastSpotlightRectsRef.current, nextRects)) {
       lastSpotlightRectsRef.current = nextRects;
       setSpotlightRects(nextRects);
@@ -1001,7 +1010,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
       setCardBox(box ? { top: box.top, left: box.left, width: box.width, height: box.height } : null);
     };
     const frame = requestAnimationFrame(measure);
-    // The previous card animates out first (AnimatePresence "wait"), so measure again once the new one is in.
+    // A step can resize the card (more or fewer lines), so measure again once it has settled.
     const settled = window.setTimeout(measure, 350);
     return () => {
       cancelAnimationFrame(frame);
@@ -1085,42 +1094,12 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
           className="pointer-events-none fixed inset-x-0 bottom-3 flex items-center justify-center px-3"
           style={{ top: centeredTopOffset }}
         >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, y: 12, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.96 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className={TUTORIAL_CARD_CLASS}
-              ref={cardRef}
-              role="dialog"
-              onKeyDown={handleTutorialKeyDown}
-              aria-label={dialogLabel}
-              data-component="OnboardingTutorial.Card"
-              style={{ width: Math.min(380, getViewportWidth() - 32), maxHeight: centeredCardMaxHeight }}
-            >
-              <TourCardContent
-                step={step}
-                stepCount={steps.length}
-                currentStep={currentStep}
-                isLast={isLast}
-                onNext={next}
-                onSkip={finish}
-                pickerSlot={pickerSlot}
-                device={device}
-                sprite={aimedSprite}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      ) : (
-        <AnimatePresence mode="wait">
+          {/* One card for the whole tour: only its first appearance animates. Fading each step out and the
+              next one in left the screen without a card (and the page under it undimmed) for half a second
+              per step, a flicker on phones (Nov 14). */}
           <motion.div
-            key={step}
             initial={{ opacity: 0, y: 12, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.96 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className={TUTORIAL_CARD_CLASS}
             ref={cardRef}
@@ -1128,7 +1107,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
             onKeyDown={handleTutorialKeyDown}
             aria-label={dialogLabel}
             data-component="OnboardingTutorial.Card"
-            style={computeTooltipStyle(targetRect!, currentStep)}
+            style={{ width: Math.min(380, getViewportWidth() - 32), maxHeight: centeredCardMaxHeight }}
           >
             <TourCardContent
               step={step}
@@ -1142,7 +1121,32 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
               sprite={aimedSprite}
             />
           </motion.div>
-        </AnimatePresence>
+        </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 12, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className={TUTORIAL_CARD_CLASS}
+          ref={cardRef}
+          role="dialog"
+          onKeyDown={handleTutorialKeyDown}
+          aria-label={dialogLabel}
+          data-component="OnboardingTutorial.Card"
+          style={computeTooltipStyle(targetRect!, currentStep)}
+        >
+          <TourCardContent
+            step={step}
+            stepCount={steps.length}
+            currentStep={currentStep}
+            isLast={isLast}
+            onNext={next}
+            onSkip={finish}
+            pickerSlot={pickerSlot}
+            device={device}
+            sprite={aimedSprite}
+          />
+        </motion.div>
       )}
     </div>,
     document.body,
