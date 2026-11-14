@@ -24,6 +24,10 @@ export const chatImages = fileTable("chat_images", {
   height: integer("height"),
   /** JSON ChatImageGenerationRecord: the request this image was rendered from, for regeneration. Null on older rows. */
   generation: text("generation"),
+  /** Gallery label: "emoji" | "sticker" | "background", or null. Carried over when the picture is assigned to a character or persona. */
+  customKind: text("custom_kind"),
+  /** Emoji/sticker slug, or a background's place names. */
+  customName: text("custom_name"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -46,9 +50,9 @@ export const characterImages = fileTable("character_images", {
   width: integer("width"),
   /** Image height in pixels */
   height: integer("height"),
-  /** Custom emoji/sticker tag: "emoji" | "sticker", or null when untagged */
+  /** Gallery label: "emoji" | "sticker" | "background" (characters and personas), or null when untagged */
   customKind: text("custom_kind"),
-  /** Slugified custom emoji/sticker name, or null when untagged */
+  /** Slugified custom emoji/sticker name, a background's place names, or null when untagged */
   customName: text("custom_name"),
   createdAt: text("created_at").notNull(),
 });
@@ -72,9 +76,9 @@ export const personaImages = fileTable("persona_images", {
   width: integer("width"),
   /** Image height in pixels */
   height: integer("height"),
-  /** Custom emoji/sticker tag: "emoji" | "sticker", or null when untagged */
+  /** Gallery label: "emoji" | "sticker" | "background" (characters and personas), or null when untagged */
   customKind: text("custom_kind"),
-  /** Slugified custom emoji/sticker name, or null when untagged */
+  /** Slugified custom emoji/sticker name, a background's place names, or null when untagged */
   customName: text("custom_name"),
   createdAt: text("created_at").notNull(),
 });
@@ -105,9 +109,9 @@ export const globalImages = fileTable("global_images", {
   width: integer("width"),
   /** Image height in pixels */
   height: integer("height"),
-  /** Custom emoji/sticker tag: "emoji" | "sticker", or null when untagged */
+  /** Gallery label: "emoji" | "sticker" | "background" (characters and personas), or null when untagged */
   customKind: text("custom_kind"),
-  /** Slugified custom emoji/sticker name, or null when untagged */
+  /** Slugified custom emoji/sticker name, a background's place names, or null when untagged */
   customName: text("custom_name"),
   createdAt: text("created_at").notNull(),
 });

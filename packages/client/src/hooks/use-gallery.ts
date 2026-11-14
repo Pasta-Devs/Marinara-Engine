@@ -3,7 +3,9 @@
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
-import type { GeneratedSceneVideo, SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
+import type { GalleryTagKind, GeneratedSceneVideo, SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
+import type { CustomTagPatch } from "../lib/custom-emoji";
+import { characterKeys } from "./use-characters";
 
 export interface ChatImage {
   id: string;
@@ -16,6 +18,9 @@ export interface ChatImage {
   height: number | null;
   /** JSON ChatImageGenerationRecord (#7767); null for images saved before records existed. */
   generation?: string | null;
+  /** Gallery label (emoji, sticker or background); assigning the picture carries it along. */
+  customKind?: GalleryTagKind | null;
+  customName?: string | null;
   createdAt: string;
   url: string;
 }
@@ -192,6 +197,39 @@ export function useDeleteGalleryImage(chatId: string) {
         qc.invalidateQueries({ queryKey: galleryKeys.chat(variables.chatId) });
         qc.invalidateQueries({ queryKey: galleryKeys.assets(variables.chatId) });
       }
+    },
+  });
+}
+
+/** Label a chat picture (background + places, for now) so assigning it carries the label. */
+export function useTagGalleryImage(chatId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    // The picture's own chat (a Game gallery also lists sibling sessions' pictures).
+    mutationFn: ({ image, patch }: { image: Pick<ChatImage, "id" | "chatId">; patch: CustomTagPatch }) =>
+      api.patch<ChatImage>(`/gallery/${image.chatId || chatId}/images/${image.id}/tag`, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: galleryKeys.chat(chatId) });
+    },
+  });
+}
+
+export type GalleryAssignTarget = { type: "character" | "persona"; id: string; name: string };
+
+/** Add a chat picture to a character's or persona's gallery (same file, label included). */
+export function useAssignGalleryImage(chatId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ image, target }: { image: Pick<ChatImage, "id" | "chatId">; target: GalleryAssignTarget }) =>
+      api.post<{ alreadyThere: boolean }>(`/gallery/${image.chatId || chatId}/images/${image.id}/assign`, {
+        targetType: target.type,
+        targetId: target.id,
+      }),
+    onSuccess: (_result, { target }) => {
+      qc.invalidateQueries({
+        queryKey:
+          target.type === "character" ? characterKeys.gallery(target.id) : characterKeys.personaGallery(target.id),
+      });
     },
   });
 }

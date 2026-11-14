@@ -60,6 +60,8 @@ import { buildBackgroundProviderPrompt } from "../services/game/game-asset-gener
 import { generateIllustratorImageVariants } from "../services/image/illustrator-image-variants.js";
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
 import { deleteChatGalleryImageEverywhere } from "../services/image/chat-gallery-cascade-deletion.js";
+import { readGalleryTagPayload } from "../services/image/gallery-tag-payload.js";
+import { assignChatPictureToGallery } from "../services/image/assign-chat-gallery-image.js";
 import {
   findGalleryRowByFilename,
   resolveStoredGalleryFile,
@@ -2749,6 +2751,59 @@ export async function galleryRoutes(app: FastifyInstance) {
   });
 
   // Delete a gallery image
+  // Label a chat picture (emoji, sticker or background + place names). Assigning the picture
+  // to a character or persona carries the label into their gallery.
+  app.patch<{
+    Params: { chatId: string; imageId: string };
+    Body: { customKind?: unknown; customName?: unknown };
+  }>("/:chatId/images/:imageId/tag", async (req, reply) => {
+    const { chatId, imageId } = req.params;
+    if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+    const image = await storage.getById(imageId, chatId);
+    if (!image || image.chatId !== chatId) return reply.status(404).send({ error: "Not found" });
+    const tag = readGalleryTagPayload(req.body, { allowBackground: true });
+    if ("error" in tag) return reply.status(400).send({ error: tag.error });
+    const updated = await storage.setTag(imageId, chatId, tag.patch);
+    return updated
+      ? { ...updated, url: buildGalleryImageUrl(updated, chatId) }
+      : reply.status(404).send({ error: "Not found" });
+  });
+
+  // Add a chat picture to a character's or persona's gallery, with its label. The gallery row
+  // points at the same file (no second copy) and stays when the chat or the chat picture is deleted.
+  app.post<{
+    Params: { chatId: string; imageId: string };
+    Body: { targetType?: unknown; targetId?: unknown };
+  }>("/:chatId/images/:imageId/assign", async (req, reply) => {
+    const { chatId, imageId } = req.params;
+    if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+    const targetType = req.body?.targetType;
+    const targetId = typeof req.body?.targetId === "string" ? req.body.targetId.trim() : "";
+    if ((targetType !== "character" && targetType !== "persona") || !targetId) {
+      return reply.status(400).send({ error: "targetType must be character or persona, with a targetId" });
+    }
+    const image = await storage.getById(imageId, chatId);
+    if (!image || image.chatId !== chatId) return reply.status(404).send({ error: "Not found" });
+    if (targetType === "character" ? !(await characters.getById(targetId)) : !(await characters.getPersona(targetId))) {
+      return reply
+        .status(404)
+        .send({ error: targetType === "character" ? "Character not found" : "Persona not found" });
+    }
+    const result = await assignChatPictureToGallery({
+      image,
+      target: { type: targetType, id: targetId },
+      characterGallery,
+      personaGallery,
+      galleryRoot: GALLERY_DIR,
+    });
+    if (!result.ok) {
+      return result.reason === "missing-file"
+        ? reply.status(404).send({ error: "The picture's file is missing" })
+        : reply.status(500).send({ error: "Could not add the picture" });
+    }
+    return { targetType, targetId, image: result.image, alreadyThere: result.alreadyThere };
+  });
+
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const { id } = req.params;
     // Optional chatId keeps the lazy store from loading the whole table for a bare-id lookup.
