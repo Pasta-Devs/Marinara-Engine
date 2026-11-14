@@ -33,6 +33,7 @@ import {
   rulesetCheckSources,
   rulesetHideLines,
   rulesetSectionGroups,
+  rulesetSkillKeepsPractice,
   isRulesetItemHidden,
   isRulesetTextHidden,
   rulesetCatalogIdsForBuild,
@@ -825,6 +826,13 @@ export function GameRulesetSheet({
 
   const { fields: summaryFields, derived: summaryDerived } = rulesetSheetSummaryShown(definition, build);
   const untrainedTier = definition.resolution.proficiencyTiers[0]?.id;
+  // Practice toward the next rank (1.829), on a trained skill below the top rank.
+  const topTier = definition.resolution.proficiencyTiers.at(-1)?.id;
+  const practiceShown = (entry: { id: string; practice?: boolean; tier?: string }) =>
+    entry.practice === true &&
+    entry.tier !== untrainedTier &&
+    entry.tier !== topTier &&
+    rulesetSkillKeepsPractice(definition, entry.id);
   const trained = [
     ...definition.sheet.skills.map((skill) => ({
       id: skill.id,
@@ -832,6 +840,7 @@ export function GameRulesetSheet({
       section: skill.section,
       tier: evaluated.skillTiers[skill.id],
       modifier: evaluated.skillMods[skill.id] ?? 0,
+      practice: true,
     })),
     ...definition.sheet.saves.map((save) => ({
       id: save.id,
@@ -1550,6 +1559,37 @@ export function GameRulesetSheet({
                           <span className="tabular-nums">
                             {rulesetCheckValueText(definition, entry.modifier, localizeUi)}
                           </span>
+                          {practiceShown(entry) &&
+                            (settled ? (
+                              <span className="ml-1 tabular-nums text-[var(--muted-foreground)]">
+                                {localizeUi("game.ruleset.sheet.practice", {
+                                  value: resolved.progress?.[entry.id] ?? 0,
+                                })}
+                              </span>
+                            ) : (
+                              <span className="ml-1 inline-flex items-center gap-0.5 text-[var(--muted-foreground)]">
+                                <DraftNumberInput
+                                  value={resolved.progress?.[entry.id] ?? 0}
+                                  onCommit={(next) =>
+                                    apply({
+                                      op: "practice",
+                                      skill: entry.id,
+                                      to: Math.max(0, Math.min(99, Math.round(next))),
+                                    })
+                                  }
+                                  min={0}
+                                  max={99}
+                                  integer
+                                  selectOnFocus
+                                  ariaLabel={localizeUi("game.ruleset.sheet.practiceAria", {
+                                    name: text(entry.label),
+                                    who: cardName,
+                                  })}
+                                  className={numberInputClass}
+                                />
+                                %
+                              </span>
+                            ))}
                         </span>
                       ))}
                     </div>

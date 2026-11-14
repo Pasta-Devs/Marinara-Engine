@@ -4927,6 +4927,8 @@
   "game.ruleset.sheet.noteAria": "{{name}} for {{who}}",
   "game.ruleset.sheet.overview": "Overview",
   "game.ruleset.sheet.poolLevel": "level {{level}}",
+  "game.ruleset.sheet.practice": "{{value}}%",
+  "game.ruleset.sheet.practiceAria": "Practice toward the next rank of {{name}} for {{who}}, in percent",
   "game.ruleset.sheet.range": "{{min}} to {{max}}",
   "game.ruleset.sheet.refusal.ambiguousCharacter": "more than one party member goes by that name",
   "game.ruleset.sheet.refusal.ambiguousEntry": "more than one thing on the sheet goes by that name",

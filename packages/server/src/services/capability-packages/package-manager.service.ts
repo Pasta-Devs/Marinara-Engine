@@ -9409,6 +9409,10 @@ function capabilityPackageInstallIssueFor(
       return "A ruleset that chooses how a pool or track is drawn requires schemaVersion 2 and capabilityApi 1.828 or newer";
     }
   }
+  // A practice meter on skills, 1.829: a strict key on the sheet.
+  if (!declaresApi(829) && plainRecord(ruleset?.sheet)?.progress !== undefined) {
+    return "A ruleset whose skills keep practice progress requires schemaVersion 2 and capabilityApi 1.829 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||

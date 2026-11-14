@@ -1623,7 +1623,10 @@ const capabilityPackageManifestBaseSchema = z
 // 1.828: how a live pool or plain track is drawn (`display: "bar"` or `"dots"`): a fill bar or a row of
 //        dots beside its number on the sheet. Not a soft seam: an Engine that cannot read it refuses the
 //        whole ruleset file. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 828 } as const);
+// 1.829: a practice meter on skills (`sheet.progress`, `op="practice"`): 0 to 99 toward the next rank, started
+//        over when the rank changes. Not a soft seam: an Engine that cannot read it refuses the whole ruleset
+//        file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 829 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
