@@ -158,7 +158,8 @@ test("Character Schedule Manager keeps cropped portraits in their slots", async 
     await manager.getByRole("button", { name: `Edit ${cropped} schedule`, exact: true }).click();
     const editor = page.getByRole("dialog", { name: `Edit ${cropped} Schedule`, exact: true });
     expectCroppedPlacement(await placement(editor.locator(`img[src$="${avatarPath}"]`)));
-    await editor.getByRole("button", { name: `Close Edit ${cropped} Schedule`, exact: true }).click();
+    // Phones hide the header Close; Cancel closes the editor the same way on every screen.
+    await editor.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(editor).toBeHidden();
     await expect(manager).toBeVisible();
     await manager.getByRole("button", { name: `Edit ${zoomed} schedule`, exact: true }).click();

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseBackgroundCardAction } from "./background-card-actions.js";
 import { downloadExport } from "./export-save.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -32,11 +33,14 @@ test("Background library downloads a background with its file name (#7129)", asy
     await page.getByRole("button", { name: "Browse library", exact: true }).click();
     const library = page.getByRole("dialog", { name: "Background Library" });
     await library.getByPlaceholder("Search backgrounds").fill(filename.replace(/\.gif$/, ""));
-    const button = library.locator(`[data-background-id="user:${filename}"] [data-background-download]`);
+    const card = library.locator(`[data-background-id="user:${filename}"]`);
+    const button = card.locator("[data-background-download]");
     await expect(button).toHaveAttribute("title", "Download background");
 
     // Desktop downloads directly; iPhone offers Save file once the fetch has used up the tap.
-    const download = await downloadExport(page, () => button.click());
+    const download = await downloadExport(page, () =>
+      chooseBackgroundCardAction(page, card, button, "Download background"),
+    );
     expect(download.suggestedFilename()).toBe(filename);
     expect(readFileSync((await download.path())!)).toEqual(GIF);
   } finally {

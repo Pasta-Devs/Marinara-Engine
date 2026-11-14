@@ -140,7 +140,7 @@ test("phone More keeps core navigation visible and retains extension actions", a
   await expect(chats).toBeVisible();
 });
 
-test("stacked dialogs keep focus in the top dialog and IME Escape does not dismiss it", async ({ page }) => {
+test("stacked dialogs keep focus in the top dialog and IME Escape does not dismiss it", async ({ page }, testInfo) => {
   await openCleanHome(page);
   await page.locator('[data-component="TopBar"]').getByTitle("Home").focus();
 
@@ -161,9 +161,12 @@ test("stacked dialogs keep focus in the top dialog and IME Escape does not dismi
 
   const child = page.getByRole("dialog", { name: "Fixture confirmation" });
   await expect(child).toBeVisible();
-  const close = child.getByRole("button", { name: /Close/ });
+  // The main action comes first and a phone sheet has no Close beside Cancel, so the first control is Close on a
+  // computer and Confirm on a phone, and Cancel is the last one.
   const confirm = child.getByRole("button", { name: "Confirm", exact: true });
-  await close.focus();
+  const cancel = child.getByRole("button", { name: "Cancel", exact: true });
+  const first = testInfo.project.name.includes("mobile") ? confirm : child.getByRole("button", { name: /Close/ });
+  await first.focus();
   await page.evaluate(() => {
     Object.assign(window, { __fixtureFocusOwners: [] as Array<string | null> });
     document.addEventListener("focusin", (event) => {
@@ -172,8 +175,8 @@ test("stacked dialogs keep focus in the top dialog and IME Escape does not dismi
       (window as unknown as Window & { __fixtureFocusOwners: Array<string | null> }).__fixtureFocusOwners.push(owner);
     });
   });
-  await close.press("Shift+Tab");
-  await expect(confirm).toBeFocused();
+  await first.press("Shift+Tab");
+  await expect(cancel).toBeFocused();
   const focusOwners = await page.evaluate(
     () => (window as unknown as Window & { __fixtureFocusOwners: Array<string | null> }).__fixtureFocusOwners,
   );
@@ -185,7 +188,7 @@ test("stacked dialogs keep focus in the top dialog and IME Escape does not dismi
   });
   await expect(parent).not.toBeVisible();
   await expect(child).toBeVisible();
-  await expect(confirm).toBeFocused();
+  await expect(cancel).toBeFocused();
 
   await page.evaluate(() => {
     const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });

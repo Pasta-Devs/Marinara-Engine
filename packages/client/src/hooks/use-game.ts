@@ -668,6 +668,8 @@ export function useSkillCheck() {
       shift?: number;
       /** `hunger=` (1.824): special dice among the pool. */
       hunger?: number;
+      /** `gear=` (1.826): gear dice added to a grouped pool. */
+      gear?: number;
       messageId?: string;
     }) =>
       api.post<{ result: import("@marinara-engine/shared").SkillCheckResult; updatedContent?: string }>(
