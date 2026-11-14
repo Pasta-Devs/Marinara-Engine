@@ -30,7 +30,16 @@ import {
   dungeonFoesHere,
   dungeonGuardMarks,
   dungeonSiteHere,
+  newDungeonSiteState,
 } from "../../../packages/server/src/services/game/dungeon-spawns.service.js";
+import {
+  WORLD_STARTER_KITS,
+  checkWorldBrief,
+  compileGameWorld,
+  parseWorldKit,
+  worldRegionBand,
+  type GameWorld,
+} from "../../../packages/shared/src/index.js";
 import type { Combatant } from "../../../packages/shared/src/types/game.js";
 import {
   DUNGEON_REFILL_DAYS,
@@ -390,6 +399,42 @@ assert.ok(missing / (sites + missing) < 0.05, `${missing} of ${sites + missing} 
     }
   }
   assert.ok(deepSites > 20, `places deeper than one floor are common (${deepSites})`);
+}
+
+// A site's first band reads the land as the story left it: a Game Master's [danger:] tag on its settlement
+// (region bands, 2026-11-14) raises the site with it.
+{
+  const parsed = parseWorldKit(WORLD_STARTER_KITS.find((each) => each.id === "high_fantasy")!);
+  assert.ok(parsed.ok);
+  const kit = parsed.kit;
+  const checked = checkWorldBrief(kit, {
+    briefVersion: 1,
+    premise: "x",
+    peopleNames: kit.cultures.map((culture) => ({
+      culture: culture.id,
+      given: ["Ama", "Tobin", "Hesk", "Mira", "Oswin", "Bryn", "Calla", "Doran"],
+      family: ["Holt", "Drey", "Marrow", "Vane"],
+      order: "given-family" as const,
+    })),
+  });
+  assert.ok(checked.ok);
+  const inputs = { kit, seed: 11, grounding: "expand" as const, brief: checked.brief };
+  const game: GameWorld = { ...inputs, world: compileGameWorld(inputs) };
+  const town = game.world.places.find((place) => place.rank !== undefined && place.id !== game.world.startId)!;
+  const map = {
+    ...gameDungeonSiteMap({ setId: "dungeon_crypt", name: "Grey Barrow", siteSeed: 9, id: "m" }),
+    place: town.id,
+  };
+  const plain = newDungeonSiteState(game, map, undefined, 1);
+  const tagged = newDungeonSiteState(game, map, undefined, 1, undefined, [
+    `The dead stir. [danger: place="${town.name}" low="15" high="18"]`,
+  ]);
+  assert.ok(worldRegionBand(game, town.at).high < 15, "the land's own band is lower");
+  assert.ok(
+    tagged.band.low > plain.band.low,
+    `the story's band raises the site (${plain.band.low} -> ${tagged.band.low})`,
+  );
+  assert.ok(tagged.band.low >= 15, "from the story's band up");
 }
 
 console.log(`dungeon spawns: ${sites} sites, ${missing} with nobody`);

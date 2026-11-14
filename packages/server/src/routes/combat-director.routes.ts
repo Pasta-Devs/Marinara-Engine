@@ -3,6 +3,7 @@ import {
   dungeonFightEndPatch,
   dungeonFoesHere,
   dungeonSiteHere,
+  dungeonSiteReplies,
   gameDay,
 } from "../services/game/dungeon-spawns.service.js";
 import { createGameStateStorage, parseStoredRulesetLive } from "../services/storage/game-state.storage.js";
@@ -1422,6 +1423,7 @@ export async function combatDirectorRoutes(
                 meta,
                 setup: setup as Record<string, unknown>,
                 world: await loadGameWorld(app.db, input.chatId, meta),
+                replies: await dungeonSiteReplies(app.db, input.chatId, meta),
               });
           const held = site ? dungeonFoesHere(site, gameDay(meta)) : null;
           if (site && held) dungeonFight = { key: site.key, area: held.area.area };

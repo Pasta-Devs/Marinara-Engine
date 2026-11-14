@@ -5821,6 +5821,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   setup: chatMeta.gameSetupConfig as Record<string, unknown> | undefined,
                   world: promptWorld,
                   partyPlace: (await promptPlace())?.name,
+                  replies: (await promptRepliesAll()).all,
                 })
               : null;
             // Its band is set the first time the party is there, and kept: it never moves after.

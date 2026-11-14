@@ -2,6 +2,7 @@ import {
   dungeonGuardMarks,
   dungeonPlanContext,
   dungeonSiteHere,
+  dungeonSiteReplies,
   gameDay,
 } from "../services/game/dungeon-spawns.service.js";
 import { createRoomGameRuntime, type RoomGameRuntime } from "../services/multiplayer/game-runtime.js";
@@ -12242,6 +12243,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           meta,
           setup: meta.gameSetupConfig as Record<string, unknown> | undefined,
           world: await loadGameWorld(app.db, chat.id, meta),
+          replies: await dungeonSiteReplies(app.db, chat.id, meta),
         })
       : null;
     return { map, walk: gameDungeonWalkFromMetadata(meta), guards: site ? dungeonGuardMarks(site, gameDay(meta)) : [] };
