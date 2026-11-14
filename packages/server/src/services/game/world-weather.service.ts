@@ -13,6 +13,7 @@ import {
   environmentHoldAt,
   environmentHoldNote,
   readEnvironmentHolds,
+  worldEnvironmentHolds,
   worldClimateAt,
   worldClimateOfBiome,
   worldWeatherAt,
@@ -78,9 +79,11 @@ async function climateHere(
 ): Promise<{ climate: WorldClimate; seed: number; held: WorldSeason | null; hold: GameEnvironmentHoldHere }> {
   const indoorsByName = inferBiome(location) === "underground";
   const replies = await gameRepliesBefore(db, chatId).catch(() => null);
-  const holds = replies ? readEnvironmentHolds(replies.all) : [];
+  let holds = readEnvironmentHolds(replies?.all ?? []);
   try {
     const world = await loadGameWorld(db, chatId, meta);
+    // The world's own held places (its brief, from the lore) first; the replies change them.
+    if (world) holds = readEnvironmentHolds(replies?.all ?? [], worldEnvironmentHolds(world));
     if (world && replies) {
       const placeId = await gamePartyPlace(world, chatId, meta, replies);
       const place = world.world.places.find((each) => each.id === placeId);
