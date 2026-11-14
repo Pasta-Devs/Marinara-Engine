@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
-const drawer = read("packages/client/src/components/chat/ChatSettingsDrawer.tsx");
+const drawer = read("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
 const convoFields = read("packages/client/src/components/characters/ConvoProfileFields.tsx");
 const characterEditor = read("packages/client/src/components/characters/CharacterEditor.tsx");
 const homeBrowserHub = read("packages/client/src/components/chat/HomeBrowserHub.tsx");

@@ -42,6 +42,12 @@ export interface DecisionSidecarStatus {
   cudaDevice: number;
 }
 
+/** No decision model can run on this machine: unsupported, or every catalog model has the verdict "unsupported". */
+export const decisionCannotRun = (data: DecisionSidecarStatus | undefined) =>
+  !!data &&
+  (!data.supported ||
+    (data.models.length > 0 && data.models.every((model) => model.preflight.assessment.verdict === "unsupported")));
+
 export const decisionSidecarKey = [...decisionKeys.all, "sidecar"] as const;
 
 export function useDecisionSidecar(enabled = true) {

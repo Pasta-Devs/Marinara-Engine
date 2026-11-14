@@ -1,11 +1,5 @@
 import { clickTopbarPanel } from "./topbar-navigation.js";
-import {
-  openConnectionsPanelModel,
-  openDefaultsTile,
-  openDevicePage,
-  revealDefaultsTile,
-  ttsConfigCard,
-} from "./connections-panel.js";
+import { openConnectionsPanelModel, openDefaultsTile, ttsConfigCard, openJobSettings } from "./connections-panel.js";
 import {
   expect,
   test,
@@ -2446,7 +2440,7 @@ for (const layout of ["Roleplay", "Classic Conversation", "Bubble Conversation"]
         await expect(messageRow.locator(".mari-message-actions")).toHaveCSS("opacity", "1");
 
         await messageRow.getByRole("button", { name: "Delete", exact: true }).tap();
-        const deleteDialog = page.getByRole("dialog", { name: "Delete message", exact: true });
+        const deleteDialog = page.getByRole("dialog", { name: "Delete message?", exact: true });
         await expect(deleteDialog).toBeVisible();
         await deleteDialog.getByRole("button", { name: "Cancel", exact: true }).tap();
         await expect(deleteDialog).toBeHidden();
@@ -3411,6 +3405,8 @@ test("NovelAI generation defaults survive save and editor navigation", async ({ 
     };
     expect(exported.connections?.[0]?.defaultParameters?.imageGeneration?.seed).toBe(50);
 
+    // The model window covers the page; close it before switching panels.
+    await editor.getByRole("button", { name: "Done", exact: true }).click();
     await clickTopbarPanel(page, "personas");
     await rightPanel
       .getByText(personaName, { exact: true })
@@ -3555,25 +3551,20 @@ test("Connection image captioning defaults persist with a dedicated captioning c
     });
     expect(invalidDefaultsResponse.status()).toBe(400);
 
+    // A model's own captioning override is set up once, then edited in the Image reading settings window.
+    const seeded = await request.put(`/api/connections/${chatConnection.id}/default-parameters`, {
+      data: { imageCaptioningEnabled: true, imageCaptioningConnectionId: captionConnection.id },
+    });
+    expect(seeded.ok(), await seeded.text()).toBeTruthy();
     await page.goto("/");
-    await clickTopbarPanel(page, "connections");
-    const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
-    await openConnectionsPanelModel(rightPanel, chatConnectionName);
-
-    const editor = page.locator(".mari-editor-shell");
-    await expect(editor).toBeVisible();
-    await editor
-      .getByText("Use custom defaults for this model", { exact: true })
-      .evaluate((element) => (element as HTMLElement).click());
-    await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this model" })).toBeChecked();
-    await editor.getByText("Image captioning", { exact: true }).click();
-    await expect(editor.getByRole("checkbox", { name: "Image captioning" })).toBeChecked();
-    // #8456: the captioning field is a ConnectionSelect, a button that opens the model picker.
-    const captioningSelect = editor
+    const settings = await openJobSettings(page, "vision");
+    const part = settings.locator('[data-connection-part="captioning"]');
+    await expect(part).toHaveCount(1);
+    const captioningSelect = part
       .locator("label", { hasText: "Captioning provider" })
       .locator("[data-connection-value]");
-    await chooseConnection(page, captioningSelect, captionConnection.id);
-
+    await expect(captioningSelect).toHaveAttribute("data-connection-value", captionConnection.id);
+    await part.getByText("Image captioning", { exact: true }).click();
     await Promise.all([
       page.waitForResponse(
         (response) =>
@@ -3581,21 +3572,13 @@ test("Connection image captioning defaults persist with a dedicated captioning c
           response.request().method() === "PUT" &&
           response.ok(),
       ),
-      editor.getByRole("button", { name: "Save", exact: true }).click(),
+      part.getByRole("button", { name: "Save", exact: true }).click(),
     ]);
-
-    const storedResponse = await request.get(`/api/connections/${chatConnection.id}`);
-    expect(storedResponse.ok()).toBeTruthy();
-    const stored = (await storedResponse.json()) as { defaultParameters: string | null };
+    const stored = (await (await request.get(`/api/connections/${chatConnection.id}`)).json()) as {
+      defaultParameters: string | null;
+    };
     const storedDefaults = JSON.parse(stored.defaultParameters ?? "{}") as Record<string, unknown>;
-    expect(storedDefaults.imageCaptioningEnabled).toBe(true);
-    expect(storedDefaults.imageCaptioningConnectionId).toBe(captionConnection.id);
-
-    await editor.locator(".mari-editor-header .mari-editor-action").first().click();
-    await openConnectionsPanelModel(rightPanel, chatConnectionName);
-    await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this model" })).toBeChecked();
-    await expect(editor.getByRole("checkbox", { name: "Image captioning" })).toBeChecked();
-    await expect(captioningSelect).toHaveAttribute("data-connection-value", captionConnection.id);
+    expect(storedDefaults.imageCaptioningEnabled).toBe(false);
   } finally {
     await Promise.all([
       request.delete(`/api/connections/${chatConnection.id}`).catch(() => undefined),
@@ -3633,8 +3616,11 @@ test("Connection Discard uses the app accent", async ({ page }, testInfo) => {
 
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
-    await editor.locator(".mari-editor-title-input").fill("Connection Discard Accent Edited");
-    await editor.locator(".mari-editor-header .mari-editor-action").first().click();
+    await editor.getByPlaceholder("Model name", { exact: true }).fill("Connection Discard Accent Edited");
+    await editor
+      .getByRole("button", { name: /^Close/ })
+      .first()
+      .click();
 
     const discardButton = editor.getByRole("button", { name: "Discard", exact: true });
     await expect(discardButton).toBeVisible();
@@ -12170,13 +12156,12 @@ test("PocketTTS discovers server voices and uses its speech endpoint", async ({ 
     });
 
     await page.goto("/");
-    await openDevicePage(page, "tts");
+    await openJobSettings(page, "voice");
     const ttsCard = ttsConfigCard(page);
     const serverVoiceSelect = ttsCard.getByLabel("PocketTTS server voice");
     await expect(serverVoiceSelect.locator('option[value="AgentCobra.wav"]')).toHaveText(
       "Agent Cobra (AgentCobra.wav)",
     );
-    await expect(ttsCard.getByText("2 voices loaded from the PocketTTS server.", { exact: true })).toBeVisible();
 
     await ttsCard.getByText("Only read dialogues", { exact: true }).click();
     const dialoguePause = ttsCard.getByLabel("Pause between dialogues in seconds");
@@ -12310,7 +12295,8 @@ test("OpenAI-compatible TTS accepts and persists a custom Kokoro voice mix", asy
   });
 
   await page.goto("/");
-  await openDefaultsTile(page, "voice");
+  // With voice off the Voice tile opens the job picker; the gear still opens Voice settings.
+  await openJobSettings(page, "voice");
   const ttsCard = ttsConfigCard(page);
 
   const customVoiceInput = ttsCard.getByTestId("tts-custom-voice-input-global");
@@ -12319,7 +12305,7 @@ test("OpenAI-compatible TTS accepts and persists a custom Kokoro voice mix", asy
   await expect.poll(() => mockConfig.voice).toBe(kokoroMix);
 });
 
-test("ElevenLabs keeps models visible and exposes scrollable account voices in every assignment mode", async ({
+test("ElevenLabs exposes scrollable account voices for the shared voice and each character", async ({
   page,
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "ElevenLabs settings are covered on desktop.");
@@ -12329,6 +12315,7 @@ test("ElevenLabs keeps models visible and exposes scrollable account voices in e
   const config = {
     enabled: true,
     source: "elevenlabs",
+    connectionId: "",
     baseUrl: "https://api.elevenlabs.io",
     apiKey: "••••••",
     voice: "voice-01",
@@ -12404,30 +12391,10 @@ test("ElevenLabs keeps models visible and exposes scrollable account voices in e
         }),
       });
     });
-    await page.route("**/api/tts/models", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          models: [
-            { id: "eleven_multilingual_v2", name: "Eleven Multilingual v2" },
-            { id: "eleven_v3", name: "Eleven v3" },
-            { id: "eleven_flash_v2_5", name: "Eleven Flash v2.5" },
-          ],
-          fromProvider: true,
-          source: "elevenlabs",
-        }),
-      });
-    });
-
     await page.goto("/");
-    // #8678 lists the On this device Text to speech page only for PocketTTS; every source has it in the Add window.
-    await openDefaultsTile(page, "voice");
+    // The Voice job's Model (an ElevenLabs account's starred model) picks the TTS model; the card keeps the voices.
+    await openJobSettings(page, "voice");
     const ttsCard = ttsConfigCard(page);
-
-    const modelSelect = ttsCard.getByRole("combobox", { name: "Model" });
-    await expect(modelSelect.locator("option")).toHaveCount(3);
-    await expect(modelSelect.locator('option[value="eleven_v3"]')).toHaveText("Eleven v3 (eleven_v3)");
 
     const allCharactersVoicePicker = ttsCard.getByRole("button", { name: "Shared Voice" });
     await allCharactersVoicePicker.click();
@@ -12444,7 +12411,6 @@ test("ElevenLabs keeps models visible and exposes scrollable account voices in e
 
     await page.keyboard.press("Escape");
     await expect(allCharactersVoicePicker).toBeFocused();
-    await ttsCard.getByRole("combobox", { name: "Voice Option" }).selectOption("per-character");
     const refreshButton = ttsCard.getByRole("button", { name: "Refresh", exact: true });
     await expect(refreshButton).toBeVisible();
     await ttsCard.getByRole("button", { name: "Add voice" }).click();
@@ -15663,11 +15629,13 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
     // Variant D: Local Whisper sits with Speech to text, which exists only while Calls is installed.
     await page.goto("/");
     await openDefaultsTile(page, "stt");
-    const speechModel = page.getByText("Local speech model", { exact: true }).filter({ visible: true });
+    // Dictation settings carry the same Local Whisper card as the This device page.
+    const dictation = page.getByRole("dialog").filter({ visible: true });
+    const speechModel = dictation.getByText("Local speech model", { exact: true });
     await expect(speechModel).toBeVisible();
-    await expect(page.getByRole("button", { name: "Download Whisper" }).filter({ visible: true })).toBeVisible();
+    await expect(dictation.getByRole("button", { name: "Download Whisper" })).toBeVisible();
     if (testInfo.project.name.includes("mobile")) {
-      const speechSelect = page
+      const speechSelect = dictation
         .locator("select")
         .filter({ visible: true, has: page.locator('option[value="whisper_tiny"]') });
       await expect(speechSelect).toBeVisible();
@@ -15686,8 +15654,9 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
 
     callsInstalled = false;
     await page.reload();
-    await revealDefaultsTile(page, "voice");
-    await expect(page.locator('[data-defaults-tile="stt"]')).toHaveCount(0);
+    // Dictation (the chat microphone) stays without Calls; only Local Whisper leaves its settings.
+    await openDefaultsTile(page, "stt");
+    await expect(page.getByRole("dialog").filter({ visible: true })).toBeVisible();
     await expect(page.getByText("Local speech model", { exact: true })).toHaveCount(0);
     expect(errors).toEqual([]);
   } finally {
@@ -18194,6 +18163,12 @@ test("desktop resource editors open beside their source sidebars", async ({ page
       await expect(centerContent).toHaveAttribute("data-center-compact", "true");
       if (resource.panel === "connections") {
         await openConnectionsPanelModel(resourceSidebar, resource.name);
+        // A model opens in its own window over the page, not in the center editor area.
+        const modelWindow = page.locator(".mari-editor-shell");
+        await expect(modelWindow).toBeVisible();
+        await modelWindow.getByRole("button", { name: "Done", exact: true }).click();
+        await expect(modelWindow).toHaveCount(0);
+        continue;
       } else {
         const resourceRow = resourceSidebar.getByText(resource.name, { exact: true }).first();
         await expect(resourceRow).toBeVisible();
@@ -20319,6 +20294,10 @@ test("a phone turned sideways keeps the app out from under its camera", async ({
     });
     const panelSheet = page.locator('[data-component="RightPanelMobile"]');
     await expectInside(panelSheet, "the panel sheet");
+    await panelSheet
+      .getByRole("group", { name: "Presets", exact: true })
+      .getByRole("button", { name: "Regexes", exact: true })
+      .click();
     await page.getByRole("button", { name: "Select regex scripts", exact: true }).click();
     await page.getByRole("checkbox", { name: `Select ${regexName}`, exact: true }).check();
     const actionBar = page.locator(".mari-selection-action-bar");

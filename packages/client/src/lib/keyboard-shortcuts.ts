@@ -137,6 +137,16 @@ export function isTypingTarget(target: unknown): boolean {
   return !!element.closest?.('[contenteditable=""], [contenteditable="true"], [role="textbox"]');
 }
 
+/**
+ * #9129: a modifier letter that the page-level handler would steal must not reach a field that is being
+ * typed in - a Japanese IME's Ctrl+J (SKK's on switch), not a request to open a panel. The path is read,
+ * not the event's target, because a package's shadow root retargets the event to its host.
+ */
+export function shortcutKeyTypesText(event: { composedPath?: () => ArrayLike<unknown> }): boolean {
+  const path = typeof event.composedPath === "function" ? Array.from(event.composedPath()) : [];
+  return path.some(isTypingTarget);
+}
+
 export function formatShortcutKey(key: string, apple = isApplePlatform()): string {
   if (key === "Mod") return apple ? "⌘" : "Ctrl";
   if (key === "Alt") return apple ? "⌥" : "Alt";

@@ -1767,8 +1767,8 @@ export async function encounterRoutes(app: FastifyInstance) {
   });
 
   // ───────────────────────── SUMMARY ─────────────────────────
-  app.post<{ Body: EncounterSummaryRequest }>("/summary", async (req, reply) => {
-    const { chatId, connectionId, encounterLog, result: combatResult, settings } = req.body;
+  app.post<{ Body: EncounterSummaryRequest }>("/summary", async (request, reply) => {
+    const { chatId, connectionId, encounterLog, result: combatResult, settings } = request.body;
 
     const validResults = ["victory", "defeat", "fled", "interrupted"];
     if (!chatId || !encounterLog?.length || !combatResult || !settings) {
@@ -1833,6 +1833,13 @@ export async function encounterRoutes(app: FastifyInstance) {
 
       const summary = result.content.replace(/\[FIGHT CONCLUDED\]\s*/i, "").trim();
 
+      // #9117: the window was closed, or its request dropped, while the summary was written: it is not added, and the
+      // chat is left as a fight that ended, not one still marked in progress.
+      if (request.signal.aborted) {
+        await chats.patchMetadata(chatId, { encounterActive: false }, { touchUpdatedAt: false }).catch(() => undefined);
+        return reply.status(499).send({ error: "Summary cancelled" });
+      }
+
       // Save the summary as a narrator message (not attributed to a specific character)
       const msg = await chats.createMessage({
         chatId,
@@ -1845,6 +1852,9 @@ export async function encounterRoutes(app: FastifyInstance) {
 
       return { summary, messageId: msg?.id ?? "" };
     } catch (err) {
+      // #9117: the fight this summary belongs to is over either way; a failed write leaves the chat marked in
+      // progress otherwise, and the next attempt would find a fight that never ended (Dottore LOW).
+      await chats.patchMetadata(chatId, { encounterActive: false }, { touchUpdatedAt: false }).catch(() => undefined);
       const message = err instanceof Error ? err.message : "Unknown error";
       return reply.status(500).send({ error: `Encounter summary failed: ${message}` });
     }

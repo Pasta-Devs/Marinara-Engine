@@ -228,7 +228,7 @@ There is real consolidation value, but merging either pair wholesale would creat
 
 ### 6.3 Active complexity hotspots
 
-The largest active modules are `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/components/chat/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts`, and `client/components/panels/SettingsPanel.tsx`. They are not deletion candidates. Continue extracting bounded route handlers, domain services, drawer sections, and pure helpers only when the affected feature is already being changed. A standalone “split everything” PR would add churn without reliable behavioral proof.
+The largest active modules are `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/features/chat-settings/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts`, and `client/components/panels/SettingsPanel.tsx`. They are not deletion candidates. Continue extracting bounded route handlers, domain services, drawer sections, and pure helpers only when the affected feature is already being changed. A standalone “split everything” PR would add churn without reliable behavioral proof. The Chat Settings Drawer is the exception: it is being split one section per PR under [the drawer split plan](../../.github/plans/chat-settings-drawer-split.md).
 
 ## 7. Items deliberately excluded from cleanup
 

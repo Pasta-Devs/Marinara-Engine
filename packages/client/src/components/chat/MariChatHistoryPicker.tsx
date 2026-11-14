@@ -101,8 +101,8 @@ export function MariChatHistoryPicker({ open, onClose, workspaceChatId }: Props)
 
   const characterNameById = useMemo(() => {
     const map = new Map<string, string>();
-    // useCharacters() types its rows loosely ({ id?: unknown }); the runtime shape is full characters.
-    for (const character of (characters ?? []) as Character[]) {
+    // useCharacters() types its rows loosely (page rows); the runtime shape is full characters.
+    for (const character of (characters ?? []) as unknown as Character[]) {
       const name = character.data?.name?.trim();
       if (name) map.set(character.id, name);
     }

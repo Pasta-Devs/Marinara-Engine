@@ -8,7 +8,7 @@ import {
   readCommandCenterSessionState,
   writeCommandCenterSessionState,
 } from "../../lib/command-center";
-import { isShortcutsHelpKey, isTypingTarget } from "../../lib/keyboard-shortcuts";
+import { isShortcutsHelpKey, shortcutKeyTypesText, isTypingTarget } from "../../lib/keyboard-shortcuts";
 import { captureMariFieldDraft } from "../../hooks/use-mari-editor-fields";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import { parseOmnibarScope } from "../../lib/omnibar-scope";
@@ -154,8 +154,9 @@ export function GlobalOmnibar() {
         event.preventDefault();
         if (!ui.omnibarOpen) captureMariFieldDraft();
         setOpen(!ui.omnibarOpen);
-      } else if (isAskMariShortcut(event) && !ui.omnibarOpen) {
-        // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8).
+      } else if (isAskMariShortcut(event) && !ui.omnibarOpen && !shortcutKeyTypesText(event)) {
+        // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8). #9129: not while a
+        // field is being typed in - there Ctrl+J is the IME's own key (SKK's on switch), so the field keeps it.
         event.preventDefault();
         captureMariFieldDraft();
         requestProfessorMariOpen();

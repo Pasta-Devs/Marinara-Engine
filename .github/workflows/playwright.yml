@@ -105,6 +105,9 @@ jobs:
         env:
           # Node reuses compiled bytecode across the hundreds of child processes in one shard.
           NODE_COMPILE_CACHE: ${{ runner.temp }}/node-compile-cache
+          # Full runs (nightly, manual and PRs into main) give every file its own process, so a file that passes only
+          # because of what an earlier one in its shared process left behind still fails there.
+          REGRESSION_ISOLATED: ${{ needs.revision.outputs.full == 'true' && '1' || '' }}
         run: pnpm regression --shard ${{ matrix.shard }}/4
 
   # One verdict keeps the check name the shards replaced.

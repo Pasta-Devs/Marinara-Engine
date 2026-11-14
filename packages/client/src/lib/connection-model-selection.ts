@@ -29,6 +29,8 @@ export type RemoteConnectionModel = {
   retiresAt?: string;
   /** What the model accepts ("text", "image", ...), when the provider says. */
   inputModalities?: string[];
+  /** What the model produces, when the provider reports it. */
+  outputModalities?: string[];
 };
 
 export type ConnectionModelOption = {

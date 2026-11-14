@@ -89,3 +89,15 @@ export async function openDevicePage(page: Page, item: "local-model" | "tts" | "
   await showConnectionsList(page);
   await page.locator(`[data-connections-row="device:${item}"]`).filter({ visible: true }).click();
 }
+
+/** Opens a job's settings window from its gear in the Connections panel. */
+export async function openJobSettings(page: Page, job: string) {
+  await openConnectionsPanel(page);
+  const role = page
+    .locator("[data-connections-panel]")
+    .filter({ visible: true })
+    .locator(`[data-defaults-role="${job}"]`);
+  await role.scrollIntoViewIfNeeded();
+  await role.getByRole("button", { name: / settings$/ }).click();
+  return page.getByRole("dialog");
+}

@@ -1933,6 +1933,33 @@ export async function connectionsRoutes(app: FastifyInstance) {
     return { ok: true as const, ...(discovered as Exclude<typeof discovered, FastifyReply>) };
   };
 
+  // The usual local model servers on this machine, for the This device card. Loopback only, fixed ports, one
+  // read-only GET each; off when local addresses are off, as such an account could not be added then.
+  app.get("/local-servers", async () => {
+    if (!isProviderLocalUrlsEnabled()) return { servers: [] };
+    const probes = [
+      { name: "Ollama", port: 11434 },
+      { name: "LM Studio", port: 1234 },
+      { name: "KoboldCpp", port: 5001 },
+      { name: "llama.cpp", port: 8080 },
+      { name: "vLLM", port: 8000 },
+    ];
+    const found = await Promise.all(
+      probes.map(async ({ name, port }) => {
+        const baseUrl = `http://127.0.0.1:${port}/v1`;
+        try {
+          const res = await fetch(`${baseUrl}/models`, { signal: AbortSignal.timeout(800), redirect: "error" });
+          if (!res.ok) return null;
+          const body = (await res.json()) as { data?: unknown };
+          return Array.isArray(body.data) ? { name, baseUrl, models: body.data.length } : null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return { servers: found.filter((server) => server !== null) };
+  });
+
   // Live check while the user types an address or pastes a key, before anything is saved: does the
   // server answer, and does the key work. Edit sends `accountId` so the saved key is used when no new one is typed.
   const accounts = createConnectionAccountsStorage(app.db);

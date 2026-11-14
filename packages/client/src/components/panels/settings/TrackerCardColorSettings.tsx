@@ -156,7 +156,9 @@ export function TrackerCardColorSettings() {
   const targets = useMemo<TrackerCardColorTarget[]>(() => {
     const personas = Array.isArray(personasData) ? (personasData as Persona[]) : [];
     const characterRows = Array.isArray(charactersData)
-      ? (charactersData as CharacterRow[]).filter((character) => typeof character.id === "string" && character.id)
+      ? (charactersData as unknown as CharacterRow[]).filter(
+          (character) => typeof character.id === "string" && character.id,
+        )
       : [];
     const charactersById = new Map(characterRows.map((character) => [character.id, character]));
     const activeChatCharacterIds = normalizeMaybeJsonStringArray(

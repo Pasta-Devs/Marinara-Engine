@@ -139,11 +139,11 @@ The picture size comes from the **Portraits** image size in the image-generation
 
 The **Voice** tab sets how the character sounds when Text to Speech reads it aloud.
 
-- **Voice**. The voice for this character. A change saves right away, without **Save**. It is the same setting as this character's row in **Connections → Text to Speech**. Leave it empty to use the default voice. When a card with a matching name has a voice, such as the original of an AU copy, the empty field names that voice, because this card uses it too.
+- **Voice**. The voice for this character. A change saves right away, without **Save**. It is the same setting as this character's row in the **Voice** job settings in **Connections**. Leave it empty to use the default voice. When a card with a matching name has a voice, such as the original of an AU copy, the empty field names that voice, because this card uses it too.
 - **Preview**. Plays a short line in that voice. The line says the character's name, or the **Phonetic name** when one is set.
 - **Phonetic name**. An optional spelling used only to fix pronunciation. It is part of the card, so click **Save** to keep it.
 
-If Text to Speech is off, or every character shares one voice, a short note replaces the **Voice** field. With one shared voice, the note offers **Use a voice per character**. **Open Text to Speech settings** opens Connections. See [Text to Speech (TTS) Setup](../media/tts-setup.md).
+If Text to Speech is off, or every character shares one voice, a short note replaces the **Voice** field. With one shared voice, the note offers **Use a voice per character**. **Open Text to Speech settings** opens the **Voice** job settings in **Connections**. See [Text to Speech (TTS) Setup](../media/tts-setup.md).
 
 ## Advanced tab
 

@@ -97,7 +97,7 @@ test("Character Schedule Manager keeps cropped portraits in their slots", async 
     ids = await seed(page, request, prefix);
     await page.goto("/");
     await page.getByRole("button", { name: "Character Schedule Manager", exact: true }).click();
-    const manager = page.getByRole("dialog", { name: "Character Schedule Manager", exact: true });
+    const manager = page.getByRole("dialog", { name: "Character schedule manager", exact: true });
     const search = manager.getByPlaceholder("Search characters", { exact: true });
     await search.fill(prefix);
     const [cropped, zoomed] = seededCharacters.map((character) => `${prefix} ${character.suffix}`);
@@ -134,7 +134,7 @@ test("Character Schedule Manager keeps cropped portraits in their slots", async 
     const list = manager.getByRole("heading", { name: /^Characters with schedules/ }).locator("xpath=../..");
     await expectReachable([
       search,
-      manager.getByRole("button", { name: "Close Character Schedule Manager", exact: true }),
+      manager.getByRole("button", { name: "Close Character schedule manager", exact: true }),
       manager.getByRole("button", { name: "Select visible", exact: true }),
       manager.getByRole("button", { name: "Clear selection", exact: true }),
       manager.getByRole("button", { name: "Generate schedules", exact: true }),

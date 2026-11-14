@@ -923,11 +923,13 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
             <h3>{decisionEngine?.name ?? localize("Built-in model (decisions)")}</h3>
             {decisionEngine ? <span className="ov-conn__dim">{decisionEngine.state}</span> : null}
           </header>
-          <DecisionModelModal embedded open onClose={closeConnectionDetail} />
+          <div className="p-4">
+            <DecisionModelModal />
+          </div>
         </div>
       ) : device ? (
         <div className="ov-devpage">
-          <DeviceDetail key={device} item={device} onOpenDefaults={closeConnectionDetail} />
+          <DeviceDetail key={device} item={device} />
         </div>
       ) : (
         children
@@ -1000,11 +1002,13 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
         />
       ) : device ? (
         <div className="ov-devpage">
-          <DeviceDetail key={device} item={device} onOpenDefaults={closeConnectionDetail} />
+          <DeviceDetail key={device} item={device} />
         </div>
       ) : (
         <div className="ov-devpage">
-          <DecisionModelModal embedded open onClose={closeConnectionDetail} />
+          <div className="p-4">
+            <DecisionModelModal />
+          </div>
         </div>
       )}
     </section>

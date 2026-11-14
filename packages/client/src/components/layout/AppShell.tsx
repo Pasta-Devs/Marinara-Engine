@@ -1249,15 +1249,11 @@ export function AppShell({
       ) : (
         <AgentEditor />
       )
-    ) : connectionDetailId ? (
-      overhaulMobile ? (
-        // Accounts, the built-in model and the decision model are pages on phones too.
-        <OvConnectionPageMobile>
-          <ConnectionEditor />
-        </OvConnectionPageMobile>
-      ) : (
+    ) : connectionDetailId && overhaulMobile ? (
+      // Accounts, the built-in model and the decision model are pages on phones too.
+      <OvConnectionPageMobile>
         <ConnectionEditor />
-      )
+      </OvConnectionPageMobile>
     ) : presetDetailId ? (
       <PresetEditor />
     ) : characterDetailId ? (
@@ -2171,6 +2167,12 @@ export function AppShell({
         />
       ) : null}
 
+      {/* Classic layout: the model window opens over the page the user is on (the new layout shows it as a page). */}
+      {connectionDetailId && !overhaulActive && !overhaulMobile && (
+        <Suspense fallback={null}>
+          <ConnectionEditor />
+        </Suspense>
+      )}
       {/* First-time onboarding tutorial, or this device's walkthrough the first time a phone, tablet or computer opens */}
       {!SPLIT_PANE && (!hasCompletedOnboarding || deviceWalkthroughDue) && (
         <Suspense fallback={null}>

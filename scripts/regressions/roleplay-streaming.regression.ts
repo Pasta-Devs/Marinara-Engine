@@ -469,7 +469,7 @@ const personalExtensionsHookSource = readSourceText(
   "utf8",
 );
 const chatSettingsDrawerSource = readSourceText(
-  new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
   "utf8",
 );
 const reducedAmbientEffectsHookSource = readSourceText(

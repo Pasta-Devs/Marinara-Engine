@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { isAgentConfigDeleted, type Chat, type Lorebook } from "@marinara-engine/shared";
 import { useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
-import { usePersona } from "../../hooks/use-characters";
+import { fetchAllCharacterPages, usePersona } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
@@ -203,15 +203,13 @@ async function readAvailableResourceIds(
     };
   }
 
-  const endpoint =
+  // #9114: the character list answers one page at a time; the rest of the registry routes answer whole lists.
+  const rows =
     kind === "character"
-      ? "/characters"
-      : kind === "persona"
-        ? "/characters/personas/list"
-        : kind === "lorebook"
-          ? "/lorebooks"
-          : "/backgrounds";
-  const rows = await api.get<ResourceRegistryRow[]>(endpoint);
+      ? ((await fetchAllCharacterPages()) as ResourceRegistryRow[])
+      : await api.get<ResourceRegistryRow[]>(
+          kind === "persona" ? "/characters/personas/list" : kind === "lorebook" ? "/lorebooks" : "/backgrounds",
+        );
   const field = kind === "background" ? "url" : "id";
   return {
     ids: new Set(rows.map((row) => row[field]).filter((id): id is string => typeof id === "string" && id.length > 0)),

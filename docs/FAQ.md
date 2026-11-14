@@ -118,7 +118,7 @@ It turns finished story text into images. Install **Storyboard** from **Library 
 
 ## Can characters talk out loud in a call?
 
-Yes, in Conversation mode. You need **Text to Speech** set up in **Connections**. See [Calls](conversation/calls.md) for the steps, including speech recognition for your microphone.
+Yes, in Conversation mode. You need a model on the **Voice** job in **Connections**. See [Calls](conversation/calls.md) for the steps, including speech recognition for your microphone.
 
 ## Can Marinara generate images?
 

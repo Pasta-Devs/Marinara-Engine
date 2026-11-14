@@ -19,6 +19,9 @@ public static class ConsoleSignals {
 Write-Phase 'Allocating isolated console'
 [ConsoleSignals]::FreeConsole() | Out-Null
 if (-not [ConsoleSignals]::AllocConsole()) { throw 'Cannot allocate the test console' }
+# Windows passes "ignore Ctrl+C" down to child processes. A harness started under a process that ignores it (a new
+# process group, as some terminals and agent shells start) would hand that to the server, so turn it back on first.
+if (-not [ConsoleSignals]::SetConsoleCtrlHandler([IntPtr]::Zero, $false)) { throw 'Cannot restore Ctrl+C handling' }
 Write-Phase 'Console allocated'
 $env:HOST = '127.0.0.1'
 $env:PORT = [string]$Port

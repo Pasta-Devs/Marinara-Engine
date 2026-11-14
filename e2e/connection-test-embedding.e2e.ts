@@ -3,6 +3,7 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import { hideExistingItems, openJobSettings } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
@@ -45,9 +46,17 @@ test("Test embedding checks the typed embedding model and endpoint", async ({ pa
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
   await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
+  await hideExistingItems(page, request, "/api/connections");
   const name = `Embedding test ${info.project.name}`;
   const created = await request.post("/api/connections", {
-    data: { name, provider: "openai", baseUrl: `${stub.origin}/chat/v1`, apiKey: "fixture-key", model: "gpt-5-mini" },
+    data: {
+      name,
+      provider: "openai",
+      baseUrl: `${stub.origin}/chat/v1`,
+      apiKey: "fixture-key",
+      model: "gpt-5-mini",
+      embeddingModel: "seed-embed",
+    },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
   const { id } = (await created.json()) as { id: string };
@@ -56,16 +65,10 @@ test("Test embedding checks the typed embedding model and endpoint", async ({ pa
   );
   try {
     await page.goto("/");
-    await page.evaluate(async (connectionId) => {
-      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-      useUIStore.getState().openConnectionDetail(connectionId);
-    }, id);
-    const advanced = page.locator("details").filter({ has: page.locator("summary", { hasText: "Advanced" }) });
-    await advanced.locator("summary").click();
-    await advanced.getByRole("button", { name: "More", exact: true }).click();
-
+    // A model's own embedding settings live in the Embeddings settings window.
+    await openJobSettings(page, "embeddings");
     const testButton = page.getByRole("button", { name: "Test embedding", exact: true });
-    await expect(testButton, "nothing to test before a model is typed").toBeDisabled();
+    await expect(testButton).toBeVisible();
     await page.getByPlaceholder("e.g. text-embedding-3-small", { exact: true }).fill("stub-embed");
     const endpoint = page.getByPlaceholder("e.g. http://localhost:5002/v1", { exact: true });
     await endpoint.fill(`${stub.origin}/ok/v1`);

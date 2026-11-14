@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { mkdir, open, writeFile, unlink } from "node:fs/promises";
+import { lstat, mkdir, open, writeFile, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import {
@@ -10,6 +10,7 @@ import {
 import { logger } from "../../lib/logger.js";
 import { getDataDir } from "../../config/runtime-config.js";
 import { isAllowedImageBuffer } from "../../utils/security.js";
+import { realPathInRealFolder } from "../../utils/app-folder.js";
 
 export const LOREBOOK_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const LOREBOOK_EXPORT_IMAGE_MAX_BYTES = 64 * 1024 * 1024;
@@ -43,11 +44,27 @@ export async function readLorebookImageDataUrl(
   if (!LOREBOOK_ENTRY_IMAGE_PATH_PATTERN.test(path)) return null;
   const filename = path.slice(path.lastIndexOf("/") + 1);
   try {
-    const file = await open(join(lorebookImagesDirectory(), filename), constants.O_RDONLY | constants.O_NOFOLLOW);
+    const directory = lorebookImagesDirectory();
+    // The real-path check refuses a file link that leads out of the folder. Like O_NOFOLLOW, it follows a link to the
+    // images folder itself (moved to another disk), as before.
+    const checkedPath = realPathInRealFolder(directory, join(directory, filename));
+    const checked = await lstat(checkedPath, { bigint: true });
+    if (!checked.isFile()) return null;
+    // Windows has no O_NOFOLLOW (it is undefined there), so the open follows a link swapped in after the check. Only
+    // the file that was checked is read: the one opened must be that same file.
+    // ponytail: a volume with no file IDs (FAT32, exFAT) reports ino 0 for every file, so there the size and creation
+    // time alone tell the files apart. Upgrade path: open with FILE_FLAG_OPEN_REPARSE_POINT through a native helper.
+    const file = await open(checkedPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     try {
-      const stat = await file.stat();
-      if (!stat.isFile() || stat.size > LOREBOOK_IMAGE_MAX_BYTES) return null;
-      const buffer = Buffer.alloc(stat.size);
+      const stat = await file.stat({ bigint: true });
+      const sameFile =
+        stat.ino === checked.ino &&
+        stat.dev === checked.dev &&
+        stat.size === checked.size &&
+        stat.birthtimeNs === checked.birthtimeNs;
+      if (!sameFile) return null;
+      if (!stat.isFile() || stat.size > BigInt(LOREBOOK_IMAGE_MAX_BYTES)) return null;
+      const buffer = Buffer.alloc(Number(stat.size));
       const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
       if (bytesRead !== buffer.length) return null;
       const info = lorebookImageInfo(buffer);

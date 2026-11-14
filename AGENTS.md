@@ -57,6 +57,8 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 ## Temporary Tests
 
 - Do not keep `.test.ts` files in the repo. If an agent creates one for local proof, remove it after the test is done.
+- Before adding a Node regression, look for an existing file in its area folder under `scripts/regressions/` and add your case there. Start a new file only when none covers the feature, and never directly in `scripts/regressions/`. Test behavior, not source text. See [CONTRIBUTING.md § Where a Node regression goes](CONTRIBUTING.md#where-a-node-regression-goes).
+- Write Node regressions to run on Windows as well as Linux and macOS. CI runs the full set on Linux only, so follow [CONTRIBUTING.md § Writing a Node regression](CONTRIBUTING.md#writing-a-node-regression).
 
 ## Repo-Specific Cautions
 

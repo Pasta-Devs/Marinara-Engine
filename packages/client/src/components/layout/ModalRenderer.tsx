@@ -5,6 +5,7 @@ import { lazy, Suspense } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import type { ServiceId } from "../modals/CreateConnectionModal";
 import type { AddFor, ModelsFor } from "../../lib/add-connection";
+import { JOB, type JobKey } from "../../lib/connection-jobs";
 import {
   normalizeAvatarCrop,
   type LorebookCategory,
@@ -37,8 +38,17 @@ const STBulkImportModal = lazy(() =>
 const ImportPersonaModal = lazy(() =>
   import("../modals/ImportPersonaModal").then((module) => ({ default: module.ImportPersonaModal })),
 );
+const JobPickerWindow = lazy(() =>
+  import("../connections/ConnectionDefaults").then((module) => ({ default: module.JobPickerWindow })),
+);
 const CreateConnectionModal = lazy(() =>
   import("../modals/CreateConnectionModal").then((module) => ({ default: module.CreateConnectionModal })),
+);
+const JobSettingsWindow = lazy(() =>
+  import("../connections/DeviceDetail").then((module) => ({ default: module.JobSettingsWindow })),
+);
+const DeviceDetailWindow = lazy(() =>
+  import("../connections/DeviceDetail").then((module) => ({ default: module.DeviceDetailWindow })),
 );
 const ConnectionAccountEditor = lazy(() =>
   import("../connections/ConnectionAccountEditor").then((module) => ({ default: module.ConnectionAccountEditor })),
@@ -163,11 +173,22 @@ export function ModalRenderer() {
           modelsFor={modal?.props?.modelsFor as ModelsFor | undefined}
           forJob={modal?.props?.forJob as AddFor | undefined}
           anchor={modal?.props?.anchor as string | undefined}
+          initialBaseUrl={modal?.props?.baseUrl as string | undefined}
+          initialName={modal?.props?.name as string | undefined}
         />
       );
       break;
     case "import-connection":
       content = <ImportConnectionModal open onClose={closeModal} />;
+      break;
+    case "job-settings":
+      content = <JobSettingsWindow job={modal?.props?.job as "voice" | "stt"} onClose={closeModal} />;
+      break;
+    case "device-detail":
+      content = <DeviceDetailWindow onClose={closeModal} />;
+      break;
+    case "job-picker":
+      content = <JobPickerWindow job={JOB[modal?.props?.job as JobKey]} onClose={closeModal} />;
       break;
     case "connection-account":
       content = (

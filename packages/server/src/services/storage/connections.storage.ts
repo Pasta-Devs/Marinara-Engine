@@ -1360,7 +1360,13 @@ export function createConnectionsStorage(db: DB) {
                   : {}),
               }
             : null;
-        return sweepDanglingConnectionReferences(tx, id, carrier?.id ?? null, keptPick);
+        return sweepDanglingConnectionReferences(
+          tx,
+          id,
+          carrier?.id ?? null,
+          keptPick,
+          (row?.name ?? "").trim() || (row?.model ?? "").trim() || null,
+        );
       });
       // Clear the throttle registry only after the delete commits.
       clearConnectionRateLimit(id);

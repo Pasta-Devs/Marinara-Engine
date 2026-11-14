@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { SwipePicker } from "./SwipePicker";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 const SWIPE_BUTTON_CLASS =
@@ -11,9 +12,11 @@ interface SwipeJumpControlProps {
   activeSwipeIndex: number;
   swipeCount: number;
   alwaysShow?: boolean;
-  onSetActiveSwipe: (index: number) => void;
+  onSetActiveSwipe: (index: number) => void | Promise<boolean | undefined>;
   onCreateNextSwipe?: () => void;
   className?: string;
+  /** When set, the counter becomes a list of the swipes; `greeting` marks the chat's first message. */
+  picker?: { chatId: string; content: string; greeting: boolean };
 }
 
 export function SwipeJumpControl({
@@ -24,6 +27,7 @@ export function SwipeJumpControl({
   onSetActiveSwipe,
   onCreateNextSwipe,
   className,
+  picker,
 }: SwipeJumpControlProps) {
   const { t: localizeUi } = useUiTranslation();
   const [inputValue, setInputValue] = useState(() => String(activeSwipeIndex + 1));
@@ -76,33 +80,49 @@ export function SwipeJumpControl({
       >
         <ChevronLeft size="1.15em" />
       </button>
-      <label className="sr-only" htmlFor={inputId}>
-        {localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe")}
-      </label>
-      <span className="mari-swipe-input mari-chat-style-control inline-flex h-[1.375rem] w-9 rounded-full border border-[var(--marinara-chat-message-action-bg-hover)] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-text)_5%,transparent)] transition-[background-color,border-color,box-shadow,color] focus-within:border-[var(--marinara-chat-chrome-button-border-active)] focus-within:bg-[var(--marinara-chat-chrome-button-bg-active)]">
-        <input
-          id={inputId}
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={inputValue}
-          onChange={(event) => handleInputChange(event.target.value)}
-          onBlur={() => {
-            const parsed = Number.parseInt(inputValue, 10);
-            setSwipeByDisplayIndex(Number.isNaN(parsed) ? activeSwipeIndex + 1 : parsed);
-          }}
-          onClick={(event) => event.stopPropagation()}
-          onFocus={(event) => event.currentTarget.select()}
-          onKeyDown={(event) => {
-            event.stopPropagation();
-            if (event.key === "Enter") event.currentTarget.blur();
-          }}
-          className="mari-chat-style-text h-full min-w-0 w-full rounded-[inherit] bg-transparent px-1.5 py-0.5 text-center tabular-nums text-[0.625rem] font-medium text-[var(--marinara-chat-message-action-text-hover)] outline-none"
-          aria-label={localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe1ThroughValue1", { value1: displaySwipeCount })}
-          title={localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe1Value1", { value1: displaySwipeCount })}
+      {picker && swipeCount > 1 ? (
+        <SwipePicker
+          chatId={picker.chatId}
+          messageId={messageId}
+          activeSwipeIndex={activeSwipeIndex}
+          swipeCount={swipeCount}
+          currentContent={picker.content}
+          greeting={picker.greeting}
+          onSetActiveSwipe={onSetActiveSwipe}
         />
-      </span>
-      <span className="tabular-nums">/{displaySwipeCount}</span>
+      ) : (
+        <>
+          <label className="sr-only" htmlFor={inputId}>
+            {localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe")}
+          </label>
+          <span className="mari-swipe-input mari-chat-style-control inline-flex h-[1.375rem] w-9 rounded-full border border-[var(--marinara-chat-message-action-bg-hover)] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-text)_5%,transparent)] transition-[background-color,border-color,box-shadow,color] focus-within:border-[var(--marinara-chat-chrome-button-border-active)] focus-within:bg-[var(--marinara-chat-chrome-button-bg-active)]">
+            <input
+              id={inputId}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={inputValue}
+              onChange={(event) => handleInputChange(event.target.value)}
+              onBlur={() => {
+                const parsed = Number.parseInt(inputValue, 10);
+                setSwipeByDisplayIndex(Number.isNaN(parsed) ? activeSwipeIndex + 1 : parsed);
+              }}
+              onClick={(event) => event.stopPropagation()}
+              onFocus={(event) => event.currentTarget.select()}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") event.currentTarget.blur();
+              }}
+              className="mari-chat-style-text h-full min-w-0 w-full rounded-[inherit] bg-transparent px-1.5 py-0.5 text-center tabular-nums text-[0.625rem] font-medium text-[var(--marinara-chat-message-action-text-hover)] outline-none"
+              aria-label={localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe1ThroughValue1", {
+                value1: displaySwipeCount,
+              })}
+              title={localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe1Value1", { value1: displaySwipeCount })}
+            />
+          </span>
+          <span className="tabular-nums">/{displaySwipeCount}</span>
+        </>
+      )}
       <button
         type="button"
         className={SWIPE_BUTTON_CLASS}

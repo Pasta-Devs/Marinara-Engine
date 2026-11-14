@@ -34,7 +34,7 @@ If it did not work: read the red message next to the file. The other files in th
 | | **No tags**: skip them. |
 | | **Existing only**: keep tags already in your library. |
 | **Imported regex scripts** | **Character only** (default): rules run for this character. |
-| | **Global**: rules go to **Presets → Regexes** and run in every chat. |
+| | **Global**: rules go to **Presets → Regexes** and can run across chats. |
 | **Split description into fields** | Off by default. Tick it to move labelled personality, appearance and similar text out of **Description** into their own fields. |
 | **Import tags** | **Tag imported** (on by default): adds the tag **Imported**. |
 | | **Tag source** (on by default): adds where the file came from: **ST** for a SillyTavern card, **CharX** for a `.charx`, **Marinara** for a Marinara export. |

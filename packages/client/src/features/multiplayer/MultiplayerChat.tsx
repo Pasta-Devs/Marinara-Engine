@@ -47,7 +47,7 @@ const ChatSetupWizard = lazy(() =>
   import("../../components/chat/ChatSetupWizard").then((module) => ({ default: module.ChatSetupWizard })),
 );
 const ChatSettingsDrawer = lazy(() =>
-  import("../../components/chat/ChatSettingsDrawer").then((module) => ({ default: module.ChatSettingsDrawer })),
+  import("../chat-settings/ChatSettingsDrawer").then((module) => ({ default: module.ChatSettingsDrawer })),
 );
 const PreparedMultiplayerGameSetup = lazy(() =>
   import("./PreparedMultiplayerGameSetup").then((module) => ({ default: module.PreparedMultiplayerGameSetup })),

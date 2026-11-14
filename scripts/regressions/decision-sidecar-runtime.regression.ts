@@ -12,6 +12,16 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+// Everything here covers the managed sidecar, which runs only on Linux x64, and its lifecycle cases need the fake
+// nvidia-smi and Python below, /bin/sh scripts that Windows cannot run: there the real nvidia-smi answered instead,
+// if the machine had one.
+if (process.platform === "win32") {
+  console.info(
+    "Decision sidecar runtime regression skipped: the sidecar runs only on Linux x64, and its fake GPU and Python need a POSIX shell.",
+  );
+  process.exit(0);
+}
+
 const root = mkdtempSync(join(tmpdir(), "marinara-decision-runtime-"));
 const dataDir = join(root, "data");
 const binDir = join(root, "bin");

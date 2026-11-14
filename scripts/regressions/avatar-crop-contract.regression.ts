@@ -305,7 +305,10 @@ assert.match(
 );
 
 // ── 10. Drawer/wizard reuse decoded crop boundaries ──
-const drawerSource = readFileSync(join(repoRoot, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"), "utf8");
+const drawerSource = readFileSync(
+  join(repoRoot, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
+  "utf8",
+);
 // The wizards pick through the shared CharacterSelect list, so its rows carry the decoded crops.
 const wizardSource = readFileSync(
   join(repoRoot, "packages/client/src/components/characters/CharacterPickerList.tsx"),

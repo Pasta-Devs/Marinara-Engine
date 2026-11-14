@@ -202,11 +202,16 @@ type StoredRecord = Omit<AdvancedMemoryRecord, "startIndex" | "endIndex" | "embe
 };
 type Metadata = Record<string, unknown>;
 type VisibilityReader = { id: string; name: string; visibleIds: Set<string> };
-type Context = {
+/** The summary revisions a context's metadata names, by `summary:<id>`, as recordValid reads them. */
+type SummaryRevisions = Map<string, { revision: string }>;
+/** Exported for its regression: the service's own code is the only caller. */
+export type Context = {
   chatId: string;
   mode: string;
   connectionId: string | null;
   metadata: Metadata;
+  /** #9116: the summary entries above, normalized and hashed once per context (see summaryRevisionsOf). */
+  summaryRevisions?: SummaryRevisions;
   settings: AdvancedMemorySettings;
   messages: AdvancedMemoryMessage[];
   characterIds: string[];
@@ -588,6 +593,26 @@ function preparationPolicyRevision(ctx: Context): string {
     ctx.metadata.macroVariables,
     object(ctx.metadata.advancedMemoryState).contextStartRevision,
   ]);
+}
+
+/**
+ * #9116: the revision of each summary entry the record's dependencies name, by `summary:<id>`, read once per
+ * context. recordValid runs once per stored record, and a long chat holds hundreds of summary entries, so
+ * normalizing and hashing them there cost seconds before the request could leave. `ctx.metadata` is replaced,
+ * never edited in place, so a context's entries are a stable snapshot for its lifetime.
+ */
+export function summaryRevisionsOf(ctx: Context): SummaryRevisions {
+  if (ctx.summaryRevisions) return ctx.summaryRevisions;
+  const revisions: SummaryRevisions = new Map();
+  for (const entry of normalizeChatSummaryEntries(ctx.metadata.summaryEntries, {
+    legacySummary: typeof ctx.metadata.summary === "string" ? ctx.metadata.summary : null,
+    now: "1970-01-01T00:00:00.000Z", // Match the stable fallback used by compaction dependencies.
+  })) {
+    const key = `summary:${entry.id}`;
+    // The first match wins, as `find` did.
+    if (!revisions.has(key)) revisions.set(key, { revision: hash(entry) });
+  }
+  return (ctx.summaryRevisions = revisions);
 }
 
 function fingerprint(ctx: Context, messages: readonly AdvancedMemoryMessage[], audience: string[]): string {
@@ -1420,10 +1445,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const expected = source.slice(first, last + 1).filter((message) => structural || eligibleIds.has(message.id));
       if (expected.map((message) => message.id).join("\0") !== record.messageIds.join("\0")) return false;
     }
-    const manual = normalizeChatSummaryEntries(ctx.metadata.summaryEntries, {
-      legacySummary: typeof ctx.metadata.summary === "string" ? ctx.metadata.summary : null,
-      now: "1970-01-01T00:00:00.000Z", // Match the stable fallback used by compaction dependencies.
-    });
+    // Only a record that names a summary reads the summaries, and then once for the whole run (#9116).
+    const named = record.dependencies.filter((dependency) => dependency.id.startsWith("summary:"));
     if (
       record.dependencies.some(
         (dependency) =>
@@ -1432,12 +1455,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       )
     )
       return false;
-    return record.dependencies
-      .filter((dependency) => dependency.id.startsWith("summary:"))
-      .every((dependency) => {
-        const entry = manual.find((item) => `summary:${item.id}` === dependency.id);
-        return entry && hash(entry) === dependency.revision;
-      });
+    if (!named.length) return true;
+    const revisions = summaryRevisionsOf(ctx);
+    return named.every((dependency) => revisions.get(dependency.id)?.revision === dependency.revision);
   }
 
   function correctionReviewError(ctx: Context, record: StoredRecord, sceneRangeChanged = false) {

@@ -252,7 +252,7 @@ for (const [preset, theme] of [
             exact: true,
           }),
         },
-        { name: "delete", trigger: "Delete", panel: modal("Delete message") },
+        { name: "delete", trigger: "Delete", panel: modal("Delete message?") },
         {
           name: "branch",
           trigger: "Branch from here",

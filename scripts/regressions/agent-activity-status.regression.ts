@@ -43,7 +43,7 @@ assert.equal(dot("chat-a"), 0, "changing chats clears the dot");
 // Every Agent activity icon gets the status, and the dot holds the theme accent steady.
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 for (const [path, icon] of [
-  ["packages/client/src/components/chat/ChatSettingsDrawer.tsx", "Activity"],
+  ["packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", "Activity"],
   ["packages/client/src/components/chat/RoleplayTrackerWindow.tsx", "ListChecks"],
   ["packages/client/src/features/tracker-panel/components/TrackerAgentActivitySection.tsx", "Sparkles"],
 ] as const) {

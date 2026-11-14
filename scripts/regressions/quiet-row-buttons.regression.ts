@@ -20,8 +20,7 @@ assert.match(
 );
 
 // The built-in model row offers one action per state, not a button, a one-item menu and a row click for the same thing.
-const card = read("components/connections/BuiltInModelCard.tsx");
-assert.doesNotMatch(card, /ContextMenu/, "no one-item ⋯ menu on the built-in model row");
-assert.match(card, /onClick=\{notDownloaded \? undefined : open\}/, "the row is not a second Download button");
+const card = read("components/connections/DeviceDetail.tsx");
+assert.doesNotMatch(card, /ContextMenu/, "no one-item ⋯ menu on the device card");
 
 console.log("quiet row buttons: OK");

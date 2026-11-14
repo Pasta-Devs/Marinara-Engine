@@ -78,9 +78,13 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
   const rollMode = result.rollMode !== "normal" ? ` (${result.rollMode})` : "";
   // Only claim the dice add up to the total when they actually do; otherwise
   // report the total on its own so the GM reads back what the player saw.
-  const arithmetic = skillCheckDiceSumToTotal(result)
-    ? `[${result.rolls.join(", ")}]${modifier}${rollMode} = ${result.total}`
-    : `[${result.rolls.map((face) => skillCheckFaceText(result, face)).join(", ")}]${result.resolution === "successes" ? "" : modifier}${rollMode} → ${result.total}${result.resolution === "successes" ? ` ${result.total === 1 ? "success" : "successes"}` : ""}`;
+  // A check with no dice (1.825) compares the sheet's own number: there is no roll to show.
+  const arithmetic =
+    result.resolution === "sum" && result.rolls.length === 0
+      ? `${result.skill} ${result.modifier} vs ${result.dc}`
+      : skillCheckDiceSumToTotal(result)
+        ? `[${result.rolls.join(", ")}]${modifier}${rollMode} = ${result.total}`
+        : `[${result.rolls.map((face) => skillCheckFaceText(result, face)).join(", ")}]${result.resolution === "successes" ? "" : modifier}${rollMode} → ${result.total}${result.resolution === "successes" ? ` ${result.total === 1 ? "success" : "successes"}` : ""}`;
   // A complication is alongside the outcome, never instead of it, so the outcome is still said first.
   const complication = result.complication ? " Something went wrong on the side." : "";
   const unmodified = result.unmodified !== undefined ? ` Unmodified ${result.unmodified}.` : "";
@@ -100,7 +104,37 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
     : "";
   // A roll at most a target (1.139) says so, because "DC 45" would read as needing 45 or more.
   const needed = result.against === "at-most" ? `at most ${result.dc}` : `DC ${result.dc}`;
-  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}`;
+  // Two named dice (1.821), said only where the record carries them.
+  const duality = result.duality
+    ? result.duality === "tie"
+      ? " The two named dice tied."
+      : ` With ${result.duality}.`
+    : "";
+  // Special dice (1.824): how many, and what they made of the result.
+  const hunger = result.hunger
+    ? ` ${result.hunger} ${result.hungerLabel ?? "special"} ${result.hunger === 1 ? "die" : "dice"} (the first ${result.hunger === 1 ? "one" : result.hunger})${
+        result.messy ? "; a messy critical" : result.bestial ? "; a bestial failure" : ""
+      }.`
+    : "";
+  // The plot die (1.822): its face and what the face carried.
+  // "blank" only for a face that carried neither a symbol nor a bonus; one that gave a bonus is what it gave.
+  const plotFace = result.plotFace
+    ? result.plotSymbol
+      ? `: ${result.plotSymbol}`
+      : result.plotBonus
+        ? ""
+        : ": blank"
+    : "";
+  const plot = result.plotFace
+    ? ` ${result.plotLabel ?? "Plot die"} ${result.plotFace}${plotFace}${
+        result.plotBonus ? ` (${result.plotBonus > 0 ? "+" : ""}${result.plotBonus})` : ""
+      }.`
+    : "";
+  // A band the Game Master moved (1.823).
+  const shift = result.shift
+    ? ` Moved ${Math.abs(result.shift)} ${Math.abs(result.shift) === 1 ? "band" : "bands"} ${result.shift > 0 ? "better" : "worse"}.`
+    : "";
+  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}${hunger}${plot}${shift}`;
 }
 
 function serializeSkillCheckAttribute(value: string): string {
@@ -207,6 +241,22 @@ export interface SkillCheckTagExtras {
   criticalFailure?: boolean;
   /** `for="climb"` (1.752): what the check was made for, which a change narrowed to it read. */
   for?: string;
+  /** `duality="Hope"` (1.821): the named die that showed more, or "tie". */
+  duality?: string;
+  /** `plot="true"`, the ask; `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`,
+   *  the record (1.822). */
+  plot?: boolean;
+  plotFace?: number;
+  plotSymbol?: "complication" | "opportunity";
+  plotBonus?: number;
+  plotLabel?: string;
+  /** `shift="+1"` (1.823): bands the outcome moved, or the ask to move it. */
+  shift?: number;
+  /** `hunger="2" hungerLabel="Hunger" messy="true" bestial="true"` (1.824), on an ask the count alone. */
+  hunger?: number;
+  hungerLabel?: string;
+  messy?: boolean;
+  bestial?: boolean;
 }
 
 /** A name in `from=`: no brackets, which would end the tag, and no semicolons, which part the names. */
@@ -297,6 +347,23 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
     if (extras.darkHighest) parts.push(`darkHighest="true"`);
   }
   if (extras.for) parts.push(`for="${serializeSkillCheckAttribute(extras.for)}"`);
+  if (extras.duality) parts.push(`duality="${serializeSkillCheckAttribute(extras.duality)}"`);
+  if (extras.hunger != null && Number.isInteger(extras.hunger) && extras.hunger > 0) {
+    parts.push(`hunger="${extras.hunger}"`);
+    if (extras.hungerLabel) parts.push(`hungerLabel="${serializeSkillCheckAttribute(extras.hungerLabel)}"`);
+    if (extras.messy) parts.push(`messy="true"`);
+    if (extras.bestial) parts.push(`bestial="true"`);
+  }
+  if (extras.plot) parts.push(`plot="true"`);
+  if (extras.plotFace != null && Number.isInteger(extras.plotFace) && extras.plotFace > 0) {
+    parts.push(`plotFace="${extras.plotFace}"`);
+    if (extras.plotSymbol) parts.push(`plotSymbol="${extras.plotSymbol}"`);
+    if (extras.plotBonus) parts.push(`plotBonus="${extras.plotBonus}"`);
+    if (extras.plotLabel) parts.push(`plotLabel="${serializeSkillCheckAttribute(extras.plotLabel)}"`);
+  }
+  if (extras.shift != null && Number.isInteger(extras.shift) && extras.shift !== 0) {
+    parts.push(`shift="${extras.shift > 0 ? "+" : ""}${extras.shift}"`);
+  }
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
@@ -368,6 +435,24 @@ export function serializeResolvedSkillCheckTag(result: SkillCheckResult, extras?
     ...(result.tens ? { tens: result.tens } : {}),
     ...(result.highest ? { highest: result.highest, ...(result.zeroDice ? { zeroDice: true } : {}) } : {}),
     ...(result.darkOutcome ? { darkOutcome: result.darkOutcome } : {}),
+    ...(result.duality ? { duality: result.duality } : {}),
+    ...(result.plotFace
+      ? {
+          plotFace: result.plotFace,
+          ...(result.plotSymbol ? { plotSymbol: result.plotSymbol } : {}),
+          ...(result.plotBonus ? { plotBonus: result.plotBonus } : {}),
+          ...(result.plotLabel ? { plotLabel: result.plotLabel } : {}),
+        }
+      : {}),
+    ...(result.shift ? { shift: result.shift } : {}),
+    ...(result.hunger
+      ? {
+          hunger: result.hunger,
+          ...(result.hungerLabel ? { hungerLabel: result.hungerLabel } : {}),
+          ...(result.messy ? { messy: true } : {}),
+          ...(result.bestial ? { bestial: true } : {}),
+        }
+      : {}),
     ...(result.dark
       ? {
           dark: result.dark,

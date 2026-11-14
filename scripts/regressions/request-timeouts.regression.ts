@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   REQUEST_TIMEOUTS,
   requestTimeoutSettingsSchema,
@@ -75,7 +76,7 @@ try {
   const code = `import {getChatGenerationTimeoutMs} from ${JSON.stringify(new URL("../../packages/server/src/config/runtime-config.ts", import.meta.url).href)}; if(getChatGenerationTimeoutMs()!==1200000)throw Error('lost saved timeout');`;
   const child = spawnSync(
     process.execPath,
-    ["--import", require.resolve("tsx/esm"), "--input-type=module", "-e", code],
+    ["--import", pathToFileURL(require.resolve("tsx/esm")).href, "--input-type=module", "-e", code],
     {
       env: { ...process.env, CHAT_GENERATION_TIMEOUT_MS: "300000" },
       encoding: "utf8",

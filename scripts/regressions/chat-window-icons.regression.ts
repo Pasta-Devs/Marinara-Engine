@@ -68,7 +68,11 @@ function collect(path: string, tag: string) {
 const sectionFiles = readdirSync(join(root, "packages/client/src/features/chat-settings/sections"))
   .filter((file) => file.endsWith(".tsx"))
   .map((file) => `packages/client/src/features/chat-settings/sections/${file}`);
-for (const path of ["packages/client/src/components/chat/ChatSettingsDrawer.tsx"]) {
+for (const path of [
+  "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx",
+  // Imports ChatSettingsSection as Section, so the sections/ loop below would miss its icon.
+  "packages/client/src/features/chat-settings/sections/ConversationNotesSection.tsx",
+]) {
   collect(path, "Section");
   collect(path, "Drawer");
 }
@@ -88,7 +92,7 @@ for (const path of [
 }
 
 // Title-bar buttons: Chat Settings' own, the shared window controls, and a popped-out drawer's Put back.
-const settings = read("packages/client/src/components/chat/ChatSettingsDrawer.tsx");
+const settings = read("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
 const headerControls = settings.slice(
   settings.indexOf("const headerControls = ("),
   settings.indexOf("const moveTip ="),

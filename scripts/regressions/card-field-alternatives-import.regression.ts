@@ -77,7 +77,8 @@ try {
         `${kind}: the valid portable shape exports without changing content`,
       );
     }
-    const beforeCharacterCount = (await request("GET", "/api/characters")).length;
+    // #9114: the library answers one bounded page at a time, so a count drains the pages.
+    const beforeCharacterCount = (await request("GET", "/api/characters?limit=100")).items.length;
     const beforePersonaCount = (await request("GET", "/api/characters/personas/list")).length;
     for (const value of [
       [valid, { ...valid, field: "appearance" }],
@@ -99,7 +100,7 @@ try {
       }
       await assertSourcesUnchanged();
     }
-    assert.equal((await request("GET", "/api/characters")).length, beforeCharacterCount);
+    assert.equal((await request("GET", "/api/characters?limit=100")).items.length, beforeCharacterCount);
     assert.equal((await request("GET", "/api/characters/personas/list")).length, beforePersonaCount);
   }
   // Legacy profiles can contain unvalidated extension fields. Exports are reads:

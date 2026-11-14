@@ -29,7 +29,7 @@ for (const theme of ["dark", "light"] as const) {
     expect(icon.contained).toBe(true);
     if (info.project.name.includes("mobile")) await schedule.tap();
     else await schedule.click();
-    await expect(page.getByRole("dialog", { name: "Character Schedule Manager", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Character schedule manager", exact: true })).toBeVisible();
   });
 
   test(`Professor Mari copies only fenced code, with original whitespace (${theme})`, async ({ page }, info) => {

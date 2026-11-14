@@ -19,6 +19,8 @@ import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { openAddConnection } from "../../lib/add-connection";
+import type { JobKey } from "../../lib/connection-jobs";
+import { mediaRowFor, mediaSources, type MediaKind } from "../../lib/media-source";
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
 import { ProviderIcon } from "./ProviderIcon";
 
@@ -35,6 +37,7 @@ function ModelPickerSlot({
   onClose,
   title,
   jobName,
+  jobKey,
   kind,
   value,
   onChange,
@@ -54,6 +57,7 @@ function ModelPickerSlot({
   title: string;
   /** Names the job in the toast: "<job> now uses <model>". */
   jobName: string;
+  jobKey?: JobKey;
   kind: ConnectionPickerKind;
   /** A Model row id, `null` (follows the default) or one of `extraOptions`. */
   value: string | null;
@@ -213,6 +217,29 @@ function ModelPickerSlot({
     }
   };
 
+  const mediaKind = kind === "image" || kind === "video" || kind === "audio";
+  const applyMedia = async (choice: ChatModelChoice) => {
+    // A saved Model needs no new row: commit it, or the picker stays open on a row without an account.
+    if (!choice.model) return apply(choice);
+    const anchor = (rows as ConnectionModelRow[] | undefined)?.find(
+      (row) => row.id === choice.connectionId || row.accountId === choice.connectionId,
+    );
+    const account = accounts?.find((item) => item.id === anchor?.accountId);
+    const model = choice.model ?? anchor?.model;
+    if (!account || !model || !mediaSources(account.provider, kind as MediaKind).length) return false;
+    const id = await mediaRowFor(
+      kind as MediaKind,
+      account,
+      model,
+      choice.name,
+      (rows ?? []) as Parameters<typeof mediaRowFor>[4],
+      (data) => createRow.mutateAsync(data),
+    );
+    if (!id) throw new Error(t("connections.add.mediaCreateFailed"));
+    if (id === value) return keep(id);
+    commit(id, choice.name ?? model);
+  };
+
   // Embeddings: the row keeps the embedding model; a pick that cannot embed leaves the old value in place.
   const applyEmbedding = async (choice: ChatModelChoice) => {
     type EmbeddingRow = {
@@ -261,7 +288,7 @@ function ModelPickerSlot({
 
   const onAdd = () => {
     known.current = new Set((accounts ?? []).map((account) => account.id));
-    openAddConnection();
+    openAddConnection(jobKey ? { job: jobKey, assign: onChangeRef.current, previous: value } : undefined);
   };
 
   return (
@@ -281,11 +308,19 @@ function ModelPickerSlot({
         ownRole={jobName}
         kind={decision ? "chat" : kind}
         rowFilter={rowFilter}
-        catalogBrowse={decision || embedding || (kind === "chat" && !rowFilter)}
+        catalogBrowse
+        accountFilter={
+          mediaKind ? (account) => mediaSources(account.provider, kind as MediaKind).length > 0 : undefined
+        }
+        catalogAnchor={
+          mediaKind
+            ? (account, all) => all.find((row) => row.accountId === account.id && row.provider === account.provider)
+            : undefined
+        }
         current={
           !decision && value && !extraOptions.some((extra) => extra.value === value) ? { connectionId: value } : null
         }
-        onApply={decision ? applyDecision : embedding ? applyEmbedding : apply}
+        onApply={decision ? applyDecision : embedding ? applyEmbedding : mediaKind ? applyMedia : apply}
         onDone={onClose}
         confirmCurrent={confirmCurrent}
         showLocalModel={includeLocalSidecar}
@@ -334,6 +369,11 @@ function ModelPickerSlot({
           },
         }))}
         modelFilter={embedding ? isEmbeddingModel : undefined}
+        catalogFilter={
+          rowFilter
+            ? (_model, facts) => !facts?.inputModalities?.length || facts.inputModalities.includes("image")
+            : undefined
+        }
         onAdd={onAdd}
         firstAccountId={firstAccountId}
         autoFocusSearch={typeof window !== "undefined" && !!window.matchMedia?.("(pointer: fine)").matches}

@@ -70,7 +70,7 @@ When you pick source lorebooks for the router, a coverage badge appears next to 
 Knowledge Router can also find candidate entries by meaning, not only by keyword. This uses an embedder, a small model that turns text into numbers so Marinara can compare meaning. The router works without it.
 
 1. Open the lorebook editor and find **Semantic search (embeddings)**.
-2. Pick an account that has an embedding model. If you set an **Embeddings** default under **Connections → Defaults**, it is picked for you unless you chose another source earlier.
+2. Pick an account that has an embedding model. If you set an **Embeddings** job in the **Jobs** box in **Connections**, it is picked for you unless you chose another source earlier.
 3. Use the same embedding source as your chat account. Vectors of a different size are skipped.
 4. Click the vectorize button. It shows how many entries still need vectors. **Re-vectorize all** redoes every entry.
 

@@ -35,7 +35,7 @@ If you already run a local model, try it first, and test turns from your own cha
 
 Jev and Open-Jev are different models. Jev is TypeSafe's hosted model, available directly or through OpenRouter. [Open-Jev](https://huggingface.co/ZefanCai/Open-Jev-2B) is a separately published model built on Qwen, which Marinara can run locally. The Open-Jev tests do not measure hosted Jev.
 
-On Android (Termux), the **Built-in decision model** cannot run, and a small local model on a phone's processor can be too slow. A hosted account is the practical choice, for example Jev through OpenRouter. See [Set up a Decision connection](#set-up-a-decision-connection).
+On Android (Termux), the **Built-in decision model** cannot run, and a small local model on a phone's processor can be too slow. A hosted account is the practical choice, for example Jev through OpenRouter. See [Set up a Decision account](#set-up-a-decision-account).
 
 Write presets, cards, and agents for "a decision model", never "requires Jev". They use the same statement syntax with any model, but models can give different answers. When you import content that uses decisions, including custom agents and official agent installs, Marinara shows a notice that links here. Restoring a whole profile ZIP does not show it.
 
@@ -73,7 +73,7 @@ You can also create one yourself. Use a Decision account with the source **OpenA
 
 It is asked like the Built-in model: one yes-or-no word per statement. Statements go one at a time, because Marinara cannot know how many requests your server handles at once. **Thinking** is always **Auto** for an account. A server on another computer needs `PROVIDER_LOCAL_URLS_ENABLED`. See [Connecting a Local or Self-Hosted Model](local-self-hosted.md).
 
-## Set up a Decision connection
+## Set up a Decision account
 
 A hosted Decision account sends the selected recent messages and statements to the service and can cost money. Smart response order also sends a [character roster](#what-the-model-sees).
 
@@ -87,7 +87,7 @@ A passing **Test provider** shows the probability, how long the answer took, and
 
 If it did not work, see [Troubleshooting](#troubleshooting).
 
-The Decision editor (**Edit model** on a decision model) has these fields:
+A decision model has these fields. Click the model in the panel to open **Edit model**, or click the gear on the **Decision** row in the **Jobs** box to open **Decision settings** for the current decision model:
 
 | Field | What it does |
 | --- | --- |

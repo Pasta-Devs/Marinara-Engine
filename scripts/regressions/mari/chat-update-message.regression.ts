@@ -191,6 +191,49 @@ try {
     });
     assert.equal(rawInsert.ok, false, "a raw mari db insert to message_swipes must fail");
     assert.match(String(rawInsert.error), /chat\.updateMessage/);
+
+    // #9151: the reply nested in a "patch" or "data" carrier, the shape every other action takes, is
+    // read rather than coming through as blank and being refused.
+    for (const carrier of ["patch", "data"]) {
+      const carrierMessage = await chats.createMessage({
+        chatId: chat.id,
+        role: "assistant",
+        content: "He looked up and sa",
+      });
+      const carried = await mari.executeAction({
+        action: "chat.updateMessage",
+        [carrier]: {
+          chatId: chat.id,
+          messageId: carrierMessage!.id,
+          content: "He looked up and said nothing.",
+          reason: "Reply was cut off mid-sentence",
+        },
+        apply: true,
+      });
+      assert.equal(carried.ok, true, `chat.updateMessage reads a reply carried in "${carrier}"`);
+      const carriedBack = await chats.getMessage(carrierMessage!.id);
+      assert.equal(carriedBack?.content, "He looked up and said nothing.", `the "${carrier}" reply was applied`);
+    }
+    // A top-level field still wins over the carrier, so neither shape is guessed at.
+    const bothMessage = await chats.createMessage({ chatId: chat.id, role: "assistant", content: "cut off h" });
+    const both = await mari.executeAction({
+      action: "chat.updateMessage",
+      patch: { content: "from the carrier" },
+      chatId: chat.id,
+      messageId: bothMessage!.id,
+      content: "from the top level",
+      apply: true,
+    });
+    assert.equal(both.ok, true);
+    assert.equal((await chats.getMessage(bothMessage!.id))?.content, "from the top level", "top level wins");
+    // A carrier with no content still refuses, rather than writing a blank reply.
+    const emptyCarrier = await mari.executeAction({
+      action: "chat.updateMessage",
+      patch: { chatId: chat.id, messageId: bothMessage!.id },
+      apply: true,
+    });
+    assert.equal(emptyCarrier.ok, false);
+    assert.match(String(emptyCarrier.error), /needs non-empty content/);
   } finally {
     await db._fileStore.close();
   }

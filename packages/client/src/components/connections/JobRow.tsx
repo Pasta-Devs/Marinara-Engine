@@ -14,6 +14,10 @@ import type { ConnectionRowData } from "./ConnectionRow";
 import { viaName } from "../../lib/connection-groups";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { JOB_HINT_INSET } from "./connection-row-layout";
+import { JOB, type JobKey } from "../../lib/connection-jobs";
+
+/** Jobs whose found line names what the models do, not their kind. */
+const FOUND_KEY: Partial<Record<JobKey, string>> = { decision: "decision", embeddings: "embeddings" };
 
 /** The amber warning chip. NeedsModelChip draws it too. */
 export function WarningChip({ children, className }: { children: ReactNode; className?: string }) {
@@ -135,7 +139,14 @@ export function JobRow({
             {/* The settings and the chevron sit on the name's line, out of the flow, with the badges under them:
                 they take no width from the badges' line, so every row's badges end at the row's end. */}
             {end && (
-              <span className={cn("absolute right-7 flex [[dir=rtl]_&]:left-7 [[dir=rtl]_&]:right-auto", RAISED)}>
+              <span
+                className={
+                  // Without a Model the buttons stay in the flow, so a long note stops before them.
+                  chosen
+                    ? cn("absolute right-7 flex [[dir=rtl]_&]:left-7 [[dir=rtl]_&]:right-auto", RAISED)
+                    : cn("flex shrink-0", trailing && !tile.warning && "me-7")
+                }
+              >
                 {end}
               </span>
             )}
@@ -163,14 +174,14 @@ export function JobRow({
         rowProps={{
           className: cn(
             "mari-connection-defaults-job pe-0",
-            tile.warning && trailing && (end ? "pe-14 max-md:pe-[4.5rem]" : "pe-7"),
+            tile.warning && trailing && (end && chosen ? "pe-14 max-md:pe-[4.5rem]" : "pe-7"),
             className,
           ),
         }}
         className={cn(
           "min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1",
           // The name keeps clear of the chevron and the settings beside it.
-          end
+          end && chosen
             ? "[&_[data-model-title]]:pe-12 max-md:[&_[data-model-title]]:pe-[4.25rem]"
             : trailing && "[&_[data-model-title]]:pe-5 max-md:[&_[data-model-title]]:pe-6",
         )}
@@ -209,8 +220,17 @@ export function JobRow({
             </span>
           ) : (
             // The state line stays grey; only a warning chip at the row end is amber.
-            <span className="min-w-0 truncate text-xs text-[var(--muted-foreground)]">
+            <span className="min-w-0 line-clamp-2 text-xs text-[var(--muted-foreground)]">
               {tile.setup?.text ??
+                (tile.find &&
+                  (tile.find.count
+                    ? [
+                        t(`connections.defaults.found.${FOUND_KEY[tile.key] ?? JOB[tile.key].kind}`, {
+                          count: tile.find.count,
+                        }),
+                        t("connections.defaults.foundIn", { accounts: tile.find.accounts.join(", ") }),
+                      ].join(" · ")
+                    : t(tile.find.unknown ? "connections.defaults.chooseModel" : "connections.defaults.noneFound"))) ??
                 (unset
                   ? t(tile.warning ? "connections.defaults.chooseModel" : "connections.defaults.notSetUp")
                   : [tile.value, tile.hint].filter(Boolean).join(" · "))}

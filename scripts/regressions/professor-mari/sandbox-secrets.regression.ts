@@ -178,9 +178,11 @@ try {
   const appDataRule = profile.slice(appDataStart, profile.indexOf("\n(", appDataStart));
   for (const holder of holders) assert.ok(appDataRule.includes(`(literal ${JSON.stringify(holder)})`), holder);
   const anyCase = (name: string) => name.replace(/[a-z]/gu, (c) => `[${c}${c.toUpperCase()}]`);
-  const mediaPattern = `^${dataDir}/(${MEDIA.map(anyCase).join("|")})(/|$)`;
+  // The data dir is matched literally, so characters such as `.` or Windows' `\` in its path are escaped.
+  const dataPrefix = `^${dataDir.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}/`;
+  const mediaPattern = `${dataPrefix}(${MEDIA.map(anyCase).join("|")})(/|$)`;
   assert.ok(appDataRule.includes(`(regex ${JSON.stringify(mediaPattern)})`), "media folders are matched by name");
-  assert.ok(appDataRule.includes(`(regex ${JSON.stringify(`^${dataDir}/(${anyCase("lorebooks")})$`)})`));
+  assert.ok(appDataRule.includes(`(regex ${JSON.stringify(`${dataPrefix}(${anyCase("lorebooks")})$`)})`));
   const cacheAllow = profile.indexOf(`(subpath ${JSON.stringify(join(mediaStore, ".cache"))})`);
   assert.ok(
     cacheAllow >= 0 && cacheAllow < appDataStart,

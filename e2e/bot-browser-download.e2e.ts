@@ -334,7 +334,7 @@ test("CharacterTavern explains it is unavailable without contacting the site", a
   await testInfo.attach("chartavern-unavailable", { path: screenshot, contentType: "image/png" });
 
   await notice.getByRole("button", { name: "Import Character" }).click();
-  const importDialog = page.getByRole("dialog", { name: "Import Character", exact: true });
+  const importDialog = page.getByRole("dialog", { name: "Import character", exact: true });
   await expect(importDialog).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(importDialog).toBeHidden();

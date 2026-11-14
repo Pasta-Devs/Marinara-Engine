@@ -1257,6 +1257,17 @@ function renderRulesetKindCheckLine(
         : []),
       ...faceClause("explode", explode, "roll one more die"),
       ...faceClause("double", double, "count twice"),
+      // Paired faces and special dice (1.824), each where declared.
+      ...(resolution.pairs
+        ? [
+            `Each pair of dice showing ${resolution.pairs.from} or more counts ${resolution.pairs.successes} successes, and a check that succeeds with a pair is a critical success.`,
+          ]
+        : []),
+      ...(resolution.hunger
+        ? [
+            `Add hunger="N" to make N of the pool's dice ${resolution.hunger.label} dice, up to ${resolution.hunger.max}; they are never thrown again. The engine marks messy="true" on a critical with a ${resolution.hunger.label} die on the critical face, and bestial="true" on a failure with a ${resolution.hunger.label} die showing 1${resolution.hunger.text ? `: ${resolution.hunger.text}` : "."}`,
+          ]
+        : []),
       ...withClause,
       ...untrainedClause,
       ...effectsClause,
@@ -1474,6 +1485,40 @@ function renderRulesetKindCheckLine(
     ...untrainedClause,
     ...effectsClause,
     ...outcomesClause("points"),
+    // Two named dice (1.821).
+    ...(resolution.duality
+      ? [
+          `The two dice are ${resolution.duality.dice[0].label} and ${resolution.duality.dice[1].label}; the engine marks duality="..." with the one that showed more${
+            resolution.duality.tieIsCritical ? `, or duality="tie", which is a critical success` : `, or duality="tie"`
+          }. Narrate the check as with that die${resolution.duality.text ? `: ${resolution.duality.text}` : "."}`,
+        ]
+      : []),
+    // The plot die (1.822).
+    ...(resolution.plotDie
+      ? [
+          `Add plot="true" to throw the ${resolution.plotDie.label} with the check; the engine marks plotFace, plotSymbol (complication or opportunity) and any plotBonus it added${resolution.plotDie.text ? `: ${resolution.plotDie.text}` : "."}`,
+        ]
+      : []),
+    // A natural total and a moved band (1.823).
+    ...(resolution.naturalTotal
+      ? [
+          [
+            resolution.naturalTotal.atLeast !== undefined
+              ? `The dice showing ${resolution.naturalTotal.atLeast} or more before anything is added is a critical success.`
+              : "",
+            resolution.naturalTotal.atMost !== undefined
+              ? `The dice showing ${resolution.naturalTotal.atMost} or less before anything is added is a critical failure.`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
+        ]
+      : []),
+    ...(resolution.tierShift
+      ? [
+          `Add shift="+1" or shift="-1" to move the outcome that many bands better or worse, up to ${resolution.tierShift.max}${resolution.tierShift.text ? `: ${resolution.tierShift.text}` : "."}`,
+        ]
+      : []),
     ...(resolution.unmodified
       ? [
           `A check the engine marks unmodified="N" rolled that face before anything was added or rolled again (${resolution.unmodified.join(", ")}): apply what the rules say about it.`,
@@ -1481,7 +1526,10 @@ function renderRulesetKindCheckLine(
       : []),
     playerDie
       ? `Use the player's exact die. Do NOT write modifier, total or result: the engine applies the character sheet.`
-      : `Do NOT write rolls, modifier, total or result: the engine rolls ${rolledWords} and applies the character sheet.`,
+      : dice.count === 0
+        ? // A check with no dice (1.825) is compared, not thrown, so nothing about dice is said.
+          `Do NOT write rolls, modifier, total or result: the engine compares the character sheet's own number with the difficulty.`
+        : `Do NOT write rolls, modifier, total or result: the engine rolls ${rolledWords} and applies the character sheet.`,
     ...branchClause,
   ].join(" ");
 }

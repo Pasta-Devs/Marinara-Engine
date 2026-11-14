@@ -3,7 +3,7 @@
 // headers, "Add all" and the keyboard. CharacterPickerList (personas, characters) and
 // PickerFolderList (presets, lorebooks) only bring their data; a change here reaches all of them.
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { Check, ChevronDown, ChevronRight, Folder, FolderOpen, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
@@ -69,14 +69,32 @@ export function usePickerKeyboard({
   query: string;
 }) {
   const [active, setActive] = useState(0);
+  // The ring follows an element, not a number: virtual lists mount only the rows in view, so the
+  // index of a row shifts while the list scrolls.
+  const activeEl = useRef<HTMLButtonElement | null>(null);
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
   // A ring moved by the mouse never scrolls the list; only the arrow keys do.
   const fromPointer = useRef(false);
+  // After a new search the ring returns to the first row, once the list has scrolled back to it.
+  const ringFirst = useRef(true);
+  const lastQuery = useRef(query);
   useEffect(() => {
     fromPointer.current = false;
+    activeEl.current = null;
+    ringFirst.current = true;
+    listRef.current?.scrollTo?.({ top: 0 });
     setActive(0);
   }, [query]);
   const rows = () =>
     Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-pick-row]:not(:disabled)") ?? []);
+  const activeIndex = (list: HTMLButtonElement[]) => {
+    const at = activeEl.current ? list.indexOf(activeEl.current) : -1;
+    if (at >= 0) return at;
+    // The ringed row scrolled out of the mounted window: continue from the first row in view.
+    const top = listRef.current?.getBoundingClientRect().top ?? 0;
+    const inView = list.findIndex((row) => row.getBoundingClientRect().top >= top);
+    return inView >= 0 ? inView : Math.min(active, list.length - 1);
+  };
   // The ring follows the mouse, so arrows continue from the row under it. Touch is left out:
   // a scrolling finger would drag the ring along.
   useEffect(() => {
@@ -85,46 +103,128 @@ export function usePickerKeyboard({
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerType === "touch") return;
       const row = (event.target as Element | null)?.closest?.("[data-pick-row]");
-      const index = row ? rows().indexOf(row as HTMLButtonElement) : -1;
+      const all = rows();
+      const index = row ? all.indexOf(row as HTMLButtonElement) : -1;
       if (index < 0) return;
       fromPointer.current = true;
+      activeEl.current = all[index]!;
       setActive(index);
     };
     list.addEventListener("pointermove", onPointerMove);
     return () => list.removeEventListener("pointermove", onPointerMove);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listRef]);
-  // After every render, since rows come and go as folders open and searches change.
-  useEffect(() => {
-    rows().forEach((row, index) => {
-      row.id = `${listId}-row-${index}`;
-      if (index === active) row.dataset.active = "true";
+  // After every render, and whenever a virtual list mounts other rows: rows come and go as
+  // folders open, searches change and the list scrolls.
+  const mark = () => {
+    const all = rows();
+    if (!(activeEl.current && all.includes(activeEl.current)) && all.length && (listRef.current?.scrollTop ?? 0) <= 2) {
+      activeEl.current = all[ringFirst.current ? 0 : Math.min(active, all.length - 1)]!;
+      ringFirst.current = false;
+    }
+    all.forEach((row, i) => {
+      row.id = `${listId}-row-${i}`;
+      if (row === activeEl.current) row.dataset.active = "true";
       else delete row.dataset.active;
     });
-    const activeRow = rows()[active];
+    const activeRow = activeEl.current && all.includes(activeEl.current) ? activeEl.current : null;
     if (activeRow) searchRef.current?.setAttribute("aria-activedescendant", activeRow.id);
     else searchRef.current?.removeAttribute("aria-activedescendant");
-  });
+  };
+  const markRef = useRef(mark);
+  markRef.current = mark;
+  useEffect(mark);
   useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    let frame = 0;
+    const observer = new MutationObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => markRef.current());
+    });
+    observer.observe(list, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [listRef]);
+  useEffect(() => {
+    const searched = lastQuery.current !== query;
+    lastQuery.current = query;
     if (fromPointer.current) {
       fromPointer.current = false;
       return;
     }
-    rows()[active]?.scrollIntoView?.({ block: "nearest" });
+    if (!searched) activeEl.current?.scrollIntoView?.({ block: "nearest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, query]);
-
+  // A virtual list mounts the far end only after it scrolls there, so a wrap waits for it.
+  const wrapping = useRef(false);
+  const wrapFrame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(wrapFrame.current), []);
+  const ringRow = (end: "first" | "last") => {
+    const all = rows();
+    const row = end === "first" ? all[0] : all[all.length - 1];
+    if (!row) return;
+    activeEl.current = row;
+    setActive(end === "first" ? 0 : all.length - 1);
+    redraw();
+    row.scrollIntoView?.({ block: "nearest" });
+  };
+  const wrapTo = (end: "first" | "last") => {
+    const list = listRef.current;
+    if (!list?.querySelector("[data-virtual-list]")) return ringRow(end);
+    wrapping.current = true;
+    let previous: Element | undefined;
+    let frames = 0;
+    const step = () => {
+      list.scrollTop = end === "first" ? 0 : list.scrollHeight;
+      const all = rows();
+      const row = end === "first" ? all[0] : all[all.length - 1];
+      const atEnd = end === "first" ? list.scrollTop <= 2 : list.scrollTop + list.clientHeight >= list.scrollHeight - 2;
+      if ((row && row === previous && atEnd) || ++frames > 30) {
+        wrapping.current = false;
+        ringRow(end);
+        return;
+      }
+      previous = row;
+      wrapFrame.current = requestAnimationFrame(step);
+    };
+    wrapFrame.current = requestAnimationFrame(step);
+  };
+  // True when the virtual list holding this row has more rows past it that are not mounted.
+  const moreBeyond = (row: HTMLElement, down: boolean) => {
+    const box = row.closest("[data-virtual-list]")?.getBoundingClientRect();
+    const wrapper = row.closest("[data-index]")?.getBoundingClientRect();
+    if (!box || !wrapper) return false;
+    return down ? box.bottom - wrapper.bottom > 2 : wrapper.top - box.top > 2;
+  };
   return (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-    const count = rows().length;
+    const all = rows();
+    const count = all.length;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       // A hover over the already-ringed row leaves the flag set; the keys always scroll.
       fromPointer.current = false;
-      if (count) setActive((i) => (i + (event.key === "ArrowDown" ? 1 : count - 1)) % count);
+      if (!count || wrapping.current) return;
+      const down = event.key === "ArrowDown";
+      const next = activeIndex(all) + (down ? 1 : -1);
+      if (next < 0 || next >= count) {
+        const list = listRef.current;
+        if (list && moreBeyond(all[down ? count - 1 : 0]!, down)) {
+          list.scrollBy({ top: (down ? 1 : -1) * list.clientHeight * 0.5 });
+        } else wrapTo(down ? "first" : "last");
+        return;
+      }
+      activeEl.current = all[next]!;
+      setActive(next);
+      redraw();
+      // Not left to the effect: a recycled virtual row keeps its index, so `active` may not change.
+      all[next]!.scrollIntoView?.({ block: "nearest" });
     } else if (event.key === "Enter") {
       event.preventDefault();
-      rows()[active]?.click();
+      all[activeIndex(all)]?.click();
     }
   };
 }

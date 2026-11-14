@@ -191,7 +191,8 @@ try {
   ]);
   for (const response of [statusRead, presetEdit, characterList]) assert.equal(response.statusCode, 200, response.body);
   assert.equal(presetEdit.json().groupId, group.id);
-  assert(characterList.json().some((item: { id: string }) => item.id === character.id));
+  // #9114: the library answers one bounded page at a time.
+  assert(characterList.json().items.some((item: { id: string }) => item.id === character.id));
   assert.equal(statusRead.json().job.status, "ready");
   assert(performance.now() - idleStarted < 2000, "reading memory status must not stall unrelated app requests");
   console.info(

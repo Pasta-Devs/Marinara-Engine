@@ -34,7 +34,6 @@ import { cleanTrackerCardColorConfig } from "../lib/tracker-card-colors";
 import { personaCacheKeys, syncCachedPersona } from "../lib/persona-cache";
 import {
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
-  PROFESSOR_MARI_ID,
   type CharacterData,
   type CharacterCatalogPage,
   type CharacterCatalogSummaryPage,
@@ -108,13 +107,9 @@ type UseCharactersOptions =
 function characterListQuery(includeBuiltIn: boolean) {
   return {
     queryKey: includeBuiltIn ? characterKeys.listWithBuiltIns() : characterKeys.list(),
-    queryFn: async () => {
-      const characters = await api.get<Array<{ id?: unknown }>>(
-        includeBuiltIn ? "/characters?includeBuiltIn=true" : "/characters",
-      );
-      if (includeBuiltIn) return characters;
-      return characters.filter((character) => character.id !== PROFESSOR_MARI_ID);
-    },
+    // #9114: the route answers one page at a time (a single response of the whole library passed V8's string
+    // ceiling on a large library), so the list is drained page by page. The callers see the same full array.
+    queryFn: () => fetchAllCharacterPages({ includeBuiltIn }),
     staleTime: 5 * 60_000,
   };
 }
@@ -224,7 +219,8 @@ export function flattenCharacterPages(data: { pages?: Array<PaginatedList<Record
   return flattenPaginatedItems(data?.pages);
 }
 
-export function fetchAllCharacterPages(
+/** Every character, page by page (#9114: the route answers one page at a time). */
+export function fetchAllCharacterPages<T = Record<string, unknown>>(
   options: {
     includeBuiltIn?: boolean;
     search?: string;
@@ -235,7 +231,10 @@ export function fetchAllCharacterPages(
   const search = (options.search ?? "").trim();
   const sort = options.sort ?? "";
 
-  return collectAllPaginatedItems<Record<string, unknown>>((offset) => {
+  // ponytail: the drain walks by offset, so a card deleted or restamped while it runs can shift the pages under it.
+  // A repeat cannot happen (the ids are deduplicated below); a card skipped by a shift is picked up by the next
+  // refetch. The ceiling is that one mid-load write, and the upgrade path is a keyset cursor on updatedAt + id.
+  return collectAllPaginatedItems<T>((offset) => {
     const params = new URLSearchParams({
       limit: String(LIBRARY_PAGE_SIZE),
       offset: String(offset),
@@ -243,7 +242,13 @@ export function fetchAllCharacterPages(
     if (includeBuiltIn) params.set("includeBuiltIn", "true");
     if (search) params.set("search", search);
     if (sort) params.set("sort", sort);
-    return api.get<PaginatedList<Record<string, unknown>>>(`/characters?${params.toString()}`);
+    return api.get<PaginatedList<T>>(`/characters?${params.toString()}`);
+  }).then((rows) => {
+    const seen = new Set<unknown>();
+    return rows.filter((row) => {
+      const id = (row as { id?: unknown }).id;
+      return seen.has(id) ? false : (seen.add(id), true);
+    });
   });
 }
 

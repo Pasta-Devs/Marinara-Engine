@@ -115,7 +115,7 @@ for (const theme of ["dark", "light"] as const) {
     try {
       await page.goto("/");
       await page.getByRole("button", { name: "Character Schedule Manager", exact: true }).click();
-      const manager = page.getByRole("dialog", { name: "Character Schedule Manager", exact: true });
+      const manager = page.getByRole("dialog", { name: "Character schedule manager", exact: true });
       await manager.getByRole("button", { name: `Edit ${name} schedule`, exact: true }).click();
       const dialog = page.getByRole("dialog", { name: `Edit ${name} Schedule`, exact: true });
       await dialog.getByText("Schedule AI", { exact: true }).click();
