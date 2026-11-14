@@ -2078,7 +2078,8 @@ export function pickPersistedUIState(state: UIState) {
     characterDetailId: state.characterDetailId,
     lorebookDetailId: state.lorebookDetailId,
     presetDetailId: state.presetDetailId,
-    profileDetailId: state.profileDetailId,
+    // An unsaved `new:<mode>` profile has no draft behind it after a reload; only saved ids restore.
+    profileDetailId: state.profileDetailId?.startsWith("new:") ? null : state.profileDetailId,
     connectionDetailId: state.connectionDetailId,
     agentDetailId: state.agentDetailId,
     toolDetailId: state.toolDetailId,

@@ -4,24 +4,11 @@
 // keeps the builder as a dialog so editing there doesn't leave the chat.
 // ──────────────────────────────────────────────
 import { useEffect } from "react";
-import type { ChatMode } from "@marinara-engine/shared";
 import { ChatProfileBuilder } from "../chat/ChatProfileBuilder";
 import { useChatPresets } from "../../hooks/use-chat-presets";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
-
-const NEW_PREFIX = "new:";
-
-/** The store value for a profile that isn't saved yet. */
-export function newProfileDetailId(mode: ChatMode) {
-  return `${NEW_PREFIX}${mode}`;
-}
-
-function readNewMode(id: string): ChatMode | null {
-  if (!id.startsWith(NEW_PREFIX)) return null;
-  const mode = id.slice(NEW_PREFIX.length);
-  return mode === "conversation" || mode === "roleplay" ? mode : null;
-}
+import { NEW_PROFILE_PREFIX, readNewProfileMode } from "./profile-detail-id";
 
 export function ProfileEditor() {
   const profileDetailId = useUIStore((s) => s.profileDetailId);
@@ -29,13 +16,13 @@ export function ProfileEditor() {
   const activeChatId = useChatStore((s) => s.activeChat?.id);
   const { data: profiles, isFetched } = useChatPresets();
 
-  const newMode = profileDetailId ? readNewMode(profileDetailId) : null;
+  const newMode = profileDetailId ? readNewProfileMode(profileDetailId) : null;
   const profile =
     profileDetailId && !newMode ? (profiles ?? []).find((candidate) => candidate.id === profileDetailId) : undefined;
   // A deleted profile, a built-in Default (not editable) or a bad `new:` value closes the surface.
   const unavailable =
     !!profileDetailId &&
-    (profileDetailId.startsWith(NEW_PREFIX) ? !newMode : isFetched && (!profile || profile.isDefault));
+    (profileDetailId.startsWith(NEW_PROFILE_PREFIX) ? !newMode : isFetched && (!profile || profile.isDefault));
 
   useEffect(() => {
     if (unavailable) closeProfileDetail();

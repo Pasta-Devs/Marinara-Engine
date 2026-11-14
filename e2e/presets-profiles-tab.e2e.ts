@@ -63,8 +63,14 @@ test("the Profiles tab edits and creates settings profiles in the center editor"
       .click({ position: { x: 24, y: 24 } });
     const title = page.locator(".mari-editor-title-input");
     await expect(title).toHaveValue(original);
+    const back = page.locator('.mari-editor-header button[aria-label^="Back to"]');
+    // An empty name refuses the leave and says why, keeping the draft open.
+    await title.fill("");
+    await back.click();
+    await expect(page.getByText("Give the profile a name before leaving.")).toBeVisible();
+    await expect(title).toBeVisible();
     await title.fill(renamed);
-    await page.locator('.mari-editor-header button[aria-label^="Back to"]').click();
+    await back.click();
     await expect(title).toBeHidden();
     await expect.poll(async () => (await listProfiles(request)).find((p) => p.id === profile.id)?.name).toBe(renamed);
 

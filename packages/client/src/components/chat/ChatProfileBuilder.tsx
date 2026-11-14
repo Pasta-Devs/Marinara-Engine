@@ -388,7 +388,11 @@ function ChatProfileBuilderBody({
     return result;
   };
   const saveOnLeave = async () => {
-    if (!trimmedName) return false;
+    if (!trimmedName) {
+      // Stay on the page, but say why: a silent refusal looks like a dead Back button.
+      toast.error(t("chat.settingsProfile.builder.nameRequired"));
+      return false;
+    }
     try {
       // Not `onSaved?.(await persist())`: an absent onSaved would skip the save itself.
       const result = await persist();

@@ -16,7 +16,7 @@ import { api } from "../../lib/api-client";
 import { showAlertDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
-import { newProfileDetailId } from "../presets/ProfileEditor";
+import { newProfileDetailId } from "../presets/profile-detail-id";
 import {
   useChatPresets,
   useDeleteChatPreset,
@@ -92,9 +92,16 @@ export function ProfilesSection({ selectionMode, setSelectionMode, activeChatMod
 
   const exportProfiles = async (rows: ChatPreset[]) => {
     // One file per profile: the server's export strips this install's local destinations.
+    // A failed one doesn't stop the rest; a cancelled save-as returns a status and isn't counted.
+    let failed = 0;
     for (const profile of rows) {
-      await api.download(`/chat-presets/${profile.id}/export`, `${profile.name}.marinara-settings-profile.json`);
+      try {
+        await api.download(`/chat-presets/${profile.id}/export`, `${profile.name}.marinara-settings-profile.json`);
+      } catch {
+        failed += 1;
+      }
     }
+    if (failed > 0) toast.error(localizeUi("ui.panels.profilessection.exportFailed", { count: failed }));
   };
 
   const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
