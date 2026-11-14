@@ -16389,6 +16389,7 @@
   "ui.panels.presetspanel.promptPresetsAreNotAvailableInConversationMode": "Prompt presets are not available in conversation mode.",
   "ui.panels.presetspanel.prompts": "Prompts",
   "ui.panels.presetspanel.replacePresetPicture": "Replace preset picture",
+  "ui.panels.presetspanel.selectAllPresets": "Select all presets",
   "ui.panels.presetspanel.selectPresets": "Select presets",
   "ui.panels.presetspanel.setAsDefault": "Set as default",
   "ui.panels.presetspanel.setAsDefaultPreset": "Set as default preset",

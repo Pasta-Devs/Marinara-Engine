@@ -1241,6 +1241,20 @@ export function PresetsPanel() {
       />
 
       <div className="flex flex-col gap-1">
+        {selectionMode && (
+          <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
+            <input
+              type="checkbox"
+              checked={sortedPresets.length > 0 && sortedPresets.every((preset) => selectedPresetIds.has(preset.id))}
+              disabled={exportingSelected || sortedPresets.length === 0}
+              onChange={(event) =>
+                setSelectedPresetIds(new Set(event.target.checked ? sortedPresets.map((preset) => preset.id) : []))
+              }
+              className="h-4 w-4 accent-[var(--primary)]"
+            />
+            {localizeUi("ui.panels.presetspanel.selectAllPresets")}
+          </label>
+        )}
         <div className="flex flex-col gap-0.5">
           {folderDrag.orderItems(sortPanelFolders(presetFolders, sort)).map((folder) => {
             const isEditing = editingFolderId === folder.id;
