@@ -1,4 +1,5 @@
-import { Suspense, lazy, useEffect, type ComponentProps } from "react";
+import { Suspense, lazy, useEffect, useLayoutEffect, type ComponentProps } from "react";
+import { preloadedLazy } from "../../lib/preloaded-lazy";
 import type { SpriteSide } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { ChevronUp, ChevronDown, Download, Layers, ListChecks, Loader2, Trash2, X } from "lucide-react";
@@ -23,19 +24,51 @@ import { parseChatMetadata } from "../../lib/chat-display";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
 
-const loadChatSettingsDrawer = async () => {
-  const module = await import("../../features/chat-settings/ChatSettingsDrawer");
-  return { default: module.ChatSettingsDrawer };
-};
-
-let chatSettingsDrawerLoadPromise: ReturnType<typeof loadChatSettingsDrawer> | null = null;
+// Renders straight away once its code is in. A plain lazy component suspends on its first render even
+// when its code already loaded, so the loading pane showed for a moment on every first open.
+const ChatSettingsDrawer = preloadedLazy(() =>
+  import("../../features/chat-settings/ChatSettingsDrawer").then((module) => module.ChatSettingsDrawer),
+);
+let chatSettingsDrawerLoaded = false;
 
 export function preloadChatSettingsDrawer() {
-  chatSettingsDrawerLoadPromise ??= loadChatSettingsDrawer();
-  return chatSettingsDrawerLoadPromise;
+  return ChatSettingsDrawer.preload().then((component) => {
+    chatSettingsDrawerLoaded = true;
+    return component;
+  });
 }
 
-const ChatSettingsDrawer = lazy(preloadChatSettingsDrawer);
+/** Fetches Chat settings' code in the background once a chat opens, so opening it never waits on it. */
+function preloadChatSettingsDrawerWhenIdle() {
+  if (chatSettingsDrawerLoaded) return () => undefined;
+  const run = () => void preloadChatSettingsDrawer().catch(() => undefined);
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(run, { timeout: 2_500 });
+    return () => window.cancelIdleCallback(id);
+  }
+  const timer = window.setTimeout(run, 600);
+  return () => window.clearTimeout(timer);
+}
+
+// The loading pane and the drawer that replaces it share one entrance: the drawer picks the entrance up
+// where the loading pane left it instead of fading in again from nothing.
+let chatSettingsEnterStartedAt = 0;
+function markChatSettingsEnterStart() {
+  chatSettingsEnterStartedAt = performance.now();
+}
+/** Rendered beside the drawer: when it replaces the loading pane, its window carries the entrance on. */
+function ContinueChatSettingsEnter() {
+  useLayoutEffect(() => {
+    if (!chatSettingsEnterStartedAt) return;
+    const elapsed = Math.max(0, Math.round(performance.now() - chatSettingsEnterStartedAt));
+    chatSettingsEnterStartedAt = 0;
+    // Set on the drawer's own window, not as a variable on <html>, which would restyle the whole page.
+    for (const element of document.querySelectorAll<HTMLElement>(".mari-cs-enter.animate-message-in")) {
+      if (!element.style.animationDelay) element.style.animationDelay = `-${elapsed}ms`;
+    }
+  }, []);
+  return null;
+}
 
 const ChatSetupWizard = lazy(async () => {
   const module = await import("./ChatSetupWizard");
@@ -275,6 +308,7 @@ function ChatSettingsLoadingFallback({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const phoneLayout = useMatchMedia("(max-width: 767px)");
+  useLayoutEffect(markChatSettingsEnterStart, []);
 
   return (
     <FloatingWindow
@@ -365,6 +399,8 @@ export function ChatCommonOverlays({
   // The setup wizard sits below floating windows, so they wait until it closes; their layout is kept.
   const settingsSectionsPoppedOut = useHostHasDetachedDrawers(CHAT_SETTINGS_WINDOW_ID) && !wizardOpen;
   const roleplaySheetChatId = useRoleplaySheetStore((state) => state.open?.chatId);
+  const chatOpen = !!chat;
+  useEffect(() => (chatOpen ? preloadChatSettingsDrawerWhenIdle() : undefined), [chatOpen]);
   return (
     <>
       {chat && (settingsOpen || settingsSectionsPoppedOut) && (
@@ -391,6 +427,7 @@ export function ChatCommonOverlays({
             avatarLayout={sceneSettings.avatarLayout}
             onOpenScheduleEditor={onOpenScheduleEditor}
           />
+          <ContinueChatSettingsEnter />
         </Suspense>
       )}
       {chat && <ChatBranchGraphWindow chatId={chat.id} groupId={chat.groupId ?? null} />}

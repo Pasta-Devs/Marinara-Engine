@@ -8,7 +8,16 @@ import { lazy, useState, type ComponentType } from "react";
  */
 export function preloadedLazy<P extends object>(load: () => Promise<ComponentType<P>>) {
   let loaded: ComponentType<P> | null = null;
-  const preload = () => load().then((component) => (loaded = component));
+  let loading: Promise<ComponentType<P>> | null = null;
+  // One load per component, so every mount (and every preload) gets the same component back.
+  const preload = () =>
+    (loading ??= load().then(
+      (component) => (loaded = component),
+      (error: unknown) => {
+        loading = null;
+        throw error;
+      },
+    ));
   const Lazy = lazy(() => preload().then((component) => ({ default: component })));
   function PreloadedLazy(props: P) {
     const [Component] = useState<ComponentType<P>>(() => loaded ?? Lazy);

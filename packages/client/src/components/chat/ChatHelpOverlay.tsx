@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { createPortal } from "react-dom";
 import type { ChatMode } from "@marinara-engine/shared";
 import {
@@ -652,7 +662,7 @@ function measurementsSignature(rootRect: Rect | null, surfaces: Rect[], targets:
   ]);
 }
 
-export function ChatHelpOverlay({
+function ChatHelpOverlayInner({
   mode,
   activeChatId,
   isFirstChat,
@@ -1085,3 +1095,6 @@ export function ChatHelpOverlay({
     document.body,
   );
 }
+
+// Its props are plain values, so a chat redraw (typing, streaming, opening Chat settings) skips it.
+export const ChatHelpOverlay = memo(ChatHelpOverlayInner);
