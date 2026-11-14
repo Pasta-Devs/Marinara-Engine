@@ -14,6 +14,8 @@
 
 **Extract Colors from Avatar**(アバターから色を抽出)は、3つの色をすべてアバター画像から選びます。アバターがまだないときはボタンがオフで、表示は**Upload an avatar first**です。抽出したあとでも、どの色も手動で変更できます。
 
+<a id="the-three-colors"></a>
+
 ### 3つの色
 
 それぞれ、色の欄で選ぶか、値を入力して設定します。
@@ -30,7 +32,7 @@
 linear-gradient(90deg, #f59e0b, #ef4444)
 ```
 
-キャラクターの**Colors**タブには**Name Aliases**(別名)もあります。`Kate, Kitty, Katherine`のように、ほかの名前や愛称をカンマで区切って入力します。チャットのメッセージにこれらが出てくると、キャラクターの名前の色が付きます。メインの名前は常に含まれます。この機能は、チャットごとに**Chat Settings → Characters**(チャット設定 → キャラクター)でオンにします。
+**Other names**(別名)は、**Metadata**(メタデータ)タブの**Name**(名前)の下にあります。`Clark Kent, Kal-El, Mr. Kent`のように、愛称、フルネーム、敬称などを設定できます。Roleplayチャットのメッセージでは、メインの名前と同じ色が付きます。チャットごとに、**Chat Settings → Characters**(チャット設定 → キャラクター)の**Color Character Names in Text**(本文中のキャラクター名に色を付ける)と、**Chat Settings → Persona**(チャット設定 → ペルソナ)の**Color Persona Name in Text**(本文中のペルソナ名に色を付ける)でオンにします。
 
 透明度を変えるには、**Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity**(設定 → 外観 → Roleplayの表示 → Roleplayのメッセージの背景の不透明度)を使います。
 

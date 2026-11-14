@@ -38,7 +38,7 @@
 
 ## Presetsパネル
 
-プリセットが置かれているのは**Prompts**セクションです。ほかのセクションは**Regexes**と**Functions**です。上部のボタンは**New**、**Import**(`.json`ファイルを読み込みます)、**Select**(複数をまとめてエクスポートまたは削除します)です。
+パネルには**Presets**(プリセット)、**Regexes**(正規表現)、**Functions**(関数)の3つのタブがあります。どのタブにも同じボタンの列、検索欄、**New Folder**(新規フォルダー)があります。**Presets**では**Create preset**で作成、**Import preset**で`.json`ファイルを読み込み、**Select presets**で複数をまとめてエクスポートまたは削除できます。**Regexes**には[正規表現スクリプト](../extending/regex-scripts.md#manage-your-scripts)、**Functions**には[カスタムツール](../extending/custom-tools.md)があります。
 
 - **Search presets**(プリセットを検索)は一覧を絞り込みます。
 - 並べ替えメニューには、**Manual order**(手動の順番)、**A-Z**、**Z-A**、**Newest**、**Oldest**があります。**Manual order**では、行をドラッグするか、行にフォーカスを合わせて<kbd>Alt</kbd>+<kbd>Up</kbd>または<kbd>Alt</kbd>+<kbd>Down</kbd>を押します。タッチスクリーンでは、行を長押しして持ち上げます。

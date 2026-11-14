@@ -41,7 +41,7 @@
 - `schemas`: 永続化するエンティティーと共有エンティティーのZodスキーマ。
 - `constants`: プロバイダー、デフォルト、チャットモード、モデル一覧、エージェントのプロンプト。
 - `utils`: マクロ展開、XMLラップ、音楽のスコアリングなどの純粋なヘルパー。
-- `features`: エージェントのマニフェストとレジストリー、function callの定義、フォルダーパッケージ、UNO、Chess、Pokerのターン制ゲームエンジン、Game Modeのルールセットとその戦闘(`rulesets`、`ruleset-combat`、`tactical-combat`と`combat-*`のファイル群)、共有ファイル(舞台設定キット、世界、タイル・盤面・クリーチャーのパック)を含む`world`の世界ジェネレーター。
+- `features`: エージェントのマニフェストとレジストリー、function callの定義、フォルダーパッケージ、ターン制ゲームエンジンの契約とレジストリー(ゲーム自体はオプションのパッケージで提供)、Game Modeのルールセットとその戦闘(`rulesets`、`ruleset-combat`、`tactical-combat`と`combat-*`のファイル群)、共有ファイル(舞台設定キット、世界、タイル・盤面・クリーチャーのパック)を含む`world`の世界ジェネレーター。`marinara-*.ts`のファイル(`ai`、`bestiary`、`bestiary-threat`、`classes`、`combat`、`items`、`loot`、`party`)は、Engine独自のルールセットClassic Marinaraのデータと計算処理を収めています。
 
 ルール:
 
@@ -64,12 +64,12 @@ React 19とVite PWAです。現時点でソースファイルは数百ありま�
 - `features`: 切り出した機能モジュール。現時点ではChat Settingsの各セクション、トラッカーパネルの部品、マルチプレイヤー、アバターエージェントの契約・セットアップ・ステージ・レンダラー(`features/avatars`)が入っています。
 - `hooks`: ほとんどのAPI機能に対応するReact Queryのフックとランタイム用フック。
 - `lib`: ブラウザー用とクライアント用のヘルパー。現時点では共通ヘルパーとGame Mode専用のヘルパーが混在しています。
-- `stores`: UI、チャットのランタイム、エージェント、ゲームの状態、Game Mode、アセット、sidecar、翻訳、ギャラリー、エンカウント、ターン制ゲームのZustandストア。
+- `stores`: UI、チャットのランタイム、エージェント、ゲームの状態、Game Mode、アセット、sidecar、翻訳、ギャラリー、エンカウント、戦闘画面、Roleplayのシート画面、ConversationのゲームのZustandストア。
 - `styles`: グローバルのスタイルシートとテーマごとのCSS。
 
 現時点で注意したい依存の交差:
 
-- `components/game`は、天候やギャラリーのパネルなど共通の見た目の部品を`components/chat`から読み込んでいます。
+- `components/game`は、天候エフェクト、ピン留め画像のオーバーレイ、チャットツールバー、操作ウィンドウなどの共通の表示部品を`components/chat`から読み込みます。ギャラリーはChat Settings(`features/chat-settings/ChatGalleryPanel.tsx`)にあり、Game Modeからは`hooks/use-chat-gallery-actions.ts`を介して画像を渡します。
 - `components/chat`は、Roleplayの機能のためにゲームの状態とエンカウントの状態を読み込んでいます。
 - `hooks/use-generate.ts`は、チャットの状態、エージェントの状態、ゲームの状態、Game Modeの状態、翻訳の状態、UIの設定に触れています。
 - `lib/game-*`のヘルパーはGame Mode専用ですが、グローバルなヘルパーと同じ場所に置かれています。
@@ -90,6 +90,8 @@ Fastify製のAPI、ファイルネイティブのストレージ、プロバイ�
 - `services/sidecar`: ローカルランタイム、モデル管理、シーン解析、シーンの後処理。
 - `services/agents`: エージェントの実行と知識のルーティング。
 - 機能の土台: `services/import`、`services/lorebook`、`services/image`、`services/haptic`、`services/tools`、`services/regex`、`services/professor-mari`、`services/mari-db`、`services/turn-games`、`services/spotify`、`services/video`、`services/generation`、`services/chat-summary`、`services/achievements`、`services/prompt-overrides`、`services/setup`、`services/noodle`、`services/memory-recall`、`services/avatars`(アバターエージェント向けのアバターモデルの保存、生成、感情分類)、`speech-to-text.service.ts`、`discord-webhook.ts`。
+- `bin/mari.ts`: ローカルで実行中のサーバーと通信する`mari`コマンドラインツールです。パッケージで唯一の`bin`エントリーです。
+- `assets/`: サーバーに同梱するデータです。デフォルトの背景とゲームアセット、盤面パック、ワールドマップのタイル、Mariのスキル、Claude Codeプラグイン、ランタイム要件のロックファイル、個人用拡張機能の実行スクリプトなどが含まれます。
 - `db/schema`: `DATA_DIR/storage`の下に保存するデータのファイルテーブル定義。
 - `db/file-schema.ts`、`db/file-query.ts`: ネイティブテーブルのメタデータとクエリー式。
 - `db/file-backed-store.ts`: インメモリーのテーブルストア、トランザクションの境界、クラッシュからの復旧、JSONスナップショットの永続化。[ファイルネイティブストレージ](file-storage.md)を参照してください。
@@ -277,7 +279,7 @@ packages/shared/src/
 次に挙げるものは、動作を変えずに結合を減らせるため、最初の整理として適しています。
 
 1. `components/chat`を、共通、conversation、roleplayのグループに分割する。
-   - 共通の候補: `ChatCommonOverlays`、`ChatBranchSelector`、`ChatGalleryDrawer`、`WeatherEffects`、共通のメッセージと入力のプリミティブ。
+   - 共通の候補: `ChatCommonOverlays`、`ChatBranchesPanel`と`ChatGalleryPanel`(現在はどちらも`features/chat-settings`内)、`WeatherEffects`、共通のメッセージと入力のプリミティブ。
    - conversationの候補: `ChatConversationSurface`、`ConversationView`、`ConversationMessage`、`ConversationInput`。
    - roleplayの候補: `ChatRoleplaySurface`、`SpriteOverlay`、`SceneBanner`、`CyoaChoices`、`EncounterModal`。RoleplayのHUDの分割は`RoleplayHUDActionsMenu.tsx`と`RoleplayHUDPanels.tsx`で途中まで進んでいます。
 2. Game Mode専用のクライアントヘルパーをgameのモジュール配下へ移す。

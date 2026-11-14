@@ -270,7 +270,7 @@ Pollinations、Together AI、Horde、DALL-E、参照画像の入力枠がないC
 
 | 作りたいもの | ツール | できるもの |
 | --- | --- | --- |
-| PNGTuberのスプライト | 任意のお絵描きアプリで描いてから、キャラクターの**Sprites**タブへ | スプライト |
+| PNGTuberのスプライト | 任意のお絵描きアプリで描いてから、キャラクターの**Images → Sprites**(画像 → スプライト)へ | スプライト |
 | レイヤーとコスチュームを持つPNGTuberのスプライト | [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) | `.save`ファイル |
 | メッシュアバター | [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio) | `.mavatar`ファイル |
 | 3Dモデル | [VRoid Studio](https://vroid.com/en/studio)、または[VRM Add-on for Blender](https://vrm-addon-for-blender.info/en-us/)を入れたBlender | `.vrm`ファイルと、任意で`.vrma`の待機アニメーション |
@@ -279,7 +279,7 @@ Pollinations、Together AI、Horde、DALL-E、参照画像の入力枠がないC
 
 1. 感情ごとに1枚ずつ絵を描きます。すべて同じサイズにし、キャラクターを同じ位置に置いてください。それぞれに感情の名前を付けます。`neutral`、`happy`、`angry`、`sad`、`relaxed`、`surprised`です。`smile`、`cry`、`calm`、`shock`のように、感情を表す単語を含む名前も使えます。任意の[その他の感情](#pngtuber-sprites)には、`amusement`、`fear`、`gratitude`のような名前を付けます。
 2. 口を動かすには、口を開けた同じ絵を描き、名前に`_talk`を付けます(例: `happy_talk`)。まばたきさせるには目を閉じて`_blink`を付けます。両方の場合は`_blink_talk`を付けます。
-3. **Sprites**タブの**Facial Expressions**(表情)に絵を追加します。各ファイル名が、そのスプライトの名前になります。[キャラクターのスプライト](../characters/sprites.md#upload-your-own-sprites)を参照してください。
+3. **Images → Sprites**の**Facial Expressions**(表情)に絵を追加します。各ファイル名が、そのスプライトの名前になります。[キャラクターのスプライト](../characters/sprites.md#upload-your-own-sprites)を参照してください。
 4. **Agents**で**2D Avatars**を開き、キャラクターかペルソナを選んで、**Show this avatar in chats**をオンにします。
 
 ### PNGTuber Plus
