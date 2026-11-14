@@ -9688,6 +9688,12 @@ input.ov-edhead__title:focus {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* When a row is too narrow, the dim detail (model id, server, "Whatever model the server has loaded") gives way
+   before the name does, so a phone still reads "Default" or "KoboldCpp" instead of "D…" beside a cut subtitle. */
+.ov-conn__acct .ov-conn__dim,
+.ov-conn__model-name .ov-conn__dim {
+  flex: 1 1 0;
+}
 
 /* ── Add account: a menu under the button (steps 1-2), not a centred window ── */
 .mari-modal-panel.ov-add-drop {

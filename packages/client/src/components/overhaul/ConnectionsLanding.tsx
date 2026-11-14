@@ -30,6 +30,7 @@ import { useConnections } from "../../hooks/use-connections";
 import { useConnectionAccounts, useConnectionBalance } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { groupModelsByAccount } from "../../lib/connection-groups";
+import { isLoadedModelRow } from "../../lib/connection-identity";
 import { JOB, type JobKey } from "../../lib/connection-jobs";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
@@ -382,7 +383,12 @@ export function ConnectionsLanding() {
       return base.includes(id) ? base.filter((item) => item !== id) : [...base, id];
     });
 
-  const modelCount = rows.filter((row) => !(isChatProvider(row.provider) && !row.model?.trim())).length;
+  // An empty chat row is an account's hidden anchor, except on a server that answers with its loaded model: there it
+  // is that account's Default model, and counts like any model.
+  const loadedModelAccounts = new Set((accounts ?? []).filter((item) => item.loadedModel).map((item) => item.id));
+  const modelCount = rows.filter(
+    (row) => !(isChatProvider(row.provider) && !row.model?.trim() && !loadedModelAccounts.has(row.accountId ?? "")),
+  ).length;
 
   const allRows = useMemo(() => (connections as ConnectionRowData[] | undefined) ?? [], [connections]);
   const modelActions = (row: ConnectionRowData): KitAction[] => {
@@ -543,6 +549,8 @@ export function ConnectionsLanding() {
     const anchor = (row.accountId && starAnchorOf(accountRows)) || row;
     const starred = !!row.model && parsePinnedModels(anchor.pinnedModels).includes(row.model);
     const canStar = isChatProvider(row.provider) && !!row.model && !!row.accountId;
+    // The Default model has no model id, so no star: it is saved like any Model and removed from its ⋯ menu.
+    const loadedModel = isLoadedModelRow(row);
     const jobs = jobsByModel.get(row.id) ?? [];
     const context = fmtContext(row.maxContext);
     const output = fmtContext(row.maxTokensOverride ?? undefined);
@@ -564,6 +572,7 @@ export function ConnectionsLanding() {
               <button
                 type="button"
                 className={cn("ov-conn__star", starred && "is-on")}
+                style={loadedModel ? { visibility: "hidden" } : undefined}
                 disabled={!canStar}
                 aria-pressed={starred}
                 aria-label={starred ? localize("Unstar model") : localize("Star model")}
@@ -581,6 +590,8 @@ export function ConnectionsLanding() {
               <b>{row.name || row.model}</b>
               {row.name && row.model && row.name !== row.model ? (
                 <span className="ov-conn__dim">{row.model}</span>
+              ) : loadedModel ? (
+                <span className="ov-conn__dim">{t("connections.loadedModel.subtitle")}</span>
               ) : null}
               {via ? <span className="ov-conn__dim">· {via}</span> : null}
             </span>
