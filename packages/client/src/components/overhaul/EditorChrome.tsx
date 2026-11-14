@@ -310,6 +310,7 @@ export function OvEditorHead({
             {actions}
             {status}
             {saveNode}
+            {menuNode}
           </div>
         ) : null}
         {actions ? null : (
@@ -318,7 +319,7 @@ export function OvEditorHead({
             {saveNode}
           </>
         )}
-        {menuNode}
+        {actions && splitCrumbs ? null : menuNode}
       </div>
       {meta ? <p className="ov-edhead__meta">{meta}</p> : null}
       {actions && !splitCrumbs ? (
