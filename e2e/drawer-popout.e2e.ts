@@ -639,6 +639,14 @@ test.describe("Pop-out drawers on desktop", () => {
       releaseChat = resolve;
     });
     try {
+      // Since #8910 a listed chat shows from its list row while its details load, so leave this one out of the
+      // list to keep a real loading gap.
+      await page.route("**/api/chats", async (route) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        const response = await route.fetch();
+        const chats = (await response.json()) as Array<{ id: string }>;
+        await route.fulfill({ response, json: chats.filter((chat) => chat.id !== second.id) });
+      });
       await prepare(page, first.id);
       await page.goto("/");
       await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible({ timeout: 30_000 });
