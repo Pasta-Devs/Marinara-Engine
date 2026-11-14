@@ -14,6 +14,8 @@
 
 **Extract Colors from Avatar** अवतार की इमेज से तीनों रंग चुन लेता है। अवतार मौजूद होने से पहले यह बटन बंद रहता है और उस पर **Upload an avatar first** लिखा होता है। इसके बाद भी आप कोई भी रंग हाथ से बदल सकते हैं।
 
+<a id="the-three-colors"></a>
+
 ### तीनों रंग
 
 हर रंग रंग वाली फ़ील्ड से सेट करें, या वैल्यू टाइप करें:
@@ -30,7 +32,7 @@
 linear-gradient(90deg, #f59e0b, #ef4444)
 ```
 
-कैरेक्टर के **Colors** टैब में **Name Aliases** (नाम के उपनाम) भी होता है। कॉमा से अलग करके दूसरे नाम या निकनेम टाइप करें, जैसे `Kate, Kitty, Katherine`। चैट संदेशों में आने पर इन्हें कैरेक्टर के नाम का रंग मिलता है। मुख्य नाम हमेशा शामिल रहता है। इसे हर चैट के लिए **Chat Settings → Characters** (चैट सेटिंग्स → कैरेक्टर) में चालू करें।
+**Other names** (दूसरे नाम) **Metadata** टैब में **Name** के नीचे है। इनमें निकनेम, पूरे नाम या उपाधियाँ हो सकती हैं, जैसे `Clark Kent, Kal-El, Mr. Kent`। Roleplay चैट के संदेशों में इन्हें भी मुख्य नाम वाला रंग मिलता है। हर चैट के लिए कैरेक्टर के नामों का रंग **Chat Settings → Characters** में **Color Character Names in Text** से और पर्सोना के नामों का रंग **Chat Settings → Persona** में **Color Persona Name in Text** से चालू करें।
 
 पारदर्शिता बदलने के लिए **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (सेटिंग्स → अपीयरेंस → Roleplay प्रेज़ेंटेशन → Roleplay संदेशों के बैकग्राउंड की ओपैसिटी) इस्तेमाल करें।
 
