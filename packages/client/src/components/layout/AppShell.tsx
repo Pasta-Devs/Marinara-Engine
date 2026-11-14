@@ -597,8 +597,8 @@ export function AppShell({
   useEffect(() => {
     if (rightPanelOpen) setRightPanelEverOpened(true);
   }, [rightPanelOpen]);
-  // The editors and library views open from the right panel: once it has opened, fetch their code while
-  // idle, so opening one renders at once instead of showing "Loading…" first.
+  // The editors and library views open from the right panel: a moment after it first opens (not during
+  // its own render), fetch their code while idle, so opening one renders at once without "Loading…".
   useEffect(() => {
     if (!rightPanelEverOpened) return;
     const preload = () => {
@@ -617,12 +617,16 @@ export function AppShell({
         view.preload().catch(() => undefined);
       }
     };
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(preload, { timeout: 1_500 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const timer = window.setTimeout(preload, 300);
-    return () => window.clearTimeout(timer);
+    let idleId = 0;
+    const timer = window.setTimeout(() => {
+      if (typeof window.requestIdleCallback === "function")
+        idleId = window.requestIdleCallback(preload, { timeout: 2_000 });
+      else preload();
+    }, 1_000);
+    return () => {
+      window.clearTimeout(timer);
+      if (idleId) window.cancelIdleCallback(idleId);
+    };
   }, [rightPanelEverOpened]);
 
   const layoutSidebarOpen = sidebarOpen;
