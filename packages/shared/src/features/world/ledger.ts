@@ -111,8 +111,10 @@ const FORTUNE_OF: Record<WorldProsperity, number> = { struggling: 20, modest: 50
 const WORLD_TAG = /\[world:([^[\]]*)\]/gi;
 const LEDGER_TAG = /\[(world|place):([^[\]]*)\]/gi;
 // A site the Game Master opened (`[map: reveal ...]`, or gone into by name with `[map: name="..."]`) stays
-// open in the sessions after. Only site locks read these carried tags: no map opens from them.
-const CARRIED_TAG = /\[(?:(?:world|place|story):|map:(?!\s*leave\b)(?![^[\]]*\baction\s*=\s*"leave"))[^[\]]*\]/gi;
+// open in the sessions after. Only site locks read these carried tags: no map opens from them. A band the
+// story set (`[danger:]`, region spawns) holds in the sessions after too.
+const CARRIED_TAG =
+  /\[(?:(?:world|place|story|danger):|map:(?!\s*leave\b)(?![^[\]]*\baction\s*=\s*"leave"))[^[\]]*\]/gi;
 const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 const clamp = (value: number) => Math.max(-100, Math.min(100, value));
 

@@ -5845,7 +5845,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 // In the order they happened: a visit in a town the party then walked away from comes first.
                 // Region spawns (Overworld): a walk may meet the land's own foes on the way, rolled here and
                 // seeded by the walk, for the Game Master to tell; the land's danger is told where the party is.
-                const spawns = regionSpawnGame(promptWorld, chatMeta);
+                const spawns = regionSpawnGame(promptWorld, chatMeta, (await promptRepliesAll()).all);
                 const met = spawns && walk ? regionWalkEncounterText(spawns, walk) : "";
                 const walkLine = walk ? `${worldWalkText(promptWorld, walk)}${met ? ` ${met}` : ""}\n` : "";
                 const danger = (place: { at: { x: number; y: number } } | undefined) => (where: string) =>
