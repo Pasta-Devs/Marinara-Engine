@@ -94,6 +94,9 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
+import { ChatProfileBuilder } from "../chat/ChatProfileBuilder";
+import { ProfilesSection, type ProfileMode } from "./ProfilesSection";
+import type { ChatPreset } from "@marinara-engine/shared";
 
 type PresetRow = {
   id: string;
@@ -308,8 +311,9 @@ export function PresetsPanel() {
   const updateMetadata = useUpdateChatMetadata();
   const [search, setSearch] = useState("");
   const [choiceModalPresetId, setChoiceModalPresetId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"presets" | "regex" | "functions">("presets");
-  const [selectionTarget, setSelectionTarget] = useState<"presets" | "regex" | "functions" | null>(null);
+  const [tab, setTab] = useState<"presets" | "regex" | "functions" | "profiles">("presets");
+  const [selectionTarget, setSelectionTarget] = useState<"presets" | "regex" | "functions" | "profiles" | null>(null);
+  const [profileBuilder, setProfileBuilder] = useState<{ profile: ChatPreset } | { newMode: ProfileMode } | null>(null);
   const selectionMode = selectionTarget === "presets";
   const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
@@ -1468,7 +1472,7 @@ export function PresetsPanel() {
     <div className="flex min-h-full flex-col gap-2 p-3">
       {/* Same gap and equal-width columns as LibraryToolbar's action row, so the tabs line up with the buttons. */}
       <div className="flex gap-2" role="group" aria-label={localizeUi("navigation.topbar.presets")}>
-        {(["presets", "regex", "functions"] as const).map((value) => (
+        {(["presets", "regex", "functions", "profiles"] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -1485,7 +1489,9 @@ export function PresetsPanel() {
                   ? "ui.panels.presetspanel.prompts"
                   : value === "regex"
                     ? "ui.panels.regexsection.regexes"
-                    : "ui.panels.functionssection.functions",
+                    : value === "functions"
+                      ? "ui.panels.functionssection.functions"
+                      : "ui.panels.profilessection.profiles",
               )}
             </span>
           </button>
@@ -1553,6 +1559,35 @@ export function PresetsPanel() {
           deleteRegex={deleteRegex}
         />
       </div>
+
+      <div className={tab === "profiles" ? "contents" : "hidden"}>
+        <ProfilesSection
+          selectionMode={selectionTarget === "profiles"}
+          setSelectionMode={(enabled) => {
+            if (enabled) {
+              setSelectedPresetIds(new Set());
+              setSelectionTarget("profiles");
+            } else {
+              setSelectionTarget((target) => (target === "profiles" ? null : target));
+            }
+          }}
+          activeChatMode={activeChat?.mode ?? null}
+          onOpenProfile={setProfileBuilder}
+        />
+      </div>
+      <ChatProfileBuilder
+        open={profileBuilder !== null}
+        onClose={() => setProfileBuilder(null)}
+        mode={
+          profileBuilder
+            ? "profile" in profileBuilder
+              ? profileBuilder.profile.mode
+              : profileBuilder.newMode
+            : "roleplay"
+        }
+        profile={profileBuilder && "profile" in profileBuilder ? profileBuilder.profile : null}
+        currentChatId={activeChat?.id}
+      />
 
       {/* Choice selection modal */}
       {activeChat && (
