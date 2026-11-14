@@ -176,7 +176,7 @@ The Node lane has grown past 1,700 files, most of them in one flat folder and ma
 
 ### Writing a Node regression
 
-CI runs the full Node lane on Linux only (Platform Artifact Checks runs a few launcher and shutdown regressions on Windows and macOS), and most regressions are written on Linux or macOS, so one can pass every check and still fail on every Windows machine. Write each one to run on all three:
+CI runs the full Node lane on Linux only (Platform Artifact Checks runs a few launcher and shutdown regressions on Windows and macOS, on pull requests that touch builds or the launcher and after each merge into `staging`), and most regressions are written on Linux or macOS, so one can pass every check and still fail on every Windows machine. Write each one to run on all three:
 
 - Give `import()` and `--import` a file URL, never a bare path: wrap the resolved path in `pathToFileURL(…).href` (from `node:url`), as `debug-log-line-breaks.regression.ts` does for `tsx/esm`. On Windows, `C:\…` reads as a URL with the scheme `c:`.
 - Build paths with `join`, and compare them with `/`-based strings or patterns only after `.split(sep).join("/")`. Escape a path before putting it in a regular expression, since Windows paths contain `\`.
