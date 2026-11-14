@@ -14093,7 +14093,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
                 // Same pinned place as before: a picture the user picked by hand here stays.
                 if (shownPinId === pinned.match.pin.id) return;
-                await chats.patchMetadata(input.chatId, pinnedBackgroundMetadataPatch(pinned));
+                // A literal patch (pinnedBackgroundMetadataPatch's two keys) so the metadata sweep can read it.
+                await chats.patchMetadata(input.chatId, {
+                  background: pinned.filename,
+                  [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: pinned.match.pin.id,
+                });
                 sendSseEvent(reply, {
                   type: "agent_result",
                   data: {
