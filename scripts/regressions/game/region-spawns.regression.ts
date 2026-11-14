@@ -28,12 +28,17 @@ import {
   worldRegionSpawnTable,
   worldSettlementBand,
   worldWalkEncounter,
+  readWorldDangerTags,
+  worldSettlementBands,
+  worldStoryBands,
+  worldWithStoryBands,
   type GameWorld,
   type MarinaraFoeBrief,
 } from "../../../packages/shared/src/index.js";
 import {
   regionFightEnemies,
   regionFightPlan,
+  regionSpawnGame,
   type RegionSpawnGame,
 } from "../../../packages/server/src/services/game/region-spawns.service.js";
 
@@ -85,7 +90,11 @@ for (const kit of WORLD_STARTER_KITS) {
         assert.ok(family.habitats?.length, `${kit.id}: no treasure foe in a table`);
       }
     }
-  assert.ok(highest > 8, `${kit.id}: the far land is dangerous (highest band reaches ${highest})`);
+  // A wide map's far land is late-game danger; a town's climbs slowly (owner 2026-11-14), its later danger
+  // coming from hand bands and the story's [danger:] tags.
+  if (game.kit.scale === "town" || game.kit.scale === "site")
+    assert.ok(highest <= 14, `${kit.id}: a small map climbs slowly (highest band reaches ${highest})`);
+  else assert.ok(highest > 12, `${kit.id}: the far land is dangerous (highest band reaches ${highest})`);
 
   // Difficulty shifts every band; Easy never goes below 1.
   const far = { x: width - 1, y: height - 1 };
@@ -216,6 +225,51 @@ for (const kit of WORLD_STARTER_KITS) {
   assert.equal(out[1]!.family, undefined, "a family that does not live here fights by its tier");
   assert.ok(out[1]!.regionFoe, "at the land's level");
   assert.equal(out[2]!.regionFoe, undefined, "a named story foe stands apart");
+}
+
+// The Game Master's [danger:] tags: read from the replies, latest last, over the creator's and the map's.
+{
+  assert.deepEqual(readWorldDangerTags('[danger: place="Ashby" low="8" high="11"]'), [
+    { name: "Ashby", band: { low: 8, high: 11 } },
+  ]);
+  assert.deepEqual(
+    readWorldDangerTags('[danger: place="Ashby" low="8"]')[0]!.band,
+    { low: 8, high: 11 },
+    "high = low + 3",
+  );
+  assert.deepEqual(
+    readWorldDangerTags('[danger: place="Ashby" low="5" high="29"]')[0]!.band,
+    { low: 5, high: 10 },
+    "at most six wide",
+  );
+  assert.deepEqual(readWorldDangerTags('[danger: place="Ashby" reset]'), [{ name: "Ashby", reset: true }]);
+  assert.deepEqual(
+    readWorldDangerTags('[danger: place="reset town" low="3"]')[0]!.band,
+    { low: 3, high: 6 },
+    "a name is not a reset",
+  );
+
+  const game = gameOf("high_fantasy", 11);
+  const town = settlements(game).find((place) => place.id !== game.world.startId)!;
+  const tagged = [`The horde marches. [danger: place="${town.name}" low="15" high="18"]`];
+  assert.deepEqual(worldStoryBands(game, tagged).get(town.id), { low: 15, high: 18 });
+  const story = worldWithStoryBands(game, tagged);
+  assert.deepEqual(worldRegionBand(story, town.at), { low: 15, high: 18 }, "the story's band holds");
+  const edited = worldWithStoryBands(
+    { ...game, edits: { editsVersion: 3, bands: [{ place: town.id, low: 2, high: 5 }] } },
+    tagged,
+  );
+  assert.deepEqual(worldRegionBand(edited, town.at), { low: 15, high: 18 }, "over the creator's");
+  assert.equal(worldSettlementBands(edited)[town.id]!.from, "story");
+  const reset = worldWithStoryBands(game, [...tagged, `Peace. [danger: place="${town.name}" reset]`]);
+  assert.deepEqual(worldRegionBand(reset, town.at), worldRegionBand(game, town.at), "reset puts the land's back");
+  // A place out in a settlement's land names that settlement's land.
+  const site = game.world.places.find((place) => place.rank === undefined && place.depth > 0);
+  if (site) assert.equal(worldStoryBands(game, [`[danger: place="${site.name}" low="9"]`]).size, 1);
+  // The server reads them from the replies it is given.
+  const meta = { gameSetupConfig: { marinaraClasses: true, genre: "fantasy" }, gameWorldKit: { id: "high_fantasy" } };
+  const spawns = regionSpawnGame(game, meta, tagged)!;
+  assert.deepEqual(worldRegionBand(spawns.game, town.at), { low: 15, high: 18 });
 }
 
 console.log("region spawns: ok");

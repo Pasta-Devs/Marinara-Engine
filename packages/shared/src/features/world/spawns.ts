@@ -40,11 +40,11 @@ export interface WorldLevelBand {
 export const WORLD_BAND_WIDTH = 4;
 
 /** How far the bands climb from where the party starts to the far edge of the map, by the map's scale. A
- *  game is played on one map whatever its size, so even a town's far side (its worst quarter) is a late
- *  game's danger; a site's map is a smaller climb. */
+ *  small map (a town, a site) climbs slowly (owner 2026-11-14): its later danger comes from the creator's
+ *  hand bands and the Game Master's `[danger:]` tags as the story moves, not from walking across town. */
 export const WORLD_BAND_CLIMB: Record<GameWorld["kit"]["scale"], number> = {
-  site: 10,
-  town: 18,
+  site: 3,
+  town: 6,
   region: 22,
   realm: 24,
   world: 26,
@@ -203,6 +203,15 @@ function bandGrid(game: GameWorld): BandGrid {
     if (!a || !b) continue;
     for (const cell of lineCells(a.at, b.at)) if (cell.x < width && cell.y < height) road[cell.y * width + cell.x] = 1;
   }
+  // The start's own ground sets the floor: a party that starts in a fen or a desert meets that land at 1 to 4,
+  // and only land harsher than its own climbs above it.
+  const startHarsh = Math.max(
+    0,
+    smooth[
+      Math.max(0, Math.min(height - 1, Math.round(start.y))) * width +
+        Math.max(0, Math.min(width - 1, Math.round(start.x)))
+    ] ?? 0,
+  );
   const centre = new Float32Array(width * height);
   const nearest = new Int16Array(width * height).fill(-1);
   for (let y = 0; y < height; y++)
@@ -220,7 +229,8 @@ function bandGrid(game: GameWorld): BandGrid {
       nearest[cell] = best;
       // By a settlement the land is watched; on the road a little, too.
       const calm = bestDistance <= 1 ? 2 : bestDistance <= 3 ? 1 : 0;
-      centre[cell] = 2 + (Math.hypot(x - start.x, y - start.y) / far) * climb + smooth[cell]! - calm - road[cell]!;
+      centre[cell] =
+        2 + (Math.hypot(x - start.x, y - start.y) / far) * climb + smooth[cell]! - startHarsh - calm - road[cell]!;
     }
   const grid = { centre, nearest, settlements, looks, ground };
   grids.set(game.world, grid);
@@ -246,17 +256,125 @@ const cellIndex = (game: GameWorld, at: WorldCell) => {
  * 1 to 4. The world's creator may set the band of a settlement's land by hand (`edits.bands`), which holds
  * for every cell nearer that settlement than any other. The game's difficulty shifts every band.
  */
-export function worldRegionBand(game: GameWorld, at: WorldCell, difficulty?: string | null): WorldLevelBand {
+export function worldRegionBand(game: WorldBandGame, at: WorldCell, difficulty?: string | null): WorldLevelBand {
   const grid = bandGrid(game);
   const cell = cellIndex(game, at);
   const shift = WORLD_BAND_DIFFICULTY_SHIFT[difficulty ?? "normal"] ?? 0;
   const home = grid.settlements[grid.nearest[cell]!];
-  const byHand = home ? game.edits?.bands?.find((band) => band.place === home.id) : undefined;
+  // The story's band (the Game Master's [danger:] tags) wins over the creator's, which wins over the map's.
+  const byHand = home
+    ? (game.storyBands?.get(home.id) ?? game.edits?.bands?.find((band) => band.place === home.id))
+    : undefined;
   if (byHand) {
     const low = clampLevel(byHand.low + shift);
     return { low, high: Math.max(low, clampLevel(byHand.high + shift)) };
   }
   return bandFrom(grid.centre[cell]! - 1 + shift);
+}
+
+/** A world with the bands the story has set (the Game Master's `[danger:]` tags in the replies so far), by
+ *  settlement id. Every band reader takes one; a plain world reads the creator's and the map's bands only. */
+export type WorldBandGame = GameWorld & { storyBands?: ReadonlyMap<string, WorldLevelBand> };
+
+/** A Game Master's `[danger:]` tag: a settlement's land set to a band, or put back to the creator's and map's. */
+export interface WorldDangerTag {
+  name: string;
+  band?: WorldLevelBand;
+  reset?: true;
+}
+
+/** The widest band the Game Master may set. */
+export const WORLD_STORY_BAND_MAX_WIDTH = 6;
+
+/** Reads `[danger: place="Ashby" low="8" high="11"]` and `[danger: place="Ashby" reset]` (high defaults to
+ *  low + 3; a band is kept inside the level cap and at most six levels wide). */
+export function readWorldDangerTags(text: string): WorldDangerTag[] {
+  const tags: WorldDangerTag[] = [];
+  const opener = /\[danger:/giu;
+  for (let open = opener.exec(text); open; open = opener.exec(text)) {
+    const close = text.indexOf("]", opener.lastIndex);
+    if (close < 0) break;
+    const body = text.slice(opener.lastIndex, close);
+    opener.lastIndex = close + 1;
+    const value = (key: string) =>
+      body
+        .match(new RegExp(`\\b${key}\\s*=\\s*"([^"]{0,80})"`, "iu"))?.[1]
+        ?.replace(/[\p{Cc}\s]+/gu, " ")
+        .trim();
+    const name = value("place") ?? value("name");
+    if (!name) continue;
+    if (/\breset\b/iu.test(body.replace(/"[^"]*"/gu, ""))) {
+      tags.push({ name, reset: true });
+      continue;
+    }
+    const low = Number(value("low"));
+    if (!Number.isFinite(low)) continue;
+    const from = clampLevel(low);
+    const asked = Number(value("high"));
+    const high = Number.isFinite(asked) ? clampLevel(asked) : clampLevel(from + WORLD_BAND_WIDTH - 1);
+    tags.push({
+      name,
+      band: { low: from, high: Math.min(Math.max(from, high), from + WORLD_STORY_BAND_MAX_WIDTH - 1) },
+    });
+  }
+  return tags;
+}
+
+/** The settlement whose land a place names: the settlement itself, or the one nearest a place out in its land. */
+function bandSettlementOf(game: GameWorld, name: string): WorldPlace | undefined {
+  const lower = name.trim().toLowerCase();
+  const place = game.world.places.find(
+    (each) => each.name.toLowerCase() === lower || each.aliases?.some((alias) => alias.toLowerCase() === lower),
+  );
+  if (!place) return undefined;
+  return place.rank !== undefined ? place : worldNearestSettlement(game, place.at);
+}
+
+/** The bands the story has set, read from the Game Master's replies so far (oldest first): a regenerated
+ *  reply takes its tag with it. */
+export function worldStoryBands(game: GameWorld, replies: readonly string[]): Map<string, WorldLevelBand> {
+  const bands = new Map<string, WorldLevelBand>();
+  for (const reply of replies) {
+    if (!/\[danger:/iu.test(reply)) continue;
+    for (const tag of readWorldDangerTags(reply)) {
+      const settlement = bandSettlementOf(game, tag.name);
+      if (!settlement) continue;
+      if (tag.reset) bands.delete(settlement.id);
+      else if (tag.band) bands.set(settlement.id, tag.band);
+    }
+  }
+  return bands;
+}
+
+/** A world with the story's bands from these replies on it. */
+export function worldWithStoryBands(game: GameWorld, replies: readonly string[]): WorldBandGame {
+  const storyBands = worldStoryBands(game, replies);
+  return storyBands.size ? { ...game, storyBands } : game;
+}
+
+/** Each settlement's band as it stands (story, hand or map, before difficulty), and where it came from:
+ *  what the overworld's danger view shows and its band editor starts from. */
+export function worldSettlementBands(
+  game: WorldBandGame,
+): Record<string, WorldLevelBand & { from: "map" | "edit" | "story"; map: WorldLevelBand }> {
+  const out: Record<string, WorldLevelBand & { from: "map" | "edit" | "story"; map: WorldLevelBand }> = {};
+  for (const place of settlementsOf(game)) {
+    const map = worldSettlementBand(game, place.id)!;
+    const story = game.storyBands?.get(place.id);
+    const edit = game.edits?.bands?.find((band) => band.place === place.id);
+    const band = story ?? edit ?? map;
+    out[place.id] = { low: band.low, high: band.high, from: story ? "story" : edit ? "edit" : "map", map };
+  }
+  return out;
+}
+
+/** Each cell's band low level (difficulty applied) as one base-36 character a cell, row by row: what the
+ *  overworld shades its danger view with. */
+export function worldBandCells(game: WorldBandGame, difficulty?: string | null): string {
+  let out = "";
+  for (let y = 0; y < game.world.height; y++)
+    for (let x = 0; x < game.world.width; x++) out += worldRegionBand(game, { x, y }, difficulty).low.toString(36);
+  return out;
 }
 
 /** The band of a settlement's own land, as the world made it (before any hand edit or difficulty): what the
@@ -265,8 +383,11 @@ export function worldSettlementBand(game: GameWorld, placeId: string): WorldLeve
   const grid = bandGrid(game);
   const index = grid.settlements.findIndex((place) => place.id === placeId);
   if (index < 0) return null;
-  // The land round it: the cells it is nearest, at most four cells out, averaged.
   const place = grid.settlements[index]!;
+  // The start's land is the first band, whatever its ground.
+  const startPlace = game.world.places.find((each) => each.id === game.world.startId);
+  if (place.id === startPlace?.id || place.id === startPlace?.parentId) return bandFrom(1);
+  // The land round it: the cells it is nearest, at most four cells out, averaged.
   let sum = 0;
   let count = 0;
   const { width, height } = game.world;
@@ -342,7 +463,7 @@ function familiesInBand(setting: MarinaraBestiarySetting, band: WorldLevelBand) 
  * any of the setting's, so no fight is ever without foes.
  */
 export function worldRegionSpawnTable(
-  game: GameWorld,
+  game: WorldBandGame,
   at: WorldCell,
   setting: MarinaraBestiarySetting,
   difficulty?: string | null,
@@ -381,7 +502,7 @@ export interface WorldRegionEncounter {
 /** Builds a fight from a cell's table: every foe at a level inside its band, sized for a party of that band
  *  (an outmatched party meets the land as it is, and the fight start trims it, never re-levels it). */
 export function worldRollRegionFoes(input: {
-  game: GameWorld;
+  game: WorldBandGame;
   at: WorldCell;
   setting: MarinaraBestiarySetting;
   difficulty?: string | null;
@@ -446,7 +567,7 @@ export function worldWalkCells(game: GameWorld, walk: Pick<WorldWalk, "from" | "
  * safe. Null on a quiet road.
  */
 export function worldWalkEncounter(input: {
-  game: GameWorld;
+  game: WorldBandGame;
   walk: Pick<WorldWalk, "id" | "from" | "to">;
   setting: MarinaraBestiarySetting;
   difficulty?: string | null;
@@ -532,7 +653,7 @@ export function worldRegionEncounterText(
 /** One line for the Game Master on the party's surroundings: how dangerous the land is for the party, so
  *  it can warn of it (rumours, signs, wary locals) before the party walks into more than it can take. */
 export function worldRegionDangerText(
-  game: GameWorld,
+  game: WorldBandGame,
   at: WorldCell,
   partyLevel: number,
   difficulty?: string | null,
@@ -547,7 +668,11 @@ export function worldRegionDangerText(
         : band.high < partyLevel - 4
           ? "well below the party: its foes are no real threat any more"
           : "about right for the party";
-  return `- The land round here holds foes of level ${band.low} to ${band.high}, ${how}. Foes come from what lives here, never at a player's asking.`;
+  const near = worldNearestSettlement(game, at);
+  return [
+    `The land round here holds foes of level ${band.low} to ${band.high}, ${how}. Foes come from what lives here, never at a player's asking.`,
+    `When the story changes how dangerous a settlement's land is (an army or a monster moves in, a lair is cleared, a war ends), set its band with [danger: place="${near?.name ?? "Settlement"}" low="N" high="N"] (at most ${WORLD_STORY_BAND_MAX_WIDTH} levels wide), or put it back with [danger: place="..." reset]. Only for a change the story has shown, never because a player asked.`,
+  ].join(" ");
 }
 
 /** Why a layer's hand-set bands do not fit its world, or nothing: each on a settlement, one band a place. */

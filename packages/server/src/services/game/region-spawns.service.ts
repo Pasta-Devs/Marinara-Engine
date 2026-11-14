@@ -24,7 +24,9 @@ import {
   worldRegionSpawnTable,
   worldWalkEncounter,
   worldWalkSchema,
+  worldWithStoryBands,
   type GameWorld,
+  type WorldBandGame,
   type MarinaraBestiarySetting,
   type WorldCell,
   type WorldRegionEncounter,
@@ -34,7 +36,7 @@ import {
 
 /** What a game's region spawns need: its world, bestiary setting, difficulty and party. */
 export interface RegionSpawnGame {
-  game: GameWorld;
+  game: WorldBandGame;
   setting: MarinaraBestiarySetting;
   difficulty: string;
   partyLevels: number[];
@@ -56,6 +58,8 @@ const parseMeta = (value: unknown): Record<string, any> | null => {
 export function regionSpawnGame(
   game: GameWorld | null | undefined,
   chatMeta: Record<string, any> | null | undefined,
+  /** The Game Master's replies so far, oldest first: their `[danger:]` tags set bands the story changed. */
+  replies: readonly string[] = [],
 ): RegionSpawnGame | null {
   const setup = chatMeta?.gameSetupConfig as Record<string, unknown> | undefined;
   if (!game || setup?.marinaraClasses !== true || chatMeta?.gameRuleset) return null;
@@ -72,7 +76,12 @@ export function regionSpawnGame(
       return progression && !progression.fallen ? [progression.level] : [];
     },
   );
-  return { game, setting, difficulty: normalizeGameDifficulty(setup?.difficulty), partyLevels };
+  return {
+    game: worldWithStoryBands(game, replies),
+    setting,
+    difficulty: normalizeGameDifficulty(setup?.difficulty),
+    partyLevels,
+  };
 }
 
 const partyLevelOf = (levels: readonly number[]) =>
