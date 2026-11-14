@@ -54,7 +54,7 @@ export function regressionTimeoutMs(relativePath) {
 // batch that crashes, hangs or sets an exit code, runs alone as usual, so batching never fails a file. Modules load once
 // per batch (a setting read at load, such as DATA_DIR, keeps the first file's value), so add a prefix only for a folder
 // whose files mostly call engine code: one that depends on saved data, servers or child processes usually fails there
-// and runs again alone, which costs its time twice (7 of game-ruleset's 697 files do). --isolated (or
+// and runs again alone, which costs its time twice (a few of game-ruleset's files do). --isolated (or
 // REGRESSION_ISOLATED=1) turns batching off; full runs use it, so a file that passes only because of what an earlier
 // file left behind still shows up.
 export const BATCHED_REGRESSION_PREFIXES = ['scripts/regressions/game-ruleset/'];
