@@ -41,13 +41,13 @@ assert.equal(
 );
 
 // ── #5646: development branches are not channel branches ──
-for (const branch of ["main", "master", "staging"]) {
+for (const branch of ["main", "master", "staging", "ui/kolacheee"]) {
   assert.equal(isChannelCheckoutBranch(branch), true, `${branch} is a channel branch`);
 }
 assert.equal(isChannelCheckoutBranch(null), true, "detached checkouts stay allowed (stable launcher pins them)");
 assert.equal(isChannelCheckoutBranch(undefined), true, "unknown branch state must not block ordinary installs");
 assert.equal(isChannelCheckoutBranch(""), true, "empty branch output reads as detached");
-for (const branch of ["fix/5641-guarded-cache-writers", "feat/thing", "staging-experiment"]) {
+for (const branch of ["fix/5641-guarded-cache-writers", "feat/thing", "staging-experiment", "ui/other"]) {
   assert.equal(isChannelCheckoutBranch(branch), false, `${branch} is a development checkout`);
 }
 
@@ -76,6 +76,22 @@ assert.ok(
   !getManualGitApplyCommand(stagingChannel, "linux", "corepack pnpm", null).startsWith("cd "),
   "a null root must fall back to the bare command instead of a broken cd",
 );
+
+// The UI overhaul channel attaches the named branch, like staging (never a detached checkout).
+const overhaulCommand = getManualGitApplyCommand(
+  {
+    id: "overhaul",
+    branch: "ui/kolacheee",
+    targetRef: "origin/ui/kolacheee",
+    fetchRef: "+refs/heads/ui/kolacheee:refs/remotes/origin/ui/kolacheee",
+  } as never,
+  "linux",
+  "corepack pnpm",
+  "/home/user/marinara",
+);
+assert.match(overhaulCommand, /git fetch origin \+refs\/heads\/ui\/kolacheee:refs\/remotes\/origin\/ui\/kolacheee/u);
+assert.match(overhaulCommand, /git checkout -b ui\/kolacheee origin\/ui\/kolacheee/u);
+assert.doesNotMatch(overhaulCommand, /--detach/u);
 
 // ── #7214: Termux installs without --force, exactly like start-termux.sh ──
 // --force skips pnpm's platform filter and pulled every platform's binaries

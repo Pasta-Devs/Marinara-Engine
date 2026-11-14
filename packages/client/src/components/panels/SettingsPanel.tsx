@@ -8519,7 +8519,7 @@ function AdvancedSettings() {
     if (confirmed) restartServer.mutate();
   }, [localizeUi, restartServer]);
 
-  type UpdateChannelId = "stable" | "staging";
+  type UpdateChannelId = "stable" | "staging" | "overhaul";
   const [updateChannel, setUpdateChannel] = useState<UpdateChannelId | null>(null);
   const installedChannel = useQuery<{ channel: UpdateChannelId }>({
     queryKey: ["update-channel"],
@@ -8613,6 +8613,14 @@ function AdvancedSettings() {
       branch: "staging",
       targetRef: "origin/staging",
       warning: "Staging builds are pre-release tester builds. Back up your app data before applying them.",
+    },
+    {
+      id: "overhaul" as const,
+      label: "UI overhaul (playtest)",
+      branch: "ui/kolacheee",
+      targetRef: "origin/ui/kolacheee",
+      warning:
+        "The UI overhaul is a playtest build that follows staging. Back up your app data first: once it upgrades your data, Latest Stable may not be able to read it until the next release.",
     },
   ];
   const selectedUpdateChannel = updateChannelOptions.find((channel) => channel.id === selectedUpdateChannelId);
