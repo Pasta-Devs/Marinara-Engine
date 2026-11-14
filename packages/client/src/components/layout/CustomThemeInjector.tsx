@@ -7,10 +7,10 @@
 // Safe mode skips both, and the chrome guard switches a theme off for this tab when it hides,
 // moves, covers or blanks the top bar, a sidebar or Ctrl+K.
 // ──────────────────────────────────────────────
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useThemes } from "../../hooks/use-themes";
 import { extractImportantThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
-import { themeFontFaceCss } from "../../lib/theme-package";
+import { createThemeFontFaces, themeFontFaceCss } from "../../lib/theme-package";
 import { installSafeModeShortcut, useThemeSafetyStore } from "../../lib/theme-safety";
 import { checkProtectedChrome, topBarPseudoArt } from "../../lib/theme-guard";
 import { contentProblemsAsGuard } from "../../lib/theme-content-check";
@@ -154,19 +154,74 @@ export function CustomThemeInjector() {
   const reduceMotion = useReducedAmbientEffects();
   const [stillsReady, setStillsReady] = useState(0);
 
+  // The theme's fonts go into document.fonts and finish loading before its CSS goes in, so text is
+  // laid out once in the theme's font instead of swapping (iOS Safari left ellipsised text blank after
+  // a swap). While they load, the theme on screen stays as it is, and its fonts stay registered.
+  const themeMeta = allowed ? (activeTheme?.meta ?? null) : null;
+  const [fontsReady, setFontsReady] = useState<{ meta: unknown; viaApi: boolean } | null>(null);
+  const liveFaces = useRef<FontFace[]>([]);
+  const staleFaces = useRef<FontFace[]>([]);
+  useEffect(() => {
+    const faces = createThemeFontFaces(themeMeta);
+    const swapIn = (viaApi: boolean) => {
+      // The previous theme's fonts go once the new CSS is in (the inject effect below), not before.
+      staleFaces.current.push(...liveFaces.current.filter((face) => !faces?.includes(face)));
+      liveFaces.current = faces ?? [];
+      setFontsReady({ meta: themeMeta, viaApi });
+    };
+    if (!faces || faces.length === 0) {
+      swapIn(faces !== null);
+      return;
+    }
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      swapIn(true);
+    };
+    for (const face of faces) document.fonts.add(face);
+    void Promise.allSettled(faces.map((face) => face.load())).then(finish);
+    // A font that never decodes doesn't hold the theme back.
+    const timer = window.setTimeout(finish, 1500);
+    return () => {
+      window.clearTimeout(timer);
+      if (!settled) for (const face of faces) document.fonts.delete(face);
+      settled = true;
+    };
+  }, [themeMeta]);
+  useEffect(
+    () => () => {
+      for (const face of [...liveFaces.current, ...staleFaces.current]) document.fonts.delete(face);
+      liveFaces.current = [];
+      staleFaces.current = [];
+    },
+    [],
+  );
+  const fontsReadyForTheme = fontsReady !== null && fontsReady.meta === themeMeta;
+  // What's on screen: the requested theme once its fonts are in, until then the one before it.
+  const shownRef = useRef({ theme: activeTheme, allowed, viaApi: false });
+  if (fontsReadyForTheme || !activeTheme || !allowed)
+    shownRef.current = { theme: activeTheme, allowed, viaApi: fontsReadyForTheme && fontsReady.viaApi };
+  const { theme: shownTheme, allowed: shownAllowed, viaApi: fontsViaApi } = shownRef.current;
+
   // Inject active custom theme CSS
   useEffect(() => {
-    if (!activeTheme || !allowed) {
+    for (const face of staleFaces.current) document.fonts.delete(face);
+    staleFaces.current = [];
+    if (!shownTheme || !shownAllowed) {
       document.getElementById(NORMAL_ID)?.remove();
       document.getElementById(IMPORTANT_ID)?.remove();
       return;
     }
-    // A v2 theme's own fonts load with it, as @font-face rules ahead of its CSS. Its pictures
+    // A v2 theme's own fonts are already in document.fonts (above); without the FontFace API they go in
+    // as @font-face rules ahead of its CSS. Its pictures
     // (`theme:` names and inline data: pictures) become short blob: URLs (lib/theme-images.ts).
-    const sanitized = sanitizeAppCss(`${themeFontFaceCss(activeTheme.meta)}\n${activeTheme.css}`);
+    const sanitized = sanitizeAppCss(
+      fontsViaApi ? shownTheme.css : `${themeFontFaceCss(shownTheme.meta)}\n${shownTheme.css}`,
+    );
     const prepared = prepareThemeCss(
       sanitized,
-      [...(activeTheme.meta?.images ?? []), ...(activeTheme.meta?.backgrounds ?? [])],
+      [...(shownTheme.meta?.images ?? []), ...(shownTheme.meta?.backgrounds ?? [])],
       { still: reduceMotion },
     );
     let cancelled = false;
@@ -177,7 +232,7 @@ export function CustomThemeInjector() {
     const importantCss = extractImportantThemeCss(css);
     if (importantCss) ensureStyle(IMPORTANT_ID).textContent = importantCss;
     else document.getElementById(IMPORTANT_ID)?.remove();
-    document.documentElement.dataset.customTheme = activeTheme.id;
+    document.documentElement.dataset.customTheme = shownTheme.id;
     // A backdrop is painted once behind the whole app (theme-tokens.css), not on every surface.
     const backdropLayers = themeSetsVariable(css, "--mari-app-backdrop-layers");
     if (backdropLayers || themeSetsVariable(css, "--mari-app-backdrop"))
@@ -213,8 +268,8 @@ export function CustomThemeInjector() {
     if (/(?:^|[\s;{])--mari-focus-frame\s*:[^;}]*\bfill\b/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")))
       document.documentElement.dataset.mariFocusFrameFill = "";
     else delete document.documentElement.dataset.mariFocusFrameFill;
-    for (const [token, attribute, allowed] of THEME_VALUE_TOKENS) {
-      const value = themeTokenKeyword(css, token, allowed);
+    for (const [token, attribute, shownAllowed] of THEME_VALUE_TOKENS) {
+      const value = themeTokenKeyword(css, token, shownAllowed);
       if (value) document.documentElement.setAttribute(attribute, value);
       else document.documentElement.removeAttribute(attribute);
     }
@@ -247,7 +302,7 @@ export function CustomThemeInjector() {
       delete document.documentElement.dataset.mariTopBarArt;
       detectThemeChatHooks(null, themeSetsVariable);
     };
-  }, [activeTheme, allowed, reduceMotion, stillsReady]);
+  }, [shownTheme, shownAllowed, reduceMotion, stillsReady, fontsViaApi]);
 
   // --mari-center-x: the middle of the centre pane, measured from the ambient layer's left edge, so
   // --mari-gutter-mask keeps the chat column clear whichever sidebars are open (theme-tokens.css).

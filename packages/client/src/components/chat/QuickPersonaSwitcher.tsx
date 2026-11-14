@@ -72,7 +72,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
           <img
             src={avatarPreviewSrc(activePersona?.avatarPath ?? activeCharacter?.avatarPath ?? "", "icon")}
             alt={activePersona?.name ?? activeCharacterName ?? ""}
-            className="h-full w-full object-cover rounded-full"
+            className="h-full w-full rounded-[inherit] object-cover"
             style={getAvatarCropStyle(
               activePersona?.avatarPath
                 ? activePersona.avatarCrop
@@ -83,7 +83,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
           />
         ) : (
           <div
-            className="flex h-full w-full items-center justify-center rounded-full bg-foreground/10 text-[0.75rem] font-semibold text-foreground/45"
+            className="flex h-full w-full items-center justify-center rounded-[inherit] bg-foreground/10 text-[0.75rem] font-semibold text-foreground/45"
             data-mari-part="avatar-placeholder"
             data-role={activePersona ? "user" : "assistant"}
           >

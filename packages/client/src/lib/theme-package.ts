@@ -500,6 +500,28 @@ export function themeFontFaceCss(meta: ThemeMeta | null | undefined) {
     .join("\n");
 }
 
+const THEME_FONT_DATA_URL = /^data:(font\/[a-z0-9.+-]+|application\/(font-woff2?|x-font-[a-z]+|octet-stream));base64,/i;
+
+/**
+ * The theme's fonts as FontFace objects, loaded before its CSS goes in. With @font-face rules inside the
+ * theme's stylesheet, iOS Safari drew the text in a fallback font, swapped it, and left text cut with an
+ * ellipsis (Home's recent chat names, the mode buttons) blank until something repainted it (Nov 14).
+ * Only data: fonts (the theme schema allows nothing else); null when the browser has no FontFace API.
+ */
+export function createThemeFontFaces(meta: ThemeMeta | null | undefined): FontFace[] | null {
+  if (typeof FontFace === "undefined" || typeof document === "undefined" || !document.fonts) return null;
+  return (meta?.fonts ?? [])
+    .filter((font) => THEME_FONT_DATA_URL.test(font.src))
+    .map(
+      (font) =>
+        new FontFace(font.family.replace(/["\\\n\r]/g, ""), `url(${cssString(font.src)})`, {
+          weight: /^[\d\s]+$|^(normal|bold)$/.test(font.weight ?? "") ? (font.weight as string) : "100 900",
+          style: font.style ?? "normal",
+          display: "swap",
+        }),
+    );
+}
+
 // ── Settings ──
 
 export type ThemeSettingKey = keyof ThemeSettings;

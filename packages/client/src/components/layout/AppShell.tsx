@@ -2013,8 +2013,10 @@ export function AppShell({
               {detailView && (
                 <motion.aside
                   key="detail-editor"
-                  // A fade, not a slide: the sheet sits between the camera strips, and any sideways travel crosses one.
-                  initial={shellOverlayMode ? { opacity: 0 } : false}
+                  // No slide: the sheet sits between the camera strips, and any sideways travel crosses one.
+                  // Phones and tablets: no fade either. iOS Safari painted the page, dropped it for a couple of
+                  // frames (the chat showed through) and only then ran the fade, Nov 14 screen recording.
+                  initial={false}
                   animate={{ opacity: 1 }}
                   // No fade out: the page goes at once. Fading it out left the tab you swiped away from
                   // flickering over the new one (a spring on opacity bounced), Nov 14 finding.
