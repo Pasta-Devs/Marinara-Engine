@@ -31,7 +31,7 @@ Internal classes (`.ov-*`, Tailwind) work but can change in any update. When you
 
 ## Pictures for a theme
 
-When the user has an image connection (`mari images connections`), you can make a theme's art: backdrops, the Home picture, tiles, frames, icons.
+When the user has an image connection (`mari images connections`), you can make a theme's art: backdrops, tiles, frames, icons. Home has no slot of its own for a big picture: it shows the app backdrop (`--mari-app-backdrop`) through `--mari-home-wash`. `[data-mari-part="home-art"]` is only the small stock picture inside single cards (What's new, Around the table), so a theme's main picture put there shows as a sliver; hide those with `--mari-home-art: none` or give them small art.
 
 1. The theme must exist and be the user's own (create it inactive first; for a starter, have them **Clone + Edit** and use the copy's id).
 2. `mari images generate --prompt "<your prompt>" --target theme-image --theme <id> --name <name> [--width <n> --height <n>]`. With `--target theme-image` your prompt goes to the provider **exactly as you wrote it**: the user's image style profiles, prompt prefixes, LoRAs and style reference are left out, because those are set up for character art. So write the whole prompt yourself: subject, style, palette, "no people, no text" when that is what you want. Size it for the job: wide (e.g. 1536×864) for a backdrop, square for a tile or icon, and a 9-slice frame with a plain middle. Add `--count 3` (up to 4) to make several versions in one go so the user can pick; each is its own request, so it takes that many times as long.
@@ -127,6 +127,7 @@ Go through these against the CSS you wrote, then ask the user to look at the nam
 - [ ] Nothing cut mid-letter at narrow widths (phone, narrow split view, big theme fonts). Prefer smaller text or an ellipsis to a new row.
 - [ ] Icons centred in their buttons and inside their fields, never overlapping text.
 - [ ] Spacing even inside cards; dividers as wide as the box they belong to; tip and help boxes aligned with the content column.
+- [ ] Words that sit straight on the art (roleplay names and times placed outside the bubble, on phones too; version labels; swipe counters) get a plate or a text shadow and pass by day as well as by night.
 - [ ] Long roleplay replies stay comfortable (line length about 60-75 characters, no bold slabs of dialogue).
 - [ ] Phones: top bar is the normal height; Conversation / Roleplay / Game stay on one row on Home.
 
