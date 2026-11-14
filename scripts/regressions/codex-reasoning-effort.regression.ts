@@ -270,6 +270,18 @@ try {
   // Adding the GPT-6 and GPT-5.6 models does not change the model a new Codex connection starts with.
   assert.equal(MODEL_LISTS.openai_chatgpt?.[0]?.id, "gpt-5.5");
 
+  // Native tools reach Codex (Professor Mari runs on them; before, Codex logins silently got none).
+  {
+    const tool = {
+      type: "function" as const,
+      function: { name: "app_data", description: "Read app data", parameters: { type: "object", properties: {} } },
+    };
+    const body = await send({ model: "gpt-6.1-sol", tools: [tool] as Options["tools"] });
+    assert.equal(body.tools?.[0]?.name, "app_data", "Codex requests carry the tools");
+    assert.equal(body.tool_choice, "auto");
+    const textual = await send({ model: "gpt-6.1-sol", tools: [tool] as Options["tools"], forceTextualToolCalls: true });
+    assert.equal(textual.tools, undefined, "textual tool calls still send no native tools");
+  }
   console.log("codex-reasoning-effort regression passed");
 } finally {
   await new Promise<void>((resolve) => server.close(() => resolve()));
