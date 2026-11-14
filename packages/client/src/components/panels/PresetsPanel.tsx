@@ -1641,6 +1641,12 @@ function RegexSection({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Another tab can end selection mode through the parent, so drop the checks when it does.
+  const [selectionModeSeen, setSelectionModeSeen] = useState(selectionMode);
+  if (selectionModeSeen !== selectionMode) {
+    setSelectionModeSeen(selectionMode);
+    if (!selectionMode) setSelectedIds(new Set());
+  }
   const [deleting, setDeleting] = useState(false);
   const [showExecutionOrder, setShowExecutionOrder] = useState(false);
   const [editingFolder, setEditingFolder] = useState<EditingLibraryFolder>(null);
@@ -1672,7 +1678,8 @@ function RegexSection({
   }
   const reportError = () => toast.error(localizeUi("regex.library.saveFailed"));
   const { openMoveMenu, moveMenu } = useLibraryMoveMenu(folders, moveScripts, reportError);
-  const selectedScripts = sortedRegexScripts.filter((script) => selectedIds.has(script.id));
+  // Bulk actions act only on rows the search shows; hidden checks come back when it clears.
+  const selectedScripts = visibleScripts.filter((script) => selectedIds.has(script.id));
   const toggleSelection = (id: string) => {
     setSelectedIds((previous) => {
       const next = new Set(previous);
@@ -2159,6 +2166,12 @@ function FunctionsSection({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Another tab can end selection mode through the parent, so drop the checks when it does.
+  const [selectionModeSeen, setSelectionModeSeen] = useState(selectionMode);
+  if (selectionModeSeen !== selectionMode) {
+    setSelectionModeSeen(selectionMode);
+    if (!selectionMode) setSelectedIds(new Set());
+  }
   const [deleting, setDeleting] = useState(false);
   const [showManualOrder, setShowManualOrder] = useState(false);
   const [editingFolder, setEditingFolder] = useState<EditingLibraryFolder>(null);
@@ -2190,7 +2203,8 @@ function FunctionsSection({
   }
   const reportError = () => toast.error(localizeUi("functions.library.saveFailed"));
   const { openMoveMenu, moveMenu } = useLibraryMoveMenu(folders, moveTools, reportError);
-  const selectedTools = customToolRows.filter((tool) => selectedIds.has(tool.id));
+  // Bulk actions act only on rows the search shows; hidden checks come back when it clears.
+  const selectedTools = visibleTools.filter((tool) => selectedIds.has(tool.id));
   const toggleSelection = (id: string) => {
     setSelectedIds((previous) => {
       const next = new Set(previous);
