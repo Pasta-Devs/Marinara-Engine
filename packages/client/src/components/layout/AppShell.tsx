@@ -1865,6 +1865,9 @@ export function AppShell({
             {/* Overlay mode keeps the chat mounted under panels and editors; globals.css hides its windows then. */}
             <div
               data-chat-covered={chatSurfaceActive ? undefined : "true"}
+              // New layout on phones/tablets: a page (Settings, an editor) covers Home or the chat completely, so
+              // a theme's see-through page colour never shows them through it.
+              data-under-page={overhaulMobile && shellOverlayMode && hasDetailView ? "true" : undefined}
               className={cn(
                 "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
                 (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) && "hidden",
@@ -1902,8 +1905,9 @@ export function AppShell({
                   // A fade, not a slide: the sheet sits between the camera strips, and any sideways travel crosses one.
                   initial={shellOverlayMode ? { opacity: 0 } : false}
                   animate={{ opacity: 1 }}
-                  exit={shellOverlayMode ? { opacity: 0 } : undefined}
-                  transition={{ type: "spring", damping: 30, stiffness: 360 }}
+                  // No fade out: the page goes at once. Fading it out left the tab you swiped away from
+                  // flickering over the new one (a spring on opacity bounced), Nov 14 finding.
+                  transition={{ duration: 0.14, ease: "easeOut" }}
                   data-component={shellOverlayMode ? "MobileDetailSheet" : "DetailEditor"}
                   // Every full page (Library pages, viewers, editors, Settings, Docs) sits in here, so a
                   // theme paints one readable surface for all of them on this hook.

@@ -394,11 +394,48 @@ const TUTORIAL_PRIMARY_BUTTON_CLASS =
 const TUTORIAL_DOCUMENTATION_BUTTON_CLASS =
   "flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] px-4 py-2.5 text-sm font-semibold text-[var(--marinara-chat-chrome-button-text-active)] shadow-sm transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] active:scale-[0.98]";
 
-function getTargetRect(target: string): SpotlightRect | null {
-  const el = document.querySelector(`[data-tour="${target}"]`);
-  if (!el) return null;
+function visibleBox(el: Element): DOMRect | null {
   const r = el.getBoundingClientRect();
-  return { target, top: r.top, left: r.left, width: r.width, height: r.height };
+  return r.width > 0 && r.height > 0 ? r : null;
+}
+
+/** The target as the user sees it: the first one on screen (a layout can keep a hidden copy), and for a
+ *  stretchy container marked data-tour-fit="children" (the tab strip) only the part its children fill. */
+function getTargetRect(target: string): SpotlightRect | null {
+  const el = [...document.querySelectorAll(`[data-tour="${target}"]`)].find((candidate) => visibleBox(candidate));
+  if (!el) return null;
+  let box: { top: number; left: number; right: number; bottom: number } = el.getBoundingClientRect();
+  if (el.getAttribute("data-tour-fit") === "children") {
+    const parts = [...el.children].map(visibleBox).filter((rect): rect is DOMRect => rect !== null);
+    if (parts.length) {
+      box = {
+        top: Math.min(...parts.map((rect) => rect.top)),
+        left: Math.min(...parts.map((rect) => rect.left)),
+        right: Math.max(...parts.map((rect) => rect.right)),
+        bottom: Math.max(...parts.map((rect) => rect.bottom)),
+      };
+    }
+  }
+  return { target, top: box.top, left: box.left, width: box.right - box.left, height: box.bottom - box.top };
+}
+
+/** Which way Professor Mari points: her pointing poses face left as drawn, so she turns when the target is to
+ *  the card's right, and points up only when the target is above the card. Other poses stay as written. */
+function aimSprite(sprite: TourStep["sprite"], targets: readonly Rect[], card: Rect | null): TourStep["sprite"] {
+  if (!sprite || !targets.length || !card || !sprite.pose.startsWith("point-")) return sprite;
+  // The main target decides; when it sits straight above the card she leans toward the other lit controls
+  // (Tabs and Search lights the title and the tabs button).
+  const cardX = card.left + card.width / 2;
+  const centerX = (rect: Rect) => rect.left + rect.width / 2;
+  const [main, ...rest] = targets;
+  const nearCenter = Math.max(24, card.width * 0.15);
+  const targetX =
+    Math.abs(centerX(main) - cardX) >= nearCenter || !rest.length
+      ? centerX(main)
+      : rest.reduce((sum, rect) => sum + centerX(rect), 0) / rest.length;
+  const flip = Math.abs(targetX - cardX) < nearCenter ? sprite.flip : targetX > cardX;
+  const above = targets.some((rect) => rect.top + rect.height <= card.top + 8);
+  return { pose: above ? "point-up" : "point-middle", flip };
 }
 
 function spotlightRectsMatch(previous: readonly SpotlightRect[], next: readonly SpotlightRect[]): boolean {
@@ -452,13 +489,13 @@ function isChatModeTourTarget(target: string | null): boolean {
 }
 
 /** The padded highlight box, kept inside the window so its outline is never cut off at an edge. */
-function clampSpotlightToViewport(rect: Rect): Rect {
+function clampSpotlightToViewport(rect: Rect, pad = PAD): Rect {
   const vw = getViewportWidth();
   const vh = getViewportHeight();
-  const top = Math.max(1, rect.top - PAD);
-  const left = Math.max(1, rect.left - PAD);
-  const right = Math.min(vw - 1, rect.left + rect.width + PAD);
-  const bottom = Math.min(vh - 1, rect.top + rect.height + PAD);
+  const top = Math.max(1, rect.top - pad);
+  const left = Math.max(1, rect.left - pad);
+  const right = Math.min(vw - 1, rect.left + rect.width + pad);
+  const bottom = Math.min(vh - 1, rect.top + rect.height + pad);
   return { top, left, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
 }
 
@@ -620,8 +657,11 @@ function TourCardContent({
   onSkip,
   pickerSlot,
   device,
+  sprite: spriteOverride,
 }: {
   device: WalkthroughDevice;
+  /** The step's sprite turned toward its target (see aimSprite) */
+  sprite?: TourStep["sprite"];
   step: number;
   stepCount: number;
   currentStep: TourStep;
@@ -646,17 +686,18 @@ function TourCardContent({
     ? localizeUi(bodyKey, { mod: formatShortcutKey("Mod") })
     : localize(currentStep.body ?? "");
   const localizedTitle = resolveTourStepTitle(currentStep, localizeUi, localize);
+  const sprite = spriteOverride ?? currentStep.sprite;
   return (
     <>
       {/* Professor Mari sprite */}
-      {currentStep.sprite && (
+      {sprite && (
         <div className="mb-2 flex justify-center">
           <img
-            src={poses[currentStep.sprite.pose]}
-            {...mariImgLoading(MARI_ASSET_TIER.poses[currentStep.sprite.pose])}
+            src={poses[sprite.pose]}
+            {...mariImgLoading(MARI_ASSET_TIER.poses[sprite.pose])}
             alt={localizeUi("ui.onboarding.tourcardcontent.professorMari")}
             className="h-32 max-h-[15vh] w-auto object-contain drop-shadow-lg [image-rendering:pixelated]"
-            style={currentStep.sprite.flip ? { transform: "scaleX(-1)" } : undefined}
+            style={sprite.flip ? { transform: "scaleX(-1)" } : undefined}
             draggable={false}
           />
         </div>
@@ -890,7 +931,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
   // Track the target element position (handles resize/scroll)
   const lastSpotlightRectsRef = useRef<SpotlightRect[]>([]);
   const updateRect = useCallback(() => {
-    if (isMobileViewport || !currentStep?.target) {
+    if (!currentStep?.target) {
       if (lastSpotlightRectsRef.current.length > 0) {
         lastSpotlightRectsRef.current = [];
         setSpotlightRects([]);
@@ -905,7 +946,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
       setSpotlightRects(nextRects);
     }
     rafRef.current = requestAnimationFrame(updateRect);
-  }, [currentStep?.highlightTargets, currentStep?.target, isMobileViewport]);
+  }, [currentStep?.highlightTargets, currentStep?.target]);
 
   useEffect(() => {
     updateRect();
@@ -951,6 +992,23 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
   }, [isLast, commitDocsLanguage, finish]);
 
   const isCentered = isMobileViewport || currentStep.centerCard || !currentStep.target || !targetRect;
+
+  // Mari turns toward the highlighted control, wherever the card ended up beside (or, on a phone, below) it.
+  const [cardBox, setCardBox] = useState<Rect | null>(null);
+  useEffect(() => {
+    const measure = () => {
+      const box = cardRef.current?.getBoundingClientRect();
+      setCardBox(box ? { top: box.top, left: box.left, width: box.width, height: box.height } : null);
+    };
+    const frame = requestAnimationFrame(measure);
+    // The previous card animates out first (AnimatePresence "wait"), so measure again once the new one is in.
+    const settled = window.setTimeout(measure, 350);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(settled);
+    };
+  }, [step, spotlightRects, isCentered]);
+  const aimedSprite = aimSprite(currentStep.sprite, spotlightRects, cardBox);
   const centeredTopOffset = getTutorialTopOffset();
   const centeredCardMaxHeight = Math.max(0, getViewportHeight() - centeredTopOffset - 16);
   const dialogLabel = resolveTourStepTitle(currentStep, localizeUi, localize);
@@ -987,7 +1045,8 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
   return createPortal(
     <div className="mari-chrome-token-scope pointer-events-none fixed inset-0 z-[9999]">
       {/* Pulsing highlight rings around the current target elements */}
-      {!isMobileViewport &&
+      {/* Phones too: the card sits centered there, but the control it talks about still lights up. */}
+      {(!isMobileViewport || currentStep.besideTarget) &&
         spotlightRects.map((rect, index) => (
           <div
             key={rect.target}
@@ -999,7 +1058,8 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
                 : "pointer-events-none fixed animate-pulse rounded-xl ring-2 ring-[var(--marinara-chat-chrome-focus-ring)]"
             }
             style={{
-              ...clampSpotlightToViewport(rect),
+              // New-layout steps hug the control (a wide pad reached into neighbours and theme art).
+              ...clampSpotlightToViewport(rect, currentStep.besideTarget ? 3 : PAD),
               // New-layout steps: a solid accent outline, and the rest of the screen dimmed around the main target.
               ...(currentStep.besideTarget
                 ? {
@@ -1049,6 +1109,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
                 onSkip={finish}
                 pickerSlot={pickerSlot}
                 device={device}
+                sprite={aimedSprite}
               />
             </motion.div>
           </AnimatePresence>
@@ -1078,6 +1139,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
               onSkip={finish}
               pickerSlot={pickerSlot}
               device={device}
+              sprite={aimedSprite}
             />
           </motion.div>
         </AnimatePresence>

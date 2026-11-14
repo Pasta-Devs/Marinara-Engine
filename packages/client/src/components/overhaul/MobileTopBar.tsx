@@ -368,6 +368,7 @@ export function OverhaulMobileTopBar() {
           aria-label={localize("All tabs")}
           title={localize("All tabs")}
           onClick={() => useOverhaulStore.getState().setAllTabsOpen(!allTabsOpen)}
+          data-tour="tab-strip"
         >
           <span className="ovm-tabs-icon" aria-hidden="true">
             {tabCount + 1}
