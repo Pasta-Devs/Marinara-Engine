@@ -1525,7 +1525,7 @@ export function AgentsPanel() {
         ? agentFilterActive && !hasVisibleAgents
         : agentSearchActive && installedRulesets.length > 0 && visibleRulesets.length === 0) && (
         <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
-          {localizeUi("ui.panels.agentspanel.noAgentsMatchFilters")}
+          {localizeUi(hasInstalledAgents ? "ui.panels.agentspanel.noAgentsMatchFilters" : "search.panels.noMatches")}
         </p>
       )}
 
