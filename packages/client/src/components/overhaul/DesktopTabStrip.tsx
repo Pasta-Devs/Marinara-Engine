@@ -8,6 +8,8 @@
 // the spot); hold Shift while dropping onto another tab to group them, or use
 // the right-click menu.
 // ──────────────────────────────────────────────
+import { editorLeaveKeyForTab } from "../../lib/editor-leave";
+import { useParkedDraftsStore } from "../../hooks/use-editor-leave-save";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Home, Layers, X } from "lucide-react";
@@ -19,6 +21,7 @@ import {
   TabIcon,
   TabLabel,
   TabPresence,
+  TabDraftDot,
   activateTab,
   closeTabAndMove,
   goHome,
@@ -204,9 +207,14 @@ export function DesktopTabStrip({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  // Bulk closes leave tabs whose unsaved edits wait as drafts; closing one of those asks on its own.
+  const waitingDraft = (tab: OverhaulTab) => {
+    const editorKey = editorLeaveKeyForTab(tab);
+    return !!editorKey && useParkedDraftsStore.getState().keys.includes(editorKey);
+  };
   const closeOtherTabs = (keep: Placed) => {
     for (const tab of store().tabs) {
-      if (overhaulTabKey(tab) === keep.key) continue;
+      if (overhaulTabKey(tab) === keep.key || waitingDraft(tab)) continue;
       store().rememberClosedTab(tab);
       store().closeTab(tab);
     }
@@ -217,7 +225,7 @@ export function DesktopTabStrip({
     const members = all.filter((tab) => tab.group === id);
     const remaining = all.filter((tab) => tab.group !== id);
     const firstIndex = all.findIndex((tab) => tab.group === id);
-    for (const tab of members) store().closeTab(tab);
+    for (const tab of members) if (!waitingDraft(tab)) store().closeTab(tab);
     if (currentGroupId === id) {
       const next = remaining[Math.min(firstIndex, remaining.length - 1)];
       if (next) activateTab(next);
@@ -355,6 +363,7 @@ export function DesktopTabStrip({
       >
         <TabIcon tab={entry.tab} chats={chats} />
         <TabLabel tab={entry.tab} chats={chats} />
+        <TabDraftDot tab={entry.tab} current={entry.key === currentKey} />
         {extra?.compact ? null : <TabPresence tab={entry.tab} chats={chats} dotOnly />}
       </button>
       <button

@@ -49,6 +49,9 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     if (isMobileShellViewport()) ui.setSidebarOpen(false);
     else ui.setSidebarOpen(true);
     ui.closeRightPanel();
+    // New layout: an open editor page covers the chat, so it steps aside (its unsaved edits wait in its
+    // tab), like picking the chat's tab does. Otherwise the chat opened unseen behind the editor.
+    if (isOverhaulLook()) ui.closeAllDetails();
     useChatStore.getState().setActiveChatId(target.chatId);
   } else if (target.kind === "panel") {
     // New layout: a Library section is a page of its own, not just the highlighted pane entry.
