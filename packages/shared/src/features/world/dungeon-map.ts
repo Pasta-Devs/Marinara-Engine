@@ -144,6 +144,53 @@ export const DUNGEON_SETS: readonly DungeonSet[] = Object.freeze([
       "a brazier",
     ],
   },
+  // Buildings laid out to a plan (building plans, 2026-11-14): slot 5 the door out, 6 a locked door, 7
+  // rubble; 0-4 the furniture rooms are dressed with by their purpose.
+  {
+    id: "building_manor",
+    kind: "dungeon",
+    label: "Manor house",
+    floor: "worn floorboards and rugs",
+    wall: "panelled plaster walls",
+    liquid: "standing water",
+    props: ["a table", "a bed", "bookshelves", "a hearth", "a chest", "a door", "a locked door", "rubble"],
+  },
+  {
+    id: "building_keep",
+    kind: "dungeon",
+    label: "Keep",
+    floor: "flagstones and rushes",
+    wall: "thick stone walls",
+    liquid: "standing water",
+    props: [
+      "a trestle table",
+      "a cot",
+      "a weapon rack",
+      "a brazier",
+      "a strongbox",
+      "a door",
+      "a locked door",
+      "rubble",
+    ],
+  },
+  {
+    id: "building_temple",
+    kind: "dungeon",
+    label: "Temple",
+    floor: "worn tiles",
+    wall: "carved stone walls",
+    liquid: "a flooded floor",
+    props: [
+      "a pew",
+      "an altar",
+      "shelves of scrolls",
+      "a brazier",
+      "an offering chest",
+      "a door",
+      "a locked door",
+      "rubble",
+    ],
+  },
   {
     id: "station_corridor",
     kind: "station",
@@ -241,6 +288,10 @@ export interface DungeonMap {
   drawnProps?: true;
   /** A map made by hand's own words for the Game Master (1.357). */
   words?: WorldMapWords;
+  /** A building's rooms by name (building plans), as its rooms are ordered. */
+  roomNames?: readonly string[];
+  /** Cells the party walks round (traps it has found). */
+  blocked?: ReadonlySet<number>;
 }
 
 function mulberry32(seed: number): () => number {
@@ -261,6 +312,7 @@ export function dungeonWalkable(map: DungeonMap, x: number, y: number): boolean 
   if (x < 0 || y < 0 || x >= map.width || y >= map.height) return false;
   const i = at(map, x, y);
   if (map.drawnProps) return map.ground[i] === "floor";
+  if (map.blocked?.has(i)) return false;
   return map.ground[i] === "floor" && (map.props[i] === -1 || map.props[i] === DUNGEON_EXIT_PROP);
 }
 
@@ -616,8 +668,12 @@ export function dungeonMapWords(map: DungeonMap): string {
       }
     const things = [...counts].map(([prop, n]) => (n > 1 ? `${set.props[prop]} (${n})` : set.props[prop]!));
     if (liquid) things.push(set.liquid);
-    return `area ${index + 1}${things.length ? `: ${things.join(", ")}` : ""}`;
+    const name = map.roomNames?.[index];
+    return `area ${index + 1}${name ? ` (${name})` : ""}${things.length ? `: ${things.join(", ")}` : ""}`;
   });
+  // A planned building's way in is a door from its hall, on the level it is entered from.
+  if (map.roomNames)
+    return `${set.label} (${set.floor}, ${set.wall}); a hall runs through it with these rooms off it: ${rooms.join("; ")}.`;
   return `${set.label} (${set.floor}, ${set.wall}); ${rooms.join("; ")}. The way out is ${set.props[DUNGEON_EXIT_PROP]} in area 1.`;
 }
 
@@ -670,6 +726,91 @@ export const gameDungeonMapSchema = z
     floors: z.number().int().min(1).max(9).optional(),
     siteSeed: z.number().int().optional(),
     down: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
+    /** A building laid out to a plan (building plans, 2026-11-14): its rooms' names and uses, as `rooms`
+     *  are ordered. */
+    roomInfo: z
+      .array(
+        z
+          .object({
+            name: z.string().trim().min(1).max(60),
+            use: z.string().regex(/^[a-z]{1,12}$/u),
+            heart: z.literal(true).optional(),
+          })
+          .strict(),
+      )
+      .max(40)
+      .optional(),
+    /** The plan it is a level of, and what the party has done there on every level: which level this is,
+     *  each level's name, the rooms seen on each, the locks opened and the traps found and gone. */
+    site: z
+      .object({
+        template: z.string().regex(/^[a-z]{1,12}$/u),
+        wealth: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+        fate: z
+          .string()
+          .regex(/^[a-z]{1,12}$/u)
+          .optional(),
+        terrain: z
+          .string()
+          .regex(/^[a-z]{1,12}$/u)
+          .optional(),
+        undead: z.literal(true).optional(),
+        traps: z.literal(true).optional(),
+        level: z.number().int().min(0).max(9),
+        levels: z
+          .array(z.object({ name: z.string().trim().min(1).max(60), depth: z.number().int().min(-9).max(9) }).strict())
+          .min(1)
+          .max(10),
+        seen: z.record(z.string().regex(/^\d$/u), z.array(z.number().int().min(0).max(39)).max(40)).default({}),
+        unlocked: z.array(z.string().max(8)).max(40).default([]),
+        trapsFound: z.array(z.string().max(12)).max(80).default([]),
+        trapsGone: z.array(z.string().max(12)).max(80).default([]),
+      })
+      .strict()
+      .optional(),
+    /** Ways to other levels of a planned building: where, to which level, and what they are. */
+    links: z
+      .array(
+        z
+          .object({
+            x: z.number().int(),
+            y: z.number().int(),
+            level: z.number().int().min(0).max(9),
+            kind: z.string().regex(/^[a-z]{1,12}$/u),
+          })
+          .strict(),
+      )
+      .max(12)
+      .optional(),
+    /** Locked doors on this level: the room behind each and the room its key is in. */
+    locks: z
+      .array(
+        z
+          .object({
+            x: z.number().int(),
+            y: z.number().int(),
+            room: z.number().int().min(0),
+            key: z.number().int().min(0),
+          })
+          .strict(),
+      )
+      .max(12)
+      .optional(),
+    /** Traps on this level (only in games whose rules can find them): where, how hard, and whether the
+     *  party has found it. One not found is never shown. */
+    traps: z
+      .array(
+        z
+          .object({
+            x: z.number().int(),
+            y: z.number().int(),
+            dc: z.number().int().min(1).max(40),
+            found: z.literal(true).optional(),
+          })
+          .strict(),
+      )
+      .max(16)
+      .optional(),
     // As small as a map made by hand may be (WORLD_MAP_MAX's floor, map editor Phase 3).
     width: z.number().int().min(4).max(64),
     height: z.number().int().min(4).max(48),
@@ -712,6 +853,13 @@ export const gameDungeonWalkSchema = z
     /** On a map made by hand: the place it is the map of, and every cell walked, the last included, for
      *  the story's step events (map events). A generated map's cells are never a story's. */
     place: z.string().min(1).max(160).optional(),
+    /** On a planned building (building plans): the locks the walk opened (their rooms' names), and a
+     *  hidden trap it set off (its area, 0 the hall, and how hard). */
+    unlocked: z.array(z.string().max(60)).max(12).optional(),
+    trap: z
+      .object({ area: z.number().int().min(0).max(40), dc: z.number().int().min(1).max(40) })
+      .strict()
+      .optional(),
     steps: z
       .array(z.object({ x: z.number().int().min(0).max(63), y: z.number().int().min(0).max(47) }).strict())
       .max(2000)
@@ -765,6 +913,11 @@ export function dungeonFromGameDungeonMap(map: GameDungeonMap): DungeonMap {
     entrance: map.entrance,
     ...(map.hand ? { drawnProps: true as const } : {}),
     ...(map.words ? { words: map.words } : {}),
+    ...(map.roomInfo ? { roomNames: map.roomInfo.map((room) => room.name) } : {}),
+    // A trap the party has found is walked round.
+    ...(map.traps?.some((trap) => trap.found)
+      ? { blocked: new Set(map.traps.filter((trap) => trap.found).map((trap) => trap.y * map.width + trap.x)) }
+      : {}),
   };
 }
 
@@ -773,6 +926,8 @@ export function dungeonFromGameDungeonMap(map: GameDungeonMap): DungeonMap {
 export function gameDungeonOnWayOut(map: GameDungeonMap): boolean {
   // Below the first floor the way in leads up, never out; the way down is never the way out.
   if ((map.floor ?? 1) > 1 || gameDungeonOnWayDown(map)) return false;
+  // A planned building is left only by its door, on the level it is entered from.
+  if (map.site && (map.site.levels[map.site.level]?.depth ?? 0) !== 0) return false;
   if (map.at.x === map.entrance.x && map.at.y === map.entrance.y) return true;
   // A map made by hand: its props are drawn only, a way-out prop among them too.
   if (map.hand) return false;
@@ -782,6 +937,11 @@ export function gameDungeonOnWayOut(map: GameDungeonMap): boolean {
 /** Whether the party stands on the way down to the next floor. */
 export function gameDungeonOnWayDown(map: GameDungeonMap): boolean {
   return !!map.down && map.at.x === map.down.x && map.at.y === map.down.y;
+}
+
+/** The way to another level of a planned building the party stands on, or null. */
+export function gameDungeonLinkAt(map: GameDungeonMap): NonNullable<GameDungeonMap["links"]>[number] | null {
+  return map.links?.find((link) => link.x === map.at.x && link.y === map.at.y) ?? null;
 }
 
 /** Whether the party stands on the way up, on a floor below the first. */
@@ -917,7 +1077,7 @@ export function dungeonWayOutWords(set: DungeonSet): string {
 }
 
 /** The ways out a set can have, for the label the client shows in the reader's language. */
-export const DUNGEON_WAY_OUT_IDS = ["stairs", "ladder", "ladder_hatch", "way_out"] as const;
+export const DUNGEON_WAY_OUT_IDS = ["stairs", "ladder", "ladder_hatch", "door", "way_out"] as const;
 export type DungeonWayOutId = (typeof DUNGEON_WAY_OUT_IDS)[number];
 
 /** The way out of a set as an id (`dungeonWayOutWords` without its words): "stairs", "ladder",
@@ -951,6 +1111,24 @@ const STATION_LOOKS: ReadonlyArray<[RegExp, string]> = [
   [/\b(hydroponics?|greenhouse)\b/u, "station_hydro"],
 ];
 
+/** Buildings laid out to a plan (building plans, 2026-11-14), by the words of their names. */
+const BUILDING_LOOKS: ReadonlyArray<[RegExp, string]> = [
+  [/\b(temples?|monaster(y|ies)|abbey|church|cathedral|chapel|shrine|priory|convent|sanctum)\b/u, "building_temple"],
+  [/\b(keeps?|castles?|forts?|fortress|citadel|stronghold|towers?|bastion)\b/u, "building_keep"],
+  [/\b(manors?|mansions?|estate|villa|hall|house|lodge|palace|chateau)\b/u, "building_manor"],
+];
+/** Words that make a building one to explore: a house in use is a house, a haunted one is a dungeon. */
+const BUILDING_MENACE =
+  /\b(ruins?|ruined|abandoned|haunted|cursed|forsaken|burnt|burned|derelict|fallen|lost|dread|deserted|accursed|blighted)\b/u;
+
+/** A building's look by its name, for a game whose art is not science fiction; null for none. */
+export function dungeonBuildingSetForName(name: string, family: string | undefined): DungeonSet | null {
+  if (family === "scifi") return null;
+  const words = name.toLowerCase();
+  const id = BUILDING_LOOKS.find(([pattern]) => pattern.test(words))?.[1];
+  return id ? (DUNGEON_SETS.find((set) => set.id === id) ?? null) : null;
+}
+
 /** The look of a map for a place, by its name (and the tags "mine" and "ruin"), or null for a place
  *  that is not one to go down into (a house, an inn, a market). */
 export function dungeonSetForPlace(
@@ -960,6 +1138,11 @@ export function dungeonSetForPlace(
   const name = (place.name ?? "").toLowerCase();
   const tags = (place.tags ?? []).map((tag) => tag.toLowerCase());
   const byId = (id: string) => DUNGEON_SETS.find((set) => set.id === id)!;
+  // A building gone bad (a haunted manor, a ruined keep, an abandoned temple) is explored room by room.
+  if (BUILDING_MENACE.test(name)) {
+    const building = dungeonBuildingSetForName(name, family);
+    if (building) return building;
+  }
   // A bunker or a derelict is a station's corridors in any setting; a station only in science fiction.
   if (SHELTER_CORE.test(name) && (family === "scifi" || /\b(derelict|bunkers?)\b/u.test(name)))
     return byId(STATION_LOOKS.find(([pattern]) => pattern.test(name))?.[1] ?? "station_corridor");
@@ -992,6 +1175,15 @@ export function dungeonWalkMinutes(steps: number): number {
   return Math.max(1, Math.round(steps / 30));
 }
 
+/** A planned building's ways between levels, in words. */
+const SITE_LINK_WORDS: Record<string, string> = {
+  stairs: "the main stairs",
+  servants: "the servants' stairs",
+  ladder: "a ladder",
+  hidden: "a hidden stair",
+  hole: "a collapsed floor",
+};
+
 /** The map and where the party stands, for the Game Master. */
 export function gameDungeonMapPromptText(map: GameDungeonMap, hour?: number): string {
   const cells = dungeonFromGameDungeonMap(map);
@@ -1002,7 +1194,9 @@ export function gameDungeonMapPromptText(map: GameDungeonMap, hour?: number): st
       : "inside"
     : area
       ? `in area ${area}`
-      : "in a passage between areas";
+      : map.roomInfo
+        ? "in the hall"
+        : "in a passage between areas";
   // Who stands where now, on a map made by hand with spots.
   const here =
     hour === undefined
@@ -1019,7 +1213,39 @@ export function gameDungeonMapPromptText(map: GameDungeonMap, hour?: number): st
             : "; there is no deeper floor"
         }${(map.floor ?? 1) > 1 ? ", and the way the party came in leads back up" : ""}.`
       : "";
-  return `MAP: ${map.name}.${floors} ${dungeonMapWords(cells)} The party is ${where}${
+  // A planned building: its level, the ways to the others, its locked doors and the traps the party found.
+  const site = map.site;
+  const planned = site
+    ? ` This is the ${site.levels[site.level]?.name ?? "level"} of ${site.levels.length} levels (${site.levels
+        .map((level) => level.name)
+        .join(", ")}).${
+        map.links?.length
+          ? ` Ways to other levels: ${map.links
+              .map((link) => {
+                const area = dungeonAreaAt(map, link.x, link.y);
+                const to = site.levels[link.level]?.name ?? "another level";
+                return `${SITE_LINK_WORDS[link.kind] ?? "stairs"} to the ${to}${area ? ` in area ${area}` : " in the hall"}`;
+              })
+              .join("; ")}.`
+          : ""
+      }${
+        map.locks?.length
+          ? ` Locked: ${map.locks.map((lock) => `area ${lock.room + 1}${map.roomInfo?.[lock.room] ? ` (${map.roomInfo[lock.room]!.name})` : ""}, its key in area ${lock.key + 1}`).join("; ")}. The Engine opens a lock when the party walks into its key's area; [map: unlock area=N] opens one the story opens (forced, picked, a key given).`
+          : ""
+      }${
+        map.traps?.some((trap) => trap.found)
+          ? ` Traps the party found (shown on the map, walked round): ${map.traps
+              .filter((trap) => trap.found)
+              .map((trap) => {
+                const area = dungeonAreaAt(map, trap.x, trap.y);
+                return area ? `area ${area}` : "the hall";
+              })
+              .join(", ")}.`
+          : ""
+      }`
+    : "";
+  const areaName = (n: number) => (n && map.roomInfo?.[n - 1] ? ` (${map.roomInfo[n - 1]!.name})` : "");
+  return `MAP: ${map.name}.${floors}${planned} ${dungeonMapWords(cells)} The party is ${where}${areaName(area)}${
     gameDungeonOnWayDown(map) ? ", at the way down" : gameDungeonOnWayUp(map) ? ", at the way up" : ""
   }.${here.length ? ` Here now: ${here.join("; ")}.` : ""}`;
 }
@@ -1030,8 +1256,19 @@ export function gameDungeonWalkText(map: GameDungeonMap, walk: GameDungeonWalk):
   const to = dungeonAreaAt(map, walk.to.x, walk.to.y);
   const minutes = `${walk.minutes} minute${walk.minutes === 1 ? "" : "s"}`;
   if (!map.rooms.length) return `The party walked across ${map.name} (${minutes}).`;
-  const where = (area: number) => (area ? `area ${area}` : "a passage");
-  return `The party walked from ${where(from)} to ${where(to)} of ${map.name} (${walk.minutes} minute${walk.minutes === 1 ? "" : "s"}).`;
+  const where = (area: number) =>
+    area
+      ? `area ${area}${map.roomInfo?.[area - 1] ? ` (${map.roomInfo[area - 1]!.name})` : ""}`
+      : map.roomInfo
+        ? "the hall"
+        : "a passage";
+  const opened = walk.unlocked?.length
+    ? ` On the way they found the key that opens ${walk.unlocked.join(" and ")}; the lock is open.`
+    : "";
+  const trap = walk.trap
+    ? ` In ${where(walk.trap.area)} they set off a hidden trap (DC ${walk.trap.dc}): their walk stopped there. Resolve it by the rules (a save, or its harm) and describe it.`
+    : "";
+  return `The party walked from ${where(from)} to ${where(to)} of ${map.name} (${walk.minutes} minute${walk.minutes === 1 ? "" : "s"}).${opened}${trap}`;
 }
 
 /** What a reply's `[map: ...]` tags ask for, in order: a map to go into, or leaving the one the party
