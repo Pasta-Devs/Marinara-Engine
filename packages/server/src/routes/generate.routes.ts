@@ -3290,6 +3290,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       let pendingAdvancedMemory: Promise<void> | null = null;
       const pendingRoleplayMedia: Promise<void>[] = [];
       let pendingIllustratorBackground: (() => Promise<void>) | null = null;
+      // Backgrounds this turn's own Background agent showed: the Illustrator tail doesn't read them as
+      // the user changing the background by hand.
+      const backgroundsShownThisTurn = new Set<string>();
       const collectedCommands: Array<{
         command: CharacterCommand;
         characterId: string | null;
@@ -13667,6 +13670,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
               // Persist the validated background to chat metadata so it restores on reload
               if (bgData.chosen) {
+                backgroundsShownThisTurn.add(bgData.chosen);
                 try {
                   await updateChatMetadataForTools({ background: bgData.chosen });
                 } catch {
@@ -14785,7 +14789,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       typeof freshMeta.background === "string" && freshMeta.background.trim()
                         ? freshMeta.background.trim()
                         : null;
-                    if (backgroundBeforeGeneration !== backgroundAtDecision) {
+                    if (
+                      backgroundBeforeGeneration !== backgroundAtDecision &&
+                      !(backgroundBeforeGeneration && backgroundsShownThisTurn.has(backgroundBeforeGeneration))
+                    ) {
                       logger.info(
                         "[illustrator-background] Skipping automatic background because the active background changed after the Illustrator decision",
                       );
@@ -14859,7 +14866,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       typeof metaAfterGeneration.background === "string" && metaAfterGeneration.background.trim()
                         ? metaAfterGeneration.background.trim()
                         : null;
-                    if (backgroundAfterGeneration !== backgroundAtDecision) {
+                    if (backgroundAfterGeneration !== backgroundBeforeGeneration) {
                       logger.info(
                         "[illustrator-background] Saved %s to the library without activating it because the background changed during generation",
                         generated.filename,

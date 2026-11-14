@@ -35,12 +35,12 @@ The builder groups the slots under **Chat**, **Story**, **Pictures** and **Behin
 
 How to fill the slots:
 
-- Pick items from each slot's list. **Agents**, **Tools** and **Lorebooks** allow several picks. Use the checkboxes in **Tools** to turn each tool on or off. For a single-item slot, choose **None** to clear it.
-- In the agents and lorebooks lists on a computer, hold <kbd>Ctrl</kbd> (<kbd>Command</kbd> on macOS) to pick several items. On a phone, use the selection controls. **Clear selection** empties a list.
+- Tap a slot's field to open a picker window with search and your library's folders, like the preset and lorebook pickers. For a single-item slot, choose **None** to clear it.
+- **Agents** and **Lorebooks** allow several picks: tick them in the window, or use **Add all** on a folder. Each pick shows under the field with a remove button, and **Clear selection** empties the slot. **Tools** is a checkbox list: tick each tool to turn it on.
 - On a computer you can open a library sidebar while the editor stays open and drag an item onto its field.
 - **Parameters**, **Memory & summary** and **Translation** only show whether the profile holds them. Change them in Chat Settings, then save into the profile.
 
-In the new chat wizard, the **Use a Profile** step also has **New profile…** at the top of the list and **Edit** beside a saved profile. After you save, the wizard selects that profile.
+In the new chat wizard, the **Use a Profile** step has **New** beside the profile field, and **Edit** beside a saved profile. After you save, the wizard selects that profile.
 
 ## Save chat settings into a profile
 

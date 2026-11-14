@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { LorebookListField, PresetPickerField, type LibraryLorebook, type LibraryPreset } from "../ui/LibraryPickers";
+import { ProfilePickerField } from "./ProfilePickerField";
 import { advanceChatSetupDraft } from "../../lib/chat-setup-draft";
 import { useDiscardNewChatSetup } from "../../hooks/use-discard-new-chat-setup";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
@@ -296,7 +297,6 @@ const WIZARD_PANEL_CLASS = cn(
 );
 
 const WIZARD_FIELD_LABEL = "text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]";
-const NEW_PROFILE_OPTION = "__new-profile__";
 const WIZARD_INPUT_CLASS =
   "w-full min-w-0 truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40";
 const WIZARD_NUMBER_INPUT_CLASS =
@@ -3230,27 +3230,17 @@ function RoleplaySetupWizard({
       <div className="space-y-1.5">
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("chat.settingsProfile.label")}</label>
         <div className="flex items-center gap-2">
-          <select
+          <ProfilePickerField
+            profiles={chatPresetList}
             value={shortcutPresetId}
-            onChange={(event) => {
-              if (event.target.value === NEW_PROFILE_OPTION) return setProfileBuilder("new");
-              setShortcutPresetId(event.target.value);
-            }}
-            aria-label={localizeUi("chat.settingsProfile.label")}
-            className={WIZARD_INPUT_CLASS}
-          >
-            {chatPresetList.length === 0 && (
-              <option value="">{localizeUi("ui.characters.characterlibraryview.loading")}</option>
+            onChange={setShortcutPresetId}
+            missingLabel={localizeUi(
+              chatPresetList.length === 0
+                ? "ui.characters.characterlibraryview.loading"
+                : "chat.settingsProfile.option.missing",
             )}
-            {chatPresetList.length > 0 && (
-              <option value={NEW_PROFILE_OPTION}>{localizeUi("chat.settingsProfile.builder.newOption")}</option>
-            )}
-            {chatPresetList.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.isDefault ? localizeUi("ui.noodle.noodlehome.default") : preset.name}
-              </option>
-            ))}
-          </select>
+            triggerClassName={WIZARD_INPUT_CLASS}
+          />
           {shortcutPreset && !shortcutPreset.isDefault && (
             <button
               type="button"
@@ -3259,6 +3249,18 @@ function RoleplaySetupWizard({
               className="min-h-9 shrink-0 rounded-lg px-3 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             >
               {localizeUi("chat.settingsProfile.builder.edit")}
+            </button>
+          )}
+          {/* Chat Settings' "+ New" beside its profile field: a new profile is an action, not a pick. */}
+          {chatPresetList.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setProfileBuilder("new")}
+              title={localizeUi("chat.settingsProfile.builder.newTitle")}
+              className="flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-3 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            >
+              <Plus size="0.75rem" aria-hidden />
+              {localizeUi("chat.settingsProfile.builder.new")}
             </button>
           )}
         </div>
