@@ -23,7 +23,7 @@ Choisis le personnage quand tu démarres un chat. Voir [Mode Roleplay : premiers
 
 ## Le Character Editor en un coup d'œil
 
-Le Character Editor remplace la zone de chat par un espace de travail pleine page. Sur un écran large, les onglets forment une rangée de boutons dans l'en-tête. Sur un écran étroit, ils se regroupent dans un menu sous le nom. Les onglets, dans l'ordre, sont **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (images), **Colors**, **Voice**, **Stats** et **Advanced**. Chaque onglet mène à sa section d'un seul long formulaire : tu peux donc aussi faire défiler la page.
+Le Character Editor remplace la zone de chat par un espace de travail pleine page. Sur un écran large, les onglets forment une rangée de boutons dans l'en-tête. À certaines largeurs intermédiaires, les boutons n'affichent que leurs icônes. Survole un bouton pour voir son nom. Sur un écran étroit, ils se regroupent dans un menu sous le nom. Les onglets, dans l'ordre, sont **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (images), **Colors**, **Voice**, **Stats** et **Advanced**. Chaque onglet mène à sa section d'un seul long formulaire : tu peux donc aussi faire défiler la page.
 
 L'en-tête regroupe les éléments les plus utilisés :
 

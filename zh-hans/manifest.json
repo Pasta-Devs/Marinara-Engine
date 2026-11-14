@@ -1,6 +1,6 @@
 {
   "language": "zh-hans",
-  "sourceCommit": "9164a2bd02a77ea479b93c684bd2a6e7af6ff048",
+  "sourceCommit": "dd2e4b15c5da79e29dc70e8b10404c68ee9bc275",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -124,8 +124,8 @@
     },
     {
       "path": "characters/creating-and-editing-characters.md",
-      "sha256": "abcc02baade09a552ec47f9f4f2a0bbe8ae4fc41934df5916a72e7aac2a89d87",
-      "bytes": 19411
+      "sha256": "4d69123502861b742a3f47bcb5b27e272f013dfd3feb4d24b37f97ba6e7e7aa9",
+      "bytes": 19519
     },
     {
       "path": "characters/galleries.md",

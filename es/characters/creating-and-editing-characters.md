@@ -23,7 +23,7 @@ Elige el personaje cuando empieces un chat. Consulta [Modo Roleplay: primeros pa
 
 ## El Character Editor de un vistazo
 
-El Character Editor reemplaza el área del chat por un espacio de trabajo a página completa. En una pantalla ancha, las pestañas forman una fila de botones en el encabezado. En una pantalla estrecha, se agrupan en un menú debajo del nombre. Las pestañas, en orden, son **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (Imágenes), **Colors**, **Voice**, **Stats** y **Advanced**. Cada pestaña salta a su sección de un único formulario largo, así que también puedes desplazarte por él.
+El Character Editor reemplaza el área del chat por un espacio de trabajo a página completa. En una pantalla ancha, las pestañas forman una fila de botones en el encabezado. Con algunos anchos intermedios, los botones solo muestran sus iconos. Pasa el puntero por encima de un botón para ver su nombre. En una pantalla estrecha, se agrupan en un menú debajo del nombre. Las pestañas, en orden, son **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (Imágenes), **Colors**, **Voice**, **Stats** y **Advanced**. Cada pestaña salta a su sección de un único formulario largo, así que también puedes desplazarte por él.
 
 El encabezado contiene las partes que más usas:
 

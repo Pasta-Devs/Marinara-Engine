@@ -23,7 +23,7 @@ Escolha o personagem quando começar um chat. Veja [Roleplay Mode: primeiros pas
 
 ## O Character Editor de relance
 
-O Character Editor substitui a área do chat por um espaço de trabalho que ocupa a página inteira. Em uma tela larga, as abas ficam em uma fileira de botões no cabeçalho. Em uma tela estreita, elas ficam em um menu abaixo do nome. As abas, na ordem, são **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (imagens), **Colors**, **Voice**, **Stats** e **Advanced**. Cada aba leva à sua seção de um único formulário longo, então você também pode rolar a página.
+O Character Editor substitui a área do chat por um espaço de trabalho que ocupa a página inteira. Em uma tela larga, as abas ficam em uma fileira de botões no cabeçalho. Em algumas larguras intermediárias, os botões exibem só os ícones. Passe o ponteiro sobre um botão para ver o nome dele. Em uma tela estreita, elas ficam em um menu abaixo do nome. As abas, na ordem, são **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (imagens), **Colors**, **Voice**, **Stats** e **Advanced**. Cada aba leva à sua seção de um único formulário longo, então você também pode rolar a página.
 
 O cabeçalho reúne as partes que você mais usa:
 

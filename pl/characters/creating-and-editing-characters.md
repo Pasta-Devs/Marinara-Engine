@@ -23,7 +23,7 @@ Wybierz postać przy rozpoczynaniu czatu. Zobacz [Tryb Roleplay: pierwsze kroki]
 
 ## Edytor postaci w skrócie
 
-Edytor **Character Editor** zastępuje obszar czatu pełnoekranowym miejscem pracy. Na szerokim ekranie zakładki tworzą rząd przycisków w nagłówku. Na wąskim ekranie mieszczą się w menu pod nazwą. Zakładki po kolei to **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (obrazy), **Colors**, **Voice**, **Stats** i **Advanced**. Każda zakładka przeskakuje do swojej sekcji jednego długiego formularza, więc można też po prostu przewijać.
+Edytor **Character Editor** zastępuje obszar czatu pełnoekranowym miejscem pracy. Na szerokim ekranie zakładki tworzą rząd przycisków w nagłówku. Przy niektórych pośrednich szerokościach ekranu przyciski pokazują tylko ikony. Najedź kursorem na przycisk, aby zobaczyć jego nazwę. Na wąskim ekranie mieszczą się w menu pod nazwą. Zakładki po kolei to **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (obrazy), **Colors**, **Voice**, **Stats** i **Advanced**. Każda zakładka przeskakuje do swojej sekcji jednego długiego formularza, więc można też po prostu przewijać.
 
 W nagłówku są elementy używane najczęściej:
 

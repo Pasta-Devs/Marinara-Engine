@@ -23,7 +23,7 @@ Wähl den Charakter aus, wenn du einen Chat startest. Siehe [Roleplay Mode: Erst
 
 ## Der Character Editor im Überblick
 
-Der Character Editor ersetzt den Chatbereich durch einen seitenfüllenden Arbeitsbereich. Auf einem breiten Bildschirm bilden die Tabs eine Schaltflächenreihe in der Kopfzeile. Auf einem schmalen Bildschirm findest du sie in einem Menü unter dem Namen. Die Tabs lauten der Reihe nach **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (Bilder), **Colors**, **Voice**, **Stats** und **Advanced**. Jeder Tab springt zu seinem Abschnitt in einem langen Formular, du kannst also auch einfach scrollen.
+Der Character Editor ersetzt den Chatbereich durch einen seitenfüllenden Arbeitsbereich. Auf einem breiten Bildschirm bilden die Tabs eine Schaltflächenreihe in der Kopfzeile. Bei einigen mittleren Bildschirmbreiten zeigen die Schaltflächen nur ihre Symbole. Zeige mit dem Mauszeiger auf eine Schaltfläche, um ihren Namen zu sehen. Auf einem schmalen Bildschirm findest du sie in einem Menü unter dem Namen. Die Tabs lauten der Reihe nach **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (Bilder), **Colors**, **Voice**, **Stats** und **Advanced**. Jeder Tab springt zu seinem Abschnitt in einem langen Formular, du kannst also auch einfach scrollen.
 
 Die Kopfzeile enthält die Elemente, die du am häufigsten brauchst:
 
