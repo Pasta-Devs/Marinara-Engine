@@ -43,6 +43,24 @@ assert.equal(pick("Johnson's bedroom"), "any", "whole words only: Johnson is not
 assert.equal(pick("the lounge by the stairs"), "living");
 assert.equal(pick("kitchen"), null, "a pin without a picture never matches");
 assert.equal(pick("the bedroomette"), null, "whole words only");
+assert.equal(
+  pick("Smith House, John's rented bedroom by the stairs"),
+  "john",
+  "a word or two in between still matches",
+);
+assert.equal(pick("John's old guest bedroom"), "john", "two words in between");
+assert.equal(pick("John's house, the big sunny guest bedroom"), "any", "too far apart: not John's");
+assert.equal(
+  shared.resolveLocationBackgroundPin(
+    [
+      { id: "gapped", names: ["John's bedroom"], background: "john.png" },
+      { id: "exact", names: ["guest bedroom"], background: "guest.png" },
+    ],
+    { ...who, location: "John's guest bedroom" },
+  )?.pin.id,
+  "exact",
+  "an exact name beats a gapped one of the same size",
+);
 assert.equal(pick(null), null);
 assert.equal(
   shared.resolveLocationBackgroundPin(pins, { location: "Alyssa's bedroom", characterNames: ["John"] })?.pin.id,

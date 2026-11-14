@@ -22,6 +22,7 @@ import {
   MODEL_LISTS,
   PROVIDERS,
   catalogModelId,
+  isChatProvider,
   parsePinnedModels,
   type APIProvider,
   type KnownModel,
@@ -31,12 +32,13 @@ import {
   type ModelParameterCapabilities,
 } from "@marinara-engine/shared";
 import {
+  useConnections,
   useConnectionModels,
   useRefreshConnectionModels,
   useSetConnectionModelPinned,
   useUpdateConnection,
 } from "../../hooks/use-connections";
-import { usePickModel } from "../../hooks/use-connection-accounts";
+import { useConnectionAccounts, usePickModel } from "../../hooks/use-connection-accounts";
 import { useModelStar } from "../../hooks/use-model-star";
 import {
   connectionFieldsForModelPick,
@@ -48,7 +50,7 @@ import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget
 import { knownPrefixName, subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
-import { ModelRow } from "./ModelRow";
+import { ModelRow, ModelTile } from "./ModelRow";
 import { CostBadge, costBadgeShows } from "./CostBadge";
 import { cn } from "../../lib/utils";
 import { formatRelativeContact } from "../../lib/relative-time";
@@ -141,6 +143,8 @@ export function ConnectionModelPicker({
   preselect,
   only,
   builtInModels,
+  offerDefault = true,
+  onPickDefault,
 }: {
   connection: ModelPickerConnection;
   /** Name the connection beside its provider, where the connection list is out of sight. */
@@ -180,6 +184,13 @@ export function ConnectionModelPicker({
   only?: (row: PickerRow) => boolean;
   /** Replaces the provider's built-in list (an image service such as NovelAI lists only its own models). */
   builtInModels?: readonly KnownModel[];
+  /**
+   * Lists "Default" first when the Connection's server can answer with the model it has loaded (`loadedModel`).
+   * Off for jobs that need a model id of their own, such as a decision or voice row.
+   */
+  offerDefault?: boolean;
+  /** Picking "Default" in place (the Model editor). Without it a pick finds or saves the Connection's Default Model. */
+  onPickDefault?: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -203,6 +214,20 @@ export function ConnectionModelPicker({
   const providerName = PROVIDERS[provider]?.name ?? connection.provider ?? "";
   const reviewRequired = isConnectionFlagTrue(connection.profileImportReviewRequired);
   const currentModel = connection.model?.trim() ?? "";
+  // The Default model: a chat Model with no model id, on a Connection whose server answers with its loaded model.
+  // The picker's connection can come without its accountId (an in-place pick), so its saved row is asked too.
+  const { data: accounts } = useConnectionAccounts();
+  const { data: savedRows } = useConnections();
+  const defaultAccountId =
+    connection.accountId ??
+    (savedRows as ModelPickerConnection[] | undefined)?.find((row) => row.id === connection.id)?.accountId ??
+    null;
+  const defaultAccount = accounts?.find((account) => account.id === defaultAccountId) ?? null;
+  const defaultSaved = (savedRows as ModelPickerConnection[] | undefined)?.some(
+    (row) => row.accountId === defaultAccountId && isChatProvider(row.provider) && !row.model?.trim(),
+  );
+  const showDefault =
+    offerDefault && !only && isChatProvider(provider) && !!defaultAccountId && !!defaultAccount?.loadedModel;
   const pinnedIds = useMemo(() => parsePinnedModels(connection.pinnedModels), [connection.pinnedModels]);
 
   const modelList = useConnectionModels(connection.id, !reviewRequired);
@@ -405,6 +430,30 @@ export function ConnectionModelPicker({
     }
   };
 
+  // "Default": the Connection's Model with no model id, found or saved like any pick (decision 30), then chosen.
+  const pickDefault = async () => {
+    if (saving) return;
+    const name = t("connections.loadedModel.name");
+    try {
+      if (onPickDefault) await onPickDefault();
+      else if ((onChoose || applyPick) && connection.accountId) {
+        const { connectionId } = await pickModel.mutateAsync({ accountId: connection.accountId, model: "", name });
+        if (onChoose) {
+          if ((await onChoose({ connectionId })) === false) return;
+        } else await applyPick!(connectionId, "");
+      } else {
+        // In place (a new Connection's first Model): the placeholder itself becomes the Default model.
+        if (currentModel || addMode)
+          await updateConnection.mutateAsync({ id: connection.id, model: "", ...(addMode ? { name } : {}) });
+        if (applyPick) await applyPick(connection.id, "");
+      }
+      setSearch("");
+      onPicked?.("");
+    } catch (error) {
+      toast.error(t("connections.modelPicker.saveFailed", { error: errorMessage(error) }));
+    }
+  };
+
   const preselected = useRef(false);
   useEffect(() => {
     if (!preselect || preselected.current || modelList.isLoading) return;
@@ -597,12 +646,22 @@ export function ConnectionModelPicker({
       ]
     : [];
 
+  // Listed while the search is empty or names it; checked when it is what this Model or chat runs, or was added.
+  const defaultLabel = t("connections.loadedModel.name").toLowerCase();
+  const defaultShown =
+    showDefault &&
+    (!typedId || defaultLabel.includes(typedId.toLowerCase()) || "default".includes(typedId.toLowerCase()));
+  const defaultCurrent = addMode ? !!addedIds?.includes("") : !!connection.id && !currentModel;
+  // Adding: the Connection already has its Default model (a pick there just finds it).
+  const defaultAdded = addMode && !onChoose && (defaultCurrent || !!defaultSaved);
+
   const status = modelList.isLoading ? (
     <ListStatus className="flex items-center justify-center gap-2 py-2">
       <Loader2 size="0.75rem" className="animate-spin" aria-hidden />
       {t("connections.modelPicker.loading")}
     </ListStatus>
   ) : !modelList.isError &&
+    !showDefault &&
     !typedId &&
     recommendedRows.length === 0 &&
     pinnedRows.length === 0 &&
@@ -807,6 +866,64 @@ export function ConnectionModelPicker({
                   </span>
                 </button>
               </div>
+            )}
+
+            {defaultShown && (
+              <section aria-label={t("connections.loadedModel.name")} data-model-section="default" className="mb-2">
+                <ModelRow
+                  rowProps={{
+                    "data-model-row": true,
+                    "data-model-default": true,
+                    className: cn("rounded-lg", addMode && "-mx-2"),
+                  }}
+                  data-model-option
+                  aria-current={defaultCurrent ? "true" : undefined}
+                  disabled={saving}
+                  onClick={() => void pickDefault()}
+                  className={cn("rounded-lg disabled:cursor-wait", addMode && "max-md:ps-2 max-md:gap-3")}
+                  tile={
+                    <ModelTile account={defaultAccount} row={{ id: "", provider: provider || "custom" }} model="" />
+                  }
+                  title={t("connections.loadedModel.name")}
+                  tooltip={t("connections.loadedModel.hint")}
+                  subtitle={t("connections.loadedModel.subtitle")}
+                  current={defaultCurrent}
+                  end={
+                    addMode &&
+                    !onChoose && (
+                      <button
+                        type="button"
+                        data-model-star
+                        aria-pressed={defaultAdded}
+                        aria-label={t("connections.modelPicker.addToggle", {
+                          model: t("connections.loadedModel.name"),
+                        })}
+                        disabled={saving || defaultAdded}
+                        onClick={() => void pickDefault()}
+                        className={cn(
+                          "flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-lg px-2 text-[0.6875rem] font-medium outline-none transition-colors focus-visible:ring-1 focus-visible:ring-foreground/25",
+                          defaultAdded
+                            ? "text-[var(--mari-connection-ink)]"
+                            : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/80",
+                        )}
+                      >
+                        {defaultAdded ? <Check size="0.875rem" aria-hidden /> : <Plus size="0.875rem" aria-hidden />}
+                        {defaultAdded && <span>{t("connections.modelPicker.added")}</span>}
+                      </button>
+                    )
+                  }
+                  trailing={
+                    defaultCurrent &&
+                    !(addMode && !onChoose) && (
+                      <Check
+                        size="0.875rem"
+                        className="shrink-0 text-[var(--mari-connection-ink)]"
+                        aria-label={t("connections.modelPicker.current")}
+                      />
+                    )
+                  }
+                />
+              </section>
             )}
 
             {recommendedRows.length > 0 && (

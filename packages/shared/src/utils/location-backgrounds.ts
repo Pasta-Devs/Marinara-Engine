@@ -159,13 +159,51 @@ function phraseIndex(haystack: string, needle: string): number {
   return index;
 }
 
+/** Most extra words a name may have between its own words: "Kit's rented bedroom" is still "Kit's bedroom". */
+const NAME_GAP_LIMIT = 2;
+
+/**
+ * A pin name of two or more words found in order with a few words between them, as
+ * { index, gaps } (word index of its first word, words skipped), or null.
+ */
+function gappedPhrase(haystack: string, needle: string): { index: number; gaps: number } | null {
+  const words = haystack.split(" ");
+  const parts = needle.split(" ");
+  if (parts.length < 2) return null;
+  let best: { index: number; gaps: number } | null = null;
+  for (let start = 0; start < words.length; start++) {
+    if (words[start] !== parts[0]) continue;
+    let at = start;
+    let gaps = 0;
+    let ok = true;
+    for (const part of parts.slice(1)) {
+      let next = -1;
+      for (let i = at + 1; i <= Math.min(words.length - 1, at + 1 + NAME_GAP_LIMIT); i++) {
+        if (words[i] === part) {
+          next = i;
+          break;
+        }
+      }
+      if (next < 0) {
+        ok = false;
+        break;
+      }
+      gaps += next - at - 1;
+      at = next;
+    }
+    if (ok && gaps <= NAME_GAP_LIMIT && (!best || gaps < best.gaps)) best = { index: start, gaps };
+  }
+  return best;
+}
+
 /**
  * The pin for where the story is now, or null.
  *
  * 1. A pin on the exact World Maps place.
  * 2. The most specific pin name found in the location text (or the current place's name):
  *    more words beats fewer, so "John's bedroom" beats "bedroom"; equal ones go to the name
- *    that comes first in the text.
+ *    that comes first in the text. A name may have up to two words between its own words
+ *    ("John's guest bedroom" is "John's bedroom"), behind an exact match of the same size.
  * 3. A pin on a World Maps place the current place is inside (the house for its hallway).
  */
 export function resolveLocationBackgroundPin(
@@ -192,25 +230,36 @@ export function resolveLocationBackgroundPin(
     locationText,
     normalizeLocationText(currentPlace?.name),
   ].filter(Boolean);
-  type Candidate = { match: LocationBackgroundMatch; words: number; length: number; index: number };
+  type Candidate = { match: LocationBackgroundMatch; words: number; gaps: number; length: number; index: number };
   let best = null as Candidate | null;
   for (const [textOrder, text] of texts.entries()) {
     for (const pin of pins) {
       for (const name of pin.names) {
         for (const expanded of expandNameMacros(name, context)) {
           const needle = normalizeLocationText(expanded);
-          const index = phraseIndex(text, needle);
-          if (index < 0) continue;
+          const exactIndex = phraseIndex(text, needle);
+          // Words in between ("Kit's rented bedroom") still match, behind an exact match of the same size.
+          const gapped = exactIndex < 0 && needle ? gappedPhrase(text, needle) : null;
+          if (exactIndex < 0 && !gapped) continue;
+          const index = exactIndex >= 0 ? exactIndex : gapped!.index;
+          const gaps = gapped?.gaps ?? 0;
           const words = needle.split(" ").length;
           // The tracker text outranks the map place name at the same specificity.
           const position = textOrder * 100_000 + index;
           if (
             !best ||
             words > best.words ||
-            (words === best.words && needle.length > best.length) ||
-            (words === best.words && needle.length === best.length && position < best.index)
+            (words === best.words && gaps < best.gaps) ||
+            (words === best.words && gaps === best.gaps && needle.length > best.length) ||
+            (words === best.words && gaps === best.gaps && needle.length === best.length && position < best.index)
           ) {
-            best = { match: { pin, by: "name", matched: expanded }, words, length: needle.length, index: position };
+            best = {
+              match: { pin, by: "name", matched: expanded },
+              words,
+              gaps,
+              length: needle.length,
+              index: position,
+            };
           }
         }
       }

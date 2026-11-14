@@ -159,6 +159,36 @@ assert.deepEqual(planChatBackgroundWeather("missing.png", "rain"), { kind: "keep
 assert.equal(planChatBackgroundWeather("inn.png", "aurora borealis").kind, "generate");
 assert.equal((planChatBackgroundWeather("inn.png", "meteor shower") as { version?: string }).version, "meteor-shower");
 
+// ── Gallery pictures (pinned places from a character's or persona's gallery) ──
+{
+  const galleryDir = join(dataDir, "gallery", "characters", "c1");
+  mkdirSync(galleryDir, { recursive: true });
+  const png1x1 = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  writeFileSync(join(galleryDir, "room.png"), png1x1);
+  const url = "/api/characters/c1/gallery/file/room.png";
+  const plan = planChatBackgroundWeather(url, "heavy rain") as {
+    kind: string;
+    baseFilename?: string;
+    version?: string;
+  };
+  assert.equal(plan.kind, "generate", "a gallery picture gets weather versions too");
+  assert.equal(plan.baseFilename, url, "made from the gallery picture itself");
+  assert.equal(plan.version, "rain");
+  assert.equal(planChatBackgroundWeather("/api/characters/c1/gallery/file/missing.png", "rain").kind, "keep");
+  assert.equal(planChatBackgroundWeather("/api/characters/../gallery/file/room.png", "rain").kind, "keep");
+  // Its version sits in the library under a stem from the address; gallery-links.json leads back.
+  const { createHash } = await import("node:crypto");
+  const stem = `gallery-${createHash("sha1").update(url).digest("hex").slice(0, 12)}`;
+  writeFileSync(join(bgDir, `${stem}--wx-rain.png`), png1x1);
+  writeFileSync(join(bgDir, "gallery-links.json"), JSON.stringify({ [stem]: url }));
+  assert.deepEqual(planChatBackgroundWeather(url, "rain"), { kind: "switch", filename: `${stem}--wx-rain.png` });
+  assert.deepEqual(planChatBackgroundWeather(`${stem}--wx-rain.png`, "sunny"), { kind: "switch", filename: url });
+  assert.equal(chatBackgroundPlainPicture(`${stem}--wx-rain.png`), url);
+}
+
 // ── Window stencils ──
 assert.equal(chatBackgroundWindowMaskPath("inn--wx-rain.png"), null, "no stencil made yet");
 // sharp belongs to the server package.
