@@ -469,5 +469,44 @@ export function CustomThemeInjector() {
     };
   }, [activeTheme, allowed]);
 
+  // A theme's endless animations (rain, rising bubbles, falling leaves) stop while the app is in the
+  // background or another window has focus, like the app's own ambient effects do; they carry on
+  // from where they were on return. Battery QC round 2 (Nov 14).
+  useEffect(() => {
+    if (!activeTheme || !allowed) return;
+    const names = new Set(
+      Array.from(activeTheme.css.matchAll(/@(?:-webkit-)?keyframes\s+([\w-]+)/g), (match) => match[1]!),
+    );
+    if (names.size === 0 || typeof document.getAnimations !== "function") return;
+    const paused = new Set<Animation>();
+    const themeAnimations = () =>
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation instanceof CSSAnimation &&
+            names.has(animation.animationName) &&
+            animation.effect?.getComputedTiming().iterations === Infinity,
+        );
+    const sync = () => {
+      if (document.documentElement.dataset.marinaraEffectsPaused === "true") {
+        for (const animation of themeAnimations()) {
+          if (animation.playState !== "running") continue;
+          animation.pause();
+          paused.add(animation);
+        }
+      } else {
+        for (const animation of paused) if (animation.playState === "paused") animation.play();
+        paused.clear();
+      }
+    };
+    sync();
+    window.addEventListener("marinara:effects-paused", sync);
+    return () => {
+      window.removeEventListener("marinara:effects-paused", sync);
+      for (const animation of paused) if (animation.playState === "paused") animation.play();
+    };
+  }, [activeTheme, allowed]);
+
   return null;
 }
