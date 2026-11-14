@@ -845,9 +845,18 @@
     height: 2.75rem;
     align-items: center;
     justify-content: center;
-    margin: 0 0 0.25rem -0.75rem;
+    /* It shares a line with "Guides · 2 min read" instead of taking a row of its own (Nov 14). */
+    float: left;
+    margin: 0 0 0 -0.75rem;
     padding: 0;
     color: var(--ov-accent-text);
+  }
+  :root[data-overhaul="mobile"] .ov-docs__back + .ov-docs__meta {
+    min-height: 2.75rem;
+    margin-bottom: 0.25rem;
+  }
+  :root[data-overhaul="mobile"] .ov-docs__back ~ .ov-docs__content {
+    clear: both;
   }
   :root[data-overhaul="mobile"] .ov-docs__back > svg {
     width: 1.25rem;
@@ -1444,13 +1453,32 @@
 .ov-cs.ov-cs [data-ovm-cs-view] [data-chat-settings-model-field] > button > .flex-col > span:first-child {
   font-size: 1rem;
 }
-/* The chooser opens under the whole row, not squeezed into the value column. */
+/* The chooser opens under the whole row, not squeezed into the value column. The label and the
+   model stay on their one line while it is open (a one-column grid dropped the model under the label,
+   Nov 14): the body's wrappers step aside so the model button sits beside the label and everything
+   else spans the row below. */
 .ov-cs.ov-cs
   [data-ovm-cs-view]
   .mari-drawer[data-chat-settings-section="connection"]:has(
     [data-chat-settings-model-field] > button[aria-expanded="true"]
   ) {
-  grid-template-columns: minmax(0, 1fr);
+  > .mari-drawer__header {
+    grid-row: 1;
+    grid-column: 1;
+  }
+  > .mari-drawer__body,
+  > .mari-drawer__body > *,
+  [data-chat-settings-model-field] {
+    display: contents;
+  }
+  [data-chat-settings-model-field] > button[aria-expanded] {
+    grid-row: 1;
+    grid-column: 2;
+  }
+  [data-chat-settings-model-field] > :not(button[aria-expanded]),
+  .mari-drawer__body > * > :not([data-chat-settings-model-field]) {
+    grid-column: 1 / -1;
+  }
 }
 .ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] select {
   height: 2.5rem;
