@@ -57,6 +57,7 @@ import {
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { estimateTextTokens, type Persona } from "@marinara-engine/shared";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 type PersonaGroupRow = { id: string; name: string; description: string; personaIds: string; createdAt: string };
 type ParsedPersonaGroupRow = PersonaGroupRow & { memberIds: string[] };
@@ -949,7 +950,7 @@ export function PersonasPanel() {
                           <div className="mari-avatar-placeholder mari-avatar-placeholder--persona relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg">
                             {p.avatarPath ? (
                               <AvatarImage
-                                src={p.avatarPath}
+                                src={avatarPreviewSrc(p.avatarPath)}
                                 alt=""
                                 iconSize="0.625rem"
                                 className="h-full w-full rounded-lg object-cover"
@@ -1171,7 +1172,7 @@ export function PersonasPanel() {
                 <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl">
                   {persona.avatarPath ? (
                     <AvatarImage
-                      src={persona.avatarPath}
+                      src={avatarPreviewSrc(persona.avatarPath)}
                       alt=""
                       iconSize="1rem"
                       loading="lazy"

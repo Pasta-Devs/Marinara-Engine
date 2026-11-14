@@ -30,7 +30,7 @@ import { useTranslation } from "react-i18next";
 import { checkReply } from "../../lib/reply-checkup";
 import { countBlockingReviews } from "../../lib/professor-mari-presentation";
 import { useAgentConfigs } from "../../hooks/use-agents";
-import { useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useCharacterListRows, usePersonas } from "../../hooks/use-characters";
 import { chatKeys, useChats, useProfessorMariChats, useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { requestChatRetryWithConnection } from "../../lib/chat-floating-ui-events";
 import { useConnections } from "../../hooks/use-connections";
@@ -330,7 +330,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     readOmnibarFrecencyEntries(),
   );
   const chats = useChats();
-  const characters = useCharacters();
+  const characters = useCharacterListRows();
   const personas = usePersonas();
   const lorebooks = useLorebooks(undefined, { includeHidden: true });
   const presets = usePresets();

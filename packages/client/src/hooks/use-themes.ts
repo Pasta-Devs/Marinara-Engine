@@ -57,7 +57,10 @@ async function postThemeWithBackoff(input: CreateThemeInput): Promise<Theme> {
 export function useThemes() {
   return useQuery({
     queryKey: themeKeys.list(),
-    queryFn: () => api.get<Theme[]>("/themes"),
+    // Themes carry their pictures, so the list can be several MB. The server tags it with an ETag, and
+    // "no-cache" lets the browser reuse its stored copy when nothing changed instead of downloading it again
+    // on every app start (slow on phones and tablets).
+    queryFn: () => api.get<Theme[]>("/themes", { cache: "no-cache" }),
     staleTime: 5 * 60_000,
     refetchOnReconnect: true,
   });
