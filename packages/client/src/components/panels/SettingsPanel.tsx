@@ -8616,11 +8616,11 @@ function AdvancedSettings() {
     },
     {
       id: "overhaul" as const,
-      label: "UI overhaul (playtest)",
+      label: "ui/kolacheee",
       branch: "ui/kolacheee",
       targetRef: "origin/ui/kolacheee",
       warning:
-        "The UI overhaul is a playtest build that follows staging. Back up your app data first: once it upgrades your data, Latest Stable may not be able to read it until the next release.",
+        "ui/kolacheee is a playtest build that follows staging. Back up your app data first: once it upgrades your data, Latest Stable may not be able to read it until the next release.",
     },
   ];
   const selectedUpdateChannel = updateChannelOptions.find((channel) => channel.id === selectedUpdateChannelId);
