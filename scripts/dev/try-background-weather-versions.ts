@@ -6,6 +6,7 @@
 //   ... <output folder> --window            (a room with a big window, then its rain and snow)
 //   ... <output folder> --stencil <inn.png> [runs] (the window repaint and the stencil made from it)
 //   ... <output folder> --more <inn.png>    (its window stencil, then aurora/blizzard/blossom/meteor shower)
+import { createRequire } from "node:module";
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -47,7 +48,7 @@ if (stencilIndex > 0) {
     .split(/[\\/]/u)
     .pop()!
     .replace(/\.[^.]+$/u, "");
-  const sharp = (await import("sharp")).default;
+  const sharp = createRequire(new URL("../../packages/server/package.json", import.meta.url))("sharp");
   const meta = await sharp(picturePath).metadata();
   for (let run = 1; run <= runs; run++) {
     const started = Date.now();
