@@ -17,6 +17,7 @@ import {
 } from "../stores/game-mode.store";
 export { patchChatMetadata } from "../lib/chat-metadata-patch";
 import { patchChatMetadata } from "../lib/chat-metadata-patch";
+import { trackChatMetadataSave } from "../lib/chat-metadata-save-barrier";
 import { readSetupDismissed } from "../lib/game-setup-dismissed";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { useGameStateStore } from "../stores/game-state.store";
@@ -1061,6 +1062,17 @@ export interface OverworldState {
   seasons?: Record<string, WorldSeason>;
   /** Places the Game Master holds at night, dusk or day (environment.ts), by place id (`*` everywhere). */
   lights?: Record<string, GameLightHold>;
+  /** Region spawns (MRPG games): each settlement's level band as it stands, where it came from (the map, the
+   *  creator's edit or the story) and the map's own; each cell's band low level, one base-36 character a cell;
+   *  and the game's difficulty, which shifts them all in play. */
+  bands?: {
+    settlements: Record<
+      string,
+      { low: number; high: number; from: "map" | "edit" | "story"; map: { low: number; high: number } }
+    >;
+    cells: string;
+    difficulty: string;
+  };
 }
 
 /** The world as the party knows it (the Journal's World tab), read again after each turn (`turnKey`), so
@@ -1096,6 +1108,35 @@ export function useOverworld(chatId: string, turnKey: string | null, enabled: bo
     select: (data) => data.overworld,
     enabled: enabled && !!chatId,
     staleTime: 30_000,
+  });
+}
+
+/** Sets (or, with no band, clears) the level band of a settlement's land by hand (region spawns): the world's
+ *  edit layer with that one band changed, saved against the layer it was read from. */
+export function useSaveWorldBand() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      chatId: string;
+      place: string;
+      band: { low: number; high: number } | null;
+      edits: Record<string, unknown> | null | undefined;
+    }) => {
+      const current = data.edits ?? null;
+      const others = (Array.isArray(current?.bands) ? (current.bands as Array<{ place: string }>) : []).filter(
+        (band) => band.place !== data.place,
+      );
+      const bands = data.band ? [...others, { place: data.place, ...data.band }] : others;
+      const { bands: _old, ...rest } = current ?? { editsVersion: 1 };
+      const edits = { editsVersion: 1, ...rest, ...(bands.length ? { bands } : {}) };
+      return trackChatMetadataSave(data.chatId, () =>
+        api.put(`/game/${data.chatId}/world/edits`, { edits, expected: current }),
+      );
+    },
+    onSettled: (_res, _error, variables) => {
+      void qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
+      void qc.invalidateQueries({ queryKey: gameKeys.overworld(variables.chatId) });
+    },
   });
 }
 

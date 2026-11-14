@@ -14,7 +14,7 @@ import {
   type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { DoorOpen, Footprints, MapPin, X } from "lucide-react";
+import { DoorOpen, Footprints, MapPin, Skull, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -39,7 +39,7 @@ import {
   worldSeasonCells,
   type WorldSeason,
 } from "@marinara-engine/shared";
-import { useDungeonEnter, useOverworld, useOverworldWalk } from "../../hooks/use-game";
+import { useDungeonEnter, useOverworld, useOverworldWalk, useSaveWorldBand } from "../../hooks/use-game";
 import {
   overworldCamera,
   overworldBaseResolution,
@@ -95,6 +95,14 @@ const DRAG_PIXELS = 6;
 
 const settlementTier = (place: WorldPlace, top: number) =>
   Math.min(3, Math.floor(((place.rank ?? 0) * 3) / Math.max(1, top)));
+/** The danger view's steps, four levels each: cool blue for the start's land, through yellow, to deep red. */
+const BAND_STEPS = ["#3b82f6", "#22d3ee", "#facc15", "#fb923c", "#f43f5e", "#dc2626", "#a21caf", "#581c87"] as const;
+const bandStep = (low: number) => Math.min(BAND_STEPS.length - 1, Math.floor((Math.max(1, low) - 1) / 4));
+const bandColour = (low: number) => BAND_STEPS[bandStep(low)]!;
+/** Text that reads on a band's colour. */
+const bandInk = (low: number) => (bandStep(low) >= 4 ? "#fff" : "#000");
+/** Pixels per cell of the danger layer, so the edges between steps can be drawn thinner than a cell. */
+const BAND_CELL = 16;
 const centre = (place: WorldPlace): Point => ({
   x: place.at.x * OVERWORLD_TILE + OVERWORLD_TILE / 2,
   y: place.at.y * OVERWORLD_TILE + OVERWORLD_TILE / 2,
@@ -128,12 +136,19 @@ export function WorldOverworld({
   const [lookAt, setLookAt] = useState<Point | null>(null);
   const [walking, setWalking] = useState(false);
   const walkingRef = useRef(false);
+  /** The danger view (region spawns): each stretch of land shaded by its level band, and each settlement's
+   *  band shown and editable. Only for a game that has bands (an MRPG game with a world). */
+  const [dangerView, setDangerView] = useState(false);
+  const [bandDraft, setBandDraft] = useState<{ place: string; low: string; high: string } | null>(null);
+  const saveBand = useSaveWorldBand();
 
   const { world, kit } = game;
   const byId = useMemo(() => new Map(world.places.map((place) => [place.id, place])), [world]);
   const top = Math.max(1, kit.sizes.length - 1);
   const here = overworld?.here ?? null;
   const ruined = useMemo(() => new Set(overworld?.ruined ?? []), [overworld?.ruined]);
+  const bands = overworld?.bands;
+  const showDanger = dangerView && !!bands;
   const scale = Math.max(2, Math.min(4, Math.floor(Math.min(size.width / 400, size.height / 260))));
   // The world's sites (a cave, a mine, a ruin out in the world), gone to and into as settlements are.
   // A hidden site is not drawn or listed until the Game Master reveals it; a sealed one is, but closed.
@@ -357,6 +372,39 @@ export function WorldOverworld({
     return canvas;
   }, [drawTile, lit, resolution, ruined, sealedKey, settlements, siteIds, top, world.height, world.width]);
 
+  // The danger view's shading: each cell in its band's colour, drawn over the ground when the view is on.
+  const bandCells = bands?.cells ?? "";
+  const bandLayer = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    if (!bandCells) return canvas;
+    canvas.width = world.width * BAND_CELL;
+    canvas.height = world.height * BAND_CELL;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return canvas;
+    const step = (x: number, y: number) => {
+      const low = parseInt(bandCells[y * world.width + x] ?? "1", 36);
+      return bandStep(Number.isFinite(low) ? low : 1);
+    };
+    ctx.globalAlpha = 0.38;
+    for (let y = 0; y < world.height; y++)
+      for (let x = 0; x < world.width; x++) {
+        ctx.fillStyle = BAND_STEPS[step(x, y)]!;
+        ctx.fillRect(x * BAND_CELL, y * BAND_CELL, BAND_CELL, BAND_CELL);
+      }
+    // A dark line where one step meets the next, so the patches read as areas.
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = "#000";
+    for (let y = 0; y < world.height; y++)
+      for (let x = 0; x < world.width; x++) {
+        const here = step(x, y);
+        if (x + 1 < world.width && step(x + 1, y) !== here)
+          ctx.fillRect((x + 1) * BAND_CELL - 1, y * BAND_CELL, 2, BAND_CELL);
+        if (y + 1 < world.height && step(x, y + 1) !== here)
+          ctx.fillRect(x * BAND_CELL, (y + 1) * BAND_CELL - 1, BAND_CELL, 2);
+      }
+    return canvas;
+  }, [bandCells, world.height, world.width]);
+
   // Beyond the world's edge, the ground its edge has most of (the sea around an island, open space).
   const beyond = useMemo(() => {
     const looks = worldGroundLooks(game);
@@ -431,6 +479,10 @@ export function WorldOverworld({
       // Smooth only where the base is shown smaller than it was drawn (an image pack's art).
       ctx.imageSmoothingEnabled = drawTile.image && resolution > scale * dpr;
       ctx.drawImage(ground, 0, 0, ground.width / resolution, ground.height / resolution);
+      if (showDanger && bandLayer.width) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(bandLayer, 0, 0, worldSize.width, worldSize.height);
+      }
       ctx.drawImage(markers, 0, 0, markers.width / resolution, markers.height / resolution);
       if (lightCells) {
         ctx.globalCompositeOperation = "multiply";
@@ -470,7 +522,22 @@ export function WorldOverworld({
       }
       if (layerRef.current) layerRef.current.style.transform = `translate(${-cam.x}px, ${-cam.y}px)`;
     },
-    [beyond, darkness, drawTile, ground, lightCells, markers, resolution, scale, size.height, size.width, world.width],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      beyond,
+      bandLayer,
+      darkness,
+      drawTile,
+      ground,
+      lightCells,
+      markers,
+      resolution,
+      scale,
+      showDanger,
+      size.height,
+      size.width,
+      world.width,
+    ],
   );
 
   useEffect(() => {
@@ -691,7 +758,22 @@ export function WorldOverworld({
                   }
                   aria-pressed={selected === place.id}
                 />
-                {(tier >= 2 || isHere || selected === place.id) && (
+                {showDanger && bands?.settlements[place.id] && (
+                  <span
+                    className="pointer-events-none absolute bottom-full left-1/2 mb-0.5 -translate-x-1/2 whitespace-nowrap rounded px-1 text-[0.625rem] font-bold shadow"
+                    style={{
+                      background: bandColour(bands.settlements[place.id]!.low),
+                      color: bandInk(bands.settlements[place.id]!.low),
+                    }}
+                    aria-hidden="true"
+                  >
+                    {t("game.overworld.bandLevels", {
+                      low: bands.settlements[place.id]!.low,
+                      high: bands.settlements[place.id]!.high,
+                    })}
+                  </span>
+                )}
+                {(tier >= 2 || isHere || selected === place.id || showDanger) && (
                   <span
                     className={cn(
                       "pointer-events-none absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap rounded px-1 text-[0.625rem] font-semibold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]",
@@ -734,6 +816,29 @@ export function WorldOverworld({
                 <X size={12} />
               </button>
             </div>
+            {showDanger && bands?.settlements[chosen.id] && (
+              <BandEditor
+                band={bands.settlements[chosen.id]!}
+                draft={bandDraft?.place === chosen.id ? bandDraft : null}
+                onDraft={(low, high) => setBandDraft({ place: chosen.id, low, high })}
+                saving={saveBand.isPending}
+                onSave={(band) =>
+                  saveBand.mutate(
+                    { chatId, place: chosen.id, band, edits: game.edits as Record<string, unknown> | undefined },
+                    {
+                      onSuccess: () => {
+                        setBandDraft(null);
+                        toast.success(t("game.overworld.bandSaved", { name: chosen.name }));
+                      },
+                      onError: (error) =>
+                        toast.error(
+                          error instanceof Error && error.message ? error.message : t("game.overworld.bandSaveFailed"),
+                        ),
+                    },
+                  )
+                }
+              />
+            )}
             {chosen.id === here ? (
               <>
                 <div className="mt-2 text-white/60">{t("game.overworld.here")}</div>
@@ -804,6 +909,21 @@ export function WorldOverworld({
 
         {/* The places, nearest first: the same choice as the map, by keyboard or for a place off screen. */}
         <div className="pointer-events-auto absolute right-3 top-14 z-10 flex flex-col items-end gap-1.5">
+          {bands && (
+            <button
+              type="button"
+              onClick={() => setDangerView((on) => !on)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border border-white/15 bg-black/65 px-3 py-1.5 text-xs font-semibold text-white/85 shadow-lg backdrop-blur-md transition-colors hover:bg-black/80 hover:text-white",
+                dangerView && "border-rose-400/60 text-rose-100",
+              )}
+              aria-pressed={dangerView}
+              data-component="WorldOverworld.Danger"
+            >
+              <Skull size={13} />
+              {t("game.overworld.danger")}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setPlacesOpen((open) => !open)}
@@ -854,5 +974,94 @@ export function WorldOverworld({
         )}
       </div>
     </>
+  );
+}
+
+/** A settlement's level band on the danger view's card: the band as it stands, where it came from, and the
+ *  creator's own to set or take back (saved in the world's edits; the story's `[danger:]` band still wins). */
+function BandEditor({
+  band,
+  draft,
+  onDraft,
+  saving,
+  onSave,
+}: {
+  band: { low: number; high: number; from: "map" | "edit" | "story"; map: { low: number; high: number } };
+  draft: { low: string; high: string } | null;
+  onDraft: (low: string, high: string) => void;
+  saving: boolean;
+  onSave: (band: { low: number; high: number } | null) => void;
+}) {
+  const { t } = useTranslation();
+  const low = draft?.low ?? String(band.low);
+  const high = draft?.high ?? String(band.high);
+  const lowNumber = Math.round(Number(low));
+  const highNumber = Math.round(Number(high));
+  const valid =
+    Number.isFinite(lowNumber) &&
+    Number.isFinite(highNumber) &&
+    lowNumber >= 1 &&
+    highNumber <= 30 &&
+    highNumber >= lowNumber;
+  const from =
+    band.from === "story"
+      ? t("game.overworld.bandFromStory")
+      : band.from === "edit"
+        ? t("game.overworld.bandFromEdit")
+        : t("game.overworld.bandFromMap");
+  const input =
+    "w-12 rounded border border-white/20 bg-black/40 px-1.5 py-0.5 text-center text-xs text-white outline-none focus:border-white/60";
+  return (
+    <div className="mt-2 rounded-lg border border-white/10 bg-white/5 p-2" data-component="WorldOverworld.Band">
+      <div className="font-semibold text-white">
+        {t("game.overworld.bandTitle", { low: band.low, high: band.high })}
+      </div>
+      <div className="text-white/55">{from}</div>
+      {band.from === "story" && <div className="mt-1 text-white/55">{t("game.overworld.bandStoryNote")}</div>}
+      <div className="mt-2 flex items-center gap-1.5">
+        <label className="flex items-center gap-1 text-white/70">
+          {t("game.overworld.bandLow")}
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={low}
+            onChange={(event) => onDraft(event.target.value, high)}
+            className={input}
+          />
+        </label>
+        <label className="flex items-center gap-1 text-white/70">
+          {t("game.overworld.bandHigh")}
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={high}
+            onChange={(event) => onDraft(low, event.target.value)}
+            className={input}
+          />
+        </label>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          disabled={!valid || saving}
+          onClick={() => onSave({ low: lowNumber, high: highNumber })}
+          className="rounded-lg bg-[var(--primary)] px-2.5 py-1 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-40"
+        >
+          {t("game.overworld.bandSave")}
+        </button>
+        {band.from === "edit" && (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => onSave(null)}
+            className="rounded-lg border border-white/20 px-2.5 py-1 text-xs text-white/80 hover:bg-white/10 disabled:opacity-40"
+          >
+            {t("game.overworld.bandReset", { low: band.map.low, high: band.map.high })}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

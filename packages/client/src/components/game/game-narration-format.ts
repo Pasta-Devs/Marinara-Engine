@@ -138,6 +138,17 @@ export function formatNarration(content: string, boldDialogue = true): string {
         attrs.table || rawAttrs.trim(),
       );
     })
+    .replace(/\[danger:\s*([^\]]*)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      // The story changes how dangerous a settlement's land is (region spawns).
+      const reset = /\breset\b/iu.test(rawAttrs.replace(/"[^"]*"/gu, ""));
+      const levels = attrs.low ? ` ${attrs.low}${attrs.high ? `–${attrs.high}` : ""}` : "";
+      return commandBadge(
+        "bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/20",
+        translate("game.narration.dangerSet"),
+        `${attrs.place || attrs.name || rawAttrs.trim()}${reset ? "" : levels}`,
+      );
+    })
     .replace(/\[map:\s*([^\]]*)\]/gi, (_match, rawAttrs: string) => {
       const attrs = parseCommandAttributes(rawAttrs);
       // A reveal opens a closed place to the party, not a map.
