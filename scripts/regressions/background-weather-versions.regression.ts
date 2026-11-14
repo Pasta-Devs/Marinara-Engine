@@ -18,7 +18,7 @@ const {
   planChatBackgroundWeather,
   chatBackgroundPlainPicture,
   isChatBackgroundWeatherVersion,
-  cleanWindowMask,
+  windowMaskFromRepaint,
   chatBackgroundWindowMaskPath,
   chatBackgroundWindowMaskKnown,
 } = await import("../../packages/server/src/services/game/game-asset-generation.js");
@@ -163,29 +163,48 @@ assert.equal((planChatBackgroundWeather("inn.png", "meteor shower") as { version
 assert.equal(chatBackgroundWindowMaskPath("inn--wx-rain.png"), null, "no stencil made yet");
 // sharp belongs to the server package.
 const sharp = createRequire(new URL("../../packages/server/package.json", import.meta.url))("sharp");
-// A model answer: black room with one white window, a few grey specks of noise.
-const answerRaw = Buffer.alloc(320 * 180 * 3, 0);
-for (let y = 30; y < 110; y++)
-  for (let x = 120; x < 200; x++) answerRaw.fill(250, (y * 320 + x) * 3, (y * 320 + x) * 3 + 3);
-answerRaw.fill(255, (5 * 320 + 5) * 3, (5 * 320 + 5) * 3 + 3);
-const answer = await sharp(answerRaw, { raw: { width: 320, height: 180, channels: 3 } })
+// The picture: a grey room, a sky-blue window (x 120-200, y 30-110), an orange cushion in front of the
+// window's lower part (x 140-170, y 90-110) and a magenta rug that was always magenta.
+const W = 320;
+const H = 180;
+const picRaw = Buffer.alloc(W * H * 3, 90);
+const paint = (raw: Buffer, x0: number, x1: number, y0: number, y1: number, rgb: number[]) => {
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) raw.set(rgb, (y * W + x) * 3);
+};
+paint(picRaw, 120, 200, 30, 110, [120, 170, 230]);
+paint(picRaw, 140, 170, 90, 110, [230, 140, 40]);
+paint(picRaw, 20, 80, 140, 170, [255, 0, 255]);
+// The model's repaint: only the outside view is magenta; the cushion and the rest are untouched.
+const answerRaw = Buffer.from(picRaw);
+paint(answerRaw, 120, 200, 30, 110, [255, 0, 255]);
+paint(answerRaw, 140, 170, 90, 110, [230, 140, 40]);
+const picture = await sharp(picRaw, { raw: { width: W, height: H, channels: 3 } })
   .png()
   .toBuffer();
-const cleaned = await cleanWindowMask(answer, 1600, 900);
+const answer = await sharp(answerRaw, { raw: { width: W, height: H, channels: 3 } })
+  .png()
+  .toBuffer();
+const cleaned = await windowMaskFromRepaint(answer, picture, W, H);
 assert.ok(cleaned, "one window is a usable stencil");
-assert.ok(cleaned!.coverage > 0.08 && cleaned!.coverage < 0.14, `coverage ${cleaned!.coverage}`);
+const expected = (80 * 80 - 30 * 20) / (W * H);
+assert.ok(Math.abs(cleaned!.coverage - expected) < 0.01, `coverage ${cleaned!.coverage} vs ${expected}`);
 const maskMeta = await sharp(cleaned!.png).metadata();
 assert.equal(maskMeta.width, 640);
 assert.equal(maskMeta.height, 360, "the picture's aspect ratio");
 assert.equal(maskMeta.channels, 4);
-const allWhite = await sharp({ create: { width: 64, height: 36, channels: 3, background: "#ffffff" } })
+const alphaAt = async (x: number, y: number) => {
+  const { data } = await sharp(cleaned!.png).extractChannel(3).raw().toBuffer({ resolveWithObject: true });
+  return data[Math.round(y * 2) * 640 + Math.round(x * 2)]!;
+};
+assert.ok((await alphaAt(150, 60)) > 200, "sky through the glass is in");
+assert.ok((await alphaAt(155, 100)) < 30, "the cushion in front of the glass stays out");
+assert.ok((await alphaAt(50, 155)) < 30, "a rug that was always magenta stays out");
+assert.ok((await alphaAt(60, 60)) < 30, "the wall stays out");
+assert.equal(await windowMaskFromRepaint(picture, picture, W, H), null, "unchanged picture: no windows");
+const allMagenta = await sharp({ create: { width: W, height: H, channels: 3, background: "#ff00ff" } })
   .png()
   .toBuffer();
-assert.equal(await cleanWindowMask(allWhite, 1600, 900), null, "the whole room lit up is a wrong answer");
-const allBlack = await sharp({ create: { width: 64, height: 36, channels: 3, background: "#000000" } })
-  .png()
-  .toBuffer();
-assert.equal(await cleanWindowMask(allBlack, 1600, 900), null, "no windows");
+assert.equal(await windowMaskFromRepaint(allMagenta, picture, W, H), null, "the whole room painted is a wrong answer");
 // A stencil on record is shared by every version of the picture; names come only from the record.
 mkdirSync(join(bgDir, "weather-masks"), { recursive: true });
 writeFileSync(join(bgDir, "weather-masks", "inn.png"), cleaned!.png);

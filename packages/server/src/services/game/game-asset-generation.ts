@@ -1696,39 +1696,41 @@ export function chatBackgroundWindowMaskPath(filename: string): string | null {
   return existsSync(path) ? path : null;
 }
 
-/**
- * The image model's black and white answer as an alpha stencil PNG (white with the glass opaque),
- * at the picture's aspect ratio, or null when it shows too little or too much glass to be windows.
- */
-export async function cleanWindowMask(
-  answer: Buffer,
-  pictureWidth: number,
-  pictureHeight: number,
-): Promise<{ png: Buffer; coverage: number } | null> {
-  const sharp = await getSharp();
-  if (!sharp || !(pictureWidth > 0) || !(pictureHeight > 0)) return null;
-  const width = WINDOW_MASK_WIDTH;
-  const height = Math.max(32, Math.round((WINDOW_MASK_WIDTH * pictureHeight) / pictureWidth));
-  // Grey -> hard black/white (the model's soft edges and stray grey), a median to drop specks,
-  // then a slight feather for the edge.
-  const raw = (await sharp(answer, { limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS })
+/** The stencil's size: WINDOW_MASK_WIDTH wide, at the picture's aspect ratio. */
+function windowMaskSize(pictureWidth: number, pictureHeight: number) {
+  return {
+    width: WINDOW_MASK_WIDTH,
+    height: Math.max(32, Math.round((WINDOW_MASK_WIDTH * pictureHeight) / pictureWidth)),
+  };
+}
+
+async function rawRgb(sharp: SharpFn, image: Buffer | string, width: number, height: number) {
+  const raw = (await sharp(image, { limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS })
     .flatten({ background: "#000000" })
     .resize(width, height, { fit: "fill" })
-    .greyscale()
-    .threshold(140)
-    .median(3)
+    .removeAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true })) as { data: Buffer; info: { channels: number } };
-  const data = Buffer.alloc(width * height);
+  return raw;
+}
+
+/** One 0/255 cell per pixel -> the stored stencil: specks dropped, a slight feather, white with alpha. */
+async function stencilFromCells(
+  sharp: SharpFn,
+  cells: Buffer,
+  width: number,
+  height: number,
+): Promise<{ png: Buffer; coverage: number } | null> {
+  const cleaned = (await sharp(cells, { raw: { width, height, channels: 1 } })
+    .median(3)
+    .extractChannel(0)
+    .raw()
+    .toBuffer()) as Buffer;
   let lit = 0;
-  for (let i = 0; i < width * height; i++) {
-    const value = raw.data[i * raw.info.channels]!;
-    data[i] = value;
-    if (value > 127) lit++;
-  }
+  for (let i = 0; i < width * height; i++) if (cleaned[i]! > 127) lit++;
   const coverage = lit / (width * height);
   if (coverage < WINDOW_MASK_MIN_COVERAGE || coverage > WINDOW_MASK_MAX_COVERAGE) return null;
-  const alpha = (await sharp(data, { raw: { width, height, channels: 1 } })
+  const alpha = (await sharp(cleaned, { raw: { width, height, channels: 1 } })
     .blur(1.2)
     .extractChannel(0)
     .raw()
@@ -1741,13 +1743,45 @@ export async function cleanWindowMask(
   return { png, coverage };
 }
 
-const WINDOW_MASK_INSTRUCTION = [
-  "Turn the reference image into a black and white stencil of its windows, at exactly the same framing.",
-  "Paint pure white every area where the outside or the sky can be seen: window glass, skylights, open doorways and other openings to the outdoors.",
-  "Paint everything else pure black: walls, window frames and bars, curtains, furniture, the floor and the ceiling.",
-  "Anything between the viewer and a window that blocks part of the view through it is black too, even where the glass is behind it: cushions, pillows, plants, vases, lamps, people, a window seat, a table or anything else in the way. White only where the outside itself can be seen.",
-  "Flat black and white only, no grey, no shading, no outlines, no text.",
-  "If no outside can be seen at all, return an all-black image.",
+/** How magenta (#FF00FF) a pixel is: red and blue both high, green far below them. */
+function isWindowMagenta(r: number, g: number, b: number): boolean {
+  return r > 150 && b > 150 && r - g > 110 && b - g > 110 && Math.abs(r - b) < 90;
+}
+
+/**
+ * The stencil from the image model's repaint: the same picture with only the outside view painted
+ * flat magenta. Glass is every pixel that came back magenta and wasn't magenta in the picture (pink
+ * flowers, a purple rug). Anything in front of the glass keeps its colours, so it stays out.
+ * Null when it shows too little or too much glass to be windows.
+ */
+export async function windowMaskFromRepaint(
+  answer: Buffer,
+  picture: Buffer | string,
+  pictureWidth: number,
+  pictureHeight: number,
+): Promise<{ png: Buffer; coverage: number } | null> {
+  const sharp = await getSharp();
+  if (!sharp || !(pictureWidth > 0) || !(pictureHeight > 0)) return null;
+  const { width, height } = windowMaskSize(pictureWidth, pictureHeight);
+  const painted = await rawRgb(sharp, answer, width, height);
+  const original = await rawRgb(sharp, picture, width, height);
+  const cells = Buffer.alloc(width * height);
+  const pc = painted.info.channels;
+  const oc = original.info.channels;
+  for (let i = 0; i < width * height; i++) {
+    const r = painted.data[i * pc]!;
+    const g = painted.data[i * pc + 1]!;
+    const b = painted.data[i * pc + 2]!;
+    const wasMagenta = isWindowMagenta(original.data[i * oc]!, original.data[i * oc + 1]!, original.data[i * oc + 2]!);
+    cells[i] = isWindowMagenta(r, g, b) && !wasMagenta ? 255 : 0;
+  }
+  return stencilFromCells(sharp, cells, width, height);
+}
+
+export const WINDOW_MASK_INSTRUCTION = [
+  "Edit the reference image. Repaint only what is seen through its windows and other openings to the outdoors (the sky, the landscape, buildings and trees outside) as one flat, solid, pure magenta colour (#FF00FF), with no texture or shading.",
+  "Keep everything else exactly as it is, at exactly the same framing: walls, window frames and bars, curtains, furniture, and anything standing in front of the glass, such as cushions, pillows, plants, vases, lamps or people, keep their own colours and stay in front of the magenta.",
+  "Do not add or remove anything. If no outside can be seen at all, return the picture unchanged.",
 ].join(" ");
 
 /**
@@ -1790,7 +1824,12 @@ export async function generateChatBackgroundWindowMask(
         preserveProviderOutput: true,
       },
     );
-    const cleaned = await cleanWindowMask(Buffer.from(result.base64, "base64"), meta.width, meta.height);
+    const cleaned = await windowMaskFromRepaint(
+      Buffer.from(result.base64, "base64"),
+      basePath,
+      meta.width,
+      meta.height,
+    );
     if (!cleaned) {
       rememberChatBackgroundMask(baseFilename, "none");
       logger.info('[background-weather] No usable windows in "%s"', baseFilename);
