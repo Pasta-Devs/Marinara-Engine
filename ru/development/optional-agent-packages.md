@@ -1011,8 +1011,10 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 Представление в браузере получает `openCharacter(characterId, { tab })`. Этот метод открывает редактор персонажа, а если указана вкладка – сразу на ней, чтобы пакет мог направить пользователя к полю карточки персонажа, которое он читает. В более старых версиях Engine его нет: прежде чем показывать ссылку, проверьте, что `openCharacter` существует.
 
+Начиная с #9191, параметр `tab` принимает и идентификаторы разделов вкладки: `character-sheet`, `image-instructions`, `sprites` или `gallery`. Все они находятся на вкладке **Images** (изображения). `sprites` и `gallery` раньше были вкладками, поэтому старые ссылки работают. Указания для селфи персонажа (`conversationImageInstructions`) перенесены из `convo` в `image-instructions`. В версиях Engine до #9191 этот идентификатор неизвестен, поэтому редактор откроется в начале формы.
+
 ```ts
-if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "image-instructions" });
 ```
 
 ### Capability API 1.66: сцены из цепочек сообщений пакета

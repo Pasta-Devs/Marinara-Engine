@@ -41,7 +41,7 @@
 - `schemas`: схемы Zod для сохраняемых и общих сущностей.
 - `constants`: провайдеры, значения по умолчанию, режимы чата, списки моделей, промпты агентов.
 - `utils`: чистые вспомогательные функции – раскрытие макросов, обертывание в XML, подбор музыки.
-- `features`: манифесты и реестр агентов, определения вызовов функций, пакеты папок, движки пошаговых игр UNO, Chess и Poker, наборы правил Game Mode и их бой (`rulesets`, `ruleset-combat`, `tactical-combat` и файлы `combat-*`), а также генератор миров с его файлами для обмена (наборы мира, миры, пакеты тайлов, полей и существ) в `world`.
+- `features`: манифесты и реестр агентов, определения вызовов функций, пакеты папок, контракт и реестр движка пошаговых игр (сами игры поставляются в необязательных пакетах), наборы правил Game Mode и их бой (`rulesets`, `ruleset-combat`, `tactical-combat` и файлы `combat-*`), а также генератор миров с его файлами для обмена (наборы мира, миры, пакеты тайлов, полей и существ) в `world`. Файлы `marinara-*.ts` (`ai`, `bestiary`, `bestiary-threat`, `classes`, `combat`, `items`, `loot`, `party`) содержат только данные и расчеты Classic Marinara, собственного набора правил движка.
 
 Правила:
 
@@ -64,12 +64,12 @@ React 19 и Vite PWA. Сейчас здесь несколько сотен фа
 - `features`: выделенные модули функций – пока это разделы настроек чата, части панели трекеров, многопользовательский режим, а также контракт, настройка, сцена и средства отрисовки агентов аватаров (`features/avatars`).
 - `hooks`: хуки React Query и хуки времени выполнения для большинства функций API.
 - `lib`: вспомогательные функции браузера и клиента. Сейчас здесь смешаны общие функции и функции, нужные только Game Mode.
-- `stores`: хранилища Zustand для интерфейса, времени выполнения чата, агентов, состояния игры, Game Mode, ресурсов, sidecar, перевода, галереи, сражений и пошаговых игр.
+- `stores`: хранилища Zustand для интерфейса, времени выполнения чата, агентов, состояния игры, Game Mode, ресурсов, sidecar, перевода, галереи, столкновений, экранов боя и листов Roleplay, а также игр в режиме Conversation.
 - `styles`: глобальная таблица стилей и CSS отдельных тем оформления.
 
 Важные нынешние пересечения:
 
-- `components/game` импортирует `components/chat` ради общих визуальных частей – например, погоды и выдвижных панелей галереи.
+- `components/game` импортирует `components/chat` для общих элементов интерфейса: погодных эффектов, наложения закрепленного изображения, панели инструментов чата и окон управления. Галерея находится в настройках чата (`features/chat-settings/ChatGalleryPanel.tsx`). Game Mode передает в нее данные через `hooks/use-chat-gallery-actions.ts`.
 - `components/chat` импортирует состояние игры и состояние сражения для функций Roleplay.
 - `hooks/use-generate.ts` затрагивает состояние чата, агентов, игры, Game Mode, перевода и настройки интерфейса.
 - Вспомогательные функции `lib/game-*` нужны только Game Mode, но лежат рядом с глобальными.
@@ -90,6 +90,8 @@ API на Fastify, файловое хранилище и интеграции с
 - `services/sidecar`: локальная среда выполнения, управление моделями, анализ сцены, постобработка сцены.
 - `services/agents`: выполнение агентов и маршрутизация знаний.
 - Основы функций: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall`, `services/avatars` (хранение моделей аватаров, генерация и классификатор эмоций для агентов аватаров), `speech-to-text.service.ts` и `discord-webhook.ts`.
+- `bin/mari.ts`: утилита командной строки `mari` (единственная запись `bin` пакета), которая обращается к запущенному локальному серверу.
+- `assets/`: данные, которые поставляются с сервером, например стандартные фоны и игровые ресурсы, наборы полей, тайлы карты мира, навыки Mari, плагин Claude Code, файлы фиксации версий зависимостей среды выполнения и скрипт запуска личных расширений.
 - `db/schema`: определения файловых таблиц для данных, которые лежат в `DATA_DIR/storage`.
 - `db/file-schema.ts`, `db/file-query.ts`: собственные метаданные таблиц и выражения запросов.
 - `db/file-backed-store.ts`: хранилище таблиц в памяти, граница транзакции, восстановление после сбоя и сохранение снимков в формате JSON. См. [Файловое хранилище](file-storage.md).
@@ -277,7 +279,7 @@ packages/shared/src/
 С этих проходов удобно начинать: они снижают сцепленность и не меняют поведение.
 
 1. Разделите `components/chat` на группы: общее, Conversation и Roleplay.
-   - Кандидаты в общее: `ChatCommonOverlays`, `ChatBranchSelector`, `ChatGalleryDrawer`, `WeatherEffects`, а также общие примитивы сообщений и ввода.
+   - Кандидаты в общее: `ChatCommonOverlays`, `ChatBranchesPanel` и `ChatGalleryPanel` (теперь оба в `features/chat-settings`), `WeatherEffects`, а также общие примитивы сообщений и ввода.
    - Кандидаты в Conversation: `ChatConversationSurface`, `ConversationView`, `ConversationMessage`, `ConversationInput`.
    - Кандидаты в Roleplay: `ChatRoleplaySurface`, `SpriteOverlay`, `SceneBanner`, `CyoaChoices`, `EncounterModal`. Панель HUD режима Roleplay уже частично разделена: `RoleplayHUDActionsMenu.tsx` и `RoleplayHUDPanels.tsx`.
 2. Перенесите клиентские вспомогательные функции, нужные только Game Mode, в игровой модуль.

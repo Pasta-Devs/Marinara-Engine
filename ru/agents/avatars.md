@@ -272,7 +272,7 @@ Mesh-аватарам нужен WebGL2, который есть в соврем
 
 | Что вам нужно | Инструмент | Что получится |
 | --- | --- | --- |
-| Спрайты PNGTuber | Любая программа для рисования, затем вкладка **Sprites** (спрайты) персонажа | Спрайты |
+| Спрайты PNGTuber | Любая программа для рисования, затем **Images → Sprites** (изображения → спрайты) в редакторе персонажа | Спрайты |
 | Спрайты PNGTuber со слоями и костюмами | [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) | Файл `.save` |
 | Mesh-аватар | [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio) | Файл `.mavatar` |
 | 3D-модель | [VRoid Studio](https://vroid.com/en/studio) или Blender с [VRM Add-on for Blender](https://vrm-addon-for-blender.info/en-us/) | Файл `.vrm` и по желанию анимация в покое `.vrma` |
@@ -281,7 +281,7 @@ Mesh-аватарам нужен WebGL2, который есть в соврем
 
 1. Нарисуйте по одной картинке на каждую эмоцию, все одного размера и с персонажем на одном и том же месте. Назовите каждую по ее эмоции: `neutral`, `happy`, `angry`, `sad`, `relaxed`, `surprised`. Подходят и названия, содержащие слово эмоции, например `smile`, `cry`, `calm` или `shock`. Для необязательных [дополнительных эмоций](#pngtuber-sprites) назовите картинки, например, `amusement`, `fear` или `gratitude`.
 2. Чтобы рот двигался, нарисуйте ту же картинку с открытым ртом и добавьте к ее названию `_talk`, например `happy_talk`. Для моргания закройте глаза и добавьте `_blink`. Для обоих сразу добавьте `_blink_talk`.
-3. Добавьте картинки на вкладке **Sprites**, в категории **Facial Expressions** (выражения лица). Имя каждого файла становится названием его спрайта. Смотрите [Спрайты персонажа (выражения лица и Full-body)](../characters/sprites.md#upload-your-own-sprites).
+3. Добавьте картинки в **Images → Sprites**, в категории **Facial Expressions** (выражения лица). Имя каждого файла становится названием его спрайта. Смотрите [Спрайты персонажа (выражения лица и Full-body)](../characters/sprites.md#upload-your-own-sprites).
 4. Откройте **2D Avatars** в **Agents**, выберите персонажа или персону и включите **Show this avatar in chats**.
 
 ### PNGTuber Plus
