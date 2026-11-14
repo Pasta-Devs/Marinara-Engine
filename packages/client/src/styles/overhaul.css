@@ -5167,16 +5167,18 @@ input.ov-edhead__title:focus {
   border-radius: 50%;
   background: currentColor;
 }
-/* An editor tab with unsaved changes: a small accent dot after its name (like an unsaved file in an editor). */
+/* An editor tab with unsaved changes: a small accent ring after its name (like an unsaved file in an editor). */
 .ov-tab__draft {
   display: inline-block;
   flex: none;
   vertical-align: middle;
-  width: 0.4375rem;
-  height: 0.4375rem;
-  margin-left: 0.125rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: 0.3125rem;
   border-radius: 50%;
-  background: var(--ov-accent-text);
+  /* A ring, so it never reads as the filled mode dot (Roleplay is pink too) (keyboard QC round 2, PN23). */
+  background: transparent;
+  box-shadow: inset 0 0 0 0.125rem var(--ov-accent-text);
 }
 .ov-tab__presence.is-idle {
   color: #e0b04a;
@@ -13500,4 +13502,16 @@ input.ov-edhead__title:not(#ov-x) {
    (in a narrow split side "LOREBOOK" lined up with nothing). */
 .ov-table:has(td.ov-table__name .ov-table__title > .ov-thumb:first-child) th.ov-table__name {
   padding-left: calc(0.75rem + 1.75rem + 0.625rem);
+}
+
+/* A grouped tab still gets its second row: the one-row rule above (H4) must not fold the group row into the
+   first one, which piled the bar's buttons on top of each other (keyboard QC round 2, TLR1). */
+.ov-topbar:has(> .ov-tabrow2) {
+  flex-wrap: wrap;
+}
+
+/* "Don't save" and other throw-away choices read as red on the sheet: the default dark theme's
+   --destructive is the same pink as the safe choices (keyboard QC round 2, AC16/TP19). */
+:root[data-overhaul] .ovm-action-sheet__group > button.is-danger {
+  color: var(--ov-danger, #e5484d);
 }

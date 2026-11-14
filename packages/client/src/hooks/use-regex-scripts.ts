@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
+import { forgetDeletedEditorItem } from "./use-editor-leave-save";
 import { libraryFolderKeys } from "../lib/library-folder-keys";
 
 export const regexKeys = {
@@ -91,11 +92,13 @@ export function useDeleteRegexScript() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/regex-scripts/${id}`),
-    onSuccess: () =>
-      Promise.all([
+    onSuccess: (_data, id) => {
+      forgetDeletedEditorItem("regex", id);
+      return Promise.all([
         qc.invalidateQueries({ queryKey: regexKeys.all }),
         qc.invalidateQueries({ queryKey: libraryFolderKeys.list("regex") }),
-      ]),
+      ]);
+    },
   });
 }
 

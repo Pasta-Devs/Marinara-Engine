@@ -693,6 +693,9 @@ export function ChatHelpOverlay({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const measurementSignatureRef = useRef("");
   const autoOpenedChatRef = useRef<string | null>(null);
+  // Turning a tablet changes which device's walkthrough applies; that is not the moment to open help over
+  // whatever you are doing (it popped over a character editor: keyboard QC round 2, TP13).
+  const firstWalkthroughDeviceRef = useRef(walkthroughDevice);
   const maskId = `chat-help-mask-${useId().replace(/:/gu, "")}`;
 
   useEffect(() => {
@@ -720,6 +723,7 @@ export function ChatHelpOverlay({
     if (
       chatHelpButtonHidden ||
       autoOpenBlocked ||
+      walkthroughDevice !== firstWalkthroughDeviceRef.current ||
       deviceTourDue ||
       seenHere ||
       !due ||
@@ -737,6 +741,14 @@ export function ChatHelpOverlay({
         if (++tries < 20) timer = window.setTimeout(attempt, 300);
         return;
       }
+      // Only over the chat you are looking at: not a kept-alive tab behind an editor, and never while you
+      // type somewhere else.
+      const focused = document.activeElement;
+      const typingElsewhere =
+        focused instanceof HTMLElement &&
+        focused.matches("input, textarea, [contenteditable='true']") &&
+        !root.contains(focused);
+      if (root.getClientRects().length === 0 || typingElsewhere) return;
       autoOpenedChatRef.current = activeChatId;
       // It opens by itself only once: leaving without its own exit must not bring it back on every visit.
       markChatHelpSeen(mode);

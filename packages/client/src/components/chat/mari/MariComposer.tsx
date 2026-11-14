@@ -809,6 +809,10 @@ export function MariComposer({
           <button
             type="submit"
             disabled={!canSubmitMessage}
+            // Keep the keyboard up for a follow-up, as the chat's Send does (keyboard QC round 2, IR2-3).
+            onPointerDown={(event) => {
+              if (event.pointerType !== "mouse") event.preventDefault();
+            }}
             className="mari-workspace-composer__send"
             aria-label={t("home.professorMari.send")}
             title={t("home.professorMari.send")}

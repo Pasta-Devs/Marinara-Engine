@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AgentSuiteRewriteInput, CustomAgentImportPolicy, ImportAgentConfigInput } from "@marinara-engine/shared";
 import { ApiError, api } from "../lib/api-client";
+import { forgetDeletedEditorItem } from "./use-editor-leave-save";
 
 export const agentKeys = {
   all: ["agents"] as const,
@@ -211,7 +212,8 @@ export function useDeleteAgent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/agents/${id}`),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      forgetDeletedEditorItem("agent", id);
       qc.invalidateQueries({ queryKey: agentKeys.all });
     },
   });

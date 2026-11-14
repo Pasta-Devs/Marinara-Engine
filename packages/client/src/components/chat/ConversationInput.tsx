@@ -438,7 +438,11 @@ export function ConversationInput({
   const isActuallyGenerating = isStreaming && !delayedCharacterInfo;
   // Enter while a reply is still coming: the message waits and sends itself when the reply ends,
   // instead of the Enter being dropped (the next words then ran into the waiting ones).
-  const queuedSendRef = useRef(false);
+  // Holds the text as it was at that Enter: only that goes out, and anything typed after it stays in the box
+  // (keyboard QC round 2, AC11). Null when nothing waits.
+  const queuedSendRef = useRef<string | null>(null);
+  // The queued words handleSend is sending right now (read once at its start).
+  const sendingQueuedRef = useRef<string | undefined>(undefined);
   // A Stop that lands right after a send is a second tap on Send, not a decision to stop.
   const lastSendAtRef = useRef(0);
   const replyDraft = useChatStore((s) => (activeChatId ? s.replyDrafts.get(activeChatId) : undefined));
@@ -547,6 +551,8 @@ export function ConversationInput({
   const canRetry = !delayedCharacterInfo && !isSendBlocked && lastMessageRole === "user";
   const canSubmit = hasInput || attachments.length > 0 || canRetry;
   const showRetrySendState = canRetry && !hasInput && attachments.length === 0;
+  // Words typed while a reply is coming: Send waits for it rather than turning into Stop (AC13).
+  const queueOnSend = isActuallyGenerating && hasInput;
   const sendButtonTitle = isActuallyGenerating
     ? t("chat.input.stopGenerating")
     : isSendBlocked
@@ -1043,12 +1049,20 @@ export function ConversationInput({
   );
 
   const handleSend = useCallback(async () => {
+    const queued = sendingQueuedRef.current;
+    sendingQueuedRef.current = undefined;
     if (!activeChatId || isSendBlocked) return;
+    // A queued send takes only the words that waited; what was typed after them stays in the box.
+    const leftover = () => {
+      if (queued === undefined) return "";
+      const current = textareaRef.current?.value ?? "";
+      return current.startsWith(queued) ? current.slice(queued.length).replace(/^\n/, "") : current;
+    };
     if (isReadingAttachments) {
       toast.info(localizeUi("ui.chat.chatinput.stillReadingAttachedFilesSendWillBeReadyIn"));
       return;
     }
-    const raw = textareaRef.current?.value.trim() ?? "";
+    const raw = queued !== undefined ? queued.trim() : (textareaRef.current?.value.trim() ?? "");
     if (!raw && attachments.length === 0) {
       if (canRetry) {
         try {
@@ -1186,12 +1200,14 @@ export function ConversationInput({
       clearTimeout(draftTimerRef.current);
       draftTimerRef.current = null;
     }
+    const rest = leftover();
     if (textareaRef.current) {
-      textareaRef.current.value = "";
+      textareaRef.current.value = rest;
       textareaRef.current.style.height = "auto";
     }
-    clearInputDraft(activeChatId);
-    syncInputState("");
+    if (rest) setInputDraft(activeChatId, rest);
+    else clearInputDraft(activeChatId);
+    syncInputState(rest);
     replaceAttachments([]);
     setCompletions([]);
     setMentionQuery(null);
@@ -1230,6 +1246,7 @@ export function ConversationInput({
       toast.error(error instanceof Error ? error.message : localizeUi("chat.reply.sendFailed"));
     }
   }, [
+    setInputDraft,
     activeChatId,
     replyDraft,
     setReplyDraft,
@@ -1565,14 +1582,34 @@ export function ConversationInput({
 
   // The reply ended (or was stopped): send what waited for it.
   useEffect(() => {
-    if (isSendBlocked || !queuedSendRef.current) return;
-    queuedSendRef.current = false;
+    const queued = queuedSendRef.current;
+    if (isSendBlocked || queued === null) return;
+    queuedSendRef.current = null;
     toast.dismiss("queued-send");
-    if (textareaRef.current?.value.trim()) void handleSend();
+    if (!queued.trim()) return;
+    sendingQueuedRef.current = queued;
+    void handleSend();
   }, [isSendBlocked, handleSend]);
   useEffect(() => {
-    queuedSendRef.current = false;
+    queuedSendRef.current = null;
   }, [activeChatId]);
+
+  // Enter (or Send) while a reply is still coming: what is in the box waits and goes out when the reply ends.
+  const queueSend = useCallback(() => {
+    const field = textareaRef.current;
+    if (!field || !field.value.trim()) return;
+    if (queuedSendRef.current === null) {
+      toast.info(localizeUi("ui.chat.chatinput.sendsWhenTheReplyFinishes"), { id: "queued-send" });
+    }
+    queuedSendRef.current = field.value.replace(/\s+$/, "");
+    // Start the next words on their own line, so they never glue onto the waiting ones.
+    if (!/\s$/.test(field.value)) {
+      const next = `${field.value}\n`;
+      field.value = next;
+      syncInputState(next);
+      if (activeChatId) setInputDraft(activeChatId, next);
+    }
+  }, [activeChatId, localizeUi, setInputDraft, syncInputState]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1660,17 +1697,7 @@ export function ConversationInput({
         e.preventDefault();
         const field = textareaRef.current;
         if (isSendBlocked && field && field.value.trim()) {
-          if (!queuedSendRef.current) {
-            queuedSendRef.current = true;
-            toast.info(localizeUi("ui.chat.chatinput.sendsWhenTheReplyFinishes"), { id: "queued-send" });
-          }
-          // Start the next words on their own line, so they never glue onto the waiting ones.
-          if (!/\s$/.test(field.value)) {
-            const next = `${field.value}\n`;
-            field.value = next;
-            syncInputState(next);
-            if (activeChatId) setInputDraft(activeChatId, next);
-          }
+          queueSend();
           return;
         }
         lastSendAtRef.current = Date.now();
@@ -1678,6 +1705,7 @@ export function ConversationInput({
       }
     },
     [
+      queueSend,
       completions,
       activeChatId,
       selectedCompletion,
@@ -1690,7 +1718,6 @@ export function ConversationInput({
       enterToSend,
       handleSend,
       isSendBlocked,
-      localizeUi,
       setInputDraft,
       syncInputState,
     ],
@@ -2436,6 +2463,22 @@ export function ConversationInput({
             </div>
           )}
 
+          {queueOnSend ? (
+            // Typing during a reply: Send queues the words, so Stop moves to a button of its own (AC13).
+            <button
+              type="button"
+              onPointerDown={(event) => {
+                if (event.pointerType !== "mouse") event.preventDefault();
+              }}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => useChatStore.getState().stopGeneration(activeChatId ?? undefined)}
+              aria-label={t("chat.input.stopGenerating")}
+              title={t("chat.input.stopGenerating")}
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-foreground/60 transition-all duration-200 hover:bg-foreground/10 hover:text-foreground/90 sm:h-8 sm:w-8"
+            >
+              <StopCircle size="1rem" />
+            </button>
+          ) : null}
           <button
             // Keep the keyboard up: a tap on Send must not take focus from the message box.
             onPointerDown={(event) => {
@@ -2443,18 +2486,20 @@ export function ConversationInput({
             }}
             onMouseDown={(event) => event.preventDefault()}
             onClick={
-              isActuallyGenerating
-                ? () => {
-                    if (Date.now() - lastSendAtRef.current < 1200) return;
-                    useChatStore.getState().stopGeneration(activeChatId ?? undefined);
-                  }
-                : () => {
-                    lastSendAtRef.current = Date.now();
-                    void handleSend();
-                  }
+              queueOnSend
+                ? queueSend
+                : isActuallyGenerating
+                  ? () => {
+                      if (Date.now() - lastSendAtRef.current < 1200) return;
+                      useChatStore.getState().stopGeneration(activeChatId ?? undefined);
+                    }
+                  : () => {
+                      lastSendAtRef.current = Date.now();
+                      void handleSend();
+                    }
             }
             disabled={!isActuallyGenerating && (isSendBlocked || isReadingAttachments || !activeChatId || !canSubmit)}
-            aria-label={sendButtonTitle}
+            aria-label={queueOnSend ? t("chat.input.send") : sendButtonTitle}
             className={cn(
               "flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200 sm:h-8 sm:w-8",
               isActuallyGenerating
@@ -2463,9 +2508,11 @@ export function ConversationInput({
                   ? "text-foreground/75 hover:bg-foreground/10 hover:text-foreground/90 active:scale-90"
                   : "text-foreground/20",
             )}
-            title={sendButtonTitle}
+            title={queueOnSend ? t("chat.input.send") : sendButtonTitle}
           >
-            {isActuallyGenerating ? (
+            {queueOnSend ? (
+              <Send size="1rem" />
+            ) : isActuallyGenerating ? (
               <StopCircle size="1rem" />
             ) : showRetrySendState ? (
               <RefreshCw size="0.9375rem" />

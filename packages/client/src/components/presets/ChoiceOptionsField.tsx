@@ -41,7 +41,7 @@ function shouldUseListbox(variable: ChoiceFieldVariable) {
 }
 
 /** The option's help text, then its value unless the value only repeats the label. */
-function OptionDetails({ option }: { option: ChoiceFieldOption }) {
+function OptionDetails({ option, show }: { option: ChoiceFieldOption; show: (text: string) => string }) {
   // A hand-edited imported preset option can lack a value or label.
   const value = String(option.value ?? "");
   const repeatsLabel =
@@ -56,7 +56,7 @@ function OptionDetails({ option }: { option: ChoiceFieldOption }) {
       )}
       {value && !repeatsLabel && (
         <span className="mt-0.5 block line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-          {value.slice(0, 150)}
+          {show(value).slice(0, 150)}
           {value.length > 150 ? "…" : ""}
         </span>
       )}
@@ -76,6 +76,7 @@ export function ChoiceOptionsField({
   onChange,
   allowBooleanToggle = true,
   ariaLabel,
+  displayText,
 }: {
   variable: ChoiceFieldVariable;
   selection: string | string[] | undefined;
@@ -85,7 +86,10 @@ export function ChoiceOptionsField({
   allowBooleanToggle?: boolean;
   /** Accessible name for the dropdown/list, usually the question. */
   ariaLabel?: string;
+  /** How option text reads on screen (e.g. macros as words); the stored values stay as they are. */
+  displayText?: (text: string) => string;
 }) {
+  const show = (text: string) => (displayText ? displayText(String(text ?? "")) : text);
   const presentedOptions = getPresentedOptions(variable);
   const listboxMode = shouldUseListbox(variable);
   const selectedKeys = Array.isArray(selection) ? selection : [];
@@ -105,7 +109,7 @@ export function ChoiceOptionsField({
         >
           {presentedOptions.map((opt) => (
             <option key={opt.id} value={optionKey(opt)}>
-              {opt.label}
+              {show(opt.label)}
             </option>
           ))}
         </select>
@@ -121,7 +125,7 @@ export function ChoiceOptionsField({
           {!presentedOptions.some((opt) => optionKey(opt) === selection) && <option value="" disabled />}
           {presentedOptions.map((opt) => (
             <option key={opt.id} value={optionKey(opt)}>
-              {opt.label}
+              {show(opt.label)}
             </option>
           ))}
         </select>
@@ -146,8 +150,10 @@ export function ChoiceOptionsField({
                 <Square size="0.875rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
               )}
               <div className="min-w-0 flex-1">
-                <span className={cn("text-xs font-medium", isSelected && "text-[var(--primary)]")}>{opt.label}</span>
-                <OptionDetails option={opt} />
+                <span className={cn("text-xs font-medium", isSelected && "text-[var(--primary)]")}>
+                  {show(opt.label)}
+                </span>
+                <OptionDetails option={opt} show={show} />
               </div>
             </button>
           );
@@ -164,8 +170,8 @@ export function ChoiceOptionsField({
               onChange={(checked) => onChange(checked ? optionKey(opt) : "")}
               label={
                 <span className="min-w-0 flex-1">
-                  <span className={cn("text-xs font-medium", isOn && "text-[var(--primary)]")}>{opt.label}</span>
-                  <OptionDetails option={opt} />
+                  <span className={cn("text-xs font-medium", isOn && "text-[var(--primary)]")}>{show(opt.label)}</span>
+                  <OptionDetails option={opt} show={show} />
                 </span>
               }
               labelPosition="start"
@@ -198,8 +204,10 @@ export function ChoiceOptionsField({
                 <Circle size="0.875rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
               )}
               <div className="min-w-0 flex-1">
-                <span className={cn("text-xs font-medium", isSelected && "text-[var(--primary)]")}>{opt.label}</span>
-                <OptionDetails option={opt} />
+                <span className={cn("text-xs font-medium", isSelected && "text-[var(--primary)]")}>
+                  {show(opt.label)}
+                </span>
+                <OptionDetails option={opt} show={show} />
               </div>
             </button>
           );

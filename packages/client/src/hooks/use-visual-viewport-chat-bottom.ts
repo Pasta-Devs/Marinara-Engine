@@ -140,11 +140,31 @@ export function useKeepLatestChatMessageVisible(
         const reveal = () => {
           const scrollElement = scrollRef.current;
           if (!scrollElement?.contains(editor) || document.activeElement !== editor) return;
-          const offset = editor.getBoundingClientRect().top - scrollElement.getBoundingClientRect().top;
+          const box = scrollElement.getBoundingClientRect();
+          const offset = editor.getBoundingClientRect().top - box.top;
           const topInset = Number.parseFloat(getComputedStyle(scrollElement).scrollPaddingTop) || 8;
           // Under the top controls counts as out of view, not just above the transcript.
-          if (offset < topInset || offset + 48 > scrollElement.clientHeight)
+          if (offset < topInset || offset + 48 > scrollElement.clientHeight) {
             scrollElement.scrollTop += offset - topInset;
+            return;
+          }
+          // The editor with its Cancel/Save row ends above the message box that floats over the
+          // transcript's foot (and above the keyboard), not merely inside the transcript (TLR2).
+          const block = editor.parentElement ?? editor;
+          const composer = (scrollElement.closest("[data-chat-mode]") ?? document).querySelector<HTMLElement>(
+            ".marinara-chat-input-shell",
+          );
+          const composerRect = composer?.getBoundingClientRect();
+          // Only a box that sits over the transcript's foot covers it; one below it already leaves the room.
+          const composerTop =
+            composerRect && composerRect.height > 0 && composerRect.top < box.bottom ? composerRect.top : Infinity;
+          const viewportBottom = window.visualViewport
+            ? window.visualViewport.offsetTop + window.visualViewport.height
+            : window.innerHeight;
+          const visibleBottom = Math.min(box.bottom, composerTop, viewportBottom) - 8;
+          const overflow = block.getBoundingClientRect().bottom - visibleBottom;
+          // Never past its first lines: a tall editor keeps its top in view and scrolls inside itself.
+          if (overflow > 0) scrollElement.scrollTop += Math.min(overflow, offset - topInset);
         };
         restoreFrame = requestAnimationFrame(() => {
           restoreFrame = 0;

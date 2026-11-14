@@ -5506,7 +5506,9 @@ html[data-mari-software-keyboard-open]
   padding-top: 0;
 }
 
-/* Composer only while she has the keyboard: it rides right above it. */
+/* While she has the keyboard the sheet rides right above it and fills the room up to the top bar, so the
+   conversation stays readable while you type (it used to shrink to the box alone, and her answers could
+   only be read with the keyboard closed: keyboard QC round 2, AC12/TP12/PN19). */
 html[data-mari-software-keyboard-open]
   [data-component="GlobalOmnibar"][data-mari-companion="sheet"][data-mari-composer-focused]
   > .mari-companion-panel {
@@ -5514,14 +5516,17 @@ html[data-mari-software-keyboard-open]
      omnibar panel, which dropped the sheet behind the keyboard. 100% is the layout viewport here. */
   top: auto;
   bottom: calc(100% - var(--mari-visual-viewport-offset-top, 0px) - var(--mari-visual-viewport-height, 100dvh));
-  height: auto;
+  height: max(
+    9rem,
+    calc(var(--mari-visual-viewport-height, 100dvh) - var(--mari-top-bar-height, 3.5rem) - 0.5rem)
+  );
   padding-bottom: 0;
 }
 
 html[data-mari-software-keyboard-open]
   [data-component="GlobalOmnibar"][data-mari-companion="sheet"][data-mari-composer-focused]
   > .mari-companion-panel
-  :is(.mari-omnibar-header-row, [data-component="HomeProfessorMariChat.Transcript"], .mari-workspace-glow-band) {
+  :is(.mari-omnibar-header-row, .mari-workspace-glow-band) {
   display: none;
 }
 
@@ -5595,5 +5600,17 @@ html[data-mari-software-keyboard-open]
   from {
     opacity: 0;
     transform: translateY(1.5rem);
+  }
+}
+
+/* Small phones with the keyboard up (an iPhone SE leaves about 270 px): the Mari page's header row steps
+   aside and the box stops at 3 lines (it scrolls inside), so her answer and Send both stay in view
+   (keyboard QC round 2, PN18). */
+@media (pointer: coarse) and (max-height: 760px) {
+  html[data-mari-software-keyboard-open] {
+    --mari-composer-lines: 3;
+  }
+  html[data-mari-software-keyboard-open] [data-component="HomeProfessorMariChat.Window"] [data-mari-window-header] {
+    display: none;
   }
 }

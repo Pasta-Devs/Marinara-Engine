@@ -10,6 +10,8 @@
 // ──────────────────────────────────────────────
 import { editorLeaveKeyForTab } from "../../lib/editor-leave";
 import { useParkedDraftsStore } from "../../hooks/use-editor-leave-save";
+import { toast } from "sonner";
+import { translate } from "../../localization/i18n";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Home, Layers, X } from "lucide-react";
@@ -212,13 +214,23 @@ export function DesktopTabStrip({
     const editorKey = editorLeaveKeyForTab(tab);
     return !!editorKey && useParkedDraftsStore.getState().keys.includes(editorKey);
   };
+  // Says why some tabs stayed open, so it never looks like the close half-worked (TLR5).
+  const sayKept = (kept: number) => {
+    if (kept > 0) toast.info(translate("editor.draft.keptTabs", { count: kept }));
+  };
   const closeOtherTabs = (keep: Placed) => {
+    let kept = 0;
     for (const tab of store().tabs) {
-      if (overhaulTabKey(tab) === keep.key || waitingDraft(tab)) continue;
+      if (overhaulTabKey(tab) === keep.key) continue;
+      if (waitingDraft(tab)) {
+        kept += 1;
+        continue;
+      }
       store().rememberClosedTab(tab);
       store().closeTab(tab);
     }
     if (currentKey !== keep.key) activateTab(keep.tab);
+    sayKept(kept);
   };
   const closeGroup = (id: string) => {
     const all = store().tabs;
@@ -226,6 +238,7 @@ export function DesktopTabStrip({
     const remaining = all.filter((tab) => tab.group !== id);
     const firstIndex = all.findIndex((tab) => tab.group === id);
     for (const tab of members) if (!waitingDraft(tab)) store().closeTab(tab);
+    sayKept(members.filter(waitingDraft).length);
     if (currentGroupId === id) {
       const next = remaining[Math.min(firstIndex, remaining.length - 1)];
       if (next) activateTab(next);

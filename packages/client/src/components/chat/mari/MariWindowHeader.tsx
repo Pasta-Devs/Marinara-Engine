@@ -150,6 +150,7 @@ export function MariWindowHeader({
   ];
   return (
     <div
+      data-mari-window-header=""
       className={cn(
         "flex min-h-12 items-center justify-between gap-2 border-b border-[var(--border)]/60 px-2 pt-2 sm:px-3 sm:py-2",
         omnibarMode ? "hidden" : "bg-[var(--card)]/80",

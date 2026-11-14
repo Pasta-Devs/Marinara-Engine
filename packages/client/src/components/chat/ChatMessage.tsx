@@ -1,4 +1,5 @@
 import { WindowTitle } from "../../lib/theme-slots";
+import { dropMessageEditDraft, keepMessageEditDraft, readMessageEditDraft } from "../../lib/message-edit-drafts";
 import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
 import { avatarInitial } from "../../lib/avatar-initial";
 import { MiniAvatar } from "./MiniAvatar";
@@ -904,6 +905,7 @@ function HiddenFromAIMessageSummary({
 
 /** Isolated edit textarea — uncontrolled to avoid React re-renders on every keystroke. */
 const EditTextarea = memo(function EditTextarea({
+  messageId,
   initialContent,
   fontSize,
   quoteFormat,
@@ -911,6 +913,7 @@ const EditTextarea = memo(function EditTextarea({
   onSave,
   onCancel,
 }: {
+  messageId: string;
   initialContent: string;
   fontSize: string | number | undefined;
   quoteFormat: QuoteFormat;
@@ -920,6 +923,18 @@ const EditTextarea = memo(function EditTextarea({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const ref = useRef<HTMLTextAreaElement>(null);
+  // An edit left half-done (another chat, another tab, a reload) opens again where it was (IR2-2).
+  const [keptText] = useState(() => readMessageEditDraft(messageId, initialContent));
+  const keepTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (keepTimer.current === null) return;
+      window.clearTimeout(keepTimer.current);
+      keepTimer.current = null;
+      if (ref.current) keepMessageEditDraft(messageId, initialContent, ref.current.value);
+    },
+    [initialContent, messageId],
+  );
 
   const autoResize = useCallback(() => {
     const el = ref.current;
@@ -936,10 +951,12 @@ const EditTextarea = memo(function EditTextarea({
   useLayoutEffect(() => {
     if (ref.current) {
       autoResize();
+      // A kept edit reopens quietly: no keyboard popping up just for coming back to the chat.
+      if (keptText !== null) return;
       if (window.matchMedia("(max-width: 767px)").matches) ref.current.setSelectionRange(0, 0);
       ref.current.focus({ preventScroll: true });
     }
-  }, [autoResize]);
+  }, [autoResize, keptText]);
 
   // An iPhone keyboard shrinks the transcript but not 60dvh. Keep the editor
   // and its Save row within the part between the top controls and the
@@ -973,7 +990,7 @@ const EditTextarea = memo(function EditTextarea({
       <textarea
         ref={ref}
         data-chat-message-editor="true"
-        defaultValue={formatTextQuotes(initialContent, quoteFormat)}
+        defaultValue={keptText ?? formatTextQuotes(initialContent, quoteFormat)}
         readOnly={saving}
         aria-busy={saving}
         aria-keyshortcuts="Control+Enter Meta+Enter"
@@ -981,6 +998,11 @@ const EditTextarea = memo(function EditTextarea({
         onInput={(event) => {
           applyTextareaQuoteFormat(event.currentTarget, quoteFormat, event.nativeEvent as InputEvent);
           autoResize();
+          if (keepTimer.current !== null) window.clearTimeout(keepTimer.current);
+          keepTimer.current = window.setTimeout(() => {
+            keepTimer.current = null;
+            if (ref.current) keepMessageEditDraft(messageId, initialContent, ref.current.value);
+          }, 400);
         }}
         onKeyDown={(e) => {
           if (saving) return;
@@ -2263,8 +2285,15 @@ export const ChatMessage = memo(function ChatMessage({
   }, [chatFontOpacity]);
 
   const [copied, setCopied] = useState(false);
-  const [editing, setEditing] = useState(false);
+  // A message edit left half-done reopens in its editor (IR2-2).
+  const [editing, setEditing] = useState(() => readMessageEditDraft(message.id, message.content) !== null);
   const [editSavePending, setEditSavePending] = useState(false);
+  // Saved, cancelled or switched swipe: the edit is done, so its kept copy goes (leaving the chat keeps it).
+  const wasEditing = useRef(editing);
+  useEffect(() => {
+    if (wasEditing.current && !editing) dropMessageEditDraft(message.id);
+    wasEditing.current = editing;
+  }, [editing, message.id]);
   const [showThinking, setShowThinking] = useState(false);
   const [showGenerationReplay, setShowGenerationReplay] = useState(false);
   const [showActions, setShowActions] = useState(false);
@@ -3929,6 +3958,7 @@ export const ChatMessage = memo(function ChatMessage({
     />
   ) : editing ? (
     <EditTextarea
+      messageId={message.id}
       initialContent={message.content}
       fontSize={chatFontSize}
       quoteFormat={quoteFormat}
@@ -4223,6 +4253,7 @@ export const ChatMessage = memo(function ChatMessage({
       >
         {editing ? (
           <EditTextarea
+            messageId={message.id}
             initialContent={message.content}
             fontSize={chatFontSize}
             quoteFormat={quoteFormat}
@@ -5158,6 +5189,7 @@ export const ChatMessage = memo(function ChatMessage({
               />
             ) : editing ? (
               <EditTextarea
+                messageId={message.id}
                 initialContent={message.content}
                 fontSize={chatFontSize}
                 quoteFormat={quoteFormat}

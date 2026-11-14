@@ -1235,11 +1235,12 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     keywords: ["chat bubbles", "message layout"],
     kind: "Button group",
   },
+  // One per mode, named as the Settings rows name them, so search never lists two identical rows (PN15).
   {
     id: "conversation-always-display-swipe-menu",
     sectionId: "editing-swipes",
-    labelKey: "settings.controls.alwaysDisplaySwipeMenu.label",
-    label: "Always display swipe menu",
+    labelKey: "settings.controls.alwaysDisplaySwipeMenuConversation.label",
+    label: "Always show swipe menu in Conversation",
     description:
       "Show swipe arrows and the counter from the first response. Turn off to show them only after regeneration.",
     descriptionKey: "settings.controls.alwaysDisplaySwipeMenu.help",
@@ -1249,8 +1250,8 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   {
     id: "roleplay-always-display-swipe-menu",
     sectionId: "editing-swipes",
-    labelKey: "settings.controls.alwaysDisplaySwipeMenu.label",
-    label: "Always display swipe menu",
+    labelKey: "settings.controls.alwaysDisplaySwipeMenuRoleplay.label",
+    label: "Always show swipe menu in Roleplay",
     description:
       "Show swipe arrows and the counter from the first response. Turn off to show them only after regeneration.",
     descriptionKey: "settings.controls.alwaysDisplaySwipeMenu.help",

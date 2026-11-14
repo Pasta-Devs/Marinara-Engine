@@ -1390,10 +1390,11 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     if (result.category === "lorebook" && !result.action) {
-      // Enter/tap attaches it to the open chat when it is not already active
-      // there, the same unambiguous rule "add <character>" uses. Lorebook rows
-      // never flip the global enabled flag; only the Lorebooks panel does.
-      if (attachLorebookIfNotActive(result)) return;
+      // A tap opens it, like a character. Adding it to the open chat takes an explicit "add <name>" (or the
+      // row's own action): a plain tap that quietly attached it read as the app doing something else
+      // (keyboard QC round 2, AC14). Lorebook rows never flip the global enabled flag; only the Lorebooks
+      // panel does.
+      if (runDirectChatAction(result)) return;
       if (result.target && navigate(result.target)) {
         recordUse(result.id);
         onClose();
@@ -1944,28 +1945,27 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // The row already runs its Enter action, so the expansion offers only the others
   // (D3): an "Edit character" chip under a row whose Enter edits is the same door twice.
   const previewEnterHint = previewResult && !previewResult.control ? resultEnterHint(previewResult) : null;
-  const { detachFromChat, attachLorebookIfNotActive, runDirectChatAction, runResultAction } =
-    createOmnibarResultActions({
-      t,
-      ui,
-      activeChat,
-      activeChatId,
-      agents: agents.data,
-      query,
-      searchResults,
-      inputRef,
-      patchChat,
-      patchChatMetadata,
-      startNewChatMode,
-      setQuery,
-      setActiveResultId,
-      setMariOpenChatId,
-      confirmLeaveEditor,
-      navigate,
-      recordUse,
-      openProfessorMari,
-      onClose,
-    });
+  const { detachFromChat, runDirectChatAction, runResultAction } = createOmnibarResultActions({
+    t,
+    ui,
+    activeChat,
+    activeChatId,
+    agents: agents.data,
+    query,
+    searchResults,
+    inputRef,
+    patchChat,
+    patchChatMetadata,
+    startNewChatMode,
+    setQuery,
+    setActiveResultId,
+    setMariOpenChatId,
+    confirmLeaveEditor,
+    navigate,
+    recordUse,
+    openProfessorMari,
+    onClose,
+  });
   const previewActions = previewResult
     ? buildOmnibarPreviewActions(previewResult, {
         t,

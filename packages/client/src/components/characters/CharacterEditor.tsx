@@ -991,13 +991,17 @@ export function CharacterEditor() {
     }
     const revision = editRevisionRef.current;
     return runSave(
-      () =>
-        updateCharacter.mutateAsync({
+      async () => {
+        const saved = await updateCharacter.mutateAsync({
           id: characterId,
           data: data as unknown as Record<string, unknown>,
           comment: characterComment,
           ...(version && { versionSource: version.source, versionReason: version.reason }),
-        }),
+        });
+        // The server answers an update of a deleted card with nothing: that is not a save (TP16).
+        if (!saved) throw new Error(localizeUi("editor.save.itemGone"));
+        return saved;
+      },
       (reply) => {
         // Use the persisted values, including server normalization of name and summary.
         loadedDataRef.current = readSavedCardData(reply) ?? data;
@@ -1024,11 +1028,23 @@ export function CharacterEditor() {
     {
       ready: formData !== null && loadedCharacterIdRef.current === characterId,
       name: formData?.name,
-      get: () => ({ formData, comment: characterComment }),
+      // The card as it was loaded goes with the edits, so a restore only puts back what you changed and
+      // keeps anything saved since on another device (keyboard QC round 2, TP11).
+      get: () => ({ formData, comment: characterComment, base: loadedDataRef.current }),
       restore: (value) => {
-        const kept = value as { formData?: CharacterData; comment?: string } | null;
+        const kept = value as { formData?: CharacterData; comment?: string; base?: CharacterData | null } | null;
         if (!kept?.formData || typeof kept.formData !== "object") return;
-        setFormData(kept.formData);
+        const server = loadedDataRef.current;
+        if (kept.base && typeof kept.base === "object" && server) {
+          const { merged, conflicts } = rebaseForm(kept.base, kept.formData, server);
+          setFormData(merged);
+          if (conflicts.length > 0) {
+            toast.warning(localizeUi("ui.characters.charactereditor.changedElsewhereKeptYourEdits"), {
+              id: `character-rebase-${characterId}`,
+              duration: 12_000,
+            });
+          }
+        } else setFormData(kept.formData);
         if (typeof kept.comment === "string") setCharacterComment(kept.comment);
         markDirty();
       },

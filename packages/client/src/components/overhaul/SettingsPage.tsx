@@ -35,12 +35,23 @@ function sectionLabel(id: SettingsSectionId) {
  * Scrolls the settings list (only the list, never the page around it) to a section and flashes
  * it, so you can see which block the chip meant.
  */
+function scrollingAncestor(target: HTMLElement): HTMLElement | null {
+  for (let el = target.parentElement; el; el = el.parentElement) {
+    const overflow = getComputedStyle(el).overflowY;
+    if ((overflow === "auto" || overflow === "scroll") && el.scrollHeight > el.clientHeight + 1) return el;
+    if (el.matches(".ov-settings")) break;
+  }
+  return target.closest<HTMLElement>(".ov-settings__scroll");
+}
+
 function scrollToSection(id: SettingsSectionId, attempt = 0, controlId?: string | null) {
   window.requestAnimationFrame(() => {
     const target =
       (controlId ? document.getElementById(`settings-control-${controlId}`) : null) ??
       document.getElementById(`settings-section-${id}`);
-    const scroller = target?.closest<HTMLElement>(".ov-settings__scroll");
+    // The nearest box that really scrolls: on phones `.ov-settings__scroll` grows with its content and the
+    // page around it scrolls instead, so the jump went nowhere (keyboard QC round 2, PN17).
+    const scroller = target ? scrollingAncestor(target) : null;
     if (!target || !scroller || target.offsetParent === null) {
       // The tab's sections load lazily; try again for a moment after a tab switch.
       if (attempt < 20) window.setTimeout(() => scrollToSection(id, attempt + 1, controlId), 100);

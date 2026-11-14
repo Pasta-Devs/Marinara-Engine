@@ -59,7 +59,7 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { editorLeaveKeyForTab, requestEditorClose } from "../../lib/editor-leave";
 import { showChoiceDialog } from "../../lib/app-dialogs";
-import { discardParkedDraft, useParkedDraftsStore } from "../../hooks/use-editor-leave-save";
+import { discardParkedDraft, useEditorDraftOfferStore, useParkedDraftsStore } from "../../hooks/use-editor-leave-save";
 import { translate } from "../../localization/i18n";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
 import { splitDragProps } from "./split-view";
@@ -569,6 +569,29 @@ export function closeTabAndMove(tab: OverhaulTab, tabs: OverhaulTab[], currentKe
     else goHome();
   };
   const editorKey = editorLeaveKeyForTab(tab);
+  const offer = useEditorDraftOfferStore.getState().offer;
+  if (editorKey && key === currentKey && offer?.key === editorKey && offer.state === "found") {
+    // The open editor still offers edits from before a reload: closing would quietly leave them behind (IR2-5).
+    void showChoiceDialog({
+      title: translate("editor.leave.title"),
+      message: translate("editor.draft.closeTabMessage"),
+      choices: [
+        { key: "restore", label: translate("editor.draft.restore") },
+        { key: "discard", label: translate("editor.leave.discard"), tone: "destructive" },
+      ],
+      cancelLabel: translate("editor.draft.keepTab"),
+      layout: "row",
+    }).then((choice) => {
+      if (choice === "restore") {
+        useOverhaulStore.getState().setAllTabsOpen(false);
+        offer.restore();
+      } else if (choice === "discard") {
+        offer.discard();
+        close();
+      }
+    });
+    return;
+  }
   if (editorKey && key === currentKey) {
     // Closing the open editor's tab is leaving for real: Save / Don't save / Keep editing first.
     if (!requestEditorClose(editorKey, close)) close();
@@ -586,8 +609,11 @@ export function closeTabAndMove(tab: OverhaulTab, tabs: OverhaulTab[], currentKe
       cancelLabel: translate("editor.draft.keepTab"),
       layout: "row",
     }).then((choice) => {
-      if (choice === "open") activateTab(tab);
-      else if (choice === "discard") {
+      if (choice === "open") {
+        // Straight to the tab, with its Save in view: the All Tabs grid gets out of the way (TP15).
+        useOverhaulStore.getState().setAllTabsOpen(false);
+        activateTab(tab);
+      } else if (choice === "discard") {
         discardParkedDraft(editorKey);
         close();
       }

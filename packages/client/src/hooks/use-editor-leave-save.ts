@@ -100,6 +100,11 @@ function readParked(): string[] {
  */
 export const useParkedDraftsStore = create<{
   keys: string[];
+  /**
+   * Keys that were already waiting when the page loaded. Their edits come back through the Restore banner
+   * like any kept copy, so every tab behaves the same after a reload (keyboard QC round 2, PN24/TP18).
+   */
+  reloaded: string[];
   park: (key: string) => void;
   unpark: (key: string) => void;
 }>((set, get) => {
@@ -109,10 +114,12 @@ export const useParkedDraftsStore = create<{
     } catch {
       /* blocked storage: the dot lasts this session */
     }
-    set({ keys });
+    set({ keys, reloaded: get().reloaded.filter((key) => keys.includes(key)) });
   };
+  const initial = waitingAtLoad();
   return {
-    keys: readParked(),
+    keys: initial,
+    reloaded: initial,
     park: (key) => {
       if (!get().keys.includes(key)) write([...get().keys, key]);
     },
@@ -122,10 +129,40 @@ export const useParkedDraftsStore = create<{
   };
 });
 
+/**
+ * Tabs with edits kept in this browser when the page loads: the ones parked before, and any open editor tab
+ * whose kept copy survived a reload or crash, so after a reload every such tab shows its dot and asks
+ * before it closes (keyboard QC round 2, AC15).
+ */
+function waitingAtLoad(): string[] {
+  const keys = new Set(readParked());
+  try {
+    for (const tab of useOverhaulStore.getState().tabs) {
+      const key = editorLeaveKeyForTab(tab);
+      if (key) keys.add(key);
+    }
+  } catch {
+    /* no tabs yet */
+  }
+  return [...keys].filter((key) => readDraft(key) !== null);
+}
+
 /** Drops a tab's waiting draft (closing it with "Discard"). */
 export function discardParkedDraft(key: string) {
   dropDraft(key);
   useParkedDraftsStore.getState().unpark(key);
+}
+
+/**
+ * An item was deleted: its tab closes and any edits waiting for it go, so no tab is left editing
+ * something that no longer exists (keyboard QC round 2, TP16).
+ */
+export function forgetDeletedEditorItem(kind: string, id: string) {
+  const overhaul = useOverhaulStore.getState();
+  const key = editorLeaveKeyForTab({ kind, id });
+  if (key) discardParkedDraft(key);
+  const tab = overhaul.tabs.find((entry) => entry.kind === kind && entry.id === id);
+  if (tab) overhaul.closeTab(tab);
 }
 
 /** Writes the kept copy now. */
@@ -230,6 +267,9 @@ export function useEditorLeaveSave(
             latest.current = { ...latest.current, dirty: false };
             const navigate = latestNavigation;
             latestNavigation = null;
+            // Not waiting on the dialog any more: a route the navigation itself takes (closing the editor's
+            // tab goes Home, which closes the editor) must pass, not wait for an answer that already came (PN16).
+            pending = false;
             navigate?.();
           })
           .catch(() => toast.error(current.t("editor.autosave.failed")))
@@ -300,8 +340,9 @@ export function useEditorLeaveSave(
     if (!key || !draftReady || offeredFor.current === key) return;
     offeredFor.current = key;
     const stored = readDraft(key);
-    const parked = useParkedDraftsStore.getState().keys.includes(key);
-    if (parked) useParkedDraftsStore.getState().unpark(key);
+    const parkedStore = useParkedDraftsStore.getState();
+    const parked = parkedStore.keys.includes(key) && !parkedStore.reloaded.includes(key);
+    parkedStore.unpark(key);
     if (!stored) return;
     // Back to a tab whose edits waited there: they simply come back, still unsaved (the Save button says so).
     if (parked) {
