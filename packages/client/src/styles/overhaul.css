@@ -9478,7 +9478,7 @@ input.ov-edhead__title:focus {
   width: 30%;
 }
 .ov-conn__table .ov-conn__num {
-  width: 4.5rem;
+  width: 7rem;
   text-align: left;
 }
 .ov-conn__table .ov-conn__act {
@@ -9661,6 +9661,14 @@ input.ov-edhead__title:focus {
 .ov-conn__ctx {
   flex-shrink: 0;
   font-size: 0.75rem;
+}
+/* A model's context sits in the Models column, starting where an account's model count does (the column's
+   7rem less its two 0.75rem paddings), so the column reads as one straight edge. */
+.ov-conn__model .ov-conn__ctx {
+  width: 5.5rem;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
 }
 .ov-conn__table th.ov-conn__act,
 .ov-conn__table td.ov-conn__act {
@@ -10887,6 +10895,11 @@ input.ov-edhead__title:focus {
 }
 
 /* Connections: On this device rows (built-in model, local voice engines). */
+/* A device row's chevron sits on the same centre line as the ⋯ of the rows above it. */
+.ov-conn__device .ov-conn__act > svg {
+  margin-left: auto;
+  margin-right: calc((1.625rem - 14px) / 2);
+}
 .ov-conn__device .ov-conn__acct b {
   flex: none;
 }
@@ -12868,6 +12881,9 @@ input.ov-edhead__title:not(#ov-x) {
   }
   .ov-conn__table :is(th, td).ov-conn__lead {
     width: 1.5rem;
+  }
+  .ov-conn__model .ov-conn__ctx {
+    width: auto;
   }
   .ov-conn__table th:nth-child(5) {
     width: 8.75rem;
