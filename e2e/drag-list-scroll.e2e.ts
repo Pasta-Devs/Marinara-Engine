@@ -71,9 +71,16 @@ for (const kind of ["chat", "character", "persona"] as const) {
           ? '[data-component="ChatSidebar"]'
           : `[data-component="RightPanel${mobile ? "Mobile" : "Desktop"}"]`,
       );
-      const source = panel
-        .locator(kind === "chat" ? `[data-chat-id="${item.id}"]` : `[data-touch-drag-card="${kind}"]`)
-        .filter({ hasText: item.name });
+      const rows = panel.locator(kind === "chat" ? "[data-chat-id]" : `[data-touch-drag-card="${kind}"]`);
+      const source = (kind === "chat" ? panel.locator(`[data-chat-id="${item.id}"]`) : rows).filter({
+        hasText: item.name,
+      });
+      // The panel lists are virtual (b234d7e0bd): only rows near the view exist, so on a short screen scroll down a
+      // row at a time until this one is built.
+      await expect(async () => {
+        if (!(await source.count())) await rows.last().scrollIntoViewIfNeeded();
+        await expect(source).toHaveCount(1, { timeout: 1_000 });
+      }).toPass({ timeout: 20_000 });
       await expect(source).toBeVisible();
       if (kind === "chat") {
         // The chat list scrolls the active chat (its last row) into view, smoothly and a moment after it

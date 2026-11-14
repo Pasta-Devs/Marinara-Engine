@@ -616,8 +616,10 @@ test("Players reuses chat settings for invitations, approval, AI proposals and g
         host.snapshot.characters = host.snapshot.characters.filter((character) => character.id !== action.characterId);
       return route.fulfill({ json: {} });
     }
+    // The character list answers in pages (#9114).
+    const characters = { items: host.snapshot.characters, limit: 100, offset: 0, hasMore: false };
     return route.fulfill({
-      json: path === "/api/multiplayer/host" ? host : path === "/api/characters" ? host.snapshot.characters : [],
+      json: path === "/api/multiplayer/host" ? host : path === "/api/characters" ? characters : [],
     });
   });
   await mountControls(page, info, "players");
@@ -766,9 +768,11 @@ test("shared Game setup waits for characters before mounting the wizard", async 
   const charactersReady = new Promise<void>((resolve) => {
     releaseCharacters = resolve;
   });
-  await page.route("**/api/characters", async (route) => {
+  // The character list answers in pages (#9114).
+  await page.route("**/api/characters?*", async (route) => {
     await charactersReady;
-    return route.fulfill({ json: [{ id: "guide_123", data: JSON.stringify({ name: "Guide" }) }] });
+    const items = [{ id: "guide_123", data: JSON.stringify({ name: "Guide" }) }];
+    return route.fulfill({ json: { items, limit: 100, offset: 0, hasMore: false } });
   });
   await page.route("**/GameSetupWizard.tsx*", (route) =>
     route.fulfill({
@@ -935,17 +939,22 @@ test("host adds an existing library ID while guests only propose reviewed text, 
       });
     if (path === "/api/characters")
       return route.fulfill({
-        json: [
-          {
-            id: "character_123",
-            data: {
-              name: "Guide",
-              description: "Knows the harbor.",
-              creator_notes: "PRIVATE",
-              extensions: { script: "SECRET" },
+        json: {
+          items: [
+            {
+              id: "character_123",
+              data: {
+                name: "Guide",
+                description: "Knows the harbor.",
+                creator_notes: "PRIVATE",
+                extensions: { script: "SECRET" },
+              },
             },
-          },
-        ],
+          ],
+          limit: 100,
+          offset: 0,
+          hasMore: false,
+        },
       });
     return route.fulfill({ json: [] });
   });

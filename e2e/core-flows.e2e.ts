@@ -6619,16 +6619,26 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
             });
             expect.soft(offset, `${layout} swipes align with the message row`).toBeLessThan(1);
           }
-          const input = control.getByRole("textbox");
-          await expect(input).toHaveValue("1");
+          // With two or more swipes a Roleplay counter is a button that opens the swipe list (#9176); Conversation
+          // layouts keep the field you type a number into, inside the same `.mari-swipe-input` box. `input` is
+          // whichever shows the number.
+          const NUMBER = ".mari-swipe-input input, button.mari-swipe-input";
+          const input = control.locator(NUMBER);
+          const counter = () =>
+            input.evaluate((element) =>
+              element instanceof HTMLInputElement ? element.value : (element.textContent ?? "").trim(),
+            );
+          await expect.poll(counter).toBe("1");
           // Compare the settled theme color, not WebKit's retained Oklab
           // serialization from the color transition between test themes.
           await input.evaluate((element) => {
             element.style.transition = "none";
           });
-          const metrics = await control.evaluate((element) => {
+          const metrics = await control.evaluate((element, number) => {
             const button = element.querySelector("button")!;
-            const field = element.querySelector("input")!;
+            // The bordered box is `.mari-swipe-input` in both kinds; the number's font is on the field or button.
+            const box = element.querySelector(".mari-swipe-input")!;
+            const field = element.querySelector(number)!;
             const icon = button.querySelector("svg")!;
             const styles = getComputedStyle(element);
             return {
@@ -6639,13 +6649,16 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
               buttonWidth: button.getBoundingClientRect().width,
               buttonHeight: button.getBoundingClientRect().height,
               iconWidth: icon.getBoundingClientRect().width,
-              inputWidth: field.getBoundingClientRect().width,
-              inputHeight: field.getBoundingClientRect().height,
+              inputWidth: box.getBoundingClientRect().width,
+              inputHeight: box.getBoundingClientRect().height,
               inputFontSize: getComputedStyle(field).fontSize,
-              inputRadius: getComputedStyle(field).borderRadius,
+              inputRadius: getComputedStyle(box).borderRadius,
             };
-          });
+          }, NUMBER);
           if (layout === "roleplay") roleplayMetrics = metrics;
+          // Known failure on phones: #9176 kept Conversation's typed counter on purpose, and a phone field gets a
+          // 17px font (so iOS does not zoom) while Roleplay's counter button stays at 10.6px. Left failing so the
+          // difference is decided, not hidden.
           else expect.soft(metrics, `${layout} ${theme} ${width}px matches Roleplay`).toEqual(roleplayMetrics);
           const actionColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
           await expect.soft(control).toHaveCSS("color", actionColor, { timeout: 500 });
@@ -6670,15 +6683,27 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
             );
             await action();
             expect(((await (await saved).json()) as { activeSwipeIndex: number }).activeSwipeIndex).toBe(index);
-            await expect(input).toHaveValue(String(index + 1));
+            await expect.poll(counter).toBe(String(index + 1));
+          };
+          // Jump straight to a swipe: Roleplay picks it in the list (the chat's first message lists its swipes as
+          // Greetings), Conversation types its number.
+          const jumpTo = async (index: number) => {
+            if (layout === "roleplay") {
+              await input.click();
+              const list = page.getByRole("listbox", { name: "Greetings", exact: true });
+              await list.getByRole("option").nth(index).click();
+              await expect(list).toBeHidden();
+            } else {
+              const field = control.getByRole("textbox");
+              await field.fill(String(index + 1));
+              await field.press("Enter");
+            }
           };
           await selectSwipe(1, () => control.getByRole("button", { name: "Next swipe", exact: true }).click());
           await selectSwipe(0, () => control.getByRole("button", { name: "Previous swipe", exact: true }).click());
-          await selectSwipe(1, () => input.fill("2"));
-          await input.press("Enter");
+          await selectSwipe(1, () => jumpTo(1));
           await expect(control.getByRole("button", { name: "Previous swipe", exact: true })).toBeEnabled();
-          await selectSwipe(0, () => input.fill("1"));
-          await input.press("Enter");
+          await selectSwipe(0, () => jumpTo(0));
           await expect(control.getByRole("button", { name: "Previous swipe", exact: true })).toBeDisabled();
         }
       }
@@ -6918,7 +6943,12 @@ for (const mode of ["conversation", "roleplay"] as const) {
       });
       expect(alternate.ok()).toBeTruthy();
       await page.reload();
-      await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true })).toBeVisible();
+      // With two swipes a Roleplay counter is a button that opens the swipe list (#9176); Conversation keeps the field.
+      await expect(
+        mode === "roleplay"
+          ? row.getByRole("button", { name: /^Swipe 1 of 2: .*Choose another swipe$/u })
+          : row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true }),
+      ).toBeVisible();
       await expect.poll(async () => (await readSynced())[preference]).toBe(false);
       if (mode === "conversation") {
         await openAppearance();
@@ -13654,29 +13684,25 @@ test("custom Agent character cards are created only after approval", async ({ pa
       useUIStore.getState().openModal("agent-write-approval");
     }, name);
 
-    const beforeResponse = await page.request.get("/api/characters");
-    expect(beforeResponse.ok()).toBeTruthy();
-    const before = (await beforeResponse.json()) as Array<{ data?: unknown }>;
-    expect(
-      before.some((row) => {
+    // The character list answers in pages (#9114), so search it by name.
+    const findCharacter = async () => {
+      const response = await page.request.get(`/api/characters?search=${encodeURIComponent(name)}`);
+      expect(response.ok()).toBeTruthy();
+      const { items } = (await response.json()) as { items: Array<{ id: string; data?: unknown }> };
+      return items.find((row) => {
         const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
         return (data as { name?: unknown } | null)?.name === name;
-      }),
-    ).toBe(false);
+      });
+    };
+    expect(await findCharacter()).toBeUndefined();
 
     const modal = page.getByRole("dialog");
     await expect(modal.getByText("Review Character Card", { exact: true })).toBeVisible();
     expect(await modal.locator("textarea").inputValue()).toContain(name);
-    await modal.getByRole("button", { name: "Accept", exact: true }).click();
+    await modal.getByRole("button", { name: "Apply update", exact: true }).click();
     await expect(modal).toBeHidden();
 
-    const afterResponse = await page.request.get("/api/characters");
-    expect(afterResponse.ok()).toBeTruthy();
-    const after = (await afterResponse.json()) as Array<{ id: string; data?: unknown }>;
-    const created = after.find((row) => {
-      const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
-      return (data as { name?: unknown } | null)?.name === name;
-    });
+    const created = await findCharacter();
     expect(created).toBeTruthy();
     createdId = created?.id ?? null;
   } finally {
