@@ -14,10 +14,10 @@ import {
   formatRulesetCheckValue,
   parseRulesetDefinition,
   type RulesetDefinition,
-} from "../../packages/shared/src/index.js";
-import { rulesetCheckValueText, rulesetRulesSummary } from "../../packages/client/src/lib/ruleset-resolution.js";
+} from "../../../packages/shared/src/index.js";
+import { rulesetCheckValueText, rulesetRulesSummary } from "../../../packages/client/src/lib/ruleset-resolution.js";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const readSource = (path: string) => readFileSync(join(repositoryRoot, path), "utf8");
 
 const messages = JSON.parse(readSource("packages/client/src/localization/locales/en.json")) as Record<string, string>;

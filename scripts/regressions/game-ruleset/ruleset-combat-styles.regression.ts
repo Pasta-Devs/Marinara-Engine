@@ -13,16 +13,16 @@ import {
   rulesetCombatStyles,
   supportedCapabilityApi,
   type RulesetDefinition,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-combat-styles-"));
 const previous = { DATA_DIR: process.env.DATA_DIR, MARINARA_DATA_DIR: process.env.MARINARA_DATA_DIR };
 process.env.DATA_DIR = dataDir;
 process.env.MARINARA_DATA_DIR = dataDir;
 const { getCapabilityPackageInstallIssue } =
-  await import("../../packages/server/src/services/capability-packages/package-manager.service.js");
+  await import("../../../packages/server/src/services/capability-packages/package-manager.service.js");
 
-const readSource = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+const readSource = (path: string) => readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8");
 const baseText = readSource("docs/development/ruleset-5e-2014.example.json");
 const fixture = (styles?: unknown) => {
   const doc = JSON.parse(baseText) as Record<string, any>;

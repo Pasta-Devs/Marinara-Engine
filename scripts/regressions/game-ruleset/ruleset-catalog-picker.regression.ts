@@ -18,7 +18,7 @@ import {
   type RulesetCatalogFilter,
   type RulesetField,
   type RulesetSheetBuild,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 import {
   CATALOG_FILTER_ANY,
   catalogEntryAlreadyAdded,
@@ -30,9 +30,9 @@ import {
   formatCatalogMechanics,
   planCatalogAddition,
   sheetFieldMatchTexts,
-} from "../../packages/client/src/lib/ruleset-catalog.js";
+} from "../../../packages/client/src/lib/ruleset-catalog.js";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const readSource = (path: string) => readFileSync(join(repositoryRoot, path), "utf8");
 
 const messages = JSON.parse(readSource("packages/client/src/localization/locales/en.json")) as Record<string, string>;

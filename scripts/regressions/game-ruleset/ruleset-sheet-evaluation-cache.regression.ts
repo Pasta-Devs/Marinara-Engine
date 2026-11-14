@@ -20,9 +20,9 @@ import {
   readRulesetLive,
   rulesetSheetBuildSchema,
   withRulesetSheetEvaluationCache,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const parsed = parseRulesetDefinition(
   JSON.parse(readFileSync(join(repositoryRoot, "docs/development/ruleset-5e-2014.example.json"), "utf8")),
 );

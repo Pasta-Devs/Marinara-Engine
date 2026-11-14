@@ -32,30 +32,30 @@ import {
   type RulesetCatalogEntry,
   type RulesetDefinition,
   type RulesetSheetBuild,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-ruleset-combat-route-"));
 process.env.DATA_DIR = dataDir;
 process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
-const { default: Fastify } = await import("../../packages/server/node_modules/fastify/fastify.js");
-const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
-const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
-const { createGameStateStorage } = await import("../../packages/server/src/services/storage/game-state.storage.js");
+const { default: Fastify } = await import("../../../packages/server/node_modules/fastify/fastify.js");
+const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
+const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
+const { createGameStateStorage } = await import("../../../packages/server/src/services/storage/game-state.storage.js");
 const { createGameRulesetsStorage } =
-  await import("../../packages/server/src/services/storage/game-rulesets.storage.js");
+  await import("../../../packages/server/src/services/storage/game-rulesets.storage.js");
 const { createGameEngineStateStorage } =
-  await import("../../packages/server/src/services/storage/game-engine-state.storage.js");
+  await import("../../../packages/server/src/services/storage/game-engine-state.storage.js");
 const { combatDirectorRoutes, COMBAT_DIRECTOR_NAMESPACE, proposedSheetLists } =
-  await import("../../packages/server/src/routes/combat-director.routes.js");
+  await import("../../../packages/server/src/routes/combat-director.routes.js");
 const { buildInitPrompt, encounterBlueprintSchema, encounterRulesetBrief } =
-  await import("../../packages/server/src/routes/encounter.routes.js");
+  await import("../../../packages/server/src/routes/encounter.routes.js");
 
-const { buildRulesetCombatBossPrompt } = await import("../../packages/server/src/services/game/combat-boss.service.js");
+const { buildRulesetCombatBossPrompt } = await import("../../../packages/server/src/services/game/combat-boss.service.js");
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 // An imported ruleset keeps its own bare id in the file and is filed under a namespaced one, which
 // is what a game pins. That is the shortest way to give this lane a ruleset with no package.
 const RULESET_ID = "local/5e-fight";
-const document = JSON.parse(read("../../docs/development/ruleset-5e-2014.example.json")) as Record<string, any>;
+const document = JSON.parse(read("../../../docs/development/ruleset-5e-2014.example.json")) as Record<string, any>;
 document.id = "5e-fight";
 
 const build = (input: Record<string, unknown>): RulesetSheetBuild => rulesetSheetBuildSchema.parse(input);
@@ -1264,7 +1264,7 @@ try {
     // the party came back rebuilt at 40 health from 65) is remembered as one that got away is.
     {
       const { rulesetFightReturningFoes } =
-        await import("../../packages/server/src/services/game/ruleset-combat-director.service.js");
+        await import("../../../packages/server/src/services/game/ruleset-combat-director.service.js");
       const won = structuredClone(doc.rulesetFight);
       const hound = won.encounter.combatants.find((one: { id: string }) => one.id === "hound");
       delete hound.defeated;
@@ -1348,7 +1348,7 @@ try {
     // Written again in other words, it is still the one (laptop playtest 2026-10-25: "Cult Thug
     // (Highwayman)" came back as "Highwayman Thug", escaped druids as "Vengeful Cult Druid").
     const { rulesetReturningFoeReworded } =
-      await import("../../packages/server/src/services/game/ruleset-combat-director.service.js");
+      await import("../../../packages/server/src/services/game/ruleset-combat-director.service.js");
     assert.equal(rulesetReturningFoeReworded("Cult Thug (Highwayman)", "Highwayman Thug"), true);
     assert.equal(rulesetReturningFoeReworded("Cult Druid", "Vengeful Cult Druid"), true);
     assert.equal(rulesetReturningFoeReworded("Cult Thug", "Thug"), false, "one word is anybody");

@@ -11,10 +11,10 @@ import {
   rulesetSaveFailChances,
   type RulesetCombatAction,
   type RulesetStatBlock,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 
 const parsed = parseRulesetDefinition(
-  JSON.parse(readFileSync(new URL("../../docs/development/ruleset-5e-2014.example.json", import.meta.url), "utf8")),
+  JSON.parse(readFileSync(new URL("../../../docs/development/ruleset-5e-2014.example.json", import.meta.url), "utf8")),
 );
 assert.ok(parsed.ok, parsed.ok ? "" : parsed.issues.join("; "));
 const definition = parsed.definition;
@@ -63,7 +63,7 @@ assert.equal(odds().b, 0.36);
 // On the menu, beside each target's health.
 state.order = state.combatants.map((one) => one.id);
 state.turn = 0;
-const { rulesetMenu } = await import("../../packages/server/src/services/game/ruleset-combat-director.service.js");
+const { rulesetMenu } = await import("../../../packages/server/src/services/game/ruleset-combat-director.service.js");
 const offered = rulesetMenu(definition, state, "mage").find((option) => option.id === "hold");
 assert.equal(offered?.saveChances?.a, 0.6, JSON.stringify(offered));
 // Nothing for an attack, which shows its odds to hit instead.
