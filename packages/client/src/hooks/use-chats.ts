@@ -601,12 +601,15 @@ export function useChatMessageSearchSource(chatId: string | null, enabled: boole
  * Professor Mari's own conversations. They are ordinary chats behind an internal
  * marker, so they are absent from the normal chat list and need their own read.
  */
+/** Shared with the omnibar host, which fetches it while idle so Search's Continue row is complete on open. */
+export const professorMariChatsQuery = {
+  queryKey: chatKeys.professorMari(),
+  queryFn: ({ signal }: { signal: AbortSignal }) => api.get<Chat[]>("/chats/internal/professor-mari/chats", { signal }),
+  staleTime: 30_000,
+};
+
 export function useProfessorMariChats() {
-  return useQuery({
-    queryKey: chatKeys.professorMari(),
-    queryFn: ({ signal }) => api.get<Chat[]>("/chats/internal/professor-mari/chats", { signal }),
-    staleTime: 30_000,
-  });
+  return useQuery(professorMariChatsQuery);
 }
 
 /** Older Roleplay messages no summary covers yet, which the next prompt still sends past the recent tail. */

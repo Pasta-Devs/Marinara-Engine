@@ -5,7 +5,9 @@
 // instead of in a side panel. For now the page hosts the existing panel's
 // contents at a readable width; dedicated list views come in a later slice.
 // ──────────────────────────────────────────────
-import { lazy, Suspense, type ComponentType, type CSSProperties, type LazyExoticComponent } from "react";
+import { Suspense, type ComponentType, type CSSProperties } from "react";
+import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { DelayedFallback } from "../ui/DelayedFallback";
 import type { LibrarySection } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
@@ -17,9 +19,9 @@ import { LIBRARY_SECTIONS } from "./library-navigation";
 const loadTables = () => import("./LibraryTables");
 const loadSettings = () => import("./SettingsPage");
 type PageProps = { section: LibrarySection };
-const TablesPage = lazy(() =>
-  loadTables().then((m) => ({
-    default: ({ section }: PageProps) => {
+const TablesPage = preloadedLazy(() =>
+  loadTables().then((m) => {
+    function TablesPage({ section }: PageProps) {
       const Page =
         section === "lorebooks"
           ? m.LorebooksLanding
@@ -29,20 +31,28 @@ const TablesPage = lazy(() =>
               ? m.RegexLanding
               : m.ConnectionsLanding;
       return <Page />;
-    },
-  })),
+    }
+    return TablesPage;
+  }),
 );
-const SettingsModulePage = lazy(() =>
-  loadSettings().then((m) => ({
-    default: ({ section }: PageProps) =>
-      section === "extensions" ? <m.OverhaulExtensionsPage /> : <m.OverhaulSettingsPage />,
-  })),
+const SettingsModulePage = preloadedLazy(() =>
+  loadSettings().then((m) => {
+    function SettingsModulePage({ section }: PageProps) {
+      return section === "extensions" ? <m.OverhaulExtensionsPage /> : <m.OverhaulSettingsPage />;
+    }
+    return SettingsModulePage;
+  }),
 );
 // Agents opens on the Agent Organizer, which lists installed and the user's own agents.
-const AgentsPage = lazy(() =>
-  import("../agents/AgentCatalogView").then((m) => ({ default: () => <m.AgentCatalogView /> })),
+const AgentsPage = preloadedLazy(() =>
+  import("../agents/AgentCatalogView").then((m) => {
+    function AgentsPage(_props: PageProps) {
+      return <m.AgentCatalogView />;
+    }
+    return AgentsPage;
+  }),
 );
-const PAGES: Partial<Record<LibrarySection, LazyExoticComponent<ComponentType<PageProps>>>> = {
+const PAGES: Partial<Record<LibrarySection, ComponentType<PageProps>>> = {
   lorebooks: TablesPage,
   presets: TablesPage,
   regex: TablesPage,
@@ -51,14 +61,17 @@ const PAGES: Partial<Record<LibrarySection, LazyExoticComponent<ComponentType<Pa
   settings: SettingsModulePage,
   extensions: SettingsModulePage,
 };
-if (typeof window !== "undefined") {
-  const preload = () => {
-    void loadTables().catch(() => undefined);
-    void loadSettings().catch(() => undefined);
-  };
-  const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
-  if (idle) idle(preload);
-  else window.setTimeout(preload, 1500);
+/**
+ * Fetches every Library page's code (and Settings' sections) so opening one renders at once
+ * instead of showing "Loading…" first (QC Nov 14 #2). The shell calls this while idle.
+ */
+export function preloadLibraryPages() {
+  return Promise.all([
+    TablesPage.preload(),
+    SettingsModulePage.preload(),
+    AgentsPage.preload(),
+    loadSettings().then((m) => m.preloadOverhaulSettingsSections()),
+  ]).catch(() => undefined);
 }
 
 const SURFACES = {
@@ -88,7 +101,13 @@ export function LibraryLandingPage({ section }: { section: LibrarySection }) {
   const Page = PAGES[section];
   if (Page && SELF_HEADED.has(section)) {
     return (
-      <Suspense fallback={<div className="ov-libpage__loading">{localize("Loading…")}</div>}>
+      <Suspense
+        fallback={
+          <DelayedFallback>
+            <div className="ov-libpage__loading">{localize("Loading…")}</div>
+          </DelayedFallback>
+        }
+      >
         <Page section={section} />
       </Suspense>
     );
@@ -111,7 +130,13 @@ export function LibraryLandingPage({ section }: { section: LibrarySection }) {
         className="ov-libpage__body mari-right-panel-content"
         style={{ maxWidth: width, "--mari-right-panel-width": `${width}px` } as CSSProperties}
       >
-        <Suspense fallback={<div className="ov-libpage__loading">{localize("Loading…")}</div>}>
+        <Suspense
+          fallback={
+            <DelayedFallback>
+              <div className="ov-libpage__loading">{localize("Loading…")}</div>
+            </DelayedFallback>
+          }
+        >
           {Page ? <Page section={section} /> : null}
         </Suspense>
       </div>

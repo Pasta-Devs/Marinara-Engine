@@ -5,6 +5,7 @@ import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due"
 import { useCenterPageOpen } from "../../hooks/use-chat-theme";
 import { useQueryClient } from "@tanstack/react-query";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { DelayedFallback } from "../ui/DelayedFallback";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
 import { GlobalOmnibar } from "./GlobalOmnibarHost";
@@ -91,29 +92,27 @@ const SpotifyMobileWidget = lazy(() =>
   import("../spotify/SpotifyMiniPlayer").then((module) => ({ default: module.SpotifyMobileWidget })),
 );
 const ChatArea = preloadedLazy(() => import("../chat/ChatArea").then((module) => module.ChatArea));
-const CharacterEditor = lazy(() =>
-  import("../characters/CharacterEditor").then((module) => ({ default: module.CharacterEditor })),
+const CharacterEditor = preloadedLazy(() =>
+  import("../characters/CharacterEditor").then((module) => module.CharacterEditor),
 );
-const CharacterLibraryView = lazy(() =>
-  import("../characters/CharacterLibraryView").then((module) => ({ default: module.CharacterLibraryView })),
+const CharacterLibraryView = preloadedLazy(() =>
+  import("../characters/CharacterLibraryView").then((module) => module.CharacterLibraryView),
 );
-const AgentCatalogView = lazy(() =>
-  import("../agents/AgentCatalogView").then((module) => ({ default: module.AgentCatalogView })),
+const AgentCatalogView = preloadedLazy(() =>
+  import("../agents/AgentCatalogView").then((module) => module.AgentCatalogView),
 );
-const LorebookEditor = lazy(() =>
-  import("../lorebooks/LorebookEditor").then((module) => ({ default: module.LorebookEditor })),
+const LorebookEditor = preloadedLazy(() =>
+  import("../lorebooks/LorebookEditor").then((module) => module.LorebookEditor),
 );
-const PresetEditor = lazy(() => import("../presets/PresetEditor").then((module) => ({ default: module.PresetEditor })));
-const ConnectionEditor = lazy(() =>
-  import("../connections/ConnectionEditor").then((module) => ({ default: module.ConnectionEditor })),
+const PresetEditor = preloadedLazy(() => import("../presets/PresetEditor").then((module) => module.PresetEditor));
+const ConnectionEditor = preloadedLazy(() =>
+  import("../connections/ConnectionEditor").then((module) => module.ConnectionEditor),
 );
-const AgentEditor = lazy(() => import("../agents/AgentEditor").then((module) => ({ default: module.AgentEditor })));
-const ToolEditor = lazy(() => import("../agents/ToolEditor").then((module) => ({ default: module.ToolEditor })));
-const PersonaEditor = lazy(() =>
-  import("../personas/PersonaEditor").then((module) => ({ default: module.PersonaEditor })),
-);
-const RegexScriptEditor = lazy(() =>
-  import("../agents/RegexScriptEditor").then((module) => ({ default: module.RegexScriptEditor })),
+const AgentEditor = preloadedLazy(() => import("../agents/AgentEditor").then((module) => module.AgentEditor));
+const ToolEditor = preloadedLazy(() => import("../agents/ToolEditor").then((module) => module.ToolEditor));
+const PersonaEditor = preloadedLazy(() => import("../personas/PersonaEditor").then((module) => module.PersonaEditor));
+const RegexScriptEditor = preloadedLazy(() =>
+  import("../agents/RegexScriptEditor").then((module) => module.RegexScriptEditor),
 );
 const BotBrowserView = lazy(() =>
   import("../bot-browser/BotBrowserView").then((module) => ({ default: module.BotBrowserView })),
@@ -122,29 +121,21 @@ const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
 );
 const RightPanel = preloadedLazy(() => import("./RightPanel").then((module) => module.RightPanel));
-const OverhaulSchedulesPage = lazy(() =>
-  import("../chat/CharacterScheduleManagerModal").then((module) => ({ default: module.OverhaulSchedulesPage })),
+const OverhaulSchedulesPage = preloadedLazy(() =>
+  import("../chat/CharacterScheduleManagerModal").then((module) => module.OverhaulSchedulesPage),
 );
-const OverhaulMariPage = lazy(() =>
-  import("../overhaul/MariPage").then((module) => ({ default: module.OverhaulMariPage })),
+const OverhaulMariPage = preloadedLazy(() => import("../overhaul/MariPage").then((module) => module.OverhaulMariPage));
+const OverhaulDocsPage = preloadedLazy(() => import("../overhaul/DocsPage").then((module) => module.OverhaulDocsPage));
+const OvRegexViewer = preloadedLazy(() => import("../overhaul/LibraryViewers").then((module) => module.OvRegexViewer));
+const OvToolsViewer = preloadedLazy(() => import("../overhaul/LibraryViewers").then((module) => module.OvToolsViewer));
+const OvConnectionsViewer = preloadedLazy(() =>
+  import("../overhaul/LibraryViewers").then((module) => module.OvConnectionsViewer),
 );
-const OverhaulDocsPage = lazy(() =>
-  import("../overhaul/DocsPage").then((module) => ({ default: module.OverhaulDocsPage })),
+const OvConnectionPageMobile = preloadedLazy(() =>
+  import("../overhaul/LibraryViewers").then((module) => module.OvConnectionPageMobile),
 );
-const OvRegexViewer = lazy(() =>
-  import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvRegexViewer })),
-);
-const OvToolsViewer = lazy(() =>
-  import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvToolsViewer })),
-);
-const OvConnectionsViewer = lazy(() =>
-  import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvConnectionsViewer })),
-);
-const OvConnectionPageMobile = lazy(() =>
-  import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvConnectionPageMobile })),
-);
-const LibraryLandingPage = lazy(() =>
-  import("../overhaul/LibraryLandingPage").then((module) => ({ default: module.LibraryLandingPage })),
+const LibraryLandingPage = preloadedLazy(() =>
+  import("../overhaul/LibraryLandingPage").then((module) => module.LibraryLandingPage),
 );
 const TrackerDataSidebar = lazy(() =>
   import("./TrackerDataSidebar").then((module) => ({ default: module.TrackerDataSidebar })),
@@ -236,9 +227,11 @@ function getViewportWidth() {
 function MainPaneFallback() {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <div className="mari-chrome-text-muted flex flex-1 items-center justify-center text-sm">
-      {localizeUi("ui.characters.characterlibraryview.loading")}
-    </div>
+    <DelayedFallback>
+      <div className="mari-chrome-text-muted flex flex-1 items-center justify-center text-sm">
+        {localizeUi("ui.characters.characterlibraryview.loading")}
+      </div>
+    </DelayedFallback>
   );
 }
 /** Mounts children once `open` becomes true, then keeps them mounted so state persists.
@@ -301,6 +294,9 @@ export function AppShell({
       // A failed preload only means the click loads the code; the lazy import reports real failures.
       ChatArea.preload().catch(() => undefined);
       RightPanel.preload().catch(() => undefined);
+      // Library pages and Settings open without a "Loading…" page first (QC Nov 14 #2).
+      LibraryLandingPage.preload().catch(() => undefined);
+      import("../overhaul/LibraryLandingPage").then((module) => module.preloadLibraryPages()).catch(() => undefined);
     };
     if (typeof window.requestIdleCallback === "function") {
       const id = window.requestIdleCallback(preload, { timeout: 5_000 });
@@ -309,6 +305,43 @@ export function AppShell({
     const timer = window.setTimeout(preload, 2_000);
     return () => window.clearTimeout(timer);
   }, []);
+  // Editors load once the Library is opened (or an editor tab is open), so opening or switching to an
+  // editor never shows an empty frame or "Loading…" first (QC Nov 14 #2, #5).
+  const editorsWanted = useOverhaulStore(
+    (state) =>
+      state.sidePane === "library" ||
+      state.mobileSidePageOpen ||
+      state.tabs.some((tab) => tab.kind !== "chat" && tab.kind !== "app"),
+  );
+  useEffect(() => {
+    if (!editorsWanted) return;
+    const preload = () => {
+      for (const editor of [
+        CharacterEditor,
+        CharacterLibraryView,
+        PersonaEditor,
+        LorebookEditor,
+        PresetEditor,
+        ConnectionEditor,
+        RegexScriptEditor,
+        AgentEditor,
+        ToolEditor,
+        AgentCatalogView,
+        OvRegexViewer,
+        OvToolsViewer,
+        OvConnectionsViewer,
+        OverhaulDocsPage,
+      ]) {
+        editor.preload().catch(() => undefined);
+      }
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(preload, { timeout: 1_500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(preload, 300);
+    return () => window.clearTimeout(timer);
+  }, [editorsWanted]);
   const { t: localizeUi } = useUiTranslation();
   const chatWindowIntroNavigationBlocked = useUIStore((state) => state.hasAnyDetailOpen());
   const queryClient = useQueryClient();
@@ -369,6 +402,11 @@ export function AppShell({
     let largestViewportHeight = 0;
     let viewportWidth = window.innerWidth;
     let previousLayoutHeight = root.clientHeight || window.innerHeight;
+    // Set once focus has left every text field while the keyboard is still up (Search closed, a field
+    // blurred): the app takes its full height in one step instead of following the closing keyboard
+    // step by step, which moved the chat behind in 5-8 jumps (QC Nov 14 #4).
+    let keyboardDismissed = false;
+    let dismissTimer = 0;
     const supportsVirtualKeyboard = navigator.maxTouchPoints > 0 || window.matchMedia("(any-pointer: coarse)").matches;
     const isIosWebKit = isIosWebKitBrowser(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
     // An iPhone Home Screen app: no browser toolbars, so the layout viewport is the whole screen the app may use.
@@ -415,7 +453,9 @@ export function AppShell({
         }
         previousLayoutHeight = currentLayoutHeight;
         largestViewportHeight = Math.max(largestViewportHeight, unzoomedHeight);
-        const keyboardOpen = supportsVirtualKeyboard && largestViewportHeight - unzoomedHeight >= 80;
+        const keyboardReported = supportsVirtualKeyboard && largestViewportHeight - unzoomedHeight >= 80;
+        if (!keyboardReported || isTypingTarget(document.activeElement)) keyboardDismissed = false;
+        const keyboardOpen = keyboardReported && !keyboardDismissed;
         // An iPhone Home Screen app with its keyboard closed has nothing to fit, yet iOS can go on reporting a visual
         // viewport a status bar short (or with a stale offsetTop), and leave the page scrolled where the keyboard put
         // it, until the app is restarted. Sized from that, the whole app stopped short with the page backing in a grey
@@ -429,7 +469,7 @@ export function AppShell({
         const height =
           keyboardOpen && viewport && viewport.height > 0
             ? Math.min(unzoomedHeight, viewport.height)
-            : settledHomeScreen
+            : settledHomeScreen || keyboardDismissed
               ? Math.min(window.innerHeight, root.clientHeight || window.innerHeight)
               : unzoomedHeight;
         const layoutViewportHeight = isIosWebKit ? largestViewportHeight : window.innerHeight;
@@ -447,6 +487,16 @@ export function AppShell({
           keyboardOpen,
         });
       });
+    };
+    const noteKeyboardDismissal = (event: FocusEvent) => {
+      window.clearTimeout(dismissTimer);
+      if (event.type === "focusin") return;
+      // Moving between two fields blurs one before focusing the next; only a blur that stays counts.
+      dismissTimer = window.setTimeout(() => {
+        if (!root.hasAttribute("data-mari-software-keyboard-open") || isTypingTarget(document.activeElement)) return;
+        keyboardDismissed = true;
+        updateVisualViewportGeometry();
+      }, 50);
     };
     const refreshAfterFocusChange = () => {
       focusTimers.forEach((timer) => window.clearTimeout(timer));
@@ -479,9 +529,14 @@ export function AppShell({
     window.screen.orientation?.addEventListener("change", refreshAfterOrientationChange);
     document.addEventListener("focusin", refreshAfterFocusChange);
     document.addEventListener("focusout", refreshAfterFocusChange);
+    document.addEventListener("focusin", noteKeyboardDismissal);
+    document.addEventListener("focusout", noteKeyboardDismissal);
 
     return () => {
       if (frame) cancelAnimationFrame(frame);
+      window.clearTimeout(dismissTimer);
+      document.removeEventListener("focusin", noteKeyboardDismissal);
+      document.removeEventListener("focusout", noteKeyboardDismissal);
       focusTimers.forEach((timer) => window.clearTimeout(timer));
       orientationTimers.forEach((timer) => window.clearTimeout(timer));
       window.visualViewport?.removeEventListener("resize", updateVisualViewportGeometry);

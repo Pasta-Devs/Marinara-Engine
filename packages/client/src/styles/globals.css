@@ -6265,6 +6265,11 @@ strong {
   animation: message-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Chat settings: the loaded drawer continues its loading pane's entrance instead of restarting it. */
+.mari-cs-enter.animate-message-in {
+  animation-delay: var(--mari-cs-enter-delay, 0ms);
+}
+
 @keyframes slide-in-left {
   from {
     opacity: 0;

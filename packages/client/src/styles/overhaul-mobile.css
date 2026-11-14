@@ -1217,6 +1217,13 @@
   height: auto !important;
   max-height: 80dvh !important;
 }
+/* Its loading pane: the same bottom sheet, as tall as the quick page was last time (QC Nov 14 #1). */
+:root[data-overhaul="mobile"] .mari-window.ov-cs.ov-cs--placeholder {
+  top: auto !important;
+  bottom: calc(0.5rem + env(safe-area-inset-bottom)) !important;
+  height: var(--ovm-cs-sheet-h, min(32rem, 62dvh)) !important;
+  max-height: 80dvh !important;
+}
 :root[data-overhaul="mobile"] .mari-window.ov-cs:has([data-ovm-cs-view="quick"]) [data-ovm-cs-view] {
   flex: 0 1 auto;
 }
@@ -3678,16 +3685,24 @@
   background: var(--ovm-line);
   transform: translateX(-50%);
 }
-:root[data-overhaul="mobile"] .ov-add-sheet > :is(:first-child:not([aria-hidden="true"]), [aria-hidden="true"]:first-child + *) {
+:root[data-overhaul="mobile"]
+  .ov-add-sheet
+  > :is(:first-child:not([aria-hidden="true"]), [aria-hidden="true"]:first-child + *) {
   min-height: 3rem;
   padding: 0.25rem 0.375rem 0.25rem 1rem;
   border-bottom: 0;
 }
-:root[data-overhaul="mobile"] .ov-add-sheet > :is(:first-child:not([aria-hidden="true"]), [aria-hidden="true"]:first-child + *) h2 {
+:root[data-overhaul="mobile"]
+  .ov-add-sheet
+  > :is(:first-child:not([aria-hidden="true"]), [aria-hidden="true"]:first-child + *)
+  h2 {
   font-size: 1.0625rem;
   font-weight: 700;
 }
-:root[data-overhaul="mobile"] .ov-add-sheet > :is(:first-child:not([aria-hidden="true"]), [aria-hidden="true"]:first-child + *) :is(button, .mari-editor-action) {
+:root[data-overhaul="mobile"]
+  .ov-add-sheet
+  > :is(:first-child:not([aria-hidden="true"]), [aria-hidden="true"]:first-child + *)
+  :is(button, .mari-editor-action) {
   min-width: 2.75rem;
   min-height: 2.75rem;
 }
@@ -5264,14 +5279,16 @@
 /* Chat Gallery cards on phone Chat settings pages: the page's touch sizing (2.25rem+ buttons) made the
    five picture actions overflow a half-width card, and the label pill cover them. The actions wrap in
    even 1.875rem squares; the label pill stays a small chip. */
-.ov-cs.ov-cs .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x):not(#ovm-y)
+.ov-cs.ov-cs
+  .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x):not(#ovm-y)
   .mari-gallery-card.mari-gallery-card
   .mari-gallery-image-actions {
   display: flex !important;
   flex-wrap: wrap;
   gap: 0.25rem !important;
 }
-.ov-cs.ov-cs .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x):not(#ovm-y)
+.ov-cs.ov-cs
+  .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x):not(#ovm-y)
   .mari-gallery-card.mari-gallery-card
   .mari-gallery-image-actions
   button {

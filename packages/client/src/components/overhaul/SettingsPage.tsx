@@ -5,7 +5,7 @@
 // sections themselves are the app's own components, so nothing loses
 // behaviour. Chips under the tabs jump to a section; search covers all tabs.
 // ──────────────────────────────────────────────
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { APP_VERSION, SETTINGS_SECTIONS, type SettingsSectionId } from "@marinara-engine/shared";
 import { useThemes } from "../../hooks/use-themes";
@@ -15,15 +15,21 @@ import { useMatchMedia } from "../../hooks/use-match-media";
 import { useOverhaulMobile, useOverhaulStore, type OverhaulSettingsTab } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { DelayedFallback } from "../ui/DelayedFallback";
 import { openLibrarySection } from "./library-navigation";
 import { OVERHAUL_SETTINGS_TABS, overhaulSettingsTabFor } from "./settings-tabs";
 import { SETTINGS_SEARCHABLE_CONTROLS } from "../../lib/settings-registry";
 
 export { OVERHAUL_SETTINGS_TABS };
 
-const OverhaulSettingsSections = lazy(() =>
-  import("../panels/SettingsPanel").then((m) => ({ default: m.OverhaulSettingsSections })),
+const OverhaulSettingsSections = preloadedLazy(() =>
+  import("../panels/SettingsPanel").then((m) => m.OverhaulSettingsSections),
 );
+/** Settings' sections load with the Library pages while idle, so a Settings page never shows "Loading…". */
+export function preloadOverhaulSettingsSections() {
+  return OverhaulSettingsSections.preload();
+}
 
 const SECTION_LABELS: Partial<Record<SettingsSectionId, string>> = {};
 
@@ -350,7 +356,11 @@ function OverhaulSettingsPhone() {
     </div>
   );
   const sectionTitle = sectionId ? (chips.find((chip) => chip.id === sectionId)?.label ?? sectionLabel(sectionId)) : "";
-  const loading = <p className="ov-gallery__note">{localize("Loading…")}</p>;
+  const loading = (
+    <DelayedFallback>
+      <p className="ov-gallery__note">{localize("Loading…")}</p>
+    </DelayedFallback>
+  );
 
   return (
     <section

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState, type ComponentProps } from "react";
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { createPortal } from "react-dom";
 import type { SpriteSide } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -37,14 +37,74 @@ const loadChatSettingsDrawer = async () => {
   return { default: module.ChatSettingsDrawer };
 };
 
+type ChatSettingsDrawerComponent = Awaited<ReturnType<typeof loadChatSettingsDrawer>>["default"];
 let chatSettingsDrawerLoadPromise: ReturnType<typeof loadChatSettingsDrawer> | null = null;
+// Once the code is in, the drawer renders straight away instead of suspending for a frame (a lazy
+// component suspends on its first render even when its code already loaded).
+let loadedChatSettingsDrawer: ChatSettingsDrawerComponent | null = null;
 
 export function preloadChatSettingsDrawer() {
-  chatSettingsDrawerLoadPromise ??= loadChatSettingsDrawer();
+  chatSettingsDrawerLoadPromise ??= loadChatSettingsDrawer().then((module) => {
+    loadedChatSettingsDrawer = module.default;
+    return module;
+  });
   return chatSettingsDrawerLoadPromise;
 }
 
-const ChatSettingsDrawer = lazy(preloadChatSettingsDrawer);
+/** Fetches Chat settings' code in the background (when a chat opens), so opening it never waits on it. */
+export function preloadChatSettingsDrawerWhenIdle() {
+  if (loadedChatSettingsDrawer || chatSettingsDrawerLoadPromise || typeof window === "undefined") return;
+  const run = () => void preloadChatSettingsDrawer().catch(() => (chatSettingsDrawerLoadPromise = null));
+  if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 2500 });
+  else setTimeout(run, 600);
+}
+
+const LazyChatSettingsDrawer = lazy(preloadChatSettingsDrawer);
+
+// The loading pane and the drawer that replaces it share one entrance: the drawer picks the entrance
+// up where the loading pane left it instead of starting over from invisible (QC Nov 14 #1).
+let chatSettingsEnterStartedAt = 0;
+function markChatSettingsEnterStart() {
+  chatSettingsEnterStartedAt = performance.now();
+  document.documentElement.style.setProperty("--mari-cs-enter-delay", "0ms");
+}
+// Phones and tablets: Chat settings opens as a bottom sheet as tall as its quick page. The loading pane
+// takes the height the sheet had last time for this chat mode, so it never shows full screen and then
+// shrinks (QC Nov 14 #1).
+const SHEET_HEIGHTS_KEY = "marinara-chat-settings-sheet-heights";
+function readSheetHeights(): Record<string, number> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SHEET_HEIGHTS_KEY) ?? "{}") as unknown;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+function applySheetHeight(mode: string) {
+  const height = readSheetHeights()[mode];
+  if (height && Number.isFinite(height)) document.documentElement.style.setProperty("--ovm-cs-sheet-h", `${height}px`);
+  else document.documentElement.style.removeProperty("--ovm-cs-sheet-h");
+}
+function rememberSheetHeight(mode: string) {
+  const sheet = document.querySelector<HTMLElement>(
+    '.mari-window.ov-cs:not(.ov-cs--placeholder):has([data-ovm-cs-view="quick"])',
+  );
+  if (!sheet) return;
+  const height = Math.round(sheet.getBoundingClientRect().height);
+  if (height < 120) return;
+  try {
+    localStorage.setItem(SHEET_HEIGHTS_KEY, JSON.stringify({ ...readSheetHeights(), [mode]: height }));
+  } catch {
+    // Not remembered: the next loading pane uses the default height.
+  }
+}
+
+function continueChatSettingsEnter() {
+  const elapsed = Math.max(0, Math.round(performance.now() - chatSettingsEnterStartedAt));
+  document.documentElement.style.setProperty("--mari-cs-enter-delay", `-${elapsed}ms`);
+  // Sections popped out later get their own entrance (the finished one is not replayed by this).
+  window.setTimeout(() => document.documentElement.style.setProperty("--mari-cs-enter-delay", "0ms"), 500);
+}
 
 const ChatSetupWizard = lazy(async () => {
   const module = await import("./ChatSetupWizard");
@@ -62,10 +122,10 @@ const RoleplayRulesetSheet = lazy(async () => {
   return { default: module.RoleplayRulesetSheet };
 });
 
-type ChatData = ComponentProps<typeof ChatSettingsDrawer>["chat"];
+type ChatData = ComponentProps<typeof LazyChatSettingsDrawer>["chat"];
 export type ChatFloatingPanelAnchor = ChatToolbarFloatingPanelAnchor;
-export type ChatSettingsInitialSection = ComponentProps<typeof ChatSettingsDrawer>["initialSection"];
-export type ChatSettingsTools = NonNullable<ComponentProps<typeof ChatSettingsDrawer>["chatTools"]>;
+export type ChatSettingsInitialSection = ComponentProps<typeof LazyChatSettingsDrawer>["initialSection"];
+export type ChatSettingsTools = NonNullable<ComponentProps<typeof LazyChatSettingsDrawer>["chatTools"]>;
 
 type SharedSceneSettingsProps = {
   spriteArrangeMode: boolean;
@@ -418,18 +478,26 @@ function MultiSelectBar({
 function ChatSettingsLoadingFallback({
   anchor,
   onClose,
-  gameMode,
+  chatMode,
 }: {
   anchor: ChatFloatingPanelAnchor;
   onClose: (options?: { force?: boolean }) => void;
-  gameMode: boolean;
+  chatMode: string;
 }) {
+  const gameMode = chatMode === "game";
   const { t: localizeUi } = useUiTranslation();
   const phoneLayout = useMatchMedia("(max-width: 767px)");
-  // UI overhaul: while the drawer loads, show the same docked pane it opens as, not the old floating window.
-  const overhaulActive = useOverhaulActive() && !phoneLayout;
+  // UI overhaul: while the drawer loads, show the same pane it opens as (the docked pane on computers,
+  // the same-size sheet on phones and tablets), not the old floating window or a full-screen sheet.
+  const overhaulDesktop = useOverhaulActive() && !phoneLayout;
+  const overhaulMobile = useOverhaulMobile();
+  const overhaulActive = overhaulDesktop || overhaulMobile;
   const ovFloating = useOverhaulStore((state) => state.chatSettingsFloating);
-  const ovDocked = overhaulActive && !ovFloating;
+  const ovDocked = overhaulDesktop && !ovFloating;
+  useLayoutEffect(() => {
+    markChatSettingsEnterStart();
+    if (overhaulMobile) applySheetHeight(chatMode);
+  }, [overhaulMobile, chatMode]);
   const windowProps = getChatSettingsWindowProps(anchor);
   // The docked pane makes room in the chat as soon as it shows, not once its code has loaded and
   // rendered (with a custom theme that was most of a second later, nitpick audit GV13). The loaded
@@ -441,15 +509,17 @@ function ChatSettingsLoadingFallback({
     <FloatingWindow
       id={CHAT_SETTINGS_WINDOW_ID}
       bodyRef={bodyRef}
-      presentation={phoneLayout ? "sheet" : "window"}
+      presentation={phoneLayout || overhaulMobile ? "sheet" : "window"}
       title={localizeUi("chat.toolbar.settings")}
       titleIcon={<Loader2 size="0.8125rem" className="mari-chrome-accent-icon shrink-0 animate-spin" />}
       closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
       {...windowProps}
       className={cn(
         windowProps.className,
-        overhaulActive && "mari-chat-settings-popover mari-chat-settings-drawer ov-cs",
+        "mari-chat-settings-popover mari-chat-settings-drawer",
+        overhaulActive && "ov-cs",
         ovDocked && "ov-cs--docked",
+        overhaulMobile && "ov-cs--placeholder",
       )}
       onRequestClose={() => onClose({ force: true })}
     >
@@ -535,28 +605,60 @@ export function ChatCommonOverlays({
   // Chat settings is a big render. Opening it shows the light loading pane for a frame first, so the
   // pane appears and the chat makes room at once, and the full drawer renders into it right after
   // (the click used to wait on that whole render; GV13).
+  // The loading pane stays until the drawer's code is in, so it is never swapped for a second loading
+  // pane (that swap blinked; QC Nov 14 #1).
   const [drawerReady, setDrawerReady] = useState(false);
+  const [drawerCodeReady, setDrawerCodeReady] = useState(() => !!loadedChatSettingsDrawer);
+  useEffect(() => {
+    if (!settingsMounted || drawerCodeReady) return;
+    let cancelled = false;
+    preloadChatSettingsDrawer().then(
+      () => !cancelled && setDrawerCodeReady(true),
+      () => !cancelled && setDrawerCodeReady(true),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [settingsMounted, drawerCodeReady]);
   useEffect(() => {
     if (!settingsMounted) {
       setDrawerReady(false);
       return;
     }
-    if (drawerReady) return;
+    if (drawerReady || !drawerCodeReady) return;
     let second = 0;
     const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => setDrawerReady(true));
+      second = requestAnimationFrame(() => {
+        continueChatSettingsEnter();
+        setDrawerReady(true);
+      });
     });
     return () => {
       cancelAnimationFrame(first);
       cancelAnimationFrame(second);
     };
-  }, [settingsMounted, drawerReady]);
+  }, [settingsMounted, drawerReady, drawerCodeReady]);
+  const sheetChatMode = String((chat as unknown as { mode?: unknown } | null | undefined)?.mode ?? "");
+  useEffect(() => {
+    if (!drawerReady || !settingsOpen) return;
+    const timer = window.setTimeout(() => rememberSheetHeight(sheetChatMode), 600);
+    return () => window.clearTimeout(timer);
+  }, [drawerReady, settingsOpen, sheetChatMode]);
+  // Kept-mounted for popped-out sections: the drawer opening again later starts its own entrance.
+  useEffect(() => {
+    if (settingsMounted && !settingsOpen) markChatSettingsEnterStart();
+  }, [settingsMounted, settingsOpen]);
+  const ChatSettingsDrawer = loadedChatSettingsDrawer ?? LazyChatSettingsDrawer;
+  const chatOpen = !!chat;
+  useEffect(() => {
+    if (chatOpen) preloadChatSettingsDrawerWhenIdle();
+  }, [chatOpen]);
   const settingsLoading =
     chat && settingsOpen ? (
       <ChatSettingsLoadingFallback
         anchor={settingsAnchor}
         onClose={onCloseSettings}
-        gameMode={(chat as unknown as { mode?: unknown }).mode === "game"}
+        chatMode={String((chat as unknown as { mode?: unknown }).mode ?? "")}
       />
     ) : null;
   const roleplaySheetChatId = useRoleplaySheetStore((state) => state.open?.chatId);
