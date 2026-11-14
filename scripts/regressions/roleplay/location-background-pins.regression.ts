@@ -194,6 +194,16 @@ const tie = pinnedSceneBackground({
   galleryPins: johnGallery,
 });
 assert.equal(tie?.match.pin.id, "own", "the chat's own pin wins a tie with a gallery picture");
+const fullChat = Array.from({ length: shared.LOCATION_BACKGROUND_PIN_LIMIT }, (_, index) => ({
+  id: `own-${index}`,
+  names: [`room ${index}`],
+  background: `room-${index}.png`,
+}));
+assert.equal(
+  shared.resolveLocationBackgroundPin([...fullChat, ...johnGallery], { ...who, location: "John's den" })?.pin.id,
+  "gallery:g1",
+  "gallery pins still count when the chat has its full 100 pins",
+);
 assert.equal(
   pinnedSceneBackground({ chatMode: "game", chatMetadata: {}, location: "John's den", galleryPins: johnGallery }),
   null,

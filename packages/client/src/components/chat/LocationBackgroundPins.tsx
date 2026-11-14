@@ -34,9 +34,21 @@ function newPinId(): string {
   }
 }
 
-/** "John's bedroom, Smith House" -> "John's bedroom": the most specific part names the pin. */
+/**
+ * The part of the location that names the pin: the one with an owner ("John's bedroom"), else the
+ * one with the most words, else the last. Trackers write "Smith House, John's bedroom" as often as
+ * "John's bedroom, Smith House", so neither the first nor the last part is safe on its own.
+ */
 function firstPlacePart(location: string): string {
-  return (location.split(/\s*[,;|>]\s*|\s+[-–—]\s+/u).find((part) => part.trim()) ?? location).trim().slice(0, 80);
+  const parts = location
+    .split(/\s*[,;|>]\s*|\s+[-–—]\s+/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return location.trim().slice(0, 80);
+  const owned = parts.find((part) => /\p{L}['‘’ʼ]s?(?![\p{L}\p{N}])/u.test(part));
+  const words = (part: string) => part.split(/\s+/u).length;
+  const longest = parts.reduce((best, part) => (words(part) > words(best) ? part : best), parts[parts.length - 1]!);
+  return (owned ?? longest).slice(0, 80);
 }
 
 /** One pinned place: its picture, the name the story uses, other wordings and an optional map place. */
@@ -61,7 +73,8 @@ function PinRow({
   useEffect(() => {
     setName(pin.names[0] ?? "");
     setAliases(pin.names.slice(1).join(", "));
-  }, [pin.names]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin.names.join("\u0000")]);
 
   const commitNames = () => {
     const names = splitLocationBackgroundNames([name, aliases].filter(Boolean).join(","));

@@ -137,8 +137,11 @@ export function useLocationBackgroundPinFollower(args: {
   useEffect(() => {
     if (!chatId || !isRoleplay || pins.length === 0 || !known) return;
     if (!matchPinId || !matchBackground) {
-      // Left the pinned place: arriving there again shows its picture again.
-      if (shownPinId) updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: null });
+      // Left the pinned place: arriving there again shows its picture again. Only once the place is
+      // actually read (tracker or map place), so a chat still loading never forgets a hand-picked picture.
+      if (shownPinId && (stateKnown || placeId)) {
+        updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: null });
+      }
       return;
     }
     if (shownPinId === matchPinId) return;
@@ -146,5 +149,5 @@ export function useLocationBackgroundPinFollower(args: {
     if (url) useUIStore.getState().setChatBackground(url);
     updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: matchPinId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, isRoleplay, known, matchPinId, matchBackground, shownPinId]);
+  }, [chatId, isRoleplay, known, stateKnown, placeId, matchPinId, matchBackground, shownPinId]);
 }

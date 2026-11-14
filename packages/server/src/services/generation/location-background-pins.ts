@@ -17,6 +17,7 @@ import {
   type LocationBackgroundPin,
   type ResolvedOwnerSpatialProjection,
 } from "@marinara-engine/shared";
+import { logger } from "../../lib/logger.js";
 
 export type PinnedSceneBackground = {
   match: LocationBackgroundMatch;
@@ -52,11 +53,17 @@ export async function loadGalleryBackgroundPins(args: {
     rows.map((row) => ({ ...row, url: galleryBackgroundUrl(type, ownerId, row.filePath) }));
   const pins: LocationBackgroundPin[] = [];
   for (const character of args.characters) {
-    const rows = await args.characterGallery.listByCharacterId(character.id).catch(() => [] as GalleryRow[]);
+    const rows = await args.characterGallery.listByCharacterId(character.id).catch((err: unknown) => {
+      logger.warn(err, "[location-backgrounds] Could not read the gallery of character %s", character.id);
+      return [] as GalleryRow[];
+    });
     pins.push(...galleryBackgroundPins({ type: "character", ...character }, toImages("character", character.id, rows)));
   }
   if (args.persona) {
-    const rows = await args.personaGallery.listByPersonaId(args.persona.id).catch(() => [] as GalleryRow[]);
+    const rows = await args.personaGallery.listByPersonaId(args.persona.id).catch((err: unknown) => {
+      logger.warn(err, "[location-backgrounds] Could not read the gallery of persona %s", args.persona!.id);
+      return [] as GalleryRow[];
+    });
     pins.push(
       ...galleryBackgroundPins({ type: "persona", ...args.persona }, toImages("persona", args.persona.id, rows)),
     );

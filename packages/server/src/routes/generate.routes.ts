@@ -12576,7 +12576,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   persona: personaId ? { id: personaId, name: personaName } : null,
                   characterGallery,
                   personaGallery,
-                }).catch(() => [])
+                }).catch((err: unknown) => {
+                  logger.warn(err, "[location-backgrounds] Could not load gallery background pins");
+                  return [];
+                })
               : Promise.resolve([]));
         const pinsApplyToChat = async (metadata: Record<string, unknown>) =>
           locationBackgroundPinsApply(chatMode, metadata, await galleryPinsForChat());
