@@ -22,7 +22,8 @@ import { INLINE_IMAGE, dataUrlParts, isSvgPicture, pictureSizeAllowed, type Them
 export type ThemeContentProblem =
   | { kind: "text"; where: "css" | "template" | "picture" | "name"; text: string; threat: ThemeTextThreat }
   | { kind: "url"; url: string }
-  | { kind: "picture"; name: string; why: "too-big" };
+  | { kind: "picture"; name: string; why: "too-big" }
+  | { kind: "delay"; rule: string };
 
 /** Strings a stylesheet points at with url() or image-set(), as the browser parsed them. */
 function parsedUrls(css: string): string[] | null {
@@ -65,6 +66,30 @@ function urlAllowed(url: string) {
  * Problems with a theme's content. `css` is the stylesheet as it will be injected (sanitised, its
  * pictures already turned into blob: URLs); `rawCss` the theme's own text.
  */
+/** Longest wait a theme's transition may have before it starts. */
+const MAX_TRANSITION_DELAY_MS = 1000;
+
+/**
+ * The first transition that waits longer than a second before it starts, or null. A change that shows up
+ * long after the screen appeared could slip past the layout check (which looks once per screen), so such
+ * themes are refused. Animations are fine: the check looks again whenever a theme animation starts.
+ */
+export function delayedTransition(css: string): string | null {
+  const plain = css.replace(/\/\*[\s\S]*?\*\//g, " ");
+  for (const match of plain.matchAll(/transition(-delay)?\s*:\s*([^;{}]+)/gi)) {
+    const delayOnly = Boolean(match[1]);
+    for (const part of match[2]!.split(",")) {
+      const times = Array.from(
+        part.matchAll(/(-?\d*\.?\d+)(ms|s)\b/gi),
+        (time) => Number(time[1]) * (time[2]!.toLowerCase() === "s" ? 1000 : 1),
+      );
+      const delay = delayOnly ? times[0] : times[1];
+      if (delay !== undefined && delay > MAX_TRANSITION_DELAY_MS) return match[0].trim().slice(0, 80);
+    }
+  }
+  return null;
+}
+
 export function checkThemeContent(input: {
   css: string;
   rawCss: string;
@@ -80,6 +105,8 @@ export function checkThemeContent(input: {
     const threat = themeTextThreat(input.name, { lengthCap: null });
     if (threat && threat !== "long") problems.push({ kind: "text", where: "name", text: input.name, threat });
   }
+  const delayed = delayedTransition(input.rawCss);
+  if (delayed) problems.push({ kind: "delay", rule: delayed });
   const urls = parsedUrls(input.css);
   if (urls === null) problems.push({ kind: "url", url: "(unparsable stylesheet)" });
   else {
@@ -133,6 +160,7 @@ export function contentProblemsAsGuard(input: Parameters<typeof checkThemeConten
   return checkThemeContent(input).map((problem): ThemeGuardProblem => {
     if (problem.kind === "url") return { area: "app", kind: "unsafe-url", text: problem.url };
     if (problem.kind === "picture") return { area: "app", kind: "unsafe-picture", text: problem.name };
+    if (problem.kind === "delay") return { area: "app", kind: "delayed-change", text: problem.rule };
     return {
       area: problem.where === "css" || problem.where === "picture" ? "app" : "chat",
       kind: problem.threat === "long" ? "long-text" : "fake-text",

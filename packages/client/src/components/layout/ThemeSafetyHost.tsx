@@ -88,7 +88,13 @@ function useCountdown(deadline: number | null) {
 }
 
 /** Problems with what a theme writes or points at (lib/theme-content-check.ts). */
-const CONTENT_KINDS = new Set<ThemeGuardProblem["kind"]>(["fake-text", "long-text", "unsafe-url", "unsafe-picture"]);
+const CONTENT_KINDS = new Set<ThemeGuardProblem["kind"]>([
+  "fake-text",
+  "long-text",
+  "unsafe-url",
+  "unsafe-picture",
+  "delayed-change",
+]);
 
 export function problemText(t: ReturnType<typeof useTranslation>["t"], problem: ThemeGuardProblem) {
   const area = {
@@ -127,6 +133,12 @@ export function problemText(t: ReturnType<typeof useTranslation>["t"], problem: 
       return t("theming.safety.problem.unsafePicture", "Its picture “{{text}}” is too big to open safely.", {
         text: problem.text ?? "",
       });
+    case "delayed-change":
+      return t(
+        "theming.safety.problem.delayedChange",
+        "It waits more than a second before changing something ({{text}}). Themes can't hold changes back like that.",
+        { text: problem.text ?? "" },
+      );
     case "hidden":
       return t("theming.safety.problem.hidden", "It hid {{area}}.", { area });
     case "moved":

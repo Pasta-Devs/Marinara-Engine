@@ -34,7 +34,8 @@ export interface ThemeGuardProblem {
     | "fake-text"
     | "long-text"
     | "unsafe-url"
-    | "unsafe-picture";
+    | "unsafe-picture"
+    | "delayed-change";
   /** The text a theme added ("fake-text", "long-text"), the address ("unsafe-url") or the picture. */
   text?: string;
 }

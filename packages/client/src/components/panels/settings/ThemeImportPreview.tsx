@@ -58,7 +58,7 @@ function useChromeCheck(css: string, images: ThemeImage[] | undefined) {
 const UNTICKED_SETTINGS = new Set<ThemeSettingKey>(["visualStyle", "accentPulse", "fontSize", "reduceMotion"]);
 
 /** Guard problems about what a theme writes or points at (lib/theme-content-check.ts). */
-const CONTENT_PROBLEM_KINDS = new Set(["fake-text", "long-text", "unsafe-url", "unsafe-picture"]);
+const CONTENT_PROBLEM_KINDS = new Set(["fake-text", "long-text", "unsafe-url", "unsafe-picture", "delayed-change"]);
 
 function preTickedSettings(keys: ThemeSettingKey[]) {
   return keys.filter((key) => !UNTICKED_SETTINGS.has(key));

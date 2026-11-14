@@ -95,6 +95,9 @@ mari-protected, mari-theme-important, theme, base, components, utilities, mari-a
 - `mari-protected` keeps the top bar, the chats sidebar, the Library sidebar and Ctrl+K in place.
   A theme can restyle them (colours, fonts, borders, radius, shadows) but not hide, move, shrink or
   cover them. If it tries, the theme is switched off in that tab and the user is told why.
+- A transition can wait at most one second before it starts (`transition-delay`, or the second time
+  in `transition`). A theme that holds a change back longer is refused, so nothing can appear long
+  after the screen was checked. Animations can use any delay.
 
 The way back always works: `?safe` in the URL, **Escape three times**, or Ctrl+K > "Custom theme"
 turns the theme off. A new theme asks "Keep this theme?" and goes back after 15 seconds.

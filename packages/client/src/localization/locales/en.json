@@ -8272,6 +8272,7 @@
   "theming.safety.keepTitle": "Keep this theme?",
   "theming.safety.leaveSafe": "Leave safe mode",
   "theming.safety.problem.covered": "It covered {{area}}, so it couldn't be clicked.",
+  "theming.safety.problem.delayedChange": "It waits more than a second before changing something ({{text}}). Themes can't hold changes back like that.",
   "theming.safety.problem.fakeText": "It adds text that asks for private details or pretends to be the app: “{{text}}”.",
   "theming.safety.problem.hidden": "It hid {{area}}.",
   "theming.safety.problem.longText": "It writes a long message into the app (“{{text}}”). Themes can add a few words, not paragraphs.",

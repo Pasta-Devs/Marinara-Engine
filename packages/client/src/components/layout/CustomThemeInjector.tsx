@@ -381,7 +381,8 @@ export function CustomThemeInjector() {
     // The check re-styles and re-measures the whole page twice, a long freeze on a tablet with a big
     // library (1-5 s per tap on an iPad, Nov 14). A layout it has already passed for this theme (same
     // panels, windows, chat mode, colour scheme, window size) isn't checked again when you come back
-    // to it; the timed checks and a theme animation starting still always check.
+    // to it; the timed checks and a theme animation starting still always check. A transition that waits
+    // can't slip past this: themes with one are refused before they apply (lib/theme-content-check.ts).
     const passedLayouts = new Set<string>();
     const layoutKey = () => {
       const root = document.documentElement;
