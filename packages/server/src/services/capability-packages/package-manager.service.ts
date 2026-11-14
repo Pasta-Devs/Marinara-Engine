@@ -9394,6 +9394,13 @@ function capabilityPackageInstallIssueFor(
   if (!declaresApi(825) && diceSettings.some((setting) => plainRecord(setting?.dice)?.count === 0)) {
     return "A ruleset whose check has no dice requires schemaVersion 2 and capabilityApi 1.825 or newer";
   }
+  // Dice groups and a push in a pool, 1.826: strict keys, including per-check overrides.
+  if (
+    !declaresApi(826) &&
+    diceSettings.some((setting) => setting?.groups !== undefined || setting?.push !== undefined)
+  ) {
+    return "A ruleset whose pool is told apart by groups or may be pushed requires schemaVersion 2 and capabilityApi 1.826 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||
