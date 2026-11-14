@@ -63,6 +63,7 @@ import { collectFolderPackageEntries, type FolderPackageImportEntry } from "../.
 import { isZipFile, readTextFilesFromZip } from "../../lib/read-zip-text";
 import { downloadZipFile } from "../../lib/download-zip";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { translate } from "../../localization/i18n";
 import {
   KitBulkBar,
   KitCheck,
@@ -467,10 +468,12 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
       sub: script.findRegex,
       monoSub: true,
       lead: <span className="ov-vw__num">{script.order ?? 0}</span>,
-      dim: !enabled,
+      dim: !enabled || !!script.pausedByFolder,
       trail: (
         <Toggle
           on={enabled}
+          held={enabled && !!script.pausedByFolder}
+          title={enabled && script.pausedByFolder ? translate("regex.library.pausedByFolder") : undefined}
           label={localize(enabled ? "Disable regex" : "Enable regex")}
           onChange={(next) => updateRegex.mutate({ id: script.id, enabled: next })}
         />
