@@ -272,7 +272,7 @@ Un personaje o una persona puede usar sus sprites de expresión como avatar PNGT
 
 | Lo que quieres | Herramienta | Lo que obtienes |
 | --- | --- | --- |
-| Sprites PNGTuber | Cualquier app de dibujo y luego la pestaña **Sprites** del personaje | Los sprites |
+| Sprites PNGTuber | Cualquier app de dibujo y luego **Images → Sprites** del personaje | Los sprites |
 | Sprites PNGTuber con capas y disfraces | [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) | Un archivo `.save` |
 | Un avatar de malla | [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio) | Un archivo `.mavatar` |
 | Un modelo 3D | [VRoid Studio](https://vroid.com/en/studio), o Blender con el complemento [VRM Add-on for Blender](https://vrm-addon-for-blender.info/en-us/) | Un archivo `.vrm` y, si quieres, una animación en reposo `.vrma` |
@@ -281,7 +281,7 @@ Un personaje o una persona puede usar sus sprites de expresión como avatar PNGT
 
 1. Dibuja una imagen por cada emoción, todas del mismo tamaño y con el personaje en el mismo lugar. Ponle a cada una el nombre de su emoción: `neutral`, `happy`, `angry`, `sad`, `relaxed`, `surprised`. También funcionan los nombres que contienen una palabra de emoción, como `smile`, `cry`, `calm` o `shock`. Para las [emociones adicionales](#pngtuber-sprites) opcionales, ponles a las imágenes nombres como `amusement`, `fear` o `gratitude`.
 2. Para que la boca se mueva, dibuja la misma imagen con la boca abierta y añade `_talk`, por ejemplo `happy_talk`. Para el parpadeo, cierra los ojos y añade `_blink`. Para las dos cosas, añade `_blink_talk`.
-3. Añade las imágenes en la pestaña **Sprites**, en **Facial Expressions** (Expresiones faciales). El nombre de cada archivo se convierte en el nombre de su sprite. Consulta [Sprites de personaje](../characters/sprites.md#upload-your-own-sprites).
+3. Añade las imágenes en **Images → Sprites**, en **Facial Expressions** (Expresiones faciales). El nombre de cada archivo se convierte en el nombre de su sprite. Consulta [Sprites de personaje](../characters/sprites.md#upload-your-own-sprites).
 4. Abre **2D Avatars** en **Agents**, elige el personaje o la persona y activa **Show this avatar in chats**.
 
 ### PNGTuber Plus
