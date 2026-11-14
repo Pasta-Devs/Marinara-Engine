@@ -4,6 +4,7 @@
 // ──────────────────────────────────────────────
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
+import { galleryBackgroundPins, type LocationBackgroundPin } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import { characterKeys, useCharacters, usePersonas } from "./use-characters";
 import { getChatCharacterIds } from "../lib/chat-macros";
@@ -45,6 +46,7 @@ export function useChatGalleryOwners(
 }
 
 export type OwnerBackground = {
+  imageId: string;
   /** The picture's gallery URL; the chat stores it as its background. */
   url: string;
   /** The places it shows, or the owner's name when it names none. */
@@ -75,8 +77,13 @@ export function useChatOwnerBackgrounds(
         (results[index]?.data ?? [])
           .filter((image) => image.customKind === "background")
           .map((image) => ({
+            imageId: image.id,
             url: image.url,
-            title: image.customName?.trim() || owner.name,
+            // {{char}} in a character's gallery is that character; {{user}} in a persona's is that persona.
+            title:
+              (image.customName ?? "")
+                .replace(owner.type === "character" ? /\{\{\s*char\s*\}\}/giu : /\{\{\s*user\s*\}\}/giu, owner.name)
+                .trim() || owner.name,
             owner,
             places: image.customName?.trim() || null,
           })),
@@ -84,4 +91,34 @@ export function useChatOwnerBackgrounds(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [owners, dataKey],
   );
+}
+
+/** The chat's characters' and persona's gallery backgrounds that name places, as pinned places. */
+export function useChatGalleryBackgroundPins(
+  chat: { characterIds?: unknown; personaId?: string | null } | null | undefined,
+): LocationBackgroundPin[] {
+  const backgrounds = useChatOwnerBackgrounds(chat);
+  return useMemo(() => {
+    const pins: LocationBackgroundPin[] = [];
+    const byOwner = new Map<string, OwnerBackground[]>();
+    for (const background of backgrounds) {
+      const key = `${background.owner.type}:${background.owner.id}`;
+      byOwner.set(key, [...(byOwner.get(key) ?? []), background]);
+    }
+    for (const list of byOwner.values()) {
+      const owner = list[0]!.owner;
+      pins.push(
+        ...galleryBackgroundPins(
+          owner,
+          list.map((background) => ({
+            id: background.imageId,
+            url: background.url,
+            customKind: "background",
+            customName: background.places,
+          })),
+        ),
+      );
+    }
+    return pins;
+  }, [backgrounds]);
 }
