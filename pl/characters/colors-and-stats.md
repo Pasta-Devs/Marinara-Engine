@@ -14,6 +14,8 @@ Zakładka **Colors** ustawia trzy kolory: kolor imienia, kolor dialogu i kolor p
 
 **Extract Colors from Avatar** (pobranie kolorów z awatara) dobiera wszystkie trzy kolory na podstawie obrazka awatara. Zanim awatar zostanie dodany, przycisk jest nieaktywny i ma napis **Upload an avatar first**. Potem każdy kolor nadal da się zmienić ręcznie.
 
+<a id="the-three-colors"></a>
+
 ### Trzy kolory
 
 Każdy z nich ustaw w polu wyboru koloru albo wpisz wartość:
@@ -30,7 +32,7 @@ Każdy z nich ustaw w polu wyboru koloru albo wpisz wartość:
 linear-gradient(90deg, #f59e0b, #ef4444)
 ```
 
-Zakładka **Colors** postaci ma też pole **Name Aliases** (aliasy imienia). Wpisz dodatkowe imiona albo przezwiska rozdzielone przecinkami, na przykład `Kate, Kitty, Katherine`. Gdy pojawiają się w wiadomościach na czacie, dostają kolor imienia postaci. Główne imię jest zawsze uwzględnione. Funkcję włącza się osobno dla każdego czatu w **Chat Settings → Characters** (ustawienia czatu, postacie).
+**Other names** (inne nazwy), np. przezwiska, pełne imiona i nazwiska lub tytuły takie jak `Clark Kent, Kal-El, Mr. Kent`, znajdziesz w zakładce **Metadata** (metadane), pod polem **Name** (nazwa). W wiadomościach w czatach Roleplay mają ten sam kolor co główne imię. Włącz tę opcję osobno dla każdego czatu: **Color Character Names in Text** (kolorowanie imion postaci w tekście) w **Chat Settings → Characters** (ustawienia czatu, postacie) oraz **Color Persona Name in Text** (kolorowanie imienia persony w tekście) w **Chat Settings → Persona** (ustawienia czatu, persona).
 
 Przezroczystość zmienisz w **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (ustawienia, wygląd, prezentacja trybu Roleplay, nieprzezroczystość tła wiadomości w trybie Roleplay).
 

@@ -1,10 +1,10 @@
 # Galerie postaci i person
 
-Zakładka **Gallery** (galeria) w edytorach postaci i persony przechowuje obrazy i wideo przypisane do postaci albo persony, więc zostają one nawet po usunięciu czatów. Używaj jej do arkuszy referencyjnych, wariantów strojów i zaimportowanych paczek obrazów. Obraz z galerii da się też oznaczyć jako własne emoji albo naklejkę.
+Sekcja **Gallery** (galeria) w zakładce **Images** (obrazy) edytorów postaci i persony przechowuje obrazy i wideo przypisane do postaci albo persony, więc zostają one nawet po usunięciu czatów. Używaj jej do arkuszy referencyjnych, wariantów strojów i zaimportowanych paczek obrazów. Obraz z galerii da się też oznaczyć jako własne emoji albo naklejkę.
 
-## Zakładka **Gallery**
+## Gdzie znaleźć galerię
 
-Każda postać i każda persona ma własną zakładkę **Gallery** (ikona aparatu). Otwórz postać w edytorze postaci albo personę w edytorze persony, a potem kliknij **Gallery**. Galeria postaci nosi tytuł **Character Gallery**, a galeria persony – **Persona Gallery**. Obie działają tak samo.
+Każda postać i każda persona ma własną galerię. Otwórz postać w edytorze postaci albo personę w edytorze persony, kliknij zakładkę **Images**, a potem **Gallery** u góry zakładki. Galeria postaci nosi tytuł **Character Gallery**, a galeria persony – **Persona Gallery**. Obie działają tak samo.
 
 Galeria ma dwie podzakładki:
 
@@ -15,7 +15,7 @@ Galeria samego czatu działa inaczej. Trzyma ilustracje scen i wygenerowane zał
 
 ### Dodawanie obrazów
 
-1. Otwórz zakładkę **Gallery** i wybierz **Images**.
+1. Otwórz **Images → Gallery** i wybierz **Images**.
 2. Przeciągnij pliki obrazów na pole **Upload Character Images** albo kliknij je, żeby wybrać pliki. W personie to pole nosi nazwę **Upload Persona Images**.
 3. Poczekaj na koniec wgrywania. Nowe obrazy pojawiają się w siatce.
 
@@ -23,7 +23,7 @@ Kliknij obraz, żeby zobaczyć go w powiększeniu. Każdy kafelek ma przycisk po
 
 ### Dodawanie wideo
 
-1. Otwórz zakładkę **Gallery** i wybierz **Videos**.
+1. Otwórz **Images → Gallery** i wybierz **Videos**.
 2. Przeciągnij pliki wideo na pole **Upload Character Videos** albo kliknij je, żeby wybrać pliki. W personie to pole nosi nazwę **Upload Persona Videos**.
 3. Poczekaj na koniec wgrywania.
 
@@ -33,7 +33,7 @@ Obsługiwane formaty to MP4, WebM i MOV. Najnowsze wideo są na początku listy.
 
 Własne emoji to mały obrazek w linii tekstu, zapisywany jako `:name:`. Naklejka to większy obrazek w osobnym bloku, zapisywany jako `sticker:name:`. Oba działają wyłącznie w czatach w trybie Conversation Mode, czyli w trybie w stylu komunikatora.
 
-1. Otwórz zakładkę **Gallery** i wybierz **Images**.
+1. Otwórz **Images → Gallery** i wybierz **Images**.
 2. Kliknij mały przycisk oznaczania w lewym górnym rogu obrazu (podpowiedź **Tag as emoji or sticker**).
 3. Kliknij **Make emoji** albo **Make sticker**.
 4. W oknie **Custom Emoji** lub **Custom Sticker** wpisz nazwę i zatwierdź.
@@ -48,7 +48,7 @@ Po oznaczeniu obrazu przycisk na jego miniaturze pokazuje nazwę. Kliknij go, ż
 
 - **Rename** (zmiana nazwy) zmienia nazwę.
 - **Switch to sticker** lub **Switch to emoji** zmienia rodzaj. Sprawdzany jest limit rozmiaru nowego rodzaju, więc naklejka większa niż 256 na 256 nie może stać się emoji. Pojawia się wtedy błąd, a rodzaj zostaje bez zmian.
-- **Remove emoji** lub **Remove sticker** usuwa oznaczenie. Sam obraz zostaje w zakładce **Gallery**.
+- **Remove emoji** lub **Remove sticker** usuwa oznaczenie. Sam obraz zostaje w sekcji **Gallery**.
 
 Emoji lub naklejka oznaczona w galerii działa tylko dla tej jednej postaci lub persony, w czatach w trybie Conversation Mode z jej udziałem. To co innego niż globalne zbiory emoji i naklejek w polu pisania wiadomości. Jeśli nazwa z galerii pokrywa się z nazwą globalną, w tym czacie wygrywa wersja z galerii. Unikalność nazw nie jest sprawdzana, więc nadaj każdemu obrazowi inną nazwę.
 

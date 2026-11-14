@@ -272,7 +272,7 @@ Postać lub persona może bez rysowania używać swoich sprite'ów wyrazów twar
 
 | Czego potrzebujesz | Narzędzie | Co dostajesz |
 | --- | --- | --- |
-| Sprite'y PNGTuber | Dowolny program do rysowania, a potem zakładka **Sprites** (sprite'y) postaci | Sprite'y |
+| Sprite'y PNGTuber | Dowolny program do rysowania, a potem **Images → Sprites** (obrazy, sprite'y) w edytorze postaci | Sprite'y |
 | Sprite'y PNGTuber z warstwami i kostiumami | [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) | Plik `.save` |
 | Awatar mesh | [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio) | Plik `.mavatar` |
 | Model 3D | [VRoid Studio](https://vroid.com/en/studio) albo Blender z [VRM Add-on for Blender](https://vrm-addon-for-blender.info/en-us/) | Plik `.vrm`, opcjonalnie animacja spoczynkowa `.vrma` |
@@ -281,7 +281,7 @@ Postać lub persona może bez rysowania używać swoich sprite'ów wyrazów twar
 
 1. Narysuj po jednym obrazku dla każdej emocji, wszystkie w tym samym rozmiarze, z postacią w tym samym miejscu. Nazwij każdy według jego emocji: `neutral`, `happy`, `angry`, `sad`, `relaxed`, `surprised`. Działają też nazwy zawierające słowo opisujące emocję, takie jak `smile`, `cry`, `calm` czy `shock`. Dla opcjonalnych [dodatkowych emocji](#pngtuber-sprites) nazwij obrazki na przykład `amusement`, `fear` albo `gratitude`.
 2. Żeby usta się poruszały, narysuj ten sam obrazek z otwartymi ustami i dodaj `_talk`, na przykład `happy_talk`. Do mrugania zamknij oczy i dodaj `_blink`. Przy obu zmianach dodaj `_blink_talk`.
-3. Dodaj obrazki w zakładce **Sprites**, w kategorii **Facial Expressions** (wyrazy twarzy). Nazwa każdego pliku staje się nazwą jego sprite'a. Zobacz [Sprite'y postaci](../characters/sprites.md#upload-your-own-sprites).
+3. Dodaj obrazki w **Images → Sprites**, w kategorii **Facial Expressions** (wyrazy twarzy). Nazwa każdego pliku staje się nazwą jego sprite'a. Zobacz [Sprite'y postaci](../characters/sprites.md#upload-your-own-sprites).
 4. Otwórz **2D Avatars** w panelu **Agents**, wybierz postać lub personę i włącz **Show this avatar in chats**.
 
 ### PNGTuber Plus

@@ -999,8 +999,10 @@ To miękki interfejs: starszy Engine ignoruje trzeci argument, więc pakiet moż
 
 Widok w przeglądarce dostaje `openCharacter(characterId, { tab })`. Otwiera edytor postaci, a jeśli podano zakładkę, od razu na niej, więc pakiet może skierować użytkownika do pola karty postaci, które czyta. Starsze wersje Engine go nie mają: zanim pokażesz łącze, sprawdź, czy `openCharacter` istnieje.
 
+Od #9191 parametr `tab` przyjmuje też identyfikator sekcji w zakładce: `character-sheet`, `image-instructions`, `sprites` lub `gallery`. Wszystkie są w zakładce **Images** (obrazy). `sprites` i `gallery` były wcześniej zakładkami, więc stare linki nadal działają. Instrukcje do selfie postaci (`conversationImageInstructions`) przeniesiono z `convo` do `image-instructions`. Wersje Engine sprzed #9191 nie znają tego identyfikatora i otwierają edytor na początku formularza.
+
 ```ts
-if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "image-instructions" });
 ```
 
 ### Capability API 1.66: sceny z wątków pakietów

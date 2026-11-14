@@ -8,13 +8,13 @@ Wywoływanie funkcji oznacza, że AI prosi aplikację o wykonanie akcji, a potem
 
 ## Tworzenie narzędzia
 
-Zanim zaczniesz, otwórz panel **Presets** (presety) z górnego paska. Narzędzia znajdują się w jego sekcji **Functions** (funkcje, ikona klucza). Jeśli otwierasz aplikację Marinara z innego urządzenia, najpierw zapisz sekret administratora w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administracyjny). Musi on być zgodny z `ADMIN_SECRET` serwera; zobacz przewodnik [Konfiguracja serwera](../CONFIGURATION.md).
+Zanim zaczniesz, otwórz panel **Presets** (presety) z górnego paska. Narzędzia znajdują się w jego zakładce **Functions** (funkcje). Jeśli otwierasz aplikację Marinara z innego urządzenia, najpierw zapisz sekret administratora w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administracyjny). Musi on być zgodny z `ADMIN_SECRET` serwera; zobacz przewodnik [Konfiguracja serwera](../CONFIGURATION.md).
 
 Na pierwszą próbę wybierz **Static Result** (stały wynik): nie potrzebuje niczego więcej.
 
 ### Jak utworzyć narzędzie
 
-1. Otwórz **Presets** i znajdź **Functions**.
+1. Na górnym pasku otwórz **Presets → Functions**.
 2. Kliknij **Create function** (utworzenie funkcji, ikona plusa). Otwiera się pusty edytor narzędzia.
 3. Wpisz nazwę małymi literami w formacie snake_case, np. `check_weather`. Dokładnie tej nazwy AI używa do wywołania narzędzia. Nazwa zaczyna się od małej litery, a dalej zawiera małe litery, cyfry i podkreślenia.
 4. Wypełnij pole **Description** (opis). Napisz je jak instrukcję dla AI, bo AI czyta je, żeby zdecydować, kiedy wywołać narzędzie. Przykład: `Get the current weather for a city the user names.`
@@ -29,11 +29,14 @@ Zasady dotyczące nazw i opisów:
 - Dwa narzędzia nie mogą mieć tej samej nazwy, a narzędzie nie może używać nazwy wbudowanej, takiej jak `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` czy `update_about_me`. Przy kolizji pojawia się komunikat, np. `"your_name" is a reserved built-in tool name.`
 - Jeśli wychodzisz z edytora z niezapisanymi zmianami, pasek oferuje **Keep editing** (dalsza edycja), **Discard** (odrzucenie) i **Save & close** (zapisanie i zamknięcie).
 
-Nagłówek sekcji **Functions** ma trzy przyciski z ikonami:
+U góry zakładki **Functions** są przyciski:
 
 - **Create function** (ikona plusa)
 - **Import functions from ZIP or JSON** (import funkcji z pliku ZIP lub JSON)
 - **Export functions to ZIP** (eksport funkcji do pliku ZIP), wyszarzony, gdy nie masz żadnych narzędzi
+- **Select functions** (wybierz funkcje, ikona zaznaczenia)
+
+Pole **Search functions** (szukaj funkcji) poniżej przeszukuje nazwy i opisy narzędzi.
 
 Każde narzędzie na liście pokazuje:
 
@@ -41,7 +44,26 @@ Każde narzędzie na liście pokazuje:
 - przełącznik włącz/wyłącz;
 - **Edit function** (edycja funkcji) i **Delete Function** (usunięcie funkcji).
 
-Przeciągnij narzędzie za uchwyt, żeby zmienić kolejność listy. Kolejność służy tylko do wyświetlania. Gdy nie ma żadnych narzędzi, lista pokazuje napis **No functions yet**.
+Przeciągnij narzędzie za uchwyt, żeby zmienić kolejność listy. Kolejność służy tylko do wyświetlania. Podczas wyszukiwania nie da się przeciągać narzędzi. Gdy nie ma żadnych narzędzi, lista pokazuje napis **No functions yet**.
+
+
+### Porządkowanie narzędzi w folderach
+
+1. Kliknij **New Folder** (nowy folder) i nazwij folder.
+2. Kliknij ikonę folderu w wierszu narzędzia, żeby otworzyć **Move to folder** (przeniesienie do folderu).
+3. Wybierz folder. Żeby przenieść narzędzie poza folder, wybierz **No folder (top level)** (bez folderu, poziom główny).
+
+Kliknij nazwę folderu, żeby go rozwinąć lub zwinąć. Wyłącz przełącznik folderu, aby wstrzymać jego narzędzia. Nie są wtedy dostępne dla AI w żadnym czacie i nie można ich wybrać na liście narzędzi czatu ani agenta. Nagłówek pokazuje **Paused** (wstrzymane). Każde narzędzie zachowuje ustawienie własnego przełącznika. Włączone narzędzie we wstrzymanym folderze ma szary przełącznik i etykietę **Paused by folder** (wstrzymane przez folder). Po wznowieniu folderu włączone narzędzia są znów dostępne, a wyłączone pozostają wyłączone. Usunięcie folderu przenosi narzędzia na poziom główny, gdzie działają zgodnie z własnymi przełącznikami.
+
+Gdy są foldery, lista grupuje narzędzia według folderu. Kliknij **Manual order** (kolejność ręczna), żeby zobaczyć pełną listę i przeciągać narzędzia za uchwyty.
+
+### Zmiana kilku narzędzi naraz
+
+1. Kliknij **Select functions**.
+2. Zaznacz narzędzia do zmiany albo zaznacz **Select all functions** (wybierz wszystkie funkcje).
+3. Kliknij **Enable selected** (włącz zaznaczone), **Disable selected** (wyłącz zaznaczone) albo **Move to folder**. Zaznaczone narzędzia możesz też wyeksportować lub usunąć.
+
+**Enable selected** zmienia ustawienia poszczególnych przełączników. Wznów wstrzymany folder, aby jego narzędzia znów były dostępne.
 
 <a id="add-parameters"></a>
 

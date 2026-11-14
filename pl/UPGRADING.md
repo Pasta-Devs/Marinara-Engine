@@ -222,7 +222,7 @@ Powyższe kroki są takie same. Kilka zmian dotyczy serwera, z którego korzysta
 
 ## Powrót do starszej wersji
 
-Powrót nie zawsze jest możliwy. Nowsze wersje zapisują dane w nowszym formacie przechowywania, a kompilacja odrzuca dane w formacie nowszym niż te, które zna. Obecne kompilacje używają formatu przechowywania 10. Formaty 8, 9 i 10 dodały awatary MMD, powiązania połączeń z kontami oraz awatary GLB/FBX. Kompilacja, która zna tylko starszy format, nie otworzy zapisanych w nich danych.
+Powrót nie zawsze jest możliwy. Nowsze wersje zapisują dane w nowszym formacie przechowywania, a kompilacja odrzuca dane w formacie nowszym niż te, które zna. Obecne kompilacje używają formatu przechowywania 11. Formaty 8, 9 i 10 dodały awatary MMD, powiązania połączeń z kontami oraz awatary GLB/FBX. Format 11 zapisuje persony w tym samym formacie kart co postacie. Kompilacja, która zna tylko starszy format, nie otworzy zapisanych w nich danych.
 
 Program uruchamiający pomija automatyczną aktualizację, która prowadziłaby do niezgodnej wersji, a aktualizator w aplikacji odmawia jej wgrania. Żeby wrócić do starszej kompilacji, zatrzymaj aplikację Marinara i przywróć pełną kopię zapasową wykonaną przed aktualizacją. Opisane niżej polecenie konwertujące pliki czatu nie potrafi przekształcić ustawień awatarów MMD. Nie zmieniaj ręcznie numeru formatu.
 
