@@ -325,6 +325,7 @@ try {
     });
     assert.match(bareNothing.content, /reason="not-pushable"/);
     assert.equal(bareNothing.results?.length ?? 0, 0);
+    assert.deepEqual([bareNothing.resolved, bareNothing.notPushable], [0, 1], "counted, so the turn is rewritten");
     // A whole-party push has no one record to push.
     const party = await resolveSkillCheckTagsInContent(
       '[skill_check: skill="Wrestle" who="party" dc="1" push="true"]',
@@ -336,6 +337,7 @@ try {
     );
     assert.match(party.content, /reason="not-pushable"/);
     assert.equal(party.results?.length ?? 0, 0);
+    assert.deepEqual([party.resolved, party.notPushable, party.sparse], [0, 1, 1]);
     // The player's own record and a push naming the player's card are one roller.
     const named = await resolveSkillCheckTagsInContent('[skill_check: skill="Wrestle" who="Wren" dc="1" push="true"]', {
       loadContext: async () => context as any,

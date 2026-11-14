@@ -2291,6 +2291,11 @@ export interface SkillCheckTagResolution {
    */
   unknownRoller?: { count: number; written: string[] };
   /**
+   * How many pushes (1.826) found no roll to push and were settled with `reason="not-pushable"`.
+   * Counted inside `left` and `sparse`, and settled: the earlier roll stands.
+   */
+  notPushable?: number;
+  /**
    * The live sheet state after every purchase this pass paid for, when any did.
    *
    * Absent when nothing was bought, which is every game that does not use `spend=`. The caller
@@ -2817,7 +2822,14 @@ export async function resolveSkillCheckTagsInContent(
 
     if (pending.length === 0) {
       if (stripped.length === 0) return { content, resolved: 0, trusted, left, sparse: 0 };
-      return { content: rewrite(() => ""), resolved: 0, trusted, left, sparse: stripped.length };
+      return {
+        content: rewrite(() => ""),
+        resolved: 0,
+        trusted,
+        left,
+        sparse: stripped.length,
+        ...(notPushable > 0 ? { notPushable } : {}),
+      };
     }
 
     const context = loadedContext ?? (await options.loadContext());
@@ -2847,6 +2859,8 @@ export async function resolveSkillCheckTagsInContent(
     let untrained = 0;
     // Checks that pick out no one party member to roll them, by the `who=` each wrote.
     const unknownRoller: string[] = [];
+    // Of the pending entries, pushes settled as not pushed while rolling (the rest were settled above).
+    let pushRefused = 0;
     const rolled = rewrite((entry) => {
       // A pool check bound before the ruleset was loaded may have named its difficulty by a ladder
       // step; it is read now, with the ruleset in hand, so the pool serves it like any other check.
@@ -2876,6 +2890,7 @@ export async function resolveSkillCheckTagsInContent(
           : undefined;
       if (entry.tag.push && !pushOf && (request.dc === undefined || rulesetDeclaresPush(context.ruleset?.definition))) {
         notPushable += 1;
+        pushRefused += 1;
         return notPushableAsk({ ...entry.tag, dc: entry.request.dc });
       }
       const groupRollers = context.ruleset ? rulesetGroupCheckRollers(context.ruleset, request.who) : undefined;
@@ -2974,8 +2989,9 @@ export async function resolveSkillCheckTagsInContent(
       );
       // C: the roller declines a push its own check cannot make (an override with no push, an earlier
       // roll this pool could not have made). That roll was a fresh one, so it is not kept.
-      if (pushOf && result.pushed === undefined) {
+      if (pushOf && result.pushed === undefined && !result.automatic) {
         notPushable += 1;
+        pushRefused += 1;
         return notPushableAsk({ ...entry.tag, dc: entry.request.dc });
       }
       results.push(result);
@@ -3009,11 +3025,12 @@ export async function resolveSkillCheckTagsInContent(
     return {
       content: rolled,
       results,
-      resolved: pending.length - overflowed - unread - untrained - refusedRoller,
+      resolved: pending.length - overflowed - unread - untrained - refusedRoller - pushRefused,
       trusted,
-      left: left + overflowed + unread + untrained + refusedRoller,
-      sparse: overflowed + unread + untrained + refusedRoller + stripped.length,
+      left: left + overflowed + unread + untrained + refusedRoller + pushRefused,
+      sparse: overflowed + unread + untrained + refusedRoller + pushRefused + stripped.length,
       ...(untrained > 0 ? { untrained } : {}),
+      ...(notPushable > 0 ? { notPushable } : {}),
       ...(refusedRoller > 0 ? { unknownRoller: { count: refusedRoller, written: unknownRoller } } : {}),
       ...(corrected > 0 ? { corrected } : {}),
       ...(spentLive ? { live: spentLive } : {}),
