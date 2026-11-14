@@ -45,7 +45,8 @@ import {
   type PersonaUpdateInput,
   type TrackerCardColorConfig,
 } from "@marinara-engine/shared";
-import type { CustomKind, CustomTagPatch } from "../lib/custom-emoji";
+import type { CustomTagPatch } from "../lib/custom-emoji";
+import type { GalleryTagKind } from "@marinara-engine/shared";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -550,7 +551,7 @@ export interface CharacterGalleryImage {
   model: string;
   width: number | null;
   height: number | null;
-  customKind: CustomKind | null;
+  customKind: GalleryTagKind | null;
   customName: string | null;
   createdAt: string;
   url: string;
@@ -1189,7 +1190,7 @@ export interface PersonaGalleryImage {
   model: string;
   width: number | null;
   height: number | null;
-  customKind: CustomKind | null;
+  customKind: GalleryTagKind | null;
   customName: string | null;
   createdAt: string;
   url: string;

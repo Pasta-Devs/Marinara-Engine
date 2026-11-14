@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import {
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
+  type LocationBackgroundPin,
   applyClockCommandTags,
   rulesetChargesStart,
   normalizeVideoGenerationUserSettings,
@@ -573,6 +574,7 @@ import {
 } from "../services/generation/illustrator-decision-checks.js";
 import {
   findExistingSceneBackground,
+  loadGalleryBackgroundPins,
   locationBackgroundPinsApply,
   matchLibraryBackgroundForLocation,
   pinnedBackgroundMetadataPatch,
@@ -12730,6 +12732,18 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           });
         };
         // Where this turn's story is (tracker text + World Maps place) checked against the chat's pinned places.
+        // Background pictures (with places) in the galleries of the chat's characters and persona.
+        let galleryPinsLoad: Promise<LocationBackgroundPin[]> | null = null;
+        const galleryPinsForChat = () =>
+          (galleryPinsLoad ??=
+            chatMode === "roleplay"
+              ? loadGalleryBackgroundPins({
+                  characters: charInfo.map((character) => ({ id: character.id, name: character.name })),
+                  persona: personaId ? { id: personaId, name: personaName } : null,
+                  characterGallery,
+                  personaGallery,
+                }).catch(() => [])
+              : Promise.resolve([]));
         const pinnedSceneBackgroundForTurn = async (snapshotMessageId: string, snapshotSwipeIndex: number) => {
           const snapshot = snapshotMessageId
             ? await gameStateStore.getByChatAndMessage(input.chatId, snapshotMessageId, snapshotSwipeIndex)
@@ -12754,6 +12768,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   )?.name ?? null),
             weather: state?.weather ?? null,
             weatherVersions: illustratorWeatherVersionsEnabled(chatMode, chatMeta),
+            galleryPins: await galleryPinsForChat(),
           });
         };
         const makeIllustratorBackgroundTail = (tail: {
@@ -12906,6 +12921,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 characterNames: charInfo.map((character) => character.name),
                 weather: weatherForReuse,
                 weatherVersions: weatherVersionsEnabled,
+                galleryPins: await galleryPinsForChat(),
               });
               const reuseFromPlan = (plan: { locationName: string }) => {
                 // No tracker location to go by: the Prompt Model's place name is matched instead.

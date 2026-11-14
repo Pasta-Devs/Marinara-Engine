@@ -2,6 +2,7 @@
 // Storage: Character Gallery Images
 // ──────────────────────────────────────────────
 import { and, desc, eq, gte, isNull, lte } from "../../db/file-query.js";
+import type { GalleryTagKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { characterImages } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -15,6 +16,8 @@ export interface CreateCharacterImageInput {
   model?: string;
   width?: number;
   height?: number;
+  customKind?: GalleryTagKind | null;
+  customName?: string | null;
 }
 
 export interface LegacyCharacterImageCandidateInput {
@@ -81,6 +84,8 @@ export function createCharacterGalleryStorage(db: DB) {
         model: input.model ?? "",
         width: input.width ?? null,
         height: input.height ?? null,
+        customKind: input.customKind ?? null,
+        customName: input.customKind ? (input.customName ?? null) : null,
         createdAt: now(),
       });
       return this.getById(id);
@@ -92,7 +97,7 @@ export function createCharacterGalleryStorage(db: DB) {
 
     async setTag(
       id: string,
-      patch: { customKind: "emoji" | "sticker" | null; customName: string | null; width?: number; height?: number },
+      patch: { customKind: GalleryTagKind | null; customName: string | null; width?: number; height?: number },
     ) {
       await db
         .update(characterImages)

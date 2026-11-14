@@ -88,6 +88,8 @@ export function pinnedBackgroundForWeather(
  * swipe or a World Maps move. It applies once per arrival, so a picture picked by hand in a
  * pinned place stays until the story moves on (the server follows the same rule on new replies).
  */
+const NO_PINS: readonly LocationBackgroundPin[] = [];
+
 export function useLocationBackgroundPinFollower(args: {
   chatId: string | null;
   chatMode: string | null | undefined;
@@ -96,14 +98,17 @@ export function useLocationBackgroundPinFollower(args: {
   characterNames: readonly string[];
   /** Who wrote the message the World State belongs to ("my bedroom" is theirs). */
   speakerName?: string | null;
+  /** Background pictures (with places) from the chat's characters' and persona's galleries. */
+  galleryPins?: readonly LocationBackgroundPin[];
 }) {
-  const { chatId, chatMode, chatMetadata, userName, characterNames, speakerName } = args;
+  const { chatId, chatMode, chatMetadata, userName, characterNames, speakerName, galleryPins = NO_PINS } = args;
   const meta = readMetadata(chatMetadata);
   const isRoleplay = chatMode === "roleplay";
+  // The chat's own pins go first, so they win a tie with a gallery picture.
   const pins = useMemo(
-    () => normalizeLocationBackgroundPins(meta[LOCATION_BACKGROUND_PINS_KEY]),
+    () => [...normalizeLocationBackgroundPins(meta[LOCATION_BACKGROUND_PINS_KEY]), ...galleryPins],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(meta[LOCATION_BACKGROUND_PINS_KEY] ?? null)],
+    [JSON.stringify(meta[LOCATION_BACKGROUND_PINS_KEY] ?? null), galleryPins],
   );
   const shownPinId =
     typeof meta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] === "string" ? meta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] : null;
