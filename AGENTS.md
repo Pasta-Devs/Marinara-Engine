@@ -43,7 +43,7 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 - Before adding code, stop at the first option that works: skip unnecessary work, reuse an existing helper or pattern, use the standard library, use a native platform capability, use an already-installed dependency, choose a clear inline solution, then write the minimum new code.
 - Prefer shared root-cause fixes after checking every caller, deletion over addition, boring over clever, and the fewest files. Avoid speculative abstractions, dependencies, and boilerplate.
 - Never trade away trust-boundary validation, data-loss prevention, security, accessibility, real-hardware calibration, or explicitly requested behavior.
-- Non-trivial logic must leave behind the smallest runnable regression proof. Trivial one-line and instruction-only changes do not need a dedicated test.
+- Non-trivial logic must leave behind the smallest runnable regression proof, one that fails without the change. Before writing one, read [CONTRIBUTING.md § Where a Node regression goes](CONTRIBUTING.md#where-a-node-regression-goes): add to an existing file when one covers the feature. Trivial one-line and instruction-only changes do not need a dedicated test.
 - Mark a deliberate shortcut with a `ponytail:` comment that names its known ceiling and the upgrade path.
 
 ## Preferred Workflow
