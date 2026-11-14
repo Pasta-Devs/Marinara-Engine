@@ -5245,6 +5245,13 @@ assert.equal(characterMatchesSearch(searchableCharacter, "scientist"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "modern au"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "snezhnaya"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "friendly bard"), false);
+// A light list row (useCharacterListRows) has the catalog summary and no description; it still matches.
+const summaryRowCharacter = parseCharacterDisplayData({
+  data: { name: "Il Dottore", summary: "A Fatui researcher from Snezhnaya.", tags: [] },
+  comment: "",
+});
+assert.equal(characterMatchesSearch(summaryRowCharacter, "snezhnaya"), true);
+assert.equal(characterMatchesSearch(summaryRowCharacter, "friendly bard"), false);
 
 const olderActiveChat = {
   id: "older-active",

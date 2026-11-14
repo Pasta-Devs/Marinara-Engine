@@ -31,6 +31,14 @@ export function AvatarImage({
     );
   }
   return (
-    <img src={src} alt={alt} loading={loading} className={className} style={style} onError={() => setFailedSrc(src)} />
+    <img
+      src={src}
+      alt={alt}
+      loading={loading}
+      draggable={false}
+      className={className}
+      style={style}
+      onError={() => setFailedSrc(src)}
+    />
   );
 }
