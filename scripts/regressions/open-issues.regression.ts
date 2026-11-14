@@ -1173,6 +1173,12 @@ assert.equal(isUpdateChannelSwitch("docker", "stable", "staging"), true);
 assert.equal(isUpdateChannelSwitch("docker", "staging", "staging"), false);
 assert.equal(isUpdateChannelSwitch("git", "stable", "staging"), true);
 assert.equal(isUpdateChannelSwitch("standalone", "stable", "staging"), false);
+assert.equal(isUpdateChannelSwitch("git", "overhaul", "staging"), true);
+assert.deepEqual(resolveDockerChannelImageTags("ghcr.io/pasta-devs/marinara-engine", "2.4.3", "overhaul"), {
+  dockerImage: "ghcr.io/pasta-devs/marinara-engine",
+  dockerImageTag: null,
+  dockerLiteImageTag: null,
+});
 assert.deepEqual(resolveDockerChannelImageTags("ghcr.io/pasta-devs/marinara-engine", "2.4.3", "stable"), {
   dockerImage: "ghcr.io/pasta-devs/marinara-engine",
   dockerImageTag: "ghcr.io/pasta-devs/marinara-engine:2.4.3",

@@ -121,6 +121,7 @@ export * from "./features/world/experience-people.js";
 export * from "./features/world/experience-rulesets.js";
 export * from "./features/world/dungeon-map.js";
 export * from "./features/world/dungeon-spawns.js";
+export * from "./features/world/site-plans.js";
 export * from "./features/world/sites.js";
 export * from "./features/world/spawns.js";
 export * from "./features/world/overused-names.js";
