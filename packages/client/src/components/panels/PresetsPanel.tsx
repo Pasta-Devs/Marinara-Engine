@@ -1249,7 +1249,7 @@ export function PresetsPanel() {
         }}
       />
 
-      <PanelSection title={localizeUi("ui.panels.presetspanel.prompts")} icon={<FileText size="0.8125rem" />}>
+      <div className="flex flex-col gap-1">
         <div className="flex flex-col gap-0.5">
           {folderDrag.orderItems(sortPanelFolders(presetFolders, sort)).map((folder) => {
             const isEditing = editingFolderId === folder.id;
@@ -1460,7 +1460,7 @@ export function PresetsPanel() {
               : localizeUi("ui.panels.presetspanel.clickAPresetToEdit")}
           </p>
         )}
-      </PanelSection>
+      </div>
 
       {selectionMode && (
         <SelectionActionBar
@@ -1476,25 +1476,28 @@ export function PresetsPanel() {
 
   return (
     <div className="flex min-h-full flex-col gap-2 p-3">
-      <div className="flex flex-wrap gap-1" role="group" aria-label={localizeUi("navigation.topbar.presets")}>
+      {/* Same gap and equal-width columns as LibraryToolbar's action row, so the tabs line up with the buttons. */}
+      <div className="flex gap-2" role="group" aria-label={localizeUi("navigation.topbar.presets")}>
         {(["presets", "regex", "functions"] as const).map((value) => (
           <button
             key={value}
             type="button"
             className={cn(
-              "mari-chrome-control h-8 min-h-8 flex-auto px-2 text-[0.625rem]",
+              "mari-chrome-control h-8 min-h-8 min-w-0 flex-1 px-2 text-[0.625rem]",
               tab === value && "mari-chrome-control--selected",
             )}
             aria-pressed={tab === value}
             onClick={() => setTab(value)}
           >
-            {localizeUi(
-              value === "presets"
-                ? "navigation.topbar.presets"
-                : value === "regex"
-                  ? "ui.panels.regexsection.regexes"
-                  : "ui.panels.functionssection.functions",
-            )}
+            <span className="truncate">
+              {localizeUi(
+                value === "presets"
+                  ? "ui.panels.presetspanel.prompts"
+                  : value === "regex"
+                    ? "ui.panels.regexsection.regexes"
+                    : "ui.panels.functionssection.functions",
+              )}
+            </span>
           </button>
         ))}
       </div>
