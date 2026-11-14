@@ -112,16 +112,12 @@ function textHash(text: string) {
 
 /** This theme's exact text and pictures plus this app build (its script and style files). */
 function guardStoreKey(theme: { id: string; css: string; meta?: ThemeMeta | null }) {
-  const build = Array.from(
-    document.querySelectorAll<HTMLScriptElement | HTMLLinkElement>(
-      'script[type="module"][src], link[rel="stylesheet"][href]',
-    ),
-    (element) => element.getAttribute("src") ?? element.getAttribute("href") ?? "",
-  ).join(",");
+  // The theme's own CSS, pictures, fonts and templates: what the check measures. App updates don't
+  // reset it (her call, Nov 14): re-checking every screen after each update made the first taps slow.
   const pictures = [...(theme.meta?.images ?? []), ...(theme.meta?.backgrounds ?? [])]
     .map((picture) => `${picture.name}:${picture.src.length}:${textHash(picture.src.slice(0, 4096))}`)
     .join(",");
-  return `${theme.id}|${textHash(theme.css)}|${textHash(pictures)}|${textHash(JSON.stringify([theme.meta?.fonts ?? null, theme.meta?.templates ?? null]))}|${textHash(build)}`;
+  return `${theme.id}|${textHash(theme.css)}|${textHash(pictures)}|${textHash(JSON.stringify([theme.meta?.fonts ?? null, theme.meta?.templates ?? null]))}`;
 }
 
 function readPassedLayouts(storeKey: string): string[] {
